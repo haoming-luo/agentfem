@@ -116,6 +116,7 @@ def _accept_linear_static(model, request: StepRequest) -> bool:
 
 def _accept_rigid_obstacle_contact(model, request: StepRequest) -> bool:
     from .boundary_models import RigidObstaclePenaltyContact
+    from .constitutive.elasticity import ElasticIsotropicProperties
 
     study = getattr(model, "study", None)
     contacts = tuple(
@@ -129,7 +130,14 @@ def _accept_rigid_obstacle_contact(model, request: StepRequest) -> bool:
         and _is_vector_target(request.target)
         and len(contacts) == 1
         and len(tuple(getattr(model, "boundary_models", ()))) == 1
-        and _all_materials_support(model, request, _supports_elasticity)
+        # This Step assembles a *linear small-strain* bulk form. A generic
+        # young/poisson duck type also matches finite-strain J2 and must not
+        # steal its stateful provider merely because contact was declared.
+        and _all_materials_support(
+            model,
+            request,
+            lambda item: type(item) is ElasticIsotropicProperties,
+        )
     )
 
 
@@ -398,6 +406,7 @@ def _accept_finite_strain_j2_mixed_affine(
 
 def _accept_finite_strain_j2_strong(model, request: StepRequest) -> bool:
     from .constitutive import FiniteStrainJ2Logarithmic
+    from .boundary_models import RigidObstaclePenaltyContact
     from .constraints import (
         DirichletConstraint,
         RemoteDisplacementConstraint,
@@ -413,6 +422,14 @@ def _accept_finite_strain_j2_strong(model, request: StepRequest) -> bool:
         isinstance(item, (DirichletConstraint, RemoteDisplacementConstraint))
         for item in selected_constraints
     )
+    target_mesh = getattr(getattr(request.target, "space", None), "mesh", None)
+    boundary_models = tuple(getattr(model, "boundary_models", ()))
+    bounded_contact = not boundary_models or (
+        len(boundary_models) == 1
+        and isinstance(boundary_models[0], RigidObstaclePenaltyContact)
+        and not boundary_models[0].has_prescribed_motion
+        and getattr(getattr(target_mesh, "comm", None), "size", 1) == 1
+    )
     return (
         getattr(study, "physics", None) == "solid_mechanics"
         and getattr(study, "dimension", None) == 3
@@ -424,7 +441,7 @@ def _accept_finite_strain_j2_strong(model, request: StepRequest) -> bool:
             lambda item: isinstance(item, FiniteStrainJ2Logarithmic),
         )
         and ordinary_strong
-        and not tuple(getattr(model, "boundary_models", ()))
+        and bounded_contact
     )
 
 

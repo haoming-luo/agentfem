@@ -19,6 +19,41 @@ or a successful run is not by itself a validated engineering capability.
 
 ## Current product phase: the 0.4 foundation
 
+### 0.4.3 composition and release gate (2026-10-16)
+
+The next version should be promoted by one composed scientific workflow, not
+by accumulating isolated feature names. The first bounded native slice is
+three-dimensional finite-strain J2 with ordinary strong constraints and one
+fixed analytical rigid plane under frictionless penalty contact. Its contact
+potential, residual and semismooth tangent enter the same Newton system; the
+accepted J2 state, contact energy, reactions and serial checkpoint share one
+increment lifecycle. The elastic small-strain contact provider must not win
+dispatch merely because a history material also exposes `young` and `poisson`.
+
+This is an experimental serial composition, not a general forming solver.
+Prescribed tool motion and its work, triangulated die face/edge transitions,
+periodic MPC reduction, mixed displacement-pressure elements, friction and MPI
+remain explicit follow-ups. Promote them one at a time only with tangent,
+force/work/energy, failed-attempt rollback, restart and independent refinement
+evidence. For MPC, reduce the *total* residual and tangent including contact;
+do not bolt an unreduced contact force onto a converged plastic solve.
+
+Before tagging a version: review the composed API and supported/unsupported
+matrix; run targeted real-FEniCSx regressions, wheel-installed smoke and the
+release ladder; verify a small contact/plastic benchmark with an independent
+reference, mesh and increment sensitivity; check package metadata, docs and
+platform CI. A passed unit patch is not release certification.
+
+The separate performance lane follows `skills/agentfem-performance`: profile
+whole accepted increments on a frozen case, change one body/contact/data-flow
+mechanism at a time, and promote only parity-preserving measured wins.
+Windows/WSL project UX should make project custody explicit and offer an
+opt-in native-Linux-filesystem execution location when measured I/O warrants
+it, without silently moving Windows-side projects. It should surface the
+effective runtime/native-extension status and test installed-package behavior
+there. Neither a platform switch
+nor altered mass/penalty/time controls may be reported as an algorithmic speedup.
+
 ### Lean project boundary (2026-10-15)
 
 Checked serial array-mesh import and parent-cell-based exterior regions now

@@ -13,6 +13,7 @@ from mpi4py import MPI
 
 from agentfem import (
     amplitudes,
+    boundary_models,
     checkpointing,
     constitutive,
     constraints,
@@ -88,6 +89,189 @@ def _standard_patch(
         status_file=status_file,
     )
     return model, displacement, material, step
+
+
+def _j2_contact_patch(*, incrementation=None, penalty=500.0,
+                      yield_stress=2.0):
+    domain = dolfinx_mesh.create_unit_cube(MPI.COMM_SELF, 1, 1, 1)
+    model = models.create(
+        study=studies.nonlinear_static(
+            physics="solid_mechanics", dimension=3,
+        ),
+        mesh=domain,
+        name="finite_j2_fixed_plane_contact",
+    )
+    displacement = model.field(fields.displacement(domain))
+    left = mesh.boundary(domain, lambda x: np.isclose(x[0], 0.0), name="left")
+    right = mesh.boundary(domain, lambda x: np.isclose(x[0], 1.0), name="right")
+    model.clamp(displacement, on=left)
+    material = model.material(
+        constitutive.finite_strain_j2_logarithmic(
+            young=1_000.0,
+            poisson=0.0,
+            yield_stress=yield_stress,
+            hardening_modulus=100.0,
+        )
+    )
+    contact = model.rigid_obstacle_contact(
+        on=right,
+        penalty=penalty,
+        normal=(-1.0, 0.0, 0.0),
+    )
+    model.traction((10.0, 0.0, 0.0), on=right)
+    step = model.step(
+        target=displacement,
+        material=material,
+        incrementation=steps.fixed(3) if incrementation is None else incrementation,
+        solver_options=solvers.newton(
+            relative_tolerance=1.0e-8,
+            absolute_tolerance=1.0e-9,
+            maximum_iterations=25,
+            line_search="backtracking",
+        ),
+        progress=False,
+    )
+    return model, displacement, material, contact, step
+
+
+def test_public_j2_fixed_plane_contact_uses_one_newton_and_energy_ledger():
+    model, displacement, material, contact, step = _j2_contact_patch()
+    capability = step_capability(
+        model, target=displacement, options={"material": material},
+    )
+    assert capability["supported"]
+    assert capability["provider"]["name"] == "finite_strain_j2_strong_static"
+
+    assert step.contact_provider is contact
+    result = step.solve_result()
+    assert step.last_solve_info.converged
+    assert max(frame.contact_potential for frame in step.energy_history) > 0.0
+    assert step.energy_history[-1].internal_energy == pytest.approx(
+        step.energy_history[-1].stored_energy
+        + step.energy_history[-1].plastic_dissipation
+        + step.energy_history[-1].contact_potential
+    )
+    assert result.histories["contact_potential"].values[-1] > 0.0
+    assert result.metadata["constraint_duals"][0]["constraint_name"] == contact.name
+    assert result.metadata["constraint_balance_contract"]["force_balance_available"]
+    assert result.metadata["constraint_balance_contract"]["work_balance_available"]
+    assert result.metadata["constraint_work_evidence"][0]["value"] == 0.0
+    assert result.quantity(f"{contact.name}_contact_energy") > 0.0
+    assert np.max(step.response.state.committed_state_vectors()[:, -2]) > 0.0
+    strong = np.sum(
+        result.fields["RF"].field.x.array.reshape((-1, 3)), axis=0
+    )
+    contact_resultant = np.asarray(
+        result.metadata["constraint_duals"][0]["resultant"], dtype=float
+    )
+    np.testing.assert_allclose(
+        strong + contact_resultant + np.array([10.0, 0.0, 0.0]),
+        0.0,
+        rtol=0.0, atol=1.0e-6,
+    )
+
+
+def test_public_j2_contact_elastic_limit_matches_analytical_spring_pair():
+    from scipy.optimize import brentq
+
+    _, displacement, _, _, step = _j2_contact_patch(yield_stress=1.0e9)
+    step.solve()
+    right = results.probe(displacement, at=(1.0, 0.5, 0.5))
+    # For nu=0, homogeneous uniaxial Hencky elasticity has
+    # P = E log(1+u)/(1+u); the fixed-plane penalty contributes k*u.
+    expected = brentq(
+        lambda u: 1_000.0 * np.log1p(u) / (1.0 + u) + 500.0 * u - 10.0,
+        0.0, 0.05,
+    )
+    assert right[0] == pytest.approx(expected, rel=2.0e-5)
+    assert np.max(step.response.state.committed_state_vectors()[:, -2]) == pytest.approx(
+        0.0, abs=1.0e-12,
+    )
+
+
+def test_public_j2_contact_restart_preserves_state_and_potential(tmp_path):
+    _, _, _, _, uninterrupted = _j2_contact_patch()
+    uninterrupted.solve()
+    _, _, _, _, partial = _j2_contact_patch()
+    partial.solve(until=1.0 / 3.0)
+    saved = partial.save_checkpoint(tmp_path / "contact_restart")
+    _, _, _, _, resumed = _j2_contact_patch()
+    resumed.load_checkpoint(saved)
+    resumed.solve()
+    np.testing.assert_allclose(
+        resumed.solution.x.array, uninterrupted.solution.x.array,
+        rtol=2.0e-8, atol=2.0e-10,
+    )
+    np.testing.assert_allclose(
+        resumed.response.state.committed_state_vectors(),
+        uninterrupted.response.state.committed_state_vectors(),
+        rtol=2.0e-8, atol=2.0e-10,
+    )
+    assert resumed.energy_history[-1].contact_potential == pytest.approx(
+        uninterrupted.energy_history[-1].contact_potential,
+        rel=2.0e-8,
+    )
+
+    _, _, _, _, wrong_contact = _j2_contact_patch(penalty=600.0)
+    with pytest.raises(ValueError, match="identity"):
+        wrong_contact.load_checkpoint(saved)
+    assert wrong_contact.accepted_load_factor == pytest.approx(0.0)
+    assert not wrong_contact.energy_history
+
+
+def test_public_j2_contact_energy_failure_rolls_back_joint_state(monkeypatch):
+    _, _, _, _, step = _j2_contact_patch()
+    step.solve(until=1.0 / 3.0)
+    accepted_u = step.solution.x.array.copy()
+    accepted_state = step.response.state.committed_state_vectors().copy()
+    accepted_energy = tuple(step.energy_history)
+
+    def fail_contact_energy():
+        raise ValueError("intentional contact energy failure")
+
+    monkeypatch.setattr(step, "_contact_potential", fail_contact_energy)
+    with pytest.raises(RuntimeError, match="intentional contact energy failure"):
+        step.solve(until=2.0 / 3.0)
+    assert step.accepted_load_factor == pytest.approx(1.0 / 3.0)
+    np.testing.assert_allclose(step.solution.x.array, accepted_u)
+    np.testing.assert_allclose(
+        step.response.state.committed_state_vectors(), accepted_state,
+    )
+    assert tuple(step.energy_history) == accepted_energy
+
+
+def test_public_j2_moving_plane_remains_explicitly_unsupported():
+    domain = dolfinx_mesh.create_unit_cube(MPI.COMM_SELF, 1, 1, 1)
+    model = models.create(
+        study=studies.nonlinear_static(
+            physics="solid_mechanics", dimension=3,
+        ),
+        mesh=domain,
+    )
+    displacement = model.field(fields.displacement(domain))
+    left = mesh.boundary(domain, lambda x: np.isclose(x[0], 0.0), name="left")
+    right = mesh.boundary(domain, lambda x: np.isclose(x[0], 1.0), name="right")
+    model.clamp(displacement, on=left)
+    material = model.material(
+        constitutive.finite_strain_j2_logarithmic(
+            young=1_000.0, poisson=0.0, yield_stress=2.0,
+            hardening_modulus=100.0,
+        )
+    )
+    model.rigid_obstacle_contact(
+        on=right,
+        penalty=500.0,
+        surface=boundary_models.rigid_plane(
+            point=(1.0, 0.0, 0.0), normal=(-1.0, 0.0, 0.0),
+        ),
+        motion=boundary_models.prescribed_rigid_motion(
+            translation=(-0.01, 0.0, 0.0),
+        ),
+    )
+    capability = step_capability(
+        model, target=displacement, options={"material": material},
+    )
+    assert not capability["supported"]
 
 
 def test_public_standard_j2_provider_result_output_progress_and_checkpoint(tmp_path):
