@@ -370,6 +370,7 @@ class FiniteStrainJ2EnergyFrame:
     external_work: float
     mechanical_energy_residual: float
     contact_potential: float = 0.0
+    tool_work: float = 0.0
 
     def as_dict(self) -> dict[str, float]:
         return {
@@ -382,11 +383,12 @@ class FiniteStrainJ2EnergyFrame:
         required = {
             name: float(record[name])
             for name in cls.__dataclass_fields__
-            if name != "contact_potential"
+            if name not in {"contact_potential", "tool_work"}
         }
         return cls(
             **required,
             contact_potential=float(record.get("contact_potential", 0.0)),
+            tool_work=float(record.get("tool_work", 0.0)),
         )
 
 
@@ -1178,7 +1180,7 @@ class FiniteStrainJ2StandardProblem:
                 "distributed writes require the portable format",
             ),
             evidence=(
-                ("serial fixed-plane J2/contact restart",)
+                ("serial analytical-plane J2/contact restart",)
                 if self.contact_provider is not None
                 else ("MPI cross-rank-count portable restart",)
             ),
@@ -1188,16 +1190,35 @@ class FiniteStrainJ2StandardProblem:
         factor = self.amplitude(coordinate)
         self.load_factor.value = PETSc.ScalarType(factor)
         self.value_path.update(factor)
+        if self.contact_provider is not None:
+            self.contact_provider.update_motion(coordinate)
 
     def _snapshot_loading_state(self) -> dict[str, object]:
-        return {
+        state = {
             "load_factor": np.asarray(self.load_factor.value).copy(),
             "prescribed_values": self.value_path.snapshot_runtime_state(),
         }
+        if self.contact_provider is not None and self.contact_provider.surface is not None:
+            state["contact_motion_factor"] = float(
+                np.asarray(self.contact_provider.motion_factor.value).reshape(-1)[0]
+            )
+        return state
 
     def _restore_loading_state(self, state: dict[str, object]) -> None:
         self.load_factor.value = state["load_factor"]
         self.value_path.restore_runtime_state(state["prescribed_values"])
+        if self.contact_provider is not None and self.contact_provider.surface is not None:
+            self.contact_provider.update_motion(state["contact_motion_factor"])
+
+    def _contact_dual(self):
+        if self.contact_provider is None:
+            return None
+        previous = getattr(self, "_constraint_dual_state", None)
+        self._constraint_dual_state = "accepted"
+        try:
+            return self.contact_provider.dual_evidence(self)
+        finally:
+            self._constraint_dual_state = previous
 
     def _evaluate_gradients(self) -> tuple[np.ndarray, np.ndarray]:
         return (
@@ -1525,6 +1546,7 @@ class FiniteStrainJ2StandardProblem:
         start_reaction_values,
         start_external_force_values,
         previous_amplitude: float,
+        start_contact_dual=None,
     ) -> None:
         """Commit one path-consistent work/energy frame after material commit."""
 
@@ -1550,14 +1572,29 @@ class FiniteStrainJ2StandardProblem:
             start_reaction_values=start_reaction_values,
             current_reaction_values=current_reaction,
         )
+        tool_increment = 0.0
+        if self.contact_provider is not None and self.contact_provider.has_prescribed_motion:
+            current_contact_dual = self._contact_dual()
+            if start_contact_dual is None:
+                raise RuntimeError("Moving contact requires an accepted starting dual.")
+            tool_increment = float(
+                0.5
+                * np.dot(
+                    start_contact_dual.force + current_contact_dual.force,
+                    current_contact_dual.coordinate - start_contact_dual.coordinate,
+                )
+            )
         previous_natural = 0.0
         previous_prescribed = 0.0
+        previous_tool = 0.0
         if self.energy_history:
             previous_natural = self.energy_history[-1].natural_load_work
             previous_prescribed = self.energy_history[-1].prescribed_motion_work
+            previous_tool = self.energy_history[-1].tool_work
         natural_work = previous_natural + natural_increment
         prescribed_work = previous_prescribed + prescribed_increment
-        external_work = natural_work + prescribed_work
+        tool_work = previous_tool + tool_increment
+        external_work = natural_work + prescribed_work + tool_work
         internal_energy = stored + dissipation + contact_potential
         self.energy_history.append(
             FiniteStrainJ2EnergyFrame(
@@ -1571,6 +1608,7 @@ class FiniteStrainJ2StandardProblem:
                 external_work=external_work,
                 mechanical_energy_residual=external_work - internal_energy,
                 contact_potential=contact_potential,
+                tool_work=tool_work,
             )
         )
 
@@ -1812,9 +1850,15 @@ class FiniteStrainJ2StandardProblem:
             previous_amplitude = float(self.amplitude(accepted))
             start_reaction_values = None
             start_external_force_values = None
+            start_contact_dual = None
             try:
                 start_reaction_values = self._assembled_reaction_values()
                 start_external_force_values = self._assembled_external_force_values()
+                if (
+                    self.contact_provider is not None
+                    and self.contact_provider.has_prescribed_motion
+                ):
+                    start_contact_dual = self._contact_dual()
                 self._apply_loading(target)
             except BaseException as exc:
                 loading_problem = f"{type(exc).__name__}: {exc}"
@@ -1881,6 +1925,7 @@ class FiniteStrainJ2StandardProblem:
                         start_reaction_values=start_reaction_values,
                         start_external_force_values=start_external_force_values,
                         previous_amplitude=previous_amplitude,
+                        start_contact_dual=start_contact_dual,
                     )
                     self.accepted_increments.append(info)
                     size = target - accepted
@@ -2689,10 +2734,17 @@ class FiniteStrainJ2StandardProblem:
             from .. import constraints as constraint_api
 
             dual = self.contact_provider.dual_evidence(self)
+            tool_work = (
+                self.energy_history[-1].tool_work if self.energy_history else 0.0
+            )
             work = constraint_api.constraint_work(
                 self.contact_provider,
-                value=0.0,
-                integration="fixed_rigid_surface_zero_coordinate",
+                value=tool_work,
+                integration=(
+                    "accepted_force_coordinate_trapezoidal"
+                    if self.contact_provider.has_prescribed_motion
+                    else "fixed_rigid_surface_zero_coordinate"
+                ),
                 sample_count=len(self.accepted_increments) + 1,
                 role="contact_constraint",
                 source="rigid_obstacle_penalty_potential",
@@ -2799,6 +2851,14 @@ class FiniteStrainJ2StandardProblem:
                         if self.contact_provider is not None
                         else {}
                     ),
+                    **(
+                        {"tool_work": [
+                            item.tool_work for item in self.energy_history
+                        ]}
+                        if self.contact_provider is not None
+                        and self.contact_provider.has_prescribed_motion
+                        else {}
+                    ),
                     "plastic_dissipation": [
                         item.plastic_dissipation for item in self.energy_history
                     ],
@@ -2831,6 +2891,15 @@ class FiniteStrainJ2StandardProblem:
                         if self.contact_provider is not None
                         else {}
                     ),
+                    **(
+                        {"tool_work": (
+                            "Accepted-path generalized rigid-tool force times "
+                            "prescribed translation and rotation."
+                        )}
+                        if self.contact_provider is not None
+                        and self.contact_provider.has_prescribed_motion
+                        else {}
+                    ),
                     "plastic_dissipation": (
                         "Accepted cumulative irrecoverable plastic dissipation."
                     ),
@@ -2847,7 +2916,8 @@ class FiniteStrainJ2StandardProblem:
                         "prescribed motion."
                     ),
                     "external_work": (
-                        "Natural-load work plus strong prescribed-motion work."
+                        "Natural-load, strong prescribed-motion and rigid-tool "
+                        "path work."
                     ),
                     "mechanical_energy_residual": (
                         "External work minus stored energy and plastic dissipation."
@@ -2882,7 +2952,12 @@ class FiniteStrainJ2StandardProblem:
                 if self.contact_provider is not None
                 else "stored_energy + plastic_dissipation"
             ),
-            "external_work": "natural_load_work + prescribed_motion_work",
+            "external_work": (
+                "natural_load_work + prescribed_motion_work + tool_work"
+                if self.contact_provider is not None
+                and self.contact_provider.has_prescribed_motion
+                else "natural_load_work + prescribed_motion_work"
+            ),
             "integration": "accepted_increment_trapezoidal_path",
             "follower_loads": (
                 "consistent_external_tangent_and_current_configuration_path_work"
@@ -2907,7 +2982,7 @@ class FiniteStrainJ2StandardProblem:
             "kind": "finite_strain_j2_standard_problem",
             "name": self.name,
             "maturity": (
-                "experimental_fixed_plane_contact_serial"
+                "experimental_analytical_plane_contact_serial"
                 if self.contact_provider is not None
                 else "experimental_global_mpi_restart"
             ),
@@ -3189,11 +3264,6 @@ def finite_strain_j2_standard_problem(
             raise TypeError(
                 "Finite-strain J2 standard contact requires one "
                 "RigidObstaclePenaltyContact."
-            )
-        if contact.has_prescribed_motion:
-            raise NotImplementedError(
-                "Finite-strain J2 standard contact currently requires a fixed "
-                "analytical rigid plane; moving-tool work is not yet integrated."
             )
         if domain.comm.size != 1:
             raise NotImplementedError(

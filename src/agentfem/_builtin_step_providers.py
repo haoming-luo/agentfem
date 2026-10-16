@@ -427,7 +427,6 @@ def _accept_finite_strain_j2_strong(model, request: StepRequest) -> bool:
     bounded_contact = not boundary_models or (
         len(boundary_models) == 1
         and isinstance(boundary_models[0], RigidObstaclePenaltyContact)
-        and not boundary_models[0].has_prescribed_motion
         and getattr(getattr(target_mesh, "comm", None), "size", 1) == 1
     )
     return (
@@ -1394,7 +1393,8 @@ register_step_provider(
         priority=125,
         description=(
             "Lower logarithmic finite-strain J2 to provider-owned quadrature "
-            "state and ordinary strong-boundary Newton equilibrium."
+            "state and strong-boundary Newton equilibrium, optionally with "
+            "one serial analytical rigid-plane penalty contact."
         ),
         procedure="standard/newton/stateful",
         option_contract=_option_contract(

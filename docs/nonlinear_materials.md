@@ -206,13 +206,14 @@ independent material point while global Newton equilibrium closes.
 For a three-dimensional `nonlinear_static` study, `model.step(...)` now lowers
 this material to a global DOLFINx path. `PE` and `PEEQ` are committed at Basix
 quadrature points; `S` and `DDSDDE` are trial fields updated during Newton.
-The ordinary strong-boundary provider also accepts one fixed analytical
-rigid-plane, frictionless penalty contact. Its weak residual and semismooth
-tangent enter the same Newton assembly as J2; the accepted ledger records the
-contact penalty potential separately from material stored energy and plastic
-dissipation. This bounded composition is serial and experimental. Moving
-tools, triangulated surfaces, friction, periodic MPC and portable cross-rank
-restart are not implied by the independent J2 or contact capabilities.
+The ordinary strong-boundary provider also accepts one analytical rigid-plane,
+frictionless penalty contact, fixed or with prescribed rigid motion. Its weak
+residual and semismooth tangent enter the same Newton assembly as J2; the
+accepted ledger records contact penalty potential and tool force--coordinate
+work separately from material stored energy and plastic dissipation. This
+bounded composition is serial and experimental. Triangulated surfaces,
+friction, periodic MPC and portable cross-rank restart are not implied by the
+independent J2 or contact capabilities.
 `DDSDDE` is the analytical consistent linearization of the accepted discrete
 backward-Euler return map, including isotropic hardening and dynamic recovery;
 mixed stress control globalizes that tangent with residual-reducing line

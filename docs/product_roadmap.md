@@ -24,15 +24,16 @@ or a successful run is not by itself a validated engineering capability.
 The next version should be promoted by one composed scientific workflow, not
 by accumulating isolated feature names. The first bounded native slice is
 three-dimensional finite-strain J2 with ordinary strong constraints and one
-fixed analytical rigid plane under frictionless penalty contact. Its contact
-potential, residual and semismooth tangent enter the same Newton system; the
-accepted J2 state, contact energy, reactions and serial checkpoint share one
-increment lifecycle. The elastic small-strain contact provider must not win
+analytical rigid plane under frictionless penalty contact. The plane may be
+fixed or have prescribed translation/rotation. Its contact potential, residual
+and semismooth tangent enter the same Newton system; the accepted J2 state,
+contact energy, generalized tool work, reactions and serial checkpoint share
+one increment lifecycle. The elastic small-strain contact provider must not win
 dispatch merely because a history material also exposes `young` and `poisson`.
 
 This is an experimental serial composition, not a general forming solver.
-Prescribed tool motion and its work, triangulated die face/edge transitions,
-periodic MPC reduction, mixed displacement-pressure elements, friction and MPI
+Triangulated die face/edge transitions, periodic MPC reduction, mixed
+displacement-pressure elements, friction and MPI
 remain explicit follow-ups. Promote them one at a time only with tangent,
 force/work/energy, failed-attempt rollback, restart and independent refinement
 evidence. For MPC, reduce the *total* residual and tangent including contact;

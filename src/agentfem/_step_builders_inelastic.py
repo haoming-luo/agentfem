@@ -395,7 +395,6 @@ def finite_strain_j2(
             if (
                 len(boundary_models) != 1
                 or not isinstance(boundary_models[0], RigidObstaclePenaltyContact)
-                or boundary_models[0].has_prescribed_motion
             ):
                 names = tuple(
                     getattr(item, "name", type(item).__name__)
@@ -403,9 +402,9 @@ def finite_strain_j2(
                 )
                 raise NotImplementedError(
                     "Standard finite-strain J2 currently consumes at most one "
-                    "fixed frictionless analytical rigid-plane contact; "
-                    f"unsupported={names}. Moving tools, other weak models, "
-                    "discrete surfaces and MPC require separate evidence."
+                    "frictionless analytical rigid-plane contact; "
+                    f"unsupported={names}. Other weak models, discrete "
+                    "surfaces and MPC require separate evidence."
                 )
             contact = boundary_models[0]
         selected_loads, selected_amplitude = _single_shared_amplitude_loads(
