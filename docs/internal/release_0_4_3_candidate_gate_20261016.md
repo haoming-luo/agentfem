@@ -5,6 +5,21 @@ that a general forming solver has been validated. The initial moving-facet
 evidence below came from `af7b52a3`; final release evidence must instead bind
 to the integrated candidate's exact source and installed wheel.
 
+## Post-release outcome — 2026-10-17
+
+PR #114 merged as `f6f9ea431a5307bbfcc9bfb85da2bfa82ce51b64` and the
+`v0.4.3` tag points to that commit. The exact integrated source passed the
+Linux FEniCSx/MPI and macOS installed-wheel checks; publish run
+`38944199683` completed successfully. PyPI serves the immutable Linux wheel
+with SHA-256
+`cea6e7f6bbb4e01df3129169c97b5976a6b7354eab4c30fd58a06e1424720fab`
+and source archive with SHA-256
+`bd5f4f255634ccaa2e4389d94014db549ffb23d22520d1eb9e16b29a3654b161`.
+Those hashes match the run artifacts. The repaired archive identity check
+passed despite normal directory records in the Linux wheel. This closes the
+0.4.3 publication gate, not the scientific exclusions below; the v0.4.2
+GitHub-only release was not retroactively published to PyPI.
+
 ## Proposed bounded claim
 
 One serial, three-dimensional finite-strain logarithmic-J2 displacement Step
