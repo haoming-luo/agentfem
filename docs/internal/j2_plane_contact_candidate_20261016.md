@@ -46,6 +46,17 @@ rotation produced tool work `0.024131152` with residual `3.94e-5` and a
 nonzero contact moment. These are internal small-model checks, not an external
 forming validation or a claim of exact energy conservation at finite step.
 
+After PR #110 entered main, the combined source branch passed 58 focused
+FEniCSx tests spanning J2/contact, rigid contact and geometry-worker
+regressions. The native extension was not built in that source environment,
+so 99 native-only tests skipped; their prior PR #110 CI result must not be
+misrepresented as a combined-branch native run. The public example was run
+once continuously and once as three accepted increments plus checkpoint and
+restart. Final displacement, plastic deformation gradient, PEEQ, plastic
+dissipation and energy history matched exactly. Timing/event metadata did
+not, as expected. A final nodal-displacement XDMF and a result manifest were
+written without pretending that XDMF contains the unsmoothed quadrature state.
+
 ## Next gates before release promotion
 
 1. Complete final source and installed-wheel regressions; review the diff and

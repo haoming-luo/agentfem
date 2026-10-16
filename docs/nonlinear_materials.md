@@ -214,6 +214,13 @@ work separately from material stored energy and plastic dissipation. This
 bounded composition is serial and experimental. Triangulated surfaces,
 friction, periodic MPC and portable cross-rank restart are not implied by the
 independent J2 or contact capabilities.
+The runnable [finite-J2 moving-plane example](https://github.com/haoming-luo/agentfem/blob/main/examples/finite_j2_plane_contact.py)
+uses `model.step(...)` and can stop at a committed intermediate factor with
+`--until 0.5`, then resume from its `checkpoint.npz` in a fresh output
+directory. The XDMF contains nodal displacement; the result manifest and
+checkpoint retain the material-point evidence. XDMF is not a representation
+of the unsmoothed quadrature history, so the example does not relabel an
+interpolated stress field as the original constitutive response.
 `DDSDDE` is the analytical consistent linearization of the accepted discrete
 backward-Euler return map, including isotropic hardening and dynamic recovery;
 mixed stress control globalizes that tangent with residual-reducing line
