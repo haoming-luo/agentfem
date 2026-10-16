@@ -6,8 +6,9 @@ import json
 import numpy as np
 
 
-def _response_fields(step, *, state_fields=None, velocity=False, acceleration=False):
-    from .cell_data import cell_field_from_values
+def _response_fields(step, *, state_fields=None, velocity=False, acceleration=False,
+                     transport=None, materialize=True):
+    from .cell_data import _CellFieldTransport
 
     record = step.accepted_material_fields()
     displacement = step.state.u.value
@@ -17,7 +18,9 @@ def _response_fields(step, *, state_fields=None, velocity=False, acceleration=Fa
     keys = record["cell_keys"]
     selected = {} if state_fields is None else dict(state_fields)
     reserved = {"cauchy_stress", displacement.name, "velocity", "acceleration"}
-    fields = [cell_field_from_values(domain, record["cauchy_stress"], name="cauchy_stress", cell_keys=keys)]
+    if transport is None or not transport.matches(domain, keys):
+        transport = _CellFieldTransport(domain, keys)
+    fields = [transport.field(record["cauchy_stress"], name="cauchy_stress")] if materialize else []
     for name, selector in selected.items():
         if not isinstance(name, str) or not name or name in reserved:
             raise ValueError("AFM-EXPORT-NAME: invalid or reserved state field name")
@@ -31,30 +34,46 @@ def _response_fields(step, *, state_fields=None, velocity=False, acceleration=Fa
             if type(component) is not int or values.ndim != 2 or not 0 <= component < values.shape[1]:
                 raise ValueError("AFM-EXPORT-COMPONENT: require a valid vector component")
             values = values[:, component]
-        fields.append(cell_field_from_values(domain, values, name=name, cell_keys=keys))
+        if materialize:
+            fields.append(transport.field(values, name=name))
     nodal = [displacement]
     for enabled, name in ((velocity, "v"), (acceleration, "a")):
         if type(enabled) is not bool:
             raise ValueError("AFM-EXPORT-FLAG: expected boolean")
         if enabled:
             nodal.append(getattr(step.state, name).value)
-    return record, nodal, fields, selected
+    return record, nodal, fields, selected, transport
 
 
 def export_accepted_response(step, directory, *, state_fields=None,
-                             velocity=False, acceleration=False, units=None):
+                             velocity=False, acceleration=False, units=None,
+                             visualization=True):
     """Export one accepted response, raw state and cell keys.
 
     State selectors map names to (schema_variable, component); no SDV meaning
     is inferred. Serial, one response point per cell. Does not advance state.
+    With a process series, use visualization=False to archive raw endpoint data
+    without duplicating its final frame in another XDMF/HDF5 dataset.
     """
     from ..io import ResultWriter
     from ..checkpointing import atomic_savez, atomic_write_text
 
-    record, nodal, fields, selected = _response_fields(step, state_fields=state_fields,
-        velocity=velocity, acceleration=acceleration)
+    if type(visualization) is not bool:
+        raise ValueError("AFM-EXPORT-FLAG: visualization must be boolean")
+    record, nodal, fields, selected, _ = _response_fields(step, state_fields=state_fields,
+        velocity=velocity, acceleration=acceleration, materialize=visualization)
     domain = nodal[0].function_space.mesh
     keys = record["cell_keys"]
+    # Raw archival is a public output boundary even without visualization.
+    # Do not rely on constructing DG0 fields to detect invalid provider data.
+    count = len(keys)
+    for name in ("state", "cauchy_stress", "deformation_gradient"):
+        values = np.asarray(record[name])
+        expected = (count, 3, 3) if name != "state" else None
+        if (values.dtype.kind not in "fiu" or not np.isfinite(values).all()
+                or (expected is not None and values.shape != expected)
+                or (name == "state" and (values.ndim != 2 or len(values) != count))):
+            raise ValueError(f"AFM-EXPORT-ARRAY: invalid accepted {name}")
     metadata = {"schema": "agentfem.accepted-response-export", "schema_version": "0.1.0",
                 "time": record["time"], "complete": step.completed_steps == step.steps,
                 "location": record["location"], "stress_measure": record["stress_measure"],
@@ -63,13 +82,15 @@ def export_accepted_response(step, directory, *, state_fields=None,
     encoded = json.dumps(metadata, indent=2, allow_nan=False) + "\n"
     directory = Path(directory)
     directory.mkdir(parents=True, exist_ok=True)
-    paths = {"fields": directory / "fields.xdmf", "field_arrays": directory / "fields.h5",
-             "accepted_material": directory / "accepted_material.npz",
+    paths = {"accepted_material": directory / "accepted_material.npz",
              "accepted_material_metadata": directory / "accepted_material.json"}
+    if visualization:
+        paths.update(fields=directory / "fields.xdmf", field_arrays=directory / "fields.h5")
     if any(p.exists() for p in paths.values()):
         raise FileExistsError("AFM-EXPORT-EXISTS: use a fresh output directory")
-    with ResultWriter(paths["fields"], domain, (*nodal, *fields)) as writer:
-        writer.write(record["time"])
+    if visualization:
+        with ResultWriter(paths["fields"], domain, (*nodal, *fields)) as writer:
+            writer.write(record["time"])
     atomic_savez(paths["accepted_material"], cell_keys=keys, state=record["state"],
                  cauchy_stress=record["cauchy_stress"], deformation_gradient=record["deformation_gradient"],
                  physical_time=np.asarray(record["time"]))
@@ -96,13 +117,15 @@ class AcceptedResponseSeries:
         self._published = False
         self.stations = []
         self._identity = None
+        self._transport = None
 
     def write(self, step):
         from ..io import ResultWriter
 
         if self._closed:
             raise RuntimeError("AFM-FRAMES-CLOSED: use a new series")
-        record, nodal, fields, selected = _response_fields(step, **self.options)
+        record, nodal, fields, selected, self._transport = _response_fields(
+            step, transport=self._transport, **self.options)
         identity = (record["state_schema"], selected)
         if self._identity is not None and identity != self._identity:
             raise ValueError("AFM-FRAMES-SCHEMA: state schema changed")

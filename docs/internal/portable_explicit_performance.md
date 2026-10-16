@@ -268,7 +268,163 @@ shows which work can safely run less often. This sequencing concentrates the
 next sprint on one executable boundary, rather than another set of noisy
 microkernel substitutions or simultaneous CPU/GPU/multirate rewrites.
 
-## Primary references
+## October 2026 execution and recipient-UX slice
+
+The current candidate preserves the time grid, material and numerical mass.
+It moves admission checks into the joined native material/body pass, keeps
+immutable outputs as the publication boundary, batches owner-cell matching in
+contact preparation, and reuses a checked output field layout. A worker-local
+rejection still receives reference repair before any batch is published.
+
+Two further policies are opt-in, not portable defaults: dynamically scheduled
+material tiles and anchored closed-surface separation bounds. The former may
+improve cache locality or heterogeneous-core balance, but increases dispatch
+work; the latter bounds displacement from a fixed accepted geometry rather
+than accumulating travel from old oscillations. Neither changes constitutive
+equations or reuses stale contact forces. Both retain rollback/restart checks.
+Do not select them solely from a kernel microbenchmark or a static geometry.
+
+The history adapter already calls the reviewed VUMAT once per batch, not once
+per integration point. Its arithmetic pathway is already native and the body
+matrix-free. Rebranding these existing properties is not an optimization.
+Guarded inverse-Newton polar iteration is a separate algorithm investigation;
+retain the original domain, residual checks and reference repair, then compare
+early and late material histories before using it in a complete trajectory.
+
+Recipient usability is independent of scientific tuning. Project preflight
+can require public API keywords and explicitly selected native accelerators;
+ordinary cases without those requirements retain their reference routes.
+WSL storage/CPU/memory observations are read-only startup advisories, never
+automatic file migration, environment changes, or proof of execution speed.
+An available binary is not evidence that a particular Step selected it.
+
+One accepted-response XDMF series can include the final state. Raw endpoint
+NPZ/JSON remains available without writing a duplicate final visualization.
+Transient checkpoint JSON is compact, retaining all values and schema; this
+reduces storage rather than claiming a solver speedup. The primary artifact,
+partial/completed status and phase timings belong to the run record. Old
+completed artifacts are not rewritten to adopt this layout.
+
+Acceptance remains staged: installed boundary tests and independent volume/
+Warp reading, frozen full-run preservation, isolated policy/algorithm timing,
+then a selected fresh full candidate when there is a decision-changing gain.
+Record concurrent compilation/test interference in any observed wall time.
+No macOS result substitutes for a WSL recipient's actual installation/run check.
+
+## Two-front screening decision (2026-10-15)
+
+Keep implementation speedups separate from changes to the numerical problem.
+The isolated material tile experiment reduced kernel time by approximately
+13–18% at the sampled early/late states, but the single profiled 200-step pair
+reduced advance time only from 32.58555 s to 30.84569 s (5.34%). It is a
+candidate, not a whole-run claim. The alternate polar iteration did not show
+a decision-changing advantage and is not selected.
+
+The next implementation target is repeated full-array work across kinematics,
+material admission, force and bulk-viscosity preparation. Profiled state
+commit itself was negligible; rewriting transaction ownership wholesale is
+not justified by this measurement. Prototype a fused checked path only where
+immutable ownership proves that checks can be shared. Preserve the generic
+reference route and all failure/publication guarantees.
+
+The external algorithm track has three ranked questions:
+
+1. Can displacement-bounded contact candidate reuse avoid repeated search?
+   The existing anchored route must be measured before adding another cache.
+   Reuse candidate exclusion certificates, never stale forces or normals.
+   Test approaching/separating surfaces, face crossings and rollback.
+2. What actually limits each accepted increment: body, hourglass, interface,
+   contact, or damping? Report controlling contributions before attempting
+   a less conservative global estimate. Include changing geometry and damage;
+   a material increment limit is not a dynamics stability certificate.
+3. Are small controlling regions sufficiently isolated for subcycling or
+   selective mass treatment? These are separate method studies requiring
+   interface work, inertia and response convergence checks, not execution
+   settings to silently enable in this case.
+
+LAMMPS skin-distance reuse is a design analogy, not a ready-made proof for
+deforming Q1 surfaces. Abaqus documents changing nonlinear stability limits
+and the reduction of stable steps by damping. Variational mass-scaling
+research offers a longer-term alternative, but changes the mass operator and
+must not be presented as unchanged-physics acceleration.
+
+Reject a candidate early when its measured whole-step ceiling is small or
+its representative timing fails to improve. Do not launch another full run
+just to promote a kernel percentage. Existing frozen runs remain unmodified.
+
+### Geometry worker isolation and rejected viscosity fusion
+
+A late-run sample found two reference-projection workers whose main threads
+were waiting for tasks while their libfabric communication threads consumed
+roughly two CPU cores per worker. The spawn executor reimported the case,
+which imported the FEM/MPI runtime. This is an execution side effect, not
+required geometry work. An apparently paused main process was insufficient
+to isolate a benchmark: its child processes remained active. Comparative
+windows must verify and pause the complete owned process group.
+
+Replace case-reimporting workers with persistent data-only geometry services.
+The service accepts bounded numeric buffers, runs the unchanged Q1 reference
+projection, and refuses startup if MPI/PETSc/DOLFINx is loaded. The solver
+retains all state ownership. Worker failure/timeout is propagated and owned
+children are reaped. Local socket SIGPIPE suppression is necessary because
+PETSc can install a fatal process signal handler; do not globally override
+the solver's signal policy to hide transport errors.
+
+The selected service change was then tested on an actual accepted nonlinear
+state: restore the same hash-checked step-65,000 checkpoint and compiled
+material artifacts, then advance steps 65,001–65,200 through the ordinary run
+entry. Candidate first, reference second; the competing frozen simulation's
+entire process group was stopped and restored in a finally block. No synthetic
+geometry warm-up was used in this late-state comparison. Advance excluding
+callbacks was **31.6864 s candidate versus 46.1779 s reference**, a **31.38%**
+reduction for this measured segment. All saved material arrays, both saved
+field frames, and all 20 common saved history stations were exactly equal.
+This is not a complete-run speed claim or independent Abaqus validation.
+
+The first attempt correctly refused a freshly recompiled material binary:
+source/build identities matched but linked-library hashes differed. The
+comparison reused the original verified compiled artifacts instead of
+weakening checkpoint identity. Cross-platform fresh simulation and
+cross-binary checkpoint migration remain different contracts.
+
+An earlier 200-step screen with deliberately prestarted geometry services
+also showed the contention disappearing; its candidate included the later
+withdrawn viscosity experiment, so the clean late-state comparison above is
+the selection evidence. Direct process observations changed from approximately
+176–190% CPU per idle legacy worker to 0% per idle numeric service on this Mac.
+Other MPI vendors and hardware may not exhibit the same spin behavior.
+
+The anchored separation option was screened independently on a geometry-only
+interpolation between the real step-65,000 and step-65,200 trace configurations.
+Forty queries per sequence, forward/reverse policy order: incremental took
+4.203/4.148 s; anchored took 4.443/4.334 s. Forces and potential were exact,
+but all policies performed the same 311,625 classifications and 4,337 oracle
+point recoveries. This path does not benefit from the extra anchor checks.
+Keep the reviewed incremental default for this delivery. The interpolation
+screen is not a simulated dynamic trajectory or a general verdict against
+anchored certificates for oscillating separated surfaces.
+
+The fused determinant/density/length/viscosity experiment passed its focused
+numerical tests but failed the first isolated whole-step selection screen:
+200-step advance time was 29.897 s for the reference and 30.940 s for the
+candidate. This pair does not establish a statistically significant slowdown,
+but supplies no reason to add the new path. It was withdrawn from the release
+candidate; its private experiment and installed wheel remain for audit.
+The independent native-header dependency fix is retained to prevent stale
+incremental builds after included C headers change.
+
+References for the process boundary (the measured CPU behavior is local evidence):
+
+- [Python spawn main-module imports](https://docs.python.org/3/library/multiprocessing.html#safe-importing-of-main-module)
+- [PETSc signal handler implementation](https://petsc.org/release/src/sys/error/signal.c.html)
+
+### Algorithm sources
+
+- https://docs.lammps.org/stable/neigh_modify.html
+- https://docs.software.vt.edu/abaqusv2025/English/SIMACAEANLRefMap/simaanl-c-expdynamic.htm
+- https://arxiv.org/abs/2201.10475
+
+### Reference catalogue
 
 - [LAMMPS measurement](https://docs.lammps.org/stable/Speed_measure.html): workload,
   hardware, memory and parallel balance affect optimal execution settings.

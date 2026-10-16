@@ -90,6 +90,18 @@ def test_response_export_and_generic_run(tmp_path):
     assert not (tmp_path / "invalid").exists()
 
 
+def test_project_required_api_preflight(tmp_path):
+    (tmp_path/'case.py').write_text("raise RuntimeError('must not execute')")
+    path = tmp_path/'agentfem.toml'
+    path.write_text('[project]\nname="api"\nrequires_api=["results.AcceptedResponseSeries", "constitutive.StrainHistoryRuntime"]\n')
+    assert not project.ProjectConfig.load(path).check()
+    path.write_text('[project]\nname="api"\nrequires_api=["results.DoesNotExist"]\n')
+    assert 'AFM-PROJECT-API' in project.ProjectConfig.load(path).check()[0]
+    path.write_text('[project]\nname="api"\nrequires_api=["_private.secret"]\n')
+    with pytest.raises(ValueError, match='requires_api'):
+        project.ProjectConfig.load(path)
+
+
 def test_project_runtime_requirement(tmp_path):
     (tmp_path / "case.py").write_text("raise RuntimeError('not executed')")
     path = tmp_path / "agentfem.toml"
@@ -99,6 +111,77 @@ def test_project_runtime_requirement(tmp_path):
         assert bool(errors) is rejected
         if errors:
             assert "AFM-PROJECT-VERSION" in errors[0]
+
+
+def test_project_required_keyword_is_checked_without_calling_case(tmp_path, monkeypatch):
+    from agentfem import results
+    (tmp_path/'case.py').write_text("raise RuntimeError('must not run')")
+    path = tmp_path/'agentfem.toml'
+    path.write_text('[project]\nname="api"\nrequires_api=["results.export_accepted_response(visualization)"]\n')
+    config = project.ProjectConfig.load(path)
+    assert not config.check()
+    def old_export(step, directory, **kwargs):
+        raise AssertionError('preflight must never call the API')
+    monkeypatch.setattr(results, 'export_accepted_response', old_export)
+    assert 'visualization' in config.check()[0]
+    def positional(visualization, /):
+        raise AssertionError('must not run')
+    monkeypatch.setattr(results, 'export_accepted_response', positional)
+    assert 'AFM-PROJECT-API' in config.check()[0]
+    def supported(*, visualization=True):
+        raise AssertionError('must not run')
+    monkeypatch.setattr(results, 'export_accepted_response', supported)
+    assert not config.check()
+
+
+@pytest.mark.parametrize('requirement', [
+    'results.export_accepted_response()', 'results.export_accepted_response(a,b)',
+    'results.export_accepted_response(visualization=False)',
+    'results.export_accepted_response(visualization);run()',
+])
+def test_project_required_keyword_is_not_executable_syntax(tmp_path, requirement):
+    (tmp_path/'case.py').write_text('pass')
+    path = tmp_path/'agentfem.toml'
+    path.write_text('[project]\nname="api"\nrequires_api=["'+requirement+'"]\n')
+    with pytest.raises(ValueError, match='requires_api'):
+        project.ProjectConfig.load(path)
+
+
+def test_project_required_accelerators_are_opt_in_preflight(tmp_path, monkeypatch):
+    from agentfem import platforms
+    calls = []
+    def probe():
+        calls.append(True)
+        return {'hex_arithmetic': {'available': True, 'status': 'available'},
+                'q1_geometry': {'available': False, 'status': 'load_failed',
+                    'error': {'message': 'GMP library unavailable'}}}
+    monkeypatch.setattr(platforms, '_native_accelerators', probe)
+    (tmp_path/'case.py').write_text("raise RuntimeError('must not run')")
+    path = tmp_path/'agentfem.toml'
+    path.write_text('[project]\nname="native"\n')
+    assert not project.ProjectConfig.load(path).check()
+    assert not calls
+    path.write_text('[project]\nname="native"\nrequires_accelerators=["hex_arithmetic"]\n')
+    assert not project.ProjectConfig.load(path).check()
+    path.write_text('[project]\nname="native"\nrequires_accelerators=["q1_geometry", "typo"]\n')
+    errors = project.ProjectConfig.load(path).check()
+    assert len(errors) == 2 and all('AFM-PROJECT-ACCELERATOR' in e for e in errors)
+    assert 'GMP library unavailable' in errors[0]
+    assert 'unknown accelerator' in errors[1]
+    path.write_text('[project]\nname="native"\nrequires_accelerators="hex_arithmetic"\n')
+    with pytest.raises(ValueError, match='requires_accelerators'):
+        project.ProjectConfig.load(path)
+
+
+def test_partial_presentation_selects_declared_visualization(tmp_path):
+    from agentfem import presentation
+    record = {'schema': 'agentfem.step-execution', 'status': 'paused', 'accepted_steps': 600,
+        'visualization': {'primary_artifact': 'process_fields'},
+        'artifacts': {'process_fields': 'fields.xdmf'}}
+    text = presentation.format_record(record, tmp_path/'report.json')
+    assert 'accepted steps: 600' in text
+    assert 'open in ParaView: fields.xdmf' in text
+    assert 'not a completed scientific result' in text
 
 
 def test_streaming_frames_and_completion_retention(tmp_path):
@@ -114,6 +197,10 @@ def test_streaming_frames_and_completion_retention(tmp_path):
         frames=results.AcceptedResponseSeries(run.artifact('process.xdmf'),
             state_fields={'clock': ('clock', None)}, velocity=True, acceleration=True))
     assert report['complete']
+    assert report['visualization']['primary'] == str(run.artifact('process.xdmf'))
+    timing = report['timings_seconds']
+    assert all(value >= 0 for value in timing.values())
+    assert timing['advance_inclusive'] >= timing['accepted_callbacks']
     assert len(list(run.output_directory.rglob('*.checkpoint.json'))) == 1
     assert not (run.output_directory/'accepted-final.checkpoint.json').exists()
     final = report['artifacts']['checkpoint']
@@ -130,6 +217,60 @@ def test_streaming_frames_and_completion_retention(tmp_path):
     plain = make_step(steps=7)
     plain.run()
     np.testing.assert_array_equal(plain.state.u.value.x.array, step.state.u.value.x.array)
+
+
+def test_series_with_raw_endpoint_has_one_visualization(tmp_path):
+    from agentfem import results
+    from test_response_material_step import make_step
+    run = context(tmp_path/'single-view')
+    step = make_step(steps=3)
+    report = project.execute_step(step, context=run,
+        policy=project.RunPolicy(field_intervals=3),
+        frames=results.AcceptedResponseSeries(run.artifact('fields.xdmf')),
+        export=lambda s, d: results.export_accepted_response(s, d, visualization=False))
+    assert len(list(run.output_directory.glob('*.xdmf'))) == 1
+    assert len(list(run.output_directory.glob('*.h5'))) == 1
+    from agentfem import presentation
+    manifest = json.loads(run.manifest_path.read_text())
+    assert manifest['metadata']['visualization']['primary_artifact'] == 'process_fields'
+    assert 'open in ParaView: fields.xdmf' in presentation.format_result(manifest, run.manifest_path)
+    with np.load(report['artifacts']['accepted_material']) as archive:
+        np.testing.assert_array_equal(archive['state'], step.accepted_material_fields()['state'])
+
+
+def test_cell_transport_reuses_mapping_not_field_storage():
+    from agentfem.results.cell_data import _CellFieldTransport
+    from test_response_material_step import make_step
+    step = make_step()
+    domain = step.state.u.value.function_space.mesh
+    keys = np.asarray(domain.topology.original_cell_index)
+    transport = _CellFieldTransport(domain, keys)
+    values = np.arange(len(keys), dtype=float)
+    first = transport.field(values, name='first')
+    frozen = first.x.array.copy()
+    second = transport.field(values+10, name='second')
+    assert len(transport.spaces) == 1
+    assert first.function_space is second.function_space
+    np.testing.assert_array_equal(first.x.array, frozen)
+    assert not np.shares_memory(first.x.array, second.x.array)
+    assert transport.matches(domain, keys)
+    assert not transport.matches(domain, keys+1)
+
+
+@pytest.mark.parametrize('field', ['state', 'cauchy_stress', 'deformation_gradient'])
+def test_raw_endpoint_rejects_invalid_arrays_before_creating_files(tmp_path, field):
+    from agentfem import results
+    from test_response_material_step import make_step
+    from types import SimpleNamespace
+    step = make_step()
+    record = dict(step.accepted_material_fields())
+    record[field] = np.full_like(record[field], np.nan)
+    fake = SimpleNamespace(state=step.state, steps=step.steps,
+        completed_steps=step.completed_steps, accepted_material_fields=lambda: record)
+    output = tmp_path/'bad'
+    with pytest.raises(ValueError, match='AFM-EXPORT-ARRAY'):
+        results.export_accepted_response(fake, output, visualization=False)
+    assert not output.exists()
 
 
 def test_frames_partial_restart_keeps_sources(tmp_path):

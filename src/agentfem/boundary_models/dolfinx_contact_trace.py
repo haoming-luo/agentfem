@@ -268,20 +268,69 @@ def _reference_facet_quadrature(cell_type, local_facet: int, *, degree: int):
     return topology, cell_points, np.asarray(weights, dtype=float), reference_tangents
 
 
-def _matching_dof_block(
-    point: np.ndarray,
-    dof_coordinates: np.ndarray,
-    *,
-    tolerance: float,
-) -> int:
-    distances = np.linalg.norm(dof_coordinates - point, axis=1)
-    matches = np.flatnonzero(distances <= tolerance)
-    if matches.size != 1:
-        raise ValueError(
-            "each contact vertex must match exactly one CG1 displacement block; "
-            f"found {matches.size} matches"
-        )
-    return int(matches[0])
+def _linear_trace_arrays(domain, function_space, owned, facet_geometry,
+                         facet_ids, global_facet_count, *, topology,
+                         coordinates, dof_coordinates, global_vertices,
+                         tolerance, integration):
+    """Bounded batches of the same P1/Q1 reference rule and owner-local map.
+
+    Coordinate matching is restricted to each facet's adjacent cell. Distinct
+    bodies with coincident vertices therefore remain distinct. No search or
+    integration rule changes; the batch size bounds temporary storage only.
+    """
+    n = len(owned)
+    width = 3 if topology == "triangle" else 4
+    connectivity = domain.topology.connectivity(domain.topology.dim-1, domain.topology.dim)
+    cells = []
+    for facet in owned:
+        adjacent = connectivity.links(int(facet))
+        if len(adjacent) != 1:
+            raise ValueError("an exterior contact facet must have exactly one adjacent cell")
+        cells.append(int(adjacent[0]))
+    cell_blocks = np.asarray(function_space.dofmap.list)[np.asarray(cells, dtype=np.int32)]
+    blocks = np.empty((n, width), dtype=np.int64)
+    weights = np.empty((n, width), dtype=float)
+    if topology == "triangle":
+        basis = _TRIANGLE_DEGREE_TWO
+    else:
+        basis = np.asarray([_quadrilateral_shape_values(r, s)
+                            for r, s in _QUADRILATERAL_DEGREE_THREE])
+        derivatives = [_quadrilateral_shape_derivatives(r, s)
+                       for r, s in _QUADRILATERAL_DEGREE_THREE]
+    for start in range(0, n, 4096):
+        stop = min(start+4096, n)
+        geometry = facet_geometry[start:stop]
+        if topology == "triangle":
+            order = np.argsort(global_vertices[geometry], axis=1, kind="stable")
+            geometry = np.take_along_axis(geometry, order, axis=1)
+        points = coordinates[geometry]
+        owners = cell_blocks[start:stop]
+        distances = np.linalg.norm(dof_coordinates[owners][:, None, :, :] - points[:, :, None, :], axis=3)
+        matches = distances <= tolerance
+        counts = matches.sum(axis=2)
+        if np.any(counts != 1):
+            count = counts.flat[np.flatnonzero(counts != 1)[0]]
+            raise ValueError("each contact vertex must match exactly one CG1 displacement block; "
+                             f"found {count} matches")
+        blocks[start:stop] = np.take_along_axis(owners, matches.argmax(axis=2), axis=1)
+        if topology == "triangle":
+            area = .5*np.linalg.norm(np.cross(points[:, 1]-points[:, 0], points[:, 2]-points[:, 0]), axis=1)
+            weights[start:stop] = area[:, None]/3.
+        else:
+            for q, (dr, ds) in enumerate(derivatives):
+                # Batched matrix-vector products retain the four-node Q1 trace.
+                tr = np.matmul(dr, points)
+                ts = np.matmul(ds, points)
+                weights[start:stop, q] = .25*np.linalg.norm(np.cross(tr, ts), axis=1)
+        if not np.isfinite(weights[start:stop]).all() or np.any(weights[start:stop] <= 0.):
+            raise ValueError(f"contact trace contains a degenerate {topology}")
+    if integration == "nodal_lumped":
+        weights = weights @ basis
+        basis = np.eye(width)
+    offset = global_facet_count if integration == "nodal_lumped" else 0
+    ids = (np.asarray(facet_ids)[:, None]+offset)*width + np.arange(width)
+    return (ids.reshape(-1), np.repeat(blocks, width, axis=0),
+            np.tile(basis, (n, 1)), weights.reshape(-1))
 
 
 @dataclass(frozen=True, eq=False)
@@ -504,7 +553,6 @@ def dolfinx_boundary_region_contact_trace(
             )
             global_facet_count = partition.global_facet_count
             global_scale = partition.global_scale
-            quadrature = _TRIANGLE_DEGREE_TWO
             nodes_per_facet = 3
             points_per_facet = 3
             quadrature_rule = "triangle_degree_two_three_point"
@@ -516,7 +564,6 @@ def dolfinx_boundary_region_contact_trace(
                 global_facet_count,
                 global_scale,
             ) = quadrilateral_identity
-            quadrature = _QUADRILATERAL_DEGREE_THREE
             nodes_per_facet = 4
             points_per_facet = 4
             quadrature_rule = "quadrilateral_gauss_degree_three_four_point"
@@ -570,6 +617,13 @@ def dolfinx_boundary_region_contact_trace(
         node_ids = []
         shape_values = []
         weights = []
+        if not high_order:
+            point_ids, node_ids, shape_values, weights = _linear_trace_arrays(
+                domain, function_space, owned, facet_geometry, local_facet_ids,
+                global_facet_count, topology=facet_topology, coordinates=coordinates,
+                dof_coordinates=dof_coordinates, global_vertices=global_vertices,
+                tolerance=tolerance, integration=integration,
+            )
         if high_order:
             import basix
 
@@ -586,9 +640,9 @@ def dolfinx_boundary_region_contact_trace(
             geometry_dofmap = domain.geometry.dofmaps[0]
 
         for facet, facet_id, geometry_dofs in zip(
-            owned,
-            local_facet_ids,
-            facet_geometry,
+            owned if high_order else (),
+            local_facet_ids if high_order else (),
+            facet_geometry if high_order else (),
             strict=True,
         ):
             if high_order:
@@ -648,76 +702,10 @@ def dolfinx_boundary_region_contact_trace(
                 )
                 facet_shape_values = basis
                 facet_weights = reference_weights * surface_jacobian
-            elif facet_topology == "triangle":
-                order = np.argsort(global_vertices[geometry_dofs], kind="stable")
-                points = coordinates[geometry_dofs[order]]
-            else:
-                points = coordinates[geometry_dofs]
-            if not high_order:
-                adjacent = domain.topology.connectivity(
-                    facet_dimension, domain.topology.dim
-                ).links(int(facet))
-                if len(adjacent) != 1:
-                    raise ValueError(
-                        "an exterior contact facet must have exactly one adjacent cell"
-                    )
-                cell_blocks = function_space.dofmap.cell_dofs(int(adjacent[0]))
-                # Topology selects the owning body before coordinate matching.
-                # Coincident independent interface nodes are not interchangeable.
-                # This also avoids scanning every mesh DOF for each face vertex.
-                blocks = tuple(
-                    int(
-                        cell_blocks[
-                            _matching_dof_block(
-                                point,
-                                dof_coordinates[cell_blocks],
-                                tolerance=tolerance,
-                            )
-                        ]
-                    )
-                    for point in points
-                )
-            if facet_topology == "triangle" and not high_order:
-                area = 0.5 * float(
-                    np.linalg.norm(
-                        np.cross(points[1] - points[0], points[2] - points[0])
-                    )
-                )
-                if not np.isfinite(area) or area <= 0.0:
-                    raise ValueError("contact trace contains a degenerate triangle")
-                facet_shape_values = quadrature
-                facet_weights = np.full((3,), area / 3.0, dtype=float)
-            elif not high_order:
-                facet_shape_values = []
-                facet_weights = []
-                for r, s in quadrature:
-                    values = _quadrilateral_shape_values(float(r), float(s))
-                    derivative_r, derivative_s = _quadrilateral_shape_derivatives(
-                        float(r), float(s)
-                    )
-                    tangent_r = derivative_r @ points
-                    tangent_s = derivative_s @ points
-                    jacobian = float(np.linalg.norm(np.cross(tangent_r, tangent_s)))
-                    if not np.isfinite(jacobian) or jacobian <= 0.0:
-                        raise ValueError(
-                            "contact trace contains a degenerate quadrilateral"
-                        )
-                    facet_shape_values.append(values)
-                    facet_weights.append(0.25 * jacobian)
-            if integration == "nodal_lumped":
-                # Integrate each nonnegative P1/Q1 shape function with the
-                # existing positive rule, then collocate at its owning node.
-                # Keep facet-local point identities across rank partitions;
-                # shared nodes accumulate the adjacent facet contributions.
-                facet_weights = np.asarray(facet_shape_values).T @ np.asarray(facet_weights)
-                facet_shape_values = np.eye(nodes_per_facet)
             for quadrature_index, (values, weight) in enumerate(
                 zip(facet_shape_values, facet_weights, strict=True)
             ):
-                # Disjoint identity namespace prevents loading a Gauss-point
-                # contact history into a nodally collocated discretization.
-                offset = global_facet_count if integration == "nodal_lumped" else 0
-                point_ids.append((int(facet_id) + offset) * points_per_facet + quadrature_index)
+                point_ids.append(int(facet_id) * points_per_facet + quadrature_index)
                 node_ids.append(blocks)
                 shape_values.append(tuple(float(value) for value in values))
                 weights.append(float(weight))

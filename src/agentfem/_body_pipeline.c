@@ -25,8 +25,37 @@
 typedef void (*material_fn)(int,const double*,const double*,const double*,const double*,double,double,double*,double*,double*,int*);
 typedef struct {
     material_fn material;
-    int n, repair, has_rejected; Py_ssize_t state_width; const double *in[9]; double *out[6]; int *status; double dt,rho;
+    int n, repair, has_rejected, checked, invalid; Py_ssize_t state_width; const double *in[9]; double *out[6]; int *status; double dt,rho;
 } body_job;
+typedef struct {
+    pthread_mutex_t mutex;
+    body_job base;
+    int next, tile;
+} body_queue;
+typedef struct {
+    body_queue *queue;
+    int invalid;
+} queued_body_job;
+static body_job body_slice(const body_job *base,int start,int count) {
+    body_job part=*base;
+    const Py_ssize_t iw[9]={9,9,base->state_width,0,24,24,32,1,1};
+    const Py_ssize_t ow[6]={9,base->state_width,1,9,24,1};
+    part.n=count;part.has_rejected=0;part.invalid=0;
+    part.status=base->status+start;
+    for(int k=0;k<9;k++)part.in[k]=base->in[k]+iw[k]*start;
+    for(int k=0;k<6;k++)part.out[k]=base->out[k]+ow[k]*start;
+    return part;
+}
+static int checked_body_point(body_job *j,int k) {
+    const Py_ssize_t widths[6]={9,j->state_width,1,9,24,1};
+    for(int h=0;h<6;h++)for(Py_ssize_t i=0;i<widths[h];i++)
+        if(!isfinite(j->out[h][k*widths[h]+i]))return 0;
+    const double *s=j->out[0]+9*k;double scale=DBL_MIN;
+    for(int i=0;i<9;i++)scale=fmax(scale,fabs(s[i]));
+    double tol=1.e-12*scale;
+    return fabs(s[1]-s[3])<=tol && fabs(s[2]-s[6])<=tol &&
+           fabs(s[5]-s[7])<=tol && j->out[5][k]>=0.;
+}
 static void *execute_body(void *raw) {
     body_job *j=raw;
     if(j->repair && !j->has_rejected)return NULL;
@@ -52,6 +81,10 @@ static void *execute_body(void *raw) {
             for(int h=0;h<24;h++)j->out[4][24*k+h]=NAN;
             j->out[5][k]=NAN;
         }
+        /* Exactly the material/body constructor checks, while the cell is
+         * local to its worker. Rejected material points are checked only
+         * after exact repair. Publication still waits for every worker. */
+        if(j->checked && !checked_body_point(j,k))j->invalid=1;
     }
     return NULL;
 }
@@ -72,13 +105,47 @@ static int execute_jobs(body_job *jobs,int workers,NativePool *pool) {
     for(int i=0;i<started;i++) pthread_join(threads[i],NULL);
     return failed;
 }
-static PyObject *run(PyObject *self,PyObject *args) {
+static void *execute_queued_body(void *raw) {
+    queued_body_job *worker=raw;body_queue *q=worker->queue;
+    for(;;) {
+        pthread_mutex_lock(&q->mutex);
+        int start=q->next,remaining=q->base.n-start;
+        int count=remaining<q->tile?remaining:q->tile;
+        q->next+=count;
+        pthread_mutex_unlock(&q->mutex);
+        if(!count)break;
+        body_job part=body_slice(&q->base,start,count);
+        execute_body(&part);
+        worker->invalid|=part.invalid;
+    }
+    return NULL;
+}
+static int execute_tiled(body_job *base,int workers,int tile,NativePool *pool,int *invalid) {
+    body_queue queue;queue.base=*base;queue.next=0;queue.tile=tile;
+    if(pthread_mutex_init(&queue.mutex,NULL))return 1;
+    queued_body_job jobs[16];
+    for(int i=0;i<workers;i++){jobs[i].queue=&queue;jobs[i].invalid=0;}
+    int failed=0,started=0;pthread_t threads[16];
+    if(workers==1)execute_queued_body(&jobs[0]);
+    else if(pool)native_pool_dispatch(pool,jobs,sizeof(queued_body_job),workers,execute_queued_body);
+    else {
+        for(int i=0;i<workers;i++) {
+            if(pthread_create(&threads[i],NULL,execute_queued_body,&jobs[i])){failed=1;break;}
+            started++;
+        }
+        for(int i=0;i<started;i++)pthread_join(threads[i],NULL);
+    }
+    for(int i=0;i<workers;i++)*invalid|=jobs[i].invalid;
+    pthread_mutex_destroy(&queue.mutex);
+    return failed;
+}
+static PyObject *run_impl(PyObject *self,PyObject *args,int checked) {
     unsigned long long ma; Py_ssize_t state_width,property_count; PyObject *inputs,*callback;
     Py_buffer buffers[9]={{0}}; PyObject *out[6]={NULL}; PyObject *result=NULL;
-    int workers,*status=NULL,acquired=0; double dt,rho;
+    int workers,*status=NULL,acquired=0,tile=0; double dt,rho;
     PyObject *executor=Py_None;NativePool *pool=NULL;
-    if(!PyArg_ParseTuple(args,"KOddinnO|O",&ma,&inputs,&dt,&rho,&workers,&state_width,&property_count,&callback,&executor)) return NULL;
-    if(!PyCallable_Check(callback)||!ma||state_width<1||property_count<0||!PyTuple_Check(inputs)||PyTuple_GET_SIZE(inputs)!=9||workers<1||workers>16||!isfinite(dt)||dt<=0||!isfinite(rho)||rho<=0) {
+    if(!PyArg_ParseTuple(args,"KOddinnO|Oi",&ma,&inputs,&dt,&rho,&workers,&state_width,&property_count,&callback,&executor,&tile)) return NULL;
+    if(!PyCallable_Check(callback)||!ma||state_width<1||property_count<0||!PyTuple_Check(inputs)||PyTuple_GET_SIZE(inputs)!=9||workers<1||workers>16||tile<0||!isfinite(dt)||dt<=0||!isfinite(rho)||rho<=0) {
         PyErr_SetString(PyExc_ValueError,"Invalid native material/body configuration"); return NULL;
     }
     if(executor!=Py_None) {
@@ -108,17 +175,19 @@ static PyObject *run(PyObject *self,PyObject *args) {
     status=PyMem_Calloc((size_t)n,sizeof(int));
     if(!status) { PyErr_NoMemory(); goto cleanup; }
     if(workers>n) workers=(int)n;
-    body_job jobs[16]; int failed=0;
+    body_job jobs[16]; int failed=0,tiled_invalid=0;
     for(int i=0;i<workers;i++) {
         Py_ssize_t start=n*i/workers,end=n*(i+1)/workers;
-        jobs[i].repair=0; jobs[i].has_rejected=0; jobs[i].state_width=state_width; jobs[i].material=(material_fn)(uintptr_t)ma;
+        jobs[i].repair=0; jobs[i].has_rejected=0; jobs[i].checked=checked; jobs[i].invalid=0;
+        jobs[i].state_width=state_width; jobs[i].material=(material_fn)(uintptr_t)ma;
         jobs[i].n=(int)(end-start); jobs[i].dt=dt; jobs[i].rho=rho;
         jobs[i].status=status+start;
         for(int k=0;k<9;k++) jobs[i].in[k]=(const double*)buffers[k].buf+iw[k]*start;
         for(int k=0;k<6;k++) jobs[i].out[k]=(double*)PyBytes_AS_STRING(out[k])+ow[k]*start;
     }
+    body_job base=jobs[0];base.n=(int)n;
     Py_BEGIN_ALLOW_THREADS
-    failed=execute_jobs(jobs,workers,pool);
+    failed=tile?execute_tiled(&base,workers,tile,pool,&tiled_invalid):execute_jobs(jobs,workers,pool);
     Py_END_ALLOW_THREADS
     if(PyErr_CheckSignals()) goto cleanup;
     if(failed) { PyErr_SetString(PyExc_RuntimeError,"Native body thread creation failed"); goto cleanup; }
@@ -152,12 +221,21 @@ static PyObject *run(PyObject *self,PyObject *args) {
         for(int j=0;j<3;j++) if(fixed[j].obj) PyBuffer_Release(&fixed[j]);
         Py_DECREF(replacement);Py_DECREF(indices);
         if(!valid) goto cleanup;
-        for(int j=0;j<workers;j++) jobs[j].repair=1;
+        for(int j=0;j<workers;j++) {
+            jobs[j].repair=1;
+            /* Dynamic tiles have no persistent worker-to-slice assignment.
+             * Rebuild repair ownership from the joined per-point status. */
+            if(tile)for(int k=0;k<jobs[j].n;k++)
+                if(jobs[j].status[k]){jobs[j].has_rejected=1;break;}
+        }
         Py_BEGIN_ALLOW_THREADS
         failed=execute_jobs(jobs,workers,pool);
         Py_END_ALLOW_THREADS
         if(PyErr_CheckSignals()) goto cleanup;
         if(failed) {PyErr_SetString(PyExc_RuntimeError,"Native repair thread creation failed");goto cleanup;}
+    }
+    for(int j=0;j<workers;j++)if(jobs[j].invalid||tiled_invalid) {
+        PyErr_SetString(PyExc_ValueError,"Nonfinite or inadmissible native material/body output");goto cleanup;
     }
     /* The Python material/body constructors validate all immutable buffers
      * before they can enter a trial. Avoid an identical full-array scan here. */
@@ -170,10 +248,14 @@ cleanup:
     for(int i=0;i<9;i++) if(buffers[i].obj) PyBuffer_Release(&buffers[i]);
     return result;
 }
+static PyObject *run(PyObject *self,PyObject *args) {return run_impl(self,args,0);}
+static PyObject *run_checked(PyObject *self,PyObject *args) {return run_impl(self,args,1);}
 #include "_hex_auxiliary_dispatch.h"
 static PyMethodDef methods[]={
     {"create_pool",native_pool_create,METH_O,"Create an instance-owned sleeping native executor"},
     {"run",run,METH_VARARGS,"Trusted C material ABI with core-owned immutable body output"},
+    {"run_checked",run_checked,METH_VARARGS,"Worker-validated immutable material and body output"},
+    {"run_tiled_checked",run_checked,METH_VARARGS,"Opt-in dynamically tiled, worker-validated body execution"},
     {"auxiliary",auxiliary,METH_VARARGS,"Joined disjoint-cell arithmetic with immutable output"},
     {NULL,NULL,0,NULL}};
 static struct PyModuleDef module={PyModuleDef_HEAD_INIT,"_body_pipeline",NULL,-1,methods};

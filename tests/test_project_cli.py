@@ -8,6 +8,27 @@ import pytest
 from agentfem import __version__, cli, materials, project, results, upgrades
 
 
+@pytest.mark.parametrize('valid_report', [True, False])
+def test_cli_paused_run_points_to_series_without_claiming_completion(tmp_path, capsys, valid_report):
+    record = {'schema': 'agentfem.step-execution', 'status': 'paused', 'accepted_steps': 600,
+              'visualization': {'primary_artifact': 'process_fields'},
+              'artifacts': {'process_fields': 'fields.xdmf'}}
+    text = json.dumps(record) if valid_report else '{invalid'
+    (tmp_path/'agentfem.toml').write_text('[project]\nname="partial"\n')
+    (tmp_path/'case.py').write_text(
+        'from agentfem import project\n'
+        'context = project.current_run()\n'
+        f'context.artifact("report.json").write_text({text!r})\n'
+        'context.write_execution("paused", structured_result=False)\n')
+    assert cli.main(['run', '--project', str(tmp_path), '--name', 'partial']) == 0
+    output = capsys.readouterr().out
+    assert 'paused' in output
+    assert 'not a completed scientific result' in output or 'no completed scientific result' in output
+    if valid_report:
+        assert 'accepted steps: 600' in output
+        assert 'open in ParaView: fields.xdmf' in output
+
+
 def test_cohesive_checkpoint_migration_is_explicit_and_nonmutating():
     source = {
         "schema": "agentfem.dof-mapped-cohesive-force.v3",

@@ -19,9 +19,12 @@ class Q1ContactExecution:
     distance_bounds: object = None
     separated_paths: object = None
     project_batch: object = None
+    separation_reuse: str = "incremental"
     _identity_json: str = field(init=False, repr=False)
 
     def __post_init__(self):
+        if self.separation_reuse not in ("incremental", "anchored"):
+            raise ValueError("Q1 separation_reuse must be incremental or anchored")
         if not isinstance(self.identity, dict) or not self.identity:
             raise ValueError("Q1 execution requires a nonempty JSON identity")
         encoded = json.dumps(self.identity, sort_keys=True, allow_nan=False)
@@ -36,7 +39,8 @@ class Q1ContactExecution:
                 "classify_inside": self.classify_inside is not None,
                 "distance_bounds": self.distance_bounds is not None,
                 "separated_paths": self.separated_paths is not None,
-                "project_batch": self.project_batch is not None}
+                "project_batch": self.project_batch is not None,
+                **({"separation_reuse": "anchored-v1"} if self.separation_reuse == "anchored" else {})}
 
     def project(self, surface, points, reference, **options):
         """Validate transport, not the plugin's global-minimum certificate."""

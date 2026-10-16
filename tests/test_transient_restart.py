@@ -81,7 +81,11 @@ def test_dynamics_restart_matches_uninterrupted_state_and_energy(tmp_path, impli
     checkpoint = partial.save_checkpoint(
         tmp_path / ("implicit" if implicit else "explicit")
     )
-    manifest = json.loads(checkpoint.read_text(encoding="utf-8"))
+    serialized = checkpoint.read_text(encoding="utf-8")
+    manifest = json.loads(serialized)
+    # Machine-facing restart keeps all history, without indentation expansion.
+    assert serialized.count("\n") == 1
+    assert len(serialized) < len(json.dumps(manifest, indent=2, sort_keys=True))
     assert manifest["completed_steps"] == 2
     assert manifest["portable"] is False
     assert manifest["portability"] == "same mesh partition and MPI size"

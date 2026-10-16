@@ -91,3 +91,31 @@ def unresolved_outside_paths(
     )
     pad = 128 * np.finfo(float).eps * np.maximum(bound, old + new)
     return (old > 0) & (new > 0) & (bound + pad >= old + new)
+
+
+class AnchoredSeparationBounds:
+    """Disposable closed-surface certificate, not physical contact history.
+
+    Q1 convex weights bound surface travel by vertex travel. With a common
+    translation removed, point travel plus maximum vertex travel is convex
+    along a linear increment. Its maximum is therefore at an endpoint.
+    Both endpoints are measured from one immutable certified anchor, not by
+    summing travel over old oscillations. Positive minima certify the current
+    whole segment; no force, normal or projection is reused by this object.
+    Valid non-self-intersecting closed surfaces remain a prerequisite.
+    """
+
+    def __init__(self, gaps, secondary, primary):
+        from ._resident_field_records import _freeze
+        # Reuse shape/finite admission before storing the immutable certificate.
+        outside_gap_lower_bounds(gaps, np.zeros_like(secondary), np.zeros_like(primary))
+        self.gaps = _freeze(np.asarray(gaps))
+        self.secondary = _freeze(np.asarray(secondary))
+        self.primary = _freeze(np.asarray(primary))
+
+    def bounds(self, old_secondary, old_primary, new_secondary, new_primary):
+        old = outside_gap_lower_bounds(self.gaps,
+            np.asarray(old_secondary)-self.secondary, np.asarray(old_primary)-self.primary)
+        new = outside_gap_lower_bounds(self.gaps,
+            np.asarray(new_secondary)-self.secondary, np.asarray(new_primary)-self.primary)
+        return np.minimum(old, new)

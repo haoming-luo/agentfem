@@ -106,6 +106,8 @@ class DeformableQ1ContactResidual:
             }
         )
         self.accepted = self.trial = None
+        self._separation_anchor = None
+        self._reset_separation_anchor = False
         self.time = self.accepted_time = 0.0
         self.checkpoint_state_required = True
 
@@ -256,6 +258,20 @@ class DeformableQ1ContactResidual:
                 (values[0] - self.accepted[0])[self.operator.nodes],
                 values[1] - self.accepted[1],
             )
+            execution = self.operator.execution
+            if execution is not None and execution.separation_reuse == "anchored":
+                from .._contact_path_guard import AnchoredSeparationBounds
+                nodes = self.operator.nodes
+                if self._separation_anchor is None and np.any(self.accepted[2].gap_lower_bounds > 0):
+                    self._separation_anchor = AnchoredSeparationBounds(
+                        self.accepted[2].gap_lower_bounds, self.accepted[0][nodes], self.accepted[1])
+                if self._separation_anchor is not None:
+                    anchored = self._separation_anchor.bounds(
+                        self.accepted[0][nodes], self.accepted[1], values[0][nodes], values[1])
+                    lower = np.maximum(lower, anchored)
+                    # Reset only at acceptance, never by committing a speculative
+                    # geometry query. An exhausted certificate is not an error.
+                    self._reset_separation_anchor = not np.any(anchored > 0)
             if np.all(lower > 0):
                 return DeformableContactResponse(
                     np.zeros_like(values[0]),
@@ -335,11 +351,16 @@ class DeformableQ1ContactResidual:
         self.base.commit()
         self.accepted, self.trial = self.trial, None
         self.accepted_time = self.time
+        if self._reset_separation_anchor:
+            self._separation_anchor = None
+            self._reset_separation_anchor = False
 
     def rollback(self):
         self.base.rollback()
         self.trial = None
         self.time = self.accepted_time
+        self._separation_anchor = None
+        self._reset_separation_anchor = False
 
     def _snapshot(self, method):
         if self.trial is not None:
@@ -403,6 +424,9 @@ class DeformableQ1ContactResidual:
         self.base.restore(record["base"])
         self.accepted, self.trial = restored, None
         self.time = self.accepted_time = float(stamp)
+        # Derived geometry is rebuilt from restored accepted coordinates.
+        self._separation_anchor = None
+        self._reset_separation_anchor = False
 
     def checkpoint_capabilities(self):
         return replace(

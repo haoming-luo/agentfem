@@ -54,6 +54,39 @@ hosted Apple Silicon runner before publishing it.
 
 ## Windows through WSL2
 
+### Running an already installed project
+
+Use the project's normal `agentfem run` command. No AI service is required
+during execution. `agentfem check` and run preflight report WSL storage and
+resource advisories without changing Windows, WSL or model settings.
+
+For I/O-heavy runs, a working copy on the WSL Linux filesystem can avoid
+Windows-mounted filesystem overhead, as described by
+[Microsoft](https://learn.microsoft.com/en-us/windows/wsl/filesystems).
+Keep the protected Windows workspace as the durable copy: export completed
+results and accepted checkpoints back before replacing/removing the WSL
+distribution. Merely using a path named `~/AgentFEMProjects` does not guarantee
+Linux-native storage; the protected workspace can be a link to Windows.
+AgentFEM inspects the resolved mount, rather than guessing from the folder name.
+
+Keep the machine awake and avoid competing heavy jobs during long solves.
+More threads are not automatically faster: material/contact worker budgets
+and BLAS/OpenMP threads can compete. AgentFEM records visible resources but
+does not silently change them. WSL memory/processor limits are host settings
+documented by [Microsoft](https://learn.microsoft.com/en-us/windows/wsl/wsl-config);
+do not restart WSL or change those limits while a solve is running.
+
+An optional native extension being loadable is distinct from a Step selecting
+it. Projects that require a native execution route can declare
+`requires_accelerators` in their operational manifest; missing or unloadable
+components then fail before executing the case. This requirement is opt-in,
+not a blanket restriction on reference-backend projects. See
+[project execution](project_execution.md) for the manifest and single-series
+ParaView workflow. These are portability provisions, not a measured Windows
+speedup or a claim that hardware-independent timing is possible.
+
+### Installing a complete runtime
+
 Extract the entire Preview ZIP, open PowerShell in the extracted folder, and
 run the bundled installer:
 

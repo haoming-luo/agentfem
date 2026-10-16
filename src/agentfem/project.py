@@ -31,6 +31,10 @@ PROJECT_FILENAME = "agentfem.toml"
 PROJECT_SCHEMA = "agentfem.project"
 CURRENT_PROJECT_SCHEMA_VERSION = "0.2.0"
 RUN_SCHEMA = "agentfem.run"
+_API_REQUIREMENT = re.compile(
+    r"([A-Za-z][A-Za-z0-9_]*(?:\.[A-Za-z][A-Za-z0-9_]*)+)"
+    r"(?:\(([A-Za-z][A-Za-z0-9_]*)\))?"
+)
 
 _ENV_PROJECT_ROOT = "AGENTFEM_PROJECT_ROOT"
 _ENV_PROJECT_NAME = "AGENTFEM_PROJECT_NAME"
@@ -411,6 +415,8 @@ class ProjectConfig:
     schema_version: str = CURRENT_PROJECT_SCHEMA_VERSION
     created_with: str | None = None
     requires_agentfem: str | None = None
+    requires_api: tuple[str, ...] = ()
+    requires_accelerators: tuple[str, ...] = ()
 
     @classmethod
     def load(cls, path: str | Path) -> "ProjectConfig":
@@ -427,6 +433,16 @@ class ProjectConfig:
         entrypoint = root / project.get("entrypoint", "case.py")
         output_directory = root / run.get("output_directory", "outputs")
         required_extensions = extension_record.get("required", [])
+        required_api = project.get("requires_api", [])
+        required_accelerators = project.get("requires_accelerators", [])
+        if (not isinstance(required_accelerators, list) or any(
+                not isinstance(item, str) or not item.strip()
+                for item in required_accelerators)):
+            raise ValueError("project.requires_accelerators must contain accelerator names.")
+        if (not isinstance(required_api, list) or any(
+                not isinstance(item, str) or not _API_REQUIREMENT.fullmatch(item)
+                for item in required_api)):
+            raise ValueError("project.requires_api requires public module.attribute paths, optionally followed by (keyword).")
         if not isinstance(required_extensions, list) or not all(
             isinstance(item, str) and item.strip() for item in required_extensions
         ):
@@ -446,6 +462,8 @@ class ProjectConfig:
                 else str(project["created_with"])
             ),
             requires_agentfem=project.get("requires_agentfem"),
+            requires_api=tuple(required_api),
+            requires_accelerators=tuple(required_accelerators),
         )
 
     def check(self) -> tuple[str, ...]:
@@ -489,6 +507,39 @@ class ProjectConfig:
                     errors.append(f"AFM-PROJECT-VERSION: requires AgentFEM {self.requires_agentfem}; installed {__version__}")
             except InvalidSpecifier as error:
                 errors.append(f"AFM-PROJECT-VERSION: invalid requires_agentfem: {error}")
+        if self.requires_api:
+            import importlib
+            import inspect
+            for requirement in self.requires_api:
+                try:
+                    match = _API_REQUIREMENT.fullmatch(requirement)
+                    if match is None:
+                        raise ValueError("invalid public API requirement")
+                    path, keyword = match.groups()
+                    parts = path.split('.')
+                    value = importlib.import_module('agentfem.' + parts[0])
+                    for name in parts[1:]:
+                        value = getattr(value, name)
+                    if keyword is not None:
+                        parameter = inspect.signature(value).parameters.get(keyword)
+                        if parameter is None or parameter.kind not in (
+                                inspect.Parameter.POSITIONAL_OR_KEYWORD, inspect.Parameter.KEYWORD_ONLY):
+                            raise ValueError(f"{path} does not explicitly accept keyword {keyword!r}")
+                except (ImportError, AttributeError, TypeError, ValueError) as error:
+                    errors.append(f"AFM-PROJECT-API: required public API {requirement} is unavailable: {error}")
+        if self.requires_accelerators:
+            from .platforms import _native_accelerators
+            available = _native_accelerators()
+            for name in self.requires_accelerators:
+                if name not in available:
+                    errors.append(f"AFM-PROJECT-ACCELERATOR: unknown accelerator {name!r}; "
+                                  f"known names: {', '.join(sorted(available))}")
+                elif not available[name]['available']:
+                    item = available[name]
+                    detail = item.get('error', {}).get('message', '')
+                    errors.append(f"AFM-PROJECT-ACCELERATOR: this project requires {name}, "
+                                  f"but it is {item['status']}. {detail} "
+                                  "Install/build a compatible native package; do not change the case to bypass this requirement.")
         if self.extensions:
             from .extensions import missing_extensions
 
@@ -506,6 +557,8 @@ class ProjectConfig:
             "schema_version": self.schema_version,
             "created_with": self.created_with,
             "requires_agentfem": self.requires_agentfem,
+            "requires_api": self.requires_api,
+            "requires_accelerators": self.requires_accelerators,
             "name": self.name,
             "root": str(self.root),
             "entrypoint": str(self.entrypoint),
