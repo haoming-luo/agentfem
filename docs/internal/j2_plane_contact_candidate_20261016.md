@@ -33,6 +33,10 @@ these scalar roots within the declared test tolerance. A separate active
 plastic-contact patch has positive PEEQ, balances strong reaction + contact
 resultant + natural force to `1e-6` absolute, and retains the same accepted
 state after interrupted serial restart.
+The elastic spring pair is checked at penalties 250, 500 and 1000, not merely
+at one tuned penalty. This validates the bounded implementation's penalty
+response against that scalar reference; it is not a mesh-independent contact
+limit for general geometry.
 
 | Active plastic-contact path | 3 increments | 6 increments | 12 increments |
 | --- | ---: | ---: | ---: |
@@ -56,15 +60,27 @@ restart. Final displacement, plastic deformation gradient, PEEQ, plastic
 dissipation and energy history matched exactly. Timing/event metadata did
 not, as expected. A final nodal-displacement XDMF and a result manifest were
 written without pretending that XDMF contains the unsmoothed quadrature state.
+For a tilted plane, fixed-displacement differentiation of the contact
+potential matches the accepted generalized force (translation plus moment)
+on a two-cell-per-axis patch. A separate one/two/three-cell-per-axis scan
+gave tool work `0.02413115 / 0.02332779 / 0.02293842`; the latter spatial
+difference is smaller. This is internal spatial consistency only, not an
+independent reference or penalty convergence claim.
+An isolated macOS arm64 native wheel built from the combined branch resolves
+both `_body_pipeline` and `_hex_native` under its installed target. A focused
+installed-package run passed 159 J2/contact/native/geometry-worker tests.
+The public example completed from this wheel with the same displacement,
+plastic gradient, PEEQ, dissipation and energy history arrays as the source
+run. This still does not substitute for full-platform CI or Windows hardware.
 
 ## Next gates before release promotion
 
-1. Complete final source and installed-wheel regressions; review the diff and
-   old-provider dispatch; run relevant platform CI without changing the
-   established explicit production case.
-2. Test a nonuniform contact patch under mesh/step/penalty changes and include
-   a public independent structure-level reference. A homogeneous one-cell
-   spring pair is necessary but insufficient for broad contact validation.
+1. Complete final platform CI and review old-provider dispatch on the merged
+   candidate without changing the established explicit production case.
+2. Extend the nonuniform contact patch to step/penalty sensitivity and include
+   a public independent structure-level reference. Homogeneous spring and
+   internal spatial-consistency checks are insufficient for broad contact
+   validation.
 3. For discrete rigid tools, implement reviewed current-geometry projection,
    facet/edge/vertex transitions and consistent residual/tangent in a separate
    candidate; compare a triangulated flat tool to the analytical plane.

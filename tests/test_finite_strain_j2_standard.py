@@ -171,16 +171,19 @@ def test_public_j2_fixed_plane_contact_uses_one_newton_and_energy_ledger():
     )
 
 
-def test_public_j2_contact_elastic_limit_matches_analytical_spring_pair():
+@pytest.mark.parametrize("penalty", (250.0, 500.0, 1_000.0))
+def test_public_j2_contact_elastic_limit_matches_analytical_spring_pair(penalty):
     from scipy.optimize import brentq
 
-    _, displacement, _, _, step = _j2_contact_patch(yield_stress=1.0e9)
+    _, displacement, _, _, step = _j2_contact_patch(
+        penalty=penalty, yield_stress=1.0e9
+    )
     step.solve()
     right = results.probe(displacement, at=(1.0, 0.5, 0.5))
     # For nu=0, homogeneous uniaxial Hencky elasticity has
     # P = E log(1+u)/(1+u); the fixed-plane penalty contributes k*u.
     expected = brentq(
-        lambda u: 1_000.0 * np.log1p(u) / (1.0 + u) + 500.0 * u - 10.0,
+        lambda u: 1_000.0 * np.log1p(u) / (1.0 + u) + penalty * u - 10.0,
         0.0, 0.05,
     )
     assert right[0] == pytest.approx(expected, rel=2.0e-5)
@@ -240,8 +243,10 @@ def test_public_j2_contact_energy_failure_rolls_back_joint_state(monkeypatch):
     assert tuple(step.energy_history) == accepted_energy
 
 
-def _j2_moving_contact_patch(*, rotation=0.0):
-    domain = dolfinx_mesh.create_unit_cube(MPI.COMM_SELF, 1, 1, 1)
+def _j2_moving_contact_patch(*, rotation=0.0, cells=1):
+    domain = dolfinx_mesh.create_unit_cube(
+        MPI.COMM_SELF, cells, cells, cells
+    )
     model = models.create(
         study=studies.nonlinear_static(
             physics="solid_mechanics", dimension=3,
@@ -306,6 +311,42 @@ def test_public_j2_prescribed_plane_records_tool_work():
         step.energy_history[-1].tool_work
     )
     assert np.linalg.norm(result.metadata["constraint_duals"][0]["force"]) > 0.0
+
+
+def test_j2_rotating_tool_force_is_conjugate_to_contact_potential():
+    _, _, _, contact, step = _j2_moving_contact_patch(
+        rotation=(0.0, 0.0, 0.02), cells=2
+    )
+    result = step.solve_result()
+    energy_at_end = step._contact_potential()
+    increment = 1.0e-6
+    try:
+        contact.update_motion(1.0 - increment)
+        energy_before_end = step._contact_potential()
+    finally:
+        contact.update_motion(1.0)
+    generalized_force = np.asarray(
+        result.metadata["constraint_duals"][0]["force"], dtype=float
+    )
+    path_direction = contact.motion.generalized_coordinate(1.0)
+    assert (energy_at_end - energy_before_end) / increment == pytest.approx(
+        float(np.dot(generalized_force, path_direction)), rel=2.0e-4
+    )
+
+
+def test_j2_rotating_plane_tool_work_refines_on_multicell_patch():
+    # A tilted plane gives nonuniform face contact. This is a spatial
+    # self-consistency check, not an independent curved-tool reference.
+    work = []
+    for cells in (1, 2, 3):
+        _, _, _, _, step = _j2_moving_contact_patch(
+            rotation=(0.0, 0.0, 0.02), cells=cells
+        )
+        step.solve()
+        frame = step.energy_history[-1]
+        assert np.isfinite(frame.mechanical_energy_residual)
+        work.append(frame.tool_work)
+    assert abs(work[2] - work[1]) < abs(work[1] - work[0])
 
 
 def test_public_j2_moving_tool_restart_and_rollback(monkeypatch, tmp_path):
