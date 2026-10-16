@@ -853,7 +853,10 @@ def save_transient_checkpoint(
                 metadata["portable_state_identity"] = portable_identities
             atomic_write_text(
                 manifest,
-                json.dumps(metadata, indent=2, sort_keys=True) + "\n",
+                # Restart manifests can contain every accepted history row.
+                # Whitespace is not evidence: retain every value/schema while
+                # avoiding indentation amplification on WSL/network storage.
+                json.dumps(metadata, separators=(",", ":"), sort_keys=True) + "\n",
             )
         except Exception as exc:  # pragma: no cover - filesystem failure
             root_error = f"{type(exc).__name__}: {exc}"

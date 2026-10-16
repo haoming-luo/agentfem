@@ -22,7 +22,8 @@ from test_nonmatching_global import _blocks
 from test_quadrilateral_global import _trace
 
 
-def make_step(dt=1e-4, steps=20, *, closed=False, separated=False, exclude_first=False):
+def make_step(dt=1e-4, steps=20, *, closed=False, separated=False, exclude_first=False,
+              execution=None):
     domain = _blocks(1, 2, cell_type="hexahedron")
     # A smaller lower block puts its contact nodes strictly inside the upper
     # surface. Coincident boundary edges need the separate normal-cone gate.
@@ -81,6 +82,7 @@ def make_step(dt=1e-4, steps=20, *, closed=False, separated=False, exclude_first
         penalty=100.0,
         search_radius=0.5,
         geometry_policy="reviewed_closed_solid" if closed else "oriented_open_patch",
+        execution=execution,
     )
     residual = DeformableQ1ContactResidual(
         body,
@@ -117,17 +119,20 @@ def make_step(dt=1e-4, steps=20, *, closed=False, separated=False, exclude_first
 
 
 @pytest.mark.parametrize("closed", [False, True])
-def test_actual_two_body_contact_restart_and_momentum(tmp_path, closed):
-    continuous = make_step(closed=closed)
+@pytest.mark.parametrize("reuse", ["incremental", "anchored"])
+def test_actual_two_body_contact_restart_and_momentum(tmp_path, closed, reuse):
+    from agentfem.boundary_models import Q1ContactExecution
+    execution = Q1ContactExecution({'test': 'restart'}, separation_reuse=reuse)
+    continuous = make_step(closed=closed, execution=execution)
     mass = continuous.residual.base.internal.mass_diagonal.reshape(-1, 3)
     initial_momentum = np.sum(
         mass * continuous.state.v.value.x.array.reshape(-1, 3), axis=0
     )
     continuous.run()
-    partial = make_step(closed=closed)
+    partial = make_step(closed=closed, execution=execution)
     partial.run(until_step=8)
     path = partial.save_checkpoint(tmp_path / "deformable")
-    resumed = make_step(closed=closed)
+    resumed = make_step(closed=closed, execution=execution)
     resumed.load_checkpoint(path)
     resumed.run()
     for name in ("u", "v", "a"):
@@ -187,6 +192,37 @@ def test_corrupt_contact_restore_does_not_touch_body():
     assert step.residual.snapshot() == before
 
 
+@pytest.mark.parametrize('overlap', [False, True])
+def test_geometry_service_failure_preserves_whole_accepted_increment(monkeypatch, overlap):
+    from contextlib import nullcontext
+
+    step = make_step(steps=3, closed=True)
+    step.run(until_step=2)
+    before = step.residual.snapshot()
+    fields = {name: getattr(step.state, name).value.x.array.copy() for name in ('u', 'v', 'a')}
+    history = deepcopy(step.history_records)
+    original = step.residual._evaluate_contact
+
+    def failed_service(values):
+        raise TimeoutError('Q1 geometry worker batch timed out')
+
+    monkeypatch.setattr(step.residual, '_evaluate_contact', failed_service)
+    context = step.residual.overlap_execution() if overlap else nullcontext()
+    with context, pytest.raises(TimeoutError, match='timed out'):
+        step.run(until_step=3)
+    assert step.residual.snapshot() == before
+    assert step.history_records == history
+    for name, value in fields.items():
+        np.testing.assert_array_equal(getattr(step.state, name).value.x.array, value)
+
+    monkeypatch.setattr(step.residual, '_evaluate_contact', original)
+    step.run()
+    reference = make_step(steps=3, closed=True)
+    reference.run()
+    assert step.residual.snapshot() == reference.residual.snapshot()
+    assert step.history_records == reference.history_records
+
+
 def test_two_body_energy_time_refinement():
     errors = []
     for dt, steps in ((1e-3, 20), (5e-4, 40), (2.5e-4, 80)):
@@ -198,8 +234,11 @@ def test_two_body_energy_time_refinement():
     assert errors[2] < 0.35 * errors[1]
 
 
-def test_outside_to_outside_tunneling_is_rejected_before_material_update():
-    step = make_step(steps=1, closed=True)
+@pytest.mark.parametrize('reuse', ['incremental', 'anchored'])
+def test_outside_to_outside_tunneling_is_rejected_before_material_update(reuse):
+    from agentfem.boundary_models import Q1ContactExecution
+    step = make_step(steps=1, closed=True, execution=Q1ContactExecution(
+        {'test': 'tunneling'}, separation_reuse=reuse))
     residual = step.residual
     values = step.state.u.value.x.array.reshape(-1, 3)
     # Contact-only swept-path test: start .1 below the primary solid and end
@@ -247,6 +286,60 @@ def test_proved_separation_skips_search_without_fabricating_projection(monkeypat
     active = residual._evaluate_current(values)
     assert calls == [1] and active.projection is not None
     assert active.potential_energy > 0
+
+
+def test_anchor_avoids_oscillatory_reclassification_but_retains_active_projection(monkeypatch):
+    from agentfem.boundary_models import Q1ContactExecution
+    step = make_step(closed=True, execution=Q1ContactExecution(
+        {'test': 'anchor'}, separation_reuse='anchored'))
+    residual = step.residual
+    step.state.u.value.x.array.reshape(-1, 3)[residual.secondary_dofs, 2] = -.1
+    residual.initialize_accepted_state()
+    search = residual.operator.evaluate
+    calls = []
+    def counted(*values, **options):
+        calls.append(1)
+        return search(*values, **options)
+    monkeypatch.setattr(residual.operator, 'evaluate', counted)
+    reference = tuple(a.copy() for a in residual.accepted[:2])
+    for index in range(30):
+        values = tuple(a.copy() for a in reference)
+        values[0][:, 2] += .01 if index % 2 else -.01
+        response = residual._evaluate_contact(values)
+        assert response.projection is None and response.potential_energy == 0
+        assert np.all(response.gap_lower_bounds > 0)
+        # Geometry-only sequence, not a simulated material/time increment.
+        residual.accepted = (*values, response)
+    assert calls == []
+    assert residual._separation_anchor is not None
+    values = tuple(a.copy() for a in reference)
+    values[0][:, 2] += .11
+    active = residual._evaluate_contact(values)
+    assert calls == [1] and active.potential_energy > 0
+    exact = search(*values)
+    np.testing.assert_array_equal(active.secondary_residual, exact.secondary_residual)
+    np.testing.assert_array_equal(active.primary_residual, exact.primary_residual)
+    residual.rollback()
+    assert residual._separation_anchor is None
+
+
+def test_anchor_bounds_remain_below_fresh_deforming_surface_distance():
+    from agentfem.boundary_models import Q1ContactExecution
+    step = make_step(closed=True, execution=Q1ContactExecution(
+        {'test': 'deforming-anchor'}, separation_reuse='anchored'))
+    residual = step.residual
+    step.state.u.value.x.array.reshape(-1, 3)[residual.secondary_dofs, 2] = -.1
+    residual.initialize_accepted_state()
+    anchor = tuple(a.copy() for a in residual.accepted[:2])
+    rng = np.random.default_rng(291)
+    for _ in range(5):
+        values = tuple(a + rng.uniform(-.003, .003, a.shape) for a in anchor)
+        bounded = residual._evaluate_contact(values)
+        exact = residual.operator.evaluate(*values)
+        assert bounded.projection is None
+        assert np.all(bounded.gap_lower_bounds <= exact.path_gaps)
+        np.testing.assert_array_equal(bounded.secondary_residual, exact.secondary_residual)
+        residual.accepted = (*values, bounded)
 
 
 def test_partial_separation_lifecycle_uses_fresh_contact_for_expired_bounds(monkeypatch):

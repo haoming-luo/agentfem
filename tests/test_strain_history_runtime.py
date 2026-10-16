@@ -45,8 +45,9 @@ def request(rt, n=11):
 
 @pytest.mark.parametrize("ns", [0, 1, 7, 29])
 @pytest.mark.parametrize("workers", [1, 3])
-def test_fused_generic_history_matches_reference(tmp_path, ns, workers):
-    with runtime(manifest(tmp_path, ns), workers=workers) as rt:
+@pytest.mark.parametrize("tile_size", [None, 3])
+def test_fused_generic_history_matches_reference(tmp_path, ns, workers, tile_size):
+    with runtime(manifest(tmp_path, ns), workers=workers, tile_size=tile_size) as rt:
         r = request(rt)
         rt.increment_limit(r)
         expected = rt.update(r)

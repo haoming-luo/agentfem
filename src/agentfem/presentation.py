@@ -187,6 +187,16 @@ def format_record(record: Mapping[str, object], path: Path) -> str:
         value = record.get(key)
         if value is not None:
             lines.append(f"  {key.replace('_', ' ')}: {_value(value)}")
+    if schema == "agentfem.step-execution":
+        lines.append(f"  accepted steps: {_value(record.get('accepted_steps', 'unknown'))}")
+        view, artifacts = record.get('visualization', {}), record.get('artifacts', {})
+        if isinstance(view, Mapping) and isinstance(artifacts, Mapping):
+            key = view.get('primary_artifact')
+            primary = artifacts.get(key) if isinstance(key, str) else None
+            if isinstance(primary, str) and primary:
+                lines.append(f"  open in ParaView: {primary}")
+        if record.get('status') == 'paused':
+            lines.append("  result: accepted partial run; not a completed scientific result")
     error = record.get("error")
     if isinstance(error, Mapping):
         code = error.get("code")
@@ -247,6 +257,11 @@ def format_result(record: Mapping[str, object], path: Path, *, maximum_quantitie
         lines.append("  fields: " + ", ".join(str(item) for item in fields))
     artifacts = record.get("artifacts", {})
     if isinstance(artifacts, Mapping) and artifacts:
+        metadata = record.get("metadata", {})
+        view = metadata.get("visualization", {}) if isinstance(metadata, Mapping) else {}
+        primary = artifacts.get(view.get("primary_artifact")) if isinstance(view, Mapping) else None
+        if isinstance(primary, str) and primary:
+            lines.append("  open in ParaView: " + primary)
         paths = sorted(set(str(value) for value in artifacts.values()),
                        key=lambda value: (Path(value).suffix not in (".xdmf", ".h5", ".vtu", ".pvd"), value))
         lines.append("  files: " + ", ".join(paths[:6]))

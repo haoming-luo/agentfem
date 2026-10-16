@@ -98,6 +98,22 @@ def execute_step(step, *, context, policy=None, metadata=None, observations=None
     started = perf_counter()
     report = {"schema": "agentfem.step-execution", "schema_version": "0.1.0",
               "complete": False, "metadata": metadata, "timing_scope": "execution_and_final_export"}
+    timings = {key: 0.0 for key in (
+        "restart", "initial_fields", "advance_inclusive", "accepted_callbacks",
+        "terminal_checkpoint", "terminal_fields", "terminal_export", "publication")}
+    report["timings_seconds"] = timings
+    report["timing_notes"] = {
+        "advance_inclusive": "Step.run including accepted callbacks and scheduled checkpoints",
+        "advance_excluding_callbacks": "Step.run minus measured callbacks; scheduled checkpoints remain included",
+        "total": "excludes model/material construction before execute_step and final report write",
+    }
+
+    def timed(name, fn, *args, **kwargs):
+        phase_start = perf_counter()
+        try:
+            return fn(*args, **kwargs)
+        finally:
+            timings[name] += perf_counter() - phase_start
     artifacts = {}
     report["artifacts"] = artifacts
     printer = ProgressPrinter(step.steps, policy.progress_every, comm)
@@ -112,7 +128,7 @@ def execute_step(step, *, context, policy=None, metadata=None, observations=None
             return report
         if policy.restart is not None:
             restart = Path(policy.restart).resolve()
-            step.load_checkpoint(restart)
+            timed("restart", step.load_checkpoint, restart)
             report["restart_source"] = {"path": str(restart), "sha256": hashlib.sha256(restart.read_bytes()).hexdigest()}
         if until < step.completed_steps:
             raise ValueError("AFM-RUN-POLICY: requested endpoint precedes restored state")
@@ -123,7 +139,7 @@ def execute_step(step, *, context, policy=None, metadata=None, observations=None
         if frames is not None:
             intervals = min(policy.field_intervals, step.steps)
             frame_stations = {(i*step.steps + intervals-1)//intervals for i in range(1, intervals+1)}
-            frames.write(step)
+            timed("initial_fields", frames.write, step)
         journal = results.AcceptedHistoryJournal(output / "accepted-history.jsonl")
         accepted = journal.reporter(step, every=policy.journal_every)
         observation_journal = results.AcceptedHistoryJournal(output / "observations.jsonl") if observers else None
@@ -137,6 +153,9 @@ def execute_step(step, *, context, policy=None, metadata=None, observations=None
 
         class Observer:
             def emit(self, event):
+                return timed("accepted_callbacks", self._emit, event)
+
+            def _emit(self, event):
                 accepted.emit(event)
                 if event.kind != "time_increment":
                     return
@@ -150,25 +169,28 @@ def execute_step(step, *, context, policy=None, metadata=None, observations=None
                 if policy.wall_limit is not None and perf_counter()-started > policy.wall_limit:
                     raise TimeoutError("AFM-RUN-WALL-LIMIT: reached at an accepted station")
 
-        step.run(until_step=until, progress=Observer())
+        timed("advance_inclusive", step.run, until_step=until, progress=Observer())
         if step.completed_steps != until:
             raise RuntimeError("AFM-RUN-INCOMPLETE: Step returned before requested endpoint")
-        observe()
+        timed("terminal_export", observe)
         report["journal"] = journal.summary()
         artifacts["accepted_history"] = str(journal.path)
         if observation_journal is not None:
             report["observations"] = observation_journal.summary()
             artifacts["observations"] = str(observation_journal.path)
         from ._project_checkpoints import final_checkpoint, retain_completed
-        checkpoint = final_checkpoint(step, output)
+        checkpoint = timed("terminal_checkpoint", final_checkpoint, step, output)
         artifacts["checkpoint"] = str(checkpoint)
         complete = step.completed_steps == step.steps
         if frames is not None:
             if frames.stations[-1]["increment"] != step.completed_steps:
-                frames.write(step)
-            artifacts.update({k: str(v) for k, v in frames.close(complete=complete).items()})
+                timed("terminal_fields", frames.write, step)
+            artifacts.update({k: str(v) for k, v in timed("terminal_fields", frames.close, complete=complete).items()})
+            report["visualization"] = {"primary": str(frames.path),
+                "primary_artifact": "process_fields",
+                "kind": "accepted_time_series", "includes_endpoint": True}
         if export is not None and (complete or policy.export_partial):
-            exported = dict(export(step, output))
+            exported = dict(timed("terminal_export", export, step, output))
             if set(exported) & set(artifacts):
                 raise ValueError("AFM-RUN-ARTIFACT: duplicate artifact name")
             for name, value in exported.items():
@@ -179,15 +201,20 @@ def execute_step(step, *, context, policy=None, metadata=None, observations=None
                     raise ValueError(f"AFM-RUN-ARTIFACT: missing export {name}")
                 artifacts[name] = str(path)
         if complete and policy.completed_checkpoint_keep is not None:
-            report["checkpoint_retention"] = retain_completed(step, output, checkpoint,
+            report["checkpoint_retention"] = timed("terminal_checkpoint", retain_completed, step, output, checkpoint,
                 policy.completed_checkpoint_keep, comm)
         report.update(complete=complete, status="completed" if complete else "paused",
                       accepted_steps=step.completed_steps, summary=step.summary())
         if complete:
-            result = step.solve_result(metadata=metadata)
+            result = timed("publication", step.solve_result, metadata=metadata)
+            if frames is not None:
+                result.metadata["visualization"] = {
+                    "primary_artifact": "process_fields", "kind": "accepted_time_series",
+                    "includes_endpoint": True,
+                }
             for name, path in artifacts.items():
                 result.add_artifact(name, path)
-            context.publish(result)
+            timed("publication", context.publish, result)
         else:
             context.write_execution("paused", structured_result=False)
         printer.status("Run completed" if complete else "Partial run completed")
@@ -211,6 +238,7 @@ def execute_step(step, *, context, policy=None, metadata=None, observations=None
     finally:
         report["accepted_steps"] = step.completed_steps
         report["elapsed_seconds"] = perf_counter()-started
+        timings["advance_excluding_callbacks"] = max(0.0, timings["advance_inclusive"]-timings["accepted_callbacks"])
         if "initial_step" in report:
             report["advanced_steps_this_run"] = step.completed_steps-report["initial_step"]
         try:

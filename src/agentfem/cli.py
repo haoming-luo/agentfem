@@ -140,11 +140,14 @@ def _record_path(value: str | None, project_path: str | None) -> Path:
 
 
 def _check_project(project: ProjectConfig, *, runtime: bool = False) -> dict[str, object]:
+    from ._execution_environment import execution_environment
+
     errors = list(project.check())
+    execution = execution_environment(project=project.root, output=project.output_directory)
     storage = project.summary()["storage"]
     warnings = tuple(
         item for item in (storage.get("warning"),) if isinstance(item, str) and item
-    )
+    ) + tuple(f"{item['code']}: {item['message']}" for item in execution['findings'])
     syntax = "not_checked"
     if project.entrypoint.is_file():
         try:
@@ -173,6 +176,7 @@ def _check_project(project: ProjectConfig, *, runtime: bool = False) -> dict[str
         "errors": errors,
         "warnings": warnings,
         "runtime": runtime_record,
+        "execution_environment": execution,
         "scope": "structure_syntax_and_runtime" if runtime else "structure_and_syntax_only",
         "model_executed": False,
         "upgrade_status": upgrade.status,
@@ -372,6 +376,18 @@ def _command_run(args) -> int:
         return 2
     extensions.load_extensions(project.extensions)
     context = _run_context(project, args.run_id, args.name, args.output)
+    from ._execution_environment import execution_environment
+    from .checkpointing import atomic_write_text
+    execution = execution_environment(project=project.root, output=context.output_directory)
+    environment_error = None
+    if MPI.COMM_WORLD.rank == 0:
+        try:
+            atomic_write_text(context.artifact('execution-environment.json'), _json(execution) + '\n')
+        except Exception as error:
+            environment_error = f"AFM-RUN-ENVIRONMENT: {error}"
+    environment_error = MPI.COMM_WORLD.bcast(environment_error, root=0)
+    if environment_error is not None:
+        raise RuntimeError(environment_error)
     output_storage = context.summary()["output_storage"]
     environment = {
         **context.environment(),
@@ -403,6 +419,10 @@ def _command_run(args) -> int:
                 flush=True,
             )
             printed_warnings = list(check.get("warnings", ()))
+            for item in execution['findings']:
+                warning = f"{item['code']}: {item['message']}"
+                if warning not in printed_warnings:
+                    printed_warnings.append(warning)
             for warning in printed_warnings:
                 print(f"  warning: {warning}", flush=True)
             output_warning = output_storage.get("warning")
@@ -478,12 +498,25 @@ def _command_run(args) -> int:
         else {}
     )
     status = MPI.COMM_WORLD.bcast(record.get("status"), root=0)
+    result_status = ("paused; no completed scientific result published" if status == "paused"
+                     else "script completed without a published SimulationResult")
     human = (
         f"Run {status} · {project.name}\n"
         f"  run: {context.output_directory.name}\n"
-        f"  result: script completed without a published SimulationResult\n"
+        f"  result: {result_status}\n"
         f"  record: {context.execution_path}"
     )
+    if MPI.COMM_WORLD.rank == 0 and not context.manifest_path.is_file():
+        step_report_path = context.output_directory / "report.json"
+        if step_report_path.is_file():
+            try:
+                step_report = json.loads(step_report_path.read_text(encoding="utf-8"))
+            except (ValueError, OSError):
+                step_report = None
+            if (isinstance(step_report, dict)
+                    and step_report.get("schema") == "agentfem.step-execution"
+                    and step_report.get("status") == status):
+                human = presentation.format_record(step_report, step_report_path)
     if MPI.COMM_WORLD.rank == 0 and context.manifest_path.is_file():
         result_record = json.loads(context.manifest_path.read_text(encoding="utf-8"))
         try:
