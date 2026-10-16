@@ -116,6 +116,7 @@ def _accept_linear_static(model, request: StepRequest) -> bool:
 
 def _accept_rigid_obstacle_contact(model, request: StepRequest) -> bool:
     from .boundary_models import RigidObstaclePenaltyContact
+    from .constitutive.elasticity import ElasticIsotropicProperties
 
     study = getattr(model, "study", None)
     contacts = tuple(
@@ -129,7 +130,14 @@ def _accept_rigid_obstacle_contact(model, request: StepRequest) -> bool:
         and _is_vector_target(request.target)
         and len(contacts) == 1
         and len(tuple(getattr(model, "boundary_models", ()))) == 1
-        and _all_materials_support(model, request, _supports_elasticity)
+        # This Step assembles a *linear small-strain* bulk form. A generic
+        # young/poisson duck type also matches finite-strain J2 and must not
+        # steal its stateful provider merely because contact was declared.
+        and _all_materials_support(
+            model,
+            request,
+            lambda item: type(item) is ElasticIsotropicProperties,
+        )
     )
 
 
@@ -396,7 +404,7 @@ def _accept_finite_strain_j2_mixed_affine(
     )
 
 
-def _accept_finite_strain_j2_strong(model, request: StepRequest) -> bool:
+def _finite_strain_j2_strong_preconditions(model, request: StepRequest) -> bool:
     from .constitutive import FiniteStrainJ2Logarithmic
     from .constraints import (
         DirichletConstraint,
@@ -424,7 +432,44 @@ def _accept_finite_strain_j2_strong(model, request: StepRequest) -> bool:
             lambda item: isinstance(item, FiniteStrainJ2Logarithmic),
         )
         and ordinary_strong
-        and not tuple(getattr(model, "boundary_models", ()))
+    )
+
+
+def _accept_finite_strain_j2_strong(model, request: StepRequest) -> bool:
+    from .boundary_models import RigidObstaclePenaltyContact
+
+    if not _finite_strain_j2_strong_preconditions(model, request):
+        return False
+    boundary_models = tuple(getattr(model, "boundary_models", ()))
+    if not boundary_models:
+        return True
+    target_mesh = getattr(getattr(request.target, "space", None), "mesh", None)
+    return (
+        len(boundary_models) == 1
+        and isinstance(boundary_models[0], RigidObstaclePenaltyContact)
+        and getattr(getattr(target_mesh, "comm", None), "size", 1) == 1
+    )
+
+
+def _finite_strain_j2_strong_rejection_reason(model, request: StepRequest) -> str | None:
+    """Explain the bounded contact/MPI near-match without claiming support."""
+
+    from .boundary_models import RigidObstaclePenaltyContact
+
+    if not _finite_strain_j2_strong_preconditions(model, request):
+        return None
+    boundary_models = tuple(getattr(model, "boundary_models", ()))
+    if len(boundary_models) != 1 or not isinstance(
+        boundary_models[0], RigidObstaclePenaltyContact
+    ):
+        return None
+    target_mesh = getattr(getattr(request.target, "space", None), "mesh", None)
+    if getattr(getattr(target_mesh, "comm", None), "size", 1) <= 1:
+        return None
+    return (
+        "AFM-J2-CONTACT-MPI: finite-strain J2 plus analytical-plane contact "
+        "is currently serial; standalone MPI J2/contact evidence does not "
+        "certify their composition."
     )
 
 
@@ -1373,11 +1418,13 @@ register_step_provider(
         name="finite_strain_j2_strong_static",
         analyses=("nonlinear_static",),
         accepts=_accept_finite_strain_j2_strong,
+        rejection_reason=_finite_strain_j2_strong_rejection_reason,
         lower=_lower_finite_strain_j2,
         priority=125,
         description=(
             "Lower logarithmic finite-strain J2 to provider-owned quadrature "
-            "state and ordinary strong-boundary Newton equilibrium."
+            "state and strong-boundary Newton equilibrium, optionally with "
+            "one serial analytical rigid-plane penalty contact."
         ),
         procedure="standard/newton/stateful",
         option_contract=_option_contract(

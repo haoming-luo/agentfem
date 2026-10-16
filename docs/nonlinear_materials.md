@@ -206,6 +206,26 @@ independent material point while global Newton equilibrium closes.
 For a three-dimensional `nonlinear_static` study, `model.step(...)` now lowers
 this material to a global DOLFINx path. `PE` and `PEEQ` are committed at Basix
 quadrature points; `S` and `DDSDDE` are trial fields updated during Newton.
+The ordinary strong-boundary provider also accepts one analytical rigid-plane,
+frictionless penalty contact, fixed or with prescribed rigid motion. Tool pose
+uses the same resolved Step amplitude as the other prescribed inputs. Its weak
+residual and semismooth tangent enter the same Newton assembly as J2; the
+accepted ledger records contact penalty potential and tool force--coordinate
+work separately from material stored energy and plastic dissipation. This
+bounded composition is serial and experimental. Triangulated surfaces,
+friction, periodic MPC and portable cross-rank restart are not implied by the
+independent J2 or contact capabilities.
+For a distributed mesh, `model.step(...)` reports `AFM-J2-CONTACT-MPI`
+before solving; `step_capability` reports the same reason while keeping
+`supported=false`.
+The runnable [finite-J2 moving-plane example](https://github.com/haoming-luo/agentfem/blob/main/examples/finite_j2_plane_contact.py)
+uses `model.step(...)` and can stop at a committed intermediate factor with
+`--until 0.5`, then resume from its `checkpoint.npz` in a fresh output
+directory. The single-grid XDMF contains nodal displacement; a separate HDF5
+file preserves the unsmoothed integration-point fields and is linked from the
+result manifest. The checkpoint retains the accepted material state. XDMF is
+not a representation of the unsmoothed quadrature history, so the example does
+not relabel an interpolated stress field as the original constitutive response.
 `DDSDDE` is the analytical consistent linearization of the accepted discrete
 backward-Euler return map, including isotropic hardening and dynamic recovery;
 mixed stress control globalizes that tangent with residual-reducing line

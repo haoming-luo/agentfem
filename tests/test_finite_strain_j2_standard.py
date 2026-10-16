@@ -3,7 +3,9 @@
 from __future__ import annotations
 
 import json
+import xml.etree.ElementTree as ET
 
+from basix.ufl import element
 import numpy as np
 import pytest
 import ufl
@@ -13,6 +15,7 @@ from mpi4py import MPI
 
 from agentfem import (
     amplitudes,
+    boundary_models,
     checkpointing,
     constitutive,
     constraints,
@@ -88,6 +91,419 @@ def _standard_patch(
         status_file=status_file,
     )
     return model, displacement, material, step
+
+
+def _j2_contact_patch(*, incrementation=None, penalty=500.0,
+                      yield_stress=2.0):
+    domain = dolfinx_mesh.create_unit_cube(MPI.COMM_SELF, 1, 1, 1)
+    model = models.create(
+        study=studies.nonlinear_static(
+            physics="solid_mechanics", dimension=3,
+        ),
+        mesh=domain,
+        name="finite_j2_fixed_plane_contact",
+    )
+    displacement = model.field(fields.displacement(domain))
+    left = mesh.boundary(domain, lambda x: np.isclose(x[0], 0.0), name="left")
+    right = mesh.boundary(domain, lambda x: np.isclose(x[0], 1.0), name="right")
+    model.clamp(displacement, on=left)
+    material = model.material(
+        constitutive.finite_strain_j2_logarithmic(
+            young=1_000.0,
+            poisson=0.0,
+            yield_stress=yield_stress,
+            hardening_modulus=100.0,
+        )
+    )
+    contact = model.rigid_obstacle_contact(
+        on=right,
+        penalty=penalty,
+        normal=(-1.0, 0.0, 0.0),
+    )
+    model.traction((10.0, 0.0, 0.0), on=right)
+    step = model.step(
+        target=displacement,
+        material=material,
+        incrementation=steps.fixed(3) if incrementation is None else incrementation,
+        solver_options=solvers.newton(
+            relative_tolerance=1.0e-8,
+            absolute_tolerance=1.0e-9,
+            maximum_iterations=25,
+            line_search="backtracking",
+        ),
+        progress=False,
+    )
+    return model, displacement, material, contact, step
+
+
+def test_public_j2_fixed_plane_contact_uses_one_newton_and_energy_ledger():
+    model, displacement, material, contact, step = _j2_contact_patch()
+    capability = step_capability(
+        model, target=displacement, options={"material": material},
+    )
+    assert capability["supported"]
+    assert capability["provider"]["name"] == "finite_strain_j2_strong_static"
+
+    assert step.contact_provider is contact
+    result = step.solve_result()
+    assert step.last_solve_info.converged
+    assert max(frame.contact_potential for frame in step.energy_history) > 0.0
+    assert step.energy_history[-1].internal_energy == pytest.approx(
+        step.energy_history[-1].stored_energy
+        + step.energy_history[-1].plastic_dissipation
+        + step.energy_history[-1].contact_potential
+    )
+    assert result.histories["contact_potential"].values[-1] > 0.0
+    assert result.metadata["constraint_duals"][0]["constraint_name"] == contact.name
+    assert result.metadata["constraint_balance_contract"]["force_balance_available"]
+    assert result.metadata["constraint_balance_contract"]["work_balance_available"]
+    assert result.metadata["constraint_work_evidence"][0]["value"] == 0.0
+    assert result.quantity(f"{contact.name}_contact_energy") > 0.0
+    assert np.max(step.response.state.committed_state_vectors()[:, -2]) > 0.0
+    strong = np.sum(
+        result.fields["RF"].field.x.array.reshape((-1, 3)), axis=0
+    )
+    contact_resultant = np.asarray(
+        result.metadata["constraint_duals"][0]["resultant"], dtype=float
+    )
+    np.testing.assert_allclose(
+        strong + contact_resultant + np.array([10.0, 0.0, 0.0]),
+        0.0,
+        rtol=0.0, atol=1.0e-6,
+    )
+
+
+def test_public_j2_contact_default_result_output_keeps_nodal_primary(tmp_path):
+    _, _, _, _, step = _j2_contact_patch()
+    path = tmp_path / "fields.xdmf"
+
+    result = step.solve_result(output=path, strict_output=True)
+
+    assert result.status == "completed"
+    assert path.is_file()
+    assert path.with_suffix(".h5").is_file()
+    assert (tmp_path / "fields.integration-points.h5").is_file()
+    assert result.metadata["field_output_fields"]["included"][0] == "Displacement"
+    grids = ET.parse(path).findall(".//Grid[@GridType='Uniform']")
+    assert len(grids) == 1
+    names = {item.attrib["Name"] for item in grids[0].findall("Attribute")}
+    assert {"U", "UMAG", "PEEQ_CELL"} <= names
+
+
+@pytest.mark.parametrize("penalty", (250.0, 500.0, 1_000.0))
+def test_public_j2_contact_elastic_limit_matches_analytical_spring_pair(penalty):
+    from scipy.optimize import brentq
+
+    _, displacement, _, _, step = _j2_contact_patch(
+        penalty=penalty, yield_stress=1.0e9
+    )
+    step.solve()
+    right = results.probe(displacement, at=(1.0, 0.5, 0.5))
+    # For nu=0, homogeneous uniaxial Hencky elasticity has
+    # P = E log(1+u)/(1+u); the fixed-plane penalty contributes k*u.
+    expected = brentq(
+        lambda u: 1_000.0 * np.log1p(u) / (1.0 + u) + penalty * u - 10.0,
+        0.0, 0.05,
+    )
+    assert right[0] == pytest.approx(expected, rel=2.0e-5)
+    assert np.max(step.response.state.committed_state_vectors()[:, -2]) == pytest.approx(
+        0.0, abs=1.0e-12,
+    )
+
+
+def test_j2_contact_two_disconnected_columns_have_distinct_analytical_active_sets():
+    from scipy.optimize import brentq
+
+    base = dolfinx_mesh.create_unit_cube(MPI.COMM_SELF, 1, 1, 1)
+    original = np.asarray(base.geometry.x, dtype=float)
+    second = original.copy()
+    second[:, 0] *= 0.99
+    second[:, 1] += 2.0
+    connectivity = np.asarray(base.geometry.dofmaps[0], dtype=np.int64)
+    domain = mesh.from_arrays(
+        cells=np.vstack((connectivity, connectivity + len(original))),
+        coordinates=np.vstack((original, second)),
+        coordinate_element=ufl.Mesh(
+            element("Lagrange", "tetrahedron", 1, shape=(3,))
+        ),
+        comm=MPI.COMM_SELF,
+    )
+    model = models.create(
+        study=studies.nonlinear_static(physics="solid_mechanics", dimension=3),
+        mesh=domain,
+    )
+    displacement = model.field(fields.displacement(domain))
+    left = mesh.boundary(domain, lambda x: np.isclose(x[0], 0.0), name="left")
+    right = mesh.boundary(
+        domain,
+        lambda x: np.isclose(x[0], 1.0) | np.isclose(x[0], 0.99),
+        name="both_right_faces",
+    )
+    model.clamp(displacement, on=left)
+    material = model.material(
+        constitutive.finite_strain_j2_logarithmic(
+            young=1_000.0,
+            poisson=0.0,
+            yield_stress=1.0e9,
+            hardening_modulus=100.0,
+        )
+    )
+    contact = model.rigid_obstacle_contact(
+        on=right,
+        penalty=500.0,
+        surface=boundary_models.rigid_plane(
+            point=(1.0, 0.0, 0.0), normal=(-1.0, 0.0, 0.0)
+        ),
+    )
+    model.traction((5.0, 0.0, 0.0), on=right)
+    step = model.step(
+        target=displacement,
+        material=material,
+        incrementation=steps.fixed(4),
+        progress=False,
+    )
+    result = step.solve_result()
+    first = results.probe(displacement, at=(1.0, 0.5, 0.5))[0]
+    second_value = results.probe(displacement, at=(0.99, 2.5, 0.5))[0]
+    first_reference = brentq(
+        lambda u: 1_000.0 * np.log1p(u) / (1.0 + u) + 500.0 * u - 5.0,
+        0.0, 0.02,
+    )
+    second_reference = brentq(
+        lambda u: 1_000.0 * np.log1p(u / 0.99) / (1.0 + u / 0.99) - 5.0,
+        0.0, 0.02,
+    )
+    assert first == pytest.approx(first_reference, rel=2.0e-5)
+    assert second_value == pytest.approx(second_reference, rel=2.0e-5)
+    assert second_value < 0.01  # The short column never reaches the tool.
+    assert result.metadata["constraint_duals"][0]["constraint_name"] == contact.name
+    assert result.quantity(f"{contact.name}_contact_energy") > 0.0
+    dual = contact.dual_evidence(step)
+    nodal_coordinates = displacement.value.function_space.tabulate_dof_coordinates()
+    nodal_force = dual.distribution.x.array.reshape((-1, 3))
+    np.testing.assert_allclose(
+        nodal_force[nodal_coordinates[:, 1] > 1.5], 0.0, rtol=0.0, atol=1.0e-12
+    )
+
+
+def test_public_j2_contact_restart_preserves_state_and_potential(tmp_path):
+    _, _, _, _, uninterrupted = _j2_contact_patch()
+    uninterrupted.solve()
+    _, _, _, _, partial = _j2_contact_patch()
+    partial.solve(until=1.0 / 3.0)
+    saved = partial.save_checkpoint(tmp_path / "contact_restart")
+    _, _, _, _, resumed = _j2_contact_patch()
+    resumed.load_checkpoint(saved)
+    resumed.solve()
+    np.testing.assert_allclose(
+        resumed.solution.x.array, uninterrupted.solution.x.array,
+        rtol=2.0e-8, atol=2.0e-10,
+    )
+    np.testing.assert_allclose(
+        resumed.response.state.committed_state_vectors(),
+        uninterrupted.response.state.committed_state_vectors(),
+        rtol=2.0e-8, atol=2.0e-10,
+    )
+    assert resumed.energy_history[-1].contact_potential == pytest.approx(
+        uninterrupted.energy_history[-1].contact_potential,
+        rel=2.0e-8,
+    )
+
+    _, _, _, _, wrong_contact = _j2_contact_patch(penalty=600.0)
+    with pytest.raises(ValueError, match="identity"):
+        wrong_contact.load_checkpoint(saved)
+    assert wrong_contact.accepted_load_factor == pytest.approx(0.0)
+    assert not wrong_contact.energy_history
+
+
+def test_public_j2_contact_energy_failure_rolls_back_joint_state(monkeypatch):
+    _, _, _, _, step = _j2_contact_patch()
+    step.solve(until=1.0 / 3.0)
+    accepted_u = step.solution.x.array.copy()
+    accepted_state = step.response.state.committed_state_vectors().copy()
+    accepted_energy = tuple(step.energy_history)
+
+    def fail_contact_energy():
+        raise ValueError("intentional contact energy failure")
+
+    monkeypatch.setattr(step, "_contact_potential", fail_contact_energy)
+    with pytest.raises(RuntimeError, match="intentional contact energy failure"):
+        step.solve(until=2.0 / 3.0)
+    assert step.accepted_load_factor == pytest.approx(1.0 / 3.0)
+    np.testing.assert_allclose(step.solution.x.array, accepted_u)
+    np.testing.assert_allclose(
+        step.response.state.committed_state_vectors(), accepted_state,
+    )
+    assert tuple(step.energy_history) == accepted_energy
+
+
+def _j2_moving_contact_patch(*, rotation=0.0, cells=1, amplitude=None):
+    domain = dolfinx_mesh.create_unit_cube(
+        MPI.COMM_SELF, cells, cells, cells
+    )
+    model = models.create(
+        study=studies.nonlinear_static(
+            physics="solid_mechanics", dimension=3,
+        ),
+        mesh=domain,
+    )
+    displacement = model.field(fields.displacement(domain))
+    left = mesh.boundary(domain, lambda x: np.isclose(x[0], 0.0), name="left")
+    right = mesh.boundary(domain, lambda x: np.isclose(x[0], 1.0), name="right")
+    model.clamp(displacement, on=left)
+    material = model.material(
+        constitutive.finite_strain_j2_logarithmic(
+            young=1_000.0, poisson=0.0, yield_stress=1.0e9,
+            hardening_modulus=100.0,
+        )
+    )
+    contact = model.rigid_obstacle_contact(
+        on=right,
+        penalty=500.0,
+        surface=boundary_models.rigid_plane(
+            point=(1.0, 0.0, 0.0), normal=(-1.0, 0.0, 0.0),
+        ),
+        motion=boundary_models.prescribed_rigid_motion(
+            translation=(-0.01, 0.0, 0.0),
+            rotation=rotation,
+            reference_point=(1.0, 0.5, 0.5),
+        ),
+    )
+    capability = step_capability(
+        model, target=displacement, options={"material": material},
+    )
+    assert capability["supported"]
+    step = model.step(
+        target=displacement,
+        material=material,
+        incrementation=steps.fixed(6),
+        amplitude=amplitude,
+        progress=False,
+    )
+    return model, displacement, material, contact, step
+
+
+def test_public_j2_prescribed_plane_records_tool_work():
+    from scipy.optimize import brentq
+
+    _, displacement, _, _, step = _j2_moving_contact_patch()
+    result = step.solve_result()
+    right_u = results.probe(displacement, at=(1.0, 0.5, 0.5))[0]
+    expected = brentq(
+        lambda u: 1_000.0 * np.log1p(u) / (1.0 + u)
+        + 500.0 * (u + 0.01),
+        -0.01, 0.0,
+    )
+    assert right_u == pytest.approx(expected, rel=2.0e-5)
+    assert result.histories["tool_work"].values[-1] > 0.0
+    assert step.energy_history[-1].tool_work == pytest.approx(
+        result.histories["tool_work"].values[-1]
+    )
+    assert abs(step.energy_history[-1].mechanical_energy_residual) / (
+        step.energy_history[-1].external_work
+    ) < 0.01
+    assert result.metadata["constraint_work_evidence"][0]["value"] == pytest.approx(
+        step.energy_history[-1].tool_work
+    )
+    assert np.linalg.norm(result.metadata["constraint_duals"][0]["force"]) > 0.0
+
+
+def test_public_j2_tool_uses_shared_nonlinear_step_amplitude():
+    _, _, _, contact, step = _j2_moving_contact_patch(
+        amplitude=amplitudes.tabular(
+            (0.0, 0.5, 1.0), (0.0, 0.25, 1.0)
+        )
+    )
+    step.solve(until=0.5)
+    assert float(np.asarray(contact.motion_factor.value).reshape(-1)[0]) == pytest.approx(0.25)
+    assert float(np.asarray(contact.surface_point.value).reshape(-1)[0]) == pytest.approx(0.9975)
+    step.solve()
+    assert float(np.asarray(contact.motion_factor.value).reshape(-1)[0]) == pytest.approx(1.0)
+    assert float(np.asarray(contact.surface_point.value).reshape(-1)[0]) == pytest.approx(0.99)
+
+
+def test_j2_rotating_tool_force_is_conjugate_to_contact_potential():
+    _, _, _, contact, step = _j2_moving_contact_patch(
+        rotation=(0.0, 0.0, 0.02), cells=2
+    )
+    result = step.solve_result()
+    energy_at_end = step._contact_potential()
+    increment = 1.0e-6
+    try:
+        contact.update_motion(1.0 - increment)
+        energy_before_end = step._contact_potential()
+    finally:
+        contact.update_motion(1.0)
+    generalized_force = np.asarray(
+        result.metadata["constraint_duals"][0]["force"], dtype=float
+    )
+    path_direction = contact.motion.generalized_coordinate(1.0)
+    assert (energy_at_end - energy_before_end) / increment == pytest.approx(
+        float(np.dot(generalized_force, path_direction)), rel=2.0e-4
+    )
+
+
+def test_j2_rotating_plane_tool_work_refines_on_multicell_patch():
+    # A tilted plane gives nonuniform face contact. This is a spatial
+    # self-consistency check, not an independent curved-tool reference.
+    work = []
+    for cells in (1, 2, 3):
+        _, _, _, _, step = _j2_moving_contact_patch(
+            rotation=(0.0, 0.0, 0.02), cells=cells
+        )
+        step.solve()
+        frame = step.energy_history[-1]
+        assert np.isfinite(frame.mechanical_energy_residual)
+        work.append(frame.tool_work)
+    assert abs(work[2] - work[1]) < abs(work[1] - work[0])
+
+
+def test_public_j2_moving_tool_restart_and_rollback(monkeypatch, tmp_path):
+    _, _, _, _, reference = _j2_moving_contact_patch()
+    reference.solve()
+    _, _, _, contact, partial = _j2_moving_contact_patch()
+    partial.solve(until=1.0 / 3.0)
+    accepted_u = partial.solution.x.array.copy()
+    accepted_state = partial.response.state.committed_state_vectors().copy()
+    accepted_point = np.asarray(contact.surface_point.value).copy()
+    saved = partial.save_checkpoint(tmp_path / "moving_contact")
+
+    def fail_contact_energy():
+        raise ValueError("intentional moving contact failure")
+
+    monkeypatch.setattr(partial, "_contact_potential", fail_contact_energy)
+    with pytest.raises(RuntimeError, match="intentional moving contact failure"):
+        partial.solve(until=0.5)
+    assert partial.accepted_load_factor == pytest.approx(1.0 / 3.0)
+    np.testing.assert_allclose(partial.solution.x.array, accepted_u)
+    np.testing.assert_allclose(
+        partial.response.state.committed_state_vectors(), accepted_state,
+    )
+    np.testing.assert_allclose(contact.surface_point.value, accepted_point)
+
+    _, _, _, restored_contact, restored = _j2_moving_contact_patch()
+    restored.load_checkpoint(saved)
+    np.testing.assert_allclose(restored_contact.surface_point.value, accepted_point)
+    restored.solve()
+    np.testing.assert_allclose(restored.solution.x.array, reference.solution.x.array)
+    np.testing.assert_allclose(
+        restored.response.state.committed_state_vectors(),
+        reference.response.state.committed_state_vectors(),
+    )
+    assert restored.energy_history[-1].tool_work == pytest.approx(
+        reference.energy_history[-1].tool_work,
+        rel=2.0e-8,
+    )
+
+
+def test_public_j2_rotating_plane_records_force_and_moment():
+    _, _, _, contact, step = _j2_moving_contact_patch(rotation=(0.0, 0.0, 0.02))
+    result = step.solve_result()
+    dual = result.metadata["constraint_duals"][0]
+    assert np.isfinite(result.histories["tool_work"].values[-1])
+    assert result.histories["tool_work"].values[-1] > 0.0
+    assert abs(dual["diagnostics"]["contact_moment"][2]) > 1.0e-6
+    assert abs(np.asarray(contact.normal.value)[1]) > 1.0e-3
 
 
 def test_public_standard_j2_provider_result_output_progress_and_checkpoint(tmp_path):

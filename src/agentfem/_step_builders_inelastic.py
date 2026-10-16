@@ -387,16 +387,26 @@ def finite_strain_j2(
                 "TimeDependentDirichlet histories. Prescribe the end-of-step "
                 "value and drive it with the shared step amplitude."
             )
-        if model.boundary_models:
-            names = tuple(
-                getattr(item, "name", type(item).__name__)
-                for item in model.boundary_models
-            )
-            raise NotImplementedError(
-                "Standard finite-strain J2 does not yet consume weak boundary "
-                f"models; unsupported={names}. Their residual and consistent "
-                "tangent must be lowered together."
-            )
+        from .boundary_models import RigidObstaclePenaltyContact
+
+        boundary_models = tuple(model.boundary_models)
+        contact = None
+        if boundary_models:
+            if (
+                len(boundary_models) != 1
+                or not isinstance(boundary_models[0], RigidObstaclePenaltyContact)
+            ):
+                names = tuple(
+                    getattr(item, "name", type(item).__name__)
+                    for item in boundary_models
+                )
+                raise NotImplementedError(
+                    "Standard finite-strain J2 currently consumes at most one "
+                    "frictionless analytical rigid-plane contact; "
+                    f"unsupported={names}. Other weak models, discrete "
+                    "surfaces and MPC require separate evidence."
+                )
+            contact = boundary_models[0]
         selected_loads, selected_amplitude = _single_shared_amplitude_loads(
             model.loads,
             amplitude,
@@ -421,6 +431,7 @@ def finite_strain_j2(
                 for item in physical_loads
             ),
             constraints=selected_constraints,
+            contact=contact,
             incrementation=incrementation,
             solver_options=solver_options,
             quadrature_degree=quadrature_degree,
