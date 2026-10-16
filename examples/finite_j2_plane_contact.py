@@ -40,7 +40,7 @@ def main() -> None:
         raise RuntimeError("This combined finite-J2/contact example is serial only.")
     domain = dolfinx_mesh.create_unit_cube(MPI.COMM_SELF, 1, 1, 1)
     model = models.create(
-        study=studies.nonlinear_static(physics="solid_mechanics", dimension=3),
+        study=studies.static_solid(dimension=3, nonlinear=True),
         mesh=domain,
         name="finite_j2_plane_contact",
     )
