@@ -21,7 +21,6 @@ from agentfem import (
     boundary_models,
     constitutive,
     fields,
-    io,
     mesh,
     models,
     results,
@@ -82,13 +81,16 @@ def main() -> None:
     result = step.solve_result() if args.until == 1.0 else None
     if result is None:
         step.solve(until=args.until)
-    # The nonlinear result retains quadrature material fields. XDMF does not
-    # represent those cellwise quadrature spaces; export the nodal displacement
-    # explicitly, without silently dropping the material history from result.
-    with io.ResultWriter(args.output / "fields.xdmf", domain, (displacement.value,)) as writer:
-        writer.write(args.until)
+    # Keep one ParaView grid per frame. Quadrature state is separate scientific
+    # data, not an implicitly smoothed visualization field.
+    with results.UnifiedXDMFTimeSeries(args.output / "fields.xdmf") as writer:
+        writer.write_fields(args.until, displacement.value)
     step.save_checkpoint(args.output / "checkpoint")
     if result is not None:
+        raw = results.write_integration_point_fields(
+            result, args.output / "integration-points.h5"
+        )
+        result.add_artifact("integration_points_hdf5", raw.hdf5)
         result.write_manifest(args.output / "result.json")
     right_displacement = results.probe(displacement, at=(1.0, 0.5, 0.5))[0]
     energy = step.energy_history[-1]

@@ -64,8 +64,9 @@ misrepresented as a combined-branch native run. The public example was run
 once continuously and once as three accepted increments plus checkpoint and
 restart. Final displacement, plastic deformation gradient, PEEQ, plastic
 dissipation and energy history matched exactly. Timing/event metadata did
-not, as expected. A final nodal-displacement XDMF and a result manifest were
-written without pretending that XDMF contains the unsmoothed quadrature state.
+not, as expected. The example now writes a single-grid nodal-displacement
+XDMF plus a separate unsmoothed integration-point HDF5 linked from its result
+manifest; it does not pretend that XDMF contains the quadrature state.
 For a tilted plane, fixed-displacement differentiation of the contact
 potential matches the accepted generalized force (translation plus moment)
 on a two-cell-per-axis patch. A separate one/two/three-cell-per-axis scan
