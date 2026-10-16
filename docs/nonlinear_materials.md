@@ -214,6 +214,9 @@ work separately from material stored energy and plastic dissipation. This
 bounded composition is serial and experimental. Triangulated surfaces,
 friction, periodic MPC and portable cross-rank restart are not implied by the
 independent J2 or contact capabilities.
+For a distributed mesh, `model.step(...)` reports `AFM-J2-CONTACT-MPI`
+before solving; `step_capability` reports the same reason while keeping
+`supported=false`.
 The runnable [finite-J2 moving-plane example](https://github.com/haoming-luo/agentfem/blob/main/examples/finite_j2_plane_contact.py)
 uses `model.step(...)` and can stop at a committed intermediate factor with
 `--until 0.5`, then resume from its `checkpoint.npz` in a fresh output

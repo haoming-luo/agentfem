@@ -335,7 +335,8 @@ class StepProvider:
     """One analysis lowering rule.
 
     ``accepts`` must be a read-only predicate. ``lower`` may construct and
-    register an executable step on the supplied model.
+    register an executable step on the supplied model. An optional
+    ``rejection_reason`` explains a near-match without advertising support.
     """
 
     name: str
@@ -346,6 +347,7 @@ class StepProvider:
     description: str = ""
     procedure: str | None = None
     option_contract: StepOptionContract | None = None
+    rejection_reason: Callable[[object, StepRequest], str | None] | None = None
 
     def __post_init__(self) -> None:
         normalized = tuple(_normalize(item) for item in self.analyses)
@@ -477,6 +479,7 @@ def step_capability(
     option_issues = ()
     readiness_issues = ()
     selected_target = targets[0]
+    selected_request = None
     for candidate_target in targets:
         request = StepRequest(
             analysis=selected_analysis,
@@ -484,6 +487,8 @@ def step_capability(
             options=selected_options,
             procedure=selected_procedure,
         )
+        if selected_request is None:
+            selected_request = request
         accepted = tuple(item for item in candidates if item.accepts(model, request))
         if accepted:
             rejected = []
@@ -524,6 +529,11 @@ def step_capability(
         ),
         "provider": None if provider is None else provider.summary(),
         "candidate_providers": tuple(item.name for item in candidates),
+        "rejection_reasons": (
+            _DEFAULT_REGISTRY.rejection_reasons(model, selected_request, candidates)
+            if provider is None and selected_request is not None
+            else ()
+        ),
         "option_issues": option_issues,
         "readiness_issues": readiness_issues,
     }

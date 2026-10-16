@@ -72,6 +72,10 @@ installed-package run passed 159 J2/contact/native/geometry-worker tests.
 The public example completed from this wheel with the same displacement,
 plastic gradient, PEEQ, dissipation and energy history arrays as the source
 run. This still does not substitute for full-platform CI or Windows hardware.
+The composed MPI limit is exercised in one bounded two-rank test: capability
+inspection reports unsupported with `AFM-J2-CONTACT-MPI`, and Step creation
+raises that same diagnostic before assembly. Standalone distributed J2 remains
+independent and supported; the limit applies only to this contact composition.
 
 ## Next gates before release promotion
 
@@ -86,6 +90,23 @@ run. This still does not substitute for full-platform CI or Windows hardware.
    candidate; compare a triangulated flat tool to the analytical plane.
 4. Only then compose periodic MPC, ensuring both contact residual and tangent
    participate in the same reduction, trial/rollback and work ledger.
+
+The discrete-tool candidate should be a boundary-quadrature contact
+**Operator**, not a special J2 constitutive model. At each Newton trial it
+must project current slave quadrature points onto current tool geometry,
+assemble both the penalty residual and its branch-consistent linearization,
+and report ambiguous facet/edge/vertex transitions rather than freezing a
+stale normal. A smooth triangulated flat tool must first reproduce the
+analytical-plane patch and cross-facet path; curved and nonsmooth tools then
+need independent force/work and mesh/penalty checks. The
+[FEBio surface-to-surface formulation](https://pmc.ncbi.nlm.nih.gov/articles/PMC6056201/)
+motivates integrated contact constraints and explicit linearization rather
+than assuming a node-to-facet force is mesh-neutral. The
+[DOLFINx-MPC implementation](https://github.com/jorgensd/dolfinx_mpc)
+provides kinematic reduction infrastructure, not a substitute for unilateral
+sliding contact: assemble the complete material-plus-contact operator before
+reducing it with the periodic transform. Neither source is evidence that our
+unimplemented triangular composition works.
 
 Performance is a separate evidence lane: this composition has no measured
 full-run acceleration claim. Optimize body/contact/data flow against a frozen

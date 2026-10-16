@@ -41,6 +41,22 @@ class ProviderSelectionRegistry:
             provider for provider in self.providers() if analysis in provider.analyses
         )
 
+    def rejection_reasons(self, model, request, candidates=None) -> tuple[dict, ...]:
+        """Explain specific near-misses without treating them as capabilities."""
+
+        selected = self.candidates(request.analysis) if candidates is None else candidates
+        reasons = []
+        for provider in selected:
+            explain = getattr(provider, "rejection_reason", None)
+            if explain is None:
+                continue
+            message = explain(model, request)
+            if message is not None:
+                if not isinstance(message, str) or not message.strip():
+                    raise TypeError("Step provider rejection reasons must be nonempty text")
+                reasons.append({"provider": provider.name, "message": message})
+        return tuple(reasons)
+
     def resolve(self, model, request):
         """Select one provider or raise a repairable capability error."""
 
@@ -61,12 +77,23 @@ class ProviderSelectionRegistry:
             type(record.item).__name__ for record in getattr(model, "materials", ())
         ]
         material = getattr(request, "material", None)
+        reasons = self.rejection_reasons(model, request, candidates)
+        detail = (
+            " Diagnostics: "
+            + "; ".join(
+                f"{item['provider']}: {item['message']}" for item in reasons
+            )
+            + "."
+            if reasons
+            else ""
+        )
         raise NotImplementedError(
             "No step provider accepted "
             f"analysis={request.analysis!r}, material="
             f"{type(material).__name__ if material is not None else None!r}, "
             f"registered_materials={registered_materials!r}. "
             f"Candidate providers={[item.name for item in candidates]!r}."
+            + detail
         )
 
 

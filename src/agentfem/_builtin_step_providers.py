@@ -444,6 +444,54 @@ def _accept_finite_strain_j2_strong(model, request: StepRequest) -> bool:
     )
 
 
+def _finite_strain_j2_strong_rejection_reason(model, request: StepRequest) -> str | None:
+    """Explain the bounded contact/MPI near-match without claiming support."""
+
+    from .constitutive import FiniteStrainJ2Logarithmic
+    from .boundary_models import RigidObstaclePenaltyContact
+    from .constraints import (
+        DirichletConstraint,
+        RemoteDisplacementConstraint,
+        constraint_assets,
+    )
+
+    boundary_models = tuple(getattr(model, "boundary_models", ()))
+    if len(boundary_models) != 1 or not isinstance(
+        boundary_models[0], RigidObstaclePenaltyContact
+    ):
+        return None
+    target_mesh = getattr(getattr(request.target, "space", None), "mesh", None)
+    if getattr(getattr(target_mesh, "comm", None), "size", 1) <= 1:
+        return None
+    study = getattr(model, "study", None)
+    selected_constraints = request.option("constraints")
+    if selected_constraints is None:
+        selected_constraints = tuple(getattr(model, "constraints", ()))
+    selected_constraints = constraint_assets(selected_constraints)
+    if not (
+        getattr(study, "physics", None) == "solid_mechanics"
+        and getattr(study, "dimension", None) == 3
+        and getattr(request.target, "kind", None) != "displacement_pressure"
+        and _is_vector_target(request.target)
+        and _all_materials_support(
+            model,
+            request,
+            lambda item: isinstance(item, FiniteStrainJ2Logarithmic),
+        )
+        and selected_constraints
+        and all(
+            isinstance(item, (DirichletConstraint, RemoteDisplacementConstraint))
+            for item in selected_constraints
+        )
+    ):
+        return None
+    return (
+        "AFM-J2-CONTACT-MPI: finite-strain J2 plus analytical-plane contact "
+        "is currently serial; standalone MPI J2/contact evidence does not "
+        "certify their composition."
+    )
+
+
 def _lower_finite_strain_j2(model, request: StepRequest):
     from . import _step_builders
 
@@ -1389,6 +1437,7 @@ register_step_provider(
         name="finite_strain_j2_strong_static",
         analyses=("nonlinear_static",),
         accepts=_accept_finite_strain_j2_strong,
+        rejection_reason=_finite_strain_j2_strong_rejection_reason,
         lower=_lower_finite_strain_j2,
         priority=125,
         description=(
