@@ -43,6 +43,10 @@ not move a user's project or tune scientific controls without consent. Native
 explicit body/contact transport has bounded local regressions, but no
 cross-machine or full-run throughput claim is attached to this release.
 
+The publication gate now ignores directory records added by repaired Linux
+wheels while retaining runtime-file identity checks. A GitHub tag is not a
+substitute for a successful installed-wheel gate and PyPI publication.
+
 The exact release artifacts must pass the repository's installed-wheel,
 platform and scientific gates before a tag is published. The candidate scope
 and outstanding evidence are recorded in the

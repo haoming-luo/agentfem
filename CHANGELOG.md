@@ -25,6 +25,11 @@ experimental formulation to a validated one.
   controls. Reuse checked explicit body/contact transport and worker
   validation; short-run startup improvements are not a full-run speed claim.
 
+- Make release identity checks compare files rather than ZIP/tar directory
+  records. Repaired Linux wheels may contain explicit directory entries; these
+  are not runtime payload mismatches. File hashes and installed-wheel smoke
+  remain required before publication.
+
 - Stream selected accepted response fields as a single-grid process time series,
   independently of history and checkpoint cadence. Fixed mesh geometry is shared;
   restart segments preserve the original schedule without changing integration.

@@ -58,6 +58,14 @@ to industrial forming verification.
 
 ## Still required before tagging
 
+The previous v0.4.2 GitHub release did not reach PyPI: its Linux repaired
+wheel contained 37 ordinary ZIP directory records, which the installed-wheel
+identity gate incorrectly compared as runtime files. The 0.4.3 candidate now
+filters archive directory records and retains the actual file-hash comparison;
+a regression exercises both ZIP and source archives. The exact tagged Linux
+wheel must still pass the publication workflow's installed-use gate before
+PyPI upload. A GitHub release page alone is not publication evidence.
+
 1. Required remote checks on the exact integrated PR heads, including the
    installed FEniCSx job, must finish successfully. Merge the fixed-facet PR
    before the stacked moving-facet PR, then recheck the latter against main.
