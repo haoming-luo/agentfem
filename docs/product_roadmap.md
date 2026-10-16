@@ -32,8 +32,13 @@ one increment lifecycle. The elastic small-strain contact provider must not win
 dispatch merely because a history material also exposes `young` and `poisson`.
 
 This is an experimental serial composition, not a general forming solver.
-Triangulated die face/edge transitions, periodic MPC reduction, mixed
-displacement-pressure elements, friction and MPI
+A stacked candidate now adds one triangulated rigid tool with current-trial
+BVH projection and normalized prescribed motion, but only while active contact
+lies on planar facets or coplanar interior seams. Its force--moment--work and
+joint restart evidence are recorded in the
+[candidate gate](internal/release_0_4_3_candidate_gate_20261016.md).
+Curved/creased die transitions, periodic MPC reduction, mixed
+displacement-pressure elements, friction and distributed implicit assembly
 remain explicit follow-ups. Promote them one at a time only with tangent,
 force/work/energy, failed-attempt rollback, restart and independent refinement
 evidence. For MPC, reduce the *total* residual and tangent including contact;

@@ -6,6 +6,25 @@ experimental formulation to a validated one.
 
 ## [Unreleased]
 
+## [0.4.3] - 2026-10-17
+
+- Compose experimental serial three-dimensional finite-strain J2 with one
+  frictionless analytical-plane or bounded triangulated rigid-tool contact
+  Operator in the ordinary Newton Step. Reproject each faceted trial, add the
+  current planar-branch residual/tangent, and retain accepted tool
+  force--moment--work, material state and checkpoint identity. Prescribed
+  normalized translation/rotation shares the Step load path. Reject active
+  noncoplanar edges, periodic MPC plus contact, friction, distributed implicit
+  assembly and other unverified combinations rather than silently ignoring
+  them. Plane-limit, no-traction motion, three-axis rotation, sensitivity and
+  rollback checks do not establish industrial curved-die validation.
+
+- Consolidate checked array-mesh import and ordinary project execution,
+  including sibling imports and failed-run evidence. Report WSL storage and
+  runtime conditions without moving user projects or changing scientific
+  controls. Reuse checked explicit body/contact transport and worker
+  validation; short-run startup improvements are not a full-run speed claim.
+
 - Stream selected accepted response fields as a single-grid process time series,
   independently of history and checkpoint cadence. Fixed mesh geometry is shared;
   restart segments preserve the original schedule without changing integration.
@@ -1449,7 +1468,11 @@ because the package version is stable.
   platform with readable study, model, step, result, campaign, and evidence
   contracts.
 
-[Unreleased]: https://github.com/haoming-luo/agentfem/compare/v0.3.8...HEAD
+[Unreleased]: https://github.com/haoming-luo/agentfem/compare/v0.4.3...HEAD
+[0.4.3]: https://github.com/haoming-luo/agentfem/compare/v0.4.2...v0.4.3
+[0.4.2]: https://github.com/haoming-luo/agentfem/compare/v0.4.1...v0.4.2
+[0.4.1]: https://github.com/haoming-luo/agentfem/compare/v0.4.0...v0.4.1
+[0.4.0]: https://github.com/haoming-luo/agentfem/compare/v0.3.8...v0.4.0
 [0.3.8]: https://github.com/haoming-luo/agentfem/compare/v0.3.7...v0.3.8
 [0.3.7]: https://github.com/haoming-luo/agentfem/compare/v0.3.6...v0.3.7
 [0.3.6]: https://github.com/haoming-luo/agentfem/compare/v0.3.5...v0.3.6
