@@ -21,7 +21,7 @@ or a successful run is not by itself a validated engineering capability.
 
 ### 0.4.3 composition and release gate (2026-10-16)
 
-The next version should be promoted by one composed scientific workflow, not
+The 0.4.3 candidate is promoted by one composed scientific workflow, not
 by accumulating isolated feature names. The first bounded native slice is
 three-dimensional finite-strain J2 with ordinary strong constraints and one
 analytical rigid plane under frictionless penalty contact. The plane may be
@@ -32,7 +32,7 @@ one increment lifecycle. The elastic small-strain contact provider must not win
 dispatch merely because a history material also exposes `young` and `poisson`.
 
 This is an experimental serial composition, not a general forming solver.
-A stacked candidate now adds one triangulated rigid tool with current-trial
+The integrated candidate adds one triangulated rigid tool with current-trial
 BVH projection and normalized prescribed motion, but only while active contact
 lies on planar facets or coplanar interior seams. Its force--moment--work and
 joint restart evidence are recorded in the

@@ -1,4 +1,4 @@
-"""Bounded public J2 plus fixed triangulated-tool integration checks."""
+"""Bounded public J2 plus fixed and moving triangulated-tool checks."""
 
 from __future__ import annotations
 

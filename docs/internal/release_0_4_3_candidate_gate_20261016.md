@@ -1,9 +1,9 @@
 # 0.4.3 candidate decision record — 2026-10-16
 
 This is a release gate, not an announcement that a version has been tagged or
-that a general forming solver has been validated. The exact tested source is
-`af7b52a3` on the stacked moving-facet branch; merge commits and a final
-release-version change will require their own candidate check.
+that a general forming solver has been validated. The initial moving-facet
+evidence below came from `af7b52a3`; final release evidence must instead bind
+to the integrated candidate's exact source and installed wheel.
 
 ## Proposed bounded claim
 
@@ -66,14 +66,15 @@ a regression exercises both ZIP and source archives. The exact tagged Linux
 wheel must still pass the publication workflow's installed-use gate before
 PyPI upload. A GitHub release page alone is not publication evidence.
 
-1. Required remote checks on the exact integrated PR heads, including the
-   installed FEniCSx job, must finish successfully. Merge the fixed-facet PR
-   before the stacked moving-facet PR, then recheck the latter against main.
-2. Freeze the final source and run candidate-bound installed-wheel checks
-   after the merge and release metadata update; do not reuse the hash of the
-   earlier branch wheel as evidence for a changed source tree.
-3. Update the changelog, version, citation and scoped release notes together.
-   A tag triggers the publishing workflow and must not precede its gates.
+1. The analytical-plane, fixed-facet and moving-facet PRs have merged. Required
+   remote checks on the exact 0.4.3 release PR head, including installed
+   FEniCSx, must finish successfully before that PR merges.
+2. Freeze the integrated source and run candidate-bound installed-wheel checks
+   after the release metadata merge; do not reuse a branch-wheel hash as
+   evidence for a changed source tree.
+3. The changelog, version, citation and scoped release notes move together.
+   Tagging triggers the publishing workflow; verify that exact tagged wheel,
+   then confirm actual PyPI publication rather than assuming a GitHub tag did it.
 4. Preserve the known limits in capability discovery and user documentation.
    Windows/WSL or a nonplanar die needs separate installation and scientific
    evidence; a Mac wheel smoke cannot establish either.
