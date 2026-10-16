@@ -22,7 +22,8 @@ from agentfem.step_providers import step_capability
 
 def _patch(*, triangulated: bool, gap: float = 0.005, penalty=500.0,
            cells=1, constrain_contact=False, tilt=0.0,
-           tool_translation=None, tool_rotation=(0.0, 0.0, 0.0)):
+           tool_translation=None, tool_rotation=(0.0, 0.0, 0.0),
+           schedule_end=1.0, make_step=True):
     domain = dolfinx_mesh.create_unit_cube(MPI.COMM_SELF, cells, cells, cells)
     model = models.create(
         study=studies.static_solid(dimension=3, nonlinear=True),
@@ -67,7 +68,7 @@ def _patch(*, triangulated: bool, gap: float = 0.005, penalty=500.0,
                 motion_schedule=(
                     None if tool_motion is None
                     else boundary_models.prescribed_rigid_motion_schedule(
-                        tool_motion, start_time=0, end_time=1,
+                        tool_motion, start_time=0, end_time=schedule_end,
                     )
                 ),
             ),
@@ -85,6 +86,8 @@ def _patch(*, triangulated: bool, gap: float = 0.005, penalty=500.0,
     if constrain_contact:
         model.fix(displacement, on=right, component=0, value=0.0)
     model.traction((10.0, 0.0, 0.0), on=right)
+    if not make_step:
+        return model, displacement, material, None
     step = model.step(
         target=displacement,
         material=material,
@@ -98,6 +101,23 @@ def _patch(*, triangulated: bool, gap: float = 0.005, penalty=500.0,
         progress=False,
     )
     return model, displacement, material, step
+
+
+def test_non_normalized_tool_schedule_is_rejected_by_capability_and_step():
+    model, displacement, material, _ = _patch(
+        triangulated=True,
+        tool_translation=(-0.006, 0.0, 0.0),
+        schedule_end=2.0,
+        make_step=False,
+    )
+    capability = step_capability(model, target=displacement, options={"material": material})
+    assert not capability["supported"]
+    assert any(
+        item["message"].startswith("AFM-IMPLICIT-CONTACT-MOTION")
+        for item in capability["rejection_reasons"]
+    )
+    with pytest.raises(NotImplementedError, match="AFM-IMPLICIT-CONTACT-MOTION"):
+        model.step(target=displacement, material=material)
 
 
 @pytest.mark.parametrize("cells,penalty", [(1, 250.0), (1, 500.0), (1, 1000.0), (2, 500.0)])

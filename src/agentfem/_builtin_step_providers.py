@@ -451,18 +451,34 @@ def _accept_finite_strain_j2_strong(model, request: StepRequest) -> bool:
     if len(boundary_models) != 1 or getattr(getattr(target_mesh, "comm", None), "size", 1) != 1:
         return False
     selected = boundary_models[0]
+    schedule = (
+        selected.rigid_body.motion_schedule
+        if isinstance(selected, RigidContactPair) else None
+    )
     return isinstance(selected, RigidObstaclePenaltyContact) or (
         isinstance(selected, RigidContactPair)
         and isinstance(selected.rigid_body.surface, TriangulatedRigidSurface)
         and selected.friction is None
         and selected.law.invalid_policy == "reject"
+        and (
+            schedule is None
+            or (
+                schedule.start_time == 0.0
+                and schedule.end_time == 1.0
+                and schedule.amplitude is None
+            )
+        )
     )
 
 
 def _finite_strain_j2_strong_rejection_reason(model, request: StepRequest) -> str | None:
     """Explain the bounded contact/MPI near-match without claiming support."""
 
-    from .boundary_models import RigidContactPair, RigidObstaclePenaltyContact
+    from .boundary_models import (
+        RigidContactPair,
+        RigidObstaclePenaltyContact,
+        TriangulatedRigidSurface,
+    )
 
     if not _finite_strain_j2_strong_preconditions(model, request):
         return None
@@ -472,13 +488,28 @@ def _finite_strain_j2_strong_rejection_reason(model, request: StepRequest) -> st
     ):
         return None
     target_mesh = getattr(getattr(request.target, "space", None), "mesh", None)
-    if getattr(getattr(target_mesh, "comm", None), "size", 1) <= 1:
-        return None
-    return (
-        "AFM-J2-CONTACT-MPI: finite-strain J2 plus rigid contact "
-        "is currently serial; standalone MPI J2/contact evidence does not "
-        "certify their composition."
-    )
+    if getattr(getattr(target_mesh, "comm", None), "size", 1) > 1:
+        return (
+            "AFM-J2-CONTACT-MPI: finite-strain J2 plus rigid contact "
+            "is currently serial; standalone MPI J2/contact evidence does not "
+            "certify their composition."
+        )
+    selected = boundary_models[0]
+    if isinstance(selected, RigidContactPair) and isinstance(
+        selected.rigid_body.surface, TriangulatedRigidSurface
+    ):
+        schedule = selected.rigid_body.motion_schedule
+        if schedule is not None and (
+            schedule.start_time != 0.0
+            or schedule.end_time != 1.0
+            or schedule.amplitude is not None
+        ):
+            return (
+                "AFM-IMPLICIT-CONTACT-MOTION: static J2 contact requires a "
+                "normalized 0-to-1 rigid-motion schedule without a separate "
+                "physical-time amplitude; the Step owns the load amplitude."
+            )
+    return None
 
 
 def _lower_finite_strain_j2(model, request: StepRequest):

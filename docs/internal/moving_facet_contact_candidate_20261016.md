@@ -46,8 +46,9 @@ displacement, reference-area quadrature, and active projection on planar
 interior/coplanar seams only. No free/noncoplanar edge transition, friction,
 multiple pairs, contact/strong-BC overlap, periodic MPC, or distributed
 implicit assembly. A non-normalized independent motion schedule is rejected
-rather than silently remapped to the static Step. Full installed-wheel and
-remote CI gates must still pass for this candidate.
+rather than silently remapped to the static Step; both capability discovery
+and `model.step(...)` report the same stable diagnostic. Full installed-wheel
+and remote CI gates must still pass for this candidate.
 
 ## Next review gates
 
