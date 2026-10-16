@@ -7,11 +7,13 @@ import pytest
 from mpi4py import MPI
 
 from agentfem import (
+    boundary_models,
     checkpointing,
     constraints,
     constitutive,
     fields,
     loads,
+    mesh,
     models,
     results,
     solvers,
@@ -21,6 +23,49 @@ from agentfem import (
 from agentfem.step_providers import step_capability
 
 from periodic_cube_fixture import periodic_unit_cube
+
+
+def test_periodic_j2_rejects_registered_contact_in_capability_and_step():
+    fixture = periodic_unit_cube(MPI.COMM_SELF)
+    model = models.create(
+        study=studies.nonlinear_static(physics="solid_mechanics", dimension=3),
+        mesh=fixture.domain,
+    )
+    displacement = model.field(fields.displacement(fixture.domain))
+    material = model.material(
+        constitutive.finite_strain_j2_logarithmic(
+            young=200_000.0,
+            poisson=0.3,
+            yield_stress=200.0,
+            hardening_modulus=2_000.0,
+        )
+    )
+    periodicity = model.constraint(fixture.constraint(displacement))
+    right = mesh.boundary(
+        fixture.domain,
+        lambda x: np.isclose(x[0], 1.0),
+        name="periodic_contact_right",
+    )
+    model.rigid_obstacle_contact(
+        on=right,
+        penalty=1_000.0,
+        surface=boundary_models.rigid_plane(
+            point=(1.1, 0.0, 0.0),
+            normal=(-1.0, 0.0, 0.0),
+        ),
+    )
+    capability = step_capability(
+        model,
+        target=displacement,
+        options={"material": material, "constraints": periodicity},
+    )
+    assert not capability["supported"]
+    assert any(
+        item["message"].startswith("AFM-J2-CONTACT-MPC")
+        for item in capability["rejection_reasons"]
+    )
+    with pytest.raises(NotImplementedError, match="AFM-J2-CONTACT-MPC"):
+        model.step(target=displacement, material=material, constraints=periodicity)
 
 
 def _integrate_material_path(material, deformation_gradient, increments):

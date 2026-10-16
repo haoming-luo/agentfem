@@ -36,6 +36,7 @@ class DolfinxImplicitFacetContact:
     adapter: DolfinxContactTraceAdapter
     displacement: object
     projector: TriangleSurfaceBVH
+    motion_factor: object | None = None
 
     def __post_init__(self) -> None:
         if not isinstance(self.pair, RigidContactPair):
@@ -56,11 +57,22 @@ class DolfinxImplicitFacetContact:
                 "Implicit facet contact requires invalid_policy='reject'; "
                 "an unsupported or ambiguous projection cannot be inactive."
             )
-        if self.pair.rigid_body.motion_schedule is not None:
-            raise NotImplementedError(
-                "Implicit facet contact does not yet provide prescribed-tool "
-                "work and pose rollback."
-            )
+        schedule = self.pair.rigid_body.motion_schedule
+        if schedule is not None:
+            if (
+                schedule.start_time != 0.0
+                or schedule.end_time != 1.0
+                or schedule.amplitude is not None
+            ):
+                raise NotImplementedError(
+                    "AFM-IMPLICIT-CONTACT-MOTION: static J2 contact requires a "
+                    "normalized 0-to-1 rigid-motion schedule without a separate "
+                    "physical-time amplitude; the Step owns the load amplitude."
+                )
+            if self.motion_factor is None:
+                raise ValueError("Moving facet contact requires a mutable pose factor.")
+        elif self.motion_factor is not None:
+            raise ValueError("A fixed facet contact cannot own a pose factor.")
         if not isinstance(self.pair.rigid_body.surface, TriangulatedRigidSurface):
             raise TypeError("Implicit facet contact requires a triangulated rigid tool.")
         if self.projector.surface is not self.pair.rigid_body.surface:
@@ -80,15 +92,14 @@ class DolfinxImplicitFacetContact:
 
     @property
     def has_prescribed_motion(self) -> bool:
-        return False
-
-    @property
-    def motion_factor(self):
-        return None
+        return self.pair.rigid_body.motion_schedule is not None
 
     def update_motion(self, factor: float) -> None:
-        if not np.isfinite(float(factor)):
-            raise ValueError("Contact load factor must be finite.")
+        selected = float(factor)
+        if not np.isfinite(selected) or not 0.0 <= selected <= 1.0 + 1.0e-12:
+            raise ValueError("Contact load factor must lie in [0, 1].")
+        if self.motion_factor is not None:
+            self.motion_factor.value = selected
 
     def capabilities(self):
         from ..constraints import ConstraintCapabilities
@@ -101,22 +112,37 @@ class DolfinxImplicitFacetContact:
             strict=False,
             supports_parallel=False,
             reaction_evidence="provider_dual_required",
-            work_evidence="internal_energy_operator",
+            work_evidence=(
+                "provider_dual_path_required"
+                if self.has_prescribed_motion else "internal_energy_operator"
+            ),
         )
 
     def evaluate(self) -> ImplicitFacetContactContribution:
         """Reproject the current displacement and assemble a fresh trial Operator."""
 
         evaluation = self.adapter.evaluate(self.displacement)
-        projection = self.projector.project(evaluation.query_points)
+        schedule = self.pair.rigid_body.motion_schedule
+        factor = (
+            0.0 if self.motion_factor is None
+            else float(np.asarray(self.motion_factor.value).reshape(-1)[0])
+        )
+        projection = self.projector.project(
+            evaluation.query_points,
+            motion=None if schedule is None else schedule.motion,
+            factor=factor,
+        )
         record = ContactProjectionRecord(self.adapter.trace.point_ids, projection)
         response = self.pair.law.evaluate(record.projection)
+        reference_point = self.pair.rigid_body.reference_point
+        if schedule is not None:
+            reference_point = schedule.motion.state(factor)["reference_point"]
         return linearize_piecewise_planar_contact(
             evaluation,
             record,
             response,
             self.surface,
-            surface_reference_point=self.pair.rigid_body.reference_point,
+            surface_reference_point=reference_point,
         )
 
     def add_residual(self, vector, contribution: ImplicitFacetContactContribution) -> None:
@@ -175,9 +201,21 @@ class DolfinxImplicitFacetContact:
         )
         distribution.x.array[:] = -contribution.assembly.nodal_structural_residual.reshape(-1)
         distribution.x.scatter_forward()
+        force = contribution.assembly.contact_force_on_structure
+        coordinate = None
+        if self.has_prescribed_motion:
+            moment = contribution.assembly.surface_generalized_moment
+            if moment is None:
+                raise RuntimeError("Moving facet contact requires moment evidence.")
+            factor = float(np.asarray(self.motion_factor.value).reshape(-1)[0])
+            force = np.concatenate((force, moment))
+            coordinate = self.pair.rigid_body.motion_schedule.motion.generalized_coordinate(
+                factor
+            )
         return constraint_dual(
             self.pair,
-            force=contribution.assembly.contact_force_on_structure,
+            force=force,
+            coordinate=coordinate,
             resultant=contribution.assembly.contact_force_on_structure,
             distribution=distribution,
             role="contact_constraint",
@@ -190,7 +228,7 @@ class DolfinxImplicitFacetContact:
                     else contribution.assembly.surface_generalized_moment.tolist()
                 ),
                 "projection": "current_geometry_bvh",
-                "linearization": "fixed_piecewise_planar_normal_branch",
+                "linearization": "piecewise_planar_normal_branch_at_current_pose",
             },
         )
 
@@ -200,8 +238,8 @@ class DolfinxImplicitFacetContact:
             "pair": self.pair.summary(),
             "trace": self.adapter.summary(),
             "search": self.projector.summary(),
-            "linearization": "fixed_piecewise_planar_normal_branch",
-            "execution_scope": "serial_fixed_frictionless_reference_area",
+            "linearization": "piecewise_planar_normal_branch_at_current_pose",
+            "execution_scope": "serial_frictionless_reference_area",
         }
 
 
@@ -219,11 +257,17 @@ def dolfinx_implicit_facet_contact(
         pair.slave_boundary,
         displacement.function_space,
     )
+    from dolfinx import fem
+
     return DolfinxImplicitFacetContact(
         pair=pair,
         adapter=adapter,
         displacement=displacement,
         projector=triangle_surface_bvh(pair.rigid_body.surface),
+        motion_factor=(
+            None if pair.rigid_body.motion_schedule is None
+            else fem.Constant(displacement.function_space.mesh, 0.0)
+        ),
     )
 
 

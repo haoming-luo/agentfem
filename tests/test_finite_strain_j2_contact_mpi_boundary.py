@@ -9,7 +9,9 @@ from agentfem import boundary_models, constitutive, fields, mesh, models, studie
 
 
 @pytest.mark.skipif(MPI.COMM_WORLD.size == 1, reason="two MPI ranks required")
-@pytest.mark.parametrize("tool_kind", ["analytical_plane", "triangulated_plane"])
+@pytest.mark.parametrize("tool_kind", [
+    "analytical_plane", "triangulated_plane", "moving_triangulated_plane",
+])
 def test_distributed_j2_rigid_contact_is_rejected_at_step_build(tool_kind):
     domain = dolfinx_mesh.create_unit_cube(MPI.COMM_WORLD, 2, 2, 2)
     model = models.create(
@@ -38,8 +40,19 @@ def test_distributed_j2_rigid_contact_is_rejected_at_step_build(tool_kind):
                       (1.01, 1.5, 1.5), (1.01, 1.5, -0.5)),
             triangles=((0, 1, 2), (0, 2, 3)),
         )
+        schedule = None
+        if tool_kind == "moving_triangulated_plane":
+            motion = boundary_models.prescribed_rigid_motion(
+                translation=(-0.01, 0.0, 0.0),
+                reference_point=(1.01, 0.0, 0.0),
+            )
+            schedule = boundary_models.prescribed_rigid_motion_schedule(
+                motion, start_time=0.0, end_time=1.0,
+            )
         model.add_boundary_model(boundary_models.rigid_contact_pair(
-            right, boundary_models.rigid_body(surface), penalty=500.0,
+            right,
+            boundary_models.rigid_body(surface, motion_schedule=schedule),
+            penalty=500.0,
         ))
     capability = models.step_capability(
         model, target=displacement, options={"material": material}

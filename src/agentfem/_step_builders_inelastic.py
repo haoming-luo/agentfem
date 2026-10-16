@@ -305,6 +305,13 @@ def finite_strain_j2(
         else ()
     )
     if affine:
+        if model.boundary_models:
+            raise NotImplementedError(
+                "AFM-J2-CONTACT-MPC: affine finite-strain J2 cannot consume "
+                "registered boundary models until their residual and tangent "
+                "participate in the same full-space assembly and MPC reduction; "
+                "no contact is ignored."
+            )
         physical_loads = load_api.load_assets(
             model.loads,
             unwrap_amplitudes=True,
@@ -405,7 +412,8 @@ def finite_strain_j2(
                 )
                 raise NotImplementedError(
                     "Standard finite-strain J2 currently consumes at most one "
-                    "frictionless analytical-plane or bounded fixed-facet contact; "
+                    "frictionless analytical-plane or bounded triangulated "
+                    "rigid-tool contact; "
                     f"unsupported={names}. Other weak models, discrete "
                     "surfaces and MPC require separate evidence."
                 )

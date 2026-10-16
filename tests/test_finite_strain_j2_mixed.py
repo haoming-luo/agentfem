@@ -606,6 +606,33 @@ def test_mixed_hencky_j2_tangent_remains_accurate_at_conditioning_ceiling():
     assert relative_error < 2.0e-5
 
 
+def test_mixed_affine_j2_rejects_registered_contact_before_assembly():
+    _, model, unknown, _, material_record, periodicity = _mixed_cube_step()
+    right = mesh.boundary(
+        unknown.space.mesh,
+        lambda x: np.isclose(x[0], 1.0),
+        name="mixed_periodic_contact_right",
+    )
+    model.rigid_obstacle_contact(
+        on=right,
+        penalty=1_000.0,
+        normal=(-1.0, 0.0, 0.0),
+        initial_gap=0.1,
+    )
+    capability = step_capability(
+        model,
+        target=unknown,
+        options={"material": material_record, "constraints": periodicity},
+    )
+    assert not capability["supported"]
+    assert any(
+        item["message"].startswith("AFM-J2-CONTACT-MPC")
+        for item in capability["rejection_reasons"]
+    )
+    with pytest.raises(NotImplementedError, match="AFM-J2-CONTACT-MPC"):
+        model.step(target=unknown, material=material_record, constraints=periodicity)
+
+
 def test_mixed_j2_affine_cube_uses_public_step_and_complete_block_system():
     final_gradient = np.diag((1.04, 0.99, 0.99))
     step, model, unknown, material, material_record, periodicity = _mixed_cube_step(

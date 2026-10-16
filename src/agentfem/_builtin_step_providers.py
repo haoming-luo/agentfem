@@ -350,6 +350,7 @@ def _accept_finite_strain_j2_affine(model, request: StepRequest) -> bool:
         and len(selected_constraints) == 1
         and isinstance(selected_constraints[0], AbaqusPeriodicConstraint)
         and not physical_loads
+        and not getattr(model, "boundary_models", ())
     )
 
 
@@ -401,6 +402,36 @@ def _accept_finite_strain_j2_mixed_affine(
         and len(selected_constraints) == 1
         and isinstance(selected_constraints[0], AbaqusPeriodicConstraint)
         and not physical_loads
+        and not getattr(model, "boundary_models", ())
+    )
+
+
+def _finite_strain_j2_affine_boundary_rejection(model, request: StepRequest) -> str | None:
+    """Keep undeclared weak Operators out of the affine material-only solve."""
+
+    from .constitutive import FiniteStrainJ2Logarithmic
+    from .constraints import AbaqusPeriodicConstraint, constraint_assets
+
+    if not getattr(model, "boundary_models", ()):
+        return None
+    selected_constraints = request.option("constraints")
+    if selected_constraints is None:
+        selected_constraints = tuple(getattr(model, "constraints", ()))
+    selected_constraints = constraint_assets(selected_constraints)
+    if (
+        len(selected_constraints) != 1
+        or not isinstance(selected_constraints[0], AbaqusPeriodicConstraint)
+        or not _all_materials_support(
+            model,
+            request,
+            lambda item: isinstance(item, FiniteStrainJ2Logarithmic),
+        )
+    ):
+        return None
+    return (
+        "AFM-J2-CONTACT-MPC: affine finite-strain J2 cannot consume registered "
+        "boundary models until their residual and tangent participate in the "
+        "same full-space assembly and MPC reduction; no contact is ignored."
     )
 
 
@@ -451,19 +482,34 @@ def _accept_finite_strain_j2_strong(model, request: StepRequest) -> bool:
     if len(boundary_models) != 1 or getattr(getattr(target_mesh, "comm", None), "size", 1) != 1:
         return False
     selected = boundary_models[0]
+    schedule = (
+        selected.rigid_body.motion_schedule
+        if isinstance(selected, RigidContactPair) else None
+    )
     return isinstance(selected, RigidObstaclePenaltyContact) or (
         isinstance(selected, RigidContactPair)
         and isinstance(selected.rigid_body.surface, TriangulatedRigidSurface)
-        and selected.rigid_body.motion_schedule is None
         and selected.friction is None
         and selected.law.invalid_policy == "reject"
+        and (
+            schedule is None
+            or (
+                schedule.start_time == 0.0
+                and schedule.end_time == 1.0
+                and schedule.amplitude is None
+            )
+        )
     )
 
 
 def _finite_strain_j2_strong_rejection_reason(model, request: StepRequest) -> str | None:
     """Explain the bounded contact/MPI near-match without claiming support."""
 
-    from .boundary_models import RigidContactPair, RigidObstaclePenaltyContact
+    from .boundary_models import (
+        RigidContactPair,
+        RigidObstaclePenaltyContact,
+        TriangulatedRigidSurface,
+    )
 
     if not _finite_strain_j2_strong_preconditions(model, request):
         return None
@@ -473,13 +519,28 @@ def _finite_strain_j2_strong_rejection_reason(model, request: StepRequest) -> st
     ):
         return None
     target_mesh = getattr(getattr(request.target, "space", None), "mesh", None)
-    if getattr(getattr(target_mesh, "comm", None), "size", 1) <= 1:
-        return None
-    return (
-        "AFM-J2-CONTACT-MPI: finite-strain J2 plus rigid contact "
-        "is currently serial; standalone MPI J2/contact evidence does not "
-        "certify their composition."
-    )
+    if getattr(getattr(target_mesh, "comm", None), "size", 1) > 1:
+        return (
+            "AFM-J2-CONTACT-MPI: finite-strain J2 plus rigid contact "
+            "is currently serial; standalone MPI J2/contact evidence does not "
+            "certify their composition."
+        )
+    selected = boundary_models[0]
+    if isinstance(selected, RigidContactPair) and isinstance(
+        selected.rigid_body.surface, TriangulatedRigidSurface
+    ):
+        schedule = selected.rigid_body.motion_schedule
+        if schedule is not None and (
+            schedule.start_time != 0.0
+            or schedule.end_time != 1.0
+            or schedule.amplitude is not None
+        ):
+            return (
+                "AFM-IMPLICIT-CONTACT-MOTION: static J2 contact requires a "
+                "normalized 0-to-1 rigid-motion schedule without a separate "
+                "physical-time amplitude; the Step owns the load amplitude."
+            )
+    return None
 
 
 def _lower_finite_strain_j2(model, request: StepRequest):
@@ -1383,6 +1444,7 @@ register_step_provider(
         name="finite_strain_j2_mixed_affine_static",
         analyses=("nonlinear_static",),
         accepts=_accept_finite_strain_j2_mixed_affine,
+        rejection_reason=_finite_strain_j2_affine_boundary_rejection,
         lower=_lower_finite_strain_j2,
         priority=135,
         description=(
@@ -1405,6 +1467,7 @@ register_step_provider(
         name="finite_strain_j2_affine_static",
         analyses=("nonlinear_static",),
         accepts=_accept_finite_strain_j2_affine,
+        rejection_reason=_finite_strain_j2_affine_boundary_rejection,
         lower=_lower_finite_strain_j2,
         priority=130,
         description=(
@@ -1433,7 +1496,8 @@ register_step_provider(
         description=(
             "Lower logarithmic finite-strain J2 to provider-owned quadrature "
             "state and strong-boundary Newton equilibrium, optionally with "
-            "one serial analytical rigid-plane penalty contact."
+            "one serial frictionless analytical-plane or bounded triangulated "
+            "rigid-tool penalty contact."
         ),
         procedure="standard/newton/stateful",
         option_contract=_option_contract(
