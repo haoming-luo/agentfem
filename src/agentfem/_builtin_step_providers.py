@@ -404,9 +404,8 @@ def _accept_finite_strain_j2_mixed_affine(
     )
 
 
-def _accept_finite_strain_j2_strong(model, request: StepRequest) -> bool:
+def _finite_strain_j2_strong_preconditions(model, request: StepRequest) -> bool:
     from .constitutive import FiniteStrainJ2Logarithmic
-    from .boundary_models import RigidObstaclePenaltyContact
     from .constraints import (
         DirichletConstraint,
         RemoteDisplacementConstraint,
@@ -422,13 +421,6 @@ def _accept_finite_strain_j2_strong(model, request: StepRequest) -> bool:
         isinstance(item, (DirichletConstraint, RemoteDisplacementConstraint))
         for item in selected_constraints
     )
-    target_mesh = getattr(getattr(request.target, "space", None), "mesh", None)
-    boundary_models = tuple(getattr(model, "boundary_models", ()))
-    bounded_contact = not boundary_models or (
-        len(boundary_models) == 1
-        and isinstance(boundary_models[0], RigidObstaclePenaltyContact)
-        and getattr(getattr(target_mesh, "comm", None), "size", 1) == 1
-    )
     return (
         getattr(study, "physics", None) == "solid_mechanics"
         and getattr(study, "dimension", None) == 3
@@ -440,21 +432,32 @@ def _accept_finite_strain_j2_strong(model, request: StepRequest) -> bool:
             lambda item: isinstance(item, FiniteStrainJ2Logarithmic),
         )
         and ordinary_strong
-        and bounded_contact
+    )
+
+
+def _accept_finite_strain_j2_strong(model, request: StepRequest) -> bool:
+    from .boundary_models import RigidObstaclePenaltyContact
+
+    if not _finite_strain_j2_strong_preconditions(model, request):
+        return False
+    boundary_models = tuple(getattr(model, "boundary_models", ()))
+    if not boundary_models:
+        return True
+    target_mesh = getattr(getattr(request.target, "space", None), "mesh", None)
+    return (
+        len(boundary_models) == 1
+        and isinstance(boundary_models[0], RigidObstaclePenaltyContact)
+        and getattr(getattr(target_mesh, "comm", None), "size", 1) == 1
     )
 
 
 def _finite_strain_j2_strong_rejection_reason(model, request: StepRequest) -> str | None:
     """Explain the bounded contact/MPI near-match without claiming support."""
 
-    from .constitutive import FiniteStrainJ2Logarithmic
     from .boundary_models import RigidObstaclePenaltyContact
-    from .constraints import (
-        DirichletConstraint,
-        RemoteDisplacementConstraint,
-        constraint_assets,
-    )
 
+    if not _finite_strain_j2_strong_preconditions(model, request):
+        return None
     boundary_models = tuple(getattr(model, "boundary_models", ()))
     if len(boundary_models) != 1 or not isinstance(
         boundary_models[0], RigidObstaclePenaltyContact
@@ -462,28 +465,6 @@ def _finite_strain_j2_strong_rejection_reason(model, request: StepRequest) -> st
         return None
     target_mesh = getattr(getattr(request.target, "space", None), "mesh", None)
     if getattr(getattr(target_mesh, "comm", None), "size", 1) <= 1:
-        return None
-    study = getattr(model, "study", None)
-    selected_constraints = request.option("constraints")
-    if selected_constraints is None:
-        selected_constraints = tuple(getattr(model, "constraints", ()))
-    selected_constraints = constraint_assets(selected_constraints)
-    if not (
-        getattr(study, "physics", None) == "solid_mechanics"
-        and getattr(study, "dimension", None) == 3
-        and getattr(request.target, "kind", None) != "displacement_pressure"
-        and _is_vector_target(request.target)
-        and _all_materials_support(
-            model,
-            request,
-            lambda item: isinstance(item, FiniteStrainJ2Logarithmic),
-        )
-        and selected_constraints
-        and all(
-            isinstance(item, (DirichletConstraint, RemoteDisplacementConstraint))
-            for item in selected_constraints
-        )
-    ):
         return None
     return (
         "AFM-J2-CONTACT-MPI: finite-strain J2 plus analytical-plane contact "
