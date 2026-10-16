@@ -44,12 +44,24 @@ differences of residual and potential. The ordinary public `model.step()`
 J2 patch matches its analytical-plane counterpart for penalties 250, 500,
 1000 on one cell per axis and penalty 500 on two cells per axis; displacement,
 committed material state, and contact potential agree within the test
-tolerances. A separate serial interrupted checkpoint matches uninterrupted
-state and rejects a changed penalty; deliberate post-solve energy failure
-rolls back the joint accepted state. One two-rank check confirms that both
-analytic and faceted contact are rejected before distributed assembly. The
-public example writes one reference-geometry XDMF grid with nodal and cell
-fields. These are internal checks, not independent forming validation.
+tolerances. A tilted coplanar tool also passes on one- and two-cell meshes,
+giving nonuniform contact rather than only uniform compression. A separate
+serial interrupted checkpoint matches uninterrupted state and rejects a
+changed penalty; deliberate post-solve energy failure rolls back the joint
+accepted state. One two-rank check confirms that both analytic and faceted
+contact are rejected before distributed assembly. The public example writes
+one reference-geometry XDMF *Uniform* grid with nodal and cell fields.
+
+At source commit `623b13b0`, 48 focused tests passed (two one-rank skips),
+the canonical example-language gate passed, Ruff and strict documentation
+build passed, and the native macOS wheel plus sdist passed the installed-wheel
+release smoke. The wheel SHA-256 was
+`4ef1d2df80ba11cb984a517aed1ca3026883dcb2bab36b378113e554563ef386`.
+The fixed-facet example also completed from an isolated installation of this
+wheel, with contact potential `0.03425550070914266` in the dimensionless
+example. The normal release smoke did not request an MPI run; the separate
+two-rank *rejection* test is not distributed-contact execution. These checks
+are not independent forming validation.
 
 Before promoting beyond this slice, add an independent 3D structure reference
 with nonuniform slave deformation and facet crossing; sample mesh, increment,
