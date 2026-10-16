@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import xml.etree.ElementTree as ET
 
 from basix.ufl import element
 import numpy as np
@@ -170,6 +171,23 @@ def test_public_j2_fixed_plane_contact_uses_one_newton_and_energy_ledger():
         0.0,
         rtol=0.0, atol=1.0e-6,
     )
+
+
+def test_public_j2_contact_default_result_output_keeps_nodal_primary(tmp_path):
+    _, _, _, _, step = _j2_contact_patch()
+    path = tmp_path / "fields.xdmf"
+
+    result = step.solve_result(output=path, strict_output=True)
+
+    assert result.status == "completed"
+    assert path.is_file()
+    assert path.with_suffix(".h5").is_file()
+    assert (tmp_path / "fields.integration-points.h5").is_file()
+    assert result.metadata["field_output_fields"]["included"][0] == "Displacement"
+    grids = ET.parse(path).findall(".//Grid[@GridType='Uniform']")
+    assert len(grids) == 1
+    names = {item.attrib["Name"] for item in grids[0].findall("Attribute")}
+    assert {"U", "UMAG", "PEEQ_CELL"} <= names
 
 
 @pytest.mark.parametrize("penalty", (250.0, 500.0, 1_000.0))

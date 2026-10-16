@@ -2973,7 +2973,10 @@ class FiniteStrainJ2StandardProblem:
             self,
             result,
             output=output,
-            fields=(*transaction_fields, reaction, *tuple(fields)),
+            # The result writer needs the nodal primary field before the
+            # recovered DG0 auxiliaries. Without it the first cell field is
+            # mistaken for the visualization topology.
+            fields=(self.solution, *transaction_fields, reaction, *tuple(fields)),
             strict_output=strict_output,
             metadata=metadata,
         )
