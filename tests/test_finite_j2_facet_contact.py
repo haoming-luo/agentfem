@@ -23,7 +23,7 @@ from agentfem.step_providers import step_capability
 def _patch(*, triangulated: bool, gap: float = 0.005, penalty=500.0,
            cells=1, constrain_contact=False, tilt=0.0,
            tool_translation=None, tool_rotation=(0.0, 0.0, 0.0),
-           schedule_end=1.0, make_step=True):
+           schedule_end=1.0, make_step=True, tool_y_max=1.5):
     domain = dolfinx_mesh.create_unit_cube(MPI.COMM_SELF, cells, cells, cells)
     model = models.create(
         study=studies.static_solid(dimension=3, nonlinear=True),
@@ -55,8 +55,8 @@ def _patch(*, triangulated: bool, gap: float = 0.005, penalty=500.0,
             vertices=(
                 (x_at(-0.5), -0.5, -0.5),
                 (x_at(-0.5), -0.5, 1.5),
-                (x_at(1.5), 1.5, 1.5),
-                (x_at(1.5), 1.5, -0.5),
+                (x_at(tool_y_max), tool_y_max, 1.5),
+                (x_at(tool_y_max), tool_y_max, -0.5),
             ),
             triangles=((0, 1, 2), (0, 2, 3)),
         )
@@ -118,6 +118,25 @@ def test_non_normalized_tool_schedule_is_rejected_by_capability_and_step():
     )
     with pytest.raises(NotImplementedError, match="AFM-IMPLICIT-CONTACT-MOTION"):
         model.step(target=displacement, material=material)
+
+
+def test_active_free_tool_edge_fails_closed_and_preserves_accepted_state():
+    _, _, _, step = _patch(
+        triangulated=True,
+        cells=2,
+        tool_y_max=0.4,
+        tool_translation=(-0.006, 0.0, 0.0),
+    )
+    baseline_u = step.solution.x.array.copy()
+    baseline_state = step.response.state.committed_state_vectors().copy()
+    with pytest.raises((ValueError, RuntimeError), match="AFM-IMPLICIT-CONTACT-BRANCH"):
+        step.solve()
+    assert step.accepted_load_factor == 0.0
+    assert float(step.contact_provider.motion_factor.value) == 0.0
+    np.testing.assert_allclose(step.solution.x.array, baseline_u)
+    np.testing.assert_allclose(step.response.state.committed_state_vectors(),
+                               baseline_state)
+    assert not step.energy_history
 
 
 @pytest.mark.parametrize("cells,penalty", [(1, 250.0), (1, 500.0), (1, 1000.0), (2, 500.0)])

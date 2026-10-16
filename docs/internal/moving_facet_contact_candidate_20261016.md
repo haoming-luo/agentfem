@@ -38,7 +38,9 @@ respect to the prescribed motion factor. A serial checkpoint resumes to the
 uninterrupted state, while an intentionally failed energy update restores
 the prior accepted pose, displacement, and plastic history. The public example
 completes with `--tool-travel -0.006 --tool-rotation 0.01` and reports nonzero
-tool work. These are local plane-limit checks, not independent curved-tool
+tool work. An active free tool edge fails closed during the global solve and
+preserves the prior accepted displacement, material state and pose. These are
+local plane-limit checks, not independent curved-tool
 validation or physical-time simulation.
 
 One frictionless prescribed rigid triangle tool, serial 3D blocked
