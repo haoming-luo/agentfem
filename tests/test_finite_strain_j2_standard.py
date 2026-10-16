@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 
+from basix.ufl import element
 import numpy as np
 import pytest
 import ufl
@@ -189,6 +190,81 @@ def test_public_j2_contact_elastic_limit_matches_analytical_spring_pair(penalty)
     assert right[0] == pytest.approx(expected, rel=2.0e-5)
     assert np.max(step.response.state.committed_state_vectors()[:, -2]) == pytest.approx(
         0.0, abs=1.0e-12,
+    )
+
+
+def test_j2_contact_two_disconnected_columns_have_distinct_analytical_active_sets():
+    from scipy.optimize import brentq
+
+    base = dolfinx_mesh.create_unit_cube(MPI.COMM_SELF, 1, 1, 1)
+    original = np.asarray(base.geometry.x, dtype=float)
+    second = original.copy()
+    second[:, 0] *= 0.99
+    second[:, 1] += 2.0
+    connectivity = np.asarray(base.geometry.dofmaps[0], dtype=np.int64)
+    domain = mesh.from_arrays(
+        cells=np.vstack((connectivity, connectivity + len(original))),
+        coordinates=np.vstack((original, second)),
+        coordinate_element=ufl.Mesh(
+            element("Lagrange", "tetrahedron", 1, shape=(3,))
+        ),
+        comm=MPI.COMM_SELF,
+    )
+    model = models.create(
+        study=studies.nonlinear_static(physics="solid_mechanics", dimension=3),
+        mesh=domain,
+    )
+    displacement = model.field(fields.displacement(domain))
+    left = mesh.boundary(domain, lambda x: np.isclose(x[0], 0.0), name="left")
+    right = mesh.boundary(
+        domain,
+        lambda x: np.isclose(x[0], 1.0) | np.isclose(x[0], 0.99),
+        name="both_right_faces",
+    )
+    model.clamp(displacement, on=left)
+    material = model.material(
+        constitutive.finite_strain_j2_logarithmic(
+            young=1_000.0,
+            poisson=0.0,
+            yield_stress=1.0e9,
+            hardening_modulus=100.0,
+        )
+    )
+    contact = model.rigid_obstacle_contact(
+        on=right,
+        penalty=500.0,
+        surface=boundary_models.rigid_plane(
+            point=(1.0, 0.0, 0.0), normal=(-1.0, 0.0, 0.0)
+        ),
+    )
+    model.traction((5.0, 0.0, 0.0), on=right)
+    step = model.step(
+        target=displacement,
+        material=material,
+        incrementation=steps.fixed(4),
+        progress=False,
+    )
+    result = step.solve_result()
+    first = results.probe(displacement, at=(1.0, 0.5, 0.5))[0]
+    second_value = results.probe(displacement, at=(0.99, 2.5, 0.5))[0]
+    first_reference = brentq(
+        lambda u: 1_000.0 * np.log1p(u) / (1.0 + u) + 500.0 * u - 5.0,
+        0.0, 0.02,
+    )
+    second_reference = brentq(
+        lambda u: 1_000.0 * np.log1p(u / 0.99) / (1.0 + u / 0.99) - 5.0,
+        0.0, 0.02,
+    )
+    assert first == pytest.approx(first_reference, rel=2.0e-5)
+    assert second_value == pytest.approx(second_reference, rel=2.0e-5)
+    assert second_value < 0.01  # The short column never reaches the tool.
+    assert result.metadata["constraint_duals"][0]["constraint_name"] == contact.name
+    assert result.quantity(f"{contact.name}_contact_energy") > 0.0
+    dual = contact.dual_evidence(step)
+    nodal_coordinates = displacement.value.function_space.tabulate_dof_coordinates()
+    nodal_force = dual.distribution.x.array.reshape((-1, 3))
+    np.testing.assert_allclose(
+        nodal_force[nodal_coordinates[:, 1] > 1.5], 0.0, rtol=0.0, atol=1.0e-12
     )
 
 

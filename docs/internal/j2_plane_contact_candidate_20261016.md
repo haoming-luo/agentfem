@@ -37,6 +37,12 @@ The elastic spring pair is checked at penalties 250, 500 and 1000, not merely
 at one tuned penalty. This validates the bounded implementation's penalty
 response against that scalar reference; it is not a mesh-independent contact
 limit for general geometry.
+An independent two-body structural reference combines two disconnected
+one-dimensional columns in one 3D mesh: one touches the plane initially,
+while the other begins with a 0.01 gap. Under the same traction, each end
+displacement agrees with its own finite-Hencky scalar equation, and the
+gapped column's contact nodal force is zero. This checks active-set and
+region separation, but still does not validate a curved or faceted tool.
 
 | Active plastic-contact path | 3 increments | 6 increments | 12 increments |
 | --- | ---: | ---: | ---: |
@@ -81,10 +87,9 @@ independent and supported; the limit applies only to this contact composition.
 
 1. Complete final platform CI and review old-provider dispatch on the merged
    candidate without changing the established explicit production case.
-2. Extend the nonuniform contact patch to step/penalty sensitivity and include
-   a public independent structure-level reference. Homogeneous spring and
-   internal spatial-consistency checks are insufficient for broad contact
-   validation.
+2. Extend the tilted nonuniform contact patch to step/penalty sensitivity.
+   The independent two-column active-set reference is a useful bounded gate,
+   but not broad geometric-contact validation.
 3. For discrete rigid tools, implement reviewed current-geometry projection,
    facet/edge/vertex transitions and consistent residual/tangent in a separate
    candidate; compare a triangulated flat tool to the analytical plane.

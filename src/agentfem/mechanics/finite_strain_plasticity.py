@@ -2920,7 +2920,8 @@ class FiniteStrainJ2StandardProblem:
                         "path work."
                     ),
                     "mechanical_energy_residual": (
-                        "External work minus stored energy and plastic dissipation."
+                        "External work minus material stored energy, plastic "
+                        "dissipation and any contact penalty potential."
                     ),
                 },
             )
