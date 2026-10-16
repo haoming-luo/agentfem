@@ -1180,7 +1180,7 @@ class FiniteStrainJ2StandardProblem:
                 "distributed writes require the portable format",
             ),
             evidence=(
-                ("serial analytical-plane J2/contact restart",)
+                ("serial finite-J2/rigid-contact accepted restart",)
                 if self.contact_provider is not None
                 else ("MPI cross-rank-count portable restart",)
             ),

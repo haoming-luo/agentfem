@@ -412,7 +412,8 @@ def finite_strain_j2(
                 )
                 raise NotImplementedError(
                     "Standard finite-strain J2 currently consumes at most one "
-                    "frictionless analytical-plane or bounded fixed-facet contact; "
+                    "frictionless analytical-plane or bounded triangulated "
+                    "rigid-tool contact; "
                     f"unsupported={names}. Other weak models, discrete "
                     "surfaces and MPC require separate evidence."
                 )

@@ -1496,7 +1496,8 @@ register_step_provider(
         description=(
             "Lower logarithmic finite-strain J2 to provider-owned quadrature "
             "state and strong-boundary Newton equilibrium, optionally with "
-            "one serial analytical rigid-plane penalty contact."
+            "one serial frictionless analytical-plane or bounded triangulated "
+            "rigid-tool penalty contact."
         ),
         procedure="standard/newton/stateful",
         option_contract=_option_contract(
