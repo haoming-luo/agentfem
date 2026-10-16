@@ -19,9 +19,9 @@ or a successful run is not by itself a validated engineering capability.
 
 ## Current product phase: the 0.4 foundation
 
-### 0.4.3 composition and release gate (2026-10-16)
+### 0.4.3 released composition and next gate (2026-10-17)
 
-The 0.4.3 candidate is promoted by one composed scientific workflow, not
+Version 0.4.3 was promoted by one composed scientific workflow, not
 by accumulating isolated feature names. The first bounded native slice is
 three-dimensional finite-strain J2 with ordinary strong constraints and one
 analytical rigid plane under frictionless penalty contact. The plane may be
@@ -32,7 +32,7 @@ one increment lifecycle. The elastic small-strain contact provider must not win
 dispatch merely because a history material also exposes `young` and `poisson`.
 
 This is an experimental serial composition, not a general forming solver.
-The integrated candidate adds one triangulated rigid tool with current-trial
+The released bounded route adds one triangulated rigid tool with current-trial
 BVH projection and normalized prescribed motion, but only while active contact
 lies on planar facets or coplanar interior seams. Its force--moment--work and
 joint restart evidence are recorded in the
@@ -44,11 +44,21 @@ force/work/energy, failed-attempt rollback, restart and independent refinement
 evidence. For MPC, reduce the *total* residual and tangent including contact;
 do not bolt an unreduced contact force onto a converged plastic solve.
 
-Before tagging a version: review the composed API and supported/unsupported
-matrix; run targeted real-FEniCSx regressions, wheel-installed smoke and the
-release ladder; verify a small contact/plastic benchmark with an independent
-reference, mesh and increment sensitivity; check package metadata, docs and
-platform CI. A passed unit patch is not release certification.
+The tagged Linux wheel and source archive passed the installed-use, scientific,
+MPI and macOS same-source release ladder and were published as 0.4.3. The
+[candidate record](internal/release_0_4_3_candidate_gate_20261016.md) retains
+the exact evidence and the limits. Future promotions still require reviewed
+supported/unsupported combinations, independent references, sensitivity
+checks and installed-platform evidence. A passed unit patch or one successful
+forming picture is not release certification.
+
+The next numerical slice should not extend the planar fixture for its own
+sake. First review a smooth curved-tool or noncoplanar branch law with an
+independent reference and force--work--tangent checks; separately admit
+periodic MPC only when the total material-plus-contact residual and tangent
+are reduced on every Newton and line-search trial. Keep MPI implicit contact,
+friction and mixed pressure behind their own lifecycle gates. Measure complete
+accepted-step cost before choosing an acceleration target.
 
 The separate performance lane follows `skills/agentfem-performance`: profile
 whole accepted increments on a frozen case, change one body/contact/data-flow
