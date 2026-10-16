@@ -553,12 +553,19 @@ residual and fixed-branch tangent. Its scope and local evidence are recorded in
 Keep it experimental and serial; do not promote curved/creased tooling,
 moving-body work, periodic MPC, friction, or MPI by association.
 
+The next stacked slice adds one normalized moving rigid pose without rebuilding
+the reference BVH, plus accepted force--moment work and pose rollback. This
+does not change the unresolved branch smoothness, MPC or MPI gates. Its local
+scope and evidence are in the
+[moving-facet candidate note](internal/moving_facet_contact_candidate_20261016.md).
+
 Promotion order: (1) close full installed-wheel CI and a candidate-bound
 scientific comparison for the analytical plane; (2) independently check
 faceted-contact geometry, force, moment, tangent and convergence under
-nonuniform deformation; (3) add prescribed tool motion with generalized work
-and joint rollback; (4) reduce both contact residual and tangent through
-periodic MPC; (5) establish MPI owner/ghost and restart evidence. A new
+nonuniform deformation; (3) verify prescribed tool motion with generalized
+work and joint rollback beyond the local plane-limit evidence; (4) reduce
+both contact residual and tangent through periodic MPC; (5) establish MPI
+owner/ghost and restart evidence. A new
 release may ship a clearly bounded experimental subset, but its version
 number must not imply that the later gates passed. Performance is measured
 on fixed physics and an immutable installed candidate, separately from

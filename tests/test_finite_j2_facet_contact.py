@@ -21,7 +21,8 @@ from agentfem.step_providers import step_capability
 
 
 def _patch(*, triangulated: bool, gap: float = 0.005, penalty=500.0,
-           cells=1, constrain_contact=False, tilt=0.0):
+           cells=1, constrain_contact=False, tilt=0.0,
+           tool_translation=None, tool_rotation=(0.0, 0.0, 0.0)):
     domain = dolfinx_mesh.create_unit_cube(MPI.COMM_SELF, cells, cells, cells)
     model = models.create(
         study=studies.static_solid(dimension=3, nonlinear=True),
@@ -39,6 +40,13 @@ def _patch(*, triangulated: bool, gap: float = 0.005, penalty=500.0,
             hardening_modulus=100.0,
         )
     )
+    tool_motion = None
+    if tool_translation is not None:
+        tool_motion = boundary_models.prescribed_rigid_motion(
+            translation=tool_translation,
+            rotation=tool_rotation,
+            reference_point=(1.0 + gap, 0.0, 0.0),
+        )
     if triangulated:
         tool_x = 1.0 + gap
         x_at = lambda y: tool_x + tilt * y
@@ -53,7 +61,16 @@ def _patch(*, triangulated: bool, gap: float = 0.005, penalty=500.0,
         )
         pair = boundary_models.rigid_contact_pair(
             right,
-            boundary_models.rigid_body(surface, reference_point=(tool_x, 0, 0)),
+            boundary_models.rigid_body(
+                surface,
+                reference_point=(tool_x, 0, 0),
+                motion_schedule=(
+                    None if tool_motion is None
+                    else boundary_models.prescribed_rigid_motion_schedule(
+                        tool_motion, start_time=0, end_time=1,
+                    )
+                ),
+            ),
             penalty=penalty,
         )
         model.add_boundary_model(pair)
@@ -62,7 +79,9 @@ def _patch(*, triangulated: bool, gap: float = 0.005, penalty=500.0,
             point=(1.0 + gap, 0, 0),
             normal=np.asarray((-1, tilt, 0)) / np.sqrt(1.0 + tilt * tilt),
         )
-        model.rigid_obstacle_contact(on=right, penalty=penalty, surface=surface)
+        model.rigid_obstacle_contact(
+            on=right, penalty=penalty, surface=surface, motion=tool_motion,
+        )
     if constrain_contact:
         model.fix(displacement, on=right, component=0, value=0.0)
     model.traction((10.0, 0.0, 0.0), on=right)
@@ -137,6 +156,89 @@ def test_tilted_fixed_tool_matches_analytical_plane_with_nonuniform_contact(cell
     )
     assert facet.energy_history[-1].contact_potential == pytest.approx(
         plane.energy_history[-1].contact_potential, rel=2e-4,
+    )
+
+
+@pytest.mark.parametrize("tool_rotation", [(0.0, 0.0, 0.0), (0.0, 0.0, 0.01)])
+def test_moving_faceted_tool_matches_analytical_plane_force_work_and_state(tool_rotation):
+    options = dict(tool_translation=(-0.006, 0.0, 0.0),
+                   tool_rotation=tool_rotation, cells=2)
+    _, _, _, facet = _patch(triangulated=True, **options)
+    _, _, _, plane = _patch(triangulated=False, **options)
+    facet_result = facet.solve_result()
+    plane_result = plane.solve_result()
+    assert facet_result.status == plane_result.status == "completed"
+    np.testing.assert_allclose(facet.solution.x.array, plane.solution.x.array,
+                               rtol=3e-4, atol=3e-6)
+    np.testing.assert_allclose(
+        facet.response.state.committed_state_vectors(),
+        plane.response.state.committed_state_vectors(),
+        rtol=3e-4, atol=3e-6,
+    )
+    assert facet.energy_history[-1].tool_work == pytest.approx(
+        plane.energy_history[-1].tool_work, rel=3e-4, abs=1e-8,
+    )
+    assert abs(facet.energy_history[-1].tool_work) > 1e-8
+    assert facet.energy_history[-1].contact_potential == pytest.approx(
+        plane.energy_history[-1].contact_potential, rel=3e-4, abs=1e-8,
+    )
+    facet_dual = facet_result.metadata["constraint_duals"][0]
+    plane_dual = plane_result.metadata["constraint_duals"][0]
+    balance = facet_result.metadata["constraint_balance_contract"]
+    assert balance["force_balance_available"]
+    assert balance["work_balance_available"]
+    np.testing.assert_allclose(facet_dual["force"], plane_dual["force"],
+                               rtol=3e-4, atol=1e-6)
+
+
+def test_moving_facet_tool_potential_derivative_and_atomic_restart(tmp_path, monkeypatch):
+    options = dict(triangulated=True, cells=2,
+                   tool_translation=(-0.006, 0.0, 0.0),
+                   tool_rotation=(0.0, 0.0, 0.01))
+    _, _, _, reference = _patch(**options)
+    reference.solve()
+    motion = reference.contact_provider.pair.rigid_body.motion_schedule.motion
+    generalized_force = reference._contact_dual().force
+    direction = motion.generalized_coordinate(1.0)
+    delta = 1e-6
+    try:
+        reference.contact_provider.update_motion(1.0 - delta)
+        before = reference._contact_potential()
+    finally:
+        reference.contact_provider.update_motion(1.0)
+    derivative = (reference._contact_potential() - before) / delta
+    assert derivative == pytest.approx(float(np.dot(generalized_force, direction)),
+                                       rel=2e-4)
+
+    _, _, _, partial = _patch(**options)
+    partial.solve(until=1.0 / 3.0)
+    saved = partial.save_checkpoint(tmp_path / "moving_facet")
+    accepted_pose = float(partial.contact_provider.motion_factor.value)
+    accepted_u = partial.solution.x.array.copy()
+    accepted_state = partial.response.state.committed_state_vectors().copy()
+
+    def fail_energy():
+        raise ValueError("intentional moving facet energy failure")
+
+    monkeypatch.setattr(partial, "_contact_potential", fail_energy)
+    with pytest.raises(RuntimeError, match="intentional moving facet energy failure"):
+        partial.solve(until=2.0 / 3.0)
+    assert float(partial.contact_provider.motion_factor.value) == pytest.approx(accepted_pose)
+    np.testing.assert_allclose(partial.solution.x.array, accepted_u)
+    np.testing.assert_allclose(partial.response.state.committed_state_vectors(),
+                               accepted_state)
+    _, _, _, resumed = _patch(**options)
+    resumed.load_checkpoint(saved)
+    resumed.solve()
+    np.testing.assert_allclose(resumed.solution.x.array, reference.solution.x.array,
+                               rtol=1e-8, atol=1e-10)
+    np.testing.assert_allclose(
+        resumed.response.state.committed_state_vectors(),
+        reference.response.state.committed_state_vectors(),
+        rtol=1e-8, atol=1e-10,
+    )
+    assert resumed.energy_history[-1].tool_work == pytest.approx(
+        reference.energy_history[-1].tool_work, rel=1e-8,
     )
 
 

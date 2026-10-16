@@ -212,11 +212,12 @@ uses the same resolved Step amplitude as the other prescribed inputs. Its weak
 residual and semismooth tangent enter the same Newton assembly as J2; the
 accepted ledger records contact penalty potential and tool force--coordinate
 work separately from material stored energy and plastic dissipation. A separate
-bounded path accepts one fixed triangulated rigid tool with reference-area
-quadrature. It recomputes projection at each Newton trial, admits planar facet
-interiors and coplanar seams, and rejects active free or noncoplanar edges. It
-does not yet account for prescribed faceted-tool motion or its work. Both
-compositions are serial and experimental. Friction, periodic MPC, general
+bounded path accepts one fixed or normalized-prescribed triangulated rigid tool
+with reference-area quadrature. It recomputes projection at each Newton trial,
+admits planar facet interiors and coplanar seams, and rejects active free or
+noncoplanar edges. It records accepted tool force--moment work for the
+prescribed path. Both compositions are serial and experimental. Friction,
+periodic MPC, general
 curved dies and portable cross-rank restart are not implied by the independent
 J2 or contact capabilities.
 For a distributed mesh, `model.step(...)` reports `AFM-J2-CONTACT-MPI`

@@ -173,11 +173,14 @@ never changes solver access, results, verification, or update behavior.
   `AbaqusPeriodicConstraint`. Both share one provider-owned quadrature
   transaction and accepted-state portable checkpoint. The ordinary serial
   provider also accepts one frictionless analytical rigid plane, or one fixed
-  triangulated rigid tool with interior or coplanar-seam projection; contact
-  at a free edge or noncoplanar seam is rejected. Reject follower loads, other
-  weak boundary models, multiple or moving faceted tools, and MPC in that
-  provider. Do not infer mixed displacement--pressure locking control,
-  external structural validation, a production analytical material tangent,
+  triangulated rigid tool with interior or coplanar-seam projection. A
+  prescribed faceted pose is admitted only for a normalized 0-to-1 schedule
+  driven by the shared Step amplitude; the accepted force--moment work and pose
+  must rollback together. Contact at a free edge or noncoplanar seam is
+  rejected. Reject follower loads, other weak boundary models, multiple
+  faceted tools, and MPC in that provider. Do not infer mixed
+  displacement--pressure locking control, external structural validation,
+  a production analytical material tangent,
   or MPI support for these composed contact routes.
 - Named materials: use `materials.define(...)` when material identity, source,
   reuse, or separate mechanical/thermal roles matter. The Study selects the

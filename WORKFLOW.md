@@ -96,10 +96,12 @@ record.
     optional endpoint creep-rate time-error tolerance as separate acceptance
     decisions. Declare a model unit system when time histories require a
     physical unit label.
-    An experimental serial finite-J2 Step can also consume one fixed
-    frictionless triangulated tool through the ordinary `RigidContactPair`
-    asset. It rejects active non-smooth/free tool edges and does not imply
-    moving-tool work, periodic MPC, or distributed implicit contact.
+    An experimental serial finite-J2 Step can also consume one fixed or
+    normalized-prescribed frictionless triangulated tool through the ordinary
+    `RigidContactPair` asset. Its prescribed pose follows the shared Step
+    amplitude, and the accepted ledger records tool force--moment work. It
+    rejects active non-smooth/free tool edges and does not imply periodic MPC
+    or distributed implicit contact.
     A modal result additionally retains relative eigenpair residuals,
     mass-orthogonality and stiffness-diagonalization errors. Mode fields use a
     deterministic largest-global-component-positive orientation so repeated

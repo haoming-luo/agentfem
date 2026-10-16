@@ -354,11 +354,14 @@ moment. Identity or coordinate mismatches fail before assembly. This reference
 route still supplies no Newton linearization and is therefore not, by itself,
 an implicit general-contact solver.
 
-An experimental separate Operator can linearize one fixed, frictionless
-triangulated rigid tool on reference-area quadrature and add it to the ordinary
-serial finite-J2 Newton Step. It recomputes the current projection for each
-trial and admits only smooth planar facet branches and coplanar interior seams.
-Active free/non-smooth edges, tool motion, friction, contact/strong-BC overlap,
+An experimental separate Operator can linearize one fixed or prescribed,
+frictionless triangulated rigid tool on reference-area quadrature and add it to
+the ordinary serial finite-J2 Newton Step. It recomputes the current
+projection for each trial and admits only smooth planar facet branches and
+coplanar interior seams. Prescribed motion must use a normalized 0-to-1
+schedule driven by the same
+Step amplitude; the accepted ledger records rigid force, moment and work.
+Active free/non-smooth edges, friction, contact/strong-BC overlap,
 periodic MPC, and MPI remain unsupported in this composition. See
 `examples/finite_j2_faceted_contact.py` and the
 [candidate note](../internal/implicit_facet_contact_candidate_20261016.md).

@@ -454,7 +454,6 @@ def _accept_finite_strain_j2_strong(model, request: StepRequest) -> bool:
     return isinstance(selected, RigidObstaclePenaltyContact) or (
         isinstance(selected, RigidContactPair)
         and isinstance(selected.rigid_body.surface, TriangulatedRigidSurface)
-        and selected.rigid_body.motion_schedule is None
         and selected.friction is None
         and selected.law.invalid_policy == "reject"
     )

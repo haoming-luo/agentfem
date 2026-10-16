@@ -43,7 +43,7 @@ def test_dolfinx_implicit_facet_tangent_matches_current_residual_difference():
     contribution = operator.evaluate()
     assert contribution.active_points > 0
     assert contribution.assembly.potential_energy > 0
-    assert operator.summary()["execution_scope"] == "serial_fixed_frictionless_reference_area"
+    assert operator.summary()["execution_scope"] == "serial_frictionless_reference_area"
     rng = np.random.default_rng(231)
     direction = rng.normal(size=base.shape).reshape((-1, 3))
     step = 1e-7
@@ -64,7 +64,7 @@ def test_dolfinx_implicit_facet_tangent_matches_current_residual_difference():
     )
 
 
-def test_implicit_facet_rejects_unreviewed_tool_motion():
+def test_implicit_facet_tracks_prescribed_pose_and_work_conjugate_dual():
     displacement, operator = _model()
     motion = boundary_models.prescribed_rigid_motion(translation=(0.01, 0, 0))
     schedule = boundary_models.prescribed_rigid_motion_schedule(
@@ -75,5 +75,32 @@ def test_implicit_facet_rejects_unreviewed_tool_motion():
         boundary_models.rigid_body(operator.surface, motion_schedule=schedule),
         penalty=200,
     )
-    with pytest.raises(NotImplementedError, match="work and pose rollback"):
+    moving = dolfinx_implicit_facet_contact(pair, displacement)
+    assert moving.has_prescribed_motion
+    moving.update_motion(1.0)
+    displacement.x.array.reshape((-1, 3))[:, 0] = 0.1
+    contribution = moving.evaluate()
+    assert contribution.active_points > 0
+    assert np.all(np.isfinite(contribution.assembly.nodal_structural_residual))
+    np.testing.assert_allclose(
+        moving.projector.project(moving.adapter.evaluate(displacement).query_points,
+                                 motion=motion, factor=1.0).signed_gaps,
+        0.06 - moving.adapter.evaluate(displacement).query_points[:, 0],
+    )
+    moving.update_motion(0.0)
+    assert float(moving.motion_factor.value) == 0.0
+
+
+def test_implicit_facet_rejects_independent_physical_time_schedule():
+    displacement, operator = _model()
+    motion = boundary_models.prescribed_rigid_motion(translation=(0.01, 0, 0))
+    schedule = boundary_models.prescribed_rigid_motion_schedule(
+        motion, start_time=0, end_time=2,
+    )
+    pair = boundary_models.rigid_contact_pair(
+        operator.pair.slave_boundary,
+        boundary_models.rigid_body(operator.surface, motion_schedule=schedule),
+        penalty=200,
+    )
+    with pytest.raises(NotImplementedError, match="AFM-IMPLICIT-CONTACT-MOTION"):
         dolfinx_implicit_facet_contact(pair, displacement)
