@@ -1191,7 +1191,9 @@ class FiniteStrainJ2StandardProblem:
         self.load_factor.value = PETSc.ScalarType(factor)
         self.value_path.update(factor)
         if self.contact_provider is not None:
-            self.contact_provider.update_motion(coordinate)
+            # Prescribed tool pose follows the same resolved Step amplitude
+            # as strong values and natural loads, not the raw path coordinate.
+            self.contact_provider.update_motion(factor)
 
     def _snapshot_loading_state(self) -> dict[str, object]:
         state = {

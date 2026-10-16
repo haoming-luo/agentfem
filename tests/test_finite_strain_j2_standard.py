@@ -337,7 +337,7 @@ def test_public_j2_contact_energy_failure_rolls_back_joint_state(monkeypatch):
     assert tuple(step.energy_history) == accepted_energy
 
 
-def _j2_moving_contact_patch(*, rotation=0.0, cells=1):
+def _j2_moving_contact_patch(*, rotation=0.0, cells=1, amplitude=None):
     domain = dolfinx_mesh.create_unit_cube(
         MPI.COMM_SELF, cells, cells, cells
     )
@@ -377,6 +377,7 @@ def _j2_moving_contact_patch(*, rotation=0.0, cells=1):
         target=displacement,
         material=material,
         incrementation=steps.fixed(6),
+        amplitude=amplitude,
         progress=False,
     )
     return model, displacement, material, contact, step
@@ -405,6 +406,20 @@ def test_public_j2_prescribed_plane_records_tool_work():
         step.energy_history[-1].tool_work
     )
     assert np.linalg.norm(result.metadata["constraint_duals"][0]["force"]) > 0.0
+
+
+def test_public_j2_tool_uses_shared_nonlinear_step_amplitude():
+    _, _, _, contact, step = _j2_moving_contact_patch(
+        amplitude=amplitudes.tabular(
+            (0.0, 0.5, 1.0), (0.0, 0.25, 1.0)
+        )
+    )
+    step.solve(until=0.5)
+    assert float(np.asarray(contact.motion_factor.value).reshape(-1)[0]) == pytest.approx(0.25)
+    assert float(np.asarray(contact.surface_point.value).reshape(-1)[0]) == pytest.approx(0.9975)
+    step.solve()
+    assert float(np.asarray(contact.motion_factor.value).reshape(-1)[0]) == pytest.approx(1.0)
+    assert float(np.asarray(contact.surface_point.value).reshape(-1)[0]) == pytest.approx(0.99)
 
 
 def test_j2_rotating_tool_force_is_conjugate_to_contact_potential():

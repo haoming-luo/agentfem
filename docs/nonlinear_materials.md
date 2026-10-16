@@ -207,7 +207,8 @@ For a three-dimensional `nonlinear_static` study, `model.step(...)` now lowers
 this material to a global DOLFINx path. `PE` and `PEEQ` are committed at Basix
 quadrature points; `S` and `DDSDDE` are trial fields updated during Newton.
 The ordinary strong-boundary provider also accepts one analytical rigid-plane,
-frictionless penalty contact, fixed or with prescribed rigid motion. Its weak
+frictionless penalty contact, fixed or with prescribed rigid motion. Tool pose
+uses the same resolved Step amplitude as the other prescribed inputs. Its weak
 residual and semismooth tangent enter the same Newton assembly as J2; the
 accepted ledger records contact penalty potential and tool force--coordinate
 work separately from material stored energy and plastic dissipation. This

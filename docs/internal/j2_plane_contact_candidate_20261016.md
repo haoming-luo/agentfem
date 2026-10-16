@@ -7,8 +7,9 @@ capability. This note is an evidence snapshot for the 0.4.3 decision gate.
 
 - Ordinary three-dimensional strong-boundary finite-strain logarithmic J2.
 - One analytical rigid plane with frictionless one-sided penalty contact; fixed
-  or following prescribed translation/rotation. The existing contact potential
-  contributes residual and semismooth tangent to the J2 Newton form.
+  or following prescribed translation/rotation under the shared Step amplitude.
+  Its contact potential contributes residual and semismooth tangent to the J2
+  Newton form.
 - The J2 quadrature transaction remains the State owner. Accepted energy
   records material stored energy, plastic dissipation, contact penalty
   potential, natural/strong-boundary work, and generalized tool work separately.
