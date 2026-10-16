@@ -305,6 +305,13 @@ def finite_strain_j2(
         else ()
     )
     if affine:
+        if model.boundary_models:
+            raise NotImplementedError(
+                "AFM-J2-CONTACT-MPC: affine finite-strain J2 cannot consume "
+                "registered boundary models until their residual and tangent "
+                "participate in the same full-space assembly and MPC reduction; "
+                "no contact is ignored."
+            )
         physical_loads = load_api.load_assets(
             model.loads,
             unwrap_amplitudes=True,

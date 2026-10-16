@@ -350,6 +350,7 @@ def _accept_finite_strain_j2_affine(model, request: StepRequest) -> bool:
         and len(selected_constraints) == 1
         and isinstance(selected_constraints[0], AbaqusPeriodicConstraint)
         and not physical_loads
+        and not getattr(model, "boundary_models", ())
     )
 
 
@@ -401,6 +402,36 @@ def _accept_finite_strain_j2_mixed_affine(
         and len(selected_constraints) == 1
         and isinstance(selected_constraints[0], AbaqusPeriodicConstraint)
         and not physical_loads
+        and not getattr(model, "boundary_models", ())
+    )
+
+
+def _finite_strain_j2_affine_boundary_rejection(model, request: StepRequest) -> str | None:
+    """Keep undeclared weak Operators out of the affine material-only solve."""
+
+    from .constitutive import FiniteStrainJ2Logarithmic
+    from .constraints import AbaqusPeriodicConstraint, constraint_assets
+
+    if not getattr(model, "boundary_models", ()):
+        return None
+    selected_constraints = request.option("constraints")
+    if selected_constraints is None:
+        selected_constraints = tuple(getattr(model, "constraints", ()))
+    selected_constraints = constraint_assets(selected_constraints)
+    if (
+        len(selected_constraints) != 1
+        or not isinstance(selected_constraints[0], AbaqusPeriodicConstraint)
+        or not _all_materials_support(
+            model,
+            request,
+            lambda item: isinstance(item, FiniteStrainJ2Logarithmic),
+        )
+    ):
+        return None
+    return (
+        "AFM-J2-CONTACT-MPC: affine finite-strain J2 cannot consume registered "
+        "boundary models until their residual and tangent participate in the "
+        "same full-space assembly and MPC reduction; no contact is ignored."
     )
 
 
@@ -1413,6 +1444,7 @@ register_step_provider(
         name="finite_strain_j2_mixed_affine_static",
         analyses=("nonlinear_static",),
         accepts=_accept_finite_strain_j2_mixed_affine,
+        rejection_reason=_finite_strain_j2_affine_boundary_rejection,
         lower=_lower_finite_strain_j2,
         priority=135,
         description=(
@@ -1435,6 +1467,7 @@ register_step_provider(
         name="finite_strain_j2_affine_static",
         analyses=("nonlinear_static",),
         accepts=_accept_finite_strain_j2_affine,
+        rejection_reason=_finite_strain_j2_affine_boundary_rejection,
         lower=_lower_finite_strain_j2,
         priority=130,
         description=(
