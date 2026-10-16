@@ -30,7 +30,7 @@ from .search import TriangleSurfaceBVH, triangle_surface_bvh
 
 @dataclass(eq=False)
 class DolfinxImplicitFacetContact:
-    """Current-trial facet contact, limited to a fixed frictionless rigid tool."""
+    """Current-trial facet contact with one frictionless rigid tool."""
 
     pair: RigidContactPair
     adapter: DolfinxContactTraceAdapter
@@ -247,7 +247,7 @@ def dolfinx_implicit_facet_contact(
     pair: RigidContactPair,
     displacement,
 ) -> DolfinxImplicitFacetContact:
-    """Lower a reviewed fixed triangle tool to one serial Newton contribution."""
+    """Lower a bounded triangle tool to one serial Newton contribution."""
 
     if not isinstance(pair, RigidContactPair):
         raise TypeError("Implicit facet contact requires a RigidContactPair.")

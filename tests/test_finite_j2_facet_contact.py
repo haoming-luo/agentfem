@@ -1,4 +1,4 @@
-"""Bounded public J2 plus fixed triangulated-tool integration checks."""
+"""Bounded public J2 plus fixed and moving triangulated-tool checks."""
 
 from __future__ import annotations
 
@@ -24,7 +24,7 @@ def _patch(*, triangulated: bool, gap: float = 0.005, penalty=500.0,
            cells=1, constrain_contact=False, tilt=0.0,
            tool_translation=None, tool_rotation=(0.0, 0.0, 0.0),
            schedule_end=1.0, make_step=True, tool_y_max=1.5,
-           increments=3):
+           increments=3, applied_traction=10.0):
     domain = dolfinx_mesh.create_unit_cube(MPI.COMM_SELF, cells, cells, cells)
     model = models.create(
         study=studies.static_solid(dimension=3, nonlinear=True),
@@ -86,7 +86,8 @@ def _patch(*, triangulated: bool, gap: float = 0.005, penalty=500.0,
         )
     if constrain_contact:
         model.fix(displacement, on=right, component=0, value=0.0)
-    model.traction((10.0, 0.0, 0.0), on=right)
+    if applied_traction != 0.0:
+        model.traction((applied_traction, 0.0, 0.0), on=right)
     if not make_step:
         return model, displacement, material, None
     step = model.step(
@@ -201,7 +202,7 @@ def test_tilted_fixed_tool_matches_analytical_plane_with_nonuniform_contact(cell
 
 @pytest.mark.parametrize("tool_rotation", [
     (0.0, 0.0, 0.0), (0.0, 0.0, 0.01), (0.0, 0.0, 0.05),
-    (0.0, 0.0, 0.2),
+    (0.0, 0.0, 0.2), (0.03, 0.04, 0.05),
 ])
 def test_moving_faceted_tool_matches_analytical_plane_force_work_and_state(tool_rotation):
     options = dict(tool_translation=(-0.006, 0.0, 0.0),
@@ -232,6 +233,21 @@ def test_moving_faceted_tool_matches_analytical_plane_force_work_and_state(tool_
     assert balance["work_balance_available"]
     np.testing.assert_allclose(facet_dual["force"], plane_dual["force"],
                                rtol=3e-4, atol=1e-6)
+
+
+def test_prescribed_tool_motion_drives_j2_without_a_separate_traction():
+    options = dict(tool_translation=(-0.02, 0.0, 0.0), cells=2,
+                   applied_traction=0.0)
+    _, _, _, facet = _patch(triangulated=True, **options)
+    _, _, _, plane = _patch(triangulated=False, **options)
+    assert facet.solve_result().status == plane.solve_result().status == "completed"
+    assert np.max(np.abs(facet.solution.x.array)) > 1e-4
+    assert abs(facet.energy_history[-1].tool_work) > 1e-6
+    np.testing.assert_allclose(facet.solution.x.array, plane.solution.x.array,
+                               rtol=3e-4, atol=3e-6)
+    assert facet.energy_history[-1].tool_work == pytest.approx(
+        plane.energy_history[-1].tool_work, rel=3e-4, abs=1e-8,
+    )
 
 
 def test_moving_faceted_tool_global_work_refines_in_step_and_mesh():
@@ -284,13 +300,15 @@ def test_moving_faceted_tool_penalty_scan_changes_physics_explicitly():
     assert np.all(np.diff(potential) < 0.0)
 
 
-@pytest.mark.parametrize("rotation", [0.01, 0.2])
+@pytest.mark.parametrize("rotation", [
+    (0.0, 0.0, 0.01), (0.0, 0.0, 0.2), (0.03, 0.04, 0.05),
+])
 def test_moving_facet_tool_potential_derivative_and_atomic_restart(
     tmp_path, monkeypatch, rotation,
 ):
     options = dict(triangulated=True, cells=2,
                    tool_translation=(-0.006, 0.0, 0.0),
-                   tool_rotation=(0.0, 0.0, rotation))
+                   tool_rotation=rotation)
     _, _, _, reference = _patch(**options)
     reference.solve()
     motion = reference.contact_provider.pair.rigid_body.motion_schedule.motion

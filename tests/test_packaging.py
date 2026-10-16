@@ -1,7 +1,10 @@
+import io
 import json
 from pathlib import Path
 import subprocess
+import tarfile
 import tomllib
+import zipfile
 
 import pytest
 
@@ -55,6 +58,36 @@ def test_release_gate_rejects_build_machine_bytecode_and_cache_members():
         "agentfem/__pycache__/models.cpython-311.pyc",
         "agentfem/old.pyo",
     ]
+
+
+def test_release_gate_ignores_repaired_wheel_directory_records(tmp_path):
+    wheel = tmp_path / "agentfem-0.4.3-py3-none-any.whl"
+    with zipfile.ZipFile(wheel, "w") as archive:
+        archive.writestr("agentfem/", "")
+        archive.writestr("agentfem/backends/", "")
+        archive.writestr("agentfem/__init__.py", "__version__ = '0.4.3'\n")
+        archive.writestr("agentfem/backends/base.py", "class Backend: pass\n")
+
+    assert release_gate._archive_members(wheel) == {
+        "agentfem/__init__.py",
+        "agentfem/backends/base.py",
+    }
+
+
+def test_release_gate_ignores_source_archive_directory_records(tmp_path):
+    source = tmp_path / "agentfem-0.4.3.tar.gz"
+    with tarfile.open(source, "w:gz") as archive:
+        directory = tarfile.TarInfo("agentfem-0.4.3/src/agentfem")
+        directory.type = tarfile.DIRTYPE
+        archive.addfile(directory)
+        payload = b"__version__ = '0.4.3'\n"
+        member = tarfile.TarInfo("agentfem-0.4.3/src/agentfem/__init__.py")
+        member.size = len(payload)
+        archive.addfile(member, io.BytesIO(payload))
+
+    assert release_gate._archive_members(source) == {
+        "src/agentfem/__init__.py",
+    }
 
 
 def test_release_contract_is_complete_and_references_real_workflows():

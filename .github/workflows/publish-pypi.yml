@@ -160,6 +160,15 @@ jobs:
           python -m pip install "mkdocs>=1.6,<2" "mkdocs-material>=9,<10" pymdown-extensions
           python -m pip install --no-deps --force-reinstall dist/*.whl
 
+      - name: Exercise installed finite-J2 rigid-tool composition
+        run: |
+          cd "${RUNNER_TEMP}"
+          python -c "import agentfem; assert '/site-packages/' in agentfem.__file__, agentfem.__file__"
+          python "${GITHUB_WORKSPACE}/examples/finite_j2_faceted_contact.py" \
+            --tool-travel=-0.02 --tool-rotation=0.2 \
+            --output "${RUNNER_TEMP}/installed-finite-j2-facet"
+          python -c "import json, os, pathlib; p=pathlib.Path(os.environ['RUNNER_TEMP'])/'installed-finite-j2-facet'; assert json.loads((p/'result.json').read_text())['status'] == 'completed'; assert (p/'fields.xdmf').is_file()"
+
       - name: Validate documentation and machine entrypoints
         run: |
           python build_docs.py --check

@@ -240,11 +240,17 @@ def _requirement_name(requirement: str) -> str:
 def _archive_members(path: Path) -> set[str]:
     if path.suffix == ".whl":
         with zipfile.ZipFile(path) as archive:
-            return set(archive.namelist())
+            # Repaired platform wheels may include explicit directory entries.
+            # Identity checks compare runtime files, never directory records.
+            return {
+                item.filename for item in archive.infolist() if not item.is_dir()
+            }
     with tarfile.open(path, "r:gz") as archive:
         members = set()
-        for name in archive.getnames():
-            parts = name.split("/", 1)
+        for item in archive.getmembers():
+            if not item.isfile():
+                continue
+            parts = item.name.split("/", 1)
             members.add(parts[1] if len(parts) == 2 else parts[0])
         return members
 

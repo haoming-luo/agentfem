@@ -157,7 +157,7 @@ Declare an installed-software requirement in the project configuration:
 [project]
 name = "my-study"
 entrypoint = "case.py"
-requires_agentfem = ">=0.4.3.dev0"
+requires_agentfem = ">=0.4.3"
 requires_api = [
   "constitutive.StrainHistoryRuntime",
   "results.AcceptedResponseSeries",

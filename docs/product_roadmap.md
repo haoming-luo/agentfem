@@ -21,7 +21,7 @@ or a successful run is not by itself a validated engineering capability.
 
 ### 0.4.3 composition and release gate (2026-10-16)
 
-The next version should be promoted by one composed scientific workflow, not
+The 0.4.3 candidate is promoted by one composed scientific workflow, not
 by accumulating isolated feature names. The first bounded native slice is
 three-dimensional finite-strain J2 with ordinary strong constraints and one
 analytical rigid plane under frictionless penalty contact. The plane may be
@@ -32,8 +32,13 @@ one increment lifecycle. The elastic small-strain contact provider must not win
 dispatch merely because a history material also exposes `young` and `poisson`.
 
 This is an experimental serial composition, not a general forming solver.
-Triangulated die face/edge transitions, periodic MPC reduction, mixed
-displacement-pressure elements, friction and MPI
+The integrated candidate adds one triangulated rigid tool with current-trial
+BVH projection and normalized prescribed motion, but only while active contact
+lies on planar facets or coplanar interior seams. Its force--moment--work and
+joint restart evidence are recorded in the
+[candidate gate](internal/release_0_4_3_candidate_gate_20261016.md).
+Curved/creased die transitions, periodic MPC reduction, mixed
+displacement-pressure elements, friction and distributed implicit assembly
 remain explicit follow-ups. Promote them one at a time only with tangent,
 force/work/energy, failed-attempt rollback, restart and independent refinement
 evidence. For MPC, reduce the *total* residual and tangent including contact;
