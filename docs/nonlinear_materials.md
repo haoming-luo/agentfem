@@ -211,10 +211,14 @@ frictionless penalty contact, fixed or with prescribed rigid motion. Tool pose
 uses the same resolved Step amplitude as the other prescribed inputs. Its weak
 residual and semismooth tangent enter the same Newton assembly as J2; the
 accepted ledger records contact penalty potential and tool force--coordinate
-work separately from material stored energy and plastic dissipation. This
-bounded composition is serial and experimental. Triangulated surfaces,
-friction, periodic MPC and portable cross-rank restart are not implied by the
-independent J2 or contact capabilities.
+work separately from material stored energy and plastic dissipation. A separate
+bounded path accepts one fixed triangulated rigid tool with reference-area
+quadrature. It recomputes projection at each Newton trial, admits planar facet
+interiors and coplanar seams, and rejects active free or noncoplanar edges. It
+does not yet account for prescribed faceted-tool motion or its work. Both
+compositions are serial and experimental. Friction, periodic MPC, general
+curved dies and portable cross-rank restart are not implied by the independent
+J2 or contact capabilities.
 For a distributed mesh, `model.step(...)` reports `AFM-J2-CONTACT-MPI`
 before solving; `step_capability` reports the same reason while keeping
 `supported=false`.
@@ -226,6 +230,9 @@ file preserves the unsmoothed integration-point fields and is linked from the
 result manifest. The checkpoint retains the accepted material state. XDMF is
 not a representation of the unsmoothed quadrature history, so the example does
 not relabel an interpolated stress field as the original constitutive response.
+The [fixed-facet example](https://github.com/haoming-luo/agentfem/blob/main/examples/finite_j2_faceted_contact.py)
+uses the same public `model.step(...)` workflow; its coplanar tool is a bounded
+integration test, not a validation of general forming dies.
 `DDSDDE` is the analytical consistent linearization of the accepted discrete
 backward-Euler return map, including isotropic hardening and dynamic recovery;
 mixed stress control globalizes that tangent with residual-reducing line

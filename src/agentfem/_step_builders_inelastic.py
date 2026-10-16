@@ -387,14 +387,17 @@ def finite_strain_j2(
                 "TimeDependentDirichlet histories. Prescribe the end-of-step "
                 "value and drive it with the shared step amplitude."
             )
-        from .boundary_models import RigidObstaclePenaltyContact
+        from .boundary_models import RigidContactPair, RigidObstaclePenaltyContact
 
         boundary_models = tuple(model.boundary_models)
         contact = None
         if boundary_models:
             if (
                 len(boundary_models) != 1
-                or not isinstance(boundary_models[0], RigidObstaclePenaltyContact)
+                or not isinstance(
+                    boundary_models[0],
+                    (RigidObstaclePenaltyContact, RigidContactPair),
+                )
             ):
                 names = tuple(
                     getattr(item, "name", type(item).__name__)
@@ -402,7 +405,7 @@ def finite_strain_j2(
                 )
                 raise NotImplementedError(
                     "Standard finite-strain J2 currently consumes at most one "
-                    "frictionless analytical rigid-plane contact; "
+                    "frictionless analytical-plane or bounded fixed-facet contact; "
                     f"unsupported={names}. Other weak models, discrete "
                     "surfaces and MPC require separate evidence."
                 )

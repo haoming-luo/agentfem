@@ -436,7 +436,11 @@ def _finite_strain_j2_strong_preconditions(model, request: StepRequest) -> bool:
 
 
 def _accept_finite_strain_j2_strong(model, request: StepRequest) -> bool:
-    from .boundary_models import RigidObstaclePenaltyContact
+    from .boundary_models import (
+        RigidContactPair,
+        RigidObstaclePenaltyContact,
+        TriangulatedRigidSurface,
+    )
 
     if not _finite_strain_j2_strong_preconditions(model, request):
         return False
@@ -444,30 +448,35 @@ def _accept_finite_strain_j2_strong(model, request: StepRequest) -> bool:
     if not boundary_models:
         return True
     target_mesh = getattr(getattr(request.target, "space", None), "mesh", None)
-    return (
-        len(boundary_models) == 1
-        and isinstance(boundary_models[0], RigidObstaclePenaltyContact)
-        and getattr(getattr(target_mesh, "comm", None), "size", 1) == 1
+    if len(boundary_models) != 1 or getattr(getattr(target_mesh, "comm", None), "size", 1) != 1:
+        return False
+    selected = boundary_models[0]
+    return isinstance(selected, RigidObstaclePenaltyContact) or (
+        isinstance(selected, RigidContactPair)
+        and isinstance(selected.rigid_body.surface, TriangulatedRigidSurface)
+        and selected.rigid_body.motion_schedule is None
+        and selected.friction is None
+        and selected.law.invalid_policy == "reject"
     )
 
 
 def _finite_strain_j2_strong_rejection_reason(model, request: StepRequest) -> str | None:
     """Explain the bounded contact/MPI near-match without claiming support."""
 
-    from .boundary_models import RigidObstaclePenaltyContact
+    from .boundary_models import RigidContactPair, RigidObstaclePenaltyContact
 
     if not _finite_strain_j2_strong_preconditions(model, request):
         return None
     boundary_models = tuple(getattr(model, "boundary_models", ()))
     if len(boundary_models) != 1 or not isinstance(
-        boundary_models[0], RigidObstaclePenaltyContact
+        boundary_models[0], (RigidObstaclePenaltyContact, RigidContactPair)
     ):
         return None
     target_mesh = getattr(getattr(request.target, "space", None), "mesh", None)
     if getattr(getattr(target_mesh, "comm", None), "size", 1) <= 1:
         return None
     return (
-        "AFM-J2-CONTACT-MPI: finite-strain J2 plus analytical-plane contact "
+        "AFM-J2-CONTACT-MPI: finite-strain J2 plus rigid contact "
         "is currently serial; standalone MPI J2/contact evidence does not "
         "certify their composition."
     )

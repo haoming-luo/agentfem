@@ -1200,7 +1200,7 @@ class FiniteStrainJ2StandardProblem:
             "load_factor": np.asarray(self.load_factor.value).copy(),
             "prescribed_values": self.value_path.snapshot_runtime_state(),
         }
-        if self.contact_provider is not None and self.contact_provider.surface is not None:
+        if self.contact_provider is not None and self.contact_provider.motion_factor is not None:
             state["contact_motion_factor"] = float(
                 np.asarray(self.contact_provider.motion_factor.value).reshape(-1)[0]
             )
@@ -1209,7 +1209,7 @@ class FiniteStrainJ2StandardProblem:
     def _restore_loading_state(self, state: dict[str, object]) -> None:
         self.load_factor.value = state["load_factor"]
         self.value_path.restore_runtime_state(state["prescribed_values"])
-        if self.contact_provider is not None and self.contact_provider.surface is not None:
+        if self.contact_provider is not None and self.contact_provider.motion_factor is not None:
             self.contact_provider.update_motion(state["contact_motion_factor"])
 
     def _contact_dual(self):
@@ -1248,6 +1248,9 @@ class FiniteStrainJ2StandardProblem:
 
     def _correction_rhs(self):
         residual = fem_petsc.assemble_vector(self.residual_form)
+        if self._uses_implicit_facet_contact():
+            self._facet_contact_trial = self.contact_provider.evaluate()
+            self.contact_provider.add_residual(residual, self._facet_contact_trial)
         fem_petsc.apply_lifting(
             residual,
             [self.tangent_form],
@@ -1287,8 +1290,20 @@ class FiniteStrainJ2StandardProblem:
                 self.tangent_form,
                 bcs=self.bcs,
             )
+        if self._uses_implicit_facet_contact():
+            contribution = getattr(self, "_facet_contact_trial", None)
+            if contribution is None:
+                raise RuntimeError("Implicit contact tangent requires the current residual trial.")
+            self.contact_provider.add_tangent(self._tangent_matrix, contribution)
         self._tangent_matrix.assemble()
         return self._tangent_matrix
+
+    def _uses_implicit_facet_contact(self) -> bool:
+        from ..boundary_models.dolfinx_implicit_facet_contact import (
+            DolfinxImplicitFacetContact,
+        )
+
+        return isinstance(self.contact_provider, DolfinxImplicitFacetContact)
 
     def _assign_trial(self, base, direction, alpha: float) -> None:
         self.solution.x.array[:] = base
@@ -1450,11 +1465,14 @@ class FiniteStrainJ2StandardProblem:
 
         from ..problems import _reaction_field
 
-        return _reaction_field(
+        values = _reaction_field(
             self.residual_form,
             self.solution,
             name="RF_WORK",
         ).x.array.copy()
+        if self._uses_implicit_facet_contact():
+            values += self.contact_provider.evaluate().assembly.nodal_structural_residual.reshape(-1)
+        return values
 
     def _integrate_quadrature_scalar(self, field) -> float:
         values = np.asarray(field.owned_values, dtype=float).reshape(-1)
@@ -1465,6 +1483,8 @@ class FiniteStrainJ2StandardProblem:
         )
 
     def _contact_potential(self) -> float:
+        if self._uses_implicit_facet_contact():
+            return self.contact_provider.evaluate().assembly.potential_energy
         if self.contact_energy_form is None:
             return 0.0
         local = float(fem.assemble_scalar(self.contact_energy_form))
@@ -3263,13 +3283,14 @@ def finite_strain_j2_standard_problem(
         )
 
     contact_energy_form = None
+    contact_provider = contact
     if contact is not None:
-        from ..boundary_models import RigidObstaclePenaltyContact
+        from ..boundary_models import RigidContactPair, RigidObstaclePenaltyContact
 
-        if not isinstance(contact, RigidObstaclePenaltyContact):
+        if not isinstance(contact, (RigidObstaclePenaltyContact, RigidContactPair)):
             raise TypeError(
-                "Finite-strain J2 standard contact requires one "
-                "RigidObstaclePenaltyContact."
+                "Finite-strain J2 standard contact requires one reviewed "
+                "RigidObstaclePenaltyContact or RigidContactPair."
             )
         if domain.comm.size != 1:
             raise NotImplementedError(
@@ -3277,15 +3298,22 @@ def finite_strain_j2_standard_problem(
                 "currently serial; the standalone contact and J2 MPI results "
                 "do not certify their composition."
             )
-        if contact.location.domain is not domain:
-            raise ValueError("Contact boundary and J2 displacement must share a mesh.")
-        residual += contact.form(solution, displacement.test)
-        jacobian += contact.tangent(
-            solution,
-            displacement.trial,
-            displacement.test,
-        )
-        contact_energy_form = fem.form(contact.energy_form(solution))
+        if isinstance(contact, RigidObstaclePenaltyContact):
+            if contact.location.domain is not domain:
+                raise ValueError("Contact boundary and J2 displacement must share a mesh.")
+            residual += contact.form(solution, displacement.test)
+            jacobian += contact.tangent(
+                solution,
+                displacement.trial,
+                displacement.test,
+            )
+            contact_energy_form = fem.form(contact.energy_form(solution))
+        else:
+            from ..boundary_models.dolfinx_implicit_facet_contact import (
+                dolfinx_implicit_facet_contact,
+            )
+
+            contact_provider = dolfinx_implicit_facet_contact(contact, solution)
 
     from .. import constraints as constraint_api
 
@@ -3314,6 +3342,21 @@ def finite_strain_j2_standard_problem(
             "Finite-strain J2 standard equilibrium requires at least one "
             "strong boundary constraint."
         )
+    if contact is not None and isinstance(contact, RigidContactPair):
+        trace = contact_provider.adapter.trace
+        trace_nodes = trace.node_ids[trace.shape_values != 0.0]
+        contact_dofs = np.unique(
+            (3 * trace_nodes[:, None] + np.arange(3)).reshape(-1)
+        )
+        constrained_dofs = np.concatenate(
+            [np.asarray(bc.dof_indices()[0], dtype=np.int64) for bc in selected_bcs]
+        )
+        if np.intersect1d(contact_dofs, constrained_dofs).size:
+            raise NotImplementedError(
+                "AFM-IMPLICIT-CONTACT-BC: the first facet-contact Newton path "
+                "requires contact trace dofs disjoint from strong Dirichlet dofs; "
+                "contact lifting on constrained rows needs a separate gate."
+            )
     value_path = constraint_api.prescribed_value_path(concrete_constraints)
     selected_amplitude = (
         amplitudes.ramp()
@@ -3365,7 +3408,7 @@ def finite_strain_j2_standard_problem(
         state_transaction=transaction,
         external_force=external_force,
         follower_loads=bool(follower_loads),
-        contact_provider=contact,
+        contact_provider=contact_provider,
         contact_energy_form=contact_energy_form,
         strong_constraint_assets=tuple(concrete_constraints),
         output_every=None if output_every is None else int(output_every),

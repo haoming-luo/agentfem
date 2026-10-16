@@ -461,6 +461,12 @@ geometry fingerprint; and distinguishes `no_candidate` from
 `ambiguous_projection`. Its built-in exhaustive closest-point search is a
 correctness oracle for accelerated backends, not an industrial search path.
 It is not yet accepted by the bounded plane-contact Operator.
+An independent experimental fixed-facet Operator now consumes reviewed
+triangulated projection evidence in the serial finite-J2 Step. It contributes
+reference-area normal-penalty residual and a fixed-planar-branch Newton
+tangent; it rejects active open/non-smooth edges and does not supply moving
+tool work, friction, periodic MPC, or MPI assembly. This does not broaden the
+analytical plane Operator or certify general faceted die forming.
 
 `triangle_surface_bvh(...)` builds a deterministic, process-local AABB tree
 over that reviewed surface. The tree changes only broad-phase candidate
