@@ -198,7 +198,10 @@ def test_tilted_fixed_tool_matches_analytical_plane_with_nonuniform_contact(cell
     )
 
 
-@pytest.mark.parametrize("tool_rotation", [(0.0, 0.0, 0.0), (0.0, 0.0, 0.01)])
+@pytest.mark.parametrize("tool_rotation", [
+    (0.0, 0.0, 0.0), (0.0, 0.0, 0.01), (0.0, 0.0, 0.05),
+    (0.0, 0.0, 0.2),
+])
 def test_moving_faceted_tool_matches_analytical_plane_force_work_and_state(tool_rotation):
     options = dict(tool_translation=(-0.006, 0.0, 0.0),
                    tool_rotation=tool_rotation, cells=2)
@@ -230,10 +233,13 @@ def test_moving_faceted_tool_matches_analytical_plane_force_work_and_state(tool_
                                rtol=3e-4, atol=1e-6)
 
 
-def test_moving_facet_tool_potential_derivative_and_atomic_restart(tmp_path, monkeypatch):
+@pytest.mark.parametrize("rotation", [0.01, 0.2])
+def test_moving_facet_tool_potential_derivative_and_atomic_restart(
+    tmp_path, monkeypatch, rotation,
+):
     options = dict(triangulated=True, cells=2,
                    tool_translation=(-0.006, 0.0, 0.0),
-                   tool_rotation=(0.0, 0.0, 0.01))
+                   tool_rotation=(0.0, 0.0, rotation))
     _, _, _, reference = _patch(**options)
     reference.solve()
     motion = reference.contact_provider.pair.rigid_body.motion_schedule.motion

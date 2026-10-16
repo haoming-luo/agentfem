@@ -30,11 +30,13 @@ It is not a general die-forming or periodic-contact release claim.
 ## Local evidence and admission boundary
 
 The moving coplanar triangulated tool agrees with the existing analytical
-moving-plane J2 route for translation and small simultaneous z rotation:
+moving-plane J2 route for translation and simultaneous z rotation through
+0.2 rad on the bounded planar fixture:
 displacement, committed material state, generalized force, penalty potential,
 and accepted tool work agree within the regression tolerances. The tool-work
 dual also agrees with a fixed-state finite difference of potential with
-respect to the prescribed motion factor. A serial checkpoint resumes to the
+respect to the prescribed motion factor at 0.01 and 0.2 rad. A serial
+checkpoint at both rotation magnitudes resumes to the
 uninterrupted state, while an intentionally failed energy update restores
 the prior accepted pose, displacement, and plastic history. The public example
 completes with `--tool-travel -0.006 --tool-rotation 0.01` and reports nonzero
@@ -74,7 +76,10 @@ remote PR gate remains a separate promotion decision.
    contact operator before Newton. A reviewed additive full-space operator
    seam, trial-pose refresh and joint acceptance transaction are required;
    merely admitting a contact parameter to the affine Step would silently
-   omit contact from line search and reactions.
+   omit contact from line search and reactions. The provider capability probe
+   and Step lowerer now both reject any registered boundary model on this
+   affine J2 path with `AFM-J2-CONTACT-MPC`; the material-only periodic
+   regression still passes.
 4. Establish distributed owner/ghost assembly and portable restart evidence.
 
 The accepted-path trapezoidal work choice is consistent with the contact
