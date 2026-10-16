@@ -541,6 +541,29 @@ contact features based on an outdated roadmap. Mesh compatibility and measured
 performance changes follow demonstrated application needs, not a parallel
 architecture rewrite. Small releases do not rebuild complete installers.
 
+#### Next bounded implicit-contact slice (0.4.3 candidate)
+
+The already-verified explicit triangle search is not itself an implicit
+contact solver. The analytical-plane finite-J2 composition first established
+one Newton residual/tangent, force/work evidence, rollback, and serial restart.
+The subsequent fixed-facet candidate reuses `RigidContactPair`, the reviewed
+BVH, and the same J2 Procedure, adding a current-trial boundary-quadrature
+residual and fixed-branch tangent. Its scope and local evidence are recorded in
+[the fixed-facet note](internal/implicit_facet_contact_candidate_20261016.md).
+Keep it experimental and serial; do not promote curved/creased tooling,
+moving-body work, periodic MPC, friction, or MPI by association.
+
+Promotion order: (1) close full installed-wheel CI and a candidate-bound
+scientific comparison for the analytical plane; (2) independently check
+faceted-contact geometry, force, moment, tangent and convergence under
+nonuniform deformation; (3) add prescribed tool motion with generalized work
+and joint rollback; (4) reduce both contact residual and tangent through
+periodic MPC; (5) establish MPI owner/ghost and restart evidence. A new
+release may ship a clearly bounded experimental subset, but its version
+number must not imply that the later gates passed. Performance is measured
+on fixed physics and an immutable installed candidate, separately from
+changing penalty, inertia, or time discretization.
+
 Stop after this vertical route has explicit field/response and state evidence.
 Nonmatching-mesh transfer, broader nonlinear coupling, monolithic Jacobians,
 and additional physics remain separate subsequent decisions. Installation or
