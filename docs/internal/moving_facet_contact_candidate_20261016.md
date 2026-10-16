@@ -52,6 +52,14 @@ rather than silently remapped to the static Step; both capability discovery
 and `model.step(...)` report the same stable diagnostic. Full installed-wheel
 and remote CI gates must still pass for this candidate.
 
+At source commit `515d3468`, the macOS arm64 CPython 3.11 wheel
+(`sha256:d8b6b06e7555f06153eebff11df7fa85bf3f0d9abbc713c0db82bc94c75b4f69`)
+and sdist (`sha256:92866bdfc5aba1a9e61c8b1b75b5ec86f43fcfd846b44de3c316fe7d93c526b5`)
+were built from clean source. The isolated installed-wheel `release_gate.py
+--dist ... --smoke --require-platform macos` completed successfully. This is
+local platform evidence, not a release tag or proof on Windows/Linux. The
+remote PR gate remains a separate promotion decision.
+
 ## Next review gates
 
 1. Compare a non-planar smooth tool against an independent structural
@@ -60,7 +68,13 @@ and remote CI gates must still pass for this candidate.
 2. Implement reviewed edge/vertex or smooth-surface transition derivatives
    before claiming general finite sliding on a tessellated die.
 3. Reduce both material-plus-contact residual and tangent through periodic
-   MPC, with identical line-search and reaction semantics.
+   MPC, with identical line-search and reaction semantics. The present affine
+   J2 route assembles a material-only full-space form before `T^T R` and
+   `T^T K T`, whereas the strong-boundary J2 contact route adds the external
+   contact operator before Newton. A reviewed additive full-space operator
+   seam, trial-pose refresh and joint acceptance transaction are required;
+   merely admitting a contact parameter to the affine Step would silently
+   omit contact from line search and reactions.
 4. Establish distributed owner/ghost assembly and portable restart evidence.
 
 The accepted-path trapezoidal work choice is consistent with the contact
