@@ -45,6 +45,22 @@ preserves the prior accepted displacement, material state and pose. These are
 local plane-limit checks, not independent curved-tool
 validation or physical-time simulation.
 
+A bounded 0.2-rad moving-plane fixture was also scanned without changing its
+penalty or motion path. With two cells per axis, 3/6/12 accepted increments
+gave tool work `1.486774 / 1.508690 / 1.514850` and contact potential
+`0.636862 / 0.636358 / 0.636349`. With six increments, 1/2/3/4 cells per
+axis gave tool work `1.766163 / 1.508690 / 1.409196 / 1.363561` and
+contact potential `0.923614 / 0.636358 / 0.543069 / 0.502516`. Differences
+between successive levels shrink for these *integral* observables, but the
+spatial series is not yet grid-independent. The discrete energy residual is
+not monotone under the 3/6/12-step scan, so this is not an energy-convergence
+claim. No pointwise maximum is used as a universal accuracy certificate.
+At the fixed two-cell/six-increment resolution, penalties 250/500/1000/2000
+gave tool work `1.138341 / 1.508690 / 1.841833 / 2.108082` and contact
+potential `0.688932 / 0.636358 / 0.517584 / 0.375544`. This sensitivity
+is expected for a penalty approximation and must not be mistaken for an
+algorithmic performance comparison or a penalty-independent solution.
+
 One frictionless prescribed rigid triangle tool, serial 3D blocked
 displacement, reference-area quadrature, and active projection on planar
 interior/coplanar seams only. No free/noncoplanar edge transition, friction,

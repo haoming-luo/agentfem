@@ -23,7 +23,8 @@ from agentfem.step_providers import step_capability
 def _patch(*, triangulated: bool, gap: float = 0.005, penalty=500.0,
            cells=1, constrain_contact=False, tilt=0.0,
            tool_translation=None, tool_rotation=(0.0, 0.0, 0.0),
-           schedule_end=1.0, make_step=True, tool_y_max=1.5):
+           schedule_end=1.0, make_step=True, tool_y_max=1.5,
+           increments=3):
     domain = dolfinx_mesh.create_unit_cube(MPI.COMM_SELF, cells, cells, cells)
     model = models.create(
         study=studies.static_solid(dimension=3, nonlinear=True),
@@ -91,7 +92,7 @@ def _patch(*, triangulated: bool, gap: float = 0.005, penalty=500.0,
     step = model.step(
         target=displacement,
         material=material,
-        incrementation=steps.fixed(3),
+        incrementation=steps.fixed(increments),
         solver_options=solvers.newton(
             relative_tolerance=1e-8,
             absolute_tolerance=1e-9,
@@ -231,6 +232,56 @@ def test_moving_faceted_tool_matches_analytical_plane_force_work_and_state(tool_
     assert balance["work_balance_available"]
     np.testing.assert_allclose(facet_dual["force"], plane_dual["force"],
                                rtol=3e-4, atol=1e-6)
+
+
+def test_moving_faceted_tool_global_work_refines_in_step_and_mesh():
+    """Check integral observables, not a pointwise maximum, on one planar fixture."""
+
+    def observables(*, cells, increments):
+        _, _, _, step = _patch(
+            triangulated=True,
+            cells=cells,
+            increments=increments,
+            tool_translation=(-0.006, 0.0, 0.0),
+            tool_rotation=(0.0, 0.0, 0.2),
+        )
+        assert step.solve_result().status == "completed"
+        frame = step.energy_history[-1]
+        return np.asarray((frame.tool_work, frame.contact_potential))
+
+    time_scan = np.asarray([
+        observables(cells=2, increments=count) for count in (3, 6, 12)
+    ])
+    mesh_scan = np.asarray([
+        observables(cells=count, increments=6) for count in (1, 2, 3, 4)
+    ])
+    assert np.all(np.isfinite(time_scan)) and np.all(np.isfinite(mesh_scan))
+    assert np.all(np.abs(time_scan[2] - time_scan[1]) <
+                  np.abs(time_scan[1] - time_scan[0]))
+    assert np.all(np.abs(mesh_scan[2] - mesh_scan[1]) <
+                  np.abs(mesh_scan[1] - mesh_scan[0]))
+    assert np.all(np.abs(mesh_scan[3] - mesh_scan[2]) <
+                  np.abs(mesh_scan[2] - mesh_scan[1]))
+
+
+def test_moving_faceted_tool_penalty_scan_changes_physics_explicitly():
+    work = []
+    potential = []
+    for penalty in (250.0, 500.0, 1000.0, 2000.0):
+        _, _, _, step = _patch(
+            triangulated=True,
+            cells=2,
+            increments=6,
+            penalty=penalty,
+            tool_translation=(-0.006, 0.0, 0.0),
+            tool_rotation=(0.0, 0.0, 0.2),
+        )
+        assert step.solve_result().status == "completed"
+        frame = step.energy_history[-1]
+        work.append(frame.tool_work)
+        potential.append(frame.contact_potential)
+    assert np.all(np.diff(work) > 0.0)
+    assert np.all(np.diff(potential) < 0.0)
 
 
 @pytest.mark.parametrize("rotation", [0.01, 0.2])
