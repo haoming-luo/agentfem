@@ -378,8 +378,11 @@ narrow serial strong-BC route. The rotational friction tangent follows the
 same master material point at fixed accepted State; its generally nonsymmetric
 Newton derivative, force--moment work and interrupted restart have focused
 tests. See `examples/finite_j2_moving_plane_friction.py` for the ordinary
-`model.step()` path. Sharp-tool friction,
-nonconvex/general contact, distributed implicit
+`model.step()` path. A certified closed-convex tool also has a selected
+piecewise-planar Coulomb branch under serial strong-BC finite-J2, including
+one tested noncoplanar feature switch and interrupted restart. This is a
+one-sided semismooth branch, not a smooth-normal law at a sharp edge.
+Open/nonconvex or curved-tool friction, general contact, distributed implicit
 assembly, and independent industrial benchmarks remain unsupported. The
 candidate subset does not turn `ContactTrace` into a universal implicit
 contact solver or promote released capability by association.
@@ -391,7 +394,7 @@ matrix:
 | --- | --- | --- | --- | --- |
 | Analytical plane, fixed or prescribed motion | Serial supported | Serial strong-BC candidate | Frictionless only | Rejected |
 | Reviewed triangle patch | Face-interior only; active free/noncoplanar edges reject | Rejected | Frictionless only | Rejected |
-| Certified closed convex triangle solid | Selected one-sided sharp-feature branch | Rejected | Frictionless only | Rejected |
+| Certified closed convex triangle solid | Selected one-sided sharp-feature branch | Serial strong-BC piecewise-planar candidate | Frictionless only | Rejected |
 | Nonconvex/general mesh or deformable master | Rejected | Rejected | Rejected | Rejected |
 
 All admitted implicit paths use finite-strain J2 on a three-dimensional solid.

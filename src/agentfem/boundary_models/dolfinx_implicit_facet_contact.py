@@ -30,7 +30,7 @@ from .implicit_facet_contact import (
 )
 from .implicit_contact import ImplicitRigidContactContribution
 from .implicit_contact import CombinedImplicitRigidContactContribution
-from .implicit_friction import linearize_planar_penalty_friction
+from .implicit_friction import linearize_piecewise_planar_penalty_friction
 from .implicit_smooth_contact import linearize_smooth_rigid_contact
 from .rigid import RigidPlaneSurface, SmoothRigidSurface, TriangulatedRigidSurface
 from .search import TriangleSurfaceBVH, triangle_surface_bvh
@@ -38,7 +38,7 @@ from .search import TriangleSurfaceBVH, triangle_surface_bvh
 
 @dataclass(eq=False)
 class DolfinxImplicitRigidContact:
-    """Current-trial rigid contact with optional fixed-plane tangential State."""
+    """Current-trial rigid contact with bounded planar-branch tangential State."""
 
     pair: RigidContactPair
     adapter: DolfinxContactTraceAdapter
@@ -75,15 +75,16 @@ class DolfinxImplicitRigidContact:
                 "Newton matrix/owner reduction contract yet."
             )
         if self.pair.friction is not None:
-            if not isinstance(surface, RigidPlaneSurface):
+            if not isinstance(surface, (RigidPlaneSurface, ConvexPolyhedralRigidSurface)):
                 raise NotImplementedError(
-                    "AFM-IMPLICIT-CONTACT-FRICTION: only a rigid planar branch "
-                    "has a reviewed fixed-old-state Coulomb tangent."
+                    "AFM-IMPLICIT-CONTACT-FRICTION: only an analytical plane "
+                    "or certified closed-convex planar branch has a reviewed "
+                    "fixed-old-state Coulomb tangent."
                 )
             initial = self.adapter.evaluate(self.displacement)
             projection = surface.project(initial.query_points)
             if not projection.all_valid:
-                raise ValueError("Initial planar friction projection is invalid.")
+                raise ValueError("Initial planar-branch friction projection is invalid.")
             record = ContactProjectionRecord(initial.trace.point_ids, projection)
             self.friction_state = TangentialContactState()
             self.friction_kinematics = TangentialKinematicState(
@@ -411,7 +412,7 @@ class DolfinxImplicitRigidContact:
             record, friction_response,
             surface_reference_point=reference_point,
         )
-        friction_tangent = linearize_planar_penalty_friction(
+        friction_tangent = linearize_piecewise_planar_penalty_friction(
             evaluation, record, response, friction_response,
             self.pair.friction, self.surface,
             motion=None if schedule is None else schedule.motion,
@@ -548,6 +549,10 @@ class DolfinxImplicitRigidContact:
         )
 
     def summary(self) -> dict[str, object]:
+        friction_geometry = (
+            "closed_convex" if isinstance(self.surface, ConvexPolyhedralRigidSurface)
+            else "plane"
+        )
         return {
             "kind": "dolfinx_implicit_rigid_contact",
             "pair": self.pair.summary(),
@@ -558,9 +563,9 @@ class DolfinxImplicitRigidContact:
             ),
             "linearization": self._linearization_name(),
             "execution_scope": (
-                "serial_moving_plane_coulomb_reference_area"
+                f"serial_moving_{friction_geometry}_coulomb_reference_area"
                 if self.friction_state is not None and self.has_prescribed_motion
-                else "serial_fixed_plane_coulomb_reference_area"
+                else f"serial_fixed_{friction_geometry}_coulomb_reference_area"
                 if self.friction_state is not None
                 else "serial_frictionless_reference_area"
             ),
@@ -568,10 +573,14 @@ class DolfinxImplicitRigidContact:
 
     def _linearization_name(self) -> str:
         if self.friction_state is not None:
+            geometry = (
+                "closed_convex_piecewise_planar"
+                if isinstance(self.surface, ConvexPolyhedralRigidSurface) else "plane"
+            )
             return (
-                "moving_plane_normal_plus_coulomb_semismooth_return_map"
+                f"moving_{geometry}_normal_plus_coulomb_semismooth_return_map"
                 if self.has_prescribed_motion else
-                "fixed_plane_normal_plus_coulomb_semismooth_return_map"
+                f"fixed_{geometry}_normal_plus_coulomb_semismooth_return_map"
             )
         if isinstance(self.surface, ConvexPolyhedralRigidSurface):
             return "closed_convex_polyhedron_piecewise_affine_semismooth"

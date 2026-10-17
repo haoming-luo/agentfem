@@ -27,7 +27,8 @@ def _patch(*, triangulated: bool, gap: float = 0.005, penalty=500.0,
            tool_translation=None, tool_rotation=(0.0, 0.0, 0.0),
            schedule_end=1.0, make_step=True, tool_y_max=1.5,
            increments=3, applied_traction=10.0, yield_stress=2.0,
-           convex_tool=False, convex_y_min=-0.5):
+           convex_tool=False, convex_y_min=-0.5,
+           friction_coefficient=None, tangential_penalty=None):
     domain = dolfinx_mesh.create_unit_cube(MPI.COMM_SELF, cells, cells, cells)
     model = models.create(
         study=studies.static_solid(dimension=3, nonlinear=True),
@@ -94,6 +95,8 @@ def _patch(*, triangulated: bool, gap: float = 0.005, penalty=500.0,
                 ),
             ),
             penalty=penalty,
+            friction_coefficient=friction_coefficient,
+            tangential_penalty=tangential_penalty,
         )
         model.add_boundary_model(pair)
     else:
@@ -253,6 +256,58 @@ def test_convex_tool_tracks_noncoplanar_feature_during_incremental_solve(
     )
     assert resumed.energy_history[-1].tool_work == pytest.approx(
         step.energy_history[-1].tool_work, rel=1e-9,
+    )
+
+
+def test_convex_tool_friction_feature_switch_keeps_plastic_and_tangential_state(
+    tmp_path,
+):
+    def build():
+        return _patch(
+            triangulated=True, convex_tool=True, convex_y_min=0.15,
+            yield_stress=2.0, tool_translation=(-0.06, 0.0, 0.0),
+            applied_traction=0.0, increments=12,
+            friction_coefficient=0.2, tangential_penalty=100.0,
+        )[3]
+
+    reference = build()
+    reference.solve(until=0.25)
+    _evaluation, early_record, early_response, _factor = (
+        reference.contact_provider._current_point_response()
+    )
+    reference.solve()
+    _evaluation, late_record, late_response, _factor = (
+        reference.contact_provider._current_point_response()
+    )
+    early = early_record.projection
+    late = late_record.projection
+    switching = (
+        early_response.active & late_response.active
+        & (early.entity_ids != late.entity_ids)
+        & (np.sum(early.normals * late.normals, axis=1) < 0.99)
+    )
+    assert np.any(switching)
+    assert reference.energy_history[-1].friction_dissipation > 0.0
+    assert reference.contact_provider.friction_state.accepted is not None
+    assert np.max(
+        reference.response.state.committed["equivalent_plastic_strain"].function.x.array
+    ) > 0.0
+
+    partial = build()
+    partial.solve(until=0.25)
+    saved = partial.save_checkpoint(tmp_path / "convex_friction_switch")
+    resumed = build()
+    resumed.load_checkpoint(saved)
+    resumed.solve()
+    np.testing.assert_allclose(
+        resumed.solution.x.array, reference.solution.x.array, rtol=1e-9, atol=1e-10,
+    )
+    np.testing.assert_allclose(
+        resumed.response.state.committed_state_vectors(),
+        reference.response.state.committed_state_vectors(), rtol=1e-9, atol=1e-10,
+    )
+    assert resumed.energy_history[-1].friction_dissipation == pytest.approx(
+        reference.energy_history[-1].friction_dissipation, rel=1e-9,
     )
 
 

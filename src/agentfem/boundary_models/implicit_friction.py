@@ -1,14 +1,15 @@
 # SPDX-FileCopyrightText: 2026 Haoming Luo and AgentFEM contributors
 # SPDX-License-Identifier: Apache-2.0
 
-"""Fixed-old-state planar Coulomb tangent for a bounded implicit Operator.
+"""Fixed-old-state planar-branch Coulomb tangent for a bounded implicit Operator.
 
 This differentiates the existing penalty return map at one current Newton
 trial. It does not own accepted friction state, integration, line search,
 work, or checkpointing; those belong to the consuming backend and Procedure.
-Only the analytical-plane serial strong-BC J2 path currently admits this
-tangent. Curvature, facets, affine MPC and MPI friction remain unsupported;
-independently named planar pairs share the owning Procedure transaction.
+Only analytical planes and certified closed-convex tools on a selected planar
+branch admit this tangent under serial strong-BC J2. Curvature, open/nonconvex
+facets, affine MPC and MPI friction remain unsupported; independently named
+pairs share the owning Procedure transaction.
 """
 
 from __future__ import annotations
@@ -21,6 +22,7 @@ from .contact_friction import PenaltyCoulombFrictionLaw, PenaltyCoulombFrictionR
 from .contact_response import FrictionlessPenaltyContactResponse, _penalty_values
 from .contact_state import ContactProjectionRecord
 from .contact_trace import ContactTraceEvaluation
+from .convex_polyhedron import ConvexPolyhedralRigidSurface
 from .rigid import PrescribedRigidMotion, RigidPlaneSurface, _readonly_array
 
 
@@ -75,13 +77,13 @@ class ImplicitPlanarFrictionTangent:
         ).reshape(shape)
 
 
-def linearize_planar_penalty_friction(
+def linearize_piecewise_planar_penalty_friction(
     evaluation: ContactTraceEvaluation,
     record: ContactProjectionRecord,
     normal_response: FrictionlessPenaltyContactResponse,
     friction_response: PenaltyCoulombFrictionResponse,
     law: PenaltyCoulombFrictionLaw,
-    surface: RigidPlaneSurface,
+    surface: RigidPlaneSurface | ConvexPolyhedralRigidSurface,
     *,
     motion: PrescribedRigidMotion | None = None,
     accepted_motion_factor: float = 0.0,
@@ -89,7 +91,7 @@ def linearize_planar_penalty_friction(
     cap_policy: str = "reject",
     opening_policy: str = "reject",
 ) -> ImplicitPlanarFrictionTangent:
-    """Differentiate stick/slip traction at fixed old State and current pose.
+    """Differentiate stick/slip traction on one fixed planar branch.
 
     In stick the point Jacobian is ``k_t P``. In slip it is
     ``-mu*k_n*t_hat tensor n + mu*p/|s_trial|*(P-t_hat tensor t_hat)``.
@@ -111,8 +113,10 @@ def linearize_planar_penalty_friction(
         raise TypeError("Implicit friction requires normal penalty response.")
     if not isinstance(friction_response, PenaltyCoulombFrictionResponse):
         raise TypeError("Implicit friction requires a tangential return-map response.")
-    if not isinstance(law, PenaltyCoulombFrictionLaw) or not isinstance(surface, RigidPlaneSurface):
-        raise TypeError("This implicit friction tangent is limited to a rigid plane.")
+    if not isinstance(law, PenaltyCoulombFrictionLaw) or not isinstance(
+        surface, (RigidPlaneSurface, ConvexPolyhedralRigidSurface),
+    ):
+        raise TypeError("Implicit friction requires a reviewed planar-branch geometry.")
     if cap_policy not in {"reject", "stick_generalized"}:
         raise ValueError("Unsupported implicit friction cap tangent policy.")
     if opening_policy not in {"reject", "inactive_generalized"}:
@@ -122,22 +126,44 @@ def linearize_planar_penalty_friction(
     if not record.projection.all_valid or normal_response.projection is not record.projection:
         raise ValueError("Implicit friction requires the current valid normal projection.")
     if record.projection.geometry_fingerprint != surface.geometry_fingerprint:
-        raise ValueError("Implicit friction projection belongs to another rigid plane.")
+        raise ValueError("Implicit friction projection belongs to another rigid geometry.")
     if not np.array_equal(record.projection.query_points, evaluation.query_points):
         raise ValueError("Implicit friction projection is stale for this Newton trial.")
-    current_plane = surface.transformed(motion, current_motion_factor)
-    current_normal = np.asarray(current_plane["normal"], dtype=float)
-    current_gap = (
-        evaluation.query_points - np.asarray(current_plane["point"], dtype=float)
-    ) @ current_normal
-    if not np.allclose(
-        record.projection.normals, current_normal, rtol=1e-12, atol=1e-12,
-    ) or not np.allclose(
-        record.projection.signed_gaps, current_gap, rtol=1e-12, atol=1e-12,
-    ):
-        raise ValueError(
-            "Implicit friction projection is stale for the current rigid pose."
+    if isinstance(surface, RigidPlaneSurface):
+        current_plane = surface.transformed(motion, current_motion_factor)
+        current_normal = np.asarray(current_plane["normal"], dtype=float)
+        current_gap = (
+            evaluation.query_points - np.asarray(current_plane["point"], dtype=float)
+        ) @ current_normal
+        current_projection_matches = np.allclose(
+            record.projection.normals, current_normal, rtol=1e-12, atol=1e-12,
+        ) and np.allclose(
+            record.projection.signed_gaps, current_gap, rtol=1e-12, atol=1e-12,
         )
+    else:
+        # Do not trust a facet ID or normal supplied from another Newton pose.
+        # This independent current projection is deliberately conservative;
+        # the broad-phase may be shared only after an explicit trust contract.
+        current = surface.project(
+            evaluation.query_points, motion=motion, factor=current_motion_factor,
+        )
+        current_projection_matches = (
+            current.all_valid
+            and np.array_equal(record.projection.entity_ids, current.entity_ids)
+            and np.allclose(
+                record.projection.normals, current.normals, rtol=1e-12, atol=1e-12,
+            )
+            and np.allclose(
+                record.projection.signed_gaps, current.signed_gaps,
+                rtol=1e-12, atol=1e-12,
+            )
+            and np.allclose(
+                record.projection.closest_points, current.closest_points,
+                rtol=1e-12, atol=1e-12,
+            )
+        )
+    if not current_projection_matches:
+        raise ValueError("Implicit friction projection is stale for the current rigid pose.")
     if not np.array_equal(record.point_ids, evaluation.trace.point_ids) or not np.array_equal(
         friction_response.record.point_ids, record.point_ids
     ):
@@ -182,7 +208,8 @@ def linearize_planar_penalty_friction(
         raise ValueError("AFM-IMPLICIT-FRICTION-BRANCH: stick/slip cap has no unique tangent.")
     geometry_scale = max(
         1.0,
-        float(np.linalg.norm(surface.point)),
+        float(np.linalg.norm(surface.point)) if isinstance(surface, RigidPlaneSurface)
+        else float(surface.facets.scale),
         float(np.max(np.abs(evaluation.query_points), initial=0.0)),
     )
     opening_tolerance = 128.0 * np.finfo(float).eps * geometry_scale
@@ -249,4 +276,13 @@ def linearize_planar_penalty_friction(
     )
 
 
-__all__ = ["ImplicitPlanarFrictionTangent", "linearize_planar_penalty_friction"]
+def linearize_planar_penalty_friction(*args, **kwargs) -> ImplicitPlanarFrictionTangent:
+    """Compatibility name for the original analytical-plane tangent."""
+
+    return linearize_piecewise_planar_penalty_friction(*args, **kwargs)
+
+
+__all__ = [
+    "ImplicitPlanarFrictionTangent", "linearize_planar_penalty_friction",
+    "linearize_piecewise_planar_penalty_friction",
+]

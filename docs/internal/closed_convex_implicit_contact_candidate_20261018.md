@@ -1,6 +1,6 @@
 # Closed-convex sharp rigid tool: bounded implicit contact candidate
 
-Status: source-level, serial, frictionless finite-J2 candidate. This does not
+Status: source-level, serial finite-J2 candidate. This does not
 promote arbitrary STL/CAD, general contact, or the 0.4.3 release contract.
 
 ## Geometry and Operator
@@ -92,7 +92,8 @@ were also measured, but are not transferable performance claims or a basis
 for a general solver default.
 
 The candidate still lacks an external structural comparison for a sharp
-feature, mesh and penalty studies, MPI assembly, friction on sharp faces,
+feature, mesh and penalty studies, MPI assembly, independently validated
+friction on sharp faces,
 and whole-step performance evidence for larger tools. In an isolated synthetic
 996-facet/1000-exterior-query check, the exterior projection stage changed
 from 2.055 s to 0.266 s on one Apple Silicon host; this is not a complete

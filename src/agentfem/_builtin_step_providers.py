@@ -470,11 +470,13 @@ def _finite_strain_j2_strong_preconditions(model, request: StepRequest) -> bool:
 
 
 def _implicit_planar_friction_geometry_supported(pair) -> bool:
-    """Only an analytical plane has the reviewed rigid-motion tangent."""
+    """Admit reviewed planar-branch geometry; never infer a smoothed normal."""
 
-    from .boundary_models import RigidPlaneSurface
+    from .boundary_models import ConvexPolyhedralRigidSurface, RigidPlaneSurface
 
-    if not isinstance(pair.rigid_body.surface, RigidPlaneSurface):
+    if not isinstance(
+        pair.rigid_body.surface, (RigidPlaneSurface, ConvexPolyhedralRigidSurface),
+    ):
         return False
     return True
 
@@ -552,8 +554,9 @@ def _finite_strain_j2_strong_rejection_reason(model, request: StepRequest) -> st
         ):
             return (
                 "AFM-IMPLICIT-CONTACT-FRICTION: each frictional rigid pair "
-                "must be an analytical plane; curved or faceted pairs lack "
-                "a reviewed implicit friction tangent."
+                "must be an analytical plane or certified closed-convex tool; "
+                "curved and open/nonconvex faceted pairs lack a reviewed "
+                "implicit friction tangent."
             )
         if any(
             item.law.invalid_policy != "reject" for item in boundary_models
@@ -594,8 +597,9 @@ def _finite_strain_j2_strong_rejection_reason(model, request: StepRequest) -> st
             return (
                 "AFM-IMPLICIT-CONTACT-FRICTION: implicit Coulomb contact is "
                 "limited to fixed or prescribed-moving analytical planes "
-                "in a serial strong-BC finite-strain J2 Step; curved and "
-                "faceted frictional tools need separate tangent and State validation."
+                "and certified closed-convex tools in a serial strong-BC "
+                "finite-strain J2 Step; curved and open/nonconvex faceted "
+                "frictional tools need separate tangent and State validation."
             )
         schedule = selected.rigid_body.motion_schedule
         if schedule is not None and (

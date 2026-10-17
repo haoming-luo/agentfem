@@ -16,7 +16,29 @@ from agentfem.boundary_models.dolfinx_implicit_facet_contact import (
 )
 
 
-def _operator(*, motion=None):
+def _rigid_surface(*, geometry="plane"):
+    if geometry == "plane":
+        return boundary_models.rigid_plane(
+            point=(0.05, 0.0, 0.0), normal=(-1.0, 0.0, 0.0),
+        )
+    if geometry != "closed_convex":
+        raise ValueError("Unknown friction test geometry.")
+    return boundary_models.convex_polyhedral_rigid_surface(
+        vertices=(
+            (0.05, -1.0, -1.0), (0.55, -1.0, -1.0),
+            (0.55, 2.0, -1.0), (0.05, 2.0, -1.0),
+            (0.05, -1.0, 2.0), (0.55, -1.0, 2.0),
+            (0.55, 2.0, 2.0), (0.05, 2.0, 2.0),
+        ),
+        triangles=(
+            (0, 2, 1), (0, 3, 2), (4, 5, 6), (4, 6, 7),
+            (0, 1, 5), (0, 5, 4), (3, 7, 6), (3, 6, 2),
+            (0, 4, 7), (0, 7, 3), (1, 2, 6), (1, 6, 5),
+        ),
+    )
+
+
+def _operator(*, motion=None, geometry="plane"):
     domain = mesh.create_unit_cube(MPI.COMM_SELF, 1, 1, 1)
     space = fem.functionspace(
         domain,
@@ -33,9 +55,7 @@ def _operator(*, motion=None):
     pair = boundary_models.rigid_contact_pair(
         slave,
         boundary_models.rigid_body(
-            boundary_models.rigid_plane(
-                point=(0.05, 0.0, 0.0), normal=(-1.0, 0.0, 0.0),
-            ),
+            _rigid_surface(geometry=geometry),
             motion_schedule=(
                 None if motion is None else
                 boundary_models.prescribed_rigid_motion_schedule(
@@ -98,7 +118,9 @@ def test_translating_plane_friction_uses_relative_tool_motion_and_tangent(
         operator.validate_accepted_configuration()
 
 
-def _moving_friction_patch_step(*, increments=1, rotation=(0.0, 0.0, 0.0)):
+def _moving_friction_patch_step(
+    *, increments=1, rotation=(0.0, 0.0, 0.0), geometry="plane",
+):
     domain = mesh.create_unit_cube(MPI.COMM_SELF, 2, 1, 1)
     model = models.create(study=studies.static_solid(dimension=3, nonlinear=True), mesh=domain)
     displacement = model.field(fields.displacement(domain))
@@ -118,9 +140,7 @@ def _moving_friction_patch_step(*, increments=1, rotation=(0.0, 0.0, 0.0)):
     model.add_boundary_model(boundary_models.rigid_contact_pair(
         left,
         boundary_models.rigid_body(
-            boundary_models.rigid_plane(
-                point=(0.05, 0.0, 0.0), normal=(-1.0, 0.0, 0.0),
-            ),
+            _rigid_surface(geometry=geometry),
             motion_schedule=boundary_models.prescribed_rigid_motion_schedule(
                 motion, start_time=0.0, end_time=1.0,
             ),
@@ -193,6 +213,64 @@ def test_rotating_planar_friction_public_step_work_and_restart(tmp_path):
     )
     assert resumed.energy_history[-1].friction_dissipation == pytest.approx(
         reference.energy_history[-1].friction_dissipation,
+    )
+
+
+def test_closed_convex_planar_face_matches_rotating_plane_global_path(tmp_path):
+    kwargs = {"increments": 4, "rotation": (0.0, 0.0, 0.15)}
+    plane = _moving_friction_patch_step(**kwargs)
+    convex = _moving_friction_patch_step(**kwargs, geometry="closed_convex")
+    plane_result = plane.solve_result()
+    convex_result = convex.solve_result()
+    assert plane_result.status == convex_result.status == "completed"
+    np.testing.assert_allclose(convex.solution.x.array, plane.solution.x.array, atol=1e-9)
+    for name in ("tool_work", "friction_dissipation", "contact_potential"):
+        assert getattr(convex.energy_history[-1], name) == pytest.approx(
+            getattr(plane.energy_history[-1], name), rel=1e-8, abs=1e-9,
+        )
+    np.testing.assert_allclose(
+        convex_result.metadata["constraint_duals"][0]["force"],
+        plane_result.metadata["constraint_duals"][0]["force"], atol=1e-8,
+    )
+    partial = _moving_friction_patch_step(**kwargs, geometry="closed_convex")
+    partial.solve(until=0.5)
+    saved = partial.save_checkpoint(tmp_path / "convex_friction")
+    resumed = _moving_friction_patch_step(**kwargs, geometry="closed_convex")
+    resumed.load_checkpoint(saved)
+    resumed.solve()
+    np.testing.assert_allclose(resumed.solution.x.array, convex.solution.x.array, atol=1e-9)
+    assert resumed.energy_history[-1].tool_work == pytest.approx(
+        convex.energy_history[-1].tool_work,
+    )
+    assert resumed.energy_history[-1].friction_dissipation == pytest.approx(
+        convex.energy_history[-1].friction_dissipation,
+    )
+
+
+def test_closed_convex_rotating_face_friction_tangent_and_stale_pose():
+    motion = boundary_models.prescribed_rigid_motion(
+        translation=(0.0, 0.40, 0.0), rotation=(0.0, 0.0, 0.15),
+        reference_point=(0.05, 0.0, 0.0),
+    )
+    displacement, operator = _operator(motion=motion, geometry="closed_convex")
+    displacement.x.array.reshape(-1, 3)[:, 0] = 0.10
+    operator.update_motion(0.5)
+    operator.commit_accepted()
+    operator.update_motion(1.0)
+    base = displacement.x.array.copy()
+    contribution = operator.evaluate()
+    assert contribution.friction_tangent.sliding_points > 0
+    direction = np.random.default_rng(443).normal(size=base.shape)
+    direction /= np.linalg.norm(direction)
+    epsilon = 1.0e-7
+    displacement.x.array[:] = base + epsilon * direction
+    plus = operator.evaluate().nodal_structural_residual
+    displacement.x.array[:] = base - epsilon * direction
+    minus = operator.evaluate().nodal_structural_residual
+    displacement.x.array[:] = base
+    np.testing.assert_allclose(
+        contribution.tangent_action(direction.reshape(-1, 3)),
+        (plus - minus) / (2 * epsilon), rtol=2e-5, atol=2e-6,
     )
 
 
