@@ -401,6 +401,33 @@ All admitted implicit paths use finite-strain J2 on a three-dimensional solid.
 Unsupported combinations fail during capability checking or before assembly;
 they are not silently replaced with a plane, frictionless law, or serial solve.
 
+After a serial implicit contact increment is accepted, the optional
+`results.export_accepted_contact_points(step, directory, units=..., result=...)` writes
+`accepted_contact_points.npz` and a JSON schema/identity record. Arrays include
+stable pair/point identity, current slave and closest master positions,
+reference quadrature weights, normals, signed gaps, positive penalty pressure,
+friction traction and accepted tangential state. The location is **reference
+boundary quadrature**, with no cross-facet nodal smoothing; normal pressure is
+force per reference area, not Cauchy pressure. The export refuses a modified
+trial displacement, nonaccepted material coordinate, unsupported MPI path,
+duplicate pair identity or an existing output. It does not advance State or
+serve as a restart archive. Pair names and geometry fingerprints must accompany
+point IDs when comparing archives. For example:
+
+```python
+from agentfem import results
+
+paths = results.export_accepted_contact_points(
+    step, "output/contact-points", units={"length": "m", "force": "N"},
+    result=result,
+)
+```
+
+Unknown units should be omitted, never inferred from the mesh coordinates.
+Passing `result` attaches the archive and raw quadrature pressure/traction
+field descriptors to that `SimulationResult`; it does not create a smoothed
+ParaView nodal field.
+
 For the reviewed DOLFINx route,
 `dolfinx_boundary_region_contact_trace(region, V)` adapts a tagged exterior
 boundary on a tetrahedral or hexahedral mesh and a continuous blocked vector

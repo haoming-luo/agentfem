@@ -374,6 +374,66 @@ class DolfinxImplicitRigidContact:
             "maximum_penetration": float(np.max(response.penetration, initial=0.0)),
         }
 
+    def accepted_point_samples(self) -> dict[str, object]:
+        """Return unsmoothed point arrays without changing accepted State.
+
+        The owning Procedure must first confirm that its displacement and
+        load coordinate are accepted. This provider checks its own tangential
+        State and recomputes the current projection; no smoothed nodal pressure
+        or guessed Cauchy contact stress is produced.
+        """
+
+        self.validate_accepted_configuration()
+        evaluation, record, normal, factor = self._current_point_response()
+        point_count = evaluation.trace.point_count
+        friction_traction = np.zeros((point_count, 3), dtype=float)
+        elastic_slip = np.zeros((point_count, 3), dtype=float)
+        cumulative_dissipation = np.zeros(point_count, dtype=float)
+        if self.friction_state is not None:
+            accepted = self.friction_state.accepted
+            relative = relative_contact_displacement_increment(
+                self.friction_kinematics.accepted, record,
+                motion=(
+                    None if self.pair.rigid_body.motion_schedule is None
+                    else self.pair.rigid_body.motion_schedule.motion
+                ),
+                current_motion_factor=factor,
+            )
+            response = self.pair.friction.evaluate(
+                point_ids=record.point_ids, normal_response=normal,
+                relative_displacement_increment=relative, accepted=accepted,
+            )
+            friction_traction = np.asarray(response.surface_generalized_tractions)
+            if accepted is not None:
+                elastic_slip = np.asarray(accepted.elastic_slips)
+                cumulative_dissipation = np.asarray(
+                    accepted.cumulative_dissipation_densities
+                )
+        projection = record.projection
+        return {
+            "constraint_name": self.name,
+            "surface_name": self.surface.name,
+            "geometry_fingerprint": self.surface.geometry_fingerprint,
+            "trace_source": evaluation.trace.source,
+            "load_factor": factor,
+            "point_ids": record.point_ids.copy(),
+            "slave_positions": projection.query_points.copy(),
+            "master_closest_points": projection.closest_points.copy(),
+            "surface_normals": projection.normals.copy(),
+            "signed_gaps": projection.signed_gaps.copy(),
+            "reference_weights": evaluation.trace.weights.copy(),
+            "normal_pressures": normal.pressures.copy(),
+            "penetrations": normal.penetration.copy(),
+            "active": normal.active.copy(),
+            "entity_ids": (
+                np.full(point_count, -1, dtype=np.int64)
+                if projection.entity_ids is None else projection.entity_ids.copy()
+            ),
+            "surface_friction_tractions": friction_traction.copy(),
+            "accepted_elastic_tangential_slips": elastic_slip.copy(),
+            "cumulative_friction_dissipation_densities": cumulative_dissipation.copy(),
+        }
+
     def evaluate(self) -> ImplicitRigidContactContribution:
         """Reproject the current displacement and assemble a fresh trial Operator."""
 

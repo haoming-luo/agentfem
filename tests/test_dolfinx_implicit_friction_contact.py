@@ -9,7 +9,7 @@ from mpi4py import MPI
 import numpy as np
 import pytest
 
-from agentfem import boundary_models, constitutive, fields, models, solvers, steps, studies
+from agentfem import boundary_models, constitutive, fields, models, results, solvers, steps, studies
 from agentfem import mesh as agent_mesh
 from agentfem.boundary_models.dolfinx_implicit_facet_contact import (
     dolfinx_implicit_rigid_contact,
@@ -274,6 +274,72 @@ def test_closed_convex_rotating_face_friction_tangent_and_stale_pose():
     )
 
 
+def test_accepted_contact_point_export_is_raw_and_reconstructs_tool_resultant(tmp_path):
+    step = _moving_friction_patch_step(
+        increments=4, rotation=(0.0, 0.0, 0.15), geometry="closed_convex",
+    )
+    result = step.solve_result()
+    destination = tmp_path / "contact_samples"
+    paths = results.export_accepted_contact_points(
+        step, destination, units={"length": "m", "force": "N"}, result=result,
+    )
+    assert result.artifacts["accepted_contact_points"] == paths["contact_points"]
+    assert result.fields["rigid_contact_normal_pressure_raw"].location == (
+        "reference_boundary_quadrature"
+    )
+    assert result.fields["rigid_contact_friction_traction_raw"].processing[
+        "npz_key"
+    ] == "surface_friction_tractions"
+    with np.load(paths["contact_points"], allow_pickle=False) as archive:
+        samples = {name: archive[name] for name in archive.files}
+    metadata = json.loads(paths["contact_point_metadata"].read_text())
+    assert metadata["schema"] == "agentfem.accepted-contact-points.v1"
+    assert metadata["smoothing"] == "none"
+    assert metadata["complete"] and not metadata["restart_archive"]
+    assert metadata["units"] == {"length": "m", "force": "N"}
+    assert samples["point_ids"].size == samples["reference_weights"].size
+    assert np.any(samples["active"])
+    assert np.all(samples["normal_pressures"] >= 0.0)
+    assert np.all(samples["cumulative_friction_dissipation_densities"] >= 0.0)
+    resultant = np.sum(
+        samples["reference_weights"][:, None] * (
+            samples["normal_pressures"][:, None] * samples["surface_normals"]
+            + samples["surface_friction_tractions"]
+        ), axis=0,
+    )
+    np.testing.assert_allclose(
+        resultant, result.metadata["constraint_duals"][0]["resultant"], atol=1e-9,
+    )
+    with pytest.raises(FileExistsError, match="fresh output"):
+        results.export_accepted_contact_points(step, destination)
+    step.solution.x.array[0] += 0.1
+    with pytest.raises(RuntimeError, match="fully accepted"):
+        results.export_accepted_contact_points(step, tmp_path / "rejected")
+    assert not (tmp_path / "rejected").exists()
+
+
+def test_contact_point_export_rejects_nonfinite_provider_data_before_writing(
+    tmp_path, monkeypatch,
+):
+    step = _moving_friction_patch_step(increments=2)
+    step.solve()
+    provider = step.contact_provider
+    original = provider.accepted_point_samples
+
+    def corrupt():
+        sample = original()
+        pressure = sample["normal_pressures"].copy()
+        pressure[0] = np.nan
+        sample["normal_pressures"] = pressure
+        return sample
+
+    monkeypatch.setattr(provider, "accepted_point_samples", corrupt)
+    destination = tmp_path / "invalid_samples"
+    with pytest.raises(ValueError, match="AFM-CONTACT-EXPORT-ARRAY"):
+        results.export_accepted_contact_points(step, destination)
+    assert not destination.exists()
+
+
 @pytest.mark.parametrize("tool_travel", [0.03, 0.40])
 def test_rotating_planar_friction_uses_current_master_point_tangent(tool_travel):
     motion = boundary_models.prescribed_rigid_motion(
@@ -393,6 +459,7 @@ def test_fixed_plane_friction_accept_restore_and_corrupt_state_rejection():
 
 def _frictional_j2_step(
     *, tangential_load: float, linear_solver=None, pair_count: int = 1,
+    first_convex: bool = False,
 ):
     domain = mesh.create_unit_cube(MPI.COMM_SELF, 1, 1, 1)
     model = models.create(study=studies.static_solid(dimension=3, nonlinear=True), mesh=domain)
@@ -406,11 +473,10 @@ def _frictional_j2_step(
     if pair_count not in {1, 2}:
         raise ValueError("This fixture tests one or two additive rigid pairs.")
     for index in range(pair_count):
+        geometry = "closed_convex" if first_convex and index == 0 else "plane"
         pair = boundary_models.rigid_contact_pair(
             left,
-            boundary_models.rigid_body(boundary_models.rigid_plane(
-                point=(0.05, 0.0, 0.0), normal=(-1.0, 0.0, 0.0),
-            )),
+            boundary_models.rigid_body(_rigid_surface(geometry=geometry)),
             penalty=500.0 / pair_count, friction_coefficient=0.4,
             tangential_penalty=100.0 / pair_count,
             name=(
@@ -430,6 +496,35 @@ def _frictional_j2_step(
         progress=False,
     )
     return step
+
+
+def test_mixed_convex_and_planar_friction_pairs_keep_separate_identity(tmp_path):
+    reference = _frictional_j2_step(tangential_load=100.0)
+    mixed = _frictional_j2_step(
+        tangential_load=100.0, pair_count=2, first_convex=True,
+    )
+    reference_result = reference.solve_result()
+    mixed_result = mixed.solve_result()
+    assert reference_result.status == mixed_result.status == "completed"
+    np.testing.assert_allclose(
+        mixed.solution.x.array, reference.solution.x.array, rtol=1e-8, atol=1e-9,
+    )
+    assert len(mixed_result.metadata["constraint_duals"]) == 2
+    assert mixed_result.metadata["constraint_duals"][0]["constraint_name"] != (
+        mixed_result.metadata["constraint_duals"][1]["constraint_name"]
+    )
+    assert mixed.energy_history[-1].friction_dissipation == pytest.approx(
+        reference.energy_history[-1].friction_dissipation, rel=1e-8,
+    )
+    paths = results.export_accepted_contact_points(mixed, tmp_path / "mixed_points")
+    with np.load(paths["contact_points"], allow_pickle=False) as archive:
+        pair_index = archive["pair_index"]
+        assert set(pair_index.tolist()) == {0, 1}
+        assert len(archive["point_ids"]) == len(pair_index)
+    metadata = json.loads(paths["contact_point_metadata"].read_text())
+    assert [item["constraint_name"] for item in metadata["pairs"]] == [
+        item["constraint_name"] for item in mixed_result.metadata["constraint_duals"]
+    ]
 
 
 def test_public_friction_rejects_symmetry_only_linear_solver():

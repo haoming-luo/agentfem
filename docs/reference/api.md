@@ -548,6 +548,7 @@ and evidence remain in the linked guides and scientific function reference.
 | function | `compare_records(reference: Mapping, candidate: Mapping, *, quantities: Sequence[str] = (), histories: Sequence[str] = (), atol: float = 0.0, rtol: float = 0.0) -> dict` | Compare selected observables with explicit componentwise tolerances. |
 | class | `AcceptedResponseSeries(path, *, state_fields = None, velocity = False, acceleration = False, units = None)` | Streaming accepted fields; fixed mesh stored once, never a restart archive. |
 | function | `export_accepted_response(step, directory, *, state_fields = None, velocity = False, acceleration = False, units = None, visualization = True)` | Export one accepted response, raw state and cell keys. |
+| function | `export_accepted_contact_points(step, directory, *, units = None, result = None) -> dict[str, Path]` | Archive accepted quadrature samples without smoothing or advancing State. |
 | class | `CheckpointRecord` | One restart asset with an explicit portability boundary. |
 | class | `FieldResult` | A named live field or an external field artifact. |
 | class | `HistoryResult` | Time, load, or iteration history with a fixed value shape. |
