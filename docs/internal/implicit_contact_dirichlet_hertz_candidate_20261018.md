@@ -269,6 +269,29 @@ half-space reference, not establish accuracy. A consistent zero-penetration
 limit still requires controlled mesh and domain refinement, and no threshold
 has been promoted from this screen.
 
+Keeping the 1,728-cell, extent-16, grade-five, `1e6`-penalty, CG2/3×3 problem
+fixed while changing the prescribed-motion path from four to eight equal
+increments changes final full-body force only from `0.597341748365` to
+`0.597341748239`, and the nominal pressure L1 diagnostic only from
+`0.375891887091` to `0.375891886907`. The eight-increment accepted
+trapezoidal work residual is `5.31e-7`; it is a path-discretization ledger,
+not a general first-law balance. This final-state check suggests that
+increment count is not the main source of the present Hertz mismatch. It
+does not establish every intermediate friction/plastic path, which is a
+different validation problem.
+
+The same four-increment source run now compares *three distinct energy
+quantities*: the analytical Hertz half-space displacement work
+`(2/5) F_H delta = 0.00046886447`; full-body accepted trapezoidal tool work
+`0.00048329004` (ratio `1.03077`); and full-body accepted stored plus
+contact-penalty energy `0.00047528648` (ratio `1.01370`). The quarter-model
+accepted work residual is `2.00089e-6`, or four times that for the full
+body. The work ratio cannot be interpreted as a continuum error independent
+of increment size, and the recoverable-energy ratio still mixes finite
+domain, finite penalty and finite-strain differences with the Hertz limit.
+This comparison makes the boundary-work side visible without treating a
+trapezoidal ledger as a universal first-law proof.
+
 ## Remaining gate
 
 Run independently controlled mesh **and** domain-size refinement with a

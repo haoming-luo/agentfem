@@ -662,6 +662,18 @@ number must not imply that the later gates passed. Performance is measured
 on fixed physics and an immutable installed candidate, separately from
 changing penalty, inertia, or time discretization.
 
+The current bounded serial candidate has progressed beyond the original
+single-facet slice: ordinary finite-J2 Steps now exercise prescribed-DOF
+contact, named multi-tool motion/work, reviewed planar/closed-convex Coulomb
+branches, restart and accepted-point output. The
+[candidate acceptance map](internal/implicit_contact_dirichlet_hertz_candidate_20261018.md)
+separates these completed source and installed-Mac checks from the remaining
+external same-input comparison, general sharp-feature laws, distributed
+implicit contact and cross-platform release gates. Its Hertz force, pressure,
+mesh, penalty and energy screens are directional diagnostics, not an
+industrial-contact accuracy certificate. Do not silently widen the public
+capability merely because this candidate can complete a Newton solve.
+
 Stop after this vertical route has explicit field/response and state evidence.
 Nonmatching-mesh transfer, broader nonlinear coupling, monolithic Jacobians,
 and additional physics remain separate subsequent decisions. Installation or

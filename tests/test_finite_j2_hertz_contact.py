@@ -31,6 +31,12 @@ def test_full_and_quarter_indentation_agree_with_contact_on_symmetry_dofs(gradin
     assert quarter["contact_potential"] * 4 == pytest.approx(
         full["contact_potential"], rel=1.0e-9,
     )
+    assert quarter["full_body_tool_work"] == pytest.approx(
+        full["full_body_tool_work"], rel=1.0e-9,
+    )
+    assert quarter["full_body_stored_plus_penalty_energy"] == pytest.approx(
+        full["full_body_stored_plus_penalty_energy"], rel=1.0e-9,
+    )
     assert quarter["hertz_force_sampled_on_reference_trace"] == pytest.approx(
         full["hertz_force_sampled_on_reference_trace"], rel=1.0e-12,
     )
@@ -43,6 +49,11 @@ def test_hertz_reference_is_labeled_as_limit_not_exact_solution():
     result = run_case(cells=4, penalty=1.0e5, indentation=0.02)
     assert result["full_contact_force"] > 0.0
     assert result["hertz_half_space_force"] > 0.0
+    assert result["hertz_half_space_displacement_work"] == pytest.approx(
+        0.4 * result["hertz_half_space_force"] * result["indentation"],
+    )
+    assert result["full_body_tool_work"] > 0.0
+    assert result["full_body_stored_plus_penalty_energy"] > 0.0
     assert result["hertz_half_space_contact_radius"] > 0.0
     assert result["hertz_half_space_contact_area"] > 0.0
     assert result["hertz_half_space_peak_pressure"] > 0.0

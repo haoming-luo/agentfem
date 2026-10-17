@@ -173,6 +173,10 @@ def run_case(
         4.0 / 3.0 * young / (1.0 - poisson**2)
         * np.sqrt(radius) * indentation**1.5
     )
+    # The half-space force scales as delta^(3/2), so its displacement-
+    # controlled work limit is the integral 2*F(delta)*delta/5. This is an
+    # external reference, not the finite-block energy-balance definition.
+    hertz_work = float(2.0 / 5.0 * hertz_force * indentation)
     hertz_radius = float(np.sqrt(radius * indentation))
     hertz_area = float(np.pi * hertz_radius**2)
     hertz_peak_pressure = float(3.0 * hertz_force / (2.0 * hertz_area))
@@ -204,6 +208,11 @@ def run_case(
         name: float(sum(getattr(item, name) for item in step.accepted_increments))
         for name in phase_names
     }
+    full_tool_work = float(symmetry_factor * step.energy_history[-1].tool_work)
+    full_recoverable_energy = float(symmetry_factor * (
+        step.energy_history[-1].stored_energy
+        + step.energy_history[-1].contact_potential
+    ))
     return {
         "status": str(result.status),
         "cells_per_side": int(cells),
@@ -244,6 +253,13 @@ def run_case(
         "maximum_penetration": float(max(0.0, -np.min(projection.signed_gaps))),
         "full_contact_force": force,
         "hertz_half_space_force": float(hertz_force),
+        "hertz_half_space_displacement_work": hertz_work,
+        "full_body_tool_work": full_tool_work,
+        "tool_work_ratio_to_hertz_half_space": full_tool_work / hertz_work,
+        "full_body_stored_plus_penalty_energy": full_recoverable_energy,
+        "recoverable_energy_ratio_to_hertz_half_space": (
+            full_recoverable_energy / hertz_work
+        ),
         "force_ratio_to_hertz": force / hertz_force,
         "contact_potential": float(contribution.assembly.potential_energy),
         "stored_energy": float(step.energy_history[-1].stored_energy),
