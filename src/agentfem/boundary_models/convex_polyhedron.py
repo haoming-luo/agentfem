@@ -25,6 +25,7 @@ from .rigid import (
     _closest_point_on_triangle,
     _finite_nonnegative,
     _triangle_barycentric_coordinates,
+    triangulated_rigid_surface_from_mesh,
 )
 
 
@@ -197,7 +198,7 @@ class ConvexPolyhedralRigidSurface(RigidSurface):
         )
 
     def summary(self) -> dict[str, object]:
-        return {
+        summary = {
             "name": self.name,
             "kind": "convex_polyhedral_rigid_surface",
             "dimension": 3,
@@ -209,6 +210,9 @@ class ConvexPolyhedralRigidSurface(RigidSurface):
             "signed_gap_convention": "positive_admissible_negative_penetration",
             "execution_scope": "serial_reference_geometry",
         }
+        if self.facets.source_format is not None:
+            summary["source"] = self.facets.summary()["source"]
+        return summary
 
 
 def convex_polyhedral_rigid_surface(
@@ -223,4 +227,23 @@ def convex_polyhedral_rigid_surface(
     return ConvexPolyhedralRigidSurface(facets=facets, name=name)
 
 
-__all__ = ["ConvexPolyhedralRigidSurface", "convex_polyhedral_rigid_surface"]
+def convex_polyhedral_rigid_surface_from_mesh(
+    path, *, coordinate_scale: float, input_format: str | None = None,
+    flip_normals: bool = False, name: str | None = None,
+    tolerance: float | None = None, ambiguity_tolerance: float | None = None,
+) -> ConvexPolyhedralRigidSurface:
+    """Import a reviewed triangle tool, then certify it as closed and convex."""
+
+    facets = triangulated_rigid_surface_from_mesh(
+        path, coordinate_scale=coordinate_scale, input_format=input_format,
+        flip_normals=flip_normals, name=name, tolerance=tolerance,
+        ambiguity_tolerance=ambiguity_tolerance,
+    )
+    return ConvexPolyhedralRigidSurface(facets=facets, name=facets.name)
+
+
+__all__ = [
+    "ConvexPolyhedralRigidSurface",
+    "convex_polyhedral_rigid_surface",
+    "convex_polyhedral_rigid_surface_from_mesh",
+]

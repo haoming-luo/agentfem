@@ -202,11 +202,14 @@ def test_convex_contact_matches_independent_hencky_bar_penalty_equilibrium():
     )
 
 
-def test_convex_tool_tracks_noncoplanar_feature_during_incremental_solve(tmp_path):
+@pytest.mark.parametrize("yield_stress", [1.0e9, 2.0])
+def test_convex_tool_tracks_noncoplanar_feature_during_incremental_solve(
+    tmp_path, yield_stress,
+):
     def build():
         return _patch(
             triangulated=True, convex_tool=True, convex_y_min=0.15,
-            yield_stress=1.0e9, tool_translation=(-0.06, 0, 0),
+            yield_stress=yield_stress, tool_translation=(-0.06, 0, 0),
             applied_traction=0.0, increments=12,
         )[3]
 
@@ -230,6 +233,10 @@ def test_convex_tool_tracks_noncoplanar_feature_during_incremental_solve(tmp_pat
     assert np.any(switching)
     assert step.contact_provider.evaluate().active_points > 0
     assert np.isfinite(step.solution.x.array).all()
+    if yield_stress < 1.0e8:
+        assert np.max(
+            step.response.state.committed["equivalent_plastic_strain"].function.x.array
+        ) > 0.0
 
     partial = build()
     partial.solve(until=0.25)

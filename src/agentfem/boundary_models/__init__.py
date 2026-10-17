@@ -50,6 +50,7 @@ from .contact_pair import RigidContactPair, rigid_contact_pair
 from .convex_polyhedron import (
     ConvexPolyhedralRigidSurface,
     convex_polyhedral_rigid_surface,
+    convex_polyhedral_rigid_surface_from_mesh,
 )
 from .deformable_pair import DeformableContactPair, deformable_contact_pair
 from .trace_policy import RigidContactTracePolicy
@@ -203,6 +204,7 @@ __all__ = [
     "local_projection_state_from_snapshot",
     "convection",
     "convex_polyhedral_rigid_surface",
+    "convex_polyhedral_rigid_surface_from_mesh",
     "dolfinx_adapter",
     "dolfinx_contact_trace",
     "dolfinx_contact_stability",

@@ -10,6 +10,9 @@ triangle manifold only if every supplied vertex lies behind every outward
 facet plane. It rejects open, inward-oriented and nonconvex tooling before a
 solve. This is a geometry certificate for the exact supplied facets, not a
 repair, remesh or convex-hull operation.
+`convex_polyhedral_rigid_surface_from_mesh(...)` applies that same certificate
+to the reviewed triangle-only mesh import, retaining source hash, format and
+coordinate-scale evidence; it does not certify arbitrary STL files as convex.
 
 For a point inside the tool, the signed gap is the maximum of its outward
 unit-normal face-plane gaps. A negative value means penetration. The nearest
@@ -45,11 +48,13 @@ curved pressure field or a plastic structure.
 
 A separate twelve-increment finite-J2 fixture moves a convex tool far enough
 that at least one *active* slave quadrature point switches between
-noncoplanar face normals. Every accepted Newton increment converges, and an
-interrupted checkpoint resumed before the switch reproduces the continuous
-displacement, material State and final prescribed-tool work. This demonstrates
-one selected-branch transition path; it is not a convergence theorem for
-arbitrary corners, large sliding, or chattering active sets.
+noncoplanar face normals. The same path is run in an elastic regime and with
+evolving plastic State. Every accepted Newton increment converges, plastic
+equivalent strain becomes nonzero in the latter, and an interrupted checkpoint
+resumed before the switch reproduces the continuous displacement, material
+State and final prescribed-tool work. This demonstrates one selected-branch
+transition path; it is not a convergence theorem for arbitrary corners, large
+sliding, or chattering active sets.
 
 An isolated, locally built `0.4.3` wheel was installed outside the source
 checkout and ran `examples/finite_j2_closed_convex_contact.py` through the
