@@ -101,44 +101,53 @@ class ConvexPolyhedralRigidSurface(RigidSurface):
             float("inf") if maximum_distance is None
             else _finite_nonnegative(maximum_distance, name="Maximum projection distance")
         )
-        for point_index, point in enumerate(query):
-            plane_gaps = facets.facet_normals @ point - self._offsets
-            maximum = float(np.max(plane_gaps))
-            if maximum < 0.0:
-                # Distance to the union of half-space complements is the
-                # smallest distance to one supporting plane.  Choose a face
-                # containing the foot; coplanar triangulation is immaterial.
-                candidates = np.flatnonzero(plane_gaps >= maximum - tolerance)
-                selected = None
-                for index in sorted(candidates, key=lambda item: int(facets.facet_ids[item])):
-                    foot = point - float(plane_gaps[index]) * facets.facet_normals[index]
-                    barycentric = _triangle_barycentric_coordinates(
-                        foot, triangle_points[index],
-                    )
-                    if np.min(barycentric) >= -relative_tolerance:
-                        selected = int(index)
-                        break
-                if selected is None:
-                    status[point_index] = "invalid_convex_foot"
+        # Bound the temporary gap matrix, while evaluating all support planes
+        # through one dense kernel per block rather than one BLAS call per
+        # query. The exact exterior triangle search remains unchanged.
+        block_width = min(4096, max(1, 2_000_000 // len(self._offsets)))
+        for start in range(0, count, block_width):
+            stop = min(start + block_width, count)
+            block_gaps = query[start:stop] @ facets.facet_normals.T
+            block_gaps -= self._offsets
+            for local_index, plane_gaps in enumerate(block_gaps):
+                point_index = start + local_index
+                point = query[point_index]
+                maximum = float(np.max(plane_gaps))
+                if maximum < 0.0:
+                    # Distance to the union of half-space complements is the
+                    # smallest distance to one supporting plane. Choose a face
+                    # containing the foot; coplanar triangulation is immaterial.
+                    candidates = np.flatnonzero(plane_gaps >= maximum - tolerance)
+                    selected = None
+                    for index in sorted(candidates, key=lambda item: int(facets.facet_ids[item])):
+                        foot = point - float(plane_gaps[index]) * facets.facet_normals[index]
+                        barycentric = _triangle_barycentric_coordinates(
+                            foot, triangle_points[index],
+                        )
+                        if np.min(barycentric) >= -relative_tolerance:
+                            selected = int(index)
+                            break
+                    if selected is None:
+                        status[point_index] = "invalid_convex_foot"
+                        continue
+                    gap = float(plane_gaps[selected])
+                    normal = facets.facet_normals[selected]
+                    projection = point - gap * normal
+                else:
+                    # The inactive exterior still needs the exact closest
+                    # triangle, not a false supporting-plane foot. Defer its
+                    # search to the reviewed deterministic BVH in one batch.
+                    exterior_indices.append(point_index)
                     continue
-                gap = float(plane_gaps[selected])
-                normal = facets.facet_normals[selected]
-                projection = point - gap * normal
-            else:
-                # The inactive exterior still needs the exact closest
-                # triangle, not a false supporting-plane foot. Defer its
-                # search to the reviewed deterministic BVH in one batch.
-                exterior_indices.append(point_index)
-                continue
-            if abs(gap) > limit:
-                continue
-            closest[point_index] = projection
-            normals[point_index] = normal
-            gaps[point_index] = gap
-            valid[point_index] = True
-            status[point_index] = "ok"
-            entity_ids[point_index] = int(facets.facet_ids[selected])
-            coordinates[point_index] = barycentric
+                if abs(gap) > limit:
+                    continue
+                closest[point_index] = projection
+                normals[point_index] = normal
+                gaps[point_index] = gap
+                valid[point_index] = True
+                status[point_index] = "ok"
+                entity_ids[point_index] = int(facets.facet_ids[selected])
+                coordinates[point_index] = barycentric
         if exterior_indices:
             indices = np.asarray(exterior_indices, dtype=np.int64)
             candidates = self._exterior_bvh._candidate_evidence(

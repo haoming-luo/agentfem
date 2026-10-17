@@ -33,6 +33,18 @@ the existing rigid pair, finite-J2 Newton, strong-boundary lifting, tool
 force/moment work, accepted State, rollback and checkpoint owners. It does not
 add a new Step or a geometry-specific material law.
 
+The convex interior support-plane evaluation now groups points into bounded
+dense blocks (at most two million point–facet gaps per temporary array),
+then applies the unchanged deterministic face/foot selection per point.
+Exterior queries still use the exact triangle BVH. A seeded 996-facet,
+2,000-point, single-thread local projector comparison against commit
+`95612f16` checks matching signed gaps (absolute tolerance `1e-14`) and
+identical facet IDs. For all-interior points, median of five in-process
+runs changed from `0.01884 s` to `0.01554 s`; for a half-interior/half-exterior
+mix it changed from `0.20980 s` to `0.20856 s`. The latter is within timing
+noise and dominated by exterior search. This is a local microbenchmark, not
+a finite-J2 Step speedup, a cross-machine claim, or a new default model.
+
 ## Evidence and limits
 
 Focused solver-neutral tests check closure/orientation rejection, interior and

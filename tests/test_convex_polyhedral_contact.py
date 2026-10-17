@@ -50,6 +50,27 @@ def test_convex_closed_tool_projection_and_sharp_branch_identity():
     assert surface.summary()["execution_scope"] == "serial_reference_geometry"
 
 
+def test_convex_support_plane_batch_boundary_preserves_point_order_and_branch():
+    surface = _tool()
+    samples = np.asarray(
+        ((0.10, 0.20, 0.30), (0.20, 0.10, 0.30),
+         (0.15, 0.16, 0.17), (0.10, 0.10, 0.10)),
+        dtype=float,
+    )
+    queries = np.tile(samples, (1026, 1))[:4101]
+    batched = surface.project(queries)
+    singles = [surface.project((point,)) for point in samples]
+    np.testing.assert_allclose(
+        batched.signed_gaps,
+        np.tile([item.signed_gaps[0] for item in singles], 1026)[:4101],
+        rtol=0.0, atol=1.0e-15,
+    )
+    np.testing.assert_array_equal(
+        batched.entity_ids,
+        np.tile([item.entity_ids[0] for item in singles], 1026)[:4101],
+    )
+
+
 def test_convex_tool_rejects_open_or_inward_geometry():
     with pytest.raises(ValueError, match="closed"):
         boundary_models.convex_polyhedral_rigid_surface(
