@@ -25,8 +25,10 @@ noncoplanar face switch the potential remains continuous but the force has
 distinct one-sided limits. The selected limiting tangent is a semismooth
 branch, **not** a classical two-sided derivative or a smoothed normal.
 
-The implementation intentionally uses exhaustive facet queries as a small
-correctness reference. It is not a scalable arbitrary-tool search. It shares
+The implementation checks every support plane for interior penetration and
+uses the existing triangle BVH for exact closest-point projection of inactive
+exterior points. The BVH may prune candidates but never freezes an old gap,
+normal or contact force. This is not a general arbitrary-tool search. It shares
 the existing rigid pair, finite-J2 Newton, strong-boundary lifting, tool
 force/moment work, accepted State, rollback and checkpoint owners. It does not
 add a new Step or a geometry-specific material law.
@@ -91,8 +93,10 @@ for a general solver default.
 
 The candidate still lacks an external structural comparison for a sharp
 feature, mesh and penalty studies, MPI assembly, friction on sharp faces,
-and performance
-evidence for larger tools. At a medial-axis tie, one limiting branch is
+and whole-step performance evidence for larger tools. In an isolated synthetic
+996-facet/1000-exterior-query check, the exterior projection stage changed
+from 2.055 s to 0.266 s on one Apple Silicon host; this is not a complete
+solve speedup or portable benchmark. At a medial-axis tie, one limiting branch is
 selected deterministically; general convergence across repeated active-set
 switches is not proven. Open or nonconvex triangle surfaces retain their
 fail-closed active edge/vertex policy. Release language must distinguish

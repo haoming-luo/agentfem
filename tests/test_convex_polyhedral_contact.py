@@ -4,6 +4,7 @@ import numpy as np
 import pytest
 
 from agentfem import boundary_models
+from agentfem.boundary_models.rigid import _closest_point_on_triangle
 from agentfem.boundary_models.implicit_facet_contact import (
     linearize_piecewise_planar_contact,
 )
@@ -58,6 +59,32 @@ def test_convex_tool_rejects_open_or_inward_geometry():
         boundary_models.convex_polyhedral_rigid_surface(
             vertices=VERTICES, triangles=tuple(tuple(reversed(face)) for face in OUTWARD),
         )
+
+
+def test_convex_exterior_bvh_preserves_exact_triangle_distance_and_cutoff():
+    surface = _tool()
+    rng = np.random.default_rng(771)
+    candidates = rng.uniform(-0.5, 1.5, size=(150, 3))
+    exterior = candidates[np.max(
+        surface.facets.facet_normals @ candidates.T
+        - surface._offsets[:, None], axis=0,
+    ) >= 0.0]
+    projection = surface.project(exterior)
+    assert projection.all_valid
+    triangles = surface.facets.vertices[surface.facets.triangles]
+    for point, closest, gap in zip(
+        exterior, projection.closest_points, projection.signed_gaps, strict=True,
+    ):
+        brute = min(
+            np.linalg.norm(point - _closest_point_on_triangle(point, *triangle))
+            for triangle in triangles
+        )
+        assert gap == pytest.approx(brute, abs=1e-13)
+        assert np.linalg.norm(point - closest) == pytest.approx(brute, abs=1e-13)
+    limited = surface.project(exterior, maximum_distance=0.15)
+    np.testing.assert_array_equal(
+        limited.valid, projection.signed_gaps <= 0.15 + 1e-14,
+    )
 
 
 @pytest.mark.parametrize("point", ((0.1, 0.2, 0.3), (0.2, 0.1, 0.3)))

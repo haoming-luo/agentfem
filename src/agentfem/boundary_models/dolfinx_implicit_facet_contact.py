@@ -538,7 +538,7 @@ class DolfinxImplicitRigidContact:
                     else contribution.assembly.surface_generalized_moment.tolist()
                 ),
                 "projection": (
-                    "exhaustive_closed_convex_signed_distance"
+                    "closed_convex_support_planes_plus_exact_exterior_bvh"
                     if isinstance(self.surface, ConvexPolyhedralRigidSurface)
                     else "current_geometry_bvh" if self.projector is not None
                     else "exact_analytical_current_pose"

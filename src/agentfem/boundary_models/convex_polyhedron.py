@@ -22,11 +22,11 @@ from .rigid import (
     RigidSurface,
     SurfaceProjection,
     TriangulatedRigidSurface,
-    _closest_point_on_triangle,
     _finite_nonnegative,
     _triangle_barycentric_coordinates,
     triangulated_rigid_surface_from_mesh,
 )
+from .search import TriangleSurfaceBVH, triangle_surface_bvh
 
 
 @dataclass(frozen=True, eq=False)
@@ -42,6 +42,7 @@ class ConvexPolyhedralRigidSurface(RigidSurface):
     name: str = "convex_polyhedral_rigid_surface"
     _geometry_fingerprint: str = field(init=False, repr=False, compare=False)
     _offsets: np.ndarray = field(init=False, repr=False, compare=False)
+    _exterior_bvh: TriangleSurfaceBVH = field(init=False, repr=False, compare=False)
 
     def __post_init__(self) -> None:
         facets = self.facets
@@ -72,6 +73,7 @@ class ConvexPolyhedralRigidSurface(RigidSurface):
         object.__setattr__(self, "name", str(self.name))
         object.__setattr__(self, "_offsets", offsets)
         object.__setattr__(self, "_geometry_fingerprint", identity)
+        object.__setattr__(self, "_exterior_bvh", triangle_surface_bvh(facets))
 
     @property
     def dimension(self) -> int:
@@ -94,6 +96,7 @@ class ConvexPolyhedralRigidSurface(RigidSurface):
         triangle_points = facets.vertices[facets.triangles]
         tolerance = float(facets.tolerance)
         relative_tolerance = tolerance / float(facets.scale)
+        exterior_indices: list[int] = []
         limit = (
             float("inf") if maximum_distance is None
             else _finite_nonnegative(maximum_distance, name="Maximum projection distance")
@@ -122,26 +125,11 @@ class ConvexPolyhedralRigidSurface(RigidSurface):
                 normal = facets.facet_normals[selected]
                 projection = point - gap * normal
             else:
-                # Outside the convex solid, the penalty is inactive.  Still
-                # publish a real nearest point rather than pretending that a
-                # supporting-plane foot outside its facet is a closest point.
-                feet = np.asarray([
-                    _closest_point_on_triangle(point, *triangle)
-                    for triangle in triangle_points
-                ])
-                distances = np.linalg.norm(feet - point, axis=1)
-                minimum = float(np.min(distances))
-                ties = np.flatnonzero(distances <= minimum + tolerance)
-                selected = int(ties[np.argmin(facets.facet_ids[ties])])
-                projection = feet[selected]
-                gap = minimum
-                normal = (
-                    (point - projection) / gap if gap > tolerance
-                    else facets.facet_normals[selected]
-                )
-                barycentric = _triangle_barycentric_coordinates(
-                    projection, triangle_points[selected],
-                )
+                # The inactive exterior still needs the exact closest
+                # triangle, not a false supporting-plane foot. Defer its
+                # search to the reviewed deterministic BVH in one batch.
+                exterior_indices.append(point_index)
+                continue
             if abs(gap) > limit:
                 continue
             closest[point_index] = projection
@@ -151,6 +139,28 @@ class ConvexPolyhedralRigidSurface(RigidSurface):
             status[point_index] = "ok"
             entity_ids[point_index] = int(facets.facet_ids[selected])
             coordinates[point_index] = barycentric
+        if exterior_indices:
+            indices = np.asarray(exterior_indices, dtype=np.int64)
+            candidates = self._exterior_bvh._candidate_evidence(
+                query[indices], maximum_distance,
+                ambiguity_tolerance=0.0,
+            )
+            for local_index, point_index in enumerate(indices):
+                if not candidates.has_candidate[local_index]:
+                    continue
+                projection = candidates.closest_points[local_index]
+                gap = float(np.sqrt(candidates.squared_distances[local_index]))
+                normal = (
+                    (query[point_index] - projection) / gap if gap > tolerance
+                    else candidates.normals[local_index]
+                )
+                closest[point_index] = projection
+                normals[point_index] = normal
+                gaps[point_index] = gap
+                valid[point_index] = True
+                status[point_index] = "ok"
+                entity_ids[point_index] = candidates.entity_ids[local_index]
+                coordinates[point_index] = candidates.local_coordinates[local_index]
         return closest, normals, gaps, valid, status, entity_ids, coordinates
 
     def project(
@@ -205,7 +215,7 @@ class ConvexPolyhedralRigidSurface(RigidSurface):
             "geometry_fingerprint": self.geometry_fingerprint,
             "facet_geometry_fingerprint": self.facets.geometry_fingerprint,
             "facet_count": int(len(self.facets.triangles)),
-            "projection": "exhaustive_closed_convex_signed_distance",
+            "projection": "closed_convex_support_planes_plus_exact_exterior_bvh",
             "active_feature_branch": "minimum_facet_id_limiting_normal",
             "signed_gap_convention": "positive_admissible_negative_penetration",
             "execution_scope": "serial_reference_geometry",

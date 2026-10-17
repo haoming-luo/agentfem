@@ -368,8 +368,9 @@ Open triangle patches still reject active free or noncoplanar edge branches.
 The separate `convex_polyhedral_rigid_surface(...)` source candidate accepts
 only a closed, outward-oriented, certified convex triangle tool. Its interior
 gap follows one limiting face at a sharp feature; it does not smooth the
-corner or admit arbitrary STL/CAD. It uses an exhaustive geometry reference,
-not a scalable search. See
+corner or admit arbitrary STL/CAD. Interior penetration checks every support
+plane; inactive exterior points use an exact triangle-BVH closest-point search.
+This is not a general nonconvex contact search. See
 `examples/finite_j2_closed_convex_contact.py` and the
 [closed-convex candidate record](../internal/closed_convex_implicit_contact_candidate_20261018.md).
 Fixed, translating or rotating analytical-plane Coulomb pairs have a separate
