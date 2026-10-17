@@ -20,8 +20,11 @@ from agentfem import (
 from agentfem.step_providers import step_capability
 
 
-def _curved_patch(surface, *, cells=1, motion=None):
-    domain = dolfinx_mesh.create_unit_cube(MPI.COMM_SELF, cells, cells, cells)
+def _curved_patch(surface, *, cells=1, motion=None,
+                  cell_type=dolfinx_mesh.CellType.tetrahedron):
+    domain = dolfinx_mesh.create_unit_cube(
+        MPI.COMM_SELF, cells, cells, cells, cell_type=cell_type,
+    )
     model = models.create(
         study=studies.static_solid(dimension=3, nonlinear=True), mesh=domain
     )
@@ -74,7 +77,12 @@ def _curved_patch(surface, *, cells=1, motion=None):
 
 
 @pytest.mark.parametrize("kind", ["sphere", "cylinder"])
-def test_public_j2_step_assembles_curved_contact_force_and_curvature(kind):
+@pytest.mark.parametrize(
+    "cell_type", [dolfinx_mesh.CellType.tetrahedron, dolfinx_mesh.CellType.hexahedron],
+)
+def test_public_j2_step_assembles_curved_contact_force_and_curvature(
+    kind, cell_type,
+):
     surface = (
         boundary_models.rigid_sphere(center=(1.6, 0.5, 0.5), radius=0.75)
         if kind == "sphere"
@@ -84,7 +92,9 @@ def test_public_j2_step_assembles_curved_contact_force_and_curvature(kind):
             radius=0.7,
         )
     )
-    model, displacement, material, step = _curved_patch(surface)
+    model, displacement, material, step = _curved_patch(
+        surface, cell_type=cell_type,
+    )
     assert step_capability(model, target=displacement, options={"material": material})[
         "supported"
     ]

@@ -17,16 +17,22 @@ from agentfem.boundary_models.dolfinx_implicit_facet_contact import (
 
 
 @pytest.mark.parametrize("geometry", ["sphere", "cylinder"])
+@pytest.mark.parametrize("degree", [1, 2])
+@pytest.mark.parametrize(
+    "cell_type", [dolfinx_mesh.CellType.tetrahedron, dolfinx_mesh.CellType.hexahedron],
+)
 def test_curved_contact_matches_independent_ufl_energy_gradient_and_hessian(
-    geometry,
+    geometry, degree, cell_type,
 ):
-    domain = dolfinx_mesh.create_unit_cube(MPI.COMM_SELF, 1, 1, 1)
+    domain = dolfinx_mesh.create_unit_cube(
+        MPI.COMM_SELF, 1, 1, 1, cell_type=cell_type,
+    )
     space = fem.functionspace(
         domain,
         basix.ufl.element(
             "Lagrange",
             domain.basix_cell(),
-            1,
+            degree,
             shape=(3,),
         ),
     )
@@ -77,7 +83,8 @@ def test_curved_contact_matches_independent_ufl_energy_gradient_and_hessian(
     gap = ufl.sqrt(squared_distance) - radius
     negative_gap = ufl.min_value(gap, 0.0)
     ds = ufl.Measure(
-        "ds", domain=domain, subdomain_data=tags, metadata={"quadrature_degree": 2}
+        "ds", domain=domain, subdomain_data=tags,
+        metadata={"quadrature_degree": 2 * degree},
     )
     potential = 0.5 * penalty * negative_gap**2 * ds(7)
     test = ufl.TestFunction(space)

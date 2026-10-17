@@ -32,13 +32,14 @@ than silently reported.
 - Sphere and cylinder, interior and exterior admissible sides: pointwise
   energy variation and full active-branch tangent agree with independent
   central differences. A rotated cylindrical axis is also covered.
-- On an actual tetrahedral DOLFINx boundary, sphere and cylinder penalty
-  energy, assembled nodal residual and tangent action agree with a separate
-  UFL potential differentiated by DOLFINx. This checks quadrature and DOF
-  assembly, not only the local formula.
-- Ordinary public `model.step(...)` finite-J2 cases with a sphere or cylinder
-  complete with active contact. A moving sphere also preserves accepted
-  displacement, material state and pose after an injected energy failure.
+- On actual tetrahedral and hexahedral DOLFINx boundaries with CG1 and CG2
+  traces, sphere and cylinder penalty energy, assembled nodal residual and
+  tangent action agree with a separate UFL potential differentiated by
+  DOLFINx. This checks quadrature and DOF assembly, not only the local formula.
+- Ordinary public `model.step(...)` finite-J2 tetrahedral and hexahedral cases
+  with a sphere or cylinder complete with active contact. A moving sphere also
+  preserves accepted displacement, material state and pose after an injected
+  energy failure.
 - The affine-periodic public Step has active fixed-sphere and fixed-triangle
   contact cases. The converged *total* residual is reduced below the tested
   tolerance. The projected contact tangent matches a finite difference of
