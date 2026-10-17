@@ -253,6 +253,11 @@ def test_two_moving_tools_keep_independent_work_and_atomic_restart(tmp_path, mon
     reference = build()
     result = reference.solve_result()
     assert result.status == "completed"
+    assert np.max(
+        reference.response.state.committed[
+            "equivalent_plastic_strain"
+        ].function.x.array
+    ) > 0.0
     names = tuple(item.name for item in reference.contact_provider.providers)
     assert names == ("rigid_contact_pair", "second_tool")
     work = dict(reference.energy_history[-1].pair_tool_work)
@@ -332,7 +337,7 @@ def test_two_implicit_tools_reject_duplicate_identity_before_lowering():
     )
 
 
-def test_implicit_friction_is_rejected_with_the_missing_state_gate():
+def test_implicit_facet_friction_is_rejected_outside_fixed_plane_gate():
     model, displacement, material, _ = _patch(
         triangulated=True, make_step=False,
     )
@@ -351,6 +356,27 @@ def test_implicit_friction_is_rejected_with_the_missing_state_gate():
     assert any(
         item["message"].startswith("AFM-IMPLICIT-CONTACT-FRICTION")
         for item in capability["rejection_reasons"]
+    )
+
+
+def test_native_facet_result_rf_uses_the_full_residual_once():
+    _, _, _, step = _patch(triangulated=True, applied_traction=10.0)
+    result = step.solve_result()
+    full_reaction = result.fields["RF"].field.x.array.reshape((-1, 3)).sum(axis=0)
+    contact_force = np.asarray(result.metadata["constraint_duals"][0]["resultant"])
+    np.testing.assert_allclose(
+        full_reaction + contact_force + np.array((10.0, 0.0, 0.0)),
+        0.0, rtol=0.0, atol=1.0e-7,
+    )
+    assert np.linalg.norm(contact_force) > 0.0
+    _, _, _, analytic_step = _patch(
+        triangulated=False, applied_traction=10.0,
+    )
+    analytic = analytic_step.solve_result()
+    np.testing.assert_allclose(
+        result.fields["RF"].field.x.array,
+        analytic.fields["RF"].field.x.array,
+        rtol=2.0e-4, atol=2.0e-6,
     )
 
 

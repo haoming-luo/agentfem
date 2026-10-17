@@ -116,6 +116,11 @@ to `3.0` so the top-center spacing remains of similar order (`0.02945` versus
 points. The decline from `6.20730` is consistent with finite-domain influence,
 but spacing and element distortion are not exactly identical; this is **not**
 an isolated domain-size convergence or a certified Hertz result.
+At extent `5`, 13,824 cells and grading `3.35`, the top-center spacing is
+`0.02723`; the force is `6.07176` (ratio `1.03599`), active area `0.13113`,
+and 100 quadrature points are active. This strengthens the diagnosis that
+the earlier small finite block elevated the force, while still leaving a
+`3.6%` gap and confounded mesh-map/penalty/finite-strain effects.
 
 ## Remaining gate
 
@@ -124,8 +129,9 @@ resolved contact patch, then penalty and increment sensitivity. Compare
 force, pressure footprint, penetration, reactions, tool work and plastic
 state against either the valid Hertz limit or a frozen external FE result.
 Do not turn the current force ratio into a release tolerance. Active
-noncoplanar triangle seams/free edges, multiple implicit pairs, implicit
-friction and distributed implicit assembly remain separate work.
+noncoplanar triangle seams/free edges, distributed implicit assembly and
+broader friction remain separate work; the bounded serial multi-tool and
+fixed-plane friction candidates below do not close those general gates.
 
 The benchmark now also reports reference-area activity, maximum sampled
 contact radius, maximum nominal penalty pressure, and the actual near-contact
@@ -149,7 +155,7 @@ not general contact. This record separates code gates from evidence gates:
 | Facet features | Reviewed topology identifies true free edges and noncoplanar neighbors; ambiguous active projection fails closed | Feature-specific edge/vertex contact potential, generalized derivative, branch switching and force/moment tests; no normal averaging |
 | Total implicit Operator | Contact/strong-BC overlap now uses native contact lifting, identity rows, a complete fixed-old-state total-tangent difference check, failed-increment rollback and same-DOF checkpoint recovery | Add an independently constructed residual/force check and expand beyond the current serial frictionless discretization |
 | Multi-tool implicit | Ordinary serial strong-BC J2 now composes distinct frictionless rigid pairs: summed residual/tangent, elastic-regime total derivative, independent moving-pair work and atomic failed-increment/checkpoint recovery. An opposing moving-plane fixture checks both tool forces, support-inclusive force balance and result records | Mixed curved/faceted tools, plastic branch switching, external structural comparison and finer mesh/penalty checks; affine MPC still admits one pair only |
-| Implicit friction | Not admitted | Stick/slip internal state, consistent linearization, dissipation, rollback and independent path benchmarks |
+| Implicit friction | One fixed analytical plane is now admitted on serial strong-BC finite-J2: fixed-old-state stick/slip tangent, accepted stable-ID State, separate Coulomb dissipation and numerical separation release, failed-finalization rollback, serial checkpoint and result histories. Real DOLFINx stick/slip directional checks and a small active-contact global load/restart test pass | Independent friction patch/sliding benchmark, mesh/penalty/increment study and curved/faceted/moving/MPC/MPI extension; no general friction claim |
 | Material/time composition | Elastic-regime J2 sphere and plastic J2 facet cases complete; explicit body contact has its own stable-step contract | A history material on the *same implicit* seam and explicit contact stability under evolving state |
 | Independent accuracy and speed | Full/quarter symmetry, mesh, penalty and increment screens exist; half-space mismatch remains visible | Controlled far-boundary, graded mesh, pressure-footprint and penalty limits; external FE comparison and whole-step timings |
 | Product route | Ordinary `model.step()` is used; final unsmoothed reference-trace pressure/penetration scalars are now available | Installed-wheel example, pressure/slip field format, capability matrix and versioned release gate |
@@ -170,20 +176,59 @@ pressure cap `mu p` and slip direction. The opening, stick/slip switching and
 zero-slip branches require directional checks and cutback. Extending the same
 formula to curved or faceted moving tools additionally differentiates normal
 transport and master-point motion; those terms cannot be silently dropped.
-The private `implicit_friction.py` candidate now implements that fixed-plane
-point tangent and its reference-trace COO mapping. Six solver-neutral tests
-compare stick and slip directional differences on axis-aligned and rotated
-planes, and reject stale trials and the nonsmooth cap/opening branches. It
-has **no** accepted state owner or global Step admission; frictional implicit
-`model.step()` still reports the missing lifecycle gate.
+`implicit_friction.py` implements the fixed-plane point tangent and its
+reference-trace COO mapping. Six solver-neutral tests compare stick and slip
+directional differences on axis-aligned and rotated planes, and reject stale
+trials and the nonsmooth cap/opening branches by default. The one fixed-plane
+serial strong-BC J2 path now supplies explicit semismooth branch selection,
+accepted point-ID-keyed state, checkpoint identity and rollback. A small
+global active-contact test exercises both stick and sliding with interrupted
+restart; corrupted kinematics are atomically refused. Curved, faceted,
+moving and multi-tool friction remain rejected. The accepted energy record
+reports Coulomb dissipation separately from recoverable tangential penalty
+energy and numerical separation release; its trapezoidal residual is a
+diagnostic, not a universal first-law proof.
 The sliding tangent includes a pressure-cap cross term and is generally
-non-symmetric. Public admission must therefore reject symmetry-only linear
-solver selections (for example CG) or select a reviewed nonsymmetric route;
-the current default direct solve does not by itself validate the friction
-Procedure.
+non-symmetric. Public admission rejects symmetry-only linear solver
+selections such as CG or Cholesky; the default direct LU route is accepted.
+At the exact stick/slip cap or opening the selected semismooth branch is not
+a classical two-sided derivative. This narrow global solve and return-map
+agreement do not certify a broad industrial friction capability.
 The [FEBio frictional-contact formulation](https://pmc.ncbi.nlm.nih.gov/articles/PMC6056201/)
 uses an explicit stick/slip return map and verifies patch, Hertz and
 large-sliding cases; its numerical results are not AgentFEM evidence.
+
+The source example `finite_j2_fixed_plane_friction.py` deliberately crosses
+the slip cap under combined normal and shear loading. For 4, 16, 64 and 128
+accepted load increments on its one-cell-per-axis fixture, cumulative
+Coulomb dissipation is `0.18695`, `0.12040`, `0.10915`, `0.10762`; the
+trapezoidal energy residual is `-0.07612`, `-0.01356`, `-0.00305`, `-0.00149`.
+The full contact force changes by less than `0.05%` between 16 and 128
+increments. These dimensionless numbers document strong coarse-step
+dissipation sensitivity and apparent path refinement, not mesh or external
+benchmark convergence. A weaker synchronous shear load of 15 showed
+vanishing slip upon refinement; it was discarded as a misleading sliding
+fixture. No exact first-law or general friction claim follows from this screen.
+The same 16-increment fixture completed from an isolated locally built macOS
+wheel with no source checkout on `PYTHONPATH`; `agentfem.__file__` resolved
+inside the isolated wheel target. This is an installed-package smoke, not a
+Windows/Linux or release qualification.
+An independently calculated, displacement-controlled FE patch checks the
+complete contact integration and public reaction field on an area-one face:
+with normal penalty `500`, penetration `0.05`, tangential penalty `100`, and
+`mu=0.4`, the normal resultant is `-25`. At tangential displacement `0.02`
+the force is `-2` and sliding loss zero; at `0.20` the force is capped at
+`-10`, cumulative Coulomb loss is `1.0`, and recoverable total contact
+potential is `1.125`. Both 3D J2/strong-BC solves match these constructed
+values within `1e-10` absolute tolerance. This is a bounded patch identity,
+not an independent large-sliding or forming validation.
+This patch also exposed and fixed a result-contract defect: the public nodal
+`RF` field previously assembled only the UFL material/external form while a
+native rigid-pair contact Operator was added separately to Newton. It now
+uses the same full-residual helper as prescribed-work integration. The patch
+checks that strong reactions plus the independently reported contact
+resultant vanish without external traction; native contact is no longer
+missing from `RF`. Legacy UFL contact remains assembled once.
 
 For multiple rigid tools, the ordinary serial strong-BC J2 Step now adds
 independently named frictionless pair Operators. Each pair retains its own
@@ -198,6 +243,15 @@ both tools remain active, force directions oppose, support-inclusive force
 balance closes and result metadata retains both identities. This is **not**
 yet evidence for arbitrary shaped dies, mixed sharp/curved branch switches, implicit friction, affine
 MPC multi-pair reduction or MPI.
+
+`examples/finite_j2_opposing_rigid_tools.py` is a compact ordinary
+`model.step()` example. A locally built candidate wheel was installed with
+`--no-deps --no-index --target` into an isolated directory and that example
+completed from outside the source checkout; the imported package resolved to
+the isolated wheel target. The result carried four accepted increments, two
+separate tool resultants and accepted works, and an available constraint work
+balance. This is a local Apple Silicon installed-wheel smoke, **not** a
+Windows/Linux platform or final release acceptance.
 
 For a truly sharp noncoplanar tool edge, a bounded feature-contact law needs
 face/edge/vertex classification plus an admissible-side rule and a

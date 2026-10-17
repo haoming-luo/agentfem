@@ -17,7 +17,10 @@ import numpy as np
 
 from .contact_response import FrictionlessPenaltyContactResponse
 from .contact_state import ContactProjectionRecord
-from .contact_trace import ContactTraceAssembly, ContactTraceEvaluation
+from .contact_trace import (
+    ContactTraceAssembly, ContactTraceEvaluation, FrictionContactTraceAssembly,
+)
+from .implicit_friction import ImplicitPlanarFrictionTangent
 from .rigid import _readonly_array
 
 
@@ -30,6 +33,8 @@ class ImplicitRigidContactContribution:
     tangent_columns: object
     tangent_values: object
     active_points: int
+    friction_assembly: FrictionContactTraceAssembly | None = None
+    friction_tangent: ImplicitPlanarFrictionTangent | None = None
 
     def __post_init__(self) -> None:
         if not isinstance(self.assembly, ContactTraceAssembly):
@@ -37,6 +42,22 @@ class ImplicitRigidContactContribution:
         rows = np.asarray(self.tangent_rows, dtype=np.int64)
         columns = np.asarray(self.tangent_columns, dtype=np.int64)
         values = np.asarray(self.tangent_values, dtype=float)
+        if (self.friction_assembly is None) != (self.friction_tangent is None):
+            raise ValueError("Implicit friction requires both its trace and tangent.")
+        if self.friction_assembly is not None:
+            if (
+                not isinstance(self.friction_assembly, FrictionContactTraceAssembly)
+                or not isinstance(self.friction_tangent, ImplicitPlanarFrictionTangent)
+                or not np.array_equal(
+                    self.friction_assembly.point_ids, self.assembly.point_ids,
+                )
+                or self.friction_tangent.number_of_nodes != self.assembly.number_of_nodes
+                or self.friction_tangent.dimension != self.assembly.nodal_structural_residual.shape[1]
+            ):
+                raise ValueError("Implicit friction does not share the normal trace layout.")
+            rows = np.concatenate((rows, self.friction_tangent.rows))
+            columns = np.concatenate((columns, self.friction_tangent.columns))
+            values = np.concatenate((values, self.friction_tangent.values))
         if rows.ndim != 1 or rows.shape != columns.shape or rows.shape != values.shape:
             raise ValueError(
                 "Contact tangent COO arrays must have equal one-dimensional shapes."
@@ -82,11 +103,41 @@ class ImplicitRigidContactContribution:
 
     @property
     def nodal_structural_residual(self) -> np.ndarray:
-        return self.assembly.nodal_structural_residual
+        if self.friction_assembly is None:
+            return self.assembly.nodal_structural_residual
+        return (
+            self.assembly.nodal_structural_residual
+            + self.friction_assembly.nodal_structural_residual
+        )
 
     @property
     def potential_energy(self) -> float:
-        return float(self.assembly.potential_energy)
+        return float(
+            self.assembly.potential_energy
+            + (
+                0.0 if self.friction_assembly is None
+                else self.friction_assembly.recoverable_penalty_energy
+            )
+        )
+
+    @property
+    def contact_force_on_structure(self) -> np.ndarray:
+        if self.friction_assembly is None:
+            return self.assembly.contact_force_on_structure
+        return (
+            self.assembly.contact_force_on_structure
+            + self.friction_assembly.contact_force_on_structure
+        )
+
+    @property
+    def surface_generalized_moment(self) -> np.ndarray | None:
+        normal = self.assembly.surface_generalized_moment
+        if self.friction_assembly is None:
+            return normal
+        tangential = self.friction_assembly.surface_generalized_moment
+        if normal is None or tangential is None:
+            return None
+        return normal + tangential
 
 
 @dataclass(frozen=True, eq=False)
@@ -117,9 +168,9 @@ class CombinedImplicitRigidContactContribution:
             raise TypeError(
                 "Combined implicit contact accepts reviewed pair contributions only."
             )
-        layout = selected[0][1].assembly.nodal_structural_residual.shape
+        layout = selected[0][1].nodal_structural_residual.shape
         if any(
-            item.assembly.nodal_structural_residual.shape != layout
+            item.nodal_structural_residual.shape != layout
             for _, item in selected
         ):
             raise ValueError(
@@ -133,17 +184,17 @@ class CombinedImplicitRigidContactContribution:
     @property
     def nodal_structural_residual(self) -> np.ndarray:
         return np.sum(
-            [item.assembly.nodal_structural_residual for _, item in self.pairs], axis=0,
+            [item.nodal_structural_residual for _, item in self.pairs], axis=0,
         )
 
     @property
     def potential_energy(self) -> float:
-        return float(sum(item.assembly.potential_energy for _, item in self.pairs))
+        return float(sum(item.potential_energy for _, item in self.pairs))
 
     @property
     def contact_force_on_structure(self) -> np.ndarray:
         return np.sum(
-            [item.assembly.contact_force_on_structure for _, item in self.pairs], axis=0,
+            [item.contact_force_on_structure for _, item in self.pairs], axis=0,
         )
 
     @property

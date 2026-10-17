@@ -80,6 +80,14 @@ at equal resolution. Its Hertz half-space screen does **not** yet pass an
 independent accuracy gate: finite support, mesh and penalty effects still need
 separation. See the [Dirichlet and Hertz candidate record](internal/implicit_contact_dirichlet_hertz_candidate_20261018.md).
 
+The same source branch now composes multiple named frictionless tools in the
+ordinary serial strong-BC J2 Step and admits one fixed analytical-plane
+Coulomb pair with accepted stick/slip state, a generally nonsymmetric tangent,
+separate friction loss channels and serial restart. These are bounded source
+candidates, not a release promotion. Sharp noncoplanar features, moving or
+curved friction, multi-tool friction, distributed implicit assembly and an
+independent friction benchmark remain separate gates.
+
 The next source candidate removes the built-in sphere/cylinder type gate for
 smooth rigid contact: geometry owns a checked signed-gap differential, while
 the existing Operator and Procedure remain unchanged. A third-party smooth

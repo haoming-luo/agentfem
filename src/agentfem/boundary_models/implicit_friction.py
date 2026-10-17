@@ -4,9 +4,11 @@
 """Fixed-old-state planar Coulomb tangent for a bounded implicit Operator.
 
 This differentiates the existing penalty return map at one current Newton
-trial.  It deliberately does not own accepted friction state, integration,
-line search, work, or checkpointing.  Until those Procedure contracts exist,
-the public implicit Step continues to reject frictional pairs.
+trial. It does not own accepted friction state, integration, line search,
+work, or checkpointing; those belong to the consuming backend and Procedure.
+Only the fixed, analytical-plane serial strong-BC J2 path currently admits
+this tangent. Curved, faceted, moving, multi-tool and MPI friction remain
+unsupported.
 """
 
 from __future__ import annotations
@@ -80,14 +82,19 @@ def linearize_planar_penalty_friction(
     friction_response: PenaltyCoulombFrictionResponse,
     law: PenaltyCoulombFrictionLaw,
     surface: RigidPlaneSurface,
+    *,
+    cap_policy: str = "reject",
+    opening_policy: str = "reject",
 ) -> ImplicitPlanarFrictionTangent:
     """Differentiate stick/slip traction at fixed accepted state and tool pose.
 
     In stick the point Jacobian is ``k_t P``. In slip it is
     ``-mu*k_n*t_hat tensor n + mu*p/|s_trial|*(P-t_hat tensor t_hat)``.
     ``P=I-n tensor n`` and ``p=-k_n*g`` on the active plane branch.  The
-    nonsmooth cap and opening boundaries are rejected; a global Procedure
-    must cut back or use a reviewed generalized derivative there.
+    nonsmooth cap and opening boundaries are rejected by default. A caller
+    may explicitly select the stick-side and inactive-side generalized
+    derivatives for a semismooth Newton trial; neither is a classical
+    two-sided derivative at the branch transition.
     """
 
     if not isinstance(evaluation, ContactTraceEvaluation):
@@ -100,6 +107,10 @@ def linearize_planar_penalty_friction(
         raise TypeError("Implicit friction requires a tangential return-map response.")
     if not isinstance(law, PenaltyCoulombFrictionLaw) or not isinstance(surface, RigidPlaneSurface):
         raise TypeError("This implicit friction tangent is limited to a rigid plane.")
+    if cap_policy not in {"reject", "stick_generalized"}:
+        raise ValueError("Unsupported implicit friction cap tangent policy.")
+    if opening_policy not in {"reject", "inactive_generalized"}:
+        raise ValueError("Unsupported implicit friction opening tangent policy.")
     if evaluation.trace.measure_configuration != "reference":
         raise NotImplementedError("Implicit friction does not linearize current-area weights.")
     if not record.projection.all_valid or normal_response.projection is not record.projection:
@@ -146,7 +157,9 @@ def linearize_planar_penalty_friction(
     cap_tolerance = 128.0 * np.finfo(float).eps * np.maximum.reduce(
         (np.ones(count), trial_traction, limits)
     )
-    if np.any(active & (np.abs(trial_traction - limits) <= cap_tolerance)):
+    if cap_policy == "reject" and np.any(
+        active & (np.abs(trial_traction - limits) <= cap_tolerance)
+    ):
         raise ValueError("AFM-IMPLICIT-FRICTION-BRANCH: stick/slip cap has no unique tangent.")
     geometry_scale = max(
         1.0,
@@ -154,7 +167,9 @@ def linearize_planar_penalty_friction(
         float(np.max(np.abs(evaluation.query_points), initial=0.0)),
     )
     opening_tolerance = 128.0 * np.finfo(float).eps * geometry_scale
-    if np.any(np.abs(record.projection.signed_gaps) <= opening_tolerance):
+    if opening_policy == "reject" and np.any(
+        np.abs(record.projection.signed_gaps) <= opening_tolerance
+    ):
         raise ValueError("AFM-IMPLICIT-FRICTION-BRANCH: contact opening has no unique tangent.")
 
     normals = record.projection.normals

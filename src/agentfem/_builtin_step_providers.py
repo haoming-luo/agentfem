@@ -473,6 +473,7 @@ def _accept_finite_strain_j2_strong(model, request: StepRequest) -> bool:
     from .boundary_models import (
         RigidContactPair,
         RigidObstaclePenaltyContact,
+        RigidPlaneSurface,
         SmoothRigidSurface,
         TriangulatedRigidSurface,
     )
@@ -496,7 +497,14 @@ def _accept_finite_strain_j2_strong(model, request: StepRequest) -> bool:
         and isinstance(item.rigid_body.surface, (
             TriangulatedRigidSurface, SmoothRigidSurface,
         ))
-        and item.friction is None
+        and (
+            item.friction is None
+            or (
+                len(boundary_models) == 1
+                and isinstance(item.rigid_body.surface, RigidPlaneSurface)
+                and item.rigid_body.motion_schedule is None
+            )
+        )
         and item.law.invalid_policy == "reject"
         and (
             item.rigid_body.motion_schedule is None
@@ -516,6 +524,7 @@ def _finite_strain_j2_strong_rejection_reason(model, request: StepRequest) -> st
     from .boundary_models import (
         RigidContactPair,
         RigidObstaclePenaltyContact,
+        RigidPlaneSurface,
     )
 
     if not _finite_strain_j2_strong_preconditions(model, request):
@@ -568,12 +577,15 @@ def _finite_strain_j2_strong_rejection_reason(model, request: StepRequest) -> st
         )
     selected = boundary_models[0]
     if isinstance(selected, RigidContactPair):
-        if selected.friction is not None:
+        if selected.friction is not None and (
+            not isinstance(selected.rigid_body.surface, RigidPlaneSurface)
+            or selected.rigid_body.motion_schedule is not None
+        ):
             return (
-                "AFM-IMPLICIT-CONTACT-FRICTION: finite-strain J2 has no "
-                "reviewed implicit stick-slip state, consistent tangent or "
-                "accepted-path dissipation contract; the explicit friction "
-                "provider does not certify this Procedure."
+                "AFM-IMPLICIT-CONTACT-FRICTION: implicit Coulomb contact is "
+                "limited to one fixed analytical plane in a serial strong-BC "
+                "finite-strain J2 Step; moving and curved frictional tools "
+                "need separate tangent and state validation."
             )
         schedule = selected.rigid_body.motion_schedule
         if schedule is not None and (
@@ -1542,8 +1554,8 @@ register_step_provider(
         description=(
             "Lower logarithmic finite-strain J2 to provider-owned quadrature "
             "state and strong-boundary Newton equilibrium, optionally with "
-            "one serial frictionless analytical-plane or bounded triangulated "
-            "rigid-tool penalty contact."
+            "serial rigid-tool penalty contact: multiple frictionless pairs "
+            "or one fixed-plane Coulomb pair within its reviewed bounds."
         ),
         procedure="standard/newton/stateful",
         option_contract=_option_contract(
