@@ -3794,20 +3794,36 @@ def finite_strain_j2_affine_problem(
         )
     if getattr(constraint, "target", None) is not displacement:
         raise ValueError("Affine finite-strain J2 constraint must target displacement.")
-    contact_provider = None
-    if contact is not None:
+    contact_items = (
+        () if contact is None else
+        tuple(contact) if isinstance(contact, (tuple, list)) else (contact,)
+    )
+    contact_providers = ()
+    if contact_items:
         from ..boundary_models import RigidContactPair
+        from ..boundary_models.implicit_admission import (
+            affine_rigid_contact_assets_supported,
+        )
         from ..boundary_models.dolfinx_implicit_facet_contact import (
             dolfinx_implicit_rigid_contact,
         )
 
-        if not isinstance(contact, RigidContactPair):
+        if not all(isinstance(item, RigidContactPair) for item in contact_items):
             raise NotImplementedError(
-                "AFM-J2-CONTACT-MPC: first affine contact slice accepts one "
-                "frictionless RigidContactPair only."
+                "AFM-J2-CONTACT-MPC: affine contact accepts named "
+                "frictionless RigidContactPair assets only."
             )
-        contact_provider = dolfinx_implicit_rigid_contact(
-            contact, displacement.value,
+        if len({item.name for item in contact_items}) != len(contact_items):
+            raise ValueError("Affine rigid contact pair names must be unique.")
+        if not affine_rigid_contact_assets_supported(contact_items):
+            raise NotImplementedError(
+                "AFM-J2-CONTACT-MPC: affine contact requires serial, "
+                "frictionless rigid pairs with supported geometry and "
+                "normalized prescribed motion."
+            )
+        contact_providers = tuple(
+            dolfinx_implicit_rigid_contact(item, displacement.value)
+            for item in contact_items
         )
     transaction = _finite_strain_j2_transaction(
         displacement,
@@ -3869,9 +3885,7 @@ def finite_strain_j2_affine_problem(
         output_every=output_every,
         output_factors=output_factors,
         state_transaction=transaction,
-        full_space_operators=(
-            () if contact_provider is None else (contact_provider,)
-        ),
+        full_space_operators=contact_providers,
         checkpoint_policy=checkpoint_policy,
         acceptance_check=acceptance,
         progress=progress,
@@ -3885,7 +3899,10 @@ def finite_strain_j2_affine_problem(
     problem.snapshot_field_factory = snapshot_fields
     problem.material = material
     problem.response = response
-    problem.contact_provider = contact_provider
+    problem.contact_provider = (
+        contact_providers[0] if len(contact_providers) == 1 else None
+    )
+    problem.contact_providers = contact_providers
     problem.accepted_solution = transaction.accepted_solution
     problem.homogenized_tangent_contract = {
         "macro_kinematics": "u_equals_Tq_plus_B_Fbar",

@@ -68,7 +68,9 @@ def test_periodic_j2_rejects_registered_contact_in_capability_and_step():
         model.step(target=displacement, material=material, constraints=periodicity)
 
 
-def _periodic_j2_contact_step(*, surface=None, motion=None):
+def _periodic_j2_contact_step(
+    *, surface=None, motion=None, pair_count=1, opposed_pair=False,
+):
     fixture = periodic_unit_cube(MPI.COMM_SELF)
     model = models.create(
         study=studies.nonlinear_static(physics="solid_mechanics", dimension=3),
@@ -88,21 +90,35 @@ def _periodic_j2_contact_step(*, surface=None, motion=None):
         surface = boundary_models.rigid_sphere(
             center=(1.6, 0.5, 0.5), radius=0.75,
         )
-    pair = boundary_models.rigid_contact_pair(
-        right,
-        boundary_models.rigid_body(
-            surface,
-            reference_point=(1.6, 0.5, 0.5),
-            motion_schedule=(
-                None if motion is None else
-                boundary_models.prescribed_rigid_motion_schedule(
-                    motion, start_time=0.0, end_time=1.0,
-                )
+    for index in range(pair_count):
+        pair = boundary_models.rigid_contact_pair(
+            right,
+            boundary_models.rigid_body(
+                surface,
+                reference_point=(1.6, 0.5, 0.5),
+                motion_schedule=(
+                    None if motion is None else
+                    boundary_models.prescribed_rigid_motion_schedule(
+                        motion, start_time=0.0, end_time=1.0,
+                    )
+                ),
             ),
-        ),
-        penalty=5_000.0,
-    )
-    model.add_boundary_model(pair)
+            penalty=5_000.0 / pair_count,
+            name=("rigid_contact_pair" if pair_count == 1 else f"periodic_tool_{index}"),
+        )
+        model.add_boundary_model(pair)
+    if opposed_pair:
+        left = mesh.boundary(
+            fixture.domain, lambda x: np.isclose(x[0], 0.0),
+            name="periodic_contact_left",
+        )
+        model.add_boundary_model(boundary_models.rigid_contact_pair(
+            left,
+            boundary_models.rigid_body(boundary_models.rigid_sphere(
+                center=(-0.6, 0.5, 0.5), radius=0.75,
+            )),
+            penalty=5_000.0, name="left_sphere",
+        ))
     capability = step_capability(
         model, target=displacement,
         options={"material": material, "constraints": periodicity},
@@ -340,6 +356,92 @@ def test_periodic_j2_moving_tool_records_accepted_work_and_joint_restart(tmp_pat
         rtol=2e-8, atol=2e-10,
     )
     assert resumed.operator_dual_history.records == reference.operator_dual_history.records
+
+
+def test_periodic_j2_two_moving_pairs_share_total_mpc_and_keep_named_work(tmp_path, monkeypatch):
+    """Splitting one law checks additive MPC assembly, work and rollback."""
+
+    motion = _periodic_tool_motion()
+    _, _, single = _periodic_j2_contact_step(motion=motion)
+    single_result = single.solve_result()
+    _, _, double = _periodic_j2_contact_step(motion=motion, pair_count=2)
+    result = double.solve_result()
+    assert result.status == single_result.status == "completed"
+    assert len(double.full_space_operators) == 2
+    names = ("periodic_tool_0", "periodic_tool_1")
+    np.testing.assert_allclose(
+        double.solution.x.array, single.solution.x.array,
+        rtol=2e-8, atol=2e-10,
+    )
+    assert result.quantity("contact_potential") == pytest.approx(
+        single_result.quantity("contact_potential"), rel=1e-8,
+    )
+    assert tuple(item["constraint_name"] for item in
+                 result.metadata["constraint_duals"] if item["constraint_name"] in names) == names
+    assert result.metadata["constraint_balance_contract"]["work_balance_available"]
+    assert result.metadata["affine_operator_path_work"]["status"] == "complete"
+    assert sum(result.quantity(f"{name}_path_work") for name in names) == pytest.approx(
+        single_result.quantity("rigid_contact_pair_path_work"), rel=1e-8,
+    )
+
+    _, _, partial = _periodic_j2_contact_step(motion=motion, pair_count=2)
+    partial.solve(until=1 / 3)
+    saved = partial.save_checkpoint(tmp_path / "periodic_two_moving_pairs")
+    accepted = partial.solution.x.array.copy()
+    duals = partial.operator_dual_history.snapshot_runtime_state()
+    second = partial.contact_providers[1]
+
+    def fail_projection():
+        raise ValueError("injected second affine pair projection failure")
+
+    monkeypatch.setattr(second, "evaluate", fail_projection)
+    with pytest.raises(ValueError, match="second affine pair projection failure"):
+        partial.solve(until=2 / 3)
+    assert partial.accepted_load_factor == pytest.approx(1 / 3)
+    np.testing.assert_allclose(partial.solution.x.array, accepted)
+    assert partial.operator_dual_history.snapshot_runtime_state() == duals
+    assert all(item.motion_factor.value == pytest.approx(1 / 3)
+               for item in partial.contact_providers)
+
+    _, _, resumed = _periodic_j2_contact_step(motion=motion, pair_count=2)
+    resumed.load_checkpoint(saved)
+    resumed.solve()
+    np.testing.assert_allclose(
+        resumed.solution.x.array, double.solution.x.array,
+        rtol=2e-8, atol=2e-10,
+    )
+    assert resumed.operator_dual_history.records == double.operator_dual_history.records
+
+
+def test_periodic_j2_opposed_tools_reduce_the_total_residual():
+    """Distinct opposed surfaces must both enter the exact MPC reduction."""
+
+    fixture, periodicity, step = _periodic_j2_contact_step(opposed_pair=True)
+    result = step.solve_result()
+    assert result.status == "completed"
+    assert len(step.full_space_operators) == 2
+    contacts = {operator.name: operator.evaluate() for operator in step.full_space_operators}
+    assert all(item.active_points > 0 for item in contacts.values())
+    assert result.quantity("contact_potential") == pytest.approx(
+        sum(item.assembly.potential_energy for item in contacts.values()),
+    )
+    duals = {
+        item["constraint_name"]: item
+        for item in result.metadata["constraint_duals"]
+    }
+    assert set(contacts).issubset(duals)
+    assert duals["rigid_contact_pair"]["resultant"][0] < 0.0
+    assert duals["left_sphere"]["resultant"][0] > 0.0
+    total = step.assemble_full_residual()
+    reduction = periodicity.reduction(1.0).matrix(fixture.domain.comm)
+    reduced = reduction.createVecRight()
+    try:
+        reduction.multTranspose(total, reduced)
+        assert reduced.norm() < 1.0e-5
+    finally:
+        reduced.destroy()
+        reduction.destroy()
+        total.destroy()
 
 
 def test_periodic_j2_moving_tool_force_is_potential_conjugate():

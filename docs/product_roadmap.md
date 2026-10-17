@@ -80,12 +80,13 @@ at equal resolution. Its Hertz half-space screen does **not** yet pass an
 independent accuracy gate: finite support, mesh and penalty effects still need
 separation. See the [Dirichlet and Hertz candidate record](internal/implicit_contact_dirichlet_hertz_candidate_20261018.md).
 
-The same source branch now composes multiple named frictionless tools in the
-ordinary serial strong-BC J2 Step and admits fixed analytical-plane
+The same source branch now composes multiple named frictionless tools in both
+the ordinary serial strong-BC J2 Step and the affine-periodic J2 route, with
+the total residual and tangent reduced by the same MPC. Strong-BC J2 also admits fixed analytical-plane
 Coulomb pairs with separate accepted stick/slip states, a generally nonsymmetric tangent,
 separate friction loss channels and serial restart. These are bounded source
 candidates, not a release promotion. Sharp noncoplanar features, moving or
-curved friction, distributed implicit assembly and an
+curved friction, friction with affine MPC, distributed implicit assembly and an
 independent friction benchmark remain separate gates.
 
 The next source candidate removes the built-in sphere/cylinder type gate for

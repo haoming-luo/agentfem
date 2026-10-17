@@ -431,8 +431,8 @@ def _finite_strain_j2_affine_boundary_rejection(model, request: StepRequest) -> 
     ):
         return None
     return (
-        "AFM-J2-CONTACT-MPC: affine finite-strain J2 admits one serial, "
-        "frictionless rigid triangle/sphere/cylinder pair with fixed or "
+        "AFM-J2-CONTACT-MPC: affine finite-strain J2 admits serial, "
+        "frictionless named rigid triangle/sphere/cylinder pairs with fixed or "
         "normalized prescribed motion; mixed, distributed, and other weak "
         "Operators remain unsupported."
     )

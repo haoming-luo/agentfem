@@ -35,7 +35,7 @@ keeps the finite-strain J2 material in its elastic regime. The report keeps
 the model separate from the classical small-strain, elastic-half-space,
 exact-nonpenetration Hertz limit
 `F = 4 E sqrt(R) delta^(3/2) / (3 (1-nu^2))`.
-The [published sphere/half-space comparison](https://www.sciencedirect.com/science/article/pii/S0301679X15006027)
+The [Abaqus analytical Hertz relation](https://docs.software.vt.edu/abaqusv2025/English/SIMACAEANLRefMap/simaanl-c-demanalysis.htm)
 states that reference relation and its domain; it does not certify the finite
 block or penalty contact used here.
 
@@ -122,6 +122,23 @@ and 100 quadrature points are active. This strengthens the diagnosis that
 the earlier small finite block elevated the force, while still leaving a
 `3.6%` gap and confounded mesh-map/penalty/finite-strain effects.
 
+An additional *fixed extent-8 and grading-4* spatial sequence with penalty
+`1e6` and four increments gives the following source-branch diagnostics:
+
+| Quarter cells | Top-center spacing | Active points | Full force | Hertz ratio | Wall time |
+| ---: | ---: | ---: | ---: | ---: | ---: |
+| 4,096 | 0.04239 | 32 | 6.28701 | 1.07272 | 15.98 s |
+| 13,824 | 0.02707 | 86 | 6.16946 | 1.05266 | 56.07 s |
+| 32,768 | 0.01987 | 156 | 6.11118 | 1.04272 | 143.23 s |
+
+The trend is monotone under this mesh map, and the last sampled active
+radius is `0.19840` versus the Hertz `0.2`. However, the force still differs
+by `4.27%`; the active reference area is `0.12044` versus the Hertz circle's
+`0.12566`. This sequence does not separate penalty, far-boundary and
+finite-strain errors. It is therefore diagnostic evidence, **not** an
+independent pass or a solver speedup claim. These runs used the source branch
+with one process and PETSc GMRES/GAMG, not an installed release.
+
 ## Remaining gate
 
 Run independently controlled mesh **and** domain-size refinement with a
@@ -154,7 +171,7 @@ not general contact. This record separates code gates from evidence gates:
 | Existing contact composition | Merged PR #116 has reviewed smooth/facet rigid geometry, affine MPC, moving-tool work and rollback; serial focused regressions pass | Installed-package and post-merge release-gate run for the new changes |
 | Facet features | Reviewed topology identifies true free edges and noncoplanar neighbors; ambiguous active projection fails closed | Feature-specific edge/vertex contact potential, generalized derivative, branch switching and force/moment tests; no normal averaging |
 | Total implicit Operator | Contact/strong-BC overlap now uses native contact lifting, identity rows, a complete fixed-old-state total-tangent difference check, failed-increment rollback and same-DOF checkpoint recovery | Add an independently constructed residual/force check and expand beyond the current serial frictionless discretization |
-| Multi-tool implicit | Ordinary serial strong-BC J2 composes distinct rigid pairs: summed residual/tangent, independent moving-pair work, and atomic failed-increment/checkpoint recovery. Opposing moving frictionless planes check force balance. Two fixed frictional planes recover the equivalent single-law response while preserving separate State/dual/checkpoint identities; spatially opposed fixed frictional planes also check both force resultants and interrupted restart. Failure of the second commit rolls both back | Mixed curved/faceted friction, broader plastic branch switching, external structural comparison and finer mesh/penalty checks; affine MPC still admits one pair only |
+| Multi-tool implicit | Ordinary serial strong-BC J2 composes distinct rigid pairs: summed residual/tangent, independent moving-pair work, and atomic failed-increment/checkpoint recovery. Opposing moving frictionless planes check force balance. Two fixed frictional planes recover the equivalent single-law response while preserving separate State/dual/checkpoint identities; spatially opposed fixed frictional planes also check both force resultants and interrupted restart. Failure of the second commit rolls both back. The separate affine-periodic J2 route now admits named frictionless pairs: equivalent split-tool and spatially opposed tools check total MPC reduction, independent moving-tool work, failed projection rollback and interrupted restart | Mixed curved/faceted friction, affine-periodic friction, broader plastic branch switching, external structural comparison and finer mesh/penalty checks |
 | Implicit friction | Fixed analytical planes are admitted on serial strong-BC finite-J2: fixed-old-state stick/slip tangent, accepted stable-ID State per pair, separate Coulomb dissipation and numerical separation release, failed-finalization rollback, serial checkpoint and result histories. Real DOLFINx stick/slip directional checks and small active-contact global load/restart tests pass | Mesh/penalty/increment study and curved/faceted/moving/MPC/MPI extension; no general friction claim |
 | Material/time composition | Elastic-regime J2 sphere and plastic J2 facet cases complete; explicit body contact has its own stable-step contract | A history material on the *same implicit* seam and explicit contact stability under evolving state |
 | Independent accuracy and speed | Full/quarter symmetry, mesh, penalty and increment screens exist; half-space mismatch remains visible | Controlled far-boundary, graded mesh, pressure-footprint and penalty limits; external FE comparison and whole-step timings |

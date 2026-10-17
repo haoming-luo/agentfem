@@ -372,8 +372,11 @@ def _base_nonlinear_result(
 
 
 def _add_affine_constraint_evidence(step, result) -> None:
-    contact = getattr(step, "contact_provider", None)
-    assets = (step.constraint,) if contact is None else (step.constraint, contact)
+    contacts = getattr(step, "contact_providers", None)
+    if contacts is None:
+        contact = getattr(step, "contact_provider", None)
+        contacts = () if contact is None else (contact,)
+    assets = (step.constraint, *contacts)
     provider_duals = constraint_api.collect_provider_duals(
         assets,
         step,
@@ -386,19 +389,22 @@ def _add_affine_constraint_evidence(step, result) -> None:
         work_evidence = (*work_evidence, *_add_affine_operator_path_work(
             step, result,
         ))
-    if contact is not None:
-        contact_contribution = contact.evaluate()
-        if not contact.has_prescribed_motion:
-            work_evidence = (*work_evidence, constraint_api.constraint_work(
-                contact,
-                value=0.0,
-                integration="fixed_rigid_surface_zero_coordinate",
-                sample_count=len(step.accepted_increments) + 1,
-                role="contact_constraint",
-                source="rigid_penalty_potential",
-            ))
+    if contacts:
+        contact_potential = 0.0
+        for contact in contacts:
+            contact_contribution = contact.evaluate()
+            contact_potential += contact_contribution.assembly.potential_energy
+            if not contact.has_prescribed_motion:
+                work_evidence = (*work_evidence, constraint_api.constraint_work(
+                    contact,
+                    value=0.0,
+                    integration="fixed_rigid_surface_zero_coordinate",
+                    sample_count=len(step.accepted_increments) + 1,
+                    role="contact_constraint",
+                    source="rigid_penalty_potential",
+                ))
         result.add_quantity(
-            "contact_potential", contact_contribution.assembly.potential_energy,
+            "contact_potential", contact_potential,
             kind="diagnostic",
             description="Recoverable rigid penalty contact potential.",
         )
