@@ -166,6 +166,40 @@ def test_closed_convex_tool_uses_ordinary_j2_step_and_matches_planar_limit():
     )
 
 
+def test_convex_contact_matches_independent_hencky_bar_penalty_equilibrium():
+    _, _, _, step = _patch(
+        triangulated=True, convex_tool=True, yield_stress=1.0e9,
+        tool_translation=(-0.008, 0, 0), applied_traction=0.0,
+        increments=8,
+    )
+    result = step.solve_result()
+    assert result.status == "completed"
+    # Homogeneous uniaxial compression with nu=0 has P=E log(lambda)/lambda.
+    # The tool ends at x=0.997, and one-sided reference-area penalty contact
+    # contributes k(lambda-0.997). This scalar equation is independent of FE.
+    lower, upper = 0.997, 1.0
+    for _ in range(70):
+        stretch = 0.5 * (lower + upper)
+        residual = 1000.0 * np.log(stretch) / stretch + 500.0 * (stretch - 0.997)
+        if residual < 0.0:
+            lower = stretch
+        else:
+            upper = stretch
+    expected_stretch = 0.5 * (lower + upper)
+    coordinates = step.solution.function_space.tabulate_dof_coordinates()
+    right = np.isclose(coordinates[:, 0], 1.0)
+    right_ux = step.solution.x.array.reshape((-1, 3))[right, 0]
+    np.testing.assert_allclose(
+        right_ux, expected_stretch - 1.0, rtol=1e-5, atol=1e-8,
+    )
+    contribution = step.contact_provider.evaluate()
+    np.testing.assert_allclose(
+        contribution.potential_energy,
+        250.0 * (expected_stretch - 0.997) ** 2,
+        rtol=1e-5, atol=1e-8,
+    )
+
+
 def test_two_implicit_tools_add_residual_tangent_and_keep_separate_evidence():
     model, displacement, material, _ = _patch(
         triangulated=True, make_step=False, yield_stress=1.0e9,

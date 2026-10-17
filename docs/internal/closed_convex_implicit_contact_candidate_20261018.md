@@ -37,6 +37,11 @@ boundary operator checks its current-trial tangent under both fixed and
 translated/rotated poses. A finite-J2 `model.step()` case compares the same
 planar face supplied as a closed convex tool versus the older open triangle
 patch; displacement and accepted tool work agree at the tested resolution.
+An independent one-dimensional equilibrium also checks the homogeneous
+elastic-regime Hencky bar against
+`E log(lambda)/lambda + k(lambda - x_tool) = 0`, with the penalty potential
+compared separately. This validates a bounded normal-contact limit, not a
+curved pressure field or a plastic structure.
 These are local tests, not industrial contact validation.
 
 The candidate still lacks a structural benchmark that *loads through* a
