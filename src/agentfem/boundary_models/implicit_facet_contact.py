@@ -61,27 +61,20 @@ def _smooth_active_facets(
     if not len(edge_points):
         return
     facets_by_point = dict(zip(active_points.tolist(), selected_facets.tolist()))
-    edge_neighbors: dict[tuple[int, int], list[int]] = {}
-    for index, vertices in enumerate(surface.triangles):
-        for a, b in ((0, 1), (1, 2), (2, 0)):
-            edge = tuple(sorted((int(vertices[a]), int(vertices[b]))))
-            edge_neighbors.setdefault(edge, []).append(index)
     for point in edge_points:
         facet = facets_by_point[int(point)]
         barycentric = projection.local_coordinates[point]
         on_boundary = np.flatnonzero(barycentric <= threshold)
         if not len(on_boundary):
             continue
-        selected_vertices = surface.triangles[facet]
         selected_normal = surface.facet_normals[facet]
         # An interior seam of coplanar facets has the same normal derivative
         # from both sides.  A free edge or a crease does not.
         for opposite in on_boundary:
-            edge = tuple(sorted(np.delete(selected_vertices, opposite).tolist()))
-            neighbors = edge_neighbors.get(edge, [])
-            if len(neighbors) != 2 or any(
-                np.linalg.norm(surface.facet_normals[index] - selected_normal) > threshold
-                for index in neighbors
+            neighbor = int(surface.edge_neighbors[facet, opposite])
+            if neighbor < 0 or (
+                np.linalg.norm(surface.facet_normals[neighbor] - selected_normal)
+                > threshold
             ):
                 raise ValueError(
                     "AFM-IMPLICIT-CONTACT-BRANCH: active projection reaches a "

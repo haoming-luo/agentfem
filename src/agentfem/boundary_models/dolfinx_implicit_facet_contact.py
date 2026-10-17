@@ -128,9 +128,8 @@ class DolfinxImplicitRigidContact:
             ),
         )
 
-    def evaluate(self) -> ImplicitRigidContactContribution:
-        """Reproject the current displacement and assemble a fresh trial Operator."""
-
+    def _current_point_response(self):
+        """Reproject the current trial; never reuse a previous gap or pressure."""
         evaluation = self.adapter.evaluate(self.displacement)
         schedule = self.pair.rigid_body.motion_schedule
         factor = (
@@ -143,8 +142,38 @@ class DolfinxImplicitRigidContact:
             motion=None if schedule is None else schedule.motion,
             factor=factor,
         )
+        if not projection.all_valid:
+            first = int(np.flatnonzero(~projection.valid)[0])
+            raise ValueError(
+                "AFM-IMPLICIT-CONTACT-PROJECTION: invalid projection at "
+                f"contact_point_id={int(self.adapter.trace.point_ids[first])}, "
+                f"status={projection.status_codes[first]}, "
+                f"surface={self.surface.name}; the current trial is rejected "
+                "without inventing a contact normal."
+            )
         record = ContactProjectionRecord(self.adapter.trace.point_ids, projection)
         response = self.pair.law.evaluate(record.projection)
+        return evaluation, record, response, factor
+
+    def current_point_diagnostics(self) -> dict[str, float | int | str]:
+        """Unsmoothed reference-trace diagnostics at the current trial pose."""
+
+        evaluation, _record, response, _factor = self._current_point_response()
+        active = np.asarray(response.active, dtype=bool)
+        return {
+            "location": "reference_boundary_quadrature",
+            "pressure_measure": "penalty_force_per_reference_area_not_cauchy_pressure",
+            "active_point_count": int(np.count_nonzero(active)),
+            "active_reference_area": float(np.sum(evaluation.trace.weights[active])),
+            "maximum_pressure": float(np.max(response.pressures, initial=0.0)),
+            "maximum_penetration": float(np.max(response.penetration, initial=0.0)),
+        }
+
+    def evaluate(self) -> ImplicitRigidContactContribution:
+        """Reproject the current displacement and assemble a fresh trial Operator."""
+
+        evaluation, record, response, factor = self._current_point_response()
+        schedule = self.pair.rigid_body.motion_schedule
         reference_point = self.pair.rigid_body.reference_point
         if schedule is not None:
             reference_point = schedule.motion.state(factor)["reference_point"]

@@ -2818,6 +2818,21 @@ class FiniteStrainJ2StandardProblem:
                 dual.resultant,
                 kind="diagnostic",
             )
+            if self._uses_implicit_rigid_contact():
+                point_evidence = self.contact_provider.current_point_diagnostics()
+                result.metadata["rigid_contact_point_diagnostics"] = {
+                    "constraint": dual.constraint_name,
+                    **point_evidence,
+                }
+                for name in (
+                    "active_point_count", "active_reference_area",
+                    "maximum_pressure", "maximum_penetration",
+                ):
+                    result.add_quantity(
+                        f"{dual.constraint_name}_{name}",
+                        point_evidence[name],
+                        kind="diagnostic",
+                    )
         for selected in fields:
             function = getattr(selected, "value", selected)
             result.add_field(

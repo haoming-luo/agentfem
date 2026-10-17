@@ -7,14 +7,22 @@ import pytest
 from examples.finite_j2_hertz_contact import run_case
 
 
-def test_full_and_quarter_indentation_agree_with_contact_on_symmetry_dofs():
-    full = run_case(cells=4, penalty=1.0e5, indentation=0.02)
+@pytest.mark.parametrize("grading", [0.0, 2.0])
+def test_full_and_quarter_indentation_agree_with_contact_on_symmetry_dofs(grading):
+    full = run_case(cells=4, penalty=1.0e5, indentation=0.02, grading=grading)
     quarter = run_case(
         cells=4, penalty=1.0e5, indentation=0.02, quarter=True,
+        grading=grading,
     )
     assert full["status"] == quarter["status"] == "completed"
     assert quarter["cell_count"] * 4 == full["cell_count"]
     assert quarter["active_quadrature_points"] * 4 == full["active_quadrature_points"]
+    assert quarter["active_reference_area"] == pytest.approx(
+        full["active_reference_area"], rel=1.0e-12,
+    )
+    assert quarter["maximum_active_quadrature_radius"] == pytest.approx(
+        full["maximum_active_quadrature_radius"], rel=1.0e-12,
+    )
     assert quarter["full_contact_force"] == pytest.approx(
         full["full_contact_force"], rel=1.0e-9,
     )
@@ -27,5 +35,30 @@ def test_hertz_reference_is_labeled_as_limit_not_exact_solution():
     result = run_case(cells=4, penalty=1.0e5, indentation=0.02)
     assert result["full_contact_force"] > 0.0
     assert result["hertz_half_space_force"] > 0.0
+    assert result["hertz_half_space_contact_radius"] > 0.0
+    assert result["hertz_half_space_contact_area"] > 0.0
+    assert result["hertz_half_space_peak_pressure"] > 0.0
+    assert result["peak_quadrature_pressure"] > 0.0
+    assert result["total_case_wall_seconds"] > 0.0
+    assert result["accepted_increment_seconds"] > 0.0
+    assert all(
+        value >= 0.0
+        for value in result["accepted_solver_phase_seconds"].values()
+    )
     assert "half_space" in result["reference_scope"]
     assert "finite_penalty" in result["model_scope"]
+
+
+def test_explicit_iterative_solver_policy_preserves_contact_solution():
+    options = dict(cells=4, penalty=1.0e5, indentation=0.02, quarter=True)
+    direct = run_case(**options)
+    iterative = run_case(**options, linear_policy="gmres_gamg")
+    assert direct["linear_policy"] == "direct"
+    assert iterative["linear_policy"] == "gmres_gamg"
+    assert iterative["linear_iterations"] >= iterative["linear_solve_calls"]
+    assert all(reason > 0 for reason in iterative["linear_converged_reasons"])
+    for name in (
+        "full_contact_force", "active_reference_area", "maximum_penetration",
+        "contact_potential", "stored_energy", "tool_work",
+    ):
+        assert iterative[name] == pytest.approx(direct[name], rel=1.0e-8, abs=1.0e-10)

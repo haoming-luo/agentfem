@@ -81,6 +81,71 @@ class ImplicitRigidContactContribution:
         return action.reshape(shape)
 
 
+@dataclass(frozen=True, eq=False)
+class CombinedImplicitRigidContactContribution:
+    """Additive rigid-pair Operator, preserving each pair's scientific identity.
+
+    This is a solver-neutral algebraic composition, not an admission of a
+    multi-tool Step.  In particular, each provider still owns its own rigid
+    coordinates, accepted work and checkpoint state.  Reusing contact point
+    IDs across distinct pairs is valid because their names remain separate.
+    """
+
+    pairs: tuple[tuple[str, ImplicitRigidContactContribution], ...]
+
+    def __post_init__(self) -> None:
+        selected = tuple(self.pairs)
+        if not selected:
+            raise ValueError("Combined implicit contact requires at least one pair.")
+        names = tuple(str(name).strip() for name, _ in selected)
+        if any(not name for name in names) or len(set(names)) != len(names):
+            raise ValueError(
+                "Combined implicit contact pair names must be unique and nonempty."
+            )
+        if any(
+            not isinstance(item, ImplicitRigidContactContribution)
+            for _, item in selected
+        ):
+            raise TypeError(
+                "Combined implicit contact accepts reviewed pair contributions only."
+            )
+        layout = selected[0][1].assembly.nodal_structural_residual.shape
+        if any(
+            item.assembly.nodal_structural_residual.shape != layout
+            for _, item in selected
+        ):
+            raise ValueError(
+                "Combined implicit contact pairs must share one nodal vector layout."
+            )
+        object.__setattr__(
+            self, "pairs",
+            tuple((name, item) for name, (_, item) in zip(names, selected)),
+        )
+
+    @property
+    def nodal_structural_residual(self) -> np.ndarray:
+        return np.sum(
+            [item.assembly.nodal_structural_residual for _, item in self.pairs], axis=0,
+        )
+
+    @property
+    def potential_energy(self) -> float:
+        return float(sum(item.assembly.potential_energy for _, item in self.pairs))
+
+    @property
+    def contact_force_on_structure(self) -> np.ndarray:
+        return np.sum(
+            [item.assembly.contact_force_on_structure for _, item in self.pairs], axis=0,
+        )
+
+    @property
+    def active_points(self) -> int:
+        return sum(item.active_points for _, item in self.pairs)
+
+    def tangent_action(self, direction) -> np.ndarray:
+        return np.sum([item.tangent_action(direction) for _, item in self.pairs], axis=0)
+
+
 def integrate_implicit_rigid_contact(
     evaluation: ContactTraceEvaluation,
     record: ContactProjectionRecord,
@@ -170,4 +235,8 @@ def integrate_implicit_rigid_contact(
     )
 
 
-__all__ = ["ImplicitRigidContactContribution", "integrate_implicit_rigid_contact"]
+__all__ = [
+    "ImplicitRigidContactContribution",
+    "CombinedImplicitRigidContactContribution",
+    "integrate_implicit_rigid_contact",
+]

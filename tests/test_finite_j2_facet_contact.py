@@ -122,6 +122,51 @@ def test_non_normalized_tool_schedule_is_rejected_by_capability_and_step():
         model.step(target=displacement, material=material)
 
 
+def test_two_implicit_tools_report_the_missing_pair_transaction_gate():
+    model, displacement, material, _ = _patch(
+        triangulated=True, make_step=False,
+    )
+    first = model.boundary_models[0]
+    model.add_boundary_model(
+        boundary_models.rigid_contact_pair(
+            first.slave_boundary,
+            boundary_models.rigid_body(first.rigid_body.surface),
+            penalty=500.0,
+            name="second_tool",
+        )
+    )
+    capability = step_capability(
+        model, target=displacement, options={"material": material},
+    )
+    assert not capability["supported"]
+    assert any(
+        item["message"].startswith("AFM-IMPLICIT-CONTACT-MULTI")
+        for item in capability["rejection_reasons"]
+    )
+
+
+def test_implicit_friction_is_rejected_with_the_missing_state_gate():
+    model, displacement, material, _ = _patch(
+        triangulated=True, make_step=False,
+    )
+    first = model.boundary_models[0]
+    model.boundary_models[:] = [
+        boundary_models.rigid_contact_pair(
+            first.slave_boundary, first.rigid_body,
+            penalty=500.0, friction_coefficient=0.3,
+            tangential_penalty=200.0,
+        )
+    ]
+    capability = step_capability(
+        model, target=displacement, options={"material": material},
+    )
+    assert not capability["supported"]
+    assert any(
+        item["message"].startswith("AFM-IMPLICIT-CONTACT-FRICTION")
+        for item in capability["rejection_reasons"]
+    )
+
+
 def test_active_free_tool_edge_fails_closed_and_preserves_accepted_state():
     _, _, _, step = _patch(
         triangulated=True,
@@ -367,6 +412,12 @@ def test_facet_contact_lifts_shared_strong_dofs_and_keeps_dirichlet_rows():
     assert result.status == "completed"
     assert step.contact_provider.evaluate().active_points > 0
     assert np.isfinite(step.energy_history[-1].contact_potential)
+    evidence = result.metadata["rigid_contact_point_diagnostics"]
+    assert evidence["location"] == "reference_boundary_quadrature"
+    assert evidence["pressure_measure"] == "penalty_force_per_reference_area_not_cauchy_pressure"
+    assert evidence["active_point_count"] > 0
+    assert evidence["maximum_pressure"] > 0.0
+    assert evidence["maximum_penetration"] > 0.0
     # DOLFINx strong rows must remain identity after the native contact COO
     # tangent is inserted, including active contact on prescribed components.
     step._correction_rhs()[0].destroy()
@@ -376,6 +427,118 @@ def test_facet_contact_lifts_shared_strong_dofs_and_keeps_dirichlet_rows():
         nonzero = np.abs(values) > 1.0e-12
         np.testing.assert_array_equal(columns[nonzero], [dof])
         np.testing.assert_allclose(values[nonzero], [1.0])
+    # A prescribed correction on the contact trace must affect the free
+    # residual through the *same* contact tangent used in Newton assembly.
+    # Compare against a fresh nonlinear contact evaluation, not just the COO.
+    accepted = step.solution.x.array.copy()
+    try:
+        trial = accepted.copy()
+        trial[list(step.contact_constrained_dofs)] -= 1.0e-7
+        step.solution.x.array[:] = trial
+        step.solution.x.scatter_forward()
+        off = step.contact_provider.evaluate()
+        delta = np.zeros_like(trial)
+        for bc in step.bcs:
+            bc.set(delta, x0=trial, alpha=1.0)
+        assert np.linalg.norm(delta) > 0.0
+        step.solution.x.array[:] = trial + delta
+        step.solution.x.scatter_forward()
+        on = step.contact_provider.evaluate()
+        predicted = (
+            off.assembly.nodal_structural_residual
+            + off.tangent_action(delta.reshape(-1, 3))
+        )
+        np.testing.assert_allclose(
+            on.assembly.nodal_structural_residual,
+            predicted,
+            rtol=1.0e-7,
+            atol=1.0e-9,
+        )
+    finally:
+        step.solution.x.array[:] = accepted
+        step.solution.x.scatter_forward()
+
+
+def test_total_j2_contact_newton_tangent_matches_fixed_old_state_difference():
+    """Differentiate the assembled *total* residual, not contact in isolation."""
+
+    _, _, _, step = _patch(
+        triangulated=True, cells=2, tilt=0.01,
+        tool_translation=(-0.006, 0.0, 0.0), applied_traction=0.0,
+    )
+    step.solve()
+    assert step.contact_provider.evaluate().active_points > 0
+    accepted = step.solution.x.array.copy()
+    constrained = np.unique(np.concatenate([
+        np.asarray(bc.dof_indices()[0], dtype=np.int64) for bc in step.bcs
+    ]))
+    direction = np.random.default_rng(20261018).normal(size=accepted.shape)
+    direction[constrained] = 0.0
+    direction /= np.linalg.norm(direction)
+
+    def rhs_at(offset):
+        step.solution.x.array[:] = accepted + offset * direction
+        step.solution.x.scatter_forward()
+        step._update_response(start_factor=1.0, target_factor=1.0)
+        rhs, _ = step._correction_rhs()
+        try:
+            return rhs.array.copy()
+        finally:
+            rhs.destroy()
+
+    try:
+        rhs_at(0.0)
+        tangent = step._assemble_tangent()
+        from petsc4py import PETSc
+
+        trial = PETSc.Vec().createWithArray(direction.copy(), comm=MPI.COMM_SELF)
+        action = tangent.createVecLeft()
+        tangent.mult(trial, action)
+        expected = action.array.copy()
+        trial.destroy()
+        action.destroy()
+        epsilon = 1.0e-6
+        numerical = -(rhs_at(epsilon) - rhs_at(-epsilon)) / (2.0 * epsilon)
+        np.testing.assert_allclose(
+            expected, numerical, rtol=2.0e-3, atol=2.0e-5,
+        )
+    finally:
+        step.solution.x.array[:] = accepted
+        step.solution.x.scatter_forward()
+        step._update_response(start_factor=1.0, target_factor=1.0)
+
+
+def test_shared_contact_dirichlet_restart_preserves_tool_work(tmp_path):
+    options = dict(
+        triangulated=True, constrain_contact=True, contact_value=0.002,
+        tool_translation=(-0.02, 0.0, 0.0), tilt=0.01,
+        applied_traction=0.0,
+    )
+    _, _, _, reference = _patch(**options)
+    reference.solve()
+    _, _, _, partial = _patch(**options)
+    partial.solve(until=1.0 / 3.0)
+    saved = partial.save_checkpoint(tmp_path / "shared_contact_dirichlet")
+    _, _, _, resumed = _patch(**options)
+    resumed.load_checkpoint(saved)
+    resumed.solve()
+    np.testing.assert_allclose(resumed.solution.x.array, reference.solution.x.array,
+                               rtol=1.0e-9, atol=1.0e-11)
+    np.testing.assert_allclose(
+        resumed.response.state.committed_state_vectors(),
+        reference.response.state.committed_state_vectors(),
+        rtol=1.0e-9, atol=1.0e-11,
+    )
+    assert resumed.energy_history[-1].tool_work == pytest.approx(
+        reference.energy_history[-1].tool_work, rel=1.0e-9,
+    )
+    assert resumed.energy_history[-1].prescribed_motion_work == pytest.approx(
+        reference.energy_history[-1].prescribed_motion_work, rel=1.0e-9,
+    )
+    _, _, _, changed = _patch(**{**options, "contact_value": 0.003})
+    with pytest.raises(ValueError, match="identity"):
+        changed.load_checkpoint(saved)
+    assert not changed.energy_history
 
 
 def test_facet_j2_checkpoint_and_failed_increment_are_atomic(tmp_path, monkeypatch):

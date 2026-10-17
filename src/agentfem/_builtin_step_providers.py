@@ -519,6 +519,15 @@ def _finite_strain_j2_strong_rejection_reason(model, request: StepRequest) -> st
     if not _finite_strain_j2_strong_preconditions(model, request):
         return None
     boundary_models = tuple(getattr(model, "boundary_models", ()))
+    if (
+        len(boundary_models) > 1
+        and all(isinstance(item, RigidContactPair) for item in boundary_models)
+    ):
+        return (
+            "AFM-IMPLICIT-CONTACT-MULTI: finite-strain J2 currently admits "
+            "one rigid pair; independently moving tools require per-pair "
+            "residual, tangent, work and restart evidence before admission."
+        )
     if len(boundary_models) != 1 or not isinstance(
         boundary_models[0], (RigidObstaclePenaltyContact, RigidContactPair)
     ):
@@ -532,6 +541,13 @@ def _finite_strain_j2_strong_rejection_reason(model, request: StepRequest) -> st
         )
     selected = boundary_models[0]
     if isinstance(selected, RigidContactPair):
+        if selected.friction is not None:
+            return (
+                "AFM-IMPLICIT-CONTACT-FRICTION: finite-strain J2 has no "
+                "reviewed implicit stick-slip state, consistent tangent or "
+                "accepted-path dissipation contract; the explicit friction "
+                "provider does not certify this Procedure."
+            )
         schedule = selected.rigid_body.motion_schedule
         if schedule is not None and (
             schedule.start_time != 0.0

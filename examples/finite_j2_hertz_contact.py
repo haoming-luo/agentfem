@@ -14,6 +14,7 @@ from __future__ import annotations
 import argparse
 import json
 from pathlib import Path
+import time
 
 from dolfinx import mesh as dolfinx_mesh
 from mpi4py import MPI
@@ -33,14 +34,31 @@ from agentfem import (
 
 def run_case(
     *, cells: int, penalty: float, indentation: float, quarter: bool = False,
-    extent: float = 1.0, increments: int = 4,
-) -> dict[str, float | int | str]:
+    extent: float = 1.0, increments: int = 4, grading: float = 0.0,
+    linear_policy: str = "direct",
+) -> dict[str, object]:
     """Return one serial structural response and its half-space reference."""
 
+    started = time.perf_counter()
     if MPI.COMM_WORLD.size != 1:
         raise RuntimeError("The bounded Hertz comparison is serial only.")
-    if cells < 2 or increments < 1 or penalty <= 0.0 or indentation <= 0.0 or extent <= 0.0:
-        raise ValueError("Require cells >= 2, increments >= 1 and positive penalty/indentation/extent.")
+    if (
+        cells < 2 or increments < 1 or penalty <= 0.0
+        or indentation <= 0.0 or extent <= 0.0
+        or not np.isfinite(grading) or grading < 0.0
+    ):
+        raise ValueError("Require cells >= 2, increments >= 1, positive penalty/indentation/extent and nonnegative grading.")
+    linear_choices = {
+        "direct": solvers.direct_solver(),
+        "gmres_gamg": solvers.LinearSolverOptions(
+            ksp_type="gmres", pc_type="gamg", rtol=1.0e-8, max_it=500,
+        ),
+        "gmres_ilu": solvers.LinearSolverOptions(
+            ksp_type="gmres", pc_type="ilu", rtol=1.0e-8, max_it=500,
+        ),
+    }
+    if linear_policy not in linear_choices:
+        raise ValueError(f"linear_policy must be one of {tuple(linear_choices)}.")
 
     young, poisson, radius = 1000.0, 0.3, 2.0
     domain = dolfinx_mesh.create_box(
@@ -52,6 +70,23 @@ def run_case(
         (cells, cells, cells) if quarter else (2 * cells, 2 * cells, cells),
         cell_type=dolfinx_mesh.CellType.hexahedron,
     )
+    if grading:
+        # A separable, monotone coordinate map preserves hex connectivity and
+        # exact quarter/full symmetry while resolving the small contact patch
+        # without refining the remote boundaries at the same rate.  This is a
+        # benchmark mesh, not an automatic mesh modification by the solver.
+        coordinates = domain.geometry.x
+        denominator = np.expm1(grading)
+        for axis in (0, 1):
+            fraction = np.abs(coordinates[:, axis]) / extent
+            coordinates[:, axis] = (
+                np.sign(coordinates[:, axis]) * extent
+                * np.expm1(grading * fraction) / denominator
+            )
+        depth = (extent - coordinates[:, 2]) / extent
+        coordinates[:, 2] = (
+            extent - extent * np.expm1(grading * depth) / denominator
+        )
     model = models.create(
         study=studies.static_solid(dimension=3, nonlinear=True),
         mesh=domain,
@@ -102,6 +137,7 @@ def run_case(
             absolute_tolerance=1.0e-9,
             maximum_iterations=30,
             line_search="backtracking",
+            linear_solver=linear_choices[linear_policy],
         ),
         progress=False,
     )
@@ -117,6 +153,11 @@ def run_case(
     )
     if not projection.all_valid:
         raise RuntimeError("Accepted indentation has invalid surface projections.")
+    response = provider.pair.law.evaluate(projection)
+    active = np.asarray(response.active, dtype=bool)
+    active_radii = np.linalg.norm(trace_evaluation.query_points[active, :2], axis=1)
+    footprint_radius = float(np.max(active_radii)) if active_radii.size else 0.0
+    reference_area = float(np.sum(provider.adapter.trace.weights[active]))
     force = -(4.0 if quarter else 1.0) * float(
         contribution.assembly.contact_force_on_structure[2]
     )
@@ -124,11 +165,29 @@ def run_case(
         4.0 / 3.0 * young / (1.0 - poisson**2)
         * np.sqrt(radius) * indentation**1.5
     )
+    hertz_radius = float(np.sqrt(radius * indentation))
+    hertz_area = float(np.pi * hertz_radius**2)
+    hertz_peak_pressure = float(3.0 * hertz_force / (2.0 * hertz_area))
+    phase_names = (
+        "material_update_seconds", "residual_assembly_seconds",
+        "tangent_assembly_seconds", "linear_solve_seconds",
+        "line_search_seconds",
+    )
+    solver_phases = {
+        name: float(sum(getattr(item, name) for item in step.accepted_increments))
+        for name in phase_names
+    }
     return {
         "status": str(result.status),
         "cells_per_side": int(cells),
         "increments": int(increments),
         "cell_count": int((1 if quarter else 4) * cells**3),
+        "mesh_grading": float(grading),
+        "linear_policy": linear_policy,
+        "reference_contact_edge_spacing": (
+            extent / cells if not grading
+            else extent * np.expm1(grading / cells) / np.expm1(grading)
+        ),
         "domain_fraction": 0.25 if quarter else 1.0,
         "penalty": float(penalty),
         "indentation": float(indentation),
@@ -137,6 +196,12 @@ def run_case(
         "young": young,
         "poisson": poisson,
         "active_quadrature_points": int(contribution.active_points),
+        "active_reference_area": reference_area * (4.0 if quarter else 1.0),
+        "hertz_half_space_contact_area": hertz_area,
+        "maximum_active_quadrature_radius": footprint_radius,
+        "hertz_half_space_contact_radius": hertz_radius,
+        "peak_quadrature_pressure": float(np.max(response.pressures)),
+        "hertz_half_space_peak_pressure": hertz_peak_pressure,
         "maximum_penetration": float(max(0.0, -np.min(projection.signed_gaps))),
         "full_contact_force": force,
         "hertz_half_space_force": float(hertz_force),
@@ -147,6 +212,21 @@ def run_case(
         "tool_work": float(step.energy_history[-1].tool_work),
         "discrete_work_residual": float(step.energy_history[-1].mechanical_energy_residual),
         "work_semantics": "accepted_trapezoidal_path_not_general_first_law",
+        "accepted_solver_phase_seconds": solver_phases,
+        "accepted_increment_seconds": float(sum(
+            item.total_seconds for item in step.accepted_increments
+        )),
+        "linear_solve_calls": int(sum(
+            item.linear_solve_calls for item in step.accepted_increments
+        )),
+        "linear_iterations": int(sum(
+            item.linear_iterations for item in step.accepted_increments
+        )),
+        "linear_converged_reasons": tuple(
+            reason for item in step.accepted_increments
+            for reason in item.linear_converged_reasons
+        ),
+        "total_case_wall_seconds": float(time.perf_counter() - started),
         "reference_scope": "small_strain_elastic_half_space_exact_contact",
         "model_scope": (
             "finite_bottom_clamped_quarter_block_finite_penalty_elastic_J2"
@@ -161,13 +241,20 @@ def main() -> None:
     parser.add_argument("--penalty", type=float, default=1.0e5)
     parser.add_argument("--indentation", type=float, default=0.02)
     parser.add_argument("--extent", type=float, default=1.0)
+    parser.add_argument("--grading", type=float, default=0.0)
     parser.add_argument("--quarter", action="store_true")
     parser.add_argument("--increments", type=int, default=4)
+    parser.add_argument(
+        "--linear-policy", choices=("direct", "gmres_gamg", "gmres_ilu"),
+        default="direct",
+    )
     parser.add_argument("--output", type=Path)
     args = parser.parse_args()
     report = run_case(
         cells=args.cells, penalty=args.penalty, indentation=args.indentation,
         quarter=args.quarter, extent=args.extent, increments=args.increments,
+        grading=args.grading,
+        linear_policy=args.linear_policy,
     )
     formatted = json.dumps(report, indent=2, sort_keys=True)
     if args.output is not None:

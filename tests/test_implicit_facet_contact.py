@@ -7,6 +7,9 @@ from agentfem import boundary_models
 from agentfem.boundary_models.implicit_facet_contact import (
     linearize_piecewise_planar_contact,
 )
+from agentfem.boundary_models.implicit_contact import (
+    CombinedImplicitRigidContactContribution,
+)
 
 
 def _flat_tool():
@@ -14,6 +17,53 @@ def _flat_tool():
         vertices=((0, 0, 0), (1, 0, 0), (0, 1, 0), (1, 1, 0)),
         triangles=((0, 1, 2), (1, 3, 2)),
     )
+
+
+def test_reviewed_edge_adjacency_distinguishes_seam_from_free_edges():
+    surface = _flat_tool()
+    assert surface.edge_neighbors.shape == surface.triangles.shape
+    # Local edge 0 of the first triangle and local edge 1 of the second
+    # share (1, 2).  Every other edge belongs to the open boundary.
+    np.testing.assert_array_equal(surface.edge_neighbors[0], (1, -1, -1))
+    np.testing.assert_array_equal(surface.edge_neighbors[1], (-1, 0, -1))
+    assert not surface.edge_neighbors.flags.writeable
+
+
+def test_independent_pair_contributions_add_without_merging_point_identity():
+    upper = _flat_tool()
+    lower = boundary_models.triangulated_rigid_surface(
+        vertices=((0, 0, -0.2), (1, 0, -0.2), (0, 1, -0.2), (1, 1, -0.2)),
+        triangles=((0, 2, 1), (1, 2, 3)),
+    )
+    nodes = np.asarray(((0.2, 0.3, -0.1),) * 3)
+    first = _evaluate(upper, nodes)
+    second = _evaluate(lower, nodes)
+    combined = CombinedImplicitRigidContactContribution(
+        (("upper", first), ("lower", second)),
+    )
+    assert first.active_points == second.active_points == 1
+    # Both pairs legitimately use point ID 71; their separate pair identities
+    # avoid collisions in evidence and future accepted-work accounting.
+    np.testing.assert_array_equal(first.assembly.point_ids, second.assembly.point_ids)
+    assert tuple(name for name, _ in combined.pairs) == ("upper", "lower")
+    assert combined.active_points == 2
+    np.testing.assert_allclose(
+        combined.nodal_structural_residual,
+        first.assembly.nodal_structural_residual
+        + second.assembly.nodal_structural_residual,
+    )
+    assert combined.potential_energy == pytest.approx(
+        first.assembly.potential_energy + second.assembly.potential_energy,
+    )
+    direction = np.asarray(((0.1, 0.2, 0.3),) * 3)
+    np.testing.assert_allclose(
+        combined.tangent_action(direction),
+        first.tangent_action(direction) + second.tangent_action(direction),
+    )
+    with pytest.raises(ValueError, match="unique"):
+        CombinedImplicitRigidContactContribution(
+            (("same", first), ("same", second)),
+        )
 
 
 def _evaluate(surface, nodes, *, shape=(0.2, 0.3, 0.5), weight=0.75):
