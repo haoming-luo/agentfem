@@ -30,7 +30,7 @@ def _patch(*, triangulated: bool, gap: float = 0.005, penalty=500.0,
            convex_tool=False, convex_y_min=-0.5,
            friction_coefficient=None, tangential_penalty=None,
            regional_material=False, contact_quadrature_degree=None,
-           hexahedral=False, displacement_degree=1):
+           hexahedral=False, displacement_degree=1, linear_solver=None):
     domain = dolfinx_mesh.create_unit_cube(
         MPI.COMM_SELF, cells, cells, cells,
         cell_type=(
@@ -157,6 +157,7 @@ def _patch(*, triangulated: bool, gap: float = 0.005, penalty=500.0,
             absolute_tolerance=1e-9,
             maximum_iterations=25,
             line_search="backtracking",
+            linear_solver=linear_solver,
         ),
         progress=False,
     )
@@ -382,6 +383,61 @@ def test_convex_tool_tracks_noncoplanar_feature_during_incremental_solve(
     )
     assert resumed.energy_history[-1].tool_work == pytest.approx(
         step.energy_history[-1].tool_work, rel=1e-9,
+    )
+
+
+def test_rigid_modes_gamg_preserves_plastic_feature_switch_state(tmp_path):
+    options = dict(
+        triangulated=True, convex_tool=True, convex_y_min=0.15,
+        yield_stress=2.0, tool_translation=(-0.06, 0, 0),
+        applied_traction=0.0, increments=12,
+    )
+    direct = _patch(**options)[3]
+    iterative_options = {
+        **options,
+        "linear_solver": solvers.LinearSolverOptions(
+            ksp_type="gmres", pc_type="gamg", rtol=1.0e-8, max_it=500,
+        ),
+    }
+    iterative = _patch(**iterative_options)[3]
+    assert direct.solve_result().status == "completed"
+    assert iterative.solve_result().status == "completed"
+    assert direct.summary()["linear_preconditioner_near_nullspace"] is None
+    assert (
+        iterative.summary()["linear_preconditioner_near_nullspace"]
+        == "reference_rigid_body_3d"
+    )
+    assert np.max(
+        iterative.response.state.committed[
+            "equivalent_plastic_strain"
+        ].function.x.array
+    ) > 0.0
+    np.testing.assert_allclose(
+        iterative.solution.x.array, direct.solution.x.array,
+        rtol=1.0e-7, atol=1.0e-9,
+    )
+    np.testing.assert_allclose(
+        iterative.response.state.committed_state_vectors(),
+        direct.response.state.committed_state_vectors(),
+        rtol=1.0e-7, atol=1.0e-9,
+    )
+    assert iterative.energy_history[-1].tool_work == pytest.approx(
+        direct.energy_history[-1].tool_work, rel=1.0e-7,
+    )
+    partial = _patch(**iterative_options)[3]
+    partial.solve(until=0.25)
+    saved = partial.save_checkpoint(tmp_path / "plastic_gamg_feature_switch")
+    resumed = _patch(**iterative_options)[3]
+    resumed.load_checkpoint(saved)
+    resumed.solve()
+    np.testing.assert_allclose(
+        resumed.solution.x.array, iterative.solution.x.array,
+        rtol=1.0e-8, atol=1.0e-10,
+    )
+    np.testing.assert_allclose(
+        resumed.response.state.committed_state_vectors(),
+        iterative.response.state.committed_state_vectors(),
+        rtol=1.0e-8, atol=1.0e-10,
     )
 
 

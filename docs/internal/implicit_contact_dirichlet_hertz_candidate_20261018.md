@@ -457,9 +457,25 @@ source route gave `0.5973417483273`, 4,094 iterations, `62.00 s` linear
 solves and `94.37 s` wall time. The active reference area was identical and
 the nominal pressure L1 ratio changed below `1e-10`. A separate 8,000-cell
 installed-wheel monkeypatch prototype reduced single-run wall time from
-`673.28 s` to `571.99 s` with the same force to about `4e-11`, but that is
-**prototype** evidence, not yet an installed test of this integrated code.
-These are one-machine timings, not a portable speedup promise. There is no
+`673.28 s` to `571.99 s` with the same force to about `4e-11`.
+
+The integrated code at `bfdbe26e` was then built from a clean Git archive as
+a native Apple Silicon wheel (SHA-256
+`b3d7a04a8a62a45065f1a1f30f1fdb75dc9248618f415eccd6e540ecead2940a`).
+The standard installed-wheel macOS gate passed with `source_dirty=false` and
+that exact source commit. An ordinary CG2 rigid-sphere `model.step()` run
+from the isolated install target also completed. On the same fixed 8,000-cell
+inputs, that installed integrated wheel gave full force `0.5916554842398`
+versus the pre-change `0.5916554841966`, 4,977 versus 7,169 linear
+iterations, `410.86 s` versus `523.46 s` accepted linear solves and
+`553.43 s` versus `673.28 s` single-run wall time. The active area, maximum
+penetration, pressure L1 metric and accepted energy ratios agree to reported
+precision. The pressure L1 metric remains `0.08664`, however, so this is
+not a Hertz convergence certificate. A separate plastic J2 test crosses a
+noncoplanar convex-tool feature: direct LU and GMRES/GAMG agree on displacement,
+committed plastic State and tool work, and the iterative path survives
+checkpoint/restart. These are one-machine timings, not a portable speedup
+promise. There is no
 new global solver default, no automatic geometry/penalty change and no
 claim that an elastic near-nullspace guarantees convergence in a strongly
 plastic or more complex contact state.
