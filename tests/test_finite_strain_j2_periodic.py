@@ -226,6 +226,28 @@ def test_periodic_j2_contact_projection_failure_restores_accepted_state(monkeypa
     assert step.accepted_load_factor == pytest.approx(2 / 3)
 
 
+def test_periodic_j2_contact_tangent_failure_restores_accepted_state(monkeypatch):
+    _, _, step = _periodic_j2_contact_step()
+    step.solve(until=1 / 3)
+    accepted_u = step.solution.x.array.copy()
+    accepted_material = step.response.state.committed_state_vectors().copy()
+
+    def fail_tangent(_matrix, _contribution):
+        raise ValueError("injected contact tangent failure")
+
+    monkeypatch.setattr(step.contact_provider, "add_tangent", fail_tangent)
+    with pytest.raises(ValueError, match="contact tangent failure"):
+        step.solve(until=2 / 3)
+    assert step.accepted_load_factor == pytest.approx(1 / 3)
+    np.testing.assert_allclose(step.solution.x.array, accepted_u)
+    np.testing.assert_allclose(
+        step.response.state.committed_state_vectors(), accepted_material,
+    )
+    monkeypatch.undo()
+    step.solve(until=2 / 3)
+    assert step.accepted_load_factor == pytest.approx(2 / 3)
+
+
 def test_periodic_j2_contact_tangent_matches_reduced_directional_difference():
     fixture, periodicity, step = _periodic_j2_contact_step()
     transformation = periodicity.reduction(1.0).matrix(fixture.domain.comm)

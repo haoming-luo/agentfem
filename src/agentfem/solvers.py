@@ -1629,9 +1629,14 @@ def solve_affine_nonlinear_path(
         accepted_steps: list[float] = []
         linear_solve_iterations: list[int] = []
         linear_solve_reasons: list[int] = []
-        initial_norm = (
-            _reduced_residual_norm(residual, T, operators) if trial_valid else float("inf")
-        )
+        try:
+            initial_norm = (
+                _reduced_residual_norm(residual, T, operators)
+                if trial_valid else float("inf")
+            )
+        except BaseException:
+            T.destroy()
+            raise
         current_norm = initial_norm
         threshold = (
             selected.atol + selected.rtol * initial_norm
@@ -1645,13 +1650,25 @@ def solve_affine_nonlinear_path(
             if not np.isfinite(current_norm):
                 break
             iteration += 1
-            full_residual, contributions = _assemble_affine_full_residual(
-                residual, operators,
-            )
-            full_tangent = fem_petsc.assemble_matrix(jacobian)
-            for operator, contribution in contributions:
-                operator.add_tangent(full_tangent, contribution)
-            full_tangent.assemble()
+            full_residual = None
+            full_tangent = None
+            try:
+                full_residual, contributions = _assemble_affine_full_residual(
+                    residual, operators,
+                )
+                full_tangent = fem_petsc.assemble_matrix(jacobian)
+                for operator, contribution in contributions:
+                    operator.add_tangent(full_tangent, contribution)
+                full_tangent.assemble()
+            except BaseException:
+                if full_residual is not None:
+                    full_residual.destroy()
+                if full_tangent is not None:
+                    full_tangent.destroy()
+                if reduced_tangent is not None:
+                    reduced_tangent.destroy()
+                T.destroy()
+                raise
             reduced_residual = T.createVecRight()
             T.multTranspose(full_residual, reduced_residual)
             reduced_tangent = full_tangent.PtAP(T, result=reduced_tangent)
@@ -1710,7 +1727,13 @@ def solve_affine_nonlinear_path(
                     target_factor=factor,
                 )
                 if trial_valid:
-                    trial_norm = _reduced_residual_norm(residual, T, operators)
+                    try:
+                        trial_norm = _reduced_residual_norm(residual, T, operators)
+                    except BaseException:
+                        if reduced_tangent is not None:
+                            reduced_tangent.destroy()
+                        T.destroy()
+                        raise
                 else:
                     trial_norm = float("inf")
                     trial_failure_message = trial_message
@@ -2748,21 +2771,28 @@ def _assemble_affine_full_residual(residual_form, operators=()):
     except BaseException:
         full.destroy()
         raise
-    full.ghostUpdate(
-        addv=PETSc.InsertMode.ADD,
-        mode=PETSc.ScatterMode.REVERSE,
-    )
+    try:
+        full.ghostUpdate(
+            addv=PETSc.InsertMode.ADD,
+            mode=PETSc.ScatterMode.REVERSE,
+        )
+    except BaseException:
+        full.destroy()
+        raise
     return full, contributions
 
 
 def _reduced_residual_norm(residual_form, transformation, operators=()) -> float:
     full, _ = _assemble_affine_full_residual(residual_form, operators)
-    reduced = transformation.createVecRight()
-    transformation.multTranspose(full, reduced)
-    value = float(reduced.norm())
-    full.destroy()
-    reduced.destroy()
-    return value
+    reduced = None
+    try:
+        reduced = transformation.createVecRight()
+        transformation.multTranspose(full, reduced)
+        return float(reduced.norm())
+    finally:
+        full.destroy()
+        if reduced is not None:
+            reduced.destroy()
 
 
 def attach_nullspace(matrix, modes, *, rhs=None):

@@ -47,8 +47,9 @@ than silently reported.
   the projected contact residual. A partial fixed-tool solve saves and resumes
   to the uninterrupted displacement, material state and constraint-dual
   history. A changed tool is rejected by checkpoint identity. An injected
-  projection failure after a partial solve restores the last accepted
-  displacement, material and dual ledger; a subsequent retry continues.
+  projection or tangent-assembly failure after a partial solve restores the
+  last accepted displacement, material and dual ledger; a subsequent retry
+  continues.
   Moving periodic contact is rejected in capability discovery and Step
   construction.
 - A pure-Python candidate wheel includes all three new contact modules. An
