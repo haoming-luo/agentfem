@@ -377,11 +377,26 @@ Fixed, translating or rotating analytical-plane Coulomb pairs have a separate
 narrow serial strong-BC route. The rotational friction tangent follows the
 same master material point at fixed accepted State; its generally nonsymmetric
 Newton derivative, force--moment work and interrupted restart have focused
-tests. Sharp-tool friction,
+tests. See `examples/finite_j2_moving_plane_friction.py` for the ordinary
+`model.step()` path. Sharp-tool friction,
 nonconvex/general contact, distributed implicit
 assembly, and independent industrial benchmarks remain unsupported. The
 candidate subset does not turn `ContactTrace` into a universal implicit
 contact solver or promote released capability by association.
+
+This is the current candidate's admission boundary, not an Abaqus-equivalence
+matrix:
+
+| Rigid geometry | Normal law | Coulomb friction | Affine-periodic J2 | MPI implicit J2 |
+| --- | --- | --- | --- | --- |
+| Analytical plane, fixed or prescribed motion | Serial supported | Serial strong-BC candidate | Frictionless only | Rejected |
+| Reviewed triangle patch | Face-interior only; active free/noncoplanar edges reject | Rejected | Frictionless only | Rejected |
+| Certified closed convex triangle solid | Selected one-sided sharp-feature branch | Rejected | Frictionless only | Rejected |
+| Nonconvex/general mesh or deformable master | Rejected | Rejected | Rejected | Rejected |
+
+All admitted implicit paths use finite-strain J2 on a three-dimensional solid.
+Unsupported combinations fail during capability checking or before assembly;
+they are not silently replaced with a plane, frictionless law, or serial solve.
 
 For the reviewed DOLFINx route,
 `dolfinx_boundary_region_contact_trace(region, V)` adapts a tagged exterior

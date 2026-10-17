@@ -175,7 +175,7 @@ not general contact. This record separates code gates from evidence gates:
 | Implicit friction | Fixed, translating and rotating analytical planes are admitted on serial strong-BC finite-J2: fixed-old-state stick/slip tangent, accepted stable-ID State and rigid pose per pair, separate Coulomb dissipation and numerical separation release, failed-finalization rollback, serial checkpoint and result histories. Real DOLFINx stick/slip and translation/rotation directional checks, active-contact generalized force/moment/work and interrupted restart pass | Mesh/penalty/increment study and curved/faceted/MPC/MPI extension; no general friction claim |
 | Material/time composition | Elastic-regime J2 sphere and plastic J2 facet cases complete; the convex sharp-feature path also evolves plastic State and restarts before a feature switch. Explicit body contact has its own stable-step contract | A second history material on the *same implicit* seam and explicit contact stability under evolving state |
 | Independent accuracy and speed | Full/quarter symmetry, mesh, penalty and increment screens exist; half-space mismatch remains visible. The sharp plastic screen below shows substantial mesh and penalty sensitivity, so it is not convergence evidence | Controlled far-boundary, graded mesh, pressure-footprint and penalty limits; external FE comparison and whole-step timings |
-| Product route | Ordinary `model.step()` and an isolated installed-wheel closed-convex example have run; final unsmoothed reference-trace pressure/penetration scalars are available | Pressure/slip field format, capability matrix and candidate-bound release gate |
+| Product route | Ordinary `model.step()` and isolated installed-wheel closed-convex and rotating-plane-friction examples have run; final unsmoothed reference-trace pressure/penetration scalars are available; the public capability matrix is explicit | Pressure/slip field format, broad installed-platform and candidate-bound release gate |
 
 The [Abaqus/Standard general-contact description](https://docs.software.vt.edu/abaqusv2025/English/SIMACAEITNRefMap/simaitn-c-genlcontnumcontrolsstd.htm)
 uses separate surface-, edge- and vertex-contact formulations. This supports
@@ -238,6 +238,17 @@ dissipation sensitivity and apparent path refinement, not mesh or external
 benchmark convergence. A weaker synchronous shear load of 15 showed
 vanishing slip upon refinement; it was discarded as a misleading sliding
 fixture. No exact first-law or general friction claim follows from this screen.
+
+An isolated native `0.4.3` wheel built from source commit `60bb91e1` was
+installed into a temporary directory and imported from that directory, outside
+the source checkout. The ordinary `model.step()` examples for the moving,
+rotating Coulomb plane (four increments) and closed convex tool (two cells,
+sixteen increments) both completed. The plane reported tool work `2.23573644`
+and Coulomb dissipation `1.18085840`; the convex example reported right-end
+displacement `-0.0009990007775003966` versus its narrow analytical bar value
+`-0.0009990007774995924`. This proves the local installed-package path for
+these examples, not Windows/Linux portability, curved friction accuracy or a
+release-grade scientific validation.
 
 ### Purely translating planar Coulomb tool
 
