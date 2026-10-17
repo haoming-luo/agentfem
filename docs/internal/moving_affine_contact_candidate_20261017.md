@@ -54,19 +54,37 @@ not a variationally consistent substitute. Before promotion, compare a
 curved structural problem against an independent reference and study mesh,
 penalty and increment sensitivity, then run installed-wheel and remote gates.
 
-## Next geometry gate: design, not implemented here
+## Smooth geometry extension: source candidate
 
-Keep geometric differentiability separate from the penalty law. A future
-`SurfaceGapDifferential` record should bind one current-pose projection to
-`g`, its spatial gradient and Hessian, and a named validity/branch domain;
-the Operator differentiates the same scalar potential used for the force.
-For a genuinely smooth CAD/parametric patch, require a unique closest point
-and verify the differential through patch transitions. For a physically sharp
-closed feature, define its admissible side and feature-specific nonsmooth
-response explicitly, with branch changes handled by a tested semismooth or
-cutback procedure. Open trims and ambiguous projections remain rejected until
-their physical side and edge behavior are declared. Do not silently replace
-the supplied geometry with normal averaging or a hidden fillet.
+The follow-on source change separates geometric differentiability from the
+penalty law. `SmoothRigidSurface` now supplies the current-pose projection and
+`SurfaceGapDifferential`; the latter binds the signed-gap Hessian to that exact
+projection, checks finiteness, symmetry, closest-point consistency and the
+signed-distance normal nullspace. A public, opt-in central-difference checker
+compares the gap gradient and Hessian at selected smooth points without adding
+finite differences to every Newton iteration. The plane, sphere and cylinder
+share this contract. A separate `SmoothRigidSurface` implementation can enter
+the same serial J2 `model.step` route without a new Step provider or contact
+law. The affine-periodic composition uses the same admission and Operator.
+
+This is *not* a claim of arbitrary CAD contact. The geometry provider must
+guarantee a unique closest point on its declared valid branch and supply the
+Hessian of its own signed gap; one spot check cannot certify its entire domain.
+For a genuinely smooth CAD/parametric patch, projection and differential still
+need independent patch-transition validation. For a physically sharp closed
+feature, define its admissible side and feature-specific nonsmooth response
+explicitly, with branch changes handled by a tested semismooth or cutback
+procedure. Open trims and ambiguous projections remain rejected until their
+physical side and edge behavior are declared. Do not silently replace supplied
+geometry with normal averaging or a hidden fillet.
+
+The focused follow-on check on 2026-10-17 passed 116 serial FEniCSx tests
+covering smooth and facet contact, standard and affine J2, geometry contracts,
+and rollback/restart. Six rank-sensitive tests skipped in that serial command
+then passed separately under two MPI ranks (6 per rank), confirming the
+unsupported distributed implicit-contact route still fails closed. An
+externally defined smooth plane was accepted by the public J2 Step; this tests
+the extension seam, not an independently validated CAD surface.
 
 The first acceptance matrix should include smooth patch interiors and seams,
 noncoplanar edge and vertex crossings, opening/closing, independent energy

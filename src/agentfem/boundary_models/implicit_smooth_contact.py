@@ -16,69 +16,38 @@ from .implicit_contact import (
 )
 from .rigid import (
     PrescribedRigidMotion,
-    RigidCylinderSurface,
-    RigidSphereSurface,
+    SmoothRigidSurface,
+    SurfaceGapDifferential,
     SurfaceProjection,
-    _transformed_point_and_direction,
 )
 
 
 def smooth_gap_hessian(
-    surface: RigidSphereSurface | RigidCylinderSurface,
+    surface: SmoothRigidSurface,
     projection: SurfaceProjection,
     *,
     motion: PrescribedRigidMotion | None = None,
     factor: float = 0.0,
 ) -> np.ndarray:
-    """Differentiate the *signed* gap, including current rigid orientation.
+    """Return current-pose curvature supplied by a smooth geometry provider."""
 
-    The normal of a sphere/cylinder points toward the admissible side.  The
-    center/axis singularity and a finite cylinder rim are rejected by the
-    existing projector rather than assigned a fictitious curvature.
-    """
-
-    if not isinstance(surface, (RigidSphereSurface, RigidCylinderSurface)):
-        raise TypeError(
-            "Smooth implicit contact supports analytical spheres/cylinders."
-        )
-    if not isinstance(projection, SurfaceProjection):
-        raise TypeError("Smooth gap Hessian requires projection evidence.")
-    if (
-        projection.geometry_fingerprint != surface.geometry_fingerprint
-        or projection.dimension != surface.dimension
-        or not projection.all_valid
-    ):
-        raise ValueError(
-            "Smooth gap Hessian requires valid matching surface projection."
-        )
-    direction = 1.0 if surface.admissible_side == "exterior" else -1.0
-    radial_distance = surface.radius + direction * projection.signed_gaps
-    if np.any(radial_distance <= 64 * np.finfo(float).eps * max(1.0, surface.radius)):
-        raise ValueError("Smooth gap Hessian is undefined at the surface axis/center.")
-    dimension = projection.dimension
-    projector = np.eye(dimension)
-    if isinstance(surface, RigidCylinderSurface):
-        _, axis = _transformed_point_and_direction(
-            np.asarray(surface.axis_point),
-            np.asarray(surface.axis_direction),
-            motion=motion,
-            factor=factor,
-        )
-        projector -= np.outer(axis, axis)
-    radial = direction * projection.normals
-    hessian = (
-        direction
-        / radial_distance[:, None, None]
-        * (projector[None, :, :] - radial[:, :, None] * radial[:, None, :])
+    if not isinstance(surface, SmoothRigidSurface):
+        raise TypeError("Smooth implicit contact requires SmoothRigidSurface.")
+    differential = surface.gap_differential(
+        projection, motion=motion, factor=factor,
     )
-    return hessian
+    if not isinstance(differential, SurfaceGapDifferential):
+        raise TypeError("Smooth geometry must return SurfaceGapDifferential.")
+    if differential.projection is not projection:
+        raise ValueError("Gap differential must bind the current projection instance.")
+    return differential.hessian
 
 
 def linearize_smooth_rigid_contact(
     evaluation: ContactTraceEvaluation,
     record: ContactProjectionRecord,
     response: FrictionlessPenaltyContactResponse,
-    surface: RigidSphereSurface | RigidCylinderSurface,
+    surface: SmoothRigidSurface,
     *,
     motion: PrescribedRigidMotion | None = None,
     factor: float = 0.0,

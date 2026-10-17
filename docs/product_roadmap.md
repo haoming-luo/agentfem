@@ -73,6 +73,14 @@ triangle transitions, MPI implicit assembly, friction, mixed pressure and
 independent curved-structure validation remain open. The source candidate is
 not promoted to a released capability by these local tests.
 
+The next source candidate removes the built-in sphere/cylinder type gate for
+smooth rigid contact: geometry owns a checked signed-gap differential, while
+the existing Operator and Procedure remain unchanged. A third-party smooth
+plane enters the ordinary serial J2 Step and an analytical plane enters the
+periodic J2 composition. This is an extension seam and local regression
+evidence, not general CAD or sharp-feature contact validation; see the same
+[moving affine contact record](internal/moving_affine_contact_candidate_20261017.md).
+
 The separate performance lane follows `skills/agentfem-performance`: profile
 whole accepted increments on a frozen case, change one body/contact/data-flow
 mechanism at a time, and promote only parity-preserving measured wins.

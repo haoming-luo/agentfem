@@ -20,6 +20,33 @@ from agentfem import (
 from agentfem.step_providers import step_capability
 
 
+class ExternalSmoothPlane(boundary_models.SmoothRigidSurface):
+    """Third-party geometry: no core type registration or contact special case."""
+
+    def __init__(self):
+        self.plane = boundary_models.rigid_plane(
+            point=(0.9, 0, 0), normal=(-1, 0, 0), name="external_plane",
+        )
+        self.name = self.plane.name
+
+    @property
+    def dimension(self):
+        return self.plane.dimension
+
+    @property
+    def geometry_fingerprint(self):
+        return self.plane.geometry_fingerprint
+
+    def project(self, points, **kwargs):
+        return self.plane.project(points, **kwargs)
+
+    def gap_differential(self, projection, **kwargs):
+        return self.plane.gap_differential(projection, **kwargs)
+
+    def summary(self):
+        return {**self.plane.summary(), "provider": "external_test_geometry"}
+
+
 def _curved_patch(surface, *, cells=1, motion=None,
                   cell_type=dolfinx_mesh.CellType.tetrahedron):
     domain = dolfinx_mesh.create_unit_cube(
@@ -106,6 +133,22 @@ def test_public_j2_step_assembles_curved_contact_force_and_curvature(
     assert step.contact_provider.summary()["linearization"] == (
         "smooth_signed_gap_with_curvature_at_current_pose"
     )
+
+
+def test_external_smooth_surface_uses_public_j2_step_without_core_registration():
+    surface = ExternalSmoothPlane()
+    assert boundary_models.check_surface_gap_differential(
+        surface, ((1.0, 0.5, 0.5),),
+    ).accepted
+    model, displacement, material, step = _curved_patch(surface)
+    assert step_capability(model, target=displacement, options={"material": material})[
+        "supported"
+    ]
+    result = step.solve_result()
+    assert result.status == "completed"
+    contribution = step.contact_provider.evaluate()
+    assert contribution.active_points > 0
+    assert contribution.assembly.potential_energy > 0.0
 
 
 def test_moving_sphere_pose_is_restored_after_failed_trial(monkeypatch):

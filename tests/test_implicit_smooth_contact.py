@@ -12,6 +12,55 @@ from agentfem.boundary_models.implicit_smooth_contact import (
 )
 
 
+def test_smooth_gap_contract_checks_pose_and_independent_derivatives():
+    surface = boundary_models.rigid_cylinder(
+        axis_point=(0, 0, 0), axis_direction=(0, 0, 1), radius=1,
+    )
+    motion = boundary_models.prescribed_rigid_motion(
+        translation=(0.1, 0.0, 0.0), rotation=(0, 0.2, 0),
+    )
+    points = np.asarray(((0.91, 0.13, 0.2), (0.9, -0.2, 0.3)))
+    projection = surface.project(points, motion=motion, factor=0.5)
+    differential = surface.gap_differential(projection, motion=motion, factor=0.5)
+    assert differential.projection is projection
+    assert not differential.hessian.flags.writeable
+    check = boundary_models.check_surface_gap_differential(
+        surface, points, motion=motion, factor=0.5,
+    )
+    assert check.accepted, check.summary()
+    with pytest.raises(ValueError, match="pose differ"):
+        surface.gap_differential(projection, motion=motion, factor=0.75)
+    with pytest.raises(ValueError, match="symmetric"):
+        boundary_models.SurfaceGapDifferential(
+            projection, np.ones((2, 3, 3)) * np.triu(np.ones((3, 3)), 1),
+        )
+
+
+def test_smooth_gap_checker_detects_incorrect_but_symmetric_curvature(monkeypatch):
+    surface = boundary_models.rigid_sphere(center=(0, 0, 0), radius=1)
+    points = np.asarray(((0.8, 0.2, 0.1),))
+    original = surface.gap_differential
+
+    def wrong(projection, **kwargs):
+        exact = original(projection, **kwargs)
+        return boundary_models.SurfaceGapDifferential(
+            projection, np.zeros_like(exact.hessian),
+        )
+
+    monkeypatch.setattr(type(surface), "gap_differential", lambda self, projection, **kwargs: wrong(projection, **kwargs))
+    check = boundary_models.check_surface_gap_differential(surface, points)
+    assert not check.accepted
+    assert check.maximum_hessian_error > 0.1
+
+
+def test_plane_differential_rejects_stale_translated_pose():
+    surface = boundary_models.rigid_plane(point=(0.9, 0, 0), normal=(-1, 0, 0))
+    motion = boundary_models.prescribed_rigid_motion(translation=(0.1, 0, 0))
+    projection = surface.project(((1.0, 0.2, 0.3),), motion=motion, factor=0.25)
+    with pytest.raises(ValueError, match="pose differ"):
+        surface.gap_differential(projection, motion=motion, factor=0.5)
+
+
 def _contribution(surface, nodes, *, motion=None, factor=0.0):
     trace = boundary_models.ContactTrace(
         point_ids=(71,),

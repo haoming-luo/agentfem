@@ -6,7 +6,7 @@
 from __future__ import annotations
 
 from .contact_pair import RigidContactPair
-from .rigid import RigidCylinderSurface, RigidSphereSurface, TriangulatedRigidSurface
+from .rigid import SmoothRigidSurface, TriangulatedRigidSurface
 
 
 def affine_rigid_contact_supported(model) -> bool:
@@ -20,10 +20,7 @@ def affine_rigid_contact_supported(model) -> bool:
     pair = boundaries[0]
     return (
         pair.slave_boundary.domain.comm.size == 1
-        and isinstance(
-            pair.rigid_body.surface,
-            (TriangulatedRigidSurface, RigidSphereSurface, RigidCylinderSurface),
-        )
+        and isinstance(pair.rigid_body.surface, (TriangulatedRigidSurface, SmoothRigidSurface))
         and (
             pair.rigid_body.motion_schedule is None
             or (

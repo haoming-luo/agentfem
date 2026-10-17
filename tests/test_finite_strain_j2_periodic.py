@@ -158,6 +158,17 @@ def test_periodic_j2_fixed_sphere_uses_total_residual_and_mpc_reduction():
         total_residual.destroy()
 
 
+def test_periodic_j2_smooth_plane_uses_the_same_contact_operator():
+    surface = boundary_models.rigid_plane(
+        point=(0.95, 0.0, 0.0), normal=(-1.0, 0.0, 0.0),
+    )
+    _, _, step = _periodic_j2_contact_step(surface=surface)
+    result = step.solve_result()
+    assert result.status == "completed"
+    assert step.contact_provider.evaluate().active_points > 0
+    assert result.quantity("contact_potential") > 0.0
+
+
 def test_periodic_j2_fixed_contact_checkpoint_matches_continuous_run(tmp_path):
     _, _, reference = _periodic_j2_contact_step()
     reference.solve()
