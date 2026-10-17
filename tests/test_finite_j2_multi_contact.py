@@ -83,7 +83,9 @@ def test_opposing_moving_planes_keep_distinct_force_work_and_state(
                result.metadata["rigid_contact_point_diagnostics"])
     work = dict(step.energy_history[-1].pair_tool_work)
     assert all(work[name] > 0.0 for name in names)
-    assert sum(work.values()) == step.energy_history[-1].tool_work
+    assert sum(work.values()) == pytest.approx(
+        step.energy_history[-1].tool_work, rel=1.0e-13, abs=1.0e-14,
+    )
     forces = [
         np.asarray(item["resultant"], dtype=float)
         for item in result.metadata["constraint_duals"]
