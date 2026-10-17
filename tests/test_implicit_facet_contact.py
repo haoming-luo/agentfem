@@ -158,7 +158,7 @@ def test_boundary_vertex_is_rejected_even_when_selected_facet_has_two_neighbors(
     projection = surface.project(nodes[:1])
     assert projection.all_valid
     assert int(projection.entity_ids[0]) == 0
-    with pytest.raises(ValueError, match="AFM-IMPLICIT-CONTACT-BRANCH"):
+    with pytest.raises(ValueError, match="feature=vertex_fan, vertex_id=0"):
         _evaluate(surface, nodes)
 
 

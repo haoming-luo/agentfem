@@ -62,6 +62,7 @@ def _smooth_active_facets(
     if not len(edge_points):
         return
     facets_by_point = dict(zip(active_points.tolist(), selected_facets.tolist()))
+    reviewed_vertex_fans: dict[int, bool] = {}
     for point in edge_points:
         facet = facets_by_point[int(point)]
         barycentric = projection.local_coordinates[point]
@@ -77,29 +78,35 @@ def _smooth_active_facets(
             # smooth, so inspect the whole incident star before admission.
             local_vertex = int(np.argmax(barycentric))
             vertex = int(surface.triangles[facet, local_vertex])
-            incident = np.flatnonzero(
-                np.any(surface.triangles == vertex, axis=1)
-            )
-            incident_local = np.argmax(
-                surface.triangles[incident] == vertex, axis=1
-            )
-            edges_containing_vertex = (
-                np.arange(3)[None, :] != incident_local[:, None]
-            )
-            if (
-                np.any(np.linalg.norm(
-                    surface.facet_normals[incident] - selected_normal,
-                    axis=1,
-                ) > threshold)
-                or np.any(
-                    (surface.edge_neighbors[incident] < 0)
-                    & edges_containing_vertex
+            if vertex not in reviewed_vertex_fans:
+                incident = np.flatnonzero(
+                    np.any(surface.triangles == vertex, axis=1)
                 )
-            ):
+                incident_local = np.argmax(
+                    surface.triangles[incident] == vertex, axis=1
+                )
+                edges_containing_vertex = (
+                    np.arange(3)[None, :] != incident_local[:, None]
+                )
+                incident_normals = surface.facet_normals[incident]
+                reviewed_vertex_fans[vertex] = not (
+                    np.any(np.linalg.norm(
+                        incident_normals[:, None, :]
+                        - incident_normals[None, :, :],
+                        axis=2,
+                    ) > threshold)
+                    or np.any(
+                        (surface.edge_neighbors[incident] < 0)
+                        & edges_containing_vertex
+                    )
+                )
+            if not reviewed_vertex_fans[vertex]:
                 raise ValueError(
                     "AFM-IMPLICIT-CONTACT-BRANCH: active projection reaches a "
                     "free or non-smooth tool edge/vertex; cut back or refine "
-                    f"the tool, contact_point_id={int(record.point_ids[point])}."
+                    "the tool, feature=vertex_fan, "
+                    f"vertex_id={vertex}, "
+                    f"contact_point_id={int(record.point_ids[point])}."
                 )
         # An interior seam of coplanar facets has the same normal derivative
         # from both sides.  A free edge or a crease does not.
