@@ -235,9 +235,9 @@ class PeriodicCellHistoryRequest:
         if has_external_power:
             raise NotImplementedError(
                 "periodic_cell_history Hill-Mandel evidence currently requires "
-                "a quasistatic affine cell without body-force, natural-load, "
-                "or contact contributions; the material-only identity does "
-                "not include boundary-contact work."
+                "a quasistatic affine cell without body-force or natural-load "
+                "contributions and without contact contributions; the "
+                "material-only identity does not include boundary-contact work."
             )
         if not hasattr(step, "accepted_observers"):
             raise TypeError(
