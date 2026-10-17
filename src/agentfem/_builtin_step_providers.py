@@ -11,6 +11,8 @@ from __future__ import annotations
 
 from typing import Mapping
 
+import numpy as np
+
 from ._step_provider_support import (
     COMMON_STEP_OPTIONS as _COMMON_STEP_OPTIONS,
     all_materials_support as _all_materials_support,
@@ -492,6 +494,8 @@ def _accept_finite_strain_j2_strong(model, request: StepRequest) -> bool:
 
     if not _finite_strain_j2_strong_preconditions(model, request):
         return False
+    if _contact_quadrature_rejection_reason(model, request) is not None:
+        return False
     boundary_models = tuple(getattr(model, "boundary_models", ()))
     if not boundary_models:
         return True
@@ -527,6 +531,42 @@ def _accept_finite_strain_j2_strong(model, request: StepRequest) -> bool:
     )
 
 
+def _contact_quadrature_rejection_reason(model, request: StepRequest) -> str | None:
+    """Keep a deliberately bounded contact integration option fail-closed."""
+
+    selected = request.options.get("contact_quadrature_degree")
+    if selected is None:
+        return None
+    from .boundary_models import RigidContactPair
+
+    if (
+        isinstance(selected, (bool, np.bool_))
+        or not isinstance(selected, (int, np.integer))
+        or int(selected) not in (5, 7)
+    ):
+        return "AFM-CONTACT-QUADRATURE: degree must be 5 or 7."
+    pairs = tuple(getattr(model, "boundary_models", ()))
+    if not pairs or not all(isinstance(item, RigidContactPair) for item in pairs):
+        return (
+            "AFM-CONTACT-QUADRATURE: explicit degree requires registered "
+            "RigidContactPair assets, not a legacy or absent contact law."
+        )
+    target_value = getattr(request.target, "value", None)
+    function_space = getattr(target_value, "function_space", None)
+    domain = getattr(function_space, "mesh", None)
+    if (
+        domain is None
+        or str(domain.topology.cell_name()) != "hexahedron"
+        or int(function_space.element.basix_element.degree) != 1
+        or int(domain.geometry.cmaps[0].degree) != 1
+    ):
+        return (
+            "AFM-CONTACT-QUADRATURE: explicit degree currently requires "
+            "a CG1/Q1 hexahedral displacement and first-order geometry."
+        )
+    return None
+
+
 def _finite_strain_j2_strong_rejection_reason(model, request: StepRequest) -> str | None:
     """Explain the bounded contact/MPI near-match without claiming support."""
 
@@ -537,6 +577,9 @@ def _finite_strain_j2_strong_rejection_reason(model, request: StepRequest) -> st
 
     if not _finite_strain_j2_strong_preconditions(model, request):
         return None
+    quadrature_problem = _contact_quadrature_rejection_reason(model, request)
+    if quadrature_problem is not None:
+        return quadrature_problem
     boundary_models = tuple(getattr(model, "boundary_models", ()))
     if (
         len(boundary_models) > 1
@@ -1576,6 +1619,7 @@ register_step_provider(
         option_contract=_option_contract(
             "incrementation",
             "quadrature_degree",
+            "contact_quadrature_degree",
             "amplitude",
             "output_every",
             "progress",

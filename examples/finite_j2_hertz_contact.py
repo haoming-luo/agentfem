@@ -35,7 +35,7 @@ from agentfem import (
 def run_case(
     *, cells: int, penalty: float, indentation: float, quarter: bool = False,
     extent: float = 1.0, increments: int = 4, grading: float = 0.0,
-    linear_policy: str = "direct",
+    linear_policy: str = "direct", contact_quadrature_degree: int | None = None,
 ) -> dict[str, object]:
     """Return one serial structural response and its half-space reference."""
 
@@ -139,6 +139,7 @@ def run_case(
             line_search="backtracking",
             linear_solver=linear_choices[linear_policy],
         ),
+        contact_quadrature_degree=contact_quadrature_degree,
         progress=False,
     )
     result = step.solve_result()
@@ -190,6 +191,9 @@ def run_case(
         ),
         "domain_fraction": 0.25 if quarter else 1.0,
         "penalty": float(penalty),
+        "contact_quadrature_degree": (
+            3 if contact_quadrature_degree is None else int(contact_quadrature_degree)
+        ),
         "indentation": float(indentation),
         "sphere_radius": radius,
         "block_half_width_and_depth": extent,
@@ -242,6 +246,7 @@ def main() -> None:
     parser.add_argument("--indentation", type=float, default=0.02)
     parser.add_argument("--extent", type=float, default=1.0)
     parser.add_argument("--grading", type=float, default=0.0)
+    parser.add_argument("--contact-quadrature-degree", type=int)
     parser.add_argument("--quarter", action="store_true")
     parser.add_argument("--increments", type=int, default=4)
     parser.add_argument(
@@ -254,6 +259,7 @@ def main() -> None:
         cells=args.cells, penalty=args.penalty, indentation=args.indentation,
         quarter=args.quarter, extent=args.extent, increments=args.increments,
         grading=args.grading,
+        contact_quadrature_degree=args.contact_quadrature_degree,
         linear_policy=args.linear_policy,
     )
     formatted = json.dumps(report, indent=2, sort_keys=True)

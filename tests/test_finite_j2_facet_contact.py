@@ -29,8 +29,15 @@ def _patch(*, triangulated: bool, gap: float = 0.005, penalty=500.0,
            increments=3, applied_traction=10.0, yield_stress=2.0,
            convex_tool=False, convex_y_min=-0.5,
            friction_coefficient=None, tangential_penalty=None,
-           regional_material=False):
-    domain = dolfinx_mesh.create_unit_cube(MPI.COMM_SELF, cells, cells, cells)
+           regional_material=False, contact_quadrature_degree=None,
+           hexahedral=False):
+    domain = dolfinx_mesh.create_unit_cube(
+        MPI.COMM_SELF, cells, cells, cells,
+        cell_type=(
+            dolfinx_mesh.CellType.hexahedron if hexahedral
+            else dolfinx_mesh.CellType.tetrahedron
+        ),
+    )
     model = models.create(
         study=studies.static_solid(dimension=3, nonlinear=True),
         mesh=domain,
@@ -137,6 +144,8 @@ def _patch(*, triangulated: bool, gap: float = 0.005, penalty=500.0,
     if not make_step:
         return model, displacement, material, None
     step_options = {} if material is None else {"material": material}
+    if contact_quadrature_degree is not None:
+        step_options["contact_quadrature_degree"] = contact_quadrature_degree
     step = model.step(
         target=displacement,
         **step_options,
@@ -193,6 +202,54 @@ def test_closed_convex_tool_uses_ordinary_j2_step_and_matches_planar_limit():
     assert sharp.energy_history[-1].tool_work == pytest.approx(
         planar.energy_history[-1].tool_work, rel=1e-7, abs=1e-9,
     )
+
+
+def test_refined_contact_quadrature_is_explicit_and_checkpoint_identified(tmp_path):
+    options = dict(
+        triangulated=True, convex_tool=True, cells=2, hexahedral=True,
+        yield_stress=1.0e9, tool_translation=(-0.008, 0.0, 0.0),
+        applied_traction=0.0, increments=3,
+    )
+    default = _patch(**options)[3]
+    refined = _patch(**options, contact_quadrature_degree=5)[3]
+    assert default.contact_provider.adapter.trace.point_count == 16
+    assert refined.contact_provider.adapter.trace.point_count == 36
+    assert default.contact_provider.summary()["trace"]["quadrature_rule"] != (
+        refined.contact_provider.summary()["trace"]["quadrature_rule"]
+    )
+    default.solve()
+    refined.solve()
+    np.testing.assert_allclose(
+        refined.solution.x.array, default.solution.x.array,
+        rtol=1.0e-7, atol=1.0e-9,
+    )
+    assert refined.energy_history[-1].tool_work == pytest.approx(
+        default.energy_history[-1].tool_work, rel=1.0e-7,
+    )
+    saved = refined.save_checkpoint(tmp_path / "refined_contact")
+    changed = _patch(**options)[3]
+    with pytest.raises(ValueError, match="identity"):
+        changed.load_checkpoint(saved)
+
+
+def test_refined_contact_quadrature_rejects_unsupported_tetra_route():
+    model, displacement, material, _ = _patch(
+        triangulated=True, make_step=False,
+    )
+    capability = step_capability(
+        model, target=displacement,
+        options={"material": material, "contact_quadrature_degree": 5},
+    )
+    assert not capability["supported"]
+    assert any(
+        item["message"].startswith("AFM-CONTACT-QUADRATURE")
+        for item in capability["rejection_reasons"]
+    )
+    with pytest.raises(NotImplementedError, match="AFM-CONTACT-QUADRATURE"):
+        model.step(
+            target=displacement, material=material,
+            contact_quadrature_degree=5,
+        )
 
 
 def test_convex_contact_matches_independent_hencky_bar_penalty_equilibrium():

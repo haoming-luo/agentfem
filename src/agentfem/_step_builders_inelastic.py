@@ -200,6 +200,7 @@ def finite_strain_j2(
     incrementation=None,
     solver_options=None,
     quadrature_degree: int = 2,
+    contact_quadrature_degree: int | None = None,
     output=None,
     output_every: int | None = None,
     checkpoint=None,
@@ -305,6 +306,11 @@ def finite_strain_j2(
         else ()
     )
     if affine:
+        if contact_quadrature_degree is not None:
+            raise NotImplementedError(
+                "Explicit contact quadrature degree is currently limited to "
+                "the strong-boundary J2 route."
+            )
         from .boundary_models.implicit_admission import affine_rigid_contact_supported
 
         if model.boundary_models and (
@@ -405,6 +411,17 @@ def finite_strain_j2(
         from .boundary_models import RigidContactPair, RigidObstaclePenaltyContact
 
         boundary_models = tuple(model.boundary_models)
+        if contact_quadrature_degree is not None and not boundary_models:
+            raise ValueError(
+                "contact_quadrature_degree requires a registered rigid contact pair."
+            )
+        if contact_quadrature_degree is not None and any(
+            isinstance(item, RigidObstaclePenaltyContact) for item in boundary_models
+        ):
+            raise NotImplementedError(
+                "Explicit contact quadrature degree requires RigidContactPair; "
+                "the legacy UFL plane owns its own integration."
+            )
         contact = None
         if boundary_models:
             if (
@@ -463,6 +480,7 @@ def finite_strain_j2(
             incrementation=incrementation,
             solver_options=solver_options,
             quadrature_degree=quadrature_degree,
+            contact_quadrature_degree=contact_quadrature_degree,
             amplitude=selected_amplitude,
             output_every=selected_output_every,
             output_factors=output_factors,

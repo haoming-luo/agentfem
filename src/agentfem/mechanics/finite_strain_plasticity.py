@@ -3510,6 +3510,7 @@ def finite_strain_j2_standard_problem(
     incrementation=None,
     solver_options=None,
     quadrature_degree: int = 2,
+    contact_quadrature_degree: int | None = None,
     amplitude=None,
     output_every: int | None = 1,
     output_factors=(),
@@ -3548,6 +3549,8 @@ def finite_strain_j2_standard_problem(
 
     contact_energy_form = None
     contact_provider = contact
+    if contact_quadrature_degree is not None and contact is None:
+        raise ValueError("contact_quadrature_degree requires rigid contact.")
     if contact is not None:
         from ..boundary_models import RigidContactPair, RigidObstaclePenaltyContact
 
@@ -3569,6 +3572,10 @@ def finite_strain_j2_standard_problem(
                 "do not certify their composition."
             )
         if len(contact_items) == 1 and isinstance(contact_items[0], RigidObstaclePenaltyContact):
+            if contact_quadrature_degree is not None:
+                raise NotImplementedError(
+                    "Explicit contact quadrature degree requires RigidContactPair."
+                )
             plane_contact = contact_items[0]
             if plane_contact.location.domain is not domain:
                 raise ValueError("Contact boundary and J2 displacement must share a mesh.")
@@ -3586,9 +3593,15 @@ def finite_strain_j2_standard_problem(
             )
 
             contact_provider = (
-                dolfinx_implicit_rigid_contact(contact_items[0], solution)
+                dolfinx_implicit_rigid_contact(
+                    contact_items[0], solution,
+                    contact_quadrature_degree=contact_quadrature_degree,
+                )
                 if len(contact_items) == 1 else
-                dolfinx_implicit_rigid_contacts(contact_items, solution)
+                dolfinx_implicit_rigid_contacts(
+                    contact_items, solution,
+                    contact_quadrature_degree=contact_quadrature_degree,
+                )
             )
 
     from .. import constraints as constraint_api

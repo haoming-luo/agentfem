@@ -805,6 +805,8 @@ DolfinxImplicitFacetContact = DolfinxImplicitRigidContact
 def dolfinx_implicit_rigid_contact(
     pair: RigidContactPair,
     displacement,
+    *,
+    contact_quadrature_degree: int | None = None,
 ) -> DolfinxImplicitRigidContact:
     """Lower one bounded rigid pair to a serial current-trial Newton Operator."""
 
@@ -817,6 +819,7 @@ def dolfinx_implicit_rigid_contact(
         raise TypeError("Implicit rigid contact requires reviewed smooth, triangle, or closed convex geometry.")
     adapter = dolfinx_boundary_region_contact_trace(
         pair.slave_boundary, displacement.function_space,
+        contact_quadrature_degree=contact_quadrature_degree,
     )
     from dolfinx import fem
 
@@ -837,6 +840,8 @@ def dolfinx_implicit_rigid_contact(
 def dolfinx_implicit_rigid_contacts(
     pairs: tuple[RigidContactPair, ...],
     displacement,
+    *,
+    contact_quadrature_degree: int | None = None,
 ) -> DolfinxImplicitRigidContacts:
     """Lower independently named rigid pairs on one serial displacement field."""
 
@@ -846,7 +851,10 @@ def dolfinx_implicit_rigid_contacts(
     if len({item.name for item in selected}) != len(selected):
         raise ValueError("Multiple rigid contact pair names must be unique.")
     return DolfinxImplicitRigidContacts(tuple(
-        dolfinx_implicit_rigid_contact(item, displacement) for item in selected
+        dolfinx_implicit_rigid_contact(
+            item, displacement,
+            contact_quadrature_degree=contact_quadrature_degree,
+        ) for item in selected
     ))
 
 

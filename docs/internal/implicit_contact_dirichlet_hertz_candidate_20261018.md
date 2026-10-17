@@ -139,6 +139,20 @@ finite-strain errors. It is therefore diagnostic evidence, **not** an
 independent pass or a solver speedup claim. These runs used the source branch
 with one process and PETSc GMRES/GAMG, not an installed release.
 
+An opt-in Q1 hexahedral trace integration screen now permits degree `5`
+(3×3 points) or `7` (4×4 points) while keeping the established 2×2 rule as
+the default. It changes only contact integration, not the bulk J2 rule or
+the model geometry, and its quadrature identity enters restart checks. For
+the same extent-8/grade-4/penalty-`1e6` 4,096-cell quarter model, 3×3 gives
+full force `6.29810` (Hertz ratio `1.07461`) versus default `6.28701`
+(`1.07272`); wall time is `17.89 s` versus the previous `15.98 s` source run.
+At 13,824 cells, 3×3 gives `6.18311` (ratio `1.05499`) versus default
+`6.16946` (`1.05266`); wall time is `67.47 s` versus `56.07 s`. These are
+not paired performance trials, but they show **no accuracy or speed benefit**
+for this benchmark. More contact points alone do not resolve the remaining
+Hertz discrepancy. Keep the higher rule as an explicit quadrature-sensitivity
+diagnostic; do not promote it to a default or use it to claim validation.
+
 ## Remaining gate
 
 Run independently controlled mesh **and** domain-size refinement with a

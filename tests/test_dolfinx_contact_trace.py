@@ -267,6 +267,45 @@ def test_hexahedral_contact_trace_builds_bilinear_quadrature_and_assembly():
     np.testing.assert_allclose(assembly.potential_energy, 0.25, atol=1.0e-14)
 
 
+@pytest.mark.parametrize("degree, point_count", [(5, 9), (7, 16)])
+def test_hex_q1_contact_trace_refined_gauss_keeps_reference_force(
+    degree, point_count,
+):
+    domain = _hex_cube(MPI.COMM_SELF)
+    space = _vector_space(domain)
+    region = _left_region(domain)
+    adapter = boundary_models.dolfinx_boundary_region_contact_trace(
+        region, space, contact_quadrature_degree=degree,
+    )
+    assert adapter.trace.point_count == point_count
+    assert adapter.trace.nodes_per_point == 4
+    assert f"degree_{degree}_{point_count}_point" in adapter.quadrature_rule
+    np.testing.assert_allclose(np.sum(adapter.trace.weights), 1.0)
+    assert np.unique(adapter.trace.point_ids).size == point_count
+    displacement = fem.Function(space)
+    displacement.x.array.reshape((-1, 3))[:, 0] = 0.1
+    evaluation = adapter.evaluate(displacement)
+    surface = boundary_models.rigid_plane(
+        point=(0.05, 0.0, 0.0), normal=(-1.0, 0.0, 0.0),
+    )
+    record = boundary_models.ContactProjectionRecord(
+        adapter.trace.point_ids, surface.project(evaluation.query_points),
+    )
+    response = boundary_models.frictionless_penalty_contact_law(200.0).evaluate(
+        record.projection,
+    )
+    assembly = evaluation.assemble(record, response)
+    np.testing.assert_allclose(
+        assembly.contact_force_on_structure, (-10.0, 0.0, 0.0), atol=1.0e-12,
+    )
+
+    with pytest.raises(NotImplementedError, match="Gaussian CG1/Q1"):
+        boundary_models.dolfinx_boundary_region_contact_trace(
+            region, space, integration="nodal_lumped",
+            contact_quadrature_degree=degree,
+        )
+
+
 def test_warped_hexahedral_face_uses_bilinear_map_and_pointwise_jacobian():
     domain = _hex_cube(MPI.COMM_SELF)
     region = _left_region(domain)
@@ -410,7 +449,13 @@ def test_dolfinx_contact_trace_has_global_identity_and_empty_shards_under_mpi():
     assert evaluation.query_points.shape == (adapter.trace.point_count, 3)
 
 
-def test_hexahedral_contact_trace_identity_is_partition_independent_under_mpi():
+@pytest.mark.parametrize(
+    "contact_quadrature_degree, points_per_face",
+    [(None, 4), (5, 9), (7, 16)],
+)
+def test_hexahedral_contact_trace_identity_is_partition_independent_under_mpi(
+    contact_quadrature_degree, points_per_face,
+):
     if MPI.COMM_WORLD.size != 2:
         pytest.skip("Hexahedral DOLFINx contact trace is reviewed on two ranks.")
     comm = MPI.COMM_WORLD
@@ -418,14 +463,15 @@ def test_hexahedral_contact_trace_identity_is_partition_independent_under_mpi():
     adapter = boundary_models.dolfinx_boundary_region_contact_trace(
         _left_region(domain),
         _vector_space(domain),
+        contact_quadrature_degree=contact_quadrature_degree,
     )
     local_ids = tuple(int(value) for value in adapter.trace.point_ids)
     gathered = tuple(comm.allgather(local_ids))
     flattened = tuple(value for values in gathered for value in values)
     global_measure = comm.allreduce(float(np.sum(adapter.trace.weights)), op=MPI.SUM)
 
-    assert len(flattened) == 4
-    assert len(set(flattened)) == 4
+    assert len(flattened) == points_per_face
+    assert len(set(flattened)) == points_per_face
     np.testing.assert_allclose(global_measure, 1.0)
 
 
