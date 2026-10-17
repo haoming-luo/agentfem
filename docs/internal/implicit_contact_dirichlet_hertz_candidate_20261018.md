@@ -227,11 +227,14 @@ settings above, it reveals why total force alone is an unsafe promotion gate:
 | 512 CG2, 3×3 | 1.0194 | 0.8105 |
 | 512 CG2, 4×4 | 0.9813 | 0.4490 |
 | 1,728 CG2, extent 16, 3×3 | 0.9776 | 0.3759 |
+| 1,728 CG2, extent 16, 4×4 | 1.0096 | 0.4301 |
 
 The coarse CG2 3×3 total force is closest to Hertz in the table above, yet
 its sampled pressure-shape difference is the largest. A denser face rule
-improves that shape diagnostic while moving total force away. This does not
-prove a defect in the law: finite penalty, finite support, a non-half-space
+improves that shape diagnostic while moving total force away on the coarse
+mesh. At 1,728 cells it instead improves the total force while worsening the
+pressure difference, so neither ordering is a robust degree-selection rule.
+This does not prove a defect in the law: finite penalty, finite support, a non-half-space
 material problem, distinct stress measures, and trace quadrature remain
 mixed. It *does* reject the tempting conclusion that a 1.9–3% force gap
 alone validates the contact discretization. These figures are source-run
