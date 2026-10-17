@@ -80,6 +80,14 @@ class ImplicitRigidContactContribution:
         )
         return action.reshape(shape)
 
+    @property
+    def nodal_structural_residual(self) -> np.ndarray:
+        return self.assembly.nodal_structural_residual
+
+    @property
+    def potential_energy(self) -> float:
+        return float(self.assembly.potential_energy)
+
 
 @dataclass(frozen=True, eq=False)
 class CombinedImplicitRigidContactContribution:

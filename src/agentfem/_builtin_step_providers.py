@@ -483,28 +483,30 @@ def _accept_finite_strain_j2_strong(model, request: StepRequest) -> bool:
     if not boundary_models:
         return True
     target_mesh = getattr(getattr(request.target, "space", None), "mesh", None)
-    if len(boundary_models) != 1 or getattr(getattr(target_mesh, "comm", None), "size", 1) != 1:
+    if not boundary_models or getattr(getattr(target_mesh, "comm", None), "size", 1) != 1:
         return False
-    selected = boundary_models[0]
-    schedule = (
-        selected.rigid_body.motion_schedule
-        if isinstance(selected, RigidContactPair) else None
-    )
-    return isinstance(selected, RigidObstaclePenaltyContact) or (
-        isinstance(selected, RigidContactPair)
-        and isinstance(selected.rigid_body.surface, (
+    if len(boundary_models) == 1 and isinstance(
+        boundary_models[0], RigidObstaclePenaltyContact
+    ):
+        return True
+    if len({item.name for item in boundary_models}) != len(boundary_models):
+        return False
+    return all(
+        isinstance(item, RigidContactPair)
+        and isinstance(item.rigid_body.surface, (
             TriangulatedRigidSurface, SmoothRigidSurface,
         ))
-        and selected.friction is None
-        and selected.law.invalid_policy == "reject"
+        and item.friction is None
+        and item.law.invalid_policy == "reject"
         and (
-            schedule is None
+            item.rigid_body.motion_schedule is None
             or (
-                schedule.start_time == 0.0
-                and schedule.end_time == 1.0
-                and schedule.amplitude is None
+                item.rigid_body.motion_schedule.start_time == 0.0
+                and item.rigid_body.motion_schedule.end_time == 1.0
+                and item.rigid_body.motion_schedule.amplitude is None
             )
         )
+        for item in boundary_models
     )
 
 
@@ -523,11 +525,36 @@ def _finite_strain_j2_strong_rejection_reason(model, request: StepRequest) -> st
         len(boundary_models) > 1
         and all(isinstance(item, RigidContactPair) for item in boundary_models)
     ):
-        return (
-            "AFM-IMPLICIT-CONTACT-MULTI: finite-strain J2 currently admits "
-            "one rigid pair; independently moving tools require per-pair "
-            "residual, tangent, work and restart evidence before admission."
-        )
+        if len({item.name for item in boundary_models}) != len(boundary_models):
+            return (
+                "AFM-IMPLICIT-CONTACT-MULTI: rigid contact pair names must be "
+                "unique for independent force, work and checkpoint identity."
+            )
+        if any(item.friction is not None for item in boundary_models):
+            return (
+                "AFM-IMPLICIT-CONTACT-FRICTION: multi-tool implicit friction "
+                "has no reviewed accepted stick-slip state and tangent."
+            )
+        if any(
+            item.law.invalid_policy != "reject" for item in boundary_models
+        ):
+            return (
+                "AFM-IMPLICIT-CONTACT-MULTI: every rigid pair must reject "
+                "invalid or ambiguous current-geometry projections."
+            )
+        if any(
+            item.rigid_body.motion_schedule is not None
+            and (
+                item.rigid_body.motion_schedule.start_time != 0.0
+                or item.rigid_body.motion_schedule.end_time != 1.0
+                or item.rigid_body.motion_schedule.amplitude is not None
+            )
+            for item in boundary_models
+        ):
+            return (
+                "AFM-IMPLICIT-CONTACT-MOTION: each rigid tool must use the "
+                "Step-owned normalized 0-to-1 motion coordinate."
+            )
     if len(boundary_models) != 1 or not isinstance(
         boundary_models[0], (RigidObstaclePenaltyContact, RigidContactPair)
     ):

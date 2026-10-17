@@ -172,15 +172,16 @@ never changes solver access, results, verification, or update behavior.
   loads and for 3D affine-periodic cells with exactly one
   `AbaqusPeriodicConstraint`. Both share one provider-owned quadrature
   transaction and accepted-state portable checkpoint. The ordinary serial
-  provider also accepts one frictionless differentiable `SmoothRigidSurface`
-  (built-in plane/sphere/cylinder or a conforming external implementation), or
-  one triangulated rigid tool with interior or coplanar-seam projection. A
-  prescribed tool pose is admitted only for a normalized 0-to-1 schedule
-  driven by the shared Step amplitude; accepted force--moment work and pose
-  must rollback together. Contact at a free edge or noncoplanar seam is
-  rejected. Reject follower loads, other weak boundary models, multiple
-  rigid tools, friction, and MPC in that ordinary strong-boundary provider;
-  the separate affine-periodic provider has its own bounded contact/MPC tests.
+  provider also accepts independently named frictionless rigid pairs using a
+  differentiable `SmoothRigidSurface` (built-in plane/sphere/cylinder or a
+  conforming external implementation), or a triangulated tool with interior
+  or coplanar-seam projection. Each prescribed tool pose needs a normalized
+  0-to-1 schedule driven by the shared Step amplitude; per-pair accepted
+  force--moment work and all poses must rollback together. Contact at a free
+  edge or noncoplanar seam is rejected. Reject follower loads, other weak
+  boundary models, friction, and MPC in that ordinary strong-boundary
+  provider; the separate affine-periodic provider has its own **single-pair**
+  bounded contact/MPC tests.
   Do not infer mixed
   displacement--pressure locking control, external structural validation,
   a production analytical material tangent,
@@ -477,7 +478,7 @@ never changes solver access, results, verification, or update behavior.
   it is not evidence for MPI implicit contact or non-smooth tool edges.
 - The finite-J2 rigid-contact result reports final unsmoothed contact-point
   diagnostics: active reference area, peak nominal penalty pressure and peak
-  penetration. Their location is reference-boundary quadrature, not nodes;
+  penetration per named pair. Their location is reference-boundary quadrature, not nodes;
   neither a peak alone nor a visually smoothed field proves contact accuracy.
 - For a large serial nonlinear contact model, inspect accepted increment phase
   timings before tuning. Direct LU can dominate at finer resolution; an

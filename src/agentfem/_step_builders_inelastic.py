@@ -410,10 +410,16 @@ def finite_strain_j2(
         contact = None
         if boundary_models:
             if (
-                len(boundary_models) != 1
-                or not isinstance(
-                    boundary_models[0],
-                    (RigidObstaclePenaltyContact, RigidContactPair),
+                not (
+                    len(boundary_models) == 1
+                    and isinstance(
+                        boundary_models[0],
+                        (RigidObstaclePenaltyContact, RigidContactPair),
+                    )
+                )
+                and not all(
+                    isinstance(item, RigidContactPair)
+                    for item in boundary_models
                 )
             ):
                 names = tuple(
@@ -421,13 +427,15 @@ def finite_strain_j2(
                     for item in boundary_models
                 )
                 raise NotImplementedError(
-                    "Standard finite-strain J2 currently consumes at most one "
-                    "frictionless analytical-plane, smooth sphere/cylinder, "
-                    "or bounded triangulated rigid-tool contact; "
+                    "Standard finite-strain J2 consumes one legacy plane or "
+                    "independently named frictionless rigid pairs; "
                     f"unsupported={names}. Other weak models, discrete "
                     "surfaces and MPC require separate evidence."
                 )
-            contact = boundary_models[0]
+            contact = (
+                boundary_models[0] if len(boundary_models) == 1
+                else boundary_models
+            )
         selected_loads, selected_amplitude = _single_shared_amplitude_loads(
             model.loads,
             amplitude,

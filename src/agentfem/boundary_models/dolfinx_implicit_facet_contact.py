@@ -24,6 +24,7 @@ from .implicit_facet_contact import (
     linearize_piecewise_planar_contact,
 )
 from .implicit_contact import ImplicitRigidContactContribution
+from .implicit_contact import CombinedImplicitRigidContactContribution
 from .implicit_smooth_contact import linearize_smooth_rigid_contact
 from .rigid import SmoothRigidSurface, TriangulatedRigidSurface
 from .search import TriangleSurfaceBVH, triangle_surface_bvh
@@ -98,6 +99,28 @@ class DolfinxImplicitRigidContact:
     @property
     def has_prescribed_motion(self) -> bool:
         return self.pair.rigid_body.motion_schedule is not None
+
+    @property
+    def providers(self) -> tuple[DolfinxImplicitRigidContact, ...]:
+        return (self,)
+
+    def snapshot_motion(self) -> float | None:
+        return (
+            None if self.motion_factor is None
+            else float(np.asarray(self.motion_factor.value).reshape(-1)[0])
+        )
+
+    def restore_motion(self, saved: float | None) -> None:
+        if self.motion_factor is None:
+            if saved is not None:
+                raise ValueError("Fixed rigid contact has no pose state to restore.")
+        elif saved is None:
+            raise ValueError("Moving rigid contact requires a saved pose factor.")
+        else:
+            self.update_motion(saved)
+
+    def dual_evidences(self, problem):
+        return (self.dual_evidence(problem),)
 
     def update_motion(self, factor: float) -> None:
         selected = float(factor)
@@ -324,6 +347,81 @@ class DolfinxImplicitRigidContact:
         )
 
 
+@dataclass(eq=False)
+class DolfinxImplicitRigidContacts:
+    """Serial additive Operator with separate identity and motion per rigid pair.
+
+    No pair state is accepted here: the owning J2 Procedure commits or rolls
+    back the complete increment, and each pose remains a pure load-factor
+    function. Friction and distributed assembly are intentionally excluded.
+    """
+
+    providers: tuple[DolfinxImplicitRigidContact, ...]
+
+    def __post_init__(self) -> None:
+        self.providers = tuple(self.providers)
+        if len(self.providers) < 2 or any(
+            not isinstance(item, DolfinxImplicitRigidContact)
+            for item in self.providers
+        ):
+            raise ValueError("Multiple implicit tools require two or more reviewed rigid-pair providers.")
+        names = tuple(item.name for item in self.providers)
+        if len(set(names)) != len(names):
+            raise ValueError("Implicit rigid contact pair names must be unique.")
+        displacement = self.providers[0].displacement
+        if any(item.displacement is not displacement for item in self.providers):
+            raise ValueError("Implicit rigid pairs must consume one displacement field.")
+
+    @property
+    def has_prescribed_motion(self) -> bool:
+        return any(item.has_prescribed_motion for item in self.providers)
+
+    def update_motion(self, factor: float) -> None:
+        for item in self.providers:
+            item.update_motion(factor)
+
+    def snapshot_motion(self) -> tuple[tuple[str, float | None], ...]:
+        return tuple((item.name, item.snapshot_motion()) for item in self.providers)
+
+    def restore_motion(self, saved) -> None:
+        records = tuple(saved)
+        if tuple(name for name, _ in records) != tuple(
+            item.name for item in self.providers
+        ):
+            raise ValueError("Saved rigid-tool pose identities do not match the model.")
+        for item, (_, factor) in zip(self.providers, records, strict=True):
+            item.restore_motion(factor)
+
+    def evaluate(self) -> CombinedImplicitRigidContactContribution:
+        return CombinedImplicitRigidContactContribution(tuple(
+            (item.name, item.evaluate()) for item in self.providers
+        ))
+
+    def add_residual(self, vector, contribution: CombinedImplicitRigidContactContribution) -> None:
+        values = contribution.nodal_structural_residual.reshape(-1)
+        if vector.array.shape != values.shape:
+            raise ValueError("Combined implicit contact residual does not match PETSc local rows.")
+        vector.array[:] += values
+
+    def add_tangent(self, matrix, contribution, *, constrained_dofs=()) -> None:
+        for item, (name, selected) in zip(
+            self.providers, contribution.pairs, strict=True
+        ):
+            if name != item.name:
+                raise ValueError("Combined contact tangent pair identity changed.")
+            item.add_tangent(matrix, selected, constrained_dofs=constrained_dofs)
+
+    def dual_evidences(self, problem):
+        return tuple(item.dual_evidence(problem) for item in self.providers)
+
+    def summary(self) -> dict[str, object]:
+        return {
+            "kind": "dolfinx_implicit_rigid_contacts",
+            "pairs": tuple(item.summary() for item in self.providers),
+            "execution_scope": "serial_frictionless_additive_reference_area",
+        }
+
+
 # Compatibility spelling for the original experimental facet adapter.
 DolfinxImplicitFacetContact = DolfinxImplicitRigidContact
 
@@ -354,6 +452,22 @@ def dolfinx_implicit_rigid_contact(
     )
 
 
+def dolfinx_implicit_rigid_contacts(
+    pairs: tuple[RigidContactPair, ...],
+    displacement,
+) -> DolfinxImplicitRigidContacts:
+    """Lower independently named rigid pairs on one serial displacement field."""
+
+    selected = tuple(pairs)
+    if len(selected) < 2:
+        raise ValueError("Multiple rigid contact requires at least two pairs.")
+    if len({item.name for item in selected}) != len(selected):
+        raise ValueError("Multiple rigid contact pair names must be unique.")
+    return DolfinxImplicitRigidContacts(tuple(
+        dolfinx_implicit_rigid_contact(item, displacement) for item in selected
+    ))
+
+
 def dolfinx_implicit_facet_contact(
     pair: RigidContactPair,
     displacement,
@@ -369,5 +483,6 @@ def dolfinx_implicit_facet_contact(
 
 __all__ = [
     "DolfinxImplicitFacetContact", "DolfinxImplicitRigidContact",
-    "dolfinx_implicit_facet_contact", "dolfinx_implicit_rigid_contact",
+    "DolfinxImplicitRigidContacts", "dolfinx_implicit_facet_contact",
+    "dolfinx_implicit_rigid_contact", "dolfinx_implicit_rigid_contacts",
 ]

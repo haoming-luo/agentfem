@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import json
+
 from dolfinx import mesh as dolfinx_mesh
 from mpi4py import MPI
 import numpy as np
@@ -24,7 +26,7 @@ def _patch(*, triangulated: bool, gap: float = 0.005, penalty=500.0,
            cells=1, constrain_contact=False, contact_value=0.0, tilt=0.0,
            tool_translation=None, tool_rotation=(0.0, 0.0, 0.0),
            schedule_end=1.0, make_step=True, tool_y_max=1.5,
-           increments=3, applied_traction=10.0):
+           increments=3, applied_traction=10.0, yield_stress=2.0):
     domain = dolfinx_mesh.create_unit_cube(MPI.COMM_SELF, cells, cells, cells)
     model = models.create(
         study=studies.static_solid(dimension=3, nonlinear=True),
@@ -38,7 +40,7 @@ def _patch(*, triangulated: bool, gap: float = 0.005, penalty=500.0,
         constitutive.finite_strain_j2_logarithmic(
             young=1000.0,
             poisson=0.0,
-            yield_stress=2.0,
+            yield_stress=yield_stress,
             hardening_modulus=100.0,
         )
     )
@@ -122,9 +124,9 @@ def test_non_normalized_tool_schedule_is_rejected_by_capability_and_step():
         model.step(target=displacement, material=material)
 
 
-def test_two_implicit_tools_report_the_missing_pair_transaction_gate():
+def test_two_implicit_tools_add_residual_tangent_and_keep_separate_evidence():
     model, displacement, material, _ = _patch(
-        triangulated=True, make_step=False,
+        triangulated=True, make_step=False, yield_stress=1.0e9,
     )
     first = model.boundary_models[0]
     model.add_boundary_model(
@@ -135,6 +137,191 @@ def test_two_implicit_tools_report_the_missing_pair_transaction_gate():
             name="second_tool",
         )
     )
+    capability = step_capability(
+        model, target=displacement, options={"material": material},
+    )
+    assert capability["supported"]
+    combined = model.step(
+        target=displacement, material=material,
+        incrementation=steps.fixed(3), progress=False,
+    )
+    result = combined.solve_result()
+    assert result.status == "completed"
+    assert tuple(
+        item["constraint_name"] for item in result.metadata["constraint_duals"]
+    ) == (first.name, "second_tool")
+    assert len(result.metadata["constraint_work_evidence"]) == 2
+    assert result.metadata["constraint_balance_contract"]["force_balance_available"]
+    assert combined._contact_potential() == pytest.approx(sum(
+        item.evaluate().potential_energy
+        for item in combined.contact_provider.providers
+    ))
+
+    _, _, _, doubled = _patch(
+        triangulated=True, penalty=1000.0, yield_stress=1.0e9,
+    )
+    doubled.solve()
+    np.testing.assert_allclose(
+        combined.solution.x.array, doubled.solution.x.array,
+        rtol=2e-4, atol=2e-6,
+    )
+    accepted = combined.solution.x.array.copy()
+    direction = np.random.default_rng(117).normal(size=accepted.shape)
+    constrained = np.unique(np.concatenate([
+        np.asarray(bc.dof_indices()[0], dtype=np.int64) for bc in combined.bcs
+    ]))
+    direction[constrained] = 0.0
+    direction /= np.linalg.norm(direction)
+
+    def rhs_at(offset):
+        combined.solution.x.array[:] = accepted + offset * direction
+        combined.solution.x.scatter_forward()
+        combined._update_response(start_factor=1.0, target_factor=1.0)
+        rhs, _ = combined._correction_rhs()
+        try:
+            return rhs.array.copy()
+        finally:
+            rhs.destroy()
+
+    try:
+        rhs_at(0.0)
+        matrix = combined._assemble_tangent()
+        from petsc4py import PETSc
+
+        vector = PETSc.Vec().createWithArray(direction.copy(), comm=MPI.COMM_SELF)
+        action = matrix.createVecLeft()
+        matrix.mult(vector, action)
+        expected = action.array.copy()
+        vector.destroy()
+        action.destroy()
+        epsilon = 1.0e-6
+        combined.solution.x.array[:] = accepted
+        combined.solution.x.scatter_forward()
+        contact_action = combined.contact_provider.evaluate().tangent_action(
+            direction.reshape(-1, 3)
+        ).reshape(-1)
+        contact_residuals = []
+        for sign in (1.0, -1.0):
+            combined.solution.x.array[:] = accepted + sign * epsilon * direction
+            combined.solution.x.scatter_forward()
+            contact_residuals.append(
+                combined.contact_provider.evaluate().nodal_structural_residual.reshape(-1)
+            )
+        np.testing.assert_allclose(
+            contact_action,
+            (contact_residuals[0] - contact_residuals[1]) / (2.0 * epsilon),
+            rtol=1.0e-4, atol=1.0e-5,
+        )
+        numerical = -(rhs_at(epsilon) - rhs_at(-epsilon)) / (2.0 * epsilon)
+        np.testing.assert_allclose(
+            expected, numerical, rtol=2.0e-3, atol=2.0e-5,
+        )
+    finally:
+        combined.solution.x.array[:] = accepted
+        combined.solution.x.scatter_forward()
+        combined._update_response(start_factor=1.0, target_factor=1.0)
+
+
+def test_two_moving_tools_keep_independent_work_and_atomic_restart(tmp_path, monkeypatch):
+    def build():
+        model, displacement, material, _ = _patch(
+            triangulated=True, make_step=False,
+            tool_translation=(-0.008, 0.0, 0.0), applied_traction=0.0,
+        )
+        first = model.boundary_models[0]
+        second_motion = boundary_models.prescribed_rigid_motion(
+            translation=(-0.012, 0.0, 0.0),
+            reference_point=(1.005, 0.0, 0.0),
+        )
+        model.add_boundary_model(boundary_models.rigid_contact_pair(
+            first.slave_boundary,
+            boundary_models.rigid_body(
+                first.rigid_body.surface,
+                reference_point=(1.005, 0.0, 0.0),
+                motion_schedule=boundary_models.prescribed_rigid_motion_schedule(
+                    second_motion, start_time=0.0, end_time=1.0,
+                ),
+            ),
+            penalty=500.0,
+            name="second_tool",
+        ))
+        return model.step(
+            target=displacement, material=material,
+            incrementation=steps.fixed(3), progress=False,
+        )
+
+    reference = build()
+    result = reference.solve_result()
+    assert result.status == "completed"
+    names = tuple(item.name for item in reference.contact_provider.providers)
+    assert names == ("rigid_contact_pair", "second_tool")
+    work = dict(reference.energy_history[-1].pair_tool_work)
+    assert set(work) == set(names)
+    assert all(value > 0.0 for value in work.values())
+    assert sum(work.values()) == pytest.approx(reference.energy_history[-1].tool_work)
+    assert tuple(item["constraint_name"] for item in
+                 result.metadata["constraint_work_evidence"]) == names
+
+    partial = build()
+    partial.solve(until=1.0 / 3.0)
+    saved = partial.save_checkpoint(tmp_path / "two_tools")
+    accepted_u = partial.solution.x.array.copy()
+    accepted_state = partial.response.state.committed_state_vectors().copy()
+    accepted_work = partial.energy_history[-1].pair_tool_work
+
+    def reject_energy():
+        raise ValueError("intentional multi-tool energy rejection")
+
+    monkeypatch.setattr(partial, "_contact_potential", reject_energy)
+    with pytest.raises(RuntimeError, match="intentional multi-tool energy rejection"):
+        partial.solve(until=2.0 / 3.0)
+    np.testing.assert_allclose(partial.solution.x.array, accepted_u)
+    np.testing.assert_allclose(
+        partial.response.state.committed_state_vectors(), accepted_state,
+    )
+    assert partial.energy_history[-1].pair_tool_work == accepted_work
+    assert partial.contact_provider.snapshot_motion() == tuple(
+        (name, 1.0 / 3.0) for name in names
+    )
+
+    resumed = build()
+    resumed.load_checkpoint(saved)
+    resumed.solve()
+    np.testing.assert_allclose(
+        resumed.solution.x.array, reference.solution.x.array,
+        rtol=1e-8, atol=1e-10,
+    )
+    np.testing.assert_allclose(
+        resumed.response.state.committed_state_vectors(),
+        reference.response.state.committed_state_vectors(),
+        rtol=1e-8, atol=1e-10,
+    )
+    assert dict(resumed.energy_history[-1].pair_tool_work) == pytest.approx(work)
+
+    with np.load(saved, allow_pickle=False) as archive:
+        damaged = {name: archive[name].copy() for name in archive.files}
+    frames = json.loads(str(damaged["energy_history"]))
+    frames[-1]["pair_tool_work"]["second_tool"] += 1.0
+    damaged["energy_history"] = json.dumps(frames)
+    corrupt = tmp_path / "corrupt_two_tools.npz"
+    np.savez_compressed(corrupt, **damaged)
+    rejected = build()
+    with pytest.raises(ValueError, match="per-tool work must sum"):
+        rejected.load_checkpoint(corrupt)
+    assert rejected.accepted_load_factor == 0.0
+    assert not rejected.energy_history
+
+
+def test_two_implicit_tools_reject_duplicate_identity_before_lowering():
+    model, displacement, material, _ = _patch(
+        triangulated=True, make_step=False,
+    )
+    first = model.boundary_models[0]
+    model.add_boundary_model(boundary_models.rigid_contact_pair(
+        first.slave_boundary,
+        boundary_models.rigid_body(first.rigid_body.surface),
+        penalty=500.0, name=first.name,
+    ))
     capability = step_capability(
         model, target=displacement, options={"material": material},
     )

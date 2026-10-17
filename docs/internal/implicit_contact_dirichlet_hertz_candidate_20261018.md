@@ -148,7 +148,7 @@ not general contact. This record separates code gates from evidence gates:
 | Existing contact composition | Merged PR #116 has reviewed smooth/facet rigid geometry, affine MPC, moving-tool work and rollback; serial focused regressions pass | Installed-package and post-merge release-gate run for the new changes |
 | Facet features | Reviewed topology identifies true free edges and noncoplanar neighbors; ambiguous active projection fails closed | Feature-specific edge/vertex contact potential, generalized derivative, branch switching and force/moment tests; no normal averaging |
 | Total implicit Operator | Contact/strong-BC overlap now uses native contact lifting, identity rows, a complete fixed-old-state total-tangent difference check, failed-increment rollback and same-DOF checkpoint recovery | Add an independently constructed residual/force check and expand beyond the current serial frictionless discretization |
-| Multi-tool implicit | Single pair only; explicit multi-tool must not be misrepresented as implicit evidence | Independent pair identities, residual/tangent sum, per-tool work and atomic restart |
+| Multi-tool implicit | Ordinary serial strong-BC J2 now composes distinct frictionless rigid pairs: summed residual/tangent, elastic-regime total derivative, independent moving-pair work and atomic failed-increment/checkpoint recovery. An opposing moving-plane fixture checks both tool forces, support-inclusive force balance and result records | Mixed curved/faceted tools, plastic branch switching, external structural comparison and finer mesh/penalty checks; affine MPC still admits one pair only |
 | Implicit friction | Not admitted | Stick/slip internal state, consistent linearization, dissipation, rollback and independent path benchmarks |
 | Material/time composition | Elastic-regime J2 sphere and plastic J2 facet cases complete; explicit body contact has its own stable-step contract | A history material on the *same implicit* seam and explicit contact stability under evolving state |
 | Independent accuracy and speed | Full/quarter symmetry, mesh, penalty and increment screens exist; half-space mismatch remains visible | Controlled far-boundary, graded mesh, pressure-footprint and penalty limits; external FE comparison and whole-step timings |
@@ -185,12 +185,19 @@ The [FEBio frictional-contact formulation](https://pmc.ncbi.nlm.nih.gov/articles
 uses an explicit stick/slip return map and verifies patch, Hertz and
 large-sliding cases; its numerical results are not AgentFEM evidence.
 
-For multiple rigid tools, one global residual/tangent may add pair Operators,
-but each pair retains its own projection identity, pose, accepted friction
-state, generalized force, path work and checkpoint record. A solver-neutral
-additive contribution exists as a first algebraic seam; it is not yet a
-multi-tool Step. Admission requires an atomic accepted-increment transaction
-over *all* pairs and per-tool evidence in `SimulationResult`.
+For multiple rigid tools, the ordinary serial strong-BC J2 Step now adds
+independently named frictionless pair Operators. Each pair retains its own
+projection identity and prescribed pose, while one owning Procedure accepts or
+rolls back the increment. `SimulationResult` carries separate duals, nodal
+reaction distributions, quadrature diagnostics and accepted cumulative tool
+work. The full-space contact tangent sum is compared with a central
+difference in an elastic-regime J2 fixture. Two independently moving tools
+also pass interrupted/restarted path equivalence; malformed per-tool work is
+rejected on checkpoint load. A separate opposed planar-die test checks that
+both tools remain active, force directions oppose, support-inclusive force
+balance closes and result metadata retains both identities. This is **not**
+yet evidence for arbitrary shaped dies, mixed sharp/curved branch switches, implicit friction, affine
+MPC multi-pair reduction or MPI.
 
 For a truly sharp noncoplanar tool edge, a bounded feature-contact law needs
 face/edge/vertex classification plus an admissible-side rule and a
