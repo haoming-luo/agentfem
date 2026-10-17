@@ -144,6 +144,37 @@ def test_open_patch_boundary_is_rejected_when_active_but_inactive_is_zero():
     np.testing.assert_array_equal(inactive.tangent_action(np.ones((3, 3))), 0.0)
 
 
+def test_boundary_vertex_is_rejected_even_when_selected_facet_has_two_neighbors():
+    # All three triangles are coplanar. The middle facet has a neighbor on
+    # both edges incident on vertex 0, but the *whole* vertex fan is open.
+    # Facet IDs force the middle facet to win a same-point/same-normal tie.
+    surface = boundary_models.triangulated_rigid_surface(
+        vertices=((0, 0, 0), (1, 0, 0), (0, 1, 0),
+                  (-1, 0, 0), (0, -1, 0)),
+        triangles=((0, 1, 2), (0, 2, 3), (0, 3, 4)),
+        facet_ids=(10, 0, 20),
+    )
+    nodes = np.asarray(((0.0, 0.0, -0.1),) * 3)
+    projection = surface.project(nodes[:1])
+    assert projection.all_valid
+    assert int(projection.entity_ids[0]) == 0
+    with pytest.raises(ValueError, match="AFM-IMPLICIT-CONTACT-BRANCH"):
+        _evaluate(surface, nodes)
+
+
+def test_closed_coplanar_vertex_fan_retains_the_planar_tangent():
+    surface = boundary_models.triangulated_rigid_surface(
+        vertices=((0, 0, 0), (1, 0, 0), (0, 1, 0),
+                  (-1, 0, 0), (0, -1, 0)),
+        triangles=((0, 1, 2), (0, 2, 3), (0, 3, 4), (0, 4, 1)),
+        facet_ids=(10, 0, 20, 30),
+    )
+    nodes = np.asarray(((0.0, 0.0, -0.1),) * 3)
+    contribution = _evaluate(surface, nodes)
+    assert contribution.active_points == 1
+    assert contribution.assembly.potential_energy > 0.0
+
+
 def test_noncoplanar_edge_never_gets_a_fabricated_tangent():
     surface = boundary_models.triangulated_rigid_surface(
         vertices=((0, 0, 0), (1, 0, 0), (0, 1, 0), (0, 0, 1)),

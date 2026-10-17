@@ -524,6 +524,18 @@ separate tool resultants and accepted works, and an available constraint work
 balance. This is a local Apple Silicon installed-wheel smoke, **not** a
 Windows/Linux platform or final release acceptance.
 
+A targeted topology audit found an active-vertex loophole in the bounded
+planar-facet admission: a selected triangle can have two coplanar neighbors
+at its vertex while the *full vertex fan* is still open elsewhere. With
+same-point/same-normal facet ties and a middle facet having the lowest ID,
+the old two-edge check admitted that free boundary vertex. A failing
+regression reproduced it before the fix. The Operator now checks every
+incident facet normal and every edge containing an active vertex; a free or
+noncoplanar member rejects the trial, while a closed coplanar fan remains
+admissible. This strengthens fail-closed semantics, not a new edge/vertex
+contact law. Forty-two focused solver-neutral/DOLFINx facet and friction
+tests pass after the correction.
+
 For a truly sharp noncoplanar tool edge, a bounded feature-contact law needs
 face/edge/vertex classification plus an admissible-side rule and a
 semismooth/generalized derivative. A declared physical fillet instead uses

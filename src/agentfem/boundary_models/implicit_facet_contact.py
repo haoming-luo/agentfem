@@ -69,6 +69,38 @@ def _smooth_active_facets(
         if not len(on_boundary):
             continue
         selected_normal = surface.facet_normals[facet]
+        if len(on_boundary) >= 2:
+            # At a vertex, the two neighboring facets of the *selected*
+            # triangle do not describe the full fan. A remote wedge may be a
+            # free boundary or have a different normal. Both invalidate a
+            # unique planar derivative even when the local two edges look
+            # smooth, so inspect the whole incident star before admission.
+            local_vertex = int(np.argmax(barycentric))
+            vertex = int(surface.triangles[facet, local_vertex])
+            incident = np.flatnonzero(
+                np.any(surface.triangles == vertex, axis=1)
+            )
+            incident_local = np.argmax(
+                surface.triangles[incident] == vertex, axis=1
+            )
+            edges_containing_vertex = (
+                np.arange(3)[None, :] != incident_local[:, None]
+            )
+            if (
+                np.any(np.linalg.norm(
+                    surface.facet_normals[incident] - selected_normal,
+                    axis=1,
+                ) > threshold)
+                or np.any(
+                    (surface.edge_neighbors[incident] < 0)
+                    & edges_containing_vertex
+                )
+            ):
+                raise ValueError(
+                    "AFM-IMPLICIT-CONTACT-BRANCH: active projection reaches a "
+                    "free or non-smooth tool edge/vertex; cut back or refine "
+                    f"the tool, contact_point_id={int(record.point_ids[point])}."
+                )
         # An interior seam of coplanar facets has the same normal derivative
         # from both sides.  A free edge or a crease does not.
         for opposite in on_boundary:
