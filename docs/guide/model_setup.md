@@ -369,8 +369,8 @@ both residual and tangent by the same MPC map. Fixed-tool work is zero, but
 contact still invalidates material-only Hill--Mandel evidence. Moving-tool
 periodic work, curved triangulated edge transitions, and distributed implicit
 assembly are not admitted. See
-`examples/finite_j2_faceted_contact.py` and the
-[sphere/cylinder example](../../examples/finite_j2_smooth_contact.py), plus the
+`examples/finite_j2_faceted_contact.py`,
+`examples/finite_j2_smooth_contact.py`, and the
 [candidate note](../internal/smooth_implicit_contact_mpc_candidate_20261017.md).
 This bounded route does not turn the general `ContactTrace` into a universal
 implicit contact solver.
