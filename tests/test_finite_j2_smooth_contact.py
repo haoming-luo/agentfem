@@ -120,6 +120,19 @@ def test_moving_sphere_pose_is_restored_after_failed_trial(monkeypatch):
     accepted_pose = float(step.contact_provider.motion_factor.value)
     accepted_u = step.solution.x.array.copy()
     accepted_material = step.response.state.committed_state_vectors().copy()
+    generalized_force = step._contact_dual().force
+    direction = motion.generalized_coordinate(1.0)
+    delta = 1e-6
+    try:
+        step.contact_provider.update_motion(accepted_pose + delta)
+        plus = step._contact_potential()
+        step.contact_provider.update_motion(accepted_pose - delta)
+        minus = step._contact_potential()
+    finally:
+        step.contact_provider.update_motion(accepted_pose)
+    assert (plus - minus) / (2 * delta) == pytest.approx(
+        float(np.dot(generalized_force, direction)), rel=2e-4,
+    )
 
     def fail_energy():
         raise ValueError("injected smooth-contact energy failure")

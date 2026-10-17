@@ -38,8 +38,9 @@ than silently reported.
   DOLFINx. This checks quadrature and DOF assembly, not only the local formula.
 - Ordinary public `model.step(...)` finite-J2 tetrahedral and hexahedral cases
   with a sphere or cylinder complete with active contact. A moving sphere also
-  preserves accepted displacement, material state and pose after an injected
-  energy failure.
+  has a generalized tool force conjugate to the derivative of its penalty
+  potential, and preserves accepted displacement, material state and pose
+  after an injected energy failure.
 - The affine-periodic public Step has active fixed-sphere and fixed-triangle
   contact cases. The converged *total* residual is reduced below the tested
   tolerance. The projected contact tangent matches a finite difference of
