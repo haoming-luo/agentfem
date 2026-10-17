@@ -106,7 +106,10 @@ result = step.solve_result()
 
 The ordinary finite-J2 Step also has a bounded experimental serial route for
 registered, prescribed rigid contact pairs: analytical planes or spheres,
-reviewed triangular surfaces, and certified closed-convex triangular solids.
+reviewed triangular surfaces, certified closed-convex triangular solids, and
+explicitly reviewed closed nonconvex triangle solids in the later source
+candidate. The latter requires an embedding attestation, rejects ambiguous
+nearest features, and has a serial O(facets) winding-sign cost.
 The contact residual and tangent enter the same Newton, line-search, accepted
 State, work, and checkpoint lifecycle as the material. A certified convex
 solid or a reviewed triangular tool on an active face-interior planar branch

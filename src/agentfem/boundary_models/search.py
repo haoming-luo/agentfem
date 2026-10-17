@@ -755,6 +755,7 @@ class TriangleSurfaceBVH:
         *,
         ambiguity_tolerance: float | None = None,
         normal_scale: float | None = None,
+        require_same_normal: bool = True,
     ) -> _TriangleCandidateBatch:
         count = int(query.shape[0])
         closest = np.full((count, 3), np.nan, dtype=float)
@@ -866,7 +867,12 @@ class TriangleSurfaceBVH:
                     <= ambiguity_tolerance / scale
                     for facet, _, _ in tied
                 )
-                if not (same_point and same_normal):
+                # A closed-solid signed-distance law obtains its normal from
+                # the point-to-feature vector. Distinct facet normals at the
+                # *same* nearest edge or vertex are not an ambiguous closest
+                # point there. The legacy oriented-sheet law still requires
+                # one common facet normal.
+                if not same_point or (require_same_normal and not same_normal):
                     ambiguous[point_index] = True
 
         return _TriangleCandidateBatch(

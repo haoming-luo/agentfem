@@ -409,6 +409,49 @@ def test_periodic_j2_closed_convex_tool_preserves_planar_mpc_limit():
     )
 
 
+def test_periodic_j2_reviewed_concave_tool_reduces_total_contact_residual():
+    x0, x1 = 0.95, 1.25
+    polygon = 1.75 * np.asarray((
+        (0, 0), (2, 0), (2, 1), (1, 1), (1, 2), (0, 2),
+    ), dtype=float) - 0.5
+    front = np.column_stack((np.full(6, x0), polygon))
+    back = np.column_stack((np.full(6, x1), polygon))
+    top = ((0, 1, 3), (1, 2, 3), (0, 3, 5), (3, 4, 5))
+    triangles = [tuple(reversed(face)) for face in top]
+    triangles += [tuple(6 + index for index in face) for face in top]
+    for first in range(6):
+        second = (first + 1) % 6
+        triangles.extend(((first, second, second + 6),
+                          (first, second + 6, first + 6)))
+    surface = boundary_models.closed_triangulated_rigid_solid(
+        vertices=np.vstack((front, back)), triangles=triangles,
+        reviewed_embedded=True,
+    )
+    fixture, periodicity, step = _periodic_j2_contact_step(surface=surface)
+    result = step.solve_result()
+    assert result.status == "completed"
+    assert step.contact_provider.evaluate().active_points > 0
+    total = step.assemble_full_residual()
+    reduction = periodicity.reduction(1.0).matrix(fixture.domain.comm)
+    reduced = reduction.createVecRight()
+    try:
+        reduction.multTranspose(total, reduced)
+        assert reduced.norm() < 1.0e-5
+    finally:
+        reduced.destroy()
+        reduction.destroy()
+        total.destroy()
+    plane = boundary_models.rigid_plane(
+        point=(x0, 0.0, 0.0), normal=(-1.0, 0.0, 0.0),
+    )
+    _, _, planar = _periodic_j2_contact_step(surface=plane)
+    planar.solve()
+    np.testing.assert_allclose(
+        step.solution.x.array, planar.solution.x.array,
+        rtol=1e-7, atol=1e-8,
+    )
+
+
 def _periodic_tool_motion():
     return boundary_models.prescribed_rigid_motion(
         translation=(-0.01, 0.0, 0.0),

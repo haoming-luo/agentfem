@@ -47,6 +47,10 @@ from .contact_friction import (
     tangential_contact_state,
 )
 from .contact_pair import RigidContactPair, rigid_contact_pair
+from .closed_polyhedron import (
+    ClosedTriangulatedRigidSolid, closed_triangulated_rigid_solid,
+    closed_triangulated_rigid_solid_from_mesh,
+)
 from .convex_polyhedron import (
     ConvexPolyhedralRigidSurface,
     convex_polyhedral_rigid_surface,
@@ -142,6 +146,9 @@ __all__ = [
     "ConvectionBoundary",
     "ContactProjectionRecord",
     "ConvexPolyhedralRigidSurface",
+    "ClosedTriangulatedRigidSolid",
+    "closed_triangulated_rigid_solid",
+    "closed_triangulated_rigid_solid_from_mesh",
     "ContactProjectionState",
     "ContactProjectionEvaluation",
     "ContactProjectionLifecycle",

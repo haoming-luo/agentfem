@@ -495,6 +495,7 @@ def _implicit_planar_friction_geometry_supported(pair) -> bool:
 
 def _accept_finite_strain_j2_strong(model, request: StepRequest) -> bool:
     from .boundary_models import (
+        ClosedTriangulatedRigidSolid,
         ConvexPolyhedralRigidSurface,
         RigidContactPair,
         RigidObstaclePenaltyContact,
@@ -525,6 +526,7 @@ def _accept_finite_strain_j2_strong(model, request: StepRequest) -> bool:
         and isinstance(item.rigid_body.surface, (
             TriangulatedRigidSurface, SmoothRigidSurface,
             ConvexPolyhedralRigidSurface,
+            ClosedTriangulatedRigidSolid,
         ))
         and (
             item.friction is None

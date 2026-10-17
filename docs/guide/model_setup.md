@@ -373,6 +373,14 @@ plane; inactive exterior points use an exact triangle-BVH closest-point search.
 This is not a general nonconvex contact search. See
 `examples/finite_j2_closed_convex_contact.py` and the
 [closed-convex candidate record](../internal/closed_convex_implicit_contact_candidate_20261018.md).
+The later `closed_triangulated_rigid_solid(...)` source candidate permits a
+closed, possibly nonconvex tool only with explicit embedding review. Its
+unique nearest-feature signed distance supports active reentrant edge/vertex
+branches without averaging facet normals. Coplanar mesh seams are not physical
+creases; ambiguous nearest points or winding, and nonsmooth zero-distance
+features, reject the current trial. The direct winding computation is a
+bounded serial reference, not a scalable CAD backend. See the
+[closed-general candidate record](../internal/closed_general_implicit_contact_candidate_20261018.md).
 Fixed, translating or rotating analytical-plane Coulomb pairs have a separate
 narrow serial strong-BC route. The rotational friction tangent follows the
 same master material point at fixed accepted State; its generally nonsymmetric
@@ -398,7 +406,8 @@ matrix:
 | Analytical plane, fixed or prescribed motion | Serial supported | Serial strong-BC candidate | Frictionless only | Rejected |
 | Reviewed triangle patch | Face-interior planar branch; active free/noncoplanar edges reject | Serial strong-BC face-interior planar branch only; active free/noncoplanar edges reject | Frictionless only | Rejected |
 | Certified closed convex triangle solid | Selected one-sided sharp-feature branch | Serial strong-BC piecewise-planar candidate | Frictionless only | Rejected |
-| Nonconvex/general mesh or deformable master | Rejected | Rejected | Rejected | Rejected |
+| Reviewed embedded closed nonconvex triangle solid | Serial frictionless unique-nearest-feature candidate; O(facets) sign query | Rejected | Frictionless source candidate | Rejected |
+| Open/nonreviewed general mesh or deformable master | Rejected | Rejected | Rejected | Rejected |
 
 All admitted implicit paths use finite-strain J2 on a three-dimensional solid.
 Unsupported combinations fail during capability checking or before assembly;

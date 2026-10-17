@@ -102,6 +102,26 @@ def test_closed_convex_triangle_import_certifies_shape_and_keeps_source(
     assert surface.project(((0.1e-3, 0.1e-3, 0.1e-3),)).signed_gaps[0] < 0.0
 
 
+def test_closed_general_solid_import_requires_embedding_review_and_keeps_source(
+    tmp_path, monkeypatch,
+):
+    source = tmp_path / "closed_tool.stl"
+    source.write_bytes(b"reviewed closed tool source")
+    meshio = _install_meshio(monkeypatch, _duplicated_tetrahedron())
+    with pytest.raises(ValueError, match="reviewed_embedded"):
+        boundary_models.closed_triangulated_rigid_solid_from_mesh(
+            source, coordinate_scale=1.0e-3, input_format="stl",
+            reviewed_embedded=False,
+        )
+    surface = boundary_models.closed_triangulated_rigid_solid_from_mesh(
+        source, coordinate_scale=1.0e-3, input_format="stl",
+        reviewed_embedded=True, name="tool",
+    )
+    assert meshio.calls == [(source, "stl"), (source, "stl")]
+    assert surface.summary()["source"] == surface.facets.summary()["source"]
+    assert surface.project(((0.08e-3, 0.1e-3, 0.12e-3),)).signed_gaps[0] < 0.0
+
+
 def test_closed_convex_triangle_import_rejects_open_tool(tmp_path, monkeypatch):
     source = tmp_path / "open_tool.stl"
     source.write_bytes(b"reviewed open tool")

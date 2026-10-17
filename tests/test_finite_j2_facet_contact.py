@@ -27,7 +27,8 @@ def _patch(*, triangulated: bool, gap: float = 0.005, penalty=500.0,
            tool_translation=None, tool_rotation=(0.0, 0.0, 0.0),
            schedule_end=1.0, make_step=True, tool_y_max=1.5,
            increments=3, applied_traction=10.0, yield_stress=2.0,
-           convex_tool=False, convex_y_min=-0.5,
+           convex_tool=False, convex_y_min=-0.5, closed_concave_tool=False,
+           closed_concave_extent=1.75,
            friction_coefficient=None, tangential_penalty=None,
            regional_material=False, contact_quadrature_degree=None,
            hexahedral=False, displacement_degree=1, linear_solver=None):
@@ -88,7 +89,33 @@ def _patch(*, triangulated: bool, gap: float = 0.005, penalty=500.0,
     if triangulated:
         tool_x = 1.0 + gap
         x_at = lambda y: tool_x + tilt * y
-        if convex_tool:
+        if closed_concave_tool:
+            assert not convex_tool and tilt == 0.0
+            # The reentrant corner is beyond the contacted unit face. This
+            # tests ordinary Step lowering against the planar limit without
+            # pretending that the edge branch is globally smooth.
+            polygon = np.asarray((
+                (0, 0), (2, 0), (2, 1), (1, 1), (1, 2), (0, 2),
+            ), dtype=float)
+            polygon = closed_concave_extent * polygon - 0.5
+            front = np.column_stack((
+                np.full(6, tool_x), polygon[:, 0], polygon[:, 1],
+            ))
+            back = front.copy()
+            back[:, 0] += 0.1
+            top = ((0, 1, 3), (1, 2, 3), (0, 3, 5), (3, 4, 5))
+            triangles = [tuple(reversed(face)) for face in top]
+            triangles += [tuple(6 + index for index in face) for face in top]
+            for first in range(6):
+                second = (first + 1) % 6
+                triangles.extend(((first, second, second + 6),
+                                  (first, second + 6, first + 6)))
+            surface = boundary_models.closed_triangulated_rigid_solid(
+                vertices=np.vstack((front, back)), triangles=triangles,
+                reviewed_embedded=True,
+                name="reviewed_L_prism_tool",
+            )
+        elif convex_tool:
             assert tilt == 0.0
             x0, x1, y0, y1, z0, z1 = (
                 tool_x, tool_x + 0.1, convex_y_min, 1.5, -0.5, 1.5,
@@ -205,6 +232,60 @@ def test_closed_convex_tool_uses_ordinary_j2_step_and_matches_planar_limit():
     assert sharp.energy_history[-1].tool_work == pytest.approx(
         planar.energy_history[-1].tool_work, rel=1e-7, abs=1e-9,
     )
+
+
+def test_reviewed_closed_concave_tool_uses_ordinary_j2_step_and_restart(tmp_path):
+    options = dict(
+        triangulated=True, closed_concave_tool=True,
+        yield_stress=1.0e9, tool_translation=(-0.008, 0.0, 0.0),
+        applied_traction=0.0,
+    )
+    model, displacement, material, step = _patch(**options)
+    capability = step_capability(
+        model, target=displacement, options={"material": material},
+    )
+    assert capability["supported"], capability["rejection_reasons"]
+    result = step.solve_result()
+    assert result.status == "completed"
+    assert step.contact_provider.summary()["search"]["kind"] == (
+        "closed_triangulated_rigid_solid"
+    )
+    planar = _patch(
+        triangulated=True, yield_stress=1.0e9,
+        tool_translation=(-0.008, 0.0, 0.0), applied_traction=0.0,
+    )[3]
+    assert planar.solve_result().status == "completed"
+    np.testing.assert_allclose(
+        step.solution.x.array, planar.solution.x.array,
+        rtol=1e-7, atol=1e-8,
+    )
+    assert step.energy_history[-1].tool_work == pytest.approx(
+        planar.energy_history[-1].tool_work, rel=1e-7, abs=1e-9,
+    )
+    saved = step.save_checkpoint(tmp_path / "closed_concave")
+    same = _patch(**options)[3]
+    same.load_checkpoint(saved)
+    np.testing.assert_allclose(same.solution.x.array, step.solution.x.array)
+    assert same.accepted_load_factor == pytest.approx(1.0)
+    different_geometry = _patch(
+        **{**options, "closed_concave_extent": 1.7},
+    )[3]
+    with pytest.raises(ValueError, match="identity"):
+        different_geometry.load_checkpoint(saved)
+
+
+def test_reviewed_closed_concave_friction_is_rejected_before_assembly():
+    model, displacement, material, _ = _patch(
+        triangulated=True, closed_concave_tool=True,
+        friction_coefficient=0.2, tangential_penalty=100.0,
+        make_step=False,
+    )
+    capability = step_capability(
+        model, target=displacement, options={"material": material},
+    )
+    assert not capability["supported"]
+    with pytest.raises(NotImplementedError):
+        model.step(target=displacement, material=material)
 
 
 def test_refined_contact_quadrature_is_explicit_and_checkpoint_identified(tmp_path):

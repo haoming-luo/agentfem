@@ -7,6 +7,7 @@ from __future__ import annotations
 
 from .contact_pair import RigidContactPair
 from .convex_polyhedron import ConvexPolyhedralRigidSurface
+from .closed_polyhedron import ClosedTriangulatedRigidSolid
 from .rigid import SmoothRigidSurface, TriangulatedRigidSurface
 
 
@@ -24,6 +25,7 @@ def affine_rigid_contact_assets_supported(boundaries) -> bool:
         pair.slave_boundary.domain.comm.size == 1
         and isinstance(pair.rigid_body.surface, (
             TriangulatedRigidSurface, SmoothRigidSurface, ConvexPolyhedralRigidSurface,
+            ClosedTriangulatedRigidSolid,
         ))
         and (
             pair.rigid_body.motion_schedule is None

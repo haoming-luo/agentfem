@@ -119,6 +119,16 @@ or a new release. The next promotion needs a frozen external comparator and
 controlled mesh, domain, penalty and increment limits before broader
 geometry/material/MPI admission.
 
+A later experimental geometry slice adds a **reviewed closed, possibly
+nonconvex** triangular rigid solid for frictionless serial implicit contact.
+It uses a unique nearest-feature signed distance and an exact local
+face/edge/vertex derivative; it does not average triangle normals. The
+separate [candidate record](internal/closed_general_implicit_contact_candidate_20261018.md)
+states its explicit embedding attestation, O(facets) sign-classification cost,
+local and ordinary-Step evidence, and unresolved global reentrant-edge,
+same-input reference, MPI and friction gates. This does not expand the
+released 0.4.3 contract or certify arbitrary STL/CAD.
+
 An additional reviewed triangular rigid tool may now use the *same* serial
 fixed-old-state Coulomb Operator on a current planar face branch. A coplanar
 two-triangle tool matches the analytical plane under translation and rotation,
