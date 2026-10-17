@@ -108,8 +108,8 @@ accepted contact-point export. CG1/CG2 hexahedral contact quadrature can be
 explicitly refined for discrete convergence checks; defaults stay unchanged
 because higher rules did not monotonically improve the Hertz force screen. The
 source-targeted and isolated installed-wheel smoke pass on Apple Silicon,
-but the closest small-strain Hertz screen still has a 1.9% force discrepancy
-after a farther-boundary Q2 comparison. Sampling the Hertz pressure on the
+but the closest small-strain Hertz screen still has a 1.4% force discrepancy
+after a farther-boundary Q2 mesh refinement. Sampling the Hertz pressure on the
 same trace exposes a much larger pressure-shape difference, and changing the
 face rule does not improve force and pressure together. Sharp-friction observables
 remain mesh/penalty sensitive,
