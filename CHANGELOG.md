@@ -6,6 +6,18 @@ experimental formulation to a validated one.
 
 ## [Unreleased]
 
+- Develop a bounded serial implicit rigid-contact candidate for finite-strain
+  J2: shared Newton residual/tangent, prescribed-tool force and work, reviewed
+  faceted and convex geometry branches, friction State, atomic restart, raw
+  accepted-point output and fail-closed unsupported combinations. Keep its
+  Hertz and installed-wheel checks as experimental evidence, not an Abaqus
+  equivalence or a general-contact claim.
+- Supply opt-in GMRES/GAMG with reference rigid-body near-nullspace modes on
+  the compatible serial displacement/contact route. Preserve the direct solver
+  default and report the actual preconditioner attachment in Step evidence.
+- Advance the unreleased package identity to `0.4.4.dev0`; the published
+  `0.4.3` citation and release remain unchanged.
+
 ## [0.4.3] - 2026-10-17
 
 - Compose experimental serial three-dimensional finite-strain J2 with one
