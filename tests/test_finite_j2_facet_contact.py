@@ -387,6 +387,98 @@ def test_regional_j2_materials_share_moving_convex_friction_transaction(tmp_path
     assert not changed.energy_history
 
 
+def test_two_moving_convex_friction_tools_keep_separate_work_and_restart(
+    tmp_path, monkeypatch,
+):
+    def build():
+        model, displacement, material, _ = _patch(
+            triangulated=True, convex_tool=True, make_step=False,
+            tool_translation=(-0.018, 0.06, 0.0), applied_traction=0.0,
+            friction_coefficient=0.2, tangential_penalty=100.0,
+        )
+        first = model.boundary_models[0]
+        second_motion = boundary_models.prescribed_rigid_motion(
+            translation=(-0.015, 0.05, 0.0),
+            reference_point=(1.005, 0.0, 0.0),
+        )
+        model.add_boundary_model(boundary_models.rigid_contact_pair(
+            first.slave_boundary,
+            boundary_models.rigid_body(
+                first.rigid_body.surface,
+                reference_point=(1.005, 0.0, 0.0),
+                motion_schedule=boundary_models.prescribed_rigid_motion_schedule(
+                    second_motion, start_time=0.0, end_time=1.0,
+                ),
+            ),
+            penalty=500.0, friction_coefficient=0.2,
+            tangential_penalty=100.0, name="second_convex_tool",
+        ))
+        return model.step(
+            target=displacement, material=material,
+            incrementation=steps.fixed(4), progress=False,
+        )
+
+    continuous = build()
+    result = continuous.solve_result()
+    assert result.status == "completed"
+    names = tuple(item.name for item in continuous.contact_provider.providers)
+    assert names == ("rigid_contact_pair", "second_convex_tool")
+    assert all(item.friction_state.accepted is not None
+               for item in continuous.contact_provider.providers)
+    pair_work = dict(continuous.energy_history[-1].pair_tool_work)
+    assert set(pair_work) == set(names)
+    assert sum(pair_work.values()) == pytest.approx(
+        continuous.energy_history[-1].tool_work,
+    )
+    assert continuous.energy_history[-1].friction_dissipation > 0.0
+    for provider, dual in zip(
+        continuous.contact_provider.providers,
+        result.metadata["constraint_duals"], strict=True,
+    ):
+        samples = provider.accepted_point_samples()
+        assert dual["constraint_name"] == provider.name
+        resultant = np.sum(samples["reference_weights"][:, None] * (
+            samples["normal_pressures"][:, None] * samples["surface_normals"]
+            + samples["surface_friction_tractions"]
+        ), axis=0)
+        np.testing.assert_allclose(resultant, dual["resultant"], atol=1.0e-9)
+
+    partial = build()
+    partial.solve(until=0.5)
+    saved = partial.save_checkpoint(tmp_path / "two_moving_convex_friction")
+    accepted_half = partial.contact_provider.snapshot_accepted_state()
+    second = partial.contact_provider.providers[1]
+    original_commit = second.commit_accepted
+
+    def fail_after_second_commit():
+        original_commit()
+        raise RuntimeError("injected second convex-tool commit failure")
+
+    monkeypatch.setattr(second, "commit_accepted", fail_after_second_commit)
+    with pytest.raises(RuntimeError, match="second convex-tool commit failure"):
+        partial.solve()
+    assert partial.accepted_load_factor == pytest.approx(0.5)
+    assert partial.contact_provider.snapshot_accepted_state() == accepted_half
+    resumed = build()
+    resumed.load_checkpoint(saved)
+    resumed.solve()
+    np.testing.assert_allclose(
+        resumed.solution.x.array, continuous.solution.x.array,
+        rtol=1.0e-9, atol=1.0e-10,
+    )
+    np.testing.assert_allclose(
+        resumed.response.state.committed_state_vectors(),
+        continuous.response.state.committed_state_vectors(),
+        rtol=1.0e-9, atol=1.0e-10,
+    )
+    assert resumed.energy_history[-1].tool_work == pytest.approx(
+        continuous.energy_history[-1].tool_work, rel=1.0e-9,
+    )
+    assert resumed.energy_history[-1].friction_dissipation == pytest.approx(
+        continuous.energy_history[-1].friction_dissipation, rel=1.0e-9,
+    )
+
+
 def test_two_implicit_tools_add_residual_tangent_and_keep_separate_evidence():
     model, displacement, material, _ = _patch(
         triangulated=True, make_step=False, yield_stress=1.0e9,
