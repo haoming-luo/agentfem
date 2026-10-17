@@ -154,8 +154,8 @@ not general contact. This record separates code gates from evidence gates:
 | Existing contact composition | Merged PR #116 has reviewed smooth/facet rigid geometry, affine MPC, moving-tool work and rollback; serial focused regressions pass | Installed-package and post-merge release-gate run for the new changes |
 | Facet features | Reviewed topology identifies true free edges and noncoplanar neighbors; ambiguous active projection fails closed | Feature-specific edge/vertex contact potential, generalized derivative, branch switching and force/moment tests; no normal averaging |
 | Total implicit Operator | Contact/strong-BC overlap now uses native contact lifting, identity rows, a complete fixed-old-state total-tangent difference check, failed-increment rollback and same-DOF checkpoint recovery | Add an independently constructed residual/force check and expand beyond the current serial frictionless discretization |
-| Multi-tool implicit | Ordinary serial strong-BC J2 now composes distinct frictionless rigid pairs: summed residual/tangent, elastic-regime total derivative, independent moving-pair work and atomic failed-increment/checkpoint recovery. An opposing moving-plane fixture checks both tool forces, support-inclusive force balance and result records | Mixed curved/faceted tools, plastic branch switching, external structural comparison and finer mesh/penalty checks; affine MPC still admits one pair only |
-| Implicit friction | One fixed analytical plane is now admitted on serial strong-BC finite-J2: fixed-old-state stick/slip tangent, accepted stable-ID State, separate Coulomb dissipation and numerical separation release, failed-finalization rollback, serial checkpoint and result histories. Real DOLFINx stick/slip directional checks and a small active-contact global load/restart test pass | Independent friction patch/sliding benchmark, mesh/penalty/increment study and curved/faceted/moving/MPC/MPI extension; no general friction claim |
+| Multi-tool implicit | Ordinary serial strong-BC J2 composes distinct rigid pairs: summed residual/tangent, independent moving-pair work, and atomic failed-increment/checkpoint recovery. Opposing moving frictionless planes check force balance. Two fixed frictional planes recover the equivalent single-law response while preserving separate State/dual/checkpoint identities; spatially opposed fixed frictional planes also check both force resultants and interrupted restart. Failure of the second commit rolls both back | Mixed curved/faceted friction, broader plastic branch switching, external structural comparison and finer mesh/penalty checks; affine MPC still admits one pair only |
+| Implicit friction | Fixed analytical planes are admitted on serial strong-BC finite-J2: fixed-old-state stick/slip tangent, accepted stable-ID State per pair, separate Coulomb dissipation and numerical separation release, failed-finalization rollback, serial checkpoint and result histories. Real DOLFINx stick/slip directional checks and small active-contact global load/restart tests pass | Mesh/penalty/increment study and curved/faceted/moving/MPC/MPI extension; no general friction claim |
 | Material/time composition | Elastic-regime J2 sphere and plastic J2 facet cases complete; explicit body contact has its own stable-step contract | A history material on the *same implicit* seam and explicit contact stability under evolving state |
 | Independent accuracy and speed | Full/quarter symmetry, mesh, penalty and increment screens exist; half-space mismatch remains visible | Controlled far-boundary, graded mesh, pressure-footprint and penalty limits; external FE comparison and whole-step timings |
 | Product route | Ordinary `model.step()` is used; final unsmoothed reference-trace pressure/penetration scalars are now available | Installed-wheel example, pressure/slip field format, capability matrix and versioned release gate |
@@ -183,8 +183,10 @@ trials and the nonsmooth cap/opening branches by default. The one fixed-plane
 serial strong-BC J2 path now supplies explicit semismooth branch selection,
 accepted point-ID-keyed state, checkpoint identity and rollback. A small
 global active-contact test exercises both stick and sliding with interrupted
-restart; corrupted kinematics are atomically refused. Curved, faceted,
-moving and multi-tool friction remain rejected. The accepted energy record
+restart; corrupted kinematics are atomically refused. Multiple independently
+named fixed frictional planes share the same Procedure transaction; a
+second-pair commit fault restores both accepted states. Curved, faceted and
+moving friction remain rejected. The accepted energy record
 reports Coulomb dissipation separately from recoverable tangential penalty
 energy and numerical separation release; its trapezoidal residual is a
 diagnostic, not a universal first-law proof.
@@ -230,6 +232,15 @@ checks that strong reactions plus the independently reported contact
 resultant vanish without external traction; native contact is no longer
 missing from `RF`. Legacy UFL contact remains assembled once.
 
+In-memory increment rollback now retains the existing read-only, point-keyed
+friction records instead of converting every field to nested Python lists.
+Only a written checkpoint serializes JSON-safe values. A targeted conversion
+microbenchmark with 50,000 points measured about `8.0 ms` per former
+list-producing snapshot on this machine; the new runtime snapshot stores two
+object references. This removes that conversion from each accepted attempt,
+but is **not** a measured whole-solve acceleration and must not be marketed as
+one. Single- and multi-pair failure rollback still pass after the change.
+
 For multiple rigid tools, the ordinary serial strong-BC J2 Step now adds
 independently named frictionless pair Operators. Each pair retains its own
 projection identity and prescribed pose, while one owning Procedure accepts or
@@ -241,7 +252,7 @@ also pass interrupted/restarted path equivalence; malformed per-tool work is
 rejected on checkpoint load. A separate opposed planar-die test checks that
 both tools remain active, force directions oppose, support-inclusive force
 balance closes and result metadata retains both identities. This is **not**
-yet evidence for arbitrary shaped dies, mixed sharp/curved branch switches, implicit friction, affine
+yet evidence for arbitrary shaped dies, mixed sharp/curved branch switches, moving/curved friction, affine
 MPC multi-pair reduction or MPI.
 
 `examples/finite_j2_opposing_rigid_tools.py` is a compact ordinary

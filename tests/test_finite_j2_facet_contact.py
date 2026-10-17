@@ -274,10 +274,13 @@ def test_two_moving_tools_keep_independent_work_and_atomic_restart(tmp_path, mon
     accepted_state = partial.response.state.committed_state_vectors().copy()
     accepted_work = partial.energy_history[-1].pair_tool_work
 
-    def reject_energy():
+    record_energy = partial._record_energy
+
+    def reject_energy(*args, **kwargs):
+        record_energy(*args, **kwargs)
         raise ValueError("intentional multi-tool energy rejection")
 
-    monkeypatch.setattr(partial, "_contact_potential", reject_energy)
+    monkeypatch.setattr(partial, "_record_energy", reject_energy)
     with pytest.raises(RuntimeError, match="intentional multi-tool energy rejection"):
         partial.solve(until=2.0 / 3.0)
     np.testing.assert_allclose(partial.solution.x.array, accepted_u)
@@ -589,10 +592,13 @@ def test_moving_facet_tool_potential_derivative_and_atomic_restart(
     accepted_u = partial.solution.x.array.copy()
     accepted_state = partial.response.state.committed_state_vectors().copy()
 
-    def fail_energy():
+    record_energy = partial._record_energy
+
+    def fail_energy(*args, **kwargs):
+        record_energy(*args, **kwargs)
         raise ValueError("intentional moving facet energy failure")
 
-    monkeypatch.setattr(partial, "_contact_potential", fail_energy)
+    monkeypatch.setattr(partial, "_record_energy", fail_energy)
     with pytest.raises(RuntimeError, match="intentional moving facet energy failure"):
         partial.solve(until=2.0 / 3.0)
     assert float(partial.contact_provider.motion_factor.value) == pytest.approx(accepted_pose)
@@ -784,10 +790,13 @@ def test_facet_j2_checkpoint_and_failed_increment_are_atomic(tmp_path, monkeypat
     accepted_material = failed.response.state.committed_state_vectors().copy()
     accepted_energy = tuple(failed.energy_history)
 
-    def fail_energy():
+    record_energy = failed._record_energy
+
+    def fail_energy(*args, **kwargs):
+        record_energy(*args, **kwargs)
         raise ValueError("intentional facet energy failure")
 
-    monkeypatch.setattr(failed, "_contact_potential", fail_energy)
+    monkeypatch.setattr(failed, "_record_energy", fail_energy)
     with pytest.raises(RuntimeError, match="intentional facet energy failure"):
         failed.solve(until=2.0 / 3.0)
     assert failed.accepted_load_factor == pytest.approx(1.0 / 3.0)

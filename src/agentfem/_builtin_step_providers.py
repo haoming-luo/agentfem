@@ -500,8 +500,7 @@ def _accept_finite_strain_j2_strong(model, request: StepRequest) -> bool:
         and (
             item.friction is None
             or (
-                len(boundary_models) == 1
-                and isinstance(item.rigid_body.surface, RigidPlaneSurface)
+                isinstance(item.rigid_body.surface, RigidPlaneSurface)
                 and item.rigid_body.motion_schedule is None
             )
         )
@@ -539,10 +538,18 @@ def _finite_strain_j2_strong_rejection_reason(model, request: StepRequest) -> st
                 "AFM-IMPLICIT-CONTACT-MULTI: rigid contact pair names must be "
                 "unique for independent force, work and checkpoint identity."
             )
-        if any(item.friction is not None for item in boundary_models):
+        if any(
+            item.friction is not None
+            and (
+                not isinstance(item.rigid_body.surface, RigidPlaneSurface)
+                or item.rigid_body.motion_schedule is not None
+            )
+            for item in boundary_models
+        ):
             return (
-                "AFM-IMPLICIT-CONTACT-FRICTION: multi-tool implicit friction "
-                "has no reviewed accepted stick-slip state and tangent."
+                "AFM-IMPLICIT-CONTACT-FRICTION: each frictional rigid pair "
+                "must be one fixed analytical plane; curved or moving "
+                "frictional pairs lack a reviewed implicit tangent."
             )
         if any(
             item.law.invalid_policy != "reject" for item in boundary_models
@@ -583,7 +590,7 @@ def _finite_strain_j2_strong_rejection_reason(model, request: StepRequest) -> st
         ):
             return (
                 "AFM-IMPLICIT-CONTACT-FRICTION: implicit Coulomb contact is "
-                "limited to one fixed analytical plane in a serial strong-BC "
+                "limited to fixed analytical planes in a serial strong-BC "
                 "finite-strain J2 Step; moving and curved frictional tools "
                 "need separate tangent and state validation."
             )
@@ -1555,7 +1562,7 @@ register_step_provider(
             "Lower logarithmic finite-strain J2 to provider-owned quadrature "
             "state and strong-boundary Newton equilibrium, optionally with "
             "serial rigid-tool penalty contact: multiple frictionless pairs "
-            "or one fixed-plane Coulomb pair within its reviewed bounds."
+            "and fixed-plane Coulomb pairs within their reviewed bounds."
         ),
         procedure="standard/newton/stateful",
         option_contract=_option_contract(

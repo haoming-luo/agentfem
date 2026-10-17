@@ -88,6 +88,9 @@ def test_fixed_plane_friction_accept_restore_and_corrupt_state_rejection():
     assert accepted != initial
     assert json.loads(json.dumps(accepted)) == accepted
     assert operator.friction_state.accepted is not None
+    runtime = operator.snapshot_runtime_state()
+    assert runtime[0] is operator.friction_state.accepted
+    assert runtime[1] is operator.friction_kinematics.accepted
     assert operator.evaluate().friction_assembly.dissipation_increment == pytest.approx(0.0)
     displacement.x.array.reshape(-1, 3)[:, 1] += 0.04
     assert operator.evaluate().friction_assembly.dissipation_increment > 0.0
@@ -100,7 +103,9 @@ def test_fixed_plane_friction_accept_restore_and_corrupt_state_rejection():
     assert operator.snapshot_accepted_state() == accepted
 
 
-def _frictional_j2_step(*, tangential_load: float, linear_solver=None):
+def _frictional_j2_step(
+    *, tangential_load: float, linear_solver=None, pair_count: int = 1,
+):
     domain = mesh.create_unit_cube(MPI.COMM_SELF, 1, 1, 1)
     model = models.create(study=studies.static_solid(dimension=3, nonlinear=True), mesh=domain)
     displacement = model.field(fields.displacement(domain))
@@ -110,15 +115,22 @@ def _frictional_j2_step(*, tangential_load: float, linear_solver=None):
     material = model.material(constitutive.finite_strain_j2_logarithmic(
         young=1000.0, poisson=0.0, yield_stress=1.0e9, hardening_modulus=100.0,
     ))
-    pair = boundary_models.rigid_contact_pair(
-        left,
-        boundary_models.rigid_body(boundary_models.rigid_plane(
-            point=(0.05, 0.0, 0.0), normal=(-1.0, 0.0, 0.0),
-        )),
-        penalty=500.0, friction_coefficient=0.4, tangential_penalty=100.0,
-        name="fixed_frictional_plane",
-    )
-    model.add_boundary_model(pair)
+    if pair_count not in {1, 2}:
+        raise ValueError("This fixture tests one or two additive rigid pairs.")
+    for index in range(pair_count):
+        pair = boundary_models.rigid_contact_pair(
+            left,
+            boundary_models.rigid_body(boundary_models.rigid_plane(
+                point=(0.05, 0.0, 0.0), normal=(-1.0, 0.0, 0.0),
+            )),
+            penalty=500.0 / pair_count, friction_coefficient=0.4,
+            tangential_penalty=100.0 / pair_count,
+            name=(
+                "fixed_frictional_plane" if pair_count == 1
+                else f"fixed_frictional_plane_{index}"
+            ),
+        )
+        model.add_boundary_model(pair)
     model.traction((100.0, tangential_load, 0.0), on=left)
     step = model.step(
         target=displacement, material=material, incrementation=steps.fixed(2),
@@ -228,6 +240,68 @@ def test_public_fixed_plane_j2_friction_accepts_and_restarts(tmp_path, tangentia
     assert result.metadata["mechanical_energy_ledger"]["friction_separation_release"] == (
         "reported_numerical_loss_not_coulomb_dissipation"
     )
+
+
+def test_two_named_frictional_pairs_sum_and_restart_atomically(tmp_path, monkeypatch):
+    single = _frictional_j2_step(tangential_load=100.0)
+    single.solve()
+    double = _frictional_j2_step(tangential_load=100.0, pair_count=2)
+    result = double.solve_result()
+    assert result.status == "completed"
+    np.testing.assert_allclose(
+        double.solution.x.array, single.solution.x.array,
+        rtol=1e-8, atol=1e-9,
+    )
+    assert double.energy_history[-1].friction_dissipation == pytest.approx(
+        single.energy_history[-1].friction_dissipation, rel=1e-8, abs=1e-9,
+    )
+    names = tuple(item.name for item in double.contact_provider.providers)
+    assert names == ("fixed_frictional_plane_0", "fixed_frictional_plane_1")
+    assert tuple(
+        item["constraint_name"] for item in result.metadata["constraint_duals"]
+    ) == names
+    accepted = double.contact_provider.snapshot_accepted_state()
+    assert set(accepted["pairs"]) == set(names)
+    assert all(accepted["pairs"][name] is not None for name in names)
+
+    partial = _frictional_j2_step(tangential_load=100.0, pair_count=2)
+    partial.solve(until=0.5)
+    saved = partial.save_checkpoint(tmp_path / "two_frictional_pairs.npz")
+    accepted_half = partial.contact_provider.snapshot_accepted_state()
+    second = partial.contact_provider.providers[1]
+    commit_second = second.commit_accepted
+
+    def reject_after_second_commit():
+        commit_second()
+        raise RuntimeError("injected second-pair commit failure")
+
+    monkeypatch.setattr(second, "commit_accepted", reject_after_second_commit)
+    with pytest.raises(RuntimeError, match="second-pair commit failure"):
+        partial.solve()
+    assert partial.accepted_load_factor == pytest.approx(0.5)
+    assert partial.contact_provider.snapshot_accepted_state() == accepted_half
+
+    resumed = _frictional_j2_step(tangential_load=100.0, pair_count=2)
+    resumed.load_checkpoint(saved)
+    resumed.solve()
+    np.testing.assert_allclose(
+        resumed.solution.x.array, double.solution.x.array,
+        rtol=1e-8, atol=1e-9,
+    )
+    assert resumed.contact_provider.snapshot_accepted_state() == accepted
+    with np.load(saved, allow_pickle=False) as archive:
+        damaged = {name: archive[name].copy() for name in archive.files}
+    state = json.loads(str(damaged["contact_state"]))
+    state["pairs"].pop(names[1])
+    damaged["contact_state"] = json.dumps(state)
+    corrupt = tmp_path / "missing_frictional_pair.npz"
+    np.savez_compressed(corrupt, **damaged)
+    rejected = _frictional_j2_step(tangential_load=100.0, pair_count=2)
+    initial_state = rejected.contact_provider.snapshot_accepted_state()
+    with pytest.raises(ValueError, match="pair friction State identity"):
+        rejected.load_checkpoint(corrupt)
+    assert rejected.accepted_load_factor == 0.0
+    assert rejected.contact_provider.snapshot_accepted_state() == initial_state
 
 
 def test_public_friction_failure_rolls_back_joint_state(monkeypatch):

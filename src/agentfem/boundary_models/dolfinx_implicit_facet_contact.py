@@ -147,6 +147,37 @@ class DolfinxImplicitRigidContact:
     def dual_evidences(self, problem):
         return (self.dual_evidence(problem),)
 
+    def snapshot_runtime_state(self):
+        """Retain immutable records for a cheap in-memory rollback boundary."""
+
+        if self.friction_state is None:
+            return None
+        if self.friction_kinematics is None or self.friction_kinematics.accepted is None:
+            raise RuntimeError("Implicit friction has no accepted kinematic state.")
+        if self.friction_state.trial is not None or self.friction_kinematics.trial is not None:
+            raise RuntimeError("Cannot snapshot a provisional friction trial.")
+        return (self.friction_state.accepted, self.friction_kinematics.accepted)
+
+    def restore_runtime_state(self, saved) -> None:
+        """Restore immutable accepted records without building JSON lists."""
+
+        if self.friction_state is None:
+            if saved is not None:
+                raise ValueError("Frictionless rigid pair has no runtime State.")
+            return
+        if (
+            not isinstance(saved, tuple) or len(saved) != 2
+            or (saved[0] is not None and not isinstance(saved[0], TangentialContactRecord))
+            or not isinstance(saved[1], TangentialKinematicRecord)
+            or not np.array_equal(saved[1].point_ids, self.adapter.trace.point_ids)
+            or (saved[0] is not None and not np.array_equal(
+                saved[0].point_ids, saved[1].point_ids,
+            ))
+        ):
+            raise ValueError("Implicit friction runtime State identity differs.")
+        self.friction_state = TangentialContactState(accepted=saved[0])
+        self.friction_kinematics = TangentialKinematicState(accepted=saved[1])
+
     def snapshot_accepted_state(self) -> dict[str, object] | None:
         """Return JSON-safe friction State at an accepted increment boundary."""
 
@@ -526,9 +557,9 @@ class DolfinxImplicitRigidContact:
 class DolfinxImplicitRigidContacts:
     """Serial additive Operator with separate identity and motion per rigid pair.
 
-    No pair state is accepted here: the owning J2 Procedure commits or rolls
-    back the complete increment, and each pose remains a pure load-factor
-    function. Friction and distributed assembly are intentionally excluded.
+    The owning J2 Procedure commits or rolls back the complete increment.
+    Each pair keeps its own point-keyed tangential State and prescribed pose.
+    Distributed assembly is intentionally excluded.
     """
 
     providers: tuple[DolfinxImplicitRigidContact, ...]
@@ -567,6 +598,76 @@ class DolfinxImplicitRigidContacts:
         for item, (_, factor) in zip(self.providers, records, strict=True):
             item.restore_motion(factor)
 
+    def snapshot_runtime_state(self):
+        """Keep each pair's immutable accepted records without JSON copying."""
+
+        return tuple(
+            (item.name, item.snapshot_runtime_state()) for item in self.providers
+        )
+
+    def restore_runtime_state(self, saved) -> None:
+        records = tuple(saved)
+        if tuple(name for name, _ in records) != tuple(
+            item.name for item in self.providers
+        ):
+            raise ValueError("Implicit rigid-pair runtime identities differ.")
+        previous = self.snapshot_runtime_state()
+        try:
+            for item, (_, state) in zip(self.providers, records, strict=True):
+                item.restore_runtime_state(state)
+        except Exception:
+            for item, (_, original) in zip(self.providers, previous, strict=True):
+                item.restore_runtime_state(original)
+            raise
+
+    def snapshot_accepted_state(self) -> dict[str, object] | None:
+        pairs = {
+            item.name: item.snapshot_accepted_state()
+            for item in self.providers
+        }
+        if not any(value is not None for value in pairs.values()):
+            return None
+        return {
+            "schema": "agentfem.implicit-rigid-pair-states.v1",
+            "pairs": pairs,
+        }
+
+    def restore_accepted_state(self, saved: dict[str, object] | None) -> None:
+        has_friction = any(item.friction_state is not None for item in self.providers)
+        if not has_friction:
+            if saved is not None:
+                raise ValueError("Frictionless rigid pairs cannot restore friction State.")
+            return
+        if (
+            not isinstance(saved, dict)
+            or set(saved) != {"schema", "pairs"}
+            or saved["schema"] != "agentfem.implicit-rigid-pair-states.v1"
+            or not isinstance(saved["pairs"], dict)
+            or set(saved["pairs"]) != {item.name for item in self.providers}
+        ):
+            raise ValueError("Implicit rigid-pair friction State identity differs.")
+        previous = tuple(item.snapshot_accepted_state() for item in self.providers)
+        try:
+            for item in self.providers:
+                item.restore_accepted_state(saved["pairs"][item.name])
+        except Exception:
+            for item, original in zip(self.providers, previous, strict=True):
+                item.restore_accepted_state(original)
+            raise
+
+    def commit_accepted(self) -> None:
+        previous = self.snapshot_runtime_state()
+        try:
+            for item in self.providers:
+                item.commit_accepted()
+        except Exception:
+            self.restore_runtime_state(previous)
+            raise
+
+    def validate_accepted_configuration(self) -> None:
+        for item in self.providers:
+            item.validate_accepted_configuration()
+
     def evaluate(self) -> CombinedImplicitRigidContactContribution:
         return CombinedImplicitRigidContactContribution(tuple(
             (item.name, item.evaluate()) for item in self.providers
@@ -593,7 +694,11 @@ class DolfinxImplicitRigidContacts:
         return {
             "kind": "dolfinx_implicit_rigid_contacts",
             "pairs": tuple(item.summary() for item in self.providers),
-            "execution_scope": "serial_frictionless_additive_reference_area",
+            "execution_scope": (
+                "serial_additive_with_fixed_plane_coulomb_reference_area"
+                if any(item.friction_state is not None for item in self.providers)
+                else "serial_frictionless_additive_reference_area"
+            ),
         }
 
 

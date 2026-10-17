@@ -1191,6 +1191,17 @@ class FiniteStrainJ2StandardProblem:
             return ()
         return tuple(getattr(self.contact_provider, "providers", (self.contact_provider,)))
 
+    def _snapshot_contact_runtime(self):
+        provider = self.contact_provider
+        if provider is None or not hasattr(provider, "snapshot_runtime_state"):
+            return None
+        return provider.snapshot_runtime_state()
+
+    def _restore_contact_runtime(self, saved) -> None:
+        provider = self.contact_provider
+        if provider is not None and hasattr(provider, "restore_runtime_state"):
+            provider.restore_runtime_state(saved)
+
     def checkpoint_capabilities(self) -> checkpointing.CheckpointCapabilities:
         return checkpointing.CheckpointCapabilities(
             schemas=(
@@ -1664,15 +1675,31 @@ class FiniteStrainJ2StandardProblem:
         dissipation = self._integrate_quadrature_scalar(
             self.response.state.committed["plastic_dissipation"]
         )
-        contact_potential = self._contact_potential()
+        if self._uses_implicit_rigid_contact():
+            contact_contribution = self.contact_provider.evaluate()
+            contact_potential = contact_contribution.potential_energy
+            contact_parts = (
+                tuple(item for _, item in contact_contribution.pairs)
+                if hasattr(contact_contribution, "pairs")
+                else (contact_contribution,)
+            )
+        else:
+            contact_potential = self._contact_potential()
+            contact_parts = ()
         friction_dissipation = 0.0
         friction_release = 0.0
-        for provider in self._contact_providers():
-            if getattr(provider, "friction_state", None) is None:
-                continue
-            contribution = provider.evaluate()
-            if contribution.friction_assembly is None:
+        for provider, contribution in zip(
+            self._contact_providers() if contact_parts else (),
+            contact_parts,
+            strict=True,
+        ):
+            if (
+                getattr(provider, "friction_state", None) is not None
+                and contribution.friction_assembly is None
+            ):
                 raise RuntimeError("Frictional rigid pair omitted its energy assembly.")
+            if contribution.friction_assembly is None:
+                continue
             friction_dissipation += contribution.friction_assembly.cumulative_dissipation
             friction_release += contribution.friction_assembly.cumulative_separation_release
         amplitude = float(self.amplitude(load_factor))
@@ -1774,11 +1801,7 @@ class FiniteStrainJ2StandardProblem:
             "energy_history_complete": bool(self.energy_history_complete),
             "next_increment_size": self.next_increment_size,
             "loading": self._snapshot_loading_state(),
-            "contact_accepted_state": (
-                None if self.contact_provider is None
-                or not hasattr(self.contact_provider, "snapshot_accepted_state")
-                else self.contact_provider.snapshot_accepted_state()
-            ),
+            "contact_runtime_state": self._snapshot_contact_runtime(),
         }
 
     def _restore_increment_boundary(self, boundary: dict[str, object]) -> None:
@@ -1797,12 +1820,7 @@ class FiniteStrainJ2StandardProblem:
         self.energy_history_complete = bool(boundary["energy_history_complete"])
         self.next_increment_size = boundary["next_increment_size"]
         self._restore_loading_state(boundary["loading"])
-        if self.contact_provider is not None and hasattr(
-            self.contact_provider, "restore_accepted_state"
-        ):
-            self.contact_provider.restore_accepted_state(
-                boundary["contact_accepted_state"]
-            )
+        self._restore_contact_runtime(boundary["contact_runtime_state"])
 
     def _record_failure(
         self,
@@ -1893,12 +1911,7 @@ class FiniteStrainJ2StandardProblem:
         entry_energy_history = list(self.energy_history)
         entry_energy_history_complete = bool(self.energy_history_complete)
         entry_loading = self._snapshot_loading_state()
-        entry_contact_state = (
-            self.contact_provider.snapshot_accepted_state()
-            if self.contact_provider is not None
-            and hasattr(self.contact_provider, "snapshot_accepted_state")
-            else None
-        )
+        entry_contact_state = self._snapshot_contact_runtime()
         try:
             self._apply_loading(accepted)
             if accepted <= 1.0e-12 and not self.accepted_increments:
@@ -1935,10 +1948,7 @@ class FiniteStrainJ2StandardProblem:
             self.energy_history[:] = entry_energy_history
             self.energy_history_complete = entry_energy_history_complete
             self._restore_loading_state(entry_loading)
-            if self.contact_provider is not None and hasattr(
-                self.contact_provider, "restore_accepted_state"
-            ):
-                self.contact_provider.restore_accepted_state(entry_contact_state)
+            self._restore_contact_runtime(entry_contact_state)
             self._record_failure(
                 emit,
                 f"initialization failed: {type(exc).__name__}: {exc}",
@@ -2347,12 +2357,7 @@ class FiniteStrainJ2StandardProblem:
             "snapshots": list(self.snapshots),
             "checkpoints": list(self.checkpoints),
             "loading": self._snapshot_loading_state(),
-            "contact_accepted_state": (
-                self.contact_provider.snapshot_accepted_state()
-                if self.contact_provider is not None
-                and hasattr(self.contact_provider, "snapshot_accepted_state")
-                else None
-            ),
+            "contact_runtime_state": self._snapshot_contact_runtime(),
         }
 
     def _restore_checkpoint_restore_boundary(
@@ -2377,12 +2382,7 @@ class FiniteStrainJ2StandardProblem:
         self.snapshots[:] = boundary["snapshots"]
         self.checkpoints[:] = boundary["checkpoints"]
         self._restore_loading_state(boundary["loading"])
-        if self.contact_provider is not None and hasattr(
-            self.contact_provider, "restore_accepted_state"
-        ):
-            self.contact_provider.restore_accepted_state(
-                boundary["contact_accepted_state"]
-            )
+        self._restore_contact_runtime(boundary["contact_runtime_state"])
 
     def save_checkpoint(self, path, *, portable: bool | None = None) -> Path:
         """Save the accepted global and material state."""
