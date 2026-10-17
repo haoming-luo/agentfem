@@ -995,11 +995,15 @@ class AbaqusPeriodicConstraint:
             path_right = float(coordinates[right_index])
         path_span = path_right - path_left
 
-        residual = fem_petsc.assemble_vector(fem.form(residual_form))
-        residual.ghostUpdate(
-            addv=PETSc.InsertMode.ADD,
-            mode=PETSc.ScatterMode.REVERSE,
-        )
+        full_residual = getattr(problem, "assemble_full_residual", None)
+        if callable(full_residual):
+            residual = full_residual()
+        else:
+            residual = fem_petsc.assemble_vector(fem.form(residual_form))
+            residual.ghostUpdate(
+                addv=PETSc.InsertMode.ADD,
+                mode=PETSc.ScatterMode.REVERSE,
+            )
         try:
             function, displacement_space, parent_map, block_size = (
                 self._displacement_layout()

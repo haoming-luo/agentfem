@@ -361,10 +361,17 @@ projection for each trial and admits only smooth planar facet branches and
 coplanar interior seams. Prescribed motion must use a normalized 0-to-1
 schedule driven by the same
 Step amplitude; the accepted ledger records rigid force, moment and work.
-Active free/non-smooth edges, friction, contact/strong-BC overlap,
-periodic MPC, and MPI remain unsupported in this composition. See
-`examples/finite_j2_faceted_contact.py` and the
-[candidate note](../internal/implicit_facet_contact_candidate_20261016.md).
+Active free/non-smooth edges, friction, contact/strong-BC overlap, and MPI
+remain unsupported in this composition. A separate experimental serial path
+admits one **fixed** sphere, cylinder, or bounded triangular tool with affine
+periodic J2: it adds material and contact in the full space before reducing
+both residual and tangent by the same MPC map. Fixed-tool work is zero, but
+contact still invalidates material-only Hill--Mandel evidence. Moving-tool
+periodic work, curved triangulated edge transitions, and distributed implicit
+assembly are not admitted. See
+`examples/finite_j2_faceted_contact.py`,
+`examples/finite_j2_smooth_contact.py`, and the
+[candidate note](../internal/smooth_implicit_contact_mpc_candidate_20261017.md).
 This bounded route does not turn the general `ContactTrace` into a universal
 implicit contact solver.
 

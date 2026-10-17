@@ -305,13 +305,20 @@ def finite_strain_j2(
         else ()
     )
     if affine:
-        if model.boundary_models:
+        from .boundary_models.implicit_admission import affine_rigid_contact_supported
+
+        if model.boundary_models and (
+            mixed_target or not affine_rigid_contact_supported(model)
+        ):
             raise NotImplementedError(
-                "AFM-J2-CONTACT-MPC: affine finite-strain J2 cannot consume "
-                "registered boundary models until their residual and tangent "
-                "participate in the same full-space assembly and MPC reduction; "
-                "no contact is ignored."
+                "AFM-J2-CONTACT-MPC: affine finite-strain J2 admits only one "
+                "frictionless rigid triangle/sphere/cylinder pair in serial "
+                "displacement form, with fixed or normalized prescribed motion; "
+                "no other Operator is ignored."
             )
+        affine_contact = (
+            None if not model.boundary_models else model.boundary_models[0]
+        )
         physical_loads = load_api.load_assets(
             model.loads,
             unwrap_amplitudes=True,
@@ -347,6 +354,7 @@ def finite_strain_j2(
                 displacement=target,
                 material=properties,
                 constraint=affine[0],
+                contact=affine_contact,
                 incrementation=incrementation,
                 solver_options=solver_options,
                 quadrature_degree=quadrature_degree,
@@ -357,7 +365,9 @@ def finite_strain_j2(
                 checkpoint_policy=checkpoint,
                 name=name,
             )
-        has_external_power = False
+        # Contact traction invalidates the material-only Hill--Mandel identity;
+        # a moving tool also contributes accepted-path coordinate work.
+        has_external_power = affine_contact is not None
     else:
         concrete = constraint_assets
         if not concrete:
@@ -412,8 +422,8 @@ def finite_strain_j2(
                 )
                 raise NotImplementedError(
                     "Standard finite-strain J2 currently consumes at most one "
-                    "frictionless analytical-plane or bounded triangulated "
-                    "rigid-tool contact; "
+                    "frictionless analytical-plane, smooth sphere/cylinder, "
+                    "or bounded triangulated rigid-tool contact; "
                     f"unsupported={names}. Other weak models, discrete "
                     "surfaces and MPC require separate evidence."
                 )

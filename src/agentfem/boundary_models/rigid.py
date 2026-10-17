@@ -299,6 +299,169 @@ class RigidSurface(ABC):
         """Return stable, JSON-compatible geometry semantics."""
 
 
+@dataclass(frozen=True, eq=False)
+class SurfaceGapDifferential:
+    """One current-pose signed-gap projection and its spatial Hessian.
+
+    The projection normal is the gap gradient.  The Hessian must describe that
+    *same* signed gap, not a smoothed normal attached to an unchanged gap.
+    This contract applies only where the closest point and normal are unique.
+    """
+
+    projection: SurfaceProjection
+    hessian: object
+
+    def __post_init__(self) -> None:
+        projection = self.projection
+        if (
+            not isinstance(projection, SurfaceProjection)
+            or projection.point_count == 0
+            or not projection.all_valid
+        ):
+            raise ValueError("Gap differential requires valid projection evidence.")
+        if projection.geometry_fingerprint is None:
+            raise ValueError("Gap differential requires a geometry fingerprint.")
+        dimension = projection.dimension
+        shape = (projection.point_count, dimension, dimension)
+        hessian = np.asarray(self.hessian, dtype=float)
+        if hessian.shape != shape or not np.all(np.isfinite(hessian)):
+            raise ValueError(f"Gap Hessian must be finite with shape {shape}.")
+        nearest_offset = projection.query_points - projection.closest_points
+        signed_offset = projection.signed_gaps[:, None] * projection.normals
+        coordinate_roundoff = 64 * np.finfo(float).eps * np.maximum(
+            1.0,
+            np.maximum(
+                np.linalg.norm(projection.query_points, axis=1),
+                np.linalg.norm(projection.closest_points, axis=1),
+            ),
+        )
+        gap_tolerance = 1e-10 * np.maximum(1.0, np.abs(projection.signed_gaps))
+        if np.any(
+            np.linalg.norm(nearest_offset - signed_offset, axis=1)
+            > coordinate_roundoff + gap_tolerance
+        ):
+            raise ValueError("Smooth signed gap must agree with its closest point and normal.")
+        if not np.allclose(hessian, hessian.swapaxes(1, 2), rtol=1e-11, atol=1e-11):
+            raise ValueError("Gap Hessian must be symmetric.")
+        normal_action = np.einsum("nij,nj->ni", hessian, projection.normals)
+        scale = np.maximum(1.0, np.linalg.norm(hessian, axis=(1, 2)))
+        if np.any(np.linalg.norm(normal_action, axis=1) > 1e-10 * scale):
+            raise ValueError("Signed-distance Hessian must annihilate its normal.")
+        object.__setattr__(self, "hessian", _readonly_array(hessian))
+
+
+class SmoothRigidSurface(RigidSurface):
+    """Rigid surface with a unique, twice-differentiable signed gap.
+
+    Subclasses own geometry only.  Contact penalty, search scheduling, Newton
+    and accepted state remain with their existing owners.  A trimmed boundary,
+    singular projection or sharp feature must be rejected, not differentiated.
+    """
+
+    @property
+    @abstractmethod
+    def geometry_fingerprint(self) -> str:
+        """Return the immutable geometry identity used by projection evidence."""
+
+    @abstractmethod
+    def gap_differential(
+        self,
+        projection: SurfaceProjection,
+        *,
+        motion: PrescribedRigidMotion | None = None,
+        factor: float = 0.0,
+    ) -> SurfaceGapDifferential:
+        """Return the signed-gap Hessian at the projection's current pose."""
+
+    def _checked_projection(self, projection: SurfaceProjection) -> None:
+        if (
+            not isinstance(projection, SurfaceProjection)
+            or projection.geometry_fingerprint != self.geometry_fingerprint
+            or projection.dimension != self.dimension
+            or not projection.all_valid
+        ):
+            raise ValueError("Gap differential requires valid matching surface projection.")
+
+
+@dataclass(frozen=True)
+class SurfaceGapDifferentialCheck:
+    """Independent central-difference evidence at selected smooth points."""
+
+    maximum_gradient_error: float
+    maximum_hessian_error: float
+    relative_step: float
+    tolerance: float
+    accepted: bool
+
+    def summary(self) -> dict[str, object]:
+        return {
+            "kind": "surface_gap_differential_check",
+            "method": "central_difference_fixed_rigid_pose",
+            "maximum_gradient_error": self.maximum_gradient_error,
+            "maximum_hessian_error": self.maximum_hessian_error,
+            "relative_step": self.relative_step,
+            "tolerance": self.tolerance,
+            "accepted": self.accepted,
+        }
+
+
+def check_surface_gap_differential(
+    surface: SmoothRigidSurface,
+    points,
+    *,
+    motion: PrescribedRigidMotion | None = None,
+    factor: float = 0.0,
+    relative_step: float = 1e-6,
+    tolerance: float = 1e-5,
+) -> SurfaceGapDifferentialCheck:
+    """Check a smooth provider before use, away from branches and trims.
+
+    This is an opt-in diagnostic, not a Newton hot-path check or a proof that
+    every point on an arbitrary surface has a unique closest projection.
+    """
+
+    if not isinstance(surface, SmoothRigidSurface):
+        raise TypeError("Gap differential check requires SmoothRigidSurface.")
+    step = float(relative_step)
+    selected_tolerance = float(tolerance)
+    if not np.isfinite(step) or step <= 0.0:
+        raise ValueError("relative_step must be finite and positive.")
+    if not np.isfinite(selected_tolerance) or selected_tolerance <= 0.0:
+        raise ValueError("tolerance must be finite and positive.")
+    projection = surface.project(points, motion=motion, factor=factor)
+    differential = surface.gap_differential(projection, motion=motion, factor=factor)
+    if not isinstance(differential, SurfaceGapDifferential):
+        raise TypeError("Smooth geometry must return SurfaceGapDifferential.")
+    if differential.projection is not projection:
+        raise ValueError("Gap differential must bind the current projection instance.")
+    gradient_error = 0.0
+    hessian_error = 0.0
+    for component in range(projection.dimension):
+        increment = step * np.maximum(1.0, np.abs(projection.query_points[:, component]))
+        delta = np.zeros_like(projection.query_points)
+        delta[:, component] = increment
+        plus = surface.project(projection.query_points + delta, motion=motion, factor=factor)
+        minus = surface.project(projection.query_points - delta, motion=motion, factor=factor)
+        if not (plus.all_valid and minus.all_valid):
+            raise ValueError("Gap differential check crossed an invalid projection branch.")
+        numerical_gradient = (plus.signed_gaps - minus.signed_gaps) / (2 * increment)
+        numerical_hessian = (plus.normals - minus.normals) / (2 * increment[:, None])
+        gradient_error = max(
+            gradient_error,
+            float(np.max(np.abs(numerical_gradient - projection.normals[:, component]), initial=0.0)),
+        )
+        hessian_error = max(
+            hessian_error,
+            float(np.max(np.abs(numerical_hessian - differential.hessian[:, :, component]), initial=0.0)),
+        )
+    hessian_scale = max(1.0, float(np.max(np.abs(differential.hessian), initial=0.0)))
+    return SurfaceGapDifferentialCheck(
+        gradient_error, hessian_error, step, selected_tolerance,
+        gradient_error <= selected_tolerance
+        and hessian_error <= selected_tolerance * hessian_scale,
+    )
+
+
 @dataclass(frozen=True)
 class PrescribedRigidMotion:
     """Normalized prescribed rigid-body translation and rotation.
@@ -421,7 +584,7 @@ class PrescribedRigidMotion:
 
 
 @dataclass(frozen=True)
-class RigidPlaneSurface(RigidSurface):
+class RigidPlaneSurface(SmoothRigidSurface):
     """Analytical rigid plane with one explicit point and unit normal."""
 
     point: object
@@ -547,6 +710,29 @@ class RigidPlaneSurface(RigidSurface):
             "entity_identity": "not_applicable",
         }
 
+    def gap_differential(
+        self,
+        projection: SurfaceProjection,
+        *,
+        motion: PrescribedRigidMotion | None = None,
+        factor: float = 0.0,
+    ) -> SurfaceGapDifferential:
+        self._checked_projection(projection)
+        # Also validate the pose even though a plane has zero curvature.
+        current = self.transformed(motion, factor)
+        normal = np.asarray(current["normal"])
+        expected_gaps = (projection.query_points - current["point"]) @ normal
+        if not (
+            np.allclose(projection.normals, normal, rtol=0.0, atol=1e-12)
+            and np.allclose(
+                projection.signed_gaps, expected_gaps, rtol=1e-12, atol=1e-12
+            )
+        ):
+            raise ValueError("Gap projection and current rigid-plane pose differ.")
+        return SurfaceGapDifferential(
+            projection, np.zeros((projection.point_count, self.dimension, self.dimension))
+        )
+
 
 def _admissible_side(value: str) -> str:
     selected = str(value).strip().lower()
@@ -599,8 +785,45 @@ def _transformed_point_and_direction(
     return transformed_point, transformed_direction
 
 
+def _radial_gap_differential(
+    surface: SmoothRigidSurface,
+    projection: SurfaceProjection,
+    *,
+    center_or_axis_point: np.ndarray,
+    axis: np.ndarray | None,
+    radius: float,
+    admissible_side: str,
+) -> SurfaceGapDifferential:
+    """Exact signed-distance Hessian on a unique sphere/cylinder branch."""
+
+    surface._checked_projection(projection)
+    offsets = projection.query_points - center_or_axis_point[None, :]
+    if axis is not None:
+        offsets = offsets - (offsets @ axis)[:, None] * axis[None, :]
+    distances = np.linalg.norm(offsets, axis=1)
+    if np.any(distances <= 64 * np.finfo(float).eps * max(1.0, radius)):
+        raise ValueError("Gap Hessian is undefined at the surface axis/center.")
+    side = 1.0 if admissible_side == "exterior" else -1.0
+    radial = offsets / distances[:, None]
+    expected_gap = side * (distances - radius)
+    scale = max(1.0, radius, float(np.max(distances, initial=0.0)))
+    if not (
+        np.allclose(projection.signed_gaps, expected_gap, rtol=1e-12, atol=1e-12 * scale)
+        and np.allclose(projection.normals, side * radial, rtol=1e-12, atol=1e-12)
+    ):
+        raise ValueError("Gap projection and current rigid-surface pose differ.")
+    projector = np.eye(surface.dimension)
+    if axis is not None:
+        projector -= np.outer(axis, axis)
+    hessian = (
+        side / distances[:, None, None]
+        * (projector[None, :, :] - radial[:, :, None] * radial[:, None, :])
+    )
+    return SurfaceGapDifferential(projection, hessian)
+
+
 @dataclass(frozen=True)
-class RigidSphereSurface(RigidSurface):
+class RigidSphereSurface(SmoothRigidSurface):
     """Analytical circle or sphere with an explicit admissible side.
 
     A two-dimensional center defines a circle and a three-dimensional center
@@ -709,9 +932,24 @@ class RigidSphereSurface(RigidSurface):
             "entity_identity": "not_applicable",
         }
 
+    def gap_differential(
+        self,
+        projection: SurfaceProjection,
+        *,
+        motion: PrescribedRigidMotion | None = None,
+        factor: float = 0.0,
+    ) -> SurfaceGapDifferential:
+        center, _ = _transformed_point_and_direction(
+            np.asarray(self.center), None, motion=motion, factor=factor,
+        )
+        return _radial_gap_differential(
+            self, projection, center_or_axis_point=center, axis=None,
+            radius=self.radius, admissible_side=self.admissible_side,
+        )
+
 
 @dataclass(frozen=True)
-class RigidCylinderSurface(RigidSurface):
+class RigidCylinderSurface(SmoothRigidSurface):
     """Analytical circular cylinder, optionally restricted to a lateral interval.
 
     ``axial_interval`` is measured from the supplied axis point along the
@@ -900,6 +1138,24 @@ class RigidCylinderSurface(RigidSurface):
             "signed_gap_convention": "positive_admissible_negative_penetration",
             "entity_identity": "not_applicable",
         }
+
+    def gap_differential(
+        self,
+        projection: SurfaceProjection,
+        *,
+        motion: PrescribedRigidMotion | None = None,
+        factor: float = 0.0,
+    ) -> SurfaceGapDifferential:
+        point, axis = _transformed_point_and_direction(
+            np.asarray(self.axis_point), np.asarray(self.axis_direction),
+            motion=motion, factor=factor,
+        )
+        if axis is None:  # pragma: no cover - internal transformation guard
+            raise RuntimeError("Cylinder transformation lost its axis direction.")
+        return _radial_gap_differential(
+            self, projection, center_or_axis_point=point, axis=axis,
+            radius=self.radius, admissible_side=self.admissible_side,
+        )
 
 
 def _closest_point_on_triangle(
@@ -1573,6 +1829,10 @@ __all__ = [
     "RigidPlaneSurface",
     "RigidSphereSurface",
     "RigidSurface",
+    "SmoothRigidSurface",
+    "SurfaceGapDifferential",
+    "SurfaceGapDifferentialCheck",
+    "check_surface_gap_differential",
     "SurfaceProjection",
     "TriangulatedRigidSurface",
     "prescribed_rigid_motion",

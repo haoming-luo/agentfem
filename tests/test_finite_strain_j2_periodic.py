@@ -68,6 +68,340 @@ def test_periodic_j2_rejects_registered_contact_in_capability_and_step():
         model.step(target=displacement, material=material, constraints=periodicity)
 
 
+def _periodic_j2_contact_step(*, surface=None, motion=None):
+    fixture = periodic_unit_cube(MPI.COMM_SELF)
+    model = models.create(
+        study=studies.nonlinear_static(physics="solid_mechanics", dimension=3),
+        mesh=fixture.domain,
+    )
+    displacement = model.field(fields.displacement(fixture.domain))
+    material = model.material(constitutive.finite_strain_j2_logarithmic(
+        young=200_000.0, poisson=0.3, yield_stress=200.0,
+        hardening_modulus=2_000.0,
+    ))
+    periodicity = model.constraint(fixture.constraint(displacement))
+    right = mesh.boundary(
+        fixture.domain, lambda x: np.isclose(x[0], 1.0),
+        name="periodic_contact_right",
+    )
+    if surface is None:
+        surface = boundary_models.rigid_sphere(
+            center=(1.6, 0.5, 0.5), radius=0.75,
+        )
+    pair = boundary_models.rigid_contact_pair(
+        right,
+        boundary_models.rigid_body(
+            surface,
+            reference_point=(1.6, 0.5, 0.5),
+            motion_schedule=(
+                None if motion is None else
+                boundary_models.prescribed_rigid_motion_schedule(
+                    motion, start_time=0.0, end_time=1.0,
+                )
+            ),
+        ),
+        penalty=5_000.0,
+    )
+    model.add_boundary_model(pair)
+    capability = step_capability(
+        model, target=displacement,
+        options={"material": material, "constraints": periodicity},
+    )
+    assert capability["supported"]
+    step = model.step(
+        target=displacement, material=material, constraints=periodicity,
+        incrementation=steps.fixed(3), progress=False,
+        solver_options=solvers.newton(
+            relative_tolerance=1e-8, absolute_tolerance=1e-9,
+            maximum_iterations=25, line_search="backtracking",
+        ),
+    )
+    return fixture, periodicity, step
+
+
+def test_periodic_j2_fixed_sphere_uses_total_residual_and_mpc_reduction():
+    from dolfinx import fem
+    import dolfinx.fem.petsc as fem_petsc
+    from petsc4py import PETSc
+
+    fixture, periodicity, step = _periodic_j2_contact_step()
+    assert len(step.full_space_operators) == 1
+    result = step.solve_result()
+    assert result.status == "completed"
+    assert result.metadata["constraint_balance_contract"]["work_balance_available"]
+    assert len(result.metadata["constraint_duals"]) == 2
+    assert result.quantity("contact_potential") > 0.0
+    contribution = step.contact_provider.evaluate()
+    assert contribution.active_points > 0
+    material_residual = fem_petsc.assemble_vector(fem.form(step.residual_form))
+    material_residual.ghostUpdate(
+        addv=PETSc.InsertMode.ADD,
+        mode=PETSc.ScatterMode.REVERSE,
+    )
+    total_residual = step.assemble_full_residual()
+    try:
+        np.testing.assert_allclose(
+            total_residual.array - material_residual.array,
+            contribution.assembly.nodal_structural_residual.reshape(-1),
+            rtol=1e-12, atol=1e-10,
+        )
+        transformation = periodicity.reduction(1.0).matrix(fixture.domain.comm)
+        projected = transformation.createVecRight()
+        try:
+            transformation.multTranspose(total_residual, projected)
+            assert projected.norm() < 1e-5
+        finally:
+            projected.destroy()
+            transformation.destroy()
+    finally:
+        material_residual.destroy()
+        total_residual.destroy()
+
+
+def test_periodic_j2_smooth_plane_uses_the_same_contact_operator():
+    surface = boundary_models.rigid_plane(
+        point=(0.95, 0.0, 0.0), normal=(-1.0, 0.0, 0.0),
+    )
+    _, _, step = _periodic_j2_contact_step(surface=surface)
+    result = step.solve_result()
+    assert result.status == "completed"
+    assert step.contact_provider.evaluate().active_points > 0
+    assert result.quantity("contact_potential") > 0.0
+
+
+def test_periodic_j2_fixed_contact_checkpoint_matches_continuous_run(tmp_path):
+    _, _, reference = _periodic_j2_contact_step()
+    reference.solve()
+
+    _, _, partial = _periodic_j2_contact_step()
+    partial.solve(until=1 / 3)
+    checkpoint = partial.save_checkpoint(tmp_path / "periodic_contact_restart")
+
+    _, _, resumed = _periodic_j2_contact_step()
+    resumed.load_checkpoint(checkpoint)
+    resumed.solve()
+    np.testing.assert_allclose(
+        resumed.solution.x.array, reference.solution.x.array,
+        rtol=2e-8, atol=2e-10,
+    )
+    np.testing.assert_allclose(
+        resumed.response.state.committed_state_vectors(),
+        reference.response.state.committed_state_vectors(),
+        rtol=2e-8, atol=2e-10,
+    )
+    assert resumed.constraint_dual_history == reference.constraint_dual_history
+    assert resumed.checkpoint_capabilities().rank_count_portability == "unsupported"
+
+
+def test_periodic_j2_contact_checkpoint_rejects_changed_tool(tmp_path):
+    _, _, partial = _periodic_j2_contact_step()
+    partial.solve(until=1 / 3)
+    checkpoint = partial.save_checkpoint(tmp_path / "contact_tool_identity")
+    changed_surface = boundary_models.rigid_sphere(
+        center=(1.6, 0.5, 0.5), radius=0.7,
+    )
+    _, _, changed = _periodic_j2_contact_step(surface=changed_surface)
+    with pytest.raises(ValueError, match="identity"):
+        changed.load_checkpoint(checkpoint)
+    assert changed.accepted_load_factor == 0.0
+
+
+def test_periodic_j2_contact_projection_failure_restores_accepted_state(monkeypatch):
+    _, _, step = _periodic_j2_contact_step()
+    step.solve(until=1 / 3)
+    accepted_u = step.solution.x.array.copy()
+    accepted_material = step.response.state.committed_state_vectors().copy()
+    accepted_duals = step.constraint_dual_history.snapshot_runtime_state()
+
+    def fail_projection():
+        raise ValueError("injected invalid current projection")
+
+    monkeypatch.setattr(step.contact_provider, "evaluate", fail_projection)
+    with pytest.raises(ValueError, match="invalid current projection"):
+        step.solve(until=2 / 3)
+    assert step.accepted_load_factor == pytest.approx(1 / 3)
+    np.testing.assert_allclose(step.solution.x.array, accepted_u)
+    np.testing.assert_allclose(
+        step.response.state.committed_state_vectors(), accepted_material,
+    )
+    assert step.constraint_dual_history.snapshot_runtime_state() == accepted_duals
+    monkeypatch.undo()
+    step.solve(until=2 / 3)
+    assert step.accepted_load_factor == pytest.approx(2 / 3)
+
+
+def test_periodic_j2_contact_tangent_failure_restores_accepted_state(monkeypatch):
+    _, _, step = _periodic_j2_contact_step()
+    step.solve(until=1 / 3)
+    accepted_u = step.solution.x.array.copy()
+    accepted_material = step.response.state.committed_state_vectors().copy()
+
+    def fail_tangent(_matrix, _contribution):
+        raise ValueError("injected contact tangent failure")
+
+    monkeypatch.setattr(step.contact_provider, "add_tangent", fail_tangent)
+    with pytest.raises(ValueError, match="contact tangent failure"):
+        step.solve(until=2 / 3)
+    assert step.accepted_load_factor == pytest.approx(1 / 3)
+    np.testing.assert_allclose(step.solution.x.array, accepted_u)
+    np.testing.assert_allclose(
+        step.response.state.committed_state_vectors(), accepted_material,
+    )
+    monkeypatch.undo()
+    step.solve(until=2 / 3)
+    assert step.accepted_load_factor == pytest.approx(2 / 3)
+
+
+def test_periodic_j2_contact_tangent_matches_reduced_directional_difference():
+    fixture, periodicity, step = _periodic_j2_contact_step()
+    transformation = periodicity.reduction(1.0).matrix(fixture.domain.comm)
+    direction = transformation.createVecRight()
+    full_direction = transformation.createVecLeft()
+    projected = transformation.createVecRight()
+    full_residual = transformation.createVecLeft()
+    reference = step.solution.x.array.copy()
+    try:
+        direction.array[:] = np.linspace(0.1, 0.3, direction.array.size)
+        transformation.mult(direction, full_direction)
+        tangent = step.contact_provider.evaluate()
+        tangent_action = tangent.tangent_action(
+            full_direction.array.reshape(-1, 3),
+        ).reshape(-1)
+        full_residual.array[:] = tangent_action
+        transformation.multTranspose(full_residual, projected)
+        expected = projected.array.copy()
+        scale = 1e-6
+        samples = []
+        for sign in (1.0, -1.0):
+            step.solution.x.array[:] = reference + sign * scale * full_direction.array
+            step.solution.x.scatter_forward()
+            full_residual.array[:] = (
+                step.contact_provider.evaluate()
+                .assembly.nodal_structural_residual.reshape(-1)
+            )
+            transformation.multTranspose(full_residual, projected)
+            samples.append(projected.array.copy())
+        np.testing.assert_allclose(
+            (samples[0] - samples[1]) / (2 * scale), expected,
+            rtol=1e-7, atol=1e-7,
+        )
+    finally:
+        step.solution.x.array[:] = reference
+        step.solution.x.scatter_forward()
+        full_residual.destroy()
+        projected.destroy()
+        full_direction.destroy()
+        direction.destroy()
+        transformation.destroy()
+
+
+def test_periodic_j2_fixed_triangle_uses_the_same_full_space_operator():
+    surface = boundary_models.triangulated_rigid_surface(
+        vertices=(
+            (0.95, -1.0, -1.0), (0.95, -1.0, 2.0),
+            (0.95, 2.0, 2.0), (0.95, 2.0, -1.0),
+        ),
+        triangles=((0, 1, 2), (0, 2, 3)),
+    )
+    _, _, step = _periodic_j2_contact_step(surface=surface)
+    step.solve()
+    assert step.contact_provider.evaluate().active_points > 0
+    assert step.last_solve_info.increments[-1].converged
+
+
+def _periodic_tool_motion():
+    return boundary_models.prescribed_rigid_motion(
+        translation=(-0.01, 0.0, 0.0),
+        rotation=(0.0, 0.0, 0.0),
+        reference_point=(1.6, 0.5, 0.5),
+    )
+
+
+def test_periodic_j2_moving_tool_records_accepted_work_and_joint_restart(tmp_path):
+    motion = _periodic_tool_motion()
+    _, _, reference = _periodic_j2_contact_step(motion=motion)
+    result = reference.solve_result()
+    assert result.status == "completed"
+    assert result.metadata["affine_operator_path_work"]["status"] == "complete"
+    assert result.quantity("rigid_contact_pair_path_work") != 0.0
+    assert result.metadata["constraint_balance_contract"]["work_balance_available"]
+    assert reference.operator_dual_history.complete(accepted_factor=1.0)
+    assert reference.contact_provider.motion_factor.value == pytest.approx(1.0)
+
+    _, _, partial = _periodic_j2_contact_step(motion=motion)
+    partial.solve(until=1 / 3)
+    checkpoint = partial.save_checkpoint(tmp_path / "periodic_moving_contact")
+    _, _, resumed = _periodic_j2_contact_step(motion=motion)
+    resumed.load_checkpoint(checkpoint)
+    assert resumed.contact_provider.motion_factor.value == pytest.approx(1 / 3)
+    resumed.solve()
+    np.testing.assert_allclose(
+        resumed.solution.x.array, reference.solution.x.array,
+        rtol=2e-8, atol=2e-10,
+    )
+    assert resumed.operator_dual_history.records == reference.operator_dual_history.records
+
+
+def test_periodic_j2_moving_tool_force_is_potential_conjugate():
+    motion = _periodic_tool_motion()
+    _, _, step = _periodic_j2_contact_step(motion=motion)
+    step.solve()
+    contact = step.contact_provider
+    dual = contact.dual_evidence(step)
+    final_energy = contact.evaluate().assembly.potential_energy
+    increment = 1.0e-6
+    try:
+        contact.update_motion(1.0 - increment)
+        previous_energy = contact.evaluate().assembly.potential_energy
+    finally:
+        contact.update_motion(1.0)
+    path_direction = motion.generalized_coordinate(1.0)
+    assert (final_energy - previous_energy) / increment == pytest.approx(
+        float(np.dot(dual.force, path_direction)), rel=2.0e-4,
+    )
+
+
+def test_periodic_j2_moving_checkpoint_rejects_missing_work_path_atomically(tmp_path):
+    motion = _periodic_tool_motion()
+    _, _, partial = _periodic_j2_contact_step(motion=motion)
+    partial.solve(until=1 / 3)
+    checkpoint = partial.save_checkpoint(tmp_path / "moving_work_path")
+    payload = json.loads(checkpoint.read_text())
+    payload.pop("operator_dual_history")
+    checkpoint.write_text(json.dumps(payload))
+
+    _, _, resumed = _periodic_j2_contact_step(motion=motion)
+    with pytest.raises(ValueError, match="accepted force--coordinate path"):
+        resumed.load_checkpoint(checkpoint)
+    assert resumed.accepted_load_factor == pytest.approx(0.0)
+    assert resumed.contact_provider.motion_factor.value == pytest.approx(0.0)
+    assert not resumed.operator_dual_history.records
+    np.testing.assert_array_equal(resumed.solution.x.array, 0.0)
+
+
+def test_periodic_j2_moving_tool_rolls_back_pose_after_projection_failure(monkeypatch):
+    _, _, step = _periodic_j2_contact_step(motion=_periodic_tool_motion())
+    step.solve(until=1 / 3)
+    accepted = step.solution.x.array.copy()
+    state = step.response.state.committed_state_vectors().copy()
+    duals = step.operator_dual_history.snapshot_runtime_state()
+
+    def fail_projection():
+        raise ValueError("injected moving projection failure")
+
+    monkeypatch.setattr(step.contact_provider, "evaluate", fail_projection)
+    with pytest.raises(ValueError, match="injected moving projection failure"):
+        step.solve(until=2 / 3)
+    assert step.contact_provider.motion_factor.value == pytest.approx(1 / 3)
+    assert step.accepted_load_factor == pytest.approx(1 / 3)
+    np.testing.assert_allclose(step.solution.x.array, accepted)
+    np.testing.assert_allclose(step.response.state.committed_state_vectors(), state)
+    assert step.operator_dual_history.snapshot_runtime_state() == duals
+    monkeypatch.undo()
+    step.solve(until=2 / 3)
+    assert step.contact_provider.motion_factor.value == pytest.approx(2 / 3)
+
+
 def _integrate_material_path(material, deformation_gradient, increments):
     state = material.state_schema.initial_state()
     old_gradient = np.eye(3)

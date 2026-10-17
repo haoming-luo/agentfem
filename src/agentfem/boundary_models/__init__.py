@@ -97,6 +97,9 @@ from .rigid import (
     RigidPlaneSurface,
     RigidSphereSurface,
     RigidSurface,
+    SmoothRigidSurface,
+    SurfaceGapDifferential,
+    SurfaceGapDifferentialCheck,
     SurfaceProjection,
     TriangulatedRigidSurface,
     prescribed_rigid_motion,
@@ -105,6 +108,7 @@ from .rigid import (
     rigid_sphere,
     triangulated_rigid_surface,
     triangulated_rigid_surface_from_mesh,
+    check_surface_gap_differential,
 )
 from .rigid_body import RigidBody, rigid_body
 from .search import (
@@ -166,6 +170,10 @@ __all__ = [
     "RigidPlaneSurface",
     "RigidSphereSurface",
     "RigidSurface",
+    "SmoothRigidSurface",
+    "SurfaceGapDifferential",
+    "SurfaceGapDifferentialCheck",
+    "check_surface_gap_differential",
     "RoutedDistributedTriangleSurfaceBVH",
     "RoutedTriangleSearchDiagnostics",
     "RoutedTriangleSearchOutcome",
