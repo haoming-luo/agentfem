@@ -53,3 +53,26 @@ contact law; averaging adjacent facet normals while keeping the old gap is
 not a variationally consistent substitute. Before promotion, compare a
 curved structural problem against an independent reference and study mesh,
 penalty and increment sensitivity, then run installed-wheel and remote gates.
+
+## Next geometry gate: design, not implemented here
+
+Keep geometric differentiability separate from the penalty law. A future
+`SurfaceGapDifferential` record should bind one current-pose projection to
+`g`, its spatial gradient and Hessian, and a named validity/branch domain;
+the Operator differentiates the same scalar potential used for the force.
+For a genuinely smooth CAD/parametric patch, require a unique closest point
+and verify the differential through patch transitions. For a physically sharp
+closed feature, define its admissible side and feature-specific nonsmooth
+response explicitly, with branch changes handled by a tested semismooth or
+cutback procedure. Open trims and ambiguous projections remain rejected until
+their physical side and edge behavior are declared. Do not silently replace
+the supplied geometry with normal averaging or a hidden fillet.
+
+The first acceptance matrix should include smooth patch interiors and seams,
+noncoplanar edge and vertex crossings, opening/closing, independent energy
+directional differences, Newton residual/tangent differences, resultant force
+and moment, rejected-trial rollback, and mesh/penalty/increment sensitivity.
+Only then should a general imported curved die be admitted. The rationale is
+consistent with the [closest-point solvability analysis](https://www.sciencedirect.com/science/article/pii/S0045782508000649)
+and the [smooth-geometry contact formulation](https://www.sciencedirect.com/science/article/pii/S004578251000277X);
+these references motivate the contract, not certify this implementation.
