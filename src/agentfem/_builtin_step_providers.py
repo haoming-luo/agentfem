@@ -354,6 +354,7 @@ def _accept_finite_strain_j2_affine(model, request: StepRequest) -> bool:
         and isinstance(selected_constraints[0], AbaqusPeriodicConstraint)
         and not physical_loads
         and affine_rigid_contact_supported(model)
+        and _finite_j2_bulk_quadrature_rejection_reason(request) is None
     )
 
 
@@ -416,8 +417,6 @@ def _finite_strain_j2_affine_boundary_rejection(model, request: StepRequest) -> 
     from .constitutive import FiniteStrainJ2Logarithmic
     from .constraints import AbaqusPeriodicConstraint, constraint_assets
 
-    if not getattr(model, "boundary_models", ()) or affine_rigid_contact_supported(model):
-        return None
     selected_constraints = request.option("constraints")
     if selected_constraints is None:
         selected_constraints = tuple(getattr(model, "constraints", ()))
@@ -431,6 +430,11 @@ def _finite_strain_j2_affine_boundary_rejection(model, request: StepRequest) -> 
             lambda item: isinstance(item, FiniteStrainJ2Logarithmic),
         )
     ):
+        return None
+    quadrature_problem = _finite_j2_bulk_quadrature_rejection_reason(request)
+    if quadrature_problem is not None:
+        return quadrature_problem
+    if not getattr(model, "boundary_models", ()) or affine_rigid_contact_supported(model):
         return None
     return (
         "AFM-J2-CONTACT-MPC: affine finite-strain J2 admits serial, "
@@ -499,6 +503,8 @@ def _accept_finite_strain_j2_strong(model, request: StepRequest) -> bool:
     )
 
     if not _finite_strain_j2_strong_preconditions(model, request):
+        return False
+    if _finite_j2_bulk_quadrature_rejection_reason(request) is not None:
         return False
     if _contact_quadrature_rejection_reason(model, request) is not None:
         return False
@@ -573,6 +579,34 @@ def _contact_quadrature_rejection_reason(model, request: StepRequest) -> str | N
     return None
 
 
+def _finite_j2_bulk_quadrature_rejection_reason(request: StepRequest) -> str | None:
+    """Reject a known underintegrated Q2-hex J2 request before Step creation."""
+
+    selected = request.options.get("quadrature_degree")
+    if selected is None:
+        return None  # The builder selects the safe ordinary Q2-hex default.
+    target_value = getattr(request.target, "value", None)
+    function_space = getattr(target_value, "function_space", None)
+    domain = getattr(function_space, "mesh", None)
+    element = getattr(function_space, "element", None)
+    basix_element = getattr(element, "basix_element", None)
+    if (
+        domain is not None
+        and str(domain.topology.cell_name()) == "hexahedron"
+        and basix_element is not None
+        and int(basix_element.degree) == 2
+        and isinstance(selected, (int, np.integer))
+        and not isinstance(selected, (bool, np.bool_))
+        and int(selected) < 4
+    ):
+        return (
+            "AFM-J2-QUADRATURE: CG2 hexahedral finite-strain J2 requires "
+            "bulk quadrature degree >= 4; lower-order integration can leave "
+            "uncontrolled modes."
+        )
+    return None
+
+
 def _finite_strain_j2_strong_rejection_reason(model, request: StepRequest) -> str | None:
     """Explain the bounded contact/MPI near-match without claiming support."""
 
@@ -583,6 +617,9 @@ def _finite_strain_j2_strong_rejection_reason(model, request: StepRequest) -> st
 
     if not _finite_strain_j2_strong_preconditions(model, request):
         return None
+    bulk_quadrature_problem = _finite_j2_bulk_quadrature_rejection_reason(request)
+    if bulk_quadrature_problem is not None:
+        return bulk_quadrature_problem
     quadrature_problem = _contact_quadrature_rejection_reason(model, request)
     if quadrature_problem is not None:
         return quadrature_problem

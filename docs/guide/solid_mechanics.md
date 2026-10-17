@@ -130,6 +130,13 @@ is rejected for tetrahedra, legacy plane contact, and affine-periodic J2; no
 unsupported combination silently falls back. Other weak boundary models and
 formulations need their own reviewed lowering.
 
+Bulk and contact integration are separate choices. For an ordinary CG2
+hexahedral finite-J2 displacement field, `model.step(...)` selects bulk
+`quadrature_degree=4` by default; an explicit lower degree is rejected before
+solving because it can leave displacement modes uncontrolled. This safeguard
+does not establish mesh-independent contact accuracy or stability for every
+material path.
+
 ### Affine-periodic cells
 
 `constitutive.finite_strain_j2_logarithmic(...)` is lowered by the ordinary

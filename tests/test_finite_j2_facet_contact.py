@@ -243,7 +243,9 @@ def test_quadratic_contact_quadrature_checkpoint_rejects_rule_change(tmp_path):
     )
     refined = _patch(**options, contact_quadrature_degree=7)[3]
     assert refined.contact_provider.adapter.trace.point_count == 16
-    refined.solve(until=0.5)
+    assert refined.quadrature_degree == 4
+    refined.solve()
+    assert refined.accepted_load_factor == pytest.approx(1.0)
     saved = refined.save_checkpoint(tmp_path / "quadratic_refined_contact")
     same = _patch(**options, contact_quadrature_degree=7)[3]
     same.load_checkpoint(saved)
@@ -252,6 +254,27 @@ def test_quadratic_contact_quadrature_checkpoint_rejects_rule_change(tmp_path):
     assert changed.contact_provider.adapter.trace.point_count == 9
     with pytest.raises(ValueError, match="identity"):
         changed.load_checkpoint(saved)
+
+
+def test_quadratic_hexahedron_rejects_underintegrated_bulk_rule():
+    model, displacement, material, _ = _patch(
+        triangulated=True, cells=1, hexahedral=True,
+        displacement_degree=2, make_step=False,
+    )
+    capability = step_capability(
+        model, target=displacement,
+        options={"material": material, "quadrature_degree": 2},
+    )
+    assert not capability["supported"]
+    assert any(
+        item["message"].startswith("AFM-J2-QUADRATURE")
+        for item in capability["rejection_reasons"]
+    )
+    with pytest.raises(NotImplementedError, match="AFM-J2-QUADRATURE"):
+        model.step(
+            target=displacement, material=material,
+            quadrature_degree=2,
+        )
 
 
 def test_refined_contact_quadrature_rejects_unsupported_tetra_route():

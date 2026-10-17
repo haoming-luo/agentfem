@@ -287,6 +287,27 @@ its eight-cell force is deliberately **not** an accuracy result. This is a
 Mac candidate packaging check, not a Windows/Linux gate, a two-rank release
 smoke, an Abaqus comparison, or a promotion of general implicit contact.
 
+From a second fresh archive of source commit `60215b2d`, a native Apple
+Silicon wheel and matching source distribution were built and passed the
+standard installed-wheel `release_gate.py --smoke` artifact, flagship,
+entrypoint and project-template checks. The wheel SHA-256 is
+`f99526ef3937b18267357e9f4a13c772da8a79b6b5181eaf120d673e3cd8a80b`.
+Outside the source checkout, the installed package completed an ordinary
+CG2 finite-J2 sphere-contact Step with the selected degree-seven/16-point
+face rule. The resulting force on its deliberately coarse two-cell fixture
+is not an accuracy result. This gate proves installed packaging and bounded
+execution on this Mac, not Linux/Windows, external comparison, general
+friction, or an actual release promotion.
+
+The small CG2 hexahedral tool-contact fixture exposed a different failure:
+with the former inherited bulk degree-two default it accepted the first of
+two increments, then PETSc reported a failed preconditioner on the second.
+Holding geometry, material, contact face rule and load path fixed while
+raising only the **bulk** degree to four completed both increments. The
+ordinary Step now selects degree four for CG2 hexahedra, and explicit lower
+bulk degrees are rejected at capability preflight. This removes one known
+underintegrated path; it is not a general proof of Q2 contact stability.
+
 The [Abaqus/Standard general-contact description](https://docs.software.vt.edu/abaqusv2025/English/SIMACAEITNRefMap/simaitn-c-genlcontnumcontrolsstd.htm)
 uses separate surface-, edge- and vertex-contact formulations. This supports
 treating sharp features as a separate numerical law, not treating the current

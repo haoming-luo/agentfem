@@ -199,7 +199,7 @@ def finite_strain_j2(
     constraints=None,
     incrementation=None,
     solver_options=None,
-    quadrature_degree: int = 2,
+    quadrature_degree: int | None = None,
     contact_quadrature_degree: int | None = None,
     output=None,
     output_every: int | None = None,
@@ -230,6 +230,16 @@ def finite_strain_j2(
             "Two-dimensional mixed finite-strain J2 currently requires "
             "study assumption='plane_strain'."
         )
+    selected_quadrature_degree = quadrature_degree
+    if selected_quadrature_degree is None:
+        selected_quadrature_degree = 2
+        if not mixed_target:
+            field_space = target.value.function_space
+            if (
+                str(field_space.mesh.topology.cell_name()) == "hexahedron"
+                and int(field_space.element.basix_element.degree) == 2
+            ):
+                selected_quadrature_degree = 4
     if mixed_target:
         domain = target.space.mesh
         required_cell = "tetrahedron" if dimension == 3 else "quadrilateral"
@@ -345,7 +355,7 @@ def finite_strain_j2(
                 constraint=affine[0],
                 incrementation=incrementation,
                 solver_options=solver_options,
-                quadrature_degree=quadrature_degree,
+                quadrature_degree=selected_quadrature_degree,
                 output_every=selected_output_every,
                 output_factors=output_factors,
                 progress=progress,
@@ -361,7 +371,7 @@ def finite_strain_j2(
                 contact=affine_contact,
                 incrementation=incrementation,
                 solver_options=solver_options,
-                quadrature_degree=quadrature_degree,
+                quadrature_degree=selected_quadrature_degree,
                 output_every=selected_output_every,
                 output_factors=output_factors,
                 progress=progress,
@@ -479,7 +489,7 @@ def finite_strain_j2(
             contact=contact,
             incrementation=incrementation,
             solver_options=solver_options,
-            quadrature_degree=quadrature_degree,
+            quadrature_degree=selected_quadrature_degree,
             contact_quadrature_degree=contact_quadrature_degree,
             amplitude=selected_amplitude,
             output_every=selected_output_every,
