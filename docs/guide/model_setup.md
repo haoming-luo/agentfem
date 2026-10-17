@@ -382,8 +382,11 @@ tests. See `examples/finite_j2_moving_plane_friction.py` for the ordinary
 piecewise-planar Coulomb branch under serial strong-BC finite-J2, including
 one tested noncoplanar feature switch and interrupted restart. This is a
 one-sided semismooth branch, not a smooth-normal law at a sharp edge.
-Open/nonconvex or curved-tool friction, general contact, distributed implicit
-assembly, and independent industrial benchmarks remain unsupported. The
+A reviewed open triangle patch admits Coulomb friction only while every active
+projection remains on its planar face-interior branch. Active free or
+noncoplanar patch features, general nonconvex or curved-tool friction,
+distributed implicit assembly, and independent industrial benchmarks remain
+unsupported. The
 candidate subset does not turn `ContactTrace` into a universal implicit
 contact solver or promote released capability by association.
 
@@ -393,7 +396,7 @@ matrix:
 | Rigid geometry | Normal law | Coulomb friction | Affine-periodic J2 | MPI implicit J2 |
 | --- | --- | --- | --- | --- |
 | Analytical plane, fixed or prescribed motion | Serial supported | Serial strong-BC candidate | Frictionless only | Rejected |
-| Reviewed triangle patch | Face-interior only; active free/noncoplanar edges reject | Rejected | Frictionless only | Rejected |
+| Reviewed triangle patch | Face-interior planar branch; active free/noncoplanar edges reject | Serial strong-BC face-interior planar branch only; active free/noncoplanar edges reject | Frictionless only | Rejected |
 | Certified closed convex triangle solid | Selected one-sided sharp-feature branch | Serial strong-BC piecewise-planar candidate | Frictionless only | Rejected |
 | Nonconvex/general mesh or deformable master | Rejected | Rejected | Rejected | Rejected |
 

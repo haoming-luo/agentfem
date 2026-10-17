@@ -3350,18 +3350,17 @@ def _finite_strain_j2_transaction(
         )
     solution = displacement.value if solution is None else solution
     domain = solution.function_space.mesh
-    element = solution.function_space.element.basix_element
-    if (
-        str(domain.topology.cell_name()) == "hexahedron"
-        and element is not None
-        and int(element.degree) == 2
-        and int(quadrature_degree) < 4
-    ):
-        raise ValueError(
-            "AFM-J2-QUADRATURE: CG2 hexahedral finite-strain J2 requires "
-            "bulk quadrature degree >= 4; lower-order integration can leave "
-            "uncontrolled modes."
-        )
+    # Only the displacement-form hexahedron uses this Q2 integration guard.
+    # A mixed displacement-pressure space has no single Basix element; its
+    # supported interpolation/cell pair is validated by the mixed builder.
+    if pressure_expression is None and str(domain.topology.cell_name()) == "hexahedron":
+        element = solution.function_space.element.basix_element
+        if int(element.degree) == 2 and int(quadrature_degree) < 4:
+            raise ValueError(
+                "AFM-J2-QUADRATURE: CG2 hexahedral finite-strain J2 requires "
+                "bulk quadrature degree >= 4; lower-order integration can leave "
+                "uncontrolled modes."
+            )
     dimension = int(domain.geometry.dim)
     topology_dimension = int(domain.topology.dim)
     if topology_dimension != dimension or (
