@@ -47,6 +47,11 @@ from .contact_friction import (
     tangential_contact_state,
 )
 from .contact_pair import RigidContactPair, rigid_contact_pair
+from .convex_polyhedron import (
+    ConvexPolyhedralRigidSurface,
+    convex_polyhedral_rigid_surface,
+    convex_polyhedral_rigid_surface_from_mesh,
+)
 from .deformable_pair import DeformableContactPair, deformable_contact_pair
 from .trace_policy import RigidContactTracePolicy
 from .contact_response import (
@@ -136,6 +141,7 @@ __all__ = [
     "DeformableContactPair", "deformable_contact_pair",
     "ConvectionBoundary",
     "ContactProjectionRecord",
+    "ConvexPolyhedralRigidSurface",
     "ContactProjectionState",
     "ContactProjectionEvaluation",
     "ContactProjectionLifecycle",
@@ -197,6 +203,8 @@ __all__ = [
     "global_projection_state_snapshot",
     "local_projection_state_from_snapshot",
     "convection",
+    "convex_polyhedral_rigid_surface",
+    "convex_polyhedral_rigid_surface_from_mesh",
     "dolfinx_adapter",
     "dolfinx_contact_trace",
     "dolfinx_contact_stability",

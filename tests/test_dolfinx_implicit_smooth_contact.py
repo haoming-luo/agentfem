@@ -18,12 +18,17 @@ from agentfem.boundary_models.dolfinx_implicit_facet_contact import (
 
 @pytest.mark.parametrize("geometry", ["sphere", "cylinder"])
 @pytest.mark.parametrize("degree", [1, 2])
+@pytest.mark.parametrize("contact_quadrature_degree", [None, 5, 7])
 @pytest.mark.parametrize(
     "cell_type", [dolfinx_mesh.CellType.tetrahedron, dolfinx_mesh.CellType.hexahedron],
 )
 def test_curved_contact_matches_independent_ufl_energy_gradient_and_hessian(
-    geometry, degree, cell_type,
+    geometry, degree, cell_type, contact_quadrature_degree,
 ):
+    if contact_quadrature_degree is not None and (
+        cell_type != dolfinx_mesh.CellType.hexahedron or degree != 1
+    ):
+        pytest.skip("Refined contact integration is bounded to CG1/Q1 hexes.")
     domain = dolfinx_mesh.create_unit_cube(
         MPI.COMM_SELF, 1, 1, 1, cell_type=cell_type,
     )
@@ -70,7 +75,10 @@ def test_curved_contact_matches_independent_ufl_energy_gradient_and_hessian(
         ),
         penalty=penalty,
     )
-    contribution = dolfinx_implicit_rigid_contact(pair, displacement).evaluate()
+    contribution = dolfinx_implicit_rigid_contact(
+        pair, displacement,
+        contact_quadrature_degree=contact_quadrature_degree,
+    ).evaluate()
     assert contribution.active_points > 0
 
     current = ufl.SpatialCoordinate(domain) + displacement
@@ -84,7 +92,12 @@ def test_curved_contact_matches_independent_ufl_energy_gradient_and_hessian(
     negative_gap = ufl.min_value(gap, 0.0)
     ds = ufl.Measure(
         "ds", domain=domain, subdomain_data=tags,
-        metadata={"quadrature_degree": 2 * degree},
+        metadata={
+            "quadrature_degree": (
+                2 * degree if contact_quadrature_degree is None
+                else contact_quadrature_degree
+            ),
+        },
     )
     potential = 0.5 * penalty * negative_gap**2 * ds(7)
     test = ufl.TestFunction(space)

@@ -464,6 +464,9 @@ It is not yet accepted by the bounded plane-contact Operator.
 An independent experimental facet Operator now consumes reviewed
 triangulated projection evidence in the serial finite-J2 Step. It contributes
 reference-area normal-penalty residual and a planar-branch Newton tangent.
+The serial source candidate lifts that native tangent when its trace shares
+strong Dirichlet DOFs, then preserves identity rows/columns; this does not
+admit non-smooth edges or distributed contact assembly.
 For one normalized prescribed motion, its BVH searches in the rigid reference
 frame and publishes accepted-path tool force, moment and work. It rejects
 active open/non-smooth edges and does not supply friction, periodic MPC, or

@@ -200,6 +200,7 @@ def finite_strain_j2(
     incrementation=None,
     solver_options=None,
     quadrature_degree: int = 2,
+    contact_quadrature_degree: int | None = None,
     output=None,
     output_every: int | None = None,
     checkpoint=None,
@@ -305,20 +306,23 @@ def finite_strain_j2(
         else ()
     )
     if affine:
+        if contact_quadrature_degree is not None:
+            raise NotImplementedError(
+                "Explicit contact quadrature degree is currently limited to "
+                "the strong-boundary J2 route."
+            )
         from .boundary_models.implicit_admission import affine_rigid_contact_supported
 
         if model.boundary_models and (
             mixed_target or not affine_rigid_contact_supported(model)
         ):
             raise NotImplementedError(
-                "AFM-J2-CONTACT-MPC: affine finite-strain J2 admits only one "
-                "frictionless rigid triangle/sphere/cylinder pair in serial "
+                "AFM-J2-CONTACT-MPC: affine finite-strain J2 admits only named "
+                "frictionless reviewed rigid pairs in serial "
                 "displacement form, with fixed or normalized prescribed motion; "
                 "no other Operator is ignored."
             )
-        affine_contact = (
-            None if not model.boundary_models else model.boundary_models[0]
-        )
+        affine_contact = tuple(model.boundary_models)
         physical_loads = load_api.load_assets(
             model.loads,
             unwrap_amplitudes=True,
@@ -367,7 +371,7 @@ def finite_strain_j2(
             )
         # Contact traction invalidates the material-only Hill--Mandel identity;
         # a moving tool also contributes accepted-path coordinate work.
-        has_external_power = affine_contact is not None
+        has_external_power = bool(affine_contact)
     else:
         concrete = constraint_assets
         if not concrete:
@@ -407,13 +411,30 @@ def finite_strain_j2(
         from .boundary_models import RigidContactPair, RigidObstaclePenaltyContact
 
         boundary_models = tuple(model.boundary_models)
+        if contact_quadrature_degree is not None and not boundary_models:
+            raise ValueError(
+                "contact_quadrature_degree requires a registered rigid contact pair."
+            )
+        if contact_quadrature_degree is not None and any(
+            isinstance(item, RigidObstaclePenaltyContact) for item in boundary_models
+        ):
+            raise NotImplementedError(
+                "Explicit contact quadrature degree requires RigidContactPair; "
+                "the legacy UFL plane owns its own integration."
+            )
         contact = None
         if boundary_models:
             if (
-                len(boundary_models) != 1
-                or not isinstance(
-                    boundary_models[0],
-                    (RigidObstaclePenaltyContact, RigidContactPair),
+                not (
+                    len(boundary_models) == 1
+                    and isinstance(
+                        boundary_models[0],
+                        (RigidObstaclePenaltyContact, RigidContactPair),
+                    )
+                )
+                and not all(
+                    isinstance(item, RigidContactPair)
+                    for item in boundary_models
                 )
             ):
                 names = tuple(
@@ -421,13 +442,16 @@ def finite_strain_j2(
                     for item in boundary_models
                 )
                 raise NotImplementedError(
-                    "Standard finite-strain J2 currently consumes at most one "
-                    "frictionless analytical-plane, smooth sphere/cylinder, "
-                    "or bounded triangulated rigid-tool contact; "
+                    "Standard finite-strain J2 consumes one legacy plane or "
+                    "independently named rigid pairs within the bounded "
+                    "analytical planar-friction admission; "
                     f"unsupported={names}. Other weak models, discrete "
                     "surfaces and MPC require separate evidence."
                 )
-            contact = boundary_models[0]
+            contact = (
+                boundary_models[0] if len(boundary_models) == 1
+                else boundary_models
+            )
         selected_loads, selected_amplitude = _single_shared_amplitude_loads(
             model.loads,
             amplitude,
@@ -456,6 +480,7 @@ def finite_strain_j2(
             incrementation=incrementation,
             solver_options=solver_options,
             quadrature_degree=quadrature_degree,
+            contact_quadrature_degree=contact_quadrature_degree,
             amplitude=selected_amplitude,
             output_every=selected_output_every,
             output_factors=output_factors,

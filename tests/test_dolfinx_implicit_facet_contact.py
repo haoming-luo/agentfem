@@ -10,6 +10,7 @@ from agentfem import boundary_models
 from agentfem import mesh as agent_mesh
 from agentfem.boundary_models.dolfinx_implicit_facet_contact import (
     dolfinx_implicit_facet_contact,
+    dolfinx_implicit_rigid_contact,
 )
 
 
@@ -104,3 +105,71 @@ def test_implicit_facet_rejects_independent_physical_time_schedule():
     )
     with pytest.raises(NotImplementedError, match="AFM-IMPLICIT-CONTACT-MOTION"):
         dolfinx_implicit_facet_contact(pair, displacement)
+
+
+def test_closed_convex_sharp_tool_lowers_to_current_trial_newton_operator():
+    displacement, original = _model()
+    xmin, xmax, ymin, ymax, zmin, zmax = -1.0, 0.05, -1.0, 2.0, -1.0, 2.0
+    vertices = (
+        (xmin, ymin, zmin), (xmax, ymin, zmin),
+        (xmax, ymax, zmin), (xmin, ymax, zmin),
+        (xmin, ymin, zmax), (xmax, ymin, zmax),
+        (xmax, ymax, zmax), (xmin, ymax, zmax),
+    )
+    triangles = (
+        (0, 2, 1), (0, 3, 2), (4, 5, 6), (4, 6, 7),
+        (0, 1, 5), (0, 5, 4), (3, 7, 6), (3, 6, 2),
+        (0, 4, 7), (0, 7, 3), (1, 2, 6), (1, 6, 5),
+    )
+    tool = boundary_models.convex_polyhedral_rigid_surface(
+        vertices=vertices, triangles=triangles,
+    )
+    pair = boundary_models.rigid_contact_pair(
+        original.pair.slave_boundary,
+        boundary_models.rigid_body(tool), penalty=200,
+    )
+    operator = dolfinx_implicit_rigid_contact(pair, displacement)
+    contribution = operator.evaluate()
+    assert contribution.active_points > 0
+    assert operator.summary()["linearization"] == (
+        "closed_convex_polyhedron_piecewise_affine_semismooth"
+    )
+    base = displacement.x.array.copy()
+    direction = np.random.default_rng(22).normal(size=base.shape)
+    step = 1e-7
+    displacement.x.array[:] = base + step * direction
+    plus = operator.evaluate()
+    displacement.x.array[:] = base - step * direction
+    minus = operator.evaluate()
+    displacement.x.array[:] = base
+    np.testing.assert_allclose(
+        contribution.tangent_action(direction.reshape((-1, 3))),
+        (plus.nodal_structural_residual - minus.nodal_structural_residual) / (2 * step),
+        rtol=1e-7, atol=1e-8,
+    )
+    motion = boundary_models.prescribed_rigid_motion(
+        translation=(0.01, 0, 0), rotation=(0, 0, 0.01),
+        reference_point=(0.025, 0.5, 0.5),
+    )
+    schedule = boundary_models.prescribed_rigid_motion_schedule(
+        motion, start_time=0, end_time=1,
+    )
+    moving_pair = boundary_models.rigid_contact_pair(
+        original.pair.slave_boundary,
+        boundary_models.rigid_body(tool, motion_schedule=schedule), penalty=200,
+    )
+    moving = dolfinx_implicit_rigid_contact(moving_pair, displacement)
+    moving.update_motion(1.0)
+    moved = moving.evaluate()
+    assert moved.active_points > 0
+    assert moved.surface_generalized_moment is not None
+    displacement.x.array[:] = base + step * direction
+    plus = moving.evaluate()
+    displacement.x.array[:] = base - step * direction
+    minus = moving.evaluate()
+    displacement.x.array[:] = base
+    np.testing.assert_allclose(
+        moved.tangent_action(direction.reshape((-1, 3))),
+        (plus.nodal_structural_residual - minus.nodal_structural_residual) / (2 * step),
+        rtol=1e-7, atol=1e-8,
+    )

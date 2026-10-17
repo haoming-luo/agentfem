@@ -73,6 +73,57 @@ triangle transitions, MPI implicit assembly, friction, mixed pressure and
 independent curved-structure validation remain open. The source candidate is
 not promoted to a released capability by these local tests.
 
+The next serial source candidate removes an unnecessary contact/strong-BC
+disjointness restriction by lifting the native tangent and retaining
+constrained matrix rows. A full-versus-quarter indentation comparison passes
+at equal resolution. Its Hertz half-space screen does **not** yet pass an
+independent accuracy gate: finite support, mesh and penalty effects still need
+separation. See the [Dirichlet and Hertz candidate record](internal/implicit_contact_dirichlet_hertz_candidate_20261018.md).
+
+The same source branch now composes multiple named frictionless tools in both
+the ordinary serial strong-BC J2 Step and the affine-periodic J2 route, with
+the total residual and tangent reduced by the same MPC. Strong-BC J2 also admits fixed or prescribed-moving analytical-plane
+Coulomb pairs with separate accepted stick/slip and pose states, a generally nonsymmetric tangent,
+separate friction loss channels and serial restart. These are bounded source
+candidates, not a release promotion. Open/nonconvex sharp features, curved or
+faceted friction, friction with affine MPC, distributed implicit assembly and
+an external friction benchmark remain separate gates. For rotating planes the
+current-pose master transport is included in the fixed-old-state tangent;
+focused FE directional checks, nonzero moment, tool work and restart pass.
+
+A further narrow source candidate admits a **closed convex** outward-oriented
+polyhedral rigid tool for serial frictionless finite-J2 contact. Its exact
+interior support-plane gap gives a deterministic limiting normal and tangent
+at a noncoplanar feature; it does not smooth a crease or relax the old open
+triangle rejection. Local Operator and planar-limit global tests pass, but a
+small structural load path across one noncoplanar feature and its interrupted
+restart also pass. External sharp-feature comparison, broad mesh/penalty
+evidence and scalable search remain open. See the
+[closed-convex candidate record](internal/closed_convex_implicit_contact_candidate_20261018.md).
+
+The bounded serial candidate now also carries a selected-branch Coulomb
+tangent for that certified closed-convex tool, two independently moving
+frictional pairs, a two-region J2 material map, atomic restart and raw
+accepted contact-point export. Q1 hexahedral contact quadrature can be
+explicitly refined for discrete convergence checks; its default stays 2×2
+because the higher rule did not improve the Hertz force comparison. The
+source-targeted and isolated installed-wheel smoke pass on Apple Silicon,
+but the Hertz continuum force is still 4.27% high at the finest documented
+fixed-extent mesh, sharp-friction observables remain mesh/penalty sensitive,
+and external same-input Abaqus results are absent. This work remains an
+**experimental, limited serial contact capability**, not local Abaqus parity
+or a new release. The next promotion needs a frozen external comparator and
+controlled mesh, domain, penalty and increment limits before broader
+geometry/material/MPI admission.
+
+An additional reviewed triangular rigid tool may now use the *same* serial
+fixed-old-state Coulomb Operator on a current planar face branch. A coplanar
+two-triangle tool matches the analytical plane under translation and rotation,
+including tool work and interrupted restart; active free or noncoplanar edges
+still reject and roll back. This extends useful tool representation without
+promoting arbitrary sharp-edge friction, distributed contact, or an external
+Abaqus parity claim.
+
 The next source candidate removes the built-in sphere/cylinder type gate for
 smooth rigid contact: geometry owns a checked signed-gap differential, while
 the existing Operator and Procedure remain unchanged. A third-party smooth

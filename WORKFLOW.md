@@ -101,7 +101,10 @@ record.
     `RigidContactPair` asset. Its prescribed pose follows the shared Step
     amplitude, and the accepted ledger records tool force--moment work. It
     rejects active non-smooth/free tool edges and does not imply periodic MPC
-    or distributed implicit contact.
+    or distributed implicit contact. The source candidate also admits strong
+    prescribed DOFs on the contact trace by lifting the contact tangent and
+    preserving constrained matrix rows; use the focused sphere-indentation
+    comparison before generalizing that numerical evidence.
     A modal result additionally retains relative eigenpair residuals,
     mass-orthogonality and stiffness-diagonalization errors. Mode fields use a
     deterministic largest-global-component-positive orientation so repeated

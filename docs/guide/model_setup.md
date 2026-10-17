@@ -354,26 +354,86 @@ moment. Identity or coordinate mismatches fail before assembly. This reference
 route still supplies no Newton linearization and is therefore not, by itself,
 an implicit general-contact solver.
 
-An experimental separate Operator can linearize one fixed or prescribed,
-frictionless triangulated rigid tool on reference-area quadrature and add it to
-the ordinary serial finite-J2 Newton Step. It recomputes the current
-projection for each trial and admits only smooth planar facet branches and
-coplanar interior seams. Prescribed motion must use a normalized 0-to-1
-schedule driven by the same
-Step amplitude; the accepted ledger records rigid force, moment and work.
-Active free/non-smooth edges, friction, contact/strong-BC overlap, and MPI
-remain unsupported in this composition. A separate experimental serial path
-admits one **fixed** sphere, cylinder, or bounded triangular tool with affine
-periodic J2: it adds material and contact in the full space before reducing
-both residual and tangent by the same MPC map. Fixed-tool work is zero, but
-contact still invalidates material-only Hill--Mandel evidence. Moving-tool
-periodic work, curved triangulated edge transitions, and distributed implicit
-assembly are not admitted. See
-`examples/finite_j2_faceted_contact.py`,
-`examples/finite_j2_smooth_contact.py`, and the
-[candidate note](../internal/smooth_implicit_contact_mpc_candidate_20261017.md).
-This bounded route does not turn the general `ContactTrace` into a universal
-implicit contact solver.
+The experimental serial finite-J2 Newton Step accepts independently named
+frictionless rigid pairs on reference-area quadrature. It reprojects every
+trial, sums the contact residual and tangent with the material Operator, and
+owns accepted force--moment work, rollback, and checkpoint identity. A
+normalized 0-to-1 prescribed motion shares the Step amplitude. Strong
+prescribed displacement on the contact trace is lifted by the same Newton
+correction as the material tangent. The serial affine-periodic J2 route
+reduces the **total** material-plus-contact residual and tangent through one
+MPC map; it also records each normalized moving tool's accepted work.
+
+Open triangle patches still reject active free or noncoplanar edge branches.
+The separate `convex_polyhedral_rigid_surface(...)` source candidate accepts
+only a closed, outward-oriented, certified convex triangle tool. Its interior
+gap follows one limiting face at a sharp feature; it does not smooth the
+corner or admit arbitrary STL/CAD. Interior penetration checks every support
+plane; inactive exterior points use an exact triangle-BVH closest-point search.
+This is not a general nonconvex contact search. See
+`examples/finite_j2_closed_convex_contact.py` and the
+[closed-convex candidate record](../internal/closed_convex_implicit_contact_candidate_20261018.md).
+Fixed, translating or rotating analytical-plane Coulomb pairs have a separate
+narrow serial strong-BC route. The rotational friction tangent follows the
+same master material point at fixed accepted State; its generally nonsymmetric
+Newton derivative, force--moment work and interrupted restart have focused
+tests. See `examples/finite_j2_moving_plane_friction.py` for the ordinary
+`model.step()` path. A certified closed-convex tool also has a selected
+piecewise-planar Coulomb branch under serial strong-BC finite-J2, including
+one tested noncoplanar feature switch and interrupted restart. This is a
+one-sided semismooth branch, not a smooth-normal law at a sharp edge.
+Open/nonconvex or curved-tool friction, general contact, distributed implicit
+assembly, and independent industrial benchmarks remain unsupported. The
+candidate subset does not turn `ContactTrace` into a universal implicit
+contact solver or promote released capability by association.
+
+This is the current candidate's admission boundary, not an Abaqus-equivalence
+matrix:
+
+| Rigid geometry | Normal law | Coulomb friction | Affine-periodic J2 | MPI implicit J2 |
+| --- | --- | --- | --- | --- |
+| Analytical plane, fixed or prescribed motion | Serial supported | Serial strong-BC candidate | Frictionless only | Rejected |
+| Reviewed triangle patch | Face-interior only; active free/noncoplanar edges reject | Rejected | Frictionless only | Rejected |
+| Certified closed convex triangle solid | Selected one-sided sharp-feature branch | Serial strong-BC piecewise-planar candidate | Frictionless only | Rejected |
+| Nonconvex/general mesh or deformable master | Rejected | Rejected | Rejected | Rejected |
+
+All admitted implicit paths use finite-strain J2 on a three-dimensional solid.
+Unsupported combinations fail during capability checking or before assembly;
+they are not silently replaced with a plane, frictionless law, or serial solve.
+Two region-assigned J2 parameter sets have been checked with a moving convex
+frictional tool and interrupted restart. This does not admit arbitrary user
+materials or certify general mixed-material interfaces.
+
+After a serial implicit contact increment is accepted, the optional
+`results.export_accepted_contact_points(step, directory, units=..., result=...)` writes
+`accepted_contact_points.npz` and a JSON schema/identity record. Set
+`vtk_view=True` to additionally write vertex-only `accepted_contact_points.vtp`
+for ParaView at the **current slave positions**. The VTP carries the same raw
+samples and pair indices; it does not make a continuous contact surface or
+smooth pressure across facets. Arrays include
+stable pair/point identity, current slave and closest master positions,
+reference quadrature weights, normals, signed gaps, positive penalty pressure,
+friction traction and accepted tangential state. The location is **reference
+boundary quadrature**, with no cross-facet nodal smoothing; normal pressure is
+force per reference area, not Cauchy pressure. The export refuses a modified
+trial displacement, nonaccepted material coordinate, unsupported MPI path,
+duplicate pair identity or an existing output. It does not advance State or
+serve as a restart archive. Pair names and geometry fingerprints must accompany
+point IDs when comparing archives. For example:
+
+```python
+from agentfem import results
+
+paths = results.export_accepted_contact_points(
+    step, "output/contact-points", units={"length": "m", "force": "N"},
+    result=result, vtk_view=True,
+)
+```
+
+Unknown units should be omitted, never inferred from the mesh coordinates.
+Passing `result` attaches the archive and raw quadrature pressure/traction
+field descriptors to that `SimulationResult`, plus the optional VTP artifact;
+it does not create a smoothed ParaView nodal field.
 
 For the reviewed DOLFINx route,
 `dolfinx_boundary_region_contact_trace(region, V)` adapts a tagged exterior

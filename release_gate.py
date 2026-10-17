@@ -157,6 +157,8 @@ SMOKE_COMMANDS = (
         ),
     ),
     ("examples/j2_plasticity_3d.py", ()),
+    ("examples/finite_j2_opposing_rigid_tools.py", ()),
+    ("examples/finite_j2_fixed_plane_friction.py", ()),
     ("examples/chaboche_cyclic_3d.py", ()),
     ("examples/implicit_creep_relaxation_3d.py", ()),
     ("examples/creep_hot_wall_assessment.py", ()),

@@ -104,9 +104,31 @@ step = model.step(
 result = step.solve_result()
 ```
 
-Follower/current-configuration loads, absolute time-dependent Dirichlet
-histories, weak boundary models, contact, and MPC constraints fail closed until
-their residual and consistent tangent have a dedicated lowering.
+The ordinary finite-J2 Step also has a bounded experimental serial route for
+registered, prescribed rigid contact pairs: analytical planes or spheres,
+reviewed triangular surfaces, and certified closed-convex triangular solids.
+The contact residual and tangent enter the same Newton, line-search, accepted
+State, work, and checkpoint lifecycle as the material. A certified convex
+solid or a reviewed triangular tool on an active face-interior planar branch
+can use the bounded penalty-Coulomb tangential law. Active noncoplanar edges,
+vertices, curved tools and distributed implicit friction remain unsupported;
+this is not general frictional contact. Multiple named pairs and a
+two-region J2 material map have serial regression evidence. Unsupported
+geometry, material/contact composition, or MPI operation fails before solve;
+do not infer general industrial-contact support from this route. See
+`examples/finite_j2_closed_convex_contact.py` and
+`examples/finite_j2_hertz_contact.py` for the supported shapes and the
+remaining independent accuracy gap.
+
+For a first-order hexahedral contact boundary only, the optional
+`contact_quadrature_degree=5` or `7` selects a 3×3 or 4×4 positive Gaussian
+face rule instead of the unchanged 2×2 default. It is a convergence-study
+control, not an accuracy preset: a fixed-mesh Hertz screen became *slightly
+less* accurate against its half-space limit and slower with 3×3 points.
+The chosen rule is part of the checkpoint identity. It is rejected for
+tetrahedra, higher-order traces, legacy plane contact, and affine-periodic
+J2; no unsupported combination silently falls back. Other weak boundary
+models and formulations need their own reviewed lowering.
 
 ### Affine-periodic cells
 

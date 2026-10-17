@@ -6,21 +6,25 @@
 from __future__ import annotations
 
 from .contact_pair import RigidContactPair
+from .convex_polyhedron import ConvexPolyhedralRigidSurface
 from .rigid import SmoothRigidSurface, TriangulatedRigidSurface
 
 
-def affine_rigid_contact_supported(model) -> bool:
-    """One serial rigid pair may share the affine J2 residual and work path."""
+def affine_rigid_contact_assets_supported(boundaries) -> bool:
+    """Validate the bounded affine contact assets independently of a Model."""
 
-    boundaries = tuple(getattr(model, "boundary_models", ()))
+    boundaries = tuple(boundaries)
     if not boundaries:
         return True
-    if len(boundaries) != 1 or not isinstance(boundaries[0], RigidContactPair):
+    if not all(isinstance(pair, RigidContactPair) for pair in boundaries):
         return False
-    pair = boundaries[0]
-    return (
+    if len({pair.name for pair in boundaries}) != len(boundaries):
+        return False
+    return all(
         pair.slave_boundary.domain.comm.size == 1
-        and isinstance(pair.rigid_body.surface, (TriangulatedRigidSurface, SmoothRigidSurface))
+        and isinstance(pair.rigid_body.surface, (
+            TriangulatedRigidSurface, SmoothRigidSurface, ConvexPolyhedralRigidSurface,
+        ))
         and (
             pair.rigid_body.motion_schedule is None
             or (
@@ -31,6 +35,15 @@ def affine_rigid_contact_supported(model) -> bool:
         )
         and pair.friction is None
         and pair.law.invalid_policy == "reject"
+        for pair in boundaries
+    )
+
+
+def affine_rigid_contact_supported(model) -> bool:
+    """Named serial frictionless rigid pairs may share the affine J2 path."""
+
+    return affine_rigid_contact_assets_supported(
+        getattr(model, "boundary_models", ()),
     )
 
 
@@ -43,4 +56,8 @@ def affine_fixed_contact_supported(model) -> bool:
     )
 
 
-__all__ = ["affine_fixed_contact_supported", "affine_rigid_contact_supported"]
+__all__ = [
+    "affine_fixed_contact_supported",
+    "affine_rigid_contact_assets_supported",
+    "affine_rigid_contact_supported",
+]

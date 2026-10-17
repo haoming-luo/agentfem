@@ -11,6 +11,8 @@ from __future__ import annotations
 
 from typing import Mapping
 
+import numpy as np
+
 from ._step_provider_support import (
     COMMON_STEP_OPTIONS as _COMMON_STEP_OPTIONS,
     all_materials_support as _all_materials_support,
@@ -431,8 +433,8 @@ def _finite_strain_j2_affine_boundary_rejection(model, request: StepRequest) -> 
     ):
         return None
     return (
-        "AFM-J2-CONTACT-MPC: affine finite-strain J2 admits one serial, "
-        "frictionless rigid triangle/sphere/cylinder pair with fixed or "
+        "AFM-J2-CONTACT-MPC: affine finite-strain J2 admits serial, "
+        "frictionless named rigid triangle/sphere/cylinder pairs with fixed or "
         "normalized prescribed motion; mixed, distributed, and other weak "
         "Operators remain unsupported."
     )
@@ -469,8 +471,27 @@ def _finite_strain_j2_strong_preconditions(model, request: StepRequest) -> bool:
     )
 
 
+def _implicit_planar_friction_geometry_supported(pair) -> bool:
+    """Admit reviewed planar-branch geometry; never infer a smoothed normal."""
+
+    from .boundary_models import (
+        ConvexPolyhedralRigidSurface, RigidPlaneSurface,
+        TriangulatedRigidSurface,
+    )
+
+    if not isinstance(
+        pair.rigid_body.surface, (
+            RigidPlaneSurface, ConvexPolyhedralRigidSurface,
+            TriangulatedRigidSurface,
+        ),
+    ):
+        return False
+    return True
+
+
 def _accept_finite_strain_j2_strong(model, request: StepRequest) -> bool:
     from .boundary_models import (
+        ConvexPolyhedralRigidSurface,
         RigidContactPair,
         RigidObstaclePenaltyContact,
         SmoothRigidSurface,
@@ -479,33 +500,77 @@ def _accept_finite_strain_j2_strong(model, request: StepRequest) -> bool:
 
     if not _finite_strain_j2_strong_preconditions(model, request):
         return False
+    if _contact_quadrature_rejection_reason(model, request) is not None:
+        return False
     boundary_models = tuple(getattr(model, "boundary_models", ()))
     if not boundary_models:
         return True
     target_mesh = getattr(getattr(request.target, "space", None), "mesh", None)
-    if len(boundary_models) != 1 or getattr(getattr(target_mesh, "comm", None), "size", 1) != 1:
+    if not boundary_models or getattr(getattr(target_mesh, "comm", None), "size", 1) != 1:
         return False
-    selected = boundary_models[0]
-    schedule = (
-        selected.rigid_body.motion_schedule
-        if isinstance(selected, RigidContactPair) else None
-    )
-    return isinstance(selected, RigidObstaclePenaltyContact) or (
-        isinstance(selected, RigidContactPair)
-        and isinstance(selected.rigid_body.surface, (
+    if len(boundary_models) == 1 and isinstance(
+        boundary_models[0], RigidObstaclePenaltyContact
+    ):
+        return True
+    if len({item.name for item in boundary_models}) != len(boundary_models):
+        return False
+    return all(
+        isinstance(item, RigidContactPair)
+        and isinstance(item.rigid_body.surface, (
             TriangulatedRigidSurface, SmoothRigidSurface,
+            ConvexPolyhedralRigidSurface,
         ))
-        and selected.friction is None
-        and selected.law.invalid_policy == "reject"
         and (
-            schedule is None
+            item.friction is None
+            or _implicit_planar_friction_geometry_supported(item)
+        )
+        and item.law.invalid_policy == "reject"
+        and (
+            item.rigid_body.motion_schedule is None
             or (
-                schedule.start_time == 0.0
-                and schedule.end_time == 1.0
-                and schedule.amplitude is None
+                item.rigid_body.motion_schedule.start_time == 0.0
+                and item.rigid_body.motion_schedule.end_time == 1.0
+                and item.rigid_body.motion_schedule.amplitude is None
             )
         )
+        for item in boundary_models
     )
+
+
+def _contact_quadrature_rejection_reason(model, request: StepRequest) -> str | None:
+    """Keep a deliberately bounded contact integration option fail-closed."""
+
+    selected = request.options.get("contact_quadrature_degree")
+    if selected is None:
+        return None
+    from .boundary_models import RigidContactPair
+
+    if (
+        isinstance(selected, (bool, np.bool_))
+        or not isinstance(selected, (int, np.integer))
+        or int(selected) not in (5, 7)
+    ):
+        return "AFM-CONTACT-QUADRATURE: degree must be 5 or 7."
+    pairs = tuple(getattr(model, "boundary_models", ()))
+    if not pairs or not all(isinstance(item, RigidContactPair) for item in pairs):
+        return (
+            "AFM-CONTACT-QUADRATURE: explicit degree requires registered "
+            "RigidContactPair assets, not a legacy or absent contact law."
+        )
+    target_value = getattr(request.target, "value", None)
+    function_space = getattr(target_value, "function_space", None)
+    domain = getattr(function_space, "mesh", None)
+    if (
+        domain is None
+        or str(domain.topology.cell_name()) != "hexahedron"
+        or int(function_space.element.basix_element.degree) != 1
+        or int(domain.geometry.cmaps[0].degree) != 1
+    ):
+        return (
+            "AFM-CONTACT-QUADRATURE: explicit degree currently requires "
+            "a CG1/Q1 hexahedral displacement and first-order geometry."
+        )
+    return None
 
 
 def _finite_strain_j2_strong_rejection_reason(model, request: StepRequest) -> str | None:
@@ -518,7 +583,50 @@ def _finite_strain_j2_strong_rejection_reason(model, request: StepRequest) -> st
 
     if not _finite_strain_j2_strong_preconditions(model, request):
         return None
+    quadrature_problem = _contact_quadrature_rejection_reason(model, request)
+    if quadrature_problem is not None:
+        return quadrature_problem
     boundary_models = tuple(getattr(model, "boundary_models", ()))
+    if (
+        len(boundary_models) > 1
+        and all(isinstance(item, RigidContactPair) for item in boundary_models)
+    ):
+        if len({item.name for item in boundary_models}) != len(boundary_models):
+            return (
+                "AFM-IMPLICIT-CONTACT-MULTI: rigid contact pair names must be "
+                "unique for independent force, work and checkpoint identity."
+            )
+        if any(
+            item.friction is not None
+            and not _implicit_planar_friction_geometry_supported(item)
+            for item in boundary_models
+        ):
+            return (
+                "AFM-IMPLICIT-CONTACT-FRICTION: each frictional rigid pair "
+                "must have a reviewed planar-branch tangent; curved tools "
+                "remain unsupported. Active noncoplanar facet edges and "
+                "vertices are rejected during the Newton trial."
+            )
+        if any(
+            item.law.invalid_policy != "reject" for item in boundary_models
+        ):
+            return (
+                "AFM-IMPLICIT-CONTACT-MULTI: every rigid pair must reject "
+                "invalid or ambiguous current-geometry projections."
+            )
+        if any(
+            item.rigid_body.motion_schedule is not None
+            and (
+                item.rigid_body.motion_schedule.start_time != 0.0
+                or item.rigid_body.motion_schedule.end_time != 1.0
+                or item.rigid_body.motion_schedule.amplitude is not None
+            )
+            for item in boundary_models
+        ):
+            return (
+                "AFM-IMPLICIT-CONTACT-MOTION: each rigid tool must use the "
+                "Step-owned normalized 0-to-1 motion coordinate."
+            )
     if len(boundary_models) != 1 or not isinstance(
         boundary_models[0], (RigidObstaclePenaltyContact, RigidContactPair)
     ):
@@ -532,6 +640,15 @@ def _finite_strain_j2_strong_rejection_reason(model, request: StepRequest) -> st
         )
     selected = boundary_models[0]
     if isinstance(selected, RigidContactPair):
+        if selected.friction is not None and (
+            not _implicit_planar_friction_geometry_supported(selected)
+        ):
+            return (
+                "AFM-IMPLICIT-CONTACT-FRICTION: implicit Coulomb contact is "
+                "limited to reviewed planar-branch tools in a serial strong-BC "
+                "finite-strain J2 Step; curved tools remain unsupported and "
+                "active noncoplanar facet edges or vertices are rejected."
+            )
         schedule = selected.rigid_body.motion_schedule
         if schedule is not None and (
             schedule.start_time != 0.0
@@ -1499,13 +1616,15 @@ register_step_provider(
         description=(
             "Lower logarithmic finite-strain J2 to provider-owned quadrature "
             "state and strong-boundary Newton equilibrium, optionally with "
-            "one serial frictionless analytical-plane or bounded triangulated "
-            "rigid-tool penalty contact."
+            "serial rigid-tool penalty contact: multiple frictionless pairs "
+            "and prescribed-moving analytical-plane Coulomb pairs within "
+            "their reviewed bounds."
         ),
         procedure="standard/newton/stateful",
         option_contract=_option_contract(
             "incrementation",
             "quadrature_degree",
+            "contact_quadrature_degree",
             "amplitude",
             "output_every",
             "progress",

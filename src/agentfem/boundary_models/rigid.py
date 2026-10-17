@@ -1259,6 +1259,7 @@ class TriangulatedRigidSurface(RigidSurface):
     _facet_twice_areas: np.ndarray = field(init=False, repr=False, compare=False)
     _scale: float = field(init=False, repr=False, compare=False)
     _geometry_fingerprint: str = field(init=False, repr=False, compare=False)
+    _edge_neighbors: np.ndarray = field(init=False, repr=False, compare=False)
     _topology_summary: dict[str, object] = field(
         init=False,
         repr=False,
@@ -1326,6 +1327,20 @@ class TriangulatedRigidSurface(RigidSurface):
         edge_count, boundary_edge_count = reviewed_triangle_topology(
             len(vertices), triangles
         )
+        # Neighbor identity belongs to the immutable tool topology, not to a
+        # Newton trial.  Column j is the facet across the edge opposite local
+        # vertex j; -1 denotes an actual free edge.
+        opposite_edges = triangles[:, ((1, 2), (2, 0), (0, 1))].reshape(-1, 2)
+        _, inverse = np.unique(
+            np.sort(opposite_edges, axis=1), axis=0, return_inverse=True,
+        )
+        edge_order = np.argsort(inverse, kind="stable")
+        paired = inverse[edge_order[1:]] == inverse[edge_order[:-1]]
+        first = edge_order[:-1][paired]
+        second = edge_order[1:][paired]
+        edge_neighbors = np.full(triangles.shape, -1, dtype=np.int64)
+        edge_neighbors.reshape(-1)[first] = second // 3
+        edge_neighbors.reshape(-1)[second] = first // 3
 
         lower = np.min(vertices, axis=0)
         upper = np.max(vertices, axis=0)
@@ -1405,6 +1420,7 @@ class TriangulatedRigidSurface(RigidSurface):
         object.__setattr__(self, "_facet_twice_areas", _readonly_array(twice_areas))
         object.__setattr__(self, "_scale", scale)
         object.__setattr__(self, "_geometry_fingerprint", fingerprint)
+        object.__setattr__(self, "_edge_neighbors", _readonly_array(edge_neighbors, dtype=np.int64))
         object.__setattr__(
             self,
             "_topology_summary",
@@ -1417,6 +1433,12 @@ class TriangulatedRigidSurface(RigidSurface):
                 "facet_identity": identity_source,
             },
         )
+
+    @property
+    def edge_neighbors(self) -> np.ndarray:
+        """Reviewed opposite-edge facet adjacency; -1 marks a free edge."""
+
+        return self._edge_neighbors
 
     @property
     def dimension(self) -> int:
