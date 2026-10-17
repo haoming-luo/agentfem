@@ -176,6 +176,25 @@ def run_case(
     hertz_radius = float(np.sqrt(radius * indentation))
     hertz_area = float(np.pi * hertz_radius**2)
     hertz_peak_pressure = float(3.0 * hertz_force / (2.0 * hertz_area))
+    # Sample the half-space reference on exactly this finite-element trace.
+    # This separates face-quadrature aliasing from the remaining pressure-law,
+    # penalty, finite-domain, and finite-strain differences. The comparison
+    # uses nominal reference-area weights; it is not a Cauchy-stress norm.
+    all_radii = np.linalg.norm(trace_evaluation.query_points[:, :2], axis=1)
+    sampled_hertz_pressure = hertz_peak_pressure * np.sqrt(
+        np.maximum(0.0, 1.0 - (all_radii / hertz_radius) ** 2)
+    )
+    trace_weights = provider.adapter.trace.weights
+    symmetry_factor = 4.0 if quarter else 1.0
+    sampled_hertz_force = float(
+        symmetry_factor * np.dot(trace_weights, sampled_hertz_pressure)
+    )
+    pressure_l1_difference = float(
+        symmetry_factor * np.dot(
+            trace_weights,
+            np.abs(np.asarray(response.pressures) - sampled_hertz_pressure),
+        ) / hertz_force
+    )
     phase_names = (
         "material_update_seconds", "residual_assembly_seconds",
         "tangent_assembly_seconds", "linear_solve_seconds",
@@ -217,6 +236,9 @@ def run_case(
         "hertz_half_space_contact_area": hertz_area,
         "maximum_active_quadrature_radius": footprint_radius,
         "hertz_half_space_contact_radius": hertz_radius,
+        "hertz_force_sampled_on_reference_trace": sampled_hertz_force,
+        "hertz_trace_sampling_force_ratio": sampled_hertz_force / hertz_force,
+        "nominal_pressure_l1_difference_over_hertz_force": pressure_l1_difference,
         "peak_quadrature_pressure": float(np.max(response.pressures)),
         "hertz_half_space_peak_pressure": hertz_peak_pressure,
         "maximum_penetration": float(max(0.0, -np.min(projection.signed_gaps))),

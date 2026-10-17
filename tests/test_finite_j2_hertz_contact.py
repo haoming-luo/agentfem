@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import math
+
 import pytest
 
 from examples.finite_j2_hertz_contact import run_case
@@ -28,6 +30,12 @@ def test_full_and_quarter_indentation_agree_with_contact_on_symmetry_dofs(gradin
     )
     assert quarter["contact_potential"] * 4 == pytest.approx(
         full["contact_potential"], rel=1.0e-9,
+    )
+    assert quarter["hertz_force_sampled_on_reference_trace"] == pytest.approx(
+        full["hertz_force_sampled_on_reference_trace"], rel=1.0e-12,
+    )
+    assert quarter["nominal_pressure_l1_difference_over_hertz_force"] == pytest.approx(
+        full["nominal_pressure_l1_difference_over_hertz_force"], rel=1.0e-9,
     )
 
 
@@ -85,6 +93,9 @@ def test_quadratic_displacement_hertz_screen_is_a_separate_mesh_diagnostic(
     assert f"degree_{actual_degree}" in result["contact_quadrature_rule"]
     assert result["full_contact_force"] > 0.0
     assert result["plastic_dissipation"] == 0.0
+    assert result["hertz_force_sampled_on_reference_trace"] >= 0.0
+    assert math.isfinite(result["hertz_trace_sampling_force_ratio"])
+    assert result["nominal_pressure_l1_difference_over_hertz_force"] >= 0.0
 
 
 def test_quadratic_hertz_screen_rejects_low_explicit_bulk_rule():

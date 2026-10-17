@@ -125,7 +125,10 @@ For a first- or second-order hexahedral contact boundary, the optional
 face rule. The CG1/Q1 default remains 2×2; a CG2 trace retains its
 degree-four (3×3) default. It is a convergence-study control, not an accuracy
 preset: higher contact integration did not monotonically improve a finite-
-block Hertz screen. The chosen rule is part of the checkpoint identity. It
+block Hertz screen. The benchmark separately reports the analytic pressure
+sampled on the actual trace and a nominal pressure difference, because a
+close total force can hide an inaccurate pressure distribution. The chosen
+rule is part of the checkpoint identity. It
 is rejected for tetrahedra, legacy plane contact, and affine-periodic J2; no
 unsupported combination silently falls back. Other weak boundary models and
 formulations need their own reviewed lowering.

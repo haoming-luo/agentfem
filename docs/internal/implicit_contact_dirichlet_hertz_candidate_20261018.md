@@ -215,6 +215,28 @@ consistent with finite-boundary stiffening. Because the separable mapping and
 remote cell shapes also change, this is a controlled-direction screen, not
 an isolated half-space extrapolation; the `1.92%` gap is still unresolved.
 
+The example now samples the *analytic Hertz pressure* on the actual reference
+trace and reports both its quadrature-integrated force and a weighted absolute
+pressure difference. This diagnostic deliberately does not identify nominal
+reference-area penalty pressure with Cauchy pressure. At the fixed-radius
+settings above, it reveals why total force alone is an unsafe promotion gate:
+
+| Quarter mesh / rule | Sampled Hertz force / analytic force | Nominal pressure L1 difference / analytic force |
+| --- | ---: | ---: |
+| 512 CG1, 2×2 | 1.0471 | 0.5198 |
+| 512 CG2, 3×3 | 1.0194 | 0.8105 |
+| 512 CG2, 4×4 | 0.9813 | 0.4490 |
+| 1,728 CG2, extent 16, 3×3 | 0.9776 | 0.3759 |
+
+The coarse CG2 3×3 total force is closest to Hertz in the table above, yet
+its sampled pressure-shape difference is the largest. A denser face rule
+improves that shape diagnostic while moving total force away. This does not
+prove a defect in the law: finite penalty, finite support, a non-half-space
+material problem, distinct stress measures, and trace quadrature remain
+mixed. It *does* reject the tempting conclusion that a 1.9–3% force gap
+alone validates the contact discretization. These figures are source-run
+diagnostics on this Mac, not installed-wheel release evidence.
+
 ## Remaining gate
 
 Run independently controlled mesh **and** domain-size refinement with a
