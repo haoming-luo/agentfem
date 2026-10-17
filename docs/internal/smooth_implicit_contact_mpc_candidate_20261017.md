@@ -58,10 +58,11 @@ than silently reported.
 
 These are bounded local and small-global tests. No independent curved-tool
 structure benchmark, mesh/penalty/increment sensitivity study, full native
-installed-wheel release gate or remote CI is claimed here. A single bounded
-two-rank admission check confirmed that distributed implicit contact is
-rejected; this is not distributed numerical validation. The same geometry
-assumptions and tolerances must be checked for a real tool before promotion.
+installed-wheel release gate or remote CI is claimed here. One bounded
+two-rank admission group confirmed that standard and affine-periodic
+distributed implicit contact are rejected; this is not distributed numerical
+validation. The same geometry assumptions and tolerances must be checked for
+a real tool before promotion.
 
 ## Next gates
 
