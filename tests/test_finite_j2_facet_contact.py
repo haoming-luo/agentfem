@@ -26,7 +26,8 @@ def _patch(*, triangulated: bool, gap: float = 0.005, penalty=500.0,
            cells=1, constrain_contact=False, contact_value=0.0, tilt=0.0,
            tool_translation=None, tool_rotation=(0.0, 0.0, 0.0),
            schedule_end=1.0, make_step=True, tool_y_max=1.5,
-           increments=3, applied_traction=10.0, yield_stress=2.0):
+           increments=3, applied_traction=10.0, yield_stress=2.0,
+           convex_tool=False):
     domain = dolfinx_mesh.create_unit_cube(MPI.COMM_SELF, cells, cells, cells)
     model = models.create(
         study=studies.static_solid(dimension=3, nonlinear=True),
@@ -54,15 +55,30 @@ def _patch(*, triangulated: bool, gap: float = 0.005, penalty=500.0,
     if triangulated:
         tool_x = 1.0 + gap
         x_at = lambda y: tool_x + tilt * y
-        surface = boundary_models.triangulated_rigid_surface(
-            vertices=(
-                (x_at(-0.5), -0.5, -0.5),
-                (x_at(-0.5), -0.5, 1.5),
-                (x_at(tool_y_max), tool_y_max, 1.5),
-                (x_at(tool_y_max), tool_y_max, -0.5),
-            ),
-            triangles=((0, 1, 2), (0, 2, 3)),
-        )
+        if convex_tool:
+            assert tilt == 0.0
+            x0, x1, y0, y1, z0, z1 = tool_x, tool_x + 0.1, -0.5, 1.5, -0.5, 1.5
+            surface = boundary_models.convex_polyhedral_rigid_surface(
+                vertices=(
+                    (x0, y0, z0), (x1, y0, z0), (x1, y1, z0), (x0, y1, z0),
+                    (x0, y0, z1), (x1, y0, z1), (x1, y1, z1), (x0, y1, z1),
+                ),
+                triangles=(
+                    (0, 2, 1), (0, 3, 2), (4, 5, 6), (4, 6, 7),
+                    (0, 1, 5), (0, 5, 4), (3, 7, 6), (3, 6, 2),
+                    (0, 4, 7), (0, 7, 3), (1, 2, 6), (1, 6, 5),
+                ),
+            )
+        else:
+            surface = boundary_models.triangulated_rigid_surface(
+                vertices=(
+                    (x_at(-0.5), -0.5, -0.5),
+                    (x_at(-0.5), -0.5, 1.5),
+                    (x_at(tool_y_max), tool_y_max, 1.5),
+                    (x_at(tool_y_max), tool_y_max, -0.5),
+                ),
+                triangles=((0, 1, 2), (0, 2, 3)),
+            )
         pair = boundary_models.rigid_contact_pair(
             right,
             boundary_models.rigid_body(
@@ -122,6 +138,32 @@ def test_non_normalized_tool_schedule_is_rejected_by_capability_and_step():
     )
     with pytest.raises(NotImplementedError, match="AFM-IMPLICIT-CONTACT-MOTION"):
         model.step(target=displacement, material=material)
+
+
+def test_closed_convex_tool_uses_ordinary_j2_step_and_matches_planar_limit():
+    _, _, _, planar = _patch(
+        triangulated=True, yield_stress=1.0e9,
+        tool_translation=(-0.008, 0, 0), applied_traction=0.0,
+    )
+    model, displacement, material, sharp = _patch(
+        triangulated=True, convex_tool=True, yield_stress=1.0e9,
+        tool_translation=(-0.008, 0, 0), applied_traction=0.0,
+    )
+    capability = step_capability(model, target=displacement, options={"material": material})
+    assert capability["supported"]
+    planar_result = planar.solve_result()
+    sharp_result = sharp.solve_result()
+    assert planar_result.status == sharp_result.status == "completed"
+    assert sharp.contact_provider.summary()["linearization"] == (
+        "closed_convex_polyhedron_piecewise_affine_semismooth"
+    )
+    np.testing.assert_allclose(
+        sharp.solution.x.array, planar.solution.x.array,
+        rtol=1e-7, atol=1e-8,
+    )
+    assert sharp.energy_history[-1].tool_work == pytest.approx(
+        planar.energy_history[-1].tool_work, rel=1e-7, abs=1e-9,
+    )
 
 
 def test_two_implicit_tools_add_residual_tangent_and_keep_separate_evidence():

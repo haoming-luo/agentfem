@@ -325,6 +325,46 @@ def test_periodic_j2_fixed_triangle_uses_the_same_full_space_operator():
     assert step.last_solve_info.increments[-1].converged
 
 
+def test_periodic_j2_closed_convex_tool_preserves_planar_mpc_limit():
+    x0, x1, y0, y1, z0, z1 = 0.95, 1.25, -1.0, 2.0, -1.0, 2.0
+    surface = boundary_models.convex_polyhedral_rigid_surface(
+        vertices=(
+            (x0, y0, z0), (x1, y0, z0), (x1, y1, z0), (x0, y1, z0),
+            (x0, y0, z1), (x1, y0, z1), (x1, y1, z1), (x0, y1, z1),
+        ),
+        triangles=(
+            (0, 2, 1), (0, 3, 2), (4, 5, 6), (4, 6, 7),
+            (0, 1, 5), (0, 5, 4), (3, 7, 6), (3, 6, 2),
+            (0, 4, 7), (0, 7, 3), (1, 2, 6), (1, 6, 5),
+        ),
+    )
+    fixture, periodicity, step = _periodic_j2_contact_step(surface=surface)
+    result = step.solve_result()
+    assert result.status == "completed"
+    assert step.contact_provider.evaluate().active_points > 0
+    assert result.quantity("contact_potential") > 0.0
+    total = step.assemble_full_residual()
+    reduction = periodicity.reduction(1.0).matrix(fixture.domain.comm)
+    reduced = reduction.createVecRight()
+    try:
+        reduction.multTranspose(total, reduced)
+        assert reduced.norm() < 1.0e-5
+    finally:
+        reduced.destroy()
+        reduction.destroy()
+        total.destroy()
+
+    plane = boundary_models.rigid_plane(
+        point=(x0, 0.0, 0.0), normal=(-1.0, 0.0, 0.0),
+    )
+    _, _, planar = _periodic_j2_contact_step(surface=plane)
+    planar.solve()
+    np.testing.assert_allclose(
+        step.solution.x.array, planar.solution.x.array,
+        rtol=1e-7, atol=1e-8,
+    )
+
+
 def _periodic_tool_motion():
     return boundary_models.prescribed_rigid_motion(
         translation=(-0.01, 0.0, 0.0),

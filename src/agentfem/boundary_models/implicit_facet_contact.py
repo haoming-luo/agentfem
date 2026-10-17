@@ -17,6 +17,7 @@ import numpy as np
 from .contact_response import FrictionlessPenaltyContactResponse
 from .contact_state import ContactProjectionRecord
 from .contact_trace import ContactTraceEvaluation
+from .convex_polyhedron import ConvexPolyhedralRigidSurface
 from .implicit_contact import (
     ImplicitRigidContactContribution,
     integrate_implicit_rigid_contact,
@@ -29,7 +30,7 @@ ImplicitFacetContactContribution = ImplicitRigidContactContribution
 
 
 def _smooth_active_facets(
-    surface: TriangulatedRigidSurface,
+    surface: TriangulatedRigidSurface | ConvexPolyhedralRigidSurface,
     record: ContactProjectionRecord,
     active: np.ndarray,
 ) -> None:
@@ -87,7 +88,7 @@ def linearize_piecewise_planar_contact(
     evaluation: ContactTraceEvaluation,
     record: ContactProjectionRecord,
     response: FrictionlessPenaltyContactResponse,
-    surface: TriangulatedRigidSurface,
+    surface: TriangulatedRigidSurface | ConvexPolyhedralRigidSurface,
     *,
     surface_reference_point=None,
 ) -> ImplicitFacetContactContribution:
@@ -106,10 +107,35 @@ def linearize_piecewise_planar_contact(
         raise TypeError("Implicit facet contact requires ContactProjectionRecord.")
     if not isinstance(response, FrictionlessPenaltyContactResponse):
         raise TypeError("Implicit facet contact requires frictionless penalty response.")
-    if not isinstance(surface, TriangulatedRigidSurface):
-        raise TypeError("Implicit facet contact requires TriangulatedRigidSurface.")
+    if not isinstance(surface, (TriangulatedRigidSurface, ConvexPolyhedralRigidSurface)):
+        raise TypeError("Implicit facet contact requires reviewed planar geometry.")
     active = np.asarray(response.active, dtype=bool)
-    _smooth_active_facets(surface, record, active)
+    if isinstance(surface, ConvexPolyhedralRigidSurface):
+        projection = record.projection
+        if (
+            projection.surface_kind != "convex_polyhedral_rigid_surface"
+            or projection.geometry_fingerprint != surface.geometry_fingerprint
+        ):
+            raise ValueError("Convex contact projection belongs to another geometry.")
+        if projection.entity_ids is None or projection.local_coordinates is None:
+            raise ValueError("Convex contact requires facet and local-coordinate evidence.")
+        for point in np.flatnonzero(active):
+            identity = int(projection.entity_ids[point])
+            matches = np.flatnonzero(surface.facets.facet_ids == identity)
+            if matches.size != 1:
+                raise ValueError("Convex contact selected an unknown facet identity.")
+            if not np.isclose(
+                np.dot(
+                    projection.query_points[point] - projection.closest_points[point],
+                    projection.normals[point],
+                ),
+                projection.signed_gaps[point],
+                atol=surface.facets.tolerance,
+                rtol=0.0,
+            ):
+                raise ValueError("Convex contact gap and closest-point evidence disagree.")
+    else:
+        _smooth_active_facets(surface, record, active)
     return integrate_implicit_rigid_contact(
         evaluation, record, response,
         np.zeros((evaluation.trace.point_count, 3, 3)),

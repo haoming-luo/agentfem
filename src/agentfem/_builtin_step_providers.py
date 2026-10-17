@@ -471,6 +471,7 @@ def _finite_strain_j2_strong_preconditions(model, request: StepRequest) -> bool:
 
 def _accept_finite_strain_j2_strong(model, request: StepRequest) -> bool:
     from .boundary_models import (
+        ConvexPolyhedralRigidSurface,
         RigidContactPair,
         RigidObstaclePenaltyContact,
         RigidPlaneSurface,
@@ -496,6 +497,7 @@ def _accept_finite_strain_j2_strong(model, request: StepRequest) -> bool:
         isinstance(item, RigidContactPair)
         and isinstance(item.rigid_body.surface, (
             TriangulatedRigidSurface, SmoothRigidSurface,
+            ConvexPolyhedralRigidSurface,
         ))
         and (
             item.friction is None

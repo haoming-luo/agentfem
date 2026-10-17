@@ -312,7 +312,7 @@ def finite_strain_j2(
         ):
             raise NotImplementedError(
                 "AFM-J2-CONTACT-MPC: affine finite-strain J2 admits only named "
-                "frictionless rigid triangle/sphere/cylinder pairs in serial "
+                "frictionless reviewed rigid pairs in serial "
                 "displacement form, with fixed or normalized prescribed motion; "
                 "no other Operator is ignored."
             )

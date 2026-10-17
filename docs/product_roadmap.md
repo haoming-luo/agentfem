@@ -89,6 +89,15 @@ candidates, not a release promotion. Sharp noncoplanar features, moving or
 curved friction, friction with affine MPC, distributed implicit assembly and an
 independent friction benchmark remain separate gates.
 
+A further narrow source candidate admits a **closed convex** outward-oriented
+polyhedral rigid tool for serial frictionless finite-J2 contact. Its exact
+interior support-plane gap gives a deterministic limiting normal and tangent
+at a noncoplanar feature; it does not smooth a crease or relax the old open
+triangle rejection. Local Operator and planar-limit global tests pass, but a
+structural load path across a sharp feature, independent reference and
+scalable search remain open. See the
+[closed-convex candidate record](internal/closed_convex_implicit_contact_candidate_20261018.md).
+
 The next source candidate removes the built-in sphere/cylinder type gate for
 smooth rigid contact: geometry owns a checked signed-gap differential, while
 the existing Operator and Procedure remain unchanged. A third-party smooth

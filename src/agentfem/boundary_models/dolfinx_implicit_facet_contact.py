@@ -20,6 +20,7 @@ from .contact_friction import (
     TangentialKinematicState, relative_contact_displacement_increment,
 )
 from .contact_state import ContactProjectionRecord
+from .convex_polyhedron import ConvexPolyhedralRigidSurface
 from .dolfinx_contact_trace import (
     DolfinxContactTraceAdapter,
     dolfinx_boundary_region_contact_trace,
@@ -42,7 +43,7 @@ class DolfinxImplicitRigidContact:
     pair: RigidContactPair
     adapter: DolfinxContactTraceAdapter
     displacement: object
-    projector: TriangleSurfaceBVH | None
+    projector: TriangleSurfaceBVH | ConvexPolyhedralRigidSurface | None
     motion_factor: object | None = None
     friction_state: TangentialContactState | None = field(default=None, init=False)
     friction_kinematics: TangentialKinematicState | None = field(default=None, init=False)
@@ -53,13 +54,19 @@ class DolfinxImplicitRigidContact:
         if not isinstance(self.adapter, DolfinxContactTraceAdapter):
             raise TypeError("Implicit rigid contact requires a DOLFINx trace adapter.")
         surface = self.pair.rigid_body.surface
-        if isinstance(surface, TriangulatedRigidSurface):
+        if isinstance(surface, ConvexPolyhedralRigidSurface):
+            if self.projector is not surface:
+                raise ValueError("Convex contact projector must share the tool geometry.")
+        elif isinstance(surface, TriangulatedRigidSurface):
             if not isinstance(self.projector, TriangleSurfaceBVH):
                 raise TypeError("Implicit facet contact requires a reviewed triangle BVH.")
             if self.projector.surface is not surface:
                 raise ValueError("Contact search and pair must share one rigid geometry instance.")
         elif not isinstance(surface, SmoothRigidSurface):
-            raise TypeError("Implicit rigid contact requires smooth differentiable geometry or a reviewed triangle tool.")
+            raise TypeError(
+                "Implicit rigid contact requires smooth differentiable geometry, "
+                "a reviewed triangle tool, or a closed convex polyhedral tool."
+            )
         elif self.projector is not None:
             raise ValueError("Analytical curved contact does not use a triangle BVH.")
         if self.adapter.communicator.size != 1:
@@ -519,7 +526,9 @@ class DolfinxImplicitRigidContact:
                     else contribution.assembly.surface_generalized_moment.tolist()
                 ),
                 "projection": (
-                    "current_geometry_bvh" if self.projector is not None
+                    "exhaustive_closed_convex_signed_distance"
+                    if isinstance(self.surface, ConvexPolyhedralRigidSurface)
+                    else "current_geometry_bvh" if self.projector is not None
                     else "exact_analytical_current_pose"
                 ),
                 "linearization": self._linearization_name(),
@@ -546,11 +555,11 @@ class DolfinxImplicitRigidContact:
     def _linearization_name(self) -> str:
         if self.friction_state is not None:
             return "fixed_plane_normal_plus_coulomb_semismooth_return_map"
-        return (
-            "piecewise_planar_normal_branch_at_current_pose"
-            if self.projector is not None
-            else "smooth_signed_gap_with_curvature_at_current_pose"
-        )
+        if isinstance(self.surface, ConvexPolyhedralRigidSurface):
+            return "closed_convex_polyhedron_piecewise_affine_semismooth"
+        if self.projector is not None:
+            return "piecewise_planar_normal_branch_at_current_pose"
+        return "smooth_signed_gap_with_curvature_at_current_pose"
 
 
 @dataclass(eq=False)
@@ -715,8 +724,10 @@ def dolfinx_implicit_rigid_contact(
     if not isinstance(pair, RigidContactPair):
         raise TypeError("Implicit rigid contact requires a RigidContactPair.")
     surface = pair.rigid_body.surface
-    if not isinstance(surface, (TriangulatedRigidSurface, SmoothRigidSurface)):
-        raise TypeError("Implicit rigid contact requires smooth differentiable geometry or a reviewed triangle tool.")
+    if not isinstance(surface, (
+        TriangulatedRigidSurface, SmoothRigidSurface, ConvexPolyhedralRigidSurface,
+    )):
+        raise TypeError("Implicit rigid contact requires reviewed smooth, triangle, or closed convex geometry.")
     adapter = dolfinx_boundary_region_contact_trace(
         pair.slave_boundary, displacement.function_space,
     )
@@ -724,7 +735,11 @@ def dolfinx_implicit_rigid_contact(
 
     return DolfinxImplicitRigidContact(
         pair=pair, adapter=adapter, displacement=displacement,
-        projector=(triangle_surface_bvh(surface) if isinstance(surface, TriangulatedRigidSurface) else None),
+        projector=(
+            surface if isinstance(surface, ConvexPolyhedralRigidSurface)
+            else triangle_surface_bvh(surface)
+            if isinstance(surface, TriangulatedRigidSurface) else None
+        ),
         motion_factor=(
             None if pair.rigid_body.motion_schedule is None
             else fem.Constant(displacement.function_space.mesh, 0.0)
