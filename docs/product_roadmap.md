@@ -59,9 +59,19 @@ material-plus-fixed-contact residual and tangent through the same periodic
 MPC on Newton and line-search trials, with fixed-tool restart and dual
 evidence. These are source-level candidate results, not a new release claim;
 see the [bounded candidate record](internal/smooth_implicit_contact_mpc_candidate_20261017.md).
-Noncoplanar triangulated transitions, moving tool plus MPC, MPI implicit
-contact, friction and mixed pressure retain separate gates. Measure complete
+Noncoplanar triangulated transitions, MPI implicit contact, friction and
+mixed pressure retain separate gates. Measure complete
 accepted-step cost before choosing an acceleration target.
+
+The follow-on source candidate composes normalized moving rigid contact with
+serial affine-periodic J2 using the same full-space Operator and accepted
+increment lifecycle. It adds provider-owned tool force/coordinate work,
+restartable dual history, pose rollback and checkpoint rejection of incomplete
+work paths; see the [moving affine contact record](internal/moving_affine_contact_candidate_20261017.md).
+This closes the bounded moving-tool/MPC composition gate only. Noncoplanar
+triangle transitions, MPI implicit assembly, friction, mixed pressure and
+independent curved-structure validation remain open. The source candidate is
+not promoted to a released capability by these local tests.
 
 The separate performance lane follows `skills/agentfem-performance`: profile
 whole accepted increments on a frozen case, change one body/contact/data-flow

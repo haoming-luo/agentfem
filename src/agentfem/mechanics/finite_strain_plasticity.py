@@ -3512,12 +3512,7 @@ def finite_strain_j2_affine_problem(
         if not isinstance(contact, RigidContactPair):
             raise NotImplementedError(
                 "AFM-J2-CONTACT-MPC: first affine contact slice accepts one "
-                "frictionless fixed RigidContactPair only."
-            )
-        if contact.rigid_body.motion_schedule is not None:
-            raise NotImplementedError(
-                "AFM-J2-CONTACT-MPC-MOTION: prescribed rigid motion needs a "
-                "joint affine/contact work and rollback contract."
+                "frictionless RigidContactPair only."
             )
         contact_provider = dolfinx_implicit_rigid_contact(
             contact, displacement.value,

@@ -305,15 +305,16 @@ def finite_strain_j2(
         else ()
     )
     if affine:
-        from .boundary_models.implicit_admission import affine_fixed_contact_supported
+        from .boundary_models.implicit_admission import affine_rigid_contact_supported
 
         if model.boundary_models and (
-            mixed_target or not affine_fixed_contact_supported(model)
+            mixed_target or not affine_rigid_contact_supported(model)
         ):
             raise NotImplementedError(
                 "AFM-J2-CONTACT-MPC: affine finite-strain J2 admits only one "
-                "fixed, frictionless rigid triangle/sphere/cylinder pair in "
-                "serial displacement form; no other Operator is ignored."
+                "frictionless rigid triangle/sphere/cylinder pair in serial "
+                "displacement form, with fixed or normalized prescribed motion; "
+                "no other Operator is ignored."
             )
         affine_contact = (
             None if not model.boundary_models else model.boundary_models[0]
@@ -364,8 +365,8 @@ def finite_strain_j2(
                 checkpoint_policy=checkpoint,
                 name=name,
             )
-        # A fixed tool does zero rigid-coordinate work, but its boundary
-        # traction invalidates the material-only Hill--Mandel identity.
+        # Contact traction invalidates the material-only Hill--Mandel identity;
+        # a moving tool also contributes accepted-path coordinate work.
         has_external_power = affine_contact is not None
     else:
         concrete = constraint_assets

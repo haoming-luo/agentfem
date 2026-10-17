@@ -107,14 +107,7 @@ def _periodic_j2_contact_step(*, surface=None, motion=None):
         model, target=displacement,
         options={"material": material, "constraints": periodicity},
     )
-    if motion is None:
-        assert capability["supported"]
-    else:
-        assert not capability["supported"]
-        assert any(
-            item["message"].startswith("AFM-J2-CONTACT-MPC")
-            for item in capability["rejection_reasons"]
-        )
+    assert capability["supported"]
     step = model.step(
         target=displacement, material=material, constraints=periodicity,
         incrementation=steps.fixed(3), progress=False,
@@ -305,14 +298,97 @@ def test_periodic_j2_fixed_triangle_uses_the_same_full_space_operator():
     assert step.last_solve_info.increments[-1].converged
 
 
-def test_periodic_j2_rejects_moving_tool_until_joint_pose_transaction_exists():
-    motion = boundary_models.prescribed_rigid_motion(
+def _periodic_tool_motion():
+    return boundary_models.prescribed_rigid_motion(
         translation=(-0.01, 0.0, 0.0),
         rotation=(0.0, 0.0, 0.0),
         reference_point=(1.6, 0.5, 0.5),
     )
-    with pytest.raises(NotImplementedError, match="AFM-J2-CONTACT-MPC"):
-        _periodic_j2_contact_step(motion=motion)
+
+
+def test_periodic_j2_moving_tool_records_accepted_work_and_joint_restart(tmp_path):
+    motion = _periodic_tool_motion()
+    _, _, reference = _periodic_j2_contact_step(motion=motion)
+    result = reference.solve_result()
+    assert result.status == "completed"
+    assert result.metadata["affine_operator_path_work"]["status"] == "complete"
+    assert result.quantity("rigid_contact_pair_path_work") != 0.0
+    assert result.metadata["constraint_balance_contract"]["work_balance_available"]
+    assert reference.operator_dual_history.complete(accepted_factor=1.0)
+    assert reference.contact_provider.motion_factor.value == pytest.approx(1.0)
+
+    _, _, partial = _periodic_j2_contact_step(motion=motion)
+    partial.solve(until=1 / 3)
+    checkpoint = partial.save_checkpoint(tmp_path / "periodic_moving_contact")
+    _, _, resumed = _periodic_j2_contact_step(motion=motion)
+    resumed.load_checkpoint(checkpoint)
+    assert resumed.contact_provider.motion_factor.value == pytest.approx(1 / 3)
+    resumed.solve()
+    np.testing.assert_allclose(
+        resumed.solution.x.array, reference.solution.x.array,
+        rtol=2e-8, atol=2e-10,
+    )
+    assert resumed.operator_dual_history.records == reference.operator_dual_history.records
+
+
+def test_periodic_j2_moving_tool_force_is_potential_conjugate():
+    motion = _periodic_tool_motion()
+    _, _, step = _periodic_j2_contact_step(motion=motion)
+    step.solve()
+    contact = step.contact_provider
+    dual = contact.dual_evidence(step)
+    final_energy = contact.evaluate().assembly.potential_energy
+    increment = 1.0e-6
+    try:
+        contact.update_motion(1.0 - increment)
+        previous_energy = contact.evaluate().assembly.potential_energy
+    finally:
+        contact.update_motion(1.0)
+    path_direction = motion.generalized_coordinate(1.0)
+    assert (final_energy - previous_energy) / increment == pytest.approx(
+        float(np.dot(dual.force, path_direction)), rel=2.0e-4,
+    )
+
+
+def test_periodic_j2_moving_checkpoint_rejects_missing_work_path_atomically(tmp_path):
+    motion = _periodic_tool_motion()
+    _, _, partial = _periodic_j2_contact_step(motion=motion)
+    partial.solve(until=1 / 3)
+    checkpoint = partial.save_checkpoint(tmp_path / "moving_work_path")
+    payload = json.loads(checkpoint.read_text())
+    payload.pop("operator_dual_history")
+    checkpoint.write_text(json.dumps(payload))
+
+    _, _, resumed = _periodic_j2_contact_step(motion=motion)
+    with pytest.raises(ValueError, match="accepted force--coordinate path"):
+        resumed.load_checkpoint(checkpoint)
+    assert resumed.accepted_load_factor == pytest.approx(0.0)
+    assert resumed.contact_provider.motion_factor.value == pytest.approx(0.0)
+    assert not resumed.operator_dual_history.records
+    np.testing.assert_array_equal(resumed.solution.x.array, 0.0)
+
+
+def test_periodic_j2_moving_tool_rolls_back_pose_after_projection_failure(monkeypatch):
+    _, _, step = _periodic_j2_contact_step(motion=_periodic_tool_motion())
+    step.solve(until=1 / 3)
+    accepted = step.solution.x.array.copy()
+    state = step.response.state.committed_state_vectors().copy()
+    duals = step.operator_dual_history.snapshot_runtime_state()
+
+    def fail_projection():
+        raise ValueError("injected moving projection failure")
+
+    monkeypatch.setattr(step.contact_provider, "evaluate", fail_projection)
+    with pytest.raises(ValueError, match="injected moving projection failure"):
+        step.solve(until=2 / 3)
+    assert step.contact_provider.motion_factor.value == pytest.approx(1 / 3)
+    assert step.accepted_load_factor == pytest.approx(1 / 3)
+    np.testing.assert_allclose(step.solution.x.array, accepted)
+    np.testing.assert_allclose(step.response.state.committed_state_vectors(), state)
+    assert step.operator_dual_history.snapshot_runtime_state() == duals
+    monkeypatch.undo()
+    step.solve(until=2 / 3)
+    assert step.contact_provider.motion_factor.value == pytest.approx(2 / 3)
 
 
 def _integrate_material_path(material, deformation_gradient, increments):

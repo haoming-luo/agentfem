@@ -9,8 +9,8 @@ from .contact_pair import RigidContactPair
 from .rigid import RigidCylinderSurface, RigidSphereSurface, TriangulatedRigidSurface
 
 
-def affine_fixed_contact_supported(model) -> bool:
-    """Only one fixed, frictionless, serial rigid pair has a reviewed tangent."""
+def affine_rigid_contact_supported(model) -> bool:
+    """One serial rigid pair may share the affine J2 residual and work path."""
 
     boundaries = tuple(getattr(model, "boundary_models", ()))
     if not boundaries:
@@ -24,10 +24,26 @@ def affine_fixed_contact_supported(model) -> bool:
             pair.rigid_body.surface,
             (TriangulatedRigidSurface, RigidSphereSurface, RigidCylinderSurface),
         )
-        and pair.rigid_body.motion_schedule is None
+        and (
+            pair.rigid_body.motion_schedule is None
+            or (
+                pair.rigid_body.motion_schedule.start_time == 0.0
+                and pair.rigid_body.motion_schedule.end_time == 1.0
+                and pair.rigid_body.motion_schedule.amplitude is None
+            )
+        )
         and pair.friction is None
         and pair.law.invalid_policy == "reject"
     )
 
 
-__all__ = ["affine_fixed_contact_supported"]
+def affine_fixed_contact_supported(model) -> bool:
+    """Preserve the historical fixed-tool-only predicate for extensions."""
+
+    return affine_rigid_contact_supported(model) and all(
+        pair.rigid_body.motion_schedule is None
+        for pair in getattr(model, "boundary_models", ())
+    )
+
+
+__all__ = ["affine_fixed_contact_supported", "affine_rigid_contact_supported"]

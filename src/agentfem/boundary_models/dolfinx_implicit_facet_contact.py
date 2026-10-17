@@ -106,6 +106,11 @@ class DolfinxImplicitRigidContact:
         if self.motion_factor is not None:
             self.motion_factor.value = selected
 
+    def set_load_factor(self, factor: float) -> None:
+        """Follow a Procedure-owned accepted or trial load coordinate."""
+
+        self.update_motion(factor)
+
     def capabilities(self):
         from ..constraints import ConstraintCapabilities
 

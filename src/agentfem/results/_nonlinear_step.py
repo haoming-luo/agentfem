@@ -379,20 +379,28 @@ def _add_affine_constraint_evidence(step, result) -> None:
         step,
     )
     work_evidence = _add_affine_path_work(step, result)
+    if any(
+        getattr(operator, "has_prescribed_motion", False)
+        for operator in step.full_space_operators
+    ):
+        work_evidence = (*work_evidence, *_add_affine_operator_path_work(
+            step, result,
+        ))
     if contact is not None:
         contact_contribution = contact.evaluate()
-        work_evidence = (*work_evidence, constraint_api.constraint_work(
-            contact,
-            value=0.0,
-            integration="fixed_rigid_surface_zero_coordinate",
-            sample_count=len(step.accepted_increments) + 1,
-            role="contact_constraint",
-            source="rigid_penalty_potential",
-        ))
+        if not contact.has_prescribed_motion:
+            work_evidence = (*work_evidence, constraint_api.constraint_work(
+                contact,
+                value=0.0,
+                integration="fixed_rigid_surface_zero_coordinate",
+                sample_count=len(step.accepted_increments) + 1,
+                role="contact_constraint",
+                source="rigid_penalty_potential",
+            ))
         result.add_quantity(
             "contact_potential", contact_contribution.assembly.potential_energy,
             kind="diagnostic",
-            description="Recoverable fixed-rigid penalty contact potential.",
+            description="Recoverable rigid penalty contact potential.",
         )
     result.metadata["constraint_balance_contract"] = (
         constraint_api.constraint_balance_contract(
@@ -500,6 +508,57 @@ def _add_affine_path_work(step, result) -> tuple[object, ...]:
             },
         ),
     )
+
+
+def _add_affine_operator_path_work(step, result) -> tuple[object, ...]:
+    """Publish only accepted work of load-dependent full-space Operators."""
+
+    history = step.operator_dual_history
+    if not history.complete(accepted_factor=step.accepted_load_factor):
+        result.metadata["affine_operator_path_work"] = {
+            "status": "unavailable",
+            "reason": "Moving-Operator dual history lacks the accepted zero-to-end path.",
+            "sample_count": len(history.records),
+        }
+        return ()
+    assets = {operator.name: operator for operator in step.full_space_operators}
+    work_evidence = []
+    values = {}
+    for name in history.constraint_names:
+        channel = history.channel(name)
+        if channel["coordinate"] is None:
+            raise RuntimeError(
+                f"Moving Operator {name!r} did not publish a work coordinate."
+            )
+        work = history.work(name)
+        prefix = name.lower().replace(" ", "_")
+        result.add_history(
+            f"{prefix}_generalized_force", history.factors, channel["force"],
+            abscissa_name="load_factor",
+            description="Accepted work-conjugate rigid-tool force and moment.",
+        )
+        result.add_history(
+            f"{prefix}_generalized_coordinate", history.factors,
+            channel["coordinate"], abscissa_name="load_factor",
+            description="Accepted rigid-tool translation and rotation coordinate.",
+        )
+        result.add_quantity(
+            f"{prefix}_path_work", work, kind="diagnostic",
+            description="Trapezoidal generalized tool work along accepted increments.",
+        )
+        work_evidence.append(constraint_api.constraint_work(
+            assets[name], value=work,
+            integration="accepted_force_coordinate_trapezoidal",
+            sample_count=len(history.records), role=channel["role"],
+            source=channel["source"],
+        ))
+        values[name] = work
+    result.metadata["affine_operator_path_work"] = {
+        "status": "complete", "sample_count": len(history.records),
+        "integration": "accepted_force_coordinate_trapezoidal",
+        "channels": values,
+    }
+    return tuple(work_evidence)
 
 
 def _state_summary(transaction):

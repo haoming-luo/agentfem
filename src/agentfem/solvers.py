@@ -1445,6 +1445,7 @@ def solve_affine_nonlinear_path(
         raise ValueError(
             "Affine stop_factor must exceed the currently accepted load factor."
         )
+    _set_affine_operator_factor(operators, accepted_factor)
     if history and any(not item.converged for item in history):
         raise ValueError("Affine accepted_history contains a rejected increment.")
     if isinstance(control, step_controls.FixedIncrementation):
@@ -1597,6 +1598,7 @@ def solve_affine_nonlinear_path(
         accepted_transaction_state = _snapshot_affine_accepted_state(state_transaction)
         accepted_history_state = list(history)
         attempted_history_state = list(attempt_history)
+        _set_affine_operator_factor(operators, factor)
         reduction = constraint.reduction(factor)
         T = reduction.matrix(function.function_space.mesh.comm)
         current_F = constraint.deformation_gradient_at(factor)
@@ -1907,11 +1909,13 @@ def solve_affine_nonlinear_path(
                     attempted_history_state=attempted_history_state,
                     on_acceptance_failure=on_acceptance_failure,
                 )
+                _set_affine_operator_factor(operators, increment_info.start_load_factor)
                 raise
             continue
 
         function.x.array[:] = rollback
         function.x.scatter_forward()
+        _set_affine_operator_factor(operators, accepted_factor)
         _rollback_affine_trial_state(
             state_transaction,
             accepted_factor=accepted_factor,
@@ -2756,6 +2760,20 @@ def _assign_reconstructed(function, reduction, reduced_values) -> None:
         )
     function.x.array[:] = values
     function.x.scatter_forward()
+
+
+def _set_affine_operator_factor(operators, factor: float) -> None:
+    """Synchronize load-dependent Operators with one trial/accepted coordinate."""
+
+    for operator in operators:
+        setter = getattr(operator, "set_load_factor", None)
+        if setter is None:
+            if getattr(operator, "has_prescribed_motion", False):
+                raise TypeError(
+                    "A moving affine Operator must implement set_load_factor()."
+                )
+            continue
+        setter(factor)
 
 
 def _assemble_affine_full_residual(residual_form, operators=()):

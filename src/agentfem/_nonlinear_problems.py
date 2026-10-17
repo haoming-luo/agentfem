@@ -29,6 +29,7 @@ from .solvers import (
     AffineNewtonOptions,
     NewtonSolverOptions,
     NonlinearSolverOptions,
+    _set_affine_operator_factor,
     solve_affine_nonlinear_path,
     solve_nonlinear_problem,
 )
@@ -1233,6 +1234,10 @@ class AffineNonlinearVariationalProblem:
         default_factory=AffineConstraintDualHistory,
         init=False,
     )
+    operator_dual_history: ConstraintDualHistory = field(
+        default_factory=ConstraintDualHistory,
+        init=False,
+    )
 
     def checkpoint_capabilities(self) -> checkpointing.CheckpointCapabilities:
         """Declare the stateful affine restart contract."""
@@ -1246,6 +1251,7 @@ class AffineNonlinearVariationalProblem:
                 "quadrature material state",
                 "load-path ledger",
                 "constraint dual history",
+                "moving-Operator dual and coordinate history",
                 "accepted-observer state",
             ),
             atomic_publication=True,
@@ -1303,6 +1309,32 @@ class AffineNonlinearVariationalProblem:
             outgoing_evidence=outgoing_evidence,
         )
 
+    def _capture_operator_duals(self, load_factor: float) -> None:
+        """Accept provider-owned generalized forces only at committed stations."""
+
+        from .constraints import collect_provider_duals
+
+        moving = tuple(
+            operator for operator in self.full_space_operators
+            if getattr(operator, "has_prescribed_motion", False)
+        )
+        if not moving:
+            return
+        previous = getattr(self, "_constraint_dual_state", None)
+        self._constraint_dual_state = "accepted"
+        try:
+            evidence = collect_provider_duals(moving, self)
+        finally:
+            self._constraint_dual_state = previous
+        if {item.constraint_name for item in evidence} != {
+            operator.name for operator in moving
+        } or any(item.coordinate is None for item in evidence):
+            raise RuntimeError(
+                "Moving affine Operators must each publish one named, "
+                "work-conjugate force and coordinate at every accepted station."
+            )
+        self.operator_dual_history.append(load_factor, evidence)
+
     def solve(self, *, until: float = 1.0):
         """Advance to an accepted load factor without discarding prior history."""
 
@@ -1337,6 +1369,9 @@ class AffineNonlinearVariationalProblem:
                 "constraint_dual_history": (
                     self.constraint_dual_history.snapshot_runtime_state()
                 ),
+                "operator_dual_history": (
+                    self.operator_dual_history.snapshot_runtime_state()
+                ),
             }
             if self.full_space_operators else None
         )
@@ -1351,6 +1386,7 @@ class AffineNonlinearVariationalProblem:
             if fresh:
                 self.execution_events.clear()
                 self.constraint_dual_history.clear()
+                self.operator_dual_history.clear()
                 if self.state_transaction is not None and hasattr(
                     self.state_transaction, "initialize"
                 ):
@@ -1366,6 +1402,9 @@ class AffineNonlinearVariationalProblem:
                     )
                 if hasattr(self.state_transaction, "prepare_resume"):
                     self.state_transaction.prepare_resume()
+            _set_affine_operator_factor(
+                self.full_space_operators, self.accepted_load_factor,
+            )
             initial_snapshot = _load_snapshot(
                 len(self.accepted_increments),
                 self.accepted_load_factor,
@@ -1382,6 +1421,7 @@ class AffineNonlinearVariationalProblem:
                     observer.reset(initial_snapshot)
             if fresh:
                 self._capture_constraint_dual(self.accepted_load_factor)
+                self._capture_operator_duals(self.accepted_load_factor)
         except BaseException:
             self.solution.x.array[:] = initial_solution
             self.solution.x.scatter_forward()
@@ -1396,6 +1436,12 @@ class AffineNonlinearVariationalProblem:
                 self.constraint_dual_history.restore_runtime_state(
                     initial_boundary["constraint_dual_history"]
                 )
+                self.operator_dual_history.restore_runtime_state(
+                    initial_boundary["operator_dual_history"]
+                )
+            _set_affine_operator_factor(
+                self.full_space_operators, self.accepted_load_factor,
+            )
             raise
 
         pending_acceptance = None
@@ -1416,6 +1462,9 @@ class AffineNonlinearVariationalProblem:
                 "constraint_dual_history": (
                     self.constraint_dual_history.snapshot_runtime_state()
                 ),
+                "operator_dual_history": (
+                    self.operator_dual_history.snapshot_runtime_state()
+                ),
             }
 
         def restore_pending_acceptance():
@@ -1433,6 +1482,9 @@ class AffineNonlinearVariationalProblem:
             self.checkpoints[:] = state["checkpoints"]
             self.constraint_dual_history.restore_runtime_state(
                 state["constraint_dual_history"]
+            )
+            self.operator_dual_history.restore_runtime_state(
+                state["operator_dual_history"]
             )
             pending_acceptance = None
 
@@ -1465,6 +1517,7 @@ class AffineNonlinearVariationalProblem:
                 for observer in self.accepted_observers:
                     observer.accept(accepted_snapshot)
                 self._capture_constraint_dual(factor)
+                self._capture_operator_duals(factor)
                 if should_save:
                     self.snapshots.append(accepted_snapshot)
             except BaseException:
@@ -1574,6 +1627,12 @@ class AffineNonlinearVariationalProblem:
                 self.last_solve_info = initial_boundary["last_solve_info"]
                 self.constraint_dual_history.restore_runtime_state(
                     initial_boundary["constraint_dual_history"]
+                )
+                self.operator_dual_history.restore_runtime_state(
+                    initial_boundary["operator_dual_history"]
+                )
+                _set_affine_operator_factor(
+                    self.full_space_operators, self.accepted_load_factor,
                 )
             raise
         self.last_solve_info = info
@@ -1690,6 +1749,16 @@ class AffineNonlinearVariationalProblem:
             atol=1.0e-12,
         ):
             local_problem = "Checkpointing is permitted only when U equals U_ACCEPTED."
+        elif any(
+            getattr(operator, "has_prescribed_motion", False)
+            for operator in self.full_space_operators
+        ) and not self.operator_dual_history.complete(
+            accepted_factor=self.accepted_load_factor,
+        ):
+            local_problem = (
+                "Moving affine contact checkpoint requires the complete "
+                "accepted force--coordinate path."
+            )
         problems = comm.allgather(local_problem)
         if any(problem is not None for problem in problems):
             rank = next(
@@ -1759,6 +1828,9 @@ class AffineNonlinearVariationalProblem:
             },
             "constraint_dual_history": (
                 self.constraint_dual_history.checkpoint_state()
+            ),
+            "operator_dual_history": (
+                self.operator_dual_history.checkpoint_state()
             ),
         }
         error = None
@@ -1879,6 +1951,9 @@ class AffineNonlinearVariationalProblem:
             "constraint_dual_history": (
                 self.constraint_dual_history.snapshot_runtime_state()
             ),
+            "operator_dual_history": (
+                self.operator_dual_history.snapshot_runtime_state()
+            ),
         }
         observer_backup = {
             name: recorder.snapshot_runtime_state()
@@ -1954,6 +2029,21 @@ class AffineNonlinearVariationalProblem:
                 payload.get("constraint_dual_history"),
                 accepted_factor=coordinate,
             )
+            self.operator_dual_history.restore_checkpoint_state(
+                payload.get("operator_dual_history"),
+                accepted_factor=coordinate,
+            )
+            if any(
+                getattr(operator, "has_prescribed_motion", False)
+                for operator in self.full_space_operators
+            ) and not self.operator_dual_history.complete(
+                accepted_factor=coordinate,
+            ):
+                raise ValueError(
+                    "Moving affine contact checkpoint lacks the complete "
+                    "accepted force--coordinate path."
+                )
+            _set_affine_operator_factor(self.full_space_operators, coordinate)
             self.state_transaction.accepted_factor = coordinate
             self.state_transaction.prepare_resume()
             observer_state = payload.get("accepted_observer_state", {})
@@ -1993,6 +2083,12 @@ class AffineNonlinearVariationalProblem:
             self.checkpoints[:] = lifecycle_backup["checkpoints"]
             self.constraint_dual_history.restore_runtime_state(
                 lifecycle_backup["constraint_dual_history"]
+            )
+            self.operator_dual_history.restore_runtime_state(
+                lifecycle_backup["operator_dual_history"]
+            )
+            _set_affine_operator_factor(
+                self.full_space_operators, self.accepted_load_factor,
             )
             for name, state in observer_backup.items():
                 recorder = self.accepted_history_recorders.get(name)

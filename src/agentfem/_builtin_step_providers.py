@@ -325,7 +325,7 @@ def _accept_small_strain_material(model, request: StepRequest) -> bool:
 
 def _accept_finite_strain_j2_affine(model, request: StepRequest) -> bool:
     from . import loads as load_api
-    from .boundary_models.implicit_admission import affine_fixed_contact_supported
+    from .boundary_models.implicit_admission import affine_rigid_contact_supported
     from .constitutive import FiniteStrainJ2Logarithmic
     from .constraints import AbaqusPeriodicConstraint, constraint_assets
 
@@ -351,7 +351,7 @@ def _accept_finite_strain_j2_affine(model, request: StepRequest) -> bool:
         and len(selected_constraints) == 1
         and isinstance(selected_constraints[0], AbaqusPeriodicConstraint)
         and not physical_loads
-        and affine_fixed_contact_supported(model)
+        and affine_rigid_contact_supported(model)
     )
 
 
@@ -410,11 +410,11 @@ def _accept_finite_strain_j2_mixed_affine(
 def _finite_strain_j2_affine_boundary_rejection(model, request: StepRequest) -> str | None:
     """Reject any unreviewed affine/contact Operator composition."""
 
-    from .boundary_models.implicit_admission import affine_fixed_contact_supported
+    from .boundary_models.implicit_admission import affine_rigid_contact_supported
     from .constitutive import FiniteStrainJ2Logarithmic
     from .constraints import AbaqusPeriodicConstraint, constraint_assets
 
-    if not getattr(model, "boundary_models", ()) or affine_fixed_contact_supported(model):
+    if not getattr(model, "boundary_models", ()) or affine_rigid_contact_supported(model):
         return None
     selected_constraints = request.option("constraints")
     if selected_constraints is None:
@@ -431,9 +431,10 @@ def _finite_strain_j2_affine_boundary_rejection(model, request: StepRequest) -> 
     ):
         return None
     return (
-        "AFM-J2-CONTACT-MPC: affine finite-strain J2 admits only one fixed, "
-        "frictionless rigid triangle/sphere/cylinder pair in serial; moving, "
-        "mixed, distributed, and other weak Operators remain unsupported."
+        "AFM-J2-CONTACT-MPC: affine finite-strain J2 admits one serial, "
+        "frictionless rigid triangle/sphere/cylinder pair with fixed or "
+        "normalized prescribed motion; mixed, distributed, and other weak "
+        "Operators remain unsupported."
     )
 
 
