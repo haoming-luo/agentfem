@@ -473,6 +473,40 @@ def create_ksp(comm, options: LinearSolverOptions | None = None):
     return ksp
 
 
+def _attach_elasticity_rigid_near_nullspace(matrix, displacement_space):
+    """Give GAMG reference rigid modes for a blocked 3D displacement matrix.
+
+    This affects only the preconditioner, not the assembled Operator or its
+    converged solution. An incompatible layout leaves the existing PETSc path
+    untouched. Keep the coordinate buffer and PETSc objects alive with the
+    owning nonlinear Step for the matrix's lifetime.
+    """
+
+    dofmap = displacement_space.dofmap
+    if (
+        displacement_space.mesh.geometry.dim != 3
+        or dofmap.index_map_bs != 3
+        or matrix.getBlockSize() != 3
+    ):
+        return None
+    coordinates = np.ascontiguousarray(
+        displacement_space.tabulate_dof_coordinates()[
+            :dofmap.index_map.size_local
+        ],
+        dtype=PETSc.ScalarType,
+    )
+    if coordinates.shape != (dofmap.index_map.size_local, 3) or (
+        matrix.getLocalSize()[0] != coordinates.size
+    ) or not np.all(np.isfinite(coordinates)):
+        return None
+    coordinate_vector = PETSc.Vec().createWithArray(
+        coordinates.ravel(), bsize=3, comm=displacement_space.mesh.comm,
+    )
+    modes = PETSc.NullSpace().createRigidBody(coordinate_vector)
+    matrix.setNearNullSpace(modes)
+    return coordinates, coordinate_vector, modes
+
+
 @dataclass(frozen=True)
 class LinearSolveInfo:
     """PETSc KSP convergence evidence for one linear system solve."""

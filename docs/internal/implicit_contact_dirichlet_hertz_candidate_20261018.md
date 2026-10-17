@@ -433,6 +433,37 @@ are local Mac execution and scientific-direction screens, not external
 same-input validation, Windows/Linux qualification, or general-contact
 promotion.
 
+### Bounded rigid-mode GAMG improvement
+
+The installed-wheel 8,000-cell Q2 Hertz screen above spent `523.46 s` of its
+`673.28 s` wall time in accepted linear solves. For the *existing opt-in*
+GMRES/GAMG policy on the serial native rigid-contact finite-J2 displacement
+route, the matrix now carries a PETSc rigid-body **near** nullspace formed
+from the reference displacement coordinates. This supplies GAMG with six
+elastic low-energy modes; it does not alter the contact law, material update,
+assembled residual, strong constraints, checkpoint identity or the converged
+solution. Incompatible matrix layouts leave the old preconditioner untouched.
+The actual attachment is reported as `linear_preconditioner_near_nullspace`
+in the Step and example summaries. The construction follows the
+[DOLFINx elasticity GAMG example](https://docs.fenicsproject.org/dolfinx/v0.11.0/python/demos/demo_elasticity.html)
+and [PETSc near-nullspace contract](https://petsc.org/release/manualpages/Mat/MatSetNearNullSpace/).
+
+On the same machine and fixed 1,728-cell quarter-block inputs (`E=1000`,
+`nu=0.3`, `R=20`, `delta=0.002`, extent `16`, grading `5`, penalty `1e6`, CG2,
+bulk degree `4`, face degree `5`, four increments), the earlier isolated-wheel
+baseline gave full force `0.5973417483646`, 5,352 linear iterations,
+`73.33 s` accepted linear solves and `108.26 s` wall time. The integrated
+source route gave `0.5973417483273`, 4,094 iterations, `62.00 s` linear
+solves and `94.37 s` wall time. The active reference area was identical and
+the nominal pressure L1 ratio changed below `1e-10`. A separate 8,000-cell
+installed-wheel monkeypatch prototype reduced single-run wall time from
+`673.28 s` to `571.99 s` with the same force to about `4e-11`, but that is
+**prototype** evidence, not yet an installed test of this integrated code.
+These are one-machine timings, not a portable speedup promise. There is no
+new global solver default, no automatic geometry/penalty change and no
+claim that an elastic near-nullspace guarantees convergence in a strongly
+plastic or more complex contact state.
+
 The [Abaqus/Standard general-contact description](https://docs.software.vt.edu/abaqusv2025/English/SIMACAEITNRefMap/simaitn-c-genlcontnumcontrolsstd.htm)
 uses separate surface-, edge- and vertex-contact formulations. This supports
 treating sharp features as a separate numerical law, not treating the current

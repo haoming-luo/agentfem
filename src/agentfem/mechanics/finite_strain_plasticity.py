@@ -24,7 +24,13 @@ from ..constitutive import FiniteStrainJ2Logarithmic
 from ..constitutive import MaterialQuadratureResponse
 from ..constitutive.quadrature import QuadratureField, QuadratureMaterialMap
 from ..events import SolveEvent
-from ..solvers import NewtonSolverOptions, create_ksp, newton, solve_matrix_system
+from ..solvers import (
+    NewtonSolverOptions,
+    _attach_elasticity_rigid_near_nullspace,
+    create_ksp,
+    newton,
+    solve_matrix_system,
+)
 
 
 _MIXED_J2_MAXIMUM_BULK_TO_SHEAR_RATIO = 1.0e4
@@ -1175,6 +1181,7 @@ class FiniteStrainJ2StandardProblem:
     )
     _tangent_matrix: object | None = field(default=None, init=False, repr=False)
     _linear_ksp: object | None = field(default=None, init=False, repr=False)
+    _rigid_near_nullspace: object | None = field(default=None, init=False, repr=False)
     external_force: object | None = field(default=None, repr=False)
     follower_loads: bool = False
     contact_provider: object | None = None
@@ -1355,7 +1362,8 @@ class FiniteStrainJ2StandardProblem:
     def _assemble_tangent(self):
         """Assemble into one persistent matrix and reuse one configured KSP."""
 
-        if self._tangent_matrix is None:
+        first_assembly = self._tangent_matrix is None
+        if first_assembly:
             self._tangent_matrix = fem_petsc.assemble_matrix(
                 self.tangent_form,
                 bcs=self.bcs,
@@ -1380,6 +1388,14 @@ class FiniteStrainJ2StandardProblem:
                 constrained_dofs=self.contact_constrained_dofs,
             )
         self._tangent_matrix.assemble()
+        if (
+            first_assembly
+            and self._uses_implicit_rigid_contact()
+            and self.solver_options.linear_solver.pc_type.lower() == "gamg"
+        ):
+            self._rigid_near_nullspace = _attach_elasticity_rigid_near_nullspace(
+                self._tangent_matrix, self.solution.function_space,
+            )
         return self._tangent_matrix
 
     def _uses_implicit_rigid_contact(self) -> bool:
@@ -3286,6 +3302,10 @@ class FiniteStrainJ2StandardProblem:
             "response": self.response.summary(),
             "incrementation": self.incrementation.summary(),
             "solver": self.solver_options.summary(),
+            "linear_preconditioner_near_nullspace": (
+                "reference_rigid_body_3d"
+                if self._rigid_near_nullspace is not None else None
+            ),
             "accepted_increments": tuple(
                 item.as_dict() for item in self.accepted_increments
             ),

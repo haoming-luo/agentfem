@@ -222,6 +222,9 @@ def run_case(
         "displacement_degree": int(displacement_degree),
         "bulk_quadrature_degree": int(step.quadrature_degree),
         "linear_policy": linear_policy,
+        "linear_preconditioner_near_nullspace": (
+            step.summary()["linear_preconditioner_near_nullspace"]
+        ),
         "reference_contact_edge_spacing": (
             extent / cells if not grading
             else extent * np.expm1(grading / cells) / np.expm1(grading)

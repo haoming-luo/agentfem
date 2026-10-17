@@ -131,6 +131,8 @@ def test_explicit_iterative_solver_policy_preserves_contact_solution():
     iterative = run_case(**options, linear_policy="gmres_gamg")
     assert direct["linear_policy"] == "direct"
     assert iterative["linear_policy"] == "gmres_gamg"
+    assert direct["linear_preconditioner_near_nullspace"] is None
+    assert iterative["linear_preconditioner_near_nullspace"] == "reference_rigid_body_3d"
     assert iterative["linear_iterations"] >= iterative["linear_solve_calls"]
     assert all(reason > 0 for reason in iterative["linear_converged_reasons"])
     for name in (
