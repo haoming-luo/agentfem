@@ -177,6 +177,16 @@ not general contact. This record separates code gates from evidence gates:
 | Independent accuracy and speed | Full/quarter symmetry, mesh, penalty and increment screens exist; half-space mismatch remains visible. The sharp plastic screen below shows substantial mesh and penalty sensitivity, so it is not convergence evidence | Controlled far-boundary, graded mesh, pressure-footprint and penalty limits; external FE comparison and whole-step timings |
 | Product route | Ordinary `model.step()` and isolated installed-wheel closed-convex and rotating-plane-friction examples have run; final unsmoothed reference-trace pressure/penetration scalars are available; a serial accepted-point NPZ/JSON archive now keeps pair identity, signed gap, reference weights, pressure, friction traction and accepted tangential state without smoothing; the public capability matrix is explicit | ParaView/VTK view for point samples, broad installed-platform and candidate-bound release gate |
 
+The output candidate at commit `e054df76` was built as an isolated native
+Apple Silicon wheel, installed under a temporary path and imported from that
+path while the process ran outside the source checkout. The ordinary
+moving closed-convex-friction example completed four increments, reported
+tool work `2.2357364364` and friction dissipation `1.1808584038`, and wrote
+`accepted_contact_points.npz` plus its schema JSON. The archive opens with
+`numpy.load(..., allow_pickle=False)` and contains six raw quadrature points
+for this tiny fixture. This is an installed-path/format smoke, not a
+Windows/Linux test or external contact validation.
+
 The [Abaqus/Standard general-contact description](https://docs.software.vt.edu/abaqusv2025/English/SIMACAEITNRefMap/simaitn-c-genlcontnumcontrolsstd.htm)
 uses separate surface-, edge- and vertex-contact formulations. This supports
 treating sharp features as a separate numerical law, not treating the current

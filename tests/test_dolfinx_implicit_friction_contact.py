@@ -539,8 +539,9 @@ def test_public_friction_rejects_symmetry_only_linear_solver():
     ("shear_displacement", "expected_shear_force", "expected_dissipation"),
     [(0.02, -2.0, 0.0), (0.20, -10.0, 1.0)],
 )
+@pytest.mark.parametrize("geometry", ["plane", "closed_convex"])
 def test_prescribed_friction_patch_matches_independent_force_and_energy(
-    shear_displacement, expected_shear_force, expected_dissipation,
+    shear_displacement, expected_shear_force, expected_dissipation, geometry,
 ):
     domain = mesh.create_unit_cube(MPI.COMM_SELF, 2, 1, 1)
     model = models.create(study=studies.static_solid(dimension=3, nonlinear=True), mesh=domain)
@@ -556,9 +557,7 @@ def test_prescribed_friction_patch_matches_independent_force_and_energy(
     ))
     model.add_boundary_model(boundary_models.rigid_contact_pair(
         left,
-        boundary_models.rigid_body(boundary_models.rigid_plane(
-            point=(0.05, 0.0, 0.0), normal=(-1.0, 0.0, 0.0),
-        )),
+        boundary_models.rigid_body(_rigid_surface(geometry=geometry)),
         penalty=500.0, friction_coefficient=0.4,
         tangential_penalty=100.0, name="patch_plane",
     ))

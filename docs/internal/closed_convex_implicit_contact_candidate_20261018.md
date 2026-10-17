@@ -91,6 +91,37 @@ These observations keep the accuracy gate open. The short local wall times
 were also measured, but are not transferable performance claims or a basis
 for a general solver default.
 
+### Selected-branch Coulomb candidate: adverse sensitivity evidence
+
+The same dimensionless sharp-tool fixture was screened with Coulomb
+coefficient `0.2` and tangential penalty `100`. With **normal-only** tool travel
+`(-0.06, 0, 0)`, twelve fixed increments, penalty `500`, and 1/2/3/4/6 cells
+per axis, accepted cumulative friction dissipation is approximately
+`0.00246 / 0.000422 / 0 / 0.0000645 / 0`. This is not a monotone friction
+limit. The motion primarily presses normally; edge-induced sliding can fall
+below the stick/slip threshold as the boundary quadrature changes. It was
+therefore rejected as a useful independent sliding benchmark.
+
+Adding an explicit tangential tool travel of `0.06` makes every screened
+1/2/3/4-cell case dissipative, but dissipation still changes substantially:
+
+| Cells per axis | Tool work | Coulomb dissipation | Contact potential | Peak PEEQ |
+| ---: | ---: | ---: | ---: | ---: |
+| 1 | 0.26268 | 0.005910 | 0.09950 | 0.04336 |
+| 2 | 0.24391 | 0.003161 | 0.07295 | 0.05062 |
+| 3 | 0.24284 | 0.001773 | 0.06506 | 0.05697 |
+| 4 | 0.23346 | 0.001158 | 0.06120 | 0.06388 |
+
+At six cells a twelve-step fixed path rejects an increment at load factor
+`0.75`; it is not silently accepted. Reusing the existing automatic cutback
+Procedure accepts that mesh in 16 increments after one failed attempt, with
+work `0.21655` and dissipation `0.002163`. At eight cells the same automatic
+limits accept twelve increments with work `0.21177` and dissipation `0.000328`.
+The irregular friction loss, changing peak PEEQ and contact-area sampling keep
+sharp-friction accuracy **open**, even though the selected-branch tangent,
+state transaction and one interrupted restart pass. These are local
+diagnostics only; no Abaqus-equivalence or production default is inferred.
+
 The candidate still lacks an external structural comparison for a sharp
 feature, mesh and penalty studies, MPI assembly, independently validated
 friction on sharp faces,
