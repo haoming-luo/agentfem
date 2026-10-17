@@ -470,14 +470,13 @@ def _finite_strain_j2_strong_preconditions(model, request: StepRequest) -> bool:
 
 
 def _implicit_planar_friction_geometry_supported(pair) -> bool:
-    """Only a fixed or purely translating plane has the reviewed tangent."""
+    """Only an analytical plane has the reviewed rigid-motion tangent."""
 
     from .boundary_models import RigidPlaneSurface
 
     if not isinstance(pair.rigid_body.surface, RigidPlaneSurface):
         return False
-    schedule = pair.rigid_body.motion_schedule
-    return schedule is None or all(value == 0.0 for value in schedule.motion.rotation)
+    return True
 
 
 def _accept_finite_strain_j2_strong(model, request: StepRequest) -> bool:
@@ -553,8 +552,8 @@ def _finite_strain_j2_strong_rejection_reason(model, request: StepRequest) -> st
         ):
             return (
                 "AFM-IMPLICIT-CONTACT-FRICTION: each frictional rigid pair "
-                "must be one fixed or purely translating analytical plane; "
-                "curved or rotating pairs lack a reviewed implicit tangent."
+                "must be an analytical plane; curved or faceted pairs lack "
+                "a reviewed implicit friction tangent."
             )
         if any(
             item.law.invalid_policy != "reject" for item in boundary_models
@@ -594,9 +593,9 @@ def _finite_strain_j2_strong_rejection_reason(model, request: StepRequest) -> st
         ):
             return (
                 "AFM-IMPLICIT-CONTACT-FRICTION: implicit Coulomb contact is "
-                "limited to fixed or purely translating analytical planes "
-                "in a serial strong-BC finite-strain J2 Step; rotating and "
-                "curved frictional tools need separate tangent and State validation."
+                "limited to fixed or prescribed-moving analytical planes "
+                "in a serial strong-BC finite-strain J2 Step; curved and "
+                "faceted frictional tools need separate tangent and State validation."
             )
         schedule = selected.rigid_body.motion_schedule
         if schedule is not None and (
@@ -1566,7 +1565,8 @@ register_step_provider(
             "Lower logarithmic finite-strain J2 to provider-owned quadrature "
             "state and strong-boundary Newton equilibrium, optionally with "
             "serial rigid-tool penalty contact: multiple frictionless pairs "
-            "and fixed-plane Coulomb pairs within their reviewed bounds."
+            "and prescribed-moving analytical-plane Coulomb pairs within "
+            "their reviewed bounds."
         ),
         procedure="standard/newton/stateful",
         option_contract=_option_contract(

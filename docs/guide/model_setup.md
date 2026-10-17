@@ -372,8 +372,11 @@ corner or admit arbitrary STL/CAD. It uses an exhaustive geometry reference,
 not a scalable search. See
 `examples/finite_j2_closed_convex_contact.py` and the
 [closed-convex candidate record](../internal/closed_convex_implicit_contact_candidate_20261018.md).
-Fixed or purely translating analytical-plane Coulomb pairs have a separate
-narrow serial strong-BC route. Tool rotation, sharp-tool friction,
+Fixed, translating or rotating analytical-plane Coulomb pairs have a separate
+narrow serial strong-BC route. The rotational friction tangent follows the
+same master material point at fixed accepted State; its generally nonsymmetric
+Newton derivative, force--moment work and interrupted restart have focused
+tests. Sharp-tool friction,
 nonconvex/general contact, distributed implicit
 assembly, and independent industrial benchmarks remain unsupported. The
 candidate subset does not turn `ContactTrace` into a universal implicit

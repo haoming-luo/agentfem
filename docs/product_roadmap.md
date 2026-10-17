@@ -82,12 +82,14 @@ separation. See the [Dirichlet and Hertz candidate record](internal/implicit_con
 
 The same source branch now composes multiple named frictionless tools in both
 the ordinary serial strong-BC J2 Step and the affine-periodic J2 route, with
-the total residual and tangent reduced by the same MPC. Strong-BC J2 also admits fixed or purely translating analytical-plane
+the total residual and tangent reduced by the same MPC. Strong-BC J2 also admits fixed or prescribed-moving analytical-plane
 Coulomb pairs with separate accepted stick/slip and pose states, a generally nonsymmetric tangent,
 separate friction loss channels and serial restart. These are bounded source
-candidates, not a release promotion. Open/nonconvex sharp features, rotating
-or curved friction, friction with affine MPC, distributed implicit assembly and an
-independent friction benchmark remain separate gates.
+candidates, not a release promotion. Open/nonconvex sharp features, curved or
+faceted friction, friction with affine MPC, distributed implicit assembly and
+an external friction benchmark remain separate gates. For rotating planes the
+current-pose master transport is included in the fixed-old-state tangent;
+focused FE directional checks, nonzero moment, tool work and restart pass.
 
 A further narrow source candidate admits a **closed convex** outward-oriented
 polyhedral rigid tool for serial frictionless finite-J2 contact. Its exact

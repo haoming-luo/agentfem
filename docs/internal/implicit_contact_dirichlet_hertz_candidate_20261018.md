@@ -169,13 +169,13 @@ not general contact. This record separates code gates from evidence gates:
 | --- | --- | --- |
 | Comparable problem | Finite-block sphere setup is fixed and reproducible in source | Freeze an independently run Abaqus deck with the *same* block, law, mesh, boundary path and penalty; no numerical Abaqus reference has been supplied |
 | Existing contact composition | Merged PR #116 has reviewed smooth/facet rigid geometry, affine MPC, moving-tool work and rollback; serial focused regressions pass | Installed-package and post-merge release-gate run for the new changes |
-| Facet features | Reviewed topology identifies true free edges and noncoplanar neighbors; ambiguous active projection fails closed | Feature-specific edge/vertex contact potential, generalized derivative, branch switching and force/moment tests; no normal averaging |
+| Facet features | Open/nonconvex triangle tools still reject active noncoplanar ambiguity. A separately certified closed-convex tool now has a continuous interior support-plane gap, one deterministic limiting derivative at a crease, and an elastic/plastic finite-J2 feature-switch path with restart | General nonconvex edge/vertex laws, external sharp-feature comparison, scalable search and mesh/penalty convergence; no normal averaging |
 | Total implicit Operator | Contact/strong-BC overlap now uses native contact lifting, identity rows, a complete fixed-old-state total-tangent difference check, failed-increment rollback and same-DOF checkpoint recovery | Add an independently constructed residual/force check and expand beyond the current serial frictionless discretization |
 | Multi-tool implicit | Ordinary serial strong-BC J2 composes distinct rigid pairs: summed residual/tangent, independent moving-pair work, and atomic failed-increment/checkpoint recovery. Opposing moving frictionless planes check force balance. Two fixed frictional planes recover the equivalent single-law response while preserving separate State/dual/checkpoint identities; spatially opposed fixed frictional planes also check both force resultants and interrupted restart. Failure of the second commit rolls both back. The separate affine-periodic J2 route now admits named frictionless pairs: equivalent split-tool and spatially opposed tools check total MPC reduction, independent moving-tool work, failed projection rollback and interrupted restart | Mixed curved/faceted friction, affine-periodic friction, broader plastic branch switching, external structural comparison and finer mesh/penalty checks |
-| Implicit friction | Fixed or purely translating analytical planes are admitted on serial strong-BC finite-J2: fixed-old-state stick/slip tangent, accepted stable-ID State and rigid pose per pair, separate Coulomb dissipation and numerical separation release, failed-finalization rollback, serial checkpoint and result histories. Real DOLFINx stick/slip and tool-translation directional checks, plus active-contact global work/restart tests, pass | Mesh/penalty/increment study and rotating/curved/faceted/MPC/MPI extension; no general friction claim |
-| Material/time composition | Elastic-regime J2 sphere and plastic J2 facet cases complete; explicit body contact has its own stable-step contract | A history material on the *same implicit* seam and explicit contact stability under evolving state |
-| Independent accuracy and speed | Full/quarter symmetry, mesh, penalty and increment screens exist; half-space mismatch remains visible | Controlled far-boundary, graded mesh, pressure-footprint and penalty limits; external FE comparison and whole-step timings |
-| Product route | Ordinary `model.step()` is used; final unsmoothed reference-trace pressure/penetration scalars are now available | Installed-wheel example, pressure/slip field format, capability matrix and versioned release gate |
+| Implicit friction | Fixed, translating and rotating analytical planes are admitted on serial strong-BC finite-J2: fixed-old-state stick/slip tangent, accepted stable-ID State and rigid pose per pair, separate Coulomb dissipation and numerical separation release, failed-finalization rollback, serial checkpoint and result histories. Real DOLFINx stick/slip and translation/rotation directional checks, active-contact generalized force/moment/work and interrupted restart pass | Mesh/penalty/increment study and curved/faceted/MPC/MPI extension; no general friction claim |
+| Material/time composition | Elastic-regime J2 sphere and plastic J2 facet cases complete; the convex sharp-feature path also evolves plastic State and restarts before a feature switch. Explicit body contact has its own stable-step contract | A second history material on the *same implicit* seam and explicit contact stability under evolving state |
+| Independent accuracy and speed | Full/quarter symmetry, mesh, penalty and increment screens exist; half-space mismatch remains visible. The sharp plastic screen below shows substantial mesh and penalty sensitivity, so it is not convergence evidence | Controlled far-boundary, graded mesh, pressure-footprint and penalty limits; external FE comparison and whole-step timings |
+| Product route | Ordinary `model.step()` and an isolated installed-wheel closed-convex example have run; final unsmoothed reference-trace pressure/penetration scalars are available | Pressure/slip field format, capability matrix and candidate-bound release gate |
 
 The [Abaqus/Standard general-contact description](https://docs.software.vt.edu/abaqusv2025/English/SIMACAEITNRefMap/simaitn-c-genlcontnumcontrolsstd.htm)
 uses separate surface-, edge- and vertex-contact formulations. This supports
@@ -185,28 +185,38 @@ is promoted merely because a single visual plot or Newton solve looks plausible.
 
 ## Next implementation decisions
 
-The immediate implicit friction route should reuse the accepted, stable-ID
-`TangentialContactState` and return map already used by explicit contact. It
-must add a *fixed-old-state* trial tangent, first on a planar rigid branch:
-stick has tangential tangent `k_t (I - n n^T)`; slip also differentiates the
-pressure cap `mu p` and slip direction. The opening, stick/slip switching and
-zero-slip branches require directional checks and cutback. Extending the same
-formula to curved or faceted moving tools additionally differentiates normal
-transport and master-point motion; those terms cannot be silently dropped.
-`implicit_friction.py` implements the fixed-plane point tangent and its
-reference-trace COO mapping. Six solver-neutral tests compare stick and slip
-directional differences on axis-aligned and rotated planes, and reject stale
-trials and the nonsmooth cap/opening branches by default. The one fixed-plane
-serial strong-BC J2 path now supplies explicit semismooth branch selection,
-accepted point-ID-keyed state, checkpoint identity and rollback. A small
-global active-contact test exercises both stick and sliding with interrupted
-restart; corrupted kinematics are atomically refused. Multiple independently
-named fixed frictional planes share the same Procedure transaction; a
-second-pair commit fault restores both accepted states. Curved, faceted and
-moving friction remain rejected. The accepted energy record
+The implicit friction route reuses the accepted, stable-ID
+`TangentialContactState` and return map used by explicit contact. At fixed old
+State and a current prescribed analytical-plane pose, the tangent must include
+both the pressure cap and the tangent projection of the transported master
+material point. Writing `P=I-n⊗n` and old/current rigid rotations as
+`R_old`, `R_new`, that relative tangential-increment derivative is
+`A=P R_old R_new^T P`. Thus a stationary or purely translating plane has
+`A=P`; replacing `A` with `P` for a rotating tool would give the wrong Newton
+matrix even though the return-map value looked plausible. The current-pose
+projection is checked against the supplied pose to reject a stale trial.
+The slip branch also differentiates `mu p` and slip direction. At opening
+and the exact stick/slip cap the chosen semismooth derivative is not a
+classical two-sided derivative.
+
+`implicit_friction.py` maps this point derivative through the reference trace
+to the normal-plus-friction Newton Operator. Solver-neutral and real DOLFINx
+stick/slip direction checks pass for fixed, translating and rotating planar
+tools, including a nonzero accepted old rotation. A serial strong-BC finite-J2
+rotation path has nonzero generalized moment, accepted tool work, positive
+Coulomb dissipation and interrupted restart agreement. Multiple independently
+named planar pairs share the same Procedure transaction; a second-pair commit
+fault restores both accepted states. Curved, faceted, affine-MPC and MPI
+friction remain rejected. The accepted energy record
 reports Coulomb dissipation separately from recoverable tangential penalty
 energy and numerical separation release; its trapezoidal residual is a
 diagnostic, not a universal first-law proof.
+For the dimensionless prescribed 0.15-radian plane rotation and 0.4 tangent
+translation, a 2/4/8/16-increment screen gives tool work
+2.3731/2.2357/2.2688/2.2749 and friction loss
+1.7735/1.1809/1.0495/0.9835. The signed mechanical-energy residual changes
+from -0.5847 to -0.0628 over that scan. The finite-increment values are not
+yet converged and no physical-unit accuracy claim follows from this screen.
 The sliding tangent includes a pressure-cap cross term and is generally
 non-symmetric. Public admission rejects symmetry-only linear solver
 selections such as CG or Cholesky; the default direct LU route is accepted.

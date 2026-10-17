@@ -80,15 +80,6 @@ class DolfinxImplicitRigidContact:
                     "AFM-IMPLICIT-CONTACT-FRICTION: only a rigid planar branch "
                     "has a reviewed fixed-old-state Coulomb tangent."
                 )
-            friction_schedule = self.pair.rigid_body.motion_schedule
-            if friction_schedule is not None and any(
-                value != 0.0 for value in friction_schedule.motion.rotation
-            ):
-                raise NotImplementedError(
-                    "AFM-IMPLICIT-CONTACT-FRICTION: rotating frictional tools "
-                    "need a reviewed rigid-motion tangent transport. Only "
-                    "prescribed translation of a planar tool is admitted."
-                )
             initial = self.adapter.evaluate(self.displacement)
             projection = surface.project(initial.query_points)
             if not projection.all_valid:
@@ -423,6 +414,9 @@ class DolfinxImplicitRigidContact:
         friction_tangent = linearize_planar_penalty_friction(
             evaluation, record, response, friction_response,
             self.pair.friction, self.surface,
+            motion=None if schedule is None else schedule.motion,
+            accepted_motion_factor=self.friction_kinematics.accepted.motion_factor,
+            current_motion_factor=factor,
             cap_policy="stick_generalized",
             opening_policy="inactive_generalized",
         )
@@ -564,7 +558,7 @@ class DolfinxImplicitRigidContact:
             ),
             "linearization": self._linearization_name(),
             "execution_scope": (
-                "serial_translating_plane_coulomb_reference_area"
+                "serial_moving_plane_coulomb_reference_area"
                 if self.friction_state is not None and self.has_prescribed_motion
                 else "serial_fixed_plane_coulomb_reference_area"
                 if self.friction_state is not None
@@ -575,7 +569,7 @@ class DolfinxImplicitRigidContact:
     def _linearization_name(self) -> str:
         if self.friction_state is not None:
             return (
-                "translating_plane_normal_plus_coulomb_semismooth_return_map"
+                "moving_plane_normal_plus_coulomb_semismooth_return_map"
                 if self.has_prescribed_motion else
                 "fixed_plane_normal_plus_coulomb_semismooth_return_map"
             )

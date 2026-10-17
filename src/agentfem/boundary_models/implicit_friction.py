@@ -6,10 +6,9 @@
 This differentiates the existing penalty return map at one current Newton
 trial. It does not own accepted friction state, integration, line search,
 work, or checkpointing; those belong to the consuming backend and Procedure.
-Only the fixed or purely translating analytical-plane serial strong-BC J2
-path currently admits this tangent. Rotation, curvature, facets, affine MPC
-and MPI friction remain unsupported; independently named planar pairs share
-the owning Procedure transaction.
+Only the analytical-plane serial strong-BC J2 path currently admits this
+tangent. Curvature, facets, affine MPC and MPI friction remain unsupported;
+independently named planar pairs share the owning Procedure transaction.
 """
 
 from __future__ import annotations
@@ -22,7 +21,7 @@ from .contact_friction import PenaltyCoulombFrictionLaw, PenaltyCoulombFrictionR
 from .contact_response import FrictionlessPenaltyContactResponse, _penalty_values
 from .contact_state import ContactProjectionRecord
 from .contact_trace import ContactTraceEvaluation
-from .rigid import RigidPlaneSurface, _readonly_array
+from .rigid import PrescribedRigidMotion, RigidPlaneSurface, _readonly_array
 
 
 @dataclass(frozen=True, eq=False)
@@ -84,6 +83,9 @@ def linearize_planar_penalty_friction(
     law: PenaltyCoulombFrictionLaw,
     surface: RigidPlaneSurface,
     *,
+    motion: PrescribedRigidMotion | None = None,
+    accepted_motion_factor: float = 0.0,
+    current_motion_factor: float = 0.0,
     cap_policy: str = "reject",
     opening_policy: str = "reject",
 ) -> ImplicitPlanarFrictionTangent:
@@ -91,7 +93,10 @@ def linearize_planar_penalty_friction(
 
     In stick the point Jacobian is ``k_t P``. In slip it is
     ``-mu*k_n*t_hat tensor n + mu*p/|s_trial|*(P-t_hat tensor t_hat)``.
-    ``P=I-n tensor n`` and ``p=-k_n*g`` on the active plane branch.  The
+    ``P=I-n tensor n`` and ``p=-k_n*g`` on the active plane branch.  For a
+    rotating prescribed plane, the tangential increment derivative at fixed
+    old State is ``A=P_new R_old R_new.T P_new``; replacing it by ``P_new``
+    would silently use the stationary-master tangent. The
     nonsmooth cap and opening boundaries are rejected by default. A caller
     may explicitly select the stick-side and inactive-side generalized
     derivatives for a semismooth Newton trial; neither is a classical
@@ -120,6 +125,19 @@ def linearize_planar_penalty_friction(
         raise ValueError("Implicit friction projection belongs to another rigid plane.")
     if not np.array_equal(record.projection.query_points, evaluation.query_points):
         raise ValueError("Implicit friction projection is stale for this Newton trial.")
+    current_plane = surface.transformed(motion, current_motion_factor)
+    current_normal = np.asarray(current_plane["normal"], dtype=float)
+    current_gap = (
+        evaluation.query_points - np.asarray(current_plane["point"], dtype=float)
+    ) @ current_normal
+    if not np.allclose(
+        record.projection.normals, current_normal, rtol=1e-12, atol=1e-12,
+    ) or not np.allclose(
+        record.projection.signed_gaps, current_gap, rtol=1e-12, atol=1e-12,
+    ):
+        raise ValueError(
+            "Implicit friction projection is stale for the current rigid pose."
+        )
     if not np.array_equal(record.point_ids, evaluation.trace.point_ids) or not np.array_equal(
         friction_response.record.point_ids, record.point_ids
     ):
@@ -175,8 +193,26 @@ def linearize_planar_penalty_friction(
 
     normals = record.projection.normals
     projector = np.eye(3)[None, :, :] - normals[:, :, None] * normals[:, None, :]
+    if motion is None:
+        if accepted_motion_factor != 0.0 or current_motion_factor != 0.0:
+            raise ValueError("Fixed planar friction cannot use moving-tool factors.")
+        relative_jacobian = projector
+    else:
+        if not isinstance(motion, PrescribedRigidMotion) or motion.dimension != 3:
+            raise TypeError("Rotating planar friction requires a 3D rigid motion.")
+        old_rotation = np.asarray(
+            motion.state(accepted_motion_factor)["rotation_matrix"], dtype=float,
+        )
+        new_rotation = np.asarray(
+            motion.state(current_motion_factor)["rotation_matrix"], dtype=float,
+        )
+        relative_jacobian = (
+            projector @ old_rotation @ new_rotation.T @ projector
+        )
     point_tangent = np.zeros((count, 3, 3), dtype=float)
-    point_tangent[sticking] = penalties[sticking, None, None] * projector[sticking]
+    point_tangent[sticking] = (
+        penalties[sticking, None, None] * relative_jacobian[sticking]
+    )
     nonzero_sliding = sliding & (norms > 0.0) & (law.coefficient > 0.0)
     if np.any(nonzero_sliding):
         direction = trial[nonzero_sliding] / norms[nonzero_sliding, None]
@@ -186,6 +222,7 @@ def linearize_planar_penalty_friction(
             + (limits[nonzero_sliding] / norms[nonzero_sliding])[:, None, None]
             * (projector[nonzero_sliding]
                - direction[:, :, None] * direction[:, None, :])
+            @ relative_jacobian[nonzero_sliding]
         )
 
     selected_nodes = evaluation.trace.node_ids[active]

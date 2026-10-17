@@ -68,6 +68,27 @@ was built for the local Apple Silicon environment, not released or tested on
 Windows/Linux by this evidence.
 These are local tests, not industrial contact validation.
 
+### Plastic feature-switch sensitivity screen
+
+The separate one-unit-cube, translating box-tool fixture uses finite-J2 with
+yield stress 2, a tool-side lower y edge at 0.15, 0.06 tool travel, and no
+applied traction. The table reports accepted end-state quantities; all lengths,
+stresses and energies are in this dimensionless fixture's consistent units.
+It is a diagnostic screen, not an independent reference solution.
+
+| Changed control | Cases | Final tool work | Contact potential | Peak equivalent plastic strain |
+| --- | --- | --- | --- | --- |
+| cells per axis, 12 increments, penalty 500 | 1 / 2 / 3 / 4 / 6 / 8 | 0.23136 / 0.21312 / 0.21030 / 0.20709 / 0.20021 / 0.19604 | 0.08733 / 0.06091 / 0.05247 / 0.04999 / 0.04728 / 0.04681 | 0.04151 / 0.04627 / 0.04816 / 0.04828 / 0.05114 / 0.05381 |
+| penalty, 4 cells per axis, 12 increments | 250 / 500 / 1000 / 2000 | 0.16686 / 0.20709 / 0.23540 / 0.25299 | 0.06559 / 0.04999 / 0.03261 / 0.01918 | 0.03634 / 0.04828 / 0.05668 / 0.06190 |
+| increments, 4 cells per axis, penalty 500 | 6 / 12 / 24 / 48 | 0.20947 / 0.20709 / 0.20738 / 0.20772 | 0.04993 / 0.04999 / 0.05000 / 0.05003 | 0.04818 / 0.04828 / 0.04834 / 0.04836 |
+
+The 6-to-8 spatial change is still about 2.1% in tool work and 5.2% in
+peak plastic strain; the penalty change is far larger. Peak local strain near
+a sharp edge is not a mesh-independent engineering quantity by assumption.
+These observations keep the accuracy gate open. The short local wall times
+were also measured, but are not transferable performance claims or a basis
+for a general solver default.
+
 The candidate still lacks an external structural comparison for a sharp
 feature, mesh and penalty studies, MPI assembly, friction on sharp faces,
 and performance

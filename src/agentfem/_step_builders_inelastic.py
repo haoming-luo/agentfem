@@ -427,7 +427,7 @@ def finite_strain_j2(
                 raise NotImplementedError(
                     "Standard finite-strain J2 consumes one legacy plane or "
                     "independently named rigid pairs within the bounded "
-                    "fixed or purely translating planar-friction admission; "
+                    "analytical planar-friction admission; "
                     f"unsupported={names}. Other weak models, discrete "
                     "surfaces and MPC require separate evidence."
                 )
