@@ -126,3 +126,31 @@ def test_planar_friction_tangent_rejects_a_stale_projection():
         linearize_planar_penalty_friction(
             evaluation, record, normal, friction, law, surface,
         )
+
+
+def test_direct_triangle_friction_tangent_rejects_active_free_edge():
+    surface = boundary_models.triangulated_rigid_surface(
+        vertices=((0, 0, 0), (1, 0, 0), (0, 1, 0)),
+        triangles=((0, 1, 2),),
+    )
+    trace = boundary_models.ContactTrace(
+        point_ids=(7,), node_ids=((0,),), shape_values=((1.0,),),
+        weights=(1.0,),
+    )
+    evaluation = trace.evaluate(np.asarray(((0.5, 0.0, -0.1),)))
+    record = boundary_models.ContactProjectionRecord(
+        trace.point_ids, surface.project(evaluation.query_points),
+    )
+    assert record.projection.all_valid
+    normal = boundary_models.frictionless_penalty_contact_law(100.0).evaluate(
+        record.projection,
+    )
+    law = boundary_models.penalty_coulomb_friction_law(0.2, 50.0)
+    friction = law.evaluate(
+        point_ids=trace.point_ids, normal_response=normal,
+        relative_displacement_increment=((0.01, 0.0, 0.0),),
+    )
+    with pytest.raises(ValueError, match="AFM-IMPLICIT-CONTACT-BRANCH"):
+        linearize_planar_penalty_friction(
+            evaluation, record, normal, friction, law, surface,
+        )

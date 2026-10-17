@@ -120,15 +120,15 @@ do not infer general industrial-contact support from this route. See
 `examples/finite_j2_hertz_contact.py` for the supported shapes and the
 remaining independent accuracy gap.
 
-For a first-order hexahedral contact boundary only, the optional
+For a first- or second-order hexahedral contact boundary, the optional
 `contact_quadrature_degree=5` or `7` selects a 3×3 or 4×4 positive Gaussian
-face rule instead of the unchanged 2×2 default. It is a convergence-study
-control, not an accuracy preset: a fixed-mesh Hertz screen became *slightly
-less* accurate against its half-space limit and slower with 3×3 points.
-The chosen rule is part of the checkpoint identity. It is rejected for
-tetrahedra, higher-order traces, legacy plane contact, and affine-periodic
-J2; no unsupported combination silently falls back. Other weak boundary
-models and formulations need their own reviewed lowering.
+face rule. The CG1/Q1 default remains 2×2; a CG2 trace retains its
+degree-four (3×3) default. It is a convergence-study control, not an accuracy
+preset: higher contact integration did not monotonically improve a finite-
+block Hertz screen. The chosen rule is part of the checkpoint identity. It
+is rejected for tetrahedra, legacy plane contact, and affine-periodic J2; no
+unsupported combination silently falls back. Other weak boundary models and
+formulations need their own reviewed lowering.
 
 ### Affine-periodic cells
 

@@ -299,7 +299,7 @@ def test_hex_q1_contact_trace_refined_gauss_keeps_reference_force(
         assembly.contact_force_on_structure, (-10.0, 0.0, 0.0), atol=1.0e-12,
     )
 
-    with pytest.raises(NotImplementedError, match="Gaussian CG1/Q1"):
+    with pytest.raises(NotImplementedError, match="Gaussian CG1/CG2"):
         boundary_models.dolfinx_boundary_region_contact_trace(
             region, space, integration="nodal_lumped",
             contact_quadrature_degree=degree,
@@ -441,6 +441,25 @@ def test_quadratic_curved_hexahedral_trace_uses_coordinate_jacobian():
     assert np.max(evaluation.query_points[:, 0]) > 0.05
 
 
+def test_quadratic_curved_hex_accepts_explicit_positive_face_quadrature():
+    domain = _quadratic_hexahedron(MPI.COMM_SELF)
+    region = _left_region(domain)
+    quadratic = _vector_space(domain, degree=2)
+    default = boundary_models.dolfinx_boundary_region_contact_trace(region, quadratic)
+    refined = boundary_models.dolfinx_boundary_region_contact_trace(
+        region, quadratic, contact_quadrature_degree=7,
+    )
+    assert default.trace.point_count == 9
+    assert refined.trace.point_count == 16
+    assert "degree_7" in refined.quadrature_rule
+    assert len(set(refined.trace.point_ids.tolist())) == 16
+    assert np.all(refined.trace.weights > 0.0)
+    np.testing.assert_allclose(
+        np.sum(refined.trace.weights), np.sum(default.trace.weights),
+        rtol=2.0e-5,
+    )
+
+
 def test_dolfinx_contact_trace_rejects_foreign_field():
     domain = _cube(MPI.COMM_SELF)
     region = _left_region(domain)
@@ -499,7 +518,12 @@ def test_hexahedral_contact_trace_identity_is_partition_independent_under_mpi(
     np.testing.assert_allclose(global_measure, 1.0)
 
 
-def test_quadratic_hexahedral_trace_identity_is_partition_independent_under_mpi():
+@pytest.mark.parametrize(
+    "contact_quadrature_degree, points_per_face", [(None, 9), (7, 16)],
+)
+def test_quadratic_hexahedral_trace_identity_is_partition_independent_under_mpi(
+    contact_quadrature_degree, points_per_face,
+):
     if MPI.COMM_WORLD.size != 2:
         pytest.skip("Quadratic hexahedral contact trace is reviewed on two ranks.")
     comm = MPI.COMM_WORLD
@@ -507,12 +531,13 @@ def test_quadratic_hexahedral_trace_identity_is_partition_independent_under_mpi(
     adapter = boundary_models.dolfinx_boundary_region_contact_trace(
         _left_region(domain),
         _vector_space(domain, degree=2),
+        contact_quadrature_degree=contact_quadrature_degree,
     )
     local_ids = tuple(int(value) for value in adapter.trace.point_ids)
     gathered = tuple(comm.allgather(local_ids))
     flattened = tuple(value for values in gathered for value in values)
     global_measure = comm.allreduce(float(np.sum(adapter.trace.weights)), op=MPI.SUM)
 
-    assert len(flattened) == 9
-    assert len(set(flattened)) == 9
+    assert len(flattened) == points_per_face
+    assert len(set(flattened)) == points_per_face
     np.testing.assert_allclose(global_measure, 1.0)

@@ -37,6 +37,7 @@ def run_case(
     extent: float = 1.0, increments: int = 4, grading: float = 0.0,
     radius: float = 2.0, linear_policy: str = "direct",
     contact_quadrature_degree: int | None = None,
+    displacement_degree: int = 1, bulk_quadrature_degree: int = 2,
 ) -> dict[str, object]:
     """Return one serial structural response and its half-space reference."""
 
@@ -45,12 +46,14 @@ def run_case(
         raise RuntimeError("The bounded Hertz comparison is serial only.")
     if (
         cells < 2 or increments < 1
+        or displacement_degree not in (1, 2)
+        or bulk_quadrature_degree not in (2, 3, 4)
         or not all(np.isfinite(value) and value > 0.0 for value in (
             penalty, indentation, extent, radius,
         ))
         or not np.isfinite(grading) or grading < 0.0
     ):
-        raise ValueError("Require cells >= 2, increments >= 1, positive penalty/indentation/extent/radius and nonnegative grading.")
+        raise ValueError("Require cells >= 2, increments >= 1, displacement degree 1/2, bulk quadrature degree 2/3/4, positive penalty/indentation/extent/radius and nonnegative grading.")
     linear_choices = {
         "direct": solvers.direct_solver(),
         "gmres_gamg": solvers.LinearSolverOptions(
@@ -95,7 +98,7 @@ def run_case(
         mesh=domain,
         name="quarter_sphere_indentation" if quarter else "finite_block_sphere_indentation",
     )
-    displacement = model.field(fields.displacement(domain))
+    displacement = model.field(fields.displacement(domain, degree=displacement_degree))
     bottom = mesh.boundary(domain, lambda x: np.isclose(x[2], 0.0), name="bottom")
     top = mesh.boundary(domain, lambda x: np.isclose(x[2], extent), name="top")
     model.clamp(displacement, on=bottom)
@@ -143,6 +146,7 @@ def run_case(
             linear_solver=linear_choices[linear_policy],
         ),
         contact_quadrature_degree=contact_quadrature_degree,
+        quadrature_degree=bulk_quadrature_degree,
         progress=False,
     )
     result = step.solve_result()
@@ -187,6 +191,8 @@ def run_case(
         "increments": int(increments),
         "cell_count": int((1 if quarter else 4) * cells**3),
         "mesh_grading": float(grading),
+        "displacement_degree": int(displacement_degree),
+        "bulk_quadrature_degree": int(bulk_quadrature_degree),
         "linear_policy": linear_policy,
         "reference_contact_edge_spacing": (
             extent / cells if not grading
@@ -195,8 +201,12 @@ def run_case(
         "domain_fraction": 0.25 if quarter else 1.0,
         "penalty": float(penalty),
         "contact_quadrature_degree": (
-            3 if contact_quadrature_degree is None else int(contact_quadrature_degree)
+            (2 * max(displacement_degree, int(domain.geometry.cmaps[0].degree)))
+            if contact_quadrature_degree is None and displacement_degree == 2
+            else 3 if contact_quadrature_degree is None
+            else int(contact_quadrature_degree)
         ),
+        "contact_quadrature_rule": provider.adapter.quadrature_rule,
         "indentation": float(indentation),
         "sphere_radius": radius,
         "block_half_width_and_depth": extent,
@@ -251,6 +261,8 @@ def main() -> None:
     parser.add_argument("--extent", type=float, default=1.0)
     parser.add_argument("--grading", type=float, default=0.0)
     parser.add_argument("--contact-quadrature-degree", type=int)
+    parser.add_argument("--displacement-degree", type=int, choices=(1, 2), default=1)
+    parser.add_argument("--bulk-quadrature-degree", type=int, choices=(2, 3, 4), default=2)
     parser.add_argument("--quarter", action="store_true")
     parser.add_argument("--increments", type=int, default=4)
     parser.add_argument(
@@ -265,6 +277,8 @@ def main() -> None:
         quarter=args.quarter, extent=args.extent, increments=args.increments,
         grading=args.grading,
         contact_quadrature_degree=args.contact_quadrature_degree,
+        displacement_degree=args.displacement_degree,
+        bulk_quadrature_degree=args.bulk_quadrature_degree,
         linear_policy=args.linear_policy,
     )
     formatted = json.dumps(report, indent=2, sort_keys=True)

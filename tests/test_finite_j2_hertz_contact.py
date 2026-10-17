@@ -68,6 +68,32 @@ def test_benchmark_keeps_contact_radius_while_reducing_indent_to_radius_ratio():
     assert smaller_strain["plastic_dissipation"] == 0.0
 
 
+@pytest.mark.parametrize("contact_degree,actual_degree", [(None, 4), (7, 7)])
+def test_quadratic_displacement_hertz_screen_is_a_separate_mesh_diagnostic(
+    contact_degree, actual_degree,
+):
+    result = run_case(
+        cells=2, penalty=1.0e5, indentation=0.002, radius=20.0,
+        quarter=True, increments=2,
+        displacement_degree=2, bulk_quadrature_degree=4,
+        contact_quadrature_degree=contact_degree,
+    )
+    assert result["status"] == "completed"
+    assert result["displacement_degree"] == 2
+    assert result["bulk_quadrature_degree"] == 4
+    assert result["contact_quadrature_degree"] == actual_degree
+    assert f"degree_{actual_degree}" in result["contact_quadrature_rule"]
+    assert result["full_contact_force"] > 0.0
+    assert result["plastic_dissipation"] == 0.0
+
+
+@pytest.mark.parametrize("invalid", [0, 3])
+def test_benchmark_rejects_unsupported_displacement_order(invalid):
+    with pytest.raises(ValueError, match="displacement degree"):
+        run_case(cells=2, penalty=1.0e5, indentation=0.02,
+                 displacement_degree=invalid)
+
+
 def test_explicit_iterative_solver_policy_preserves_contact_solution():
     options = dict(cells=4, penalty=1.0e5, indentation=0.02, quarter=True)
     direct = run_case(**options)

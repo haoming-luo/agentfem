@@ -30,7 +30,7 @@ def _patch(*, triangulated: bool, gap: float = 0.005, penalty=500.0,
            convex_tool=False, convex_y_min=-0.5,
            friction_coefficient=None, tangential_penalty=None,
            regional_material=False, contact_quadrature_degree=None,
-           hexahedral=False):
+           hexahedral=False, displacement_degree=1):
     domain = dolfinx_mesh.create_unit_cube(
         MPI.COMM_SELF, cells, cells, cells,
         cell_type=(
@@ -42,7 +42,9 @@ def _patch(*, triangulated: bool, gap: float = 0.005, penalty=500.0,
         study=studies.static_solid(dimension=3, nonlinear=True),
         mesh=domain,
     )
-    displacement = model.field(fields.displacement(domain))
+    displacement = model.field(fields.displacement(
+        domain, degree=displacement_degree,
+    ))
     left = mesh.boundary(domain, lambda x: np.isclose(x[0], 0.0), name="left")
     right = mesh.boundary(domain, lambda x: np.isclose(x[0], 1.0), name="right")
     model.clamp(displacement, on=left)
@@ -228,6 +230,26 @@ def test_refined_contact_quadrature_is_explicit_and_checkpoint_identified(tmp_pa
     )
     saved = refined.save_checkpoint(tmp_path / "refined_contact")
     changed = _patch(**options)[3]
+    with pytest.raises(ValueError, match="identity"):
+        changed.load_checkpoint(saved)
+
+
+def test_quadratic_contact_quadrature_checkpoint_rejects_rule_change(tmp_path):
+    options = dict(
+        triangulated=True, convex_tool=True, cells=1, hexahedral=True,
+        displacement_degree=2, yield_stress=1.0e9,
+        tool_translation=(-0.008, 0.0, 0.0), applied_traction=0.0,
+        increments=2,
+    )
+    refined = _patch(**options, contact_quadrature_degree=7)[3]
+    assert refined.contact_provider.adapter.trace.point_count == 16
+    refined.solve(until=0.5)
+    saved = refined.save_checkpoint(tmp_path / "quadratic_refined_contact")
+    same = _patch(**options, contact_quadrature_degree=7)[3]
+    same.load_checkpoint(saved)
+    np.testing.assert_allclose(same.solution.x.array, refined.solution.x.array)
+    changed = _patch(**options)[3]
+    assert changed.contact_provider.adapter.trace.point_count == 9
     with pytest.raises(ValueError, match="identity"):
         changed.load_checkpoint(saved)
 

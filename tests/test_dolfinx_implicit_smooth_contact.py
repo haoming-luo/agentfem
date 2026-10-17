@@ -25,10 +25,11 @@ from agentfem.boundary_models.dolfinx_implicit_facet_contact import (
 def test_curved_contact_matches_independent_ufl_energy_gradient_and_hessian(
     geometry, degree, cell_type, contact_quadrature_degree,
 ):
-    if contact_quadrature_degree is not None and (
-        cell_type != dolfinx_mesh.CellType.hexahedron or degree != 1
+    if (
+        contact_quadrature_degree is not None
+        and cell_type != dolfinx_mesh.CellType.hexahedron
     ):
-        pytest.skip("Refined contact integration is bounded to CG1/Q1 hexes.")
+        pytest.skip("Refined contact integration is bounded to hexahedral faces.")
     domain = dolfinx_mesh.create_unit_cube(
         MPI.COMM_SELF, 1, 1, 1, cell_type=cell_type,
     )

@@ -482,10 +482,10 @@ def dolfinx_boundary_region_contact_trace(
             raise ValueError(
                 "Contact quadrature degree must be 5 or 7."
             )
-        if integration != "gauss" or high_order or cell_type != "CellType.hexahedron":
+        if integration != "gauss" or cell_type != "CellType.hexahedron":
             raise NotImplementedError(
                 "Explicit contact quadrature degree currently requires "
-                "Gaussian CG1/Q1 hexahedral boundary traces."
+                "Gaussian CG1/CG2 hexahedral boundary traces."
             )
     if integration == "nodal_lumped" and high_order:
         raise NotImplementedError("Nodal lumped contact requires first-order geometry and CG1 displacement.")
@@ -629,7 +629,11 @@ def dolfinx_boundary_region_contact_trace(
                 if facet_topology == "triangle"
                 else basix.CellType.quadrilateral
             )
-            quadrature_degree = 2 * max(interpolation_degree, geometry_degree)
+            quadrature_degree = (
+                2 * max(interpolation_degree, geometry_degree)
+                if contact_quadrature_degree is None
+                else int(contact_quadrature_degree)
+            )
             reference_points, _ = basix.make_quadrature(
                 facet_cell_type,
                 quadrature_degree,

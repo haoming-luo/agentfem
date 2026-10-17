@@ -202,6 +202,12 @@ def linearize_piecewise_planar_penalty_friction(
     ):
         raise ValueError("Friction return map differs from the current plane and law.")
     active = np.asarray(normal_response.active, dtype=bool)
+    if isinstance(surface, TriangulatedRigidSurface):
+        # The solver-neutral tangent must enforce the same face-branch
+        # contract even when it is called outside the DOLFINx normal Operator.
+        from .implicit_facet_contact import _smooth_active_facets
+
+        _smooth_active_facets(surface, record, active)
     sticking = np.asarray(friction_response.sticking, dtype=bool)
     sliding = np.asarray(friction_response.sliding, dtype=bool)
     trial = (
