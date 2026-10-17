@@ -6,10 +6,11 @@
 This differentiates the existing penalty return map at one current Newton
 trial. It does not own accepted friction state, integration, line search,
 work, or checkpointing; those belong to the consuming backend and Procedure.
-Only analytical planes and certified closed-convex tools on a selected planar
-branch admit this tangent under serial strong-BC J2. Curvature, open/nonconvex
-facets, affine MPC and MPI friction remain unsupported; independently named
-pairs share the owning Procedure transaction.
+Analytical planes, certified closed-convex tools, and reviewed triangle tools
+on a selected face-interior planar branch admit this tangent under serial
+strong-BC J2. Curved tools, active noncoplanar edges and vertices, affine MPC
+and MPI friction remain unsupported; independently named pairs share the
+owning Procedure transaction.
 """
 
 from __future__ import annotations
@@ -23,7 +24,11 @@ from .contact_response import FrictionlessPenaltyContactResponse, _penalty_value
 from .contact_state import ContactProjectionRecord
 from .contact_trace import ContactTraceEvaluation
 from .convex_polyhedron import ConvexPolyhedralRigidSurface
-from .rigid import PrescribedRigidMotion, RigidPlaneSurface, _readonly_array
+from .rigid import (
+    PrescribedRigidMotion, RigidPlaneSurface, TriangulatedRigidSurface,
+    _readonly_array,
+)
+from .search import TriangleSurfaceBVH
 
 
 @dataclass(frozen=True, eq=False)
@@ -83,8 +88,9 @@ def linearize_piecewise_planar_penalty_friction(
     normal_response: FrictionlessPenaltyContactResponse,
     friction_response: PenaltyCoulombFrictionResponse,
     law: PenaltyCoulombFrictionLaw,
-    surface: RigidPlaneSurface | ConvexPolyhedralRigidSurface,
+    surface: RigidPlaneSurface | ConvexPolyhedralRigidSurface | TriangulatedRigidSurface,
     *,
+    projector: TriangleSurfaceBVH | None = None,
     motion: PrescribedRigidMotion | None = None,
     accepted_motion_factor: float = 0.0,
     current_motion_factor: float = 0.0,
@@ -114,9 +120,15 @@ def linearize_piecewise_planar_penalty_friction(
     if not isinstance(friction_response, PenaltyCoulombFrictionResponse):
         raise TypeError("Implicit friction requires a tangential return-map response.")
     if not isinstance(law, PenaltyCoulombFrictionLaw) or not isinstance(
-        surface, (RigidPlaneSurface, ConvexPolyhedralRigidSurface),
+        surface, (RigidPlaneSurface, ConvexPolyhedralRigidSurface, TriangulatedRigidSurface),
     ):
         raise TypeError("Implicit friction requires a reviewed planar-branch geometry.")
+    if projector is not None and (
+        not isinstance(surface, TriangulatedRigidSurface)
+        or not isinstance(projector, TriangleSurfaceBVH)
+        or projector.surface is not surface
+    ):
+        raise ValueError("Implicit friction projector must share the triangle tool geometry.")
     if cap_policy not in {"reject", "stick_generalized"}:
         raise ValueError("Unsupported implicit friction cap tangent policy.")
     if opening_policy not in {"reject", "inactive_generalized"}:
@@ -144,7 +156,7 @@ def linearize_piecewise_planar_penalty_friction(
         # Do not trust a facet ID or normal supplied from another Newton pose.
         # This independent current projection is deliberately conservative;
         # the broad-phase may be shared only after an explicit trust contract.
-        current = surface.project(
+        current = (surface if projector is None else projector).project(
             evaluation.query_points, motion=motion, factor=current_motion_factor,
         )
         current_projection_matches = (
@@ -209,7 +221,9 @@ def linearize_piecewise_planar_penalty_friction(
     geometry_scale = max(
         1.0,
         float(np.linalg.norm(surface.point)) if isinstance(surface, RigidPlaneSurface)
-        else float(surface.facets.scale),
+        else float(surface.facets.scale)
+        if isinstance(surface, ConvexPolyhedralRigidSurface)
+        else float(surface.scale),
         float(np.max(np.abs(evaluation.query_points), initial=0.0)),
     )
     opening_tolerance = 128.0 * np.finfo(float).eps * geometry_scale

@@ -109,8 +109,10 @@ registered, prescribed rigid contact pairs: analytical planes or spheres,
 reviewed triangular surfaces, and certified closed-convex triangular solids.
 The contact residual and tangent enter the same Newton, line-search, accepted
 State, work, and checkpoint lifecycle as the material. A certified convex
-solid can use the bounded penalty-Coulomb tangential law; this is not general
-frictional contact on arbitrary surfaces. Multiple named pairs and a
+solid or a reviewed triangular tool on an active face-interior planar branch
+can use the bounded penalty-Coulomb tangential law. Active noncoplanar edges,
+vertices, curved tools and distributed implicit friction remain unsupported;
+this is not general frictional contact. Multiple named pairs and a
 two-region J2 material map have serial regression evidence. Unsupported
 geometry, material/contact composition, or MPI operation fails before solve;
 do not infer general industrial-contact support from this route. See

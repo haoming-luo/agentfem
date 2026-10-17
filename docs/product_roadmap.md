@@ -116,6 +116,14 @@ or a new release. The next promotion needs a frozen external comparator and
 controlled mesh, domain, penalty and increment limits before broader
 geometry/material/MPI admission.
 
+An additional reviewed triangular rigid tool may now use the *same* serial
+fixed-old-state Coulomb Operator on a current planar face branch. A coplanar
+two-triangle tool matches the analytical plane under translation and rotation,
+including tool work and interrupted restart; active free or noncoplanar edges
+still reject and roll back. This extends useful tool representation without
+promoting arbitrary sharp-edge friction, distributed contact, or an external
+Abaqus parity claim.
+
 The next source candidate removes the built-in sphere/cylinder type gate for
 smooth rigid contact: geometry owns a checked signed-gap differential, while
 the existing Operator and Procedure remain unchanged. A third-party smooth

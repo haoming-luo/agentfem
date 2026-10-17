@@ -752,7 +752,7 @@ def test_two_implicit_tools_reject_duplicate_identity_before_lowering():
     )
 
 
-def test_implicit_facet_friction_is_rejected_outside_fixed_plane_gate():
+def test_implicit_coplanar_facet_friction_uses_the_public_j2_step():
     model, displacement, material, _ = _patch(
         triangulated=True, make_step=False,
     )
@@ -767,11 +767,15 @@ def test_implicit_facet_friction_is_rejected_outside_fixed_plane_gate():
     capability = step_capability(
         model, target=displacement, options={"material": material},
     )
-    assert not capability["supported"]
-    assert any(
-        item["message"].startswith("AFM-IMPLICIT-CONTACT-FRICTION")
-        for item in capability["rejection_reasons"]
+    assert capability["supported"]
+    step = model.step(
+        target=displacement, material=material,
+        incrementation=steps.fixed(2), progress=False,
     )
+    result = step.solve_result()
+    assert result.status == "completed"
+    assert step.contact_provider.friction_state.accepted is not None
+    assert step.energy_history[-1].friction_dissipation >= 0.0
 
 
 def test_native_facet_result_rf_uses_the_full_residual_once():
@@ -795,12 +799,19 @@ def test_native_facet_result_rf_uses_the_full_residual_once():
     )
 
 
-def test_active_free_tool_edge_fails_closed_and_preserves_accepted_state():
+@pytest.mark.parametrize("friction_coefficient,tangential_penalty", [
+    (None, None), (0.3, 200.0),
+])
+def test_active_free_tool_edge_fails_closed_and_preserves_accepted_state(
+    friction_coefficient, tangential_penalty,
+):
     _, _, _, step = _patch(
         triangulated=True,
         cells=2,
         tool_y_max=0.4,
         tool_translation=(-0.006, 0.0, 0.0),
+        friction_coefficient=friction_coefficient,
+        tangential_penalty=tangential_penalty,
     )
     baseline_u = step.solution.x.array.copy()
     baseline_state = step.response.state.committed_state_vectors().copy()
@@ -811,6 +822,8 @@ def test_active_free_tool_edge_fails_closed_and_preserves_accepted_state():
     np.testing.assert_allclose(step.solution.x.array, baseline_u)
     np.testing.assert_allclose(step.response.state.committed_state_vectors(),
                                baseline_state)
+    if friction_coefficient is not None:
+        assert step.contact_provider.friction_state.accepted is None
     assert not step.energy_history
 
 

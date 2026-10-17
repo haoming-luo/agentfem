@@ -474,10 +474,16 @@ def _finite_strain_j2_strong_preconditions(model, request: StepRequest) -> bool:
 def _implicit_planar_friction_geometry_supported(pair) -> bool:
     """Admit reviewed planar-branch geometry; never infer a smoothed normal."""
 
-    from .boundary_models import ConvexPolyhedralRigidSurface, RigidPlaneSurface
+    from .boundary_models import (
+        ConvexPolyhedralRigidSurface, RigidPlaneSurface,
+        TriangulatedRigidSurface,
+    )
 
     if not isinstance(
-        pair.rigid_body.surface, (RigidPlaneSurface, ConvexPolyhedralRigidSurface),
+        pair.rigid_body.surface, (
+            RigidPlaneSurface, ConvexPolyhedralRigidSurface,
+            TriangulatedRigidSurface,
+        ),
     ):
         return False
     return True
@@ -597,9 +603,9 @@ def _finite_strain_j2_strong_rejection_reason(model, request: StepRequest) -> st
         ):
             return (
                 "AFM-IMPLICIT-CONTACT-FRICTION: each frictional rigid pair "
-                "must be an analytical plane or certified closed-convex tool; "
-                "curved and open/nonconvex faceted pairs lack a reviewed "
-                "implicit friction tangent."
+                "must have a reviewed planar-branch tangent; curved tools "
+                "remain unsupported. Active noncoplanar facet edges and "
+                "vertices are rejected during the Newton trial."
             )
         if any(
             item.law.invalid_policy != "reject" for item in boundary_models
@@ -639,10 +645,9 @@ def _finite_strain_j2_strong_rejection_reason(model, request: StepRequest) -> st
         ):
             return (
                 "AFM-IMPLICIT-CONTACT-FRICTION: implicit Coulomb contact is "
-                "limited to fixed or prescribed-moving analytical planes "
-                "and certified closed-convex tools in a serial strong-BC "
-                "finite-strain J2 Step; curved and open/nonconvex faceted "
-                "frictional tools need separate tangent and State validation."
+                "limited to reviewed planar-branch tools in a serial strong-BC "
+                "finite-strain J2 Step; curved tools remain unsupported and "
+                "active noncoplanar facet edges or vertices are rejected."
             )
         schedule = selected.rigid_body.motion_schedule
         if schedule is not None and (

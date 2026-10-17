@@ -22,6 +22,14 @@ def _rigid_surface(*, geometry="plane"):
         return boundary_models.rigid_plane(
             point=(0.05, 0.0, 0.0), normal=(-1.0, 0.0, 0.0),
         )
+    if geometry == "triangulated_plane":
+        return boundary_models.triangulated_rigid_surface(
+            vertices=(
+                (0.05, -1.0, -1.0), (0.05, -1.0, 2.0),
+                (0.05, 2.0, 2.0), (0.05, 2.0, -1.0),
+            ),
+            triangles=((0, 1, 2), (0, 2, 3)),
+        )
     if geometry != "closed_convex":
         raise ValueError("Unknown friction test geometry.")
     return boundary_models.convex_polyhedral_rigid_surface(
@@ -117,6 +125,46 @@ def test_translating_plane_friction_uses_relative_tool_motion_and_tangent(
     operator.update_motion(0.5)
     with pytest.raises(ValueError, match="accepted rigid pose"):
         operator.validate_accepted_configuration()
+
+
+def test_coplanar_triangle_tool_matches_analytical_plane_friction_operator():
+    motion = boundary_models.prescribed_rigid_motion(
+        translation=(0.0, 0.2, 0.0),
+    )
+    plane_displacement, plane = _operator(motion=motion)
+    facet_displacement, facet = _operator(
+        motion=motion, geometry="triangulated_plane",
+    )
+    for displacement, operator in (
+        (plane_displacement, plane), (facet_displacement, facet),
+    ):
+        displacement.x.array.reshape(-1, 3)[:, 0] = 0.10
+        operator.update_motion(1.0)
+    expected = plane.evaluate()
+    actual = facet.evaluate()
+    assert actual.friction_tangent.sliding_points > 0
+    np.testing.assert_allclose(
+        actual.nodal_structural_residual,
+        expected.nodal_structural_residual, rtol=0.0, atol=1e-10,
+    )
+    direction = np.random.default_rng(2409).normal(size=facet_displacement.x.array.shape)
+    direction /= np.linalg.norm(direction)
+    np.testing.assert_allclose(
+        actual.tangent_action(direction.reshape(-1, 3)),
+        expected.tangent_action(direction.reshape(-1, 3)),
+        rtol=0.0, atol=1e-10,
+    )
+    base = facet_displacement.x.array.copy()
+    epsilon = 1.0e-7
+    facet_displacement.x.array[:] = base + epsilon * direction
+    plus = facet.evaluate().nodal_structural_residual
+    facet_displacement.x.array[:] = base - epsilon * direction
+    minus = facet.evaluate().nodal_structural_residual
+    facet_displacement.x.array[:] = base
+    np.testing.assert_allclose(
+        actual.tangent_action(direction.reshape(-1, 3)),
+        (plus - minus) / (2 * epsilon), rtol=2e-5, atol=2e-6,
+    )
 
 
 def _moving_friction_patch_step(
@@ -245,6 +293,37 @@ def test_closed_convex_planar_face_matches_rotating_plane_global_path(tmp_path):
     )
     assert resumed.energy_history[-1].friction_dissipation == pytest.approx(
         convex.energy_history[-1].friction_dissipation,
+    )
+
+
+def test_rotating_coplanar_triangle_tool_matches_plane_and_restarts(tmp_path):
+    kwargs = {"increments": 4, "rotation": (0.0, 0.0, 0.15)}
+    plane = _moving_friction_patch_step(**kwargs)
+    facet = _moving_friction_patch_step(**kwargs, geometry="triangulated_plane")
+    plane_result = plane.solve_result()
+    facet_result = facet.solve_result()
+    assert plane_result.status == facet_result.status == "completed"
+    np.testing.assert_allclose(facet.solution.x.array, plane.solution.x.array, atol=1e-9)
+    for name in ("tool_work", "friction_dissipation", "contact_potential"):
+        assert getattr(facet.energy_history[-1], name) == pytest.approx(
+            getattr(plane.energy_history[-1], name), rel=1e-8, abs=1e-9,
+        )
+    np.testing.assert_allclose(
+        facet_result.metadata["constraint_duals"][0]["force"],
+        plane_result.metadata["constraint_duals"][0]["force"], atol=1e-8,
+    )
+    partial = _moving_friction_patch_step(**kwargs, geometry="triangulated_plane")
+    partial.solve(until=0.5)
+    saved = partial.save_checkpoint(tmp_path / "facet_friction")
+    resumed = _moving_friction_patch_step(**kwargs, geometry="triangulated_plane")
+    resumed.load_checkpoint(saved)
+    resumed.solve()
+    np.testing.assert_allclose(resumed.solution.x.array, facet.solution.x.array, atol=1e-9)
+    assert resumed.energy_history[-1].tool_work == pytest.approx(
+        facet.energy_history[-1].tool_work,
+    )
+    assert resumed.energy_history[-1].friction_dissipation == pytest.approx(
+        facet.energy_history[-1].friction_dissipation,
     )
 
 
