@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import basix.ufl
 import json
+import xml.etree.ElementTree as ET
 from dolfinx import fem, mesh
 from mpi4py import MPI
 import numpy as np
@@ -281,7 +282,8 @@ def test_accepted_contact_point_export_is_raw_and_reconstructs_tool_resultant(tm
     result = step.solve_result()
     destination = tmp_path / "contact_samples"
     paths = results.export_accepted_contact_points(
-        step, destination, units={"length": "m", "force": "N"}, result=result,
+        step, destination, units={"length": "m", "force": "N"},
+        result=result, vtk_view=True,
     )
     assert result.artifacts["accepted_contact_points"] == paths["contact_points"]
     assert result.fields["rigid_contact_normal_pressure_raw"].location == (
@@ -297,7 +299,18 @@ def test_accepted_contact_point_export_is_raw_and_reconstructs_tool_resultant(tm
     assert metadata["smoothing"] == "none"
     assert metadata["complete"] and not metadata["restart_archive"]
     assert metadata["units"] == {"length": "m", "force": "N"}
+    assert metadata["vtk_view"] == "current_slave_positions_vertex_only"
+    assert result.artifacts["accepted_contact_points_vtp"] == paths[
+        "contact_point_view"
+    ]
     assert samples["point_ids"].size == samples["reference_weights"].size
+    vtk_root = ET.parse(paths["contact_point_view"]).getroot()
+    assert vtk_root.attrib["type"] == "PolyData"
+    vtk_piece = vtk_root.find("./PolyData/Piece")
+    assert int(vtk_piece.attrib["NumberOfPoints"]) == len(samples["point_ids"])
+    assert int(vtk_piece.attrib["NumberOfVerts"]) == len(samples["point_ids"])
+    assert vtk_piece.find("./PointData/DataArray[@Name='normal_pressures']") is not None
+    assert vtk_piece.find("./PointData/DataArray[@Name='pair_index']") is not None
     assert np.any(samples["active"])
     assert np.all(samples["normal_pressures"] >= 0.0)
     assert np.all(samples["cumulative_friction_dissipation_densities"] >= 0.0)
@@ -318,11 +331,43 @@ def test_accepted_contact_point_export_is_raw_and_reconstructs_tool_resultant(tm
     assert not (tmp_path / "rejected").exists()
 
 
+def test_contact_point_vtp_is_readable_as_unsmoothed_vertices(tmp_path):
+    vtk = pytest.importorskip("vtk")
+    from vtk.util.numpy_support import vtk_to_numpy
+
+    step = _moving_friction_patch_step(
+        increments=4, rotation=(0.0, 0.0, 0.15), geometry="closed_convex",
+    )
+    step.solve()
+    paths = results.export_accepted_contact_points(
+        step, tmp_path / "vtk_samples", vtk_view=True,
+    )
+    reader = vtk.vtkXMLPolyDataReader()
+    reader.SetFileName(str(paths["contact_point_view"]))
+    reader.Update()
+    output = reader.GetOutput()
+    with np.load(paths["contact_points"], allow_pickle=False) as archive:
+        assert output.GetNumberOfPoints() == len(archive["point_ids"])
+        assert output.GetNumberOfVerts() == len(archive["point_ids"])
+        np.testing.assert_allclose(
+            vtk_to_numpy(output.GetPoints().GetData()), archive["slave_positions"],
+        )
+        np.testing.assert_allclose(
+            vtk_to_numpy(output.GetPointData().GetArray("normal_pressures")),
+            archive["normal_pressures"],
+        )
+
+
 def test_contact_point_export_rejects_nonfinite_provider_data_before_writing(
     tmp_path, monkeypatch,
 ):
     step = _moving_friction_patch_step(increments=2)
     step.solve()
+    with pytest.raises(TypeError, match="AFM-CONTACT-EXPORT-VIEW"):
+        results.export_accepted_contact_points(
+            step, tmp_path / "bad_view_option", vtk_view="yes",
+        )
+    assert not (tmp_path / "bad_view_option").exists()
     provider = step.contact_provider
     original = provider.accepted_point_samples
 

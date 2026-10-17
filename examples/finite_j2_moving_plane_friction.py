@@ -101,7 +101,7 @@ def run_case(
     if contact_point_dir is not None:
         report["contact_point_artifacts"] = {
             name: str(path) for name, path in results.export_accepted_contact_points(
-                step, contact_point_dir, result=result,
+                step, contact_point_dir, result=result, vtk_view=True,
             ).items()
         }
     return report

@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
+import xml.etree.ElementTree as ET
 
 import numpy as np
 
@@ -25,8 +26,66 @@ _VECTOR_FIELDS = {
 _INTEGER_FIELDS = {"point_ids", "entity_ids"}
 
 
+def _vtk_data_array(parent, name: str, values: np.ndarray) -> None:
+    """Write one exact, unsmoothed numeric point array to a VTK XML view."""
+
+    array = np.asarray(values)
+    if array.dtype.kind == "b":
+        vtk_type = "UInt8"
+        flat = array.astype(np.uint8, copy=False).ravel()
+    elif array.dtype.kind in "iu":
+        vtk_type = "Int64"
+        flat = array.astype(np.int64, copy=False).ravel()
+    else:
+        vtk_type = "Float64"
+        flat = array.astype(np.float64, copy=False).ravel()
+    attributes = {
+        "type": vtk_type,
+        "Name": name,
+        "NumberOfComponents": str(array.shape[1] if array.ndim == 2 else 1),
+        "format": "ascii",
+    }
+    element = ET.SubElement(parent, "DataArray", attributes)
+    if vtk_type == "Float64":
+        element.text = " ".join(format(float(value), ".17g") for value in flat)
+    else:
+        element.text = " ".join(str(int(value)) for value in flat)
+
+
+def _contact_points_vtp(arrays: dict[str, np.ndarray]) -> str:
+    """Provide a vertex-only ParaView view of the accepted raw samples."""
+
+    count = len(arrays["point_ids"])
+    root = ET.Element(
+        "VTKFile", type="PolyData", version="1.0", byte_order="LittleEndian",
+    )
+    polydata = ET.SubElement(root, "PolyData")
+    piece = ET.SubElement(
+        polydata, "Piece",
+        NumberOfPoints=str(count), NumberOfVerts=str(count),
+        NumberOfLines="0", NumberOfStrips="0", NumberOfPolys="0",
+    )
+    point_data = ET.SubElement(
+        piece, "PointData", Scalars="normal_pressures",
+        Vectors="surface_friction_tractions",
+    )
+    for name, values in arrays.items():
+        if name != "slave_positions":
+            _vtk_data_array(point_data, name, values)
+    _vtk_data_array(
+        ET.SubElement(piece, "Points"),
+        "current_slave_positions", arrays["slave_positions"],
+    )
+    vertices = ET.SubElement(piece, "Verts")
+    _vtk_data_array(vertices, "connectivity", np.arange(count, dtype=np.int64))
+    _vtk_data_array(vertices, "offsets", np.arange(1, count + 1, dtype=np.int64))
+    return '<?xml version="1.0" encoding="utf-8"?>\n' + ET.tostring(
+        root, encoding="unicode",
+    ) + "\n"
+
+
 def export_accepted_contact_points(
-    step, directory, *, units=None, result=None,
+    step, directory, *, units=None, result=None, vtk_view=False,
 ) -> dict[str, Path]:
     """Archive accepted quadrature samples without smoothing or advancing State.
 
@@ -34,6 +93,8 @@ def export_accepted_contact_points(
     Point IDs are stable only together with the named contact pair and geometry
     fingerprint. The NPZ is a scientific-data view, **not** a restart archive.
     No contact pressure is mislabeled as a Cauchy stress or nodal field.
+    ``vtk_view=True`` additionally writes vertex-only PolyData at the current
+    slave positions for ParaView; it does not interpolate or smooth the samples.
     """
 
     from ..checkpointing import atomic_savez, atomic_write_text
@@ -42,8 +103,11 @@ def export_accepted_contact_points(
 
     if result is not None and not isinstance(result, SimulationResult):
         raise TypeError("AFM-CONTACT-EXPORT-RESULT: expected SimulationResult.")
+    if not isinstance(vtk_view, bool):
+        raise TypeError("AFM-CONTACT-EXPORT-VIEW: vtk_view must be a boolean.")
     if result is not None and (
-        {"accepted_contact_points", "accepted_contact_points_metadata"}
+        {"accepted_contact_points", "accepted_contact_points_metadata",
+         "accepted_contact_points_vtp"}
         & set(result.artifacts)
         or {"rigid_contact_normal_pressure_raw", "rigid_contact_friction_traction_raw"}
         & set(result.fields)
@@ -113,6 +177,7 @@ def export_accepted_contact_points(
         "units": encoded_units,
         "restart_archive": False,
         "scientifically_validated": False,
+        "vtk_view": "current_slave_positions_vertex_only" if vtk_view else None,
         "pairs": [
             {
                 "pair_index": index,
@@ -131,6 +196,8 @@ def export_accepted_contact_points(
         "contact_points": selected / "accepted_contact_points.npz",
         "contact_point_metadata": selected / "accepted_contact_points.json",
     }
+    if vtk_view:
+        paths["contact_point_view"] = selected / "accepted_contact_points.vtp"
     if any(path.exists() for path in paths.values()):
         raise FileExistsError("AFM-CONTACT-EXPORT-EXISTS: use a fresh output directory.")
     arrays = {
@@ -143,11 +210,17 @@ def export_accepted_contact_points(
     ])
     atomic_savez(paths["contact_points"], **arrays)
     atomic_write_text(paths["contact_point_metadata"], encoded)
+    if vtk_view:
+        atomic_write_text(paths["contact_point_view"], _contact_points_vtp(arrays))
     if result is not None:
         result.add_artifact("accepted_contact_points", paths["contact_points"])
         result.add_artifact(
             "accepted_contact_points_metadata", paths["contact_point_metadata"],
         )
+        if vtk_view:
+            result.add_artifact(
+                "accepted_contact_points_vtp", paths["contact_point_view"],
+            )
         for name, key, description in (
             (
                 "rigid_contact_normal_pressure_raw", "normal_pressures",

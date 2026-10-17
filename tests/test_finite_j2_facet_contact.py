@@ -28,7 +28,8 @@ def _patch(*, triangulated: bool, gap: float = 0.005, penalty=500.0,
            schedule_end=1.0, make_step=True, tool_y_max=1.5,
            increments=3, applied_traction=10.0, yield_stress=2.0,
            convex_tool=False, convex_y_min=-0.5,
-           friction_coefficient=None, tangential_penalty=None):
+           friction_coefficient=None, tangential_penalty=None,
+           regional_material=False):
     domain = dolfinx_mesh.create_unit_cube(MPI.COMM_SELF, cells, cells, cells)
     model = models.create(
         study=studies.static_solid(dimension=3, nonlinear=True),
@@ -38,14 +39,36 @@ def _patch(*, triangulated: bool, gap: float = 0.005, penalty=500.0,
     left = mesh.boundary(domain, lambda x: np.isclose(x[0], 0.0), name="left")
     right = mesh.boundary(domain, lambda x: np.isclose(x[0], 1.0), name="right")
     model.clamp(displacement, on=left)
-    material = model.material(
-        constitutive.finite_strain_j2_logarithmic(
-            young=1000.0,
-            poisson=0.0,
-            yield_stress=yield_stress,
-            hardening_modulus=100.0,
+    if regional_material:
+        regions = mesh.partition_cells(
+            domain,
+            left=lambda x: x[0] <= 0.5,
+            right=lambda x: x[0] > 0.5,
         )
-    )
+        model.material(
+            constitutive.finite_strain_j2_logarithmic(
+                young=1000.0, poisson=0.0,
+                yield_stress=yield_stress, hardening_modulus=100.0,
+            ),
+            region=regions.left,
+        )
+        model.material(
+            constitutive.finite_strain_j2_logarithmic(
+                young=1500.0, poisson=0.0,
+                yield_stress=1.5 * yield_stress, hardening_modulus=150.0,
+            ),
+            region=regions.right,
+        )
+        material = None  # The ordinary Step lowers the complete regional map.
+    else:
+        material = model.material(
+            constitutive.finite_strain_j2_logarithmic(
+                young=1000.0,
+                poisson=0.0,
+                yield_stress=yield_stress,
+                hardening_modulus=100.0,
+            )
+        )
     tool_motion = None
     if tool_translation is not None:
         tool_motion = boundary_models.prescribed_rigid_motion(
@@ -113,9 +136,10 @@ def _patch(*, triangulated: bool, gap: float = 0.005, penalty=500.0,
         model.traction((applied_traction, 0.0, 0.0), on=right)
     if not make_step:
         return model, displacement, material, None
+    step_options = {} if material is None else {"material": material}
     step = model.step(
         target=displacement,
-        material=material,
+        **step_options,
         incrementation=steps.fixed(increments),
         solver_options=solvers.newton(
             relative_tolerance=1e-8,
@@ -309,6 +333,58 @@ def test_convex_tool_friction_feature_switch_keeps_plastic_and_tangential_state(
     assert resumed.energy_history[-1].friction_dissipation == pytest.approx(
         reference.energy_history[-1].friction_dissipation, rel=1e-9,
     )
+
+
+def test_regional_j2_materials_share_moving_convex_friction_transaction(tmp_path):
+    options = dict(
+        triangulated=True, convex_tool=True, cells=2,
+        regional_material=True, yield_stress=2.0,
+        tool_translation=(-0.016, 0.012, 0.0),
+        applied_traction=0.0, increments=4,
+        friction_coefficient=0.2, tangential_penalty=100.0,
+    )
+
+    def build():
+        model, displacement, material, step = _patch(**options)
+        assert material is None
+        capability = step_capability(model, target=displacement)
+        assert capability["supported"]
+        assert isinstance(step.material, constitutive.QuadratureMaterialMap)
+        assert set(step.material.cell_regions) == {1, 2}
+        return step
+
+    continuous = build()
+    continuous.solve()
+    assert continuous.energy_history[-1].tool_work > 0.0
+    assert continuous.energy_history[-1].friction_dissipation > 0.0
+    assert np.max(
+        continuous.response.state.committed[
+            "equivalent_plastic_strain"
+        ].function.x.array
+    ) > 0.0
+
+    interrupted = build()
+    interrupted.solve(until=0.5)
+    checkpoint = interrupted.save_checkpoint(tmp_path / "regional_convex_contact")
+    resumed = build()
+    resumed.load_checkpoint(checkpoint)
+    resumed.solve()
+    np.testing.assert_allclose(
+        resumed.solution.x.array, continuous.solution.x.array,
+        rtol=1.0e-9, atol=1.0e-10,
+    )
+    np.testing.assert_allclose(
+        resumed.response.state.committed_state_vectors(),
+        continuous.response.state.committed_state_vectors(),
+        rtol=1.0e-9, atol=1.0e-10,
+    )
+    assert resumed.energy_history[-1].friction_dissipation == pytest.approx(
+        continuous.energy_history[-1].friction_dissipation, rel=1.0e-9,
+    )
+    changed = _patch(**{**options, "yield_stress": 2.5})[3]
+    with pytest.raises(ValueError, match="identity"):
+        changed.load_checkpoint(checkpoint)
+    assert not changed.energy_history
 
 
 def test_two_implicit_tools_add_residual_tangent_and_keep_separate_evidence():

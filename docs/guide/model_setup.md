@@ -400,10 +400,17 @@ matrix:
 All admitted implicit paths use finite-strain J2 on a three-dimensional solid.
 Unsupported combinations fail during capability checking or before assembly;
 they are not silently replaced with a plane, frictionless law, or serial solve.
+Two region-assigned J2 parameter sets have been checked with a moving convex
+frictional tool and interrupted restart. This does not admit arbitrary user
+materials or certify general mixed-material interfaces.
 
 After a serial implicit contact increment is accepted, the optional
 `results.export_accepted_contact_points(step, directory, units=..., result=...)` writes
-`accepted_contact_points.npz` and a JSON schema/identity record. Arrays include
+`accepted_contact_points.npz` and a JSON schema/identity record. Set
+`vtk_view=True` to additionally write vertex-only `accepted_contact_points.vtp`
+for ParaView at the **current slave positions**. The VTP carries the same raw
+samples and pair indices; it does not make a continuous contact surface or
+smooth pressure across facets. Arrays include
 stable pair/point identity, current slave and closest master positions,
 reference quadrature weights, normals, signed gaps, positive penalty pressure,
 friction traction and accepted tangential state. The location is **reference
@@ -419,14 +426,14 @@ from agentfem import results
 
 paths = results.export_accepted_contact_points(
     step, "output/contact-points", units={"length": "m", "force": "N"},
-    result=result,
+    result=result, vtk_view=True,
 )
 ```
 
 Unknown units should be omitted, never inferred from the mesh coordinates.
 Passing `result` attaches the archive and raw quadrature pressure/traction
-field descriptors to that `SimulationResult`; it does not create a smoothed
-ParaView nodal field.
+field descriptors to that `SimulationResult`, plus the optional VTP artifact;
+it does not create a smoothed ParaView nodal field.
 
 For the reviewed DOLFINx route,
 `dolfinx_boundary_region_contact_trace(region, V)` adapts a tagged exterior
