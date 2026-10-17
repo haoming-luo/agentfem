@@ -101,6 +101,21 @@ restart also pass. External sharp-feature comparison, broad mesh/penalty
 evidence and scalable search remain open. See the
 [closed-convex candidate record](internal/closed_convex_implicit_contact_candidate_20261018.md).
 
+The bounded serial candidate now also carries a selected-branch Coulomb
+tangent for that certified closed-convex tool, two independently moving
+frictional pairs, a two-region J2 material map, atomic restart and raw
+accepted contact-point export. Q1 hexahedral contact quadrature can be
+explicitly refined for discrete convergence checks; its default stays 2×2
+because the higher rule did not improve the Hertz force comparison. The
+source-targeted and isolated installed-wheel smoke pass on Apple Silicon,
+but the Hertz continuum force is still 4.27% high at the finest documented
+fixed-extent mesh, sharp-friction observables remain mesh/penalty sensitive,
+and external same-input Abaqus results are absent. This work remains an
+**experimental, limited serial contact capability**, not local Abaqus parity
+or a new release. The next promotion needs a frozen external comparator and
+controlled mesh, domain, penalty and increment limits before broader
+geometry/material/MPI admission.
+
 The next source candidate removes the built-in sphere/cylinder type gate for
 smooth rigid contact: geometry owns a checked signed-gap differential, while
 the existing Operator and Procedure remain unchanged. A third-party smooth

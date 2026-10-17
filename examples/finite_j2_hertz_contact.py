@@ -35,7 +35,8 @@ from agentfem import (
 def run_case(
     *, cells: int, penalty: float, indentation: float, quarter: bool = False,
     extent: float = 1.0, increments: int = 4, grading: float = 0.0,
-    linear_policy: str = "direct", contact_quadrature_degree: int | None = None,
+    radius: float = 2.0, linear_policy: str = "direct",
+    contact_quadrature_degree: int | None = None,
 ) -> dict[str, object]:
     """Return one serial structural response and its half-space reference."""
 
@@ -43,11 +44,13 @@ def run_case(
     if MPI.COMM_WORLD.size != 1:
         raise RuntimeError("The bounded Hertz comparison is serial only.")
     if (
-        cells < 2 or increments < 1 or penalty <= 0.0
-        or indentation <= 0.0 or extent <= 0.0
+        cells < 2 or increments < 1
+        or not all(np.isfinite(value) and value > 0.0 for value in (
+            penalty, indentation, extent, radius,
+        ))
         or not np.isfinite(grading) or grading < 0.0
     ):
-        raise ValueError("Require cells >= 2, increments >= 1, positive penalty/indentation/extent and nonnegative grading.")
+        raise ValueError("Require cells >= 2, increments >= 1, positive penalty/indentation/extent/radius and nonnegative grading.")
     linear_choices = {
         "direct": solvers.direct_solver(),
         "gmres_gamg": solvers.LinearSolverOptions(
@@ -60,7 +63,7 @@ def run_case(
     if linear_policy not in linear_choices:
         raise ValueError(f"linear_policy must be one of {tuple(linear_choices)}.")
 
-    young, poisson, radius = 1000.0, 0.3, 2.0
+    young, poisson = 1000.0, 0.3
     domain = dolfinx_mesh.create_box(
         MPI.COMM_SELF,
         (
@@ -244,6 +247,7 @@ def main() -> None:
     parser.add_argument("--cells", type=int, default=8)
     parser.add_argument("--penalty", type=float, default=1.0e5)
     parser.add_argument("--indentation", type=float, default=0.02)
+    parser.add_argument("--radius", type=float, default=2.0)
     parser.add_argument("--extent", type=float, default=1.0)
     parser.add_argument("--grading", type=float, default=0.0)
     parser.add_argument("--contact-quadrature-degree", type=int)
@@ -257,6 +261,7 @@ def main() -> None:
     args = parser.parse_args()
     report = run_case(
         cells=args.cells, penalty=args.penalty, indentation=args.indentation,
+        radius=args.radius,
         quarter=args.quarter, extent=args.extent, increments=args.increments,
         grading=args.grading,
         contact_quadrature_degree=args.contact_quadrature_degree,

@@ -49,6 +49,25 @@ def test_hertz_reference_is_labeled_as_limit_not_exact_solution():
     assert "finite_penalty" in result["model_scope"]
 
 
+def test_benchmark_keeps_contact_radius_while_reducing_indent_to_radius_ratio():
+    reference = run_case(
+        cells=2, penalty=1.0e5, indentation=0.02, radius=2.0,
+        quarter=True, increments=2,
+    )
+    smaller_strain = run_case(
+        cells=2, penalty=1.0e5, indentation=0.002, radius=20.0,
+        quarter=True, increments=2,
+    )
+    assert smaller_strain["status"] == "completed"
+    assert smaller_strain["hertz_half_space_contact_radius"] == pytest.approx(
+        reference["hertz_half_space_contact_radius"],
+    )
+    assert smaller_strain["hertz_half_space_force"] == pytest.approx(
+        reference["hertz_half_space_force"] / 10.0,
+    )
+    assert smaller_strain["plastic_dissipation"] == 0.0
+
+
 def test_explicit_iterative_solver_policy_preserves_contact_solution():
     options = dict(cells=4, penalty=1.0e5, indentation=0.02, quarter=True)
     direct = run_case(**options)

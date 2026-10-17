@@ -344,6 +344,30 @@ def test_warped_hexahedral_face_uses_bilinear_map_and_pointwise_jacobian():
     )
 
 
+def test_warped_hex_contact_area_converges_under_explicit_gauss_refinement():
+    domain = _hex_cube(MPI.COMM_SELF)
+    region = _left_region(domain)
+    moved = np.flatnonzero(domain.geometry.input_global_indices == 6)
+    assert moved.size == 1
+    domain.geometry.x[int(moved[0]), 0] = 0.2
+    space = _vector_space(domain)
+    points, weights = np.polynomial.legendre.leggauss(32)
+    points = 0.5 * (points + 1.0)
+    weights = 0.5 * weights
+    exact = sum(
+        wr * ws * np.sqrt(1.0 + 0.2**2 * (r**2 + s**2))
+        for r, wr in zip(points, weights, strict=True)
+        for s, ws in zip(points, weights, strict=True)
+    )
+    errors = []
+    for degree in (None, 5, 7):
+        adapter = boundary_models.dolfinx_boundary_region_contact_trace(
+            region, space, contact_quadrature_degree=degree,
+        )
+        errors.append(abs(np.sum(adapter.trace.weights) - exact))
+    assert errors[2] < errors[1] < errors[0]
+
+
 def test_quadratic_displacement_trace_on_linear_tetrahedron():
     domain = _cube(MPI.COMM_SELF)
     region = _left_region(domain)

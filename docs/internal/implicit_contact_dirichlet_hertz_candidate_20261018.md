@@ -152,6 +152,36 @@ not paired performance trials, but they show **no accuracy or speed benefit**
 for this benchmark. More contact points alone do not resolve the remaining
 Hertz discrepancy. Keep the higher rule as an explicit quadrature-sensitivity
 diagnostic; do not promote it to a default or use it to claim validation.
+For both permitted higher rules, separate one-cell sphere and cylinder tests
+match an independently assembled UFL contact potential, residual and Hessian
+on the same Q1 trace. A two-rank trace test checks partition-independent
+point IDs and total reference weight for the 2×2, 3×3 and 4×4 rules. These
+are discrete Operator checks, not a Hertz continuum-limit proof.
+
+A second Hertz-limit screen holds the classical contact radius
+`sqrt(R delta)=0.2` fixed while increasing `R` and decreasing `delta`.
+It uses the same extent-8/grade-4/penalty-`1e6` quarter block and default
+2×2 contact rule, with four increments and serial GMRES/GAMG:
+
+| Sphere radius | Indentation | Quarter cells | Full force | Hertz force | Ratio | Wall time |
+| ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| 2 | 0.02 | 13,824 | 6.16946 | 5.86081 | 1.05266 | 56.07 s |
+| 20 | 0.002 | 13,824 | 0.606669 | 0.586081 | 1.03513 | 53.87 s |
+| 20 | 0.002 | 32,768 | 0.600922 | 0.586081 | 1.02532 | 142.64 s |
+| 20 | 0.002 | 64,000 | 0.600599 | 0.586081 | 1.02477 | 342.08 s |
+| 200 | 0.0002 | 13,824 | 0.0605564 | 0.0586081 | 1.03324 | 53.20 s |
+
+At 64,000 quarter cells, the `R=20` force changes by only about `0.055`
+percentage points from the 32,768-cell result, while still exceeding the
+half-space reference by `2.48%`. Increasing the radius to `200` at the
+coarser 13,824-cell resolution likewise leaves a `3.32%` excess. The
+small-strain limit therefore explains part, but not all, of the earlier
+discrepancy. The active area in the 64,000-cell `R=20` run is `0.11689`
+versus the Hertz circle area `0.12566`; finite penalty, finite-domain
+compliance, pressure integration and finite-strain bulk behavior remain to
+be separated. Continuing the same mesh sequence without changing the
+experiment is not justified. These are source-checkout diagnostics, not
+whole-solver validations or portable performance benchmarks.
 
 ## Remaining gate
 
@@ -188,7 +218,7 @@ not general contact. This record separates code gates from evidence gates:
 | Multi-tool implicit | Ordinary serial strong-BC J2 composes distinct rigid pairs: summed residual/tangent, independent moving-pair work, and atomic failed-increment/checkpoint recovery. Opposing moving frictionless planes check force balance. Two fixed frictional planes recover the equivalent single-law response while preserving separate State/dual/checkpoint identities; spatially opposed fixed frictional planes also check both force resultants and interrupted restart. Two separately moving convex frictional tools now keep pair-specific work, raw force reconstruction, friction State and restart identity; an injected second-pair commit failure restores both accepted states. The separate affine-periodic J2 route now admits named frictionless pairs: equivalent split-tool and spatially opposed tools check total MPC reduction, independent moving-tool work, failed projection rollback and interrupted restart | Mixed curved/open-facet friction, affine-periodic friction, broader plastic branch switching, external structural comparison and finer mesh/penalty checks |
 | Implicit friction | Fixed, translating and rotating analytical planes are admitted on serial strong-BC finite-J2. A certified closed-convex triangle solid now shares the selected planar-branch tangent: a rotating single-face path matches the equivalent analytical plane, and one plastic noncoplanar feature-switch path preserves tangential State and restart. Stable-ID State, rigid pose, separate Coulomb dissipation and numerical separation release, failed-finalization rollback, serial checkpoint and result histories remain common | Mesh/penalty/increment and external sharp-friction comparisons; curved/open/nonconvex/MPC/MPI friction remain unsupported; no general friction claim |
 | Material/time composition | Elastic-regime J2 sphere and plastic J2 facet cases complete; the convex sharp-feature path also evolves plastic State and restarts before a feature switch. A two-region finite-J2 material map now shares a moving convex frictional Step; uninterrupted and checkpoint-resumed displacement, quadrature State and dissipation agree. Explicit body contact has its own stable-step contract | A genuinely different second history material on the *same implicit* seam and explicit contact stability under evolving state; two parameter sets of J2 are not two constitutive laws |
-| Independent accuracy and speed | Full/quarter symmetry, mesh, penalty and increment screens exist; half-space mismatch remains visible. The sharp plastic screen below shows substantial mesh and penalty sensitivity, so it is not convergence evidence | Controlled far-boundary, graded mesh, pressure-footprint and penalty limits; external FE comparison and whole-step timings |
+| Independent accuracy and speed | Full/quarter symmetry, mesh, penalty and increment screens exist; the fixed-contact-radius small-strain screen lowers but does not close the Hertz mismatch, which plateaus near 2.5% at 64,000 quarter cells. The sharp plastic screen below shows substantial mesh and penalty sensitivity, so it is not convergence evidence | Controlled far-boundary, graded mesh, pressure-footprint and penalty limits; external FE comparison and whole-step timings |
 | Product route | Ordinary `model.step()` and isolated installed-wheel closed-convex and rotating-plane-friction examples have run; final unsmoothed reference-trace pressure/penetration scalars are available; a serial accepted-point NPZ/JSON archive keeps pair identity, signed gap, reference weights, pressure, friction traction and accepted tangential state without smoothing. An optional vertex-only VTP view puts the *same* samples at current slave positions; an independent VTK reader checks coordinates and pressure without interpolating. The public capability matrix is explicit | Broad installed-platform and candidate-bound release gate; the VTP point cloud is not a continuous contact-surface pressure map |
 
 The output candidate at commit `e054df76` was built as an isolated native
@@ -212,6 +242,18 @@ not physical convergence, non-Mac portability or a release promotion.
 One bounded two-rank MPI regression group additionally confirms that the
 closed-convex friction route fails at capability/Step construction rather
 than silently entering an unsupported distributed implicit solve.
+
+From a fresh archive of source commit `c65294cc`, a native Apple Silicon
+wheel and matching source distribution were built in an isolated temporary
+packaging directory. The installed wheel SHA-256 is
+`3e1f3d1528e5cce19a5ca204297820dd069f19ede50311a56a395216186b5db1`.
+The standard `release_gate.py --dist ... --smoke` passed its installed-wheel,
+artifact-identity, flagship, entrypoint and project-template checks without
+an editable import. An additional installed-path `model.step()` sphere
+contact smoke with the explicit 3×3 Q1 face rule completed two increments;
+its eight-cell force is deliberately **not** an accuracy result. This is a
+Mac candidate packaging check, not a Windows/Linux gate, a two-rank release
+smoke, an Abaqus comparison, or a promotion of general implicit contact.
 
 The [Abaqus/Standard general-contact description](https://docs.software.vt.edu/abaqusv2025/English/SIMACAEITNRefMap/simaitn-c-genlcontnumcontrolsstd.htm)
 uses separate surface-, edge- and vertex-contact formulations. This supports

@@ -34,7 +34,8 @@ force/moment work, accepted State, rollback and checkpoint owners. It does not
 add a new Step or a geometry-specific material law.
 
 The convex interior support-plane evaluation now groups points into bounded
-dense blocks (at most two million point–facet gaps per temporary array),
+dense blocks (targeting at most two million point–facet gaps per temporary
+array, or one complete query if the tool itself exceeds that facet count),
 then applies the unchanged deterministic face/foot selection per point.
 Exterior queries still use the exact triangle BVH. A seeded 996-facet,
 2,000-point, single-thread local projector comparison against commit

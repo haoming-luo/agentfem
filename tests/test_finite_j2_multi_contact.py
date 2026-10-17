@@ -12,8 +12,17 @@ from agentfem import (
 )
 
 
-def test_opposing_moving_planes_keep_distinct_force_work_and_state():
-    domain = dolfinx_mesh.create_unit_cube(MPI.COMM_SELF, 2, 2, 2)
+@pytest.mark.parametrize(
+    "cell_type, contact_quadrature_degree",
+    [(dolfinx_mesh.CellType.tetrahedron, None),
+     (dolfinx_mesh.CellType.hexahedron, 5)],
+)
+def test_opposing_moving_planes_keep_distinct_force_work_and_state(
+    cell_type, contact_quadrature_degree,
+):
+    domain = dolfinx_mesh.create_unit_cube(
+        MPI.COMM_SELF, 2, 2, 2, cell_type=cell_type,
+    )
     model = models.create(
         study=studies.static_solid(dimension=3, nonlinear=True), mesh=domain,
     )
@@ -49,6 +58,7 @@ def test_opposing_moving_planes_keep_distinct_force_work_and_state():
         ))
     step = model.step(
         target=displacement, material=material,
+        contact_quadrature_degree=contact_quadrature_degree,
         incrementation=steps.fixed(4),
         solver_options=solvers.newton(
             relative_tolerance=1e-8, absolute_tolerance=1e-9,
@@ -59,6 +69,11 @@ def test_opposing_moving_planes_keep_distinct_force_work_and_state():
     result = step.solve_result()
     assert result.status == "completed"
     assert len(step.contact_provider.providers) == 2
+    if contact_quadrature_degree is not None:
+        assert all(
+            item.adapter.trace.point_count == 4 * 9
+            for item in step.contact_provider.providers
+        )
     names = ("left_die", "right_die")
     assert tuple(item["constraint_name"] for item in
                  result.metadata["constraint_duals"]) == names

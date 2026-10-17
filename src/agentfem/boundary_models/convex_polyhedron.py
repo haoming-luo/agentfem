@@ -34,8 +34,8 @@ class ConvexPolyhedralRigidSurface(RigidSurface):
     """Closed convex triangle tool, with an exact active interior gap.
 
     The exterior query is projected to the nearest actual triangle, but only
-    interior points contribute penalty traction.  The tool is serial and the
-    exhaustive projector is a correctness reference, not a scalable CAD path.
+    interior points contribute penalty traction. The tool is serial; its exact
+    support-plane/BVH projection is a bounded reference, not a scalable CAD path.
     """
 
     facets: TriangulatedRigidSurface
@@ -101,9 +101,10 @@ class ConvexPolyhedralRigidSurface(RigidSurface):
             float("inf") if maximum_distance is None
             else _finite_nonnegative(maximum_distance, name="Maximum projection distance")
         )
-        # Bound the temporary gap matrix, while evaluating all support planes
-        # through one dense kernel per block rather than one BLAS call per
-        # query. The exact exterior triangle search remains unchanged.
+        # Target at most two million temporary gaps per block (or one complete
+        # query if the tool itself has more facets), while evaluating support
+        # planes through one dense kernel rather than one BLAS call per query.
+        # The exact exterior triangle search remains unchanged.
         block_width = min(4096, max(1, 2_000_000 // len(self._offsets)))
         for start in range(0, count, block_width):
             stop = min(start + block_width, count)
