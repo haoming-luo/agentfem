@@ -208,10 +208,11 @@ def export_accepted_contact_points(
         np.full(len(item["point_ids"]), index, dtype=np.int32)
         for index, item in enumerate(samples)
     ])
+    vtk_content = _contact_points_vtp(arrays) if vtk_view else None
     atomic_savez(paths["contact_points"], **arrays)
     atomic_write_text(paths["contact_point_metadata"], encoded)
-    if vtk_view:
-        atomic_write_text(paths["contact_point_view"], _contact_points_vtp(arrays))
+    if vtk_content is not None:
+        atomic_write_text(paths["contact_point_view"], vtk_content)
     if result is not None:
         result.add_artifact("accepted_contact_points", paths["contact_points"])
         result.add_artifact(

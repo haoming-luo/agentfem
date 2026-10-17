@@ -13,7 +13,7 @@ from periodic_cube_fixture import periodic_unit_cube
 @pytest.mark.skipif(MPI.COMM_WORLD.size == 1, reason="two MPI ranks required")
 @pytest.mark.parametrize("tool_kind", [
     "analytical_plane", "triangulated_plane", "moving_triangulated_plane",
-    "sphere", "cylinder",
+    "sphere", "cylinder", "closed_convex_friction",
 ])
 def test_distributed_j2_rigid_contact_is_rejected_at_step_build(tool_kind):
     domain = dolfinx_mesh.create_unit_cube(MPI.COMM_WORLD, 2, 2, 2)
@@ -39,6 +39,19 @@ def test_distributed_j2_rigid_contact_is_rejected_at_step_build(tool_kind):
         )
     else:
         surface = (
+            boundary_models.convex_polyhedral_rigid_surface(
+                vertices=(
+                    (1.01, -0.5, -0.5), (1.11, -0.5, -0.5),
+                    (1.11, 1.5, -0.5), (1.01, 1.5, -0.5),
+                    (1.01, -0.5, 1.5), (1.11, -0.5, 1.5),
+                    (1.11, 1.5, 1.5), (1.01, 1.5, 1.5),
+                ),
+                triangles=(
+                    (0, 2, 1), (0, 3, 2), (4, 5, 6), (4, 6, 7),
+                    (0, 1, 5), (0, 5, 4), (3, 7, 6), (3, 6, 2),
+                    (0, 4, 7), (0, 7, 3), (1, 2, 6), (1, 6, 5),
+                ),
+            ) if tool_kind == "closed_convex_friction" else
             boundary_models.rigid_sphere(
                 center=(1.6, 0.5, 0.5), radius=0.75,
             ) if tool_kind == "sphere" else
@@ -65,6 +78,12 @@ def test_distributed_j2_rigid_contact_is_rejected_at_step_build(tool_kind):
             right,
             boundary_models.rigid_body(surface, motion_schedule=schedule),
             penalty=500.0,
+            friction_coefficient=(
+                0.2 if tool_kind == "closed_convex_friction" else None
+            ),
+            tangential_penalty=(
+                100.0 if tool_kind == "closed_convex_friction" else None
+            ),
         ))
     capability = models.step_capability(
         model, target=displacement, options={"material": material}

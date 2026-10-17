@@ -368,6 +368,18 @@ def test_contact_point_export_rejects_nonfinite_provider_data_before_writing(
             step, tmp_path / "bad_view_option", vtk_view="yes",
         )
     assert not (tmp_path / "bad_view_option").exists()
+    from agentfem.results import contact_points as contact_export
+
+    def fail_view(_arrays):
+        raise RuntimeError("injected VTP preparation failure")
+
+    with monkeypatch.context() as patch:
+        patch.setattr(contact_export, "_contact_points_vtp", fail_view)
+        with pytest.raises(RuntimeError, match="VTP preparation failure"):
+            results.export_accepted_contact_points(
+                step, tmp_path / "bad_view_data", vtk_view=True,
+            )
+    assert not (tmp_path / "bad_view_data").exists()
     provider = step.contact_provider
     original = provider.accepted_point_samples
 

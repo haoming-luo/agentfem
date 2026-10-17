@@ -185,6 +185,50 @@ def test_periodic_j2_smooth_plane_uses_the_same_contact_operator():
     assert result.quantity("contact_potential") > 0.0
 
 
+def test_periodic_j2_convex_flat_face_matches_plane_total_mpc_operator():
+    x0, x1, y0, y1, z0, z1 = 0.95, 2.0, -1.0, 2.0, -1.0, 2.0
+    solid = boundary_models.convex_polyhedral_rigid_surface(
+        vertices=(
+            (x0, y0, z0), (x1, y0, z0), (x1, y1, z0), (x0, y1, z0),
+            (x0, y0, z1), (x1, y0, z1), (x1, y1, z1), (x0, y1, z1),
+        ),
+        triangles=(
+            (0, 2, 1), (0, 3, 2), (4, 5, 6), (4, 6, 7),
+            (0, 1, 5), (0, 5, 4), (3, 7, 6), (3, 6, 2),
+            (0, 4, 7), (0, 7, 3), (1, 2, 6), (1, 6, 5),
+        ),
+    )
+    plane = boundary_models.rigid_plane(
+        point=(x0, 0.0, 0.0), normal=(-1.0, 0.0, 0.0),
+    )
+    _, periodicity, convex_step = _periodic_j2_contact_step(surface=solid)
+    _, _, planar_step = _periodic_j2_contact_step(surface=plane)
+    convex_result = convex_step.solve_result()
+    planar_result = planar_step.solve_result()
+    assert convex_result.status == planar_result.status == "completed"
+    np.testing.assert_allclose(
+        convex_step.solution.x.array, planar_step.solution.x.array,
+        rtol=1.0e-8, atol=1.0e-9,
+    )
+    assert convex_result.quantity("contact_potential") == pytest.approx(
+        planar_result.quantity("contact_potential"), rel=1.0e-8,
+    )
+    residual = convex_step.assemble_full_residual()
+    try:
+        transformation = periodicity.reduction(1.0).matrix(
+            convex_step.solution.function_space.mesh.comm,
+        )
+        projected = transformation.createVecRight()
+        try:
+            transformation.multTranspose(residual, projected)
+            assert projected.norm() < 1.0e-5
+        finally:
+            projected.destroy()
+            transformation.destroy()
+    finally:
+        residual.destroy()
+
+
 def test_periodic_j2_fixed_contact_checkpoint_matches_continuous_run(tmp_path):
     _, _, reference = _periodic_j2_contact_step()
     reference.solve()
