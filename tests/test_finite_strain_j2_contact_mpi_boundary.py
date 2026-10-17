@@ -11,6 +11,7 @@ from agentfem import boundary_models, constitutive, fields, mesh, models, studie
 @pytest.mark.skipif(MPI.COMM_WORLD.size == 1, reason="two MPI ranks required")
 @pytest.mark.parametrize("tool_kind", [
     "analytical_plane", "triangulated_plane", "moving_triangulated_plane",
+    "sphere", "cylinder",
 ])
 def test_distributed_j2_rigid_contact_is_rejected_at_step_build(tool_kind):
     domain = dolfinx_mesh.create_unit_cube(MPI.COMM_WORLD, 2, 2, 2)
@@ -35,10 +36,19 @@ def test_distributed_j2_rigid_contact_is_rejected_at_step_build(tool_kind):
             on=right, penalty=500.0, normal=(-1.0, 0.0, 0.0)
         )
     else:
-        surface = boundary_models.triangulated_rigid_surface(
-            vertices=((1.01, -0.5, -0.5), (1.01, -0.5, 1.5),
-                      (1.01, 1.5, 1.5), (1.01, 1.5, -0.5)),
-            triangles=((0, 1, 2), (0, 2, 3)),
+        surface = (
+            boundary_models.rigid_sphere(
+                center=(1.6, 0.5, 0.5), radius=0.75,
+            ) if tool_kind == "sphere" else
+            boundary_models.rigid_cylinder(
+                axis_point=(1.6, 0.5, 0.0),
+                axis_direction=(0.0, 0.0, 1.0), radius=0.75,
+            ) if tool_kind == "cylinder" else
+            boundary_models.triangulated_rigid_surface(
+                vertices=((1.01, -0.5, -0.5), (1.01, -0.5, 1.5),
+                          (1.01, 1.5, 1.5), (1.01, 1.5, -0.5)),
+                triangles=((0, 1, 2), (0, 2, 3)),
+            )
         )
         schedule = None
         if tool_kind == "moving_triangulated_plane":

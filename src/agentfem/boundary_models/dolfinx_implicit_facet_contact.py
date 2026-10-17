@@ -1,7 +1,7 @@
 # SPDX-FileCopyrightText: 2026 Haoming Luo and AgentFEM contributors
 # SPDX-License-Identifier: Apache-2.0
 
-"""Serial DOLFINx lowering of the bounded rigid-facet Newton Operator.
+"""Serial DOLFINx lowering of bounded rigid-surface Newton contact.
 
 The Model owns the pair, the geometry backend owns BVH search, and this
 adapter recomputes contact for each current Newton trial.  It does not commit
@@ -21,40 +21,49 @@ from .dolfinx_contact_trace import (
     dolfinx_boundary_region_contact_trace,
 )
 from .implicit_facet_contact import (
-    ImplicitFacetContactContribution,
     linearize_piecewise_planar_contact,
 )
-from .rigid import TriangulatedRigidSurface
+from .implicit_contact import ImplicitRigidContactContribution
+from .implicit_smooth_contact import linearize_smooth_rigid_contact
+from .rigid import RigidCylinderSurface, RigidSphereSurface, TriangulatedRigidSurface
 from .search import TriangleSurfaceBVH, triangle_surface_bvh
 
 
 @dataclass(eq=False)
-class DolfinxImplicitFacetContact:
-    """Current-trial facet contact with one frictionless rigid tool."""
+class DolfinxImplicitRigidContact:
+    """Current-trial contact with one reviewed frictionless rigid tool."""
 
     pair: RigidContactPair
     adapter: DolfinxContactTraceAdapter
     displacement: object
-    projector: TriangleSurfaceBVH
+    projector: TriangleSurfaceBVH | None
     motion_factor: object | None = None
 
     def __post_init__(self) -> None:
         if not isinstance(self.pair, RigidContactPair):
-            raise TypeError("Implicit facet contact requires a RigidContactPair.")
+            raise TypeError("Implicit rigid contact requires a RigidContactPair.")
         if not isinstance(self.adapter, DolfinxContactTraceAdapter):
-            raise TypeError("Implicit facet contact requires a DOLFINx trace adapter.")
-        if not isinstance(self.projector, TriangleSurfaceBVH):
-            raise TypeError("Implicit facet contact requires a reviewed triangle BVH.")
+            raise TypeError("Implicit rigid contact requires a DOLFINx trace adapter.")
+        surface = self.pair.rigid_body.surface
+        if isinstance(surface, TriangulatedRigidSurface):
+            if not isinstance(self.projector, TriangleSurfaceBVH):
+                raise TypeError("Implicit facet contact requires a reviewed triangle BVH.")
+            if self.projector.surface is not surface:
+                raise ValueError("Contact search and pair must share one rigid geometry instance.")
+        elif not isinstance(surface, (RigidSphereSurface, RigidCylinderSurface)):
+            raise TypeError("Implicit rigid contact requires a sphere, cylinder, or reviewed triangle tool.")
+        elif self.projector is not None:
+            raise ValueError("Analytical curved contact does not use a triangle BVH.")
         if self.adapter.communicator.size != 1:
             raise NotImplementedError(
-                "AFM-IMPLICIT-CONTACT-MPI: facet contact has no distributed "
+                "AFM-IMPLICIT-CONTACT-MPI: rigid contact has no distributed "
                 "Newton matrix/owner reduction contract yet."
             )
         if self.pair.friction is not None:
-            raise NotImplementedError("Implicit facet contact does not yet linearize friction.")
+            raise NotImplementedError("Implicit rigid contact does not yet linearize friction.")
         if self.pair.law.invalid_policy != "reject":
             raise NotImplementedError(
-                "Implicit facet contact requires invalid_policy='reject'; "
+                "Implicit rigid contact requires invalid_policy='reject'; "
                 "an unsupported or ambiguous projection cannot be inactive."
             )
         schedule = self.pair.rigid_body.motion_schedule
@@ -70,20 +79,16 @@ class DolfinxImplicitFacetContact:
                     "physical-time amplitude; the Step owns the load amplitude."
                 )
             if self.motion_factor is None:
-                raise ValueError("Moving facet contact requires a mutable pose factor.")
+                raise ValueError("Moving rigid contact requires a mutable pose factor.")
         elif self.motion_factor is not None:
-            raise ValueError("A fixed facet contact cannot own a pose factor.")
-        if not isinstance(self.pair.rigid_body.surface, TriangulatedRigidSurface):
-            raise TypeError("Implicit facet contact requires a triangulated rigid tool.")
-        if self.projector.surface is not self.pair.rigid_body.surface:
-            raise ValueError("Contact search and pair must share one rigid geometry instance.")
+            raise ValueError("A fixed rigid contact cannot own a pose factor.")
         if self.pair.slave_boundary.domain is not self.displacement.function_space.mesh:
             raise ValueError("Contact slave and displacement must share one mesh.")
         if self.adapter.function_space is not self.displacement.function_space:
             raise ValueError("Contact trace and displacement must share one function space.")
 
     @property
-    def surface(self) -> TriangulatedRigidSurface:
+    def surface(self) -> TriangulatedRigidSurface | RigidSphereSurface | RigidCylinderSurface:
         return self.pair.rigid_body.surface
 
     @property
@@ -106,7 +111,7 @@ class DolfinxImplicitFacetContact:
 
         return ConstraintCapabilities(
             kind="contact_constraint",
-            enforcement="one_sided_rigid_facet_penalty",
+            enforcement="one_sided_rigid_surface_penalty",
             analyses=("nonlinear_static",),
             procedures=("incremental_newton",),
             strict=False,
@@ -118,7 +123,7 @@ class DolfinxImplicitFacetContact:
             ),
         )
 
-    def evaluate(self) -> ImplicitFacetContactContribution:
+    def evaluate(self) -> ImplicitRigidContactContribution:
         """Reproject the current displacement and assemble a fresh trial Operator."""
 
         evaluation = self.adapter.evaluate(self.displacement)
@@ -127,7 +132,8 @@ class DolfinxImplicitFacetContact:
             0.0 if self.motion_factor is None
             else float(np.asarray(self.motion_factor.value).reshape(-1)[0])
         )
-        projection = self.projector.project(
+        projector = self.surface if self.projector is None else self.projector
+        projection = projector.project(
             evaluation.query_points,
             motion=None if schedule is None else schedule.motion,
             factor=factor,
@@ -137,15 +143,18 @@ class DolfinxImplicitFacetContact:
         reference_point = self.pair.rigid_body.reference_point
         if schedule is not None:
             reference_point = schedule.motion.state(factor)["reference_point"]
+        if self.projector is None:
+            return linearize_smooth_rigid_contact(
+                evaluation, record, response, self.surface,
+                motion=None if schedule is None else schedule.motion,
+                factor=factor, surface_reference_point=reference_point,
+            )
         return linearize_piecewise_planar_contact(
-            evaluation,
-            record,
-            response,
-            self.surface,
+            evaluation, record, response, self.surface,
             surface_reference_point=reference_point,
         )
 
-    def add_residual(self, vector, contribution: ImplicitFacetContactContribution) -> None:
+    def add_residual(self, vector, contribution: ImplicitRigidContactContribution) -> None:
         """Add local scalar rows before the owning solver performs BC lifting."""
 
         values = contribution.assembly.nodal_structural_residual.reshape(-1)
@@ -153,7 +162,7 @@ class DolfinxImplicitFacetContact:
             raise ValueError("Implicit contact residual does not match PETSc local rows.")
         vector.array[:] += values
 
-    def add_tangent(self, matrix, contribution: ImplicitFacetContactContribution) -> None:
+    def add_tangent(self, matrix, contribution: ImplicitRigidContactContribution) -> None:
         """Insert the branch tangent before PETSc final assembly (serial only)."""
 
         from petsc4py import PETSc
@@ -206,7 +215,7 @@ class DolfinxImplicitFacetContact:
         if self.has_prescribed_motion:
             moment = contribution.assembly.surface_generalized_moment
             if moment is None:
-                raise RuntimeError("Moving facet contact requires moment evidence.")
+                raise RuntimeError("Moving rigid contact requires moment evidence.")
             factor = float(np.asarray(self.motion_factor.value).reshape(-1)[0])
             force = np.concatenate((force, moment))
             coordinate = self.pair.rigid_body.motion_schedule.motion.generalized_coordinate(
@@ -219,7 +228,7 @@ class DolfinxImplicitFacetContact:
             resultant=contribution.assembly.contact_force_on_structure,
             distribution=distribution,
             role="contact_constraint",
-            source="dolfinx_implicit_facet_contact",
+            source="dolfinx_implicit_rigid_contact",
             diagnostics={
                 "active_point_count": contribution.active_points,
                 "contact_potential": contribution.assembly.potential_energy,
@@ -227,20 +236,63 @@ class DolfinxImplicitFacetContact:
                     None if contribution.assembly.surface_generalized_moment is None
                     else contribution.assembly.surface_generalized_moment.tolist()
                 ),
-                "projection": "current_geometry_bvh",
-                "linearization": "piecewise_planar_normal_branch_at_current_pose",
+                "projection": (
+                    "current_geometry_bvh" if self.projector is not None
+                    else "exact_analytical_current_pose"
+                ),
+                "linearization": self._linearization_name(),
             },
         )
 
     def summary(self) -> dict[str, object]:
         return {
-            "kind": "dolfinx_implicit_facet_contact",
+            "kind": "dolfinx_implicit_rigid_contact",
             "pair": self.pair.summary(),
             "trace": self.adapter.summary(),
-            "search": self.projector.summary(),
-            "linearization": "piecewise_planar_normal_branch_at_current_pose",
+            "search": (
+                self.projector.summary() if self.projector is not None
+                else {"kind": "exact_analytical_projection"}
+            ),
+            "linearization": self._linearization_name(),
             "execution_scope": "serial_frictionless_reference_area",
         }
+
+    def _linearization_name(self) -> str:
+        return (
+            "piecewise_planar_normal_branch_at_current_pose"
+            if self.projector is not None
+            else "smooth_signed_gap_with_curvature_at_current_pose"
+        )
+
+
+# Compatibility spelling for the original experimental facet adapter.
+DolfinxImplicitFacetContact = DolfinxImplicitRigidContact
+
+
+def dolfinx_implicit_rigid_contact(
+    pair: RigidContactPair,
+    displacement,
+) -> DolfinxImplicitRigidContact:
+    """Lower one bounded rigid pair to a serial current-trial Newton Operator."""
+
+    if not isinstance(pair, RigidContactPair):
+        raise TypeError("Implicit rigid contact requires a RigidContactPair.")
+    surface = pair.rigid_body.surface
+    if not isinstance(surface, (TriangulatedRigidSurface, RigidSphereSurface, RigidCylinderSurface)):
+        raise TypeError("Implicit rigid contact supports triangulated, sphere, or cylinder tools.")
+    adapter = dolfinx_boundary_region_contact_trace(
+        pair.slave_boundary, displacement.function_space,
+    )
+    from dolfinx import fem
+
+    return DolfinxImplicitRigidContact(
+        pair=pair, adapter=adapter, displacement=displacement,
+        projector=(triangle_surface_bvh(surface) if isinstance(surface, TriangulatedRigidSurface) else None),
+        motion_factor=(
+            None if pair.rigid_body.motion_schedule is None
+            else fem.Constant(displacement.function_space.mesh, 0.0)
+        ),
+    )
 
 
 def dolfinx_implicit_facet_contact(
@@ -253,22 +305,10 @@ def dolfinx_implicit_facet_contact(
         raise TypeError("Implicit facet contact requires a RigidContactPair.")
     if not isinstance(pair.rigid_body.surface, TriangulatedRigidSurface):
         raise TypeError("Implicit facet contact requires TriangulatedRigidSurface.")
-    adapter = dolfinx_boundary_region_contact_trace(
-        pair.slave_boundary,
-        displacement.function_space,
-    )
-    from dolfinx import fem
-
-    return DolfinxImplicitFacetContact(
-        pair=pair,
-        adapter=adapter,
-        displacement=displacement,
-        projector=triangle_surface_bvh(pair.rigid_body.surface),
-        motion_factor=(
-            None if pair.rigid_body.motion_schedule is None
-            else fem.Constant(displacement.function_space.mesh, 0.0)
-        ),
-    )
+    return dolfinx_implicit_rigid_contact(pair, displacement)
 
 
-__all__ = ["DolfinxImplicitFacetContact", "dolfinx_implicit_facet_contact"]
+__all__ = [
+    "DolfinxImplicitFacetContact", "DolfinxImplicitRigidContact",
+    "dolfinx_implicit_facet_contact", "dolfinx_implicit_rigid_contact",
+]

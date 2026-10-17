@@ -52,12 +52,15 @@ supported/unsupported combinations, independent references, sensitivity
 checks and installed-platform evidence. A passed unit patch or one successful
 forming picture is not release certification.
 
-The next numerical slice should not extend the planar fixture for its own
-sake. First review a smooth curved-tool or noncoplanar branch law with an
-independent reference and force--work--tangent checks; separately admit
-periodic MPC only when the total material-plus-contact residual and tangent
-are reduced on every Newton and line-search trial. Keep MPI implicit contact,
-friction and mixed pressure behind their own lifecycle gates. Measure complete
+The next experimental slice now has exact active-branch sphere/cylinder
+curvature, compared against an independently differentiated UFL penalty
+potential. A separate serial affine-J2 composition reduces the full
+material-plus-fixed-contact residual and tangent through the same periodic
+MPC on Newton and line-search trials, with fixed-tool restart and dual
+evidence. These are source-level candidate results, not a new release claim;
+see the [bounded candidate record](internal/smooth_implicit_contact_mpc_candidate_20261017.md).
+Noncoplanar triangulated transitions, moving tool plus MPC, MPI implicit
+contact, friction and mixed pressure retain separate gates. Measure complete
 accepted-step cost before choosing an acceleration target.
 
 The separate performance lane follows `skills/agentfem-performance`: profile
@@ -568,11 +571,12 @@ residual and fixed-branch tangent. Its scope and local evidence are recorded in
 Keep it experimental and serial; do not promote curved/creased tooling,
 moving-body work, periodic MPC, friction, or MPI by association.
 
-The next stacked slice adds one normalized moving rigid pose without rebuilding
-the reference BVH, plus accepted force--moment work and pose rollback. This
-does not change the unresolved branch smoothness, MPC or MPI gates. Its local
-scope and evidence are in the
-[moving-facet candidate note](internal/moving_facet_contact_candidate_20261016.md).
+The stacked moving-facet slice adds one normalized rigid pose without
+rebuilding the reference BVH, plus accepted force--moment work and pose
+rollback. The follow-on smooth analytical surface and fixed-tool periodic-MPC
+source candidate is described in the
+[new bounded record](internal/smooth_implicit_contact_mpc_candidate_20261017.md).
+Neither slice certifies noncoplanar triangulated edge transitions or MPI.
 
 Promotion order: (1) close full installed-wheel CI and a candidate-bound
 scientific comparison for the analytical plane; (2) independently check

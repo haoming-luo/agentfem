@@ -1248,9 +1248,9 @@ class FiniteStrainJ2StandardProblem:
 
     def _correction_rhs(self):
         residual = fem_petsc.assemble_vector(self.residual_form)
-        if self._uses_implicit_facet_contact():
-            self._facet_contact_trial = self.contact_provider.evaluate()
-            self.contact_provider.add_residual(residual, self._facet_contact_trial)
+        if self._uses_implicit_rigid_contact():
+            self._rigid_contact_trial = self.contact_provider.evaluate()
+            self.contact_provider.add_residual(residual, self._rigid_contact_trial)
         fem_petsc.apply_lifting(
             residual,
             [self.tangent_form],
@@ -1290,20 +1290,20 @@ class FiniteStrainJ2StandardProblem:
                 self.tangent_form,
                 bcs=self.bcs,
             )
-        if self._uses_implicit_facet_contact():
-            contribution = getattr(self, "_facet_contact_trial", None)
+        if self._uses_implicit_rigid_contact():
+            contribution = getattr(self, "_rigid_contact_trial", None)
             if contribution is None:
                 raise RuntimeError("Implicit contact tangent requires the current residual trial.")
             self.contact_provider.add_tangent(self._tangent_matrix, contribution)
         self._tangent_matrix.assemble()
         return self._tangent_matrix
 
-    def _uses_implicit_facet_contact(self) -> bool:
+    def _uses_implicit_rigid_contact(self) -> bool:
         from ..boundary_models.dolfinx_implicit_facet_contact import (
-            DolfinxImplicitFacetContact,
+            DolfinxImplicitRigidContact,
         )
 
-        return isinstance(self.contact_provider, DolfinxImplicitFacetContact)
+        return isinstance(self.contact_provider, DolfinxImplicitRigidContact)
 
     def _assign_trial(self, base, direction, alpha: float) -> None:
         self.solution.x.array[:] = base
@@ -1470,7 +1470,7 @@ class FiniteStrainJ2StandardProblem:
             self.solution,
             name="RF_WORK",
         ).x.array.copy()
-        if self._uses_implicit_facet_contact():
+        if self._uses_implicit_rigid_contact():
             values += self.contact_provider.evaluate().assembly.nodal_structural_residual.reshape(-1)
         return values
 
@@ -1483,7 +1483,7 @@ class FiniteStrainJ2StandardProblem:
         )
 
     def _contact_potential(self) -> float:
-        if self._uses_implicit_facet_contact():
+        if self._uses_implicit_rigid_contact():
             return self.contact_provider.evaluate().assembly.potential_energy
         if self.contact_energy_form is None:
             return 0.0
@@ -3310,10 +3310,10 @@ def finite_strain_j2_standard_problem(
             contact_energy_form = fem.form(contact.energy_form(solution))
         else:
             from ..boundary_models.dolfinx_implicit_facet_contact import (
-                dolfinx_implicit_facet_contact,
+                dolfinx_implicit_rigid_contact,
             )
 
-            contact_provider = dolfinx_implicit_facet_contact(contact, solution)
+            contact_provider = dolfinx_implicit_rigid_contact(contact, solution)
 
     from .. import constraints as constraint_api
 
@@ -3473,6 +3473,7 @@ def finite_strain_j2_affine_problem(
     displacement,
     material: FiniteStrainJ2Logarithmic | QuadratureMaterialMap,
     constraint,
+    contact=None,
     external_force=None,
     incrementation=None,
     solver_options=None,
@@ -3501,6 +3502,26 @@ def finite_strain_j2_affine_problem(
         )
     if getattr(constraint, "target", None) is not displacement:
         raise ValueError("Affine finite-strain J2 constraint must target displacement.")
+    contact_provider = None
+    if contact is not None:
+        from ..boundary_models import RigidContactPair
+        from ..boundary_models.dolfinx_implicit_facet_contact import (
+            dolfinx_implicit_rigid_contact,
+        )
+
+        if not isinstance(contact, RigidContactPair):
+            raise NotImplementedError(
+                "AFM-J2-CONTACT-MPC: first affine contact slice accepts one "
+                "frictionless fixed RigidContactPair only."
+            )
+        if contact.rigid_body.motion_schedule is not None:
+            raise NotImplementedError(
+                "AFM-J2-CONTACT-MPC-MOTION: prescribed rigid motion needs a "
+                "joint affine/contact work and rollback contract."
+            )
+        contact_provider = dolfinx_implicit_rigid_contact(
+            contact, displacement.value,
+        )
     transaction = _finite_strain_j2_transaction(
         displacement,
         material,
@@ -3561,6 +3582,9 @@ def finite_strain_j2_affine_problem(
         output_every=output_every,
         output_factors=output_factors,
         state_transaction=transaction,
+        full_space_operators=(
+            () if contact_provider is None else (contact_provider,)
+        ),
         checkpoint_policy=checkpoint_policy,
         acceptance_check=acceptance,
         progress=progress,
@@ -3574,6 +3598,7 @@ def finite_strain_j2_affine_problem(
     problem.snapshot_field_factory = snapshot_fields
     problem.material = material
     problem.response = response
+    problem.contact_provider = contact_provider
     problem.accepted_solution = transaction.accepted_solution
     problem.homogenized_tangent_contract = {
         "macro_kinematics": "u_equals_Tq_plus_B_Fbar",

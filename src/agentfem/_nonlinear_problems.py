@@ -1213,6 +1213,7 @@ class AffineNonlinearVariationalProblem:
     result_field_role: str = "primary_subfield"
     snapshot_field_factory: object | None = None
     state_transaction: object | None = None
+    full_space_operators: tuple[object, ...] = ()
     checkpoint_policy: object | None = None
     acceptance_check: object | None = None
     accepted_observers: tuple[object, ...] = ()
@@ -1248,16 +1249,41 @@ class AffineNonlinearVariationalProblem:
                 "accepted-observer state",
             ),
             atomic_publication=True,
-            rank_count_portability="supported",
+            rank_count_portability=(
+                "unsupported" if self.full_space_operators else "supported"
+            ),
             identity_scope=(
                 "mesh and function space",
                 "affine constraint",
                 "material and quadrature schema",
                 "solver and load-path controls",
+                *(
+                    ("full-space Operator identities",)
+                    if self.full_space_operators else ()
+                ),
             ),
-            limitations=("requires a durable state transaction",),
-            evidence=("MPI 1-to-2 and 2-to-1 portable restart",),
+            limitations=(
+                ("requires a durable state transaction",)
+                if not self.full_space_operators else (
+                    "requires a durable state transaction",
+                    "external full-space Operator composition is serial only",
+                )
+            ),
+            evidence=(
+                ("MPI 1-to-2 and 2-to-1 portable restart",)
+                if not self.full_space_operators else ()
+            ),
         )
+
+    def assemble_full_residual(self):
+        """Return the unconstrained material-plus-Operator residual for duals."""
+
+        from .solvers import _assemble_affine_full_residual
+
+        residual, _ = _assemble_affine_full_residual(
+            fem.form(self.residual_form), self.full_space_operators,
+        )
+        return residual
 
     def _capture_constraint_dual(self, load_factor: float) -> None:
         provider = getattr(self.constraint, "dual_evidence", None)
@@ -1300,6 +1326,20 @@ class AffineNonlinearVariationalProblem:
         initial_snapshots = list(self.snapshots)
         initial_events = list(self.execution_events)
         initial_solution = self.solution.x.array.copy()
+        initial_boundary = (
+            {
+                "accepted_load_factor": self.accepted_load_factor,
+                "accepted_increments": list(self.accepted_increments),
+                "attempted_increments": list(self.attempted_increments),
+                "next_increment_size": self.next_increment_size,
+                "checkpoints": list(self.checkpoints),
+                "last_solve_info": self.last_solve_info,
+                "constraint_dual_history": (
+                    self.constraint_dual_history.snapshot_runtime_state()
+                ),
+            }
+            if self.full_space_operators else None
+        )
         initial_transaction_state = (
             None
             if self.state_transaction is None
@@ -1352,6 +1392,10 @@ class AffineNonlinearVariationalProblem:
             self.snapshots[:] = initial_snapshots
             self.execution_events[:] = initial_events
             _restore_accepted_observers(initial_observer_state)
+            if initial_boundary is not None:
+                self.constraint_dual_history.restore_runtime_state(
+                    initial_boundary["constraint_dual_history"]
+                )
             raise
 
         pending_acceptance = None
@@ -1483,28 +1527,55 @@ class AffineNonlinearVariationalProblem:
         else:
             visible_reporter = self.progress
         reporter = compose_reporters(recorder, visible_reporter)
-        solution, info = solve_affine_nonlinear_path(
-            self.residual_form,
-            self.jacobian_form,
-            self.solution,
-            self.constraint,
-            load_factors=self.load_factors,
-            incrementation=self.incrementation,
-            output_factors=self.output_factors,
-            options=self.solver_options,
-            on_increment=capture,
-            on_accepted_boundary=accept_boundary,
-            on_acceptance_failure=restore_pending_acceptance,
-            acceptance_check=self.acceptance_check,
-            state_transaction=self.state_transaction,
-            stop_factor=selected_until,
-            accepted_history=self.accepted_increments,
-            attempted_history=self.attempted_increments,
-            next_increment_size=self.next_increment_size,
-            reporter=reporter,
-            step_name=self.name,
-            step_number=self.step_number,
-        )
+        try:
+            solution, info = solve_affine_nonlinear_path(
+                self.residual_form,
+                self.jacobian_form,
+                self.solution,
+                self.constraint,
+                load_factors=self.load_factors,
+                incrementation=self.incrementation,
+                output_factors=self.output_factors,
+                options=self.solver_options,
+                on_increment=capture,
+                on_accepted_boundary=accept_boundary,
+                on_acceptance_failure=restore_pending_acceptance,
+                acceptance_check=self.acceptance_check,
+                state_transaction=self.state_transaction,
+                full_space_operators=self.full_space_operators,
+                stop_factor=selected_until,
+                accepted_history=self.accepted_increments,
+                attempted_history=self.attempted_increments,
+                next_increment_size=self.next_increment_size,
+                reporter=reporter,
+                step_name=self.name,
+                step_number=self.step_number,
+            )
+        except BaseException:
+            if initial_boundary is not None:
+                # A projection/tangent exception can escape before the affine
+                # solver reaches its ordinary failed-increment rollback. Do
+                # not leave an unaccepted material or displacement trial live.
+                restore_pending_acceptance()
+                self.solution.x.array[:] = initial_solution
+                self.solution.x.scatter_forward()
+                if self.state_transaction is not None:
+                    self.state_transaction.restore_accepted_boundary(
+                        initial_transaction_state
+                    )
+                self.snapshots[:] = initial_snapshots
+                self.execution_events[:] = initial_events
+                _restore_accepted_observers(initial_observer_state)
+                self.accepted_load_factor = initial_boundary["accepted_load_factor"]
+                self.accepted_increments[:] = initial_boundary["accepted_increments"]
+                self.attempted_increments[:] = initial_boundary["attempted_increments"]
+                self.next_increment_size = initial_boundary["next_increment_size"]
+                self.checkpoints[:] = initial_boundary["checkpoints"]
+                self.last_solve_info = initial_boundary["last_solve_info"]
+                self.constraint_dual_history.restore_runtime_state(
+                    initial_boundary["constraint_dual_history"]
+                )
+            raise
         self.last_solve_info = info
         self.accepted_increments[:] = list(info.increments)
         self.attempted_increments[:] = list(info.attempts)
@@ -1542,7 +1613,7 @@ class AffineNonlinearVariationalProblem:
                 for name, function in sorted(portable_nodal_state.items())
             }
         )
-        return {
+        identity = {
             "step_name": self.name,
             "procedure": (
                 self.procedure.summary()
@@ -1575,6 +1646,11 @@ class AffineNonlinearVariationalProblem:
                 for name, recorder in sorted(self.accepted_history_recorders.items())
             },
         }
+        if self.full_space_operators:
+            identity["full_space_operators"] = tuple(
+                operator.summary() for operator in self.full_space_operators
+            )
+        return identity
 
     @staticmethod
     def _checkpoint_manifest_path(path) -> Path:
@@ -1758,7 +1834,8 @@ class AffineNonlinearVariationalProblem:
         if payload.get("identity") != current_identity:
             raise ValueError(
                 "Affine checkpoint material, state, mesh, increment/solver "
-                "control, constraint equations, or deformation history differ "
+                "control, constraint equations, full-space Operator identity, "
+                "or deformation history differ "
                 "from the current analysis."
             )
         validation = None

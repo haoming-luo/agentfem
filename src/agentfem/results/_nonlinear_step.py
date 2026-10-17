@@ -372,14 +372,31 @@ def _base_nonlinear_result(
 
 
 def _add_affine_constraint_evidence(step, result) -> None:
+    contact = getattr(step, "contact_provider", None)
+    assets = (step.constraint,) if contact is None else (step.constraint, contact)
     provider_duals = constraint_api.collect_provider_duals(
-        (step.constraint,),
+        assets,
         step,
     )
     work_evidence = _add_affine_path_work(step, result)
+    if contact is not None:
+        contact_contribution = contact.evaluate()
+        work_evidence = (*work_evidence, constraint_api.constraint_work(
+            contact,
+            value=0.0,
+            integration="fixed_rigid_surface_zero_coordinate",
+            sample_count=len(step.accepted_increments) + 1,
+            role="contact_constraint",
+            source="rigid_penalty_potential",
+        ))
+        result.add_quantity(
+            "contact_potential", contact_contribution.assembly.potential_energy,
+            kind="diagnostic",
+            description="Recoverable fixed-rigid penalty contact potential.",
+        )
     result.metadata["constraint_balance_contract"] = (
         constraint_api.constraint_balance_contract(
-            (step.constraint,),
+            assets,
             provider_duals=provider_duals,
             provider_work=work_evidence,
         )
@@ -390,8 +407,12 @@ def _add_affine_constraint_evidence(step, result) -> None:
     result.metadata["constraint_work_evidence"] = tuple(
         item.summary() for item in work_evidence
     )
-    if len(provider_duals) == 1:
-        dual = provider_duals[0]
+    affine_duals = tuple(
+        dual for dual in provider_duals
+        if dual.constraint_name == step.constraint.name
+    )
+    if len(affine_duals) == 1:
+        dual = affine_duals[0]
         result.add_quantities(
             {
                 "affine_path_generalized_reaction": float(dual.force[0]),

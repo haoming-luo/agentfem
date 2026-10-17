@@ -325,6 +325,7 @@ def _accept_small_strain_material(model, request: StepRequest) -> bool:
 
 def _accept_finite_strain_j2_affine(model, request: StepRequest) -> bool:
     from . import loads as load_api
+    from .boundary_models.implicit_admission import affine_fixed_contact_supported
     from .constitutive import FiniteStrainJ2Logarithmic
     from .constraints import AbaqusPeriodicConstraint, constraint_assets
 
@@ -350,7 +351,7 @@ def _accept_finite_strain_j2_affine(model, request: StepRequest) -> bool:
         and len(selected_constraints) == 1
         and isinstance(selected_constraints[0], AbaqusPeriodicConstraint)
         and not physical_loads
-        and not getattr(model, "boundary_models", ())
+        and affine_fixed_contact_supported(model)
     )
 
 
@@ -407,12 +408,13 @@ def _accept_finite_strain_j2_mixed_affine(
 
 
 def _finite_strain_j2_affine_boundary_rejection(model, request: StepRequest) -> str | None:
-    """Keep undeclared weak Operators out of the affine material-only solve."""
+    """Reject any unreviewed affine/contact Operator composition."""
 
+    from .boundary_models.implicit_admission import affine_fixed_contact_supported
     from .constitutive import FiniteStrainJ2Logarithmic
     from .constraints import AbaqusPeriodicConstraint, constraint_assets
 
-    if not getattr(model, "boundary_models", ()):
+    if not getattr(model, "boundary_models", ()) or affine_fixed_contact_supported(model):
         return None
     selected_constraints = request.option("constraints")
     if selected_constraints is None:
@@ -429,9 +431,9 @@ def _finite_strain_j2_affine_boundary_rejection(model, request: StepRequest) -> 
     ):
         return None
     return (
-        "AFM-J2-CONTACT-MPC: affine finite-strain J2 cannot consume registered "
-        "boundary models until their residual and tangent participate in the "
-        "same full-space assembly and MPC reduction; no contact is ignored."
+        "AFM-J2-CONTACT-MPC: affine finite-strain J2 admits only one fixed, "
+        "frictionless rigid triangle/sphere/cylinder pair in serial; moving, "
+        "mixed, distributed, and other weak Operators remain unsupported."
     )
 
 
@@ -470,6 +472,8 @@ def _accept_finite_strain_j2_strong(model, request: StepRequest) -> bool:
     from .boundary_models import (
         RigidContactPair,
         RigidObstaclePenaltyContact,
+        RigidCylinderSurface,
+        RigidSphereSurface,
         TriangulatedRigidSurface,
     )
 
@@ -488,7 +492,9 @@ def _accept_finite_strain_j2_strong(model, request: StepRequest) -> bool:
     )
     return isinstance(selected, RigidObstaclePenaltyContact) or (
         isinstance(selected, RigidContactPair)
-        and isinstance(selected.rigid_body.surface, TriangulatedRigidSurface)
+        and isinstance(selected.rigid_body.surface, (
+            TriangulatedRigidSurface, RigidSphereSurface, RigidCylinderSurface,
+        ))
         and selected.friction is None
         and selected.law.invalid_policy == "reject"
         and (
@@ -508,7 +514,6 @@ def _finite_strain_j2_strong_rejection_reason(model, request: StepRequest) -> st
     from .boundary_models import (
         RigidContactPair,
         RigidObstaclePenaltyContact,
-        TriangulatedRigidSurface,
     )
 
     if not _finite_strain_j2_strong_preconditions(model, request):
@@ -526,9 +531,7 @@ def _finite_strain_j2_strong_rejection_reason(model, request: StepRequest) -> st
             "certify their composition."
         )
     selected = boundary_models[0]
-    if isinstance(selected, RigidContactPair) and isinstance(
-        selected.rigid_body.surface, TriangulatedRigidSurface
-    ):
+    if isinstance(selected, RigidContactPair):
         schedule = selected.rigid_body.motion_schedule
         if schedule is not None and (
             schedule.start_time != 0.0

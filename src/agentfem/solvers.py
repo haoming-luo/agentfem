@@ -1393,6 +1393,7 @@ def solve_affine_nonlinear_path(
     on_acceptance_failure=None,
     acceptance_check=None,
     state_transaction=None,
+    full_space_operators=(),
     stop_factor: float = 1.0,
     accepted_history=(),
     attempted_history=(),
@@ -1416,6 +1417,16 @@ def solve_affine_nonlinear_path(
     if isinstance(selected, NewtonSolverOptions):
         selected = selected.for_affine_reduction()
     _validate_affine_state_transaction(state_transaction)
+    operators = tuple(full_space_operators)
+    if any(
+        not all(callable(getattr(item, name, None)) for name in (
+            "evaluate", "add_residual", "add_tangent",
+        ))
+        for item in operators
+    ):
+        raise TypeError(
+            "Affine full-space Operators require evaluate/add_residual/add_tangent."
+        )
     control = step_controls.normalize(
         incrementation,
         load_factors=load_factors,
@@ -1473,6 +1484,11 @@ def solve_affine_nonlinear_path(
         else np.asarray(space.tabulate_dof_coordinates(), dtype=float)
     )
     if space.mesh.comm.size > 1:
+        if operators:
+            raise NotImplementedError(
+                "AFM-IMPLICIT-CONTACT-MPI: external affine Operators require "
+                "distributed owner/ghost residual and tangent assembly."
+            )
         return _solve_distributed_affine_nonlinear_path(
             residual,
             jacobian,
@@ -1614,7 +1630,7 @@ def solve_affine_nonlinear_path(
         linear_solve_iterations: list[int] = []
         linear_solve_reasons: list[int] = []
         initial_norm = (
-            _reduced_residual_norm(residual, T) if trial_valid else float("inf")
+            _reduced_residual_norm(residual, T, operators) if trial_valid else float("inf")
         )
         current_norm = initial_norm
         threshold = (
@@ -1629,12 +1645,12 @@ def solve_affine_nonlinear_path(
             if not np.isfinite(current_norm):
                 break
             iteration += 1
-            full_residual = fem_petsc.assemble_vector(residual)
-            full_residual.ghostUpdate(
-                addv=PETSc.InsertMode.ADD,
-                mode=PETSc.ScatterMode.REVERSE,
+            full_residual, contributions = _assemble_affine_full_residual(
+                residual, operators,
             )
             full_tangent = fem_petsc.assemble_matrix(jacobian)
+            for operator, contribution in contributions:
+                operator.add_tangent(full_tangent, contribution)
             full_tangent.assemble()
             reduced_residual = T.createVecRight()
             T.multTranspose(full_residual, reduced_residual)
@@ -1694,7 +1710,7 @@ def solve_affine_nonlinear_path(
                     target_factor=factor,
                 )
                 if trial_valid:
-                    trial_norm = _reduced_residual_norm(residual, T)
+                    trial_norm = _reduced_residual_norm(residual, T, operators)
                 else:
                     trial_norm = float("inf")
                     trial_failure_message = trial_message
@@ -2719,12 +2735,28 @@ def _assign_reconstructed(function, reduction, reduced_values) -> None:
     function.x.scatter_forward()
 
 
-def _reduced_residual_norm(residual_form, transformation) -> float:
+def _assemble_affine_full_residual(residual_form, operators=()):
+    """Assemble material and all additive Operators before MPC elimination."""
+
     full = fem_petsc.assemble_vector(residual_form)
+    contributions = []
+    try:
+        for operator in operators:
+            contribution = operator.evaluate()
+            operator.add_residual(full, contribution)
+            contributions.append((operator, contribution))
+    except BaseException:
+        full.destroy()
+        raise
     full.ghostUpdate(
         addv=PETSc.InsertMode.ADD,
         mode=PETSc.ScatterMode.REVERSE,
     )
+    return full, contributions
+
+
+def _reduced_residual_norm(residual_form, transformation, operators=()) -> float:
+    full, _ = _assemble_affine_full_residual(residual_form, operators)
     reduced = transformation.createVecRight()
     transformation.multTranspose(full, reduced)
     value = float(reduced.norm())
