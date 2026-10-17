@@ -354,26 +354,30 @@ moment. Identity or coordinate mismatches fail before assembly. This reference
 route still supplies no Newton linearization and is therefore not, by itself,
 an implicit general-contact solver.
 
-An experimental separate Operator can linearize one fixed or prescribed,
-frictionless triangulated rigid tool on reference-area quadrature and add it to
-the ordinary serial finite-J2 Newton Step. It recomputes the current
-projection for each trial and admits only smooth planar facet branches and
-coplanar interior seams. Prescribed motion must use a normalized 0-to-1
-schedule driven by the same
-Step amplitude; the accepted ledger records rigid force, moment and work.
-Active free/non-smooth edges, friction, contact/strong-BC overlap, and MPI
-remain unsupported in this composition. A separate experimental serial path
-admits one **fixed** sphere, cylinder, or bounded triangular tool with affine
-periodic J2: it adds material and contact in the full space before reducing
-both residual and tangent by the same MPC map. Fixed-tool work is zero, but
-contact still invalidates material-only Hill--Mandel evidence. Moving-tool
-periodic work, curved triangulated edge transitions, and distributed implicit
-assembly are not admitted. See
-`examples/finite_j2_faceted_contact.py`,
-`examples/finite_j2_smooth_contact.py`, and the
-[candidate note](../internal/smooth_implicit_contact_mpc_candidate_20261017.md).
-This bounded route does not turn the general `ContactTrace` into a universal
-implicit contact solver.
+The experimental serial finite-J2 Newton Step accepts independently named
+frictionless rigid pairs on reference-area quadrature. It reprojects every
+trial, sums the contact residual and tangent with the material Operator, and
+owns accepted force--moment work, rollback, and checkpoint identity. A
+normalized 0-to-1 prescribed motion shares the Step amplitude. Strong
+prescribed displacement on the contact trace is lifted by the same Newton
+correction as the material tangent. The serial affine-periodic J2 route
+reduces the **total** material-plus-contact residual and tangent through one
+MPC map; it also records each normalized moving tool's accepted work.
+
+Open triangle patches still reject active free or noncoplanar edge branches.
+The separate `convex_polyhedral_rigid_surface(...)` source candidate accepts
+only a closed, outward-oriented, certified convex triangle tool. Its interior
+gap follows one limiting face at a sharp feature; it does not smooth the
+corner or admit arbitrary STL/CAD. It uses an exhaustive geometry reference,
+not a scalable search. See
+`examples/finite_j2_closed_convex_contact.py` and the
+[closed-convex candidate record](../internal/closed_convex_implicit_contact_candidate_20261018.md).
+Fixed or purely translating analytical-plane Coulomb pairs have a separate
+narrow serial strong-BC route. Tool rotation, sharp-tool friction,
+nonconvex/general contact, distributed implicit
+assembly, and independent industrial benchmarks remain unsupported. The
+candidate subset does not turn `ContactTrace` into a universal implicit
+contact solver or promote released capability by association.
 
 For the reviewed DOLFINx route,
 `dolfinx_boundary_region_contact_trace(region, V)` adapts a tagged exterior

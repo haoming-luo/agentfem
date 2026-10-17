@@ -80,10 +80,14 @@ class DolfinxImplicitRigidContact:
                     "AFM-IMPLICIT-CONTACT-FRICTION: only a rigid planar branch "
                     "has a reviewed fixed-old-state Coulomb tangent."
                 )
-            if self.pair.rigid_body.motion_schedule is not None:
+            friction_schedule = self.pair.rigid_body.motion_schedule
+            if friction_schedule is not None and any(
+                value != 0.0 for value in friction_schedule.motion.rotation
+            ):
                 raise NotImplementedError(
-                    "AFM-IMPLICIT-CONTACT-FRICTION: moving frictional tools "
-                    "need a reviewed rigid-motion tangent transport."
+                    "AFM-IMPLICIT-CONTACT-FRICTION: rotating frictional tools "
+                    "need a reviewed rigid-motion tangent transport. Only "
+                    "prescribed translation of a planar tool is admitted."
                 )
             initial = self.adapter.evaluate(self.displacement)
             projection = surface.project(initial.query_points)
@@ -121,7 +125,7 @@ class DolfinxImplicitRigidContact:
             raise ValueError("Contact trace and displacement must share one function space.")
 
     @property
-    def surface(self) -> TriangulatedRigidSurface | SmoothRigidSurface:
+    def surface(self) -> TriangulatedRigidSurface | SmoothRigidSurface | ConvexPolyhedralRigidSurface:
         return self.pair.rigid_body.surface
 
     @property
@@ -246,6 +250,9 @@ class DolfinxImplicitRigidContact:
             )
         ):
             raise ValueError("Implicit friction accepted point identity differs.")
+        expected_factor = 0.0 if self.motion_factor is None else self.snapshot_motion()
+        if abs(kinematic.motion_factor - expected_factor) > 1.0e-12:
+            raise ValueError("Implicit friction checkpoint rigid pose differs.")
         self.friction_state = TangentialContactState(accepted=friction)
         self.friction_kinematics = TangentialKinematicState(accepted=kinematic)
 
@@ -266,6 +273,12 @@ class DolfinxImplicitRigidContact:
                 "Implicit friction accepted kinematics differ from the "
                 "accepted displacement field."
             )
+        factor = 0.0 if self.motion_factor is None else self.snapshot_motion()
+        if abs(accepted.motion_factor - factor) > 1.0e-12:
+            raise ValueError(
+                "Implicit friction accepted rigid pose differs from the "
+                "accepted kinematic State."
+            )
 
     def commit_accepted(self) -> None:
         """Commit one friction trial from the current accepted displacement."""
@@ -274,9 +287,12 @@ class DolfinxImplicitRigidContact:
             return
         if self.friction_kinematics is None or self.friction_kinematics.accepted is None:
             raise RuntimeError("Implicit friction has no accepted kinematic state.")
-        evaluation, record, response, _factor = self._current_point_response()
+        evaluation, record, response, factor = self._current_point_response()
+        schedule = self.pair.rigid_body.motion_schedule
         relative = relative_contact_displacement_increment(
             self.friction_kinematics.accepted, record,
+            motion=None if schedule is None else schedule.motion,
+            current_motion_factor=factor,
         )
         candidate = self.pair.friction.evaluate(
             point_ids=record.point_ids,
@@ -288,7 +304,7 @@ class DolfinxImplicitRigidContact:
         evaluation.assemble_friction(record, candidate)
         self.friction_state.begin(candidate)
         try:
-            self.friction_kinematics.begin(record)
+            self.friction_kinematics.begin(record, motion_factor=factor)
             self.friction_state.commit()
             self.friction_kinematics.commit()
         except Exception:
@@ -391,6 +407,8 @@ class DolfinxImplicitRigidContact:
             raise RuntimeError("Implicit friction requires accepted slave kinematics.")
         relative = relative_contact_displacement_increment(
             self.friction_kinematics.accepted, record,
+            motion=None if schedule is None else schedule.motion,
+            current_motion_factor=factor,
         )
         friction_response = self.pair.friction.evaluate(
             point_ids=record.point_ids,
@@ -546,7 +564,9 @@ class DolfinxImplicitRigidContact:
             ),
             "linearization": self._linearization_name(),
             "execution_scope": (
-                "serial_fixed_plane_coulomb_reference_area"
+                "serial_translating_plane_coulomb_reference_area"
+                if self.friction_state is not None and self.has_prescribed_motion
+                else "serial_fixed_plane_coulomb_reference_area"
                 if self.friction_state is not None
                 else "serial_frictionless_reference_area"
             ),
@@ -554,7 +574,11 @@ class DolfinxImplicitRigidContact:
 
     def _linearization_name(self) -> str:
         if self.friction_state is not None:
-            return "fixed_plane_normal_plus_coulomb_semismooth_return_map"
+            return (
+                "translating_plane_normal_plus_coulomb_semismooth_return_map"
+                if self.has_prescribed_motion else
+                "fixed_plane_normal_plus_coulomb_semismooth_return_map"
+            )
         if isinstance(self.surface, ConvexPolyhedralRigidSurface):
             return "closed_convex_polyhedron_piecewise_affine_semismooth"
         if self.projector is not None:

@@ -172,7 +172,7 @@ not general contact. This record separates code gates from evidence gates:
 | Facet features | Reviewed topology identifies true free edges and noncoplanar neighbors; ambiguous active projection fails closed | Feature-specific edge/vertex contact potential, generalized derivative, branch switching and force/moment tests; no normal averaging |
 | Total implicit Operator | Contact/strong-BC overlap now uses native contact lifting, identity rows, a complete fixed-old-state total-tangent difference check, failed-increment rollback and same-DOF checkpoint recovery | Add an independently constructed residual/force check and expand beyond the current serial frictionless discretization |
 | Multi-tool implicit | Ordinary serial strong-BC J2 composes distinct rigid pairs: summed residual/tangent, independent moving-pair work, and atomic failed-increment/checkpoint recovery. Opposing moving frictionless planes check force balance. Two fixed frictional planes recover the equivalent single-law response while preserving separate State/dual/checkpoint identities; spatially opposed fixed frictional planes also check both force resultants and interrupted restart. Failure of the second commit rolls both back. The separate affine-periodic J2 route now admits named frictionless pairs: equivalent split-tool and spatially opposed tools check total MPC reduction, independent moving-tool work, failed projection rollback and interrupted restart | Mixed curved/faceted friction, affine-periodic friction, broader plastic branch switching, external structural comparison and finer mesh/penalty checks |
-| Implicit friction | Fixed analytical planes are admitted on serial strong-BC finite-J2: fixed-old-state stick/slip tangent, accepted stable-ID State per pair, separate Coulomb dissipation and numerical separation release, failed-finalization rollback, serial checkpoint and result histories. Real DOLFINx stick/slip directional checks and small active-contact global load/restart tests pass | Mesh/penalty/increment study and curved/faceted/moving/MPC/MPI extension; no general friction claim |
+| Implicit friction | Fixed or purely translating analytical planes are admitted on serial strong-BC finite-J2: fixed-old-state stick/slip tangent, accepted stable-ID State and rigid pose per pair, separate Coulomb dissipation and numerical separation release, failed-finalization rollback, serial checkpoint and result histories. Real DOLFINx stick/slip and tool-translation directional checks, plus active-contact global work/restart tests, pass | Mesh/penalty/increment study and rotating/curved/faceted/MPC/MPI extension; no general friction claim |
 | Material/time composition | Elastic-regime J2 sphere and plastic J2 facet cases complete; explicit body contact has its own stable-step contract | A history material on the *same implicit* seam and explicit contact stability under evolving state |
 | Independent accuracy and speed | Full/quarter symmetry, mesh, penalty and increment screens exist; half-space mismatch remains visible | Controlled far-boundary, graded mesh, pressure-footprint and penalty limits; external FE comparison and whole-step timings |
 | Product route | Ordinary `model.step()` is used; final unsmoothed reference-trace pressure/penetration scalars are now available | Installed-wheel example, pressure/slip field format, capability matrix and versioned release gate |
@@ -228,6 +228,29 @@ dissipation sensitivity and apparent path refinement, not mesh or external
 benchmark convergence. A weaker synchronous shear load of 15 showed
 vanishing slip upon refinement; it was discarded as a misleading sliding
 fixture. No exact first-law or general friction claim follows from this screen.
+
+### Purely translating planar Coulomb tool
+
+The same serial strong-BC J2 Operator now accepts a prescribed **translation**
+of an analytical frictional plane on the shared normalized Step coordinate;
+rotation still fails closed. `relative_contact_displacement_increment` tracks
+the current projected master material point back to the accepted rigid pose,
+so tangential tool motion is not erased by subtracting gap vectors. With old
+State and current pose fixed, the planar stick/slip tangent remains the same
+derivative with respect to slave displacement. The accepted pose factor is
+stored in point-keyed friction kinematics; corrupted pose-factor checkpoints
+are rejected before replacing State. Tool work uses the total normal-plus-
+friction resultant and moment, while Coulomb dissipation and recoverable
+tangential penalty remain separate channels.
+
+Focused DOLFINx tests check translated normal and tangential forces,
+fixed-old-State directional tangents, rotating-tool rejection, an ordinary
+moving-tool J2 Step, accepted tool work and interrupted restart. The public
+two-increment fixture deliberately crosses the Coulomb cap; a weaker path
+reached the cap without sliding and was not used to claim dissipative
+validation. This bounded translation path is not a curved-tool, rotating-
+frame, general finite-sliding or affine-MPC friction solver.
+
 The same 16-increment fixture completed from an isolated locally built macOS
 wheel with no source checkout on `PYTHONPATH`; `agentfem.__file__` resolved
 inside the isolated wheel target. This is an installed-package smoke, not a

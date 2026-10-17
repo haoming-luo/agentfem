@@ -469,12 +469,22 @@ def _finite_strain_j2_strong_preconditions(model, request: StepRequest) -> bool:
     )
 
 
+def _implicit_planar_friction_geometry_supported(pair) -> bool:
+    """Only a fixed or purely translating plane has the reviewed tangent."""
+
+    from .boundary_models import RigidPlaneSurface
+
+    if not isinstance(pair.rigid_body.surface, RigidPlaneSurface):
+        return False
+    schedule = pair.rigid_body.motion_schedule
+    return schedule is None or all(value == 0.0 for value in schedule.motion.rotation)
+
+
 def _accept_finite_strain_j2_strong(model, request: StepRequest) -> bool:
     from .boundary_models import (
         ConvexPolyhedralRigidSurface,
         RigidContactPair,
         RigidObstaclePenaltyContact,
-        RigidPlaneSurface,
         SmoothRigidSurface,
         TriangulatedRigidSurface,
     )
@@ -501,10 +511,7 @@ def _accept_finite_strain_j2_strong(model, request: StepRequest) -> bool:
         ))
         and (
             item.friction is None
-            or (
-                isinstance(item.rigid_body.surface, RigidPlaneSurface)
-                and item.rigid_body.motion_schedule is None
-            )
+            or _implicit_planar_friction_geometry_supported(item)
         )
         and item.law.invalid_policy == "reject"
         and (
@@ -525,7 +532,6 @@ def _finite_strain_j2_strong_rejection_reason(model, request: StepRequest) -> st
     from .boundary_models import (
         RigidContactPair,
         RigidObstaclePenaltyContact,
-        RigidPlaneSurface,
     )
 
     if not _finite_strain_j2_strong_preconditions(model, request):
@@ -542,16 +548,13 @@ def _finite_strain_j2_strong_rejection_reason(model, request: StepRequest) -> st
             )
         if any(
             item.friction is not None
-            and (
-                not isinstance(item.rigid_body.surface, RigidPlaneSurface)
-                or item.rigid_body.motion_schedule is not None
-            )
+            and not _implicit_planar_friction_geometry_supported(item)
             for item in boundary_models
         ):
             return (
                 "AFM-IMPLICIT-CONTACT-FRICTION: each frictional rigid pair "
-                "must be one fixed analytical plane; curved or moving "
-                "frictional pairs lack a reviewed implicit tangent."
+                "must be one fixed or purely translating analytical plane; "
+                "curved or rotating pairs lack a reviewed implicit tangent."
             )
         if any(
             item.law.invalid_policy != "reject" for item in boundary_models
@@ -587,14 +590,13 @@ def _finite_strain_j2_strong_rejection_reason(model, request: StepRequest) -> st
     selected = boundary_models[0]
     if isinstance(selected, RigidContactPair):
         if selected.friction is not None and (
-            not isinstance(selected.rigid_body.surface, RigidPlaneSurface)
-            or selected.rigid_body.motion_schedule is not None
+            not _implicit_planar_friction_geometry_supported(selected)
         ):
             return (
                 "AFM-IMPLICIT-CONTACT-FRICTION: implicit Coulomb contact is "
-                "limited to fixed analytical planes in a serial strong-BC "
-                "finite-strain J2 Step; moving and curved frictional tools "
-                "need separate tangent and state validation."
+                "limited to fixed or purely translating analytical planes "
+                "in a serial strong-BC finite-strain J2 Step; rotating and "
+                "curved frictional tools need separate tangent and State validation."
             )
         schedule = selected.rigid_body.motion_schedule
         if schedule is not None and (

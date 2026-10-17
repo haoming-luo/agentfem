@@ -16,7 +16,7 @@ from agentfem.boundary_models.dolfinx_implicit_facet_contact import (
 )
 
 
-def _operator():
+def _operator(*, motion=None):
     domain = mesh.create_unit_cube(MPI.COMM_SELF, 1, 1, 1)
     space = fem.functionspace(
         domain,
@@ -32,13 +32,140 @@ def _operator():
     slave = agent_mesh.tagged_boundary_region(domain, tags, tag=7, name="slave")
     pair = boundary_models.rigid_contact_pair(
         slave,
-        boundary_models.rigid_body(boundary_models.rigid_plane(
-            point=(0.05, 0.0, 0.0), normal=(-1.0, 0.0, 0.0),
-        )),
+        boundary_models.rigid_body(
+            boundary_models.rigid_plane(
+                point=(0.05, 0.0, 0.0), normal=(-1.0, 0.0, 0.0),
+            ),
+            motion_schedule=(
+                None if motion is None else
+                boundary_models.prescribed_rigid_motion_schedule(
+                    motion, start_time=0.0, end_time=1.0,
+                )
+            ),
+        ),
         penalty=200.0, friction_coefficient=0.4,
         tangential_penalty=100.0,
     )
     return displacement, dolfinx_implicit_rigid_contact(pair, displacement)
+
+
+@pytest.mark.parametrize(
+    ("normal_motion", "expected_force"),
+    [(0.0, (-10.0, 4.0, 0.0)), (0.01, (-8.0, 3.2, 0.0))],
+)
+def test_translating_plane_friction_uses_relative_tool_motion_and_tangent(
+    normal_motion, expected_force,
+):
+    motion = boundary_models.prescribed_rigid_motion(
+        translation=(normal_motion, 0.2, 0.0),
+    )
+    displacement, operator = _operator(motion=motion)
+    displacement.x.array.reshape(-1, 3)[:, 0] = 0.10
+    operator.update_motion(1.0)
+    base = displacement.x.array.copy()
+    contribution = operator.evaluate()
+    assert contribution.friction_tangent.sliding_points > 0
+    np.testing.assert_allclose(
+        contribution.contact_force_on_structure, expected_force,
+        atol=1e-10,
+    )
+    direction = np.random.default_rng(444).normal(size=base.shape)
+    direction /= np.linalg.norm(direction)
+    epsilon = 1.0e-7
+    displacement.x.array[:] = base + epsilon * direction
+    plus = operator.evaluate().nodal_structural_residual
+    displacement.x.array[:] = base - epsilon * direction
+    minus = operator.evaluate().nodal_structural_residual
+    displacement.x.array[:] = base
+    np.testing.assert_allclose(
+        contribution.tangent_action(direction.reshape(-1, 3)),
+        (plus - minus) / (2 * epsilon), rtol=2e-5, atol=2e-6,
+    )
+    operator.commit_accepted()
+    assert operator.friction_kinematics.accepted.motion_factor == 1.0
+    assert operator.evaluate().friction_assembly.dissipation_increment == pytest.approx(0.0)
+    accepted = operator.snapshot_accepted_state()
+    assert accepted["kinematics"]["motion_factor"] == 1.0
+    operator.restore_accepted_state(accepted)
+    operator.validate_accepted_configuration()
+    corrupted = json.loads(json.dumps(accepted))
+    corrupted["kinematics"]["motion_factor"] = 0.5
+    with pytest.raises(ValueError, match="checkpoint rigid pose"):
+        operator.restore_accepted_state(corrupted)
+    assert operator.snapshot_accepted_state() == accepted
+    operator.update_motion(0.5)
+    with pytest.raises(ValueError, match="accepted rigid pose"):
+        operator.validate_accepted_configuration()
+
+
+def _moving_friction_patch_step(*, increments=1):
+    domain = mesh.create_unit_cube(MPI.COMM_SELF, 2, 1, 1)
+    model = models.create(study=studies.static_solid(dimension=3, nonlinear=True), mesh=domain)
+    displacement = model.field(fields.displacement(domain))
+    right = agent_mesh.boundary(domain, lambda x: np.isclose(x[0], 1.0), name="clamp")
+    left = agent_mesh.boundary(domain, lambda x: np.isclose(x[0], 0.0), name="slave")
+    model.clamp(displacement, on=right)
+    model.fix(displacement, on=left, component=0, value=0.10)
+    model.fix(displacement, on=left, component=1, value=0.0)
+    model.fix(displacement, on=left, component=2, value=0.0)
+    material = model.material(constitutive.finite_strain_j2_logarithmic(
+        young=1000.0, poisson=0.0, yield_stress=1.0e9, hardening_modulus=100.0,
+    ))
+    motion = boundary_models.prescribed_rigid_motion(
+        translation=(0.0, 0.40, 0.0),
+    )
+    model.add_boundary_model(boundary_models.rigid_contact_pair(
+        left,
+        boundary_models.rigid_body(
+            boundary_models.rigid_plane(
+                point=(0.05, 0.0, 0.0), normal=(-1.0, 0.0, 0.0),
+            ),
+            motion_schedule=boundary_models.prescribed_rigid_motion_schedule(
+                motion, start_time=0.0, end_time=1.0,
+            ),
+        ),
+        penalty=500.0, friction_coefficient=0.4,
+        tangential_penalty=100.0, name="moving_frictional_plane",
+    ))
+    return model.step(
+        target=displacement, material=material,
+        incrementation=steps.fixed(increments), progress=False,
+    )
+
+
+def test_moving_planar_friction_public_step_force_work_and_restart(tmp_path):
+    reference = _moving_friction_patch_step(increments=2)
+    result = reference.solve_result()
+    assert result.status == "completed"
+    dual = result.metadata["constraint_duals"][0]
+    np.testing.assert_allclose(dual["resultant"], (-25.0, 10.0, 0.0), atol=1e-8)
+    assert reference.energy_history[-1].friction_dissipation > 0.0
+    assert reference.energy_history[-1].tool_work > 0.0
+    assert reference.contact_provider.friction_kinematics.accepted.motion_factor == 1.0
+
+    partial = _moving_friction_patch_step(increments=2)
+    partial.solve(until=0.5)
+    saved = partial.save_checkpoint(tmp_path / "moving_friction")
+    resumed = _moving_friction_patch_step(increments=2)
+    resumed.load_checkpoint(saved)
+    resumed.solve()
+    np.testing.assert_allclose(
+        resumed.solution.x.array, reference.solution.x.array, atol=1e-9,
+    )
+    assert resumed.energy_history[-1].tool_work == pytest.approx(
+        reference.energy_history[-1].tool_work,
+    )
+    assert resumed.energy_history[-1].friction_dissipation == pytest.approx(
+        reference.energy_history[-1].friction_dissipation,
+    )
+
+
+def test_rotating_planar_friction_still_fails_closed():
+    motion = boundary_models.prescribed_rigid_motion(
+        translation=(0, 0.2, 0), rotation=(0, 0, 0.1),
+    )
+    with pytest.raises(NotImplementedError, match="rotating frictional tools"):
+        _operator(motion=motion)
 
 
 @pytest.mark.parametrize("tangential", [0.02, 0.10])

@@ -27,7 +27,7 @@ def _patch(*, triangulated: bool, gap: float = 0.005, penalty=500.0,
            tool_translation=None, tool_rotation=(0.0, 0.0, 0.0),
            schedule_end=1.0, make_step=True, tool_y_max=1.5,
            increments=3, applied_traction=10.0, yield_stress=2.0,
-           convex_tool=False):
+           convex_tool=False, convex_y_min=-0.5):
     domain = dolfinx_mesh.create_unit_cube(MPI.COMM_SELF, cells, cells, cells)
     model = models.create(
         study=studies.static_solid(dimension=3, nonlinear=True),
@@ -57,7 +57,9 @@ def _patch(*, triangulated: bool, gap: float = 0.005, penalty=500.0,
         x_at = lambda y: tool_x + tilt * y
         if convex_tool:
             assert tilt == 0.0
-            x0, x1, y0, y1, z0, z1 = tool_x, tool_x + 0.1, -0.5, 1.5, -0.5, 1.5
+            x0, x1, y0, y1, z0, z1 = (
+                tool_x, tool_x + 0.1, convex_y_min, 1.5, -0.5, 1.5,
+            )
             surface = boundary_models.convex_polyhedral_rigid_surface(
                 vertices=(
                     (x0, y0, z0), (x1, y0, z0), (x1, y1, z0), (x0, y1, z0),
@@ -197,6 +199,53 @@ def test_convex_contact_matches_independent_hencky_bar_penalty_equilibrium():
         contribution.potential_energy,
         250.0 * (expected_stretch - 0.997) ** 2,
         rtol=1e-5, atol=1e-8,
+    )
+
+
+def test_convex_tool_tracks_noncoplanar_feature_during_incremental_solve(tmp_path):
+    def build():
+        return _patch(
+            triangulated=True, convex_tool=True, convex_y_min=0.15,
+            yield_stress=1.0e9, tool_translation=(-0.06, 0, 0),
+            applied_traction=0.0, increments=12,
+        )[3]
+
+    step = build()
+    step.solve(until=0.25)
+    _evaluation, early_record, early_response, _factor = (
+        step.contact_provider._current_point_response()
+    )
+    early = early_record.projection
+    step.solve()
+    _evaluation, late_record, late_response, _factor = (
+        step.contact_provider._current_point_response()
+    )
+    late = late_record.projection
+    assert step.last_solve_info.increments[-1].converged
+    switching = (
+        early_response.active & late_response.active
+        & (early.entity_ids != late.entity_ids)
+        & (np.sum(early.normals * late.normals, axis=1) < 0.99)
+    )
+    assert np.any(switching)
+    assert step.contact_provider.evaluate().active_points > 0
+    assert np.isfinite(step.solution.x.array).all()
+
+    partial = build()
+    partial.solve(until=0.25)
+    saved = partial.save_checkpoint(tmp_path / "convex_feature_switch")
+    resumed = build()
+    resumed.load_checkpoint(saved)
+    resumed.solve()
+    np.testing.assert_allclose(
+        resumed.solution.x.array, step.solution.x.array, rtol=1e-9, atol=1e-10,
+    )
+    np.testing.assert_allclose(
+        resumed.response.state.committed_state_vectors(),
+        step.response.state.committed_state_vectors(), rtol=1e-9, atol=1e-10,
+    )
+    assert resumed.energy_history[-1].tool_work == pytest.approx(
+        step.energy_history[-1].tool_work, rel=1e-9,
     )
 
 

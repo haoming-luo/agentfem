@@ -82,11 +82,11 @@ separation. See the [Dirichlet and Hertz candidate record](internal/implicit_con
 
 The same source branch now composes multiple named frictionless tools in both
 the ordinary serial strong-BC J2 Step and the affine-periodic J2 route, with
-the total residual and tangent reduced by the same MPC. Strong-BC J2 also admits fixed analytical-plane
-Coulomb pairs with separate accepted stick/slip states, a generally nonsymmetric tangent,
+the total residual and tangent reduced by the same MPC. Strong-BC J2 also admits fixed or purely translating analytical-plane
+Coulomb pairs with separate accepted stick/slip and pose states, a generally nonsymmetric tangent,
 separate friction loss channels and serial restart. These are bounded source
-candidates, not a release promotion. Sharp noncoplanar features, moving or
-curved friction, friction with affine MPC, distributed implicit assembly and an
+candidates, not a release promotion. Open/nonconvex sharp features, rotating
+or curved friction, friction with affine MPC, distributed implicit assembly and an
 independent friction benchmark remain separate gates.
 
 A further narrow source candidate admits a **closed convex** outward-oriented
@@ -94,8 +94,9 @@ polyhedral rigid tool for serial frictionless finite-J2 contact. Its exact
 interior support-plane gap gives a deterministic limiting normal and tangent
 at a noncoplanar feature; it does not smooth a crease or relax the old open
 triangle rejection. Local Operator and planar-limit global tests pass, but a
-structural load path across a sharp feature, independent reference and
-scalable search remain open. See the
+small structural load path across one noncoplanar feature and its interrupted
+restart also pass. External sharp-feature comparison, broad mesh/penalty
+evidence and scalable search remain open. See the
 [closed-convex candidate record](internal/closed_convex_implicit_contact_candidate_20261018.md).
 
 The next source candidate removes the built-in sphere/cylinder type gate for

@@ -6,9 +6,10 @@
 This differentiates the existing penalty return map at one current Newton
 trial. It does not own accepted friction state, integration, line search,
 work, or checkpointing; those belong to the consuming backend and Procedure.
-Only the fixed, analytical-plane serial strong-BC J2 path currently admits
-this tangent. Curved, faceted, moving, multi-tool and MPI friction remain
-unsupported.
+Only the fixed or purely translating analytical-plane serial strong-BC J2
+path currently admits this tangent. Rotation, curvature, facets, affine MPC
+and MPI friction remain unsupported; independently named planar pairs share
+the owning Procedure transaction.
 """
 
 from __future__ import annotations
@@ -86,7 +87,7 @@ def linearize_planar_penalty_friction(
     cap_policy: str = "reject",
     opening_policy: str = "reject",
 ) -> ImplicitPlanarFrictionTangent:
-    """Differentiate stick/slip traction at fixed accepted state and tool pose.
+    """Differentiate stick/slip traction at fixed old State and current pose.
 
     In stick the point Jacobian is ``k_t P``. In slip it is
     ``-mu*k_n*t_hat tensor n + mu*p/|s_trial|*(P-t_hat tensor t_hat)``.

@@ -753,6 +753,8 @@ and evidence remain in the linked guides and scientific function reference.
 | function | `tangential_contact_state() -> TangentialContactState` | Public AgentFEM object. |
 | class | `RigidContactPair` | Bind one slave boundary, rigid body, and local contact law. |
 | function | `rigid_contact_pair(slave_boundary: BoundaryRegion, rigid_body: RigidBody, *, penalty, friction_coefficient: float \| None = None, tangential_penalty = None, invalid_policy: str = 'reject', name: str = 'rigid_contact_pair') -> RigidContactPair` | Create one solver-neutral rigid pair with optional friction semantics. |
+| class | `ConvexPolyhedralRigidSurface` | Closed convex triangle tool, with an exact active interior gap. |
+| function | `convex_polyhedral_rigid_surface(*, vertices, triangles, facet_ids = None, name = 'convex_polyhedral_rigid_surface') -> ConvexPolyhedralRigidSurface` | Create an explicitly certified closed-convex sharp rigid tool. |
 | class | `DeformableContactPair` | Public AgentFEM object. |
 | function | `deformable_contact_pair(secondary, primary, **options)` | Public AgentFEM object. |
 | class | `RigidContactTracePolicy` | Public AgentFEM object. |

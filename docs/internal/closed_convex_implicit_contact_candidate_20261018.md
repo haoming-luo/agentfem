@@ -42,11 +42,30 @@ elastic-regime Hencky bar against
 `E log(lambda)/lambda + k(lambda - x_tool) = 0`, with the penalty potential
 compared separately. This validates a bounded normal-contact limit, not a
 curved pressure field or a plastic structure.
+
+A separate twelve-increment finite-J2 fixture moves a convex tool far enough
+that at least one *active* slave quadrature point switches between
+noncoplanar face normals. Every accepted Newton increment converges, and an
+interrupted checkpoint resumed before the switch reproduces the continuous
+displacement, material State and final prescribed-tool work. This demonstrates
+one selected-branch transition path; it is not a convergence theorem for
+arbitrary corners, large sliding, or chattering active sets.
+
+An isolated, locally built `0.4.3` wheel was installed outside the source
+checkout and ran `examples/finite_j2_closed_convex_contact.py` through the
+ordinary `model.step()` path. One-cell/eight-increment and two-cell/
+sixteen-increment cases report right-end displacements
+`-0.0009990007775119401` and `-0.0009990007775003966`; the independently
+solved scalar equilibrium gives `-0.0009990007774995924`. The examples use
+the same uniform deformation, so this is an installed-package and exact-limit
+smoke, not a mesh convergence study for a nonuniform contact patch. The wheel
+was built for the local Apple Silicon environment, not released or tested on
+Windows/Linux by this evidence.
 These are local tests, not industrial contact validation.
 
-The candidate still lacks a structural benchmark that *loads through* a
-noncoplanar face switch, an independent force/pressure comparison, mesh and
-penalty studies, MPI assembly, friction on sharp faces, and performance
+The candidate still lacks an external structural comparison for a sharp
+feature, mesh and penalty studies, MPI assembly, friction on sharp faces,
+and performance
 evidence for larger tools. At a medial-axis tie, one limiting branch is
 selected deterministically; general convergence across repeated active-set
 switches is not proven. Open or nonconvex triangle surfaces retain their
