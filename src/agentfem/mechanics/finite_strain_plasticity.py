@@ -1142,6 +1142,7 @@ class FiniteStrainJ2StandardProblem:
     contact_provider: object | None = None
     contact_energy_form: object | None = field(default=None, repr=False)
     strong_constraint_assets: tuple[object, ...] = ()
+    contact_constrained_dofs: object = field(default_factory=tuple, repr=False)
 
     @property
     def constraint_assets(self) -> tuple[object, ...]:
@@ -1251,6 +1252,18 @@ class FiniteStrainJ2StandardProblem:
         if self._uses_implicit_rigid_contact():
             self._rigid_contact_trial = self.contact_provider.evaluate()
             self.contact_provider.add_residual(residual, self._rigid_contact_trial)
+            if len(self.contact_constrained_dofs):
+                # DOLFINx lifts the UFL/material tangent below.  The native
+                # contact tangent must lift the same prescribed correction
+                # before constrained residual rows are replaced by set_bc.
+                bc_delta = np.zeros_like(residual.array)
+                for bc in self.bcs:
+                    bc.set(bc_delta, x0=self.solution.x.array, alpha=1.0)
+                if np.any(bc_delta):
+                    contact_lifting = self._rigid_contact_trial.tangent_action(
+                        bc_delta.reshape(-1, 3)
+                    )
+                    residual.array[:] += contact_lifting.reshape(-1)
         fem_petsc.apply_lifting(
             residual,
             [self.tangent_form],
@@ -1294,7 +1307,10 @@ class FiniteStrainJ2StandardProblem:
             contribution = getattr(self, "_rigid_contact_trial", None)
             if contribution is None:
                 raise RuntimeError("Implicit contact tangent requires the current residual trial.")
-            self.contact_provider.add_tangent(self._tangent_matrix, contribution)
+            self.contact_provider.add_tangent(
+                self._tangent_matrix, contribution,
+                constrained_dofs=self.contact_constrained_dofs,
+            )
         self._tangent_matrix.assemble()
         return self._tangent_matrix
 
@@ -3342,21 +3358,19 @@ def finite_strain_j2_standard_problem(
             "Finite-strain J2 standard equilibrium requires at least one "
             "strong boundary constraint."
         )
+    contact_constrained_dofs = ()
     if contact is not None and isinstance(contact, RigidContactPair):
         trace = contact_provider.adapter.trace
         trace_nodes = trace.node_ids[trace.shape_values != 0.0]
         contact_dofs = np.unique(
             (3 * trace_nodes[:, None] + np.arange(3)).reshape(-1)
         )
-        constrained_dofs = np.concatenate(
+        constrained_dofs = np.unique(np.concatenate(
             [np.asarray(bc.dof_indices()[0], dtype=np.int64) for bc in selected_bcs]
+        ))
+        contact_constrained_dofs = tuple(
+            np.intersect1d(contact_dofs, constrained_dofs).tolist()
         )
-        if np.intersect1d(contact_dofs, constrained_dofs).size:
-            raise NotImplementedError(
-                "AFM-IMPLICIT-CONTACT-BC: the first facet-contact Newton path "
-                "requires contact trace dofs disjoint from strong Dirichlet dofs; "
-                "contact lifting on constrained rows needs a separate gate."
-            )
     value_path = constraint_api.prescribed_value_path(concrete_constraints)
     selected_amplitude = (
         amplitudes.ramp()
@@ -3410,6 +3424,7 @@ def finite_strain_j2_standard_problem(
         follower_loads=bool(follower_loads),
         contact_provider=contact_provider,
         contact_energy_form=contact_energy_form,
+        contact_constrained_dofs=contact_constrained_dofs,
         strong_constraint_assets=tuple(concrete_constraints),
         output_every=None if output_every is None else int(output_every),
         output_factors=selected_output_factors,

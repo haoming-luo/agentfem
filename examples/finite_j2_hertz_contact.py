@@ -1,0 +1,180 @@
+# SPDX-FileCopyrightText: 2026 Haoming Luo and AgentFEM contributors
+# SPDX-License-Identifier: Apache-2.0
+"""Bounded sphere-indentation comparison against the Hertz half-space limit.
+
+This is a convergence *experiment*, not a validation claim.  The model is a
+finite, bottom-supported block (full or symmetry-reduced) with a finite-strain J2 law kept in its
+elastic regime and a finite penalty.  Hertz assumes a small-strain elastic
+half-space with exact nonpenetration.  The report keeps these differences
+visible instead of treating one coarse result as a pass/fail reference.
+"""
+
+from __future__ import annotations
+
+import argparse
+import json
+from pathlib import Path
+
+from dolfinx import mesh as dolfinx_mesh
+from mpi4py import MPI
+import numpy as np
+
+from agentfem import (
+    boundary_models,
+    constitutive,
+    fields,
+    mesh,
+    models,
+    solvers,
+    steps,
+    studies,
+)
+
+
+def run_case(
+    *, cells: int, penalty: float, indentation: float, quarter: bool = False,
+    extent: float = 1.0, increments: int = 4,
+) -> dict[str, float | int | str]:
+    """Return one serial structural response and its half-space reference."""
+
+    if MPI.COMM_WORLD.size != 1:
+        raise RuntimeError("The bounded Hertz comparison is serial only.")
+    if cells < 2 or increments < 1 or penalty <= 0.0 or indentation <= 0.0 or extent <= 0.0:
+        raise ValueError("Require cells >= 2, increments >= 1 and positive penalty/indentation/extent.")
+
+    young, poisson, radius = 1000.0, 0.3, 2.0
+    domain = dolfinx_mesh.create_box(
+        MPI.COMM_SELF,
+        (
+            np.array((0.0, 0.0, 0.0)) if quarter else np.array((-extent, -extent, 0.0)),
+            np.array((extent, extent, extent)),
+        ),
+        (cells, cells, cells) if quarter else (2 * cells, 2 * cells, cells),
+        cell_type=dolfinx_mesh.CellType.hexahedron,
+    )
+    model = models.create(
+        study=studies.static_solid(dimension=3, nonlinear=True),
+        mesh=domain,
+        name="quarter_sphere_indentation" if quarter else "finite_block_sphere_indentation",
+    )
+    displacement = model.field(fields.displacement(domain))
+    bottom = mesh.boundary(domain, lambda x: np.isclose(x[2], 0.0), name="bottom")
+    top = mesh.boundary(domain, lambda x: np.isclose(x[2], extent), name="top")
+    model.clamp(displacement, on=bottom)
+    if quarter:
+        x_symmetry = mesh.boundary(domain, lambda x: np.isclose(x[0], 0.0), name="x_symmetry")
+        y_symmetry = mesh.boundary(domain, lambda x: np.isclose(x[1], 0.0), name="y_symmetry")
+        model.fix(displacement, on=x_symmetry, component=0)
+        model.fix(displacement, on=y_symmetry, component=1)
+    material = model.material(
+        constitutive.finite_strain_j2_logarithmic(
+            young=young,
+            poisson=poisson,
+            yield_stress=1.0e9,
+            hardening_modulus=100.0,
+        )
+    )
+    center = (0.0, 0.0, extent + radius)
+    motion = boundary_models.prescribed_rigid_motion(
+        translation=(0.0, 0.0, -indentation),
+        rotation=(0.0, 0.0, 0.0),
+        reference_point=center,
+    )
+    model.add_boundary_model(
+        boundary_models.rigid_contact_pair(
+            top,
+            boundary_models.rigid_body(
+                boundary_models.rigid_sphere(center=center, radius=radius),
+                reference_point=center,
+                motion_schedule=boundary_models.prescribed_rigid_motion_schedule(
+                    motion, start_time=0.0, end_time=1.0,
+                ),
+            ),
+            penalty=penalty,
+        )
+    )
+    step = model.step(
+        target=displacement,
+        material=material,
+        incrementation=steps.fixed(increments),
+        solver_options=solvers.newton(
+            relative_tolerance=1.0e-8,
+            absolute_tolerance=1.0e-9,
+            maximum_iterations=30,
+            line_search="backtracking",
+        ),
+        progress=False,
+    )
+    result = step.solve_result()
+    provider = step.contact_provider
+    contribution = provider.evaluate()
+    trace_evaluation = provider.adapter.evaluate(step.solution)
+    factor = float(np.asarray(provider.motion_factor.value).reshape(-1)[0])
+    projection = provider.surface.project(
+        trace_evaluation.query_points,
+        motion=provider.pair.rigid_body.motion_schedule.motion,
+        factor=factor,
+    )
+    if not projection.all_valid:
+        raise RuntimeError("Accepted indentation has invalid surface projections.")
+    force = -(4.0 if quarter else 1.0) * float(
+        contribution.assembly.contact_force_on_structure[2]
+    )
+    hertz_force = (
+        4.0 / 3.0 * young / (1.0 - poisson**2)
+        * np.sqrt(radius) * indentation**1.5
+    )
+    return {
+        "status": str(result.status),
+        "cells_per_side": int(cells),
+        "increments": int(increments),
+        "cell_count": int((1 if quarter else 4) * cells**3),
+        "domain_fraction": 0.25 if quarter else 1.0,
+        "penalty": float(penalty),
+        "indentation": float(indentation),
+        "sphere_radius": radius,
+        "block_half_width_and_depth": extent,
+        "young": young,
+        "poisson": poisson,
+        "active_quadrature_points": int(contribution.active_points),
+        "maximum_penetration": float(max(0.0, -np.min(projection.signed_gaps))),
+        "full_contact_force": force,
+        "hertz_half_space_force": float(hertz_force),
+        "force_ratio_to_hertz": force / hertz_force,
+        "contact_potential": float(contribution.assembly.potential_energy),
+        "stored_energy": float(step.energy_history[-1].stored_energy),
+        "plastic_dissipation": float(step.energy_history[-1].plastic_dissipation),
+        "tool_work": float(step.energy_history[-1].tool_work),
+        "discrete_work_residual": float(step.energy_history[-1].mechanical_energy_residual),
+        "work_semantics": "accepted_trapezoidal_path_not_general_first_law",
+        "reference_scope": "small_strain_elastic_half_space_exact_contact",
+        "model_scope": (
+            "finite_bottom_clamped_quarter_block_finite_penalty_elastic_J2"
+            if quarter else "finite_bottom_clamped_block_finite_penalty_elastic_J2"
+        ),
+    }
+
+
+def main() -> None:
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--cells", type=int, default=8)
+    parser.add_argument("--penalty", type=float, default=1.0e5)
+    parser.add_argument("--indentation", type=float, default=0.02)
+    parser.add_argument("--extent", type=float, default=1.0)
+    parser.add_argument("--quarter", action="store_true")
+    parser.add_argument("--increments", type=int, default=4)
+    parser.add_argument("--output", type=Path)
+    args = parser.parse_args()
+    report = run_case(
+        cells=args.cells, penalty=args.penalty, indentation=args.indentation,
+        quarter=args.quarter, extent=args.extent, increments=args.increments,
+    )
+    formatted = json.dumps(report, indent=2, sort_keys=True)
+    if args.output is not None:
+        args.output.parent.mkdir(parents=True, exist_ok=True)
+        args.output.write_text(formatted + "\n", encoding="utf-8")
+    print(formatted)
+
+
+if __name__ == "__main__":
+    main()

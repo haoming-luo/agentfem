@@ -467,6 +467,11 @@ never changes solver access, results, verification, or update behavior.
 - For contact, keep surface geometry, rigid-body kinematics, and enforcement
   law separate. Report tool work only from accepted generalized
   force--translation/moment--rotation stations, never from penalty energy.
+- When a serial implicit rigid contact trace intersects strong prescribed
+  displacement DOFs, lift the native contact tangent by the prescribed
+  correction and keep constrained matrix rows/columns eliminated. The bounded
+  finite-J2 source candidate exercises this on a symmetry-reduced indentation;
+  it is not evidence for MPI implicit contact or non-smooth tool edges.
 - For explicit penalty contact, prefer the reviewed lumped-mass stability
   screen and preserve its contact-only scope. Add its spectral upper bound to
   the body/material spectral upper bound before converting the sum to a time

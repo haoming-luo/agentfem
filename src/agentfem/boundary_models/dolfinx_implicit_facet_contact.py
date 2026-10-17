@@ -167,8 +167,17 @@ class DolfinxImplicitRigidContact:
             raise ValueError("Implicit contact residual does not match PETSc local rows.")
         vector.array[:] += values
 
-    def add_tangent(self, matrix, contribution: ImplicitRigidContactContribution) -> None:
-        """Insert the branch tangent before PETSc final assembly (serial only)."""
+    def add_tangent(
+        self, matrix, contribution: ImplicitRigidContactContribution,
+        *, constrained_dofs=(),
+    ) -> None:
+        """Insert free-row/column contact tangent before PETSc assembly.
+
+        The material matrix is assembled with DOLFINx strong rows/columns
+        already eliminated.  Contact lifting uses the *full* local tangent in
+        the owning problem; adding constrained COO entries here would undo
+        those strong rows and silently change the boundary condition.
+        """
 
         from petsc4py import PETSc
 
@@ -177,10 +186,26 @@ class DolfinxImplicitRigidContact:
         # DOLFINx inserts the UFL matrix entries. PETSc requires a flush
         # before switching this same matrix to additive contact entries.
         matrix.assemble(PETSc.Mat.AssemblyType.FLUSH)
-        order = np.lexsort((contribution.tangent_columns, contribution.tangent_rows))
-        rows = contribution.tangent_rows[order]
-        columns = contribution.tangent_columns[order]
-        values = contribution.tangent_values[order]
+        selected = np.asarray(constrained_dofs, dtype=np.int64).reshape(-1)
+        if selected.size:
+            if np.any(selected < 0) or np.any(selected >= matrix.getSize()[0]):
+                raise ValueError("Constrained contact DOFs must address the tangent matrix.")
+            free = ~np.isin(contribution.tangent_rows, selected) & ~np.isin(
+                contribution.tangent_columns, selected
+            )
+            rows = contribution.tangent_rows[free]
+            columns = contribution.tangent_columns[free]
+            values = contribution.tangent_values[free]
+        else:
+            rows = contribution.tangent_rows
+            columns = contribution.tangent_columns
+            values = contribution.tangent_values
+        if not len(rows):
+            return
+        order = np.lexsort((columns, rows))
+        rows = rows[order]
+        columns = columns[order]
+        values = values[order]
         stops = np.r_[np.flatnonzero(np.diff(rows)) + 1, len(rows)]
         start = 0
         for stop in stops:

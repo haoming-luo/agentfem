@@ -73,6 +73,13 @@ triangle transitions, MPI implicit assembly, friction, mixed pressure and
 independent curved-structure validation remain open. The source candidate is
 not promoted to a released capability by these local tests.
 
+The next serial source candidate removes an unnecessary contact/strong-BC
+disjointness restriction by lifting the native tangent and retaining
+constrained matrix rows. A full-versus-quarter indentation comparison passes
+at equal resolution. Its Hertz half-space screen does **not** yet pass an
+independent accuracy gate: finite support, mesh and penalty effects still need
+separation. See the [Dirichlet and Hertz candidate record](internal/implicit_contact_dirichlet_hertz_candidate_20261018.md).
+
 The next source candidate removes the built-in sphere/cylinder type gate for
 smooth rigid contact: geometry owns a checked signed-gap differential, while
 the existing Operator and Procedure remain unchanged. A third-party smooth

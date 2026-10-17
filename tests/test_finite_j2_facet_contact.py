@@ -21,7 +21,7 @@ from agentfem.step_providers import step_capability
 
 
 def _patch(*, triangulated: bool, gap: float = 0.005, penalty=500.0,
-           cells=1, constrain_contact=False, tilt=0.0,
+           cells=1, constrain_contact=False, contact_value=0.0, tilt=0.0,
            tool_translation=None, tool_rotation=(0.0, 0.0, 0.0),
            schedule_end=1.0, make_step=True, tool_y_max=1.5,
            increments=3, applied_traction=10.0):
@@ -85,7 +85,7 @@ def _patch(*, triangulated: bool, gap: float = 0.005, penalty=500.0,
             on=right, penalty=penalty, surface=surface, motion=tool_motion,
         )
     if constrain_contact:
-        model.fix(displacement, on=right, component=0, value=0.0)
+        model.fix(displacement, on=right, component=0, value=contact_value)
     if applied_traction != 0.0:
         model.traction((applied_traction, 0.0, 0.0), on=right)
     if not make_step:
@@ -356,10 +356,26 @@ def test_moving_facet_tool_potential_derivative_and_atomic_restart(
     )
 
 
-def test_facet_contact_rejects_shared_strong_dofs_early():
-    # The operator currently has no contact-tangent lifting on constrained rows.
-    with pytest.raises(NotImplementedError, match="AFM-IMPLICIT-CONTACT-BC"):
-        _patch(triangulated=True, constrain_contact=True)
+def test_facet_contact_lifts_shared_strong_dofs_and_keeps_dirichlet_rows():
+    _, _, _, step = _patch(
+        triangulated=True, constrain_contact=True, contact_value=0.002,
+        tool_translation=(-0.02, 0.0, 0.0), tilt=0.01,
+        applied_traction=0.0,
+    )
+    assert step.contact_constrained_dofs
+    result = step.solve_result()
+    assert result.status == "completed"
+    assert step.contact_provider.evaluate().active_points > 0
+    assert np.isfinite(step.energy_history[-1].contact_potential)
+    # DOLFINx strong rows must remain identity after the native contact COO
+    # tangent is inserted, including active contact on prescribed components.
+    step._correction_rhs()[0].destroy()
+    matrix = step._assemble_tangent()
+    for dof in step.contact_constrained_dofs:
+        columns, values = matrix.getRow(int(dof))
+        nonzero = np.abs(values) > 1.0e-12
+        np.testing.assert_array_equal(columns[nonzero], [dof])
+        np.testing.assert_allclose(values[nonzero], [1.0])
 
 
 def test_facet_j2_checkpoint_and_failed_increment_are_atomic(tmp_path, monkeypatch):
