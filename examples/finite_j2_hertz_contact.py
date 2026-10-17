@@ -37,7 +37,7 @@ def run_case(
     extent: float = 1.0, increments: int = 4, grading: float = 0.0,
     radius: float = 2.0, linear_policy: str = "direct",
     contact_quadrature_degree: int | None = None,
-    displacement_degree: int = 1, bulk_quadrature_degree: int = 2,
+    displacement_degree: int = 1, bulk_quadrature_degree: int | None = None,
 ) -> dict[str, object]:
     """Return one serial structural response and its half-space reference."""
 
@@ -47,7 +47,7 @@ def run_case(
     if (
         cells < 2 or increments < 1
         or displacement_degree not in (1, 2)
-        or bulk_quadrature_degree not in (2, 3, 4)
+        or (bulk_quadrature_degree is not None and bulk_quadrature_degree not in (2, 3, 4))
         or not all(np.isfinite(value) and value > 0.0 for value in (
             penalty, indentation, extent, radius,
         ))
@@ -192,7 +192,7 @@ def run_case(
         "cell_count": int((1 if quarter else 4) * cells**3),
         "mesh_grading": float(grading),
         "displacement_degree": int(displacement_degree),
-        "bulk_quadrature_degree": int(bulk_quadrature_degree),
+        "bulk_quadrature_degree": int(step.quadrature_degree),
         "linear_policy": linear_policy,
         "reference_contact_edge_spacing": (
             extent / cells if not grading
@@ -262,7 +262,7 @@ def main() -> None:
     parser.add_argument("--grading", type=float, default=0.0)
     parser.add_argument("--contact-quadrature-degree", type=int)
     parser.add_argument("--displacement-degree", type=int, choices=(1, 2), default=1)
-    parser.add_argument("--bulk-quadrature-degree", type=int, choices=(2, 3, 4), default=2)
+    parser.add_argument("--bulk-quadrature-degree", type=int, choices=(2, 3, 4))
     parser.add_argument("--quarter", action="store_true")
     parser.add_argument("--increments", type=int, default=4)
     parser.add_argument(

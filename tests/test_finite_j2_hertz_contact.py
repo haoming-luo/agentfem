@@ -75,7 +75,7 @@ def test_quadratic_displacement_hertz_screen_is_a_separate_mesh_diagnostic(
     result = run_case(
         cells=2, penalty=1.0e5, indentation=0.002, radius=20.0,
         quarter=True, increments=2,
-        displacement_degree=2, bulk_quadrature_degree=4,
+        displacement_degree=2,
         contact_quadrature_degree=contact_degree,
     )
     assert result["status"] == "completed"
@@ -85,6 +85,15 @@ def test_quadratic_displacement_hertz_screen_is_a_separate_mesh_diagnostic(
     assert f"degree_{actual_degree}" in result["contact_quadrature_rule"]
     assert result["full_contact_force"] > 0.0
     assert result["plastic_dissipation"] == 0.0
+
+
+def test_quadratic_hertz_screen_rejects_low_explicit_bulk_rule():
+    with pytest.raises(NotImplementedError, match="AFM-J2-QUADRATURE"):
+        run_case(
+            cells=2, penalty=1.0e5, indentation=0.002, radius=20.0,
+            quarter=True, increments=2, displacement_degree=2,
+            bulk_quadrature_degree=2,
+        )
 
 
 @pytest.mark.parametrize("invalid", [0, 3])
