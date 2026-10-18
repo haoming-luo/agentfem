@@ -751,6 +751,13 @@ If a penalty-only choice cannot satisfy both penetration and conditioning,
 evaluate an explicit augmented-Lagrangian normal law as a separate Operator
 and accepted-multiplier State. Do not silently switch enforcement inside an
 existing contact pair or reuse the penalty checkpoint identity.
+The installed-candidate penalty-20000 diagnostic did not complete under
+either basic or backtracking Newton, even after doubling fixed increments.
+This is a bounded failure observation, not proof that augmentation will
+converge or that a higher penalty is universally unusable. First prove the
+multiplier update and penetration tolerance on a fixed-point planar trace;
+the trial-partition route has changing quadrature points and needs an explicit
+State transfer/identity rule before any multiplier history can follow it.
 The same manufactured implicit-J2 contact screen also found a distinct
 scaling opportunity in the *linear solver*, not the contact law: explicit
 GMRES/GAMG with a recorded rigid-body near-nullspace preserves the tested

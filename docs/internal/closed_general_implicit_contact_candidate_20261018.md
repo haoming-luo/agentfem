@@ -377,6 +377,23 @@ mesh-by-penalty matrix and a penetration tolerance tied to physical
 dimensions are prerequisites. These are dimensionless manufactured-fixture
 numbers, not a recommended penalty for a physical model.
 
+One deliberately higher-penalty diagnostic used the installed `8a38b79c`
+native wheel on that same fourteen-cell geometry and degree-7 rule, with
+penalty `20000` and the explicitly selected GMRES/GAMG linear policy. It did
+not produce an accepted final response: twelve fixed increments with `basic`
+Newton reached the 25-iteration limit at load factor `1/6` (residual
+`3.14522e-4` versus threshold `3.69969e-8`). With the existing backtracking
+policy, twelve increments failed at factor `1/2` because no trial step was
+acceptable (residual `5.59598e-3`); refining to 24 fixed increments still
+failed at factor `3/8` (residual `1.68247e-3`). These failures show that
+simply increasing the penalty did not provide a usable limit for this fixed
+setup. They do **not** prove that every globalization, mesh or enforcement
+method must fail. No force, work or plasticity number is reported for any
+failed path. Further promotion should compare a separately specified
+penetration-controlled enforcement method, with its own multiplier State,
+trial/commit/rollback and restart identity, rather than hiding a penalty
+increase or an algorithm switch inside the existing pair.
+
 The penalty-1000 twenty-cell extension, with the same rule, twelve increments
 and `basic` Newton policy, also completes. Relative to fourteen cells at that
 penalty, the x-resultant changes from `-2.93708275` to `-2.87969817` (about
