@@ -147,6 +147,22 @@ The gate stays open until its listed evidence exists at the proposed scope.
    [Pinto Carvalho et al.'s rigid/deformable dual-mortar study][dual-mortar]
    motivates a distinct longer-term formulation, but its efficiency claims
    cannot be imported into this one-sided penalty implementation.
+   A second opt-in fixed-configuration diagnostic now uniformly subdivides
+   each affine P1 reference face into 4^level positive three-point subfaces.
+   It preserves reference area and interpolation and is explicitly **not** a
+   moving transition partition or line-tangent implementation. On that same
+   2-cell accepted q9 state, level 3 (1,536 samples) gave potential
+   0.008144 versus q9's 0.008140, but structure-force components
+   (-0.334995, 0.010878, 0.020429) versus q9's
+   (-0.336930, 0.016867, 0.012983). Close potential alone did not imply a
+   reliable force vector. The level-0/1/2/3 active-area sequence was
+   0.416667/0.437500/0.416667/0.430990, also not a convergence certificate.
+   Level 4 (6,144 samples) changed the area again to 0.436523 and the
+   force to (-0.325105, 0.017034, 0.024163), while potential remained near
+   0.008136. Uniformly spending more points therefore did not close the
+   feature-transition force question either.
+   A new algorithm may enter the Step only after both integral and
+   differentiation checks, not merely a finer screenshot or work balance.
    For the separate *convex* route, accepted point diagnostics now say whether
    the reviewed changing-trial support-plane partition supplied its bounded
    feature integral. The default Gauss rule explicitly reports that no such

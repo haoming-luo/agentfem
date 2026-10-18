@@ -54,6 +54,7 @@ def run_case(
     line_search: str = "backtracking",
     linear_policy: str = "direct",
     audit_quadrature: bool = False,
+    audit_subdivision: bool = False,
 ):
     if MPI.COMM_WORLD.size != 1:
         raise RuntimeError("This bounded implicit closed-tool example is serial only.")
@@ -173,6 +174,10 @@ def run_case(
         summary["fixed_configuration_quadrature_audit"] = (
             step.contact_provider.quadrature_sensitivity()
         )
+    if audit_subdivision:
+        summary["fixed_configuration_subdivision_audit"] = (
+            step.contact_provider.reference_subdivision_sensitivity()
+        )
     return summary
 
 
@@ -199,6 +204,10 @@ def main() -> None:
         help="compare positive face rules at the same accepted end configuration",
     )
     parser.add_argument(
+        "--audit-subdivision", action="store_true",
+        help="compare fixed reference-face subdivisions without re-solving",
+    )
+    parser.add_argument(
         "--output", type=Path, default=Path("outputs/finite_j2_closed_concave"),
     )
     args = parser.parse_args()
@@ -209,6 +218,7 @@ def main() -> None:
         line_search=args.line_search,
         linear_policy=args.linear_policy,
         audit_quadrature=args.audit_quadrature,
+        audit_subdivision=args.audit_subdivision,
     ), indent=2, sort_keys=True))
 
 

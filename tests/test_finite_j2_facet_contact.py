@@ -755,12 +755,16 @@ def test_closed_concave_example_exports_accepted_public_result(tmp_path):
     refined = run_case(
         cells=1, increments=6, penalty=20.0, output=refined_output,
         contact_quadrature_degree=7, audit_quadrature=True,
+        audit_subdivision=True,
     )
     assert refined["status"] == "completed"
     assert refined["contact_quadrature_degree"] == 7
     assert refined["maximum_penetration"] > 0.0
     assert refined["fixed_configuration_quadrature_audit"]["method"] == (
         "fixed_configuration_positive_rule_sensitivity"
+    )
+    assert refined["fixed_configuration_subdivision_audit"]["method"] == (
+        "fixed_configuration_uniform_reference_subdivision"
     )
     assert (refined_output / "fields.xdmf").is_file()
     assert (refined_output / "result.json").is_file()
@@ -807,6 +811,16 @@ def test_fixed_configuration_contact_quadrature_audit_is_read_only():
     np.testing.assert_array_equal(
         provider.evaluate().contact_force_on_structure, original_force,
     )
+    subdivision = provider.reference_subdivision_sensitivity((0, 1, 2))
+    assert subdivision["certifies_feature_transition_integral"] is False
+    assert [item["sample_count"] for item in subdivision["evaluations"]] == [
+        6, 24, 96,
+    ]
+    np.testing.assert_allclose(
+        subdivision["evaluations"][0]["contact_force_on_structure"],
+        original_force,
+    )
+    np.testing.assert_array_equal(displacement.value.x.array, original_displacement)
     with pytest.raises(ValueError, match="supported rules"):
         provider.quadrature_sensitivity((9, True))
     with pytest.raises(ValueError, match="unique"):

@@ -45,6 +45,7 @@ from .implicit_smooth_contact import linearize_smooth_rigid_contact
 from .initial_gap_bound import (
     certify_initial_triangle_gap, initial_gap_bound_method,
 )
+from .contact_reference_refinement import refine_p1_triangle_reference_trace
 from .rigid import RigidPlaneSurface, SmoothRigidSurface, TriangulatedRigidSurface
 from .search import TriangleSurfaceBVH, triangle_surface_bvh
 
@@ -730,6 +731,93 @@ class DolfinxImplicitRigidContact:
             })
         return {
             "method": "fixed_configuration_positive_rule_sensitivity",
+            "load_factor": factor,
+            "measure": "reference_area",
+            "certifies_feature_transition_integral": False,
+            "evaluations": evaluations,
+        }
+
+    def reference_subdivision_sensitivity(
+        self, levels=(0, 1, 2, 3), *, maximum_points=50_000,
+    ) -> dict[str, object]:
+        """Screen a fixed P1 triangle rule under positive reference subdivision.
+
+        This changes no global solve and adds no feature-switch line tangent.
+        It is an accuracy diagnostic, not an admissible default contact law.
+        """
+
+        selected = tuple(levels)
+        if (not selected or any(
+            isinstance(value, (bool, np.bool_))
+            or not isinstance(value, (int, np.integer))
+            or not 0 <= int(value) <= 5
+            for value in selected
+        )):
+            raise ValueError("Contact reference subdivision requires levels 0 to 5.")
+        selected = tuple(int(value) for value in selected)
+        if len(set(selected)) != len(selected):
+            raise ValueError("Contact reference subdivision levels must be unique.")
+        if (self.contact_integration != "gauss" or self.pair.friction is not None
+                or np.asarray(self.pair.law.penalty).ndim != 0
+                or self.adapter.facet_topology != "triangle"
+                or self.adapter.interpolation_degree != 1
+                or self.adapter.geometry_degree != 1):
+            raise NotImplementedError(
+                "AFM-CONTACT-REFERENCE-REFINEMENT: requires frictionless scalar-"
+                "penalty Gauss contact on an affine P1 triangular trace."
+            )
+        schedule = self.pair.rigid_body.motion_schedule
+        factor = (
+            0.0 if self.motion_factor is None
+            else float(np.asarray(self.motion_factor.value).reshape(-1)[0])
+        )
+        reference_point = self.pair.rigid_body.reference_point
+        if schedule is not None:
+            reference_point = schedule.motion.state(factor)["reference_point"]
+        positions = self.adapter.current_nodal_positions(self.displacement)
+        projector = self.surface if self.projector is None else self.projector
+        base_trace = (
+            self.adapter.trace
+            if self.adapter.quadrature_rule == "triangle_degree_two_three_point"
+            else dolfinx_boundary_region_contact_trace(
+                self.pair.slave_boundary, self.displacement.function_space,
+            ).trace
+        )
+        evaluations = []
+        for level in selected:
+            trace = refine_p1_triangle_reference_trace(
+                base_trace, level, maximum_points=maximum_points,
+            )
+            evaluation = trace.evaluate(positions)
+            projection = projector.project(
+                evaluation.query_points,
+                motion=None if schedule is None else schedule.motion,
+                factor=factor,
+            )
+            if not projection.all_valid:
+                raise ValueError(
+                    "AFM-CONTACT-REFERENCE-REFINEMENT: a diagnostic point "
+                    "has an invalid or ambiguous rigid projection."
+                )
+            record = ContactProjectionRecord(trace.point_ids, projection)
+            response = self.pair.law.evaluate(projection)
+            assembly = evaluation.assemble(
+                record, response, surface_reference_point=reference_point,
+            )
+            active = np.asarray(response.active, dtype=bool)
+            evaluations.append({
+                "subdivision_level": level,
+                "sample_count": trace.point_count,
+                "active_point_count": int(np.count_nonzero(active)),
+                "active_reference_area": float(np.sum(trace.weights[active])),
+                "maximum_sampled_penetration": float(np.max(
+                    response.penetration, initial=0.0,
+                )),
+                "contact_force_on_structure": assembly.contact_force_on_structure.tolist(),
+                "contact_potential_energy": assembly.potential_energy,
+            })
+        return {
+            "method": "fixed_configuration_uniform_reference_subdivision",
             "load_factor": factor,
             "measure": "reference_area",
             "certifies_feature_transition_integral": False,
