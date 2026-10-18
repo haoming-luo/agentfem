@@ -19,8 +19,14 @@ the contact face, completes, and checks every shared strong row remains an
 identity row. Another fixed-old-state directional test compares the assembled
 total J2-plus-contact Newton tangent against a central difference of the
 complete correction residual, with the same trial material state and zero
-perturbations on constrained DOFs. A separate sphere-indentation test compares a full block with
-the symmetry-reduced quarter block at identical physical resolution: 256
+perturbations on constrained DOFs.
+The shared strong-DOF lifting regression also passes with CG2 displacement on
+a Q1 hexahedral geometry, checking active contact, unchanged identity rows and
+the free-row contact correction. This is a second supported discretization
+check, not evidence for arbitrary geometry orders or incompatible spaces.
+
+A separate sphere-indentation test compares a full block with the
+symmetry-reduced quarter block at identical physical resolution: 256
 versus 64 hexahedra give the same full-body force to better than `1e-9`
 relative difference, and four times the quarter contact potential equals
 the full-block potential. These are structural equivalence checks, not

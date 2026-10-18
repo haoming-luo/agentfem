@@ -1684,11 +1684,17 @@ def test_moving_facet_tool_potential_derivative_and_atomic_restart(
     )
 
 
-def test_facet_contact_lifts_shared_strong_dofs_and_keeps_dirichlet_rows():
+@pytest.mark.parametrize(
+    ("displacement_degree", "hexahedral"), [(1, False), (2, True)],
+)
+def test_facet_contact_lifts_shared_strong_dofs_and_keeps_dirichlet_rows(
+    displacement_degree, hexahedral,
+):
     _, _, _, step = _patch(
         triangulated=True, constrain_contact=True, contact_value=0.002,
         tool_translation=(-0.02, 0.0, 0.0), tilt=0.01,
         applied_traction=0.0,
+        displacement_degree=displacement_degree, hexahedral=hexahedral,
     )
     assert step.contact_constrained_dofs
     result = step.solve_result()
