@@ -18,7 +18,7 @@ from agentfem.boundary_models.dolfinx_implicit_facet_contact import (
 
 @pytest.mark.parametrize("geometry", ["sphere", "cylinder"])
 @pytest.mark.parametrize("degree", [1, 2])
-@pytest.mark.parametrize("contact_quadrature_degree", [None, 5, 7])
+@pytest.mark.parametrize("contact_quadrature_degree", [None, 5, 7, 9, 11])
 @pytest.mark.parametrize(
     "cell_type", [dolfinx_mesh.CellType.tetrahedron, dolfinx_mesh.CellType.hexahedron],
 )

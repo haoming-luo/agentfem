@@ -121,10 +121,15 @@ The gate stays open until its listed evidence exists at the proposed scope.
    | 4 | q5 | -0.337238 | 0.428587 | 0.00841117 | 0.00874221 |
    | 4 | q7 | -0.320473 | 0.452688 | 0.00852799 | 0.00867533 |
 
-   The q5/q7 force and active-area difference is nonmonotone across this
-   small mesh ladder. Completion, a small energy residual and a higher rule
+   A further same-input q9/q11 check on the 2-cell mesh found tool-force x
+   -0.336930/-0.321905 and active area 0.428296/0.440369; on the 3-cell
+   mesh it found force -0.317957/-0.324226 and area 0.453882/0.450798.
+   The higher positive Basix rules are now available as explicit study
+   controls, not defaults. The q5/q7/q9/q11 force and active-area differences
+   remain nonmonotone across this small mesh ladder. Completion, a small
+   energy residual and a higher rule
    therefore do **not** establish a converged nonconvex result. Do not
-   promote default q2 or q7 as a silent accuracy fix. The discriminating next
+   promote default q2 or q11 as a silent accuracy fix. The discriminating next
    experiment is a genuinely changing trial feature partition with verified
    residual/tangent, followed by a new mesh/increment/penalty matrix. This
    is a Gate 3 failure record, not a scientific benchmark result.

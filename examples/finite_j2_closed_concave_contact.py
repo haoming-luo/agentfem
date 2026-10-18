@@ -185,7 +185,7 @@ def main() -> None:
         help="opt-in iterative solver for fixed-input timing and response checks",
     )
     parser.add_argument(
-        "--contact-quadrature-degree", type=int, choices=(5, 7),
+        "--contact-quadrature-degree", type=int, choices=(5, 7, 9, 11),
         help="opt-in positive tetrahedral face rule for sensitivity checks",
     )
     parser.add_argument(

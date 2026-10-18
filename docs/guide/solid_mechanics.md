@@ -126,8 +126,9 @@ do not infer general industrial-contact support from this route. See
 remaining independent accuracy gap.
 
 For a first- or second-order tetrahedral or hexahedral contact boundary, the
-optional `contact_quadrature_degree=5` or `7` selects a positive Basix face
-rule: 7 or 15 points per triangle, or 3×3 or 4×4 points per quadrilateral.
+optional `contact_quadrature_degree=5`, `7`, `9` or `11` selects a positive
+Basix face rule: 7, 15, 19 or 28 points per triangle, or 3×3, 4×4, 5×5 or
+6×6 points per quadrilateral.
 The CG1 defaults remain three-point triangles and 2×2 quadrilaterals; a CG2
 trace retains its degree-four default. It is a convergence-study control, not an accuracy
 preset: higher contact integration did not monotonically improve a finite-

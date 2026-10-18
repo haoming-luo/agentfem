@@ -568,9 +568,9 @@ def _contact_quadrature_rejection_reason(model, request: StepRequest) -> str | N
     if (
         isinstance(selected, (bool, np.bool_))
         or not isinstance(selected, (int, np.integer))
-        or int(selected) not in (5, 7)
+        or int(selected) not in (5, 7, 9, 11)
     ):
-        return "AFM-CONTACT-QUADRATURE: degree must be 5 or 7."
+        return "AFM-CONTACT-QUADRATURE: degree must be 5, 7, 9 or 11."
     pairs = tuple(getattr(model, "boundary_models", ()))
     if not pairs or not all(isinstance(item, RigidContactPair) for item in pairs):
         return (

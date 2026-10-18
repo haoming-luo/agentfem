@@ -267,7 +267,9 @@ def test_hexahedral_contact_trace_builds_bilinear_quadrature_and_assembly():
     np.testing.assert_allclose(assembly.potential_energy, 0.25, atol=1.0e-14)
 
 
-@pytest.mark.parametrize("degree, point_count", [(5, 9), (7, 16)])
+@pytest.mark.parametrize(
+    "degree, point_count", [(5, 9), (7, 16), (9, 25), (11, 36)],
+)
 def test_hex_q1_contact_trace_refined_gauss_keeps_reference_force(
     degree, point_count,
 ):
@@ -306,7 +308,9 @@ def test_hex_q1_contact_trace_refined_gauss_keeps_reference_force(
         )
 
 
-@pytest.mark.parametrize("degree, point_count", [(5, 14), (7, 30)])
+@pytest.mark.parametrize(
+    "degree, point_count", [(5, 14), (7, 30), (9, 38), (11, 56)],
+)
 def test_tet_p1_contact_trace_refined_gauss_keeps_reference_force(
     degree, point_count,
 ):

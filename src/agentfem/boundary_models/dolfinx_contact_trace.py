@@ -499,10 +499,10 @@ def dolfinx_boundary_region_contact_trace(
         if (
             isinstance(contact_quadrature_degree, (bool, np.bool_))
             or not isinstance(contact_quadrature_degree, (int, np.integer))
-            or int(contact_quadrature_degree) not in (5, 7)
+            or int(contact_quadrature_degree) not in (5, 7, 9, 11)
         ):
             raise ValueError(
-                "Contact quadrature degree must be 5 or 7."
+                "Contact quadrature degree must be 5, 7, 9 or 11."
             )
         if integration != "gauss" or cell_type not in {
             "CellType.tetrahedron", "CellType.hexahedron",
