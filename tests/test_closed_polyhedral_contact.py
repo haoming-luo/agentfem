@@ -271,6 +271,20 @@ def test_closed_solid_requires_explicit_embedding_review_and_outward_orientation
         )
 
 
+def test_point_touching_closed_shells_fail_vertex_manifold_review():
+    vertices = np.asarray((
+        (0, 0, 0), (1, 0, 0), (0, 1, 0), (0, 0, 1),
+        (-1, 0, 0), (0, -1, 0), (0, 0, -1),
+    ), dtype=float)
+    first = ((0, 2, 1), (0, 1, 3), (0, 3, 2), (1, 2, 3))
+    second = ((0, 4, 5), (0, 6, 4), (0, 5, 6), (4, 6, 5))
+    with pytest.raises(ValueError, match="non-manifold vertex link"):
+        closed_triangulated_rigid_solid(
+            vertices=vertices, triangles=first + second,
+            reviewed_embedded=True,
+        )
+
+
 def test_dolfinx_reentrant_edge_assembles_current_residual_and_tangent():
     domain = dolfinx_mesh.create_unit_cube(
         MPI.COMM_SELF, 1, 1, 1, cell_type=dolfinx_mesh.CellType.tetrahedron,
@@ -335,6 +349,19 @@ def test_dolfinx_reentrant_edge_assembles_current_residual_and_tangent():
     selected = moving.evaluate()
     assert selected.active_points == moving.adapter.trace.point_count
     assert selected.surface_generalized_moment is not None
+    evaluation, record, response, _ = moving._current_point_response()
+    reference = np.asarray(motion.state(1.0)["reference_point"])
+    expected_moment = np.sum(np.cross(
+        record.projection.closest_points - reference,
+        response.surface_generalized_tractions * evaluation.trace.weights[:, None],
+    ), axis=0)
+    np.testing.assert_allclose(
+        selected.surface_generalized_moment, expected_moment, atol=1e-12,
+    )
+    np.testing.assert_allclose(
+        np.sum(selected.nodal_structural_residual, axis=0),
+        -selected.contact_force_on_structure, atol=1e-12,
+    )
     displacement.x.array[:] = base + h * direction
     plus = moving.evaluate()
     displacement.x.array[:] = base - h * direction

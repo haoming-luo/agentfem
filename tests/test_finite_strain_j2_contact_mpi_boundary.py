@@ -13,7 +13,7 @@ from periodic_cube_fixture import periodic_unit_cube
 @pytest.mark.skipif(MPI.COMM_WORLD.size == 1, reason="two MPI ranks required")
 @pytest.mark.parametrize("tool_kind", [
     "analytical_plane", "triangulated_plane", "moving_triangulated_plane",
-    "sphere", "cylinder", "closed_convex_friction",
+    "sphere", "cylinder", "closed_convex_friction", "reviewed_closed_general",
 ])
 def test_distributed_j2_rigid_contact_is_rejected_at_step_build(tool_kind):
     domain = dolfinx_mesh.create_unit_cube(MPI.COMM_WORLD, 2, 2, 2)
@@ -38,8 +38,13 @@ def test_distributed_j2_rigid_contact_is_rejected_at_step_build(tool_kind):
             on=right, penalty=500.0, normal=(-1.0, 0.0, 0.0)
         )
     else:
-        surface = (
-            boundary_models.convex_polyhedral_rigid_surface(
+        if tool_kind in ("closed_convex_friction", "reviewed_closed_general"):
+            factory = (
+                boundary_models.closed_triangulated_rigid_solid
+                if tool_kind == "reviewed_closed_general"
+                else boundary_models.convex_polyhedral_rigid_surface
+            )
+            surface = factory(
                 vertices=(
                     (1.01, -0.5, -0.5), (1.11, -0.5, -0.5),
                     (1.11, 1.5, -0.5), (1.01, 1.5, -0.5),
@@ -51,8 +56,14 @@ def test_distributed_j2_rigid_contact_is_rejected_at_step_build(tool_kind):
                     (0, 1, 5), (0, 5, 4), (3, 7, 6), (3, 6, 2),
                     (0, 4, 7), (0, 7, 3), (1, 2, 6), (1, 6, 5),
                 ),
-            ) if tool_kind == "closed_convex_friction" else
-            boundary_models.rigid_sphere(
+                **(
+                    {"reviewed_embedded": True}
+                    if tool_kind == "reviewed_closed_general" else {}
+                ),
+            )
+        else:
+            surface = (
+                boundary_models.rigid_sphere(
                 center=(1.6, 0.5, 0.5), radius=0.75,
             ) if tool_kind == "sphere" else
             boundary_models.rigid_cylinder(
@@ -64,7 +75,7 @@ def test_distributed_j2_rigid_contact_is_rejected_at_step_build(tool_kind):
                           (1.01, 1.5, 1.5), (1.01, 1.5, -0.5)),
                 triangles=((0, 1, 2), (0, 2, 3)),
             )
-        )
+            )
         schedule = None
         if tool_kind == "moving_triangulated_plane":
             motion = boundary_models.prescribed_rigid_motion(

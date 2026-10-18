@@ -97,6 +97,7 @@ class ClosedTriangulatedRigidSolid(RigidSurface):
         if not str(self.name).strip():
             raise ValueError("Closed rigid solid requires a name.")
         triangles = np.asarray(facets.vertices[facets.triangles], dtype=float)
+        triangles.setflags(write=False)
         origin = np.mean(facets.vertices, axis=0)
         centered = triangles - origin
         volume_terms = np.einsum(
@@ -127,9 +128,12 @@ class ClosedTriangulatedRigidSolid(RigidSurface):
         for slot, triangle in enumerate(facets.triangles):
             for vertex in triangle:
                 incident[int(vertex)].append(slot)
-        object.__setattr__(self, "_vertex_facets", tuple(
+        vertex_facets = tuple(
             np.asarray(slots, dtype=np.int64) for slots in incident
-        ))
+        )
+        for slots in vertex_facets:
+            slots.setflags(write=False)
+        object.__setattr__(self, "_vertex_facets", vertex_facets)
 
     @property
     def dimension(self) -> int:
@@ -145,6 +149,7 @@ class ClosedTriangulatedRigidSolid(RigidSurface):
         """Ignore artificial coplanar seams and subdivided straight edges."""
 
         tolerance = self.facets.tolerance / self.facets.scale
+        angular_tolerance = max(128.0 * np.finfo(float).eps, tolerance)
         opposite = np.flatnonzero(barycentric <= tolerance)
         if len(opposite) == 0:
             return np.zeros((3, 3)), "face"
@@ -153,7 +158,7 @@ class ClosedTriangulatedRigidSolid(RigidSurface):
             if neighbor >= 0 and np.linalg.norm(
                 self.facets._facet_normals[slot]
                 - self.facets._facet_normals[neighbor]
-            ) <= 1.0e-10:
+            ) <= angular_tolerance:
                 return np.zeros((3, 3)), "face"
             return _feature_projector(
                 self._triangles[slot].copy(), barycentric, tolerance,
@@ -161,7 +166,9 @@ class ClosedTriangulatedRigidSolid(RigidSurface):
         vertex = int(self.facets.triangles[slot, int(np.argmax(barycentric))])
         normals = self.facets._facet_normals[self._vertex_facets[vertex]]
         _, singular, directions = np.linalg.svd(normals, full_matrices=True)
-        rank = int(np.count_nonzero(singular > singular[0] * 1.0e-10))
+        rank = int(np.count_nonzero(
+            singular > singular[0] * angular_tolerance,
+        ))
         if rank == 1:
             return np.zeros((3, 3)), "face"
         if rank == 2:

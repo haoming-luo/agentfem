@@ -379,7 +379,10 @@ unique nearest-feature signed distance supports active reentrant edge/vertex
 branches without averaging facet normals. Coplanar mesh seams are not physical
 creases; ambiguous nearest points or winding, and nonsmooth zero-distance
 features, reject the current trial. The direct winding computation is a
-bounded serial reference, not a scalable CAD backend. See the
+bounded serial reference, not a scalable CAD backend. Use the separately
+certified convex tool for a convex shape: its selected support-plane branch
+can continue through some face-distance ties that this general path rejects.
+See the
 [closed-general candidate record](../internal/closed_general_implicit_contact_candidate_20261018.md).
 Fixed, translating or rotating analytical-plane Coulomb pairs have a separate
 narrow serial strong-BC route. The rotational friction tangent follows the

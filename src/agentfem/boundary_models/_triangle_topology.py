@@ -39,6 +39,40 @@ def _check(vertex_count, payload):
             "Adjacent surface facets have inconsistent orientation; first "
             f"edge is {edge}."
         )
+    # Edge incidence alone does not make a surface manifold: two complete
+    # shells can meet at only one vertex and still give every edge degree two.
+    # The triangle fan around every vertex must be connected through edges
+    # containing that vertex (one chain for a boundary vertex, one cycle for
+    # an interior vertex). Each incident edge already has degree <= 2 above.
+    ordered = np.argsort(inverse, kind="stable")
+    paired = inverse[ordered[1:]] == inverse[ordered[:-1]]
+    first_directed = ordered[:-1][paired]
+    second_directed = ordered[1:][paired]
+    neighbors = np.full((len(triangles), 3), -1, dtype=np.int64)
+    neighbors.reshape(-1)[first_directed] = second_directed // 3
+    neighbors.reshape(-1)[second_directed] = first_directed // 3
+    incident: list[list[int]] = [[] for _ in range(vertex_count)]
+    for slot, triangle in enumerate(triangles):
+        for vertex in triangle:
+            incident[int(vertex)].append(slot)
+    for vertex, slots in enumerate(incident):
+        remaining = set(slots)
+        pending = [slots[0]]
+        while pending:
+            slot = pending.pop()
+            if slot not in remaining:
+                continue
+            remaining.remove(slot)
+            local = int(np.flatnonzero(triangles[slot] == vertex)[0])
+            for directed_edge in (local, (local + 2) % 3):
+                neighbor = int(neighbors[slot, directed_edge])
+                if neighbor >= 0:
+                    pending.append(neighbor)
+        if remaining:
+            raise ValueError(
+                "Triangulated surface contains a non-manifold vertex link; "
+                f"first vertex is {vertex}."
+            )
     return len(edges), int(np.count_nonzero(counts == 1))
 
 

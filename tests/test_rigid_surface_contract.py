@@ -601,6 +601,21 @@ def test_triangulated_surface_summary_and_fingerprint_are_stable():
     assert summary["projection"] == "exhaustive_reference"
 
 
+def test_triangular_surface_rejects_point_touching_shells_as_nonmanifold():
+    vertices = (
+        (0, 0, 0), (1, 0, 0), (0, 1, 0), (0, 0, 1),
+        (-1, 0, 0), (0, -1, 0), (0, 0, -1),
+    )
+    triangles = (
+        (0, 2, 1), (0, 1, 3), (0, 3, 2), (1, 2, 3),
+        (0, 4, 5), (0, 6, 4), (0, 5, 6), (4, 6, 5),
+    )
+    with pytest.raises(ValueError, match="non-manifold vertex link"):
+        boundary_models.triangulated_rigid_surface(
+            vertices=vertices, triangles=triangles,
+        )
+
+
 @pytest.mark.parametrize(
     "vertices, triangles, message",
     [
