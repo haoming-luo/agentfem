@@ -601,6 +601,41 @@ class DolfinxImplicitRigidContact:
         if partition is not None:
             evidence["split_slave_faces"] = partition.split_faces
             evidence["active_feature_lines"] = partition.active_feature_lines
+        if isinstance(self.surface, ConvexPolyhedralRigidSurface):
+            # An active (negative-gap) point inside a convex solid selects a
+            # support plane. Coplanar triangulation seams share its normal
+            # and offset; distinct planes on one slave face signal a sampled
+            # feature transition. Absence of such samples is not a proof.
+            projection = record.projection
+            offsets = np.einsum(
+                "ij,ij->i", projection.normals, projection.closest_points,
+            )
+            scale = max(1.0, float(np.max(
+                np.abs(projection.closest_points), initial=0.0,
+            )))
+            faces: dict[tuple[int, ...], tuple[np.ndarray, float] | None] = {}
+            mixed = set()
+            for nodes, active_point, normal, offset in zip(
+                evaluation.trace.node_ids, active, projection.normals, offsets,
+                strict=True,
+            ):
+                if not active_point:
+                    continue
+                key = tuple(int(node) for node in nodes)
+                if key in mixed:
+                    continue
+                first = faces.get(key)
+                if first is None:
+                    faces[key] = (normal, float(offset))
+                elif (
+                    np.linalg.norm(first[0] - normal) > 1e-10
+                    or abs(first[1] - offset) > 1e-10 * scale
+                ):
+                    mixed.add(key)
+            evidence["sampled_mixed_feature_slave_faces"] = len(mixed)
+            evidence["feature_transition_integral_certified"] = (
+                self.contact_integration == "convex_feature_partition"
+            )
         if isinstance(self.surface, ClosedTriangulatedRigidSolid):
             # Do not infer this from nominal triangle IDs: a coplanar seam is
             # physically a face, while a subdivided straight edge remains an

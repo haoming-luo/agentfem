@@ -460,7 +460,10 @@ def test_ordinary_j2_step_admits_convex_feature_partition_and_restart(tmp_path):
         "convex_feature_partition"
     )
     assert continuous.contact_provider.evaluate().potential_energy > 0
-    assert continuous.contact_provider.current_point_diagnostics()["active_feature_lines"] > 0
+    diagnostics = continuous.contact_provider.current_point_diagnostics()
+    assert diagnostics["active_feature_lines"] > 0
+    assert diagnostics["sampled_mixed_feature_slave_faces"] > 0
+    assert diagnostics["feature_transition_integral_certified"] is True
     from agentfem import results
 
     outputs = results.export_accepted_contact_points(continuous, tmp_path / "contact")
@@ -480,6 +483,9 @@ def test_ordinary_j2_step_admits_convex_feature_partition_and_restart(tmp_path):
         continuous.energy_history[-1].tool_work,
     )
     mismatched = _ordinary_convex_step("gauss")
+    assert mismatched.contact_provider.current_point_diagnostics()[
+        "feature_transition_integral_certified"
+    ] is False
     with pytest.raises(ValueError, match="identity"):
         mismatched.load_checkpoint(checkpoint)
     assert mismatched.accepted_load_factor == 0.0

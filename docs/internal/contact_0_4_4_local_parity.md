@@ -104,6 +104,35 @@ The gate stays open until its listed evidence exists at the proposed scope.
    not a drop-in P1 facet implementation: its enriched pressure interpolation
    and two-half-pass force construction differ from our one-sided trace.
 
+   A 2026-10-18 fixed-input screen used
+   `examples/finite_j2_closed_concave_contact.py` with 12 increments,
+   penalty 20, direct linear solve, backtracking, one MPI rank and one
+   OpenBLAS/OpenMP thread. The table reports the accepted end state, not a
+   timing comparison. `q2` is the default positive face rule; `q5/q7` are
+   explicit quadrature-degree requests.
+
+   | Cells/axis | Rule | Tool force x | Active reference area | Max PEEQ | Tool work |
+   | ---: | --- | ---: | ---: | ---: | ---: |
+   | 2 | q2 | -0.307580 | 0.416667 | 0.00671873 | 0.00806207 |
+   | 2 | q5 | -0.334865 | 0.447799 | 0.00670389 | 0.00895618 |
+   | 2 | q7 | -0.336957 | 0.441456 | 0.00726967 | 0.00876881 |
+   | 3 | q5 | -0.328318 | 0.445520 | 0.00812605 | 0.00888055 |
+   | 3 | q7 | -0.319265 | 0.446202 | 0.00820966 | 0.00869530 |
+   | 4 | q5 | -0.337238 | 0.428587 | 0.00841117 | 0.00874221 |
+   | 4 | q7 | -0.320473 | 0.452688 | 0.00852799 | 0.00867533 |
+
+   The q5/q7 force and active-area difference is nonmonotone across this
+   small mesh ladder. Completion, a small energy residual and a higher rule
+   therefore do **not** establish a converged nonconvex result. Do not
+   promote default q2 or q7 as a silent accuracy fix. The discriminating next
+   experiment is a genuinely changing trial feature partition with verified
+   residual/tangent, followed by a new mesh/increment/penalty matrix. This
+   is a Gate 3 failure record, not a scientific benchmark result.
+   For the separate *convex* route, accepted point diagnostics now say whether
+   the reviewed changing-trial support-plane partition supplied its bounded
+   feature integral. The default Gauss rule explicitly reports that no such
+   certificate exists, even when no mixed-feature face happened to be sampled.
+
 4. **Normal enforcement as an explicit law.** Retain penalty as one declared
    approximation. Prototype a separate opt-in augmented-Lagrangian law first
    on a fixed-quadrature analytical plane. With positive-outside gap `g`,
