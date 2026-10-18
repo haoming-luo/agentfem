@@ -134,7 +134,9 @@ preset: higher contact integration did not monotonically improve a finite-
 block Hertz screen. The benchmark separately reports the analytic pressure
 sampled on the actual trace and a nominal pressure difference, because a
 close total force can hide an inaccurate pressure distribution. The chosen
-rule is part of the checkpoint identity. It
+rule likewise changes sampled physical-edge contact on a reviewed reentrant
+tool; mesh and penalty sensitivity remain mandatory before engineering use.
+The rule is part of the checkpoint identity and
 is rejected for legacy plane contact and affine-periodic J2; no
 unsupported combination silently falls back. Other weak boundary models and
 formulations need their own reviewed lowering.

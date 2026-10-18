@@ -1469,6 +1469,7 @@ class FiniteStrainJ2StandardProblem:
         maximum_increment = 0.0
         plastic_points = 0
         converged = False
+        rejection_reason = None
         iteration = 0
         for iteration in range(self.solver_options.maximum_iterations + 1):
             stage_started = time.perf_counter()
@@ -1493,8 +1494,17 @@ class FiniteStrainJ2StandardProblem:
                 rhs.destroy()
                 converged = True
                 break
+            if not np.isfinite(norm):
+                rhs.destroy()
+                rejection_reason = "Newton residual is non-finite"
+                break
             if iteration == self.solver_options.maximum_iterations:
                 rhs.destroy()
+                rejection_reason = (
+                    "Newton reached maximum iterations "
+                    f"({self.solver_options.maximum_iterations}) with "
+                    f"residual {norm:.6g} above threshold {threshold:.6g}"
+                )
                 break
             stage_started = time.perf_counter()
             tangent = self._assemble_tangent()
@@ -1517,6 +1527,10 @@ class FiniteStrainJ2StandardProblem:
             rhs.destroy()
             if not linear.converged:
                 correction.destroy()
+                rejection_reason = (
+                    "linear solver did not converge "
+                    f"(KSP reason {linear.converged_reason})"
+                )
                 break
             base = self.solution.x.array.copy()
             direction = correction.array_r.copy()
@@ -1531,6 +1545,10 @@ class FiniteStrainJ2StandardProblem:
             )
             line_search_seconds += time.perf_counter() - stage_started
             if alpha == 0.0:
+                rejection_reason = (
+                    "line search found no acceptable trial step "
+                    f"at residual {norm:.6g}"
+                )
                 break
         comm = self.solution.function_space.mesh.comm
 
@@ -1548,6 +1566,7 @@ class FiniteStrainJ2StandardProblem:
             residual_norm=float(norm),
             plastic_points=plastic_points,
             maximum_plastic_increment=maximum_increment,
+            rejection_reason=rejection_reason,
             total_seconds=collective_max(time.perf_counter() - started),
             material_update_seconds=collective_max(material_update_seconds),
             residual_assembly_seconds=collective_max(residual_assembly_seconds),
@@ -2246,6 +2265,8 @@ class FiniteStrainJ2StandardProblem:
                 self.incrementation, step_controls.AutomaticIncrementation
             ):
                 message = f"fixed increment failed at load factor {target}"
+                if info.rejection_reason:
+                    message += f": {info.rejection_reason}"
                 self._record_failure(emit, message, info=info, target_factor=target)
                 raise RuntimeError(f"{self.name}: {message}.")
             cutbacks += 1
@@ -2256,6 +2277,8 @@ class FiniteStrainJ2StandardProblem:
                 or proposed < self.incrementation.minimum
             ):
                 message = "automatic incrementation exhausted cutbacks"
+                if info.rejection_reason:
+                    message += f": {info.rejection_reason}"
                 self._record_failure(emit, message, info=info, target_factor=target)
                 raise RuntimeError(f"{self.name}: {message}.")
             emit(

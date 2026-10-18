@@ -17,6 +17,9 @@ experimental formulation to a validated one.
   default and report the actual preconditioner attachment in Step evidence.
 - Advance the unreleased package identity to `0.4.4.dev0`; the published
   `0.4.3` citation and release remain unchanged.
+- Report the underlying finite-J2 Newton, linear-solve, line-search or
+  non-finite-residual rejection when a fixed increment fails or automatic
+  cutbacks are exhausted, while preserving the accepted-state rollback.
 
 ## [0.4.3] - 2026-10-17
 

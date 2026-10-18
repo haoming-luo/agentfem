@@ -1054,6 +1054,60 @@ def test_global_finite_strain_j2_reuses_matrix_and_ksp_across_solve_calls():
     )
 
 
+def test_fixed_finite_j2_failure_reports_underlying_rejection_and_rolls_back(
+    monkeypatch,
+):
+    from agentfem.mechanics.finite_strain_plasticity import (
+        FiniteStrainPlasticityIncrementInfo,
+    )
+
+    step = _global_finite_strain_j2_patch(incrementation=steps.fixed(2))
+
+    def rejected(**attempt):
+        return FiniteStrainPlasticityIncrementInfo(
+            increment=attempt["increment"],
+            attempt=attempt["attempt"],
+            start_load_factor=attempt["start_factor"],
+            load_factor=attempt["target_factor"],
+            converged=False,
+            iterations=3,
+            initial_residual_norm=1.0,
+            residual_norm=0.5,
+            plastic_points=0,
+            maximum_plastic_increment=0.0,
+            rejection_reason="contact line search did not reduce residual",
+        )
+
+    monkeypatch.setattr(step, "_solve_increment", rejected)
+    with pytest.raises(
+        RuntimeError,
+        match="fixed increment failed.*contact line search did not reduce residual",
+    ):
+        step.solve()
+    assert step.accepted_load_factor == 0.0
+    assert step.attempted_increments[-1].rejection_reason == (
+        "contact line search did not reduce residual"
+    )
+    assert "contact line search did not reduce residual" in (
+        step.execution_events[-1].message
+    )
+
+
+def test_fixed_finite_j2_real_line_search_rejection_names_cause(monkeypatch):
+    step = _global_finite_strain_j2_patch(incrementation=steps.fixed(2))
+    monkeypatch.setattr(step, "_line_search", lambda *args, **kwargs: 0.0)
+
+    with pytest.raises(
+        RuntimeError,
+        match="fixed increment failed.*line search found no acceptable trial step",
+    ):
+        step.solve()
+    assert step.accepted_load_factor == 0.0
+    assert "line search found no acceptable trial step" in (
+        step.attempted_increments[-1].rejection_reason
+    )
+
+
 def test_global_finite_strain_j2_inelastic_limit_forces_real_cutback():
     control = steps.automatic(
         initial=1.0,

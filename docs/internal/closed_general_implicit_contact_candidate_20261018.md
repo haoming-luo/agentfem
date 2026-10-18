@@ -203,6 +203,11 @@ fractions** and a deliberately soft algorithmic test, not a hard-contact
 reference. All three Steps complete; none provides a penalty-limit
 certificate. A release benchmark must choose physically meaningful scaling
 and show simultaneous penetration, force and history convergence.
+This distinction also matters for cross-solver comparison: Abaqus documents
+[hard, direct, augmented-Lagrange and penalty enforcement as distinct
+Standard choices](https://docs.software.vt.edu/abaqusv2025/English/SIMACAECAERefMap/simacae-t-itnhelppropcontactmechnormal.htm);
+matching geometry alone does not make a soft penalty fixture a same-input
+hard-contact reference.
 At six cells, degree 7 and penalty 20, repeating with 24 rather than 12
 increments gave x-resultant `-0.3268696751`, maximum PEEQ `0.0088462369`,
 maximum penetration `0.04738336` and tool work `0.0086537641`, compared with
@@ -210,6 +215,14 @@ maximum penetration `0.04738336` and tool work `0.0086537641`, compared with
 This narrow path-step screen is much less sensitive than the face rule or
 penalty bracket; further increment reduction alone will not cure the exposed
 contact-integration and penalty-limit gap.
+An exploratory degree-7, six-cell trial at penalty 200 fails at load factor
+0.5 with both 12 and 24 fixed increments. After the general finite-J2
+failure-diagnostic repair, the reported cause is `line search found no
+acceptable trial step at residual 0.00039544` for the 12-increment attempt;
+it is not silently counted as an accepted result. A dedicated regression
+checks the rejection reason reaches the event/exception and that accepted
+state rolls back. This failure does not establish whether a physically
+scaled hard-contact formulation would converge under another method.
 The next numerical-method experiment
 must distinguish a contact-boundary/feature-aware integration strategy from a
 different physical model, preserve residual--tangent consistency and compare
