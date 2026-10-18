@@ -342,6 +342,17 @@ The gate stays open until its listed evidence exists at the proposed scope.
    derivative and pass the total Newton/MPC tangent check. A fixed quadrature
    rule, a frozen feature partition or a smaller Newton residual alone is
    insufficient.
+   A new independent *two-feature* research oracle makes the conic problem
+   explicit: squared distance to a horizontal edge and to a separate vertex
+   has equality curve `y=((x-3)^2+1)/2` on a P1 reference triangle. Its
+   straight chord misses the curve by `0.027864` at the midpoint. Split
+   positive Gauss integration gives the P1 residual; differentiating its
+   moving parabola gives a negative semidefinite boundary term. The maximum
+   error of the vertical nodal tangent against independently re-partitioned
+   central differences is `3.5e-11` with that term, versus `0.0865` without
+   it (`tools/verify_quadratic_contact_feature_transition.py`). This is a
+   local candidate-feature calculation, not a signed-gap law for a complete
+   closed tool, an exact-arithmetic proof or a public Step.
    `tools/verify_contact_feature_transition.py` is already an independent
    two-plane unit-triangle counterexample: its moving-line term exactly
    cancels a nonzero fixed-branch bulk tangent. It proves why the term is
@@ -369,10 +380,16 @@ The gate stays open until its listed evidence exists at the proposed scope.
    **energy reference**, not formally verified interval arithmetic. It also
    bounds each component of the *total translation* force in
    `[-0.005760, -0.003644]`; a separate 512-grid central-difference screen
-   gives x-force `-0.005333` inside that wide interval. This is not a nodal
-   residual, pressure field or Newton-tangent certificate. The unresolved
-   cells still require feature-region geometry and moving-boundary
-   differentiation for Step use.
+   gives x-force `-0.005333` inside that wide interval. Carrying the parent
+   P1 shape functions through subdivision also gives componentwise bounds
+   on the three reference-area nodal traction integrals; a separate 512-grid
+   centroid estimate for the x components is approximately
+   `[-0.0038923, -0.0001697, -0.0012706]`, all inside their corresponding
+   intervals. A separate P1 nodal-direction difference of the fixed-area
+   potential also falls inside all six component intervals. These broad
+   reference bounds are not a production residual, pressure field or
+   Newton-tangent certificate. The unresolved cells still require
+   feature-region geometry and moving-boundary differentiation for Step use.
    [Hiermeier--Wall--Popp's variationally consistent mortar study][variational-mortar]
    is a useful independent standard for varying *all* active contributions,
    but its symmetric two-body mortar formulation is not our algorithm.
@@ -592,6 +609,16 @@ The gate stays open until its listed evidence exists at the proposed scope.
    candidate, **not** the implemented global law; a mesh-stable multiplier
    space or reviewed stabilization, consistent geometry derivatives, and
    joint accepted State remain mandatory before a public option exists.
+   Two open implementations sharpen the comparison: [GetFEM's contact
+   bricks][getfem-contact] distinguish nodal rigid-obstacle and integral
+   nonmatching-contact AL variants, while [deal.II step-42][dealii-step42]
+   couples a primal-dual active set, plastic constitutive iteration and line
+   search in a 3D obstacle example. The latter uses a small-strain law and
+   nodal obstacle constraints, so it is an *algorithmic lifecycle* reference,
+   not a same-input finite-strain J2/triangulated-tool validation. For our
+   candidate, reduced-rank and active-set changes must be tested before
+   comparing outer AL against a simultaneous mixed solve; neither package's
+   documented convergence can be transferred to our multiplier space.
 
    A real DOLFINx P1 planar-trace rank screen now makes the spatial issue
    concrete. With 1/2/3 tetrahedral cells along each side, the boundary has
@@ -642,6 +669,16 @@ The gate stays open until its listed evidence exists at the proposed scope.
    by about 0.016%. This narrow positive result verifies a complete accepted
    increment on those meshes; it does **not** validate arbitrary pressure
    patterns, dual-space stability, changing contact sets, or a public AL Step.
+
+   The homogeneous hard-plane research probe now covers 1, 2, 3, 4 and 6
+   tetrahedral cells per axis. Each required four frozen-multiplier global
+   equilibria; the accepted tool-force magnitudes stayed within
+   `0.8147538507–0.8147538544` against the independent homogeneous target
+   `0.8148807630`, and PEEQ stayed near `0.001188541` on this prescribed
+   uniaxial path. This is an unusually *easy* spatial case: the exact field
+   is homogeneous, so nearly identical mesh results do not establish
+   nonuniform contact-pressure stability, feature-switch convergence or a
+   public AL Procedure. The trace and test-owned state remain research only.
 
    On the same 2-cell/axis, 12-increment, q7 L-prism diagnostic above,
    increasing the *penalty* from 20 to 200, 1,000, 10,000 and 100,000
@@ -934,6 +971,8 @@ identified multiplier-transfer rule has its own tests.
 [mortar-integration]: https://doi.org/10.1007/s00466-014-1093-2
 [mortar-segmentation]: https://mediatum.ub.tum.de/doc/1109994/1109994.pdf
 [laursen-corner]: https://doi.org/10.1002/cnm.1640101103
+[getfem-contact]: https://getfem.readthedocs.io/en/latest/userdoc/model_contact_friction.html
+[dealii-step42]: https://dealii.org/9.7.0/doxygen/deal.II/step_42.html
 [polygon-clipping]: https://doi.org/10.1145/360767.360802
 [oriented-volume]: https://doi.org/10.1016/j.cma.2007.06.002
 [distance-field]: https://doi.org/10.1016/j.cma.2013.02.015

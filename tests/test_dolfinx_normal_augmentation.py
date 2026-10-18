@@ -414,7 +414,7 @@ def test_fixed_trace_outer_law_can_balance_a_plastic_global_j2_trial(
     assert maximum_peeq > (0.005 if trace_kind == "gauss" else 0.0)
 
 
-@pytest.mark.parametrize("cells", [1, 2])
+@pytest.mark.parametrize("cells", [1, 2, 3, 4, 6])
 def test_coalesced_nodal_al_reaches_independent_hard_plane_j2_limit(
     monkeypatch, cells,
 ):
@@ -508,10 +508,10 @@ def test_coalesced_nodal_al_reaches_independent_hard_plane_j2_limit(
     np.testing.assert_allclose(
         right_displacement, -indentation, rtol=0.0, atol=1e-6,
     )
-    assert np.max(step.response.state.committed[
+    actual_peeq = float(np.max(step.response.state.committed[
         "equivalent_plastic_strain"
-    ].function.x.array) == pytest.approx(plastic_increment, abs=2e-6)
-    assert -evaluate_augmented().contact_force_on_structure[0] == pytest.approx(
-        expected_pressure, abs=2e-3,
-    )
+    ].function.x.array))
+    actual_pressure = float(-evaluate_augmented().contact_force_on_structure[0])
+    assert actual_peeq == pytest.approx(plastic_increment, abs=2e-6)
+    assert actual_pressure == pytest.approx(expected_pressure, abs=2e-3)
     assert 1 < equilibria <= state.maximum_augmentations

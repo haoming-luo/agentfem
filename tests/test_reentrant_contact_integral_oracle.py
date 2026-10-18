@@ -6,6 +6,7 @@ from pathlib import Path
 import runpy
 
 import numpy as np
+import pytest
 
 
 ORACLE = runpy.run_path(str(
@@ -36,7 +37,8 @@ def test_feature_aware_reference_bounds_hidden_energy_and_total_force():
     for result in bounds:
         assert result["lower"] < reference < result["upper"]
         assert result["uncertain_subtriangles"] > 0
-        assert result["nodal_force_or_tangent_certified"] is False
+        assert result["nodal_force_interval_only"] is True
+        assert result["newton_tangent_certified"] is False
     assert bounds[0]["absolute_interval_width"] > bounds[1]["absolute_interval_width"]
     assert bounds[1]["absolute_interval_width"] > bounds[2]["absolute_interval_width"]
     assert bounds[2]["absolute_interval_width"] < 3.2e-6
@@ -49,6 +51,42 @@ def test_feature_aware_reference_bounds_hidden_energy_and_total_force():
     assert (bounds[2]["translation_force_lower"][0]
             < numerical_force_x
             < bounds[2]["translation_force_upper"][0])
+    nodal_lower = np.asarray(bounds[2]["reference_p1_nodal_force_lower"])
+    nodal_upper = np.asarray(bounds[2]["reference_p1_nodal_force_upper"])
+    assert nodal_lower.shape == nodal_upper.shape == (3, 2)
+    assert np.all(nodal_lower <= nodal_upper)
+    assert np.all(np.sum(nodal_lower, axis=0) <=
+                  bounds[2]["translation_force_upper"])
+    assert np.all(np.sum(nodal_upper, axis=0) >=
+                  bounds[2]["translation_force_lower"])
+    sampled_nodal = ORACLE["sampled_reference_p1_nodal_force"](
+        subdivisions=512,
+    )
+    assert np.all(nodal_lower < sampled_nodal)
+    assert np.all(sampled_nodal < nodal_upper)
+    # An independent directional derivative uses a fixed reference measure:
+    # perturb the physical P1 map, not the area of its reference triangle.
+    reference_points = ORACLE["triangle_centroids"](256)
+    vertices = ORACLE["SLAVE"]
+    coordinates = (reference_points - vertices[0]) @ np.linalg.inv(
+        np.stack((vertices[1] - vertices[0], vertices[2] - vertices[0])),
+    )
+    shape = np.column_stack((1.0 - np.sum(coordinates, axis=1), coordinates))
+    area = 0.5 * abs(float(np.linalg.det(np.stack((
+        vertices[1] - vertices[0], vertices[2] - vertices[0],
+    )))))
+    step = 1e-4
+    for node in range(3):
+        for component in range(2):
+            direction = np.zeros_like(reference_points)
+            direction[:, component] = shape[:, node]
+            positive_gap = ORACLE["signed_gap"](reference_points + step * direction)
+            negative_gap = ORACLE["signed_gap"](reference_points - step * direction)
+            positive = area * np.mean(0.5 * np.maximum(-positive_gap, 0.0) ** 2)
+            negative = area * np.mean(0.5 * np.maximum(-negative_gap, 0.0) ** 2)
+            directional = (positive - negative) / (2 * step)
+            assert nodal_lower[node, component] < directional
+            assert directional < nodal_upper[node, component]
 
 
 def test_feature_aware_reference_integrates_one_fixed_segment_branch():
@@ -69,3 +107,32 @@ def test_feature_aware_reference_integrates_one_fixed_segment_branch():
     assert (result["translation_force_lower"][0]
             <= expected_force_x
             <= result["translation_force_upper"][0])
+    # The exact fixed-segment branch gives a P1 weak residual, not just a
+    # resultant. Its sum must recover the total translation force.
+    nodal_lower = np.asarray(result["reference_p1_nodal_force_lower"])
+    nodal_upper = np.asarray(result["reference_p1_nodal_force_upper"])
+    expected_nodal_x = area * np.mean(
+        barycentric * (barycentric @ triangle)[:, 0, None], axis=0,
+    )
+    assert np.all(nodal_lower[:, 0] <= expected_nodal_x)
+    assert np.all(expected_nodal_x <= nodal_upper[:, 0])
+    assert np.allclose(np.sum(expected_nodal_x), expected_force_x)
+
+
+def test_feature_aware_reference_keeps_unresolved_cells_bounded_at_budget():
+    reference = ORACLE["penalty_potential"](subdivisions=512)
+    bounded = ORACLE["bounded_potential_reference"](
+        maximum_depth=12, maximum_cells=1,
+    )
+    assert bounded["processed_subtriangles"] == 1
+    assert bounded["uncertain_subtriangles"] == 1
+    assert bounded["lower"] <= reference <= bounded["upper"]
+    nodal_lower = np.asarray(bounded["reference_p1_nodal_force_lower"])
+    nodal_upper = np.asarray(bounded["reference_p1_nodal_force_upper"])
+    sampled = ORACLE["sampled_reference_p1_nodal_force"](subdivisions=512)
+    assert np.all(nodal_lower <= sampled)
+    assert np.all(sampled <= nodal_upper)
+    with pytest.raises(ValueError, match="nondegenerate"):
+        ORACLE["bounded_potential_reference"](
+            vertices=((0.0, 0.0), (1.0, 0.0), (2.0, 0.0)),
+        )

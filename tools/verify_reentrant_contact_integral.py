@@ -85,6 +85,34 @@ def penalty_potential(*, subdivisions: int | None, shift_x: float = 0.0) -> floa
     return float(area * np.mean(0.5 * np.maximum(-gaps, 0.0) ** 2))
 
 
+def sampled_reference_p1_nodal_force(*, subdivisions: int) -> np.ndarray:
+    """Independent centroid-refinement screen, not a certified force integral."""
+
+    points = triangle_centroids(subdivisions)
+    inside = signed_gap(points) < 0.0
+    distance_squared = np.full(len(points), np.inf)
+    nearest_foot = np.zeros_like(points)
+    for first, second in zip(POLYGON, np.roll(POLYGON, -1, axis=0), strict=True):
+        edge = second - first
+        parameter = np.clip((points - first) @ edge / (edge @ edge), 0.0, 1.0)
+        foot = first + parameter[:, None] * edge
+        candidate = np.sum((points - foot) ** 2, axis=1)
+        closer = candidate < distance_squared
+        distance_squared[closer] = candidate[closer]
+        nearest_foot[closer] = foot[closer]
+    coordinates = (points - SLAVE[0]) @ np.linalg.inv(
+        np.stack((SLAVE[1] - SLAVE[0], SLAVE[2] - SLAVE[0])),
+    )
+    shapes = np.column_stack((
+        1.0 - np.sum(coordinates, axis=1), coordinates,
+    ))
+    traction = np.where(inside[:, None], points - nearest_foot, 0.0)
+    area = 0.5 * abs(float(np.linalg.det(np.stack((
+        SLAVE[1] - SLAVE[0], SLAVE[2] - SLAVE[0],
+    )))))
+    return area * np.mean(shapes[:, :, None] * traction[:, None, :], axis=0)
+
+
 def bounded_potential_reference(
     *, vertices=SLAVE, maximum_depth: int = 8, maximum_cells: int = 200_000,
 ) -> dict[str, object]:
@@ -98,10 +126,13 @@ def bounded_potential_reference(
     exactly in real arithmetic. Unresolved cells retain lower/upper energy
     bounds rather than pretending a finer sampled quadrature is exact.
 
-    The same cells also bound the *total translation* force: a fixed segment
-    has affine potential gradient ``x-foot``, while each unresolved component
-    has magnitude at most the maximum penetration on that cell. These are
-    not nodal contact forces and supply no Newton tangent or global Step.
+    The same cells bound the *reference-area P1 nodal traction integral*:
+    a fixed segment has affine potential gradient ``x-foot``, while each
+    unresolved component has magnitude at most the maximum penetration.
+    Its nodal shape functions are carried through subdivision, rather than
+    inferred from a point sample. This is a force oracle at the stated
+    reference triangle, not a moving-surface Jacobian, Newton tangent or
+    global Step.
     """
 
     selected = np.asarray(vertices, dtype=float)
@@ -121,10 +152,12 @@ def bounded_potential_reference(
     lengths_squared = np.einsum("ij,ij->i", edges, edges)
     if np.any(lengths_squared <= 0.0):
         raise ValueError("Reference polygon contains a degenerate segment.")
-    stack = [(selected, 0)]
+    stack = [(selected, np.eye(3), 0)]
     lower = upper = 0.0
     force_lower = np.zeros(2)
     force_upper = np.zeros(2)
+    nodal_lower = np.zeros((3, 2))
+    nodal_upper = np.zeros((3, 2))
     exact_active = exact_inactive = uncertain = processed = 0
     rule = np.asarray(((2 / 3, 1 / 6, 1 / 6),
                        (1 / 6, 2 / 3, 1 / 6),
@@ -132,7 +165,7 @@ def bounded_potential_reference(
     margin = 128.0 * np.finfo(float).eps * max(1.0, np.max(np.abs(selected)))
 
     while stack:
-        triangle, depth = stack.pop()
+        triangle, parent_shapes, depth = stack.pop()
         processed += 1
         center = np.mean(triangle, axis=0)
         radius = float(np.max(np.linalg.norm(triangle - center, axis=1)))
@@ -185,20 +218,37 @@ def bounded_potential_reference(
                     force = area * np.mean(points - foot, axis=0)
                     force_lower += force - margin * area
                     force_upper += force + margin * area
+                    rule_shapes = rule @ parent_shapes
+                    nodal_force = area * np.mean(
+                        rule_shapes[:, :, None] * (points - foot)[:, None, :],
+                        axis=0,
+                    )
+                    nodal_slack = margin * area * np.mean(rule_shapes, axis=0)
+                    nodal_lower += nodal_force - nodal_slack[:, None]
+                    nodal_upper += nodal_force + nodal_slack[:, None]
                     exact_active += 1
                     continue
         if depth < maximum_depth and processed + len(stack) + 4 <= maximum_cells:
             a, b, c = triangle
             ab, bc, ca = (a + b) / 2, (b + c) / 2, (c + a) / 2
-            stack.extend(((np.asarray(child), depth + 1) for child in (
-                (a, ab, ca), (ab, b, bc), (ca, bc, c), (ab, bc, ca),
-            )))
+            na, nb, nc = parent_shapes
+            nab, nbc, nca = (na + nb) / 2, (nb + nc) / 2, (nc + na) / 2
+            stack.extend((np.asarray(child), np.asarray(shapes), depth + 1)
+                         for child, shapes in (
+                             ((a, ab, ca), (na, nab, nca)),
+                             ((ab, b, bc), (nab, nb, nbc)),
+                             ((ca, bc, c), (nca, nbc, nc)),
+                             ((ab, bc, ca), (nab, nbc, nca)),
+                         ))
             continue
         lower += area * 0.5 * max(-(gap + radius), 0.0) ** 2
         upper += area * 0.5 * max(-(gap - radius), 0.0) ** 2
         maximum_force = area * max(-(gap - radius), 0.0)
         force_lower -= maximum_force
         force_upper += maximum_force
+        nodal_maximum = maximum_force * np.mean(parent_shapes, axis=0)
+        nodal_lower -= nodal_maximum[:, None]
+        nodal_upper += nodal_maximum[:, None]
         uncertain += 1
     return {
         "scope": "research_only_L_boundary_potential_per_unit_extrusion",
@@ -206,6 +256,8 @@ def bounded_potential_reference(
         "absolute_interval_width": upper - lower,
         "translation_force_lower": force_lower.tolist(),
         "translation_force_upper": force_upper.tolist(),
+        "reference_p1_nodal_force_lower": nodal_lower.tolist(),
+        "reference_p1_nodal_force_upper": nodal_upper.tolist(),
         "processed_subtriangles": processed,
         "exact_active_subtriangles": exact_active,
         "exact_inactive_subtriangles": exact_inactive,
@@ -213,7 +265,8 @@ def bounded_potential_reference(
         "maximum_depth": maximum_depth,
         "maximum_cells": maximum_cells,
         "arithmetic": "floating_point_conservative_margin_not_formally_verified_interval",
-        "nodal_force_or_tangent_certified": False,
+        "nodal_force_interval_only": True,
+        "newton_tangent_certified": False,
     }
 
 
