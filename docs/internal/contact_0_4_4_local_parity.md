@@ -245,7 +245,10 @@ The gate stays open until its listed evidence exists at the proposed scope.
    underlying per-pair metadata, so a user can inspect the reason without
    decoding a private trace. These counts do not summarize every earlier
    accepted increment; a path-wise feature ledger remains a separate Result
-   task before an engineering claim about *the full path*.
+   task before an engineering claim about *the full path*. Store bounded
+   per-pair maxima/ever-seen flags in accepted State and checkpoint them;
+   do not infer them from the progress-event ring buffer, which may drop old
+   events, or from sparse visualization frames.
    For the separate *convex* route, accepted point diagnostics now say whether
    the reviewed changing-trial support-plane partition supplied its bounded
    feature integral. The default Gauss rule explicitly reports that no such
