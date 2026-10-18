@@ -70,6 +70,7 @@ def test_periodic_j2_rejects_registered_contact_in_capability_and_step():
 
 def _periodic_j2_contact_step(
     *, surface=None, motion=None, pair_count=1, opposed_pair=False,
+    friction_coefficient=None, tangential_penalty=None,
 ):
     fixture = periodic_unit_cube(MPI.COMM_SELF)
     model = models.create(
@@ -104,6 +105,8 @@ def _periodic_j2_contact_step(
                 ),
             ),
             penalty=5_000.0 / pair_count,
+            friction_coefficient=friction_coefficient,
+            tangential_penalty=tangential_penalty,
             name=("rigid_contact_pair" if pair_count == 1 else f"periodic_tool_{index}"),
         )
         model.add_boundary_model(pair)
@@ -409,7 +412,7 @@ def test_periodic_j2_closed_convex_tool_preserves_planar_mpc_limit():
     )
 
 
-def test_periodic_j2_reviewed_concave_tool_reduces_total_contact_residual():
+def _periodic_concave_face_tool():
     x0, x1 = 0.95, 1.25
     polygon = 1.75 * np.asarray((
         (0, 0), (2, 0), (2, 1), (1, 1), (1, 2), (0, 2),
@@ -423,10 +426,14 @@ def test_periodic_j2_reviewed_concave_tool_reduces_total_contact_residual():
         second = (first + 1) % 6
         triangles.extend(((first, second, second + 6),
                           (first, second + 6, first + 6)))
-    surface = boundary_models.closed_triangulated_rigid_solid(
+    return boundary_models.closed_triangulated_rigid_solid(
         vertices=np.vstack((front, back)), triangles=triangles,
         reviewed_embedded=True,
     )
+
+
+def test_periodic_j2_reviewed_concave_tool_reduces_total_contact_residual():
+    surface = _periodic_concave_face_tool()
     fixture, periodicity, step = _periodic_j2_contact_step(surface=surface)
     result = step.solve_result()
     assert result.status == "completed"
@@ -442,7 +449,7 @@ def test_periodic_j2_reviewed_concave_tool_reduces_total_contact_residual():
         reduction.destroy()
         total.destroy()
     plane = boundary_models.rigid_plane(
-        point=(x0, 0.0, 0.0), normal=(-1.0, 0.0, 0.0),
+        point=(0.95, 0.0, 0.0), normal=(-1.0, 0.0, 0.0),
     )
     _, _, planar = _periodic_j2_contact_step(surface=plane)
     planar.solve()
@@ -542,20 +549,39 @@ def test_periodic_j2_active_reentrant_edge_reduces_total_tangent():
         transformation.destroy()
 
 
-def test_periodic_j2_active_edge_total_material_contact_jacobian():
+@pytest.mark.parametrize("with_friction", [False, True])
+def test_periodic_j2_total_material_contact_jacobian(with_friction):
     import dolfinx.fem as fem
     import dolfinx.fem.petsc as fem_petsc
 
-    surface = _active_reentrant_periodic_surface()
-    _, _, completed = _periodic_j2_contact_step(surface=surface)
+    options = {}
+    if with_friction:
+        surface = boundary_models.rigid_plane(
+            point=(1.01, 0.0, 0.0), normal=(-1.0, 0.0, 0.0),
+        )
+        options = {
+            "motion": boundary_models.prescribed_rigid_motion(
+                translation=(0.0, 0.02, 0.0),
+                reference_point=(1.6, 0.5, 0.5),
+            ),
+            "friction_coefficient": 0.2,
+            "tangential_penalty": 1000.0,
+        }
+    else:
+        surface = _active_reentrant_periodic_surface()
+    _, _, completed = _periodic_j2_contact_step(surface=surface, **options)
     completed.solve()
-    fixture, periodicity, trial = _periodic_j2_contact_step(surface=surface)
+    fixture, periodicity, trial = _periodic_j2_contact_step(
+        surface=surface, **options,
+    )
     trial.solve(until=2.0 / 3.0)
     # Hold the fifth/previous accepted material state fixed while testing
     # the final increment. Perturbing the already committed final J2 state
     # at zero reload would measure a branch kink, not the Newton tangent.
     trial.solution.x.array[:] = completed.solution.x.array
     trial.solution.x.scatter_forward()
+    if with_friction:
+        trial.contact_provider.update_motion(1.0)
     trial.state_transaction.refresh_trial(
         start_factor=2.0 / 3.0, target_factor=1.0,
     )
@@ -604,6 +630,8 @@ def test_periodic_j2_active_edge_total_material_contact_jacobian():
         trial.solution.x.array[:] = completed.solution.x.array
         trial.solution.x.scatter_forward()
         trial.state_transaction.rollback_increment(accepted_factor=2.0 / 3.0)
+        if with_friction:
+            trial.contact_provider.update_motion(2.0 / 3.0)
         if action is not None:
             action.destroy()
         if reduced_matrix is not None:
@@ -622,6 +650,224 @@ def _periodic_tool_motion():
         rotation=(0.0, 0.0, 0.0),
         reference_point=(1.6, 0.5, 0.5),
     )
+
+
+def test_periodic_j2_moving_plane_friction_commits_and_restarts(tmp_path):
+    surface = boundary_models.rigid_plane(
+        point=(1.01, 0.0, 0.0), normal=(-1.0, 0.0, 0.0),
+    )
+    motion = boundary_models.prescribed_rigid_motion(
+        translation=(0.0, 0.02, 0.0),
+        reference_point=(1.6, 0.5, 0.5),
+    )
+    options = dict(
+        surface=surface, motion=motion,
+        friction_coefficient=0.2, tangential_penalty=1000.0,
+    )
+    fixture, periodicity, continuous = _periodic_j2_contact_step(**options)
+    result = continuous.solve_result()
+    assert result.status == "completed"
+    assert result.quantity("friction_dissipation") > 0.0
+    assert continuous.contact_provider.friction_state.accepted is not None
+    samples = continuous.contact_provider.accepted_point_samples()
+    assert result.quantity("friction_dissipation") == pytest.approx(
+        float(np.sum(
+            samples["reference_weights"]
+            * samples["cumulative_friction_dissipation_densities"]
+        )),
+        rel=1e-10,
+    )
+    assert continuous.operator_dual_history.complete(accepted_factor=1.0)
+    reduction = periodicity.reduction(1.0).matrix(fixture.domain.comm)
+    full = continuous.assemble_full_residual()
+    reduced = reduction.createVecRight()
+    reduction.multTranspose(full, reduced)
+    assert reduced.norm() < 1.0e-5
+    full.destroy()
+    reduced.destroy()
+    reduction.destroy()
+
+    _, _, interrupted = _periodic_j2_contact_step(**options)
+    interrupted.solve(until=1.0 / 3.0)
+    # Differentiate the full contact Operator at a later current trial while
+    # the preceding Coulomb State stays fixed. At the final accepted station
+    # zero reloading would sit on a stick/slip cap kink.
+    saved_solution = interrupted.solution.x.array.copy()
+    interrupted.contact_provider.update_motion(1.0)
+    interrupted.solution.x.array[:] = continuous.solution.x.array
+    interrupted.solution.x.scatter_forward()
+    reduction = periodicity.reduction(1.0).matrix(fixture.domain.comm)
+    q = reduction.createVecRight()
+    du = reduction.createVecLeft()
+    residual = reduction.createVecLeft()
+    reduced = reduction.createVecRight()
+    try:
+        q.array[:] = np.linspace(0.1, 0.3, q.array.size)
+        reduction.mult(q, du)
+        selected = interrupted.contact_provider.evaluate()
+        residual.array[:] = selected.tangent_action(
+            du.array.reshape(-1, 3),
+        ).reshape(-1)
+        reduction.multTranspose(residual, reduced)
+        expected = reduced.array.copy()
+        sampled = []
+        for sign in (1.0, -1.0):
+            interrupted.solution.x.array[:] = (
+                continuous.solution.x.array + sign * 1e-7 * du.array
+            )
+            interrupted.solution.x.scatter_forward()
+            residual.array[:] = (
+                interrupted.contact_provider.evaluate()
+                .nodal_structural_residual.reshape(-1)
+            )
+            reduction.multTranspose(residual, reduced)
+            sampled.append(reduced.array.copy())
+        np.testing.assert_allclose(
+            (sampled[0] - sampled[1]) / (2e-7), expected,
+            rtol=3e-4, atol=3e-5,
+        )
+    finally:
+        interrupted.solution.x.array[:] = saved_solution
+        interrupted.solution.x.scatter_forward()
+        interrupted.contact_provider.update_motion(1.0 / 3.0)
+        reduced.destroy()
+        residual.destroy()
+        du.destroy()
+        q.destroy()
+        reduction.destroy()
+    saved = interrupted.save_checkpoint(tmp_path / "affine_friction")
+    payload = json.loads(saved.read_text(encoding="utf-8"))
+    assert payload["schema"] == "agentfem.affine-stateful-checkpoint.v2"
+    assert payload["operator_accepted_state"][0]["friction"] is not None
+    damaged = dict(payload)
+    damaged["operator_accepted_state"] = json.loads(
+        json.dumps(payload["operator_accepted_state"])
+    )
+    damaged["operator_accepted_state"][0]["point_ids"][0] = -1
+    damaged_path = saved.with_name("damaged_affine_friction.checkpoint.json")
+    damaged_path.write_text(json.dumps(damaged), encoding="utf-8")
+    _, _, rejected = _periodic_j2_contact_step(**options)
+    before = rejected.solution.x.array.copy()
+    with pytest.raises(ValueError, match="point IDs"):
+        rejected.load_checkpoint(damaged_path)
+    np.testing.assert_array_equal(rejected.solution.x.array, before)
+    assert rejected.contact_provider.friction_state.accepted is None
+    assert rejected.contact_provider.snapshot_motion() == pytest.approx(0.0)
+
+    _, _, resumed = _periodic_j2_contact_step(**options)
+    resumed.load_checkpoint(saved)
+    resumed_result = resumed.solve_result()
+    assert resumed_result.status == "completed"
+    np.testing.assert_allclose(
+        resumed.solution.x.array, continuous.solution.x.array,
+        rtol=1e-9, atol=1e-10,
+    )
+    assert resumed.contact_provider.friction_state.accepted is not None
+    assert resumed_result.quantity("friction_dissipation") == pytest.approx(
+        result.quantity("friction_dissipation"), rel=1e-9,
+    )
+
+
+@pytest.mark.parametrize("tool_kind", ["triangle", "closed_concave"])
+def test_periodic_moving_planar_face_friction_matches_analytical_plane(tool_kind):
+    plane = boundary_models.rigid_plane(
+        point=(0.95, 0.0, 0.0), normal=(-1.0, 0.0, 0.0),
+    )
+    if tool_kind == "triangle":
+        face = boundary_models.triangulated_rigid_surface(
+            vertices=(
+                (0.95, -0.5, -0.5), (0.95, -0.5, 1.5),
+                (0.95, 1.5, 1.5), (0.95, 1.5, -0.5),
+            ),
+            triangles=((0, 1, 2), (0, 2, 3)),
+        )
+    else:
+        face = _periodic_concave_face_tool()
+    motion = boundary_models.prescribed_rigid_motion(
+        translation=(0.0, 0.02, 0.0),
+        reference_point=(1.6, 0.5, 0.5),
+    )
+    options = dict(
+        motion=motion, friction_coefficient=0.2,
+        tangential_penalty=1000.0,
+    )
+    _, _, reference = _periodic_j2_contact_step(surface=plane, **options)
+    reference_result = reference.solve_result()
+    _, _, candidate = _periodic_j2_contact_step(surface=face, **options)
+    candidate_result = candidate.solve_result()
+    assert reference_result.status == candidate_result.status == "completed"
+    np.testing.assert_allclose(
+        candidate.solution.x.array, reference.solution.x.array,
+        rtol=2e-7, atol=2e-8,
+    )
+    assert candidate_result.quantity("friction_dissipation") == pytest.approx(
+        reference_result.quantity("friction_dissipation"), rel=2e-7,
+    )
+    assert candidate_result.quantity("rigid_contact_pair_path_work") == pytest.approx(
+        reference_result.quantity("rigid_contact_pair_path_work"), rel=2e-7,
+    )
+
+
+def test_periodic_friction_post_commit_failure_restores_all_accepted_state(
+    monkeypatch,
+):
+    surface = boundary_models.rigid_plane(
+        point=(1.01, 0.0, 0.0), normal=(-1.0, 0.0, 0.0),
+    )
+    motion = boundary_models.prescribed_rigid_motion(
+        translation=(0.0, 0.02, 0.0),
+        reference_point=(1.6, 0.5, 0.5),
+    )
+    _, _, step = _periodic_j2_contact_step(
+        surface=surface, motion=motion,
+        friction_coefficient=0.2, tangential_penalty=1000.0,
+    )
+    before_u = step.solution.x.array.copy()
+    before_material = step.state_transaction.response.state.committed_state_vectors().copy()
+    before_kinematics = (
+        step.contact_provider.friction_kinematics.accepted.slave_positions.copy()
+    )
+    original = step.contact_provider.commit_accepted
+
+    def commit_then_fail():
+        original()
+        raise RuntimeError("injected affine friction post-commit failure")
+
+    monkeypatch.setattr(step.contact_provider, "commit_accepted", commit_then_fail)
+    with pytest.raises(RuntimeError, match="post-commit failure"):
+        step.solve()
+    assert step.accepted_load_factor == 0.0
+    np.testing.assert_array_equal(step.solution.x.array, before_u)
+    np.testing.assert_array_equal(
+        step.state_transaction.response.state.committed_state_vectors(),
+        before_material,
+    )
+    assert step.contact_provider.friction_state.accepted is None
+    np.testing.assert_array_equal(
+        step.contact_provider.friction_kinematics.accepted.slave_positions,
+        before_kinematics,
+    )
+    assert step.contact_provider.snapshot_motion() == pytest.approx(0.0)
+    assert not step.accepted_increments
+
+
+def test_periodic_closed_sharp_edge_friction_rejects_without_partial_state():
+    surface = _active_reentrant_periodic_surface()
+    _, _, step = _periodic_j2_contact_step(
+        surface=surface,
+        friction_coefficient=0.2, tangential_penalty=1000.0,
+    )
+    before = step.solution.x.array.copy()
+    before_material = step.state_transaction.response.state.committed_state_vectors().copy()
+    with pytest.raises(ValueError, match="AFM-IMPLICIT-FRICTION-BRANCH"):
+        step.solve()
+    assert step.accepted_load_factor == 0.0
+    np.testing.assert_array_equal(step.solution.x.array, before)
+    np.testing.assert_array_equal(
+        step.state_transaction.response.state.committed_state_vectors(),
+        before_material,
+    )
+    assert step.contact_provider.friction_state.accepted is None
 
 
 def test_periodic_j2_moving_tool_records_accepted_work_and_joint_restart(tmp_path):

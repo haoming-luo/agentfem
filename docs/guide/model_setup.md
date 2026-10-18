@@ -355,14 +355,18 @@ route still supplies no Newton linearization and is therefore not, by itself,
 an implicit general-contact solver.
 
 The experimental serial finite-J2 Newton Step accepts independently named
-frictionless rigid pairs on reference-area quadrature. It reprojects every
+rigid pairs on reference-area quadrature. It reprojects every
 trial, sums the contact residual and tangent with the material Operator, and
 owns accepted force--moment work, rollback, and checkpoint identity. A
 normalized 0-to-1 prescribed motion shares the Step amplitude. Strong
 prescribed displacement on the contact trace is lifted by the same Newton
 correction as the material tangent. The serial affine-periodic J2 route
 reduces the **total** material-plus-contact residual and tangent through one
-MPC map; it also records each normalized moving tool's accepted work.
+MPC map; it also records each normalized moving tool's accepted work. For a
+reviewed locally planar Coulomb branch, the affine route commits the same
+tangential history at accepted increments, reduces the generally nonsymmetric
+total tangent and saves that history in a versioned checkpoint. This is serial
+only; a sharp closed-solid friction feature still rejects the trial.
 
 Open triangle patches still reject active free or noncoplanar edge branches.
 The separate `convex_polyhedral_rigid_surface(...)` source candidate accepts
@@ -417,10 +421,10 @@ matrix:
 
 | Rigid geometry | Normal law | Coulomb friction | Affine-periodic J2 | MPI implicit J2 |
 | --- | --- | --- | --- | --- |
-| Analytical plane, fixed or prescribed motion | Serial supported | Serial strong-BC candidate | Frictionless only | Rejected |
-| Reviewed triangle patch | Face-interior planar branch; active free/noncoplanar edges reject | Serial strong-BC face-interior planar branch only; active free/noncoplanar edges reject | Frictionless only | Rejected |
-| Certified closed convex triangle solid | Selected one-sided sharp-feature branch | Serial strong-BC piecewise-planar candidate | Frictionless only | Rejected |
-| Reviewed embedded closed nonconvex triangle solid | Serial unique-nearest-feature candidate; direct winding default, optional reviewed nearest-feature sign | Serial strong-BC locally planar face branch only; active sharp edges/vertices reject | Frictionless only | Rejected |
+| Analytical plane, fixed or prescribed motion | Serial supported | Serial strong-BC candidate | Frictionless and tested serial Coulomb | Rejected |
+| Reviewed triangle patch | Face-interior planar branch; active free/noncoplanar edges reject | Serial strong-BC face-interior planar branch only; active free/noncoplanar edges reject | Frictionless and tested locally planar Coulomb | Rejected |
+| Certified closed convex triangle solid | Selected one-sided sharp-feature branch | Serial strong-BC piecewise-planar candidate | Frictionless; locally planar Coulomb admitted, not independently benchmarked | Rejected |
+| Reviewed embedded closed nonconvex triangle solid | Serial unique-nearest-feature candidate; direct winding default, optional reviewed nearest-feature sign | Serial strong-BC locally planar face branch only; active sharp edges/vertices reject | Frictionless and tested locally planar Coulomb; sharp friction rejects | Rejected |
 | Open/nonreviewed general mesh or deformable master | Rejected | Rejected | Rejected | Rejected |
 
 All admitted implicit paths use finite-strain J2 on a three-dimensional solid.
@@ -428,6 +432,11 @@ Unsupported combinations fail during capability checking or before assembly;
 an active nonsmooth friction branch may be reached only during a trial and
 then fails with atomic rollback. None are silently replaced with a plane,
 frictionless law, or serial solve.
+Affine friction requires a nonsymmetric linear-solver policy. Its accepted
+tangential State uses the `agentfem.affine-stateful-checkpoint.v2` format;
+older v1 checkpoints remain valid for frictionless paths, not for an analysis
+with friction State. The affine result reports final cumulative sliding
+dissipation and separation release, not a time-resolved first-law certificate.
 Two region-assigned J2 parameter sets have been checked with a moving convex
 frictional tool and interrupted restart. This does not admit arbitrary user
 materials or certify general mixed-material interfaces.

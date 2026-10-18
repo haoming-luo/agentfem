@@ -8,7 +8,7 @@ from __future__ import annotations
 from .contact_pair import RigidContactPair
 from .convex_polyhedron import ConvexPolyhedralRigidSurface
 from .closed_polyhedron import ClosedTriangulatedRigidSolid
-from .rigid import SmoothRigidSurface, TriangulatedRigidSurface
+from .rigid import RigidPlaneSurface, SmoothRigidSurface, TriangulatedRigidSurface
 
 
 def affine_rigid_contact_assets_supported(boundaries) -> bool:
@@ -35,14 +35,20 @@ def affine_rigid_contact_assets_supported(boundaries) -> bool:
                 and pair.rigid_body.motion_schedule.amplitude is None
             )
         )
-        and pair.friction is None
+        and (
+            pair.friction is None
+            or isinstance(pair.rigid_body.surface, (
+                RigidPlaneSurface, ConvexPolyhedralRigidSurface,
+                TriangulatedRigidSurface, ClosedTriangulatedRigidSolid,
+            ))
+        )
         and pair.law.invalid_policy == "reject"
         for pair in boundaries
     )
 
 
 def affine_rigid_contact_supported(model) -> bool:
-    """Named serial frictionless rigid pairs may share the affine J2 path."""
+    """Named serial rigid pairs may share the affine J2 Operator lifecycle."""
 
     return affine_rigid_contact_assets_supported(
         getattr(model, "boundary_models", ()),

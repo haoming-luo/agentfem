@@ -3855,14 +3855,14 @@ def finite_strain_j2_affine_problem(
         if not all(isinstance(item, RigidContactPair) for item in contact_items):
             raise NotImplementedError(
                 "AFM-J2-CONTACT-MPC: affine contact accepts named "
-                "frictionless RigidContactPair assets only."
+                "RigidContactPair assets only."
             )
         if len({item.name for item in contact_items}) != len(contact_items):
             raise ValueError("Affine rigid contact pair names must be unique.")
         if not affine_rigid_contact_assets_supported(contact_items):
             raise NotImplementedError(
                 "AFM-J2-CONTACT-MPC: affine contact requires serial, "
-                "frictionless rigid pairs with supported geometry and "
+                "rigid pairs with supported geometry and "
                 "normalized prescribed motion."
             )
         contact_providers = tuple(
@@ -3919,6 +3919,17 @@ def finite_strain_j2_affine_problem(
             "error_if_not_converged=True so an incomplete material path cannot "
             "be returned as a completed SimulationResult."
         )
+    if any(item.friction is not None for item in contact_items):
+        linear = getattr(selected_solver_options, "linear_solver", None)
+        if linear is None:
+            linear = selected_solver_options.linear_options
+        if linear.ksp_type.lower() in {"cg", "cr", "minres", "symmlq"} or (
+            linear.pc_type.lower() in {"cholesky", "icc"}
+        ):
+            raise ValueError(
+                "AFM-IMPLICIT-FRICTION-LINEAR: affine Coulomb contact has a "
+                "generally nonsymmetric reduced tangent; select LU or GMRES."
+            )
     problem = problems.affine_nonlinear(
         residual,
         solution,

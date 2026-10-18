@@ -691,7 +691,10 @@ projection; a small ordinary J2 Step now exercises an active reentrant edge,
 plastic state, tangent check and restart. See the
 [bounded closed-solid record](internal/closed_general_implicit_contact_candidate_20261018.md).
 The Coulomb extension is restricted to active locally planar faces; it rejects
-physical sharp edges or vertices and rolls back the failed trial. This is not
+physical sharp edges or vertices and rolls back the failed trial. The serial
+affine-MPC path now has a versioned accepted friction-State checkpoint and a
+tested plane/triangle/closed-face tangent reduction, but no arbitrary sharp
+friction law or distributed operator assembly. This is not
 yet a same-input external comparison, a converged parameter study, frictional
 sharp-feature law, large-CAD backend or distributed implicit contact.
 

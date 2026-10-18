@@ -746,7 +746,6 @@ class IncrementalNonlinearVariationalProblem:
                 index for index, problem in enumerate(problems) if problem is not None
             )
             raise RuntimeError(f"Rank {rank}: {problems[rank]}")
-
         recorders = self._validated_checkpoint_recorders()
         identity = self._checkpoint_scientific_identity()
         manifest = self._checkpoint_manifest_path(path)
@@ -1239,11 +1238,46 @@ class AffineNonlinearVariationalProblem:
         init=False,
     )
 
+    def _operator_runtime_state(self) -> tuple[object, ...]:
+        """Capture accepted Operator State without serializing a Newton trial."""
+
+        return tuple(
+            operator.snapshot_runtime_state()
+            if callable(getattr(operator, "snapshot_runtime_state", None))
+            else None
+            for operator in self.full_space_operators
+        )
+
+    def _restore_operator_runtime_state(self, states: tuple[object, ...]) -> None:
+        if len(states) != len(self.full_space_operators):
+            raise ValueError("Affine Operator runtime State count differs.")
+        for operator, state in zip(self.full_space_operators, states, strict=True):
+            restore = getattr(operator, "restore_runtime_state", None)
+            if callable(restore):
+                restore(state)
+            elif state is not None:
+                raise TypeError("Stateful affine Operator has no runtime restore.")
+
+    def _operator_checkpoint_state(self) -> tuple[object, ...]:
+        """Obtain only fully accepted, JSON-safe per-Operator State."""
+
+        states = []
+        for operator in self.full_space_operators:
+            validate = getattr(operator, "validate_accepted_configuration", None)
+            if callable(validate):
+                validate()
+            snapshot = getattr(operator, "snapshot_accepted_state", None)
+            states.append(snapshot() if callable(snapshot) else None)
+        return tuple(states)
+
     def checkpoint_capabilities(self) -> checkpointing.CheckpointCapabilities:
         """Declare the stateful affine restart contract."""
 
         return checkpointing.CheckpointCapabilities(
-            schemas=("agentfem.affine-stateful-checkpoint.v1",),
+            schemas=(
+                "agentfem.affine-stateful-checkpoint.v1",
+                "agentfem.affine-stateful-checkpoint.v2",
+            ),
             boundary="accepted_increment",
             payload_scope="full_restart_state",
             state_components=(
@@ -1252,6 +1286,7 @@ class AffineNonlinearVariationalProblem:
                 "load-path ledger",
                 "constraint dual history",
                 "moving-Operator dual and coordinate history",
+                "accepted full-space Operator State when present",
                 "accepted-observer state",
             ),
             atomic_publication=True,
@@ -1358,6 +1393,7 @@ class AffineNonlinearVariationalProblem:
         initial_snapshots = list(self.snapshots)
         initial_events = list(self.execution_events)
         initial_solution = self.solution.x.array.copy()
+        initial_operator_state = self._operator_runtime_state()
         initial_boundary = (
             {
                 "accepted_load_factor": self.accepted_load_factor,
@@ -1439,6 +1475,7 @@ class AffineNonlinearVariationalProblem:
                 self.operator_dual_history.restore_runtime_state(
                     initial_boundary["operator_dual_history"]
                 )
+            self._restore_operator_runtime_state(initial_operator_state)
             _set_affine_operator_factor(
                 self.full_space_operators, self.accepted_load_factor,
             )
@@ -1465,6 +1502,7 @@ class AffineNonlinearVariationalProblem:
                 "operator_dual_history": (
                     self.operator_dual_history.snapshot_runtime_state()
                 ),
+                "operator_state": self._operator_runtime_state(),
             }
 
         def restore_pending_acceptance():
@@ -1486,6 +1524,7 @@ class AffineNonlinearVariationalProblem:
             self.operator_dual_history.restore_runtime_state(
                 state["operator_dual_history"]
             )
+            self._restore_operator_runtime_state(state["operator_state"])
             pending_acceptance = None
 
         def capture(index, factor, solution, solve_info):
@@ -1505,6 +1544,10 @@ class AffineNonlinearVariationalProblem:
                 save_by_increment or save_by_factor or abs(factor - 1.0) <= 1.0e-12
             )
             try:
+                for operator in self.full_space_operators:
+                    commit = getattr(operator, "commit_accepted", None)
+                    if callable(commit):
+                        commit()
                 accepted_snapshot = None
                 if self.accepted_observers or should_save:
                     accepted_snapshot = _load_snapshot(
@@ -1631,6 +1674,7 @@ class AffineNonlinearVariationalProblem:
                 self.operator_dual_history.restore_runtime_state(
                     initial_boundary["operator_dual_history"]
                 )
+                self._restore_operator_runtime_state(initial_operator_state)
                 _set_affine_operator_factor(
                     self.full_space_operators, self.accepted_load_factor,
                 )
@@ -1765,6 +1809,8 @@ class AffineNonlinearVariationalProblem:
                 index for index, problem in enumerate(problems) if problem is not None
             )
             raise RuntimeError(f"Rank {rank}: {problems[rank]}")
+        operator_states = self._operator_checkpoint_state()
+        stateful_operators = any(state is not None for state in operator_states)
         # ``portable=False`` is retained for compatibility with the common
         # policy API; the public affine format is intentionally always portable.
         del portable
@@ -1801,7 +1847,10 @@ class AffineNonlinearVariationalProblem:
             material=self.state_transaction.material,
         )
         payload = {
-            "schema": "agentfem.affine-stateful-checkpoint.v1",
+            "schema": (
+                "agentfem.affine-stateful-checkpoint.v2" if stateful_operators
+                else "agentfem.affine-stateful-checkpoint.v1"
+            ),
             "identity": self._checkpoint_identity(),
             "coordinate_name": "load_factor",
             "coordinate": self.accepted_load_factor,
@@ -1833,6 +1882,8 @@ class AffineNonlinearVariationalProblem:
                 self.operator_dual_history.checkpoint_state()
             ),
         }
+        if stateful_operators:
+            payload["operator_accepted_state"] = list(operator_states)
         error = None
         if comm.rank == 0:
             try:
@@ -1898,8 +1949,22 @@ class AffineNonlinearVariationalProblem:
                 f"Affine checkpoint manifest read failed: {envelope['error']}"
             )
         payload = envelope["payload"]
-        if payload.get("schema") != "agentfem.affine-stateful-checkpoint.v1":
+        if payload.get("schema") not in (
+            "agentfem.affine-stateful-checkpoint.v1",
+            "agentfem.affine-stateful-checkpoint.v2",
+        ):
             raise ValueError("Unsupported affine stateful checkpoint schema.")
+        operator_states = payload.get("operator_accepted_state")
+        if payload["schema"].endswith(".v2"):
+            if not isinstance(operator_states, list) or len(operator_states) != len(
+                self.full_space_operators
+            ):
+                raise ValueError("Affine checkpoint Operator State count differs.")
+        elif operator_states is not None or any(
+            getattr(operator, "friction_state", None) is not None
+            for operator in self.full_space_operators
+        ):
+            raise ValueError("Affine friction State requires a v2 checkpoint.")
         current_identity = json.loads(
             json.dumps(self._checkpoint_identity(), sort_keys=True)
         )
@@ -1939,6 +2004,7 @@ class AffineNonlinearVariationalProblem:
         solution_backup = self.solution.x.array.copy()
         accepted_backup = self.state_transaction.accepted_solution.x.array.copy()
         transaction_backup = self.state_transaction.snapshot_runtime_state()
+        operator_backup = self._operator_runtime_state()
         lifecycle_backup = {
             "accepted_load_factor": self.accepted_load_factor,
             "accepted_increments": list(self.accepted_increments),
@@ -2044,6 +2110,18 @@ class AffineNonlinearVariationalProblem:
                     "accepted force--coordinate path."
                 )
             _set_affine_operator_factor(self.full_space_operators, coordinate)
+            if operator_states is not None:
+                for operator, state in zip(
+                    self.full_space_operators, operator_states, strict=True,
+                ):
+                    restore = getattr(operator, "restore_accepted_state", None)
+                    if callable(restore):
+                        restore(state)
+                    elif state is not None:
+                        raise TypeError(
+                            "Affine checkpoint has State for an Operator without restore."
+                        )
+                self._operator_checkpoint_state()
             self.state_transaction.accepted_factor = coordinate
             self.state_transaction.prepare_resume()
             observer_state = payload.get("accepted_observer_state", {})
@@ -2087,6 +2165,7 @@ class AffineNonlinearVariationalProblem:
             self.operator_dual_history.restore_runtime_state(
                 lifecycle_backup["operator_dual_history"]
             )
+            self._restore_operator_runtime_state(operator_backup)
             _set_affine_operator_factor(
                 self.full_space_operators, self.accepted_load_factor,
             )

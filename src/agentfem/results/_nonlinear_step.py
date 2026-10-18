@@ -391,9 +391,20 @@ def _add_affine_constraint_evidence(step, result) -> None:
         ))
     if contacts:
         contact_potential = 0.0
+        friction_dissipation = 0.0
+        friction_release = 0.0
+        has_friction = False
         for contact in contacts:
             contact_contribution = contact.evaluate()
             contact_potential += contact_contribution.assembly.potential_energy
+            if contact_contribution.friction_assembly is not None:
+                has_friction = True
+                friction_dissipation += (
+                    contact_contribution.friction_assembly.cumulative_dissipation
+                )
+                friction_release += (
+                    contact_contribution.friction_assembly.cumulative_separation_release
+                )
             if not contact.has_prescribed_motion:
                 work_evidence = (*work_evidence, constraint_api.constraint_work(
                     contact,
@@ -408,6 +419,17 @@ def _add_affine_constraint_evidence(step, result) -> None:
             kind="diagnostic",
             description="Recoverable rigid penalty contact potential.",
         )
+        if has_friction:
+            result.add_quantity(
+                "friction_dissipation", friction_dissipation,
+                kind="diagnostic",
+                description="Accepted cumulative Coulomb sliding dissipation.",
+            )
+            result.add_quantity(
+                "friction_separation_release", friction_release,
+                kind="diagnostic",
+                description="Accepted cumulative released tangential penalty energy.",
+            )
     result.metadata["constraint_balance_contract"] = (
         constraint_api.constraint_balance_contract(
             assets,
