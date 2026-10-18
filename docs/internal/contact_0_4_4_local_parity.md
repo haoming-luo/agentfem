@@ -374,6 +374,17 @@ The gate stays open until its listed evidence exists at the proposed scope.
    [variational-inequality Newton options][petsc-vi] are another algorithmic
    reference, but a bound on displacement DOFs does not directly represent
    a nonmatching rigid-surface gap or cure multiplier-space instability.
+   The next *research* comparison should hold the same fixed trace and J2
+   path while solving the Alart--Curnier-style semismooth mixed residual
+   `R_u(u,lambda)=R_bulk(u)-B(u)^T[lambda-k g(u)]_+` and
+   `R_lambda(u,lambda)=lambda-[lambda-k g(u)]_+`. On an active point the
+   latter has displacement derivative `k B` and zero multiplier diagonal;
+   on an inactive point it has unit multiplier diagonal. This exposes why a
+   rank-deficient *reduced* `B T` can make a simultaneous solve singular,
+   even when a scalar example converges in one Newton step. It is a design
+   candidate, **not** the implemented global law; a mesh-stable multiplier
+   space or reviewed stabilization, consistent geometry derivatives, and
+   joint accepted State remain mandatory before a public option exists.
 
    On the same 2-cell/axis, 12-increment, q7 L-prism diagnostic above,
    increasing the *penalty* from 20 to 200, 1,000, 10,000 and 100,000
@@ -478,6 +489,39 @@ The gate stays open until its listed evidence exists at the proposed scope.
    times as a separate incrementation choice; these distinguish physical
    path resolution from output-frame frequency [Abaqus direct-cyclic time
    points][abaqus-time-points], [Abaqus output timing][abaqus-output-times].
+   A separate **diagnostic, not acceptance** now runs
+   `examples/finite_j2_hertz_contact.py` on a quarter finite block with a
+   spherical tool. Holding `--quarter --grading 2 --indentation 0.002
+   --radius 20 --increments 4` and the example's other defaults fixed gives:
+
+   | cells/side | penalty | full tool force | active reference area | max penetration |
+   | ---: | ---: | ---: | ---: | ---: |
+   | 7 | 100,000 | 0.712466 | 0.142459 | 0.00007267 |
+   | 9 | 100,000 | 0.696875 | 0.143011 | 0.00007231 |
+   | 11 | 100,000 | 0.692319 | 0.138502 | 0.00007205 |
+   | 7 | 300,000 | 0.726972 | 0.134057 | 0.00002812 |
+   | 9 | 300,000 | 0.710146 | 0.135631 | 0.00002568 |
+   | 11 | 300,000 | 0.706214 | 0.126903 | 0.00002499 |
+
+   Reproduce one row with `python examples/finite_j2_hertz_contact.py
+   --quarter --cells 11 --grading 2 --penalty 100000 --indentation 0.002
+   --radius 20 --increments 4` in the FEniCSx environment. At 11 cells,
+   tripling penalty still changes force by about 2.0% and active area by about
+   8.4%; the area also changes nonmonotonically under refinement. Two versus
+   four increments were nearly identical at the coarse elastic 2/3-cell
+   levels, but that does **not** establish plastic-path or general time-step
+   independence. On the 11-cell, 300,000-penalty row, increasing contact
+   quadrature degree from 3 (4 points/face) to 5 (9) and 7 (16) gives tool
+   forces 0.706214, 0.705531 and 0.705975 respectively, while active areas
+   are 0.126903, 0.129983 and 0.127824. This makes force look much less
+   sensitive than the active footprint; no quadrature degree is promoted on
+   that observation alone. The half-space Hertz force printed by the example
+   is only a scale reference: the solved problem is a finite, bottom-clamped block with
+   finite penalty, finite-strain kinematics and sampled contact. Neither its
+   Hertz mismatch nor completion alone certifies or refutes this formulation.
+   The next gate needs a denser, independently checked finite-block reference
+   and a declared pressure/area discretization tolerance, not a selectively
+   chosen force match.
    The nonconvex penalty sequence is not converged.
    Reading: [NAFEMS benchmark
    catalog][nafems], [Abaqus contact verification cases][abaqus-verification]
