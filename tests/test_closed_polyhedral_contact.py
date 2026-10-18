@@ -22,6 +22,7 @@ from agentfem.boundary_models.contact_separation_bound import (
 from agentfem.boundary_models.contact_feature_path import AcceptedContactFeaturePath
 from agentfem.boundary_models.contact_planar_branch_bound import (
     _coplanar_patch_covers_face,
+    _quadratic_plane_distance_difference_lower_bound,
     certify_closed_planar_branch,
     certify_reviewed_planar_branch,
 )
@@ -177,7 +178,7 @@ def test_reviewed_open_patch_proves_whole_face_across_coplanar_seam():
         )
 
 
-def test_reviewed_open_sheet_refinement_proves_only_the_same_nearest_plane():
+def test_reviewed_open_sheet_quadratic_bound_proves_only_the_same_nearest_plane():
     surface = boundary_models.triangulated_rigid_surface(
         vertices=(
             (1., 0., 0.), (1., 0., 2.), (1., 2., 2.), (1., 2., 0.),
@@ -195,9 +196,12 @@ def test_reviewed_open_sheet_refinement_proves_only_the_same_nearest_plane():
     refined = certify_reviewed_planar_branch(
         broad, surface, projector=search,
     )
-    assert not coarse.certified
-    assert coarse.status == "another_master_feature_can_compete"
+    # The old center-minus-2r test needed subdivision here. The exact
+    # squared-plane quadratic now proves the competing finite triangle is
+    # farther over the *whole* P1 face without that refinement.
+    assert coarse.certified, coarse.status
     assert refined.certified, refined.status
+    assert coarse.minimum_competitor_clearance > 0
     assert refined.minimum_competitor_clearance > 0
     samples = np.asarray((
         broad[0, 0], broad[0, 1], broad[0, 2],
@@ -209,13 +213,45 @@ def test_reviewed_open_sheet_refinement_proves_only_the_same_nearest_plane():
         (samples - refined.plane_points[0]) @ refined.plane_normals[0],
         atol=1e-12,
     )
-    near_competitor = broad.copy()
-    near_competitor[:, :, 1] += 0.3
+    closer_but_still_smooth = broad.copy()
+    closer_but_still_smooth[:, :, 1] += 0.3
+    admitted = certify_reviewed_planar_branch(
+        closer_but_still_smooth, surface, projector=search,
+    )
+    assert admitted.certified, admitted.status
+    actually_competing = boundary_models.triangulated_rigid_surface(
+        vertices=(
+            (1., 0., 0.), (1., 0., 2.), (1., 2., 2.), (1., 2., 0.),
+            (0.94, 1.9, 0.8), (0.96, 1.9, 0.8), (0.94, 1.9, 0.9),
+        ),
+        triangles=((0, 1, 2), (0, 2, 3), (4, 5, 6)),
+        name="actual_nonplanar_competitor",
+    )
     rejected = certify_reviewed_planar_branch(
-        near_competitor, surface, projector=search,
+        broad + np.asarray((0., 0.5, 0.)), actually_competing,
+        projector=boundary_models.triangle_surface_bvh(actually_competing),
     )
     assert not rejected.certified
     assert rejected.status == "another_master_feature_can_compete"
+
+
+def test_plane_distance_quadratic_refuses_a_hidden_interior_competitor():
+    triangle = np.asarray((((1., 2., 0.), (1., -2., 0.), (2., 3., 0.))))
+    candidate_normal = np.asarray((1., 0., 0.))
+    other_normal = np.asarray((0., 1., 0.))
+    corner_difference = triangle[:, 1] ** 2 - triangle[:, 0] ** 2
+    assert np.all(corner_difference > 0.0)
+    lower, _, _ = _quadratic_plane_distance_difference_lower_bound(
+        triangle, candidate_normal, 0.0, other_normal, 0.0,
+    )
+    midpoint = np.mean(triangle, axis=0)
+    assert lower < midpoint[1] ** 2 - midpoint[0] ** 2 < 0.0
+
+    safe = np.asarray((((1., 2., 0.), (1., 3., 0.), (1.2, 2.2, 0.))))
+    safe_lower, _, _ = _quadratic_plane_distance_difference_lower_bound(
+        safe, candidate_normal, 0.0, other_normal, 0.0,
+    )
+    assert safe_lower > 0.0
 
 
 def test_current_face_separation_refuses_hidden_and_budget_limited_contact():
@@ -314,8 +350,7 @@ def test_closed_solid_planar_branch_needs_full_face_and_competitor_clearance():
     coarse_only = certify_closed_planar_branch(
         broad_face, tool, maximum_refinement_levels=0,
     )
-    assert not coarse_only.certified
-    assert coarse_only.status == "another_master_feature_can_compete"
+    assert coarse_only.certified, coarse_only.status
     broad = certify_closed_planar_branch(broad_face, tool)
     assert broad.certified, broad.status
     assert broad.minimum_competitor_clearance > 0
@@ -327,11 +362,6 @@ def test_closed_solid_planar_branch_needs_full_face_and_competitor_clearance():
     np.testing.assert_allclose(
         rotated_broad.plane_normals, broad.plane_normals @ rotation.T,
     )
-    exhausted = certify_closed_planar_branch(
-        broad_face, tool, _refinement_budget=[0],
-    )
-    assert not exhausted.certified
-    assert exhausted.status == "geometry_budget_exceeded"
     barycentric = np.asarray([
         (1 - r - s, r, s)
         for r in np.linspace(0.0, 1.0, 17)
@@ -359,6 +389,11 @@ def test_closed_solid_planar_branch_needs_full_face_and_competitor_clearance():
         "projection_can_leave_master_patch",
         "ambiguous_center_projection",
     }
+    exhausted = certify_closed_planar_branch(
+        crossing, tool, _refinement_budget=[0],
+    )
+    assert not exhausted.certified
+    assert exhausted.status == "geometry_budget_exceeded"
     assert not certify_closed_planar_branch(
         cell, tool, maximum_master_facets=1,
     ).certified

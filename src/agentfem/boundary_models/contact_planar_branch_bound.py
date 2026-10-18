@@ -55,6 +55,36 @@ def _planar_polygon_area(polygon, normal):
     )))
 
 
+def _quadratic_plane_distance_difference_lower_bound(
+    cell, candidate_normal, candidate_offset, other_normal, other_offset,
+):
+    """Bernstein lower bound for other-plane squared distance minus candidate.
+
+    Both signed plane gaps are affine on one P1 face, so their squared
+    difference is exactly quadratic. Its six degree-two Bernstein
+    coefficients bound the entire face; three vertex samples alone do not.
+    The other *infinite plane* gives a lower bound on distance to its finite
+    master triangle, hence a positive result safely excludes that triangle.
+    """
+
+    samples = np.vstack((
+        cell,
+        0.5 * (cell[0] + cell[1]),
+        0.5 * (cell[1] + cell[2]),
+        0.5 * (cell[2] + cell[0]),
+    ))
+    candidate = samples @ candidate_normal - candidate_offset
+    other = samples @ other_normal - other_offset
+    values = other**2 - candidate**2
+    coefficients = np.asarray((
+        *values[:3],
+        2.0 * values[3] - 0.5 * (values[0] + values[1]),
+        2.0 * values[4] - 0.5 * (values[1] + values[2]),
+        2.0 * values[5] - 0.5 * (values[2] + values[0]),
+    ))
+    return float(np.min(coefficients)), candidate[:3], other[:3]
+
+
 def _coplanar_patch_covers_face(
     feet, master, coplanar_slots, normal, *, maximum_pieces=256,
 ):
@@ -217,6 +247,7 @@ def certify_reviewed_planar_branch(
     )
     length_margin = 128.0 * np.finfo(float).eps * scale
     angular_margin = 128.0 * np.finfo(float).eps
+    squared_margin = 256.0 * np.finfo(float).eps * scale**2
     barycentric_margin = 1.0e-10
     normals = facets._facet_normals
     offsets = np.einsum("ij,ij->i", normals, master[:, 0, :])
@@ -283,10 +314,29 @@ def certify_reviewed_planar_branch(
             foot = _closest_point_on_triangle(center, *other)
             competitor_distance = float(np.linalg.norm(center - foot))
             clearance = competitor_distance - candidate_distance - 2.0 * radius
-            face_clearance = min(face_clearance, clearance)
-            if clearance <= length_margin:
-                uncertain_competitor = True
-                break
+            if clearance > length_margin:
+                face_clearance = min(face_clearance, clearance)
+                continue
+            lower_squared, candidate_vertices, other_vertices = (
+                _quadratic_plane_distance_difference_lower_bound(
+                    cell, normal, offset, normals[other_slot], offsets[other_slot],
+                )
+            )
+            if lower_squared > squared_margin:
+                # |g_other_plane| <= max at vertices because its gap is affine.
+                # Divide the squared-distance bound by an upper bound on the
+                # sum of plane distances to obtain a positive length bound.
+                denominator = np.nextafter((
+                    np.max(np.abs(candidate_vertices))
+                    + np.max(np.abs(other_vertices))
+                ), np.inf)
+                face_clearance = min(
+                    face_clearance,
+                    (lower_squared - squared_margin) / denominator,
+                )
+                continue
+            uncertain_competitor = True
+            break
         if uncertain_competitor:
             if not maximum_refinement_levels:
                 return failed("another_master_feature_can_compete", examined)

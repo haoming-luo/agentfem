@@ -132,6 +132,19 @@ this **geometry-proof component** near its declared 4096-facet cap. It does
 not measure full finite-J2 solve speed, improve the cap, or establish
 portability to another mesh or computer. The broad-phase candidate lists
 are also compared against exhaustive facet boxes in a deterministic test.
+For a nearby facet that fails the center/`2r` exclusion, the proof now has
+a second conservative route: the other facet's *infinite plane* is no
+farther than its finite triangle. The difference between its squared plane
+distance and the selected plane's squared distance is a quadratic over a
+P1 slave face. Six degree-two Bernstein coefficients bound that difference
+over the whole face. A strictly positive lower bound excludes the competitor
+without subdivision; an inconclusive bound retains the old subdivision or
+fail-closed result. One open-sheet and one closed L-wall fixture that
+previously needed refinement now pass with refinement depth zero, while a
+manufactured truly competing facet still rejects. A three-vertex-only
+distance test is separately shown to miss an interior competitor. This is
+still a single-smooth-branch *certificate*, not a conic feature-switch
+integral, and no full-solve speed improvement is claimed.
 The runnable closed-tool example now has a separate one-axis-at-a-time
 mesh/increment/penalty sensitivity driver. Its eleven serial synthetic runs
 all completed with certified smooth branches, but their terminal tool work
