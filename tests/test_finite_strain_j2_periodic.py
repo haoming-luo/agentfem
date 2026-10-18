@@ -552,6 +552,69 @@ def test_periodic_j2_active_reentrant_edge_reduces_total_tangent():
         transformation.destroy()
 
 
+def test_periodic_j2_opposed_active_tools_include_reentrant_edge_and_restart(
+    tmp_path,
+):
+    surface = _active_reentrant_periodic_surface()
+    fixture, periodicity, continuous = _periodic_j2_contact_step(
+        surface=surface, opposed_pair=True,
+    )
+    result = continuous.solve_result()
+    assert result.status == "completed"
+    assert len(continuous.contact_providers) == 2
+    assert all(provider.evaluate().active_points > 0
+               for provider in continuous.contact_providers)
+    provider = continuous.contact_providers[0]
+    _, record, response, _ = provider._current_point_response()
+    features = [
+        surface._geometric_feature_projector(
+            surface._facet_slots[int(identity)], barycentric,
+        )[1]
+        for identity, barycentric in zip(
+            record.projection.entity_ids,
+            record.projection.local_coordinates, strict=True,
+        )
+    ]
+    assert any(active and feature == "edge" for active, feature in zip(
+        response.active, features, strict=True,
+    ))
+    names = tuple(item.name for item in continuous.contact_providers)
+    assert tuple(
+        item["constraint_name"] for item in result.metadata["constraint_duals"]
+        if item["role"] == "contact_constraint"
+    ) == names
+    reduction = periodicity.reduction(1.0).matrix(fixture.domain.comm)
+    total = continuous.assemble_full_residual()
+    reduced = reduction.createVecRight()
+    try:
+        reduction.multTranspose(total, reduced)
+        assert reduced.norm() < 1.0e-5
+    finally:
+        reduced.destroy()
+        total.destroy()
+        reduction.destroy()
+
+    _, _, partial = _periodic_j2_contact_step(
+        surface=surface, opposed_pair=True,
+    )
+    partial.solve(until=2.0 / 3.0)
+    saved = partial.save_checkpoint(tmp_path / "opposed_reentrant_tools")
+    _, _, resumed = _periodic_j2_contact_step(
+        surface=surface, opposed_pair=True,
+    )
+    resumed.load_checkpoint(saved)
+    assert resumed.solve_result().status == "completed"
+    np.testing.assert_allclose(
+        resumed.solution.x.array, continuous.solution.x.array,
+        rtol=1.0e-9, atol=1.0e-10,
+    )
+    np.testing.assert_allclose(
+        resumed.state_transaction.response.state.committed_state_vectors(),
+        continuous.state_transaction.response.state.committed_state_vectors(),
+        rtol=1.0e-9, atol=1.0e-10,
+    )
+
+
 @pytest.mark.parametrize("with_friction", [False, True])
 def test_periodic_j2_total_material_contact_jacobian(with_friction):
     import dolfinx.fem as fem

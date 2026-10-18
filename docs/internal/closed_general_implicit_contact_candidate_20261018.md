@@ -99,6 +99,14 @@ manufactured FE regression; it does **not** establish a mesh, penalty or
 increment limit, a same-input Abaqus comparison, or robust convergence across
 arbitrary active-set switches.
 
+With the same active reentrant edge under prescribed translation plus a small
+rotation, a separate accepted-state regression independently integrates the
+unsmoothed point tractions about the current tool reference point. Its force
+and moment agree with the provider dual, and the fixed-displacement contact
+potential derivative agrees with their generalized work. This checks a
+current smooth branch of the nonsmooth geometry, not work convergence through
+a feature switch.
+
 A separate three-dimensional pressure-controlled block uses only tangential
 restraints on its opposite face, so no hidden normal support can carry the
 imposed force. With the reviewed L-prism's planar face active, the integrated
@@ -189,6 +197,12 @@ An opposed active frictionless sphere plus moving frictional plane also kept
 separate pair States through a v2 restart and reproduced the final field and
 accepted sliding dissipation. This is a two-tool composition check, not a
 general multi-body or distributed-contact benchmark.
+An additional affine-periodic check places an active reentrant edge opposite
+an active analytical sphere. Both contact duals remain named separately from
+the periodic dual, the total material-plus-both-contacts residual reduces to
+zero, and a serial checkpoint reproduces displacement and committed J2 State.
+It does not establish convergence across an edge transition or distributed
+multi-tool assembly.
 Changing the Coulomb coefficient invalidates the scientific restart identity;
 corrupting the second pair's checkpoint data rejects the entire load before
 the first pair's friction State can remain half-restored. An injected late

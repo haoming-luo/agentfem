@@ -453,6 +453,66 @@ def test_fast_closed_sign_preserves_active_edge_plastic_step_result(tmp_path):
         _patch(**options, closed_sign_method="angle_weighted_pseudonormal")[3].load_checkpoint(saved)
 
 
+def test_active_reentrant_edge_moving_tool_force_moment_are_work_conjugate():
+    # The normal force at a physical edge is not the planar-face branch.
+    # Verify the tool moment by an independent point-traction integral, then
+    # compare generalized work against a fixed-displacement energy derivative.
+    step = _patch(
+        triangulated=True, closed_concave_tool=True,
+        closed_concave_extent=0.7, closed_concave_corner=(0.35, 0.19),
+        closed_concave_thickness=0.5, gap=0.005,
+        tool_translation=(-0.055, 0.0, 0.0),
+        tool_rotation=(0.0, 0.0, 0.01),
+        penalty=20.0, applied_traction=0.0, increments=6,
+        yield_stress=0.05,
+    )[3]
+    assert step.solve_result().status == "completed"
+    provider = step.contact_provider
+    samples = provider.accepted_point_samples()
+    surface = provider.pair.rigid_body.surface
+    _, record, response, _ = provider._current_point_response()
+    features = [
+        surface._geometric_feature_projector(
+            surface._facet_slots[int(identity)], barycentric,
+        )[1]
+        for identity, barycentric in zip(
+            record.projection.entity_ids,
+            record.projection.local_coordinates, strict=True,
+        )
+    ]
+    assert any(active and feature == "edge" for active, feature in zip(
+        response.active, features, strict=True,
+    ))
+
+    motion = provider.pair.rigid_body.motion_schedule.motion
+    current_reference = np.asarray(motion.state(1.0)["reference_point"])
+    point_force = (
+        samples["reference_weights"] * samples["normal_pressures"]
+    )[:, None] * samples["surface_normals"]
+    independent_force = np.sum(point_force, axis=0)
+    independent_moment = np.sum(np.cross(
+        samples["master_closest_points"] - current_reference,
+        point_force,
+    ), axis=0)
+    dual = step._contact_dual()
+    np.testing.assert_allclose(dual.force[:3], independent_force, atol=1.0e-11)
+    np.testing.assert_allclose(dual.force[3:], independent_moment, atol=1.0e-11)
+
+    delta = 1.0e-6
+    potential = step._contact_potential()
+    try:
+        provider.update_motion(1.0 - delta)
+        preceding_potential = step._contact_potential()
+    finally:
+        provider.update_motion(1.0)
+    work_derivative = float(np.dot(
+        dual.force, motion.generalized_coordinate(1.0),
+    ))
+    assert (potential - preceding_potential) / delta == pytest.approx(
+        work_derivative, rel=2.0e-4,
+    )
+
+
 def test_mixed_concave_and_plane_tools_keep_distinct_work_and_restart(tmp_path):
     def build():
         model, displacement, material, _ = _patch(
