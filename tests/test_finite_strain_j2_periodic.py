@@ -841,6 +841,19 @@ def test_periodic_j2_friction_and_opposed_frictionless_tool_restart(tmp_path):
     assert payload["schema"] == "agentfem.affine-stateful-checkpoint.v2"
     assert payload["operator_accepted_state"][0] is not None
     assert payload["operator_accepted_state"][1] is None
+    damaged = json.loads(json.dumps(payload))
+    damaged["operator_accepted_state"][1] = {"invalid": "frictionless_pair"}
+    damaged_path = saved.with_name("mixed_contact_damaged.checkpoint.json")
+    damaged_path.write_text(json.dumps(damaged), encoding="utf-8")
+    _, _, rejected = _periodic_j2_contact_step(**options)
+    rejected_u = rejected.solution.x.array.copy()
+    with pytest.raises(ValueError, match="frictionless rigid pair"):
+        rejected.load_checkpoint(damaged_path)
+    np.testing.assert_array_equal(rejected.solution.x.array, rejected_u)
+    assert rejected.contact_providers[0].friction_state.accepted is None
+    assert rejected.contact_providers[1].friction_state is None
+    assert rejected.contact_providers[0].snapshot_motion() == pytest.approx(0.0)
+
     _, _, resumed = _periodic_j2_contact_step(**options)
     resumed.load_checkpoint(saved)
     resumed_result = resumed.solve_result()
@@ -851,6 +864,42 @@ def test_periodic_j2_friction_and_opposed_frictionless_tool_restart(tmp_path):
     assert resumed_result.quantity("friction_dissipation") == pytest.approx(
         result.quantity("friction_dissipation"), rel=1e-9,
     )
+
+
+def test_periodic_mixed_contact_late_commit_failure_rolls_back_all_pairs(
+    monkeypatch,
+):
+    surface = boundary_models.rigid_plane(
+        point=(1.01, 0.0, 0.0), normal=(-1.0, 0.0, 0.0),
+    )
+    motion = boundary_models.prescribed_rigid_motion(
+        translation=(0.0, 0.02, 0.0),
+        reference_point=(1.6, 0.5, 0.5),
+    )
+    _, _, step = _periodic_j2_contact_step(
+        surface=surface, motion=motion, opposed_pair=True,
+        friction_coefficient=0.2, tangential_penalty=1000.0,
+    )
+    initial_solution = step.solution.x.array.copy()
+    initial_material = step.state_transaction.response.state.committed_state_vectors().copy()
+
+    def fail_second_pair_commit():
+        raise RuntimeError("injected second pair commit failure")
+
+    monkeypatch.setattr(
+        step.contact_providers[1], "commit_accepted", fail_second_pair_commit,
+    )
+    with pytest.raises(RuntimeError, match="second pair commit failure"):
+        step.solve()
+    assert step.accepted_load_factor == 0.0
+    np.testing.assert_array_equal(step.solution.x.array, initial_solution)
+    np.testing.assert_array_equal(
+        step.state_transaction.response.state.committed_state_vectors(),
+        initial_material,
+    )
+    assert step.contact_providers[0].friction_state.accepted is None
+    assert step.contact_providers[0].snapshot_motion() == pytest.approx(0.0)
+    assert not step.accepted_increments
 
 
 @pytest.mark.parametrize("tool_kind", ["triangle", "closed_concave"])

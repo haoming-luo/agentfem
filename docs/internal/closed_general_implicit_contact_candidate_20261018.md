@@ -170,6 +170,11 @@ Its installed package path, not the checkout, supplied the public affine-J2
 regressions; all five passed. `_hex_native` and `_body_pipeline` imported from
 the same isolated installation. This verifies packaging of the bounded serial
 entry point, not other operating systems, MPI contact, or full-scale accuracy.
+The same wheel ran the standalone public example at six increments with an
+active reentrant edge and wrote `fields.xdmf`, its HDF5 payloads and
+`result.json`: maximum PEEQ `0.004630797762550675`, tool work
+`0.010730556638046358`. Its own result scope remains
+`serial_manufactured_fixture_not_external_validation`.
 The source-side serial checkpoint policy also passed `every=1, keep_last=1`:
 only the final v2 artifact remained and its accepted Coulomb history restored.
 `portable=True` is correctly rejected at preflight for an external contact
@@ -178,6 +183,16 @@ An opposed active frictionless sphere plus moving frictional plane also kept
 separate pair States through a v2 restart and reproduced the final field and
 accepted sliding dissipation. This is a two-tool composition check, not a
 general multi-body or distributed-contact benchmark.
+
+The next sharp-feature friction gate is not a normal-averaging patch.
+[Abaqus' contact overview](https://docs.software.vt.edu/abaqusv2025/English/SIMACAEITNRefMap/simaitn-c-contactoverview.htm)
+describes distinct finite-sliding surface, edge and vertex formulations,
+while its [contact-controls guide](https://docs.software.vt.edu/abaqusv2025/English/SIMACAEITNRefMap/simaitn-c-genlcontnumcontrolsstd.htm)
+distinguishes force redistribution smoothness at sliding transitions. We
+therefore retain the current fail-closed physical-edge friction boundary until
+an explicit transition law, generalized tangent, force/work audit and
+cross-feature convergence reference are available. Smoothing a geometric
+normal alone would change the model without establishing those contracts.
 
 ### Sign-query performance experiment, not a whole-Step speed claim
 
