@@ -34,8 +34,11 @@ Promote only combinations that pass independent same-input comparison,
 mesh/increment/enforcement convergence, residual--tangent and lifecycle
 checks. A failed nonconvex sharp-feature gate narrows the release statement;
 it must not be hidden by a visually plausible contour or another penalty
-choice. Distributed implicit contact, deformable--deformable/self contact,
-shell-thickness contact and arbitrary CAD remain outside this bounded target.
+choice. A moving feature boundary in a surface integral and actual physical
+edge/vertex contact are separate numerical questions: passing one does not
+license the other. Distributed implicit contact, deformable--deformable/self
+contact, shell-thickness contact and arbitrary CAD remain outside this bounded
+target.
 
 ### 0.4.3 released composition and next gate (2026-10-17)
 
