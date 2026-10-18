@@ -267,6 +267,19 @@ def test_closed_convex_tool_uses_ordinary_j2_step_and_matches_planar_limit():
 
 
 def test_faceted_initial_overlap_limit_rejects_before_finite_j2_newton():
+    model, displacement, material, _ = _patch(
+        triangulated=True, gap=-0.05,
+        initial_penetration_limit=0.01,
+        applied_traction=0.0, make_step=False,
+    )
+    capability = step_capability(
+        model, target=displacement, options={"material": material},
+    )
+    assert not capability["supported"]
+    assert any(
+        item["message"].startswith("AFM-CONTACT-INITIAL-BOUND")
+        for item in capability["rejection_reasons"]
+    )
     with pytest.raises(NotImplementedError, match="AFM-CONTACT-INITIAL-BOUND"):
         _patch(
             triangulated=True, gap=-0.05,
@@ -276,6 +289,15 @@ def test_faceted_initial_overlap_limit_rejects_before_finite_j2_newton():
 
 
 def test_certified_plane_initial_overlap_limit_reaches_ordinary_j2_result():
+    model, displacement, material, _ = _patch(
+        triangulated=False, gap=0.005,
+        initial_penetration_limit=0.01,
+        applied_traction=0.0, make_step=False,
+    )
+    capability = step_capability(
+        model, target=displacement, options={"material": material},
+    )
+    assert capability["supported"], capability["rejection_reasons"]
     with pytest.raises(ValueError, match="AFM-CONTACT-INITIAL-OVERLAP"):
         _patch(
             triangulated=False, gap=-0.05,
@@ -294,6 +316,23 @@ def test_certified_plane_initial_overlap_limit_reaches_ordinary_j2_result():
     assert result.metadata["rigid_contact_point_diagnostics"][
         "initial_contact"
     ]["face_wise_bound_certified"] is True
+
+
+def test_quadratic_plane_initial_overlap_limit_is_not_misadvertised():
+    model, displacement, material, _ = _patch(
+        triangulated=False, initial_penetration_limit=0.01,
+        displacement_degree=2, make_step=False,
+    )
+    capability = step_capability(
+        model, target=displacement, options={"material": material},
+    )
+    assert not capability["supported"]
+    assert any(
+        item["message"].startswith("AFM-CONTACT-INITIAL-BOUND")
+        for item in capability["rejection_reasons"]
+    )
+    with pytest.raises(NotImplementedError, match="AFM-CONTACT-INITIAL-BOUND"):
+        model.step(target=displacement, material=material)
 
 
 def test_reviewed_closed_concave_tool_uses_ordinary_j2_step_and_restart(tmp_path):

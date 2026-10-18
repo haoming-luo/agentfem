@@ -356,6 +356,7 @@ def _accept_finite_strain_j2_affine(model, request: StepRequest) -> bool:
         and affine_rigid_contact_supported(model)
         and _finite_j2_bulk_quadrature_rejection_reason(request) is None
         and _contact_integration_rejection_reason(model, request) is None
+        and _initial_contact_bound_rejection_reason(model, request) is None
     )
 
 
@@ -438,6 +439,9 @@ def _finite_strain_j2_affine_boundary_rejection(model, request: StepRequest) -> 
     integration_problem = _contact_integration_rejection_reason(model, request)
     if integration_problem is not None:
         return integration_problem
+    initial_bound_problem = _initial_contact_bound_rejection_reason(model, request)
+    if initial_bound_problem is not None:
+        return initial_bound_problem
     if not getattr(model, "boundary_models", ()) or affine_rigid_contact_supported(model):
         return None
     return (
@@ -515,6 +519,8 @@ def _accept_finite_strain_j2_strong(model, request: StepRequest) -> bool:
         return False
     if _contact_integration_rejection_reason(model, request) is not None:
         return False
+    if _initial_contact_bound_rejection_reason(model, request) is not None:
+        return False
     boundary_models = tuple(getattr(model, "boundary_models", ()))
     if not boundary_models:
         return True
@@ -584,6 +590,44 @@ def _contact_quadrature_rejection_reason(model, request: StepRequest) -> str | N
             "AFM-CONTACT-QUADRATURE: explicit degree currently requires "
             "a CG1/CG2 tetrahedral or hexahedral displacement and "
             "first- or second-order geometry."
+        )
+    return None
+
+
+def _initial_contact_bound_rejection_reason(model, request: StepRequest) -> str | None:
+    """Keep a requested *certified* reference overlap bound out of sampled paths.
+
+    The lower-level contact provider checks the actual nodal extrema. This
+    inexpensive admission check mirrors its geometric proof prerequisites,
+    without projecting or assembling during a capability probe.
+    """
+
+    from .boundary_models import RigidContactPair, RigidPlaneSurface
+
+    bounded = tuple(
+        pair for pair in getattr(model, "boundary_models", ())
+        if isinstance(pair, RigidContactPair)
+        and pair.initial_penetration_limit is not None
+    )
+    if not bounded:
+        return None
+    value = getattr(request.target, "value", None)
+    space = getattr(value, "function_space", None)
+    domain = getattr(space, "mesh", None)
+    degree = getattr(getattr(space, "element", None), "basix_element", None)
+    if (
+        domain is None
+        or degree is None
+        or int(degree.degree) != 1
+        or int(domain.geometry.cmaps[0].degree) != 1
+        or any(not isinstance(pair.rigid_body.surface, RigidPlaneSurface)
+               for pair in bounded)
+    ):
+        return (
+            "AFM-CONTACT-INITIAL-BOUND: initial_penetration_limit requires "
+            "an analytical rigid plane, first-order slave interpolation "
+            "and first-order geometry; sampled curved/faceted overlap is "
+            "not a certified face-wise bound."
         )
     return None
 
@@ -678,6 +722,9 @@ def _finite_strain_j2_strong_rejection_reason(model, request: StepRequest) -> st
     integration_problem = _contact_integration_rejection_reason(model, request)
     if integration_problem is not None:
         return integration_problem
+    initial_bound_problem = _initial_contact_bound_rejection_reason(model, request)
+    if initial_bound_problem is not None:
+        return initial_bound_problem
     boundary_models = tuple(getattr(model, "boundary_models", ()))
     if (
         len(boundary_models) > 1

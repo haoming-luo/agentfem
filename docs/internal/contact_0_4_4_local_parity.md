@@ -72,6 +72,8 @@ The gate stays open until its listed evidence exists at the proposed scope.
    a face-wise bound; this catches a corner penetration missed by quadrature.
    Other surfaces report sampled initial overlap but reject a requested
    limit instead of pretending those samples certify a whole face. The
+   ordinary Step capability query now reports that unsupported policy before
+   Step construction, including a higher-order planar slave trace. The
    explicit pair also rejects the unsupported policy. No branch silently
    moves slave nodes or the tool. Arbitrary large-CAD and ambiguous sharp
    features are not admitted. Reading:
