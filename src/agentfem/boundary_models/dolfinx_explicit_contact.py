@@ -33,6 +33,7 @@ from .contact_friction import (
     TangentialContactState,
     TangentialKinematicState,
     relative_contact_displacement_increment,
+    rigid_tangential_history_rotation,
 )
 from .contact_friction_checkpoint import (
     global_friction_state_snapshot,
@@ -563,6 +564,15 @@ class DolfinxExplicitContactResidual:
                 normal_response=response,
                 relative_displacement_increment=relative_increment,
                 accepted=self.friction_state.accepted,
+                history_rotation=rigid_tangential_history_rotation(
+                    None if self.motion_schedule is None
+                    else self.motion_schedule.motion,
+                    accepted_motion_factor=(
+                        0.0 if accepted_kinematics is None
+                        else accepted_kinematics.motion_factor
+                    ),
+                    current_motion_factor=self.current_motion_factor,
+                ),
             )
             friction_assembly = trace_evaluation.assemble_friction(
                 projection.record,

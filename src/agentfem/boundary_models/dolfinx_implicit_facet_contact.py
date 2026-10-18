@@ -22,6 +22,7 @@ from .contact_convex_partition import (
 from .contact_friction import (
     TangentialContactRecord, TangentialContactState, TangentialKinematicRecord,
     TangentialKinematicState, relative_contact_displacement_increment,
+    rigid_tangential_history_rotation,
 )
 from .contact_state import ContactProjectionRecord
 from .closed_polyhedron import ClosedTriangulatedRigidSolid
@@ -176,8 +177,9 @@ class DolfinxImplicitRigidContact:
         """Sample reference geometry before Newton without moving the mesh.
 
         A prescribed initial overclosure is a modeling choice, not a hidden
-        geometry adjustment. The optional pair limit fails before the solve;
-        otherwise the measured state remains visible in Result diagnostics.
+        geometry adjustment. An affine first-order slave trace against an
+        analytical plane has an exact nodal extrema bound. For other geometry
+        the sampled evidence is *not* a bound, so it cannot enforce a limit.
         """
 
         evaluation = self.adapter.trace.evaluate(
@@ -190,12 +192,34 @@ class DolfinxImplicitRigidContact:
         penetrations = np.maximum(0.0, -gaps[valid])
         maximum = float(np.max(penetrations, initial=0.0))
         limit = self.pair.initial_penetration_limit
+        certified = (
+            isinstance(self.surface, RigidPlaneSurface)
+            and self.adapter.interpolation_degree == 1
+            and self.adapter.geometry_degree == 1
+        )
+        maximum_bound = None
+        if certified:
+            boundary_nodes = np.unique(evaluation.trace.node_ids.reshape(-1))
+            nodal = projector.project(
+                self.adapter.reference_nodal_positions[boundary_nodes],
+                factor=0.0,
+            )
+            if not nodal.all_valid:
+                raise ValueError(
+                    "AFM-CONTACT-INITIAL-PROJECTION: analytical-plane "
+                    "reference-node projection is invalid."
+                )
+            maximum_bound = float(np.max(
+                np.maximum(0.0, -np.asarray(nodal.signed_gaps)), initial=0.0,
+            ))
         self._initial_contact_diagnostics = {
             "sampling": "reference_boundary_quadrature_at_reference_rigid_pose",
             "sampled_point_count": int(valid.size),
             "invalid_projection_count": int(np.count_nonzero(~valid)),
             "penetrating_point_count": int(np.count_nonzero(penetrations > 0.0)),
             "maximum_penetration": maximum,
+            "maximum_penetration_bound": maximum_bound,
+            "face_wise_bound_certified": certified,
             "minimum_valid_signed_gap": (
                 None if not np.any(valid) else float(np.min(gaps[valid]))
             ),
@@ -203,10 +227,17 @@ class DolfinxImplicitRigidContact:
                 evaluation.trace.weights[valid][penetrations > 0.0]
             )),
             "admission_limit": limit,
-            "policy": "report" if limit is None else "reject_above_limit",
+            "policy": "report" if limit is None else "reject_certified_above_limit",
         }
         if limit is None:
             return
+        if not certified:
+            raise NotImplementedError(
+                "AFM-CONTACT-INITIAL-BOUND: an initial_penetration_limit "
+                "currently requires an analytical plane with first-order "
+                "slave interpolation and geometry; quadrature samples on "
+                "faceted or curved tools are not a face-wise bound."
+            )
         if not np.all(valid):
             first = int(np.flatnonzero(~valid)[0])
             raise ValueError(
@@ -215,10 +246,10 @@ class DolfinxImplicitRigidContact:
                 f"contact_point_id={int(evaluation.trace.point_ids[first])}, "
                 f"surface={self.surface.name}."
             )
-        if maximum > limit:
+        if maximum_bound > limit:
             raise ValueError(
                 "AFM-CONTACT-INITIAL-OVERLAP: reference-configuration "
-                f"penetration {maximum:.6g} exceeds the declared limit "
+                f"penetration bound {maximum_bound:.6g} exceeds the declared limit "
                 f"{limit:.6g} on pair {self.name}; no mesh or tool is moved."
             )
 
@@ -234,6 +265,16 @@ class DolfinxImplicitRigidContact:
     @property
     def name(self) -> str:
         return self.pair.name
+
+    def _tangential_history_rotation(self, factor: float) -> np.ndarray | None:
+        if self.friction_kinematics is None or self.friction_kinematics.accepted is None:
+            raise RuntimeError("Implicit friction requires accepted kinematic State.")
+        schedule = self.pair.rigid_body.motion_schedule
+        return rigid_tangential_history_rotation(
+            None if schedule is None else schedule.motion,
+            accepted_motion_factor=self.friction_kinematics.accepted.motion_factor,
+            current_motion_factor=factor,
+        )
 
     @property
     def has_prescribed_motion(self) -> bool:
@@ -402,6 +443,7 @@ class DolfinxImplicitRigidContact:
             normal_response=response,
             relative_displacement_increment=relative,
             accepted=self.friction_state.accepted,
+            history_rotation=self._tangential_history_rotation(factor),
         )
         # Validate integrated energy channels before any State mutation.
         evaluation.assemble_friction(record, candidate)
@@ -590,6 +632,7 @@ class DolfinxImplicitRigidContact:
             response = self.pair.friction.evaluate(
                 point_ids=record.point_ids, normal_response=normal,
                 relative_displacement_increment=relative, accepted=accepted,
+                history_rotation=self._tangential_history_rotation(factor),
             )
             friction_traction = np.asarray(response.surface_generalized_tractions)
             if accepted is not None:
@@ -674,6 +717,7 @@ class DolfinxImplicitRigidContact:
             normal_response=response,
             relative_displacement_increment=relative,
             accepted=self.friction_state.accepted,
+            history_rotation=self._tangential_history_rotation(factor),
         )
         friction_assembly = evaluation.assemble_friction(
             record, friction_response,

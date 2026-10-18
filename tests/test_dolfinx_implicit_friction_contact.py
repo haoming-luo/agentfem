@@ -127,6 +127,76 @@ def test_translating_plane_friction_uses_relative_tool_motion_and_tangent(
         operator.validate_accepted_configuration()
 
 
+def test_co_rotating_plane_transports_implicit_stick_state_without_false_slip():
+    motion = boundary_models.prescribed_rigid_motion(
+        translation=(0.0, 0.0, 0.0), rotation=(np.pi / 2, 0.0, 0.0),
+        reference_point=(0.05, 0.5, 0.5),
+    )
+    displacement, operator = _operator(motion=motion)
+    nodal = displacement.x.array.reshape((-1, 3))
+    nodal[:, 0] = 0.1
+    nodal[:, 1] = 0.02
+    operator.commit_accepted()
+    old = operator.evaluate()
+    assert old.friction_assembly.dissipation_increment == 0.0
+    accepted_slip = operator.friction_state.accepted.elastic_slips.copy()
+
+    reference = np.asarray(motion.reference_point)
+    rotation = np.asarray(motion.state(1.0)["rotation_matrix"])
+    old_positions = operator.adapter.reference_nodal_positions + nodal.copy()
+    new_positions = reference + (old_positions - reference) @ rotation.T
+    nodal[:] = new_positions - operator.adapter.reference_nodal_positions
+    operator.update_motion(1.0)
+    _, record, _, factor = operator._current_point_response()
+    relative = boundary_models.relative_contact_displacement_increment(
+        operator.friction_kinematics.accepted, record,
+        motion=motion, current_motion_factor=factor,
+    )
+    np.testing.assert_allclose(relative, 0.0, atol=1e-13)
+    spun = operator.evaluate()
+    np.testing.assert_allclose(
+        spun.friction_assembly.contact_force_on_structure,
+        old.friction_assembly.contact_force_on_structure @ rotation.T,
+        atol=1e-11,
+    )
+    assert spun.friction_assembly.recoverable_penalty_energy == pytest.approx(
+        old.friction_assembly.recoverable_penalty_energy,
+    )
+    assert spun.friction_assembly.dissipation_increment == pytest.approx(0.0)
+    base = displacement.x.array.copy()
+    direction = np.random.default_rng(412).normal(size=base.shape)
+    direction /= np.linalg.norm(direction)
+    epsilon = 1.0e-7
+    displacement.x.array[:] = base + epsilon * direction
+    plus = operator.evaluate().nodal_structural_residual
+    displacement.x.array[:] = base - epsilon * direction
+    minus = operator.evaluate().nodal_structural_residual
+    displacement.x.array[:] = base
+    np.testing.assert_allclose(
+        spun.tangent_action(direction.reshape((-1, 3))),
+        (plus - minus) / (2.0 * epsilon), rtol=2e-5, atol=2e-6,
+    )
+    np.testing.assert_allclose(
+        operator.friction_state.accepted.elastic_slips, accepted_slip,
+    )
+    operator.commit_accepted()
+    np.testing.assert_allclose(
+        operator.friction_state.accepted.elastic_slips,
+        accepted_slip @ rotation.T, atol=1e-13,
+    )
+    snapshot = operator.snapshot_accepted_state()
+    restored_displacement, restored = _operator(motion=motion)
+    restored_displacement.x.array[:] = displacement.x.array
+    restored_displacement.x.scatter_forward()
+    restored.update_motion(1.0)
+    restored.restore_accepted_state(snapshot)
+    restored.validate_accepted_configuration()
+    np.testing.assert_allclose(
+        restored.evaluate().friction_assembly.contact_force_on_structure,
+        spun.friction_assembly.contact_force_on_structure, atol=1e-12,
+    )
+
+
 def test_coplanar_triangle_tool_matches_analytical_plane_friction_operator():
     motion = boundary_models.prescribed_rigid_motion(
         translation=(0.0, 0.2, 0.0),

@@ -3071,6 +3071,16 @@ class FiniteStrainJ2StandardProblem:
                             "or rigid tool adjustment was applied."
                         ),
                     )
+                    if initial["face_wise_bound_certified"]:
+                        result.add_quantity(
+                            f"{dual.constraint_name}_initial_maximum_penetration_bound",
+                            initial["maximum_penetration_bound"],
+                            kind="diagnostic",
+                            description=(
+                                "Certified face-wise initial penetration bound "
+                                "for a first-order analytical-plane trace."
+                            ),
+                        )
                     if "sampled_mixed_feature_slave_faces" in point_evidence:
                         result.add_quantity(
                             f"{dual.constraint_name}_sampled_mixed_feature_slave_faces",

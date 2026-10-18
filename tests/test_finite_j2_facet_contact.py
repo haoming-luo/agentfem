@@ -182,9 +182,16 @@ def _patch(*, triangulated: bool, gap: float = 0.005, penalty=500.0,
             point=(1.0 + gap, 0, 0),
             normal=np.asarray((-1, tilt, 0)) / np.sqrt(1.0 + tilt * tilt),
         )
-        model.rigid_obstacle_contact(
-            on=right, penalty=penalty, surface=surface, motion=tool_motion,
-        )
+        if initial_penetration_limit is None:
+            model.rigid_obstacle_contact(
+                on=right, penalty=penalty, surface=surface, motion=tool_motion,
+            )
+        else:
+            model.add_boundary_model(boundary_models.rigid_contact_pair(
+                right, boundary_models.rigid_body(surface),
+                penalty=penalty,
+                initial_penetration_limit=initial_penetration_limit,
+            ))
     if constrain_contact:
         model.fix(displacement, on=right, component=0, value=contact_value)
     if applied_traction != 0.0:
@@ -259,13 +266,34 @@ def test_closed_convex_tool_uses_ordinary_j2_step_and_matches_planar_limit():
     ]["policy"] == "report"
 
 
-def test_initial_overlap_limit_rejects_before_finite_j2_newton():
-    with pytest.raises(ValueError, match="AFM-CONTACT-INITIAL-OVERLAP"):
+def test_faceted_initial_overlap_limit_rejects_before_finite_j2_newton():
+    with pytest.raises(NotImplementedError, match="AFM-CONTACT-INITIAL-BOUND"):
         _patch(
             triangulated=True, gap=-0.05,
             initial_penetration_limit=0.01,
             applied_traction=0.0,
         )
+
+
+def test_certified_plane_initial_overlap_limit_reaches_ordinary_j2_result():
+    with pytest.raises(ValueError, match="AFM-CONTACT-INITIAL-OVERLAP"):
+        _patch(
+            triangulated=False, gap=-0.05,
+            initial_penetration_limit=0.01,
+            applied_traction=0.0,
+        )
+    _, _, _, step = _patch(
+        triangulated=False, gap=0.005,
+        initial_penetration_limit=0.01,
+        applied_traction=0.0, yield_stress=1.0e9,
+    )
+    result = step.solve_result()
+    assert result.status == "completed"
+    name = step.contact_provider.name
+    assert result.quantity(f"{name}_initial_maximum_penetration_bound") == 0.0
+    assert result.metadata["rigid_contact_point_diagnostics"][
+        "initial_contact"
+    ]["face_wise_bound_certified"] is True
 
 
 def test_reviewed_closed_concave_tool_uses_ordinary_j2_step_and_restart(tmp_path):

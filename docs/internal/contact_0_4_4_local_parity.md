@@ -27,10 +27,10 @@ being silently approximated by the bounded route.
 | Gate | Current evidence | Still needed for promotion |
 | --- | --- | --- |
 | 1. Comparator | Internal and public-protocol tests | Independent same-input finite-J2 contact run and frozen observables |
-| 2. Surface | Reviewed geometry; sampled initial overclosure can be bounded on implicit rigid pairs | Full face-wise initial-overclosure certification, ambiguity and sliding coverage at target geometry |
+| 2. Surface | Reviewed geometry; exact initial-overlap bound for first-order analytical-plane trace | Face-wise bounds on curved/faceted tools, ambiguity and sliding coverage at target geometry |
 | 3. Integration | Planar/convex partitions; sampled nonconvex risk flag | Nonconvex feature-switch integral and tangent |
 | 4. Normal law | Penalty Step; fixed-trace AL operator candidate | Outer global Procedure, spatial stability and checkpoint composition |
-| 5. Friction | Locally planar Coulomb State | Admitted geometry-by-friction matrix; sharp features remain rejected |
+| 5. Friction | Locally planar Coulomb State; rigid-master spin transport tested | Admitted geometry-by-friction matrix; sharp features remain rejected |
 | 6. Transaction | Total-system and restart tests for penalty | Repeat for each new enforcement/integration law |
 | 7. Result | Pair work/pressure samples; AL local work sign | Cross-law first-law and pressure interpretation |
 | 8. Science | Local/oracle/installed tests | Mesh x increment x law convergence and external observables |
@@ -67,12 +67,14 @@ The gate stays open until its listed evidence exists at the proposed scope.
    intentionally missed-candidate trap. Current state: smooth projectors,
    triangulated BVH and reviewed closed-solid classifiers exist. Implicit
    rigid pairs now have an optional `initial_penetration_limit` in length
-   units: a sampled reference-trace violation or invalid projection rejects
-   before Newton; the default reports the measured initial condition without
-   silently moving slave nodes or the tool. The sampling rule is not a
-   face-wise bound, and the explicit pair currently rejects this new policy
-   rather than ignoring it. Arbitrary large-CAD and ambiguous sharp features
-   are not admitted. Reading:
+   units. It is enforced *only* for an analytical plane with first-order
+   slave interpolation and geometry, where the extremal nodal signed gap is
+   a face-wise bound; this catches a corner penetration missed by quadrature.
+   Other surfaces report sampled initial overlap but reject a requested
+   limit instead of pretending those samples certify a whole face. The
+   explicit pair also rejects the unsupported policy. No branch silently
+   moves slave nodes or the tool. Arbitrary large-CAD and ambiguous sharp
+   features are not admitted. Reading:
    [Abaqus finite-sliding/general-contact formulation][abaqus],
    [Abaqus meshed-rigid-surface verification][meshed-rigid] and
    [Abaqus initial-overclosure choices][initial].
@@ -124,8 +126,15 @@ The gate stays open until its listed evidence exists at the proposed scope.
    tangential basis and carry accepted history across a facet seam without
    inventing a sharp-edge traction law. If an active noncoplanar edge or vertex
    is unsupported, reject and roll back. Current state: analytical and locally
-   planar faceted Coulomb routes exist; sharp-edge friction is not admitted.
+   planar faceted Coulomb routes exist. Accepted tangential elastic slip now
+   follows the rigid master's incremental rotation before the minimal
+   old-normal-to-new-normal transport; exact co-rotation of a contacting plane
+   has zero relative slip, unchanged recoverable energy and no spurious
+   dissipation in both implicit and explicit FEniCSx checks. This fixes spin
+   about an unchanged normal, which normal-only transport cannot detect.
+   Sharp-edge friction is not admitted.
    Reading: [Abaqus Coulomb law and finite-sliding term][friction],
+   [Abaqus' local tangential slip/traction convention][vfric],
    [COMSOL frictional-contact solver advice][comsol-solver], and
    [Duong--Sauer's surface-potential finite-sliding formulation][duong-friction].
    The last is a thermodynamic and tangent-design reference, not evidence
@@ -222,6 +231,7 @@ transfer is separately verified.
 [acl]: https://docs.software.vt.edu/abaqusv2025/English/SIMACAEITNRefMap/simaitn-c-contactcontrolsstd.htm
 [comsol-method]: https://doc.comsol.com/6.3/doc/com.comsol.help.sme/sme_ug_modeling.05.143.html
 [friction]: https://docs.software.vt.edu/abaqusv2025/English/SIMACAETHERefMap/simathe-c-coulombfric.htm
+[vfric]: https://docs.software.vt.edu/abaqusv2025/English/SIMACAESUBRefMap/simasub-c-vfric.htm
 [comsol-solver]: https://doc.comsol.com/6.3/doc/com.comsol.help.sme/sme_ug_modeling.05.152.html
 [petsc-snes]: https://petsc.org/main/manual/snes/
 [abaqus-output]: https://docs.software.vt.edu/abaqusv2025/English/SIMACAEITNRefMap/simaitn-c-contactgeneral.htm
