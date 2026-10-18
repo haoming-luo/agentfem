@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+from itertools import permutations
 import runpy
 from pathlib import Path
 
@@ -203,6 +204,25 @@ def test_three_feature_corner_is_rigid_motion_covariant():
     )
 
 
+def test_three_feature_corner_is_slave_vertex_order_invariant():
+    surface = boundary_models.convex_polyhedral_rigid_surface(
+        vertices=((0, 0, 0), (2, 0, 0), (0, 2, 0), (0, 0, 2)),
+        triangles=((0, 2, 1), (0, 1, 3), (0, 3, 2), (1, 2, 3)),
+    )
+    positions = np.asarray(((0.05, 0.3, 0.3),
+                            (0.3, 0.05, 0.3),
+                            (0.3, 0.3, 0.05)))
+    _, original, _ = _evaluate(surface, positions)
+    for order in permutations(range(3)):
+        _, changed, _ = _evaluate(surface, positions[list(order)])
+        assert changed.potential_energy == pytest.approx(original.potential_energy)
+        np.testing.assert_allclose(
+            changed.nodal_structural_residual,
+            original.nodal_structural_residual[list(order)],
+            atol=1e-12,
+        )
+
+
 def test_distinct_support_planes_are_not_merged_by_query_tolerance():
     from types import SimpleNamespace
 
@@ -383,7 +403,9 @@ def test_convex_partition_rejects_projection_from_a_different_feature(monkeypatc
         contact.evaluate()
 
 
-def _ordinary_convex_step(integration="convex_feature_partition"):
+def _ordinary_convex_step(
+    integration="convex_feature_partition", *, three_feature_corner=False,
+):
     mesh = pytest.importorskip("dolfinx.mesh")
     mpi = pytest.importorskip("mpi4py.MPI")
     from agentfem import constitutive, fields, mesh as agent_mesh, models, solvers, steps, studies
@@ -407,10 +429,16 @@ def _ordinary_convex_step(integration="convex_feature_partition"):
         ),
         start_time=0, end_time=1,
     )
+    surface = _box(xmin=0.985, xmax=1.025)
+    if three_feature_corner:
+        surface = boundary_models.convex_polyhedral_rigid_surface(
+            vertices=((0.8, -0.04, 0.03), (3.8, -0.04, 0.03),
+                      (0.8, 2.96, 0.03), (0.8, -0.04, 3.03)),
+            triangles=((0, 2, 1), (0, 1, 3), (0, 3, 2), (1, 2, 3)),
+        )
     pair = boundary_models.rigid_contact_pair(
-        right, boundary_models.rigid_body(
-            _box(xmin=0.985, xmax=1.025), motion_schedule=motion,
-        ), penalty=200,
+        right, boundary_models.rigid_body(surface, motion_schedule=motion),
+        penalty=200,
     )
     model.add_boundary_model(pair)
     options = {"material": material, "contact_integration": integration}
@@ -457,6 +485,27 @@ def test_ordinary_j2_step_admits_convex_feature_partition_and_restart(tmp_path):
     assert mismatched.accepted_load_factor == 0.0
 
 
+def test_ordinary_j2_step_accepts_three_feature_corner_and_checkpoint(tmp_path):
+    continuous = _ordinary_convex_step(three_feature_corner=True)
+    assert continuous.solve_result().status == "completed"
+    diagnostics = continuous.contact_provider.current_point_diagnostics()
+    assert diagnostics["active_feature_lines"] >= 3
+    assert continuous.contact_provider.evaluate().potential_energy > 0
+    partial = _ordinary_convex_step(three_feature_corner=True)
+    partial.solve(until=0.5)
+    checkpoint = partial.save_checkpoint(tmp_path / "three_feature_corner")
+    resumed = _ordinary_convex_step(three_feature_corner=True)
+    resumed.load_checkpoint(checkpoint)
+    assert resumed.solve_result().status == "completed"
+    np.testing.assert_allclose(
+        resumed.solution.x.array, continuous.solution.x.array,
+        rtol=1e-12, atol=1e-12,
+    )
+    assert resumed.energy_history[-1].tool_work == pytest.approx(
+        continuous.energy_history[-1].tool_work,
+    )
+
+
 def test_convex_support_planes_are_prepared_once_per_operator(monkeypatch):
     import agentfem.boundary_models.dolfinx_implicit_facet_contact as backend
 
@@ -475,8 +524,11 @@ def test_convex_support_planes_are_prepared_once_per_operator(monkeypatch):
     assert len(calls) == 1
 
 
-def test_convex_feature_trial_failure_restores_accepted_material_and_work(monkeypatch):
-    step = _ordinary_convex_step()
+@pytest.mark.parametrize("three_feature_corner", (False, True))
+def test_convex_feature_trial_failure_restores_accepted_material_and_work(
+    monkeypatch, three_feature_corner,
+):
+    step = _ordinary_convex_step(three_feature_corner=three_feature_corner)
     step.solve(until=0.5)
     accepted_displacement = step.solution.x.array.copy()
     accepted_material = step.response.state.committed_state_vectors().copy()
@@ -499,13 +551,18 @@ def test_convex_feature_trial_failure_restores_accepted_material_and_work(monkey
     assert step.solve_result().status == "completed"
 
 
-def test_total_j2_convex_feature_newton_matrix_matches_fixed_old_state_difference():
+@pytest.mark.parametrize("three_feature_corner", (False, True))
+def test_total_j2_convex_feature_newton_matrix_matches_fixed_old_state_difference(
+    three_feature_corner,
+):
     from mpi4py import MPI
     from petsc4py import PETSc
 
-    step = _ordinary_convex_step()
+    step = _ordinary_convex_step(three_feature_corner=three_feature_corner)
     step.solve()
-    assert step.contact_provider.current_point_diagnostics()["active_feature_lines"] > 0
+    minimum_lines = 3 if three_feature_corner else 1
+    assert (step.contact_provider.current_point_diagnostics()["active_feature_lines"]
+            >= minimum_lines)
     accepted = step.solution.x.array.copy()
     constrained = np.unique(np.concatenate([
         np.asarray(bc.dof_indices()[0], dtype=np.int64) for bc in step.bcs
@@ -542,11 +599,15 @@ def test_total_j2_convex_feature_newton_matrix_matches_fixed_old_state_differenc
         step._update_response(start_factor=1.0, target_factor=1.0)
 
 
-def test_moving_convex_feature_tool_force_moment_match_potential_derivative():
-    step = _ordinary_convex_step()
+@pytest.mark.parametrize("three_feature_corner", (False, True))
+def test_moving_convex_feature_tool_force_moment_match_potential_derivative(
+    three_feature_corner,
+):
+    step = _ordinary_convex_step(three_feature_corner=three_feature_corner)
     step.solve()
     provider = step.contact_provider
-    assert provider.current_point_diagnostics()["active_feature_lines"] > 0
+    minimum_lines = 3 if three_feature_corner else 1
+    assert provider.current_point_diagnostics()["active_feature_lines"] >= minimum_lines
     motion = provider.pair.rigid_body.motion_schedule.motion
     dual = step._contact_dual()
     assert dual.force.shape == (6,)

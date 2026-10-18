@@ -71,15 +71,16 @@ def run_case(
     left = mesh.boundary(domain, lambda x: np.isclose(x[0], 0.0), name="left")
     right = mesh.boundary(domain, lambda x: np.isclose(x[0], 1.0), name="right")
     model.clamp(displacement, on=left)
-    material = model.material(constitutive.finite_strain_j2_logarithmic(
+    material_law = constitutive.finite_strain_j2_logarithmic(
         young=1000.0, poisson=0.0, yield_stress=0.05,
         hardening_modulus=100.0,
-    ))
+    )
+    material = model.material(material_law)
     tool = _reviewed_l_prism()
     motion = boundary_models.prescribed_rigid_motion(
         translation=(-0.055, 0.0, 0.0), reference_point=(1.005, 0.0, 0.0),
     )
-    model.add_boundary_model(boundary_models.rigid_contact_pair(
+    contact_pair = boundary_models.rigid_contact_pair(
         right,
         boundary_models.rigid_body(
             tool,
@@ -88,22 +89,39 @@ def run_case(
             ),
         ),
         penalty=penalty,
-    ))
+    )
+    model.add_boundary_model(contact_pair)
+    incrementation = steps.fixed(increments)
+    solver_options = solvers.newton(
+        relative_tolerance=1.0e-8, absolute_tolerance=1.0e-9,
+        maximum_iterations=25, line_search=line_search,
+    )
     step = model.step(
         target=displacement, material=material,
-        incrementation=steps.fixed(increments),
+        incrementation=incrementation,
         **(
             {"contact_quadrature_degree": contact_quadrature_degree}
             if contact_quadrature_degree is not None else {}
         ),
-        solver_options=solvers.newton(
-            relative_tolerance=1.0e-8, absolute_tolerance=1.0e-9,
-            maximum_iterations=25, line_search=line_search,
-        ),
+        solver_options=solver_options,
         progress=False,
     )
     output.mkdir(parents=True, exist_ok=True)
     result = step.solve_result(output=output / "fields.xdmf")
+    result.add_scientific_inputs(
+        mesh={"generator": "dolfinx_unit_cube_tetra", "cells_per_axis": cells},
+        boundary={"left": "clamp_x_equal_zero", "right": "contact_x_equal_one"},
+        material=material_law,
+        contact=contact_pair,
+        contact_integration={
+            "method": "gauss",
+            "triangle_degree": 2 if contact_quadrature_degree is None
+            else int(contact_quadrature_degree),
+            "measure": "reference_area",
+        },
+        incrementation=incrementation,
+        solver=solver_options,
+    )
     result.write_manifest(output / "result.json")
     samples = step.contact_provider.accepted_point_samples()
     foot = samples["master_closest_points"]

@@ -739,6 +739,14 @@ planes; four positive-area features still reject. This expands a bounded
 convex subset, not the nonconvex reentrant-tool convergence claim.
 This does not close the nonconvex L-tool's nonlinear nearest-feature
 transition or the independent mesh/penalty benchmark.
+The current same-source fourteen-cell L-tool penalty screen is an explicit
+admission blocker: increasing its penalty from 200 through 1000 to 5000
+continues to change contact resultant, penetration and fixed-volume plastic
+response substantially. Agreement between two face quadrature degrees at
+one penalty is not a substitute for this limit. Before promoting general
+sharp-tool contact, establish a mesh-by-penalty response matrix with a
+physical penetration tolerance and an independent same-input reference;
+retain the bounded convex option as experimental in the meantime.
 
 Stop after this vertical route has explicit field/response and state evidence.
 Nonmatching-mesh transfer, broader nonlinear coupling, monolithic Jacobians,

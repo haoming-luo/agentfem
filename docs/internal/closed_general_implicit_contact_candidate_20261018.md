@@ -310,6 +310,24 @@ fixed physical-volume gauge away from the sharp feature; a changing maximum
 alone cannot pass or fail the continuum model. Introducing a tool fillet is
 an explicit geometry/model change and requires a separate same-input study.
 
+For a reproducible fixed-reference-volume screen, use the raw PEEQ and
+`physical_weights` arrays in each exported `fields.integration-points.h5`.
+Select integration points with reference `x>0.75` and
+`sqrt((y-0.35)^2+(z-0.19)^2)<0.15`, then compute
+`results.weighted_field_statistics(PEEQ[mask], physical_weights[mask],
+quantiles=(0.95,), location="integration_points", representation="raw")`
+without smoothing. At 10/12/14 cells the
+selected physical volumes are `0.0179167/0.0179398/0.0176597`; weighted
+means are `0.0303778/0.0298773/0.0297985`, and weighted 95th percentiles
+are `0.0376683/0.0366638/0.0372699`. The corresponding individual maxima
+rise `0.0458775/0.0489782/0.0508919`. The gauge mean changes by about
+1.9% from ten to fourteen cells while the maximum rises about 10.9%.
+This **does not prove** the corner is singular or that the contact solution
+has converged: the fixed physical selection itself has discretization error,
+the x-resultant still moves, and the penalty and time-increment limits remain
+unchecked on this mesh range. It does identify a more meaningful companion
+metric than an unqualified single-point maximum.
+
 At fourteen cells, changing only the positive triangle rule from degree 7 to
 degree 5 gives x-resultant `-1.73819547` instead of `-1.73441914` (about
 0.22% difference), maximum PEEQ `0.05169160` instead of `0.05089190` (about
@@ -317,6 +335,48 @@ degree 5 gives x-resultant `-1.73819547` instead of `-1.73441914` (about
 Both runs completed with twelve accepted increments. This narrows, but does
 not close, the face-rule uncertainty at that mesh; it is not a contact-patch
 or penalty-convergence certificate.
+The same fixed-input degree-5 control at twenty cells completed all twelve
+increments with x-resultant `-1.72217799`, maximum PEEQ `0.05988269`, maximum
+penetration `0.03524783` and one sampled active reentrant-edge point. Relative
+to the recorded degree-7 twenty-cell run (`-1.72154804`, `0.05989208`,
+`0.03524172`, eight edge points), the resultant changes by about 0.037% and
+maximum PEEQ by about 0.016%. This rules out a *large degree-5 versus
+degree-7 difference at this mesh* as the sole explanation for the rising
+meshwise maximum, but not contact integration error in general: both rules
+can miss the same moving feature geometry. The twenty-cell degree-5 fixed
+near-edge reference-volume gauge has physical volume `0.01765625`, weighted
+mean PEEQ `0.02941569` and weighted 95th percentile `0.03713449`; compare
+like-for-like with the completed degree-7 run: the selected physical volume is
+also `0.01765625`, mean PEEQ is `0.02941838` and weighted 95th percentile is
+`0.03696220`. The mean differs by about 0.0091%; the two 95th percentiles
+still differ by about 0.46%. Neither number establishes convergence of the
+moving contact boundary.
+
+Penalty sensitivity is a more serious unresolved limit in this same fixture.
+The fourteen-cell, degree-7, twelve-increment, `basic`-Newton runs were
+repeated on the same candidate source at penalties 200, 1000 and 5000. The
+serialized model/solver contracts are identical after removing only the
+penalty value, its derived pair identity and run-generated increment
+diagnostics. All three runs accepted twelve increments. The raw integration
+point gauge is the same fixed reference volume `0.01765974` in each run:
+
+| Penalty | x-contact resultant | max penetration | penetration / cell edge | max PEEQ | gauge weighted mean PEEQ | gauge weighted 95th PEEQ | relative mechanical-energy residual |
+| ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| 200 | -1.73441914 | 0.03538630 | 0.49541 | 0.05089190 | 0.02979850 | 0.03726994 | 0.00018379 |
+| 1000 | -2.93708275 | 0.02191363 | 0.30679 | 0.08222936 | 0.04526075 | 0.05444669 | 0.00018347 |
+| 5000 | -3.51400294 | 0.01115067 | 0.15611 | 0.11161214 | 0.05056697 | 0.06206926 | 0.00051198 |
+
+The nominal cell edge is `1/14`; the penetration ratio is only a descriptive
+screen, not an automatically acceptable threshold. The x-resultant still
+changes about 19.6% between 1000 and 5000, and the
+fixed-gauge mean PEEQ changes about 11.7%. Even a volume-weighted local
+response has not reached a penalty plateau. Stable-looking meshwise gauge
+statistics at *one* penalty and a small energy residual cannot justify a
+hard-contact, damage or external-solver parity claim. A controlled
+mesh-by-penalty matrix and a penetration tolerance tied to physical
+dimensions are prerequisites. These are dimensionless manufactured-fixture
+numbers, not a recommended penalty for a physical model.
+
 The exported *raw integration-point* PEEQ field gives a useful countercheck
 against over-interpreting the single maximum. Using each point's exported
 physical-volume weight, the degree-7 volume-weighted means for cells
@@ -612,15 +672,25 @@ planned code:
 | 1. Same-input benchmark contract | The manufactured L-prism fixture and outputs are frozen in test/example code. | No independent Abaqus/Code_Aster same-input result or agreed dimensional acceptance tolerance. |
 | 2. Existing candidate audit | Ordinary Step, tool work, restart and current-trial geometry are reused; no parallel solver path was added. | Broader scientific promotion review remains separate. |
 | 3. Geometry and feature transitions | Unique nearest face/edge/vertex branches, coplanar seams, non-manifold vertex rejection and a globally active reentrant edge pass. | Self-intersection is caller-attested; medial-axis ties reject; no arbitrary CAD guarantee. |
-| 4. Implicit total operator and State | Full J2-plus-contact tangent passes fixed-old-state difference; an active sharp edge passes periodic MPC total-residual, reduced contact tangent and fixed-old-state material-plus-contact reduced Jacobian differences; accepted failure rolls back. Active-edge translation/rotation has an independently integrated force/moment and a matching fixed-displacement work derivative. | This remains a manufactured serial fixture; feature-switch and larger mesh convergence are separate gates. |
+| 4. Implicit total operator and State | Full J2-plus-contact tangent passes fixed-old-state difference; an active sharp edge passes periodic MPC total-residual, reduced contact tangent and fixed-old-state material-plus-contact reduced Jacobian differences; accepted failure rolls back. Active-edge translation/rotation has an independently integrated force/moment and a matching fixed-displacement work derivative. A bounded three-plane convex-corner Step now also passes total-Jacobian difference, force--moment work derivative and interrupted restart. | These remain manufactured serial fixtures; nonconvex feature-switch and larger mesh convergence are separate gates. |
 | 5. Multiple rigid pairs | Named planar/convex tool work and atomic restart tests pass; mixed active concave-plus-moving-plane J2 pair keeps separate work, summed tangent and checkpoint restart. An active reentrant edge opposite an active sphere also passes periodic total-residual reduction and serial J2 restart. | Large mixed contact-set scaling and independent multi-tool reference remain untested. |
 | 6. Friction | A finite-J2 strong-BC Step with a reviewed closed concave solid on a planar face matches the convex limit in displacement and friction dissipation for translated and slightly rotated tools under both sign modes; the fixed-old-state tangent and interrupted restart pass. The serial affine-periodic J2 path now commits a moving-plane Coulomb State, reduces its contact tangent by `TᵀKT`, checkpoints it in v2 and atomically rejects corrupt State; reviewed triangle and closed-concave planar faces match the same plane limit. An active reentrant edge rejects without partial State. | The planar law does not include changing-normal terms at a physical edge or vertex; general sharp-feature friction, distributed affine contact and a full thermodynamic path audit remain unsupported. |
 | 7. Material/time composition | Active-edge finite-J2 plastic path passes; explicit contact/material lifecycle is a separate existing route. | No generic historical implicit material or explicit general-closed-tool composition. |
-| 8. Independent acceptance and speed | Directional analytical checks, fixed-seed geometry timing and a manufactured whole-Step opt-in/default comparison are recorded; 24→48 increment screen is narrow. A fixed-geometry mesh/face-rule screen exposes nonmonotone active-feature sampling. The six-cell 10/20/40 penalty bracket confirms large penetration and changing force/plastic history; at penalty 200 and full Newton, the degree-7 mesh screen through twenty cells still changes active-edge sampling and maximum PEEQ. The independent clipped-face oracle proves that ordinary whole-face rules can miss a narrow active contact strip entirely. | No independent full-geometry comparison, sharp-feature spatial/penalty convergence, industrial whole-step speed claim or release-grade energy closure. |
+| 8. Independent acceptance and speed | Directional analytical checks, fixed-seed geometry timing and a manufactured whole-Step opt-in/default comparison are recorded; 24→48 increment screen is narrow. A fixed-geometry mesh/face-rule screen exposes nonmonotone active-feature sampling. At penalty 200 the degree-5/7 twenty-cell resultant and fixed-volume mean PEEQ nearly coincide, but active edge counts differ. A same-source fourteen-cell 200/1000/5000 penalty screen changes force, penetration and fixed-gauge plasticity substantially without a plateau. The independent clipped-face oracle proves that ordinary whole-face rules can miss a narrow active contact strip entirely. | No independent full-geometry comparison, sharp-feature spatial/penalty convergence, industrial whole-step speed claim or release-grade energy closure. |
 | 9. Product boundary | Public-API example exports XDMF/manifest from an isolated native Mac wheel; the pre-metadata numerical candidate passed 177 installed-wheel serial tests (8 MPI-only skips). Source archive and native Mac wheel built from numerical source `5ff2aa0b` pass isolated non-MPI installed-wheel release smoke. Unsupported MPI/friction preflight rejects. | Linux/Windows installed numerical acceptance and final remote CI remain version gates; a local Mac smoke is not cross-platform release approval. |
 
 The table intentionally refuses to turn one successful six- or 24-increment
 fixture into an Abaqus General Contact equivalence claim.
+
+The public L-prism example now registers its generated mesh resolution,
+boundary selections, material, contact pair, reference-area quadrature,
+increment path and Newton controls with the existing
+`SimulationResult.add_scientific_inputs` contract. Its small serial smoke
+produces `scientific_inputs.complete=true`; changing only the contact face rule
+changes the recorded content fingerprint. This fixes an output provenance
+omission in the example, not missing continuum validation or a general
+automatic-deck importer. Here `complete` means all **declared** inputs are
+content-addressable; it cannot certify that an application omitted no input.
 
 ### Trial active-boundary integration (bounded source candidate)
 
@@ -702,7 +772,16 @@ Operator with three crossing features passes the assembled contact tangent
 difference; the manufactured geometry offsets its switches from the slave
 facet boundary, where the two-sided tangent is intentionally undefined.
 The same three-feature local patch preserves penalty energy and rotates its
-nodal force under prescribed rigid-body translation and rotation.
+nodal force under prescribed rigid-body translation and rotation. All six
+slave-triangle vertex orderings give the same energy and permuted nodal forces.
+An ordinary finite-J2 Step with that moving three-feature corner accepts two
+increments; a saved first-increment checkpoint resumes to the same final
+displacement and tool work as an uninterrupted run. Its assembled total
+material-plus-contact Newton matrix matches a fixed-old-state directional
+residual difference, and its moving-tool force--moment action matches a
+finite difference of the contact potential. An injected contact-trial failure
+leaves the previously accepted displacement, material State and tool work
+unchanged before retry.
 Four positive-area dominant planes still reject.
 A boundary-aligned undefined
 two-sided switch also rejects. The default Gauss route is unchanged.

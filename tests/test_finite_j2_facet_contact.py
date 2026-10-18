@@ -616,6 +616,10 @@ def test_closed_concave_example_exports_accepted_public_result(tmp_path):
     assert (tmp_path / "fields.xdmf").is_file()
     assert (tmp_path / "result.json").is_file()
     manifest = json.loads((tmp_path / "result.json").read_text())
+    inputs = manifest["scientific_inputs"]
+    assert inputs["complete"] and not inputs["missing"]
+    assert inputs["record"]["contact"]["value"]["law"]["penalty"] == 20.0
+    assert inputs["record"]["contact_integration"]["triangle_degree"] == 2
     load_histories = [
         record for record in manifest["history_records"]
         if record["abscissa_name"] == "load_factor"
@@ -633,6 +637,11 @@ def test_closed_concave_example_exports_accepted_public_result(tmp_path):
     assert refined["maximum_penetration"] > 0.0
     assert (refined_output / "fields.xdmf").is_file()
     assert (refined_output / "result.json").is_file()
+    refined_inputs = json.loads((refined_output / "result.json").read_text())[
+        "scientific_inputs"
+    ]
+    assert refined_inputs["record"]["contact_integration"]["triangle_degree"] == 7
+    assert refined_inputs["fingerprint"] != inputs["fingerprint"]
 
     full_newton = run_case(
         cells=1, increments=6, penalty=20.0,
