@@ -37,7 +37,8 @@ def _patch(*, triangulated: bool, gap: float = 0.005, penalty=500.0,
            regional_material=False, contact_quadrature_degree=None,
            hexahedral=False, displacement_degree=1, linear_solver=None,
            clamp_left=True, left_traction=0.0,
-           initial_penetration_limit=None):
+           initial_penetration_limit=None,
+           transverse_boundary_fixed=False):
     domain = dolfinx_mesh.create_unit_cube(
         MPI.COMM_SELF, cells, cells, cells,
         cell_type=(
@@ -54,7 +55,15 @@ def _patch(*, triangulated: bool, gap: float = 0.005, penalty=500.0,
     ))
     left = mesh.boundary(domain, lambda x: np.isclose(x[0], 0.0), name="left")
     right = mesh.boundary(domain, lambda x: np.isclose(x[0], 1.0), name="right")
-    if clamp_left:
+    if transverse_boundary_fixed:
+        model.fix(displacement, on=left, component=0, value=0.0)
+        exterior = mesh.boundary(
+            domain, lambda x: np.ones(x.shape[1], dtype=bool),
+            name="transverse_fixed_exterior",
+        )
+        model.fix(displacement, on=exterior, component=1, value=0.0)
+        model.fix(displacement, on=exterior, component=2, value=0.0)
+    elif clamp_left:
         model.clamp(displacement, on=left)
     else:
         model.fix(displacement, on=left, component=1, value=0.0)
@@ -866,6 +875,62 @@ def test_elastic_regime_plane_contact_approaches_independent_series_spring(
     assert result.status == "completed"
     assert force == pytest.approx(expected, rel=5.0e-4)
     assert result.quantity("maximum_equivalent_plastic_strain") == pytest.approx(0.0)
+
+
+@pytest.mark.parametrize("cells", [1, 2])
+def test_plastic_contact_matches_independent_hencky_return_and_penalty(cells):
+    # Fixed transverse displacement gives the exact homogeneous deformation
+    # F=diag(lambda, 1, 1). For nu=0, the trial Kirchhoff stress has
+    # q_trial=E*abs(log(lambda)); linear J2 return uses
+    # dgamma=(q_trial-Y)/(3*mu+H). The axial first Piola stress is
+    # [E*log(lambda)+E*dgamma]/lambda in compression. Equilibrium with a
+    # reference-area plane penalty supplies an independent scalar oracle.
+    young, yield_stress, hardening = 1000.0, 0.1, 100.0
+    penalty, indentation = 1000.0, 0.002
+    _, _, _, step = _patch(
+        triangulated=True, gap=0.0,
+        tool_translation=(-indentation, 0.0, 0.0),
+        penalty=penalty, yield_stress=yield_stress,
+        applied_traction=0.0, increments=8, cells=cells,
+        transverse_boundary_fixed=True,
+    )
+    result = step.solve_result()
+    assert result.status == "completed"
+
+    tool_x = 1.0 - indentation
+    lower, upper = tool_x, 1.0
+    for _ in range(70):
+        stretch = 0.5 * (lower + upper)
+        logarithmic_strain = np.log(stretch)
+        q_trial = -young * logarithmic_strain
+        plastic_increment = max(
+            0.0, (q_trial - yield_stress) / (1.5 * young + hardening),
+        )
+        piola = young * (logarithmic_strain + plastic_increment) / stretch
+        residual = piola + penalty * (stretch - tool_x)
+        if residual < 0.0:
+            lower = stretch
+        else:
+            upper = stretch
+    expected_stretch = 0.5 * (lower + upper)
+    expected_plastic_increment = max(
+        0.0,
+        (-young * np.log(expected_stretch) - yield_stress)
+        / (1.5 * young + hardening),
+    )
+    coordinates = step.solution.function_space.tabulate_dof_coordinates()
+    right = np.isclose(coordinates[:, 0], 1.0)
+    right_ux = step.solution.x.array.reshape((-1, 3))[right, 0]
+    np.testing.assert_allclose(
+        right_ux, expected_stretch - 1.0, rtol=1e-5, atol=1e-8,
+    )
+    force = -step.contact_provider.evaluate().contact_force_on_structure[0]
+    assert force == pytest.approx(
+        penalty * (expected_stretch - tool_x), rel=1e-5,
+    )
+    assert result.quantity("maximum_equivalent_plastic_strain") == pytest.approx(
+        expected_plastic_increment, rel=1e-5,
+    )
 
 
 def test_closed_concave_example_iterative_linear_policy_matches_direct(tmp_path):

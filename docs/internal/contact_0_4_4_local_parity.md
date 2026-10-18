@@ -275,7 +275,17 @@ The gate stays open until its listed evidence exists at the proposed scope.
    compliance limit `F=delta/(1/E+1/k)` at two mesh levels and two penalties;
    all four satisfy 5e-4 relative tolerance for delta=1e-4. This small-strain
    limit checks the total force path, not plastic flow, curved geometry or
-   Abaqus equivalence. The nonconvex penalty sequence is not converged.
+   Abaqus equivalence. A second independent scalar oracle now constrains the
+   *plastic* global path: a laterally fixed unit bar has
+   `F=diag(lambda,1,1)`, `q_trial=-E log(lambda)` in compression,
+   `dp=max(0,(q_trial-Y)/(3G+H))`, and
+   `Pxx=E(log(lambda)+dp)/lambda` for `nu=0`. Solving
+   `Pxx+k(lambda-x_tool)=0` predicts right displacement, contact force and
+   PEEQ at two tetrahedral mesh levels; the tests compare all three without
+   calling the AgentFEM material update as their reference. This checks a
+   restricted homogeneous J2/contact state, not general forming. The
+   denominator follows the [MOOSE radial-return documentation][moose-return].
+   The nonconvex penalty sequence is not converged.
    Reading: [NAFEMS benchmark
    catalog][nafems], [Abaqus contact verification cases][abaqus-verification]
    and [COMSOL contact meshing advice][comsol-mesh].
@@ -327,6 +337,7 @@ transfer is separately verified.
 [distance]: https://arxiv.org/abs/1803.09687
 [meshed-rigid]: https://docs.software.vt.edu/abaqusv2025/English/SIMACAEVERRefMap/simaver-c-finslcontdefmeshrig.htm
 [comsol-verification]: https://doc.comsol.com/6.3/doc/com.comsol.help.sme/StructuralMechanicsVerificationExamples.pdf
+[moose-return]: https://mooseframework.inl.gov/source/materials/RadialReturnStressUpdate.html
 [duong]: https://arxiv.org/abs/1712.01179
 [dual-mortar]: https://arxiv.org/abs/2201.01165
 [abaqus-rigid-smoothing]: https://docs.software.vt.edu/abaqusv2025/English/SIMACAEMODRefMap/simamod-c-rigidsurf.htm
