@@ -275,6 +275,15 @@ Any new globalization should compare the accepted path, total residual,
 contact work, plastic history and cutback behavior against both policies;
 silently falling back to a full Newton step after rejected backtracking is
 not justified by this one fixture.
+[PETSc SNES](https://petsc.org/release/manual/snes/) offers line-search and
+trust-region Newton variants, but adopting one is a Procedure integration
+task: every trial must re-evaluate the current contact branch and material
+from fixed accepted State, and only a converged increment may commit either.
+Its bound-constrained VI solvers are not a drop-in switch for this
+displacement-only penalty formulation; they require a different algebraic
+constraint/unknown contract. First compare a bounded trust-region prototype
+against the existing backtracking and full-Newton paths without changing the
+contact law or silently accepting a different plastic trajectory.
 The next numerical-method experiment
 must distinguish a contact-boundary/feature-aware integration strategy from a
 different physical model, preserve residual--tangent consistency and compare
@@ -523,8 +532,8 @@ planned code:
 | 5. Multiple rigid pairs | Named planar/convex tool work and atomic restart tests pass; mixed active concave-plus-moving-plane J2 pair keeps separate work, summed tangent and checkpoint restart. An active reentrant edge opposite an active sphere also passes periodic total-residual reduction and serial J2 restart. | Large mixed contact-set scaling and independent multi-tool reference remain untested. |
 | 6. Friction | A finite-J2 strong-BC Step with a reviewed closed concave solid on a planar face matches the convex limit in displacement and friction dissipation for translated and slightly rotated tools under both sign modes; the fixed-old-state tangent and interrupted restart pass. The serial affine-periodic J2 path now commits a moving-plane Coulomb State, reduces its contact tangent by `TᵀKT`, checkpoints it in v2 and atomically rejects corrupt State; reviewed triangle and closed-concave planar faces match the same plane limit. An active reentrant edge rejects without partial State. | The planar law does not include changing-normal terms at a physical edge or vertex; general sharp-feature friction, distributed affine contact and a full thermodynamic path audit remain unsupported. |
 | 7. Material/time composition | Active-edge finite-J2 plastic path passes; explicit contact/material lifecycle is a separate existing route. | No generic historical implicit material or explicit general-closed-tool composition. |
-| 8. Independent acceptance and speed | Directional analytical checks, fixed-seed geometry timing and a manufactured whole-Step opt-in/default comparison are recorded; 24→48 increment screen is narrow. A fixed-geometry mesh/face-rule screen exposes nonmonotone active-feature sampling. A six-cell 10/20/40 penalty bracket confirms large penetration and changing force/plastic history rather than a hard-contact limit. | No independent full-geometry comparison, sharp-feature spatial/penalty convergence, industrial whole-step speed claim or release-grade energy closure. |
-| 9. Product boundary | Public-API example exports XDMF/manifest from an isolated native Mac wheel; three selected installed public-Step tests and the non-MPI installed-wheel release smoke pass; unsupported MPI/friction preflight rejects. | Linux/Windows installed numerical acceptance and remote CI remain version gates. |
+| 8. Independent acceptance and speed | Directional analytical checks, fixed-seed geometry timing and a manufactured whole-Step opt-in/default comparison are recorded; 24→48 increment screen is narrow. A fixed-geometry mesh/face-rule screen exposes nonmonotone active-feature sampling. The six-cell 10/20/40 penalty bracket confirms large penetration and changing force/plastic history; even with penalty 200 and full Newton, six-to-eight-cell refinement changes force by 2.77% and PEEQ by 9.75%. | No independent full-geometry comparison, sharp-feature spatial/penalty convergence, industrial whole-step speed claim or release-grade energy closure. |
+| 9. Product boundary | Public-API example exports XDMF/manifest from an isolated native Mac wheel; the final pre-metadata numerical candidate passed 177 installed-wheel serial tests (8 MPI-only skips) plus non-MPI installed-wheel release smoke. Unsupported MPI/friction preflight rejects. | Newer result-axis metadata fixes require exact-head installed acceptance; Linux/Windows installed numerical acceptance and remote CI remain version gates. |
 
 The table intentionally refuses to turn one successful six- or 24-increment
 fixture into an Abaqus General Contact equivalence claim.
