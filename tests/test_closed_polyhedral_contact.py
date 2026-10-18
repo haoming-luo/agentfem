@@ -58,6 +58,46 @@ def _concave_tool():
     )
 
 
+def _tiled_closed_cube(subdivisions):
+    """Closed, consistently oriented box with many coplanar seam facets."""
+
+    faces = (
+        ((1, 0, 0), (0, 1, 0), (0, 0, 1)),
+        ((0, 0, 0), (0, 0, 1), (0, 1, 0)),
+        ((0, 1, 0), (0, 0, 1), (1, 0, 0)),
+        ((0, 0, 0), (1, 0, 0), (0, 0, 1)),
+        ((0, 0, 1), (1, 0, 0), (0, 1, 0)),
+        ((0, 0, 0), (0, 1, 0), (1, 0, 0)),
+    )
+    vertices, triangles, indices = [], [], {}
+
+    def index(coordinates):
+        key = tuple(int(round(subdivisions * value)) for value in coordinates)
+        if key not in indices:
+            indices[key] = len(vertices)
+            vertices.append(np.asarray(key, dtype=float) / subdivisions)
+        return indices[key]
+
+    def face_index(origin, axis_u, axis_v, i, j):
+        return index(origin + (i * axis_u + j * axis_v) / subdivisions)
+
+    for origin, axis_u, axis_v in faces:
+        origin = np.asarray(origin, dtype=float)
+        axis_u = np.asarray(axis_u, dtype=float)
+        axis_v = np.asarray(axis_v, dtype=float)
+        for i in range(subdivisions):
+            for j in range(subdivisions):
+                first = face_index(origin, axis_u, axis_v, i, j)
+                second = face_index(origin, axis_u, axis_v, i + 1, j)
+                third = face_index(origin, axis_u, axis_v, i, j + 1)
+                fourth = face_index(origin, axis_u, axis_v, i + 1, j + 1)
+                triangles.extend(((first, second, third), (second, fourth, third)))
+    return closed_triangulated_rigid_solid(
+        vertices=np.asarray(vertices), triangles=np.asarray(triangles),
+        reviewed_embedded=True, name="tiled_closed_cube",
+    )
+
+
 def test_current_face_separation_uses_whole_triangle_bound_and_current_rigid_pose():
     tool = _concave_tool()
     triangle = np.asarray((((3., 0.4, 0.5), (3., 0.8, 0.5),
@@ -81,6 +121,16 @@ def test_current_face_separation_uses_whole_triangle_bound_and_current_rigid_pos
     assert not approached.certified
     assert approached.minimum_gap_lower_bound is None
     assert approached.status in {"contact_not_excluded", "depth_budget_exhausted"}
+
+
+def test_closed_planar_branch_covers_tiled_master_seams_beyond_small_reference_budget():
+    tool = _tiled_closed_cube(12)
+    assert len(tool.facets.triangles) == 1728
+    triangle = np.asarray((((1.02, 0.38, 0.38), (1.02, 0.45, 0.38),
+                            (1.02, 0.38, 0.45)),))
+    bound = certify_closed_planar_branch(triangle, tool)
+    assert bound.certified, bound.status
+    np.testing.assert_allclose(bound.plane_normals, ((1.0, 0.0, 0.0),))
 
 
 def test_current_face_separation_refuses_hidden_and_budget_limited_contact():

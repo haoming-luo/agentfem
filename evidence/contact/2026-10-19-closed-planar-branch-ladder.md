@@ -48,3 +48,12 @@ The maximum sampled penetration decreases as the penalty increases, as the
 declared penalty law should suggest; the contact footprint also changes, so
 these eleven points do not isolate a hard-contact solution or a pressure field
 convergence rate.
+
+The separate closed-tool geometry regression now builds a consistently
+oriented cube with 1,728 triangular master facets and certifies a slave face
+across coplanar triangulation seams under the raised 4,096-facet budget. On
+this local machine, a diagnostic with 512 small penetrating slave triangles
+against the same 1,728-facet cube certified all faces in 0.24 s, examining no
+noncoplanar competitor triangle exactly; this number is a *geometry-only*
+single-run measurement, not a finite-J2 runtime or a machine-independent
+performance claim. The corresponding exterior diagnostic took 0.18 s.

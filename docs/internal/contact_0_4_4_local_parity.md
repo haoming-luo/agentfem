@@ -80,7 +80,7 @@ work, with a contact directional tangent, interrupted restart and explicit
 reentrant-edge rejection; the small runnable example exports one XDMF grid
 and unsmoothed contact samples. This does **not** solve a feature switch or
 physical edge/vertex contact: those remain rejected. The current per-face
-smooth-branch and 1024-face/256-master-facet bounds are intentionally narrow,
+smooth-branch and 1024-slave-face/4096-master-facet bounds are intentionally narrow,
 and this is not an external commercial-solver comparator.
 The closed-solid projector now takes the reviewed facet normal directly on a
 smooth face, including a coplanar seam. Dividing a nearly zero
