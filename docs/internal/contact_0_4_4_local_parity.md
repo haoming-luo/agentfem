@@ -284,6 +284,15 @@ The gate stays open until its listed evidence exists at the proposed scope.
    [oriented-volume], but is developed for quadrilateral/hexahedral body
    elements; it does not convert our tetrahedral slave and triangular rigid
    tool into a validated volume-contact operator by renaming the gap.
+   [Laursen--Govindjee's non-smooth-surface treatment][laursen-corner]
+   makes the physical-corner issue an explicit unilateral constraint problem,
+   analogous to a non-smooth yield surface. Separately, a [3D mortar
+   derivation][mortar-segmentation] tracks not only clipped integration cells
+   but also the derivatives of their moving vertices. These clarify the
+   implementation split: first certify which positive-area slave regions
+   belong to face, edge or vertex gap branches; then vary both each branch
+   integral and its moving region boundary. A feature-aware quadrature
+   sampler alone is neither the corner law nor a consistent Newton tangent.
    Current state: analytical planar clipper, research two-plane oracle
    and opt-in <=4-plane convex partition pass; the result now flags *sampled*
    mixed-feature slave faces for reviewed closed solids in both standard and
@@ -317,9 +326,22 @@ The gate stays open until its listed evidence exists at the proposed scope.
    not agree when the selected normals differ; differentiating the assembled
    residual then has a moving-line contribution. This is a derivation for our
    piecewise-smooth penalty law, not a formula imported from another element.
+   There is an additional geometry boundary: on an affine P1 slave triangle,
+   squared distance to an admissible master face interior, edge interior or
+   vertex is a quadratic in the slave coordinates. Equality of two such
+   branches is generally a **conic**, not the straight line used by the
+   existing convex support-plane partition. The latter is exact because its
+   selected *signed support gaps* are affine; it must not be renamed as a
+   generic nonconvex nearest-feature partition. The next candidate needs
+   either verified conic/feature-region segmentation with its moving-boundary
+   tangent or an explicitly approximate, error-controlled alternative with
+   separate release criteria. This conclusion follows from our branch
+   formulas and the cited 3D segmentation/linearization work; it is not a
+   claim that the cited method already handles our closed-solid sign policy.
    The candidate must reproduce both the integral and its directional
-   pass the total Newton/MPC tangent check. A fixed quadrature rule, a frozen
-   feature partition or a smaller Newton residual alone is insufficient.
+   derivative and pass the total Newton/MPC tangent check. A fixed quadrature
+   rule, a frozen feature partition or a smaller Newton residual alone is
+   insufficient.
    `tools/verify_contact_feature_transition.py` is already an independent
    two-plane unit-triangle counterexample: its moving-line term exactly
    cancels a nonzero fixed-branch bulk tangent. It proves why the term is
@@ -336,6 +358,21 @@ The gate stays open until its listed evidence exists at the proposed scope.
    an exact-arithmetic certified integral, and supplies a concrete target
    for the nonconvex feature-partition work rather than an excuse to turn on
    a sampled full Step as though it were complete.
+   The independent oracle now additionally subdivides only unresolved
+   subfaces. The signed distance's 1-Lipschitz bound encloses their energy;
+   fully inactive subfaces contribute exactly zero, while fully interior
+   subfaces with one provably nearest straight segment use an exact quadratic
+   three-point integral. At depth 10 it processes 24,777 subtriangles and
+   brackets this potential in `[0.000348447, 0.000351592]` (unit penalty,
+   per unit extrusion), containing the 512-grid reference while excluding
+   the default rule's zero. This is a floating-point conservative-margin
+   **energy reference**, not formally verified interval arithmetic. It also
+   bounds each component of the *total translation* force in
+   `[-0.005760, -0.003644]`; a separate 512-grid central-difference screen
+   gives x-force `-0.005333` inside that wide interval. This is not a nodal
+   residual, pressure field or Newton-tangent certificate. The unresolved
+   cells still require feature-region geometry and moving-boundary
+   differentiation for Step use.
    [Hiermeier--Wall--Popp's variationally consistent mortar study][variational-mortar]
    is a useful independent standard for varying *all* active contributions,
    but its symmetric two-body mortar formulation is not our algorithm.
@@ -581,8 +618,21 @@ The gate stays open until its listed evidence exists at the proposed scope.
    rank only 5. Thus even the nodal candidate is **not** admitted under
    periodic MPC merely because its bare surface matrix is full row rank.
    The controlled all-active screen is an algebraic counterexample, not a
-   physical pressure field; a multiplier basis compatible with the *actual*
-   primal reduction and active inequalities remains research work.
+   physical pressure field: at the fixture's initial pose with zero accepted
+   multiplier, just one point actually penetrates and its reduced active row
+   has rank one. The all-active nullity therefore must not be reported as a
+   failure of that particular physical increment. A multiplier basis
+   compatible with the *actual* primal reduction and changing active
+   inequalities remains research work.
+   The bounded rank diagnostic now also reports active point IDs with a
+   clearly negative gap but zero row in the *current reduced linearization*.
+   In a deliberately shifted analytical-plane probe on that fixture, all
+   nine nodal points are active, the reduced row rank is three, and four
+   penetrated points have no first-order reduced displacement direction.
+   This is useful preflight evidence for a proposed hard-contact law, not an
+   automatic infeasibility claim: the probe does not establish that its
+   current trial satisfies the affine MPC offset, and a curved gap could
+   change at second order. No public AL Step is enabled by this diagnostic.
 
    A second research-only screen used the same finite-J2 Newton owner with
    coalesced nodal multipliers against an independent homogeneous hard-plane
@@ -882,6 +932,8 @@ identified multiplier-transfer rule has its own tests.
 [variational-mortar]: https://doi.org/10.1016/j.cma.2018.07.020
 [point-line-surface]: https://doi.org/10.1002/nme.5743
 [mortar-integration]: https://doi.org/10.1007/s00466-014-1093-2
+[mortar-segmentation]: https://mediatum.ub.tum.de/doc/1109994/1109994.pdf
+[laursen-corner]: https://doi.org/10.1002/cnm.1640101103
 [polygon-clipping]: https://doi.org/10.1145/360767.360802
 [oriented-volume]: https://doi.org/10.1016/j.cma.2007.06.002
 [distance-field]: https://doi.org/10.1016/j.cma.2013.02.015

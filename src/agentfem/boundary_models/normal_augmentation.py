@@ -437,10 +437,12 @@ def diagnose_fixed_trace_normal_constraint_rank(
 
     The weighted gap Jacobian has one row per active contact point and one
     column per local displacement DOF. A deficient row rank means distinct
-    point pressures can create the same nodal force. This small dense audit
-    Optionally inspect ``J @ T`` where ``u = T q + u_bar`` is the *actual*
-    Dirichlet/MPC displacement reduction. This remains a small dense negative
-    screen: full row rank does not establish a mesh-uniform inf-sup constant.
+    point pressures can create the same nodal force. Optionally inspect
+    ``J @ T`` where ``u = T q + u_bar`` is the *actual* Dirichlet/MPC
+    displacement reduction. A zero row with penetration identifies a blocked
+    *current linearization*, not an infeasibility proof for curved gaps.
+    This remains a small dense negative screen: full row rank does not
+    establish a mesh-uniform inf-sup constant.
     """
 
     if not isinstance(response, AugmentedNormalPointResponse):
@@ -482,7 +484,7 @@ def diagnose_fixed_trace_normal_constraint_rank(
         )
         jacobian = jacobian @ reduction
     if relative_tolerance is None:
-        tolerance = max(jacobian.shape) * np.finfo(float).eps
+        tolerance = float(max(jacobian.shape) * np.finfo(float).eps)
     else:
         tolerance = float(relative_tolerance)
         if not np.isfinite(tolerance) or tolerance < 0:
@@ -490,6 +492,16 @@ def diagnose_fixed_trace_normal_constraint_rank(
     singular = np.linalg.svd(jacobian, compute_uv=False)
     largest = float(singular[0]) if singular.size else 0.0
     rank = int(np.count_nonzero(singular > tolerance * largest)) if largest else 0
+    row_norms = np.linalg.norm(jacobian, axis=1)
+    stationary = row_norms <= tolerance * largest
+    scale = max(1.0, float(np.max(
+        np.abs(response.record.projection.query_points), initial=0.0,
+    )))
+    clear_negative = (
+        response.record.projection.signed_gaps[active]
+        < -128.0 * np.finfo(float).eps * scale
+    )
+    stationary_penetrating = active[stationary & clear_negative]
     return {
         "scope": (
             "bounded_active_fixed_trace_normal_constraint_jacobian"
@@ -502,6 +514,11 @@ def diagnose_fixed_trace_normal_constraint_rank(
         "displacement_reduction_applied": displacement_reduction is not None,
         "row_rank": rank,
         "row_nullity": len(active) - rank,
+        "stationary_linearized_active_point_count": int(np.count_nonzero(stationary)),
+        "stationary_linearized_penetrating_point_ids": tuple(
+            int(value) for value in response.record.point_ids[stationary_penetrating]
+        ),
+        "stationary_scope": "current_reduced_linearization_only",
         "relative_tolerance": tolerance,
         "largest_singular_value": largest,
         "smallest_retained_singular_value": (

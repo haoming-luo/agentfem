@@ -146,6 +146,60 @@ def test_actual_periodic_mpc_reduction_makes_even_nodal_multipliers_redundant():
     assert (reduced_nodal["row_rank"], reduced_nodal["row_nullity"]) == (5, 4)
     assert not reduced_nodal["certifies_spatial_stability"]
 
+    # The deliberately all-active screen is a possible-space warning, not
+    # evidence that this fixture's physical current active set is singular.
+    # With zero accepted multiplier, only the central penetrating point is
+    # active at the initial pose and its reduced row is independent.
+    evaluation, record, _, _ = provider._current_point_response()
+    physical_state = FixedTraceNormalMultiplierState(
+        nodal_adapter.trace, pair_identity=provider.name,
+        reference_evaluation=nodal_adapter.trace.evaluate(
+            nodal_adapter.reference_nodal_positions,
+        ),
+        surface_fingerprint=provider.surface.geometry_fingerprint,
+        penalty=5000.0, penetration_tolerance=1e-6,
+        complementarity_tolerance=1e-6, maximum_augmentations=4,
+        length_unit="m", pressure_unit="Pa",
+    )
+    actual_active = diagnose_fixed_trace_normal_constraint_rank(
+        physical_state.evaluate(evaluation, record),
+        displacement_reduction=actual_reduction,
+    )
+    assert actual_active["active_point_count"] == 1
+    assert actual_active["row_rank"] == 1
+    assert actual_active["row_nullity"] == 0
+
+    # A separate probe puts an analytical plane through *all* periodic
+    # right-face nodes. Four normal gap rows have no reduced *tangent*
+    # direction at this trial. The full affine MPC offset is not checked
+    # here, so this is not a global feasibility ruling or an AL Step.
+    plane = boundary_models.rigid_plane(
+        point=(1.05, 0.0, 0.0), normal=(1.0, 0.0, 0.0),
+    )
+    plane_record = boundary_models.ContactProjectionRecord(
+        nodal_adapter.trace.point_ids,
+        plane.project(evaluation.query_points),
+    )
+    plane_state = FixedTraceNormalMultiplierState(
+        nodal_adapter.trace, pair_identity="incompatible_plane_probe",
+        reference_evaluation=nodal_adapter.trace.evaluate(
+            nodal_adapter.reference_nodal_positions,
+        ),
+        surface_fingerprint=plane.geometry_fingerprint,
+        penalty=5000.0, penetration_tolerance=1e-6,
+        complementarity_tolerance=1e-6, maximum_augmentations=4,
+        length_unit="m", pressure_unit="Pa",
+    )
+    plane_rank = diagnose_fixed_trace_normal_constraint_rank(
+        plane_state.evaluate(evaluation, plane_record),
+        displacement_reduction=actual_reduction,
+    )
+    assert plane_rank["active_point_count"] == 9
+    assert plane_rank["row_rank"] == 3
+    assert plane_rank["stationary_linearized_active_point_count"] == 4
+    assert len(plane_rank["stationary_linearized_penetrating_point_ids"]) == 4
+    assert plane_rank["stationary_scope"] == "current_reduced_linearization_only"
+
 
 @pytest.mark.parametrize("geometry", ["plane", "sphere"])
 def test_fixed_multiplier_fem_operator_matches_independent_ufl(geometry):
