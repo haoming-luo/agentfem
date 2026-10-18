@@ -626,6 +626,36 @@ one reproducible blind spot, not the L-tool or hard-contact convergence gate.
 Curved tools, nearest-feature transitions, Q1/CG2 faces, friction and MPI remain
 outside this method; do not infer general coverage from the affine proof.
 
+`tools/verify_contact_feature_transition.py` records why the next slice is
+not a mechanical reuse of the zero-gap clipper.  For the active two-plane gap
+`g=|x-c|-a` on a unit reference triangle, moving the sharp feature leaves
+the exact integrated tangent zero, while a fixed-branch bulk tangent alone is
+`2ka(1-c)`.  An equal negative line contribution at the still-compressed
+feature switch is necessary.  At the zero-gap boundary that line term instead
+vanishes.  A sharp-tool partition must therefore integrate **both** positive
+area subcells and the consistent feature-interface tangent, or explicitly use
+and validate a different nonlinear method; simply cutting at the feature and
+reusing the planar tangent would claim a false Jacobian.
+
+`tools/verify_two_plane_contact_integration.py` extends that scalar
+counterexample to the full three-node vector residual and Hessian on a
+reference triangle with two affine competing plane gaps. It partitions the
+negative-gap area by the dominant feature, integrates each subpolygon with
+positive degree-two quadrature, and adds a separate Gauss line integral on
+the compressed feature switch. The line term is proportional to the common
+negative gap and the outer product of the two normal jumps. It vanishes on
+the zero-gap contour but not on an interior compressed feature transition.
+Independent analytic potential/translation derivatives, directional finite
+differences, symmetry, feature-order and vertex-order checks pass. The
+oracle rejects a nonunique boundary-aligned feature switch rather than
+claiming a two-sided tangent. This is a **research-only affine two-plane
+method**, not a public Step option: the reviewed L-prism's nearest-edge and
+nearest-vertex distances are nonlinear, and its full feature graph, coverage,
+friction State and global convergence remain unproved. The next promotion
+gate is a manufactured *global* two-plane structural comparison against
+independent integration, followed by the actual closed-tool feature
+transitions; a matching local Hessian alone is insufficient.
+
 Methodological context: Farah, Popp & Wall (2015),
 `doi:10.1007/s00466-014-1093-2`, compares segment- and element-based mortar
 integration; Duong, De Lorenzis & Sauer (2017), `arXiv:1712.01179`, discusses

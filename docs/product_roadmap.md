@@ -712,6 +712,13 @@ against an analytical rigid plane, with a positive common residual/tangent
 rule and an independent narrow-strip oracle. It does **not** resolve the
 L-tool's changing nearest feature or replace the still-open mesh/penalty
 convergence and independent same-input acceptance gates.
+An analytical two-plane counterexample now fixes the next design constraint:
+at an active sharp-feature switch the moving internal boundary contributes a
+nonzero line term to the contact tangent. A zero-gap clipper alone cannot be
+rebranded as a consistent L-tool edge algorithm. A research-only positive
+two-plane area-plus-feature-line oracle now matches analytic and directional
+derivative checks, including oblique planes; its next gate is a manufactured
+global structural test before any closed-tool Step promotion.
 
 Stop after this vertical route has explicit field/response and state evidence.
 Nonmatching-mesh transfer, broader nonlinear coupling, monolithic Jacobians,
