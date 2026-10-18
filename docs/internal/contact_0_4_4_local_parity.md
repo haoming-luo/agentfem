@@ -545,7 +545,8 @@ run. A reviewed smooth point tool can additionally carry its own sliding
 Coulomb State beside a *frictionless* certified face. A fixture with active
 point contact has positive sliding dissipation; serial restart reproduces the
 displacement and dissipation, and a forced late acceptance failure restores
-plastic State, point-friction State, pose, work and both path ledgers.
+plastic State, point-friction State, pose, work and both path ledgers. A damaged
+point-ID friction checkpoint is rejected without altering the receiving Step.
 Friction *on the certified face* and MPI explicitly refuse this research mode. These tests
 establish a bounded *software lifecycle*, not mesh/penalty convergence, an independent global
 reference, general finite sliding across sharp features, or product release.
@@ -565,10 +566,14 @@ corrupted ledger is atomically refused. A front-face triangulation seam in a
 different otherwise smooth tool still fails the stricter two-feature
 certificate. A normalized prescribed translation of that same smooth face now
 uses the affine Procedure's ordinary load-coordinate method, rather than a
-test-owned motion loop. Its reduced total residual closes, moving-tool work
+test-owned motion loop. The fixture has nonzero committed J2 plastic strain;
+its reduced total residual closes, moving-tool work
 is nonzero, displacement agrees with a translated analytical plane, and
 serial interruption/restart preserves the solution and work. This does not
 admit finite-sliding sharp-feature MPC or an arbitrary rigid-motion schedule.
+Two independently named moving smooth faces also reproduce the single-tool
+solution when their penalties sum to the same value; per-tool accepted work
+adds to the single-tool work and survives restart.
 A second smooth-periodic test combines one certified closed
 face with one analytical-plane point pair, verifies the total MPC-reduced
 residual, agrees with the two-plane analytical representation and checks

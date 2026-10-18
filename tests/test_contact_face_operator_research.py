@@ -1313,6 +1313,45 @@ def test_research_mixed_face_point_failed_acceptance_rolls_back_both_pairs(
     assert step.contact_feature_path == accepted_point_path
 
 
+def test_research_mixed_face_point_corrupt_friction_checkpoint_is_atomic(tmp_path):
+    from agentfem import boundary_models
+
+    settings = dict(
+        moving=True, second_pair=True, contact_penalty=100.0,
+        second_surface=boundary_models.rigid_plane(
+            point=(0.91, 0.0, 0.0), normal=(1.0, 0.0, 0.0),
+        ),
+        second_friction=0.001, second_tangential_penalty=1000.0,
+        contact_integration={
+            "reentrant_tool": "certified_closed_two_feature_research",
+            "second_tool": "gauss",
+        },
+    )
+    source, _ = _research_two_feature_j2_step(**settings)
+    source.solve(until=0.5)
+    saved = source.save_checkpoint(tmp_path / "mixed_face_point_good")
+    with np.load(saved, allow_pickle=False) as archive:
+        payload = {key: np.asarray(archive[key]).copy() for key in archive.files}
+    contact_state = json.loads(str(payload["contact_state"]))
+    contact_state["pairs"]["second_tool"]["point_ids"][0] = -1
+    payload["contact_state"] = json.dumps(contact_state, sort_keys=True)
+    corrupt = tmp_path / "mixed_face_point_corrupt.npz"
+    np.savez(corrupt, **payload)
+    receiver, _ = _research_two_feature_j2_step(**settings)
+    before_u = receiver.solution.x.array.copy()
+    before_state = json.dumps(
+        receiver.contact_provider.snapshot_accepted_state(), sort_keys=True,
+    )
+    with pytest.raises(ValueError, match="point IDs"):
+        receiver.load_checkpoint(corrupt)
+    assert receiver.accepted_load_factor == 0.0
+    np.testing.assert_array_equal(receiver.solution.x.array, before_u)
+    assert json.dumps(
+        receiver.contact_provider.snapshot_accepted_state(), sort_keys=True,
+    ) == before_state
+    assert not receiver.contact_face_path
+
+
 def test_research_two_tool_trial_refuses_one_stale_pose_before_petsc_mutation():
     from petsc4py import PETSc
 

@@ -11,7 +11,6 @@ state, choose load increments, alter Dirichlet rows or implement MPC reduction.
 from __future__ import annotations
 
 from dataclasses import dataclass, field, replace
-from typing import TYPE_CHECKING
 
 import numpy as np
 
@@ -65,14 +64,6 @@ from .rigid import (
     SmoothRigidSurface, TriangulatedRigidSurface,
 )
 from .search import TriangleSurfaceBVH, triangle_surface_bvh
-
-if TYPE_CHECKING:
-    from ._certified_face_trial_provider import (
-        DolfinxCombinedCertifiedFaceContactTrialProvider,
-    )
-    from ._mixed_face_point_trial_provider import (
-        DolfinxMixedFacePointContactTrialProvider,
-    )
 
 
 @dataclass(eq=False)
@@ -1562,11 +1553,7 @@ def dolfinx_implicit_rigid_contacts(
     *,
     contact_quadrature_degree: int | None = None,
     contact_integration="gauss",
-) -> (
-    DolfinxImplicitRigidContacts
-    | DolfinxCombinedCertifiedFaceContactTrialProvider
-    | DolfinxMixedFacePointContactTrialProvider
-):
+) -> object:
     """Lower independently named rigid pairs on one serial displacement field."""
 
     selected = tuple(pairs)

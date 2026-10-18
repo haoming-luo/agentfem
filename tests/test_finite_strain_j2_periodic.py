@@ -609,6 +609,7 @@ def test_periodic_j2_moving_smooth_certified_face_matches_plane_and_restarts(tmp
     assert result.status == "completed"
     assert face.contact_provider.snapshot_motion() == pytest.approx(1.0)
     assert result.metadata["rigid_contact_face_path"]["complete"] is True
+    assert result.quantity("maximum_equivalent_plastic_strain") > 0.0
     assert result.quantity("rigid_contact_pair_path_work") != 0.0
     total = face.assemble_full_residual()
     reduction = periodicity.reduction(1.0).matrix(fixture.domain.comm)
@@ -652,6 +653,50 @@ def test_periodic_j2_moving_smooth_certified_face_matches_plane_and_restarts(tmp
     )
     assert resumed_result.quantity("rigid_contact_pair_path_work") == pytest.approx(
         result.quantity("rigid_contact_pair_path_work"), rel=1e-9, abs=1e-12,
+    )
+
+
+def test_periodic_j2_two_moving_certified_faces_sum_work_and_restart(tmp_path):
+    motion = boundary_models.prescribed_rigid_motion(
+        translation=(-0.01, 0.0, 0.0),
+        reference_point=(1.6, 0.5, 0.5),
+    )
+    surface = _periodic_wide_triangular_prism_tool()
+    _, _, single = _periodic_j2_contact_step(
+        surface=surface, motion=motion,
+        contact_integration="certified_closed_two_feature_research",
+    )
+    single_result = single.solve_result()
+    settings = dict(
+        surface=surface, motion=motion, pair_count=2,
+        contact_integration={
+            "periodic_tool_0": "certified_closed_two_feature_research",
+            "periodic_tool_1": "certified_closed_two_feature_research",
+        },
+    )
+    _, _, double = _periodic_j2_contact_step(**settings)
+    result = double.solve_result()
+    assert result.status == single_result.status == "completed"
+    np.testing.assert_allclose(
+        double.solution.x.array, single.solution.x.array,
+        rtol=1e-7, atol=1e-8,
+    )
+    assert sum(
+        result.quantity(f"{name}_path_work")
+        for name in ("periodic_tool_0", "periodic_tool_1")
+    ) == pytest.approx(
+        single_result.quantity("rigid_contact_pair_path_work"),
+        rel=2e-6, abs=1e-8,
+    )
+    _, _, partial = _periodic_j2_contact_step(**settings)
+    partial.solve(until=1.0 / 3.0)
+    saved = partial.save_checkpoint(tmp_path / "two_moving_faces_mpc")
+    _, _, resumed = _periodic_j2_contact_step(**settings)
+    resumed.load_checkpoint(saved)
+    assert resumed.solve_result().status == "completed"
+    np.testing.assert_allclose(
+        resumed.solution.x.array, double.solution.x.array,
+        rtol=1e-9, atol=1e-10,
     )
 
 

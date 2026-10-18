@@ -6,9 +6,9 @@
 This is not a separate nonlinear solver. The opt-in serial standard-J2
 Procedure owns accepted increments, material rollback, path work, checkpoint
 and Result publication. This private adapter supplies only the face Operator
-and an identity-bound trial; it does not admit MPC or MPI. Named research
-face pairs can be composed additively in one serial Step; mixing them with
-point-sampled pairs is still refused.
+and an identity-bound trial; it does not admit MPI. Named research face pairs
+can be composed additively in one serial Step or mixed with separately
+reviewed point pairs. Affine/MPC admission is restricted to a smooth subset.
 Face-integrated evidence is never disguised as quadrature-point evidence.
 """
 
