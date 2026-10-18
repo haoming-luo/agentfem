@@ -6,6 +6,7 @@ from pathlib import Path
 import runpy
 
 import numpy as np
+import pytest
 
 
 ORACLE = runpy.run_path(str(
@@ -48,19 +49,36 @@ def test_quadratic_bernstein_bound_catches_an_interior_switch_missed_by_vertices
     assert 0.0 < far_lower < far_upper
 
 
-def test_moving_parabolic_boundary_matches_independent_nodal_differences():
-    _, _, bulk, entry = ORACLE["split_residual_and_bulk_tangent"]()
-    moving = ORACLE["moving_feature_tangent"](entry)
+def test_conic_oracle_refuses_an_unbracketed_or_reversed_feature_path():
+    collapsed = np.asarray(((0.0, 0.0), (0.0, 0.0), (0.0, -6.0)))
+    with pytest.raises(ValueError, match="one bracketed crossing"):
+        ORACLE["_branch_height"](1.75, collapsed)
+
+
+@pytest.mark.parametrize("perturbed", [False, True])
+def test_moving_parabolic_boundary_matches_independent_nodal_differences(perturbed):
+    displacement = (
+        np.asarray(((0.012, -0.006), (-0.008, 0.014), (0.004, -0.01)))
+        if perturbed else np.zeros((3, 2))
+    )
+    _, residual, bulk, entry = ORACLE["split_residual_and_bulk_tangent"](
+        displacement,
+    )
+    moving = ORACLE["moving_feature_tangent"](entry, displacement)
     total = bulk + moving
     assert np.allclose(total.reshape(6, 6), total.reshape(6, 6).T, atol=1e-12)
     assert np.max(np.linalg.eigvalsh(moving.reshape(6, 6))) < 1e-12
     step = 1e-5
-    numerical = np.zeros((3, 3))
+    numerical = np.zeros((3, 2, 3, 2))
+    energy_gradient = np.zeros((3, 2))
     for node in range(3):
-        direction = np.zeros(3)
-        direction[node] = step
-        plus = ORACLE["split_residual_and_bulk_tangent"](direction)[1]
-        minus = ORACLE["split_residual_and_bulk_tangent"](-direction)[1]
-        numerical[:, node] = (plus[:, 1] - minus[:, 1]) / (2.0 * step)
-    assert np.max(np.abs(numerical - total[:, 1, :, 1])) < 1e-8
-    assert np.max(np.abs(numerical - bulk[:, 1, :, 1])) > 1e-2
+        for component in range(2):
+            direction = np.zeros((3, 2))
+            direction[node, component] = step
+            plus = ORACLE["split_residual_and_bulk_tangent"](displacement + direction)
+            minus = ORACLE["split_residual_and_bulk_tangent"](displacement - direction)
+            numerical[:, :, node, component] = (plus[1] - minus[1]) / (2.0 * step)
+            energy_gradient[node, component] = (plus[0] - minus[0]) / (2.0 * step)
+    assert np.max(np.abs(energy_gradient - residual)) < 1e-8
+    assert np.max(np.abs(numerical - total)) < 1e-8
+    assert np.max(np.abs(numerical - bulk)) > 1e-2

@@ -402,10 +402,16 @@ The gate stays open until its listed evidence exists at the proposed scope.
    has equality curve `y=((x-3)^2+1)/2` on a P1 reference triangle. Its
    straight chord misses the curve by `0.027864` at the midpoint. Split
    positive Gauss integration gives the P1 residual; differentiating its
-   moving parabola gives a negative semidefinite boundary term. The maximum
-   error of the vertical nodal tangent against independently re-partitioned
-   central differences is `3.5e-11` with that term, versus `0.0865` without
-   it (`tools/verify_quadratic_contact_feature_transition.py`). This is a
+   moving parabola gives a negative semidefinite boundary term. The oracle
+   now perturbs **all six in-plane P1 nodal freedoms**, including horizontal
+   motion that changes the curve itself, at both zero and nonzero trial
+   displacement. The full tangent's maximum error against independently
+   re-partitioned central differences at the zero state is `4.0e-11` with
+   that term, versus `0.1415` without it; the potential's independent first
+   difference also matches the residual. At the nonzero trial the full
+   tangent errors are `4.6e-11` versus `0.1412`, and the potential-gradient
+   difference is `7.3e-11`
+   (`tools/verify_quadratic_contact_feature_transition.py`). This is a
    local candidate-feature calculation, not a signed-gap law for a complete
    closed tool, an exact-arithmetic proof or a public Step.
    `tools/verify_contact_feature_transition.py` is already an independent

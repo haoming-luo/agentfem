@@ -9,7 +9,7 @@ not a signed-distance law for a complete polygon or a production Step.
 
 The reference-area residual and tangent are integrated with split Gauss
 rules. The tangent has a bulk term and a negative moving-boundary term.
-Vertical nodal directional differences use independently re-split current
+All in-plane nodal directional differences use independently re-split current
 feature regions. Omitting the boundary term is intentionally testable.
 """
 
@@ -71,16 +71,38 @@ def _rule(start: float, end: float):
     return 0.5 * (end - start) * _GAUSS + 0.5 * (end + start), 0.5 * (end - start) * _WEIGHTS
 
 
-def _entry(vertical_displacement: np.ndarray) -> float:
+def _displacements(value) -> np.ndarray:
+    selected = np.zeros((3, 2)) if value is None else np.asarray(value, dtype=float)
+    if selected.shape == (3,):
+        selected = np.column_stack((np.zeros(3), selected))
+    if selected.shape != (3, 2) or not np.all(np.isfinite(selected)):
+        raise ValueError("Expected three finite in-plane nodal displacements.")
+    return selected
+
+
+def _current(x: float, y: float, displacement: np.ndarray) -> np.ndarray:
+    return np.asarray((x, y)) + _shapes(x, y) @ displacement
+
+
+def _entry(displacement: np.ndarray) -> float:
     """Locate where the moving feature curve enters the sloped triangle side."""
 
     def upper_difference(x):
         y = 3.0 * (x - 1.0)
-        return y + float(_shapes(x, y) @ vertical_displacement) - feature_height(x)
+        current = _current(x, y, displacement)
+        return float(current[1] - feature_height(current[0]))
 
     left, right = 1.0, 2.0
     if upper_difference(left) >= 0.0 or upper_difference(right) <= 0.0:
         raise ValueError("Feature must enter through the sloped reference side.")
+    first = _current(1.0, 0.0, displacement)
+    last = _current(2.0, 3.0, displacement)
+    slope = last - first
+    if min(
+        slope[1] - (first[0] - 3.0) * slope[0],
+        slope[1] - (last[0] - 3.0) * slope[0],
+    ) <= 0.0:
+        raise ValueError("The tested edge must cross this conic exactly once.")
     for _ in range(60):
         midpoint = 0.5 * (left + right)
         if upper_difference(midpoint) < 0.0:
@@ -90,28 +112,41 @@ def _entry(vertical_displacement: np.ndarray) -> float:
     return 0.5 * (left + right)
 
 
-def _branch_height(x: float, vertical_displacement: np.ndarray) -> float:
-    # Current y = (1 + (u_C-u_B)/3) * reference_y
-    #             + (2-x)*u_A + (x-1)*u_B.
-    factor = 1.0 + (vertical_displacement[2] - vertical_displacement[1]) / 3.0
-    if factor <= 0.0:
-        raise ValueError("The local P1 map must preserve vertical orientation.")
-    offset = (2.0 - x) * vertical_displacement[0] + (x - 1.0) * vertical_displacement[1]
-    return float((feature_height(x) - offset) / factor)
+def _branch_height(x: float, displacement: np.ndarray) -> float:
+    """Re-solve the current conic crossing on one reference vertical line."""
+
+    low, high = 0.0, 3.0 * (x - 1.0)
+    current_low = _current(x, low, displacement)
+    current_high = _current(x, high, displacement)
+    derivative_x = (displacement[2, 0] - displacement[1, 0]) / 3.0
+    derivative_y = 1.0 + (displacement[2, 1] - displacement[1, 1]) / 3.0
+    if min(
+        derivative_y - (current_low[0] - 3.0) * derivative_x,
+        derivative_y - (current_high[0] - 3.0) * derivative_x,
+    ) <= 0.0 or (
+        current_low[1] - feature_height(current_low[0]) >= 0.0
+        or current_high[1] - feature_height(current_high[0]) <= 0.0
+    ):
+        raise ValueError("The tested vertical line must have one bracketed crossing.")
+    for _ in range(55):
+        middle = 0.5 * (low + high)
+        current = _current(x, middle, displacement)
+        difference = float(current[1] - feature_height(current[0]))
+        if difference < 0.0:
+            low = middle
+        else:
+            high = middle
+    return 0.5 * (low + high)
 
 
-def split_residual_and_bulk_tangent(vertical_displacement=None):
+def split_residual_and_bulk_tangent(nodal_displacement=None):
     """Integrate the piecewise force and within-branch Hessian.
 
     The current integration regions are recomputed for every trial, but the
     area and shape functions remain those of the original P1 triangle.
     """
 
-    displacement = np.zeros(3) if vertical_displacement is None else np.asarray(
-        vertical_displacement, dtype=float,
-    )
-    if displacement.shape != (3,) or not np.all(np.isfinite(displacement)):
-        raise ValueError("Expected three finite vertical nodal displacements.")
+    displacement = _displacements(nodal_displacement)
     entry = _entry(displacement)
     residual = np.zeros((3, 2))
     tangent = np.zeros((3, 2, 3, 2))
@@ -128,9 +163,9 @@ def split_residual_and_bulk_tangent(vertical_displacement=None):
                 y_points, y_weights = _rule(bottom, top)
                 for y, y_weight in zip(y_points, y_weights, strict=True):
                     shape = _shapes(x, y)
-                    current_y = y + float(shape @ displacement)
+                    current_x, current_y = _current(x, y, displacement)
                     if vertex_branch:
-                        difference = np.asarray((x - 3.0, current_y - 1.0))
+                        difference = np.asarray((current_x - 3.0, current_y - 1.0))
                         hessian = _H_VERTEX
                     else:
                         difference = np.asarray((0.0, current_y))
@@ -144,51 +179,80 @@ def split_residual_and_bulk_tangent(vertical_displacement=None):
     return potential, residual, tangent, entry
 
 
-def moving_feature_tangent(entry: float) -> np.ndarray:
-    """Distributional derivative of the split residual at zero displacement."""
+def moving_feature_tangent(entry: float, nodal_displacement=None) -> np.ndarray:
+    """Distributional derivative of the split residual at the current conic."""
 
+    displacement = _displacements(nodal_displacement)
     moving = np.zeros((3, 2, 3, 2))
     points, weights = _rule(entry, 2.0)
     for x, weight in zip(points, weights, strict=True):
-        shape = _shapes(x, feature_height(x))
-        difference = np.asarray((3.0 - x, 1.0))
-        # phi = e_edge - e_vertex = y - feature_height(x). Thus the
-        # coarea denominator in this (x,y) parameterization is one.
+        y = _branch_height(x, displacement)
+        shape = _shapes(x, y)
+        current_x, _ = _current(x, y, displacement)
+        difference = np.asarray((3.0 - current_x, 1.0))
+        # phi = e_edge - e_vertex = current_y - feature_height(current_x).
+        # The coarea denominator ds/|grad_ref phi| = dx/|d phi/dy|.
+        derivative_y = (
+            1.0 + (displacement[2, 1] - displacement[1, 1]) / 3.0
+            - (current_x - 3.0)
+            * (displacement[2, 0] - displacement[1, 0]) / 3.0
+        )
+        if derivative_y <= 0.0:
+            raise ValueError("The tested feature curve must have one vertical crossing.")
         moving -= weight * np.einsum(
             "i,j,a,b->iajb", shape, shape, difference, difference,
-        )
+        ) / derivative_y
     return moving
 
 
-def main() -> None:
-    potential, residual, bulk, entry = split_residual_and_bulk_tangent()
-    moving = moving_feature_tangent(entry)
+def _difference_audit(displacement):
+    potential, residual, bulk, entry = split_residual_and_bulk_tangent(displacement)
+    moving = moving_feature_tangent(entry, displacement)
     step = 1e-5
-    numerical_vertical = np.zeros((3, 3))
+    numerical = np.zeros((3, 2, 3, 2))
+    numerical_gradient = np.zeros((3, 2))
     for node in range(3):
-        direction = np.zeros(3)
-        direction[node] = step
-        plus = split_residual_and_bulk_tangent(direction)[1]
-        minus = split_residual_and_bulk_tangent(-direction)[1]
-        numerical_vertical[:, node] = (plus[:, 1] - minus[:, 1]) / (2.0 * step)
+        for component in range(2):
+            direction = np.zeros((3, 2))
+            direction[node, component] = step
+            plus = split_residual_and_bulk_tangent(displacement + direction)
+            minus = split_residual_and_bulk_tangent(displacement - direction)
+            numerical[:, :, node, component] = (plus[1] - minus[1]) / (2.0 * step)
+            numerical_gradient[node, component] = (plus[0] - minus[0]) / (2.0 * step)
+    return {
+        "potential": potential,
+        "residual": residual,
+        "entry": entry,
+        "moving": moving,
+        "first_variation_error": float(np.max(np.abs(numerical_gradient - residual))),
+        "tangent_error_with_boundary": float(np.max(np.abs(numerical - bulk - moving))),
+        "tangent_error_without_boundary": float(np.max(np.abs(numerical - bulk))),
+    }
+
+
+def main() -> None:
+    base = _difference_audit(np.zeros((3, 2)))
+    perturbed = _difference_audit(np.asarray((
+        (0.012, -0.006), (-0.008, 0.014), (0.004, -0.01),
+    )))
     result = {
         "scope": "research_only_two_quadratic_feature_branches_not_a_closed_tool",
         "feature_curve": "y=((x-3)^2+1)/2",
-        "feature_entry_x": entry,
+        "feature_entry_x": base["entry"],
         "straight_chord_midpoint_error": float(
-            0.5 * (feature_height(entry) + feature_height(2.0))
-            - feature_height(0.5 * (entry + 2.0))
+            0.5 * (feature_height(base["entry"]) + feature_height(2.0))
+            - feature_height(0.5 * (base["entry"] + 2.0))
         ),
-        "potential": potential,
-        "reference_p1_nodal_residual": residual.tolist(),
-        "vertical_tangent_max_error_with_moving_boundary": float(np.max(
-            np.abs(numerical_vertical - (bulk + moving)[:, 1, :, 1]),
-        )),
-        "vertical_tangent_max_error_without_moving_boundary": float(np.max(
-            np.abs(numerical_vertical - bulk[:, 1, :, 1]),
-        )),
+        "potential": base["potential"],
+        "reference_p1_nodal_residual": base["residual"].tolist(),
+        "full_nodal_potential_gradient_error": base["first_variation_error"],
+        "full_nodal_tangent_max_error_with_moving_boundary": base["tangent_error_with_boundary"],
+        "full_nodal_tangent_max_error_without_moving_boundary": base["tangent_error_without_boundary"],
+        "perturbed_full_nodal_potential_gradient_error": perturbed["first_variation_error"],
+        "perturbed_full_nodal_tangent_max_error_with_moving_boundary": perturbed["tangent_error_with_boundary"],
+        "perturbed_full_nodal_tangent_max_error_without_moving_boundary": perturbed["tangent_error_without_boundary"],
         "moving_boundary_term_is_negative_semidefinite": bool(
-            np.max(np.linalg.eigvalsh(moving.reshape(6, 6))) < 1e-12
+            np.max(np.linalg.eigvalsh(base["moving"].reshape(6, 6))) < 1e-12
         ),
         "public_contact_step": False,
     }
