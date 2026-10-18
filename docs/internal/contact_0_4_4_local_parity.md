@@ -38,10 +38,21 @@ being silently approximated by the bounded route.
 
 “Partial” here is not a release status. The test target, geometry and
 enforcement must all match before a gate can be marked closed.
-The reentrant-tool sample carries an explicit engineering/release quality
-failure whenever a sampled slave face crosses nearest features without a
-certified transition integral. Exploratory inspection remains possible; an
-absence of sampled switches is not a whole-face accuracy certificate.
+The reentrant-tool sample carries an engineering quality failure whenever a
+sampled slave face crosses nearest features without a certified transition
+integral. Release additionally requires a certified integral even if no
+switch or active point happened to be sampled. Exploratory inspection remains
+possible; an absence of sampled switches is not a whole-face certificate.
+
+Ownership for the next implementation is deliberately narrow: surface/search
+admission belongs under `boundary_models/`; feature integration and the
+fixed-multiplier law are Operators there, not new solvers; the outer AL loop,
+Newton/MPC ordering and atomic acceptance belong to the existing finite-J2
+Procedure; accepted histories and checkpoint identity belong to State; force,
+work, field-location and trust claims belong to Result/Verification. The
+external comparator and convergence ladder are test/evidence assets, not
+hidden runtime heuristics. This keeps the public Model focused on declaring
+the contact pair and its physical/numerical policy.
 
 ## Nine ordered gates and reading map
 
@@ -236,8 +247,13 @@ The gate stays open until its listed evidence exists at the proposed scope.
    [COMSOL penalty/augmentation trade-off][comsol-method], and
    [Burman--Hansbo--Larson's augmented-Lagrangian FE analysis][burman]. The
    latter warns that a discontinuous multiplier approximation can need
-   stabilization; independent point multipliers do not inherit its proof
-   and require a spatial-pressure/mesh check.
+   stabilization; [Hansbo--Rashid--Salomonsson's stabilized obstacle
+   formulation][hansbo-stabilized] likewise explains that too many discrete
+   multiplier constraints can make a system singular. Our independent point
+   multipliers inherit neither proof and require a spatial-pressure/mesh
+   check. An [exact-penalty alternative][exact-penalty] exists, but would not
+   repair the unresolved nonconvex integration and is not a silent replacement
+   for the declared AL policy.
 
    On the same 2-cell/axis, 12-increment, q7 L-prism diagnostic above,
    increasing the *penalty* from 20 to 200, 1,000, 10,000 and 100,000
@@ -427,6 +443,8 @@ identified multiplier-transfer rule has its own tests.
 [variational-mortar]: https://doi.org/10.1016/j.cma.2018.07.020
 [abaqus-rigid-smoothing]: https://docs.software.vt.edu/abaqusv2025/English/SIMACAEMODRefMap/simamod-c-rigidsurf.htm
 [burman]: https://arxiv.org/abs/1609.03326
+[hansbo-stabilized]: https://doi.org/10.1016/j.finel.2016.03.005
+[exact-penalty]: https://www.sciencedirect.com/science/article/pii/S0045782520302929
 [duong-friction]: https://arxiv.org/abs/1808.10420
 [comsol-settings]: https://doc.comsol.com/6.3/doc/com.comsol.help.sme/sme_ug_modeling.05.146.html
 [acl]: https://docs.software.vt.edu/abaqusv2025/English/SIMACAEITNRefMap/simaitn-c-contactcontrolsstd.htm
