@@ -22,6 +22,7 @@ from agentfem.boundary_models.contact_separation_bound import (
 from agentfem.boundary_models.contact_feature_path import AcceptedContactFeaturePath
 from agentfem.boundary_models.contact_planar_branch_bound import (
     _coplanar_patch_covers_face,
+    _quadratic_finite_feature_distance_difference_lower_bound,
     _quadratic_plane_distance_difference_lower_bound,
     certify_closed_planar_branch,
     certify_reviewed_planar_branch,
@@ -34,6 +35,7 @@ from agentfem.boundary_models.implicit_contact import integrate_implicit_rigid_c
 from agentfem.boundary_models.implicit_closed_contact import (
     sampled_mixed_feature_slave_faces,
 )
+from agentfem.boundary_models.rigid import _closest_point_on_triangle
 from agentfem.boundary_models.dolfinx_implicit_facet_contact import (
     dolfinx_implicit_rigid_contact,
 )
@@ -254,6 +256,90 @@ def test_plane_distance_quadratic_refuses_a_hidden_interior_competitor():
     assert safe_lower > 0.0
 
 
+@pytest.mark.parametrize("feature", ["edge", "vertex"])
+def test_fixed_finite_triangle_feature_has_whole_slave_face_distance_bound(feature):
+    cell = np.asarray(((0.95, 0.4, 0.8), (0.95, 1.4, 0.8),
+                       (0.95, 0.4, 1.1)))
+    triangle = np.asarray((
+        ((0.7, 1.6, 0.9), (1.2, 1.6, 0.9), (0.7, 2.0, 0.9))
+        if feature == "edge" else
+        ((0.7, 1.6, 0.9), (0.9, 1.6, 0.9), (0.7, 2.0, 0.9))
+    ))
+    plane_lower, _, _ = _quadratic_plane_distance_difference_lower_bound(
+        cell, np.asarray((1., 0., 0.)), 1.0,
+        np.asarray((0., 0., 1.)), 0.9,
+    )
+    assert plane_lower < 0.0  # Infinite master plane crosses the slave face.
+    bound = _quadratic_finite_feature_distance_difference_lower_bound(
+        cell, np.asarray((1., 0., 0.)), 1.0, triangle,
+        length_margin=1e-12,
+    )
+    assert bound is not None and bound[0] > 0.0
+    for a in np.linspace(0.0, 1.0, 15):
+        for b in np.linspace(0.0, 1.0 - a, 15):
+            point = cell[0] + a * (cell[1] - cell[0]) + b * (cell[2] - cell[0])
+            foot = _closest_point_on_triangle(point, *triangle)
+            exact_difference = np.sum((point - foot)**2) - (point[0] - 1.0)**2
+            assert exact_difference >= bound[0] - 1e-12
+
+
+def test_open_sheet_uses_fixed_vertex_bound_only_for_a_distant_finite_facet():
+    surface = boundary_models.triangulated_rigid_surface(
+        vertices=(
+            (1., 0., 0.), (1., 0., 2.), (1., 2., 2.), (1., 2., 0.),
+            (0.7, 1.6, 0.9), (0.9, 1.6, 0.9), (0.7, 2., 0.9),
+        ),
+        triangles=((0, 1, 2), (0, 2, 3), (4, 5, 6)),
+    )
+    face = np.asarray((((0.95, 0.4, 0.8), (0.95, 1.4, 0.8),
+                        (0.95, 0.4, 1.1)),))
+    result = certify_reviewed_planar_branch(
+        face, surface, projector=boundary_models.triangle_surface_bvh(surface),
+        maximum_refinement_levels=0,
+    )
+    assert result.certified, result.status
+    assert result.minimum_competitor_clearance > 0.0
+
+
+def test_finite_feature_bound_refuses_a_whole_face_voronoi_switch():
+    triangle = np.asarray(((0.7, 1.6, 0.9), (1.2, 1.6, 0.9),
+                           (0.7, 2.0, 0.9)))
+    crossing = np.asarray(((0.6, 1.4, 0.8), (1.3, 1.4, 0.8),
+                           (0.95, 1.4, 1.1)))
+    assert _quadratic_finite_feature_distance_difference_lower_bound(
+        crossing, np.asarray((1., 0., 0.)), 1.0, triangle,
+        length_margin=1e-12,
+    ) is None
+
+
+def test_finite_feature_quadratic_bound_survives_rigid_frame_changes():
+    rng = np.random.default_rng(81349)
+    cell = np.asarray(((0.95, 0.4, 0.8), (0.95, 1.4, 0.8),
+                       (0.95, 0.4, 1.1)))
+    triangle = np.asarray(((0.7, 1.6, 0.9), (1.2, 1.6, 0.9),
+                           (0.7, 2.0, 0.9)))
+    for scale in (0.01, 1.0, 100.0):
+        for _ in range(6):
+            matrix, _ = np.linalg.qr(rng.normal(size=(3, 3)))
+            if np.linalg.det(matrix) < 0.0:
+                matrix[:, 0] *= -1.0
+            shift = rng.uniform(-2, 2, 3) * scale
+            moved_cell = scale * cell @ matrix + shift
+            moved_triangle = scale * triangle @ matrix + shift
+            normal = np.asarray((1., 0., 0.)) @ matrix
+            offset = float((scale * np.asarray((1., 0., 0.)) @ matrix + shift) @ normal)
+            bound = _quadratic_finite_feature_distance_difference_lower_bound(
+                moved_cell, normal, offset, moved_triangle,
+                length_margin=1e-12 * scale,
+            )
+            assert bound is not None and bound[0] > 0.0
+            for weights in rng.dirichlet(np.ones(3), size=50):
+                point = weights @ moved_cell
+                foot = _closest_point_on_triangle(point, *moved_triangle)
+                difference = np.sum((point - foot)**2) - (point @ normal - offset)**2
+                assert difference >= bound[0] - 1e-9 * scale**2
+
+
 def test_current_face_separation_refuses_hidden_and_budget_limited_contact():
     tool = _concave_tool()
     # All three standard degree-two points are in the free reentrant notch;
@@ -379,9 +465,17 @@ def test_closed_solid_planar_branch_needs_full_face_and_competitor_clearance():
                 broad_face, tool, maximum_refinement_levels=invalid_depth,
             )
 
-    # The face near the reentrant edge sees both wall and edge/other face.
-    crossing = np.asarray((((0.95, 1.01, 0.10), (0.95, 1.35, 0.10),
-                             (0.95, 1.01, 0.40)),))
+    # Near the reentrant edge but strictly on one side, the finite-feature
+    # Voronoi bound now proves that the *whole* face still sees one wall.
+    near_edge = np.asarray((((0.95, 1.01, 0.10), (0.95, 1.35, 0.10),
+                            (0.95, 1.01, 0.40)),))
+    assert certify_closed_planar_branch(
+        near_edge, tool, maximum_refinement_levels=0,
+    ).certified
+
+    # This face actually crosses into a second closest-feature region.
+    crossing = np.asarray((((0.95, 0.90, 0.10), (0.95, 1.35, 0.10),
+                             (0.95, 0.90, 0.40)),))
     hazard = certify_closed_planar_branch(crossing, tool)
     assert not hazard.certified
     assert hazard.status in {
@@ -389,9 +483,13 @@ def test_closed_solid_planar_branch_needs_full_face_and_competitor_clearance():
         "projection_can_leave_master_patch",
         "ambiguous_center_projection",
     }
-    exhausted = certify_closed_planar_branch(
-        crossing, tool, _refinement_budget=[0],
-    )
+    # Extremely close to the edge, the positive quadratic difference is
+    # below the numerical safety margin. A zero subdivision budget cannot
+    # silently reinterpret uncertainty as an accepted smooth branch.
+    unresolved = np.asarray((((0.95, 1.0000001, 0.10),
+                              (0.95, 1.35, 0.10),
+                              (0.95, 1.0000001, 0.40)),))
+    exhausted = certify_closed_planar_branch(unresolved, tool, _refinement_budget=[0])
     assert not exhausted.certified
     assert exhausted.status == "geometry_budget_exceeded"
     assert not certify_closed_planar_branch(

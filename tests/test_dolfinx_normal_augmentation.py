@@ -515,3 +515,118 @@ def test_coalesced_nodal_al_reaches_independent_hard_plane_j2_limit(
     assert actual_peeq == pytest.approx(plastic_increment, abs=2e-6)
     assert actual_pressure == pytest.approx(expected_pressure, abs=2e-3)
     assert 1 < equilibria <= state.maximum_augmentations
+
+
+@pytest.mark.parametrize("cells", [2, 3, 4, 6])
+def test_nonuniform_oblique_plane_al_pressure_research_screen(
+    monkeypatch, request, cells,
+):
+    """Screen an active, nonuniform pressure field without promoting AL to Step.
+
+    The known tilted tool has smaller imposed compression at larger y. This
+    probes an actual J2 global equilibrium with a coalesced nodal trace, but
+    does not establish mesh-uniform multiplier stability or a benchmark force.
+    """
+
+    step = _patch(
+        triangulated=True, cells=cells, gap=0.0, tilt=0.01,
+        penalty=3000.0, tool_translation=(-0.012, 0.0, 0.0),
+        applied_traction=0.0, increments=1, yield_stress=0.1,
+        transverse_boundary_fixed=True,
+    )[3]
+    provider = step.contact_provider
+    adapter = dolfinx_boundary_region_contact_trace(
+        provider.pair.slave_boundary, step.solution.function_space,
+        integration="nodal_lumped",
+    )
+    provider.adapter = boundary_models.RigidContactTracePolicy(
+        "nodal_lumped", coalesce_nodes=True,
+    ).apply(adapter, provider.pair)
+    trace = provider.adapter.trace
+    state = FixedTraceNormalMultiplierState(
+        trace, pair_identity=provider.name,
+        reference_evaluation=trace.evaluate(adapter.reference_nodal_positions),
+        surface_fingerprint=provider.surface.geometry_fingerprint,
+        penalty=3000.0, penetration_tolerance=1e-6,
+        complementarity_tolerance=1e-6, maximum_augmentations=40,
+        length_unit="m", pressure_unit="Pa",
+    )
+
+    def current():
+        evaluation, record, _, _ = provider._current_point_response()
+        return evaluation, record
+
+    def evaluate_augmented():
+        evaluation, record = current()
+        return integrate_fixed_trace_augmented_normal(
+            evaluation, record, state.evaluate(evaluation, record),
+            np.zeros((trace.point_count, 3, 3)),
+        )
+
+    monkeypatch.setattr(provider, "evaluate", evaluate_augmented)
+    step._apply_loading(0.0)
+    step.state_transaction.initialize()
+    step._apply_loading(1.0)
+    equilibria = 0
+    for _ in range(state.maximum_augmentations + 1):
+        info = step._solve_increment(
+            increment=1, attempt=1, start_factor=0.0, target_factor=1.0,
+        )
+        assert info.converged, info.rejection_reason
+        equilibria += 1
+        evaluation, record = current()
+        state.mark_equilibrium_converged(
+            evaluation, record,
+            total_residual_norm=info.residual_norm,
+            total_residual_tolerance=(
+                step.solver_options.absolute_tolerance
+                + step.solver_options.relative_tolerance * info.initial_residual_norm
+            ),
+        )
+        diagnostic = state.acceptance_diagnostics(evaluation, record)
+        if (diagnostic["maximum_penetration"] <= state.penetration_tolerance
+                and diagnostic["maximum_complementarity"]
+                <= state.complementarity_tolerance):
+            state.commit(evaluation, record)
+            step.state_transaction.commit_increment(
+                start_factor=0.0, target_factor=1.0,
+            )
+            break
+        state.augment_after_converged(evaluation, record)
+    else:
+        pytest.fail("Nonuniform normal augmentation did not meet declared tolerances.")
+
+    evaluation, record = current()
+    response = state.evaluate(evaluation, record)
+    rank = diagnose_fixed_trace_normal_constraint_rank(response)
+    assert rank["row_nullity"] == 0
+    assert not rank["certifies_spatial_stability"]
+    fixed = np.unique(np.concatenate([
+        np.asarray(bc.dof_indices()[0], dtype=np.int64) for bc in step.bcs
+    ]))
+    all_dofs = np.arange(step.solution.x.array.size, dtype=np.int64)
+    free = np.setdiff1d(all_dofs, fixed)
+    reduced_rank = diagnose_fixed_trace_normal_constraint_rank(
+        response, displacement_reduction=np.eye(len(all_dofs))[:, free],
+    )
+    assert reduced_rank["row_nullity"] == 0
+    assert diagnostic["maximum_penetration"] <= 1e-6
+    assert np.max(response.pressure) > np.min(response.pressure) + 1.0
+    y = trace.evaluate(adapter.reference_nodal_positions).query_points[:, 1]
+    lower = float(np.mean(response.pressure[np.isclose(y, 0.0)]))
+    upper = float(np.mean(response.pressure[np.isclose(y, 1.0)]))
+    assert lower > upper
+    force = float(-evaluate_augmented().contact_force_on_structure[0])
+    assert force > 0.0
+    maximum_peeq = float(np.max(step.response.state.committed[
+        "equivalent_plastic_strain"
+    ].function.x.array))
+    assert maximum_peeq > 0.0
+    request.node.user_properties.extend((
+        ("outer_equilibria", equilibria),
+        ("tool_force_magnitude", force),
+        ("lower_y_mean_pressure", lower),
+        ("upper_y_mean_pressure", upper),
+        ("maximum_peeq", maximum_peeq),
+        ("maximum_penetration", diagnostic["maximum_penetration"]),
+    ))

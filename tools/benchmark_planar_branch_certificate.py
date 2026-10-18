@@ -12,6 +12,7 @@ the source tree with ``PYTHONPATH=src python tools/benchmark_planar_branch_certi
 from __future__ import annotations
 
 import argparse
+from contextlib import ExitStack
 import json
 import platform
 import sys
@@ -26,13 +27,19 @@ from agentfem.boundary_models.contact_planar_branch_bound import (
 )
 
 
-def _case():
+def _case(geometry):
+    if geometry == "finite_vertex":
+        extra_vertices = ((0.7, 1.6, 0.9), (0.9, 1.6, 0.9), (0.7, 2., 0.9))
+        extra_faces = ((4, 5, 6),)
+    else:
+        extra_vertices = ((0.8, 2., 0.), (0.8, 2., 2.))
+        extra_faces = ((3, 2, 5), (3, 5, 4))
     surface = boundary_models.triangulated_rigid_surface(
         vertices=(
             (1., 0., 0.), (1., 0., 2.), (1., 2., 2.), (1., 2., 0.),
-            (0.8, 2., 0.), (0.8, 2., 2.),
+            *extra_vertices,
         ),
-        triangles=((0, 1, 2), (0, 2, 3), (3, 2, 5), (3, 5, 4)),
+        triangles=((0, 1, 2), (0, 2, 3), *extra_faces),
         name="planar_certificate_component_screen",
     )
     cells = np.asarray((((0.95, 0.4, 0.8), (0.95, 1.4, 0.8),
@@ -48,20 +55,28 @@ def _old_bound(*_args):
 
 def _measure_once(cells, surface, projector, *, old):
     if old:
-        with patch(
-            "agentfem.boundary_models.contact_planar_branch_bound"
-            "._quadratic_plane_distance_difference_lower_bound",
-            _old_bound,
-        ):
+        with ExitStack() as disabled:
+            disabled.enter_context(patch(
+                "agentfem.boundary_models.contact_planar_branch_bound"
+                "._quadratic_plane_distance_difference_lower_bound",
+                _old_bound,
+            ))
+            disabled.enter_context(patch(
+                "agentfem.boundary_models.contact_planar_branch_bound"
+                "._quadratic_finite_feature_distance_difference_lower_bound",
+                return_value=None,
+            ))
             start = perf_counter_ns()
             result = certify_reviewed_planar_branch(
                 cells, surface, projector=projector,
+                maximum_refinement_levels=3,
             )
             elapsed = perf_counter_ns() - start
     else:
         start = perf_counter_ns()
         result = certify_reviewed_planar_branch(
             cells, surface, projector=projector,
+            maximum_refinement_levels=3,
         )
         elapsed = perf_counter_ns() - start
     if not result.certified:
@@ -71,12 +86,16 @@ def _measure_once(cells, surface, projector, *, old):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument(
+        "--geometry", choices=("plane_competitor", "finite_vertex"),
+        default="plane_competitor",
+    )
     parser.add_argument("--pairs", type=int, default=200)
     parser.add_argument("--warmup-pairs", type=int, default=20)
     args = parser.parse_args()
     if args.pairs < 3 or args.warmup_pairs < 0:
         parser.error("Require at least three measured pairs and nonnegative warmup.")
-    cells, surface, projector = _case()
+    cells, surface, projector = _case(args.geometry)
     timings = {"subdivision_reference_ms": [], "quadratic_bound_ms": []}
     reference = None
     for pair in range(args.warmup_pairs + args.pairs):
@@ -103,6 +122,7 @@ def main():
     old, new = reference
     result = {
         "scope": "single_geometry_certificate_not_full_step",
+        "geometry": args.geometry,
         "python": sys.version.split()[0],
         "numpy": np.__version__,
         "machine": platform.machine(),

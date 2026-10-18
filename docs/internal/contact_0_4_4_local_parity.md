@@ -144,14 +144,28 @@ previously needed refinement now pass with refinement depth zero, while a
 manufactured truly competing facet still rejects. A three-vertex-only
 distance test is separately shown to miss an interior competitor. This is
 still a single-smooth-branch *certificate*, not a conic feature-switch
-integral. The reproducible paired component screen
-`tools/benchmark_planar_branch_certificate.py` alternates the existing
-subdivision route and the quadratic bound on one fixed open-sheet face. On
-one Apple Silicon host, 200 measured pairs after 20 warmup pairs gave
-`0.916/0.295 ms` medians (reference/new), about `3.1x` **for that one
-certificate**, not for a full nonlinear solve. It checks that both modes
-certify the same plane. Other geometry can incur the six-value check and
-show no gain; no full-solve speed improvement is claimed.
+integral. For a finite competing triangle whose nearest-point KKT conditions
+place the *whole* slave face in one edge or vertex Voronoi region, the exact
+squared distance to that fixed feature is also quadratic. A second six-value
+bound may therefore exclude that finite competitor even when its infinite
+plane intersects the slave face. If the Voronoi region changes or the bound
+is within the numerical safety margin, the old subdivision/fail-closed route
+remains. This admits a formerly rejected near-reentrant face that is actually
+on one smooth plane; a face truly crossing the reentrant feature is still
+rejected. The near-edge numerical-budget fixture also still refuses an
+unproved branch. Edge/vertex **competition** here is not an active edge or
+vertex contact law.
+
+The reproducible paired component screen
+`tools/benchmark_planar_branch_certificate.py` alternates the original
+subdivision route (both quadratic shortcuts disabled) and the new bounds at
+the same maximum refinement depth. On one Apple Silicon host, 200 measured
+pairs after 20 warmup pairs gave `0.911/0.290 ms` medians for the infinite
+plane competitor and `1.649/0.309 ms` for the finite-vertex competitor
+(reference/new). Both modes certify the same plane. The ratios, about
+`3.1x` and `5.3x`, apply **only to these individual geometry proofs**,
+not the full nonlinear solve. Other geometry can incur the six-value checks
+and show no gain; no full-solve speed improvement is claimed.
 The runnable closed-tool example now has a separate one-axis-at-a-time
 mesh/increment/penalty sensitivity driver. Its eleven serial synthetic runs
 all completed with certified smooth branches, but their terminal tool work
@@ -720,6 +734,25 @@ The gate stays open until its listed evidence exists at the proposed scope.
    is homogeneous, so nearly identical mesh results do not establish
    nonuniform contact-pressure stability, feature-switch convergence or a
    public AL Procedure. The trace and test-owned state remain research only.
+
+   A second, deliberately nonuniform oblique-plane J2 screen now runs the
+   same test-owned nodal AL outer loop on 2/3/4/6 tetrahedra per axis. All
+   four reach their declared penetration/complementarity tests, retain
+   nonzero plastic history, have an independent active-row Jacobian after
+   the *actual strong-BC reduction*, and show higher mean pressure where
+   the prescribed tool compression is larger. This is a more discriminating
+   path than homogeneous compression: the frozen 2/3/4/6-cell screen took
+   6/7/8/9 frozen-multiplier equilibria, and tool-force magnitudes were
+   2.712/2.711/2.719/2.725. Yet maximum PEEQ increased from 0.00956 to
+   0.01054, while the far-side nodal mean pressure fell from 0.246 to zero.
+   These are **not** a monotone field-convergence or spatial-stability proof;
+   there is no independent same-input contact benchmark. It
+   therefore screens feasibility only; it does not promote the multiplier
+   space or enable the public AL Step. In line with
+   [Burman--Hansbo--Larson][burman] and
+   [Hansbo--Rashid--Salomonsson][hansbo-stabilized], row rank at four finite
+   meshes cannot replace a mesh-uniform inf-sup or reviewed stabilization
+   argument.
 
    On the same 2-cell/axis, 12-increment, q7 L-prism diagnostic above,
    increasing the *penalty* from 20 to 200, 1,000, 10,000 and 100,000

@@ -85,6 +85,70 @@ def _quadratic_plane_distance_difference_lower_bound(
     return float(np.min(coefficients)), candidate[:3], other[:3]
 
 
+def _quadratic_finite_feature_distance_difference_lower_bound(
+    cell, candidate_normal, candidate_offset, other_triangle, *, length_margin,
+):
+    """Try to bound a *finite* competitor's single edge/vertex Voronoi branch.
+
+    The nearest-point KKT inequalities of a convex triangle's edge or vertex
+    region are affine in the query point. Strict satisfaction at every vertex
+    of an affine slave face therefore proves the same closest feature over
+    its entire face. Squared distance to that fixed feature is quadratic;
+    its six Bernstein coefficients bound the whole face. An inconclusive
+    region is never treated as permission to skip the competitor.
+    """
+
+    samples = np.vstack((
+        cell,
+        0.5 * (cell[0] + cell[1]),
+        0.5 * (cell[1] + cell[2]),
+        0.5 * (cell[2] + cell[0]),
+    ))
+    candidate = samples @ candidate_normal - candidate_offset
+    options = []
+    for vertex_index, vertex in enumerate(other_triangle):
+        next_vertex = other_triangle[(vertex_index + 1) % 3]
+        last_vertex = other_triangle[(vertex_index + 2) % 3]
+        edge_a = next_vertex - vertex
+        edge_b = last_vertex - vertex
+        offsets = cell - vertex
+        if (
+            np.max(offsets @ edge_a) < -length_margin * np.linalg.norm(edge_a)
+            and np.max(offsets @ edge_b) < -length_margin * np.linalg.norm(edge_b)
+        ):
+            options.append(np.linalg.norm(samples - vertex, axis=1))
+    for edge_index in range(3):
+        first = other_triangle[edge_index]
+        second = other_triangle[(edge_index + 1) % 3]
+        third = other_triangle[(edge_index + 2) % 3]
+        edge = second - first
+        edge_squared = float(edge @ edge)
+        transverse = third - first - ((third - first) @ edge) / edge_squared * edge
+        fraction = (cell - first) @ edge / edge_squared
+        if (
+            np.min(fraction) > length_margin / np.sqrt(edge_squared)
+            and np.max(fraction) < 1.0 - length_margin / np.sqrt(edge_squared)
+            and np.max((cell - first) @ transverse)
+            < -length_margin * np.linalg.norm(transverse)
+        ):
+            sample_fraction = (samples - first) @ edge / edge_squared
+            feet = first + sample_fraction[:, None] * edge
+            options.append(np.linalg.norm(samples - feet, axis=1))
+    if not options:
+        return None
+    lower_bounds = []
+    for distances in options:
+        values = distances**2 - candidate**2
+        coefficients = np.asarray((
+            *values[:3],
+            2.0 * values[3] - 0.5 * (values[0] + values[1]),
+            2.0 * values[4] - 0.5 * (values[1] + values[2]),
+            2.0 * values[5] - 0.5 * (values[2] + values[0]),
+        ))
+        lower_bounds.append((float(np.min(coefficients)), candidate[:3], distances[:3]))
+    return max(lower_bounds, key=lambda item: item[0])
+
+
 def _coplanar_patch_covers_face(
     feet, master, coplanar_slots, normal, *, maximum_pieces=256,
 ):
@@ -160,9 +224,11 @@ def certify_reviewed_planar_branch(
     triangle; otherwise a bounded polygon subtraction proves that the
     projected slave triangle is covered by the coplanar master-triangle union.
     Coplanar, identically oriented facets share the same signed-gap function.
-    If the radius test alone is inconclusive, a bounded subdivision may prove
-    that every child still has this *same* plane. Different child planes never
-    license an approximate feature-switch integral.
+    If the radius test alone is inconclusive, quadratic whole-face distance
+    bounds for another plane or a fixed finite edge/vertex may exclude it.
+    Otherwise, bounded subdivision may prove that every child still has this
+    *same* plane. Different child planes never license an approximate
+    feature-switch integral.
     """
 
     if isinstance(surface, ClosedTriangulatedRigidSolid):
@@ -322,6 +388,12 @@ def certify_reviewed_planar_branch(
                     cell, normal, offset, normals[other_slot], offsets[other_slot],
                 )
             )
+            if lower_squared <= squared_margin:
+                finite_feature = _quadratic_finite_feature_distance_difference_lower_bound(
+                    cell, normal, offset, other, length_margin=length_margin,
+                )
+                if finite_feature is not None and finite_feature[0] > lower_squared:
+                    lower_squared, candidate_vertices, other_vertices = finite_feature
             if lower_squared > squared_margin:
                 # |g_other_plane| <= max at vertices because its gap is affine.
                 # Divide the squared-distance bound by an upper bound on the
