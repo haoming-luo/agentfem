@@ -602,7 +602,8 @@ def _initial_contact_bound_rejection_reason(model, request: StepRequest) -> str 
     without projecting or assembling during a capability probe.
     """
 
-    from .boundary_models import RigidContactPair, RigidPlaneSurface
+    from .boundary_models import RigidContactPair
+    from .boundary_models.initial_gap_bound import initial_gap_bound_method
 
     bounded = tuple(
         pair for pair in getattr(model, "boundary_models", ())
@@ -615,19 +616,29 @@ def _initial_contact_bound_rejection_reason(model, request: StepRequest) -> str 
     space = getattr(value, "function_space", None)
     domain = getattr(space, "mesh", None)
     degree = getattr(getattr(space, "element", None), "basix_element", None)
+    cell_name = None if domain is None else str(domain.topology.cell_name())
+    facet_topology = {
+        "tetrahedron": "triangle",
+        "hexahedron": "quadrilateral",
+    }.get(cell_name, "unsupported")
     if (
         domain is None
         or degree is None
-        or int(degree.degree) != 1
-        or int(domain.geometry.cmaps[0].degree) != 1
-        or any(not isinstance(pair.rigid_body.surface, RigidPlaneSurface)
-               for pair in bounded)
+        or any(
+            initial_gap_bound_method(
+                pair.rigid_body.surface,
+                interpolation_degree=int(degree.degree),
+                geometry_degree=int(domain.geometry.cmaps[0].degree),
+                facet_topology=facet_topology,
+            ) is None
+            for pair in bounded
+        )
     ):
         return (
             "AFM-CONTACT-INITIAL-BOUND: initial_penetration_limit requires "
-            "an analytical rigid plane, first-order slave interpolation "
-            "and first-order geometry; sampled curved/faceted overlap is "
-            "not a certified face-wise bound."
+            "first-order slave interpolation and geometry with an analytical "
+            "plane or reviewed closed-solid triangular signed distance; "
+            "other sampled gaps are not a certified face-wise bound."
         )
     return None
 

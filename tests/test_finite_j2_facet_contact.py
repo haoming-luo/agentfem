@@ -335,6 +335,39 @@ def test_quadratic_plane_initial_overlap_limit_is_not_misadvertised():
         model.step(target=displacement, material=material)
 
 
+@pytest.mark.parametrize("closed_concave_tool", [False, True])
+def test_closed_tool_signed_distance_initial_bound_reaches_ordinary_step(
+    closed_concave_tool,
+):
+    options = dict(
+        triangulated=True,
+        convex_tool=not closed_concave_tool,
+        closed_concave_tool=closed_concave_tool,
+        initial_penetration_limit=0.1,
+        applied_traction=0.0,
+    )
+    model, displacement, material, _ = _patch(**options, make_step=False)
+    capability = step_capability(
+        model, target=displacement, options={"material": material},
+    )
+    assert capability["supported"], capability["rejection_reasons"]
+    step = _patch(**options)[3]
+    initial = step.contact_provider.current_point_diagnostics()["initial_contact"]
+    assert initial["face_wise_bound_certified"] is True
+    assert initial["bound_method"] == "adaptive_closed_signed_distance_lipschitz"
+    assert initial["maximum_penetration_bound"] <= 0.1
+    assert initial["bound_sampled_point_count"] > 0
+
+
+def test_closed_tool_excess_initial_overlap_rejects_before_newton():
+    with pytest.raises(ValueError, match="AFM-CONTACT-INITIAL-OVERLAP"):
+        _patch(
+            triangulated=True, convex_tool=True, gap=-0.05,
+            initial_penetration_limit=0.01,
+            applied_traction=0.0,
+        )
+
+
 def test_reviewed_closed_concave_tool_uses_ordinary_j2_step_and_restart(tmp_path):
     options = dict(
         triangulated=True, closed_concave_tool=True,

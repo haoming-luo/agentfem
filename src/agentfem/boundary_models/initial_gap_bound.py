@@ -1,0 +1,131 @@
+# SPDX-FileCopyrightText: 2026 Haoming Luo and AgentFEM contributors
+# SPDX-License-Identifier: Apache-2.0
+
+"""Conservative reference-triangle penetration bound for a true signed distance.
+
+For a closed-solid signed-distance function ``g`` with Lipschitz constant one,
+every point of a planar subtriangle lies within the maximum vertex distance
+from its centroid ``c``. Consequently ``g(x) >= g(c) - radius``. Adaptive
+subdivision tightens this *upper bound on penetration* without pretending
+that a few quadrature points certify a whole contact face. The caller must
+admit only a reviewed closed-surface projector that returns signed distance;
+an open oriented triangle sheet is not such a projector.
+"""
+
+from __future__ import annotations
+
+from dataclasses import dataclass
+
+import numpy as np
+
+from .closed_polyhedron import ClosedTriangulatedRigidSolid
+from .convex_polyhedron import ConvexPolyhedralRigidSurface
+from .rigid import RigidPlaneSurface
+
+
+def initial_gap_bound_method(
+    surface, *, interpolation_degree: int, geometry_degree: int,
+    facet_topology: str,
+) -> str | None:
+    """Return only geometry/trace combinations with a face-wise proof."""
+
+    if interpolation_degree != 1 or geometry_degree != 1:
+        return None
+    if isinstance(surface, RigidPlaneSurface):
+        return "exact_plane_nodal"
+    if facet_topology == "triangle" and isinstance(
+        surface, (ConvexPolyhedralRigidSurface, ClosedTriangulatedRigidSolid),
+    ):
+        return "adaptive_closed_signed_distance_lipschitz"
+    return None
+
+
+@dataclass(frozen=True)
+class InitialGapBound:
+    maximum_penetration_bound: float
+    sampled_point_count: int
+    maximum_refinement_depth: int
+
+
+def certify_initial_triangle_gap(
+    triangles,
+    projector,
+    *,
+    penetration_limit: float,
+    maximum_depth: int = 9,
+    maximum_samples: int = 500_000,
+) -> InitialGapBound:
+    """Certify an initial limit, or fail without guessing an unsampled gap.
+
+    ``projector`` must return a true 1-Lipschitz signed-distance field on the
+    complete query region. This property is an explicit caller-side geometry
+    admission requirement, not inferred from an arbitrary ``project`` method.
+    """
+
+    cells = np.asarray(triangles, dtype=float)
+    limit = float(penetration_limit)
+    if cells.ndim != 3 or cells.shape[1:] != (3, 3) or not np.all(np.isfinite(cells)):
+        raise ValueError("Initial gap certificate requires finite planar triangles (n, 3, 3).")
+    if not np.isfinite(limit) or limit < 0:
+        raise ValueError("Initial penetration limit must be finite and nonnegative.")
+    if isinstance(maximum_depth, bool) or not isinstance(maximum_depth, int) or maximum_depth < 0:
+        raise ValueError("Initial gap certificate maximum_depth must be nonnegative.")
+    if isinstance(maximum_samples, bool) or not isinstance(maximum_samples, int) or maximum_samples < 1:
+        raise ValueError("Initial gap certificate maximum_samples must be positive.")
+    if len(cells) == 0:
+        return InitialGapBound(0.0, 0, 0)
+    scale = max(1.0, float(np.max(np.abs(cells))), limit)
+    margin = 64.0 * np.finfo(float).eps * scale
+    count = 0
+    certified_bound = 0.0
+    for depth in range(maximum_depth + 1):
+        if count + len(cells) > maximum_samples:
+            raise NotImplementedError(
+                "AFM-CONTACT-INITIAL-UNCERTIFIED: signed-distance face bound "
+                "exceeded its declared sample budget."
+            )
+        centers = np.mean(cells, axis=1)
+        radii = np.max(np.linalg.norm(cells - centers[:, None, :], axis=2), axis=1)
+        projected = projector.project(centers, factor=0.0)
+        if not projected.all_valid:
+            raise ValueError(
+                "AFM-CONTACT-INITIAL-PROJECTION: signed-distance certificate "
+                "encountered an invalid or ambiguous reference projection."
+            )
+        gaps = np.asarray(projected.signed_gaps, dtype=float)
+        count += len(cells)
+        if np.any(gaps < -limit - margin):
+            raise ValueError(
+                "AFM-CONTACT-INITIAL-OVERLAP: a reference face contains a "
+                "sampled penetration exceeding initial_penetration_limit."
+            )
+        lower = gaps - radii - margin
+        safe = lower >= -limit
+        if np.any(safe):
+            certified_bound = max(
+                certified_bound,
+                float(np.max(np.maximum(0.0, -lower[safe]))),
+            )
+        cells = cells[~safe]
+        if not len(cells):
+            return InitialGapBound(certified_bound, count, depth)
+        if depth == maximum_depth:
+            break
+        a, b, c = cells[:, 0], cells[:, 1], cells[:, 2]
+        ab, bc, ca = (a + b) / 2, (b + c) / 2, (c + a) / 2
+        cells = np.concatenate((
+            np.stack((a, ab, ca), axis=1),
+            np.stack((ab, b, bc), axis=1),
+            np.stack((ca, bc, c), axis=1),
+            np.stack((ab, bc, ca), axis=1),
+        ))
+    raise NotImplementedError(
+        "AFM-CONTACT-INITIAL-UNCERTIFIED: the conservative signed-distance "
+        "face bound could not prove initial_penetration_limit within the "
+        "declared refinement depth; no contact state was accepted."
+    )
+
+
+__all__ = [
+    "InitialGapBound", "certify_initial_triangle_gap", "initial_gap_bound_method",
+]

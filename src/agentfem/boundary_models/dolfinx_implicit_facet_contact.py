@@ -42,6 +42,9 @@ from .implicit_closed_contact import (
 )
 from .implicit_friction import linearize_piecewise_planar_penalty_friction
 from .implicit_smooth_contact import linearize_smooth_rigid_contact
+from .initial_gap_bound import (
+    certify_initial_triangle_gap, initial_gap_bound_method,
+)
 from .rigid import RigidPlaneSurface, SmoothRigidSurface, TriangulatedRigidSurface
 from .search import TriangleSurfaceBVH, triangle_surface_bvh
 
@@ -192,13 +195,18 @@ class DolfinxImplicitRigidContact:
         penetrations = np.maximum(0.0, -gaps[valid])
         maximum = float(np.max(penetrations, initial=0.0))
         limit = self.pair.initial_penetration_limit
-        certified = (
-            isinstance(self.surface, RigidPlaneSurface)
-            and self.adapter.interpolation_degree == 1
-            and self.adapter.geometry_degree == 1
+        method = initial_gap_bound_method(
+            self.surface,
+            interpolation_degree=self.adapter.interpolation_degree,
+            geometry_degree=self.adapter.geometry_degree,
+            facet_topology=self.adapter.facet_topology,
         )
+        certified = method is not None and limit is not None
         maximum_bound = None
-        if certified:
+        certificate_samples = 0
+        certificate_depth = 0
+        if method == "exact_plane_nodal":
+            certified = True
             boundary_nodes = np.unique(evaluation.trace.node_ids.reshape(-1))
             nodal = projector.project(
                 self.adapter.reference_nodal_positions[boundary_nodes],
@@ -212,6 +220,17 @@ class DolfinxImplicitRigidContact:
             maximum_bound = float(np.max(
                 np.maximum(0.0, -np.asarray(nodal.signed_gaps)), initial=0.0,
             ))
+            certificate_samples = len(boundary_nodes)
+        elif method == "adaptive_closed_signed_distance_lipschitz" and limit is not None:
+            face_nodes = np.unique(evaluation.trace.node_ids, axis=0)
+            certificate = certify_initial_triangle_gap(
+                self.adapter.reference_nodal_positions[face_nodes],
+                projector,
+                penetration_limit=limit,
+            )
+            maximum_bound = certificate.maximum_penetration_bound
+            certificate_samples = certificate.sampled_point_count
+            certificate_depth = certificate.maximum_refinement_depth
         self._initial_contact_diagnostics = {
             "sampling": "reference_boundary_quadrature_at_reference_rigid_pose",
             "sampled_point_count": int(valid.size),
@@ -220,6 +239,9 @@ class DolfinxImplicitRigidContact:
             "maximum_penetration": maximum,
             "maximum_penetration_bound": maximum_bound,
             "face_wise_bound_certified": certified,
+            "bound_method": method if certified else None,
+            "bound_sampled_point_count": certificate_samples,
+            "bound_refinement_depth": certificate_depth,
             "minimum_valid_signed_gap": (
                 None if not np.any(valid) else float(np.min(gaps[valid]))
             ),
@@ -234,9 +256,10 @@ class DolfinxImplicitRigidContact:
         if not certified:
             raise NotImplementedError(
                 "AFM-CONTACT-INITIAL-BOUND: an initial_penetration_limit "
-                "currently requires an analytical plane with first-order "
-                "slave interpolation and geometry; quadrature samples on "
-                "faceted or curved tools are not a face-wise bound."
+                "currently requires first-order slave interpolation and "
+                "geometry with either an analytical plane or a reviewed "
+                "closed-solid signed-distance tool on triangular faces; "
+                "open faceted or unsupported curved samples are not a bound."
             )
         if not np.all(valid):
             first = int(np.flatnonzero(~valid)[0])

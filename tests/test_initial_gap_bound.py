@@ -1,0 +1,62 @@
+from types import SimpleNamespace
+
+import numpy as np
+import pytest
+
+from agentfem.boundary_models.initial_gap_bound import certify_initial_triangle_gap
+
+
+class SphereDistance:
+    """Independent exact signed-distance oracle for a closed ball."""
+
+    def __init__(self, center, radius):
+        self.center = np.asarray(center, dtype=float)
+        self.radius = float(radius)
+
+    def project(self, points, *, factor):
+        assert factor == 0.0
+        gaps = np.linalg.norm(np.asarray(points) - self.center, axis=1) - self.radius
+        return SimpleNamespace(all_valid=True, signed_gaps=gaps)
+
+
+TRIANGLE = np.asarray((((0., 0., 0.), (1., 0., 0.), (0., 1., 0.)),))
+
+
+def test_lipschitz_certificate_bounds_whole_face_and_refines():
+    projector = SphereDistance((0.2, 0.2, -0.2), 0.1)
+    bound = certify_initial_triangle_gap(
+        TRIANGLE, projector, penetration_limit=0.05,
+    )
+    assert bound.maximum_penetration_bound <= 0.05
+    assert bound.maximum_refinement_depth > 0
+    assert bound.sampled_point_count > 1
+    # This sampled check is not the proof; it guards the oracle geometry.
+    x = np.linspace(0, 1, 101)
+    points = np.asarray([(a, b, 0) for a in x for b in x if a + b <= 1])
+    minimum = np.min(projector.project(points, factor=0.0).signed_gaps)
+    assert -minimum <= bound.maximum_penetration_bound
+
+
+def test_interior_overlap_missed_by_three_gauss_points_is_rejected():
+    projector = SphereDistance((0.12, 0.12, 0), 0.08)
+    gauss = np.asarray(((1 / 6, 1 / 6, 0), (2 / 3, 1 / 6, 0), (1 / 6, 2 / 3, 0)))
+    assert np.min(projector.project(gauss, factor=0.0).signed_gaps) > -0.05
+    with pytest.raises(ValueError, match="AFM-CONTACT-INITIAL-OVERLAP"):
+        certify_initial_triangle_gap(TRIANGLE, projector, penetration_limit=0.05)
+
+
+def test_unresolved_zero_tolerance_fails_closed_without_fabricating_a_bound():
+    projector = SphereDistance((0.2, 0.2, -0.1), 0.1)
+    with pytest.raises(NotImplementedError, match="AFM-CONTACT-INITIAL-UNCERTIFIED"):
+        certify_initial_triangle_gap(
+            TRIANGLE, projector, penetration_limit=0.0, maximum_depth=4,
+        )
+
+
+def test_invalid_projection_cannot_certify():
+    projector = SphereDistance((0.2, 0.2, -0.2), 0.1)
+    projector.project = lambda points, factor: SimpleNamespace(
+        all_valid=False, signed_gaps=np.zeros(len(points)),
+    )
+    with pytest.raises(ValueError, match="AFM-CONTACT-INITIAL-PROJECTION"):
+        certify_initial_triangle_gap(TRIANGLE, projector, penetration_limit=0.1)

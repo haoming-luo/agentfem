@@ -27,7 +27,7 @@ being silently approximated by the bounded route.
 | Gate | Current evidence | Still needed for promotion |
 | --- | --- | --- |
 | 1. Comparator | Internal and public-protocol tests | Independent same-input finite-J2 contact run and frozen observables |
-| 2. Surface | Reviewed geometry; exact initial-overlap bound for first-order analytical-plane trace | Face-wise bounds on curved/faceted tools, ambiguity and sliding coverage at target geometry |
+| 2. Surface | Reviewed geometry; exact plane and conservative closed-solid initial-overlap bounds on admitted first-order traces | Open facets, unsupported curved tools, ambiguity and sliding coverage at target geometry |
 | 3. Integration | Planar/convex partitions; sampled nonconvex risk flag | Nonconvex feature-switch integral and tangent |
 | 4. Normal law | Penalty Step; fixed-trace AL operator candidate | Outer global Procedure, spatial stability and checkpoint composition |
 | 5. Friction | Locally planar Coulomb State; rigid-master spin transport tested | Admitted geometry-by-friction matrix; sharp features remain rejected |
@@ -67,19 +67,24 @@ The gate stays open until its listed evidence exists at the proposed scope.
    intentionally missed-candidate trap. Current state: smooth projectors,
    triangulated BVH and reviewed closed-solid classifiers exist. Implicit
    rigid pairs now have an optional `initial_penetration_limit` in length
-   units. It is enforced *only* for an analytical plane with first-order
-   slave interpolation and geometry, where the extremal nodal signed gap is
-   a face-wise bound; this catches a corner penetration missed by quadrature.
-   Other surfaces report sampled initial overlap but reject a requested
-   limit instead of pretending those samples certify a whole face. The
-   ordinary Step capability query now reports that unsupported policy before
-   Step construction, including a higher-order planar slave trace. The
-   explicit pair also rejects the unsupported policy. No branch silently
-   moves slave nodes or the tool. Arbitrary large-CAD and ambiguous sharp
-   features are not admitted. Reading:
+   units. On a first-order analytical-plane trace, the extremal nodal signed
+   gap is an exact face-wise bound; this catches a corner penetration missed
+   by quadrature. On a first-order triangular trace against a reviewed closed
+   convex or nonconvex rigid solid, a bounded adaptive subdivision uses the
+   true signed distance's 1-Lipschitz inequality to prove a conservative
+   face-wise upper bound. It fails closed on ambiguous projections or if the
+   declared depth/sample budget cannot prove the requested limit. No open
+   triangle sheet or arbitrary curved projector inherits that proof. The
+   ordinary Step capability query reports unsupported geometry/order before
+   Step construction. The explicit pair still rejects this policy. No branch
+   silently moves slave nodes or the tool. Arbitrary large-CAD and ambiguous
+   sharp features are not admitted. Reading:
    [Abaqus finite-sliding/general-contact formulation][abaqus],
    [Abaqus meshed-rigid-surface verification][meshed-rigid] and
-   [Abaqus initial-overclosure choices][initial].
+   [Abaqus initial-overclosure choices][initial]. The conservative subdivision
+   follows the classical 1-Lipschitz signed-distance property, distinct from
+   any particular neural approximation; see the distance-function discussion
+   in [Cavalletti--Mondino][distance].
 
 3. **Contact-boundary/feature integration.** Make the active integration
    partition a trial-geometry Operator input. A zero-gap boundary and a
@@ -224,6 +229,7 @@ transfer is separately verified.
 [abaqus]: https://docs.software.vt.edu/abaqusv2025/English/SIMACAEITNRefMap/simaitn-c-genlcontnumcontrolsstd.htm
 [nafems]: https://www.nafems.org/publications/pubguide/list/
 [initial]: https://docs.software.vt.edu/abaqusv2025/English/SIMACAEITNRefMap/simaitn-c-adjustsurfaces.htm
+[distance]: https://arxiv.org/abs/1803.09687
 [meshed-rigid]: https://docs.software.vt.edu/abaqusv2025/English/SIMACAEVERRefMap/simaver-c-finslcontdefmeshrig.htm
 [comsol-verification]: https://doc.comsol.com/6.3/doc/com.comsol.help.sme/StructuralMechanicsVerificationExamples.pdf
 [duong]: https://arxiv.org/abs/1712.01179
