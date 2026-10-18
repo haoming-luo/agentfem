@@ -394,9 +394,22 @@ def _add_affine_constraint_evidence(step, result) -> None:
         friction_dissipation = 0.0
         friction_release = 0.0
         has_friction = False
+        point_records = []
         for contact in contacts:
             contact_contribution = contact.evaluate()
             contact_potential += contact_contribution.assembly.potential_energy
+            point_evidence = contact.current_point_diagnostics()
+            point_records.append({
+                "constraint": contact.name, **point_evidence,
+            })
+            for name in (
+                "active_point_count", "active_reference_area",
+                "maximum_pressure", "maximum_penetration",
+            ):
+                result.add_quantity(
+                    f"{contact.name}_{name}", point_evidence[name],
+                    kind="diagnostic",
+                )
             if contact_contribution.friction_assembly is not None:
                 has_friction = True
                 friction_dissipation += (
@@ -418,6 +431,10 @@ def _add_affine_constraint_evidence(step, result) -> None:
             "contact_potential", contact_potential,
             kind="diagnostic",
             description="Recoverable rigid penalty contact potential.",
+        )
+        result.metadata["rigid_contact_point_diagnostics"] = (
+            point_records[0] if len(point_records) == 1
+            else tuple(point_records)
         )
         if has_friction:
             result.add_quantity(

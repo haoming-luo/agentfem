@@ -669,6 +669,12 @@ def test_periodic_j2_moving_plane_friction_commits_and_restarts(tmp_path):
     result = continuous.solve_result()
     assert result.status == "completed"
     assert result.quantity("friction_dissipation") > 0.0
+    assert result.metadata["affine_operator_path_work"]["status"] == "complete"
+    assert result.quantity("rigid_contact_pair_path_work") != 0.0
+    point_diagnostics = result.metadata["rigid_contact_point_diagnostics"]
+    assert point_diagnostics["location"] == "reference_boundary_quadrature"
+    assert point_diagnostics["active_point_count"] > 0
+    assert result.quantity("rigid_contact_pair_maximum_penetration") > 0.0
     assert continuous.contact_provider.friction_state.accepted is not None
     samples = continuous.contact_provider.accepted_point_samples()
     assert result.quantity("friction_dissipation") == pytest.approx(
@@ -740,6 +746,11 @@ def test_periodic_j2_moving_plane_friction_commits_and_restarts(tmp_path):
     payload = json.loads(saved.read_text(encoding="utf-8"))
     assert payload["schema"] == "agentfem.affine-stateful-checkpoint.v2"
     assert payload["operator_accepted_state"][0]["friction"] is not None
+    changed_law = dict(options, friction_coefficient=0.25)
+    _, _, incompatible = _periodic_j2_contact_step(**changed_law)
+    with pytest.raises(ValueError, match="full-space Operator identity"):
+        incompatible.load_checkpoint(saved)
+    assert incompatible.contact_provider.friction_state.accepted is None
     damaged = dict(payload)
     damaged["operator_accepted_state"] = json.loads(
         json.dumps(payload["operator_accepted_state"])
@@ -831,6 +842,11 @@ def test_periodic_j2_friction_and_opposed_frictionless_tool_restart(tmp_path):
     assert all(item.evaluate().active_points > 0
                for item in continuous.contact_providers)
     assert result.quantity("friction_dissipation") > 0.0
+    point_diagnostics = result.metadata["rigid_contact_point_diagnostics"]
+    assert tuple(item["constraint"] for item in point_diagnostics) == (
+        "rigid_contact_pair", "left_sphere",
+    )
+    assert all(item["active_point_count"] > 0 for item in point_diagnostics)
     assert continuous.contact_providers[0].friction_state.accepted is not None
     assert continuous.contact_providers[1].friction_state is None
 

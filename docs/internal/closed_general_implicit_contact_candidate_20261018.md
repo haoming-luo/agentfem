@@ -270,6 +270,11 @@ The three-cell row was run later with the same 5,120-facet tool, 24 accepted
 increments and three repetitions; its final tool work was 0.008853793023137713
 for both modes. A 1,280-facet control at that FE size measured 4.482 versus
 3.090 seconds (1.45×), showing the benefit depends on tool facet count.
+After the affine result-diagnostic extension, the same three-cell source-side
+screen repeated with 5,120 facets and three medians at 8.241 versus 3.292
+seconds (2.50×); both modes again gave tool work
+`0.008853793023137713`. The small absolute-time drift from the prior run is
+not evidence of a portable regression or speed gain.
 The fast option's numerical reproducibility on a large independent model
 and malformed-mesh robustness remain open release gates.
 

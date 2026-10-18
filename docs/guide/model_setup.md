@@ -437,6 +437,11 @@ tangential State uses the `agentfem.affine-stateful-checkpoint.v2` format;
 older v1 checkpoints remain valid for frictionless paths, not for an analysis
 with friction State. The affine result reports final cumulative sliding
 dissipation and separation release, not a time-resolved first-law certificate.
+As in the standard J2 Step, accepted affine results also expose unsmoothed
+per-pair active-point count, reference area, maximum penalty pressure and
+maximum penetration. These are reference-boundary quadrature diagnostics,
+not smoothed nodal or Cauchy stress fields; multiple pairs retain separate
+records rather than silently combining overlapping contact areas.
 Two region-assigned J2 parameter sets have been checked with a moving convex
 frictional tool and interrupted restart. This does not admit arbitrary user
 materials or certify general mixed-material interfaces.
