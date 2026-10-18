@@ -381,6 +381,26 @@ same total-system and accepted-increment transaction as penalty contact; an
 adaptive integration partition must continue to reject AL until multiplier
 transfer is separately verified.
 
+### Next code boundary: whole-increment augmentation, not a second solver
+
+For that analytical-plane admission, keep `FiniteStrainJ2StandardProblem` as
+the only Newton/line-search/linear-solve owner. The contact Operator reads a
+fixed outer-iterate multiplier and contributes its total residual and tangent
+before the existing MPC reduction. The Procedure snapshots displacement,
+material State, tool pose/work and accepted multipliers *once* at the start of
+the increment, then repeats: solve total Newton with a frozen multiplier;
+test total equilibrium; test penetration and complementarity; if needed,
+update only the trial multiplier and solve the total system again. Only a
+converged final outer iterate permits one joint commit and one checkpoint.
+An exhausted outer loop or Newton/cutback failure restores the complete
+pre-increment snapshot. In particular, a converged inner Newton iterate is
+not a valid checkpoint, and its algorithmic AL functional is not physical
+stored contact energy. Admission requires the existing penalty Step to remain
+unchanged by default and the AL path to pass a fixed-trace restart identity,
+one plastic-history path and one MPC-reduced total-tangent comparison. A
+changing feature partition cannot use this State until a conservative,
+identified multiplier-transfer rule has its own tests.
+
 [abaqus]: https://docs.software.vt.edu/abaqusv2025/English/SIMACAEITNRefMap/simaitn-c-genlcontnumcontrolsstd.htm
 [nafems]: https://www.nafems.org/publications/pubguide/list/
 [initial]: https://docs.software.vt.edu/abaqusv2025/English/SIMACAEITNRefMap/simaitn-c-adjustsurfaces.htm
