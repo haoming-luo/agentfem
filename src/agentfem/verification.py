@@ -763,7 +763,19 @@ def _contact_feature_evidence(result) -> tuple[bool, dict[str, object]]:
         else None
     )
     if raw is None:
-        return True, {"inspected": False}
+        path = (
+            metadata.get("rigid_contact_feature_path")
+            if isinstance(metadata, Mapping) else None
+        )
+        if path is None:
+            return True, {"inspected": False}
+        return False, {
+            "inspected": True,
+            "records": (),
+            "accepted_path": path,
+            "issues": ("accepted contact feature path has no current pair diagnostics",),
+            "scope": "sampled_warning_not_complete_feature_coverage_proof",
+        }
     records = (raw,) if isinstance(raw, Mapping) else raw
     if not isinstance(records, (tuple, list)):
         return False, {
@@ -851,6 +863,8 @@ def _contact_feature_evidence(result) -> tuple[bool, dict[str, object]]:
             if item["active_feature_counts"] is not None
             or "sampled_mixed_feature_slave_faces" in item
         }
+        if not expected_pairs:
+            issues.append("accepted contact feature path has no polyhedral pair")
         path_pairs = path.get("pairs") if isinstance(path, Mapping) else None
         if (
             not isinstance(path, Mapping)

@@ -290,7 +290,9 @@ The gate stays open until its listed evidence exists at the proposed scope.
    certificate exists, even when no mixed-feature face happened to be sampled.
    Release-level verification now requires this certificate for every
    polyhedral pair; zero *observed* mixed-feature faces or active points no
-   longer suffices. A future whole-face separation certificate may justify
+   longer suffices. An empty or unattached accepted-path record cannot pass
+   that claim vacuously; it must agree with current per-pair diagnostics. A
+   future whole-face separation certificate may justify
    a separate no-contact release path, but point samples cannot.
    The narrow-strip tests in `test_contact_active_partition.py` and the
    missed-interior-overlap test in `test_initial_gap_bound.py` are concrete

@@ -631,3 +631,28 @@ def test_engineering_report_refuses_incomplete_contact_feature_path():
     )
     assert claim.status == "failed"
     assert "accepted contact feature path is incomplete" in claim.actual["issues"]
+
+
+@pytest.mark.parametrize("point_diagnostics", [None, ()])
+def test_feature_path_without_current_polyhedral_pair_cannot_pass_vacuously(
+    point_diagnostics,
+):
+    metadata = {
+        "solve": {"converged": True},
+        "rigid_contact_feature_path": {
+            "schema": "agentfem.contact-feature-path.v1",
+            "complete": True,
+            "accepted_station_count": 1,
+            "pairs": (),
+        },
+    }
+    if point_diagnostics is not None:
+        metadata["rigid_contact_point_diagnostics"] = point_diagnostics
+    result = results.SimulationResult("empty_contact_path", metadata=metadata)
+    result.add_quantity("force", 0.0)
+    claim = next(
+        item for item in result.verify("engineering").claims
+        if item.name == "no_observed_uncertified_contact_feature_transition"
+    )
+    assert claim.status == "failed"
+    assert not result.verify("release").acceptable
