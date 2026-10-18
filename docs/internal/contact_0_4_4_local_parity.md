@@ -412,6 +412,15 @@ finite differences, combined translation/rotation work and a large rigid
 frame change give separate checks. Reusing immutable tool topology avoids a
 per-trial mesh rebuild in principle, but no measured full-Step speedup or
 accepted-state motion ledger is claimed yet.
+A narrow private DOLFINx trial adapter now binds one named `RigidContactPair`,
+its complete P1 boundary trace and current displacement to that pure face
+Operator. It refuses friction, nonserial layouts and an initial-overlap limit
+whose preflight it does not yet implement. The adapter checks exact pair,
+displacement and rigid-pose identities again before either PETSc insertion;
+changing the Newton displacement or tool factor after evaluation causes an
+addressable failure with no matrix/vector mutation. This creates a real
+Model-asset-to-Operator-to-PETSc path while still deliberately lacking
+`model.step`, accepted State, checkpoint, tool work and Result publication.
 
 For real Step admission, the boundary adapter must enumerate every selected
 physical slave face exactly once, then certify each current Newton trial as

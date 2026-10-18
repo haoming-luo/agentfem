@@ -651,13 +651,13 @@ def _dolfinx_mixed_active_patch():
         domain, tags, tag=17, name="mixed_reentrant_patch"
     )
     adapter = boundary_models.dolfinx_boundary_region_contact_trace(region, space)
-    return domain, space, adapter
+    return domain, space, adapter, region
 
 
 def test_real_dolfinx_mixed_active_patch_lowers_to_the_certified_face_operator():
     from dolfinx import fem
 
-    _, space, adapter = _dolfinx_mixed_active_patch()
+    _, space, adapter, _ = _dolfinx_mixed_active_patch()
     reference = adapter.reference_nodal_positions
     current = adapter.current_nodal_positions(fem.Function(space))
     operator = evaluate_certified_closed_p1_contact_operator(
@@ -680,7 +680,7 @@ def test_real_elastic_tetra_matrix_and_certified_face_operator_share_newton_rows
         add_contact_nodal_residual,
     )
 
-    domain, space, adapter = _dolfinx_mixed_active_patch()
+    domain, space, adapter, _ = _dolfinx_mixed_active_patch()
     trial, test = ufl.TrialFunction(space), ufl.TestFunction(space)
     young, poisson = 1.0e5, 0.3
     mu = young / (2 * (1 + poisson))
@@ -789,6 +789,123 @@ def test_contact_petsc_rows_reject_invalid_input_before_matrix_mutation():
     vector.set(0.0)
     with pytest.raises(ValueError, match="finite PETSc local rows"):
         add_contact_nodal_residual(vector, ((float("nan"), 0.0, 0.0),))
+    np.testing.assert_array_equal(vector.array, 0.0)
+
+
+def test_real_dolfinx_certified_face_trial_provider_rejects_stale_displacement():
+    from dolfinx import fem
+    from petsc4py import PETSc
+    import ufl
+
+    from agentfem.boundary_models._certified_face_trial_provider import (
+        DolfinxCertifiedFaceContactTrialProvider,
+    )
+    from agentfem.boundary_models.contact_pair import rigid_contact_pair
+    from agentfem.boundary_models.rigid_body import rigid_body
+
+    domain, space, adapter, region = _dolfinx_mixed_active_patch()
+    displacement = fem.Function(space)
+    pair = rigid_contact_pair(
+        region, rigid_body(_tool()), penalty=500.0, name="reviewed_tool"
+    )
+    provider = DolfinxCertifiedFaceContactTrialProvider(pair, adapter, displacement)
+    trial = provider.evaluate()
+    assert trial.operator.face_activity_kinds == ("partial", "whole")
+    size = 3 * len(adapter.reference_nodal_positions)
+    trial_function, test_function = ufl.TrialFunction(space), ufl.TestFunction(space)
+    matrix = fem.petsc.assemble_matrix(
+        fem.form(
+            ufl.inner(
+                ufl.sym(ufl.grad(trial_function)),
+                ufl.sym(ufl.grad(test_function)),
+            )
+            * ufl.dx(domain=domain)
+        )
+    )
+    matrix.assemble()
+    dofs = np.arange(size, dtype=PETSc.IntType)
+    initial_matrix = np.asarray(matrix.getValues(dofs, dofs)).copy()
+    vector = matrix.createVecRight()
+    vector.set(0.0)
+    provider.add_residual(vector, trial)
+    np.testing.assert_array_equal(
+        vector.array, trial.operator.nodal_residual.reshape(-1)
+    )
+    provider.add_tangent(matrix, trial)
+    matrix.assemble()
+    expected = initial_matrix.copy()
+    np.add.at(
+        expected,
+        (trial.operator.tangent_rows, trial.operator.tangent_columns),
+        trial.operator.tangent_values,
+    )
+    np.testing.assert_allclose(matrix.getValues(dofs, dofs), expected)
+    displacement.x.array[0] += 1e-5
+    before = vector.array.copy()
+    with pytest.raises(ValueError, match="another Newton trial"):
+        provider.add_residual(vector, trial)
+    np.testing.assert_array_equal(vector.array, before)
+    with pytest.raises(ValueError, match="another Newton trial"):
+        provider.add_tangent(matrix, trial)
+    np.testing.assert_allclose(matrix.getValues(dofs, dofs), expected)
+
+
+def test_certified_face_trial_provider_rejects_unimplemented_initial_overlap():
+    from dolfinx import fem
+
+    from agentfem.boundary_models._certified_face_trial_provider import (
+        DolfinxCertifiedFaceContactTrialProvider,
+    )
+    from agentfem.boundary_models.contact_pair import rigid_contact_pair
+    from agentfem.boundary_models.rigid_body import rigid_body
+
+    _, space, adapter, region = _dolfinx_mixed_active_patch()
+    pair = rigid_contact_pair(
+        region,
+        rigid_body(_tool()),
+        penalty=500.0,
+        initial_penetration_limit=0.1,
+    )
+    with pytest.raises(NotImplementedError, match="initial-overlap preflight"):
+        DolfinxCertifiedFaceContactTrialProvider(pair, adapter, fem.Function(space))
+
+
+def test_real_dolfinx_certified_face_trial_provider_rejects_stale_tool_pose():
+    from dolfinx import fem
+    from petsc4py import PETSc
+
+    from agentfem.boundary_models._certified_face_trial_provider import (
+        DolfinxCertifiedFaceContactTrialProvider,
+    )
+    from agentfem.boundary_models.contact_pair import rigid_contact_pair
+    from agentfem.boundary_models.contact_work import (
+        prescribed_rigid_motion_schedule,
+    )
+    from agentfem.boundary_models.rigid_body import rigid_body
+
+    _, space, adapter, region = _dolfinx_mixed_active_patch()
+    motion = prescribed_rigid_motion(
+        translation=(2e-5, -3e-5, 1e-5),
+        rotation=(1e-4, 0.0, 0.0),
+        reference_point=(0.5, 0.5, 0.5),
+    )
+    body = rigid_body(
+        _tool(),
+        motion_schedule=prescribed_rigid_motion_schedule(motion, end_time=1.0),
+    )
+    pair = rigid_contact_pair(region, body, penalty=500.0)
+    provider = DolfinxCertifiedFaceContactTrialProvider(
+        pair, adapter, fem.Function(space)
+    )
+    provider.update_motion(0.25)
+    trial = provider.evaluate()
+    assert trial.motion_factor == 0.25
+    assert trial.operator.motion_factor == 0.25
+    vector = PETSc.Vec().createSeq(3 * len(adapter.reference_nodal_positions))
+    vector.set(0.0)
+    provider.update_motion(0.5)
+    with pytest.raises(ValueError, match="another Newton trial"):
+        provider.add_residual(vector, trial)
     np.testing.assert_array_equal(vector.array, 0.0)
 
 
