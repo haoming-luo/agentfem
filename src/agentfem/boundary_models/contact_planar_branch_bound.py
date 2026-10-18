@@ -142,6 +142,7 @@ def certify_reviewed_planar_branch(
         query_projector = surface
         master = surface._triangles
         slots = surface._facet_slots
+        broad_phase = surface._bvh
     elif isinstance(surface, TriangulatedRigidSurface):
         if not isinstance(projector, TriangleSurfaceBVH) or projector.surface is not surface:
             raise ValueError(
@@ -149,8 +150,9 @@ def certify_reviewed_planar_branch(
             )
         facets = surface
         query_projector = projector
-        master = np.asarray(surface.vertices[surface.triangles], dtype=float)
+        master = projector._triangle_points
         slots = {int(identity): slot for slot, identity in enumerate(surface.facet_ids)}
+        broad_phase = projector
     else:
         raise TypeError("Planar branch bound requires reviewed triangle geometry.")
     cells = np.asarray(triangles, dtype=float)
@@ -218,8 +220,6 @@ def certify_reviewed_planar_branch(
     barycentric_margin = 1.0e-10
     normals = facets._facet_normals
     offsets = np.einsum("ij,ij->i", normals, master[:, 0, :])
-    master_lower = np.min(master, axis=1)
-    master_upper = np.max(master, axis=1)
     selected_normals = []
     selected_points = []
     examined = 0
@@ -244,43 +244,40 @@ def certify_reviewed_planar_branch(
             > barycentric_margin for foot in feet
         )
         if not single_triangle:
-            coplanar = (
-                (np.linalg.norm(normals - normal, axis=1) <= angular_margin)
-                & (np.abs(offsets - offset) <= length_margin)
-            )
             foot_lower = np.min(feet, axis=0) - length_margin
             foot_upper = np.max(feet, axis=0) + length_margin
-            nearby = coplanar & np.all(
-                (master_upper >= foot_lower) & (master_lower <= foot_upper),
-                axis=1,
+            patch_slots = broad_phase.overlapping_facets(foot_lower, foot_upper)
+            coplanar = (
+                (np.linalg.norm(normals[patch_slots] - normal, axis=1)
+                 <= angular_margin)
+                & (np.abs(offsets[patch_slots] - offset) <= length_margin)
             )
             if not _coplanar_patch_covers_face(
-                feet, master, np.flatnonzero(nearby), normal,
+                feet, master, patch_slots[coplanar], normal,
             ):
                 return failed("projection_can_leave_master_patch", examined)
         candidate_distance = abs(plane_gap)
+        # d_other(c)-d_plane(c)>2r is the exact whole-face exclusion test.
+        # A BVH box is a lower bound on its triangle distance. Therefore a
+        # node outside this radius cannot contain a competing closest facet;
+        # exact triangle distances are still checked for every retained slot.
+        search_radius = np.nextafter(
+            candidate_distance + 2.0 * radius + length_margin, np.inf,
+        )
+        nearby_slots = broad_phase.facets_within_distance(center, search_radius)
         competing = (
-            (np.linalg.norm(normals - normal, axis=1) > angular_margin)
-            | (np.abs(offsets - offset) > length_margin)
+            (np.linalg.norm(normals[nearby_slots] - normal, axis=1)
+             > angular_margin)
+            | (np.abs(offsets[nearby_slots] - offset) > length_margin)
         )
-        # The AABB contains each master triangle. Its distance is a lower
-        # bound on the exact triangle distance, so a box already farther
-        # than d(candidate)+2r cannot compete anywhere on this slave face.
-        box_offset = np.maximum(
-            np.maximum(master_lower - center, center - master_upper), 0.0,
+        # A skipped leaf has a strictly positive clearance at least equal to
+        # the search margin; do not present the minimum of only the visited
+        # leaves as though it were a global geometric minimum.
+        face_clearance = (
+            length_margin if len(nearby_slots) < master_count else float("inf")
         )
-        box_clearance = (
-            np.linalg.norm(box_offset, axis=1)
-            - candidate_distance - 2.0 * radius
-        )
-        box_excluded = competing & (box_clearance > length_margin)
-        face_clearance = float("inf")
-        if np.any(box_excluded):
-            face_clearance = min(
-                face_clearance, float(np.min(box_clearance[box_excluded])),
-            )
         uncertain_competitor = False
-        for other_slot in np.flatnonzero(competing & ~box_excluded):
+        for other_slot in nearby_slots[competing]:
             other = master[other_slot]
             examined += 1
             foot = _closest_point_on_triangle(center, *other)

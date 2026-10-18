@@ -27,9 +27,9 @@ being silently approximated by the bounded route.
 | Gate | Current evidence | Still needed for promotion |
 | --- | --- | --- |
 | 1. Comparator | Internal and public-protocol tests | Independent same-input finite-J2 contact run and frozen observables |
-| 2. Surface | Reviewed geometry; exact plane and conservative closed-solid initial-overlap bounds on admitted first-order traces | Open facets, unsupported curved tools, ambiguity and sliding coverage at target geometry |
+| 2. Surface | Reviewed closed/open triangle geometry, bounded initial-overlap checks, and per-face same-plane proof with one bounded fallback subdivision | Rims, unsupported curved tools, ambiguous sharp features and target-path sliding coverage |
 | 3. Integration | Planar/convex partitions; sampled nonconvex risk flag; certified zero-contact faces and certified per-face smooth-branch active subset of a closed concave tool | General active nonconvex feature-switch integral/tangent; separate admission or rejection of lower-dimensional edge/point contact |
-| 4. Normal law | Penalty Step; fixed-trace AL operator candidate | Outer global Procedure, spatial stability and checkpoint composition |
+| 4. Normal law | Penalty Step; fixed-trace AL research law plus real-mesh/reduced-rank counterexamples | Compatible multiplier space, outer global Procedure, spatial stability and checkpoint composition |
 | 5. Friction | Locally planar Coulomb State; rigid-master spin transport tested | Admitted geometry-by-friction matrix; sharp features remain rejected |
 | 6. Transaction | Total-system and restart tests for penalty; serial affine/MPC accepted-feature path with legacy-incomplete migration | Repeat for each new enforcement/integration law |
 | 7. Result | Pair work/pressure samples; AL local work sign | Cross-law first-law and pressure interpretation |
@@ -119,6 +119,19 @@ exact-name per-pair mode contract: one closed smooth branch and one analytical
 plane can enter a *single* total MPC system, survive interrupted restart and
 refuse a changed mode identity. This remains serial and does not admit a
 sharp-feature transition merely because the second tool is supported.
+The same-plane proof now uses the immutable triangle BVH to *discover* only
+facet boxes that can intersect the projected slave polygon or lie within
+`abs(gap_at_center) + 2 * slave_radius + numerical_margin` of its center.
+The 2-Lipschitz exclusion inequality and exact closest-triangle narrow phase
+are unchanged; a rejected box is a lower bound, never an assumed old contact
+state. A paired, alternating eight-repeat serial component screen on one
+Apple Silicon FEniCSx host, with 1024 small slave faces, measured median
+certificate times of 0.203/0.203 s (old/new, 1728 master facets) and
+0.299/0.241 s (old/new, 3888 master facets). The latter is about 1.24x for
+this **geometry-proof component** near its declared 4096-facet cap. It does
+not measure full finite-J2 solve speed, improve the cap, or establish
+portability to another mesh or computer. The broad-phase candidate lists
+are also compared against exhaustive facet boxes in a deterministic test.
 The runnable closed-tool example now has a separate one-axis-at-a-time
 mesh/increment/penalty sensitivity driver. Its eleven serial synthetic runs
 all completed with certified smooth branches, but their terminal tool work
@@ -495,9 +508,14 @@ The gate stays open until its listed evidence exists at the proposed scope.
    the production Step still needs to pass its real reduction and a mesh
    ladder before using the result as an admission criterion.
    The global AL Step still needs a reduced-constraint rank/mesh-pressure
-   study. An [exact-penalty alternative][exact-penalty] exists, but would not
-   repair the unresolved nonconvex integration and is not a silent replacement
-   for the declared AL policy. Nitsche is a serious *primal* alternative:
+   study. The [exact-penalty alternative][exact-penalty] computes a continuous
+   displacement-dependent multiplier estimate and avoids the outer AL loop;
+   its published examples also show conditioning sensitivity, even before
+   contact activates, and parameter-dependent step refinements. It does not
+   repair our unresolved nonconvex integration or silently replace the
+   declared AL policy. If compared, count its local multiplier-recovery and
+   tangent work and use the same mesh, J2 path and acceptance observables.
+   Nitsche is a serious *primal* alternative:
    [Chouly--Hild][nitsche-small] analyze small-strain unilateral contact
    without a separate multiplier or discrete inf-sup condition, and
    [Mlika--Renard--Chouly][nitsche-large] extend an unbiased formulation to

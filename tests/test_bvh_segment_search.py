@@ -69,6 +69,30 @@ def test_segment_broadphase_reduces_diagonal_box_false_candidates():
     assert len(exact) < len(coarse) / 10
 
 
+def test_distance_broadphase_matches_exhaustive_facet_boxes():
+    surface = _grid_surface(12)
+    tree = TriangleSurfaceBVH(surface)
+    triangles = surface.vertices[surface.triangles]
+    lower, upper = triangles.min(axis=1), triangles.max(axis=1)
+    rng = np.random.default_rng(20261019)
+    for _ in range(80):
+        point = rng.uniform(-0.5, 1.5, 3)
+        radius = float(rng.uniform(0.0, 0.8))
+        offset = np.maximum(np.maximum(lower - point, point - upper), 0.0)
+        expected = np.flatnonzero(np.linalg.norm(offset, axis=1) <= radius)
+        np.testing.assert_array_equal(
+            tree.facets_within_distance(point, radius), expected,
+        )
+    np.testing.assert_array_equal(
+        tree.facets_within_distance((0., 0., 0.), np.inf),
+        np.arange(len(surface.triangles)),
+    )
+    with pytest.raises(ValueError):
+        tree.facets_within_distance((0., 0.), 1.0)
+    with pytest.raises(ValueError):
+        tree.facets_within_distance((0., 0., 0.), -1.0)
+
+
 @pytest.mark.parametrize(
     "start,end,padding",
     [
