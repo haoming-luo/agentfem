@@ -237,7 +237,10 @@ def _patch(*, triangulated: bool, gap: float = 0.005, penalty=500.0,
 def _small_single_branch_j2_step(
     *, closed: bool, flat_seam: bool = False, second_plane: bool = False,
     active_second_plane: bool = False, tool_rotation=(0.0, 0.0, 0.0),
+    open_sheet: bool = False, integration_override: str | None = None,
 ):
+    if closed and open_sheet:
+        raise ValueError("Choose either the closed solid or the open sheet.")
     domain = dolfinx_mesh.create_unit_cube(
         MPI.COMM_SELF, 1, 1, 1, cell_type=dolfinx_mesh.CellType.tetrahedron,
     )
@@ -279,6 +282,14 @@ def _small_single_branch_j2_step(
             reviewed_embedded=True, name="reviewed_L_tool",
         )
         mode = "closed_planar_branch_partition"
+    elif open_sheet:
+        surface = boundary_models.triangulated_rigid_surface(
+            vertices=((1.10, 0., -1.), (1.10, 0., 1.),
+                      (1.10, 2., 1.), (1.10, 2., -1.)),
+            triangles=((0, 1, 2), (0, 2, 3)),
+            name="reviewed_open_sheet_tool",
+        )
+        mode = "reviewed_planar_branch_partition"
     else:
         surface = boundary_models.rigid_plane(
             point=(1.10, 1.3, 0.5), normal=(-1.0, 0.0, 0.0),
@@ -298,7 +309,7 @@ def _small_single_branch_j2_step(
         penalty=5000.0,
     )
     model.add_boundary_model(primary)
-    integration = mode
+    integration = mode if integration_override is None else integration_override
     if second_plane or active_second_plane:
         if active_second_plane:
             second_boundary = mesh.boundary(
@@ -348,6 +359,106 @@ def _small_single_branch_j2_step(
         progress=False,
     )
     return step, displacement
+
+
+def test_reviewed_open_sheet_planar_branch_matches_analytical_plane_global_j2(tmp_path):
+    sheet, sheet_displacement = _small_single_branch_j2_step(
+        closed=False, open_sheet=True, flat_seam=True,
+    )
+    plane, plane_displacement = _small_single_branch_j2_step(
+        closed=False, flat_seam=True,
+    )
+    sheet_result = sheet.solve_result()
+    assert sheet_result.status == "completed"
+    assert plane.solve_result().status == "completed"
+    np.testing.assert_allclose(
+        sheet_displacement.value.x.array, plane_displacement.value.x.array,
+        rtol=1e-8, atol=1e-9,
+    )
+    assert sheet.energy_history[-1].tool_work == pytest.approx(
+        plane.energy_history[-1].tool_work, rel=1e-8,
+    )
+    evidence = sheet.contact_provider.current_point_diagnostics()
+    assert evidence["feature_transition_integral_certified"] is True
+    assert evidence["whole_face_planar_branch"]["certified"] is True
+    assert evidence["active_point_count"] > 0
+    feature_path = sheet_result.metadata["rigid_contact_feature_path"]
+    assert feature_path["complete"] is True
+    assert feature_path["pairs"][0]["all_observed_integrals_certified"] is True
+
+    interrupted, _ = _small_single_branch_j2_step(
+        closed=False, open_sheet=True, flat_seam=True,
+    )
+    interrupted.solve(until=0.5)
+    saved = interrupted.save_checkpoint(tmp_path / "open_sheet")
+    restored, _ = _small_single_branch_j2_step(
+        closed=False, open_sheet=True, flat_seam=True,
+    )
+    restored.load_checkpoint(saved)
+    assert restored.solve_result().status == "completed"
+    np.testing.assert_allclose(
+        restored.solution.x.array, sheet.solution.x.array, rtol=1e-9, atol=1e-10,
+    )
+    wrong_mode, _ = _small_single_branch_j2_step(
+        closed=False, open_sheet=True, flat_seam=True,
+        integration_override="gauss",
+    )
+    with pytest.raises(ValueError, match="identity|contact|constraint"):
+        wrong_mode.load_checkpoint(saved)
+
+
+def test_reviewed_open_sheet_branch_refuses_positive_area_beyond_master_edge():
+    step, displacement = _small_single_branch_j2_step(
+        closed=False, open_sheet=True,
+    )
+    displacement.value.x.array.reshape((-1, 3))[:, 1] += 2.0
+    with pytest.raises(NotImplementedError, match="AFM-CONTACT-REVIEWED-PLANAR-BRANCH"):
+        step.contact_provider.evaluate()
+    assert step.accepted_load_factor == 0.0
+
+
+def test_reviewed_open_sheet_rotation_and_two_active_tools_match_plane_limit():
+    rotation = (0.0, 0.0, 0.01)
+    sheet, sheet_displacement = _small_single_branch_j2_step(
+        closed=False, open_sheet=True, tool_rotation=rotation,
+        active_second_plane=True,
+    )
+    plane, plane_displacement = _small_single_branch_j2_step(
+        closed=False, tool_rotation=rotation, active_second_plane=True,
+    )
+    assert sheet.solve_result().status == "completed"
+    assert plane.solve_result().status == "completed"
+    np.testing.assert_allclose(
+        sheet_displacement.value.x.array, plane_displacement.value.x.array,
+        rtol=1e-8, atol=1e-9,
+    )
+    sheet_work = dict(sheet.energy_history[-1].pair_tool_work)
+    plane_work = dict(plane.energy_history[-1].pair_tool_work)
+    assert set(sheet_work) == {"rigid_contact_pair", "transverse_plane"}
+    assert all(value > 0.0 for value in sheet_work.values())
+    assert sheet_work == pytest.approx(plane_work, rel=1e-8, abs=1e-10)
+
+
+def test_reviewed_open_sheet_contact_tangent_matches_current_directional_difference():
+    step, _ = _small_single_branch_j2_step(closed=False, open_sheet=True)
+    assert step.solve_result().status == "completed"
+    provider = step.contact_provider
+    selected = provider.evaluate()
+    base = step.solution.x.array.copy()
+    direction = np.random.default_rng(746).normal(size=base.shape)
+    h = 1.0e-7
+    try:
+        step.solution.x.array[:] = base + h * direction
+        plus = provider.evaluate()
+        step.solution.x.array[:] = base - h * direction
+        minus = provider.evaluate()
+    finally:
+        step.solution.x.array[:] = base
+    np.testing.assert_allclose(
+        selected.tangent_action(direction.reshape((-1, 3))),
+        (plus.nodal_structural_residual - minus.nodal_structural_residual) / (2 * h),
+        rtol=1e-5, atol=1e-6,
+    )
 
 
 def test_certified_closed_planar_branch_matches_analytical_plane_global_j2(tmp_path):

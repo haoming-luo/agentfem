@@ -1251,12 +1251,17 @@ class FiniteStrainJ2StandardProblem:
     def _feature_path_pair_names(self) -> tuple[str, ...]:
         from ..boundary_models.closed_polyhedron import ClosedTriangulatedRigidSolid
         from ..boundary_models.convex_polyhedron import ConvexPolyhedralRigidSurface
+        from ..boundary_models.rigid import TriangulatedRigidSurface
 
         return tuple(
             str(provider.name) for provider in self._contact_providers()
             if isinstance(
                 getattr(provider, "surface", None),
                 (ClosedTriangulatedRigidSolid, ConvexPolyhedralRigidSurface),
+            ) or (
+                isinstance(getattr(provider, "surface", None), TriangulatedRigidSurface)
+                and getattr(provider, "contact_integration", None)
+                == "reviewed_planar_branch_partition"
             )
         )
 
@@ -4278,19 +4283,23 @@ def finite_strain_j2_affine_problem(
         name=name,
     )
 
-    # Keep polyhedral feature observations on the same accepted-boundary
+    # Keep reviewed faceted-feature observations on the same accepted-boundary
     # transaction as material, tool State and MPC work. Older checkpoints may
     # resume with explicitly incomplete historical evidence; they must never
     # acquire a fabricated clean path.
     from ..boundary_models.closed_polyhedron import ClosedTriangulatedRigidSolid
     from ..boundary_models.contact_feature_path import AcceptedContactFeaturePath
     from ..boundary_models.convex_polyhedron import ConvexPolyhedralRigidSurface
+    from ..boundary_models.rigid import TriangulatedRigidSurface
 
     polyhedral_providers = tuple(
         provider for provider in contact_providers
         if isinstance(
             provider.surface,
             (ClosedTriangulatedRigidSolid, ConvexPolyhedralRigidSurface),
+        ) or (
+            isinstance(provider.surface, TriangulatedRigidSurface)
+            and provider.contact_integration == "reviewed_planar_branch_partition"
         )
     )
     if polyhedral_providers:

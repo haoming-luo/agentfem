@@ -1,7 +1,7 @@
 # SPDX-FileCopyrightText: 2026 Haoming Luo and AgentFEM contributors
 # SPDX-License-Identifier: Apache-2.0
 
-"""Accepted-path evidence for bounded polyhedral rigid contact.
+"""Accepted-path evidence for bounded reviewed faceted rigid contact.
 
 This is a State observer, not a contact law or a whole-face certificate. It
 retains only scalar sampled hazards, so output-frame thinning cannot erase an
@@ -30,7 +30,7 @@ _PAIR_KEYS = {
 
 
 def sampled_feature_observation(provider: object) -> dict[str, object]:
-    """Validate one polyhedral pair's sampled hazard evidence before acceptance."""
+    """Validate one reviewed pair's sampled hazard evidence before acceptance."""
 
     from .closed_polyhedron import ClosedTriangulatedRigidSolid
 
@@ -68,7 +68,7 @@ def sampled_feature_observation(provider: object) -> dict[str, object]:
 
 @dataclass(eq=False)
 class AcceptedContactFeaturePath:
-    """Observe each accepted configuration of named polyhedral contact pairs."""
+    """Observe each accepted configuration of named reviewed faceted pairs."""
 
     providers: tuple[object, ...]
     complete: bool = field(default=True, init=False)
@@ -78,6 +78,7 @@ class AcceptedContactFeaturePath:
     def __post_init__(self) -> None:
         from .closed_polyhedron import ClosedTriangulatedRigidSolid
         from .convex_polyhedron import ConvexPolyhedralRigidSurface
+        from .rigid import TriangulatedRigidSurface
 
         selected = tuple(self.providers)
         names = tuple(str(provider.name) for provider in selected)
@@ -87,9 +88,13 @@ class AcceptedContactFeaturePath:
             or any(not isinstance(
                 provider.surface,
                 (ClosedTriangulatedRigidSolid, ConvexPolyhedralRigidSurface),
+            ) and not (
+                isinstance(provider.surface, TriangulatedRigidSurface)
+                and getattr(provider, "contact_integration", None)
+                == "reviewed_planar_branch_partition"
             ) for provider in selected)
         ):
-            raise ValueError("Accepted contact feature path requires unique polyhedral pairs.")
+            raise ValueError("Accepted contact feature path requires unique reviewed pairs.")
         self.providers = selected
 
     def _observations(self) -> dict[str, dict[str, object]]:

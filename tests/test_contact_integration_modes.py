@@ -22,6 +22,13 @@ def test_contact_integration_policy_resolves_named_pairs_without_implicit_fallba
     }) == ("planar_active_partition", "closed_planar_branch_partition")
 
 
+def test_reviewed_facet_branch_is_a_named_mode_without_implicit_fallback():
+    assert resolve_contact_integration_modes(
+        (_pair("open_tool"),),
+        {"open_tool": "reviewed_planar_branch_partition"},
+    ) == ("reviewed_planar_branch_partition",)
+
+
 @pytest.mark.parametrize("selected", (
     {"plane": "planar_active_partition"},
     {"plane": "planar_active_partition", "closed": "gauss", "unused": "gauss"},

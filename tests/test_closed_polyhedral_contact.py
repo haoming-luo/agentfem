@@ -23,6 +23,7 @@ from agentfem.boundary_models.contact_feature_path import AcceptedContactFeature
 from agentfem.boundary_models.contact_planar_branch_bound import (
     _coplanar_patch_covers_face,
     certify_closed_planar_branch,
+    certify_reviewed_planar_branch,
 )
 from agentfem.boundary_models.contact_trace import ContactTrace
 from agentfem.boundary_models.implicit_contact import integrate_implicit_rigid_contact
@@ -131,6 +132,33 @@ def test_closed_planar_branch_covers_tiled_master_seams_beyond_small_reference_b
     bound = certify_closed_planar_branch(triangle, tool)
     assert bound.certified, bound.status
     np.testing.assert_allclose(bound.plane_normals, ((1.0, 0.0, 0.0),))
+
+
+def test_reviewed_open_patch_proves_whole_face_across_coplanar_seam():
+    surface = boundary_models.triangulated_rigid_surface(
+        vertices=((1., 0., 0.), (1., 1., 0.), (1., 0., 1.), (1., 1., 1.)),
+        triangles=((0, 1, 2), (1, 3, 2)), name="reviewed_open_patch",
+    )
+    search = boundary_models.triangle_surface_bvh(surface)
+    crossing = np.asarray((((0.98, 0.42, 0.42), (0.98, 0.58, 0.42),
+                            (0.98, 0.42, 0.58)),))
+    proven = certify_reviewed_planar_branch(
+        crossing, surface, projector=search,
+    )
+    assert proven.certified, proven.status
+    np.testing.assert_allclose(proven.plane_normals, ((1., 0., 0.),))
+    np.testing.assert_allclose(
+        (crossing[0] - proven.plane_points[0]) @ proven.plane_normals[0],
+        -0.02,
+    )
+    beyond = crossing + np.asarray((0., 0.6, 0.))
+    refused = certify_reviewed_planar_branch(
+        beyond, surface, projector=search,
+    )
+    assert not refused.certified
+    assert refused.status in {
+        "projection_can_leave_master_patch", "another_master_feature_can_compete",
+    }
 
 
 def test_current_face_separation_refuses_hidden_and_budget_limited_contact():

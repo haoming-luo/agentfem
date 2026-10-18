@@ -45,7 +45,21 @@ def reviewed_tool():
     )
 
 
-def build_case(*, cells: int = 1, increments: int = 6, penalty: float = 5000.0):
+def reviewed_open_sheet():
+    """Two consistently oriented facets spanning the same smooth plane."""
+
+    return boundary_models.triangulated_rigid_surface(
+        vertices=((1.10, 0., -1.), (1.10, 0., 1.),
+                  (1.10, 2., 1.), (1.10, 2., -1.)),
+        triangles=((0, 1, 2), (0, 2, 3)),
+        name="reviewed_synthetic_open_sheet",
+    )
+
+
+def build_case(
+    *, cells: int = 1, increments: int = 6, penalty: float = 5000.0,
+    tool_kind: str = "closed",
+):
     """Build the fixed-geometry fixture used by the example and sensitivity study."""
 
     if type(cells) is not int or cells < 1:
@@ -54,6 +68,8 @@ def build_case(*, cells: int = 1, increments: int = 6, penalty: float = 5000.0):
         raise ValueError("increments must be a positive integer")
     if not np.isfinite(penalty) or penalty <= 0.0:
         raise ValueError("penalty must be finite and positive")
+    if tool_kind not in {"closed", "open_sheet"}:
+        raise ValueError("tool_kind must be closed or open_sheet")
     if MPI.COMM_WORLD.size != 1:
         raise RuntimeError("This bounded implicit-contact example is serial only.")
 
@@ -67,7 +83,7 @@ def build_case(*, cells: int = 1, increments: int = 6, penalty: float = 5000.0):
     xyz[:, 2] = 0.45 + 0.10 * xyz[:, 2]
     model = models.create(
         study=studies.static_solid(dimension=3, nonlinear=True),
-        mesh=domain, name="finite_j2_closed_planar_branch",
+        mesh=domain, name=f"finite_j2_{tool_kind}_planar_branch",
     )
     displacement = model.field(fields.displacement(domain))
     contact = mesh.boundary(
@@ -87,7 +103,7 @@ def build_case(*, cells: int = 1, increments: int = 6, penalty: float = 5000.0):
     model.add_boundary_model(boundary_models.rigid_contact_pair(
         contact,
         boundary_models.rigid_body(
-            reviewed_tool(),
+            reviewed_tool() if tool_kind == "closed" else reviewed_open_sheet(),
             motion_schedule=boundary_models.prescribed_rigid_motion_schedule(
                 motion, start_time=0.0, end_time=1.0,
             ),
@@ -97,7 +113,10 @@ def build_case(*, cells: int = 1, increments: int = 6, penalty: float = 5000.0):
     step = model.step(
         target=displacement, material=material,
         incrementation=steps.fixed(increments),
-        contact_integration="closed_planar_branch_partition",
+        contact_integration=(
+            "closed_planar_branch_partition" if tool_kind == "closed"
+            else "reviewed_planar_branch_partition"
+        ),
         solver_options=solvers.newton(
             relative_tolerance=1e-8, absolute_tolerance=1e-9,
             maximum_iterations=25, line_search="backtracking",
@@ -109,26 +128,29 @@ def build_case(*, cells: int = 1, increments: int = 6, penalty: float = 5000.0):
 
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--output", type=Path, default=Path("outputs/closed_planar_branch"))
+    parser.add_argument("--output", type=Path)
     parser.add_argument("--cells", type=int, default=1)
     parser.add_argument("--increments", type=int, default=6)
     parser.add_argument("--penalty", type=float, default=5000.0)
+    parser.add_argument("--tool-kind", choices=("closed", "open_sheet"), default="closed")
     args = parser.parse_args()
+    output = args.output or Path(f"outputs/{args.tool_kind}_planar_branch")
     step, displacement = build_case(
         cells=args.cells, increments=args.increments, penalty=args.penalty,
+        tool_kind=args.tool_kind,
     )
     result = step.solve_result()
-    args.output.mkdir(parents=True, exist_ok=True)
-    with results.UnifiedXDMFTimeSeries(args.output / "fields.xdmf") as writer:
+    output.mkdir(parents=True, exist_ok=True)
+    with results.UnifiedXDMFTimeSeries(output / "fields.xdmf") as writer:
         writer.write_fields(1.0, displacement.value)
     results.export_accepted_contact_points(
-        step, args.output / "contact", result=result, vtk_view=True,
+        step, output / "contact", result=result, vtk_view=True,
     )
-    result.write_manifest(args.output / "result.json")
+    result.write_manifest(output / "result.json")
     print(f"Status: {result.status}")
     print(f"Maximum PEEQ: {result.quantity('maximum_equivalent_plastic_strain'):.6g}")
     print(f"Tool work: {step.energy_history[-1].tool_work:.6g}")
-    print(f"Results: {args.output.resolve()}")
+    print(f"Results: {output.resolve()}")
 
 
 if __name__ == "__main__":

@@ -15,7 +15,7 @@ from collections.abc import Mapping
 
 _MODES = frozenset({
     "gauss", "planar_active_partition", "convex_feature_partition",
-    "closed_planar_branch_partition",
+    "closed_planar_branch_partition", "reviewed_planar_branch_partition",
 })
 
 

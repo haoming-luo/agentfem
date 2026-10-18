@@ -230,6 +230,23 @@ through the same MPC transformation. A verified smooth branch on a reviewed
 closed tool is still required at every trial; assigning that mode does not
 turn a sharp edge into an admitted contact law.
 
+The same whole-face proof can also be requested for a consistently oriented,
+reviewed **open triangulated tool** with
+`contact_integration="reviewed_planar_branch_partition"`. This is a
+one-sided oriented sheet, not a closed solid with inside/outside semantics.
+The matching triangle BVH finds the current nearest facet; a complete
+coplanar patch must cover each projected affine slave face, and every
+noncoplanar facet must be proven farther over that entire face. A moving or
+rotating sheet, a coplanar triangulation seam, total J2-plus-contact residual,
+periodic MPC reduction and interrupted restart have serial regressions.
+An uncovered rim or true master feature switch rejects the Newton trial;
+the option does not provide edge/point contact, arbitrary STL admission,
+friction or parallel implicit assembly. The earlier
+`closed_planar_branch_partition` spelling remains available specifically
+for reviewed closed solids. The same small example supports
+`--tool-kind open_sheet`; its result and contact samples are exported to a
+single named output directory unless `--output` is supplied.
+
 For an affine P1 triangular slave against a reviewed closed convex tool,
 `initial_penetration_limit` also uses a face-wise certificate. If one rigid
 support plane dominates at every triangle vertex, its affine nodal minimum

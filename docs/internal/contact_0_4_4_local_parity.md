@@ -89,6 +89,18 @@ made strict projection/plane comparisons fail near closure. The geometric
 edge/vertex branch and the signed-gap classifier are unchanged. A near-gap
 two-sided normal regression and a serial finite-J2 seam-crossing Step exercise
 this numerical correction.
+The whole-face smooth-plane proof has now also been exercised on a reviewed
+**open** oriented triangle sheet through a distinct
+`reviewed_planar_branch_partition` mode. It uses the same complete coplanar
+coverage and noncoplanar competitor bound, but its gap is the sheet's
+one-sided oriented gap, not the closed solid's signed inside/outside distance.
+Serial finite-J2 tests compare displacement and tool work with an analytical
+plane through a coplanar seam, moving rotation, two simultaneously active
+named tools and interrupted restart. A face extending beyond the sheet's rim
+is rejected. A periodic-MPC J2 solve also checks the total reduced residual
+against the analytical plane. This advances the reviewed-surface slice of
+Gate 2; a true edge/rim law and general active nonconvex feature switch remain
+open Gate 3 work.
 The ordinary serial Step now also accepts an exact-name mapping from rigid
 contact pairs to their already admitted integration modes. A missing or
 unknown pair name is an early capability rejection, never a fallback to

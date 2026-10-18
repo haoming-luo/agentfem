@@ -1,7 +1,7 @@
 # SPDX-FileCopyrightText: 2026 Haoming Luo and AgentFEM contributors
 # SPDX-License-Identifier: Apache-2.0
 
-"""Bound one smooth plane branch per affine slave face of a closed tool.
+"""Bound one smooth plane branch per affine slave face of a reviewed tool.
 
 This conservative geometric precondition is intentionally stronger than
 sampling a few nearest facets. If each affine slave triangle projects wholly
@@ -21,9 +21,10 @@ import numpy as np
 
 from .closed_polyhedron import ClosedTriangulatedRigidSolid
 from .rigid import (
-    PrescribedRigidMotion, _closest_point_on_triangle,
+    PrescribedRigidMotion, TriangulatedRigidSurface, _closest_point_on_triangle,
     _triangle_barycentric_coordinates,
 )
+from .search import TriangleSurfaceBVH
 
 
 def _clip_polygon_halfspace(polygon, values, *, keep_positive):
@@ -108,10 +109,11 @@ class ClosedPlanarBranchBound:
     minimum_competitor_clearance: float | None
 
 
-def certify_closed_planar_branch(
+def certify_reviewed_planar_branch(
     triangles,
-    surface: ClosedTriangulatedRigidSolid,
+    surface: ClosedTriangulatedRigidSolid | TriangulatedRigidSurface,
     *,
+    projector: TriangleSurfaceBVH | None = None,
     motion: PrescribedRigidMotion | None = None,
     factor: float = 0.0,
     maximum_slave_faces: int = 1024,
@@ -128,8 +130,24 @@ def certify_closed_planar_branch(
     Coplanar, identically oriented facets share the same signed-gap function.
     """
 
-    if not isinstance(surface, ClosedTriangulatedRigidSolid):
-        raise TypeError("Planar branch bound requires a reviewed closed solid.")
+    if isinstance(surface, ClosedTriangulatedRigidSolid):
+        if projector is not None:
+            raise ValueError("Closed-solid branch uses its own signed-distance projector.")
+        facets = surface.facets
+        query_projector = surface
+        master = surface._triangles
+        slots = surface._facet_slots
+    elif isinstance(surface, TriangulatedRigidSurface):
+        if not isinstance(projector, TriangleSurfaceBVH) or projector.surface is not surface:
+            raise ValueError(
+                "Open faceted branch requires the matching reviewed triangle BVH."
+            )
+        facets = surface
+        query_projector = projector
+        master = np.asarray(surface.vertices[surface.triangles], dtype=float)
+        slots = {int(identity): slot for slot, identity in enumerate(surface.facet_ids)}
+    else:
+        raise TypeError("Planar branch bound requires reviewed triangle geometry.")
     cells = np.asarray(triangles, dtype=float)
     if cells.ndim != 3 or cells.shape[1:] != (3, 3) or not np.all(np.isfinite(cells)):
         raise ValueError("Planar branch bound requires finite triangles (n, 3, 3).")
@@ -143,7 +161,6 @@ def certify_closed_planar_branch(
         or type(maximum_master_facets) is not int or maximum_master_facets < 1
     ):
         raise ValueError("Planar branch budgets must be positive integers.")
-    master = surface._triangles
     face_count = len(cells)
     master_count = len(master)
 
@@ -174,7 +191,7 @@ def certify_closed_planar_branch(
     ), axis=1)
     # Query in the tool's reference frame, then use the exact rigid map for
     # the certified world-space plane. This avoids mixing two pose conventions.
-    projection = surface.project(centers)
+    projection = query_projector.project(centers)
     if not projection.all_valid:
         return failed("ambiguous_center_projection")
     scale = max(
@@ -184,7 +201,7 @@ def certify_closed_planar_branch(
     length_margin = 128.0 * np.finfo(float).eps * scale
     angular_margin = 128.0 * np.finfo(float).eps
     barycentric_margin = 1.0e-10
-    normals = surface.facets._facet_normals
+    normals = facets._facet_normals
     offsets = np.einsum("ij,ij->i", normals, master[:, 0, :])
     master_lower = np.min(master, axis=1)
     master_upper = np.max(master, axis=1)
@@ -196,7 +213,7 @@ def certify_closed_planar_branch(
         reference_cells, centers, radii, projection.entity_ids,
         projection.signed_gaps, strict=True,
     ):
-        slot = surface._facet_slots[int(identity)]
+        slot = slots[int(identity)]
         selected_triangle = master[slot]
         normal = normals[slot]
         point = selected_triangle[0]
@@ -268,4 +285,19 @@ def certify_closed_planar_branch(
     )
 
 
-__all__ = ["ClosedPlanarBranchBound", "certify_closed_planar_branch"]
+def certify_closed_planar_branch(
+    triangles,
+    surface: ClosedTriangulatedRigidSolid,
+    **options,
+) -> ClosedPlanarBranchBound:
+    """Backward-compatible closed-solid specialization of the reviewed proof."""
+
+    if not isinstance(surface, ClosedTriangulatedRigidSolid):
+        raise TypeError("Closed planar branch bound requires a reviewed closed solid.")
+    return certify_reviewed_planar_branch(triangles, surface, **options)
+
+
+__all__ = [
+    "ClosedPlanarBranchBound", "certify_closed_planar_branch",
+    "certify_reviewed_planar_branch",
+]

@@ -589,6 +589,40 @@ def test_periodic_j2_certified_closed_smooth_branch_reduces_total_residual(tmp_p
     )
 
 
+def test_periodic_j2_reviewed_open_facet_patch_reduces_total_residual():
+    surface = boundary_models.triangulated_rigid_surface(
+        vertices=((0.95, -2., -2.), (0.95, -2., 2.),
+                  (0.95, 2., 2.), (0.95, 2., -2.)),
+        triangles=((0, 1, 2), (0, 2, 3)),
+        name="periodic_open_rigid_patch",
+    )
+    fixture, periodicity, step = _periodic_j2_contact_step(
+        surface=surface, contact_integration="reviewed_planar_branch_partition",
+    )
+    assert step.solve_result().status == "completed"
+    evidence = step.contact_provider.current_point_diagnostics()
+    assert evidence["feature_transition_integral_certified"] is True
+    assert evidence["active_point_count"] > 0
+    total = step.assemble_full_residual()
+    reduction = periodicity.reduction(1.0).matrix(fixture.domain.comm)
+    reduced = reduction.createVecRight()
+    try:
+        reduction.multTranspose(total, reduced)
+        assert reduced.norm() < 1e-5
+    finally:
+        reduced.destroy()
+        reduction.destroy()
+        total.destroy()
+    plane = boundary_models.rigid_plane(
+        point=(0.95, 0.0, 0.0), normal=(-1.0, 0.0, 0.0),
+    )
+    _, _, planar = _periodic_j2_contact_step(surface=plane)
+    assert planar.solve_result().status == "completed"
+    np.testing.assert_allclose(
+        step.solution.x.array, planar.solution.x.array, rtol=1e-7, atol=1e-8,
+    )
+
+
 def test_periodic_j2_closed_smooth_branch_rejects_reentrant_edge():
     _, _, step = _periodic_j2_contact_step(
         surface=_active_reentrant_periodic_surface(),

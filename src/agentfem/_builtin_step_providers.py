@@ -651,12 +651,12 @@ def _contact_integration_rejection_reason(model, request: StepRequest) -> str | 
         return None
     if isinstance(selected, str) and selected not in {
         "planar_active_partition", "convex_feature_partition",
-        "closed_planar_branch_partition",
+        "closed_planar_branch_partition", "reviewed_planar_branch_partition",
     }:
         return "AFM-CONTACT-PARTITION: unknown contact_integration option."
     from .boundary_models import (
         ClosedTriangulatedRigidSolid, ConvexPolyhedralRigidSurface,
-        RigidContactPair, RigidPlaneSurface,
+        RigidContactPair, RigidPlaneSurface, TriangulatedRigidSurface,
     )
     from .boundary_models.contact_integration_modes import (
         resolve_contact_integration_modes,
@@ -676,6 +676,9 @@ def _contact_integration_rejection_reason(model, request: StepRequest) -> str | 
         "planar_active_partition": RigidPlaneSurface,
         "convex_feature_partition": ConvexPolyhedralRigidSurface,
         "closed_planar_branch_partition": ClosedTriangulatedRigidSolid,
+        "reviewed_planar_branch_partition": (
+            ClosedTriangulatedRigidSolid, TriangulatedRigidSurface,
+        ),
     }
 
     if (any(
@@ -689,7 +692,7 @@ def _contact_integration_rejection_reason(model, request: StepRequest) -> str | 
         return (
             "AFM-CONTACT-PARTITION: trial active partition requires "
             "frictionless analytical-plane, certified convex, or reviewed "
-            "closed-per-face-planar-branch rigid pairs "
+            "reviewed per-face planar-branch rigid pairs "
             "(matching the selected mode), scalar penalty and the "
             "default contact quadrature rule."
         )

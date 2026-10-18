@@ -713,9 +713,9 @@ def _runtime_checks(
                 _runtime_claim(
                     "polyhedral_contact_integral_certified",
                     certified,
-                    observable="accepted polyhedral contact integration diagnostics",
+                    observable="accepted reviewed faceted contact integration diagnostics",
                     actual=feature_evidence,
-                    expected="every polyhedral pair has certified feature integration",
+                    expected="every reviewed faceted pair has certified feature integration",
                     criterion=(
                         "zero sampled-switch or active-point counts cannot certify "
                         "the integral or whole-face separation"
@@ -864,7 +864,7 @@ def _contact_feature_evidence(result) -> tuple[bool, dict[str, object]]:
             or "sampled_mixed_feature_slave_faces" in item
         }
         if not expected_pairs:
-            issues.append("accepted contact feature path has no polyhedral pair")
+            issues.append("accepted contact feature path has no reviewed faceted pair")
         path_pairs = path.get("pairs") if isinstance(path, Mapping) else None
         if (
             not isinstance(path, Mapping)
