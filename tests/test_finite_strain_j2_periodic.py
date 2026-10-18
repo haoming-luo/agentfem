@@ -71,7 +71,7 @@ def test_periodic_j2_rejects_registered_contact_in_capability_and_step():
 def _periodic_j2_contact_step(
     *, surface=None, motion=None, pair_count=1, opposed_pair=False,
     friction_coefficient=None, tangential_penalty=None, checkpoint=None,
-    linear_solver=None, contact_integration="gauss",
+    linear_solver=None, contact_integration="gauss", second_surface=None,
 ):
     fixture = periodic_unit_cube(MPI.COMM_SELF)
     model = models.create(
@@ -93,10 +93,14 @@ def _periodic_j2_contact_step(
             center=(1.6, 0.5, 0.5), radius=0.75,
         )
     for index in range(pair_count):
+        selected_surface = (
+            second_surface if index == 1 and second_surface is not None
+            else surface
+        )
         pair = boundary_models.rigid_contact_pair(
             right,
             boundary_models.rigid_body(
-                surface,
+                selected_surface,
                 reference_point=(1.6, 0.5, 0.5),
                 motion_schedule=(
                     None if motion is None else
@@ -593,6 +597,64 @@ def test_periodic_j2_closed_smooth_branch_rejects_reentrant_edge():
     with pytest.raises(NotImplementedError, match="AFM-CONTACT-CLOSED-PLANAR-BRANCH"):
         step.solve_result()
     assert step.accepted_load_factor == 0.0
+
+
+def test_periodic_j2_named_mixed_integration_modes_share_total_mpc_system(tmp_path):
+    closed = _periodic_concave_face_tool(wide_smooth_patch=True)
+    plane = boundary_models.rigid_plane(
+        point=(0.95, 0.0, 0.0), normal=(-1.0, 0.0, 0.0),
+    )
+    modes = {
+        "periodic_tool_0": "closed_planar_branch_partition",
+        "periodic_tool_1": "planar_active_partition",
+    }
+
+    def build(selected_modes):
+        return _periodic_j2_contact_step(
+            surface=closed, second_surface=plane, pair_count=2,
+            contact_integration=selected_modes,
+        )
+
+    fixture, periodicity, step = build(modes)
+    result = step.solve_result()
+    assert result.status == "completed"
+    assert tuple(
+        provider.contact_integration for provider in step.contact_providers
+    ) == tuple(modes.values())
+    assert all(
+        provider.current_point_diagnostics()["active_point_count"] > 0
+        for provider in step.contact_providers
+    )
+    assert step.contact_providers[0].current_point_diagnostics()[
+        "feature_transition_integral_certified"
+    ] is True
+    total = step.assemble_full_residual()
+    reduction = periodicity.reduction(1.0).matrix(fixture.domain.comm)
+    reduced = reduction.createVecRight()
+    try:
+        reduction.multTranspose(total, reduced)
+        assert reduced.norm() < 1.0e-5
+    finally:
+        reduced.destroy()
+        reduction.destroy()
+        total.destroy()
+
+    _, _, partial = build(modes)
+    partial.solve(until=1.0 / 3.0)
+    saved = partial.save_checkpoint(tmp_path / "periodic_mixed_modes")
+    _, _, resumed = build(modes)
+    resumed.load_checkpoint(saved)
+    assert resumed.solve_result().status == "completed"
+    np.testing.assert_allclose(
+        resumed.solution.x.array, step.solution.x.array,
+        rtol=1e-9, atol=1e-10,
+    )
+    _, _, changed = build({
+        "periodic_tool_0": "gauss",
+        "periodic_tool_1": "planar_active_partition",
+    })
+    with pytest.raises(ValueError, match="identity|contact|operator"):
+        changed.load_checkpoint(saved)
 
 
 def _active_reentrant_periodic_surface():

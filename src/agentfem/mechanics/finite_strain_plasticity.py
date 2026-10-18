@@ -4128,7 +4128,7 @@ def finite_strain_j2_affine_problem(
     material: FiniteStrainJ2Logarithmic | QuadratureMaterialMap,
     constraint,
     contact=None,
-    contact_integration: str = "gauss",
+    contact_integration: str | Mapping[str, str] = "gauss",
     external_force=None,
     incrementation=None,
     solver_options=None,
@@ -4170,6 +4170,9 @@ def finite_strain_j2_affine_problem(
         from ..boundary_models.dolfinx_implicit_facet_contact import (
             dolfinx_implicit_rigid_contact,
         )
+        from ..boundary_models.contact_integration_modes import (
+            resolve_contact_integration_modes,
+        )
 
         if not all(isinstance(item, RigidContactPair) for item in contact_items):
             raise NotImplementedError(
@@ -4184,13 +4187,18 @@ def finite_strain_j2_affine_problem(
                 "rigid pairs with supported geometry and "
                 "normalized prescribed motion."
             )
+        contact_modes = resolve_contact_integration_modes(
+            contact_items, contact_integration,
+        )
         contact_providers = tuple(
             dolfinx_implicit_rigid_contact(
                 item, displacement.value,
-                contact_integration=contact_integration,
+                contact_integration=mode,
             )
-            for item in contact_items
+            for item, mode in zip(contact_items, contact_modes, strict=True)
         )
+    elif contact_integration != "gauss":
+        raise ValueError("contact_integration requires a rigid contact pair.")
     transaction = _finite_strain_j2_transaction(
         displacement,
         material,

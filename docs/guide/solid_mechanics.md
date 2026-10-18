@@ -224,7 +224,11 @@ When an ordinary serial finite-J2 Step has several named rigid pairs, supply
 rules independently. The mapping must name **every** pair exactly; adding a
 tool cannot silently give it the default sampled rule. Its selected mode is
 part of each pair's checkpoint identity. The affine-periodic J2 route does
-not yet admit per-pair mode mappings.
+also admit exact-name per-pair mode mappings for its otherwise supported
+serial P1 rigid pairs. The total contact residual and tangent are reduced
+through the same MPC transformation. A verified smooth branch on a reviewed
+closed tool is still required at every trial; assigning that mode does not
+turn a sharp edge into an admitted contact law.
 
 For an affine P1 triangular slave against a reviewed closed convex tool,
 `initial_penetration_limit` also uses a face-wise certificate. If one rigid

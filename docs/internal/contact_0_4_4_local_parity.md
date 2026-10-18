@@ -102,8 +102,11 @@ rotation of the closed tool also matches its equivalent analytical plane
 in a real finite-J2 Step. The serial periodic-MPC J2 route now admits this
 *one named scalar mode* on a wide reviewed smooth patch, with total-residual
 reduction, analytical-plane limit, interrupted restart and explicit
-reentrant-edge refusal tested. Per-pair mode maps remain unavailable in that
-affine route. None of these results certifies sharp-feature integration.
+reentrant-edge refusal tested. The affine route now also uses the same
+exact-name per-pair mode contract: one closed smooth branch and one analytical
+plane can enter a *single* total MPC system, survive interrupted restart and
+refuse a changed mode identity. This remains serial and does not admit a
+sharp-feature transition merely because the second tool is supported.
 The runnable closed-tool example now has a separate one-axis-at-a-time
 mesh/increment/penalty sensitivity driver. Its nine serial synthetic runs
 all completed with certified smooth branches, but their terminal tool work
