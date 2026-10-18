@@ -236,6 +236,7 @@ def _patch(*, triangulated: bool, gap: float = 0.005, penalty=500.0,
 
 def _small_single_branch_j2_step(
     *, closed: bool, flat_seam: bool = False, second_plane: bool = False,
+    active_second_plane: bool = False, tool_rotation=(0.0, 0.0, 0.0),
 ):
     domain = dolfinx_mesh.create_unit_cube(
         MPI.COMM_SELF, 1, 1, 1, cell_type=dolfinx_mesh.CellType.tetrahedron,
@@ -284,7 +285,8 @@ def _small_single_branch_j2_step(
         )
         mode = "planar_active_partition"
     motion = boundary_models.prescribed_rigid_motion(
-        translation=(-0.08, 0.0, 0.0), reference_point=(1.10, 1.3, 0.5),
+        translation=(-0.08, 0.0, 0.0), rotation=tool_rotation,
+        reference_point=(1.10, 1.3, 0.5),
     )
     primary = boundary_models.rigid_contact_pair(
         contact,
@@ -297,17 +299,40 @@ def _small_single_branch_j2_step(
     )
     model.add_boundary_model(primary)
     integration = mode
-    if second_plane:
-        model.add_boundary_model(boundary_models.rigid_contact_pair(
-            contact,
-            boundary_models.rigid_body(boundary_models.rigid_plane(
+    if second_plane or active_second_plane:
+        if active_second_plane:
+            second_boundary = mesh.boundary(
+                domain, lambda x: np.isclose(x[1], 1.35),
+                name="transverse_contact",
+            )
+            second_surface = boundary_models.rigid_plane(
+                point=(1.10, 1.37, 0.5), normal=(0., -1., 0.),
+            )
+            second_motion = boundary_models.prescribed_rigid_motion_schedule(
+                boundary_models.prescribed_rigid_motion(
+                    translation=(0., -0.04, 0.),
+                    reference_point=(1.10, 1.37, 0.5),
+                ),
+                start_time=0.0, end_time=1.0,
+            )
+            second_name = "transverse_plane"
+        else:
+            second_boundary = contact
+            second_surface = boundary_models.rigid_plane(
                 point=(0., 0., 0.), normal=(1., 0., 0.),
-            )),
-            penalty=5000.0, name="far_plane",
+            )
+            second_motion = None
+            second_name = "far_plane"
+        model.add_boundary_model(boundary_models.rigid_contact_pair(
+            second_boundary,
+            boundary_models.rigid_body(
+                second_surface, motion_schedule=second_motion,
+            ),
+            penalty=5000.0, name=second_name,
         ))
         integration = {
             primary.name: mode,
-            "far_plane": "planar_active_partition",
+            second_name: "planar_active_partition",
         }
     assert step_capability(
         model, target=displacement,
@@ -380,6 +405,28 @@ def test_closed_planar_branch_global_j2_crosses_only_flat_tool_triangulation_sea
     assert evidence["feature_transition_integral_certified"] is True
 
 
+def test_closed_planar_branch_rotating_tool_matches_analytical_plane_global_j2():
+    rotation = (0.0, 0.0, 0.01)
+    closed_step, closed_displacement = _small_single_branch_j2_step(
+        closed=True, tool_rotation=rotation,
+    )
+    plane_step, plane_displacement = _small_single_branch_j2_step(
+        closed=False, tool_rotation=rotation,
+    )
+    assert closed_step.solve_result().status == "completed"
+    assert plane_step.solve_result().status == "completed"
+    np.testing.assert_allclose(
+        closed_displacement.value.x.array, plane_displacement.value.x.array,
+        rtol=1e-8, atol=1e-9,
+    )
+    assert closed_step.energy_history[-1].tool_work == pytest.approx(
+        plane_step.energy_history[-1].tool_work, rel=1e-8, abs=1e-10,
+    )
+    assert closed_step.contact_provider.current_point_diagnostics()[
+        "feature_transition_integral_certified"
+    ] is True
+
+
 def test_named_mixed_contact_integration_modes_keep_independent_pair_identity():
     single, single_displacement = _small_single_branch_j2_step(closed=True)
     mixed, mixed_displacement = _small_single_branch_j2_step(
@@ -423,6 +470,59 @@ def test_named_mixed_contact_modes_are_checkpointed_as_one_accepted_path(tmp_pat
     wrong_pairs, _ = _small_single_branch_j2_step(closed=True)
     with pytest.raises(ValueError, match="identity|contact|constraint"):
         wrong_pairs.load_checkpoint(saved)
+
+
+def test_named_mixed_contact_modes_can_both_work_and_restart(tmp_path):
+    def build():
+        return _small_single_branch_j2_step(
+            closed=True, active_second_plane=True,
+        )[0]
+
+    full = build()
+    result = full.solve_result()
+    assert result.status == "completed"
+    providers = full.contact_provider.providers
+    assert tuple(item.name for item in providers) == (
+        "rigid_contact_pair", "transverse_plane",
+    )
+    assert all(
+        item.current_point_diagnostics()["active_point_count"] > 0
+        for item in providers
+    )
+    work = dict(full.energy_history[-1].pair_tool_work)
+    assert set(work) == {item.name for item in providers}
+    assert all(value > 0.0 for value in work.values())
+    assert sum(work.values()) == pytest.approx(full.energy_history[-1].tool_work)
+    assert tuple(
+        item["constraint_name"] for item in result.metadata["constraint_duals"]
+    ) == tuple(work)
+    for provider, dual in zip(
+        providers, result.metadata["constraint_duals"], strict=True,
+    ):
+        samples = provider.accepted_point_samples()
+        independent_force = np.sum(
+            samples["reference_weights"][:, None]
+            * samples["normal_pressures"][:, None]
+            * samples["surface_normals"],
+            axis=0,
+        )
+        np.testing.assert_allclose(
+            dual["resultant"], independent_force, rtol=1e-9, atol=1e-10,
+        )
+    assert providers[0].current_point_diagnostics()[
+        "feature_transition_integral_certified"
+    ] is True
+
+    partial = build()
+    partial.solve(until=0.5)
+    saved = partial.save_checkpoint(tmp_path / "two_active_mixed_modes")
+    resumed = build()
+    resumed.load_checkpoint(saved)
+    assert resumed.solve_result().status == "completed"
+    np.testing.assert_allclose(
+        resumed.solution.x.array, full.solution.x.array, rtol=1e-9, atol=1e-10,
+    )
+    assert dict(resumed.energy_history[-1].pair_tool_work) == pytest.approx(work)
 
 
 def test_closed_planar_branch_mode_rejects_current_edge_transition():

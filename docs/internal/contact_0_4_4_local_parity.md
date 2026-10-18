@@ -94,7 +94,12 @@ contact pairs to their already admitted integration modes. A missing or
 unknown pair name is an early capability rejection, never a fallback to
 sampled Gauss integration. Each lowered pair retains its own mode in
 checkpoint identity; a two-tool mixed-mode finite-J2 path and interrupted
-restart exercise this composition. This does not change the affine/MPC
+restart exercise this composition. A separate two-active-tool regression now
+checks independently integrated pair forces, positive per-tool work, total
+work sum and joint restart while one tool uses the certified closed smooth
+branch and the other uses an analytical planar partition. A small rigid
+rotation of the closed tool also matches its equivalent analytical plane
+in a real finite-J2 Step. This does not change the affine/MPC
 admission matrix or certify sharp-feature integration.
 The runnable closed-tool example now has a separate one-axis-at-a-time
 mesh/increment/penalty sensitivity driver. Its nine serial synthetic runs
