@@ -335,6 +335,53 @@ kinds, reference-active areas and energies remain per-face evidence; none is
 renamed as a quadrature sample. This is an **Operator bridge**, not a global contact provider:
 it does not own Newton trials, accepted states, tool path work, restart,
 field export or a serial/MPI admission contract.
+The same bridge now accepts a third, exactly zero face outcome only after the
+existing strict whole-face separation proof. It records that face's positive
+gap lower bound; a failed or budget-exhausted proof is never treated as
+inactive. A batch mixing partial, whole and separated faces retains the
+complete face list while allocating tangent entries only for active faces;
+an all-separated batch has exactly zero residual, potential and tangent.
+Under a common arbitrary rigid change of spatial frame, the two-active-face
+patch's potential is invariant and residual, tangent action and moment about
+a transformed reference point rotate covariantly. These are *fixed-trial*
+operator tests, not a finite-strain material objectivity claim.
+The DOLFINx bridge recovers complete physical face IDs and node triples from
+the existing default positive CG1 tetrahedral contact trace, checking all
+three point IDs, shape weights and reference area before discarding the
+quadrature representation. A real unit-cube DOLFINx boundary lowered to two
+faces and a distant closed tool gave an exactly zero two-face Operator. It
+rejects a missing point, lumped rule or wrong area rather than making up face
+coverage. This is an input-identity test, not a loaded global contact solve.
+One bounded dispatcher now proposes the three proved face outcomes without
+user-selected master facet numbers. Its nearest-point samples only rank
+candidates; a complete geometry proof remains mandatory for every accepted
+face. Re-evaluating a mixed partial/whole/separated patch after a trial nodal
+perturbation succeeds with fresh certificates. A face crossing two tool
+activation planes is refused. This avoids case-owned facet-ID glue while
+keeping the present small-facet-budget and one-cut limitations visible.
+The pure complete-boundary trial function composes that dispatcher with
+verified face extraction and additive Operator assembly. If any face fails,
+it returns no partial Operator and reports its physical `slave_face_id`.
+A real DOLFINx tetrahedron with the two reviewed reentrant-tool boundary
+faces lowered through this path and reproduced the independently assembled
+local contact potential; the active faces were classified partial and whole.
+The companion distant-tool DOLFINx test classified both selected faces as
+separated. Neither test solves a global J2 equilibrium problem.
+
+For real Step admission, the boundary adapter must enumerate every selected
+physical slave face exactly once, then certify each current Newton trial as
+separated, wholly active or partially active. Any unsupported feature set,
+second activation boundary, ambiguity or proof-budget exhaustion rejects the
+trial atomically. The present `ContactTraceAssembly` requires quadrature
+point IDs and pointwise contributions; a face-integral contribution must
+instead receive its own face-level evidence type and preserve the existing
+force/work sign convention. Only then should the existing Procedure add the
+total residual and tangent before strong-BC lifting and MPC reduction,
+recompute at line-search trials, and jointly commit or roll back material,
+tool path and contact state. The DOLFINx nonlinear callback contract likewise
+requires assembly into the actual current trial vector, including line-search
+evaluations [DOLFINx nonlinear assembly][dolfinx-nonlinear]. No face integral
+may be disguised as three sampled trace points to bypass that interface.
 The global finite-J2/MPC Procedure, accepted State/Result/path-work contract,
 MPI and mesh/penalty/increment convergence are still open. No public
 nonconvex Step is enabled, and local virtual work must not be reported as
@@ -1285,6 +1332,7 @@ identified multiplier-transfer rule has its own tests.
 [vfric]: https://docs.software.vt.edu/abaqusv2025/English/SIMACAESUBRefMap/simasub-c-vfric.htm
 [comsol-solver]: https://doc.comsol.com/6.3/doc/com.comsol.help.sme/sme_ug_modeling.05.152.html
 [petsc-snes]: https://petsc.org/main/manual/snes/
+[dolfinx-nonlinear]: https://docs.fenicsproject.org/dolfinx/main/python/generated/dolfinx.fem.petsc.html
 [abaqus-output]: https://docs.software.vt.edu/abaqusv2025/English/SIMACAEITNRefMap/simaitn-c-contactgeneral.htm
 [comsol-vars]: https://doc.comsol.com/6.3/doc/com.comsol.help.sme/sme_ug_modeling.05.155.html
 [abaqus-verification]: https://docs.software.vt.edu/abaqusv2025/English/SIMACAEVERRefMap/simaver-c-finslcontdefrigid.htm

@@ -23,6 +23,10 @@ from .contact_feature_pair_research import (
     TwoFeatureDistanceIntegral,
     integrate_two_affine_feature_distances,
 )
+from .contact_separation_bound import (
+    ContactSeparationBound,
+    certify_current_triangle_separation,
+)
 from .rigid import _closest_point_on_triangle, _triangle_barycentric_coordinates
 
 
@@ -73,6 +77,159 @@ class CertifiedPartialClosedTwoFeaturePenalty:
             values = np.asarray(getattr(self, name), dtype=float).copy()
             values.setflags(write=False)
             object.__setattr__(self, name, values)
+
+
+@dataclass(frozen=True, eq=False)
+class CertifiedSeparatedClosedFace:
+    """Exactly zero penalty on one proved-separated current P1 face."""
+
+    separation: ContactSeparationBound
+    tool_fingerprint: str
+    reference_vertices: np.ndarray
+    current_vertices: np.ndarray
+
+    def __post_init__(self) -> None:
+        if (
+            not self.separation.certified
+            or self.separation.minimum_gap_lower_bound is None
+        ):
+            raise ValueError("A zero face needs a strict separation certificate.")
+        for name in ("reference_vertices", "current_vertices"):
+            values = np.asarray(getattr(self, name), dtype=float).copy()
+            if values.shape != (3, 3) or not np.all(np.isfinite(values)):
+                raise ValueError("A separated face needs finite P1 triangle geometry.")
+            if (
+                np.linalg.norm(np.cross(values[1] - values[0], values[2] - values[0]))
+                <= 0.0
+            ):
+                raise ValueError("A separated face cannot have zero area.")
+            values.setflags(write=False)
+            object.__setattr__(self, name, values)
+
+
+def certify_separated_closed_contact_face(
+    reference_vertices,
+    current_vertices,
+    surface: ClosedTriangulatedRigidSolid,
+    *,
+    maximum_depth: int = 7,
+    maximum_samples: int = 4096,
+) -> CertifiedSeparatedClosedFace:
+    """Return a zero local Operator only if the *whole* face is separated.
+
+    This is a current-configuration proof, not an accepted-time path proof.
+    A later trial must rerun it; a failed proof cannot become an inactive face.
+    """
+
+    reference = np.asarray(reference_vertices, dtype=float)
+    current = np.asarray(current_vertices, dtype=float)
+    if (
+        reference.shape != (3, 3)
+        or current.shape != (3, 3)
+        or not np.all(np.isfinite(reference))
+        or not np.all(np.isfinite(current))
+        or not isinstance(surface, ClosedTriangulatedRigidSolid)
+    ):
+        raise ValueError("Zero contact proof needs finite P1 faces and a closed tool.")
+    bound = certify_current_triangle_separation(
+        current[None, :, :],
+        surface,
+        maximum_depth=maximum_depth,
+        maximum_samples=maximum_samples,
+    )
+    if not bound.certified:
+        raise NotImplementedError(
+            "The whole current face is not proved separated; it cannot be skipped."
+        )
+    return CertifiedSeparatedClosedFace(
+        bound, surface.geometry_fingerprint, reference, current
+    )
+
+
+def integrate_discovered_closed_contact_face(
+    reference_vertices,
+    current_vertices,
+    surface: ClosedTriangulatedRigidSolid,
+    *,
+    penalty: float,
+    order: int = 24,
+    maximum_master_facets: int = 64,
+) -> (
+    CertifiedSeparatedClosedFace
+    | CertifiedClosedTwoFeaturePenalty
+    | CertifiedPartialClosedTwoFeaturePenalty
+):
+    """Certify one complete P1 face without user-selected master IDs.
+
+    Search samples propose finite-facet pairs; only a whole-region proof may
+    accept one. The admitted subset is exactly: strict separation, one
+    transverse activation plane with two features, or a wholly interior
+    two-feature face. All other geometry fails closed.
+    """
+
+    reference = np.asarray(reference_vertices, dtype=float)
+    slave = np.asarray(current_vertices, dtype=float)
+    count = (
+        len(surface._triangles)
+        if isinstance(surface, ClosedTriangulatedRigidSolid)
+        else 0
+    )
+    if (
+        reference.shape != (3, 3)
+        or slave.shape != (3, 3)
+        or not np.all(np.isfinite(reference))
+        or not np.all(np.isfinite(slave))
+        or type(maximum_master_facets) is not int
+        or not 2 <= count <= maximum_master_facets <= 64
+        or type(order) is not int
+        or not 2 <= order <= 64
+        or not np.isfinite(float(penalty))
+        or float(penalty) <= 0.0
+    ):
+        raise ValueError("Closed-face discovery needs a bounded P1 contact problem.")
+    try:
+        return certify_separated_closed_contact_face(reference, slave, surface)
+    except NotImplementedError:
+        pass
+    try:
+        return integrate_discovered_partial_closed_two_feature_penalty(
+            reference,
+            slave,
+            surface,
+            penalty=penalty,
+            order=order,
+            maximum_master_facets=maximum_master_facets,
+        )
+    except NotImplementedError:
+        pass
+    certify_wholly_interior_closed_face(slave, surface)
+    samples = np.vstack(
+        (slave, np.mean(slave, axis=0), 0.5 * (slave + np.roll(slave, -1, axis=0)))
+    )
+    projected = surface.project(samples)
+    seeds = {
+        surface._facet_slots[int(identity)]
+        for identity, valid in zip(projected.entity_ids, projected.valid, strict=True)
+        if valid
+    }
+    for first_index in sorted(seeds):
+        for second_index in range(count):
+            if second_index == first_index:
+                continue
+            try:
+                return integrate_certified_closed_two_feature_penalty(
+                    reference,
+                    slave,
+                    surface,
+                    (first_index, second_index),
+                    penalty=penalty,
+                    order=order,
+                )
+            except NotImplementedError:
+                continue
+    raise NotImplementedError(
+        "No complete two-feature wholly active closed-tool proof was found."
+    )
 
 
 def integrate_discovered_partial_closed_two_feature_penalty(
@@ -762,7 +919,10 @@ def certify_two_facet_distance_competition(
 __all__ = [
     "CertifiedClosedTwoFeaturePenalty",
     "CertifiedPartialClosedTwoFeaturePenalty",
+    "CertifiedSeparatedClosedFace",
     "CertifiedTwoFacetDistancePair",
+    "certify_separated_closed_contact_face",
+    "integrate_discovered_closed_contact_face",
     "certify_two_facet_distance_competition",
     "certify_partial_closed_face",
     "certify_wholly_interior_closed_face",

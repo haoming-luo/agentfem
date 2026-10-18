@@ -18,13 +18,104 @@ import numpy as np
 from .contact_feature_pair_geometry_research import (
     CertifiedClosedTwoFeaturePenalty,
     CertifiedPartialClosedTwoFeaturePenalty,
+    CertifiedSeparatedClosedFace,
+    integrate_discovered_closed_contact_face,
 )
+from .contact_trace import ContactTrace
 
 
 def _read_only(values, *, dtype=None):
     array = np.asarray(values, dtype=dtype).copy()
     array.setflags(write=False)
     return array
+
+
+@dataclass(frozen=True, eq=False)
+class CertifiedP1FaceLayout:
+    """Complete faces recovered from one positive reference-area P1 trace."""
+
+    face_ids: np.ndarray
+    face_node_ids: np.ndarray
+    number_of_nodes: int
+
+
+def extract_complete_p1_face_layout(
+    trace: ContactTrace,
+    reference_nodal_positions,
+) -> CertifiedP1FaceLayout:
+    """Recover face identities without using point IDs as face evidence.
+
+    The default three-positive-point rule has exactly one triplet per face.
+    Any refined, lumped, incomplete or current-area trace is rejected instead
+    of being silently reinterpreted as three independent physical faces.
+    """
+
+    reference = np.asarray(reference_nodal_positions, dtype=float)
+    if (
+        not isinstance(trace, ContactTrace)
+        or trace.measure_configuration != "reference"
+        or trace.point_count == 0
+        or trace.point_count % 3
+        or trace.nodes_per_point != 3
+        or reference.ndim != 2
+        or reference.shape[1] != 3
+        or not np.all(np.isfinite(reference))
+    ):
+        raise ValueError(
+            "Face extraction needs a complete reference P1 triangle trace."
+        )
+    ids = trace.point_ids.reshape(-1, 3)
+    faces = ids[:, 0] // 3
+    nodes = trace.node_ids.reshape(-1, 3, 3)
+    expected_shapes = np.asarray(
+        (
+            (2.0 / 3, 1.0 / 6, 1.0 / 6),
+            (1.0 / 6, 2.0 / 3, 1.0 / 6),
+            (1.0 / 6, 1.0 / 6, 2.0 / 3),
+        )
+    )
+    if (
+        np.any(faces < 0)
+        or np.any(faces > (np.iinfo(np.int64).max - 2) // 3)
+        or not np.array_equal(ids, 3 * faces[:, None] + np.arange(3))
+        or len(np.unique(faces)) != len(faces)
+        or not np.array_equal(nodes, np.broadcast_to(nodes[:, :1], nodes.shape))
+        or np.any(nodes < 0)
+        or np.any(nodes >= len(reference))
+        or not np.allclose(
+            trace.shape_values.reshape(-1, 3, 3),
+            expected_shapes,
+            rtol=0.0,
+            atol=4 * np.finfo(float).eps,
+        )
+    ):
+        raise ValueError("Trace point triplets do not define complete P1 faces.")
+    face_nodes = nodes[:, 0]
+    if any(len(set(row)) != 3 for row in face_nodes) or len(
+        {tuple(sorted(row)) for row in face_nodes}
+    ) != len(face_nodes):
+        raise ValueError("P1 face trace repeats a node or a physical face.")
+    vertices = reference[face_nodes]
+    areas = 0.5 * np.linalg.norm(
+        np.cross(vertices[:, 1] - vertices[:, 0], vertices[:, 2] - vertices[:, 0]),
+        axis=1,
+    )
+    if (
+        not np.all(np.isfinite(areas))
+        or np.any(areas <= 0.0)
+        or not np.allclose(
+            trace.weights.reshape(-1, 3),
+            areas[:, None] / 3,
+            rtol=2e-12,
+            atol=0.0,
+        )
+    ):
+        raise ValueError("P1 contact trace does not preserve positive reference area.")
+    return CertifiedP1FaceLayout(
+        _read_only(faces, dtype=np.int64),
+        _read_only(face_nodes, dtype=np.int64),
+        len(reference),
+    )
 
 
 @dataclass(frozen=True, eq=False)
@@ -38,7 +129,8 @@ class CertifiedFaceContactOperator:
     face_potential_energies: np.ndarray
     face_active_reference_areas: np.ndarray
     face_activity_kinds: tuple[str, ...]
-    face_feature_kinds: tuple[tuple[str, str], ...]
+    face_feature_kinds: tuple[tuple[str, str] | None, ...]
+    face_separation_lower_bounds: tuple[float | None, ...]
     nodal_residual: np.ndarray
     tangent_rows: np.ndarray
     tangent_columns: np.ndarray
@@ -119,6 +211,7 @@ def assemble_certified_contact_faces(
                 (
                     CertifiedClosedTwoFeaturePenalty,
                     CertifiedPartialClosedTwoFeaturePenalty,
+                    CertifiedSeparatedClosedFace,
                 ),
             )
             for item in accepted
@@ -136,7 +229,10 @@ def assemble_certified_contact_faces(
                 "A certified contact face is paired with different geometry."
             )
     residual = np.zeros((count, 3))
-    rows = np.empty(81 * len(accepted), dtype=np.int64)
+    active_count = sum(
+        not isinstance(item, CertifiedSeparatedClosedFace) for item in accepted
+    )
+    rows = np.empty(81 * active_count, dtype=np.int64)
     columns = np.empty_like(rows)
     values = np.empty(len(rows))
     potential = 0.0
@@ -145,8 +241,17 @@ def assemble_certified_contact_faces(
     face_area = np.empty(len(accepted))
     activity_kinds = []
     feature_kinds = []
+    separation_bounds = []
     tool_moment = np.zeros(3)
+    active_index = 0
     for face_index, (face_nodes, item) in enumerate(zip(nodes, accepted, strict=True)):
+        if isinstance(item, CertifiedSeparatedClosedFace):
+            face_potential[face_index] = 0.0
+            face_area[face_index] = 0.0
+            activity_kinds.append("separated")
+            feature_kinds.append(None)
+            separation_bounds.append(item.separation.minimum_gap_lower_bound)
+            continue
         response = item.response
         if (
             response.nodal_residual.shape != (3, 3)
@@ -159,7 +264,7 @@ def assemble_certified_contact_faces(
             raise ValueError("Certified face produced an invalid local Operator.")
         np.add.at(residual, face_nodes, response.nodal_residual)
         degrees = (3 * face_nodes[:, None] + np.arange(3)).reshape(-1)
-        target = slice(81 * face_index, 81 * (face_index + 1))
+        target = slice(81 * active_index, 81 * (active_index + 1))
         rows[target] = np.repeat(degrees, 9)
         columns[target] = np.tile(degrees, 9)
         values[target] = response.nodal_tangent.reshape(-1)
@@ -174,7 +279,9 @@ def assemble_certified_contact_faces(
             else "whole"
         )
         feature_kinds.append(item.geometry.feature_kinds)
+        separation_bounds.append(None)
         tool_moment += response.rigid_rotation_reaction_about_origin
+        active_index += 1
     force_structure = -np.sum(residual, axis=0)
     return CertifiedFaceContactOperator(
         _read_only(identities, dtype=np.int64),
@@ -185,6 +292,7 @@ def assemble_certified_contact_faces(
         _read_only(face_area),
         tuple(activity_kinds),
         tuple(feature_kinds),
+        tuple(separation_bounds),
         _read_only(residual),
         _read_only(rows, dtype=np.int64),
         _read_only(columns, dtype=np.int64),
@@ -197,7 +305,66 @@ def assemble_certified_contact_faces(
     )
 
 
+def evaluate_certified_closed_p1_contact_operator(
+    trace: ContactTrace,
+    reference_nodal_positions,
+    current_nodal_positions,
+    surface,
+    *,
+    penalty: float,
+    order: int = 24,
+    maximum_slave_faces: int = 128,
+    maximum_master_facets: int = 64,
+) -> CertifiedFaceContactOperator:
+    """Prove *every* bounded P1 slave face before returning one Operator.
+
+    This pure trial evaluation mutates no material/contact State. A single
+    unresolved face refuses the whole contribution with its physical ID.
+    No MPI owner reduction, Newton Procedure or accepted path work is implied.
+    """
+
+    layout = extract_complete_p1_face_layout(trace, reference_nodal_positions)
+    reference = np.asarray(reference_nodal_positions, dtype=float)
+    current = np.asarray(current_nodal_positions, dtype=float)
+    if (
+        type(maximum_slave_faces) is not int
+        or not 1 <= len(layout.face_ids) <= maximum_slave_faces <= 1024
+        or current.shape != reference.shape
+        or not np.all(np.isfinite(current))
+    ):
+        raise ValueError("Face Operator needs a bounded current P1 nodal layout.")
+    responses = []
+    for face_id, nodes in zip(layout.face_ids, layout.face_node_ids, strict=True):
+        try:
+            responses.append(
+                integrate_discovered_closed_contact_face(
+                    reference[nodes],
+                    current[nodes],
+                    surface,
+                    penalty=penalty,
+                    order=order,
+                    maximum_master_facets=maximum_master_facets,
+                )
+            )
+        except NotImplementedError as exc:
+            raise NotImplementedError(
+                "AFM-CONTACT-CERTIFIED-FACE: current trial lacks a complete "
+                f"proof for slave_face_id={int(face_id)}; no Operator was returned."
+            ) from exc
+    return assemble_certified_contact_faces(
+        layout.face_ids,
+        layout.face_node_ids,
+        responses,
+        reference_nodal_positions=reference,
+        current_nodal_positions=current,
+        number_of_nodes=layout.number_of_nodes,
+    )
+
+
 __all__ = [
+    "CertifiedP1FaceLayout",
     "CertifiedFaceContactOperator",
+    "extract_complete_p1_face_layout",
+    "evaluate_certified_closed_p1_contact_operator",
     "assemble_certified_contact_faces",
 ]
