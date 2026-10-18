@@ -484,6 +484,9 @@ def test_periodic_j2_reviewed_concave_tool_reduces_total_contact_residual():
     fixture, periodicity, step = _periodic_j2_contact_step(surface=surface)
     result = step.solve_result()
     assert result.status == "completed"
+    assert result.quantity(
+        f"{step.contact_provider.name}_sampled_mixed_feature_slave_faces"
+    ) >= 0
     assert step.contact_provider.evaluate().active_points > 0
     total = step.assemble_full_residual()
     reduction = periodicity.reduction(1.0).matrix(fixture.domain.comm)

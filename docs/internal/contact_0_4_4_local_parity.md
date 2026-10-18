@@ -22,6 +22,23 @@ distributed implicit contact, arbitrary history materials, impact and
 thermomechanical contact. They remain separate capability gates rather than
 being silently approximated by the bounded route.
 
+## Live gate status
+
+| Gate | Current evidence | Still needed for promotion |
+| --- | --- | --- |
+| 1. Comparator | Internal and public-protocol tests | Independent same-input finite-J2 contact run and frozen observables |
+| 2. Surface | Reviewed analytical/triangle/closed-solid branches | Initial-overclosure policy, ambiguity and sliding coverage at target geometry |
+| 3. Integration | Planar/convex partitions; sampled nonconvex risk flag | Nonconvex feature-switch integral and tangent |
+| 4. Normal law | Penalty Step; fixed-trace AL operator candidate | Outer global Procedure, spatial stability and checkpoint composition |
+| 5. Friction | Locally planar Coulomb State | Admitted geometry-by-friction matrix; sharp features remain rejected |
+| 6. Transaction | Total-system and restart tests for penalty | Repeat for each new enforcement/integration law |
+| 7. Result | Pair work/pressure samples; AL local work sign | Cross-law first-law and pressure interpretation |
+| 8. Science | Local/oracle/installed tests | Mesh x increment x law convergence and external observables |
+| 9. Release | Scoped solver screens | Installed cross-platform gate and production runtime evidence |
+
+“Partial” here is not a release status. The test target, geometry and
+enforcement must all match before a gate can be marked closed.
+
 ## Nine ordered gates and reading map
 
 Each bibliography entry motivates a design question; none certifies AgentFEM.
@@ -63,8 +80,9 @@ The gate stays open until its listed evidence exists at the proposed scope.
    two-plane and curved-transition oracles, then the nonconvex L-tool response
    matrix. Current state: analytical planar clipper, research two-plane oracle
    and opt-in <=3-plane convex partition pass; the result now flags *sampled*
-   mixed-feature slave faces for reviewed closed solids, without claiming a
-   complete transition integral or changing the Newton law. Nonconvex feature
+   mixed-feature slave faces for reviewed closed solids in both standard and
+   periodic J2 Results, without claiming a complete transition integral or
+   changing the Newton law. Nonconvex feature
    transitions remain open. Reading: [Duong--De Lorenzis--Sauer refined-boundary
    quadrature][duong] and [COMSOL contact quadrature guidance][comsol-settings].
    The cited isogeometric extended-mortar formulation is a comparison design,

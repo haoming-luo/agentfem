@@ -3061,6 +3061,16 @@ class FiniteStrainJ2StandardProblem:
                             point_evidence[name],
                             kind="diagnostic",
                         )
+                    if "sampled_mixed_feature_slave_faces" in point_evidence:
+                        result.add_quantity(
+                            f"{dual.constraint_name}_sampled_mixed_feature_slave_faces",
+                            point_evidence["sampled_mixed_feature_slave_faces"],
+                            kind="diagnostic",
+                            description=(
+                                "Observed mixed-feature slave faces at accepted "
+                                "quadrature; not a certified transition integral."
+                            ),
+                        )
             if point_records:
                 result.metadata["rigid_contact_point_diagnostics"] = (
                     point_records[0] if len(point_records) == 1

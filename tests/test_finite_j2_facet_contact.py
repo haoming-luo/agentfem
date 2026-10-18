@@ -327,6 +327,13 @@ def test_reviewed_concave_edge_is_active_in_global_plastic_step_and_restart(
     feature_counts = result.metadata[
         "rigid_contact_point_diagnostics"
     ]["active_feature_counts"]
+    sampled = result.quantity(
+        f"{provider.name}_sampled_mixed_feature_slave_faces"
+    )
+    assert sampled >= 0
+    assert result.metadata["rigid_contact_point_diagnostics"][
+        "feature_transition_integral_certified"
+    ] is False
     assert feature_counts["edge"] >= 1
     assert sum(feature_counts.values()) == int(np.count_nonzero(response.active))
     assert np.max(reference.response.state.committed[

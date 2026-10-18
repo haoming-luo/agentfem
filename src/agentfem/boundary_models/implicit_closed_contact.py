@@ -49,7 +49,9 @@ def sampled_mixed_feature_slave_faces(
         raise ValueError("Sampled feature diagnosis uses a different rigid geometry.")
 
     scale = max(1.0, float(surface.facets.scale))
-    tolerance = max(float(surface.facets.tolerance), 128.0 * np.finfo(float).eps * scale)
+    # CAD/query tolerance is not permission to merge distinct physical
+    # features, so use only a floating-point geometry comparison here.
+    tolerance = max(1e-12, 512.0 * np.finfo(float).eps) * scale
     feet = projection.closest_points
     if motion is not None:
         pose = motion.state(factor)

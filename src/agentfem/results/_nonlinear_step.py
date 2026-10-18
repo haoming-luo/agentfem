@@ -410,6 +410,16 @@ def _add_affine_constraint_evidence(step, result) -> None:
                     f"{contact.name}_{name}", point_evidence[name],
                     kind="diagnostic",
                 )
+            if "sampled_mixed_feature_slave_faces" in point_evidence:
+                result.add_quantity(
+                    f"{contact.name}_sampled_mixed_feature_slave_faces",
+                    point_evidence["sampled_mixed_feature_slave_faces"],
+                    kind="diagnostic",
+                    description=(
+                        "Observed mixed-feature slave faces at accepted "
+                        "quadrature; not a certified transition integral."
+                    ),
+                )
             if contact_contribution.friction_assembly is not None:
                 has_friction = True
                 friction_dissipation += (
