@@ -297,6 +297,18 @@ degree 5 gives x-resultant `-1.73819547` instead of `-1.73441914` (about
 Both runs completed with twelve accepted increments. This narrows, but does
 not close, the face-rule uncertainty at that mesh; it is not a contact-patch
 or penalty-convergence certificate.
+The exported *raw integration-point* PEEQ field gives a useful countercheck
+against over-interpreting the single maximum. Using each point's exported
+physical-volume weight, the degree-7 volume-weighted means for cells
+8/10/12/14 are `0.01639180/0.01665422/0.01665232/0.01655183`;
+the corresponding weighted 99th percentiles are
+`0.03980527/0.03964740/0.03891682/0.03953172`.
+At fourteen cells the degree-5 mean is `0.01661404` and its weighted 99th
+percentile is `0.03959502`. The whole-volume distribution is more stable than
+the local maximum in this *fixed-penalty* screen, but the changing resultant,
+edge sampling and maximum forbid a general contact or hotspot convergence
+claim. All four integration-point archives report total volume one; no
+smoothed nodal field was used for these statistics.
 Backtracking remains the example default.
 Any new globalization should compare the accepted path, total residual,
 contact work, plastic history and cutback behavior against both policies;
