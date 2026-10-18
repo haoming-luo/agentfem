@@ -669,7 +669,7 @@ mode below: the reviewed L-prism's nearest-edge and nearest-vertex distances
 are nonlinear, and its full feature graph, coverage, friction State and
 global convergence remain unproved.
 
-### Certified convex two-feature trial integration
+### Certified convex bounded-feature trial integration
 
 The next bounded production-path slice is an **opt-in**
 `contact_integration="convex_feature_partition"` for frictionless scalar-penalty
@@ -679,10 +679,14 @@ MPI rank. At each current trial the tool's distinct support-plane gaps are
 evaluated at the three slave vertices. Each positive-area dominant plane
 receives a polygonal active subcell and positive degree-two quadrature; the
 sum of those areas is checked against an independently clipped convex active
-region. A face with more than two positive-area dominant planes rejects
-instead of guessing a pair. If two active planes switch across a compressed
-line, a separate positive line quadrature contributes the exact affine
-feature term to the same contact Newton matrix. A boundary-aligned undefined
+region. A face with more than three positive-area dominant planes rejects
+instead of guessing a subset. Each pair of active planes switching across a
+compressed dominant line contributes the affine feature term to the same
+contact Newton matrix. An independent symmetric convex-corner fixture checks
+exact potential and total force as well as five directional tangent differences
+with three positive-area dominant planes. Five perturbed corner states also
+pass directional tangent differences. Four such planes still reject.
+A boundary-aligned undefined
 two-sided switch also rejects. The default Gauss route is unchanged.
 
 An axis-aligned convex box with a narrow interior slab gives the independent
@@ -709,3 +713,26 @@ Methodological context: Farah, Popp & Wall (2015),
 integration; Duong, De Lorenzis & Sauer (2017), `arXiv:1712.01179`, discusses
 refined boundary quadrature for more general contact.  Neither paper validates
 the present implementation, whose scope is narrower and independently tested.
+
+The committed `ede47723` two-feature source candidate passed 212 targeted real-FEniCSx
+serial regressions, strict documentation build and targeted Ruff checks. Its
+native Apple Silicon wheel has SHA-256
+`be5871036ca1b23cf0942ecdc79244d8bd8071554b107448dcf06225c7f16bbb`;
+the matching source archive has SHA-256
+`7d1789b88549ecb7924b8af1b1739c19a5c23043b21ef1ba99c3db8a1bf7a197`.
+An isolated `python -I` import resolved to the installed wheel, its native
+Hex/body modules imported, the new example completed two increments with two
+active feature lines and emitted XDMF, quadrature payloads, contact samples
+and a result manifest. All 13 new-path tests also passed from the isolated
+wheel, without source-path injection. The existing non-MPI `release_gate.py`
+installed-wheel smoke passed with all four project templates; its report is
+`/private/tmp/agentfem-feature-release-smoke-ede47723.json` on this host.
+These are package and local workflow checks, not Linux/Windows evidence,
+external solver parity, a converged sharp-feature solution or permission to
+promote this experiment as a stable release.
+
+The subsequent three-feature extension passed 183 focused real-FEniCSx serial
+tests spanning the contact Operator, finite-J2 Step, periodic MPC, work and
+existing contact modes, along with targeted Ruff and a strict docs build.
+Its installed-package evidence must be regenerated from its exact commit;
+the hashes above identify only `ede47723`, not this extension.

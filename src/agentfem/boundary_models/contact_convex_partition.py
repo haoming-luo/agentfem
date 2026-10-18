@@ -8,7 +8,7 @@ maximum of outward support-plane gaps. On an affine P1 slave triangle these
 gaps are affine. The positive-area subcells are therefore polygonal, while a
 compressed switch between two dominant planes contributes a *line* term to
 the derivative of the integrated penalty force. This module handles at most
-two positive-area dominant features per slave triangle. It deliberately does
+three positive-area dominant features per slave triangle. It deliberately does
 not describe a nonconvex nearest-edge/vertex distance, friction State, or a
 current-area follower law.
 """
@@ -16,6 +16,7 @@ current-area follower law.
 from __future__ import annotations
 
 from dataclasses import dataclass
+from itertools import combinations
 
 import numpy as np
 
@@ -227,9 +228,9 @@ def partition_convex_p1_trace(
             active = _clip_polygon(active, values)
         _, active_weights = _polygon_rule(active)
         total_area = sum(active_weights)
-        if len(regions) > 2:
+        if len(regions) > 3:
             raise NotImplementedError(
-                "AFM-CONTACT-FEATURE-PARTITION: more than two dominant "
+                "AFM-CONTACT-FEATURE-PARTITION: more than three dominant "
                 "support planes cross one active slave triangle."
             )
         if not np.isclose(
@@ -251,11 +252,13 @@ def partition_convex_p1_trace(
                 selected_gaps.append(np.nan)
                 selected_normals.append((np.nan, np.nan, np.nan))
             continue
-        if len(regions) == 2:
+        if len(regions) > 1:
             split_faces += 1
-            first, second = regions[0][0], regions[1][0]
-            segment = _dominant_feature_line(gaps, first, second)
-            if segment is not None:
+            for first_region, second_region in combinations(regions, 2):
+                first, second = first_region[0], second_region[0]
+                segment = _dominant_feature_line(gaps, first, second)
+                if segment is None:
+                    continue
                 start, end = segment
                 gradient = np.asarray((
                     gaps[first, 1] - gaps[second, 1] - gaps[first, 0] + gaps[second, 0],

@@ -99,16 +99,77 @@ def test_convex_box_feature_partition_matches_independent_oracle(width, center):
         assert selected.trace.point_count > _trace().point_count
 
 
-def test_convex_partition_rejects_three_dominant_features():
+def test_convex_corner_three_features_matches_exact_energy_and_full_tangent():
     surface = boundary_models.convex_polyhedral_rigid_surface(
-        vertices=((0, 0, 0), (1, 0, 0), (0, 1, 0), (0, 0, 1)),
+        vertices=((0, 0, 0), (2, 0, 0), (0, 2, 0), (0, 0, 2)),
         triangles=((0, 2, 1), (0, 1, 3), (0, 3, 2), (1, 2, 3)),
     )
     positions = np.asarray(((0.05, 0.3, 0.3),
                             (0.3, 0.05, 0.3),
                             (0.3, 0.3, 0.05)))
-    with pytest.raises(NotImplementedError, match="more than two dominant"):
+    selected, contribution, tangent = _evaluate(surface, positions)
+    assert selected.split_faces == 1
+    assert selected.active_feature_lines == 3
+    # On this slave triangle g=-0.3+0.25 max(lambda_0,lambda_1,lambda_2).
+    # For a uniform barycentric point, E[max]=11/18 and E[max²]=85/216;
+    # the reference triangle has area 1/2.
+    assert contribution.potential_energy == pytest.approx(
+        7.0 * 1981.0 / 345600.0, rel=1e-12,
+    )
+    # Symmetry makes each normal carry one third of the integrated penalty
+    # traction. This checks force independently of the tangent difference.
+    np.testing.assert_allclose(
+        contribution.nodal_structural_residual.sum(axis=0),
+        7.0 * (0.3 - 0.25 * 11.0 / 18.0) / 6.0,
+        rtol=1e-12,
+    )
+    rng = np.random.default_rng(112)
+    for _ in range(5):
+        direction = rng.normal(size=positions.shape)
+        direction /= np.linalg.norm(direction)
+        h = 1e-7
+        plus = _evaluate(surface, positions + h * direction)[1]
+        minus = _evaluate(surface, positions - h * direction)[1]
+        numerical = (
+            plus.nodal_structural_residual - minus.nodal_structural_residual
+        ) / (2 * h)
+        np.testing.assert_allclose(
+            tangent @ direction.ravel(), numerical.ravel(), rtol=2e-7, atol=2e-8,
+        )
+
+
+def test_convex_partition_still_rejects_four_dominant_features():
+    surface = _box(xmin=0.1, xmax=0.9, ymin=0.1, ymax=0.9)
+    positions = np.asarray(((0, 0, 0), (2, 0, 0), (0, 2, 0)), dtype=float)
+    with pytest.raises(NotImplementedError, match="more than three dominant"):
         partition_convex_p1_trace(_trace(), positions, surface, penalty=7)
+
+
+def test_convex_corner_perturbed_three_feature_tangent():
+    surface = boundary_models.convex_polyhedral_rigid_surface(
+        vertices=((0, 0, 0), (2, 0, 0), (0, 2, 0), (0, 0, 2)),
+        triangles=((0, 2, 1), (0, 1, 3), (0, 3, 2), (1, 2, 3)),
+    )
+    reference = np.asarray(((0.05, 0.3, 0.3),
+                            (0.3, 0.05, 0.3),
+                            (0.3, 0.3, 0.05)))
+    rng = np.random.default_rng(239)
+    for _ in range(5):
+        positions = reference + 0.02 * rng.normal(size=reference.shape)
+        selected, contribution, tangent = _evaluate(surface, positions)
+        assert selected.active_feature_lines == 3
+        assert np.isfinite(contribution.potential_energy)
+        direction = rng.normal(size=positions.shape)
+        direction /= np.linalg.norm(direction)
+        h = 1e-7
+        plus = _evaluate(surface, positions + h * direction)[1]
+        minus = _evaluate(surface, positions - h * direction)[1]
+        numerical = (
+            plus.nodal_structural_residual - minus.nodal_structural_residual
+        ) / (2 * h)
+        np.testing.assert_allclose(
+            tangent @ direction.ravel(), numerical.ravel(), rtol=2e-7, atol=2e-8,
+        )
 
 
 def test_distinct_support_planes_are_not_merged_by_query_tolerance():

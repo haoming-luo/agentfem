@@ -727,12 +727,16 @@ L-tool gate needs its nonlinear nearest-feature transition law and convergence
 evidence before any such Step promotion.
 The bounded convex-support-plane subset is now an opt-in ordinary-Step and
 serial affine-periodic J2
-implementation: it partitions at most two dominant planes per affine slave
+implementation: it partitions at most three dominant planes per affine slave
 triangle and includes the compressed feature-line Newton term. A real
 finite-J2 Step, full Jacobian including MPC reduction, moving-tool work and
 serial restart pass. Fixed support planes are prepared once; every current
 trial still recomputes its gap, active subcells and projection, and a projection
 feature disagreement rejects the trial.
+An independent symmetric convex-corner fixture now checks exact potential,
+integrated force and five directional total tangents with three dominant
+planes; four positive-area features still reject. This expands a bounded
+convex subset, not the nonconvex reentrant-tool convergence claim.
 This does not close the nonconvex L-tool's nonlinear nearest-feature
 transition or the independent mesh/penalty benchmark.
 
