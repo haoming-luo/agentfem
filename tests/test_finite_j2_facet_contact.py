@@ -28,7 +28,8 @@ def _patch(*, triangulated: bool, gap: float = 0.005, penalty=500.0,
            schedule_end=1.0, make_step=True, tool_y_max=1.5,
            increments=3, applied_traction=10.0, yield_stress=2.0,
            convex_tool=False, convex_y_min=-0.5, closed_concave_tool=False,
-           closed_concave_extent=1.75,
+           closed_concave_extent=1.75, closed_concave_thickness=0.1,
+           closed_concave_corner=None,
            friction_coefficient=None, tangential_penalty=None,
            regional_material=False, contact_quadrature_degree=None,
            hexahedral=False, displacement_degree=1, linear_solver=None):
@@ -98,11 +99,16 @@ def _patch(*, triangulated: bool, gap: float = 0.005, penalty=500.0,
                 (0, 0), (2, 0), (2, 1), (1, 1), (1, 2), (0, 2),
             ), dtype=float)
             polygon = closed_concave_extent * polygon - 0.5
+            if closed_concave_corner is not None:
+                polygon += (
+                    np.asarray(closed_concave_corner, dtype=float)
+                    - (closed_concave_extent - 0.5)
+                )
             front = np.column_stack((
                 np.full(6, tool_x), polygon[:, 0], polygon[:, 1],
             ))
             back = front.copy()
-            back[:, 0] += 0.1
+            back[:, 0] += closed_concave_thickness
             top = ((0, 1, 3), (1, 2, 3), (0, 3, 5), (3, 4, 5))
             triangles = [tuple(reversed(face)) for face in top]
             triangles += [tuple(6 + index for index in face) for face in top]
@@ -272,6 +278,78 @@ def test_reviewed_closed_concave_tool_uses_ordinary_j2_step_and_restart(tmp_path
     )[3]
     with pytest.raises(ValueError, match="identity"):
         different_geometry.load_checkpoint(saved)
+
+
+def test_reviewed_concave_edge_is_active_in_global_plastic_step_and_restart(tmp_path):
+    # Place the reentrant corner near, but not exactly on, one boundary
+    # quadrature point. A thick tool prevents its back face from masking the
+    # edge branch. This is an active-feature FE test, not an industrial tool
+    # validation or a mesh/penalty convergence study.
+    options = dict(
+        triangulated=True, closed_concave_tool=True,
+        closed_concave_extent=0.7, closed_concave_corner=(0.35, 0.19),
+        closed_concave_thickness=0.5, gap=0.005,
+        tool_translation=(-0.055, 0.0, 0.0), penalty=20.0,
+        applied_traction=0.0, increments=6, yield_stress=0.05,
+    )
+    reference = _patch(**options)[3]
+    assert reference.solve_result().status == "completed"
+    provider = reference.contact_provider
+    _, record, response, _ = provider._current_point_response()
+    surface = provider.pair.rigid_body.surface
+    features = [
+        surface._geometric_feature_projector(
+            surface._facet_slots[int(identity)], barycentric,
+        )[1]
+        for identity, barycentric in zip(
+            record.projection.entity_ids,
+            record.projection.local_coordinates,
+            strict=True,
+        )
+    ]
+    assert any(active and feature == "edge" for active, feature in zip(
+        response.active, features, strict=True,
+    ))
+    assert np.max(reference.response.state.committed[
+        "equivalent_plastic_strain"
+    ].function.x.array) > 0.0
+    assert reference.energy_history[-1].tool_work > 0.0
+    accepted = reference.solution.x.array.copy()
+    direction = np.random.default_rng(503).normal(size=accepted.shape)
+    epsilon = 1.0e-7
+    selected = provider.evaluate()
+    try:
+        reference.solution.x.array[:] = accepted + epsilon * direction
+        plus = provider.evaluate()
+        reference.solution.x.array[:] = accepted - epsilon * direction
+        minus = provider.evaluate()
+    finally:
+        reference.solution.x.array[:] = accepted
+    np.testing.assert_allclose(
+        selected.tangent_action(direction.reshape((-1, 3))),
+        (plus.nodal_structural_residual - minus.nodal_structural_residual)
+        / (2.0 * epsilon),
+        rtol=1.0e-4, atol=1.0e-5,
+    )
+
+    partial = _patch(**options)[3]
+    partial.solve(until=0.5)
+    saved = partial.save_checkpoint(tmp_path / "active_concave_edge")
+    resumed = _patch(**options)[3]
+    resumed.load_checkpoint(saved)
+    assert resumed.solve_result().status == "completed"
+    np.testing.assert_allclose(
+        resumed.solution.x.array, reference.solution.x.array,
+        rtol=1.0e-8, atol=1.0e-10,
+    )
+    np.testing.assert_allclose(
+        resumed.response.state.committed_state_vectors(),
+        reference.response.state.committed_state_vectors(),
+        rtol=1.0e-8, atol=1.0e-10,
+    )
+    assert resumed.energy_history[-1].tool_work == pytest.approx(
+        reference.energy_history[-1].tool_work,
+    )
 
 
 def test_reviewed_closed_concave_friction_is_rejected_before_assembly():

@@ -62,9 +62,16 @@ reviewed L-prism's flat face, agrees with the equivalent planar tool and
 restores a checkpoint. A separate affine-periodic finite-J2 Step checks
 `TᵀR≈0` for the **total** material-plus-contact residual and the same planar
 limit. Unsupported friction is rejected before assembly; a bounded two-rank
-preflight rejects this serial-only implicit path before a solve. These tests do not
-yet demonstrate a converged *global* J2 load path with active reentrant-edge
-contact, nor do they establish a mesh/penalty/increment limit for that path.
+preflight rejects this serial-only implicit path before a solve. A separate
+six-increment ordinary finite-J2 Step now has an **active reentrant-edge**
+quadrature point at the accepted final state, nonzero equivalent plastic strain,
+and positive accepted tool work. Its current contact tangent agrees with a
+fixed-branch directional finite difference at that accepted state. A halfway
+checkpoint/restart reproduces its
+final displacement, committed material state and tool work. This is a small
+manufactured FE regression; it does **not** establish a mesh, penalty or
+increment limit, a same-input Abaqus comparison, or robust convergence across
+arbitrary active-set switches.
 
 The present tests are local software evidence, not an independent structural
 benchmark. [NAFEMS contact benchmarks](https://www.nafems.org/publications/resource_center/r0094/)
@@ -113,8 +120,7 @@ been shown to improve a whole accepted Newton Step, and no cross-machine
 claim is made. This experiment does identify nearest-feature search as another
 substantial cost, not just the O(facets) sign calculation.
 
-Open work before broader admission: a stable active reentrant-edge global
-path with plasticity and restart; independent same-input force/displacement
+Open work before broader admission: independent same-input force/displacement
 comparison; controlled geometry, mesh, penalty and increment sensitivity;
 large-tool sign acceleration with parity proof; distributed ownership and
 cross-rank restart. Friction, deformable master, self-contact and arbitrary

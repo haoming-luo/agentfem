@@ -684,6 +684,15 @@ mesh, penalty and energy screens are directional diagnostics, not an
 industrial-contact accuracy certificate. Do not silently widen the public
 capability merely because this candidate can complete a Newton solve.
 
+The next closed-general candidate extends only the **serial frictionless
+rigid-tool** branch to a caller-reviewed embedded triangle solid. It retains
+current-geometry nearest-feature/winding evidence and rejects ambiguous
+projection; a small ordinary J2 Step now exercises an active reentrant edge,
+plastic state, tangent check and restart. See the
+[bounded closed-solid record](internal/closed_general_implicit_contact_candidate_20261018.md).
+This is not yet a same-input external comparison, a converged parameter study,
+frictional sharp-feature law, large-CAD backend or distributed implicit contact.
+
 Stop after this vertical route has explicit field/response and state evidence.
 Nonmatching-mesh transfer, broader nonlinear coupling, monolithic Jacobians,
 and additional physics remain separate subsequent decisions. Installation or
