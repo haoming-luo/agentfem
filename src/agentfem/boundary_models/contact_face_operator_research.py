@@ -11,7 +11,7 @@ intentionally absent; this module cannot admit a public contact Step.
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 
 import numpy as np
 
@@ -22,6 +22,7 @@ from .contact_feature_pair_geometry_research import (
     integrate_discovered_closed_contact_face,
 )
 from .contact_trace import ContactTrace
+from .rigid import PrescribedRigidMotion
 
 
 def _read_only(values, *, dtype=None):
@@ -131,6 +132,8 @@ class CertifiedFaceContactOperator:
     face_activity_kinds: tuple[str, ...]
     face_feature_kinds: tuple[tuple[str, str] | None, ...]
     face_separation_lower_bounds: tuple[float | None, ...]
+    face_forces_on_structure: np.ndarray
+    face_moments_on_structure_about_origin: np.ndarray
     nodal_residual: np.ndarray
     tangent_rows: np.ndarray
     tangent_columns: np.ndarray
@@ -140,6 +143,8 @@ class CertifiedFaceContactOperator:
     force_on_structure: np.ndarray
     force_on_tool: np.ndarray
     moment_on_structure_about_origin: np.ndarray
+    motion_factor: float | None = None
+    moving_reference_point: np.ndarray | None = None
 
     def tangent_action(self, direction) -> np.ndarray:
         values = np.asarray(direction, dtype=float)
@@ -239,6 +244,8 @@ def assemble_certified_contact_faces(
     active_area = 0.0
     face_potential = np.empty(len(accepted))
     face_area = np.empty(len(accepted))
+    face_forces = np.zeros((len(accepted), 3))
+    face_moments = np.zeros((len(accepted), 3))
     activity_kinds = []
     feature_kinds = []
     separation_bounds = []
@@ -273,6 +280,8 @@ def assemble_certified_contact_faces(
         active_area += selected_area
         face_potential[face_index] = response.potential
         face_area[face_index] = selected_area
+        face_forces[face_index] = -np.sum(response.nodal_residual, axis=0)
+        face_moments[face_index] = -response.rigid_rotation_reaction_about_origin
         activity_kinds.append(
             "partial"
             if isinstance(item, CertifiedPartialClosedTwoFeaturePenalty)
@@ -293,6 +302,8 @@ def assemble_certified_contact_faces(
         tuple(activity_kinds),
         tuple(feature_kinds),
         tuple(separation_bounds),
+        _read_only(face_forces),
+        _read_only(face_moments),
         _read_only(residual),
         _read_only(rows, dtype=np.int64),
         _read_only(columns, dtype=np.int64),
@@ -383,10 +394,85 @@ def evaluate_certified_closed_p1_contact_operator(
     )
 
 
+def evaluate_moving_certified_closed_p1_contact_operator(
+    trace: ContactTrace,
+    reference_nodal_positions,
+    current_nodal_positions,
+    surface,
+    *,
+    motion: PrescribedRigidMotion,
+    factor: float,
+    penalty: float,
+    order: int = 24,
+    maximum_slave_faces: int = 128,
+    maximum_master_facets: int = 64,
+) -> CertifiedFaceContactOperator:
+    """Certify a prescribed rigid pose without rebuilding the tool topology.
+
+    At fixed pose, the inverse frame map is affine in each slave nodal
+    position. The original tool's complete geometry proof therefore applies
+    in its reference frame; residual/tangent are then pushed forward exactly.
+    Pose work is not integrated here and no accepted State is implied.
+    """
+
+    if not isinstance(motion, PrescribedRigidMotion) or motion.dimension != 3:
+        raise TypeError("Moving certified faces require a 3D prescribed rigid motion.")
+    current = np.asarray(current_nodal_positions, dtype=float)
+    if current.ndim != 2 or current.shape[1] != 3 or not np.all(np.isfinite(current)):
+        raise ValueError("Moving certified faces need finite current 3D nodes.")
+    pose = motion.state(factor)
+    rotation = np.asarray(pose["rotation_matrix"], dtype=float)
+    reference_point = np.asarray(motion.reference_point, dtype=float)
+    moved_reference = np.asarray(pose["reference_point"], dtype=float)
+    tool_frame_current = reference_point + (current - moved_reference) @ rotation
+    local = evaluate_certified_closed_p1_contact_operator(
+        trace,
+        reference_nodal_positions,
+        tool_frame_current,
+        surface,
+        penalty=penalty,
+        order=order,
+        maximum_slave_faces=maximum_slave_faces,
+        maximum_master_facets=maximum_master_facets,
+    )
+    block_rotation = np.kron(np.eye(3), rotation)
+    active = sum(kind != "separated" for kind in local.face_activity_kinds)
+    transformed_tangent = np.empty_like(local.tangent_values)
+    for index in range(active):
+        selected = slice(81 * index, 81 * (index + 1))
+        local_block = local.tangent_values[selected].reshape(9, 9)
+        transformed_tangent[selected] = (
+            block_rotation @ local_block @ block_rotation.T
+        ).reshape(-1)
+    global_face_forces = local.face_forces_on_structure @ rotation.T
+    local_face_moments_at_reference = (
+        local.face_moments_on_structure_about_origin
+        - np.cross(reference_point, local.face_forces_on_structure)
+    )
+    global_face_moments = local_face_moments_at_reference @ rotation.T + np.cross(
+        moved_reference, global_face_forces
+    )
+    return replace(
+        local,
+        face_forces_on_structure=_read_only(global_face_forces),
+        face_moments_on_structure_about_origin=_read_only(global_face_moments),
+        nodal_residual=_read_only(local.nodal_residual @ rotation.T),
+        tangent_values=_read_only(transformed_tangent),
+        force_on_structure=_read_only(np.sum(global_face_forces, axis=0)),
+        force_on_tool=_read_only(-np.sum(global_face_forces, axis=0)),
+        moment_on_structure_about_origin=_read_only(
+            np.sum(global_face_moments, axis=0)
+        ),
+        motion_factor=float(factor),
+        moving_reference_point=_read_only(moved_reference),
+    )
+
+
 __all__ = [
     "CertifiedP1FaceLayout",
     "CertifiedFaceContactOperator",
     "extract_complete_p1_face_layout",
     "evaluate_certified_closed_p1_contact_operator",
+    "evaluate_moving_certified_closed_p1_contact_operator",
     "assemble_certified_contact_faces",
 ]

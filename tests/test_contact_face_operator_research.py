@@ -9,6 +9,7 @@ from agentfem.boundary_models.closed_polyhedron import closed_triangulated_rigid
 from agentfem.boundary_models.contact_face_operator_research import (
     assemble_certified_contact_faces,
     evaluate_certified_closed_p1_contact_operator,
+    evaluate_moving_certified_closed_p1_contact_operator,
     extract_complete_p1_face_layout,
 )
 from agentfem.boundary_models.contact_feature_pair_geometry_research import (
@@ -22,6 +23,7 @@ from agentfem.boundary_models.contact_feature_pair_research import (
     integrate_two_affine_feature_distances,
 )
 from agentfem.boundary_models.contact_trace import ContactTrace
+from agentfem.boundary_models.rigid import prescribed_rigid_motion
 
 
 def _tool():
@@ -107,6 +109,15 @@ def test_mixed_partial_and_whole_face_operator_has_global_energy_gradient_and_ta
     np.testing.assert_allclose(
         operator.force_on_structure, -operator.nodal_residual.sum(axis=0)
     )
+    np.testing.assert_allclose(
+        np.sum(operator.face_forces_on_structure, axis=0),
+        operator.force_on_structure,
+    )
+    np.testing.assert_allclose(
+        np.sum(operator.face_moments_on_structure_about_origin, axis=0),
+        operator.moment_on_structure_about_origin,
+    )
+    assert not operator.face_forces_on_structure.flags.writeable
     np.testing.assert_allclose(operator.force_on_structure, -operator.force_on_tool)
     reference_point = np.asarray((0.5, 0.5, 0.0))
     np.testing.assert_allclose(
@@ -357,6 +368,10 @@ def test_complete_face_batch_keeps_proven_zero_face_without_fake_point_samples()
     assert operator.face_separation_lower_bounds[-1] > 0.0
     assert operator.face_potential_energies[-1] == 0.0
     assert operator.face_active_reference_areas[-1] == 0.0
+    np.testing.assert_array_equal(operator.face_forces_on_structure[-1], 0.0)
+    np.testing.assert_array_equal(
+        operator.face_moments_on_structure_about_origin[-1], 0.0
+    )
     assert len(operator.tangent_values) == 162
     np.testing.assert_array_equal(operator.nodal_residual[4:], 0.0)
     assert separated.separation.minimum_gap_lower_bound > 0.0
@@ -657,7 +672,13 @@ def test_real_dolfinx_mixed_active_patch_lowers_to_the_certified_face_operator()
 
 def test_real_elastic_tetra_matrix_and_certified_face_operator_share_newton_rows():
     from dolfinx import fem
+    from petsc4py import PETSc
     import ufl
+
+    from agentfem.boundary_models._petsc_contact_rows import (
+        add_contact_coo_tangent,
+        add_contact_nodal_residual,
+    )
 
     domain, space, adapter = _dolfinx_mixed_active_patch()
     trial, test = ufl.TrialFunction(space), ufl.TestFunction(space)
@@ -693,6 +714,32 @@ def test_real_elastic_tetra_matrix_and_certified_face_operator_share_newton_rows
     target[free] = np.asarray((1.0, -1.0, 0.5, 0.8, -0.6)) * 1e-6
     exact = contact(target)
     load = bulk @ target + exact.nodal_residual.reshape(-1)
+    constrained = matrix.copy()
+    constrained.zeroRowsColumns(fixed.astype(PETSc.IntType), diag=1.0)
+    add_contact_coo_tangent(
+        constrained,
+        exact.tangent_rows,
+        exact.tangent_columns,
+        exact.tangent_values,
+        constrained_dofs=fixed,
+    )
+    constrained.assemble()
+    inserted = np.asarray(constrained.getValues(dofs, dofs))
+    expected = bulk.copy()
+    np.add.at(
+        expected,
+        (exact.tangent_rows, exact.tangent_columns),
+        exact.tangent_values,
+    )
+    np.testing.assert_allclose(
+        inserted[np.ix_(free, free)], expected[np.ix_(free, free)]
+    )
+    np.testing.assert_array_equal(inserted[np.ix_(fixed, free)], 0.0)
+    np.testing.assert_array_equal(inserted[np.ix_(free, fixed)], 0.0)
+    vector = matrix.createVecRight()
+    vector.set(0.0)
+    add_contact_nodal_residual(vector, exact.nodal_residual)
+    np.testing.assert_allclose(vector.array, exact.nodal_residual.reshape(-1))
     iterate = np.zeros(size)
     for _ in range(8):
         response = contact(iterate)
@@ -714,6 +761,35 @@ def test_real_elastic_tetra_matrix_and_certified_face_operator_share_newton_rows
         )
         < 1e-11
     )
+
+
+def test_contact_petsc_rows_reject_invalid_input_before_matrix_mutation():
+    from mpi4py import MPI
+    from petsc4py import PETSc
+
+    from agentfem.boundary_models._petsc_contact_rows import (
+        add_contact_coo_tangent,
+        add_contact_nodal_residual,
+    )
+
+    matrix = PETSc.Mat().createAIJ((3, 3), comm=MPI.COMM_SELF)
+    matrix.setUp()
+    matrix.setDiagonal(PETSc.Vec().createWithArray(np.ones(3), comm=MPI.COMM_SELF))
+    matrix.assemble()
+    dofs = np.arange(3, dtype=PETSc.IntType)
+    initial = np.asarray(matrix.getValues(dofs, dofs)).copy()
+    with pytest.raises(ValueError, match="finite serial COO"):
+        add_contact_coo_tangent(matrix, (0,), (1,), (float("nan"),))
+    with pytest.raises(ValueError, match="Constrained contact DOFs"):
+        add_contact_coo_tangent(matrix, (0,), (1,), (1.0,), constrained_dofs=(3,))
+    with pytest.raises(ValueError, match="identities must be integers"):
+        add_contact_coo_tangent(matrix, (0.5,), (1,), (1.0,))
+    np.testing.assert_array_equal(matrix.getValues(dofs, dofs), initial)
+    vector = matrix.createVecRight()
+    vector.set(0.0)
+    with pytest.raises(ValueError, match="finite PETSc local rows"):
+        add_contact_nodal_residual(vector, ((float("nan"), 0.0, 0.0),))
+    np.testing.assert_array_equal(vector.array, 0.0)
 
 
 def test_random_accepted_local_proofs_agree_with_independent_tool_projection():
@@ -870,4 +946,180 @@ def test_combined_tool_translation_rotation_uses_moment_at_moving_reference():
         finish.potential_energy - start.potential_energy,
         rel=1e-7,
         abs=1e-9,
+    )
+
+
+def test_inverse_rigid_pose_certification_matches_independently_moved_tool():
+    tool = _tool()
+    trace = _positive_face_trace(_POSITIONS, _FACES, (100, 101))
+    motion = prescribed_rigid_motion(
+        translation=(2e-5, -3e-5, 1e-5),
+        rotation=(1e-4, 0.0, 0.0),
+        reference_point=(0.5, 0.5, 0.5),
+    )
+    current = _POSITIONS.copy()
+    current[1, 0] += 1e-6
+    for factor in (0.0, 0.5, 1.0):
+        pose = motion.state(factor)
+        moved_vertices = (
+            np.asarray(pose["reference_point"])
+            + (tool.facets.vertices - motion.reference_point)
+            @ np.asarray(pose["rotation_matrix"]).T
+        )
+        independently_moved_tool = closed_triangulated_rigid_solid(
+            vertices=moved_vertices,
+            triangles=tool.facets.triangles,
+            reviewed_embedded=True,
+        )
+        frame = evaluate_moving_certified_closed_p1_contact_operator(
+            trace,
+            _POSITIONS,
+            current,
+            tool,
+            motion=motion,
+            factor=factor,
+            penalty=500.0,
+        )
+        assert frame.motion_factor == factor
+        np.testing.assert_array_equal(
+            frame.moving_reference_point, pose["reference_point"]
+        )
+        assert not frame.moving_reference_point.flags.writeable
+        rebuilt = evaluate_certified_closed_p1_contact_operator(
+            trace, _POSITIONS, current, independently_moved_tool, penalty=500.0
+        )
+        assert frame.face_activity_kinds == rebuilt.face_activity_kinds
+        assert frame.potential_energy == pytest.approx(
+            rebuilt.potential_energy, rel=1e-9
+        )
+        np.testing.assert_allclose(
+            frame.nodal_residual, rebuilt.nodal_residual, rtol=1e-8, atol=1e-10
+        )
+        np.testing.assert_allclose(
+            frame.tangent_values, rebuilt.tangent_values, rtol=1e-7, atol=1e-7
+        )
+        np.testing.assert_allclose(
+            frame.face_forces_on_structure,
+            rebuilt.face_forces_on_structure,
+            rtol=1e-8,
+            atol=1e-10,
+        )
+        np.testing.assert_allclose(
+            frame.face_moments_on_structure_about_origin,
+            rebuilt.face_moments_on_structure_about_origin,
+            rtol=1e-7,
+            atol=1e-10,
+        )
+
+
+def test_inverse_rigid_pose_work_is_the_prescribed_potential_change():
+    tool = _tool()
+    trace = _positive_face_trace(_POSITIONS, _FACES, (100, 101))
+    motion = prescribed_rigid_motion(
+        translation=(2e-5, -3e-5, 1e-5),
+        rotation=(1e-4, 0.0, 0.0),
+        reference_point=(0.5, 0.5, 0.5),
+    )
+
+    def state(factor):
+        return evaluate_moving_certified_closed_p1_contact_operator(
+            trace,
+            _POSITIONS,
+            _POSITIONS,
+            tool,
+            motion=motion,
+            factor=factor,
+            penalty=500.0,
+        )
+
+    start, finish = state(0.0), state(1.0)
+    abscissae, weights = np.polynomial.legendre.leggauss(8)
+    work = 0.0
+    for abscissa, weight in zip(abscissae, weights, strict=True):
+        factor = (abscissa + 1.0) / 2.0
+        response = state(factor)
+        moving_reference = motion.state(factor)["reference_point"]
+        power = np.dot(response.force_on_structure, motion.translation) + np.dot(
+            response.moment_on_structure_about(moving_reference), motion.rotation
+        )
+        work += weight * power / 2.0
+    assert work == pytest.approx(
+        finish.potential_energy - start.potential_energy, rel=1e-7, abs=1e-9
+    )
+
+
+def test_inverse_rigid_pose_tangent_matches_recertified_displacement_difference():
+    tool = _tool()
+    trace = _positive_face_trace(_POSITIONS, _FACES, (100, 101))
+    motion = prescribed_rigid_motion(
+        translation=(2e-5, -3e-5, 1e-5),
+        rotation=(1e-4, 0.0, 0.0),
+        reference_point=(0.5, 0.5, 0.5),
+    )
+    direction = np.asarray(
+        ((0.4, -0.3, 0.2), (0.1, 0.5, -0.4), (-0.2, 0.3, 0.1), (0.3, -0.1, 0.2))
+    )
+
+    def state(current):
+        return evaluate_moving_certified_closed_p1_contact_operator(
+            trace,
+            _POSITIONS,
+            current,
+            tool,
+            motion=motion,
+            factor=0.6,
+            penalty=500.0,
+        )
+
+    center = state(_POSITIONS)
+    distance = 1e-7
+    plus = state(_POSITIONS + distance * direction)
+    minus = state(_POSITIONS - distance * direction)
+    assert (plus.potential_energy - minus.potential_energy) / (2 * distance) == (
+        pytest.approx(np.sum(center.nodal_residual * direction), rel=2e-5)
+    )
+    np.testing.assert_allclose(
+        (plus.nodal_residual - minus.nodal_residual) / (2 * distance),
+        center.tangent_action(direction),
+        rtol=5e-5,
+        atol=1e-6,
+    )
+
+
+def test_large_prescribed_rigid_frame_change_preserves_certified_face_energy():
+    tool = _tool()
+    trace = _positive_face_trace(_POSITIONS, _FACES, (100, 101))
+    motion = prescribed_rigid_motion(
+        translation=(0.3, -0.2, 0.5),
+        rotation=(0.4, -0.3, 0.2),
+        reference_point=(0.5, 0.5, 0.5),
+    )
+    pose = motion.state(1.0)
+    rotation = np.asarray(pose["rotation_matrix"])
+    moved_slave = (
+        np.asarray(pose["reference_point"])
+        + (_POSITIONS - motion.reference_point) @ rotation.T
+    )
+    stationary = evaluate_certified_closed_p1_contact_operator(
+        trace, _POSITIONS, _POSITIONS, tool, penalty=500.0
+    )
+    moving = evaluate_moving_certified_closed_p1_contact_operator(
+        trace,
+        _POSITIONS,
+        moved_slave,
+        tool,
+        motion=motion,
+        factor=1.0,
+        penalty=500.0,
+    )
+    assert moving.potential_energy == pytest.approx(
+        stationary.potential_energy, rel=1e-10
+    )
+    np.testing.assert_allclose(
+        moving.nodal_residual, stationary.nodal_residual @ rotation.T, rtol=1e-9
+    )
+    np.testing.assert_allclose(
+        moving.force_on_structure,
+        stationary.force_on_structure @ rotation.T,
+        rtol=1e-9,
     )

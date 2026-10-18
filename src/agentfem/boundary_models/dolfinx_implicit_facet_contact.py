@@ -43,6 +43,10 @@ from .implicit_closed_contact import (
 )
 from .implicit_friction import linearize_piecewise_planar_penalty_friction
 from .implicit_smooth_contact import linearize_smooth_rigid_contact
+from ._petsc_contact_rows import (
+    add_contact_coo_tangent,
+    add_contact_nodal_residual,
+)
 from .initial_gap_bound import (
     certify_initial_convex_triangle_gap, certify_initial_triangle_gap,
     certify_initial_radial_triangle_gap,
@@ -1197,10 +1201,7 @@ class DolfinxImplicitRigidContact:
     def add_residual(self, vector, contribution: ImplicitRigidContactContribution) -> None:
         """Add local scalar rows before the owning solver performs BC lifting."""
 
-        values = contribution.nodal_structural_residual.reshape(-1)
-        if vector.array.shape != values.shape:
-            raise ValueError("Implicit contact residual does not match PETSc local rows.")
-        vector.array[:] += values
+        add_contact_nodal_residual(vector, contribution.nodal_structural_residual)
 
     def add_tangent(
         self, matrix, contribution: ImplicitRigidContactContribution,
@@ -1214,45 +1215,13 @@ class DolfinxImplicitRigidContact:
         those strong rows and silently change the boundary condition.
         """
 
-        from petsc4py import PETSc
-
-        if contribution.tangent_values.size == 0:
-            return
-        # DOLFINx inserts the UFL matrix entries. PETSc requires a flush
-        # before switching this same matrix to additive contact entries.
-        matrix.assemble(PETSc.Mat.AssemblyType.FLUSH)
-        selected = np.asarray(constrained_dofs, dtype=np.int64).reshape(-1)
-        if selected.size:
-            if np.any(selected < 0) or np.any(selected >= matrix.getSize()[0]):
-                raise ValueError("Constrained contact DOFs must address the tangent matrix.")
-            free = ~np.isin(contribution.tangent_rows, selected) & ~np.isin(
-                contribution.tangent_columns, selected
-            )
-            rows = contribution.tangent_rows[free]
-            columns = contribution.tangent_columns[free]
-            values = contribution.tangent_values[free]
-        else:
-            rows = contribution.tangent_rows
-            columns = contribution.tangent_columns
-            values = contribution.tangent_values
-        if not len(rows):
-            return
-        order = np.lexsort((columns, rows))
-        rows = rows[order]
-        columns = columns[order]
-        values = values[order]
-        stops = np.r_[np.flatnonzero(np.diff(rows)) + 1, len(rows)]
-        start = 0
-        for stop in stops:
-            unique_columns, inverse = np.unique(columns[start:stop], return_inverse=True)
-            row_values = np.bincount(inverse, weights=values[start:stop])
-            matrix.setValues(
-                [int(rows[start])],
-                unique_columns.astype(np.int32),
-                row_values,
-                addv=PETSc.InsertMode.ADD_VALUES,
-            )
-            start = stop
+        add_contact_coo_tangent(
+            matrix,
+            contribution.tangent_rows,
+            contribution.tangent_columns,
+            contribution.tangent_values,
+            constrained_dofs=constrained_dofs,
+        )
 
     def dual_evidence(self, problem):
         """Observe one converged/accepted trial without changing contact state."""
@@ -1492,10 +1461,7 @@ class DolfinxImplicitRigidContacts:
         ))
 
     def add_residual(self, vector, contribution: CombinedImplicitRigidContactContribution) -> None:
-        values = contribution.nodal_structural_residual.reshape(-1)
-        if vector.array.shape != values.shape:
-            raise ValueError("Combined implicit contact residual does not match PETSc local rows.")
-        vector.array[:] += values
+        add_contact_nodal_residual(vector, contribution.nodal_structural_residual)
 
     def add_tangent(self, matrix, contribution, *, constrained_dofs=()) -> None:
         for item, (name, selected) in zip(

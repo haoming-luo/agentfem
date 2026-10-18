@@ -390,6 +390,28 @@ displacements match the manufactured solution. This checks FE row ordering
 and additive local linearization; it is not the finite-J2 Procedure, a
 line-search/rollback test or evidence that the face law is admitted in
 `model.step(...)`.
+The existing point-sampled contact adapter and the private face-integrated
+Operator now share one narrow serial PETSc insertion routine for already
+computed nodal rows and COO tangent entries. It preserves the full tangent
+for prescribed-correction lifting while omitting constrained rows and
+columns from the inserted matrix; it rejects malformed/nonfinite inputs
+before mutation. A real PETSc matrix/vector test checks the constrained
+rows and free block against independent dense assembly, while 122 existing
+serial finite-J2/contact Procedure regressions passed after the refactor.
+This unifies the numerical insertion mechanism, **not** their evidence or
+accepted-State contracts: the face Operator retains physical face IDs,
+active reference areas and separate per-face extensive forces/moments,
+without fabricating contact-point IDs or a smoothed pressure field.
+For prescribed 3D tool motion, a separate private evaluator now maps the
+current slave trial into the unchanged tool's reference frame, repeats the
+complete face proof there and pushes nodal residuals, every 9-by-9 face
+tangent block, resultant and moment back into the spatial frame. The trial
+retains the actual motion factor and moving moment reference. Independent
+reconstruction of the moved triangulated tool agrees at three pose stations;
+finite differences, combined translation/rotation work and a large rigid
+frame change give separate checks. Reusing immutable tool topology avoids a
+per-trial mesh rebuild in principle, but no measured full-Step speedup or
+accepted-state motion ledger is claimed yet.
 
 For real Step admission, the boundary adapter must enumerate every selected
 physical slave face exactly once, then certify each current Newton trial as
