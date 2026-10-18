@@ -3085,6 +3085,7 @@ class FiniteStrainJ2StandardProblem:
             factors,
             np.asarray([self.amplitude(value) for value in factors], dtype=float),
             abscissa_name="load_factor",
+            abscissa_unit=None,
             description="Resolved dimensionless loading amplitude.",
         )
         result.add_history(
@@ -3095,6 +3096,7 @@ class FiniteStrainJ2StandardProblem:
                 dtype=float,
             ),
             abscissa_name="load_factor",
+            abscissa_unit=None,
             description="Newton iterations for each accepted increment.",
         )
         result.add_history(
@@ -3105,6 +3107,7 @@ class FiniteStrainJ2StandardProblem:
                 dtype=float,
             ),
             abscissa_name="load_factor",
+            abscissa_unit=None,
             description="Accepted full-space nonlinear residual norm.",
         )
         result.add_history(
@@ -3121,6 +3124,7 @@ class FiniteStrainJ2StandardProblem:
                 dtype=float,
             ),
             abscissa_name="load_factor",
+            abscissa_unit=None,
             description="Accepted normalized load increment size.",
         )
         if self.energy_history_complete and self.energy_history:
@@ -3182,6 +3186,7 @@ class FiniteStrainJ2StandardProblem:
                     ],
                 },
                 abscissa_name="load_factor",
+                abscissa_unit=None,
                 descriptions={
                     "stored_energy": (
                         "Accepted total recoverable elastic and hardening energy."

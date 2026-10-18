@@ -736,6 +736,12 @@ def test_periodic_j2_moving_plane_friction_commits_and_restarts(tmp_path):
     assert result.quantity("friction_dissipation") > 0.0
     assert result.metadata["affine_operator_path_work"]["status"] == "complete"
     assert result.quantity("rigid_contact_pair_path_work") != 0.0
+    assert result.histories[
+        "rigid_contact_pair_generalized_force"
+    ].abscissa_unit is None
+    assert result.histories[
+        "rigid_contact_pair_generalized_coordinate"
+    ].abscissa_unit is None
     point_diagnostics = result.metadata["rigid_contact_point_diagnostics"]
     assert point_diagnostics["location"] == "reference_boundary_quadrature"
     assert point_diagnostics["active_point_count"] > 0
@@ -1796,6 +1802,12 @@ def test_public_affine_j2_consumes_unload_and_nonproportional_macro_path(tmp_pat
     )
     incoming = result.histories["affine_path_generalized_reaction"].values
     outgoing = result.histories["affine_path_outgoing_generalized_reaction"].values
+    assert result.histories[
+        "affine_path_generalized_reaction"
+    ].abscissa_unit is None
+    assert result.histories[
+        "affine_path_outgoing_generalized_reaction"
+    ].abscissa_unit is None
     assert abs(float(incoming[1, 0] - outgoing[1, 0])) > 1.0e-3
     final_path_tangent = (gradients[-1] - gradients[-2]) / (
         coordinates[-1] - coordinates[-2]

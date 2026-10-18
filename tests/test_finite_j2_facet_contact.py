@@ -615,6 +615,13 @@ def test_closed_concave_example_exports_accepted_public_result(tmp_path):
     assert summary["maximum_equivalent_plastic_strain"] > 0.0
     assert (tmp_path / "fields.xdmf").is_file()
     assert (tmp_path / "result.json").is_file()
+    manifest = json.loads((tmp_path / "result.json").read_text())
+    load_histories = [
+        record for record in manifest["history_records"]
+        if record["abscissa_name"] == "load_factor"
+    ]
+    assert load_histories
+    assert all(record["abscissa_unit"] is None for record in load_histories)
 
     refined_output = tmp_path / "refined_face_rule"
     refined = run_case(

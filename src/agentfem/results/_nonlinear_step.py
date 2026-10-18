@@ -514,6 +514,7 @@ def _add_affine_path_work(step, result) -> tuple[object, ...]:
         factors,
         forces,
         abscissa_name="load_factor",
+        abscissa_unit=None,
         description=(
             "Full-residual generalized reaction conjugate to the accepted "
             "affine path coordinate."
@@ -524,6 +525,7 @@ def _add_affine_path_work(step, result) -> tuple[object, ...]:
         factors,
         step.constraint_dual_history.outgoing_forces,
         abscissa_name="load_factor",
+        abscissa_unit=None,
         description=(
             "Right-sided generalized reaction at affine path knots; equal to "
             "the incoming value on a smooth path."
@@ -580,11 +582,13 @@ def _add_affine_operator_path_work(step, result) -> tuple[object, ...]:
         result.add_history(
             f"{prefix}_generalized_force", history.factors, channel["force"],
             abscissa_name="load_factor",
+            abscissa_unit=None,
             description="Accepted work-conjugate rigid-tool force and moment.",
         )
         result.add_history(
             f"{prefix}_generalized_coordinate", history.factors,
             channel["coordinate"], abscissa_name="load_factor",
+            abscissa_unit=None,
             description="Accepted rigid-tool translation and rotation coordinate.",
         )
         result.add_quantity(
