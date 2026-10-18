@@ -240,7 +240,12 @@ The gate stays open until its listed evidence exists at the proposed scope.
    with the active-point total. Exploratory results retain the observation
    without a trust upgrade; release still requires a certified integral. A
    real finite-J2 reentrant-edge Step now supplies the negative engineering
-   test, not just synthetic metadata.
+   test, not just synthetic metadata. Its Result exposes named face, edge and
+   vertex active-point counts at the final accepted configuration beside the
+   underlying per-pair metadata, so a user can inspect the reason without
+   decoding a private trace. These counts do not summarize every earlier
+   accepted increment; a path-wise feature ledger remains a separate Result
+   task before an engineering claim about *the full path*.
    For the separate *convex* route, accepted point diagnostics now say whether
    the reviewed changing-trial support-plane partition supplied its bounded
    feature integral. The default Gauss rule explicitly reports that no such

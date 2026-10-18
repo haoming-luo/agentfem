@@ -488,6 +488,10 @@ def test_reviewed_concave_edge_is_active_in_global_plastic_step_and_restart(
     ] is False
     assert feature_counts["edge"] >= 1
     assert sum(feature_counts.values()) == int(np.count_nonzero(response.active))
+    for feature in ("face", "edge", "vertex"):
+        assert result.quantity(
+            f"{provider.name}_active_{feature}_points"
+        ) == feature_counts[feature]
     quality = result.verify("engineering")
     feature_claim = next(
         claim for claim in quality.claims

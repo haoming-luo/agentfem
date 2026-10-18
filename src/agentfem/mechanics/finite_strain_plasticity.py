@@ -3099,6 +3099,19 @@ class FiniteStrainJ2StandardProblem:
                                 "quadrature; not a certified transition integral."
                             ),
                         )
+                    if "active_feature_counts" in point_evidence:
+                        for feature in ("face", "edge", "vertex"):
+                            result.add_quantity(
+                                f"{dual.constraint_name}_active_{feature}_points",
+                                point_evidence["active_feature_counts"][feature],
+                                kind="diagnostic",
+                                description=(
+                                    "Sampled active contact points at the final "
+                                    f"accepted configuration on a physical {feature} "
+                                    "of the rigid tool; not a whole-face or "
+                                    "whole-path coverage certificate."
+                                ),
+                            )
             if point_records:
                 result.metadata["rigid_contact_point_diagnostics"] = (
                     point_records[0] if len(point_records) == 1

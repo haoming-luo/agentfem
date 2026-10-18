@@ -688,7 +688,7 @@ def _runtime_checks(
                     "sampled active feature switches require a supported "
                     "transition integral; active lower-dimensional contact "
                     "requires its own law; no observed switch is not a "
-                    "whole-face coverage certificate"
+                    "whole-face or whole-path coverage certificate"
                 ),
             )
         )
