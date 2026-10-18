@@ -306,6 +306,13 @@ The gate stays open until its listed evidence exists at the proposed scope.
    copied and their metadata identity frozen at creation, closing the
    caller-array mutation gap between runtime path and restart fingerprint. The
    denominator follows the [MOOSE radial-return documentation][moose-return].
+   Requiring accepted stations at every interior tabular knot is AgentFEM's
+   conservative stateful-path policy, not a claim about Abaqus' default
+   increment scheduling. Abaqus documents explicit time points for evaluating
+   a cyclic response at known load maxima/minima, and treats exact output
+   times as a separate incrementation choice; these distinguish physical
+   path resolution from output-frame frequency [Abaqus direct-cyclic time
+   points][abaqus-time-points], [Abaqus output timing][abaqus-output-times].
    The nonconvex penalty sequence is not converged.
    Reading: [NAFEMS benchmark
    catalog][nafems], [Abaqus contact verification cases][abaqus-verification]
@@ -359,6 +366,8 @@ transfer is separately verified.
 [meshed-rigid]: https://docs.software.vt.edu/abaqusv2025/English/SIMACAEVERRefMap/simaver-c-finslcontdefmeshrig.htm
 [comsol-verification]: https://doc.comsol.com/6.3/doc/com.comsol.help.sme/StructuralMechanicsVerificationExamples.pdf
 [moose-return]: https://mooseframework.inl.gov/source/materials/RadialReturnStressUpdate.html
+[abaqus-time-points]: https://docs.software.vt.edu/abaqusv2025/English/SIMACAEANLRefMap/simaanl-c-directcyclic.htm
+[abaqus-output-times]: https://docs.software.vt.edu/abaqusv2025/English/SIMACAECAERefMap/simacae-t-simodbeditorfield.htm
 [duong]: https://arxiv.org/abs/1712.01179
 [dual-mortar]: https://arxiv.org/abs/2201.01165
 [abaqus-rigid-smoothing]: https://docs.software.vt.edu/abaqusv2025/English/SIMACAEMODRefMap/simamod-c-rigidsurf.htm
