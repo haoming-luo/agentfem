@@ -8,6 +8,7 @@ from mpi4py import MPI
 
 from agentfem import boundary_models
 from agentfem import mesh as agent_mesh
+from agentfem.boundary_models import closed_polyhedron as closed_module
 from agentfem.boundary_models.closed_polyhedron import (
     closed_triangulated_rigid_solid,
 )
@@ -121,6 +122,30 @@ def test_closed_concave_surface_classifies_inside_notch_and_reentrant_edge():
     medial_axis = tool.project(((1.5, 1.5, 0.5),))
     assert not medial_axis.valid[0]
     assert medial_axis.status_codes[0] == "nonunique_nearest_feature"
+
+
+def test_closed_solid_certified_exterior_aabb_skips_only_unneeded_winding(
+    monkeypatch,
+):
+    tool = _concave_tool()
+    outside_box = np.asarray(((3.0, 1.5, 0.5),))
+    reference = tool.project(outside_box)
+    assert reference.all_valid and reference.signed_gaps[0] > 0.0
+
+    def forbidden_winding(*_args):
+        raise AssertionError("Direct winding was not needed outside the tool AABB")
+
+    monkeypatch.setattr(closed_module, "_solid_winding_number", forbidden_winding)
+    screened = tool.project(outside_box)
+    np.testing.assert_array_equal(screened.signed_gaps, reference.signed_gaps)
+    np.testing.assert_array_equal(screened.normals, reference.normals)
+    motion = boundary_models.prescribed_rigid_motion(
+        translation=(10.0, 0.0, 0.0), reference_point=(0.0, 0.0, 0.0),
+    )
+    moved = tool.project(((13.0, 1.5, 0.5),), motion=motion, factor=1.0)
+    np.testing.assert_array_equal(moved.signed_gaps, reference.signed_gaps)
+    with pytest.raises(AssertionError, match="not needed"):
+        tool.project(((1.4, 1.5, 0.5),))  # In the AABB, outside the L solid.
 
 
 def test_coplanar_triangulation_seam_is_not_a_physical_contact_edge():

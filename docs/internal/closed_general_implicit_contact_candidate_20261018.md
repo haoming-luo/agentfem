@@ -19,7 +19,8 @@ source SHA-256, format and coordinate scale and does not automatically infer
 that attestation from an STL file.
 
 At every Newton trial, an exact triangle BVH finds the nearest surface point.
-A direct oriented-solid-angle sum classifies the query as outside (winding 0)
+A point certified beyond the complete tool AABB is exterior; otherwise a
+direct oriented-solid-angle sum classifies it as outside (winding 0)
 or inside (winding 1). Positive signed distance is admissible, negative is
 penetration. Distinct equidistant nearest points and ambiguous winding reject
 the trial instead of selecting an arbitrary normal. A shared nearest point on
@@ -38,7 +39,7 @@ checkpoint. At a geometrically nonsmooth point on the surface, the Hessian is
 undefined and the trial is rejected. No normal is smoothed across materials,
 features or facets.
 
-The direct winding sum costs O(number of facets) per query. This is a bounded
+Where needed, the direct winding sum costs O(number of facets) per query. This is a bounded
 serial reference geometry, **not** an optimized large-tool search; replacing
 it with a certified hierarchical sign classifier would require a separate
 accuracy and performance gate. The BVH still accelerates nearest-feature
@@ -156,6 +157,26 @@ The 1,280-facet local result is slower, the 5,120-facet local result has not
 been shown to improve a whole accepted Newton Step, and no cross-machine
 claim is made. This experiment does identify nearest-feature search as another
 substantial cost, not just the O(facets) sign calculation.
+
+An exact, cheaper prefilter now classifies a query as exterior only when its
+reference-frame point lies **strictly beyond the complete tool AABB with a
+tolerance margin**. It still computes the current nearest point and normal;
+inside the AABB, direct winding and ambiguous-sign rejection remain mandatory.
+Fixed and moving-tool tests verify identical signed gaps for certified
+exterior points. A frozen-wheel versus candidate-source local comparison on
+this Mac, 5,120 facets, 5,000 fixed-seed queries and three medians yielded:
+
+| Query distribution | Pre-shortcut full projection | Exact-AABB shortcut full projection |
+| --- | ---: | ---: |
+| Half strictly outside the tool AABB | 2.085 s | 1.334 s |
+| All within the AABB | 2.063 s | 2.092 s |
+
+The first row is about 36% faster for **that local geometry query**, not a
+whole Newton step or application. The second row is a control showing no
+useful gain when the certificate cannot apply (the small difference is timing
+noise). This safe screen does not replace the unpromoted experimental ray
+classifier, and no release performance claim follows without whole-step
+measurement on a relevant tool/contact distribution.
 
 Open work before broader admission: independent same-input force/displacement
 comparison; controlled geometry, mesh, penalty and increment sensitivity;

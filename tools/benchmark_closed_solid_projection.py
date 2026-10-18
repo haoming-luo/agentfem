@@ -142,6 +142,10 @@ def main():
     parser.add_argument("--levels", type=int, default=2)
     parser.add_argument("--queries", type=int, default=5000)
     parser.add_argument("--repeats", type=int, default=3)
+    parser.add_argument(
+        "--outside-aabb", action="store_true",
+        help="Place the outside half strictly beyond the full tool AABB",
+    )
     args = parser.parse_args()
     if args.levels < 0 or args.queries < 2 or args.repeats < 1:
         parser.error("levels >= 0, queries >= 2 and repeats >= 1 are required")
@@ -158,6 +162,8 @@ def main():
         rng.uniform(1.1, 1.8, args.queries - count),
         rng.uniform(0.2, 0.8, args.queries - count),
     ))
+    if args.outside_aabb:
+        outside[:, 0] += 1.0
     queries = np.vstack((inside, outside))
     tool.project(queries[:10])
     full, projection = _median_seconds(
@@ -188,6 +194,7 @@ def main():
         "scope": "local_projection_only_not_whole_step",
         "facet_count": len(tool.facets.triangles),
         "query_count": len(queries),
+        "outside_aabb": bool(args.outside_aabb),
         "repeats": args.repeats,
         "geometry_fingerprint": tool.geometry_fingerprint,
         "valid_count": int(np.sum(projection.valid)),

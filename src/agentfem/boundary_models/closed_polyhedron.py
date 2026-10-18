@@ -66,9 +66,10 @@ def _feature_projector(
 class ClosedTriangulatedRigidSolid(RigidSurface):
     """Exact nearest-feature signed gap for a reviewed embedded triangle solid.
 
-    Winding classification and nearest-feature search are repeated at every
-    current query. No old contact gap or normal is cached. This is an O(NF)
-    *reference* sign classifier and is not a production large-CAD backend.
+    Nearest-feature search is repeated at every current query. Queries not
+    certified exterior by the complete AABB use direct winding. No old contact
+    gap or normal is cached. The winding path is an O(NF) *reference* sign
+    classifier and is not a production large-CAD backend.
     Medial-axis ties with distinct nearest points fail closed.
     """
 
@@ -213,6 +214,7 @@ class ClosedTriangulatedRigidSolid(RigidSurface):
         identity = np.full(count, -1, dtype=np.int64)
         local = np.full((count, 3), np.nan)
         tolerance = float(self.facets.tolerance)
+        lower, upper = self._bvh.bounds
         status[candidates.ambiguous] = "nonunique_nearest_feature"
         for index in np.flatnonzero(candidates.has_candidate & ~candidates.ambiguous):
             point = query_reference[index]
@@ -230,7 +232,17 @@ class ClosedTriangulatedRigidSolid(RigidSurface):
                 gap = 0.0
                 normal = candidates.normals[index]
             else:
-                winding = _solid_winding_number(point, self._triangles)
+                # A point strictly beyond the complete tool AABB cannot be
+                # inside any embedded closed surface. The tolerance margin
+                # only shrinks this certified exterior region; it never
+                # changes the sign of a point requiring winding evidence.
+                beyond_bounds = np.any(
+                    (point < lower - tolerance) | (point > upper + tolerance)
+                )
+                winding = (
+                    0.0 if beyond_bounds
+                    else _solid_winding_number(point, self._triangles)
+                )
                 if abs(winding) <= 1.0e-6:
                     sign = 1.0
                 elif abs(winding - 1.0) <= 1.0e-6:
@@ -255,7 +267,7 @@ class ClosedTriangulatedRigidSolid(RigidSurface):
             surface_kind="closed_triangulated_rigid_solid",
             query_points=query, closest_points=closest, normals=normals,
             signed_gaps=gaps, valid=valid, status_codes=status,
-            method="exact_bvh_nearest_feature_plus_solid_angle_winding",
+            method="exact_bvh_nearest_feature_plus_certified_aabb_or_winding",
             entity_ids=identity, geometry_fingerprint=self.geometry_fingerprint,
             local_coordinates=local,
             local_coordinate_system="triangle_barycentric_connectivity_order",
@@ -304,7 +316,7 @@ class ClosedTriangulatedRigidSolid(RigidSurface):
             "facet_count": int(len(self.facets.triangles)),
             "geometry_fingerprint": self.geometry_fingerprint,
             "facet_geometry_fingerprint": self.facets.geometry_fingerprint,
-            "projection": "nearest_feature_plus_exact_solid_angle_winding",
+            "projection": "nearest_feature_plus_certified_aabb_or_winding",
             "self_intersection_certificate": False,
             "embedded_surface_review": "caller_attested",
             "execution_scope": "serial_reference_geometry",
