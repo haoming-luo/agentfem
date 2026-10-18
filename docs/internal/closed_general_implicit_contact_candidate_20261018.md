@@ -240,6 +240,20 @@ At penalty 200, repeating the full-Newton run with 24 instead of 12
 increments gave x-resultant `-1.82503468`, maximum PEEQ `0.04178001` and
 maximum penetration `0.03418063`; it is a narrow path-step check, not spatial
 or penalty convergence.
+An exact-head installed-wheel control at the same six-cell mesh, 12 increments,
+penalty 200 and `basic` Newton policy compared the three supported face rules:
+
+| Triangle rule | x-resultant | max PEEQ | max penetration | active reentrant-edge points |
+| --- | ---: | ---: | ---: | ---: |
+| default degree 2 | -1.81303789 | 0.04410058 | 0.03238988 | 0 |
+| opt-in degree 5 | -1.82587935 | 0.04396510 | 0.03360974 | 1 |
+| opt-in degree 7 | -1.82327209 | 0.04199805 | 0.03414494 | 0 |
+
+The x-force changes by about 0.14% from degree 5 to 7 relative to the
+degree-7 value, but maximum PEEQ changes by about 4.7%; physical edge-point
+count is not monotone with quadrature degree. These are discrete-rule
+sensitivity data, **not** quadrature convergence or a resolved contact
+boundary. Higher degree alone cannot be the default numerical-method fix.
 Backtracking remains the example default.
 Any new globalization should compare the accepted path, total residual,
 contact work, plastic history and cutback behavior against both policies;
