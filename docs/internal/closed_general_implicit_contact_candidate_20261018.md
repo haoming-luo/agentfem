@@ -304,6 +304,25 @@ sensitivity. Stateful friction must **not** inherit changing point identities
 without an explicit State transfer rule. This is a design gate, not code
 claimed by the present candidate.
 
+An independent, **research-only** affine P1 triangle oracle now fixes the
+smallest contact-boundary problem before changing the Step. For the unit
+reference triangle and planar gap `g(x,y)=x-a`, exact clipping of `g<0`
+gives active area `a-a²/2` and reference-area penalty potential
+`a³/6-a⁴/24` at unit penalty. `tools/verify_contact_boundary_quadrature.py`
+computes that clipped potential, nodal residual and fixed-branch tangent with
+positive degree-two subtriangle quadrature; seven tests check analytical
+area/potential, potential and residual derivatives, open/full limits and
+invalid inputs. At `a=0.05`, full-face Basix degree-two **and degree-five**
+rules both return zero potential, while the analytical and clipped values
+are `2.057291666666667e-5`. Degree seven captures only about 1.24% of that
+value, and degree thirteen overshoots it by about 5.65%. This manufactured
+counterexample explains why raising a whole-face quadrature degree is not a
+general answer to narrow contact strips. It does **not** certify a production
+adaptive contact Operator: the current oracle has a fixed planar gap and no
+curved tool, nearest-feature transition, Newton partition identity, friction
+State transfer, mesh convergence or global force/work acceptance. None of
+the production defaults or public capability claims change on this evidence.
+
 The present tests are local software evidence, not an independent structural
 benchmark. [NAFEMS contact benchmarks](https://www.nafems.org/publications/resource_center/r0094/)
 motivate same-input comparison; a reference number from a different model
