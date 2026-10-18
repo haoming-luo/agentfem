@@ -203,6 +203,19 @@ positive-weight active points and finishes with maximum displacement
 three-point Gauss mode reports zero active points, displacement and contact
 potential. Those values expose a sampling failure in this manufactured
 geometry, not an accuracy/performance benchmark for a production model.
+The conic split now lives in a geometry-neutral
+`contact_quadratic_region` primitive. On the independent research oracle
+where a finite edge and a vertex exchange nearest-feature ownership along
+a **parabola**, its two positive branch integrals reproduce the oracle's
+potential, nodal residual and within-branch tangent at zero and nonzero
+in-plane nodal displacement. This validates the region integration building
+block only. A separate positive coarea rule on the quadratic equality
+boundary reproduces the oracle's **moving-boundary tangent** at those two
+states; its circular special case also matches the exact derivative of disk
+area. The physical feature-specific residual jump and branch admissibility
+are still supplied by the oracle. The *total* tangent needs this term in
+addition to the two bulk tangents; no general sharp-feature Step is admitted
+by these geometric primitives.
 The same sphere fixture runs to completion on 1, 2 and 4 subdivisions per
 cube edge (6, 48 and 384 tetrahedra). The maximum displacement is
 `1.75747e-5`, `2.49116e-5`, `4.06294e-5`; the final contact potential is

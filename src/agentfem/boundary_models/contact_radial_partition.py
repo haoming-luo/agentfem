@@ -15,6 +15,10 @@ from __future__ import annotations
 
 import numpy as np
 
+from .contact_quadratic_region import (
+    QuadraticReferenceLevelSet,
+    quadratic_region_triangle_quadrature,
+)
 from .contact_trace import ContactTrace
 from .rigid import (
     RigidCylinderSurface,
@@ -55,47 +59,6 @@ def _radial_coordinate_safety(positions, center, radius: float) -> float:
         np.finfo(float).tiny,
     )
     return 128.0 * np.finfo(float).eps * scale
-
-
-def _real_roots(a: float, b: float, c: float) -> tuple[float, ...]:
-    """Stable real roots of a degree-at-most-two polynomial."""
-
-    scale = max(abs(a), abs(b), abs(c), np.finfo(float).tiny)
-    tol = 64.0 * np.finfo(float).eps * scale
-    if abs(a) <= tol:
-        return () if abs(b) <= tol else (-c / b,)
-    discriminant = b * b - 4.0 * a * c
-    discriminant_tol = (
-        128.0
-        * np.finfo(float).eps
-        * max(
-            b * b,
-            abs(4.0 * a * c),
-            np.finfo(float).tiny,
-        )
-    )
-    if discriminant < -discriminant_tol:
-        return ()
-    if abs(discriminant) <= discriminant_tol:
-        return (-b / (2.0 * a),)
-    root = np.sqrt(discriminant)
-    stable = -0.5 * (b + np.copysign(root, b))
-    if stable == 0.0:  # pragma: no cover - guarded by positive discriminant
-        return (-b / (2.0 * a),)
-    return (stable / a, c / stable)
-
-
-def _unique_unit_interval(values) -> tuple[float, ...]:
-    selected = sorted(
-        min(1.0, max(0.0, float(value)))
-        for value in values
-        if -1.0e-13 < value < 1.0 + 1.0e-13
-    )
-    unique: list[float] = []
-    for value in selected:
-        if not unique or value - unique[-1] > 1.0e-13:
-            unique.append(value)
-    return tuple(unique)
 
 
 def radial_active_triangle_quadrature(
@@ -155,96 +118,11 @@ def radial_active_triangle_quadrature(
     c1 = 2.0 * float(u0 @ u1)
     c2 = float(u1 @ u1)
 
-    # Critical s values: tangency of the conic with an s-line, or crossing of
-    # either reference-triangle edge t=0 and t=1-s.  Between them the number
-    # and ordering of active t intervals cannot change.
-    discriminant = (
-        b1 * b1 - 4.0 * a * c2,
-        2.0 * b0 * b1 - 4.0 * a * c1,
-        b0 * b0 - 4.0 * a * c0,
+    return quadratic_region_triangle_quadrature(
+        QuadraticReferenceLevelSet(a, b0, b1, c0, c1, c2),
+        negative=admissible_side == "exterior",
+        order=order,
     )
-    upper = (
-        a - b1 + c2,
-        -2.0 * a + b1 - b0 + c1,
-        a + b0 + c0,
-    )
-    tangent_breaks = _unique_unit_interval(_real_roots(*discriminant))
-    outer_breaks = _unique_unit_interval(
-        (
-            0.0,
-            1.0,
-            *_real_roots(c2, c1, c0),
-            *_real_roots(*upper),
-            *tangent_breaks,
-        )
-    )
-    nodes, gauss_weights = np.polynomial.legendre.leggauss(order)
-    active_shapes = []
-    active_weights = []
-    exterior = admissible_side == "exterior"
-    for first, last in zip(outer_breaks[:-1], outer_breaks[1:], strict=True):
-        width = last - first
-        if width <= 1.0e-13:
-            continue
-        left_tangent = any(abs(first - value) <= 1.0e-13 for value in tangent_breaks)
-        right_tangent = any(abs(last - value) <= 1.0e-13 for value in tangent_breaks)
-        for node, outer_weight in zip(nodes, gauss_weights, strict=True):
-            coordinate = 0.5 * (node + 1.0)
-            if left_tangent and right_tangent:
-                angle = 0.5 * np.pi * coordinate
-                mapped = np.sin(angle) ** 2
-                jacobian = np.pi * np.sin(angle) * np.cos(angle)
-            elif left_tangent:
-                mapped = coordinate**2
-                jacobian = 2.0 * coordinate
-            elif right_tangent:
-                mapped = 1.0 - (1.0 - coordinate) ** 2
-                jacobian = 2.0 * (1.0 - coordinate)
-            else:
-                mapped = coordinate
-                jacobian = 1.0
-            s = first + width * mapped
-            upper_t = 1.0 - s
-            b = b0 + b1 * s
-            c = c0 + c1 * s + c2 * s * s
-            inner_breaks = _unique_unit_interval(
-                (
-                    0.0,
-                    upper_t,
-                    *(root for root in _real_roots(a, b, c) if 0.0 < root < upper_t),
-                )
-            )
-            for start_t, end_t in zip(inner_breaks[:-1], inner_breaks[1:], strict=True):
-                midpoint = 0.5 * (start_t + end_t)
-                radial_difference = (a * midpoint + b) * midpoint + c
-                if (radial_difference < 0.0) != exterior:
-                    continue
-                half_interval = 0.5 * (end_t - start_t)
-                for inner_node, inner_weight in zip(nodes, gauss_weights, strict=True):
-                    t = midpoint + half_interval * inner_node
-                    active_shapes.append((1.0 - s - t, s, t))
-                    active_weights.append(
-                        0.5
-                        * width
-                        * outer_weight
-                        * jacobian
-                        * half_interval
-                        * inner_weight
-                    )
-    if not active_shapes:
-        return np.empty((0, 3)), np.empty(0)
-    shapes = np.asarray(active_shapes, dtype=float)
-    weights = np.asarray(active_weights, dtype=float)
-    if (
-        not np.all(np.isfinite(shapes))
-        or not np.all(np.isfinite(weights))
-        or np.any(weights <= 0.0)
-        or np.any(shapes < -1.0e-12)
-        or not np.allclose(shapes.sum(axis=1), 1.0, rtol=0.0, atol=1.0e-12)
-        or float(weights.sum()) > 0.5 + 1.0e-12
-    ):
-        raise ValueError("Radial active partition produced invalid quadrature.")
-    return shapes, weights
 
 
 def _minimum_radial_distance(relative: np.ndarray) -> float:
