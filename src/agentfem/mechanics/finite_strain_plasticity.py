@@ -36,6 +36,50 @@ from ..solvers import (
 _MIXED_J2_MAXIMUM_BULK_TO_SHEAR_RATIO = 1.0e4
 
 
+def _validate_contact_feature_path(
+    path: object, *, accepted_factor: float, accepted_count: int,
+    complete: bool,
+) -> dict[str, dict[str, object]]:
+    """Reject malformed or falsely complete accepted-path feature evidence."""
+
+    expected = {
+        "constraint", "accepted_station_count", "last_factor",
+        "maximum_sampled_mixed_feature_slave_faces",
+        "maximum_active_edge_points", "maximum_active_vertex_points",
+        "all_observed_integrals_certified",
+    }
+    if not isinstance(path, dict):
+        raise ValueError("Contact feature path must be a pair-keyed mapping.")
+    validated = {}
+    for name, record in path.items():
+        if (
+            not isinstance(name, str) or not name
+            or not isinstance(record, dict) or set(record) != expected
+            or record["constraint"] != name
+        ):
+            raise ValueError("Contact feature path pair identity or schema differs.")
+        for key in (
+            "accepted_station_count", "maximum_sampled_mixed_feature_slave_faces",
+            "maximum_active_edge_points", "maximum_active_vertex_points",
+        ):
+            value = record[key]
+            if type(value) is not int or value < (1 if key == "accepted_station_count" else 0):
+                raise ValueError("Contact feature path contains an invalid count.")
+        if (
+            type(record["all_observed_integrals_certified"]) is not bool
+            or type(record["last_factor"]) not in (int, float)
+            or not np.isfinite(record["last_factor"])
+            or abs(float(record["last_factor"]) - accepted_factor) > 1e-12
+            or (
+                complete
+                and record["accepted_station_count"] != accepted_count + 1
+            )
+        ):
+            raise ValueError("Contact feature path and accepted station disagree.")
+        validated[name] = dict(record)
+    return validated
+
+
 def _mixed_j2_conditioning(material) -> dict[str, float]:
     """Apply a temporary guard to the subtractive mixed-tangent route.
 
@@ -1176,6 +1220,10 @@ class FiniteStrainJ2StandardProblem:
         init=False,
     )
     energy_history_complete: bool = field(default=True, init=False)
+    contact_feature_path: dict[str, dict[str, object]] = field(
+        default_factory=dict, init=False,
+    )
+    contact_feature_path_complete: bool = field(default=True, init=False)
     last_solve_info: FiniteStrainPlasticityPathInfo | None = field(
         default=None,
         init=False,
@@ -1198,6 +1246,68 @@ class FiniteStrainJ2StandardProblem:
         if self.contact_provider is None:
             return ()
         return tuple(getattr(self.contact_provider, "providers", (self.contact_provider,)))
+
+    def _feature_path_pair_names(self) -> tuple[str, ...]:
+        from ..boundary_models.closed_polyhedron import ClosedTriangulatedRigidSolid
+        from ..boundary_models.convex_polyhedron import ConvexPolyhedralRigidSurface
+
+        return tuple(
+            str(provider.name) for provider in self._contact_providers()
+            if isinstance(
+                getattr(provider, "surface", None),
+                (ClosedTriangulatedRigidSolid, ConvexPolyhedralRigidSurface),
+            )
+        )
+
+    def _record_accepted_contact_features(self, factor: float) -> None:
+        """Keep bounded, accepted-path feature evidence independent of output frames.
+
+        This records observations, not a whole-face integration certificate.
+        Every update replaces its immutable-by-convention summary so the
+        increment rollback snapshot can retain the previous mapping cheaply.
+        """
+
+        names = set(self._feature_path_pair_names())
+        for provider in self._contact_providers():
+            if provider.name not in names:
+                continue
+            evidence = provider.current_point_diagnostics()
+            if "sampled_mixed_feature_slave_faces" not in evidence:
+                continue
+            name = str(provider.name)
+            old = self.contact_feature_path.get(name)
+            if old is not None and abs(float(old["last_factor"]) - factor) <= 1e-12:
+                continue
+            mixed = int(evidence["sampled_mixed_feature_slave_faces"])
+            counts = evidence.get("active_feature_counts") or {}
+            edge = int(counts.get("edge", 0))
+            vertex = int(counts.get("vertex", 0))
+            certified = bool(evidence["feature_transition_integral_certified"])
+            self.contact_feature_path[name] = {
+                "constraint": name,
+                "accepted_station_count": (
+                    1 if old is None else int(old["accepted_station_count"]) + 1
+                ),
+                "last_factor": float(factor),
+                "maximum_sampled_mixed_feature_slave_faces": max(
+                    mixed,
+                    0 if old is None else int(
+                        old["maximum_sampled_mixed_feature_slave_faces"]
+                    ),
+                ),
+                "maximum_active_edge_points": max(
+                    edge,
+                    0 if old is None else int(old["maximum_active_edge_points"]),
+                ),
+                "maximum_active_vertex_points": max(
+                    vertex,
+                    0 if old is None else int(old["maximum_active_vertex_points"]),
+                ),
+                "all_observed_integrals_certified": (
+                    certified if old is None else
+                    bool(old["all_observed_integrals_certified"]) and certified
+                ),
+            }
 
     def _snapshot_contact_runtime(self):
         provider = self.contact_provider
@@ -1835,6 +1945,8 @@ class FiniteStrainJ2StandardProblem:
             "execution_events": list(self.execution_events),
             "energy_history": list(self.energy_history),
             "energy_history_complete": bool(self.energy_history_complete),
+            "contact_feature_path": dict(self.contact_feature_path),
+            "contact_feature_path_complete": bool(self.contact_feature_path_complete),
             "next_increment_size": self.next_increment_size,
             "loading": self._snapshot_loading_state(),
             "contact_runtime_state": self._snapshot_contact_runtime(),
@@ -1854,6 +1966,10 @@ class FiniteStrainJ2StandardProblem:
         self.execution_events[:] = boundary["execution_events"]
         self.energy_history[:] = boundary["energy_history"]
         self.energy_history_complete = bool(boundary["energy_history_complete"])
+        self.contact_feature_path = dict(boundary["contact_feature_path"])
+        self.contact_feature_path_complete = bool(
+            boundary["contact_feature_path_complete"]
+        )
         self.next_increment_size = boundary["next_increment_size"]
         self._restore_loading_state(boundary["loading"])
         self._restore_contact_runtime(boundary["contact_runtime_state"])
@@ -1946,6 +2062,8 @@ class FiniteStrainJ2StandardProblem:
         entry_snapshots = list(self.snapshots)
         entry_energy_history = list(self.energy_history)
         entry_energy_history_complete = bool(self.energy_history_complete)
+        entry_contact_feature_path = dict(self.contact_feature_path)
+        entry_contact_feature_path_complete = bool(self.contact_feature_path_complete)
         entry_loading = self._snapshot_loading_state()
         entry_contact_state = self._snapshot_contact_runtime()
         try:
@@ -1961,6 +2079,7 @@ class FiniteStrainJ2StandardProblem:
                         "checkpoint lifecycle before resuming."
                     )
                 self.state_transaction.prepare_resume()
+            self._record_accepted_contact_features(accepted)
             self.snapshots.clear()
             self.snapshots.append(
                 _load_snapshot(
@@ -1983,6 +2102,8 @@ class FiniteStrainJ2StandardProblem:
             self.snapshots[:] = entry_snapshots
             self.energy_history[:] = entry_energy_history
             self.energy_history_complete = entry_energy_history_complete
+            self.contact_feature_path = entry_contact_feature_path
+            self.contact_feature_path_complete = entry_contact_feature_path_complete
             self._restore_loading_state(entry_loading)
             self._restore_contact_runtime(entry_contact_state)
             self._record_failure(
@@ -1999,6 +2120,8 @@ class FiniteStrainJ2StandardProblem:
             entry_snapshots,
             entry_energy_history,
             entry_energy_history_complete,
+            entry_contact_feature_path,
+            entry_contact_feature_path_complete,
             entry_loading,
             entry_contact_state,
         )
@@ -2151,6 +2274,7 @@ class FiniteStrainJ2StandardProblem:
                         self.contact_provider, "commit_accepted"
                     ):
                         self.contact_provider.commit_accepted()
+                    self._record_accepted_contact_features(target)
                     self.accepted_increments.append(info)
                     size = target - accepted
                     accepted = target
@@ -2399,6 +2523,8 @@ class FiniteStrainJ2StandardProblem:
             "execution_events": list(self.execution_events),
             "energy_history": list(self.energy_history),
             "energy_history_complete": bool(self.energy_history_complete),
+            "contact_feature_path": dict(self.contact_feature_path),
+            "contact_feature_path_complete": bool(self.contact_feature_path_complete),
             "last_solve_info": self.last_solve_info,
             "snapshots": list(self.snapshots),
             "checkpoints": list(self.checkpoints),
@@ -2424,6 +2550,10 @@ class FiniteStrainJ2StandardProblem:
         self.execution_events[:] = boundary["execution_events"]
         self.energy_history[:] = boundary["energy_history"]
         self.energy_history_complete = bool(boundary["energy_history_complete"])
+        self.contact_feature_path = dict(boundary["contact_feature_path"])
+        self.contact_feature_path_complete = bool(
+            boundary["contact_feature_path_complete"]
+        )
         self.last_solve_info = boundary["last_solve_info"]
         self.snapshots[:] = boundary["snapshots"]
         self.checkpoints[:] = boundary["checkpoints"]
@@ -2461,6 +2591,16 @@ class FiniteStrainJ2StandardProblem:
             self.contact_provider, "validate_accepted_configuration"
         ):
             self.contact_provider.validate_accepted_configuration()
+        feature_path = _validate_contact_feature_path(
+            self.contact_feature_path,
+            accepted_factor=self.accepted_load_factor,
+            accepted_count=len(self.accepted_increments),
+            complete=self.contact_feature_path_complete,
+        )
+        if self.contact_feature_path_complete and set(feature_path) != set(
+            self._feature_path_pair_names()
+        ):
+            raise ValueError("Contact feature path pair coverage differs.")
         selected_portable = comm.size != 1 if portable is None else bool(portable)
         if selected_portable:
             if self.contact_provider is not None:
@@ -2505,6 +2645,8 @@ class FiniteStrainJ2StandardProblem:
                 [item.as_dict() for item in self.energy_history]
             ),
             energy_history_complete=bool(self.energy_history_complete),
+            contact_feature_path=json.dumps(feature_path, sort_keys=True),
+            contact_feature_path_complete=bool(self.contact_feature_path_complete),
             next_increment_size=(
                 np.nan if self.next_increment_size is None else self.next_increment_size
             ),
@@ -2620,6 +2762,22 @@ class FiniteStrainJ2StandardProblem:
                 json.loads(str(data["contact_state"]))
                 if "contact_state" in data else None
             )
+            has_feature_path = "contact_feature_path" in data
+            feature_path_complete = (
+                bool(data["contact_feature_path_complete"])
+                if has_feature_path else False
+            )
+            feature_path = _validate_contact_feature_path(
+                json.loads(str(data["contact_feature_path"]))
+                if has_feature_path else {},
+                accepted_factor=coordinate,
+                accepted_count=len(accepted),
+                complete=feature_path_complete,
+            )
+        if feature_path_complete and set(feature_path) != set(
+            self._feature_path_pair_names()
+        ):
+            raise ValueError("Contact feature path checkpoint pair coverage differs.")
         needs_contact_state = any(
             getattr(provider, "friction_state", None) is not None
             for provider in self._contact_providers()
@@ -2655,6 +2813,8 @@ class FiniteStrainJ2StandardProblem:
             self.execution_events[:] = events
             self.energy_history[:] = energy_history
             self.energy_history_complete = energy_history_complete
+            self.contact_feature_path = feature_path
+            self.contact_feature_path_complete = feature_path_complete
             self.last_solve_info = FiniteStrainPlasticityPathInfo(
                 tuple(accepted),
                 tuple(attempted),
@@ -3117,6 +3277,17 @@ class FiniteStrainJ2StandardProblem:
                     point_records[0] if len(point_records) == 1
                     else tuple(point_records)
                 )
+                if self._feature_path_pair_names():
+                    result.metadata["rigid_contact_feature_path"] = {
+                        "schema": "agentfem.contact-feature-path.v1",
+                        "complete": bool(self.contact_feature_path_complete),
+                        "accepted_station_count": len(self.accepted_increments) + 1,
+                        "pairs": tuple(
+                            self.contact_feature_path[name].copy()
+                            for name in self._feature_path_pair_names()
+                            if name in self.contact_feature_path
+                        ),
+                    }
         has_friction = any(
             getattr(provider, "friction_state", None) is not None
             for provider in self._contact_providers()

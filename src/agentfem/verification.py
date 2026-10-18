@@ -694,10 +694,21 @@ def _runtime_checks(
         )
         if require_contact_feature_certification:
             records = feature_evidence["records"]
+            accepted_path = feature_evidence.get("accepted_path")
+            path_certified = (
+                isinstance(accepted_path, Mapping)
+                and accepted_path.get("complete") is True
+                and isinstance(accepted_path.get("pairs"), (tuple, list))
+                and all(
+                    isinstance(item, Mapping)
+                    and item.get("all_observed_integrals_certified") is True
+                    for item in accepted_path["pairs"]
+                )
+            )
             certified = not feature_evidence["issues"] and all(
                 item["feature_transition_integral_certified"]
                 for item in records
-            )
+            ) and path_certified
             claims.append(
                 _runtime_claim(
                     "polyhedral_contact_integral_certified",
@@ -832,9 +843,70 @@ def _contact_feature_evidence(result) -> tuple[bool, dict[str, object]]:
                 f"{record['constraint']} has sampled active physical "
                 "edge/vertex contact without an admitted lower-dimensional law"
             )
+    path = metadata.get("rigid_contact_feature_path")
+    if path is not None:
+        inspected = True
+        expected_pairs = {
+            item["constraint"] for item in observed
+            if item["active_feature_counts"] is not None
+            or "sampled_mixed_feature_slave_faces" in item
+        }
+        path_pairs = path.get("pairs") if isinstance(path, Mapping) else None
+        if (
+            not isinstance(path, Mapping)
+            or path.get("schema") != "agentfem.contact-feature-path.v1"
+            or type(path.get("complete")) is not bool
+            or type(path.get("accepted_station_count")) is not int
+            or path["accepted_station_count"] < 1
+            or not isinstance(path_pairs, (tuple, list))
+        ):
+            issues.append("accepted contact feature path has invalid schema")
+        else:
+            seen = set()
+            for item in path_pairs:
+                if not isinstance(item, Mapping):
+                    issues.append("accepted contact feature path has invalid pair")
+                    continue
+                name = item.get("constraint")
+                counts = (
+                    "accepted_station_count",
+                    "maximum_sampled_mixed_feature_slave_faces",
+                    "maximum_active_edge_points",
+                    "maximum_active_vertex_points",
+                )
+                if (
+                    not isinstance(name, str) or name in seen
+                    or any(type(item.get(key)) is not int or item[key] < 0 for key in counts)
+                    or type(item.get("all_observed_integrals_certified")) is not bool
+                    or item["accepted_station_count"] > path["accepted_station_count"]
+                ):
+                    issues.append("accepted contact feature path has invalid pair counts")
+                    continue
+                seen.add(name)
+                if item["accepted_station_count"] != path["accepted_station_count"]:
+                    issues.append(f"{name} contact feature path omits accepted stations")
+                if item["maximum_sampled_mixed_feature_slave_faces"] > 0 and not item[
+                    "all_observed_integrals_certified"
+                ]:
+                    issues.append(
+                        f"{name} had a sampled mixed-feature slave face at an "
+                        "earlier accepted station without certified integration"
+                    )
+                if item["maximum_active_edge_points"] or item[
+                    "maximum_active_vertex_points"
+                ]:
+                    issues.append(
+                        f"{name} had active physical edge/vertex contact at an "
+                        "earlier accepted station without an admitted law"
+                    )
+            if seen != expected_pairs:
+                issues.append("accepted contact feature path pair coverage differs")
+            if not path["complete"]:
+                issues.append("accepted contact feature path is incomplete")
     return not issues, {
         "inspected": inspected,
         "records": tuple(observed),
+        "accepted_path": path,
         "issues": tuple(issues),
         "scope": "sampled_warning_not_complete_feature_coverage_proof",
     }

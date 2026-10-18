@@ -526,6 +526,19 @@ def test_release_refuses_uncertified_polyhedral_contact_even_without_sampled_act
                 "sampled_mixed_feature_slave_faces": 0,
                 "feature_transition_integral_certified": certified,
             },
+            "rigid_contact_feature_path": {
+                "schema": "agentfem.contact-feature-path.v1",
+                "complete": True,
+                "accepted_station_count": 2,
+                "pairs": ({
+                    "constraint": "tool_A",
+                    "accepted_station_count": 2,
+                    "maximum_sampled_mixed_feature_slave_faces": 0,
+                    "maximum_active_edge_points": 0,
+                    "maximum_active_vertex_points": 0,
+                    "all_observed_integrals_certified": certified,
+                },),
+            },
         },
     )
     result.add_quantity("force", 1.0)
@@ -543,3 +556,78 @@ def test_release_refuses_uncertified_polyhedral_contact_even_without_sampled_act
     )
     assert claim.status == expected_status
     assert report.acceptable is (expected_status == "passed")
+
+
+@pytest.mark.parametrize("earlier_hazard", ["edge", "mixed"])
+def test_engineering_report_retains_earlier_accepted_contact_feature_hazard(
+    earlier_hazard,
+):
+    result = results.SimulationResult(
+        "feature_path_not_just_final_frame",
+        metadata={
+            "solve": {"converged": True},
+            "rigid_contact_point_diagnostics": {
+                "constraint": "tool_A",
+                "active_point_count": 0,
+                "active_feature_counts": {"face": 0, "edge": 0, "vertex": 0},
+                "sampled_mixed_feature_slave_faces": 0,
+                "feature_transition_integral_certified": False,
+            },
+            "rigid_contact_feature_path": {
+                "schema": "agentfem.contact-feature-path.v1",
+                "complete": True,
+                "accepted_station_count": 3,
+                "pairs": ({
+                    "constraint": "tool_A",
+                    "accepted_station_count": 3,
+                    "maximum_sampled_mixed_feature_slave_faces": int(
+                        earlier_hazard == "mixed"
+                    ),
+                    "maximum_active_edge_points": int(earlier_hazard == "edge"),
+                    "maximum_active_vertex_points": 0,
+                    "all_observed_integrals_certified": False,
+                },),
+            },
+        },
+    )
+    result.add_quantity("force", 0.0)
+    claim = next(
+        item for item in result.verify("engineering").claims
+        if item.name == "no_observed_uncertified_contact_feature_transition"
+    )
+    assert claim.status == "failed"
+    assert any("earlier accepted station" in issue for issue in claim.actual["issues"])
+
+
+def test_engineering_report_refuses_incomplete_contact_feature_path():
+    result = results.SimulationResult(
+        "feature_path_incomplete",
+        metadata={
+            "solve": {"converged": True},
+            "rigid_contact_point_diagnostics": {
+                "constraint": "tool_A",
+                "sampled_mixed_feature_slave_faces": 0,
+                "feature_transition_integral_certified": False,
+            },
+            "rigid_contact_feature_path": {
+                "schema": "agentfem.contact-feature-path.v1",
+                "complete": False,
+                "accepted_station_count": 2,
+                "pairs": ({
+                    "constraint": "tool_A",
+                    "accepted_station_count": 1,
+                    "maximum_sampled_mixed_feature_slave_faces": 0,
+                    "maximum_active_edge_points": 0,
+                    "maximum_active_vertex_points": 0,
+                    "all_observed_integrals_certified": False,
+                },),
+            },
+        },
+    )
+    result.add_quantity("force", 0.0)
+    claim = next(
+        item for item in result.verify("engineering").claims
+        if item.name == "no_observed_uncertified_contact_feature_transition"
+    )
+    assert claim.status == "failed"
+    assert "accepted contact feature path is incomplete" in claim.actual["issues"]

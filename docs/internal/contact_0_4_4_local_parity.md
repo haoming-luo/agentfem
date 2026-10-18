@@ -247,12 +247,18 @@ The gate stays open until its listed evidence exists at the proposed scope.
    test, not just synthetic metadata. Its Result exposes named face, edge and
    vertex active-point counts at the final accepted configuration beside the
    underlying per-pair metadata, so a user can inspect the reason without
-   decoding a private trace. These counts do not summarize every earlier
-   accepted increment; a path-wise feature ledger remains a separate Result
-   task before an engineering claim about *the full path*. Store bounded
-   per-pair maxima/ever-seen flags in accepted State and checkpoint them;
-   do not infer them from the progress-event ring buffer, which may drop old
-   events, or from sparse visualization frames.
+   decoding a private trace. These final counts alone do not summarize earlier
+   accepted increments. The ordinary serial finite-J2 Step now keeps a bounded
+   per-pair path summary: maximum sampled mixed-feature faces and active
+   physical edge and vertex points, plus whether every observed station used
+   a certified transition integral. The initial and every accepted station
+   contribute; failed increments roll back the summary and serial checkpoints
+   restore it with count and pair-identity checks. Older checkpoints lacking
+   it remain readable but mark the path incomplete. The summary is independent
+   of output frames and the progress-event ring buffer, both of which may
+   omit earlier states. It is still only *sampled* path evidence, not a
+   whole-face coverage proof, and the periodic/MPC route has not yet received
+   this ledger.
    For the separate *convex* route, accepted point diagnostics now say whether
    the reviewed changing-trial support-plane partition supplied its bounded
    feature integral. The default Gauss rule explicitly reports that no such

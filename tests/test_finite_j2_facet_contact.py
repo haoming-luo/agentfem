@@ -436,6 +436,28 @@ def test_reviewed_closed_concave_tool_uses_ordinary_j2_step_and_restart(tmp_path
     same.load_checkpoint(saved)
     np.testing.assert_allclose(same.solution.x.array, step.solution.x.array)
     assert same.accepted_load_factor == pytest.approx(1.0)
+    assert same.contact_feature_path == step.contact_feature_path
+    with np.load(saved, allow_pickle=False) as archive:
+        damaged = {name: archive[name].copy() for name in archive.files}
+    feature_path = json.loads(str(damaged["contact_feature_path"]))
+    feature_path[next(iter(feature_path))]["accepted_station_count"] += 1
+    damaged["contact_feature_path"] = json.dumps(feature_path)
+    damaged_path = tmp_path / "damaged_contact_path.npz"
+    np.savez(damaged_path, **damaged)
+    with pytest.raises(ValueError, match="accepted station disagree"):
+        same.load_checkpoint(damaged_path)
+    assert same.contact_feature_path == step.contact_feature_path
+    np.testing.assert_allclose(same.solution.x.array, step.solution.x.array)
+    legacy = {
+        name: value for name, value in damaged.items()
+        if name not in {"contact_feature_path", "contact_feature_path_complete"}
+    }
+    legacy_path = tmp_path / "older_contact_checkpoint.npz"
+    np.savez(legacy_path, **legacy)
+    older = _patch(**options)[3]
+    older.load_checkpoint(legacy_path)
+    assert not older.contact_feature_path_complete
+    assert older.contact_feature_path == {}
     different_geometry = _patch(
         **{**options, "closed_concave_extent": 1.7},
     )[3]
@@ -498,7 +520,11 @@ def test_reviewed_concave_edge_is_active_in_global_plastic_step_and_restart(
         if claim.name == "no_observed_uncertified_contact_feature_transition"
     )
     assert feature_claim.status == "failed"
-    assert "edge/vertex contact" in feature_claim.actual["issues"][-1]
+    assert any("edge/vertex contact" in issue for issue in feature_claim.actual["issues"])
+    path = result.metadata["rigid_contact_feature_path"]
+    assert path["complete"]
+    assert path["accepted_station_count"] == 7
+    assert path["pairs"][0]["maximum_active_edge_points"] >= feature_counts["edge"]
     assert not quality.acceptable
     assert np.max(reference.response.state.committed[
         "equivalent_plastic_strain"
@@ -572,6 +598,7 @@ def test_reviewed_concave_edge_is_active_in_global_plastic_step_and_restart(
     accepted_u = partial.solution.x.array.copy()
     accepted_state = partial.response.state.committed_state_vectors().copy()
     accepted_work = partial.energy_history[-1].tool_work
+    accepted_feature_path = dict(partial.contact_feature_path)
     record_energy = partial._record_energy
 
     def reject_after_recording(*args, **kwargs):
@@ -587,11 +614,14 @@ def test_reviewed_concave_edge_is_active_in_global_plastic_step_and_restart(
         partial.response.state.committed_state_vectors(), accepted_state,
     )
     assert partial.energy_history[-1].tool_work == accepted_work
+    assert partial.contact_feature_path == accepted_feature_path
     assert partial.contact_provider.snapshot_motion() == pytest.approx(0.5)
 
     resumed = _patch(**options)[3]
     resumed.load_checkpoint(saved)
+    assert resumed.contact_feature_path == accepted_feature_path
     assert resumed.solve_result().status == "completed"
+    assert resumed.contact_feature_path == reference.contact_feature_path
     np.testing.assert_allclose(
         resumed.solution.x.array, reference.solution.x.array,
         rtol=1.0e-8, atol=1.0e-10,
