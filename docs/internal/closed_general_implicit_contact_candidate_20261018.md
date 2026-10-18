@@ -174,6 +174,42 @@ values are close but the 2→3 change is about 5.3%, max PEEQ still changes,
 and one physical edge point appears or disappears with sampling. Degree 5
 gives `-0.334865` and `-0.328318` for 2 and 3 divisions. These are
 diagnostics, not a converged method or a reason to change the default.
+The public manufactured example exposes the rule without changing solver code:
+`python examples/finite_j2_closed_concave_contact.py --cells 3 --increments 12 --output /tmp/contact-default`
+and the same command with `--contact-quadrature-degree 7 --output /tmp/contact-degree7`
+write separate XDMF/manifest outputs. This makes the face-rule sensitivity
+reproducible without interpreting the option as an accuracy certificate.
+Both 3-cell/12-increment public runs completed in this worktree. The default
+three-point rule gave x-resultant `-0.3511900373`, zero sampled reentrant-edge
+points and maximum PEEQ `0.0085291430`; the positive degree-7 rule gave
+`-0.3192648429`, one sampled edge point and maximum PEEQ `0.0082096584`.
+The result manifests identify their different face rules. This approximately
+9.1% force difference at a fixed mesh is evidence of **unresolved contact
+integration sensitivity**, not a degree-7 accuracy gain.
+Keeping the 12-increment path, penalty and degree-7 rule fixed, the public
+example at 5 and 6 cells per axis gave x-resultants `-0.3248313540` and
+`-0.3268716591`, sampled physical-edge counts 1 and 3, and maximum PEEQ
+`0.0085586637` and `0.0088500549`. The six-cell default-rule counterpart
+gave x-resultant `-0.3431021957`, zero sampled edge points and maximum PEEQ
+`0.0089111601`. Thus even the six-cell rules differ by about 4.7% in
+x-resultant; closer degree-7 forces between successive meshes do not certify
+contact-footprint or plastic-history convergence.
+At six cells and degree 7, a fixed-mesh penalty bracket of 10/20/40 gave
+x-resultants `-0.1712914511`, `-0.3268716591`, `-0.5945569639`, maximum
+penetrations `0.04883127`, `0.04738339`, `0.04491391`, and maximum PEEQ
+`0.00452155`, `0.00885005`, `0.01589832`. The prescribed tool translation
+is `0.055` in this dimensionless fixture, so these are **large penetration
+fractions** and a deliberately soft algorithmic test, not a hard-contact
+reference. All three Steps complete; none provides a penalty-limit
+certificate. A release benchmark must choose physically meaningful scaling
+and show simultaneous penetration, force and history convergence.
+At six cells, degree 7 and penalty 20, repeating with 24 rather than 12
+increments gave x-resultant `-0.3268696751`, maximum PEEQ `0.0088462369`,
+maximum penetration `0.04738336` and tool work `0.0086537641`, compared with
+`-0.3268716591`, `0.0088500549`, `0.04738339` and `0.0086516508` at 12.
+This narrow path-step screen is much less sensitive than the face rule or
+penalty bracket; further increment reduction alone will not cure the exposed
+contact-integration and penalty-limit gap.
 The next numerical-method experiment
 must distinguish a contact-boundary/feature-aware integration strategy from a
 different physical model, preserve residual--tangent consistency and compare
@@ -181,6 +217,18 @@ like-for-like force, moment, plastic history and work. The refined-boundary
 quadrature and contact-patch discussion of
 [Duong, De Lorenzis and Sauer](https://arxiv.org/abs/1712.01179) motivates
 that experiment; it is not validation of an implementation here.
+The bounded next algorithmic slice is **frictionless adaptive boundary
+integration**, not an implicit change of every model's default rule: locate
+the zero-gap and nearest-feature transitions on each candidate slave face,
+subdivide only crossing faces with positive reference-area weights, and use
+the same frozen trial partition for residual and consistent tangent. A changed
+partition requires a fresh Newton trial, and an accepted result must record
+its integration identity and coverage diagnostics. Validate a uniform planar
+patch first, then a manufactured sharp-feature cut against independent
+high-resolution surface integration, then force/moment/work and mesh/penalty
+sensitivity. Stateful friction must **not** inherit changing point identities
+without an explicit State transfer rule. This is a design gate, not code
+claimed by the present candidate.
 
 The present tests are local software evidence, not an independent structural
 benchmark. [NAFEMS contact benchmarks](https://www.nafems.org/publications/resource_center/r0094/)
@@ -397,7 +445,7 @@ planned code:
 | 5. Multiple rigid pairs | Named planar/convex tool work and atomic restart tests pass; mixed active concave-plus-moving-plane J2 pair keeps separate work, summed tangent and checkpoint restart. An active reentrant edge opposite an active sphere also passes periodic total-residual reduction and serial J2 restart. | Large mixed contact-set scaling and independent multi-tool reference remain untested. |
 | 6. Friction | A finite-J2 strong-BC Step with a reviewed closed concave solid on a planar face matches the convex limit in displacement and friction dissipation for translated and slightly rotated tools under both sign modes; the fixed-old-state tangent and interrupted restart pass. The serial affine-periodic J2 path now commits a moving-plane Coulomb State, reduces its contact tangent by `TᵀKT`, checkpoints it in v2 and atomically rejects corrupt State; reviewed triangle and closed-concave planar faces match the same plane limit. An active reentrant edge rejects without partial State. | The planar law does not include changing-normal terms at a physical edge or vertex; general sharp-feature friction, distributed affine contact and a full thermodynamic path audit remain unsupported. |
 | 7. Material/time composition | Active-edge finite-J2 plastic path passes; explicit contact/material lifecycle is a separate existing route. | No generic historical implicit material or explicit general-closed-tool composition. |
-| 8. Independent acceptance and speed | Directional analytical checks, fixed-seed geometry timing and a manufactured whole-Step opt-in/default comparison are recorded; 24→48 increment screen is narrow. A fixed-geometry mesh/face-rule screen exposes nonmonotone active-feature sampling rather than a convergence pass. | No independent full-geometry comparison, sharp-feature spatial/penalty convergence, industrial whole-step speed claim or release-grade energy closure. |
+| 8. Independent acceptance and speed | Directional analytical checks, fixed-seed geometry timing and a manufactured whole-Step opt-in/default comparison are recorded; 24→48 increment screen is narrow. A fixed-geometry mesh/face-rule screen exposes nonmonotone active-feature sampling. A six-cell 10/20/40 penalty bracket confirms large penetration and changing force/plastic history rather than a hard-contact limit. | No independent full-geometry comparison, sharp-feature spatial/penalty convergence, industrial whole-step speed claim or release-grade energy closure. |
 | 9. Product boundary | Public-API example exports XDMF/manifest from the final-head isolated native Mac wheel; three selected installed public-Step tests pass; unsupported MPI/friction preflight rejects. | Linux/Windows installed numerical acceptance and remote final-head CI remain version gates. |
 
 The table intentionally refuses to turn one successful six- or 24-increment

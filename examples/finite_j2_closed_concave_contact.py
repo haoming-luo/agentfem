@@ -48,7 +48,10 @@ def _reviewed_l_prism():
     )
 
 
-def run_case(*, cells: int, increments: int, penalty: float, output: Path):
+def run_case(
+    *, cells: int, increments: int, penalty: float, output: Path,
+    contact_quadrature_degree: int | None = None,
+):
     if MPI.COMM_WORLD.size != 1:
         raise RuntimeError("This bounded implicit closed-tool example is serial only.")
     if cells < 1 or increments < 1 or not np.isfinite(penalty) or penalty <= 0.0:
@@ -86,6 +89,10 @@ def run_case(*, cells: int, increments: int, penalty: float, output: Path):
     step = model.step(
         target=displacement, material=material,
         incrementation=steps.fixed(increments),
+        **(
+            {"contact_quadrature_degree": contact_quadrature_degree}
+            if contact_quadrature_degree is not None else {}
+        ),
         solver_options=solvers.newton(
             relative_tolerance=1.0e-8, absolute_tolerance=1.0e-9,
             maximum_iterations=25, line_search="backtracking",
@@ -104,12 +111,19 @@ def run_case(*, cells: int, increments: int, penalty: float, output: Path):
         & np.isclose(foot[:, 2], 0.19, atol=1.0e-8)
     ))
     dual = result.metadata["constraint_duals"][0]
+    contact_diagnostics = result.metadata["rigid_contact_point_diagnostics"]
     return {
         "status": result.status,
         "cells_per_axis": cells,
         "accepted_increments": len(step.accepted_increments),
         "penalty": penalty,
+        "contact_quadrature_degree": (
+            2 if contact_quadrature_degree is None
+            else contact_quadrature_degree
+        ),
         "active_reentrant_edge_points": active_edge_count,
+        "active_reference_area": contact_diagnostics["active_reference_area"],
+        "maximum_penetration": contact_diagnostics["maximum_penetration"],
         "contact_resultant": dual["resultant"],
         "maximum_equivalent_plastic_strain": result.quantity(
             "maximum_equivalent_plastic_strain"
@@ -129,12 +143,17 @@ def main() -> None:
     parser.add_argument("--increments", type=int, default=24)
     parser.add_argument("--penalty", type=float, default=20.0)
     parser.add_argument(
+        "--contact-quadrature-degree", type=int, choices=(5, 7),
+        help="opt-in positive tetrahedral face rule for sensitivity checks",
+    )
+    parser.add_argument(
         "--output", type=Path, default=Path("outputs/finite_j2_closed_concave"),
     )
     args = parser.parse_args()
     print(json.dumps(run_case(
         cells=args.cells, increments=args.increments,
         penalty=args.penalty, output=args.output,
+        contact_quadrature_degree=args.contact_quadrature_degree,
     ), indent=2, sort_keys=True))
 
 

@@ -607,10 +607,24 @@ def test_closed_concave_example_exports_accepted_public_result(tmp_path):
     run_case = runpy.run_path(str(script))["run_case"]
     summary = run_case(cells=1, increments=6, penalty=20.0, output=tmp_path)
     assert summary["status"] == "completed"
+    assert summary["contact_quadrature_degree"] == 2
     assert summary["active_reentrant_edge_points"] == 1
+    assert summary["active_reference_area"] > 0.0
+    assert summary["maximum_penetration"] > 0.0
     assert summary["maximum_equivalent_plastic_strain"] > 0.0
     assert (tmp_path / "fields.xdmf").is_file()
     assert (tmp_path / "result.json").is_file()
+
+    refined_output = tmp_path / "refined_face_rule"
+    refined = run_case(
+        cells=1, increments=6, penalty=20.0, output=refined_output,
+        contact_quadrature_degree=7,
+    )
+    assert refined["status"] == "completed"
+    assert refined["contact_quadrature_degree"] == 7
+    assert refined["maximum_penetration"] > 0.0
+    assert (refined_output / "fields.xdmf").is_file()
+    assert (refined_output / "result.json").is_file()
 
 
 @pytest.mark.parametrize("tool_rotation", [(0.0, 0.0, 0.0), (0.0, 0.0, 0.01)])

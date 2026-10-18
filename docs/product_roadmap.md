@@ -697,6 +697,16 @@ tested plane/triangle/closed-face tangent reduction, but no arbitrary sharp
 friction law or distributed operator assembly. This is not
 yet a same-input external comparison, a converged parameter study, frictional
 sharp-feature law, large-CAD backend or distributed implicit contact.
+The fixed L-tool screen now exposes a concrete numerical gate: changing only
+the positive face rule changes which physical sharp-edge points are sampled,
+and a six-cell penalty bracket remains far from a hard-contact limit. The next
+frictionless method experiment should partition slave-face integration at
+zero-gap and nearest-feature transitions while preserving a common
+residual/tangent trial partition, then compare force, moment, penetration,
+plastic history and tool work across mesh, penalty and increment refinement.
+Do not elevate higher polynomial face quadrature or a faster sign classifier
+as an accuracy repair. Stateful edge friction and distributed ownership follow
+only after this frictionless integration gate is independently checked.
 
 Stop after this vertical route has explicit field/response and state evidence.
 Nonmatching-mesh transfer, broader nonlinear coupling, monolithic Jacobians,
