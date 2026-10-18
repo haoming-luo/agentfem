@@ -431,15 +431,16 @@ class AugmentedNormalContribution:
 def diagnose_fixed_trace_normal_constraint_rank(
     response: AugmentedNormalPointResponse, *, maximum_points: int = 256,
     maximum_dofs: int = 4096, relative_tolerance: float | None = None,
+    displacement_reduction=None,
 ) -> dict[str, object]:
     """Audit active multiplier identifiability on a bounded fixed trace.
 
     The weighted gap Jacobian has one row per active contact point and one
     column per local displacement DOF. A deficient row rank means distinct
     point pressures can create the same nodal force. This small dense audit
-    is performed before essential-boundary/MPC reduction; even full row rank
-    here does not establish a reduced-system inf-sup constant or replace a
-    mesh stability study.
+    Optionally inspect ``J @ T`` where ``u = T q + u_bar`` is the *actual*
+    Dirichlet/MPC displacement reduction. This remains a small dense negative
+    screen: full row rank does not establish a mesh-uniform inf-sup constant.
     """
 
     if not isinstance(response, AugmentedNormalPointResponse):
@@ -459,12 +460,6 @@ def diagnose_fixed_trace_normal_constraint_rank(
             "AFM-CONTACT-MULTIPLIER-RANK: dense local rank audit exceeds "
             "its declared point/DOF budget; no stability claim was made."
         )
-    if relative_tolerance is None:
-        tolerance = max(len(active), dofs) * np.finfo(float).eps
-    else:
-        tolerance = float(relative_tolerance)
-        if not np.isfinite(tolerance) or tolerance < 0:
-            raise ValueError("Normal constraint rank tolerance must be finite and nonnegative.")
     jacobian = np.zeros((len(active), dofs), dtype=float)
     normals = response.record.projection.normals[active]
     for row, index in enumerate(active):
@@ -474,13 +469,37 @@ def diagnose_fixed_trace_normal_constraint_rank(
         ):
             begin = int(node) * dimension
             jacobian[row, begin:begin + dimension] += scale * shape * normals[row]
+    if displacement_reduction is not None:
+        reduction = np.asarray(displacement_reduction, dtype=float)
+        if (
+            reduction.ndim != 2 or reduction.shape[0] != dofs
+            or reduction.shape[1] > maximum_dofs
+            or not np.all(np.isfinite(reduction))
+        ):
+            raise ValueError(
+                "Normal constraint rank reduction must be a finite dense "
+                "full-DOF by reduced-DOF matrix within the declared budget."
+        )
+        jacobian = jacobian @ reduction
+    if relative_tolerance is None:
+        tolerance = max(jacobian.shape) * np.finfo(float).eps
+    else:
+        tolerance = float(relative_tolerance)
+        if not np.isfinite(tolerance) or tolerance < 0:
+            raise ValueError("Normal constraint rank tolerance must be finite and nonnegative.")
     singular = np.linalg.svd(jacobian, compute_uv=False)
     largest = float(singular[0]) if singular.size else 0.0
     rank = int(np.count_nonzero(singular > tolerance * largest)) if largest else 0
     return {
-        "scope": "bounded_active_fixed_trace_normal_constraint_jacobian",
+        "scope": (
+            "bounded_active_fixed_trace_normal_constraint_jacobian"
+            if displacement_reduction is None else
+            "bounded_active_reduced_fixed_trace_normal_constraint_jacobian"
+        ),
         "active_point_count": len(active),
         "displacement_dof_count": dofs,
+        "reduced_displacement_dof_count": jacobian.shape[1],
+        "displacement_reduction_applied": displacement_reduction is not None,
         "row_rank": rank,
         "row_nullity": len(active) - rank,
         "relative_tolerance": tolerance,

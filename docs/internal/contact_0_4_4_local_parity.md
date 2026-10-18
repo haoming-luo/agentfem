@@ -325,8 +325,13 @@ The gate stays open until its listed evidence exists at the proposed scope.
    two active multipliers with the same nodal support and normal have row
    nullity one, whereas the three independent P1 triangle Gauss rows have
    full local row rank. This is a *negative screen*, not an inf-sup proof: it
-   runs before Dirichlet/MPC reduction, caps dense problem size, and never
-   certifies spatial stability.
+   caps dense problem size and never certifies spatial stability. It can now
+   also inspect `J T` when supplied the *actual* dense displacement reduction
+   `u = T q + u_bar`; a three-point triangle that has full unreduced row rank
+   drops to rank two when one normal DOF is fixed or tied by an MPC. This
+   catches a different false positive than the duplicate-point screen, but
+   the production Step still needs to pass its real reduction and a mesh
+   ladder before using the result as an admission criterion.
    The global AL Step still needs a reduced-constraint rank/mesh-pressure
    study. An [exact-penalty alternative][exact-penalty] exists, but would not
    repair the unresolved nonconvex integration and is not a silent replacement

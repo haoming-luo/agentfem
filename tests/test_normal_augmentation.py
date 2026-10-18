@@ -228,6 +228,36 @@ def test_p1_triangle_gauss_normal_constraints_have_full_local_row_rank():
     assert report["row_nullity"] == 0
     assert report["certifies_spatial_stability"] is False
 
+    # The unreduced local trace looks independent, but an essential boundary
+    # or MPC can remove one of its three independent normal displacements.
+    response = state.evaluate(evaluation, record)
+    essential = np.eye(9)[:, 1:]
+    fixed = diagnose_fixed_trace_normal_constraint_rank(
+        response, displacement_reduction=essential,
+    )
+    assert fixed["row_rank"] == 2
+    assert fixed["row_nullity"] == 1
+    assert fixed["reduced_displacement_dof_count"] == 8
+    assert fixed["displacement_reduction_applied"] is True
+    assert fixed["certifies_spatial_stability"] is False
+
+    periodic = np.delete(np.eye(9), 3, axis=1)
+    periodic[3, 0] = 1.0  # x displacement of node 1 follows node 0.
+    tied = diagnose_fixed_trace_normal_constraint_rank(
+        response, displacement_reduction=periodic,
+    )
+    assert tied["row_rank"] == 2
+    assert tied["row_nullity"] == 1
+    fully_fixed = diagnose_fixed_trace_normal_constraint_rank(
+        response, displacement_reduction=np.empty((9, 0)),
+    )
+    assert fully_fixed["row_rank"] == 0
+    assert fully_fixed["row_nullity"] == 3
+    with pytest.raises(ValueError, match="full-DOF by reduced-DOF"):
+        diagnose_fixed_trace_normal_constraint_rank(
+            response, displacement_reduction=np.eye(8),
+        )
+
 
 def test_multiplier_trial_rollback_and_atomic_restore():
     plane = boundary_models.rigid_plane(point=(0, 0, 0), normal=(1, 0, 0))
