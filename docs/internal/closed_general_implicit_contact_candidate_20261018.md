@@ -281,7 +281,7 @@ active reentrant edge and wrote `fields.xdmf`, its HDF5 payloads and
 `result.json`: maximum PEEQ `0.004630797762550675`, tool work
 `0.010730556638046358`. Its own result scope remains
 `serial_manufactured_fixture_not_external_validation`.
-The later final-head `2c8be39f` source archive has SHA-256
+The `2c8be39f` source archive has SHA-256
 `b8e666a2edd52e3dbdb3bae16902f4a1e630746b08802da024aef639d839c6df`.
 The platform wheel built from that archive has SHA-256
 `47fe7c08f87971bfac44e0af2c9e1f3037f78f017aefda610b9b0a3fcbfbd6d8`
@@ -291,11 +291,24 @@ to that environment's site-packages, and the same six-increment public example
 completed with one active reentrant-edge quadrature point, maximum PEEQ
 `0.004630797762550675`, tool work `0.010730556638046358`, and
 `fields.xdmf`, both HDF5 payloads, and `result.json`. This closes the
-final-head **Mac installed-package smoke**, not independent physical validation
+`2c8be39f` **Mac installed-package smoke**, not independent physical validation
 or cross-platform numerical acceptance. Three selected public-Step tests run
 under the isolated interpreter's `-I` mode also passed: opt-in tetrahedral
 quadrature with restart identity, globally active reentrant-edge J2 contact,
 and two moving tools with atomic restart.
+The subsequent `cfec462e` source archive has SHA-256
+`1869fc3ef8abcab4c1b8d3dffd462b4ce64bae55d574d68fd4792f10efc234ff`;
+its native Mac wheel has SHA-256
+`ec6a532a51b22f15eb9a8ed976765f6a8bb8abee86b267a2aecbf649b10fcb1c`.
+The wheel was installed in a new isolated environment, all three native
+modules imported from its site-packages, and three public-Step tests passed
+under `python -I`, including the example's default/degree-7 face-rule
+exports. The non-MPI installed-wheel `release_gate.py --dist ... --smoke`
+completed, including its representative workflows and project templates;
+the report is retained at
+`/private/tmp/agentfem-contact-release-smoke-cfec462e.json` on this host.
+This is **Mac package/workflow acceptance**; it does not complete the
+independent contact physics, cross-platform or distributed implicit gates.
 The source-side serial checkpoint policy also passed `every=1, keep_last=1`:
 only the final v2 artifact remained and its accepted Coulomb history restored.
 `portable=True` is correctly rejected at preflight for an external contact
@@ -446,7 +459,7 @@ planned code:
 | 6. Friction | A finite-J2 strong-BC Step with a reviewed closed concave solid on a planar face matches the convex limit in displacement and friction dissipation for translated and slightly rotated tools under both sign modes; the fixed-old-state tangent and interrupted restart pass. The serial affine-periodic J2 path now commits a moving-plane Coulomb State, reduces its contact tangent by `TᵀKT`, checkpoints it in v2 and atomically rejects corrupt State; reviewed triangle and closed-concave planar faces match the same plane limit. An active reentrant edge rejects without partial State. | The planar law does not include changing-normal terms at a physical edge or vertex; general sharp-feature friction, distributed affine contact and a full thermodynamic path audit remain unsupported. |
 | 7. Material/time composition | Active-edge finite-J2 plastic path passes; explicit contact/material lifecycle is a separate existing route. | No generic historical implicit material or explicit general-closed-tool composition. |
 | 8. Independent acceptance and speed | Directional analytical checks, fixed-seed geometry timing and a manufactured whole-Step opt-in/default comparison are recorded; 24→48 increment screen is narrow. A fixed-geometry mesh/face-rule screen exposes nonmonotone active-feature sampling. A six-cell 10/20/40 penalty bracket confirms large penetration and changing force/plastic history rather than a hard-contact limit. | No independent full-geometry comparison, sharp-feature spatial/penalty convergence, industrial whole-step speed claim or release-grade energy closure. |
-| 9. Product boundary | Public-API example exports XDMF/manifest from the final-head isolated native Mac wheel; three selected installed public-Step tests pass; unsupported MPI/friction preflight rejects. | Linux/Windows installed numerical acceptance and remote final-head CI remain version gates. |
+| 9. Product boundary | Public-API example exports XDMF/manifest from an isolated native Mac wheel; three selected installed public-Step tests and the non-MPI installed-wheel release smoke pass; unsupported MPI/friction preflight rejects. | Linux/Windows installed numerical acceptance and remote CI remain version gates. |
 
 The table intentionally refuses to turn one successful six- or 24-increment
 fixture into an Abaqus General Contact equivalence claim.
