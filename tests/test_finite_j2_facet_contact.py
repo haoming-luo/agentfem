@@ -363,7 +363,11 @@ def test_closed_tool_signed_distance_initial_bound_reaches_ordinary_step(
     step = _patch(**options)[3]
     initial = step.contact_provider.current_point_diagnostics()["initial_contact"]
     assert initial["face_wise_bound_certified"] is True
-    assert initial["bound_method"] == "adaptive_closed_signed_distance_lipschitz"
+    assert initial["bound_method"] == (
+        "adaptive_closed_signed_distance_lipschitz"
+        if closed_concave_tool
+        else "convex_support_plane_or_adaptive_lipschitz"
+    )
     assert initial["maximum_penetration_bound"] <= 0.1
     assert initial["bound_sampled_point_count"] > 0
 
@@ -375,6 +379,21 @@ def test_closed_tool_excess_initial_overlap_rejects_before_newton():
             initial_penetration_limit=0.01,
             applied_traction=0.0,
         )
+
+
+def test_near_touching_convex_tool_uses_exact_initial_support_bound():
+    _, _, _, step = _patch(
+        triangulated=True, convex_tool=True, gap=0.0,
+        initial_penetration_limit=1.0e-9,
+        tool_translation=(-0.008, 0.0, 0.0),
+        applied_traction=0.0, yield_stress=1.0e9,
+    )
+    initial = step.contact_provider.current_point_diagnostics()["initial_contact"]
+    assert initial["face_wise_bound_certified"] is True
+    assert initial["bound_method"] == "convex_support_plane_or_adaptive_lipschitz"
+    assert initial["bound_refinement_depth"] == 0
+    assert initial["maximum_penetration_bound"] <= 1.0e-9
+    assert step.solve_result().status == "completed"
 
 
 def test_reviewed_closed_concave_tool_uses_ordinary_j2_step_and_restart(tmp_path):

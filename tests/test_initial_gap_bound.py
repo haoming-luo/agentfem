@@ -3,7 +3,11 @@ from types import SimpleNamespace
 import numpy as np
 import pytest
 
-from agentfem.boundary_models.initial_gap_bound import certify_initial_triangle_gap
+from agentfem import boundary_models
+from agentfem.boundary_models.initial_gap_bound import (
+    certify_initial_convex_triangle_gap,
+    certify_initial_triangle_gap,
+)
 
 
 class SphereDistance:
@@ -20,6 +24,20 @@ class SphereDistance:
 
 
 TRIANGLE = np.asarray((((0., 0., 0.), (1., 0., 0.), (0., 1., 0.)),))
+
+
+def _convex_cube():
+    return boundary_models.convex_polyhedral_rigid_surface(
+        vertices=(
+            (0, 0, 0), (1, 0, 0), (1, 1, 0), (0, 1, 0),
+            (0, 0, 1), (1, 0, 1), (1, 1, 1), (0, 1, 1),
+        ),
+        triangles=(
+            (0, 2, 1), (0, 3, 2), (4, 5, 6), (4, 6, 7),
+            (0, 1, 5), (0, 5, 4), (3, 7, 6), (3, 6, 2),
+            (0, 4, 7), (0, 7, 3), (1, 2, 6), (1, 6, 5),
+        ),
+    )
 
 
 def test_lipschitz_certificate_bounds_whole_face_and_refines():
@@ -60,3 +78,40 @@ def test_invalid_projection_cannot_certify():
     )
     with pytest.raises(ValueError, match="AFM-CONTACT-INITIAL-PROJECTION"):
         certify_initial_triangle_gap(TRIANGLE, projector, penetration_limit=0.1)
+
+
+def test_convex_dominant_support_plane_certifies_near_touch_without_subdivision():
+    surface = _convex_cube()
+    triangle = np.asarray((((0.0, 0.3, 0.3),
+                            (0.0, 0.7, 0.3),
+                            (0.0, 0.3, 0.7)),))
+    bound = certify_initial_convex_triangle_gap(
+        triangle, surface, penetration_limit=1.0e-9,
+    )
+    assert bound.maximum_refinement_depth == 0
+    assert bound.sampled_point_count == 3
+    assert bound.maximum_penetration_bound <= 1.0e-9
+    with pytest.raises(NotImplementedError, match="AFM-CONTACT-INITIAL-UNCERTIFIED"):
+        certify_initial_triangle_gap(
+            triangle, surface, penetration_limit=1.0e-9, maximum_depth=4,
+        )
+
+
+def test_convex_support_plane_rejects_nodal_overlap_and_falls_back_at_features():
+    surface = _convex_cube()
+    penetrating = np.asarray((((0.01, 0.3, 0.3),
+                               (0.01, 0.7, 0.3),
+                               (0.01, 0.3, 0.7)),))
+    with pytest.raises(ValueError, match="AFM-CONTACT-INITIAL-OVERLAP"):
+        certify_initial_convex_triangle_gap(
+            penetrating, surface, penetration_limit=0.005,
+        )
+    crossing = np.asarray((((0.1, 0.3, 0.3),
+                            (0.3, 0.1, 0.3),
+                            (0.3, 0.3, 0.1)),))
+    bound = certify_initial_convex_triangle_gap(
+        crossing, surface, penetration_limit=0.3,
+    )
+    assert bound.maximum_refinement_depth > 0
+    assert bound.sampled_point_count > 3
+    assert bound.maximum_penetration_bound <= 0.3

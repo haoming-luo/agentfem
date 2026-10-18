@@ -34,7 +34,11 @@ def initial_gap_bound_method(
     if isinstance(surface, RigidPlaneSurface):
         return "exact_plane_nodal"
     if facet_topology == "triangle" and isinstance(
-        surface, (ConvexPolyhedralRigidSurface, ClosedTriangulatedRigidSolid),
+        surface, ConvexPolyhedralRigidSurface,
+    ):
+        return "convex_support_plane_or_adaptive_lipschitz"
+    if facet_topology == "triangle" and isinstance(
+        surface, ClosedTriangulatedRigidSolid,
     ):
         return "adaptive_closed_signed_distance_lipschitz"
     return None
@@ -45,6 +49,76 @@ class InitialGapBound:
     maximum_penetration_bound: float
     sampled_point_count: int
     maximum_refinement_depth: int
+
+
+def certify_initial_convex_triangle_gap(
+    triangles,
+    surface: ConvexPolyhedralRigidSurface,
+    *,
+    penetration_limit: float,
+    maximum_depth: int = 9,
+    maximum_samples: int = 500_000,
+) -> InitialGapBound:
+    """Use an exact dominant support plane when possible; otherwise subdivide.
+
+    For a convex intersection of outward half-spaces, the maximum support-
+    plane gap is the true signed distance inside the solid and a lower bound
+    outside it. If one plane dominates at all three vertices of an affine
+    triangle, it dominates everywhere on that triangle, so its minimum is a
+    nodal minimum. A mixed-feature triangle keeps the conservative Lipschitz
+    certificate rather than guessing its minimizer from a few samples.
+    """
+
+    if not isinstance(surface, ConvexPolyhedralRigidSurface):
+        raise TypeError("Convex initial gap requires certified convex geometry.")
+    cells = np.asarray(triangles, dtype=float)
+    limit = float(penetration_limit)
+    if cells.ndim != 3 or cells.shape[1:] != (3, 3) or not np.all(np.isfinite(cells)):
+        raise ValueError("Initial gap certificate requires finite planar triangles (n, 3, 3).")
+    if not np.isfinite(limit) or limit < 0:
+        raise ValueError("Initial penetration limit must be finite and nonnegative.")
+    if isinstance(maximum_depth, bool) or not isinstance(maximum_depth, int) or maximum_depth < 0:
+        raise ValueError("Initial gap certificate maximum_depth must be nonnegative.")
+    if isinstance(maximum_samples, bool) or not isinstance(maximum_samples, int) or maximum_samples < 1:
+        raise ValueError("Initial gap certificate maximum_samples must be positive.")
+    if not len(cells):
+        return InitialGapBound(0.0, 0, 0)
+    normals = np.asarray(surface.facets.facet_normals, dtype=float)
+    offsets = np.asarray(surface._offsets, dtype=float)
+    scale = max(1.0, float(np.max(np.abs(cells))), float(np.max(np.abs(offsets))), limit)
+    margin = 64.0 * np.finfo(float).eps * scale
+    unresolved = []
+    certified_bound = 0.0
+    for triangle in cells:
+        gaps = triangle @ normals.T - offsets
+        maximum = np.max(gaps, axis=1)
+        if float(np.min(maximum)) < -limit - margin:
+            raise ValueError(
+                "AFM-CONTACT-INITIAL-OVERLAP: a reference face vertex "
+                "exceeds initial_penetration_limit."
+            )
+        dominant = np.flatnonzero(np.all(gaps >= maximum[:, None], axis=0))
+        if not len(dominant):
+            unresolved.append(triangle)
+            continue
+        lower = float(np.min(gaps[:, dominant[0]])) - margin
+        if lower < -limit:
+            unresolved.append(triangle)
+            continue
+        certified_bound = max(certified_bound, max(0.0, -lower))
+    if not unresolved:
+        return InitialGapBound(certified_bound, 3 * len(cells), 0)
+    fallback = certify_initial_triangle_gap(
+        np.asarray(unresolved), surface,
+        penetration_limit=limit,
+        maximum_depth=maximum_depth,
+        maximum_samples=maximum_samples,
+    )
+    return InitialGapBound(
+        max(certified_bound, fallback.maximum_penetration_bound),
+        3 * len(cells) + fallback.sampled_point_count,
+        fallback.maximum_refinement_depth,
+    )
 
 
 def certify_initial_triangle_gap(
@@ -127,5 +201,6 @@ def certify_initial_triangle_gap(
 
 
 __all__ = [
-    "InitialGapBound", "certify_initial_triangle_gap", "initial_gap_bound_method",
+    "InitialGapBound", "certify_initial_triangle_gap",
+    "certify_initial_convex_triangle_gap", "initial_gap_bound_method",
 ]

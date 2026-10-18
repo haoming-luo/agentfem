@@ -43,7 +43,8 @@ from .implicit_closed_contact import (
 from .implicit_friction import linearize_piecewise_planar_penalty_friction
 from .implicit_smooth_contact import linearize_smooth_rigid_contact
 from .initial_gap_bound import (
-    certify_initial_triangle_gap, initial_gap_bound_method,
+    certify_initial_convex_triangle_gap, certify_initial_triangle_gap,
+    initial_gap_bound_method,
 )
 from .contact_reference_refinement import refine_p1_triangle_reference_trace
 from .rigid import RigidPlaneSurface, SmoothRigidSurface, TriangulatedRigidSurface
@@ -222,9 +223,17 @@ class DolfinxImplicitRigidContact:
                 np.maximum(0.0, -np.asarray(nodal.signed_gaps)), initial=0.0,
             ))
             certificate_samples = len(boundary_nodes)
-        elif method == "adaptive_closed_signed_distance_lipschitz" and limit is not None:
+        elif method in {
+            "adaptive_closed_signed_distance_lipschitz",
+            "convex_support_plane_or_adaptive_lipschitz",
+        } and limit is not None:
             face_nodes = np.unique(evaluation.trace.node_ids, axis=0)
-            certificate = certify_initial_triangle_gap(
+            certify = (
+                certify_initial_convex_triangle_gap
+                if method == "convex_support_plane_or_adaptive_lipschitz"
+                else certify_initial_triangle_gap
+            )
+            certificate = certify(
                 self.adapter.reference_nodal_positions[face_nodes],
                 projector,
                 penetration_limit=limit,

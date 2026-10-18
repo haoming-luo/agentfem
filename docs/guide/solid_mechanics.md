@@ -177,6 +177,14 @@ nearest-edge/vertex distance branches, frictional edge transitions, or
 general hard contact. Its successful small tests are not a penalty- or
 mesh-convergence certificate.
 
+For an affine P1 triangular slave against a reviewed closed convex tool,
+`initial_penetration_limit` also uses a face-wise certificate. If one rigid
+support plane dominates at every triangle vertex, its affine nodal minimum
+bounds the whole face; mixed-feature faces retain the adaptive signed-distance
+check. This admits near-touching planar patches without treating three
+ordinary Gauss samples as a whole-face proof. It does not extend the guarantee
+to open triangle sheets, higher-order geometry or the later sliding path.
+
 The runnable, dimensionless
 [feature-partition example](https://github.com/haoming-luo/agentfem/blob/main/examples/finite_j2_convex_feature_partition.py)
 exercises the ordinary installed-package workflow; it is a regression fixture,

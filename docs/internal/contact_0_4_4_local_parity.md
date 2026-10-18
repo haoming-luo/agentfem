@@ -77,7 +77,13 @@ The gate stays open until its listed evidence exists at the proposed scope.
    convex or nonconvex rigid solid, a bounded adaptive subdivision uses the
    true signed distance's 1-Lipschitz inequality to prove a conservative
    face-wise upper bound. It fails closed on ambiguous projections or if the
-   declared depth/sample budget cannot prove the requested limit. No open
+   declared depth/sample budget cannot prove the requested limit. For the
+   convex subset, a support plane that
+   dominates at every affine slave-face vertex dominates on the whole face;
+   its nodal minimum directly bounds the initial penetration. Mixed-feature
+   faces still use the adaptive certificate. A near-touching convex ordinary
+   Step now passes a 1e-9 declared limit without refinement. This is only an
+   initial-overlap result, not a later sliding/integration certificate. No open
    triangle sheet or arbitrary curved projector inherits that proof. The
    ordinary Step capability query reports unsupported geometry/order before
    Step construction. The explicit pair still rejects this policy. No branch
