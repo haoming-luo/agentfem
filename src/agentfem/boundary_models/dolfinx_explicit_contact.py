@@ -396,6 +396,12 @@ class DolfinxExplicitContactResidual:
                     "Explicit contact reference point differs from its rigid body."
                 )
         if contact_pair is not None:
+            if contact_pair.initial_penetration_limit is not None:
+                raise NotImplementedError(
+                    "AFM-CONTACT-INITIAL-OVERLAP: the explicit residual does "
+                    "not yet certify initial penetration limits; use an "
+                    "implicit rigid-contact Step or omit this policy."
+                )
             if rigid_body is not contact_pair.rigid_body:
                 raise ValueError(
                     "Explicit contact rigid body differs from its contact pair."

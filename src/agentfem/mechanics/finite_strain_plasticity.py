@@ -3061,6 +3061,16 @@ class FiniteStrainJ2StandardProblem:
                             point_evidence[name],
                             kind="diagnostic",
                         )
+                    initial = point_evidence["initial_contact"]
+                    result.add_quantity(
+                        f"{dual.constraint_name}_initial_maximum_penetration",
+                        initial["maximum_penetration"],
+                        kind="diagnostic",
+                        description=(
+                            "Reference-trace sampled initial overlap; no mesh "
+                            "or rigid tool adjustment was applied."
+                        ),
+                    )
                     if "sampled_mixed_feature_slave_faces" in point_evidence:
                         result.add_quantity(
                             f"{dual.constraint_name}_sampled_mixed_feature_slave_faces",

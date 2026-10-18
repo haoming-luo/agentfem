@@ -27,7 +27,7 @@ being silently approximated by the bounded route.
 | Gate | Current evidence | Still needed for promotion |
 | --- | --- | --- |
 | 1. Comparator | Internal and public-protocol tests | Independent same-input finite-J2 contact run and frozen observables |
-| 2. Surface | Reviewed analytical/triangle/closed-solid branches | Initial-overclosure policy, ambiguity and sliding coverage at target geometry |
+| 2. Surface | Reviewed geometry; sampled initial overclosure can be bounded on implicit rigid pairs | Full face-wise initial-overclosure certification, ambiguity and sliding coverage at target geometry |
 | 3. Integration | Planar/convex partitions; sampled nonconvex risk flag | Nonconvex feature-switch integral and tangent |
 | 4. Normal law | Penalty Step; fixed-trace AL operator candidate | Outer global Procedure, spatial stability and checkpoint composition |
 | 5. Friction | Locally planar Coulomb State | Admitted geometry-by-friction matrix; sharp features remain rejected |
@@ -65,8 +65,14 @@ The gate stays open until its listed evidence exists at the proposed scope.
    conservative coverage/invalidation proof, never by reusing old forces or
    normals. Test large sliding, seam crossing, geometry-scale changes and an
    intentionally missed-candidate trap. Current state: smooth projectors,
-   triangulated BVH and reviewed closed-solid classifiers exist; arbitrary
-   large-CAD and ambiguous sharp features are not admitted. Reading:
+   triangulated BVH and reviewed closed-solid classifiers exist. Implicit
+   rigid pairs now have an optional `initial_penetration_limit` in length
+   units: a sampled reference-trace violation or invalid projection rejects
+   before Newton; the default reports the measured initial condition without
+   silently moving slave nodes or the tool. The sampling rule is not a
+   face-wise bound, and the explicit pair currently rejects this new policy
+   rather than ignoring it. Arbitrary large-CAD and ambiguous sharp features
+   are not admitted. Reading:
    [Abaqus finite-sliding/general-contact formulation][abaqus],
    [Abaqus meshed-rigid-surface verification][meshed-rigid] and
    [Abaqus initial-overclosure choices][initial].

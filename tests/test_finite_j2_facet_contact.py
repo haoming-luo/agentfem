@@ -36,7 +36,8 @@ def _patch(*, triangulated: bool, gap: float = 0.005, penalty=500.0,
            friction_coefficient=None, tangential_penalty=None,
            regional_material=False, contact_quadrature_degree=None,
            hexahedral=False, displacement_degree=1, linear_solver=None,
-           clamp_left=True, left_traction=0.0):
+           clamp_left=True, left_traction=0.0,
+           initial_penetration_limit=None):
     domain = dolfinx_mesh.create_unit_cube(
         MPI.COMM_SELF, cells, cells, cells,
         cell_type=(
@@ -173,6 +174,7 @@ def _patch(*, triangulated: bool, gap: float = 0.005, penalty=500.0,
             penalty=penalty,
             friction_coefficient=friction_coefficient,
             tangential_penalty=tangential_penalty,
+            initial_penetration_limit=initial_penetration_limit,
         )
         model.add_boundary_model(pair)
     else:
@@ -249,6 +251,21 @@ def test_closed_convex_tool_uses_ordinary_j2_step_and_matches_planar_limit():
     assert sharp.energy_history[-1].tool_work == pytest.approx(
         planar.energy_history[-1].tool_work, rel=1e-7, abs=1e-9,
     )
+    assert sharp_result.quantity(
+        f"{sharp.contact_provider.name}_initial_maximum_penetration"
+    ) == 0.0
+    assert sharp_result.metadata["rigid_contact_point_diagnostics"][
+        "initial_contact"
+    ]["policy"] == "report"
+
+
+def test_initial_overlap_limit_rejects_before_finite_j2_newton():
+    with pytest.raises(ValueError, match="AFM-CONTACT-INITIAL-OVERLAP"):
+        _patch(
+            triangulated=True, gap=-0.05,
+            initial_penetration_limit=0.01,
+            applied_traction=0.0,
+        )
 
 
 def test_reviewed_closed_concave_tool_uses_ordinary_j2_step_and_restart(tmp_path):

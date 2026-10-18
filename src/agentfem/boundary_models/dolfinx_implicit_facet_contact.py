@@ -60,6 +60,9 @@ class DolfinxImplicitRigidContact:
     _support_planes: tuple[np.ndarray, np.ndarray] | None = field(
         default=None, init=False, repr=False,
     )
+    _initial_contact_diagnostics: dict[str, object] = field(
+        default_factory=dict, init=False, repr=False,
+    )
 
     def __post_init__(self) -> None:
         if not isinstance(self.pair, RigidContactPair):
@@ -167,6 +170,57 @@ class DolfinxImplicitRigidContact:
             raise ValueError("Contact slave and displacement must share one mesh.")
         if self.adapter.function_space is not self.displacement.function_space:
             raise ValueError("Contact trace and displacement must share one function space.")
+        self._audit_initial_contact()
+
+    def _audit_initial_contact(self) -> None:
+        """Sample reference geometry before Newton without moving the mesh.
+
+        A prescribed initial overclosure is a modeling choice, not a hidden
+        geometry adjustment. The optional pair limit fails before the solve;
+        otherwise the measured state remains visible in Result diagnostics.
+        """
+
+        evaluation = self.adapter.trace.evaluate(
+            self.adapter.reference_nodal_positions,
+        )
+        projector = self.surface if self.projector is None else self.projector
+        projection = projector.project(evaluation.query_points, factor=0.0)
+        valid = np.asarray(projection.valid, dtype=bool)
+        gaps = np.asarray(projection.signed_gaps, dtype=float)
+        penetrations = np.maximum(0.0, -gaps[valid])
+        maximum = float(np.max(penetrations, initial=0.0))
+        limit = self.pair.initial_penetration_limit
+        self._initial_contact_diagnostics = {
+            "sampling": "reference_boundary_quadrature_at_reference_rigid_pose",
+            "sampled_point_count": int(valid.size),
+            "invalid_projection_count": int(np.count_nonzero(~valid)),
+            "penetrating_point_count": int(np.count_nonzero(penetrations > 0.0)),
+            "maximum_penetration": maximum,
+            "minimum_valid_signed_gap": (
+                None if not np.any(valid) else float(np.min(gaps[valid]))
+            ),
+            "penetrating_reference_area": float(np.sum(
+                evaluation.trace.weights[valid][penetrations > 0.0]
+            )),
+            "admission_limit": limit,
+            "policy": "report" if limit is None else "reject_above_limit",
+        }
+        if limit is None:
+            return
+        if not np.all(valid):
+            first = int(np.flatnonzero(~valid)[0])
+            raise ValueError(
+                "AFM-CONTACT-INITIAL-PROJECTION: cannot certify the initial "
+                "penetration limit because reference projection is invalid at "
+                f"contact_point_id={int(evaluation.trace.point_ids[first])}, "
+                f"surface={self.surface.name}."
+            )
+        if maximum > limit:
+            raise ValueError(
+                "AFM-CONTACT-INITIAL-OVERLAP: reference-configuration "
+                f"penetration {maximum:.6g} exceeds the declared limit "
+                f"{limit:.6g} on pair {self.name}; no mesh or tool is moved."
+            )
 
     @property
     def surface(
@@ -477,6 +531,7 @@ class DolfinxImplicitRigidContact:
             "active_reference_area": float(np.sum(evaluation.trace.weights[active])),
             "maximum_pressure": float(np.max(response.pressures, initial=0.0)),
             "maximum_penetration": float(np.max(response.penetration, initial=0.0)),
+            "initial_contact": dict(self._initial_contact_diagnostics),
         }
         if partition is not None:
             evidence["split_slave_faces"] = partition.split_faces

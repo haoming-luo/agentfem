@@ -107,6 +107,52 @@ def test_implicit_facet_rejects_independent_physical_time_schedule():
         dolfinx_implicit_facet_contact(pair, displacement)
 
 
+def test_implicit_facet_reports_and_bounds_initial_reference_penetration():
+    displacement, original = _model()
+    assert original.current_point_diagnostics()["initial_contact"]["policy"] == "report"
+    assert original.current_point_diagnostics()["initial_contact"][
+        "maximum_penetration"
+    ] == 0.0
+    tool = boundary_models.triangulated_rigid_surface(
+        vertices=(
+            (-0.05, 0, 0), (-0.05, 0, 1),
+            (-0.05, 1, 1), (-0.05, 1, 0),
+        ),
+        triangles=((0, 1, 2), (0, 2, 3)),
+    )
+
+    def make_pair(limit):
+        return boundary_models.rigid_contact_pair(
+            original.pair.slave_boundary,
+            boundary_models.rigid_body(tool),
+            penalty=200,
+            initial_penetration_limit=limit,
+        )
+
+    with pytest.raises(ValueError, match="AFM-CONTACT-INITIAL-OVERLAP"):
+        dolfinx_implicit_facet_contact(make_pair(0.01), displacement)
+    accepted = dolfinx_implicit_facet_contact(make_pair(0.06), displacement)
+    evidence = accepted.current_point_diagnostics()["initial_contact"]
+    assert evidence["maximum_penetration"] == pytest.approx(0.05)
+    assert evidence["penetrating_point_count"] == accepted.adapter.trace.point_count
+    assert evidence["admission_limit"] == 0.06
+    assert evidence["policy"] == "reject_above_limit"
+    np.testing.assert_allclose(displacement.x.array, 0.0)
+    assert make_pair(0.01).scientific_identity != make_pair(0.06).scientific_identity
+    assert "initial_penetration_limit" not in original.pair.summary()
+    assert make_pair(0.06).summary()["initial_penetration_limit"] == 0.06
+
+
+@pytest.mark.parametrize("limit", [-1.0, float("nan"), float("inf")])
+def test_contact_pair_rejects_invalid_initial_penetration_limit(limit):
+    _, operator = _model()
+    with pytest.raises(ValueError, match="Initial contact penetration limit"):
+        boundary_models.rigid_contact_pair(
+            operator.pair.slave_boundary, operator.pair.rigid_body,
+            penalty=200, initial_penetration_limit=limit,
+        )
+
+
 def test_closed_convex_sharp_tool_lowers_to_current_trial_newton_operator():
     displacement, original = _model()
     xmin, xmax, ymin, ymax, zmin, zmax = -1.0, 0.05, -1.0, 2.0, -1.0, 2.0

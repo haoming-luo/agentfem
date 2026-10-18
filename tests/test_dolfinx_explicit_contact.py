@@ -1115,6 +1115,29 @@ def test_rigid_contact_pair_rejects_rank_local_pointwise_penalty():
         boundary_models.RigidContactPair(slave, body, law)
 
 
+def test_explicit_pair_rejects_unsupported_initial_overlap_limit():
+    domain = _cube(MPI.COMM_SELF)
+    function_space = _vector_space(domain)
+    displacement = fem.Function(function_space, name="Displacement")
+    slave = _left_region(domain)
+    body = boundary_models.rigid_body(boundary_models.rigid_plane(
+        point=(0.05, 0.0, 0.0), normal=(-1.0, 0.0, 0.0),
+    ))
+    pair = boundary_models.rigid_contact_pair(
+        slave, body, penalty=100.0, initial_penetration_limit=0.0,
+    )
+    with pytest.raises(NotImplementedError, match="AFM-CONTACT-INITIAL-OVERLAP"):
+        boundary_models.dolfinx_explicit_contact_residual(
+            _bulk_residual(domain, function_space, (0.0, 0.0, 0.0)),
+            adapter=boundary_models.dolfinx_boundary_region_contact_trace(
+                slave, function_space,
+            ),
+            displacement=displacement,
+            contact_pair=pair,
+            maximum_stable_time_increment=1.0e-3,
+        )
+
+
 def test_rigid_contact_pair_friction_enters_explicit_operator_and_commits_state():
     domain = _cube(MPI.COMM_SELF)
     function_space = _vector_space(domain)
