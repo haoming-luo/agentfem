@@ -70,6 +70,7 @@ class TwoFeatureDistanceIntegral:
     bulk_tangent: np.ndarray
     moving_boundary_tangent: np.ndarray
     branch_areas: tuple[float, float]
+    inactive_reference_area: float
     boundary_point_count: int
     rigid_translation_reaction: np.ndarray
     rigid_rotation_reaction_about_origin: float | np.ndarray
@@ -83,6 +84,7 @@ def integrate_two_affine_feature_distances(
     *,
     stiffness: float = 1.0,
     order: int = 24,
+    active_plane_normal=None,
 ) -> TwoFeatureDistanceIntegral:
     """Integrate the pointwise minimum squared distance and full tangent.
 
@@ -90,7 +92,12 @@ def integrate_two_affine_feature_distances(
     Its equality conic partitions the reference area; the coarea term in the
     residual derivative is essential when the two nearest-point gradients
     differ. A singular or unresolved boundary fails closed. Finite edge and
-    facet projection-domain checks belong to a separate geometry owner.
+    facet projection-domain checks belong to a separate geometry owner. If
+    ``active_plane_normal`` is supplied, the active side of the *first*
+    plane is its negative half-space. This is a mathematical clipped-area
+    rule, not a signed-gap or closed-tool certificate. The first branch has
+    zero energy and zero force on the clipping line, so its moving activation
+    boundary contributes no force or tangent distribution.
     """
 
     reference = np.asarray(reference_vertices, dtype=float)
@@ -138,77 +145,151 @@ def integrate_two_affine_feature_distances(
 
     first_projector = first.normal_projector
     second_projector = second.normal_projector
-    origin = current[0]
-    u = current[1] - origin
-    v = current[2] - origin
-    r_first = first_projector @ (origin - first.anchor)
-    r_second = second_projector @ (origin - second.anchor)
-    difference = first_projector - second_projector
-    gradient = r_first - r_second
-    boundary = QuadraticReferenceLevelSet(
-        a=0.5 * float(v @ difference @ v),
-        b0=float(v @ gradient),
-        b1=float(u @ difference @ v),
-        c0=0.5 * float(r_first @ r_first - r_second @ r_second),
-        c1=float(u @ gradient),
-        c2=0.5 * float(u @ difference @ u),
-    )
+    if active_plane_normal is None:
+        polygons = [np.eye(3)]
+    else:
+        normal = np.asarray(active_plane_normal, dtype=float)
+        if (
+            normal.shape != (reference.shape[1],)
+            or not np.all(np.isfinite(normal))
+            or first.tangent_basis.shape[1] != reference.shape[1] - 1
+            or not np.isclose(np.linalg.norm(normal), 1.0, rtol=0.0, atol=1e-12)
+            or not np.allclose(
+                first_projector,
+                np.outer(normal, normal),
+                rtol=0.0,
+                atol=1e-12,
+            )
+        ):
+            raise ValueError("The active half-space must be the first affine plane.")
+        signed = (current - first.anchor) @ normal
+        coordinate_scale = max(
+            float(np.max(np.abs(current))),
+            float(np.max(np.abs(first.anchor))),
+        )
+        local_scale = max(
+            float(np.linalg.norm(current[1] - current[0])),
+            float(np.linalg.norm(current[2] - current[0])),
+        )
+        tolerance = max(
+            1e-12 * local_scale,
+            128.0 * np.finfo(float).eps * coordinate_scale,
+        )
+        if np.any(np.abs(signed) <= tolerance):
+            raise NotImplementedError(
+                "An activation boundary passes through a slave vertex."
+            )
+        if np.all(signed < 0.0):
+            polygons = [np.eye(3)]
+        elif np.all(signed > 0.0):
+            polygons = []
+        else:
+            polygon = []
+            vertices = list(np.eye(3))
+            for start, end in zip(vertices, vertices[1:] + vertices[:1], strict=True):
+                a, b = float(start @ signed), float(end @ signed)
+                if (a < 0.0) != (b < 0.0):
+                    polygon.append((b * start - a * end) / (b - a))
+                if b < 0.0:
+                    polygon.append(end)
+            polygons = [np.asarray(polygon)]
+    transforms = []
+    for polygon in polygons:
+        for index in range(1, len(polygon) - 1):
+            transform = np.asarray((polygon[0], polygon[index], polygon[index + 1]))
+            det = float(
+                np.linalg.det(
+                    np.column_stack(
+                        (
+                            transform[1, 1:] - transform[0, 1:],
+                            transform[2, 1:] - transform[0, 1:],
+                        )
+                    )
+                )
+            )
+            if det <= 0.0 or not np.isfinite(det):
+                raise ValueError("The active reference polygon is not positive.")
+            transforms.append((transform, det))
     dimension = reference.shape[1]
     residual = np.zeros((3, dimension))
     bulk = np.zeros((3, dimension, 3, dimension))
     potential = 0.0
-    areas = []
-    for feature, projector, negative in (
-        (first, first_projector, True),
-        (second, second_projector, False),
-    ):
-        shapes, unit_weights = quadratic_region_triangle_quadrature(
+    moving = np.zeros_like(bulk)
+    areas = np.zeros(2)
+    boundary_count = 0
+    active_area = 0.5 * double_area * sum(det for _, det in transforms)
+    for transform, determinant in transforms:
+        local = transform @ current
+        origin = local[0]
+        u = local[1] - origin
+        v = local[2] - origin
+        r_first = first_projector @ (origin - first.anchor)
+        r_second = second_projector @ (origin - second.anchor)
+        difference = first_projector - second_projector
+        gradient = r_first - r_second
+        boundary = QuadraticReferenceLevelSet(
+            a=0.5 * float(v @ difference @ v),
+            b0=float(v @ gradient),
+            b1=float(u @ difference @ v),
+            c0=0.5 * float(r_first @ r_first - r_second @ r_second),
+            c1=float(u @ gradient),
+            c2=0.5 * float(u @ difference @ u),
+        )
+        for branch_index, (feature, projector, negative) in enumerate(
+            (
+                (first, first_projector, True),
+                (second, second_projector, False),
+            )
+        ):
+            local_shapes, unit_weights = quadratic_region_triangle_quadrature(
+                boundary,
+                negative=negative,
+                order=order,
+            )
+            weights = double_area * determinant * unit_weights
+            areas[branch_index] += float(weights.sum())
+            if not len(weights):
+                continue
+            shapes = local_shapes @ transform
+            distances = (shapes @ current - feature.anchor) @ projector
+            potential += (
+                0.5
+                * selected_stiffness
+                * float(np.dot(weights, np.einsum("qi,qi->q", distances, distances)))
+            )
+            residual += selected_stiffness * np.einsum(
+                "q,qa,qi->ai",
+                weights,
+                shapes,
+                distances,
+            )
+            bulk += selected_stiffness * np.einsum(
+                "q,qa,qb,ij->aibj",
+                weights,
+                shapes,
+                shapes,
+                projector,
+            )
+        local_shapes, unit_weights = quadratic_level_set_boundary_quadrature(
             boundary,
-            negative=negative,
             order=order,
         )
-        weights = double_area * unit_weights
-        areas.append(float(weights.sum()))
-        if not len(weights):
-            continue
-        distances = (shapes @ current - feature.anchor) @ projector
-        potential += (
-            0.5
-            * selected_stiffness
-            * float(np.dot(weights, np.einsum("qi,qi->q", distances, distances)))
-        )
-        residual += selected_stiffness * np.einsum(
-            "q,qa,qi->ai",
-            weights,
-            shapes,
-            distances,
-        )
-        bulk += selected_stiffness * np.einsum(
-            "q,qa,qb,ij->aibj",
-            weights,
-            shapes,
-            shapes,
-            projector,
-        )
-    shapes, unit_weights = quadratic_level_set_boundary_quadrature(
-        boundary,
-        order=order,
-    )
-    moving = np.zeros_like(bulk)
-    if len(unit_weights):
-        points = shapes @ current
-        first_residual = (points - first.anchor) @ first_projector
-        second_residual = (points - second.anchor) @ second_projector
-        jump = first_residual - second_residual
-        moving = -selected_stiffness * np.einsum(
-            "q,qa,qb,qi,qj->aibj",
-            double_area * unit_weights,
-            shapes,
-            shapes,
-            jump,
-            jump,
-        )
-    if not np.isclose(sum(areas), 0.5 * double_area, rtol=1e-10, atol=1e-12):
+        boundary_count += len(unit_weights)
+        if len(unit_weights):
+            shapes = local_shapes @ transform
+            points = shapes @ current
+            first_residual = (points - first.anchor) @ first_projector
+            second_residual = (points - second.anchor) @ second_projector
+            jump = first_residual - second_residual
+            moving += -selected_stiffness * np.einsum(
+                "q,qa,qb,qi,qj->aibj",
+                double_area * determinant * unit_weights,
+                shapes,
+                shapes,
+                jump,
+                jump,
+            )
+    if not np.isclose(sum(areas), active_area, rtol=1e-10, atol=1e-12):
         raise ValueError("Two-feature reference-area partition is incomplete.")
     tool_force = residual.sum(axis=0)
     tool_moment: float | np.ndarray = (
@@ -223,7 +304,8 @@ def integrate_two_affine_feature_distances(
         bulk,
         moving,
         (areas[0], areas[1]),
-        len(unit_weights),
+        0.5 * double_area - active_area,
+        boundary_count,
         tool_force,
         tool_moment,
     )

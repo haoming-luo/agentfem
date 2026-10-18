@@ -1,4 +1,4 @@
-"""Whole-face nearest-feature research certificate, not signed contact."""
+"""Bounded finite-feature and closed-tool local contact research certificates."""
 
 from __future__ import annotations
 
@@ -6,9 +6,12 @@ import numpy as np
 import pytest
 
 from agentfem.boundary_models.contact_feature_pair_geometry_research import (
+    certify_partial_closed_face,
     certify_two_facet_distance_competition,
     certify_wholly_interior_closed_face,
     integrate_certified_closed_two_feature_penalty,
+    integrate_certified_partial_closed_two_feature_penalty,
+    integrate_discovered_partial_closed_two_feature_penalty,
 )
 from agentfem.boundary_models.contact_feature_pair_research import (
     integrate_two_affine_feature_distances,
@@ -92,6 +95,19 @@ def test_unresolved_world_coordinate_offset_is_refused():
             _MASTERS + translation,
             (0, 1),
         )
+
+
+def test_nonplanar_and_unordered_four_vertex_regions_are_refused():
+    square = np.asarray(
+        ((1.0, 1.1, 0.0), (2.0, 1.1, 0.0), (2.0, 2.0, 0.0), (1.0, 2.0, 0.0))
+    )
+    warped = square.copy()
+    warped[3, 2] = 0.01
+    with pytest.raises(ValueError, match="planar"):
+        certify_two_facet_distance_competition(warped, _MASTERS, (0, 1))
+    unordered = square[[0, 2, 1, 3]]
+    with pytest.raises(ValueError, match="convex and ordered"):
+        certify_two_facet_distance_competition(unordered, _MASTERS, (0, 1))
 
 
 def _closed_tetrahedron():
@@ -203,7 +219,7 @@ def test_reentrant_edge_and_bottom_face_compete_in_wholly_inside_L_prism():
         (0, 12),
     )
     assert pair.feature_kinds == ("face", "edge")
-    assert pair.equivalent_feature_count > 0
+    assert pair.equivalent_feature_count + pair.affine_dominance_count > 0
     result = integrate_certified_closed_two_feature_penalty(
         slave,
         slave,
@@ -287,4 +303,244 @@ def test_partially_active_reentrant_face_still_refuses_the_local_law():
             tool,
             (0, 12),
             penalty=500.0,
+        )
+
+
+def test_partially_active_reentrant_face_has_certified_local_penalty():
+    tool = _closed_L_prism()
+    slave = np.asarray(
+        ((0.895, 0.875, -0.02), (0.905, 0.875, 0.175), (0.895, 0.885, 0.16))
+    )
+    active, normal = certify_partial_closed_face(slave, tool, 0)
+    assert len(active) == 4
+    np.testing.assert_allclose(normal, (0.0, 0.0, -1.0))
+    result = integrate_certified_partial_closed_two_feature_penalty(
+        slave, slave, tool, (0, 12), penalty=500.0
+    )
+    assert result.geometry.feature_kinds == ("face", "edge")
+    assert result.active_reference_fraction > 0.0
+    assert result.active_reference_fraction < 1.0
+    assert result.response.boundary_point_count > 0
+    assert np.linalg.norm(result.response.moving_boundary_tangent) > 1e-5
+    for numerator_s in range(21):
+        for numerator_t in range(21 - numerator_s):
+            s, t = numerator_s / 20, numerator_t / 20
+            point = (1 - s - t) * slave[0] + s * slave[1] + t * slave[2]
+            projection = tool.project(point)
+            assert projection.all_valid
+            assert (projection.signed_gaps[0] < 0.0) == (point[2] > 0.0)
+
+    step = 1e-6
+    for node in range(3):
+        for component in range(3):
+            direction = np.zeros((3, 3))
+            direction[node, component] = step
+            plus = integrate_certified_partial_closed_two_feature_penalty(
+                slave, slave + direction, tool, (0, 12), penalty=500.0
+            ).response
+            minus = integrate_certified_partial_closed_two_feature_penalty(
+                slave, slave - direction, tool, (0, 12), penalty=500.0
+            ).response
+            assert result.response.nodal_residual[node, component] == pytest.approx(
+                (plus.potential - minus.potential) / (2 * step),
+                rel=3e-5,
+                abs=3e-7,
+            )
+            np.testing.assert_allclose(
+                result.response.nodal_tangent[:, :, node, component],
+                (plus.nodal_residual - minus.nodal_residual) / (2 * step),
+                rtol=3e-5,
+                atol=3e-7,
+            )
+
+
+def test_partial_local_penalty_refuses_additional_crossing_facet():
+    tool = _closed_L_prism()
+    slave = np.asarray(
+        ((0.895, 0.875, -0.02), (1.005, 0.875, 0.175), (0.895, 0.885, 0.16))
+    )
+    with pytest.raises(NotImplementedError, match="[Aa]nother tool facet|winding sign"):
+        integrate_certified_partial_closed_two_feature_penalty(
+            slave, slave, tool, (0, 12), penalty=500.0
+        )
+
+
+def test_partial_reentrant_tool_translation_work_matches_force():
+    tool = _closed_L_prism()
+    slave = np.asarray(
+        ((0.895, 0.875, -0.02), (0.905, 0.875, 0.175), (0.895, 0.885, 0.16))
+    )
+    response = integrate_certified_partial_closed_two_feature_penalty(
+        slave, slave, tool, (0, 12), penalty=500.0
+    ).response
+    step = 1e-6
+    for component in range(3):
+        translation = np.zeros(3)
+        translation[component] = step
+        energies = []
+        for sign in (1.0, -1.0):
+            moved = closed_triangulated_rigid_solid(
+                vertices=tool.facets.vertices + sign * translation,
+                triangles=tool.facets.triangles,
+                reviewed_embedded=True,
+            )
+            energies.append(
+                integrate_certified_partial_closed_two_feature_penalty(
+                    slave, slave, moved, (0, 12), penalty=500.0
+                ).response.potential
+            )
+        assert -(energies[0] - energies[1]) / (2 * step) == pytest.approx(
+            response.rigid_translation_reaction[component],
+            rel=3e-5,
+            abs=3e-7,
+        )
+
+    # The vertical-axis rotation preserves this deliberately narrow feature
+    # certificate. Tilted tools are still refused rather than extrapolated.
+    for component in (2,):
+        axis = np.eye(3)[component]
+        skew = np.asarray(
+            (
+                (0.0, -axis[2], axis[1]),
+                (axis[2], 0.0, -axis[0]),
+                (-axis[1], axis[0], 0.0),
+            )
+        )
+        energies = []
+        for sign in (1.0, -1.0):
+            angle = sign * step
+            rotation = (
+                np.eye(3) + np.sin(angle) * skew + (1.0 - np.cos(angle)) * (skew @ skew)
+            )
+            moved = closed_triangulated_rigid_solid(
+                vertices=tool.facets.vertices @ rotation.T,
+                triangles=tool.facets.triangles,
+                reviewed_embedded=True,
+            )
+            energies.append(
+                integrate_certified_partial_closed_two_feature_penalty(
+                    slave, slave, moved, (0, 12), penalty=500.0
+                ).response.potential
+            )
+        assert -(energies[0] - energies[1]) / (2 * step) == pytest.approx(
+            response.rigid_rotation_reaction_about_origin[component],
+            rel=3e-5,
+            abs=3e-7,
+        )
+
+
+def test_partial_contact_certificate_survives_perturbed_nearest_point_oracles():
+    tool = _closed_L_prism()
+    base = np.asarray(
+        ((0.895, 0.875, -0.02), (0.905, 0.875, 0.175), (0.895, 0.885, 0.16))
+    )
+    generator = np.random.default_rng(17044)
+    for _ in range(32):
+        slave = base + generator.uniform(-0.001, 0.001, size=(3, 3))
+        certified = integrate_certified_partial_closed_two_feature_penalty(
+            base, slave, tool, (0, 12), penalty=500.0, order=16
+        )
+        assert certified.geometry.feature_kinds == ("face", "edge")
+        for numerator_s in range(8):
+            for numerator_t in range(8 - numerator_s):
+                s, t = numerator_s / 7, numerator_t / 7
+                point = (1 - s - t) * slave[0] + s * slave[1] + t * slave[2]
+                oracle = tool.project(point)
+                assert oracle.all_valid
+                assert (oracle.signed_gaps[0] < 0.0) == (point[2] > 0.0)
+                if point[2] > 0.0:
+                    selected_distance = min(
+                        np.linalg.norm(
+                            (point - feature.anchor) @ feature.normal_projector
+                        )
+                        for feature in (
+                            certified.geometry.first,
+                            certified.geometry.second,
+                        )
+                    )
+                    assert -oracle.signed_gaps[0] == pytest.approx(
+                        selected_distance, abs=2e-12
+                    )
+
+
+@pytest.mark.parametrize("scale", (1e-3, 1.0, 1e3))
+def test_partial_contact_reference_area_law_scales_with_length(scale):
+    tool = _closed_L_prism()
+    base = np.asarray(
+        ((0.895, 0.875, -0.02), (0.905, 0.875, 0.175), (0.895, 0.885, 0.16))
+    )
+    original = integrate_certified_partial_closed_two_feature_penalty(
+        base, base, tool, (0, 12), penalty=500.0
+    ).response
+    scaled = closed_triangulated_rigid_solid(
+        vertices=scale * tool.facets.vertices,
+        triangles=tool.facets.triangles,
+        reviewed_embedded=True,
+    )
+    response = integrate_certified_partial_closed_two_feature_penalty(
+        scale * base, scale * base, scaled, (0, 12), penalty=500.0
+    ).response
+    assert response.potential / scale**4 == pytest.approx(original.potential, rel=2e-8)
+    np.testing.assert_allclose(
+        response.nodal_residual / scale**3,
+        original.nodal_residual,
+        rtol=2e-8,
+        atol=2e-8,
+    )
+    np.testing.assert_allclose(
+        response.nodal_tangent / scale**2,
+        original.nodal_tangent,
+        rtol=2e-8,
+        atol=2e-8,
+    )
+
+
+def test_partial_contact_finds_bounded_finite_features_without_user_facet_ids():
+    tool = _closed_L_prism()
+    slave = np.asarray(
+        ((0.895, 0.875, -0.02), (0.905, 0.875, 0.175), (0.895, 0.885, 0.16))
+    )
+    discovered = integrate_discovered_partial_closed_two_feature_penalty(
+        slave, slave, tool, penalty=500.0
+    )
+    expected = integrate_certified_partial_closed_two_feature_penalty(
+        slave, slave, tool, (0, 12), penalty=500.0
+    )
+    assert discovered.geometry.feature_kinds == ("face", "edge")
+    assert discovered.response.potential == pytest.approx(
+        expected.response.potential, rel=1e-12
+    )
+    np.testing.assert_allclose(
+        discovered.response.nodal_residual,
+        expected.response.nodal_residual,
+        rtol=1e-12,
+        atol=1e-12,
+    )
+    np.testing.assert_allclose(
+        discovered.response.nodal_tangent,
+        expected.response.nodal_tangent,
+        rtol=1e-12,
+        atol=1e-12,
+    )
+
+
+def test_partial_contact_discovery_refuses_incomplete_facet_budget():
+    tool = _closed_L_prism()
+    slave = np.asarray(
+        ((0.895, 0.875, -0.02), (0.905, 0.875, 0.175), (0.895, 0.885, 0.16))
+    )
+    with pytest.raises(ValueError, match="bounded 3D facets"):
+        integrate_discovered_partial_closed_two_feature_penalty(
+            slave, slave, tool, penalty=500.0, maximum_master_facets=8
+        )
+
+
+def test_partial_contact_discovery_does_not_fallback_on_a_third_tool_boundary():
+    tool = _closed_L_prism()
+    slave = np.asarray(
+        ((0.895, 0.875, -0.02), (1.005, 0.875, 0.175), (0.895, 0.885, 0.16))
+    )
+    with pytest.raises(NotImplementedError, match="No complete two-feature"):
+        integrate_discovered_partial_closed_two_feature_penalty(
+            slave, slave, tool, penalty=500.0
         )

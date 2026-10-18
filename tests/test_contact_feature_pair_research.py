@@ -15,6 +15,121 @@ from agentfem.boundary_models.contact_feature_pair_research import (
 )
 
 
+def test_partially_active_plane_integral_matches_independent_clipped_polynomial():
+    from agentfem.boundary_models.contact_convex_partition import (
+        _clip_polygon,
+        _polygon_rule,
+    )
+
+    reference = np.asarray(((0.0, 0.0, -0.2), (1.0, 0.0, 0.5), (0.0, 1.0, 0.7)))
+    plane = AffineDistanceFeature(
+        np.zeros(3), np.asarray(((1.0, 0.0), (0.0, 1.0), (0.0, 0.0)))
+    )
+    remote = AffineDistanceFeature(np.asarray((10.0, 10.0, 10.0)), np.empty((3, 0)))
+    stiffness = 19.0
+    response = integrate_two_affine_feature_distances(
+        reference,
+        reference,
+        plane,
+        remote,
+        stiffness=stiffness,
+        active_plane_normal=(0.0, 0.0, 1.0),
+    )
+    polygon = _clip_polygon(list(np.eye(3)), reference[:, 2])
+    shapes, weights = _polygon_rule(polygon)
+    double_area = np.linalg.norm(
+        np.cross(reference[1] - reference[0], reference[2] - reference[0])
+    )
+    expected = (
+        0.5
+        * stiffness
+        * double_area
+        * np.dot(weights, (np.asarray(shapes) @ reference)[:, 2] ** 2)
+    )
+    assert response.potential == pytest.approx(expected, rel=2e-10)
+    assert response.branch_areas[0] > 0.0
+    assert response.branch_areas[1] == pytest.approx(0.0, abs=1e-12)
+    assert response.inactive_reference_area > 0.0
+    assert response.moving_boundary_tangent == pytest.approx(0.0, abs=1e-12)
+    step = 1e-6
+    for node in range(3):
+        for component in range(3):
+            direction = np.zeros((3, 3))
+            direction[node, component] = step
+            plus = integrate_two_affine_feature_distances(
+                reference,
+                reference + direction,
+                plane,
+                remote,
+                stiffness=stiffness,
+                active_plane_normal=(0.0, 0.0, 1.0),
+            )
+            minus = integrate_two_affine_feature_distances(
+                reference,
+                reference - direction,
+                plane,
+                remote,
+                stiffness=stiffness,
+                active_plane_normal=(0.0, 0.0, 1.0),
+            )
+            assert response.nodal_residual[node, component] == pytest.approx(
+                (plus.potential - minus.potential) / (2 * step),
+                rel=1e-6,
+                abs=1e-8,
+            )
+            np.testing.assert_allclose(
+                response.nodal_tangent[:, :, node, component],
+                (plus.nodal_residual - minus.nodal_residual) / (2 * step),
+                rtol=1e-6,
+                atol=1e-8,
+            )
+
+
+def test_partially_active_plane_to_edge_switch_has_repartitioned_tangent():
+    reference = np.asarray(
+        ((0.895, 0.875, -0.02), (0.905, 0.875, 0.175), (0.895, 0.885, 0.16))
+    )
+    plane = AffineDistanceFeature(
+        np.zeros(3), np.asarray(((1.0, 0.0), (0.0, 1.0), (0.0, 0.0)))
+    )
+    edge = AffineDistanceFeature(
+        np.asarray((1.0, 1.0, 0.0)), np.asarray(((0.0,), (0.0,), (1.0,)))
+    )
+    kwargs = {
+        "stiffness": 500.0,
+        "active_plane_normal": (0.0, 0.0, -1.0),
+    }
+    response = integrate_two_affine_feature_distances(
+        reference, reference, plane, edge, **kwargs
+    )
+    assert min(response.branch_areas) > 0.0
+    assert response.inactive_reference_area > 0.0
+    assert response.boundary_point_count > 0
+    assert np.linalg.norm(response.moving_boundary_tangent) > 1e-5
+    step = 1e-6
+    for node in range(3):
+        for component in range(3):
+            direction = np.zeros((3, 3))
+            direction[node, component] = step
+            plus = integrate_two_affine_feature_distances(
+                reference, reference + direction, plane, edge, **kwargs
+            )
+            minus = integrate_two_affine_feature_distances(
+                reference, reference - direction, plane, edge, **kwargs
+            )
+            assert response.nodal_residual[node, component] == pytest.approx(
+                (plus.potential - minus.potential) / (2 * step),
+                rel=1e-5,
+                abs=1e-7,
+            )
+            np.testing.assert_allclose(
+                response.nodal_tangent[:, :, node, component],
+                (plus.nodal_residual - minus.nodal_residual) / (2 * step),
+                rtol=2e-5,
+                atol=2e-7,
+            )
+
+
 _ORACLE = runpy.run_path(
     str(
         Path(__file__).resolve().parents[1]

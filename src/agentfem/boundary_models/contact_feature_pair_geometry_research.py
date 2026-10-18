@@ -36,6 +36,7 @@ class CertifiedTwoFacetDistancePair:
     examined_facet_count: int
     quadratic_exclusion_count: int
     equivalent_feature_count: int
+    affine_dominance_count: int
 
 
 @dataclass(frozen=True, eq=False)
@@ -46,6 +47,262 @@ class CertifiedClosedTwoFeaturePenalty:
     geometry: CertifiedTwoFacetDistancePair
     minimum_interior_clearance: float
     tool_fingerprint: str
+
+
+@dataclass(frozen=True, eq=False)
+class CertifiedPartialClosedTwoFeaturePenalty:
+    """Local partly active penalty; never an accepted global Step."""
+
+    response: TwoFeatureDistanceIntegral
+    geometry: CertifiedTwoFacetDistancePair
+    active_reference_fraction: float
+    tool_fingerprint: str
+
+
+def integrate_discovered_partial_closed_two_feature_penalty(
+    reference_vertices,
+    current_vertices,
+    surface: ClosedTriangulatedRigidSolid,
+    *,
+    penalty: float,
+    order: int = 24,
+    maximum_master_facets: int = 64,
+) -> CertifiedPartialClosedTwoFeaturePenalty:
+    """Discover candidate facets, then *prove* the bounded local contact law.
+
+    Nearest-point samples are only a cheap proposal source. The returned
+    integral is admitted solely by the complete active-polygon, finite-
+    feature and competitor certificates. Failure to discover the right pair
+    is a conservative refusal, never a sampled-Gauss fallback.
+    """
+
+    reference = np.asarray(reference_vertices, dtype=float)
+    slave = np.asarray(current_vertices, dtype=float)
+    selected_penalty = float(penalty)
+    if (
+        slave.shape != (3, 3)
+        or reference.shape != (3, 3)
+        or not np.all(np.isfinite(slave))
+        or not np.all(np.isfinite(reference))
+        or not np.isfinite(selected_penalty)
+        or selected_penalty <= 0.0
+        or type(order) is not int
+        or not 2 <= order <= 64
+        or not isinstance(surface, ClosedTriangulatedRigidSolid)
+        or type(maximum_master_facets) is not int
+        or not 2 <= len(surface._triangles) <= maximum_master_facets <= 64
+    ):
+        raise ValueError("Automatic local contact discovery needs bounded 3D facets.")
+    proposal = surface.project(slave)
+    seeds = set()
+    if proposal.entity_ids is not None:
+        seeds = {
+            surface._facet_slots[int(identity)]
+            for identity, valid in zip(
+                proposal.entity_ids,
+                proposal.valid,
+                strict=True,
+            )
+            if valid
+        }
+    candidates = tuple(sorted(seeds)) + tuple(
+        index for index in range(len(surface._triangles)) if index not in seeds
+    )
+    for first_index in candidates:
+        master = surface._triangles[first_index]
+        normal = surface.facets.facet_normals[first_index]
+        values = (slave - master[0]) @ normal
+        if not np.min(values) < 0.0 or not np.max(values) > 0.0:
+            continue
+        try:
+            active, _ = certify_partial_closed_face(slave, surface, first_index)
+        except NotImplementedError:
+            continue
+        points = active @ slave
+        sampled = np.vstack(
+            (
+                points,
+                np.mean(points, axis=0),
+                0.5 * (points + np.roll(points, -1, axis=0)),
+            )
+        )
+        proposed = surface.project(sampled)
+        second_seeds = {
+            surface._facet_slots[int(identity)]
+            for identity, valid in zip(
+                proposed.entity_ids,
+                proposed.valid,
+                strict=True,
+            )
+            if valid and surface._facet_slots[int(identity)] != first_index
+        }
+        for second_index in sorted(second_seeds):
+            try:
+                return integrate_certified_partial_closed_two_feature_penalty(
+                    reference,
+                    slave,
+                    surface,
+                    (first_index, second_index),
+                    penalty=selected_penalty,
+                    order=order,
+                )
+            except NotImplementedError:
+                continue
+    raise NotImplementedError(
+        "No complete two-feature partially active closed-tool proof was found."
+    )
+
+
+def integrate_certified_partial_closed_two_feature_penalty(
+    reference_vertices,
+    current_vertices,
+    surface: ClosedTriangulatedRigidSolid,
+    selected_indices: tuple[int, int],
+    *,
+    penalty: float,
+    order: int = 24,
+) -> CertifiedPartialClosedTwoFeaturePenalty:
+    """One transversely cut, single-plane activity region of a closed tool.
+
+    Both resulting open polygons must have a constant, winding-verified sign.
+    Every other tool facet plane must be strictly separated from their open
+    interiors, except facets coplanar with the selected activation plane.
+    The nearest finite feature pair is then certified on the active polygon;
+    the first feature must be the activation face. Equalities on its cut edge
+    are allowed only where a finite edge begins at that exact plane.
+    """
+
+    slave = np.asarray(current_vertices, dtype=float)
+    active, normal = certify_partial_closed_face(slave, surface, selected_indices[0])
+    pair = certify_two_facet_distance_competition(
+        active @ slave,
+        surface._triangles,
+        selected_indices,
+        active_boundary=(surface._triangles[selected_indices[0]][0], normal),
+    )
+    if pair.feature_kinds[0] != "face":
+        raise NotImplementedError("The activation facet must remain a face feature.")
+    response = integrate_two_affine_feature_distances(
+        reference_vertices,
+        current_vertices,
+        pair.first,
+        pair.second,
+        stiffness=penalty,
+        order=order,
+        active_plane_normal=normal,
+    )
+    reference = np.asarray(reference_vertices, dtype=float)
+    double_area = float(
+        np.linalg.norm(
+            np.cross(reference[1] - reference[0], reference[2] - reference[0])
+        )
+    )
+    fraction = sum(response.branch_areas) / (0.5 * double_area)
+    return CertifiedPartialClosedTwoFeaturePenalty(
+        response,
+        pair,
+        fraction,
+        surface.geometry_fingerprint,
+    )
+
+
+def certify_partial_closed_face(
+    slave_vertices,
+    surface: ClosedTriangulatedRigidSolid,
+    boundary_facet_index: int,
+) -> tuple[np.ndarray, np.ndarray]:
+    """Certify inside/outside of a P1 face cut by one tool facet plane.
+
+    Returns barycentric vertices of the negative, active polygon and the
+    outward normal. A plane-side test is conservative: it may refuse a valid
+    contact, but cannot infer a constant winding sign across a crossing.
+    """
+
+    slave = np.asarray(slave_vertices, dtype=float)
+    if (
+        slave.shape != (3, 3)
+        or not np.all(np.isfinite(slave))
+        or not isinstance(surface, ClosedTriangulatedRigidSolid)
+        or surface.sign_method != "winding_reference"
+        or type(boundary_facet_index) is not int
+        or not 0 <= boundary_facet_index < len(surface._triangles)
+    ):
+        raise ValueError("Partial closed-face proof needs reviewed 3D geometry.")
+    master = surface._triangles[boundary_facet_index]
+    normal = np.asarray(surface.facets.facet_normals[boundary_facet_index])
+    local_scale = max(
+        float(np.max(np.linalg.norm(slave - slave[0], axis=1))),
+        float(surface.facets.scale),
+    )
+    world_scale = max(
+        float(np.max(np.abs(slave))),
+        float(np.max(np.abs(surface.facets.vertices))),
+    )
+    margin = max(1e-12 * local_scale, 128.0 * np.finfo(float).eps * world_scale)
+    if margin > 1e-4 * local_scale:
+        raise ValueError("Partial closed-face proof loses world-coordinate precision.")
+    values = (slave - master[0]) @ normal
+    if (
+        np.any(np.abs(values) <= margin)
+        or not np.min(values) < -margin
+        or not np.max(values) > margin
+    ):
+        raise NotImplementedError(
+            "A single transverse activation cut is not certified."
+        )
+    unit = list(np.eye(3))
+
+    def clip(signed):
+        result = []
+        for start, end in zip(unit, unit[1:] + unit[:1], strict=True):
+            a, b = float(start @ signed), float(end @ signed)
+            if (a < 0.0) != (b < 0.0):
+                result.append((b * start - a * end) / (b - a))
+            if b < 0.0:
+                result.append(end)
+        return np.asarray(result)
+
+    active, inactive = clip(values), clip(-values)
+    if len(active) < 3 or len(inactive) < 3:
+        raise NotImplementedError("A positive-area activity split is required.")
+    plane_anchor = master[0]
+    for polygon, sign in ((active, -1), (inactive, 1)):
+        points = polygon @ slave
+        center = np.mean(points, axis=0)
+        query = surface.project(center)
+        if not query.all_valid or sign * float(query.signed_gaps[0]) <= margin:
+            raise NotImplementedError(
+                "The cut polygon lacks the required winding sign."
+            )
+        for triangle in surface._triangles:
+            facet_normal = np.cross(
+                triangle[1] - triangle[0], triangle[2] - triangle[0]
+            )
+            facet_normal /= np.linalg.norm(facet_normal)
+            distances = (points - triangle[0]) @ facet_normal
+            coplanar = (
+                abs(abs(float(facet_normal @ normal)) - 1.0) <= 1e-12
+                and abs(float((triangle[0] - plane_anchor) @ normal)) <= margin
+            )
+            if coplanar:
+                if np.max(np.abs((points - plane_anchor) @ normal)) <= margin:
+                    raise NotImplementedError(
+                        "A cut polygon lies on the tool boundary."
+                    )
+                continue
+            if not (np.min(distances) > margin or np.max(distances) < -margin):
+                raise NotImplementedError("Another tool facet may cross a cut polygon.")
+    cut_points = np.vstack((active @ slave, inactive @ slave))
+    cut_points = cut_points[np.abs((cut_points - master[0]) @ normal) <= margin]
+    if len(cut_points) < 2:
+        raise NotImplementedError("Activation intersection is unresolved.")
+    for point in cut_points:
+        barycentric = _triangle_barycentric_coordinates(point, master)
+        if np.min(barycentric) <= margin / local_scale:
+            raise NotImplementedError(
+                "Activation cut leaves the selected finite facet."
+            )
+    return active, normal
 
 
 def integrate_certified_closed_two_feature_penalty(
@@ -145,7 +402,7 @@ def certify_wholly_interior_closed_face(
     return max(clearances)
 
 
-def _single_feature_over_slave(slave, master, length_margin):
+def _single_feature_over_slave(slave, master, length_margin, active_boundary=None):
     edges = (master[1] - master[0], master[2] - master[0])
     normal = np.cross(*edges)
     area_scale = float(np.linalg.norm(normal))
@@ -178,8 +435,20 @@ def _single_feature_over_slave(slave, master, length_margin):
         direction = edge / length
         transverse = third - first - np.dot(third - first, direction) * direction
         fraction = ((slave - first) @ direction) / length
+        boundary_admissible = False
+        if active_boundary is not None:
+            anchor, outward = active_boundary
+            on_cut = np.abs((slave - anchor) @ outward) <= length_margin
+            near_start = fraction <= length_margin / length
+            boundary_admissible = (
+                np.any(near_start)
+                and np.all(on_cut[near_start])
+                and np.min(fraction) >= -length_margin / length
+                and abs(float((first - anchor) @ outward)) <= length_margin
+                and float(direction @ outward) < -length_margin / length
+            )
         if (
-            np.min(fraction) > length_margin / length
+            (np.min(fraction) > length_margin / length or boundary_admissible)
             and np.max(fraction) < 1.0 - length_margin / length
             and np.max((slave - first) @ transverse)
             < -length_margin * np.linalg.norm(transverse)
@@ -203,31 +472,61 @@ def _single_feature_over_slave(slave, master, length_margin):
 
 def _quadratic_distance_difference_lower(slave, other, selected):
     """Bernstein lower bound for two fixed-feature squared distances."""
-
-    samples = np.vstack(
-        (
-            slave,
-            0.5 * (slave[0] + slave[1]),
-            0.5 * (slave[1] + slave[2]),
-            0.5 * (slave[2] + slave[0]),
+    lower = []
+    for index in range(1, len(slave) - 1):
+        triangle = slave[[0, index, index + 1]]
+        samples = np.vstack(
+            (
+                triangle,
+                0.5 * (triangle[0] + triangle[1]),
+                0.5 * (triangle[1] + triangle[2]),
+                0.5 * (triangle[2] + triangle[0]),
+            )
         )
+        other_distance = np.linalg.norm(
+            (samples - other.anchor) @ other.normal_projector,
+            axis=1,
+        )
+        selected_distance = np.linalg.norm(
+            (samples - selected.anchor) @ selected.normal_projector,
+            axis=1,
+        )
+        values = other_distance**2 - selected_distance**2
+        coefficients = (
+            *values[:3],
+            2.0 * values[3] - 0.5 * (values[0] + values[1]),
+            2.0 * values[4] - 0.5 * (values[1] + values[2]),
+            2.0 * values[5] - 0.5 * (values[2] + values[0]),
+        )
+        lower.append(min(coefficients))
+    return float(min(lower))
+
+
+def _affine_feature_dominates_facet(slave, triangle, feature, length_margin):
+    """Sufficient whole-polygon bound against a convex competitor facet.
+
+    Let A be the selected affine point/line/plane. For p on the slave and q
+    on a competitor triangle, split both into components parallel and normal
+    to A. If their normal offsets have a nonpositive dot product, then
+    ``|p-q|² >= distance(p,A)²``. The dot product is bilinear, so checking
+    every pair of polygon/triangle vertices covers both convex hulls.
+    Zeros are admitted only when one offset vanishes exactly at the feature;
+    an equality there has the same closest point and force as A.
+    """
+
+    projector = feature.normal_projector
+    slave_offsets = (slave - feature.anchor) @ projector
+    facet_offsets = (triangle - feature.anchor) @ projector
+    dots = slave_offsets @ facet_offsets.T
+    zero_slave = np.all(slave_offsets == 0.0, axis=1)
+    zero_facet = np.all(facet_offsets == 0.0, axis=1)
+    scale = max(
+        float(np.max(np.linalg.norm(slave_offsets, axis=1))),
+        float(np.max(np.linalg.norm(facet_offsets, axis=1))),
+        length_margin,
     )
-    other_distance = np.linalg.norm(
-        (samples - other.anchor) @ other.normal_projector,
-        axis=1,
-    )
-    selected_distance = np.linalg.norm(
-        (samples - selected.anchor) @ selected.normal_projector,
-        axis=1,
-    )
-    values = other_distance**2 - selected_distance**2
-    coefficients = (
-        *values[:3],
-        2.0 * values[3] - 0.5 * (values[0] + values[1]),
-        2.0 * values[4] - 0.5 * (values[1] + values[2]),
-        2.0 * values[5] - 0.5 * (values[2] + values[0]),
-    )
-    return float(min(coefficients))
+    strict = dots < -(length_margin * scale)
+    return bool(np.all(strict | zero_slave[:, None] | zero_facet[None, :]))
 
 
 def certify_two_facet_distance_competition(
@@ -236,6 +535,7 @@ def certify_two_facet_distance_competition(
     selected_indices: tuple[int, int],
     *,
     maximum_master_facets: int = 64,
+    active_boundary: tuple[np.ndarray, np.ndarray] | None = None,
 ) -> CertifiedTwoFacetDistancePair:
     """Prove only two finite facets may be closest on one current P1 face.
 
@@ -254,7 +554,9 @@ def certify_two_facet_distance_competition(
     masters = np.asarray(master_triangles, dtype=float)
     indices = selected_indices
     if (
-        slave.shape != (3, 3)
+        slave.ndim != 2
+        or slave.shape[1:] != (3,)
+        or not 3 <= len(slave) <= 4
         or masters.ndim != 3
         or masters.shape[1:] != (3, 3)
         or not np.all(np.isfinite(slave))
@@ -273,10 +575,7 @@ def certify_two_facet_distance_competition(
         raise ValueError(
             "Two-facet certificate needs bounded finite 3D triangle geometry."
         )
-    local_lengths = [
-        np.linalg.norm(slave[1] - slave[0]),
-        np.linalg.norm(slave[2] - slave[0]),
-    ]
+    local_lengths = [np.linalg.norm(vertex - slave[0]) for vertex in slave[1:]]
     master_lengths = np.linalg.norm(masters[:, 1:] - masters[:, :1], axis=2)
     local_scale = max(float(np.max(master_lengths)), *local_lengths)
     if local_scale <= 0.0:
@@ -290,9 +589,45 @@ def certify_two_facet_distance_competition(
         raise ValueError(
             "Two-facet local geometry is unresolved at world-coordinate precision."
         )
-    if np.linalg.norm(np.cross(slave[1] - slave[0], slave[2] - slave[0])) <= (
-        length_margin * max(local_lengths)
-    ):
+    polygon_normal = np.cross(slave[1] - slave[0], slave[2] - slave[0])
+    normal_length = float(np.linalg.norm(polygon_normal))
+    if normal_length <= length_margin * max(local_lengths):
+        raise ValueError("Two-facet certificate needs a nondegenerate slave face.")
+    if len(slave) == 4:
+        unit_normal = polygon_normal / normal_length
+        if abs(float((slave[3] - slave[0]) @ unit_normal)) > length_margin:
+            raise ValueError("The bounded slave polygon must be planar.")
+        for index in range(4):
+            start, middle, end = slave[[index, (index + 1) % 4, (index + 2) % 4]]
+            turn = float(np.cross(middle - start, end - middle) @ unit_normal)
+            if turn <= length_margin * max(local_lengths):
+                raise ValueError(
+                    "The bounded slave polygon must be convex and ordered."
+                )
+    if active_boundary is not None:
+        if type(active_boundary) is not tuple or len(active_boundary) != 2:
+            raise ValueError(
+                "Active-boundary proof needs an anchor and outward normal."
+            )
+        anchor, outward = (np.asarray(item, dtype=float) for item in active_boundary)
+        if (
+            anchor.shape != (3,)
+            or outward.shape != (3,)
+            or not np.all(np.isfinite(anchor))
+            or not np.all(np.isfinite(outward))
+            or not np.isclose(np.linalg.norm(outward), 1.0, rtol=0.0, atol=1e-12)
+        ):
+            raise ValueError("Active-boundary proof has invalid 3D plane geometry.")
+        active_boundary = (anchor, outward)
+    area = sum(
+        float(
+            np.linalg.norm(
+                np.cross(slave[index] - slave[0], slave[index + 1] - slave[0])
+            )
+        )
+        for index in range(1, len(slave) - 1)
+    )
+    if area <= length_margin * max(local_lengths):
         raise ValueError("Two-facet certificate needs a nondegenerate slave face.")
     master_areas = np.linalg.norm(
         np.cross(
@@ -307,11 +642,13 @@ def certify_two_facet_distance_competition(
         slave,
         masters[indices[0]],
         length_margin,
+        active_boundary,
     )
     second, second_kind, second_signature = _single_feature_over_slave(
         slave,
         masters[indices[1]],
         length_margin,
+        active_boundary,
     )
     if first_signature == second_signature:
         raise NotImplementedError(
@@ -329,6 +666,7 @@ def certify_two_facet_distance_competition(
     clearance = []
     quadratic_count = 0
     equivalent_count = 0
+    affine_count = 0
     for index, triangle in enumerate(masters):
         if index in indices:
             continue
@@ -337,15 +675,23 @@ def certify_two_facet_distance_competition(
         if margin > length_margin:
             clearance.append(margin)
             continue
+        if any(
+            _affine_feature_dominates_facet(slave, triangle, feature, length_margin)
+            for feature in (first, second)
+        ):
+            affine_count += 1
+            continue
         try:
             other, _, signature = _single_feature_over_slave(
                 slave,
                 triangle,
                 length_margin,
+                active_boundary,
             )
         except NotImplementedError:
             raise NotImplementedError(
-                "An additional finite master facet changes feature within the slave face."
+                "An additional finite master facet changes feature within the "
+                f"slave face (facet {index})."
             ) from None
         if signature in (first_signature, second_signature):
             equivalent_count += 1
@@ -370,13 +716,18 @@ def certify_two_facet_distance_competition(
         len(masters),
         quadratic_count,
         equivalent_count,
+        affine_count,
     )
 
 
 __all__ = [
     "CertifiedClosedTwoFeaturePenalty",
+    "CertifiedPartialClosedTwoFeaturePenalty",
     "CertifiedTwoFacetDistancePair",
     "certify_two_facet_distance_competition",
+    "certify_partial_closed_face",
     "certify_wholly_interior_closed_face",
     "integrate_certified_closed_two_feature_penalty",
+    "integrate_certified_partial_closed_two_feature_penalty",
+    "integrate_discovered_partial_closed_two_feature_penalty",
 ]

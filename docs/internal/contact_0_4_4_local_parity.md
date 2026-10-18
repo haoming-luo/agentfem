@@ -28,7 +28,7 @@ being silently approximated by the bounded route.
 | --- | --- | --- |
 | 1. Comparator | Internal and public-protocol tests | Independent same-input finite-J2 contact run and frozen observables |
 | 2. Surface | Reviewed closed/open triangle geometry, bounded initial-overlap checks, and per-face same-plane proof with one bounded fallback subdivision | Rims, unsupported curved tools, ambiguous sharp features and target-path sliding coverage |
-| 3. Integration | Planar/convex partitions; certified zero-contact and smooth-branch faces; private wholly-interior reentrant edge/face local integral and tangent | Near-zero partial-active nonconvex partition; global signed-gap Step admission; other edge/point laws |
+| 3. Integration | Planar/convex partitions; certified zero-contact and smooth-branch faces; private wholly-interior and single-plane partially active reentrant edge/face local integral and tangent | General active boundaries and feature sets; global signed-gap Step admission; other edge/point laws |
 | 4. Normal law | Penalty Step; fixed-trace AL research law plus real-mesh/reduced-rank counterexamples | Compatible multiplier space, outer global Procedure, spatial stability and checkpoint composition |
 | 5. Friction | Locally planar Coulomb State; rigid-master spin transport tested | Admitted geometry-by-friction matrix; sharp features remain rejected |
 | 6. Transaction | Total-system and restart tests for penalty; serial affine/MPC accepted-feature path with legacy-incomplete migration | Repeat for each new enforcement/integration law |
@@ -254,7 +254,9 @@ strict KKT inequalities are affine on that face, so checking all three
 vertices proves the branch region; distance to each fixed affine feature is
 convex, so its largest vertex distance bounds the selected pair from above.
 Every other finite master triangle is excluded over the whole slave face by
-its 1-Lipschitz center/radius lower bound, or the proof refuses. A separate
+its 1-Lipschitz center/radius lower bound, a common finite feature, a positive
+quadratic Bernstein bound, or an affine-feature dominance inequality over
+both convex hulls; otherwise the proof refuses. A separate
 brute-force nearest-triangle sample grid corroborates an edge/vertex fixture;
 an intervening third facet, a changing selected branch, degenerate face and
 unresolvable world-coordinate precision are rejected. This certifies the
@@ -272,8 +274,8 @@ reference-area penalty interpretation: on a wholly penetrated face,
 A four-facet closed tetrahedron test exercises this face/face switching law
 against an independent exact linear-clip integral of `min(x,y)²`, while a
 face reaching the boundary refuses the interior-ball proof. This is a
-**narrow local physical subset**, not a normal project Step, not a partial
-active contact patch, and not a finite-slip/restart/tool-work validation.
+**narrow local physical subset**, not a normal project Step or a finite-slip,
+restart or accepted-path-work validation.
 The conservative competitor check now also handles an additional facet
 whose fixed finite feature is exactly the same shared edge, or whose entire
 fixed-feature squared-distance difference has a positive quadratic
@@ -285,17 +287,36 @@ nodal potential derivatives and 81 tangent entries match re-certified,
 re-partitioned finite differences, including the nonzero moving-boundary
 term. The tool is attested embedded, with reference winding sign. This is
 local evidence for one nonconvex reentrant transition in a deliberately
-deep-penetration subset. The practical near-zero/partial-active patch, other
-sharp feature combinations, global finite-J2/MPC Procedure and accepted
-State/Result/work contract remain open; no public nonconvex Step is enabled.
-A deliberately nearby counterexample crosses the L-prism bottom boundary:
-the contact face is only partly active, and the finite vertical reentrant
-edge changes to its bottom **vertex** in the exterior portion. The current
-whole-face two-feature proof and inside-ball proof both refuse it. Clipping
-only by the active halfspace while continuing to treat that finite edge as
-infinite would be wrong. The next algorithm must partition the active region
-and the finite-feature Voronoi regions together, then retain the correct
-moving-boundary tangent; mere higher-order Gauss points do not supply this.
+deep-penetration subset. A nearby face crosses the L-prism bottom boundary:
+its exterior portion is inactive, and the finite vertical reentrant edge
+ends at a bottom **vertex** there. The wholly-inside proof still refuses it.
+A second *private* path now clips the P1 reference face by one selected,
+transversely crossed tool-facet plane. It certifies constant opposite winding
+signs on the two resulting convex polygons by separating every other tool
+facet plane from their interiors. The finite feature pair is proved nearest
+only on the active polygon; a selected finite edge may end on the cut only
+when its endpoint lies on that same plane. The other facets are excluded by
+the bounds above, including affine-feature dominance for the adjacent wall.
+The private discovery helper proposes candidate facet identities from current
+nearest-point queries but returns an integral only after the complete polygon
+and competitor proof. It does not require a user-labelled special pair of
+triangle IDs; a missed proposal fails closed rather than falling back to
+ordinary sampled integration. A small facet budget and a second crossing
+tool boundary are explicit rejection tests.
+The first (activation-face) distance and force vanish on the cut, so its
+moving activity boundary has no distributional force/tangent contribution;
+the *different* moving nearest-feature boundary still has its coarea term.
+The partially active L-prism test checks the winding sign over a grid,
+re-clips and re-certifies at every finite-difference perturbation, and matches
+all nine nodal energy gradients and 81 tangent entries. Local tool force
+matches virtual work for all three small translations; the vertical-axis
+tool moment matches a small rigid rotation. Tilted tools are conservatively
+refused by this certificate. This does **not** yet cover an arbitrary tool
+surface crossing, multiple activity planes or general large sliding.
+The global finite-J2/MPC Procedure, accepted State/Result/path-work contract,
+MPI and mesh/penalty/increment convergence are still open. No public
+nonconvex Step is enabled, and local virtual work must not be reported as
+accepted-path energy closure.
 The same sphere fixture runs to completion on 1, 2 and 4 subdivisions per
 cube edge (6, 48 and 384 tetrahedra). The maximum displacement is
 `1.75747e-5`, `2.49116e-5`, `4.06294e-5`; the final contact potential is
