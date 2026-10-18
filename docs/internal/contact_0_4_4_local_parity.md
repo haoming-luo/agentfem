@@ -276,6 +276,17 @@ The gate stays open until its listed evidence exists at the proposed scope.
    cancels a nonzero fixed-branch bulk tangent. It proves why the term is
    necessary in that manufactured setting, not that the closed nonconvex
    three-dimensional implementation has been supplied.
+   A second independent oracle, `tools/verify_reentrant_contact_integral.py`,
+   computes signed distances directly to the six segments of an extruded
+   L boundary, without calling the AgentFEM projector. One affine slave
+   triangle has **all three ordinary face points outside** the rigid solid,
+   so its sampled penalty potential is zero, yet positive-area material near
+   its corners penetrates: 128/256/512 positive-subtriangle refinements give
+   potentials 0.000348765/0.000349677/0.000349913 at unit penalty. The last
+   two differ by about 0.07%. This is a numerical refinement reference, not
+   an exact-arithmetic certified integral, and supplies a concrete target
+   for the nonconvex feature-partition work rather than an excuse to turn on
+   a sampled full Step as though it were complete.
    [Hiermeier--Wall--Popp's variationally consistent mortar study][variational-mortar]
    is a useful independent standard for varying *all* active contributions,
    but its symmetric two-body mortar formulation is not our algorithm.
