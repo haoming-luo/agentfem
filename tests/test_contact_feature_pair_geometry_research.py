@@ -41,6 +41,7 @@ def test_finite_edge_vertex_pair_is_certified_over_whole_slave_face():
     assert proof.feature_kinds == ("edge", "vertex")
     assert proof.minimum_competitor_clearance > 0.0
     assert proof.examined_facet_count == 3
+    assert proof.box_exclusion_count == 1
     response = integrate_two_affine_feature_distances(
         _SLAVE,
         _SLAVE,

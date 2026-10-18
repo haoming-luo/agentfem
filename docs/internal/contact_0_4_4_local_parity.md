@@ -367,6 +367,29 @@ faces lowered through this path and reproduced the independently assembled
 local contact potential; the active faces were classified partial and whole.
 The companion distant-tool DOLFINx test classified both selected faces as
 separated. Neither test solves a global J2 equilibrium problem.
+For each finite-facet competitor, a vectorized slave/master AABB distance
+lower bound is now checked before the exact center-to-triangle projection.
+The minimum distance of the two boxes bounds every slave/master point pair
+from below, while the chosen affine feature's distance over a convex P1 face
+is bounded above by its maximum at face vertices. A strict gap between those
+bounds excludes that competitor without an exact query; inconclusive boxes
+retain the existing KKT/Bernstein proof or refusal. The far-competitor and
+near-true-competitor tests distinguish safe pruning from false acceptance.
+No full-solve speedup is inferred from this component change.
+Fixed-body prescribed-tool paths now re-certify the mixed two-face patch at
+each quadrature station. Translational, rotational and simultaneous
+translation-plus-rotation generalized work integrate to the change in contact
+potential; the simultaneous test takes the moment about the *moving* tool
+reference. This confirms the local force/moment sign and reference-point
+mapping. It is still not a path of accepted J2 equilibrium increments, so
+neither a total-system first-law claim nor checkpoint/work promotion follows.
+A real DOLFINx P1 tetrahedral elastic matrix and the certified two-face
+contact Operator now also enter the same manufactured Newton residual and
+tangent rows, with strongly fixed degrees of freedom. The converged free
+displacements match the manufactured solution. This checks FE row ordering
+and additive local linearization; it is not the finite-J2 Procedure, a
+line-search/rollback test or evidence that the face law is admitted in
+`model.step(...)`.
 
 For real Step admission, the boundary adapter must enumerate every selected
 physical slave face exactly once, then certify each current Newton trial as

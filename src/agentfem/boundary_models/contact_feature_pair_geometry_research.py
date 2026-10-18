@@ -41,6 +41,7 @@ class CertifiedTwoFacetDistancePair:
     quadratic_exclusion_count: int
     equivalent_feature_count: int
     affine_dominance_count: int
+    box_exclusion_count: int
 
 
 @dataclass(frozen=True, eq=False)
@@ -857,8 +858,25 @@ def certify_two_facet_distance_competition(
     quadratic_count = 0
     equivalent_count = 0
     affine_count = 0
+    box_count = 0
+    slave_lower = np.min(slave, axis=0)
+    slave_upper = np.max(slave, axis=0)
+    master_lower = np.min(masters, axis=1)
+    master_upper = np.max(masters, axis=1)
+    box_lower = np.linalg.norm(
+        np.maximum(
+            np.maximum(master_lower - slave_upper, slave_lower - master_upper),
+            0.0,
+        ),
+        axis=1,
+    )
     for index, triangle in enumerate(masters):
         if index in indices:
+            continue
+        box_margin = float(box_lower[index]) - selected_upper
+        if box_margin > length_margin:
+            clearance.append(box_margin)
+            box_count += 1
             continue
         foot = _closest_point_on_triangle(center, *triangle)
         margin = float(np.linalg.norm(center - foot)) - radius - selected_upper
@@ -913,6 +931,7 @@ def certify_two_facet_distance_competition(
         quadratic_count,
         equivalent_count,
         affine_count,
+        box_count,
     )
 
 

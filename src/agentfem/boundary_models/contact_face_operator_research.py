@@ -335,11 +335,33 @@ def evaluate_certified_closed_p1_contact_operator(
         raise ValueError("Face Operator needs a bounded current P1 nodal layout.")
     responses = []
     for face_id, nodes in zip(layout.face_ids, layout.face_node_ids, strict=True):
+        reference_face = reference[nodes]
+        current_face = current[nodes]
+        reference_double_area = np.linalg.norm(
+            np.cross(
+                reference_face[1] - reference_face[0],
+                reference_face[2] - reference_face[0],
+            )
+        )
+        current_double_area = np.linalg.norm(
+            np.cross(
+                current_face[1] - current_face[0],
+                current_face[2] - current_face[0],
+            )
+        )
+        if (
+            not np.isfinite(current_double_area)
+            or current_double_area <= 1e-12 * reference_double_area
+        ):
+            raise ValueError(
+                "AFM-CONTACT-CERTIFIED-FACE: collapsed current P1 "
+                f"slave_face_id={int(face_id)}."
+            )
         try:
             responses.append(
                 integrate_discovered_closed_contact_face(
-                    reference[nodes],
-                    current[nodes],
+                    reference_face,
+                    current_face,
                     surface,
                     penalty=penalty,
                     order=order,

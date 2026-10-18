@@ -466,6 +466,21 @@ def test_discovery_refuses_a_face_crossing_two_tool_activation_planes():
         )
 
 
+def test_complete_trial_rejects_collapsed_current_face_before_contact_search():
+    tool = _tool()
+    distant = np.asarray(((3.0, 3.0, 3.0), (3.1, 3.0, 3.0), (3.0, 3.1, 3.0)))
+    current = distant.copy()
+    current[2] = current[1]
+    with pytest.raises(ValueError, match="collapsed current P1 slave_face_id=42"):
+        evaluate_certified_closed_p1_contact_operator(
+            _positive_face_trace(distant, np.asarray(((0, 1, 2),)), (42,)),
+            distant,
+            current,
+            tool,
+            penalty=500.0,
+        )
+
+
 def test_face_layout_requires_all_three_positive_reference_points_per_face():
     points = np.asarray(((0.0, 0.0, 0.0), (1.0, 0.0, 0.0), (0.0, 1.0, 0.0)))
     shapes = np.asarray(
@@ -572,7 +587,7 @@ def test_real_dolfinx_owned_tetra_faces_preserve_complete_face_layout():
     np.testing.assert_array_equal(direct.face_ids, operator.face_ids)
 
 
-def test_real_dolfinx_mixed_active_patch_lowers_to_the_certified_face_operator():
+def _dolfinx_mixed_active_patch():
     import basix.ufl
     from dolfinx import fem, mesh
     from mpi4py import MPI
@@ -621,6 +636,13 @@ def test_real_dolfinx_mixed_active_patch_lowers_to_the_certified_face_operator()
         domain, tags, tag=17, name="mixed_reentrant_patch"
     )
     adapter = boundary_models.dolfinx_boundary_region_contact_trace(region, space)
+    return domain, space, adapter
+
+
+def test_real_dolfinx_mixed_active_patch_lowers_to_the_certified_face_operator():
+    from dolfinx import fem
+
+    _, space, adapter = _dolfinx_mixed_active_patch()
     reference = adapter.reference_nodal_positions
     current = adapter.current_nodal_positions(fem.Function(space))
     operator = evaluate_certified_closed_p1_contact_operator(
@@ -630,4 +652,222 @@ def test_real_dolfinx_mixed_active_patch_lowers_to_the_certified_face_operator()
     assert operator.potential_energy == pytest.approx(
         _assemble(_POSITIONS, _POSITIONS, _tool()).potential_energy,
         rel=1e-10,
+    )
+
+
+def test_real_elastic_tetra_matrix_and_certified_face_operator_share_newton_rows():
+    from dolfinx import fem
+    import ufl
+
+    domain, space, adapter = _dolfinx_mixed_active_patch()
+    trial, test = ufl.TrialFunction(space), ufl.TestFunction(space)
+    young, poisson = 1.0e5, 0.3
+    mu = young / (2 * (1 + poisson))
+    lam = young * poisson / ((1 + poisson) * (1 - 2 * poisson))
+    strain = lambda field: ufl.sym(ufl.grad(field))
+    stress = 2 * mu * strain(trial) + lam * ufl.tr(strain(trial)) * ufl.Identity(3)
+    matrix = fem.petsc.assemble_matrix(
+        fem.form(ufl.inner(stress, strain(test)) * ufl.dx(domain=domain))
+    )
+    matrix.assemble()
+    size = 3 * len(adapter.reference_nodal_positions)
+    dofs = np.arange(size, dtype=np.int32)
+    bulk = np.asarray(matrix.getValues(dofs, dofs))
+    tool = _tool()
+    trace = adapter.trace
+    reference = adapter.reference_nodal_positions
+
+    def contact(values):
+        return evaluate_certified_closed_p1_contact_operator(
+            trace,
+            reference,
+            reference + values.reshape(-1, 3),
+            tool,
+            penalty=500.0,
+        )
+
+    fixed = np.asarray((0, 1, 2, 4, 9, 10, 11), dtype=np.int64)
+    free = np.asarray([index for index in range(size) if index not in fixed])
+    assert np.linalg.eigvalsh(bulk[np.ix_(free, free)])[0] > 0.0
+    target = np.zeros(size)
+    target[free] = np.asarray((1.0, -1.0, 0.5, 0.8, -0.6)) * 1e-6
+    exact = contact(target)
+    load = bulk @ target + exact.nodal_residual.reshape(-1)
+    iterate = np.zeros(size)
+    for _ in range(8):
+        response = contact(iterate)
+        residual = bulk @ iterate + response.nodal_residual.reshape(-1) - load
+        if np.linalg.norm(residual[free]) < 1e-11:
+            break
+        tangent = bulk.copy()
+        np.add.at(
+            tangent,
+            (response.tangent_rows, response.tangent_columns),
+            response.tangent_values,
+        )
+        step = np.linalg.solve(tangent[np.ix_(free, free)], -residual[free])
+        iterate[free] += step
+    np.testing.assert_allclose(iterate[free], target[free], rtol=1e-6, atol=1e-11)
+    assert (
+        np.linalg.norm(
+            (bulk @ iterate + contact(iterate).nodal_residual.reshape(-1) - load)[free]
+        )
+        < 1e-11
+    )
+
+
+def test_random_accepted_local_proofs_agree_with_independent_tool_projection():
+    tool = _tool()
+    generator = np.random.default_rng(20261019)
+    barycentric = np.asarray(
+        [(i / 12, j / 12, 1 - (i + j) / 12) for i in range(13) for j in range(13 - i)]
+    )
+    accepted = 0
+    for _ in range(32):
+        current = _POSITIONS + generator.normal(scale=1e-5, size=_POSITIONS.shape)
+        for nodes in _FACES:
+            face = current[nodes]
+            try:
+                certificate = integrate_discovered_closed_contact_face(
+                    _POSITIONS[nodes], face, tool, penalty=500.0
+                )
+            except NotImplementedError:
+                continue
+            accepted += 1
+            points = barycentric @ face
+            projection = tool.project(points)
+            assert projection.all_valid
+            if not hasattr(certificate, "geometry"):
+                assert np.min(projection.signed_gaps) > 0.0
+                continue
+            first = certificate.geometry.first
+            second = certificate.geometry.second
+            first_offsets = (points - first.anchor) @ first.normal_projector
+            second_offsets = (points - second.anchor) @ second.normal_projector
+            estimated_squared = np.minimum(
+                np.einsum("ij,ij->i", first_offsets, first_offsets),
+                np.einsum("ij,ij->i", second_offsets, second_offsets),
+            )
+            if certificate.response.inactive_reference_area:
+                facet_id = certificate.geometry.facet_indices[0]
+                normal = tool.facets.facet_normals[facet_id]
+                active = (points - tool._triangles[facet_id][0]) @ normal < -1e-10
+            else:
+                active = np.ones(len(points), dtype=bool)
+            np.testing.assert_allclose(
+                estimated_squared[active],
+                projection.signed_gaps[active] ** 2,
+                rtol=1e-9,
+                atol=1e-12,
+            )
+            assert np.all(projection.signed_gaps[active] < 0.0)
+            if np.any(~active):
+                assert np.all(projection.signed_gaps[~active] > 0.0)
+    assert accepted >= 32
+
+
+def test_prescribed_tool_translation_work_matches_fixed_body_potential_change():
+    base_tool = _tool()
+    trace = _positive_face_trace(_POSITIONS, _FACES, (100, 101))
+    travel = 1e-4
+    direction = np.asarray((0.0, 0.0, 1.0))
+
+    def state(factor):
+        moved = closed_triangulated_rigid_solid(
+            vertices=base_tool.facets.vertices + factor * travel * direction,
+            triangles=base_tool.facets.triangles,
+            reviewed_embedded=True,
+        )
+        return evaluate_certified_closed_p1_contact_operator(
+            trace, _POSITIONS, _POSITIONS, moved, penalty=500.0
+        )
+
+    start = state(0.0)
+    finish = state(1.0)
+    abscissae, weights = np.polynomial.legendre.leggauss(8)
+    path_work = sum(
+        weight
+        * np.dot(state((abscissa + 1) / 2).force_on_structure, travel * direction)
+        / 2
+        for abscissa, weight in zip(abscissae, weights, strict=True)
+    )
+    assert path_work == pytest.approx(
+        finish.potential_energy - start.potential_energy,
+        rel=1e-7,
+        abs=1e-9,
+    )
+
+
+def test_prescribed_tool_rotation_work_matches_fixed_body_potential_change():
+    base_tool = _tool()
+    trace = _positive_face_trace(_POSITIONS, _FACES, (100, 101))
+    angle = 1e-4
+    axis = np.asarray((1.0, 0.0, 0.0))
+    skew = np.asarray(((0.0, 0.0, 0.0), (0.0, 0.0, -1.0), (0.0, 1.0, 0.0)))
+
+    def state(factor):
+        theta = factor * angle
+        rotation = np.eye(3) + np.sin(theta) * skew + (1 - np.cos(theta)) * skew @ skew
+        moved = closed_triangulated_rigid_solid(
+            vertices=base_tool.facets.vertices @ rotation.T,
+            triangles=base_tool.facets.triangles,
+            reviewed_embedded=True,
+        )
+        return evaluate_certified_closed_p1_contact_operator(
+            trace, _POSITIONS, _POSITIONS, moved, penalty=500.0
+        )
+
+    start = state(0.0)
+    finish = state(1.0)
+    abscissae, weights = np.polynomial.legendre.leggauss(8)
+    path_work = sum(
+        weight
+        * np.dot(
+            state((abscissa + 1) / 2).moment_on_structure_about_origin, angle * axis
+        )
+        / 2
+        for abscissa, weight in zip(abscissae, weights, strict=True)
+    )
+    assert path_work == pytest.approx(
+        finish.potential_energy - start.potential_energy,
+        rel=1e-7,
+        abs=1e-9,
+    )
+
+
+def test_combined_tool_translation_rotation_uses_moment_at_moving_reference():
+    base_tool = _tool()
+    trace = _positive_face_trace(_POSITIONS, _FACES, (100, 101))
+    travel = np.asarray((2e-5, -3e-5, 1e-5))
+    angle = 1e-4
+    axis = np.asarray((1.0, 0.0, 0.0))
+    skew = np.asarray(((0.0, 0.0, 0.0), (0.0, 0.0, -1.0), (0.0, 1.0, 0.0)))
+
+    def state(factor):
+        theta = factor * angle
+        rotation = np.eye(3) + np.sin(theta) * skew + (1 - np.cos(theta)) * skew @ skew
+        moved = closed_triangulated_rigid_solid(
+            vertices=base_tool.facets.vertices @ rotation.T + factor * travel,
+            triangles=base_tool.facets.triangles,
+            reviewed_embedded=True,
+        )
+        result = evaluate_certified_closed_p1_contact_operator(
+            trace, _POSITIONS, _POSITIONS, moved, penalty=500.0
+        )
+        return result, factor * travel
+
+    start, _ = state(0.0)
+    finish, _ = state(1.0)
+    abscissae, weights = np.polynomial.legendre.leggauss(8)
+    path_work = 0.0
+    for abscissa, weight in zip(abscissae, weights, strict=True):
+        result, reference = state((abscissa + 1) / 2)
+        power = np.dot(result.force_on_structure, travel) + np.dot(
+            result.moment_on_structure_about(reference), angle * axis
+        )
+        path_work += weight * power / 2
+    assert path_work == pytest.approx(
+        finish.potential_energy - start.potential_energy,
+        rel=1e-7,
+        abs=1e-9,
     )
