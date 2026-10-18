@@ -6,6 +6,7 @@ import numpy as np
 import pytest
 
 from agentfem.boundary_models.contact_feature_pair_geometry_research import (
+    _affine_feature_dominates_facet,
     certify_partial_closed_face,
     certify_two_facet_distance_competition,
     certify_wholly_interior_closed_face,
@@ -14,6 +15,7 @@ from agentfem.boundary_models.contact_feature_pair_geometry_research import (
     integrate_discovered_partial_closed_two_feature_penalty,
 )
 from agentfem.boundary_models.contact_feature_pair_research import (
+    AffineDistanceFeature,
     integrate_two_affine_feature_distances,
 )
 from agentfem.boundary_models.closed_polyhedron import closed_triangulated_rigid_solid
@@ -108,6 +110,23 @@ def test_nonplanar_and_unordered_four_vertex_regions_are_refused():
     unordered = square[[0, 2, 1, 3]]
     with pytest.raises(ValueError, match="convex and ordered"):
         certify_two_facet_distance_competition(unordered, _MASTERS, (0, 1))
+
+
+def test_affine_dominance_does_not_merge_a_nearby_distinct_edge():
+    selected_master = np.asarray(((2.0, 1.0, 0.0), (1.0, 1.0, 0.0), (1.0, 1.0, 1.0)))
+    feature = AffineDistanceFeature(
+        np.asarray((1.0, 1.0, 0.0)),
+        np.asarray(((0.0,), (0.0,), (1.0,))),
+    )
+    slave = np.asarray(
+        ((0.895, 0.875, 0.02), (0.905, 0.875, 0.17), (0.895, 0.885, 0.16))
+    )
+    near_but_distinct = np.asarray(
+        ((1.0, 1.0 - 1e-10, 0.0), (1.0, 2.0, 0.0), (1.0, 2.0, 1.0))
+    )
+    assert not _affine_feature_dominates_facet(
+        slave, near_but_distinct, feature, selected_master, 2e-12
+    )
 
 
 def _closed_tetrahedron():
@@ -373,6 +392,18 @@ def test_partial_reentrant_tool_translation_work_matches_force():
     response = integrate_certified_partial_closed_two_feature_penalty(
         slave, slave, tool, (0, 12), penalty=500.0
     ).response
+    np.testing.assert_allclose(
+        response.force_on_structure,
+        -response.force_on_tool,
+    )
+    np.testing.assert_allclose(
+        response.force_on_structure,
+        -np.sum(response.nodal_residual, axis=0),
+    )
+    np.testing.assert_allclose(
+        response.moment_on_structure_about_origin,
+        -response.rigid_rotation_reaction_about_origin,
+    )
     step = 1e-6
     for component in range(3):
         translation = np.zeros(3)
@@ -395,9 +426,9 @@ def test_partial_reentrant_tool_translation_work_matches_force():
             abs=3e-7,
         )
 
-    # The vertical-axis rotation preserves this deliberately narrow feature
-    # certificate. Tilted tools are still refused rather than extrapolated.
-    for component in (2,):
+    # Re-certify every tilted trial; a shared rotated edge endpoint must not
+    # become a spurious third physical branch through projector roundoff.
+    for component in range(3):
         axis = np.eye(3)[component]
         skew = np.asarray(
             (

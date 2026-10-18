@@ -130,6 +130,22 @@ def test_partially_active_plane_to_edge_switch_has_repartitioned_tangent():
             )
 
 
+def test_unresolved_near_vertex_activity_sliver_refuses_the_tangent():
+    reference = np.asarray(((0.0, 0.0, -1e-6), (1.0, 0.0, 1.0), (0.0, 1.0, 1.0)))
+    plane = AffineDistanceFeature(
+        np.zeros(3), np.asarray(((1.0, 0.0), (0.0, 1.0), (0.0, 0.0)))
+    )
+    remote = AffineDistanceFeature(np.full(3, 10.0), np.empty((3, 0)))
+    with pytest.raises(NotImplementedError, match="near-vertex active-area sliver"):
+        integrate_two_affine_feature_distances(
+            reference,
+            reference,
+            plane,
+            remote,
+            active_plane_normal=(0.0, 0.0, 1.0),
+        )
+
+
 _ORACLE = runpy.run_path(
     str(
         Path(__file__).resolve().parents[1]

@@ -47,6 +47,14 @@ class CertifiedClosedTwoFeaturePenalty:
     geometry: CertifiedTwoFacetDistancePair
     minimum_interior_clearance: float
     tool_fingerprint: str
+    reference_vertices: np.ndarray
+    current_vertices: np.ndarray
+
+    def __post_init__(self) -> None:
+        for name in ("reference_vertices", "current_vertices"):
+            values = np.asarray(getattr(self, name), dtype=float).copy()
+            values.setflags(write=False)
+            object.__setattr__(self, name, values)
 
 
 @dataclass(frozen=True, eq=False)
@@ -57,6 +65,14 @@ class CertifiedPartialClosedTwoFeaturePenalty:
     geometry: CertifiedTwoFacetDistancePair
     active_reference_fraction: float
     tool_fingerprint: str
+    reference_vertices: np.ndarray
+    current_vertices: np.ndarray
+
+    def __post_init__(self) -> None:
+        for name in ("reference_vertices", "current_vertices"):
+            values = np.asarray(getattr(self, name), dtype=float).copy()
+            values.setflags(write=False)
+            object.__setattr__(self, name, values)
 
 
 def integrate_discovered_partial_closed_two_feature_penalty(
@@ -203,6 +219,8 @@ def integrate_certified_partial_closed_two_feature_penalty(
         pair,
         fraction,
         surface.geometry_fingerprint,
+        reference,
+        slave,
     )
 
 
@@ -342,6 +360,8 @@ def integrate_certified_closed_two_feature_penalty(
         pair,
         clearance,
         surface.geometry_fingerprint,
+        np.asarray(reference_vertices, dtype=float),
+        np.asarray(current_vertices, dtype=float),
     )
 
 
@@ -502,7 +522,9 @@ def _quadratic_distance_difference_lower(slave, other, selected):
     return float(min(lower))
 
 
-def _affine_feature_dominates_facet(slave, triangle, feature, length_margin):
+def _affine_feature_dominates_facet(
+    slave, triangle, feature, selected_master, length_margin
+):
     """Sufficient whole-polygon bound against a convex competitor facet.
 
     Let A be the selected affine point/line/plane. For p on the slave and q
@@ -510,8 +532,11 @@ def _affine_feature_dominates_facet(slave, triangle, feature, length_margin):
     to A. If their normal offsets have a nonpositive dot product, then
     ``|p-q|² >= distance(p,A)²``. The dot product is bilinear, so checking
     every pair of polygon/triangle vertices covers both convex hulls.
-    Zeros are admitted only when one offset vanishes exactly at the feature;
-    an equality there has the same closest point and force as A.
+    Zeros are admitted only when one offset vanishes exactly at the feature,
+    or a vertex is *exactly shared* with a selected master vertex that defines
+    the feature. The latter avoids treating a rotated edge endpoint's
+    order-roundoff projector residual as a third physical branch. Equality
+    there has the same closest point and force as A.
     """
 
     projector = feature.normal_projector
@@ -520,6 +545,14 @@ def _affine_feature_dominates_facet(slave, triangle, feature, length_margin):
     dots = slave_offsets @ facet_offsets.T
     zero_slave = np.all(slave_offsets == 0.0, axis=1)
     zero_facet = np.all(facet_offsets == 0.0, axis=1)
+    master_offsets = (selected_master - feature.anchor) @ projector
+    defining = np.linalg.norm(master_offsets, axis=1) <= length_margin
+    for index, vertex in enumerate(triangle):
+        if any(
+            np.array_equal(vertex, selected_master[master_index])
+            for master_index in np.flatnonzero(defining)
+        ):
+            zero_facet[index] = True
     scale = max(
         float(np.max(np.linalg.norm(slave_offsets, axis=1))),
         float(np.max(np.linalg.norm(facet_offsets, axis=1))),
@@ -676,8 +709,14 @@ def certify_two_facet_distance_competition(
             clearance.append(margin)
             continue
         if any(
-            _affine_feature_dominates_facet(slave, triangle, feature, length_margin)
-            for feature in (first, second)
+            _affine_feature_dominates_facet(
+                slave,
+                triangle,
+                feature,
+                masters[selected_index],
+                length_margin,
+            )
+            for feature, selected_index in zip((first, second), indices, strict=True)
         ):
             affine_count += 1
             continue

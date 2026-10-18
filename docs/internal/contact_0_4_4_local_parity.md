@@ -31,7 +31,7 @@ being silently approximated by the bounded route.
 | 3. Integration | Planar/convex partitions; certified zero-contact and smooth-branch faces; private wholly-interior and single-plane partially active reentrant edge/face local integral and tangent | General active boundaries and feature sets; global signed-gap Step admission; other edge/point laws |
 | 4. Normal law | Penalty Step; fixed-trace AL research law plus real-mesh/reduced-rank counterexamples | Compatible multiplier space, outer global Procedure, spatial stability and checkpoint composition |
 | 5. Friction | Locally planar Coulomb State; rigid-master spin transport tested | Admitted geometry-by-friction matrix; sharp features remain rejected |
-| 6. Transaction | Total-system and restart tests for penalty; serial affine/MPC accepted-feature path with legacy-incomplete migration | Repeat for each new enforcement/integration law |
+| 6. Transaction | Total-system and restart tests for admitted penalty modes; private certified-face Operator assembly and MPC tangent test | Connect the new face law to one existing Procedure/State owner, then repeat rollback/restart and work tests |
 | 7. Result | Pair work/pressure samples; AL local work sign | Cross-law first-law and pressure interpretation |
 | 8. Science | Local/oracle/installed tests; global elastic-limit spring-plane matrix | Mesh x increment x law convergence and external observables |
 | 9. Release | Scoped solver screens | Installed cross-platform gate and production runtime evidence |
@@ -310,9 +310,31 @@ The partially active L-prism test checks the winding sign over a grid,
 re-clips and re-certifies at every finite-difference perturbation, and matches
 all nine nodal energy gradients and 81 tangent entries. Local tool force
 matches virtual work for all three small translations; the vertical-axis
-tool moment matches a small rigid rotation. Tilted tools are conservatively
-refused by this certificate. This does **not** yet cover an arbitrary tool
-surface crossing, multiple activity planes or general large sliding.
+tool moment and both tilted-axis moments match small rigid rotations after
+fresh geometry proofs. Exact shared vertices that define a rotated master
+edge remain shared despite floating projector roundoff; unrelated near edges
+are not merged. This does **not** yet cover an arbitrary tool surface crossing,
+multiple activity planes or general large sliding.
+The local energy derivative is a *structural residual*: the force on the
+structure is its negative, while the reaction on the tool is its positive.
+The current global `ContactTraceAssembly` uses the former for prescribed
+tool-work evidence. This sign mapping is explicit in the private response
+and must be preserved before any Operator/Procedure admission; a local
+virtual-work test is not an accepted path-work ledger.
+`contact_face_operator_research` now aggregates separately certified partial
+and wholly active faces into shared global nodal rows and a COO tangent,
+without pretending that integrated *face* identities are quadrature-point
+samples. A two-face patch with shared nodes matches the gradient of its total
+potential and the derivative of its total force; an illustrative MPC matrix
+also satisfies `Tᵀ K T = d(Tᵀ R)/dq`. Distinct tool fingerprints, duplicate
+physical faces, noninteger identities and raw uncertified distance integrals
+are rejected. Each local certificate now carries immutable reference and
+current face vertices; the bridge refuses a stale Newton trial or a response
+swapped onto another mesh face. Face IDs, partial/whole status, finite feature
+kinds, reference-active areas and energies remain per-face evidence; none is
+renamed as a quadrature sample. This is an **Operator bridge**, not a global contact provider:
+it does not own Newton trials, accepted states, tool path work, restart,
+field export or a serial/MPI admission contract.
 The global finite-J2/MPC Procedure, accepted State/Result/path-work contract,
 MPI and mesh/penalty/increment convergence are still open. No public
 nonconvex Step is enabled, and local virtual work must not be reported as

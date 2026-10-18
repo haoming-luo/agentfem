@@ -62,7 +62,13 @@ class AffineDistanceFeature:
 
 @dataclass(frozen=True, eq=False)
 class TwoFeatureDistanceIntegral:
-    """Local reference-area result; no unilateral-contact or State claim."""
+    """Local reference-area result; no unilateral-contact or State claim.
+
+    ``nodal_residual`` is the derivative of potential with respect to body
+    displacement. The legacy research names ``rigid_*_reaction`` denote
+    force/moment exerted *on the tool*, opposite to the contact force/moment
+    on the structure used by AgentFEM's accepted work ledger.
+    """
 
     potential: float
     nodal_residual: np.ndarray
@@ -74,6 +80,18 @@ class TwoFeatureDistanceIntegral:
     boundary_point_count: int
     rigid_translation_reaction: np.ndarray
     rigid_rotation_reaction_about_origin: float | np.ndarray
+
+    @property
+    def force_on_structure(self) -> np.ndarray:
+        return -self.rigid_translation_reaction
+
+    @property
+    def force_on_tool(self) -> np.ndarray:
+        return self.rigid_translation_reaction
+
+    @property
+    def moment_on_structure_about_origin(self) -> float | np.ndarray:
+        return -self.rigid_rotation_reaction_about_origin
 
 
 def integrate_two_affine_feature_distances(
@@ -210,6 +228,15 @@ def integrate_two_affine_feature_distances(
             if det <= 0.0 or not np.isfinite(det):
                 raise ValueError("The active reference polygon is not positive.")
             transforms.append((transform, det))
+    if active_plane_normal is not None and 0 < len(transforms):
+        active_fraction = sum(det for _, det in transforms)
+        if (
+            0.0 < active_fraction < 1.0
+            and min(active_fraction, 1.0 - active_fraction) <= 1e-10
+        ):
+            raise NotImplementedError(
+                "A near-vertex active-area sliver has unresolved integration precision."
+            )
     dimension = reference.shape[1]
     residual = np.zeros((3, dimension))
     bulk = np.zeros((3, dimension, 3, dimension))
