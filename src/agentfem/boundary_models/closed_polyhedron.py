@@ -76,11 +76,15 @@ class ClosedTriangulatedRigidSolid(RigidSurface):
     facets: TriangulatedRigidSurface
     reviewed_embedded: bool
     name: str = "closed_triangulated_rigid_solid"
+    sign_method: str = "winding_reference"
     _geometry_fingerprint: str = field(init=False, repr=False, compare=False)
     _bvh: TriangleSurfaceBVH = field(init=False, repr=False, compare=False)
     _triangles: np.ndarray = field(init=False, repr=False, compare=False)
     _facet_slots: Mapping[int, int] = field(init=False, repr=False, compare=False)
     _vertex_facets: tuple[np.ndarray, ...] = field(
+        init=False, repr=False, compare=False,
+    )
+    _vertex_pseudonormals: np.ndarray | None = field(
         init=False, repr=False, compare=False,
     )
 
@@ -97,6 +101,11 @@ class ClosedTriangulatedRigidSolid(RigidSurface):
             raise ValueError("Closed rigid solid requires a closed triangle manifold.")
         if not str(self.name).strip():
             raise ValueError("Closed rigid solid requires a name.")
+        if self.sign_method not in ("winding_reference", "angle_weighted_pseudonormal"):
+            raise ValueError(
+                "Closed rigid solid sign_method must be winding_reference or "
+                "angle_weighted_pseudonormal."
+            )
         triangles = np.asarray(facets.vertices[facets.triangles], dtype=float)
         triangles.setflags(write=False)
         origin = np.mean(facets.vertices, axis=0)
@@ -114,10 +123,13 @@ class ClosedTriangulatedRigidSolid(RigidSurface):
                 "Closed rigid solid requires outward orientation and positive "
                 "enclosed volume."
             )
-        identity = hashlib.sha256(
+        fingerprint_input = (
             b"closed_triangulated_signed_distance_v1\0"
             + bytes.fromhex(facets.geometry_fingerprint)
-        ).hexdigest()
+        )
+        if self.sign_method != "winding_reference":
+            fingerprint_input += b"\0" + self.sign_method.encode("ascii")
+        identity = hashlib.sha256(fingerprint_input).hexdigest()
         object.__setattr__(self, "name", str(self.name))
         object.__setattr__(self, "_geometry_fingerprint", identity)
         object.__setattr__(self, "_bvh", triangle_surface_bvh(facets))
@@ -135,6 +147,28 @@ class ClosedTriangulatedRigidSolid(RigidSurface):
         for slots in vertex_facets:
             slots.setflags(write=False)
         object.__setattr__(self, "_vertex_facets", vertex_facets)
+        if self.sign_method == "winding_reference":
+            object.__setattr__(self, "_vertex_pseudonormals", None)
+            return
+        # Angle-weighted normals are a theorem-backed sign classifier only
+        # for an embedded, outward-oriented closed 2-manifold. The public
+        # opt-in does not claim a self-intersection certificate; callers must
+        # review embedding. The reference winding route remains the default.
+        vertex_normals = np.zeros_like(facets.vertices)
+        for corner in range(3):
+            center = facets.vertices[facets.triangles[:, corner]]
+            first = facets.vertices[facets.triangles[:, (corner + 1) % 3]] - center
+            second = facets.vertices[facets.triangles[:, (corner + 2) % 3]] - center
+            angles = np.arctan2(
+                np.linalg.norm(np.cross(first, second), axis=1),
+                np.einsum("ij,ij->i", first, second),
+            )
+            np.add.at(
+                vertex_normals, facets.triangles[:, corner],
+                angles[:, None] * facets._facet_normals,
+            )
+        vertex_normals.setflags(write=False)
+        object.__setattr__(self, "_vertex_pseudonormals", vertex_normals)
 
     @property
     def dimension(self) -> int:
@@ -176,6 +210,33 @@ class ClosedTriangulatedRigidSolid(RigidSurface):
             edge = directions[-1]
             return np.eye(3) - np.outer(edge, edge), "edge"
         return np.eye(3), "vertex"
+
+    def _pseudonormal_sign(
+        self, slot: int, barycentric: np.ndarray,
+        offset: np.ndarray,
+    ) -> float | None:
+        """Signed nearest-feature test; uncertain floating cases defer to winding."""
+
+        opposite = np.flatnonzero(
+            barycentric <= self.facets.tolerance / self.facets.scale,
+        )
+        if len(opposite) == 0:
+            pseudo = self.facets._facet_normals[slot]
+        elif len(opposite) == 1:
+            neighbor = int(self.facets.edge_neighbors[slot, opposite[0]])
+            pseudo = (
+                self.facets._facet_normals[slot]
+                + self.facets._facet_normals[neighbor]
+            )
+        else:
+            vertex = int(self.facets.triangles[slot, int(np.argmax(barycentric))])
+            assert self._vertex_pseudonormals is not None
+            pseudo = self._vertex_pseudonormals[vertex]
+        direction = float(np.dot(offset, pseudo))
+        margin = 1.0e-10 * np.linalg.norm(offset) * np.linalg.norm(pseudo)
+        if not np.isfinite(direction) or abs(direction) <= margin:
+            return None
+        return 1.0 if direction > 0.0 else -1.0
 
     def project(
         self, points, *, motion: PrescribedRigidMotion | None = None,
@@ -239,17 +300,21 @@ class ClosedTriangulatedRigidSolid(RigidSurface):
                 beyond_bounds = np.any(
                     (point < lower - tolerance) | (point > upper + tolerance)
                 )
-                winding = (
-                    0.0 if beyond_bounds
-                    else _solid_winding_number(point, self._triangles)
-                )
-                if abs(winding) <= 1.0e-6:
-                    sign = 1.0
-                elif abs(winding - 1.0) <= 1.0e-6:
-                    sign = -1.0
-                else:
-                    status[index] = "ambiguous_solid_winding"
-                    continue
+                sign = 1.0 if beyond_bounds else None
+                if sign is None and self.sign_method == "angle_weighted_pseudonormal":
+                    sign = self._pseudonormal_sign(
+                        self._facet_slots[int(candidates.entity_ids[index])],
+                        barycentric, point - foot,
+                    )
+                if sign is None:
+                    winding = _solid_winding_number(point, self._triangles)
+                    if abs(winding) <= 1.0e-6:
+                        sign = 1.0
+                    elif abs(winding - 1.0) <= 1.0e-6:
+                        sign = -1.0
+                    else:
+                        status[index] = "ambiguous_solid_winding"
+                        continue
                 gap = sign * radius
                 normal = sign * (point - foot) / radius
             closest[index] = foot
@@ -267,7 +332,10 @@ class ClosedTriangulatedRigidSolid(RigidSurface):
             surface_kind="closed_triangulated_rigid_solid",
             query_points=query, closest_points=closest, normals=normals,
             signed_gaps=gaps, valid=valid, status_codes=status,
-            method="exact_bvh_nearest_feature_plus_certified_aabb_or_winding",
+            method=(
+                "exact_bvh_nearest_feature_plus_certified_aabb_or_"
+                + self.sign_method
+            ),
             entity_ids=identity, geometry_fingerprint=self.geometry_fingerprint,
             local_coordinates=local,
             local_coordinate_system="triangle_barycentric_connectivity_order",
@@ -316,7 +384,9 @@ class ClosedTriangulatedRigidSolid(RigidSurface):
             "facet_count": int(len(self.facets.triangles)),
             "geometry_fingerprint": self.geometry_fingerprint,
             "facet_geometry_fingerprint": self.facets.geometry_fingerprint,
-            "projection": "nearest_feature_plus_certified_aabb_or_winding",
+            "projection": "nearest_feature_plus_certified_aabb_or_" + self.sign_method,
+            "sign_method": self.sign_method,
+            "query_winding_audit": self.sign_method == "winding_reference",
             "self_intersection_certificate": False,
             "embedded_surface_review": "caller_attested",
             "execution_scope": "serial_reference_geometry",
@@ -329,6 +399,7 @@ class ClosedTriangulatedRigidSolid(RigidSurface):
 def closed_triangulated_rigid_solid(
     *, vertices, triangles, reviewed_embedded: bool, facet_ids=None,
     name: str = "closed_triangulated_rigid_solid",
+    sign_method: str = "winding_reference",
 ) -> ClosedTriangulatedRigidSolid:
     """Build a bounded concave-capable solid, requiring embedding review."""
 
@@ -338,6 +409,7 @@ def closed_triangulated_rigid_solid(
     )
     return ClosedTriangulatedRigidSolid(
         facets=facets, reviewed_embedded=reviewed_embedded, name=name,
+        sign_method=sign_method,
     )
 
 
@@ -346,6 +418,7 @@ def closed_triangulated_rigid_solid_from_mesh(
     input_format: str | None = None, flip_normals: bool = False,
     name: str | None = None, tolerance: float | None = None,
     ambiguity_tolerance: float | None = None,
+    sign_method: str = "winding_reference",
 ) -> ClosedTriangulatedRigidSolid:
     """Import a reviewed triangle solid without inferring embedding validity."""
 
@@ -356,7 +429,7 @@ def closed_triangulated_rigid_solid_from_mesh(
     )
     return ClosedTriangulatedRigidSolid(
         facets=facets, reviewed_embedded=reviewed_embedded,
-        name=facets.name,
+        name=facets.name, sign_method=sign_method,
     )
 
 

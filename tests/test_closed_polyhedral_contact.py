@@ -148,6 +148,61 @@ def test_closed_solid_certified_exterior_aabb_skips_only_unneeded_winding(
         tool.project(((1.4, 1.5, 0.5),))  # In the AABB, outside the L solid.
 
 
+@pytest.mark.parametrize("fixture", (_concave_tool, _reentrant_vertex_tool))
+def test_opt_in_pseudonormal_matches_reference_signed_feature_queries(fixture):
+    reference = fixture()
+    fast = closed_module.ClosedTriangulatedRigidSolid(
+        facets=reference.facets, reviewed_embedded=True,
+        name=reference.name, sign_method="angle_weighted_pseudonormal",
+    )
+    assert fast.geometry_fingerprint != reference.geometry_fingerprint
+    assert not fast.summary()["query_winding_audit"]
+    assert reference.summary()["query_winding_audit"]
+    rng = np.random.default_rng(20261018)
+    points = rng.uniform(-0.35, 2.3, (2000, 3))
+    if fixture is _concave_tool:
+        points = np.vstack((points, (
+            (0.9, 0.9, 0.5), (1.4, 1.5, 0.5),
+            (0.9, 0.9, 0.2), (0.9, 1.5, 0.5),
+        )))
+    else:
+        points = np.vstack((points, (
+            (-0.1, -0.2, -0.15), (0.1, 0.2, 0.15),
+        )))
+    expected = reference.project(points)
+    actual = fast.project(points)
+    np.testing.assert_array_equal(actual.valid, expected.valid)
+    np.testing.assert_array_equal(actual.status_codes, expected.status_codes)
+    np.testing.assert_allclose(actual.signed_gaps, expected.signed_gaps)
+    np.testing.assert_allclose(actual.normals, expected.normals)
+    np.testing.assert_allclose(actual.closest_points, expected.closest_points)
+
+
+def test_opt_in_pseudonormal_uses_current_nearest_feature_without_winding(
+    monkeypatch,
+):
+    reference = _concave_tool()
+    fast = closed_module.ClosedTriangulatedRigidSolid(
+        facets=reference.facets, reviewed_embedded=True,
+        name=reference.name, sign_method="angle_weighted_pseudonormal",
+    )
+    queries = np.asarray(((1.4, 1.5, 0.5), (0.9, 0.9, 0.5)))
+    expected = reference.project(queries)
+
+    def forbidden_winding(*_args):
+        raise AssertionError("An unambiguous pseudonormal needs no winding")
+
+    monkeypatch.setattr(closed_module, "_solid_winding_number", forbidden_winding)
+    actual = fast.project(queries)
+    np.testing.assert_allclose(actual.signed_gaps, expected.signed_gaps)
+    np.testing.assert_allclose(actual.normals, expected.normals)
+    with pytest.raises(ValueError, match="sign_method"):
+        closed_module.ClosedTriangulatedRigidSolid(
+            facets=reference.facets, reviewed_embedded=True,
+            sign_method="unreviewed_fast",
+        )
+
+
 def test_coplanar_triangulation_seam_is_not_a_physical_contact_edge():
     tool = _concave_tool()
     above = tool.project(((0.5, 0.5, 1.2),))

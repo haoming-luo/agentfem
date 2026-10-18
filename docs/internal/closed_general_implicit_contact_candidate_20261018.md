@@ -19,10 +19,16 @@ source SHA-256, format and coordinate scale and does not automatically infer
 that attestation from an STL file.
 
 At every Newton trial, an exact triangle BVH finds the nearest surface point.
-A point certified beyond the complete tool AABB is exterior; otherwise a
-direct oriented-solid-angle sum classifies it as outside (winding 0)
-or inside (winding 1). Positive signed distance is admissible, negative is
-penetration. Distinct equidistant nearest points and ambiguous winding reject
+A point certified beyond the complete tool AABB is exterior. The default
+`winding_reference` sign path then uses a direct oriented-solid-angle sum
+inside the AABB to classify outside (winding 0) or inside (winding 1).
+An explicit `angle_weighted_pseudonormal` option instead uses the nearest
+face/edge/vertex normal, with direct winding when the dot product is near
+roundoff. It is valid under the separately reviewed embedded-manifold
+assumption; it does **not** provide the winding path's per-query malformed-
+geometry evidence. The two methods have different scientific checkpoint
+identities. Positive signed distance is admissible, negative is
+penetration. Distinct equidistant nearest points and ambiguous sign reject
 the trial instead of selecting an arbitrary normal. A shared nearest point on
 two triangles is allowed even when their facet normals differ: the physical
 signed-distance gradient comes from the point-to-feature vector. Coplanar
@@ -39,11 +45,14 @@ checkpoint. At a geometrically nonsmooth point on the surface, the Hessian is
 undefined and the trial is rejected. No normal is smoothed across materials,
 features or facets.
 
-Where needed, the direct winding sum costs O(number of facets) per query. This is a bounded
-serial reference geometry, **not** an optimized large-tool search; replacing
-it with a certified hierarchical sign classifier would require a separate
-accuracy and performance gate. The BVH still accelerates nearest-feature
-search, but does not make the sign computation sublinear.
+The default direct winding sum costs O(number of facets) per query. The
+opt-in nearest-feature sign has O(1) query work after O(facets) angle-weighted
+normal preparation, but the nearest-point BVH still dominates some cases.
+The fast route follows the proof of [Bærentzen and Aanæs (2005)](https://doi.org/10.1109/TVCG.2005.49)
+for an embedded, outward-oriented closed two-manifold. The constructor checks
+topology and orientation but **does not prove non-self-intersection**; the
+caller must review that assumption before opting in. A fast sign on a bad
+mesh is not made trustworthy by matching one short test.
 For a *convex* tool, prefer the separately certified
 `convex_polyhedral_rigid_surface(...)` path: its support-plane interior law
 has a defined deterministic limiting branch at an interior face-distance
@@ -133,7 +142,7 @@ installation at 24 increments and exported an XDMF field file plus result
 manifest. These are **Mac installed-package** checks of a manufactured
 problem, not release-platform or industrial accuracy evidence.
 
-### Sign-query performance experiment, not an activated fast path
+### Sign-query performance experiment, not a whole-Step speed claim
 
 `tools/benchmark_closed_solid_projection.py` fixes the L-prism geometry,
 random seed, inside/outside query distribution and repeated local timings. On
@@ -175,12 +184,63 @@ The first row is about 36% faster for **that local geometry query**, not a
 whole Newton step or application. The second row is a control showing no
 useful gain when the certificate cannot apply (the small difference is timing
 noise). This safe screen does not replace the unpromoted experimental ray
-classifier, and no release performance claim follows without whole-step
-measurement on a relevant tool/contact distribution.
+classifier.
+
+The angle-weighted pseudonormal theorem offers a different route: its sign
+can be computed from the same nearest feature already found by the BVH.
+`sign_method="angle_weighted_pseudonormal"` is an **explicit opt-in** on the
+reviewed closed solid; direct winding stays default. The option preserves
+identical signed gaps and final material/tool-work responses in the 2,000
+fixed-seed concave/reentrant-vertex queries per fixture and the six-increment
+active-edge finite-J2 Step. A 5,120-facet, 5,000-query, three-median local
+run on this Mac measured default full projection 2.062 s versus opt-in
+0.584 s (3.53× **geometry-query** speedup). These are fixed-input local
+measurements, not a whole accepted Newton-Step or cross-machine claim.
+Neither option certifies the input mesh is free of self-intersection, but
+direct winding retains stronger query-time evidence on malformed geometry.
+An additional **whole-Step** screen, including finite-J2 material updates,
+Newton and contact but excluding export, used the same 5,120-facet tool and
+24 accepted increments. Three in-process repetitions on this Mac gave:
+
+| FE cells per axis | Contact-active points | Default winding Step | Opt-in pseudonormal Step | Ratio |
+| ---: | ---: | ---: | ---: | ---: |
+| 1 | 4 | 1.323 s | 0.684 s | 1.94× |
+| 2 | 10 | 3.719 s | 1.567 s | 2.37× |
+
+`tools/benchmark_closed_j2_step.py` recreates the model for each repetition,
+times `solve_result()` only, and rejects any difference in final displacement,
+material state, accepted count, active count or tool work. This is evidence
+that the local sign cost can matter at Step level on this manufactured
+contact-heavy problem, not a general 2× promise: a real tool, larger FE
+mesh, different hardware or different contact density can change the ratio.
+The fast option's numerical reproducibility on a large independent model
+and malformed-mesh robustness remain open release gates.
 
 Open work before broader admission: independent same-input force/displacement
 comparison; controlled geometry, mesh, penalty and increment sensitivity;
-large-tool sign acceleration with parity proof; distributed ownership and
+whole-Step speed and malformed-mesh robustness of the opt-in sign path;
+distributed ownership and
 cross-rank restart. Friction, deformable master, self-contact and arbitrary
 unreviewed STL remain unsupported. Do not promote this branch into a release
 merely because a small Newton solve completes.
+
+## Nine-gate local-parity map
+
+This candidate advances the previously agreed *bounded* contact roadmap; the
+gates are not interchangeable. Status refers to demonstrated evidence, not
+planned code:
+
+| Gate | Current evidence | Remaining boundary |
+| --- | --- | --- |
+| 1. Same-input benchmark contract | The manufactured L-prism fixture and outputs are frozen in test/example code. | No independent Abaqus/Code_Aster same-input result or agreed dimensional acceptance tolerance. |
+| 2. Existing candidate audit | Ordinary Step, tool work, restart and current-trial geometry are reused; no parallel solver path was added. | Broader scientific promotion review remains separate. |
+| 3. Geometry and feature transitions | Unique nearest face/edge/vertex branches, coplanar seams, non-manifold vertex rejection and a globally active reentrant edge pass. | Self-intersection is caller-attested; medial-axis ties reject; no arbitrary CAD guarantee. |
+| 4. Implicit total operator and State | Full J2-plus-contact tangent passes fixed-old-state difference, accepted failure rolls back, and existing planar periodic-MPC total residual checks pass. | Active sharp-edge plus periodic MPC has no independent global test. |
+| 5. Multiple rigid pairs | Existing named planar/convex tool work and atomic restart tests pass. | Mixed general-closed multi-tool and large contact-set scaling remain untested. |
+| 6. Friction | Existing bounded plane/facet/convex Coulomb routes pass their own tests. | This general concave/sharp tool deliberately rejects friction. |
+| 7. Material/time composition | Active-edge finite-J2 plastic path passes; explicit contact/material lifecycle is a separate existing route. | No generic historical implicit material or explicit general-closed-tool composition. |
+| 8. Independent acceptance and speed | Directional analytical checks, fixed-seed geometry timing and a manufactured whole-Step opt-in/default comparison are recorded; 24→48 increment screen is narrow. | No independent full-geometry comparison, spatial/penalty convergence, industrial whole-step speed claim or release-grade energy closure. |
+| 9. Product boundary | Public-API example exports XDMF/manifest from an isolated native Mac wheel; unsupported MPI/friction preflight rejects. | Linux/Windows installed acceptance and remote final-head CI remain version gates. |
+
+The table intentionally refuses to turn one successful six- or 24-increment
+fixture into an Abaqus General Contact equivalence claim.

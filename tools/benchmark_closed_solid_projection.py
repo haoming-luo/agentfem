@@ -17,7 +17,9 @@ import time
 import numpy as np
 
 from agentfem.boundary_models import closed_triangulated_rigid_solid
-from agentfem.boundary_models.closed_polyhedron import _solid_winding_number
+from agentfem.boundary_models.closed_polyhedron import (
+    ClosedTriangulatedRigidSolid, _solid_winding_number,
+)
 
 
 _PARITY_RAY = np.asarray((1.0, np.sqrt(2.0), np.sqrt(3.0)))
@@ -88,6 +90,52 @@ def _experimental_ray_parity_sign(point, triangles, bvh, tolerance):
     return -1.0 if int(np.count_nonzero(possible)) % 2 else 1.0
 
 
+def _angle_weighted_vertex_normals(tool):
+    """Research-only Bærentzen--Aanæs signed-distance precomputation."""
+
+    vertices = tool.facets.vertices
+    triangles = tool.facets.triangles
+    normals = tool.facets._facet_normals
+    weighted = np.zeros_like(vertices)
+    for slot, triangle in enumerate(triangles):
+        for corner in range(3):
+            before = vertices[triangle[(corner + 1) % 3]] - vertices[triangle[corner]]
+            after = vertices[triangle[(corner + 2) % 3]] - vertices[triangle[corner]]
+            angle = np.arctan2(
+                np.linalg.norm(np.cross(before, after)), np.dot(before, after),
+            )
+            weighted[triangle[corner]] += angle * normals[slot]
+    return weighted
+
+
+def _experimental_pseudonormal_sign(tool, point, candidate, row, vertex_normals):
+    """Nearest-feature sign; inconclusive cases retain the winding reference."""
+
+    if not candidate.has_candidate[row] or candidate.ambiguous[row]:
+        return None
+    face = tool._facet_slots[int(candidate.entity_ids[row])]
+    barycentric = candidate.local_coordinates[row]
+    tolerance = tool.facets.tolerance / tool.facets.scale
+    opposite = np.flatnonzero(barycentric <= tolerance)
+    if len(opposite) == 0:
+        pseudo = tool.facets._facet_normals[face]
+    elif len(opposite) == 1:
+        neighbor = tool.facets.edge_neighbors[face, opposite[0]]
+        pseudo = (
+            tool.facets._facet_normals[face]
+            + tool.facets._facet_normals[int(neighbor)]
+        )
+    else:
+        vertex = int(tool.facets.triangles[face, int(np.argmax(barycentric))])
+        pseudo = vertex_normals[vertex]
+    offset = point - candidate.closest_points[row]
+    direction = float(np.dot(offset, pseudo))
+    margin = 1.0e-10 * np.linalg.norm(offset) * np.linalg.norm(pseudo)
+    if abs(direction) <= margin:
+        return None
+    return 1.0 if direction > 0 else -1.0
+
+
 def _refined_l_prism(levels: int):
     polygon = np.asarray(
         ((0, 0), (2, 0), (2, 1), (1, 1), (1, 2), (0, 2)),
@@ -150,6 +198,10 @@ def main():
     if args.levels < 0 or args.queries < 2 or args.repeats < 1:
         parser.error("levels >= 0, queries >= 2 and repeats >= 1 are required")
     tool = _refined_l_prism(args.levels)
+    fast_tool = ClosedTriangulatedRigidSolid(
+        facets=tool.facets, reviewed_embedded=True,
+        name=tool.name, sign_method="angle_weighted_pseudonormal",
+    )
     rng = np.random.default_rng(405)
     count = args.queries // 2
     inside = np.column_stack((
@@ -169,6 +221,17 @@ def main():
     full, projection = _median_seconds(
         lambda: tool.project(queries), args.repeats,
     )
+    fast_full, fast_projection = _median_seconds(
+        lambda: fast_tool.project(queries), args.repeats,
+    )
+    np.testing.assert_array_equal(fast_projection.valid, projection.valid)
+    np.testing.assert_array_equal(
+        fast_projection.status_codes, projection.status_codes,
+    )
+    np.testing.assert_allclose(
+        fast_projection.signed_gaps, projection.signed_gaps,
+        rtol=0.0, atol=0.0,
+    )
     search, _ = _median_seconds(
         lambda: tool._bvh._candidate_evidence(
             queries, None, require_same_normal=False,
@@ -183,6 +246,15 @@ def main():
             point, tool._triangles, tool._bvh, tool.facets.tolerance,
         ) for point in queries], args.repeats,
     )
+    candidate = tool._bvh._candidate_evidence(
+        queries, None, require_same_normal=False,
+    )
+    vertex_normals = _angle_weighted_vertex_normals(tool)
+    pseudo, pseudo_values = _median_seconds(
+        lambda: [_experimental_pseudonormal_sign(
+            tool, point, candidate, row, vertex_normals,
+        ) for row, point in enumerate(queries)], args.repeats,
+    )
     direct_signs = np.where(np.asarray(direct_values) > 0.5, -1.0, 1.0)
     conclusive = np.asarray([value is not None for value in ray_values])
     if not np.array_equal(
@@ -190,6 +262,15 @@ def main():
         direct_signs[conclusive],
     ):
         raise RuntimeError("Ray parity disagrees with direct winding on fixture")
+    pseudo_conclusive = np.asarray([value is not None for value in pseudo_values])
+    pseudo_actual = np.asarray(pseudo_values, dtype=object)[pseudo_conclusive].astype(float)
+    pseudo_expected = direct_signs[pseudo_conclusive]
+    if not np.array_equal(pseudo_actual, pseudo_expected):
+        mismatch = int(np.flatnonzero(pseudo_actual != pseudo_expected)[0])
+        raise RuntimeError(
+            "Nearest-feature pseudonormal disagrees with direct winding at "
+            f"conclusive query {mismatch}"
+        )
     print(json.dumps({
         "scope": "local_projection_only_not_whole_step",
         "facet_count": len(tool.facets.triangles),
@@ -199,10 +280,14 @@ def main():
         "geometry_fingerprint": tool.geometry_fingerprint,
         "valid_count": int(np.sum(projection.valid)),
         "full_median_seconds": full,
+        "fast_full_median_seconds": fast_full,
+        "fast_full_speedup_ratio": full / fast_full,
         "search_median_seconds": search,
         "direct_winding_median_seconds": winding,
         "ray_parity_median_seconds": ray,
         "ray_parity_conclusive_count": int(np.sum(conclusive)),
+        "pseudonormal_median_seconds": pseudo,
+        "pseudonormal_conclusive_count": int(np.sum(pseudo_conclusive)),
     }, sort_keys=True))
 
 

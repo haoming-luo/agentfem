@@ -32,6 +32,7 @@ def _patch(*, triangulated: bool, gap: float = 0.005, penalty=500.0,
            convex_tool=False, convex_y_min=-0.5, closed_concave_tool=False,
            closed_concave_extent=1.75, closed_concave_thickness=0.1,
            closed_concave_corner=None,
+           closed_sign_method="winding_reference",
            friction_coefficient=None, tangential_penalty=None,
            regional_material=False, contact_quadrature_degree=None,
            hexahedral=False, displacement_degree=1, linear_solver=None):
@@ -122,6 +123,7 @@ def _patch(*, triangulated: bool, gap: float = 0.005, penalty=500.0,
                 vertices=np.vstack((front, back)), triangles=triangles,
                 reviewed_embedded=True,
                 name="reviewed_L_prism_tool",
+                sign_method=closed_sign_method,
             )
         elif convex_tool:
             assert tilt == 0.0
@@ -418,6 +420,30 @@ def test_reviewed_concave_edge_is_active_in_global_plastic_step_and_restart(
     assert resumed.energy_history[-1].tool_work == pytest.approx(
         reference.energy_history[-1].tool_work,
     )
+
+
+def test_fast_closed_sign_preserves_active_edge_plastic_step_result(tmp_path):
+    options = dict(
+        triangulated=True, closed_concave_tool=True,
+        closed_concave_extent=0.7, closed_concave_corner=(0.35, 0.19),
+        closed_concave_thickness=0.5, gap=0.005,
+        tool_translation=(-0.055, 0.0, 0.0), penalty=20.0,
+        applied_traction=0.0, increments=6, yield_stress=0.05,
+    )
+    baseline = _patch(**options)[3]
+    fast = _patch(**options, closed_sign_method="angle_weighted_pseudonormal")[3]
+    assert baseline.solve_result().status == fast.solve_result().status == "completed"
+    np.testing.assert_allclose(fast.solution.x.array, baseline.solution.x.array)
+    np.testing.assert_allclose(
+        fast.response.state.committed_state_vectors(),
+        baseline.response.state.committed_state_vectors(),
+    )
+    assert fast.energy_history[-1].tool_work == pytest.approx(
+        baseline.energy_history[-1].tool_work,
+    )
+    saved = baseline.save_checkpoint(tmp_path / "reference_sign")
+    with pytest.raises(ValueError, match="identity"):
+        _patch(**options, closed_sign_method="angle_weighted_pseudonormal")[3].load_checkpoint(saved)
 
 
 def test_closed_concave_example_exports_accepted_public_result(tmp_path):

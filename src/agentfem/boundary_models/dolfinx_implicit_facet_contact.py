@@ -67,7 +67,7 @@ class DolfinxImplicitRigidContact:
         elif not isinstance(surface, SmoothRigidSurface):
             raise TypeError(
                 "Implicit rigid contact requires smooth differentiable geometry, "
-                "a reviewed triangle tool, or a closed convex polyhedral tool."
+                "a reviewed triangle tool, or a reviewed closed polyhedral tool."
             )
         elif self.projector is not None:
             raise ValueError("Analytical curved contact does not use a triangle BVH.")
@@ -82,9 +82,9 @@ class DolfinxImplicitRigidContact:
                 TriangulatedRigidSurface,
             )):
                 raise NotImplementedError(
-                    "AFM-IMPLICIT-CONTACT-FRICTION: only an analytical plane "
-                    "or a reviewed planar facet branch has a fixed-old-state "
-                    "Coulomb tangent."
+                    "AFM-IMPLICIT-CONTACT-FRICTION: only an analytical plane, "
+                    "reviewed planar facet branch, or certified closed-convex "
+                    "polyhedron has a fixed-old-state Coulomb tangent."
                 )
             initial = self.adapter.evaluate(self.displacement)
             projector = surface if self.projector is None else self.projector
@@ -123,7 +123,12 @@ class DolfinxImplicitRigidContact:
             raise ValueError("Contact trace and displacement must share one function space.")
 
     @property
-    def surface(self) -> TriangulatedRigidSurface | SmoothRigidSurface | ConvexPolyhedralRigidSurface:
+    def surface(
+        self,
+    ) -> (
+        TriangulatedRigidSurface | SmoothRigidSurface
+        | ConvexPolyhedralRigidSurface | ClosedTriangulatedRigidSolid
+    ):
         return self.pair.rigid_body.surface
 
     @property

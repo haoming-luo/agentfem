@@ -378,8 +378,13 @@ closed, possibly nonconvex tool only with explicit embedding review. Its
 unique nearest-feature signed distance supports active reentrant edge/vertex
 branches without averaging facet normals. Coplanar mesh seams are not physical
 creases; ambiguous nearest points or winding, and nonsmooth zero-distance
-features, reject the current trial. The direct winding computation is a
-bounded serial reference, not a scalable CAD backend. Use the separately
+features, reject the current trial. Direct winding is the default bounded
+serial reference. For a *separately reviewed embedded* closed manifold, the
+explicit `sign_method="angle_weighted_pseudonormal"` option uses the nearest
+face/edge/vertex to classify sign, with a winding fallback near numerical
+ambiguity. This faster sign route does not verify self-intersections at query
+time and has a distinct checkpoint identity; it is experimental, not a
+general CAD acceleration guarantee. Use the separately
 certified convex tool for a convex shape: its selected support-plane branch
 can continue through some face-distance ties that this general path rejects.
 See the
