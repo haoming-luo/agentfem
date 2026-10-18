@@ -310,9 +310,10 @@ reference triangle and planar gap `g(x,y)=x-a`, exact clipping of `g<0`
 gives active area `a-a²/2` and reference-area penalty potential
 `a³/6-a⁴/24` at unit penalty. `tools/verify_contact_boundary_quadrature.py`
 computes that clipped potential, nodal residual and fixed-branch tangent with
-positive degree-two subtriangle quadrature; seven tests check analytical
-area/potential, potential and residual derivatives, open/full limits and
-invalid inputs. At `a=0.05`, full-face Basix degree-two **and degree-five**
+positive degree-two subtriangle quadrature; nine tests check analytical
+area/potential, potential and residual derivatives, nodal-force conservation,
+vertex-order invariance, open/full limits and invalid inputs. At `a=0.05`,
+full-face Basix degree-two **and degree-five**
 rules both return zero potential, while the analytical and clipped values
 are `2.057291666666667e-5`. Degree seven captures only about 1.24% of that
 value, and degree thirteen overshoots it by about 5.65%. This manufactured

@@ -38,6 +38,33 @@ def test_clipped_affine_triangle_residual_and_tangent_are_potential_derivatives(
     )
 
 
+def test_clipped_affine_triangle_one_active_corner_and_force_conservation():
+    width = 0.2
+    penalty = 11.0
+    value = clipped_affine_gap_integral((-width, 1 - width, 1 - width), penalty=penalty)
+    assert value["active_reference_area"] == pytest.approx(width**2 / 2)
+    assert value["potential"] == pytest.approx(penalty * width**4 / 24)
+    assert np.sum(value["nodal_residual"]) == pytest.approx(-penalty * width**3 / 6)
+    assert np.sum(value["nodal_tangent"]) == pytest.approx(
+        penalty * value["active_reference_area"]
+    )
+
+
+def test_clipped_affine_triangle_is_invariant_to_vertex_order():
+    gaps = np.asarray((-0.2, 0.8, -0.2))
+    reference = clipped_affine_gap_integral(gaps)
+    order = np.asarray((2, 0, 1))
+    permuted = clipped_affine_gap_integral(gaps[order])
+    assert permuted["active_reference_area"] == pytest.approx(reference["active_reference_area"])
+    assert permuted["potential"] == pytest.approx(reference["potential"])
+    np.testing.assert_allclose(
+        permuted["nodal_residual"], reference["nodal_residual"][order],
+    )
+    np.testing.assert_allclose(
+        permuted["nodal_tangent"], reference["nodal_tangent"][np.ix_(order, order)],
+    )
+
+
 def test_clipped_affine_triangle_open_and_full_contact_limits():
     open_result = clipped_affine_gap_integral((0.2, 0.3, 0.4))
     assert open_result["active_reference_area"] == 0.0
