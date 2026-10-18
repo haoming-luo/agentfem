@@ -144,7 +144,14 @@ previously needed refinement now pass with refinement depth zero, while a
 manufactured truly competing facet still rejects. A three-vertex-only
 distance test is separately shown to miss an interior competitor. This is
 still a single-smooth-branch *certificate*, not a conic feature-switch
-integral, and no full-solve speed improvement is claimed.
+integral. The reproducible paired component screen
+`tools/benchmark_planar_branch_certificate.py` alternates the existing
+subdivision route and the quadratic bound on one fixed open-sheet face. On
+one Apple Silicon host, 200 measured pairs after 20 warmup pairs gave
+`0.916/0.295 ms` medians (reference/new), about `3.1x` **for that one
+certificate**, not for a full nonlinear solve. It checks that both modes
+certify the same plane. Other geometry can incur the six-value check and
+show no gain; no full-solve speed improvement is claimed.
 The runnable closed-tool example now has a separate one-axis-at-a-time
 mesh/increment/penalty sensitivity driver. Its eleven serial synthetic runs
 all completed with certified smooth branches, but their terminal tool work
