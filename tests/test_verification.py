@@ -447,3 +447,39 @@ def test_quality_report_refuses_malformed_multi_pair_feature_evidence():
     )
     assert claim.status == "failed"
     assert "invalid feature evidence" in claim.actual["issues"][0]
+
+
+@pytest.mark.parametrize(
+    "active,certified,expected_status",
+    [(3, False, "failed"), (3, True, "passed"), (0, False, "passed")],
+)
+def test_release_refuses_uncertified_active_polyhedral_contact_even_without_sampled_switch(
+    active, certified, expected_status,
+):
+    result = results.SimulationResult(
+        "polyhedral_contact_release",
+        metadata={
+            "solve": {"converged": True},
+            "rigid_contact_point_diagnostics": {
+                "constraint": "tool_A",
+                "active_point_count": active,
+                "sampled_mixed_feature_slave_faces": 0,
+                "feature_transition_integral_certified": certified,
+            },
+        },
+    )
+    result.add_quantity("force", 1.0)
+    reference = verification.VerificationClaim.compare(
+        name="independent_force_reference",
+        observable="force",
+        actual=1.0,
+        expected=1.0,
+        reference="fixed external comparator",
+    )
+    report = result.verify("release", claims=(reference,))
+    claim = next(
+        item for item in report.claims
+        if item.name == "active_polyhedral_contact_integral_certified"
+    )
+    assert claim.status == expected_status
+    assert report.acceptable is (expected_status == "passed")

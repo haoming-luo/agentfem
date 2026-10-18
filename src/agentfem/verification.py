@@ -525,6 +525,7 @@ def assess(
         required_histories=tuple(required_histories),
         required_artifacts=tuple(required_artifacts),
         require_contact_feature_integrity=policy.name != "exploratory",
+        require_contact_feature_certification=policy.name == "release",
     )
     selected_convergence = (
         _infer_converged(result)
@@ -558,6 +559,7 @@ def _runtime_checks(
     required_histories: tuple[str, ...],
     required_artifacts: tuple[str, ...],
     require_contact_feature_integrity: bool,
+    require_contact_feature_certification: bool,
 ) -> tuple[VerificationClaim, ...]:
     quantities = getattr(result, "quantities", {})
     fields = getattr(result, "fields", {})
@@ -686,6 +688,26 @@ def _runtime_checks(
                 ),
             )
         )
+        if require_contact_feature_certification:
+            records = feature_evidence["records"]
+            certified = not feature_evidence["issues"] and all(
+                item["active_point_count"] == 0
+                or item["feature_transition_integral_certified"]
+                for item in records
+            )
+            claims.append(
+                _runtime_claim(
+                    "active_polyhedral_contact_integral_certified",
+                    certified,
+                    observable="accepted polyhedral contact integration diagnostics",
+                    actual=feature_evidence,
+                    expected="every active pair has certified feature integration",
+                    criterion=(
+                        "a zero sampled-switch count alone cannot certify the "
+                        "integral over an active slave face"
+                    ),
+                )
+            )
 
     execution = getattr(result, "metadata", {}).get("execution")
     if isinstance(execution, Mapping):
@@ -732,6 +754,7 @@ def _contact_feature_evidence(result) -> tuple[bool, dict[str, object]]:
     if not isinstance(records, (tuple, list)):
         return False, {
             "inspected": True,
+            "records": (),
             "issues": ("invalid contact diagnostic layout",),
         }
     observed = []
@@ -746,12 +769,21 @@ def _contact_feature_evidence(result) -> tuple[bool, dict[str, object]]:
             continue
         inspected = True
         count = item["sampled_mixed_feature_slave_faces"]
+        active_count = item.get("active_point_count")
         certified = item.get("feature_transition_integral_certified")
         if (
             isinstance(count, bool)
             or not isinstance(count, (int, np.integer))
             or count < 0
             or not isinstance(certified, bool)
+            or (
+                active_count is not None
+                and (
+                    isinstance(active_count, bool)
+                    or not isinstance(active_count, (int, np.integer))
+                    or active_count < 0
+                )
+            )
         ):
             issues.append(f"contact diagnostic {index} has invalid feature evidence")
             continue
@@ -759,6 +791,9 @@ def _contact_feature_evidence(result) -> tuple[bool, dict[str, object]]:
             "constraint": str(item.get("constraint", index)),
             "sampled_mixed_feature_slave_faces": int(count),
             "feature_transition_integral_certified": certified,
+            "active_point_count": (
+                None if active_count is None else int(active_count)
+            ),
         }
         observed.append(record)
         if count > 0 and not certified:

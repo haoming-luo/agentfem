@@ -203,6 +203,11 @@ The gate stays open until its listed evidence exists at the proposed scope.
    the reviewed changing-trial support-plane partition supplied its bounded
    feature integral. The default Gauss rule explicitly reports that no such
    certificate exists, even when no mixed-feature face happened to be sampled.
+   Release-level verification now requires this certificate for every active
+   polyhedral pair; zero *observed* mixed-feature faces no longer suffices.
+   Engineering-level verification continues to report the narrower sampled
+   diagnostic. This release guard does not itself supply a scientific reference
+   or make the nonconvex operator accurate.
 
 4. **Normal enforcement as an explicit law.** Retain penalty as one declared
    approximation. Prototype a separate opt-in augmented-Lagrangian law first

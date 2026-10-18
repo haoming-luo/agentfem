@@ -455,7 +455,12 @@ def _ordinary_convex_step(
 
 def test_ordinary_j2_step_admits_convex_feature_partition_and_restart(tmp_path):
     continuous = _ordinary_convex_step()
-    assert continuous.solve_result().status == "completed"
+    result = continuous.solve_result()
+    assert result.status == "completed"
+    assert next(
+        item for item in result.verify("release").claims
+        if item.name == "active_polyhedral_contact_integral_certified"
+    ).status == "passed"
     assert continuous.contact_provider.summary()["contact_integration"] == (
         "convex_feature_partition"
     )
