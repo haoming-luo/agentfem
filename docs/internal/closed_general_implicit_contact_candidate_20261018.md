@@ -254,6 +254,22 @@ degree-7 value, but maximum PEEQ changes by about 4.7%; physical edge-point
 count is not monotone with quadrature degree. These are discrete-rule
 sensitivity data, **not** quadrature convergence or a resolved contact
 boundary. Higher degree alone cannot be the default numerical-method fix.
+The same installed-wheel fixture at penalty 200, 12 increments, degree-7
+quadrature and `basic` Newton was then refined without changing its physical
+or algorithmic inputs:
+
+| Cells per axis | x-resultant | max PEEQ | max penetration | active reentrant-edge points |
+| ---: | ---: | ---: | ---: | ---: |
+| 3 | -2.01339621 | 0.03934018 | 0.03311168 | 0 |
+| 4 | -1.85720972 | 0.04151851 | 0.03215686 | 0 |
+| 5 | -1.84844562 | 0.04281734 | 0.03307059 | 0 |
+| 6 | -1.82327209 | 0.04199805 | 0.03414494 | 0 |
+| 8 | -1.77276480 | 0.04609411 | 0.03439900 | 1 |
+
+From six to eight cells the force magnitude changes by 2.77% and maximum
+PEEQ by 9.75%. This extends the non-convergence evidence; it does not identify
+the asymptotic solution, separate spatial error from penalty error, or validate
+the full-Newton policy for other models.
 Backtracking remains the example default.
 Any new globalization should compare the accepted path, total residual,
 contact work, plastic history and cutback behavior against both policies;
