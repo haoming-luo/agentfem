@@ -104,6 +104,15 @@ step = model.step(
 result = step.solve_result()
 ```
 
+For a nonmonotone `amplitudes.tabular(...)` load path, its interior table
+times are mandatory accepted stations in the normalized Step coordinate.
+`steps.fixed(...)` must include each station (use `steps.at(...)` for a
+nonuniform path); `steps.automatic(...)` lands on them before continuing.
+The shared Step amplitude also drives a prescribed rigid tool. Output-frame
+selection remains separate from these material-history stations. A custom
+amplitude without declared table knots requires the user to resolve its
+reversals in the increment path explicitly.
+
 The ordinary finite-J2 Step also has a bounded experimental serial route for
 registered, prescribed rigid contact pairs: analytical planes or spheres,
 reviewed triangular surfaces, certified closed-convex triangular solids, and

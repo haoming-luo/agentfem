@@ -39,7 +39,8 @@ def _patch(*, triangulated: bool, gap: float = 0.005, penalty=500.0,
            hexahedral=False, displacement_degree=1, linear_solver=None,
            clamp_left=True, left_traction=0.0,
            initial_penetration_limit=None,
-           transverse_boundary_fixed=False, load_amplitude=None):
+           transverse_boundary_fixed=False, load_amplitude=None,
+           increment_control=None):
     domain = dolfinx_mesh.create_unit_cube(
         MPI.COMM_SELF, cells, cells, cells,
         cell_type=(
@@ -216,7 +217,10 @@ def _patch(*, triangulated: bool, gap: float = 0.005, penalty=500.0,
     step = model.step(
         target=displacement,
         **step_options,
-        incrementation=steps.fixed(increments),
+        incrementation=(
+            steps.fixed(increments)
+            if increment_control is None else increment_control
+        ),
         solver_options=solvers.newton(
             relative_tolerance=1e-8,
             absolute_tolerance=1e-9,
@@ -1073,6 +1077,33 @@ def test_plastic_contact_unloads_and_reloads_without_losing_history(tmp_path):
     assert resumed.energy_history[-1].tool_work == pytest.approx(
         step.energy_history[-1].tool_work, rel=1e-9, abs=1e-10,
     )
+
+
+def test_tabular_contact_amplitude_knots_are_mandatory_accepted_stations():
+    path = amplitudes.tabular(
+        (0.0, 0.5, 0.75, 1.0), (0.0, 1.0, 0.0, 1.0),
+        name="contact_reversal",
+    )
+    options = dict(
+        triangulated=True, gap=0.0,
+        tool_translation=(-0.002, 0.0, 0.0),
+        penalty=1000.0, yield_stress=0.1,
+        applied_traction=0.0, transverse_boundary_fixed=True,
+        load_amplitude=path,
+    )
+    with pytest.raises(ValueError, match="tabular amplitude knot"):
+        _patch(**options, increments=3)
+    _, _, _, step = _patch(
+        **options,
+        increment_control=steps.automatic(
+            initial=0.7, maximum=0.7, minimum=0.01,
+        ),
+    )
+    assert step.required_load_factors == (0.5, 0.75)
+    step.solve()
+    accepted = tuple(item.load_factor for item in step.accepted_increments)
+    assert any(abs(value - 0.5) <= 1e-12 for value in accepted)
+    assert any(abs(value - 0.75) <= 1e-12 for value in accepted)
 
 
 def test_closed_concave_example_iterative_linear_policy_matches_direct(tmp_path):

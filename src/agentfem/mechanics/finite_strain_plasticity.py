@@ -1151,6 +1151,7 @@ class FiniteStrainJ2StandardProblem:
     state_transaction: FiniteStrainJ2StateTransaction
     output_every: int | None = 1
     output_factors: tuple[float, ...] = ()
+    required_load_factors: tuple[float, ...] = ()
     progress: object = True
     status_file: object | None = None
     checkpoint_policy: object | None = None
@@ -2032,6 +2033,12 @@ class FiniteStrainJ2StandardProblem:
                 )
                 if later_output:
                     target = min(target, min(later_output))
+                later_knots = tuple(
+                    value for value in self.required_load_factors
+                    if value > accepted + 1.0e-12
+                )
+                if later_knots:
+                    target = min(target, min(later_knots))
             else:
                 remaining = [
                     value
@@ -3373,6 +3380,7 @@ class FiniteStrainJ2StandardProblem:
             ),
             "output_every": self.output_every,
             "output_factors": self.output_factors,
+            "required_load_factors": self.required_load_factors,
             "snapshot_count": len(self.snapshots),
             "checkpoint_policy": (
                 None
@@ -3588,6 +3596,24 @@ def _finite_strain_j2_transaction(
     )
 
 
+def _tabular_amplitude_load_knots(asset: amplitudes.Amplitude) -> tuple[float, ...]:
+    """Return interior normalized table knots that a stateful Step must accept.
+
+    A tabular amplitude is piecewise affine in the normalized load coordinate.
+    Skipping a knot changes its prescribed path, even if Newton converges at
+    the endpoint. Smooth/custom amplitudes make no breakpoint declaration.
+    """
+
+    if asset.kind != "tabular":
+        return ()
+    raw = np.asarray(asset.metadata.get("times"), dtype=float)
+    if raw.ndim != 1 or not len(raw) or not np.all(np.isfinite(raw)) or (
+        len(raw) > 1 and not np.all(np.diff(raw) > 0.0)
+    ):
+        raise ValueError("Tabular load amplitude has invalid knot metadata.")
+    return tuple(float(value) for value in raw if 0.0 < value < 1.0)
+
+
 def finite_strain_j2_standard_problem(
     *,
     displacement,
@@ -3777,6 +3803,7 @@ def finite_strain_j2_standard_problem(
 
     selected_incrementation = step_controls.normalize(incrementation)
     selected_output_factors = tuple(float(value) for value in output_factors)
+    required_load_factors = _tabular_amplitude_load_knots(selected_amplitude)
     if isinstance(selected_incrementation, step_controls.FixedIncrementation):
         missing = tuple(
             value
@@ -3790,6 +3817,19 @@ def finite_strain_j2_standard_problem(
             raise ValueError(
                 "Fixed finite-strain J2 incrementation must include every "
                 f"requested output factor; missing {missing}."
+            )
+        missing_knots = tuple(
+            value
+            for value in required_load_factors
+            if not any(
+                abs(value - declared) <= 1.0e-12
+                for declared in selected_incrementation.load_factors
+            )
+        )
+        if missing_knots:
+            raise ValueError(
+                "Fixed finite-strain J2 incrementation must include every "
+                f"tabular amplitude knot; missing {missing_knots}."
             )
 
     return FiniteStrainJ2StandardProblem(
@@ -3817,6 +3857,7 @@ def finite_strain_j2_standard_problem(
         strong_constraint_assets=tuple(concrete_constraints),
         output_every=None if output_every is None else int(output_every),
         output_factors=selected_output_factors,
+        required_load_factors=required_load_factors,
         progress=progress,
         status_file=status_file,
         checkpoint_policy=checkpoint_policy,

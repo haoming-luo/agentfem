@@ -297,7 +297,12 @@ The gate stays open until its listed evidence exists at the proposed scope.
    work as the uninterrupted run. Under lateral constraint, release can
    reverse-yield before axial force vanishes, so a first-load PEEQ cannot be
    substituted for residual displacement. This is a bounded transaction and
-   material-path reference, not nonconvex tool validation. The
+   material-path reference, not nonconvex tool validation. The audit also
+   found that automatic J2 incrementation could skip an interior tabular
+   reversal, thereby changing the prescribed path while reporting Newton
+   convergence. Interior table knots are now required accepted stations:
+   fixed controls missing one fail before solving; automatic controls land
+   on each knot without forcing an extra output frame. The
    denominator follows the [MOOSE radial-return documentation][moose-return].
    The nonconvex penalty sequence is not converged.
    Reading: [NAFEMS benchmark
