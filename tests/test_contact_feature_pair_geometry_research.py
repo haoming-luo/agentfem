@@ -374,6 +374,94 @@ def test_partially_active_reentrant_face_has_certified_local_penalty():
             )
 
 
+def test_partial_reentrant_face_matches_independent_piecewise_quadrature():
+    tool = _closed_L_prism()
+    slave = np.asarray(
+        ((0.895, 0.875, -0.02), (0.905, 0.875, 0.175), (0.895, 0.885, 0.16))
+    )
+    response = integrate_certified_partial_closed_two_feature_penalty(
+        slave, slave, tool, (0, 12), penalty=500.0
+    ).response
+    reference_area = 0.5 * np.linalg.norm(
+        np.cross(slave[1] - slave[0], slave[2] - slave[0])
+    )
+
+    def reference(number):
+        # Independent physical-distance oracle: for each fixed barycentric u,
+        # split v at z=0 and at z**2=(x-1)**2+(y-1)**2. The production
+        # integrator instead certifies/clips a two-feature surface partition.
+        u_nodes, u_weights = np.polynomial.legendre.leggauss(number)
+        v_nodes, v_weights = np.polynomial.legendre.leggauss(3)
+        total = np.zeros(10)
+        polynomial = np.polynomial.Polynomial
+        u_symbol = polynomial([0, 1])
+        z0_poly = slave[0, 2] + (slave[1, 2] - slave[0, 2]) * u_symbol
+        dx_poly = slave[0, 0] - 1 + (slave[1, 0] - slave[0, 0]) * u_symbol
+        y0_poly = slave[0, 1] - 1 + (slave[1, 1] - slave[0, 1]) * u_symbol
+        dz = slave[2, 2] - slave[0, 2]
+        dy = slave[2, 1] - slave[0, 1]
+        changes = [0.0, 1.0]
+        for v_poly in (polynomial([0]), 1 - u_symbol):
+            z_poly = z0_poly + dz * v_poly
+            y_poly = y0_poly + dy * v_poly
+            for branch_poly in (z_poly, z_poly**2 - dx_poly**2 - y_poly**2):
+                changes.extend(
+                    float(root.real)
+                    for root in branch_poly.roots()
+                    if abs(root.imag) < 1e-12 and 0 < root.real < 1
+                )
+        for u_left, u_right in zip(sorted(changes)[:-1], sorted(changes)[1:]):
+            u_points = u_left + (u_nodes + 1) * (u_right - u_left) / 2
+            u_quadrature = u_weights * (u_right - u_left) / 2
+            for u, u_weight in zip(u_points, u_quadrature):
+                upper = 1 - u
+                z0 = slave[0, 2] + u * (slave[1, 2] - slave[0, 2])
+                dx = slave[0, 0] + u * (slave[1, 0] - slave[0, 0]) - 1
+                y0 = slave[0, 1] + u * (slave[1, 1] - slave[0, 1]) - 1
+                boundaries = [0.0, upper]
+                zero = -z0 / dz
+                if 0 < zero < upper:
+                    boundaries.append(zero)
+                roots = np.roots(
+                    [dz**2 - dy**2, 2 * (z0 * dz - y0 * dy), z0**2 - dx**2 - y0**2]
+                )
+                boundaries.extend(
+                    float(root.real)
+                    for root in roots
+                    if abs(root.imag) < 1e-12 and 0 < root.real < upper
+                )
+                for left, right in zip(sorted(boundaries)[:-1], sorted(boundaries)[1:]):
+                    v = left + (v_nodes + 1) * (right - left) / 2
+                    shape = np.column_stack((1 - u - v, np.full_like(v, u), v))
+                    points = shape @ slave
+                    if points[1, 2] <= 0:
+                        continue
+                    bottom_sq = points[:, 2] ** 2
+                    edge_sq = (points[:, 0] - 1) ** 2 + (points[:, 1] - 1) ** 2
+                    bottom = bottom_sq <= edge_sq
+                    density = 250.0 * np.where(bottom, bottom_sq, edge_sq)
+                    gradient = np.zeros_like(points)
+                    gradient[bottom, 2] = 500.0 * points[bottom, 2]
+                    gradient[~bottom, :2] = 500.0 * (points[~bottom, :2] - 1)
+                    weighted = v_weights * (right - left) / 2
+                    total[0] += u_weight * weighted @ density
+                    total[1:] += u_weight * np.einsum(
+                        "q,qi,qj->ij", weighted, shape, gradient
+                    ).reshape(-1)
+        return 2 * reference_area * total[0], 2 * reference_area * total[1:].reshape(
+            3, 3
+        )
+
+    coarse_energy, coarse_force = reference(64)
+    fine_energy, fine_force = reference(128)
+    assert fine_energy == pytest.approx(coarse_energy, rel=1e-7)
+    np.testing.assert_allclose(fine_force, coarse_force, rtol=1e-6, atol=1e-8)
+    assert response.potential == pytest.approx(fine_energy, rel=1e-7)
+    np.testing.assert_allclose(
+        response.nodal_residual, fine_force, rtol=1e-6, atol=1e-8
+    )
+
+
 def test_partial_local_penalty_refuses_additional_crossing_facet():
     tool = _closed_L_prism()
     slave = np.asarray(

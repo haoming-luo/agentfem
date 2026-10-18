@@ -793,6 +793,8 @@ def test_contact_petsc_rows_reject_invalid_input_before_matrix_mutation():
 
 
 def test_real_dolfinx_certified_face_trial_provider_rejects_stale_displacement():
+    from types import SimpleNamespace
+
     from dolfinx import fem
     from petsc4py import PETSc
     import ufl
@@ -831,6 +833,11 @@ def test_real_dolfinx_certified_face_trial_provider_rejects_stale_displacement()
     np.testing.assert_array_equal(
         vector.array, trial.operator.nodal_residual.reshape(-1)
     )
+    dual = provider.dual_evidence(
+        SimpleNamespace(solution=displacement, last_solve_info=object())
+    )
+    np.testing.assert_allclose(dual.resultant, trial.operator.force_on_structure)
+    assert provider.current_face_diagnostics()["location"] == "boundary_faces"
     provider.add_tangent(matrix, trial)
     matrix.assemble()
     expected = initial_matrix.copy()
@@ -871,6 +878,8 @@ def test_certified_face_trial_provider_rejects_unimplemented_initial_overlap():
 
 
 def test_real_dolfinx_certified_face_trial_provider_rejects_stale_tool_pose():
+    from types import SimpleNamespace
+
     from dolfinx import fem
     from petsc4py import PETSc
 
@@ -901,12 +910,27 @@ def test_real_dolfinx_certified_face_trial_provider_rejects_stale_tool_pose():
     trial = provider.evaluate()
     assert trial.motion_factor == 0.25
     assert trial.operator.motion_factor == 0.25
+    dual = provider.dual_evidence(
+        SimpleNamespace(solution=provider.displacement, last_solve_info=object())
+    )
+    np.testing.assert_allclose(dual.force[:3], trial.operator.force_on_structure)
+    reference = motion.state(0.25)["reference_point"]
+    np.testing.assert_allclose(
+        dual.force[3:], trial.operator.moment_on_structure_about(reference)
+    )
+    np.testing.assert_allclose(dual.coordinate, motion.generalized_coordinate(0.25))
+    saved = provider.snapshot_motion()
     vector = PETSc.Vec().createSeq(3 * len(adapter.reference_nodal_positions))
     vector.set(0.0)
     provider.update_motion(0.5)
     with pytest.raises(ValueError, match="another Newton trial"):
         provider.add_residual(vector, trial)
     np.testing.assert_array_equal(vector.array, 0.0)
+    provider.restore_motion(saved)
+    provider.add_residual(vector, trial)
+    np.testing.assert_array_equal(
+        vector.array, trial.operator.nodal_residual.reshape(-1)
+    )
 
 
 def test_random_accepted_local_proofs_agree_with_independent_tool_projection():

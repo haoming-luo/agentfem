@@ -59,6 +59,23 @@ class DolfinxCertifiedFaceContactTrialProvider:
     maximum_master_facets: int = 64
     order: int = 24
     current_factor: float = field(default=0.0, init=False)
+    contact_integration: str = field(default="certified_closed_two_feature", init=False)
+
+    @property
+    def name(self) -> str:
+        return self.pair.name
+
+    @property
+    def surface(self) -> ClosedTriangulatedRigidSolid:
+        return self.pair.rigid_body.surface
+
+    @property
+    def providers(self) -> tuple[DolfinxCertifiedFaceContactTrialProvider, ...]:
+        return (self,)
+
+    @property
+    def has_prescribed_motion(self) -> bool:
+        return self.pair.rigid_body.motion_schedule is not None
 
     def __post_init__(self) -> None:
         if not isinstance(self.pair, RigidContactPair) or not isinstance(
@@ -110,6 +127,18 @@ class DolfinxCertifiedFaceContactTrialProvider:
         if schedule is not None:
             schedule.motion.state(selected)
         self.current_factor = selected
+
+    def snapshot_motion(self) -> float:
+        return self.current_factor
+
+    def restore_motion(self, saved: float) -> None:
+        self.update_motion(saved)
+
+    def snapshot_runtime_state(self) -> float:
+        return self.current_factor
+
+    def restore_runtime_state(self, saved: float) -> None:
+        self.update_motion(saved)
 
     def evaluate(self) -> CertifiedFaceContactTrial:
         current = self.adapter.current_nodal_positions(self.displacement)
@@ -177,3 +206,97 @@ class DolfinxCertifiedFaceContactTrialProvider:
             operator.tangent_values,
             constrained_dofs=constrained_dofs,
         )
+
+    def commit_accepted(self) -> None:
+        """This frictionless law has no history beyond accepted U and tool pose."""
+
+        self.validate_accepted_configuration()
+
+    def validate_accepted_configuration(self) -> None:
+        self.evaluate()
+
+    def snapshot_accepted_state(self) -> None:
+        return None
+
+    def current_face_diagnostics(self) -> dict[str, object]:
+        """Expose extensive face evidence, never a guessed point pressure."""
+
+        operator = self.evaluate().operator
+        return {
+            "schema": "agentfem.certified-face-contact-trial.v1",
+            "location": "boundary_faces",
+            "constraint_name": self.name,
+            "reference_area_measure": True,
+            "tool_geometry_fingerprint": operator.tool_fingerprint,
+            "motion_factor": operator.motion_factor,
+            "face_ids": operator.face_ids.tolist(),
+            "activity": list(operator.face_activity_kinds),
+            "feature_kinds": [
+                None if item is None else list(item)
+                for item in operator.face_feature_kinds
+            ],
+            "active_reference_areas": operator.face_active_reference_areas.tolist(),
+            "potential_energies": operator.face_potential_energies.tolist(),
+            "forces_on_structure": operator.face_forces_on_structure.tolist(),
+            "moments_on_structure_about_origin": (
+                operator.face_moments_on_structure_about_origin.tolist()
+            ),
+            "separation_lower_bounds": list(operator.face_separation_lower_bounds),
+            "all_faces_certified_at_current_trial": True,
+        }
+
+    def dual_evidence(self, problem):
+        from dolfinx import fem
+
+        from ..constraints import constraint_dual
+
+        if getattr(problem, "solution", None) is not self.displacement:
+            raise ValueError("Certified face contact dual needs its consuming problem.")
+        if (
+            getattr(problem, "last_solve_info", None) is None
+            and getattr(problem, "_constraint_dual_state", None) != "accepted"
+        ):
+            raise RuntimeError("Certified face dual requires an accepted solve.")
+        operator = self.evaluate().operator
+        distribution = fem.Function(
+            self.displacement.function_space, name=f"{self.name}_reaction"
+        )
+        distribution.x.array[:] = -operator.nodal_residual.reshape(-1)
+        distribution.x.scatter_forward()
+        force = operator.force_on_structure
+        coordinate = None
+        if self.has_prescribed_motion:
+            motion = self.pair.rigid_body.motion_schedule.motion
+            reference = motion.state(self.current_factor)["reference_point"]
+            force = np.concatenate(
+                (force, operator.moment_on_structure_about(reference))
+            )
+            coordinate = motion.generalized_coordinate(self.current_factor)
+        return constraint_dual(
+            self.pair,
+            force=force,
+            coordinate=coordinate,
+            resultant=operator.force_on_structure,
+            distribution=distribution,
+            role="contact_constraint",
+            source="dolfinx_certified_face_contact_research",
+            diagnostics={
+                "certified_face_count": len(operator.face_ids),
+                "active_reference_area": operator.active_reference_area,
+                "contact_potential": operator.potential_energy,
+                "evidence_location": "boundary_faces",
+            },
+        )
+
+    def summary(self) -> dict[str, object]:
+        return {
+            "kind": "dolfinx_certified_face_contact_research",
+            "pair": self.pair.summary(),
+            "trace": self.adapter.summary(),
+            "contact_integration": self.contact_integration,
+            "maximum_slave_faces": self.maximum_slave_faces,
+            "maximum_master_facets": self.maximum_master_facets,
+            "quadrature_order": self.order,
+            "execution_scope": "serial_frictionless_research_only",
+            "accepted_step_admitted": False,
+        }

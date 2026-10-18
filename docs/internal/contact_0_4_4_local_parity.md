@@ -421,6 +421,16 @@ changing the Newton displacement or tool factor after evaluation causes an
 addressable failure with no matrix/vector mutation. This creates a real
 Model-asset-to-Operator-to-PETSc path while still deliberately lacking
 `model.step`, accepted State, checkpoint, tool work and Result publication.
+The private adapter now also exposes a face-location diagnostics record and
+the ordinary constraint-dual sign/resultant, including the moving tool's
+moment about its declared reference point. A real DOLFINx trace checks the
+fixed and moved duals and pose rollback; these are *trial observations*, not
+an accepted-path work ledger or a point-pressure field. For the partially
+active reentrant fixture, a separate physical-distance quadrature splits
+the barycentric triangle at zero gap and closest-feature switches. Its
+potential and nine nodal force components agree with the certified local
+integral under independent 64/128-point convergence checks. This validates
+that bounded fixture, not every possible reentrant corner or Step result.
 
 For real Step admission, the boundary adapter must enumerate every selected
 physical slave face exactly once, then certify each current Newton trial as
