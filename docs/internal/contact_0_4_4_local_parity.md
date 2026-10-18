@@ -520,6 +520,35 @@ The gate stays open until its listed evidence exists at the proposed scope.
    space or reviewed stabilization, consistent geometry derivatives, and
    joint accepted State remain mandatory before a public option exists.
 
+   A real DOLFINx P1 planar-trace rank screen now makes the spatial issue
+   concrete. With 1/2/3 tetrahedral cells along each side, the boundary has
+   4/9/16 normal displacement nodes but the three-point-per-triangle trace
+   carries 6/24/54 independent point multipliers; its active Jacobian row
+   nullity is 2/15/38. Reusing the existing positive vertex-lumped trace
+   with **coalesced shared nodes** gives 4/9/16 multiplier points and zero
+   row nullity in the same *unreduced* screens. Both discretizations can drive
+   the private finite-J2 outer-loop feasibility probe to an accepted plastic
+   state, but they give different PEEQ on that coarse mesh. Thus coalescing
+   repairs this particular algebraic redundancy, not inf-sup stability,
+   pressure accuracy, complementarity across faces or global product
+   acceptance. The one-cell plastic feasibility fixture keeps the same
+   rank result after its actual strong-boundary reduction; a periodic-MPC
+   reduction and a mesh/pressure ladder remain separate gates. This is
+   consistent with the
+   [dual-mortar multiplier-space analysis][dual-mortar-space] and the
+   [reported boundary-contact inconsistency of unmodified dual bases][dual-mortar-boundary];
+   those papers motivate the space design rather than validating our nodal
+   lumping as an equivalent mortar method.
+
+   A second research-only screen used the same finite-J2 Newton owner with
+   coalesced nodal multipliers against an independent homogeneous hard-plane
+   J2 reference. For one and two tetrahedra per side, the outer law required
+   four equilibrium solves, reached penetration below 3.4e-7 for a prescribed
+   0.002 indentation, and its tool force differed from the scalar reference
+   by about 0.016%. This narrow positive result verifies a complete accepted
+   increment on those meshes; it does **not** validate arbitrary pressure
+   patterns, dual-space stability, changing contact sets, or a public AL Step.
+
    On the same 2-cell/axis, 12-increment, q7 L-prism diagnostic above,
    increasing the *penalty* from 20 to 200, 1,000, 10,000 and 100,000
    completed the nonlinear solves but changed the final active reference
@@ -804,6 +833,8 @@ identified multiplier-transfer rule has its own tests.
 [abaqus-output-times]: https://docs.software.vt.edu/abaqusv2025/English/SIMACAECAERefMap/simacae-t-simodbeditorfield.htm
 [duong]: https://arxiv.org/abs/1712.01179
 [dual-mortar]: https://arxiv.org/abs/2201.01165
+[dual-mortar-space]: https://doi.org/10.1137/S0036142999350929
+[dual-mortar-boundary]: https://www.sciencedirect.com/science/article/pii/S0045782510003087
 [variational-mortar]: https://doi.org/10.1016/j.cma.2018.07.020
 [point-line-surface]: https://doi.org/10.1002/nme.5743
 [mortar-integration]: https://doi.org/10.1007/s00466-014-1093-2
