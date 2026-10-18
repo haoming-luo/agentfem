@@ -16,7 +16,11 @@ from agentfem.boundary_models.contact_trace import ContactTrace
 from agentfem.boundary_models.initial_gap_bound import (
     certify_initial_radial_triangle_gap,
 )
-from agentfem.boundary_models.rigid import rigid_cylinder, rigid_sphere
+from agentfem.boundary_models.rigid import (
+    prescribed_rigid_motion,
+    rigid_cylinder,
+    rigid_sphere,
+)
 
 
 def _equilateral_face(height):
@@ -406,3 +410,71 @@ def test_quadratic_active_region_is_scale_and_rigid_frame_invariant():
     )
     np.testing.assert_allclose(shapes, baseline_shapes, atol=2.0e-12)
     np.testing.assert_allclose(weights, baseline_weights, atol=2.0e-12)
+
+
+def test_rotating_cylinder_and_face_preserve_trial_partition():
+    face = _equilateral_face(0.95)
+    cylinder = rigid_cylinder(
+        axis_point=(0.0, 0.0, 0.0), axis_direction=(0.0, 1.0, 0.0), radius=1.0
+    )
+    original = partition_radial_p1_trace(
+        _default_trace(face), face, cylinder, penalty=7.0
+    )
+    angle = 0.17
+    rotation = np.asarray(
+        (
+            (np.cos(angle), -np.sin(angle), 0.0),
+            (np.sin(angle), np.cos(angle), 0.0),
+            (0.0, 0.0, 1.0),
+        )
+    )
+    motion = prescribed_rigid_motion(
+        translation=(0.0, 0.0, 0.0), rotation=(0.0, 0.0, angle)
+    )
+    rotated = partition_radial_p1_trace(
+        _default_trace(face),
+        face @ rotation.T,
+        cylinder,
+        penalty=7.0,
+        motion=motion,
+        factor=1.0,
+    )
+    np.testing.assert_allclose(rotated.shape_values, original.shape_values, atol=2e-12)
+    np.testing.assert_allclose(rotated.weights, original.weights, atol=2e-12)
+
+
+def test_radial_trial_and_initial_overlap_are_unit_scale_invariant():
+    face = _equilateral_face(0.95)
+    for scale in (1.0e-9, 1.0, 1.0e3):
+        scaled_face = scale * face
+        sphere = rigid_sphere(center=(0.0, 0.0, 0.0), radius=scale)
+        trace = partition_radial_p1_trace(
+            _default_trace(scaled_face),
+            scaled_face,
+            sphere,
+            penalty=7.0,
+        )
+        assert trace.point_count > 3
+        assert trace.weights.sum() == pytest.approx(
+            scale**2 * np.pi * (1.0 - 0.95**2), rel=5e-8
+        )
+        bound = certify_initial_radial_triangle_gap(
+            scaled_face[None, :, :],
+            sphere,
+            penetration_limit=0.050001 * scale,
+        )
+        assert bound.maximum_penetration_bound / scale == pytest.approx(
+            0.05, abs=1.0e-8
+        )
+
+
+def test_radial_mode_rejects_unresolvable_world_coordinate_offset():
+    center = (1.0e12, 0.0, 0.0)
+    face = _equilateral_face(0.95) + np.asarray(center)
+    sphere = rigid_sphere(center=center, radius=1.0)
+    with pytest.raises(NotImplementedError, match="world-coordinate roundoff"):
+        partition_radial_p1_trace(_default_trace(face), face, sphere, penalty=7.0)
+    with pytest.raises(NotImplementedError, match="world-coordinate roundoff"):
+        certify_initial_radial_triangle_gap(
+            face[None, :, :], sphere, penetration_limit=0.1
+        )

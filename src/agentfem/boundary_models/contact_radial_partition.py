@@ -45,6 +45,18 @@ def radial_partition_policy_summary() -> dict[str, object]:
     }
 
 
+def _radial_coordinate_safety(positions, center, radius: float) -> float:
+    """Conservative length uncertainty from subtracting world coordinates."""
+
+    scale = max(
+        float(np.max(np.abs(positions), initial=0.0)),
+        float(np.max(np.abs(center), initial=0.0)),
+        float(radius),
+        np.finfo(float).tiny,
+    )
+    return 128.0 * np.finfo(float).eps * scale
+
+
 def _real_roots(a: float, b: float, c: float) -> tuple[float, ...]:
     """Stable real roots of a degree-at-most-two polynomial."""
 
@@ -283,7 +295,7 @@ def _radial_local_response(
     projector = np.eye(3) if axis is None else np.eye(3) - np.outer(axis, axis)
     radial = offsets @ projector
     distances = np.linalg.norm(radial, axis=1)
-    if np.any(distances <= 1.0e-12 * max(1.0, radius)):
+    if np.any(distances <= 1.0e-12 * max(radius, float(np.max(distances)))):
         raise ValueError("Radial contact reaches an undefined axis/center normal.")
     unit = radial / distances[:, None]
     gaps = side * (distances - radius)
@@ -401,6 +413,12 @@ def partition_radial_p1_trace(
         )
     side = 1.0 if surface.admissible_side == "exterior" else -1.0
     projector = np.eye(3) if axis is None else np.eye(3) - np.outer(axis, axis)
+    coordinate_safety = _radial_coordinate_safety(positions, center, surface.radius)
+    if coordinate_safety > relative_tolerance * surface.radius:
+        raise NotImplementedError(
+            "AFM-CONTACT-RADIAL-PARTITION: world-coordinate roundoff is too "
+            "large relative to the analytical radius and requested tolerance."
+        )
     new_ids, new_nodes, new_shapes, new_weights = [], [], [], []
     any_active = False
     face_rows = nodes.reshape(-1, 3, 3)[:, 0, :]
@@ -423,7 +441,9 @@ def partition_radial_p1_trace(
         relative = (current - center) @ projector
         minimum_radial = _minimum_radial_distance(relative)
         maximum_radial = float(np.max(np.linalg.norm(relative, axis=1)))
-        if minimum_radial <= 1.0e-12 * max(1.0, surface.radius):
+        if minimum_radial <= max(
+            1.0e-12 * max(surface.radius, maximum_radial), coordinate_safety
+        ):
             raise NotImplementedError(
                 "AFM-CONTACT-RADIAL-PARTITION: a slave face can reach the "
                 "undefined sphere center or cylinder axis."
@@ -434,29 +454,16 @@ def partition_radial_p1_trace(
         ):
             axial = (current - center) @ axis
             low, high = surface.axial_interval
-            margin = (
-                64.0
-                * np.finfo(float).eps
-                * max(
-                    1.0,
-                    surface.radius,
-                    abs(low),
-                    abs(high),
-                )
+            margin = coordinate_safety + 64.0 * np.finfo(float).eps * max(
+                surface.radius, abs(low), abs(high), float(np.max(np.abs(axial)))
             )
             if np.min(axial) <= low + margin or np.max(axial) >= high - margin:
                 raise NotImplementedError(
                     "AFM-CONTACT-RADIAL-PARTITION: a slave face can reach an "
                     "unsupported cylinder rim."
                 )
-        radial_margin = (
-            128.0
-            * np.finfo(float).eps
-            * max(
-                1.0,
-                surface.radius,
-                maximum_radial,
-            )
+        radial_margin = coordinate_safety + 128.0 * np.finfo(float).eps * max(
+            surface.radius, maximum_radial
         )
         definitely_open = (
             minimum_radial > surface.radius + radial_margin

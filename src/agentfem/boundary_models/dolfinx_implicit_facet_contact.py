@@ -54,6 +54,7 @@ from .contact_reference_refinement import refine_p1_triangle_reference_trace
 from .contact_radial_partition import (
     partition_radial_p1_trace, radial_partition_policy_summary,
 )
+from .contact_integration_modes import CONTACT_INTEGRATION_MODES
 from .rigid import (
     RigidCylinderSurface, RigidPlaneSurface, RigidSphereSurface,
     SmoothRigidSurface, TriangulatedRigidSurface,
@@ -86,11 +87,7 @@ class DolfinxImplicitRigidContact:
         if not isinstance(self.adapter, DolfinxContactTraceAdapter):
             raise TypeError("Implicit rigid contact requires a DOLFINx trace adapter.")
         surface = self.pair.rigid_body.surface
-        if self.contact_integration not in {
-            "gauss", "planar_active_partition", "convex_feature_partition",
-            "closed_planar_branch_partition", "reviewed_planar_branch_partition",
-            "radial_active_partition",
-        }:
+        if self.contact_integration not in CONTACT_INTEGRATION_MODES:
             raise ValueError("Unsupported implicit contact integration method.")
         if self.contact_integration == "planar_active_partition" and (
             not isinstance(surface, RigidPlaneSurface)

@@ -13,11 +13,12 @@ from __future__ import annotations
 from collections.abc import Mapping
 
 
-_MODES = frozenset({
-    "gauss", "planar_active_partition", "convex_feature_partition",
+TRIAL_PARTITION_INTEGRATION_MODES = frozenset({
+    "planar_active_partition", "convex_feature_partition",
     "closed_planar_branch_partition", "reviewed_planar_branch_partition",
     "radial_active_partition",
 })
+CONTACT_INTEGRATION_MODES = TRIAL_PARTITION_INTEGRATION_MODES | {"gauss"}
 
 
 def resolve_contact_integration_modes(pairs, selected) -> tuple[str, ...]:
@@ -29,7 +30,7 @@ def resolve_contact_integration_modes(pairs, selected) -> tuple[str, ...]:
     if len(names) != len(set(names)):
         raise ValueError("AFM-CONTACT-INTEGRATION: contact pair names must be unique.")
     if isinstance(selected, str):
-        if selected not in _MODES:
+        if selected not in CONTACT_INTEGRATION_MODES:
             raise ValueError("AFM-CONTACT-INTEGRATION: unknown contact integration mode.")
         modes = (selected,) * len(names)
     elif isinstance(selected, Mapping):
@@ -44,9 +45,15 @@ def resolve_contact_integration_modes(pairs, selected) -> tuple[str, ...]:
             "AFM-CONTACT-INTEGRATION: expected one mode or a mapping of "
             "contact pair names to modes."
         )
-    if any(not isinstance(mode, str) or mode not in _MODES for mode in modes):
+    if any(
+        not isinstance(mode, str) or mode not in CONTACT_INTEGRATION_MODES
+        for mode in modes
+    ):
         raise ValueError("AFM-CONTACT-INTEGRATION: unknown contact integration mode.")
     return modes
 
 
-__all__ = ["resolve_contact_integration_modes"]
+__all__ = [
+    "CONTACT_INTEGRATION_MODES", "TRIAL_PARTITION_INTEGRATION_MODES",
+    "resolve_contact_integration_modes",
+]

@@ -20,7 +20,10 @@ import numpy as np
 
 from .closed_polyhedron import ClosedTriangulatedRigidSolid
 from .convex_polyhedron import ConvexPolyhedralRigidSurface
-from .contact_radial_partition import _minimum_radial_distance
+from .contact_radial_partition import (
+    _minimum_radial_distance,
+    _radial_coordinate_safety,
+)
 from .rigid import (
     RigidCylinderSurface, RigidPlaneSurface, RigidSphereSurface,
     TriangulatedRigidSurface,
@@ -145,25 +148,31 @@ def certify_initial_radial_triangle_gap(
         center = np.asarray(surface.axis_point)
         axis = np.asarray(surface.axis_direction)
         projector = np.eye(3) - np.outer(axis, axis)
+    safety = _radial_coordinate_safety(cells, center, surface.radius)
+    if safety > 1.0e-5 * surface.radius:
+        raise NotImplementedError(
+            "AFM-CONTACT-INITIAL-UNCERTIFIED: world-coordinate roundoff is too "
+            "large relative to the analytical radius."
+        )
+    if isinstance(surface, RigidCylinderSurface):
         if surface.axial_interval is not None:
             axial = (cells - center) @ axis
             low, high = surface.axial_interval
-            margin = 128.0 * np.finfo(float).eps * max(
-                1.0, surface.radius, abs(low), abs(high),
+            margin = safety + 128.0 * np.finfo(float).eps * max(
+                surface.radius, abs(low), abs(high),
+                float(np.max(np.abs(axial), initial=0.0)),
             )
             if np.any(axial <= low + margin) or np.any(axial >= high - margin):
                 raise NotImplementedError(
                     "AFM-CONTACT-INITIAL-UNCERTIFIED: the reference face can "
                     "reach an unsupported cylinder rim."
                 )
-    scale = max(1.0, surface.radius, float(np.max(np.abs(cells), initial=0.0)))
-    safety = 128.0 * np.finfo(float).eps * scale
     maximum_penetration = 0.0
     for cell in cells:
         relative = (cell - center) @ projector
         minimum = _minimum_radial_distance(relative)
         maximum = float(np.max(np.linalg.norm(relative, axis=1)))
-        if minimum <= 1.0e-12 * max(1.0, surface.radius):
+        if minimum <= max(1.0e-12 * max(surface.radius, maximum), safety):
             raise NotImplementedError(
                 "AFM-CONTACT-INITIAL-UNCERTIFIED: the reference face can reach "
                 "the undefined sphere center or cylinder axis."

@@ -101,6 +101,9 @@ def export_accepted_contact_points(
 
     from ..checkpointing import atomic_savez, atomic_write_text
     from .. import __version__
+    from ..boundary_models.contact_integration_modes import (
+        TRIAL_PARTITION_INTEGRATION_MODES,
+    )
     from .core import SimulationResult
 
     if result is not None and not isinstance(result, SimulationResult):
@@ -143,11 +146,10 @@ def export_accepted_contact_points(
     samples = [item.accepted_point_samples() for item in providers]
     identity_scopes = [
         "accepted_snapshot_only"
-        if getattr(item, "contact_integration", "gauss") in {
-            "planar_active_partition", "convex_feature_partition",
-            "closed_planar_branch_partition", "reviewed_planar_branch_partition",
-            "radial_active_partition",
-        }
+        if (
+            getattr(item, "contact_integration", "gauss")
+            in TRIAL_PARTITION_INTEGRATION_MODES
+        )
         else "fixed_reference_quadrature"
         for item in providers
     ]

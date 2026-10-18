@@ -675,6 +675,40 @@ def test_radial_sphere_partition_on_refined_real_tetrahedral_mesh(divisions):
     assert result.metadata["constraint_balance_contract"]["force_balance_available"]
 
 
+def test_radial_sphere_and_moving_plane_share_one_total_j2_step(tmp_path):
+    options = dict(
+        closed=False, radial_sphere=True, active_second_plane=True,
+        radial_motion=(-0.015, 0.0, 0.0),
+    )
+    step, displacement = _small_single_branch_j2_step(**options)
+    result = step.solve_result()
+    assert result.status == "completed"
+    assert np.all(np.isfinite(displacement.value.x.array))
+    assert all(
+        item.current_point_diagnostics()["active_point_count"] > 0
+        for item in step.contact_provider.providers
+    )
+    work = dict(step.energy_history[-1].pair_tool_work)
+    assert set(work) == {"rigid_contact_pair", "transverse_plane"}
+    assert all(value > 0.0 for value in work.values())
+    assert step.energy_history[-1].tool_work == pytest.approx(sum(work.values()))
+    interrupted, _ = _small_single_branch_j2_step(**options)
+    interrupted.solve(until=0.5)
+    saved = interrupted.save_checkpoint(tmp_path / "two_moving_tools")
+    restored, _ = _small_single_branch_j2_step(**options)
+    restored.load_checkpoint(saved)
+    assert restored.solve_result().status == "completed"
+    np.testing.assert_allclose(
+        restored.solution.x.array, step.solution.x.array, rtol=1e-9, atol=1e-10,
+    )
+    np.testing.assert_allclose(
+        restored.response.state.committed_state_vectors(),
+        step.response.state.committed_state_vectors(),
+        rtol=1e-9, atol=1e-10,
+    )
+    assert dict(restored.energy_history[-1].pair_tool_work) == pytest.approx(work)
+
+
 def test_reviewed_open_sheet_branch_refuses_positive_area_beyond_master_edge():
     step, displacement = _small_single_branch_j2_step(
         closed=False, open_sheet=True,

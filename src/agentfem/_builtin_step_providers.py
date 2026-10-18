@@ -667,21 +667,18 @@ def _contact_integration_rejection_reason(model, request: StepRequest) -> str | 
     """Admit the changing trial partition only where its affine proof applies."""
 
     selected = request.options.get("contact_integration", "gauss")
+    from .boundary_models.contact_integration_modes import (
+        CONTACT_INTEGRATION_MODES, resolve_contact_integration_modes,
+    )
+
     if isinstance(selected, str) and selected == "gauss":
         return None
-    if isinstance(selected, str) and selected not in {
-        "planar_active_partition", "convex_feature_partition",
-        "closed_planar_branch_partition", "reviewed_planar_branch_partition",
-        "radial_active_partition",
-    }:
+    if isinstance(selected, str) and selected not in CONTACT_INTEGRATION_MODES:
         return "AFM-CONTACT-PARTITION: unknown contact_integration option."
     from .boundary_models import (
         ClosedTriangulatedRigidSolid, ConvexPolyhedralRigidSurface,
         RigidContactPair, RigidCylinderSurface, RigidPlaneSurface,
         RigidSphereSurface, TriangulatedRigidSurface,
-    )
-    from .boundary_models.contact_integration_modes import (
-        resolve_contact_integration_modes,
     )
 
     pairs = tuple(getattr(model, "boundary_models", ()))

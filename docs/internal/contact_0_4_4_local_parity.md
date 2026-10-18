@@ -211,6 +211,14 @@ cube edge (6, 48 and 384 tetrahedra). The maximum displacement is
 penalty: the pointwise maximum displacement changes materially. The exported
 accepted contact samples explicitly mark their IDs as snapshot-only and
 their pressure as force per reference area, not Cauchy stress.
+The initial-overlap bound and trial partition were also checked with the
+same face scaled from `1e-9` to `1e3` length units. A former absolute
+`max(1, radius)` roundoff allowance falsely rejected the small-unit initial
+limit; it now scales with the analytical radius and coordinate precision.
+Conversely, a unit-radius sphere translated to a `1e12` world-coordinate
+offset is refused because the geometry cannot be resolved to the declared
+integration tolerance in binary64. This is a precision gate, not an
+automatic rescaling or alteration of user geometry.
 The commercial [analytical-rigid-surface guidance][abaqus-rigid-smoothing] also
 notes that curved analytical geometry can reduce contact noise/search cost,
 while discontinuous master normals impair implicit finite sliding. That
@@ -812,6 +820,18 @@ The gate stays open until its listed evidence exists at the proposed scope.
    [Hansbo--Rashid--Salomonsson][hansbo-stabilized], row rank at four finite
    meshes cannot replace a mesh-uniform inf-sup or reviewed stabilization
    argument.
+   [MOOSE's mortar contact design][moose-weighted-gap] makes the missing
+   contract more explicit: a multiplier couples to a *weighted gap* and its
+   basis/normalization, not merely to a convenient list of Gauss-point
+   pressures. Its documentation even distinguishes stored scaled multipliers
+   from physical pressure and rejects incompatible restart settings. Its
+   [Petrov--Galerkin note][moose-petrov] reports that a dual multiplier basis
+   may produce a negative weighted nodal gap; changing the test space is a
+   deliberate method choice. These are reasons **not** to relabel our
+   coalesced nodal feasibility probe as a stable mortar method. The next
+   implementation should specify the primal/dual pair, coverage treatment,
+   pressure recovery and restart identity together, then test a nonuniform
+   contact-pressure field under mesh refinement and MPC reduction.
 
    On the same 2-cell/axis, 12-increment, q7 L-prism diagnostic above,
    increasing the *penalty* from 20 to 200, 1,000, 10,000 and 100,000
@@ -1093,6 +1113,8 @@ identified multiplier-transfer rule has its own tests.
 [meshed-rigid]: https://docs.software.vt.edu/abaqusv2025/English/SIMACAEVERRefMap/simaver-c-finslcontdefmeshrig.htm
 [comsol-verification]: https://doc.comsol.com/6.3/doc/com.comsol.help.sme/StructuralMechanicsVerificationExamples.pdf
 [moose-return]: https://mooseframework.inl.gov/source/materials/RadialReturnStressUpdate.html
+[moose-weighted-gap]: https://mooseframework.inl.gov/source/constraints/ComputeWeightedGapLMMechanicalContact.html
+[moose-petrov]: https://mooseframework.inl.gov/syntax/Constraints/Petrov-Galerkin_approach_for_Lagrange_multipliers.html
 [abaqus-time-points]: https://docs.software.vt.edu/abaqusv2025/English/SIMACAEANLRefMap/simaanl-c-directcyclic.htm
 [abaqus-output-times]: https://docs.software.vt.edu/abaqusv2025/English/SIMACAECAERefMap/simacae-t-simodbeditorfield.htm
 [duong]: https://arxiv.org/abs/1712.01179
