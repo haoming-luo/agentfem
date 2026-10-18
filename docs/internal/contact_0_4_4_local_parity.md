@@ -28,7 +28,7 @@ being silently approximated by the bounded route.
 | --- | --- | --- |
 | 1. Comparator | Internal and public-protocol tests | Independent same-input finite-J2 contact run and frozen observables |
 | 2. Surface | Reviewed geometry; exact plane and conservative closed-solid initial-overlap bounds on admitted first-order traces | Open facets, unsupported curved tools, ambiguity and sliding coverage at target geometry |
-| 3. Integration | Planar/convex partitions; sampled nonconvex risk flag and same-state integration screens | Nonconvex feature-switch integral/tangent; separate admission or rejection of lower-dimensional edge/point contact |
+| 3. Integration | Planar/convex partitions; sampled nonconvex risk flag; conservative zero-contact certificate on current affine faces | Active nonconvex feature-switch integral/tangent; separate admission or rejection of lower-dimensional edge/point contact |
 | 4. Normal law | Penalty Step; fixed-trace AL operator candidate | Outer global Procedure, spatial stability and checkpoint composition |
 | 5. Friction | Locally planar Coulomb State; rigid-master spin transport tested | Admitted geometry-by-friction matrix; sharp features remain rejected |
 | 6. Transaction | Total-system and restart tests for penalty; serial affine/MPC accepted-feature path with legacy-incomplete migration | Repeat for each new enforcement/integration law |
@@ -43,6 +43,18 @@ sampled slave face crosses nearest features without a certified transition
 integral. Release additionally requires a certified integral even if no
 switch or active point happened to be sampled. Exploratory inspection remains
 possible; an absence of sampled switches is not a whole-face certificate.
+For a reviewed closed solid, a current first-order slave face can now instead
+be certified **strictly separated** by an adaptive 1-Lipschitz signed-distance
+bound. A rigid-pose-aware complete AABB separation is checked first, so
+obviously distant faces require no nearest-feature/winding point query. That
+proves its normal contact integral is exactly zero at that accepted
+configuration. A manufactured counterexample with three apparently separated
+ordinary Gauss points and a penetrating face corner is correctly *not*
+certified. An unresolved budget, ambiguous projection,
+or any near/active contact leaves the integral uncertified. This is not a
+between-increment path-intersection proof and does not admit active nonconvex
+contact, friction, or lower-dimensional edge/point laws. Its reference
+geometric cost also is not a large-CAD performance guarantee.
 Both ordinary J2 and affine/MPC acceptance now validate the same typed
 polyhedral diagnostic contract: a missing mixed-feature count, a non-Boolean
 integration claim or inconsistent active face/edge/vertex totals rejects the

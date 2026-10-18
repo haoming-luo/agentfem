@@ -46,6 +46,7 @@ from .initial_gap_bound import (
     certify_initial_convex_triangle_gap, certify_initial_triangle_gap,
     initial_gap_bound_method,
 )
+from .contact_separation_bound import certify_current_triangle_separation
 from .contact_reference_refinement import refine_p1_triangle_reference_trace
 from .rigid import RigidPlaneSurface, SmoothRigidSurface, TriangulatedRigidSurface
 from .search import TriangleSurfaceBVH, triangle_surface_bvh
@@ -680,7 +681,35 @@ class DolfinxImplicitRigidContact:
                     factor=factor,
                 )
             )
-            evidence["feature_transition_integral_certified"] = False
+            # A sampled zero is not a face-wise zero. Only a conservative
+            # signed-distance bound over every current affine slave triangle
+            # may certify that this accepted configuration has no contact.
+            # This does not admit any active nonconvex feature integral.
+            if (
+                not np.any(active)
+                and self.adapter.interpolation_degree == 1
+                and self.adapter.geometry_degree == 1
+                and self.adapter.facet_topology == "triangle"
+            ):
+                face_nodes = np.unique(evaluation.trace.node_ids, axis=0)
+                current = self.adapter.current_nodal_positions(self.displacement)
+                separation = certify_current_triangle_separation(
+                    current[face_nodes], self.surface,
+                    motion=None if self.pair.rigid_body.motion_schedule is None
+                    else self.pair.rigid_body.motion_schedule.motion,
+                    factor=factor,
+                )
+                evidence["whole_face_separation"] = {
+                    "certified": separation.certified,
+                    "minimum_gap_lower_bound": separation.minimum_gap_lower_bound,
+                    "sampled_point_count": separation.sampled_point_count,
+                    "maximum_refinement_depth": separation.maximum_refinement_depth,
+                    "status": separation.status,
+                    "scope": "current_affine_slave_faces_only",
+                }
+                evidence["feature_transition_integral_certified"] = separation.certified
+            else:
+                evidence["feature_transition_integral_certified"] = False
         return evidence
 
     def quadrature_sensitivity(

@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from types import SimpleNamespace
+
 import numpy as np
 import pytest
 import basix.ufl
@@ -14,6 +16,10 @@ from agentfem.boundary_models.closed_polyhedron import (
 )
 from agentfem.boundary_models.contact_response import frictionless_penalty_contact_law
 from agentfem.boundary_models.contact_state import ContactProjectionRecord
+from agentfem.boundary_models.contact_separation_bound import (
+    certify_current_triangle_separation,
+)
+from agentfem.boundary_models.contact_feature_path import AcceptedContactFeaturePath
 from agentfem.boundary_models.contact_trace import ContactTrace
 from agentfem.boundary_models.implicit_contact import integrate_implicit_rigid_contact
 from agentfem.boundary_models.implicit_closed_contact import (
@@ -46,6 +52,55 @@ def _concave_tool():
         vertices=vertices, triangles=triangles, reviewed_embedded=True,
         name="reviewed_L_prism",
     )
+
+
+def test_current_face_separation_uses_whole_triangle_bound_and_current_rigid_pose():
+    tool = _concave_tool()
+    triangle = np.asarray((((3., 0.4, 0.5), (3., 0.8, 0.5),
+                            (3., 0.4, 0.8)),))
+    far = certify_current_triangle_separation(triangle, tool)
+    assert far.certified
+    assert far.minimum_gap_lower_bound > 0
+    assert far.sampled_point_count == 0
+    assert far.status == "strictly_separated_aabb"
+    notch = certify_current_triangle_separation(
+        np.asarray((((1.2, 1.6, 0.5), (1.35, 1.6, 0.5),
+                     (1.2, 1.75, 0.5)),)), tool,
+    )
+    assert notch.certified
+    assert notch.sampled_point_count >= 1
+    assert notch.minimum_gap_lower_bound > 0
+    motion = boundary_models.prescribed_rigid_motion(translation=(2.5, 0, 0))
+    approached = certify_current_triangle_separation(
+        triangle, tool, motion=motion, factor=1.0, maximum_depth=3,
+    )
+    assert not approached.certified
+    assert approached.minimum_gap_lower_bound is None
+    assert approached.status in {"contact_not_excluded", "depth_budget_exhausted"}
+
+
+def test_current_face_separation_refuses_hidden_and_budget_limited_contact():
+    tool = _concave_tool()
+    # All three standard degree-two points are in the free reentrant notch;
+    # the corner of this affine face nevertheless penetrates the L-solid.
+    crossing = np.asarray((((0.9, 0.9, 0.5), (3., 0.9, 0.5),
+                             (0.9, 3., 0.5)),))
+    barycentric = np.asarray(((2 / 3, 1 / 6, 1 / 6),
+                              (1 / 6, 2 / 3, 1 / 6),
+                              (1 / 6, 1 / 6, 2 / 3)))
+    sampled = barycentric @ crossing[0]
+    assert np.all(tool.project(sampled).signed_gaps > 0)
+    assert tool.project(crossing[0, :1]).signed_gaps[0] < 0
+    result = certify_current_triangle_separation(crossing, tool)
+    assert not result.certified
+    assert result.minimum_gap_lower_bound is None
+    budget = certify_current_triangle_separation(
+        np.asarray((((1.2, 1.2, 0.5), (1.7, 1.2, 0.5),
+                     (1.2, 1.6, 0.5)),)),
+        tool, maximum_samples=1,
+    )
+    assert not budget.certified
+    assert budget.status in {"sample_budget_exhausted", "depth_budget_exhausted"}
 
 
 def _reentrant_vertex_tool():
@@ -428,6 +483,45 @@ def test_point_touching_closed_shells_fail_vertex_manifold_review():
             vertices=vertices, triangles=first + second,
             reviewed_embedded=True,
         )
+
+
+def test_dolfinx_closed_tool_separation_is_certified_only_at_the_current_state():
+    domain = dolfinx_mesh.create_unit_cube(
+        MPI.COMM_SELF, 1, 1, 1, cell_type=dolfinx_mesh.CellType.tetrahedron,
+    )
+    space = fem.functionspace(
+        domain, basix.ufl.element("Lagrange", domain.basix_cell(), 1, shape=(3,)),
+    )
+    displacement = fem.Function(space)
+    original = _concave_tool()
+    tool = closed_triangulated_rigid_solid(
+        vertices=original.facets.vertices + np.asarray((5., 0., 0.)),
+        triangles=original.facets.triangles,
+        reviewed_embedded=True,
+        name="translated_reentrant_tool",
+    )
+    boundary = agent_mesh.boundary(
+        domain, lambda x: np.isclose(x[0], 0.0), name="loaded_face",
+    )
+    pair = boundary_models.rigid_contact_pair(
+        boundary, boundary_models.rigid_body(tool), penalty=125.0,
+    )
+    operator = dolfinx_implicit_rigid_contact(pair, displacement)
+    far = operator.current_point_diagnostics()
+    assert far["active_point_count"] == 0
+    assert far["whole_face_separation"]["certified"] is True
+    assert far["whole_face_separation"]["minimum_gap_lower_bound"] > 0
+    assert far["feature_transition_integral_certified"] is True
+    path = AcceptedContactFeaturePath((operator,))
+    path.reset(SimpleNamespace(index=0, load_factor=0.0))
+    path.accept(SimpleNamespace(index=1, load_factor=0.5))
+    assert next(iter(path.pairs.values()))["all_observed_integrals_certified"] is True
+    displacement.x.array.reshape((-1, 3))[:, 0] = 5.1
+    near = operator.current_point_diagnostics()
+    assert near["feature_transition_integral_certified"] is False
+    assert near["active_point_count"] > 0
+    path.accept(SimpleNamespace(index=2, load_factor=1.0))
+    assert next(iter(path.pairs.values()))["all_observed_integrals_certified"] is False
 
 
 def test_dolfinx_reentrant_edge_assembles_current_residual_and_tangent():
