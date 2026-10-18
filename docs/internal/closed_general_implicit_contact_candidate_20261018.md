@@ -163,6 +163,22 @@ installation at 24 increments and exported an XDMF field file plus result
 manifest. These are **Mac installed-package** checks of a manufactured
 problem, not release-platform or industrial accuracy evidence.
 
+An isolated native Mac wheel from `f34a926d` has SHA-256
+`a2a56e7ccfcb9c024ddc385342207eeaa55ac4aa07b6671414c3e77aef38f873`.
+Its installed package path, not the checkout, supplied the public affine-J2
+`model.step()` runtime for five moving-friction, reduced-Jacobian and restart
+regressions; all five passed. `_hex_native` and `_body_pipeline` imported from
+the same isolated installation. This verifies packaging of the bounded serial
+entry point, not other operating systems, MPI contact, or full-scale accuracy.
+The source-side serial checkpoint policy also passed `every=1, keep_last=1`:
+only the final v2 artifact remained and its accepted Coulomb history restored.
+`portable=True` is correctly rejected at preflight for an external contact
+Operator; a serial v2 file must not be described as MPI-rank portable.
+An opposed active frictionless sphere plus moving frictional plane also kept
+separate pair States through a v2 restart and reproduced the final field and
+accepted sliding dissipation. This is a two-tool composition check, not a
+general multi-body or distributed-contact benchmark.
+
 ### Sign-query performance experiment, not a whole-Step speed claim
 
 `tools/benchmark_closed_solid_projection.py` fixes the L-prism geometry,

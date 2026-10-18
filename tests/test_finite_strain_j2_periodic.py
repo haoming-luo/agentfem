@@ -70,7 +70,7 @@ def test_periodic_j2_rejects_registered_contact_in_capability_and_step():
 
 def _periodic_j2_contact_step(
     *, surface=None, motion=None, pair_count=1, opposed_pair=False,
-    friction_coefficient=None, tangential_penalty=None,
+    friction_coefficient=None, tangential_penalty=None, checkpoint=None,
 ):
     fixture = periodic_unit_cube(MPI.COMM_SELF)
     model = models.create(
@@ -134,6 +134,7 @@ def _periodic_j2_contact_step(
             relative_tolerance=1e-8, absolute_tolerance=1e-9,
             maximum_iterations=25, line_search="backtracking",
         ),
+        checkpoint=checkpoint,
     )
     return fixture, periodicity, step
 
@@ -763,6 +764,90 @@ def test_periodic_j2_moving_plane_friction_commits_and_restarts(tmp_path):
         rtol=1e-9, atol=1e-10,
     )
     assert resumed.contact_provider.friction_state.accepted is not None
+    assert resumed_result.quantity("friction_dissipation") == pytest.approx(
+        result.quantity("friction_dissipation"), rel=1e-9,
+    )
+
+
+def test_periodic_j2_friction_scheduled_checkpoint_retention_and_resume(tmp_path):
+    surface = boundary_models.rigid_plane(
+        point=(1.01, 0.0, 0.0), normal=(-1.0, 0.0, 0.0),
+    )
+    motion = boundary_models.prescribed_rigid_motion(
+        translation=(0.0, 0.02, 0.0),
+        reference_point=(1.6, 0.5, 0.5),
+    )
+    options = dict(
+        surface=surface, motion=motion,
+        friction_coefficient=0.2, tangential_penalty=1000.0,
+    )
+    policy = checkpointing.every(
+        1, directory=tmp_path / "scheduled", keep_last=1,
+    )
+    _, _, continuous = _periodic_j2_contact_step(
+        **options, checkpoint=policy,
+    )
+    reference_result = continuous.solve_result()
+    assert reference_result.status == "completed"
+    assert len(continuous.checkpoints) == 1
+    saved = continuous.checkpoints[0].path
+    assert saved.exists()
+    assert len(list((tmp_path / "scheduled").glob("*.checkpoint.json"))) == 1
+    payload = json.loads(saved.read_text(encoding="utf-8"))
+    assert payload["schema"] == "agentfem.affine-stateful-checkpoint.v2"
+
+    _, _, resumed = _periodic_j2_contact_step(**options)
+    resumed.load_checkpoint(saved)
+    np.testing.assert_allclose(
+        resumed.solution.x.array, continuous.solution.x.array,
+        rtol=1e-9, atol=1e-10,
+    )
+    assert resumed.contact_provider.friction_state.accepted is not None
+    samples = resumed.contact_provider.accepted_point_samples()
+    assert float(np.sum(
+        samples["reference_weights"]
+        * samples["cumulative_friction_dissipation_densities"]
+    )) == pytest.approx(
+        reference_result.quantity("friction_dissipation"), rel=1e-9,
+    )
+
+
+def test_periodic_j2_friction_and_opposed_frictionless_tool_restart(tmp_path):
+    surface = boundary_models.rigid_plane(
+        point=(1.01, 0.0, 0.0), normal=(-1.0, 0.0, 0.0),
+    )
+    motion = boundary_models.prescribed_rigid_motion(
+        translation=(0.0, 0.02, 0.0),
+        reference_point=(1.6, 0.5, 0.5),
+    )
+    options = dict(
+        surface=surface, motion=motion, opposed_pair=True,
+        friction_coefficient=0.2, tangential_penalty=1000.0,
+    )
+    _, _, continuous = _periodic_j2_contact_step(**options)
+    result = continuous.solve_result()
+    assert result.status == "completed"
+    assert len(continuous.contact_providers) == 2
+    assert all(item.evaluate().active_points > 0
+               for item in continuous.contact_providers)
+    assert result.quantity("friction_dissipation") > 0.0
+    assert continuous.contact_providers[0].friction_state.accepted is not None
+    assert continuous.contact_providers[1].friction_state is None
+
+    _, _, partial = _periodic_j2_contact_step(**options)
+    partial.solve(until=1.0 / 3.0)
+    saved = partial.save_checkpoint(tmp_path / "mixed_contact_states")
+    payload = json.loads(saved.read_text(encoding="utf-8"))
+    assert payload["schema"] == "agentfem.affine-stateful-checkpoint.v2"
+    assert payload["operator_accepted_state"][0] is not None
+    assert payload["operator_accepted_state"][1] is None
+    _, _, resumed = _periodic_j2_contact_step(**options)
+    resumed.load_checkpoint(saved)
+    resumed_result = resumed.solve_result()
+    np.testing.assert_allclose(
+        resumed.solution.x.array, continuous.solution.x.array,
+        rtol=1e-9, atol=1e-10,
+    )
     assert resumed_result.quantity("friction_dissipation") == pytest.approx(
         result.quantity("friction_dissipation"), rel=1e-9,
     )

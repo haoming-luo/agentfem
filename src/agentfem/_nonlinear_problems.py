@@ -1767,9 +1767,10 @@ class AffineNonlinearVariationalProblem:
     def save_checkpoint(self, path, *, portable: bool | None = None) -> Path:
         """Save one accepted affine state and its complete path evidence.
 
-        The stable stateful route always writes coordinate/cell-keyed state.
-        This is deliberately stronger than a rank-local default: the same
-        checkpoint can be resumed with a different compatible MPI partition.
+        The stable material route writes coordinate/cell-keyed state, which
+        supports compatible MPI repartitioning when no external Operator is
+        present. Stateful rigid-contact Operators are currently serial-only;
+        their accepted State is stored alongside the material in v2.
         """
 
         if self.state_transaction is None:
