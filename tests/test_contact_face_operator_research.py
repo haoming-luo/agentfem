@@ -859,6 +859,50 @@ def test_real_dolfinx_certified_face_trial_provider_rejects_stale_displacement()
     np.testing.assert_allclose(matrix.getValues(dofs, dofs), expected)
 
 
+def test_certified_face_trial_reuses_only_the_exact_current_configuration(monkeypatch):
+    from dolfinx import fem
+
+    from agentfem.boundary_models import _certified_face_trial_provider as module
+    from agentfem.boundary_models.contact_pair import rigid_contact_pair
+    from agentfem.boundary_models.rigid_body import rigid_body
+
+    _, space, adapter, region = _dolfinx_mixed_active_patch()
+    displacement = fem.Function(space)
+    pair = rigid_contact_pair(region, rigid_body(_tool()), penalty=500.0)
+    provider = module.DolfinxCertifiedFaceContactTrialProvider(
+        pair, adapter, displacement,
+    )
+    original = module.evaluate_certified_closed_p1_contact_operator
+    calls = 0
+
+    def counted(*args, **kwargs):
+        nonlocal calls
+        calls += 1
+        return original(*args, **kwargs)
+
+    monkeypatch.setattr(
+        module, "evaluate_certified_closed_p1_contact_operator", counted,
+    )
+    first = provider.evaluate()
+    assert provider.evaluate() is first
+    assert provider.current_face_diagnostics()["location"] == "boundary_faces"
+    assert calls == 1
+
+    displacement.x.array[0] += 1e-5
+    changed = provider.evaluate()
+    assert changed is not first
+    assert calls == 2
+    with pytest.raises(ValueError, match="another Newton trial"):
+        provider._check_current(first)
+
+    provider.update_motion(0.5)
+    assert provider.evaluate() is not changed
+    assert calls == 3
+    provider.order = 12
+    assert provider.evaluate().operator is not changed.operator
+    assert calls == 4
+
+
 def test_certified_face_trial_provider_proves_declared_initial_overlap():
     from dolfinx import fem
 
@@ -1109,7 +1153,7 @@ def test_research_two_feature_multiple_pairs_share_one_j2_step(tmp_path):
 
 
 def test_research_face_and_sampled_point_modes_share_one_j2_step(tmp_path):
-    from agentfem import boundary_models
+    from agentfem import boundary_models, results
 
     settings = dict(
         moving=True,
@@ -1144,6 +1188,11 @@ def test_research_face_and_sampled_point_modes_share_one_j2_step(tmp_path):
     assert len(result.metadata["constraint_duals"]) == 2
     assert len(result.metadata["constraint_work_evidence"]) == 2
     assert step.energy_history[-1].tool_work > 0.0
+    with pytest.raises(NotImplementedError, match="AFM-CONTACT-EXPORT-FACE"):
+        results.export_accepted_contact_points(
+            step, tmp_path / "mixed_point_export", result=result,
+        )
+    assert not (tmp_path / "mixed_point_export").exists()
     partial, _ = _research_two_feature_j2_step(**settings)
     partial.solve(until=0.5)
     saved = partial.save_checkpoint(tmp_path / "mixed_face_point")

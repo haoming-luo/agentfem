@@ -69,6 +69,15 @@ class DolfinxCertifiedFaceContactTrialProvider:
     current_factor: float = field(default=0.0, init=False)
     initial_gap_bound: InitialGapBound | None = field(default=None, init=False)
     contact_integration: str = field(default="certified_closed_two_feature", init=False)
+    _last_trial: CertifiedFaceContactTrial | None = field(
+        default=None, init=False, repr=False,
+    )
+    _last_reference: np.ndarray | None = field(
+        default=None, init=False, repr=False,
+    )
+    _last_settings: tuple[object, ...] | None = field(
+        default=None, init=False, repr=False,
+    )
 
     @property
     def name(self) -> str:
@@ -166,6 +175,25 @@ class DolfinxCertifiedFaceContactTrialProvider:
         current = self.adapter.current_nodal_positions(self.displacement)
         reference = self.adapter.reference_nodal_positions
         surface = self.pair.rigid_body.surface
+        settings = (
+            self.pair.scientific_identity,
+            surface.geometry_fingerprint,
+            self.maximum_slave_faces,
+            self.maximum_master_facets,
+            self.order,
+        )
+        previous = self._last_trial
+        if (
+            previous is not None
+            and self._last_settings == settings
+            and previous.motion_factor == self.current_factor
+            and np.array_equal(previous.current_nodal_positions, current)
+            and np.array_equal(self._last_reference, reference)
+        ):
+            # The face Operator and its certificate are pure functions of this
+            # exact spatial trial. Do not repeat the expensive geometry proof
+            # for Result/work queries at the already evaluated Newton state.
+            return previous
         arguments = dict(
             penalty=float(np.asarray(self.pair.law.penalty)),
             order=self.order,
@@ -189,12 +217,16 @@ class DolfinxCertifiedFaceContactTrialProvider:
             )
         saved = np.asarray(current, dtype=float).copy()
         saved.setflags(write=False)
-        return CertifiedFaceContactTrial(
+        trial = CertifiedFaceContactTrial(
             operator=operator,
             pair_identity=self.pair.scientific_identity,
             current_nodal_positions=saved,
             motion_factor=self.current_factor,
         )
+        self._last_reference = np.asarray(reference, dtype=float).copy()
+        self._last_settings = settings
+        self._last_trial = trial
+        return trial
 
     def _check_current(self, trial: CertifiedFaceContactTrial) -> None:
         if (

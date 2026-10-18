@@ -107,6 +107,21 @@ reference) versus `0.3043 s` (smooth-face dispatch), about `2.41x` for this
 **small research Step**. The ordinary analytical-plane Step on that model
 remains faster; this is neither a production speed claim nor an estimate for
 sharp-feature models, which correctly retain the more expensive rule.
+The certified-face provider now keeps only its last immutable trial and
+reuses it when the displacement, reference positions, rigid-motion factor,
+pair/tool identities and numerical settings match exactly. A changed Newton
+state or pose forces a new whole-face proof; the cache is neither checkpoint
+State nor a contact-neighbor approximation. The paired
+`tools/benchmark_certified_face_trial_cache.py` disables just this reuse in
+its reference run. On one Apple Silicon FEniCSx host, three-increment serial
+research Steps with 2/4/8 cells per edge had recompute/reuse median times
+`0.306/0.167`, `1.215/0.674` and `5.740/3.582` seconds respectively,
+about `1.83x`, `1.80x` and `1.60x`. The 8-cell case reaches the declared
+128-slave-face cap. Geometry-proof calls dropped from 32/34/35 to 13/15/16;
+the paired script checks the same solution, committed material vectors,
+contact energy, face path and work history. These are small bounded research
+solves, **not** an Abaqus comparison or a production/full-geometry speed
+guarantee. Other models may spend little time in redundant face proofs.
 The reentrant-tool sample carries an engineering quality failure whenever a
 sampled slave face crosses nearest features without a certified transition
 integral. Release additionally requires a certified integral even if no
@@ -550,6 +565,10 @@ point-ID friction checkpoint is rejected without altering the receiving Step.
 Friction *on the certified face* and MPI explicitly refuse this research mode. These tests
 establish a bounded *software lifecycle*, not mesh/penalty convergence, an independent global
 reference, general finite sliding across sharp features, or product release.
+The accepted point-sample exporter rejects a mixed face/point Step before
+creating files: a point-only archive would silently omit the face-integrated
+part of the contact law. Face and point diagnostics remain separately available
+in the Step result until a face-location scientific archive is defined.
 
 The affine/MPC Procedure now admits the same opt-in face mode for a serial,
 single-facet **smooth** closed-tool subset. A larger P1 face that no single
