@@ -133,7 +133,13 @@ energy-closure or spatial-convergence assertion follows from this table.
 The present tests are local software evidence, not an independent structural
 benchmark. [NAFEMS contact benchmarks](https://www.nafems.org/publications/resource_center/r0094/)
 motivate same-input comparison; a reference number from a different model
-cannot validate this implementation. Abaqus' own
+cannot validate this implementation. [Code_Aster SSNP154](https://code-aster.org/V2/doc/v11/en/man_v/v6/v6.03.154.pdf)
+publishes an Abaqus/MARC contact-friction comparison for a **2D plane-strain**
+roller and distinguishes extrapolated bulk stress from contact-multiplier
+pressure, including mesh-dependent oscillations. It is useful for designing
+the future independent benchmark and choosing like-for-like observables,
+but its reported displacement/pressure numbers are not a reference for our
+3D finite-J2, reference-area penalty fixture. Abaqus' own
 [contact-control documentation](https://docs.software.vt.edu/abaqusv2025/English/SIMACAEITNRefMap/simaitn-c-genlcontnumcontrolsstd.htm)
 distinguishes finite-sliding surface, edge and vertex cases. The exact
 solid-angle construction follows the geometric winding-number formulation
@@ -183,6 +189,11 @@ An opposed active frictionless sphere plus moving frictional plane also kept
 separate pair States through a v2 restart and reproduced the final field and
 accepted sliding dissipation. This is a two-tool composition check, not a
 general multi-body or distributed-contact benchmark.
+Changing the Coulomb coefficient invalidates the scientific restart identity;
+corrupting the second pair's checkpoint data rejects the entire load before
+the first pair's friction State can remain half-restored. An injected late
+second-pair commit failure likewise restores the previous material, field,
+pose and friction boundary.
 
 The next sharp-feature friction gate is not a normal-averaging patch.
 [Abaqus' contact overview](https://docs.software.vt.edu/abaqusv2025/English/SIMACAEITNRefMap/simaitn-c-contactoverview.htm)
