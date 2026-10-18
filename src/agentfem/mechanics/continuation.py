@@ -201,6 +201,7 @@ class HyperelasticArcLengthStep:
             np.arange(1, len(records) + 1),
             [r["load_factor"] for r in records],
             abscissa_name="accepted_increment",
+            abscissa_unit=None,
         )
         result.add_quantity("equilibrium_residuals", [r["residual"] for r in records])
         result.add_quantity("arc_constraint_errors", [r["arc_error"] for r in records])

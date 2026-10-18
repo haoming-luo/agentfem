@@ -216,6 +216,22 @@ def test_release_smoke_includes_both_global_viscoelastic_routes():
     assert "examples/viscoelastic_harmonic_3d.py" in examples
 
 
+def test_release_smoke_includes_bounded_installed_contact_routes():
+    examples = {relative for relative, _arguments in release_gate.SMOKE_COMMANDS}
+
+    assert {
+        "examples/finite_j2_opposing_rigid_tools.py",
+        "examples/finite_j2_closed_convex_contact.py",
+        "examples/finite_j2_moving_plane_friction.py",
+        "examples/finite_j2_hertz_contact.py",
+    } <= examples
+    hertz_arguments = dict(release_gate.SMOKE_COMMANDS)[
+        "examples/finite_j2_hertz_contact.py"
+    ]
+    assert "--displacement-degree" in hertz_arguments
+    assert "--linear-policy" in hertz_arguments
+
+
 def test_release_gate_exercises_agent_machine_entrypoints():
     source = (PROJECT_ROOT / "release_gate.py").read_text(encoding="utf-8")
     assert "run_agent_entrypoint_smoke" in source

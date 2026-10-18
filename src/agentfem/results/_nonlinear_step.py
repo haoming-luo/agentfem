@@ -372,8 +372,11 @@ def _base_nonlinear_result(
 
 
 def _add_affine_constraint_evidence(step, result) -> None:
-    contact = getattr(step, "contact_provider", None)
-    assets = (step.constraint,) if contact is None else (step.constraint, contact)
+    contacts = getattr(step, "contact_providers", None)
+    if contacts is None:
+        contact = getattr(step, "contact_provider", None)
+        contacts = () if contact is None else (contact,)
+    assets = (step.constraint, *contacts)
     provider_duals = constraint_api.collect_provider_duals(
         assets,
         step,
@@ -386,22 +389,64 @@ def _add_affine_constraint_evidence(step, result) -> None:
         work_evidence = (*work_evidence, *_add_affine_operator_path_work(
             step, result,
         ))
-    if contact is not None:
-        contact_contribution = contact.evaluate()
-        if not contact.has_prescribed_motion:
-            work_evidence = (*work_evidence, constraint_api.constraint_work(
-                contact,
-                value=0.0,
-                integration="fixed_rigid_surface_zero_coordinate",
-                sample_count=len(step.accepted_increments) + 1,
-                role="contact_constraint",
-                source="rigid_penalty_potential",
-            ))
+    if contacts:
+        contact_potential = 0.0
+        friction_dissipation = 0.0
+        friction_release = 0.0
+        has_friction = False
+        point_records = []
+        for contact in contacts:
+            contact_contribution = contact.evaluate()
+            contact_potential += contact_contribution.assembly.potential_energy
+            point_evidence = contact.current_point_diagnostics()
+            point_records.append({
+                "constraint": contact.name, **point_evidence,
+            })
+            for name in (
+                "active_point_count", "active_reference_area",
+                "maximum_pressure", "maximum_penetration",
+            ):
+                result.add_quantity(
+                    f"{contact.name}_{name}", point_evidence[name],
+                    kind="diagnostic",
+                )
+            if contact_contribution.friction_assembly is not None:
+                has_friction = True
+                friction_dissipation += (
+                    contact_contribution.friction_assembly.cumulative_dissipation
+                )
+                friction_release += (
+                    contact_contribution.friction_assembly.cumulative_separation_release
+                )
+            if not contact.has_prescribed_motion:
+                work_evidence = (*work_evidence, constraint_api.constraint_work(
+                    contact,
+                    value=0.0,
+                    integration="fixed_rigid_surface_zero_coordinate",
+                    sample_count=len(step.accepted_increments) + 1,
+                    role="contact_constraint",
+                    source="rigid_penalty_potential",
+                ))
         result.add_quantity(
-            "contact_potential", contact_contribution.assembly.potential_energy,
+            "contact_potential", contact_potential,
             kind="diagnostic",
             description="Recoverable rigid penalty contact potential.",
         )
+        result.metadata["rigid_contact_point_diagnostics"] = (
+            point_records[0] if len(point_records) == 1
+            else tuple(point_records)
+        )
+        if has_friction:
+            result.add_quantity(
+                "friction_dissipation", friction_dissipation,
+                kind="diagnostic",
+                description="Accepted cumulative Coulomb sliding dissipation.",
+            )
+            result.add_quantity(
+                "friction_separation_release", friction_release,
+                kind="diagnostic",
+                description="Accepted cumulative released tangential penalty energy.",
+            )
     result.metadata["constraint_balance_contract"] = (
         constraint_api.constraint_balance_contract(
             assets,
@@ -469,6 +514,7 @@ def _add_affine_path_work(step, result) -> tuple[object, ...]:
         factors,
         forces,
         abscissa_name="load_factor",
+        abscissa_unit=None,
         description=(
             "Full-residual generalized reaction conjugate to the accepted "
             "affine path coordinate."
@@ -479,6 +525,7 @@ def _add_affine_path_work(step, result) -> tuple[object, ...]:
         factors,
         step.constraint_dual_history.outgoing_forces,
         abscissa_name="load_factor",
+        abscissa_unit=None,
         description=(
             "Right-sided generalized reaction at affine path knots; equal to "
             "the incoming value on a smooth path."
@@ -535,11 +582,13 @@ def _add_affine_operator_path_work(step, result) -> tuple[object, ...]:
         result.add_history(
             f"{prefix}_generalized_force", history.factors, channel["force"],
             abscissa_name="load_factor",
+            abscissa_unit=None,
             description="Accepted work-conjugate rigid-tool force and moment.",
         )
         result.add_history(
             f"{prefix}_generalized_coordinate", history.factors,
             channel["coordinate"], abscissa_name="load_factor",
+            abscissa_unit=None,
             description="Accepted rigid-tool translation and rotation coordinate.",
         )
         result.add_quantity(

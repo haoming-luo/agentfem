@@ -177,10 +177,13 @@ def test_moving_sphere_pose_is_restored_after_failed_trial(monkeypatch):
         float(np.dot(generalized_force, direction)), rel=2e-4,
     )
 
-    def fail_energy():
+    record_energy = step._record_energy
+
+    def fail_energy(*args, **kwargs):
+        record_energy(*args, **kwargs)
         raise ValueError("injected smooth-contact energy failure")
 
-    monkeypatch.setattr(step, "_contact_potential", fail_energy)
+    monkeypatch.setattr(step, "_record_energy", fail_energy)
     with pytest.raises(RuntimeError, match="smooth-contact energy failure"):
         step.solve(until=2 / 3)
     assert float(step.contact_provider.motion_factor.value) == pytest.approx(

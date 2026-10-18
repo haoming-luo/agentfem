@@ -172,13 +172,17 @@ never changes solver access, results, verification, or update behavior.
   loads and for 3D affine-periodic cells with exactly one
   `AbaqusPeriodicConstraint`. Both share one provider-owned quadrature
   transaction and accepted-state portable checkpoint. The ordinary serial
-  provider also accepts one frictionless analytical rigid plane, or one fixed
-  triangulated rigid tool with interior or coplanar-seam projection. A
-  prescribed faceted pose is admitted only for a normalized 0-to-1 schedule
-  driven by the shared Step amplitude; the accepted force--moment work and pose
-  must rollback together. Contact at a free edge or noncoplanar seam is
-  rejected. Reject follower loads, other weak boundary models, multiple
-  faceted tools, and MPC in that provider. Do not infer mixed
+  provider also accepts independently named frictionless rigid pairs using a
+  differentiable `SmoothRigidSurface` (built-in plane/sphere/cylinder or a
+  conforming external implementation), or a triangulated tool with interior
+  or coplanar-seam projection. Each prescribed tool pose needs a normalized
+  0-to-1 schedule driven by the shared Step amplitude; per-pair accepted
+  force--moment work and all poses must rollback together. Contact at a free
+  edge or noncoplanar seam is rejected. Reject follower loads, other weak
+  boundary models, friction, and MPC in that ordinary strong-boundary
+  provider; the separate affine-periodic provider has its own **single-pair**
+  bounded contact/MPC tests.
+  Do not infer mixed
   displacement--pressure locking control, external structural validation,
   a production analytical material tangent,
   or MPI support for these composed contact routes.
@@ -467,6 +471,21 @@ never changes solver access, results, verification, or update behavior.
 - For contact, keep surface geometry, rigid-body kinematics, and enforcement
   law separate. Report tool work only from accepted generalized
   force--translation/moment--rotation stations, never from penalty energy.
+- When a serial implicit rigid contact trace intersects strong prescribed
+  displacement DOFs, lift the native contact tangent by the prescribed
+  correction and keep constrained matrix rows/columns eliminated. The bounded
+  finite-J2 source candidate exercises this on a symmetry-reduced indentation;
+  it is not evidence for MPI implicit contact or non-smooth tool edges.
+- The finite-J2 rigid-contact result reports final unsmoothed contact-point
+  diagnostics: active reference area, peak nominal penalty pressure and peak
+  penetration per named pair. Their location is reference-boundary quadrature, not nodes;
+  neither a peak alone nor a visually smoothed field proves contact accuracy.
+- For a large serial nonlinear contact model, inspect accepted increment phase
+  timings before tuning. Direct LU can dominate at finer resolution; an
+  explicitly chosen nonsymmetric Krylov/preconditioner policy may help, but
+  accept it only after converged linear reasons and force, work, contact-area,
+  penetration and state comparisons on the same model. Do not make a
+  machine- or case-specific policy the global default.
 - For explicit penalty contact, prefer the reviewed lumped-mass stability
   screen and preserve its contact-only scope. Add its spectral upper bound to
   the body/material spectral upper bound before converting the sum to a time

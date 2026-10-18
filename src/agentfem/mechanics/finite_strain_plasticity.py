@@ -24,7 +24,13 @@ from ..constitutive import FiniteStrainJ2Logarithmic
 from ..constitutive import MaterialQuadratureResponse
 from ..constitutive.quadrature import QuadratureField, QuadratureMaterialMap
 from ..events import SolveEvent
-from ..solvers import NewtonSolverOptions, create_ksp, newton, solve_matrix_system
+from ..solvers import (
+    NewtonSolverOptions,
+    _attach_elasticity_rigid_near_nullspace,
+    create_ksp,
+    newton,
+    solve_matrix_system,
+)
 
 
 _MIXED_J2_MAXIMUM_BULK_TO_SHEAR_RATIO = 1.0e4
@@ -371,24 +377,62 @@ class FiniteStrainJ2EnergyFrame:
     mechanical_energy_residual: float
     contact_potential: float = 0.0
     tool_work: float = 0.0
+    pair_tool_work: tuple[tuple[str, float], ...] = ()
+    friction_dissipation: float = 0.0
+    friction_separation_release: float = 0.0
 
-    def as_dict(self) -> dict[str, float]:
-        return {
+    def __post_init__(self) -> None:
+        selected = tuple(self.pair_tool_work)
+        names = tuple(str(name) for name, _ in selected)
+        if len(set(names)) != len(names) or any(not name for name in names):
+            raise ValueError("Accepted rigid-tool work requires distinct nonempty pair names.")
+        if selected and (
+            not all(np.isfinite(value) for _, value in selected)
+            or not np.isclose(
+                sum(value for _, value in selected), self.tool_work,
+                rtol=1.0e-10, atol=1.0e-12,
+            )
+        ):
+            raise ValueError("Accepted per-tool work must sum to the total tool work.")
+        if any(
+            not np.isfinite(value) or value < 0.0
+            for value in (self.friction_dissipation, self.friction_separation_release)
+        ):
+            raise ValueError("Accepted friction loss channels must be finite and nonnegative.")
+
+    def as_dict(self) -> dict[str, object]:
+        values = {
             name: float(getattr(self, name))
             for name in self.__dataclass_fields__
+            if name != "pair_tool_work"
         }
+        values["pair_tool_work"] = dict(self.pair_tool_work)
+        return values
 
     @classmethod
     def from_dict(cls, record) -> "FiniteStrainJ2EnergyFrame":
         required = {
             name: float(record[name])
             for name in cls.__dataclass_fields__
-            if name not in {"contact_potential", "tool_work"}
+            if name not in {
+                "contact_potential", "tool_work", "pair_tool_work",
+                "friction_dissipation", "friction_separation_release",
+            }
         }
+        pair_work = record.get("pair_tool_work", {})
+        if not isinstance(pair_work, dict):
+            raise ValueError("Checkpoint pair-tool work must be a named mapping.")
         return cls(
             **required,
             contact_potential=float(record.get("contact_potential", 0.0)),
             tool_work=float(record.get("tool_work", 0.0)),
+            pair_tool_work=tuple(
+                (str(name), float(value)) for name, value in pair_work.items()
+            ),
+            friction_dissipation=float(record.get("friction_dissipation", 0.0)),
+            friction_separation_release=float(
+                record.get("friction_separation_release", 0.0)
+            ),
         )
 
 
@@ -1137,17 +1181,33 @@ class FiniteStrainJ2StandardProblem:
     )
     _tangent_matrix: object | None = field(default=None, init=False, repr=False)
     _linear_ksp: object | None = field(default=None, init=False, repr=False)
+    _rigid_near_nullspace: object | None = field(default=None, init=False, repr=False)
     external_force: object | None = field(default=None, repr=False)
     follower_loads: bool = False
     contact_provider: object | None = None
     contact_energy_form: object | None = field(default=None, repr=False)
     strong_constraint_assets: tuple[object, ...] = ()
+    contact_constrained_dofs: object = field(default_factory=tuple, repr=False)
 
     @property
     def constraint_assets(self) -> tuple[object, ...]:
-        return self.strong_constraint_assets + (
-            () if self.contact_provider is None else (self.contact_provider,)
-        )
+        return self.strong_constraint_assets + self._contact_providers()
+
+    def _contact_providers(self) -> tuple[object, ...]:
+        if self.contact_provider is None:
+            return ()
+        return tuple(getattr(self.contact_provider, "providers", (self.contact_provider,)))
+
+    def _snapshot_contact_runtime(self):
+        provider = self.contact_provider
+        if provider is None or not hasattr(provider, "snapshot_runtime_state"):
+            return None
+        return provider.snapshot_runtime_state()
+
+    def _restore_contact_runtime(self, saved) -> None:
+        provider = self.contact_provider
+        if provider is not None and hasattr(provider, "restore_runtime_state"):
+            provider.restore_runtime_state(saved)
 
     def checkpoint_capabilities(self) -> checkpointing.CheckpointCapabilities:
         return checkpointing.CheckpointCapabilities(
@@ -1200,27 +1260,43 @@ class FiniteStrainJ2StandardProblem:
             "load_factor": np.asarray(self.load_factor.value).copy(),
             "prescribed_values": self.value_path.snapshot_runtime_state(),
         }
-        if self.contact_provider is not None and self.contact_provider.motion_factor is not None:
-            state["contact_motion_factor"] = float(
-                np.asarray(self.contact_provider.motion_factor.value).reshape(-1)[0]
-            )
+        if self.contact_provider is not None:
+            if hasattr(self.contact_provider, "snapshot_motion"):
+                state["contact_motion_state"] = self.contact_provider.snapshot_motion()
+            elif self.contact_provider.motion_factor is not None:
+                state["contact_motion_state"] = float(
+                    np.asarray(self.contact_provider.motion_factor.value).reshape(-1)[0]
+                )
         return state
 
     def _restore_loading_state(self, state: dict[str, object]) -> None:
         self.load_factor.value = state["load_factor"]
         self.value_path.restore_runtime_state(state["prescribed_values"])
-        if self.contact_provider is not None and self.contact_provider.motion_factor is not None:
-            self.contact_provider.update_motion(state["contact_motion_factor"])
+        if self.contact_provider is not None and "contact_motion_state" in state:
+            if hasattr(self.contact_provider, "restore_motion"):
+                self.contact_provider.restore_motion(state["contact_motion_state"])
+            else:
+                self.contact_provider.update_motion(state["contact_motion_state"])
+
+    def _contact_duals(self):
+        if self.contact_provider is None:
+            return ()
+        previous = getattr(self, "_constraint_dual_state", None)
+        self._constraint_dual_state = "accepted"
+        try:
+            if hasattr(self.contact_provider, "dual_evidences"):
+                return self.contact_provider.dual_evidences(self)
+            return (self.contact_provider.dual_evidence(self),)
+        finally:
+            self._constraint_dual_state = previous
 
     def _contact_dual(self):
         if self.contact_provider is None:
             return None
-        previous = getattr(self, "_constraint_dual_state", None)
-        self._constraint_dual_state = "accepted"
-        try:
-            return self.contact_provider.dual_evidence(self)
-        finally:
-            self._constraint_dual_state = previous
+        selected = self._contact_duals()
+        if len(selected) != 1:
+            raise ValueError("A single contact dual was requested for multiple rigid tools.")
+        return selected[0]
 
     def _evaluate_gradients(self) -> tuple[np.ndarray, np.ndarray]:
         return (
@@ -1251,6 +1327,18 @@ class FiniteStrainJ2StandardProblem:
         if self._uses_implicit_rigid_contact():
             self._rigid_contact_trial = self.contact_provider.evaluate()
             self.contact_provider.add_residual(residual, self._rigid_contact_trial)
+            if len(self.contact_constrained_dofs):
+                # DOLFINx lifts the UFL/material tangent below.  The native
+                # contact tangent must lift the same prescribed correction
+                # before constrained residual rows are replaced by set_bc.
+                bc_delta = np.zeros_like(residual.array)
+                for bc in self.bcs:
+                    bc.set(bc_delta, x0=self.solution.x.array, alpha=1.0)
+                if np.any(bc_delta):
+                    contact_lifting = self._rigid_contact_trial.tangent_action(
+                        bc_delta.reshape(-1, 3)
+                    )
+                    residual.array[:] += contact_lifting.reshape(-1)
         fem_petsc.apply_lifting(
             residual,
             [self.tangent_form],
@@ -1274,7 +1362,8 @@ class FiniteStrainJ2StandardProblem:
     def _assemble_tangent(self):
         """Assemble into one persistent matrix and reuse one configured KSP."""
 
-        if self._tangent_matrix is None:
+        first_assembly = self._tangent_matrix is None
+        if first_assembly:
             self._tangent_matrix = fem_petsc.assemble_matrix(
                 self.tangent_form,
                 bcs=self.bcs,
@@ -1294,8 +1383,19 @@ class FiniteStrainJ2StandardProblem:
             contribution = getattr(self, "_rigid_contact_trial", None)
             if contribution is None:
                 raise RuntimeError("Implicit contact tangent requires the current residual trial.")
-            self.contact_provider.add_tangent(self._tangent_matrix, contribution)
+            self.contact_provider.add_tangent(
+                self._tangent_matrix, contribution,
+                constrained_dofs=self.contact_constrained_dofs,
+            )
         self._tangent_matrix.assemble()
+        if (
+            first_assembly
+            and self._uses_implicit_rigid_contact()
+            and self.solver_options.linear_solver.pc_type.lower() == "gamg"
+        ):
+            self._rigid_near_nullspace = _attach_elasticity_rigid_near_nullspace(
+                self._tangent_matrix, self.solution.function_space,
+            )
         return self._tangent_matrix
 
     def _uses_implicit_rigid_contact(self) -> bool:
@@ -1303,7 +1403,14 @@ class FiniteStrainJ2StandardProblem:
             DolfinxImplicitRigidContact,
         )
 
-        return isinstance(self.contact_provider, DolfinxImplicitRigidContact)
+        from ..boundary_models.dolfinx_implicit_facet_contact import (
+            DolfinxImplicitRigidContacts,
+        )
+
+        return isinstance(
+            self.contact_provider,
+            (DolfinxImplicitRigidContact, DolfinxImplicitRigidContacts),
+        )
 
     def _assign_trial(self, base, direction, alpha: float) -> None:
         self.solution.x.array[:] = base
@@ -1362,6 +1469,7 @@ class FiniteStrainJ2StandardProblem:
         maximum_increment = 0.0
         plastic_points = 0
         converged = False
+        rejection_reason = None
         iteration = 0
         for iteration in range(self.solver_options.maximum_iterations + 1):
             stage_started = time.perf_counter()
@@ -1386,8 +1494,17 @@ class FiniteStrainJ2StandardProblem:
                 rhs.destroy()
                 converged = True
                 break
+            if not np.isfinite(norm):
+                rhs.destroy()
+                rejection_reason = "Newton residual is non-finite"
+                break
             if iteration == self.solver_options.maximum_iterations:
                 rhs.destroy()
+                rejection_reason = (
+                    "Newton reached maximum iterations "
+                    f"({self.solver_options.maximum_iterations}) with "
+                    f"residual {norm:.6g} above threshold {threshold:.6g}"
+                )
                 break
             stage_started = time.perf_counter()
             tangent = self._assemble_tangent()
@@ -1410,6 +1527,10 @@ class FiniteStrainJ2StandardProblem:
             rhs.destroy()
             if not linear.converged:
                 correction.destroy()
+                rejection_reason = (
+                    "linear solver did not converge "
+                    f"(KSP reason {linear.converged_reason})"
+                )
                 break
             base = self.solution.x.array.copy()
             direction = correction.array_r.copy()
@@ -1424,6 +1545,10 @@ class FiniteStrainJ2StandardProblem:
             )
             line_search_seconds += time.perf_counter() - stage_started
             if alpha == 0.0:
+                rejection_reason = (
+                    "line search found no acceptable trial step "
+                    f"at residual {norm:.6g}"
+                )
                 break
         comm = self.solution.function_space.mesh.comm
 
@@ -1441,6 +1566,7 @@ class FiniteStrainJ2StandardProblem:
             residual_norm=float(norm),
             plastic_points=plastic_points,
             maximum_plastic_increment=maximum_increment,
+            rejection_reason=rejection_reason,
             total_seconds=collective_max(time.perf_counter() - started),
             material_update_seconds=collective_max(material_update_seconds),
             residual_assembly_seconds=collective_max(residual_assembly_seconds),
@@ -1460,19 +1586,23 @@ class FiniteStrainJ2StandardProblem:
             accepted_factor=self.accepted_load_factor,
         )
 
-    def _assembled_reaction_values(self) -> np.ndarray:
-        """Assemble the full residual without changing the material trial state."""
+    def _full_residual_reaction_field(self, *, name: str):
+        """Assemble material, external and native-contact residual once."""
 
         from ..problems import _reaction_field
 
-        values = _reaction_field(
-            self.residual_form,
-            self.solution,
-            name="RF_WORK",
-        ).x.array.copy()
+        reaction = _reaction_field(self.residual_form, self.solution, name=name)
         if self._uses_implicit_rigid_contact():
-            values += self.contact_provider.evaluate().assembly.nodal_structural_residual.reshape(-1)
-        return values
+            reaction.x.array[:] += (
+                self.contact_provider.evaluate().nodal_structural_residual.reshape(-1)
+            )
+            reaction.x.scatter_forward()
+        return reaction
+
+    def _assembled_reaction_values(self) -> np.ndarray:
+        """Observe full residual without changing the material trial state."""
+
+        return self._full_residual_reaction_field(name="RF_WORK").x.array.copy()
 
     def _integrate_quadrature_scalar(self, field) -> float:
         values = np.asarray(field.owned_values, dtype=float).reshape(-1)
@@ -1484,7 +1614,7 @@ class FiniteStrainJ2StandardProblem:
 
     def _contact_potential(self) -> float:
         if self._uses_implicit_rigid_contact():
-            return self.contact_provider.evaluate().assembly.potential_energy
+            return self.contact_provider.evaluate().potential_energy
         if self.contact_energy_form is None:
             return 0.0
         local = float(fem.assemble_scalar(self.contact_energy_form))
@@ -1568,7 +1698,7 @@ class FiniteStrainJ2StandardProblem:
         start_reaction_values,
         start_external_force_values,
         previous_amplitude: float,
-        start_contact_dual=None,
+        start_contact_duals=(),
     ) -> None:
         """Commit one path-consistent work/energy frame after material commit."""
 
@@ -1580,7 +1710,33 @@ class FiniteStrainJ2StandardProblem:
         dissipation = self._integrate_quadrature_scalar(
             self.response.state.committed["plastic_dissipation"]
         )
-        contact_potential = self._contact_potential()
+        if self._uses_implicit_rigid_contact():
+            contact_contribution = self.contact_provider.evaluate()
+            contact_potential = contact_contribution.potential_energy
+            contact_parts = (
+                tuple(item for _, item in contact_contribution.pairs)
+                if hasattr(contact_contribution, "pairs")
+                else (contact_contribution,)
+            )
+        else:
+            contact_potential = self._contact_potential()
+            contact_parts = ()
+        friction_dissipation = 0.0
+        friction_release = 0.0
+        for provider, contribution in zip(
+            self._contact_providers() if contact_parts else (),
+            contact_parts,
+            strict=True,
+        ):
+            if (
+                getattr(provider, "friction_state", None) is not None
+                and contribution.friction_assembly is None
+            ):
+                raise RuntimeError("Frictional rigid pair omitted its energy assembly.")
+            if contribution.friction_assembly is None:
+                continue
+            friction_dissipation += contribution.friction_assembly.cumulative_dissipation
+            friction_release += contribution.friction_assembly.cumulative_separation_release
         amplitude = float(self.amplitude(load_factor))
         current_reaction = self._assembled_reaction_values()
         natural_increment = self._natural_load_work_increment(
@@ -1595,17 +1751,39 @@ class FiniteStrainJ2StandardProblem:
             current_reaction_values=current_reaction,
         )
         tool_increment = 0.0
+        pair_work = (
+            dict(self.energy_history[-1].pair_tool_work)
+            if self.energy_history else {}
+        )
         if self.contact_provider is not None and self.contact_provider.has_prescribed_motion:
-            current_contact_dual = self._contact_dual()
-            if start_contact_dual is None:
-                raise RuntimeError("Moving contact requires an accepted starting dual.")
-            tool_increment = float(
-                0.5
-                * np.dot(
-                    start_contact_dual.force + current_contact_dual.force,
-                    current_contact_dual.coordinate - start_contact_dual.coordinate,
+            starting = {
+                item.constraint_name: item for item in start_contact_duals
+            }
+            current = self._contact_duals()
+            if set(starting) != {item.constraint_name for item in current}:
+                raise RuntimeError("Moving contact requires matching accepted starting duals.")
+            if self.energy_history and not pair_work and len(current) == 1:
+                # Read an older single-pair serial checkpoint without the
+                # optional per-pair ledger while preserving its total work.
+                pair_work[current[0].constraint_name] = self.energy_history[-1].tool_work
+            for item in current:
+                old = starting[item.constraint_name]
+                if item.coordinate is None:
+                    pair_work.setdefault(item.constraint_name, 0.0)
+                    continue
+                increment = float(0.5 * np.dot(
+                    old.force + item.force,
+                    item.coordinate - old.coordinate,
+                ))
+                pair_work[item.constraint_name] = (
+                    pair_work.get(item.constraint_name, 0.0) + increment
                 )
-            )
+                tool_increment += increment
+        elif self.contact_provider is not None:
+            pair_work = {
+                item.name: pair_work.get(item.name, 0.0)
+                for item in self._contact_providers()
+            }
         previous_natural = 0.0
         previous_prescribed = 0.0
         previous_tool = 0.0
@@ -1617,7 +1795,12 @@ class FiniteStrainJ2StandardProblem:
         prescribed_work = previous_prescribed + prescribed_increment
         tool_work = previous_tool + tool_increment
         external_work = natural_work + prescribed_work + tool_work
-        internal_energy = stored + dissipation + contact_potential
+        # Separation release is numerical penalty-energy loss, not Coulomb
+        # dissipation; keep both explicit even when closing the work ledger.
+        internal_energy = (
+            stored + dissipation + contact_potential
+            + friction_dissipation + friction_release
+        )
         self.energy_history.append(
             FiniteStrainJ2EnergyFrame(
                 load_factor=float(load_factor),
@@ -1631,6 +1814,9 @@ class FiniteStrainJ2StandardProblem:
                 mechanical_energy_residual=external_work - internal_energy,
                 contact_potential=contact_potential,
                 tool_work=tool_work,
+                pair_tool_work=tuple(sorted(pair_work.items())),
+                friction_dissipation=friction_dissipation,
+                friction_separation_release=friction_release,
             )
         )
 
@@ -1650,6 +1836,7 @@ class FiniteStrainJ2StandardProblem:
             "energy_history_complete": bool(self.energy_history_complete),
             "next_increment_size": self.next_increment_size,
             "loading": self._snapshot_loading_state(),
+            "contact_runtime_state": self._snapshot_contact_runtime(),
         }
 
     def _restore_increment_boundary(self, boundary: dict[str, object]) -> None:
@@ -1668,6 +1855,7 @@ class FiniteStrainJ2StandardProblem:
         self.energy_history_complete = bool(boundary["energy_history_complete"])
         self.next_increment_size = boundary["next_increment_size"]
         self._restore_loading_state(boundary["loading"])
+        self._restore_contact_runtime(boundary["contact_runtime_state"])
 
     def _record_failure(
         self,
@@ -1758,6 +1946,7 @@ class FiniteStrainJ2StandardProblem:
         entry_energy_history = list(self.energy_history)
         entry_energy_history_complete = bool(self.energy_history_complete)
         entry_loading = self._snapshot_loading_state()
+        entry_contact_state = self._snapshot_contact_runtime()
         try:
             self._apply_loading(accepted)
             if accepted <= 1.0e-12 and not self.accepted_increments:
@@ -1794,6 +1983,7 @@ class FiniteStrainJ2StandardProblem:
             self.energy_history[:] = entry_energy_history
             self.energy_history_complete = entry_energy_history_complete
             self._restore_loading_state(entry_loading)
+            self._restore_contact_runtime(entry_contact_state)
             self._record_failure(
                 emit,
                 f"initialization failed: {type(exc).__name__}: {exc}",
@@ -1809,6 +1999,7 @@ class FiniteStrainJ2StandardProblem:
             entry_energy_history,
             entry_energy_history_complete,
             entry_loading,
+            entry_contact_state,
         )
         emit(
             SolveEvent(
@@ -1872,7 +2063,7 @@ class FiniteStrainJ2StandardProblem:
             previous_amplitude = float(self.amplitude(accepted))
             start_reaction_values = None
             start_external_force_values = None
-            start_contact_dual = None
+            start_contact_duals = ()
             try:
                 start_reaction_values = self._assembled_reaction_values()
                 start_external_force_values = self._assembled_external_force_values()
@@ -1880,7 +2071,7 @@ class FiniteStrainJ2StandardProblem:
                     self.contact_provider is not None
                     and self.contact_provider.has_prescribed_motion
                 ):
-                    start_contact_dual = self._contact_dual()
+                    start_contact_duals = self._contact_duals()
                 self._apply_loading(target)
             except BaseException as exc:
                 loading_problem = f"{type(exc).__name__}: {exc}"
@@ -1947,8 +2138,12 @@ class FiniteStrainJ2StandardProblem:
                         start_reaction_values=start_reaction_values,
                         start_external_force_values=start_external_force_values,
                         previous_amplitude=previous_amplitude,
-                        start_contact_dual=start_contact_dual,
+                        start_contact_duals=start_contact_duals,
                     )
+                    if self.contact_provider is not None and hasattr(
+                        self.contact_provider, "commit_accepted"
+                    ):
+                        self.contact_provider.commit_accepted()
                     self.accepted_increments.append(info)
                     size = target - accepted
                     accepted = target
@@ -2070,6 +2265,8 @@ class FiniteStrainJ2StandardProblem:
                 self.incrementation, step_controls.AutomaticIncrementation
             ):
                 message = f"fixed increment failed at load factor {target}"
+                if info.rejection_reason:
+                    message += f": {info.rejection_reason}"
                 self._record_failure(emit, message, info=info, target_factor=target)
                 raise RuntimeError(f"{self.name}: {message}.")
             cutbacks += 1
@@ -2080,6 +2277,8 @@ class FiniteStrainJ2StandardProblem:
                 or proposed < self.incrementation.minimum
             ):
                 message = "automatic incrementation exhausted cutbacks"
+                if info.rejection_reason:
+                    message += f": {info.rejection_reason}"
                 self._record_failure(emit, message, info=info, target_factor=target)
                 raise RuntimeError(f"{self.name}: {message}.")
             emit(
@@ -2197,6 +2396,7 @@ class FiniteStrainJ2StandardProblem:
             "snapshots": list(self.snapshots),
             "checkpoints": list(self.checkpoints),
             "loading": self._snapshot_loading_state(),
+            "contact_runtime_state": self._snapshot_contact_runtime(),
         }
 
     def _restore_checkpoint_restore_boundary(
@@ -2221,6 +2421,7 @@ class FiniteStrainJ2StandardProblem:
         self.snapshots[:] = boundary["snapshots"]
         self.checkpoints[:] = boundary["checkpoints"]
         self._restore_loading_state(boundary["loading"])
+        self._restore_contact_runtime(boundary["contact_runtime_state"])
 
     def save_checkpoint(self, path, *, portable: bool | None = None) -> Path:
         """Save the accepted global and material state."""
@@ -2249,6 +2450,10 @@ class FiniteStrainJ2StandardProblem:
             local_problem,
             context="finite-strain J2 checkpoint precondition",
         )
+        if self.contact_provider is not None and hasattr(
+            self.contact_provider, "validate_accepted_configuration"
+        ):
+            self.contact_provider.validate_accepted_configuration()
         selected_portable = comm.size != 1 if portable is None else bool(portable)
         if selected_portable:
             if self.contact_provider is not None:
@@ -2265,6 +2470,12 @@ class FiniteStrainJ2StandardProblem:
         if selected.suffix != ".npz":
             selected = selected.with_suffix(".npz")
         snapshot = self.response.snapshot()
+        contact_state = (
+            self.contact_provider.snapshot_accepted_state()
+            if self.contact_provider is not None
+            and hasattr(self.contact_provider, "snapshot_accepted_state")
+            else None
+        )
         atomic_savez(
             selected,
             schema="agentfem.finite-strain-j2-standard-checkpoint.v1",
@@ -2289,6 +2500,10 @@ class FiniteStrainJ2StandardProblem:
             energy_history_complete=bool(self.energy_history_complete),
             next_increment_size=(
                 np.nan if self.next_increment_size is None else self.next_increment_size
+            ),
+            **(
+                {"contact_state": json.dumps(contact_state, sort_keys=True)}
+                if contact_state is not None else {}
             ),
         )
         return selected
@@ -2394,6 +2609,18 @@ class FiniteStrainJ2StandardProblem:
                 energy_history = []
                 energy_history_complete = abs(coordinate) <= 1.0e-12
             size = float(data["next_increment_size"])
+            contact_state = (
+                json.loads(str(data["contact_state"]))
+                if "contact_state" in data else None
+            )
+        needs_contact_state = any(
+            getattr(provider, "friction_state", None) is not None
+            for provider in self._contact_providers()
+        )
+        if needs_contact_state != (contact_state is not None):
+            raise ValueError(
+                "Finite-strain J2 checkpoint friction State presence differs."
+            )
         if not np.allclose(solution, accepted_solution, rtol=0.0, atol=1.0e-12):
             raise ValueError("Finite-strain J2 checkpoint U and U_ACCEPTED differ.")
         if accepted:
@@ -2427,6 +2654,9 @@ class FiniteStrainJ2StandardProblem:
                 self.incrementation,
             )
             self._apply_loading(coordinate)
+            if needs_contact_state:
+                self.contact_provider.restore_accepted_state(contact_state)
+                self.contact_provider.validate_accepted_configuration()
             self.state_transaction.prepare_resume()
         except Exception:
             self._restore_checkpoint_restore_boundary(boundary)
@@ -2706,13 +2936,11 @@ class FiniteStrainJ2StandardProblem:
     def reaction_field(self, *, name: str = "RF"):
         """Return the accepted full-space residual as a nodal reaction field."""
 
-        from ..problems import _reaction_field
-
         self.state_transaction.refresh_trial(
             start_factor=self.accepted_load_factor,
             target_factor=self.accepted_load_factor,
         )
-        return _reaction_field(self.residual_form, self.solution, name=name)
+        return self._full_residual_reaction_field(name=name)
 
     def solve_result(
         self,
@@ -2755,53 +2983,93 @@ class FiniteStrainJ2StandardProblem:
         if self.contact_provider is not None:
             from .. import constraints as constraint_api
 
-            dual = self.contact_provider.dual_evidence(self)
-            tool_work = (
-                self.energy_history[-1].tool_work if self.energy_history else 0.0
+            providers = self._contact_providers()
+            duals = tuple(item.dual_evidence(self) for item in providers)
+            pair_work = (
+                dict(self.energy_history[-1].pair_tool_work)
+                if self.energy_history else {}
             )
-            work = constraint_api.constraint_work(
-                self.contact_provider,
-                value=tool_work,
-                integration=(
-                    "accepted_force_coordinate_trapezoidal"
-                    if self.contact_provider.has_prescribed_motion
-                    else "fixed_rigid_surface_zero_coordinate"
-                ),
-                sample_count=len(self.accepted_increments) + 1,
-                role="contact_constraint",
-                source="rigid_obstacle_penalty_potential",
+            if not pair_work and len(providers) == 1 and self.energy_history:
+                pair_work[providers[0].name] = self.energy_history[-1].tool_work
+            work_records = tuple(
+                constraint_api.constraint_work(
+                    item,
+                    value=pair_work.get(item.name, 0.0),
+                    integration=(
+                        "accepted_force_coordinate_trapezoidal"
+                        if item.has_prescribed_motion
+                        else "fixed_rigid_surface_zero_coordinate"
+                    ),
+                    sample_count=len(self.accepted_increments) + 1,
+                    role="contact_constraint",
+                    source="rigid_obstacle_penalty_potential",
+                )
+                for item in providers
             )
-            result.metadata["constraint_duals"] = (dual.summary(),)
-            result.metadata["constraint_work_evidence"] = (work.summary(),)
+            result.metadata["constraint_duals"] = tuple(
+                item.summary() for item in duals
+            )
+            result.metadata["constraint_work_evidence"] = tuple(
+                item.summary() for item in work_records
+            )
             result.metadata["constraint_balance_contract"] = (
                 constraint_api.constraint_balance_contract(
                     self.constraint_assets,
-                    provider_duals=(dual,),
-                    provider_work=(work,),
+                    provider_duals=duals,
+                    provider_work=work_records,
                 )
             )
-            if dual.distribution is not None:
-                result.add_field(
-                    dual.distribution.name,
-                    dual.distribution,
-                    location="nodes",
-                    description="Converged provider-owned rigid-plane contact force.",
-                    processing={
-                        "source": dual.source,
-                        "constraint": dual.constraint_name,
-                        "method": "provider_dual_reaction_distribution",
-                    },
+            point_records = []
+            for provider, dual in zip(providers, duals, strict=True):
+                if dual.distribution is not None:
+                    result.add_field(
+                        dual.distribution.name,
+                        dual.distribution,
+                        location="nodes",
+                        description="Converged provider-owned rigid contact force.",
+                        processing={
+                            "source": dual.source,
+                            "constraint": dual.constraint_name,
+                            "method": "provider_dual_reaction_distribution",
+                        },
+                    )
+                result.add_quantity(
+                    f"{dual.constraint_name}_contact_energy",
+                    (
+                        provider.evaluate().potential_energy
+                        if self._uses_implicit_rigid_contact()
+                        else self._contact_potential()
+                    ),
+                    kind="diagnostic",
                 )
-            result.add_quantity(
-                f"{dual.constraint_name}_contact_energy",
-                self._contact_potential(),
-                kind="diagnostic",
-            )
-            result.add_quantity(
-                f"{dual.constraint_name}_reaction_resultant",
-                dual.resultant,
-                kind="diagnostic",
-            )
+                result.add_quantity(
+                    f"{dual.constraint_name}_reaction_resultant",
+                    dual.resultant,
+                    kind="diagnostic",
+                )
+                if self._uses_implicit_rigid_contact():
+                    point_evidence = provider.current_point_diagnostics()
+                    point_records.append({
+                        "constraint": dual.constraint_name, **point_evidence,
+                    })
+                    for name in (
+                        "active_point_count", "active_reference_area",
+                        "maximum_pressure", "maximum_penetration",
+                    ):
+                        result.add_quantity(
+                            f"{dual.constraint_name}_{name}",
+                            point_evidence[name],
+                            kind="diagnostic",
+                        )
+            if point_records:
+                result.metadata["rigid_contact_point_diagnostics"] = (
+                    point_records[0] if len(point_records) == 1
+                    else tuple(point_records)
+                )
+        has_friction = any(
+            getattr(provider, "friction_state", None) is not None
+            for provider in self._contact_providers()
+        )
         for selected in fields:
             function = getattr(selected, "value", selected)
             result.add_field(
@@ -2817,6 +3085,7 @@ class FiniteStrainJ2StandardProblem:
             factors,
             np.asarray([self.amplitude(value) for value in factors], dtype=float),
             abscissa_name="load_factor",
+            abscissa_unit=None,
             description="Resolved dimensionless loading amplitude.",
         )
         result.add_history(
@@ -2827,6 +3096,7 @@ class FiniteStrainJ2StandardProblem:
                 dtype=float,
             ),
             abscissa_name="load_factor",
+            abscissa_unit=None,
             description="Newton iterations for each accepted increment.",
         )
         result.add_history(
@@ -2837,6 +3107,7 @@ class FiniteStrainJ2StandardProblem:
                 dtype=float,
             ),
             abscissa_name="load_factor",
+            abscissa_unit=None,
             description="Accepted full-space nonlinear residual norm.",
         )
         result.add_history(
@@ -2853,6 +3124,7 @@ class FiniteStrainJ2StandardProblem:
                 dtype=float,
             ),
             abscissa_name="load_factor",
+            abscissa_unit=None,
             description="Accepted normalized load increment size.",
         )
         if self.energy_history_complete and self.energy_history:
@@ -2884,6 +3156,18 @@ class FiniteStrainJ2StandardProblem:
                     "plastic_dissipation": [
                         item.plastic_dissipation for item in self.energy_history
                     ],
+                    **(
+                        {
+                            "friction_dissipation": [
+                                item.friction_dissipation for item in self.energy_history
+                            ],
+                            "friction_separation_release": [
+                                item.friction_separation_release
+                                for item in self.energy_history
+                            ],
+                        }
+                        if has_friction else {}
+                    ),
                     "internal_energy": [
                         item.internal_energy for item in self.energy_history
                     ],
@@ -2902,13 +3186,15 @@ class FiniteStrainJ2StandardProblem:
                     ],
                 },
                 abscissa_name="load_factor",
+                abscissa_unit=None,
                 descriptions={
                     "stored_energy": (
                         "Accepted total recoverable elastic and hardening energy."
                     ),
                     **(
                         {"contact_potential": (
-                            "Accepted recoverable rigid-plane penalty potential."
+                            "Accepted recoverable normal and, when declared, "
+                            "tangential contact penalty potential."
                         )}
                         if self.contact_provider is not None
                         else {}
@@ -2925,9 +3211,22 @@ class FiniteStrainJ2StandardProblem:
                     "plastic_dissipation": (
                         "Accepted cumulative irrecoverable plastic dissipation."
                     ),
+                    **(
+                        {
+                            "friction_dissipation": (
+                                "Accepted cumulative Coulomb sliding dissipation."
+                            ),
+                            "friction_separation_release": (
+                                "Cumulative numerical tangential penalty-energy "
+                                "release on contact opening; not physical dissipation."
+                            ),
+                        }
+                        if has_friction else {}
+                    ),
                     "internal_energy": (
-                        "Material stored energy, plastic dissipation, and any "
-                        "contact penalty potential."
+                        "Material stored energy and plastic dissipation plus "
+                        "declared recoverable contact potential and, when "
+                        "present, separate friction and release channels."
                     ),
                     "natural_load_work": (
                         "Accepted-path trapezoidal work of natural loads, using "
@@ -2942,8 +3241,9 @@ class FiniteStrainJ2StandardProblem:
                         "path work."
                     ),
                     "mechanical_energy_residual": (
-                        "External work minus material stored energy, plastic "
-                        "dissipation and any contact penalty potential."
+                        "Accepted trapezoidal external work minus recorded "
+                        "material and contact energy channels; not an exact "
+                        "general first-law identity."
                     ),
                 },
             )
@@ -2971,9 +3271,13 @@ class FiniteStrainJ2StandardProblem:
                 else "unavailable_legacy_checkpoint_without_work_history"
             ),
             "internal_energy": (
-                "stored_energy + plastic_dissipation + contact_potential"
-                if self.contact_provider is not None
-                else "stored_energy + plastic_dissipation"
+                "stored_energy + plastic_dissipation + contact_potential + "
+                "friction_dissipation + friction_separation_release"
+                if has_friction else (
+                    "stored_energy + plastic_dissipation + contact_potential"
+                    if self.contact_provider is not None
+                    else "stored_energy + plastic_dissipation"
+                )
             ),
             "external_work": (
                 "natural_load_work + prescribed_motion_work + tool_work"
@@ -2982,6 +3286,10 @@ class FiniteStrainJ2StandardProblem:
                 else "natural_load_work + prescribed_motion_work"
             ),
             "integration": "accepted_increment_trapezoidal_path",
+            "friction_separation_release": (
+                "reported_numerical_loss_not_coulomb_dissipation"
+                if has_friction else "not_present"
+            ),
             "follower_loads": (
                 "consistent_external_tangent_and_current_configuration_path_work"
                 if self.follower_loads
@@ -3022,6 +3330,10 @@ class FiniteStrainJ2StandardProblem:
             "response": self.response.summary(),
             "incrementation": self.incrementation.summary(),
             "solver": self.solver_options.summary(),
+            "linear_preconditioner_near_nullspace": (
+                "reference_rigid_body_3d"
+                if self._rigid_near_nullspace is not None else None
+            ),
             "accepted_increments": tuple(
                 item.as_dict() for item in self.accepted_increments
             ),
@@ -3086,6 +3398,17 @@ def _finite_strain_j2_transaction(
         )
     solution = displacement.value if solution is None else solution
     domain = solution.function_space.mesh
+    # Only the displacement-form hexahedron uses this Q2 integration guard.
+    # A mixed displacement-pressure space has no single Basix element; its
+    # supported interpolation/cell pair is validated by the mixed builder.
+    if pressure_expression is None and str(domain.topology.cell_name()) == "hexahedron":
+        element = solution.function_space.element.basix_element
+        if int(element.degree) == 2 and int(quadrature_degree) < 4:
+            raise ValueError(
+                "AFM-J2-QUADRATURE: CG2 hexahedral finite-strain J2 requires "
+                "bulk quadrature degree >= 4; lower-order integration can leave "
+                "uncontrolled modes."
+            )
     dimension = int(domain.geometry.dim)
     topology_dimension = int(domain.topology.dim)
     if topology_dimension != dimension or (
@@ -3246,6 +3569,8 @@ def finite_strain_j2_standard_problem(
     incrementation=None,
     solver_options=None,
     quadrature_degree: int = 2,
+    contact_quadrature_degree: int | None = None,
+    contact_integration: str = "gauss",
     amplitude=None,
     output_every: int | None = 1,
     output_factors=(),
@@ -3284,13 +3609,23 @@ def finite_strain_j2_standard_problem(
 
     contact_energy_form = None
     contact_provider = contact
+    if contact_quadrature_degree is not None and contact is None:
+        raise ValueError("contact_quadrature_degree requires rigid contact.")
+    if contact_integration != "gauss" and contact is None:
+        raise ValueError("contact_integration requires rigid contact.")
     if contact is not None:
         from ..boundary_models import RigidContactPair, RigidObstaclePenaltyContact
 
-        if not isinstance(contact, (RigidObstaclePenaltyContact, RigidContactPair)):
+        contact_items = tuple(contact) if isinstance(contact, (tuple, list)) else (contact,)
+        if not contact_items or any(
+            not isinstance(item, (RigidObstaclePenaltyContact, RigidContactPair))
+            for item in contact_items
+        ) or (len(contact_items) > 1 and not all(
+            isinstance(item, RigidContactPair) for item in contact_items
+        )):
             raise TypeError(
                 "Finite-strain J2 standard contact requires one reviewed "
-                "RigidObstaclePenaltyContact or RigidContactPair."
+                "legacy plane or one or more rigid contact pairs."
             )
         if domain.comm.size != 1:
             raise NotImplementedError(
@@ -3298,22 +3633,44 @@ def finite_strain_j2_standard_problem(
                 "currently serial; the standalone contact and J2 MPI results "
                 "do not certify their composition."
             )
-        if isinstance(contact, RigidObstaclePenaltyContact):
-            if contact.location.domain is not domain:
+        if len(contact_items) == 1 and isinstance(contact_items[0], RigidObstaclePenaltyContact):
+            if contact_quadrature_degree is not None:
+                raise NotImplementedError(
+                    "Explicit contact quadrature degree requires RigidContactPair."
+                )
+            if contact_integration != "gauss":
+                raise NotImplementedError(
+                    "Trial active contact partition requires RigidContactPair."
+                )
+            plane_contact = contact_items[0]
+            if plane_contact.location.domain is not domain:
                 raise ValueError("Contact boundary and J2 displacement must share a mesh.")
-            residual += contact.form(solution, displacement.test)
-            jacobian += contact.tangent(
+            residual += plane_contact.form(solution, displacement.test)
+            jacobian += plane_contact.tangent(
                 solution,
                 displacement.trial,
                 displacement.test,
             )
-            contact_energy_form = fem.form(contact.energy_form(solution))
+            contact_energy_form = fem.form(plane_contact.energy_form(solution))
         else:
             from ..boundary_models.dolfinx_implicit_facet_contact import (
                 dolfinx_implicit_rigid_contact,
+                dolfinx_implicit_rigid_contacts,
             )
 
-            contact_provider = dolfinx_implicit_rigid_contact(contact, solution)
+            contact_provider = (
+                dolfinx_implicit_rigid_contact(
+                    contact_items[0], solution,
+                    contact_quadrature_degree=contact_quadrature_degree,
+                    contact_integration=contact_integration,
+                )
+                if len(contact_items) == 1 else
+                dolfinx_implicit_rigid_contacts(
+                    contact_items, solution,
+                    contact_quadrature_degree=contact_quadrature_degree,
+                    contact_integration=contact_integration,
+                )
+            )
 
     from .. import constraints as constraint_api
 
@@ -3342,21 +3699,23 @@ def finite_strain_j2_standard_problem(
             "Finite-strain J2 standard equilibrium requires at least one "
             "strong boundary constraint."
         )
-    if contact is not None and isinstance(contact, RigidContactPair):
-        trace = contact_provider.adapter.trace
-        trace_nodes = trace.node_ids[trace.shape_values != 0.0]
-        contact_dofs = np.unique(
-            (3 * trace_nodes[:, None] + np.arange(3)).reshape(-1)
-        )
-        constrained_dofs = np.concatenate(
-            [np.asarray(bc.dof_indices()[0], dtype=np.int64) for bc in selected_bcs]
-        )
-        if np.intersect1d(contact_dofs, constrained_dofs).size:
-            raise NotImplementedError(
-                "AFM-IMPLICIT-CONTACT-BC: the first facet-contact Newton path "
-                "requires contact trace dofs disjoint from strong Dirichlet dofs; "
-                "contact lifting on constrained rows needs a separate gate."
+    contact_constrained_dofs = ()
+    if contact is not None and all(
+        isinstance(item, RigidContactPair) for item in contact_items
+    ):
+        contact_dofs = np.unique(np.concatenate([
+            (3 * trace.node_ids[trace.shape_values != 0.0][:, None]
+             + np.arange(3)).reshape(-1)
+            for trace in (
+                item.adapter.trace for item in contact_provider.providers
             )
+        ]))
+        constrained_dofs = np.unique(np.concatenate(
+            [np.asarray(bc.dof_indices()[0], dtype=np.int64) for bc in selected_bcs]
+        ))
+        contact_constrained_dofs = tuple(
+            np.intersect1d(contact_dofs, constrained_dofs).tolist()
+        )
     value_path = constraint_api.prescribed_value_path(concrete_constraints)
     selected_amplitude = (
         amplitudes.ramp()
@@ -3370,6 +3729,19 @@ def finite_strain_j2_standard_problem(
         raise ValueError(
             "Public stateful finite-strain J2 requires error_if_not_converged=True."
         )
+    if any(
+        isinstance(item, RigidContactPair) and item.friction is not None
+        for item in (() if contact is None else contact_items)
+    ):
+        linear = selected_options.linear_solver
+        if linear.ksp_type.lower() in {"cg", "cr", "minres", "symmlq"} or (
+            linear.pc_type.lower() in {"cholesky", "icc"}
+        ):
+            raise ValueError(
+                "AFM-IMPLICIT-FRICTION-LINEAR: sliding Coulomb contact has "
+                "a generally nonsymmetric tangent; select a nonsymmetric "
+                "KSP/preconditioner policy such as direct LU or GMRES."
+            )
     from .. import procedures
 
     selected_incrementation = step_controls.normalize(incrementation)
@@ -3410,6 +3782,7 @@ def finite_strain_j2_standard_problem(
         follower_loads=bool(follower_loads),
         contact_provider=contact_provider,
         contact_energy_form=contact_energy_form,
+        contact_constrained_dofs=contact_constrained_dofs,
         strong_constraint_assets=tuple(concrete_constraints),
         output_every=None if output_every is None else int(output_every),
         output_factors=selected_output_factors,
@@ -3474,6 +3847,7 @@ def finite_strain_j2_affine_problem(
     material: FiniteStrainJ2Logarithmic | QuadratureMaterialMap,
     constraint,
     contact=None,
+    contact_integration: str = "gauss",
     external_force=None,
     incrementation=None,
     solver_options=None,
@@ -3502,20 +3876,39 @@ def finite_strain_j2_affine_problem(
         )
     if getattr(constraint, "target", None) is not displacement:
         raise ValueError("Affine finite-strain J2 constraint must target displacement.")
-    contact_provider = None
-    if contact is not None:
+    contact_items = (
+        () if contact is None else
+        tuple(contact) if isinstance(contact, (tuple, list)) else (contact,)
+    )
+    contact_providers = ()
+    if contact_items:
         from ..boundary_models import RigidContactPair
+        from ..boundary_models.implicit_admission import (
+            affine_rigid_contact_assets_supported,
+        )
         from ..boundary_models.dolfinx_implicit_facet_contact import (
             dolfinx_implicit_rigid_contact,
         )
 
-        if not isinstance(contact, RigidContactPair):
+        if not all(isinstance(item, RigidContactPair) for item in contact_items):
             raise NotImplementedError(
-                "AFM-J2-CONTACT-MPC: first affine contact slice accepts one "
-                "frictionless RigidContactPair only."
+                "AFM-J2-CONTACT-MPC: affine contact accepts named "
+                "RigidContactPair assets only."
             )
-        contact_provider = dolfinx_implicit_rigid_contact(
-            contact, displacement.value,
+        if len({item.name for item in contact_items}) != len(contact_items):
+            raise ValueError("Affine rigid contact pair names must be unique.")
+        if not affine_rigid_contact_assets_supported(contact_items):
+            raise NotImplementedError(
+                "AFM-J2-CONTACT-MPC: affine contact requires serial, "
+                "rigid pairs with supported geometry and "
+                "normalized prescribed motion."
+            )
+        contact_providers = tuple(
+            dolfinx_implicit_rigid_contact(
+                item, displacement.value,
+                contact_integration=contact_integration,
+            )
+            for item in contact_items
         )
     transaction = _finite_strain_j2_transaction(
         displacement,
@@ -3567,6 +3960,17 @@ def finite_strain_j2_affine_problem(
             "error_if_not_converged=True so an incomplete material path cannot "
             "be returned as a completed SimulationResult."
         )
+    if any(item.friction is not None for item in contact_items):
+        linear = getattr(selected_solver_options, "linear_solver", None)
+        if linear is None:
+            linear = selected_solver_options.linear_options
+        if linear.ksp_type.lower() in {"cg", "cr", "minres", "symmlq"} or (
+            linear.pc_type.lower() in {"cholesky", "icc"}
+        ):
+            raise ValueError(
+                "AFM-IMPLICIT-FRICTION-LINEAR: affine Coulomb contact has a "
+                "generally nonsymmetric reduced tangent; select LU or GMRES."
+            )
     problem = problems.affine_nonlinear(
         residual,
         solution,
@@ -3577,9 +3981,7 @@ def finite_strain_j2_affine_problem(
         output_every=output_every,
         output_factors=output_factors,
         state_transaction=transaction,
-        full_space_operators=(
-            () if contact_provider is None else (contact_provider,)
-        ),
+        full_space_operators=contact_providers,
         checkpoint_policy=checkpoint_policy,
         acceptance_check=acceptance,
         progress=progress,
@@ -3593,7 +3995,10 @@ def finite_strain_j2_affine_problem(
     problem.snapshot_field_factory = snapshot_fields
     problem.material = material
     problem.response = response
-    problem.contact_provider = contact_provider
+    problem.contact_provider = (
+        contact_providers[0] if len(contact_providers) == 1 else None
+    )
+    problem.contact_providers = contact_providers
     problem.accepted_solution = transaction.accepted_solution
     problem.homogenized_tangent_contract = {
         "macro_kinematics": "u_equals_Tq_plus_B_Fbar",

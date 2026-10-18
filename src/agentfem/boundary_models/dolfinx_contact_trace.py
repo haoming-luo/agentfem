@@ -271,15 +271,17 @@ def _reference_facet_quadrature(cell_type, local_facet: int, *, degree: int):
 def _linear_trace_arrays(domain, function_space, owned, facet_geometry,
                          facet_ids, global_facet_count, *, topology,
                          coordinates, dof_coordinates, global_vertices,
-                         tolerance, integration):
+                         tolerance, integration, quadrature_points=None,
+                         quadrature_weights=None):
     """Bounded batches of the same P1/Q1 reference rule and owner-local map.
 
     Coordinate matching is restricted to each facet's adjacent cell. Distinct
-    bodies with coincident vertices therefore remain distinct. No search or
-    integration rule changes; the batch size bounds temporary storage only.
+    bodies with coincident vertices therefore remain distinct. The optional
+    positive face rule is explicit; batching itself changes no rule and only
+    bounds temporary storage.
     """
     n = len(owned)
-    width = 3 if topology == "triangle" else 4
+    node_width = 3 if topology == "triangle" else 4
     connectivity = domain.topology.connectivity(domain.topology.dim-1, domain.topology.dim)
     cells = []
     for facet in owned:
@@ -288,15 +290,49 @@ def _linear_trace_arrays(domain, function_space, owned, facet_geometry,
             raise ValueError("an exterior contact facet must have exactly one adjacent cell")
         cells.append(int(adjacent[0]))
     cell_blocks = np.asarray(function_space.dofmap.list)[np.asarray(cells, dtype=np.int32)]
-    blocks = np.empty((n, width), dtype=np.int64)
-    weights = np.empty((n, width), dtype=float)
     if topology == "triangle":
-        basis = _TRIANGLE_DEGREE_TWO
+        if quadrature_points is None:
+            basis = _TRIANGLE_DEGREE_TWO
+            point_weights = None
+        else:
+            selected_points = np.asarray(quadrature_points, dtype=float)
+            point_weights = np.asarray(quadrature_weights, dtype=float)
+            if (
+                selected_points.ndim != 2
+                or selected_points.shape[1] != 2
+                or point_weights.shape != (len(selected_points),)
+                or not np.all(np.isfinite(selected_points))
+                or not np.all(np.isfinite(point_weights))
+                or np.any(point_weights <= 0.0)
+                or np.any(selected_points < 0.0)
+                or np.any(selected_points.sum(axis=1) > 1.0)
+            ):
+                raise ValueError("Invalid positive triangle contact quadrature.")
+            basis = np.column_stack((
+                1.0 - selected_points.sum(axis=1), selected_points,
+            ))
     else:
+        selected_points = (
+            _QUADRILATERAL_DEGREE_THREE
+            if quadrature_points is None else np.asarray(quadrature_points, dtype=float)
+        )
+        point_weights = (
+            np.full(len(selected_points), 0.25, dtype=float)
+            if quadrature_weights is None else np.asarray(quadrature_weights, dtype=float)
+        )
+        if selected_points.ndim != 2 or selected_points.shape[1] != 2 or (
+            point_weights.shape != (len(selected_points),)
+        ) or not np.all(np.isfinite(selected_points)) or not np.all(
+            np.isfinite(point_weights)
+        ) or np.any(point_weights <= 0.0):
+            raise ValueError("Invalid positive quadrilateral contact quadrature.")
         basis = np.asarray([_quadrilateral_shape_values(r, s)
-                            for r, s in _QUADRILATERAL_DEGREE_THREE])
+                            for r, s in selected_points])
         derivatives = [_quadrilateral_shape_derivatives(r, s)
-                       for r, s in _QUADRILATERAL_DEGREE_THREE]
+                       for r, s in selected_points]
+    point_width = len(basis)
+    blocks = np.empty((n, node_width), dtype=np.int64)
+    weights = np.empty((n, point_width), dtype=float)
     for start in range(0, n, 4096):
         stop = min(start+4096, n)
         geometry = facet_geometry[start:stop]
@@ -315,21 +351,25 @@ def _linear_trace_arrays(domain, function_space, owned, facet_geometry,
         blocks[start:stop] = np.take_along_axis(owners, matches.argmax(axis=2), axis=1)
         if topology == "triangle":
             area = .5*np.linalg.norm(np.cross(points[:, 1]-points[:, 0], points[:, 2]-points[:, 0]), axis=1)
-            weights[start:stop] = area[:, None]/3.
+            weights[start:stop] = (
+                area[:, None] / 3.0 if point_weights is None
+                else 2.0 * area[:, None] * point_weights[None, :]
+            )
         else:
             for q, (dr, ds) in enumerate(derivatives):
                 # Batched matrix-vector products retain the four-node Q1 trace.
                 tr = np.matmul(dr, points)
                 ts = np.matmul(ds, points)
-                weights[start:stop, q] = .25*np.linalg.norm(np.cross(tr, ts), axis=1)
+                weights[start:stop, q] = point_weights[q]*np.linalg.norm(np.cross(tr, ts), axis=1)
         if not np.isfinite(weights[start:stop]).all() or np.any(weights[start:stop] <= 0.):
             raise ValueError(f"contact trace contains a degenerate {topology}")
     if integration == "nodal_lumped":
         weights = weights @ basis
-        basis = np.eye(width)
+        basis = np.eye(node_width)
+        point_width = node_width
     offset = global_facet_count if integration == "nodal_lumped" else 0
-    ids = (np.asarray(facet_ids)[:, None]+offset)*width + np.arange(width)
-    return (ids.reshape(-1), np.repeat(blocks, width, axis=0),
+    ids = (np.asarray(facet_ids)[:, None]+offset)*point_width + np.arange(point_width)
+    return (ids.reshape(-1), np.repeat(blocks, point_width, axis=0),
             np.tile(basis, (n, 1)), weights.reshape(-1))
 
 
@@ -431,6 +471,7 @@ def dolfinx_boundary_region_contact_trace(
     function_space,
     *,
     integration: str = "gauss",
+    contact_quadrature_degree: int | None = None,
 ) -> DolfinxContactTraceAdapter:
     """Adapt a tagged tetrahedral or hexahedral CG1/CG2 boundary trace.
 
@@ -454,6 +495,22 @@ def dolfinx_boundary_region_contact_trace(
     high_order = interpolation_degree == 2 or geometry_degree == 2
     if integration not in {"gauss", "nodal_lumped"}:
         raise ValueError("Contact integration must be gauss or nodal_lumped.")
+    if contact_quadrature_degree is not None:
+        if (
+            isinstance(contact_quadrature_degree, (bool, np.bool_))
+            or not isinstance(contact_quadrature_degree, (int, np.integer))
+            or int(contact_quadrature_degree) not in (5, 7)
+        ):
+            raise ValueError(
+                "Contact quadrature degree must be 5 or 7."
+            )
+        if integration != "gauss" or cell_type not in {
+            "CellType.tetrahedron", "CellType.hexahedron",
+        }:
+            raise NotImplementedError(
+                "Explicit contact quadrature degree currently requires "
+                "Gaussian CG1/CG2 tetrahedral or hexahedral boundary traces."
+            )
     if integration == "nodal_lumped" and high_order:
         raise NotImplementedError("Nodal lumped contact requires first-order geometry and CG1 displacement.")
     if cell_type == "CellType.tetrahedron":
@@ -554,8 +611,22 @@ def dolfinx_boundary_region_contact_trace(
             global_facet_count = partition.global_facet_count
             global_scale = partition.global_scale
             nodes_per_facet = 3
-            points_per_facet = 3
-            quadrature_rule = "triangle_degree_two_three_point"
+            if contact_quadrature_degree is None:
+                selected_points = None
+                selected_weights = None
+                points_per_facet = 3
+                quadrature_rule = "triangle_degree_two_three_point"
+            else:
+                import basix
+
+                selected_points, selected_weights = basix.make_quadrature(
+                    basix.CellType.triangle, int(contact_quadrature_degree),
+                )
+                points_per_facet = int(len(selected_points))
+                quadrature_rule = (
+                    f"triangle_basix_degree_{int(contact_quadrature_degree)}_"
+                    f"{points_per_facet}_point"
+                )
         elif facet_topology == "quadrilateral" and not high_order:
             (
                 owned,
@@ -565,8 +636,22 @@ def dolfinx_boundary_region_contact_trace(
                 global_scale,
             ) = quadrilateral_identity
             nodes_per_facet = 4
-            points_per_facet = 4
-            quadrature_rule = "quadrilateral_gauss_degree_three_four_point"
+            if contact_quadrature_degree is None:
+                selected_points = None
+                selected_weights = None
+                points_per_facet = 4
+                quadrature_rule = "quadrilateral_gauss_degree_three_four_point"
+            else:
+                import basix
+
+                selected_points, selected_weights = basix.make_quadrature(
+                    basix.CellType.quadrilateral, int(contact_quadrature_degree),
+                )
+                points_per_facet = int(len(selected_points))
+                quadrature_rule = (
+                    f"quadrilateral_basix_degree_{int(contact_quadrature_degree)}_"
+                    f"{points_per_facet}_point"
+                )
         else:
             (
                 owned,
@@ -582,7 +667,11 @@ def dolfinx_boundary_region_contact_trace(
                 if facet_topology == "triangle"
                 else basix.CellType.quadrilateral
             )
-            quadrature_degree = 2 * max(interpolation_degree, geometry_degree)
+            quadrature_degree = (
+                2 * max(interpolation_degree, geometry_degree)
+                if contact_quadrature_degree is None
+                else int(contact_quadrature_degree)
+            )
             reference_points, _ = basix.make_quadrature(
                 facet_cell_type,
                 quadrature_degree,
@@ -623,6 +712,8 @@ def dolfinx_boundary_region_contact_trace(
                 global_facet_count, topology=facet_topology, coordinates=coordinates,
                 dof_coordinates=dof_coordinates, global_vertices=global_vertices,
                 tolerance=tolerance, integration=integration,
+                quadrature_points=selected_points,
+                quadrature_weights=selected_weights,
             )
         if high_order:
             import basix

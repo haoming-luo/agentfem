@@ -104,9 +104,83 @@ step = model.step(
 result = step.solve_result()
 ```
 
-Follower/current-configuration loads, absolute time-dependent Dirichlet
-histories, weak boundary models, contact, and MPC constraints fail closed until
-their residual and consistent tangent have a dedicated lowering.
+The ordinary finite-J2 Step also has a bounded experimental serial route for
+registered, prescribed rigid contact pairs: analytical planes or spheres,
+reviewed triangular surfaces, certified closed-convex triangular solids, and
+explicitly reviewed closed nonconvex triangle solids in the later source
+candidate. The latter requires an embedding attestation, rejects ambiguous
+nearest features, and has a serial O(facets) winding-sign cost.
+The contact residual and tangent enter the same Newton, line-search, accepted
+State, work, and checkpoint lifecycle as the material. A certified convex
+solid or a reviewed triangular tool on an active face-interior planar branch
+can use the bounded penalty-Coulomb tangential law. For an open triangle
+patch, active noncoplanar edges or vertices remain unsupported; the certified
+closed-convex tool has a separate one-sided selected-feature branch. Curved
+tool friction and distributed implicit friction remain unsupported. This is
+experimental, not general frictional contact. Multiple named pairs and a
+two-region J2 material map have serial regression evidence. Unsupported
+geometry, material/contact composition, or MPI operation fails before solve;
+do not infer general industrial-contact support from this route. See
+`examples/finite_j2_closed_convex_contact.py` and
+`examples/finite_j2_hertz_contact.py` for the supported shapes and the
+remaining independent accuracy gap.
+
+For a first- or second-order tetrahedral or hexahedral contact boundary, the
+optional `contact_quadrature_degree=5` or `7` selects a positive Basix face
+rule: 7 or 15 points per triangle, or 3×3 or 4×4 points per quadrilateral.
+The CG1 defaults remain three-point triangles and 2×2 quadrilaterals; a CG2
+trace retains its degree-four default. It is a convergence-study control, not an accuracy
+preset: higher contact integration did not monotonically improve a finite-
+block Hertz screen. The benchmark separately reports the analytic pressure
+sampled on the actual trace and a nominal pressure difference, because a
+close total force can hide an inaccurate pressure distribution. The chosen
+rule likewise changes sampled physical-edge contact on a reviewed reentrant
+tool; mesh and penalty sensitivity remain mandatory before engineering use.
+The rule is part of the checkpoint identity and
+is rejected for legacy plane contact and affine-periodic J2; no
+unsupported combination silently falls back. Other weak boundary models and
+formulations need their own reviewed lowering.
+
+For the narrower experimental case of a frictionless, scalar-penalty analytical plane
+against an affine CG1 tetrahedral slave boundary, the ordinary Step can select
+`contact_integration="planar_active_partition"`. It partitions each
+sign-crossing triangle at the *current trial* zero-gap contour and uses positive
+reference-area quadrature on its active part. This avoids a documented blind
+spot where a small contact strip falls between all ordinary face points.
+The same trial partition supplies residual and tangent, and the choice is
+checkpoint-identified. It is not an automatic fix for curved or faceted tools,
+sharp features, friction, higher-order/quad faces, or MPI. Exported point IDs
+in this mode identify one accepted snapshot, not a stable material point across
+increments. Use independent mesh/penalty/increment checks before interpreting
+local contact pressure or plasticity as engineering results.
+
+The separate experimental `contact_integration="convex_feature_partition"`
+option addresses a **certified closed-convex** rigid tool when an affine CG1
+tetrahedral slave triangle has at most three positive-area dominant support
+planes. It partitions both the active area and the compressed feature switch;
+the latter contributes a line term to the Newton tangent. A moving/rotating
+tool, force--moment work, total J2-plus-contact Jacobian, affine-periodic MPC
+reduction, and interrupted restart have bounded regressions. The option
+requires frictionless scalar-penalty contact, the default three-point
+reference triangle rule, and a single MPI rank. More than three dominant planes
+or an undefined boundary-aligned feature switch rejects the trial; no normal is
+smoothed or third feature discarded. Accepted contact-point IDs are local to
+that snapshot. This does **not** apply to concave STL geometry, nonlinear
+nearest-edge/vertex distance branches, frictional edge transitions, or
+general hard contact. Its successful small tests are not a penalty- or
+mesh-convergence certificate.
+
+The runnable, dimensionless
+[feature-partition example](https://github.com/haoming-luo/agentfem/blob/main/examples/finite_j2_convex_feature_partition.py)
+exercises the ordinary installed-package workflow; it is a regression fixture,
+not an external forming benchmark.
+
+Bulk and contact integration are separate choices. For an ordinary CG2
+hexahedral finite-J2 displacement field, `model.step(...)` selects bulk
+`quadrature_degree=4` by default; an explicit lower degree is rejected before
+solving because it can leave displacement modes uncontrolled. This safeguard
+does not establish mesh-independent contact accuracy or stability for every
+material path.
 
 ### Affine-periodic cells
 

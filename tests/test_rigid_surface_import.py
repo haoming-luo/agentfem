@@ -84,6 +84,57 @@ def test_triangle_import_welds_stl_vertices_scales_and_records_provenance(
     }
 
 
+def test_closed_convex_triangle_import_certifies_shape_and_keeps_source(
+    tmp_path, monkeypatch,
+):
+    source = tmp_path / "convex_tool.stl"
+    source.write_bytes(b"reviewed closed convex tool")
+    meshio = _install_meshio(monkeypatch, _duplicated_tetrahedron())
+
+    surface = boundary_models.convex_polyhedral_rigid_surface_from_mesh(
+        source, coordinate_scale=1.0e-3, input_format="stl", name="tool",
+    )
+
+    assert meshio.calls == [(source, "stl")]
+    assert surface.summary()["facet_count"] == 4
+    assert surface.summary()["source"] == surface.facets.summary()["source"]
+    assert surface.summary()["source"]["coordinate_scale"] == 1.0e-3
+    assert surface.project(((0.1e-3, 0.1e-3, 0.1e-3),)).signed_gaps[0] < 0.0
+
+
+def test_closed_general_solid_import_requires_embedding_review_and_keeps_source(
+    tmp_path, monkeypatch,
+):
+    source = tmp_path / "closed_tool.stl"
+    source.write_bytes(b"reviewed closed tool source")
+    meshio = _install_meshio(monkeypatch, _duplicated_tetrahedron())
+    with pytest.raises(ValueError, match="reviewed_embedded"):
+        boundary_models.closed_triangulated_rigid_solid_from_mesh(
+            source, coordinate_scale=1.0e-3, input_format="stl",
+            reviewed_embedded=False,
+        )
+    surface = boundary_models.closed_triangulated_rigid_solid_from_mesh(
+        source, coordinate_scale=1.0e-3, input_format="stl",
+        reviewed_embedded=True, name="tool",
+    )
+    assert meshio.calls == [(source, "stl"), (source, "stl")]
+    assert surface.summary()["source"] == surface.facets.summary()["source"]
+    assert surface.project(((0.08e-3, 0.1e-3, 0.12e-3),)).signed_gaps[0] < 0.0
+
+
+def test_closed_convex_triangle_import_rejects_open_tool(tmp_path, monkeypatch):
+    source = tmp_path / "open_tool.stl"
+    source.write_bytes(b"reviewed open tool")
+    mesh = _duplicated_tetrahedron()
+    mesh.cells = (_CellBlock("triangle", mesh.cells[0].data[:-1]),)
+    _install_meshio(monkeypatch, mesh)
+
+    with pytest.raises(ValueError, match="closed triangle manifold"):
+        boundary_models.convex_polyhedral_rigid_surface_from_mesh(
+            source, coordinate_scale=1.0e-3,
+        )
+
+
 def test_triangle_import_geometry_identity_ignores_source_order(tmp_path, monkeypatch):
     first_path = tmp_path / "first.stl"
     second_path = tmp_path / "second.stl"

@@ -17,7 +17,10 @@ import numpy as np
 
 from .contact_response import FrictionlessPenaltyContactResponse
 from .contact_state import ContactProjectionRecord
-from .contact_trace import ContactTraceAssembly, ContactTraceEvaluation
+from .contact_trace import (
+    ContactTraceAssembly, ContactTraceEvaluation, FrictionContactTraceAssembly,
+)
+from .implicit_friction import ImplicitPlanarFrictionTangent
 from .rigid import _readonly_array
 
 
@@ -30,6 +33,8 @@ class ImplicitRigidContactContribution:
     tangent_columns: object
     tangent_values: object
     active_points: int
+    friction_assembly: FrictionContactTraceAssembly | None = None
+    friction_tangent: ImplicitPlanarFrictionTangent | None = None
 
     def __post_init__(self) -> None:
         if not isinstance(self.assembly, ContactTraceAssembly):
@@ -37,6 +42,22 @@ class ImplicitRigidContactContribution:
         rows = np.asarray(self.tangent_rows, dtype=np.int64)
         columns = np.asarray(self.tangent_columns, dtype=np.int64)
         values = np.asarray(self.tangent_values, dtype=float)
+        if (self.friction_assembly is None) != (self.friction_tangent is None):
+            raise ValueError("Implicit friction requires both its trace and tangent.")
+        if self.friction_assembly is not None:
+            if (
+                not isinstance(self.friction_assembly, FrictionContactTraceAssembly)
+                or not isinstance(self.friction_tangent, ImplicitPlanarFrictionTangent)
+                or not np.array_equal(
+                    self.friction_assembly.point_ids, self.assembly.point_ids,
+                )
+                or self.friction_tangent.number_of_nodes != self.assembly.number_of_nodes
+                or self.friction_tangent.dimension != self.assembly.nodal_structural_residual.shape[1]
+            ):
+                raise ValueError("Implicit friction does not share the normal trace layout.")
+            rows = np.concatenate((rows, self.friction_tangent.rows))
+            columns = np.concatenate((columns, self.friction_tangent.columns))
+            values = np.concatenate((values, self.friction_tangent.values))
         if rows.ndim != 1 or rows.shape != columns.shape or rows.shape != values.shape:
             raise ValueError(
                 "Contact tangent COO arrays must have equal one-dimensional shapes."
@@ -79,6 +100,109 @@ class ImplicitRigidContactContribution:
             minlength=dimension * shape[0],
         )
         return action.reshape(shape)
+
+    @property
+    def nodal_structural_residual(self) -> np.ndarray:
+        if self.friction_assembly is None:
+            return self.assembly.nodal_structural_residual
+        return (
+            self.assembly.nodal_structural_residual
+            + self.friction_assembly.nodal_structural_residual
+        )
+
+    @property
+    def potential_energy(self) -> float:
+        return float(
+            self.assembly.potential_energy
+            + (
+                0.0 if self.friction_assembly is None
+                else self.friction_assembly.recoverable_penalty_energy
+            )
+        )
+
+    @property
+    def contact_force_on_structure(self) -> np.ndarray:
+        if self.friction_assembly is None:
+            return self.assembly.contact_force_on_structure
+        return (
+            self.assembly.contact_force_on_structure
+            + self.friction_assembly.contact_force_on_structure
+        )
+
+    @property
+    def surface_generalized_moment(self) -> np.ndarray | None:
+        normal = self.assembly.surface_generalized_moment
+        if self.friction_assembly is None:
+            return normal
+        tangential = self.friction_assembly.surface_generalized_moment
+        if normal is None or tangential is None:
+            return None
+        return normal + tangential
+
+
+@dataclass(frozen=True, eq=False)
+class CombinedImplicitRigidContactContribution:
+    """Additive rigid-pair Operator, preserving each pair's scientific identity.
+
+    This is a solver-neutral algebraic composition, not an admission of a
+    multi-tool Step.  In particular, each provider still owns its own rigid
+    coordinates, accepted work and checkpoint state.  Reusing contact point
+    IDs across distinct pairs is valid because their names remain separate.
+    """
+
+    pairs: tuple[tuple[str, ImplicitRigidContactContribution], ...]
+
+    def __post_init__(self) -> None:
+        selected = tuple(self.pairs)
+        if not selected:
+            raise ValueError("Combined implicit contact requires at least one pair.")
+        names = tuple(str(name).strip() for name, _ in selected)
+        if any(not name for name in names) or len(set(names)) != len(names):
+            raise ValueError(
+                "Combined implicit contact pair names must be unique and nonempty."
+            )
+        if any(
+            not isinstance(item, ImplicitRigidContactContribution)
+            for _, item in selected
+        ):
+            raise TypeError(
+                "Combined implicit contact accepts reviewed pair contributions only."
+            )
+        layout = selected[0][1].nodal_structural_residual.shape
+        if any(
+            item.nodal_structural_residual.shape != layout
+            for _, item in selected
+        ):
+            raise ValueError(
+                "Combined implicit contact pairs must share one nodal vector layout."
+            )
+        object.__setattr__(
+            self, "pairs",
+            tuple((name, item) for name, (_, item) in zip(names, selected)),
+        )
+
+    @property
+    def nodal_structural_residual(self) -> np.ndarray:
+        return np.sum(
+            [item.nodal_structural_residual for _, item in self.pairs], axis=0,
+        )
+
+    @property
+    def potential_energy(self) -> float:
+        return float(sum(item.potential_energy for _, item in self.pairs))
+
+    @property
+    def contact_force_on_structure(self) -> np.ndarray:
+        return np.sum(
+            [item.contact_force_on_structure for _, item in self.pairs], axis=0,
+        )
+
+    @property
+    def active_points(self) -> int:
+        return sum(item.active_points for _, item in self.pairs)
+
+    def tangent_action(self, direction) -> np.ndarray:
+        return np.sum([item.tangent_action(direction) for _, item in self.pairs], axis=0)
 
 
 def integrate_implicit_rigid_contact(
@@ -170,4 +294,8 @@ def integrate_implicit_rigid_contact(
     )
 
 
-__all__ = ["ImplicitRigidContactContribution", "integrate_implicit_rigid_contact"]
+__all__ = [
+    "ImplicitRigidContactContribution",
+    "CombinedImplicitRigidContactContribution",
+    "integrate_implicit_rigid_contact",
+]

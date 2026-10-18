@@ -17,6 +17,7 @@ import numpy as np
 from .contact_response import FrictionlessPenaltyContactResponse
 from .contact_state import ContactProjectionRecord
 from .contact_trace import ContactTraceEvaluation
+from .convex_polyhedron import ConvexPolyhedralRigidSurface
 from .implicit_contact import (
     ImplicitRigidContactContribution,
     integrate_implicit_rigid_contact,
@@ -29,7 +30,7 @@ ImplicitFacetContactContribution = ImplicitRigidContactContribution
 
 
 def _smooth_active_facets(
-    surface: TriangulatedRigidSurface,
+    surface: TriangulatedRigidSurface | ConvexPolyhedralRigidSurface,
     record: ContactProjectionRecord,
     active: np.ndarray,
 ) -> None:
@@ -61,27 +62,59 @@ def _smooth_active_facets(
     if not len(edge_points):
         return
     facets_by_point = dict(zip(active_points.tolist(), selected_facets.tolist()))
-    edge_neighbors: dict[tuple[int, int], list[int]] = {}
-    for index, vertices in enumerate(surface.triangles):
-        for a, b in ((0, 1), (1, 2), (2, 0)):
-            edge = tuple(sorted((int(vertices[a]), int(vertices[b]))))
-            edge_neighbors.setdefault(edge, []).append(index)
+    reviewed_vertex_fans: dict[int, bool] = {}
     for point in edge_points:
         facet = facets_by_point[int(point)]
         barycentric = projection.local_coordinates[point]
         on_boundary = np.flatnonzero(barycentric <= threshold)
         if not len(on_boundary):
             continue
-        selected_vertices = surface.triangles[facet]
         selected_normal = surface.facet_normals[facet]
+        if len(on_boundary) >= 2:
+            # At a vertex, the two neighboring facets of the *selected*
+            # triangle do not describe the full fan. A remote wedge may be a
+            # free boundary or have a different normal. Both invalidate a
+            # unique planar derivative even when the local two edges look
+            # smooth, so inspect the whole incident star before admission.
+            local_vertex = int(np.argmax(barycentric))
+            vertex = int(surface.triangles[facet, local_vertex])
+            if vertex not in reviewed_vertex_fans:
+                incident = np.flatnonzero(
+                    np.any(surface.triangles == vertex, axis=1)
+                )
+                incident_local = np.argmax(
+                    surface.triangles[incident] == vertex, axis=1
+                )
+                edges_containing_vertex = (
+                    np.arange(3)[None, :] != incident_local[:, None]
+                )
+                incident_normals = surface.facet_normals[incident]
+                reviewed_vertex_fans[vertex] = not (
+                    np.any(np.linalg.norm(
+                        incident_normals[:, None, :]
+                        - incident_normals[None, :, :],
+                        axis=2,
+                    ) > threshold)
+                    or np.any(
+                        (surface.edge_neighbors[incident] < 0)
+                        & edges_containing_vertex
+                    )
+                )
+            if not reviewed_vertex_fans[vertex]:
+                raise ValueError(
+                    "AFM-IMPLICIT-CONTACT-BRANCH: active projection reaches a "
+                    "free or non-smooth tool edge/vertex; cut back or refine "
+                    "the tool, feature=vertex_fan, "
+                    f"vertex_id={vertex}, "
+                    f"contact_point_id={int(record.point_ids[point])}."
+                )
         # An interior seam of coplanar facets has the same normal derivative
         # from both sides.  A free edge or a crease does not.
         for opposite in on_boundary:
-            edge = tuple(sorted(np.delete(selected_vertices, opposite).tolist()))
-            neighbors = edge_neighbors.get(edge, [])
-            if len(neighbors) != 2 or any(
-                np.linalg.norm(surface.facet_normals[index] - selected_normal) > threshold
-                for index in neighbors
+            neighbor = int(surface.edge_neighbors[facet, opposite])
+            if neighbor < 0 or (
+                np.linalg.norm(surface.facet_normals[neighbor] - selected_normal)
+                > threshold
             ):
                 raise ValueError(
                     "AFM-IMPLICIT-CONTACT-BRANCH: active projection reaches a "
@@ -94,7 +127,7 @@ def linearize_piecewise_planar_contact(
     evaluation: ContactTraceEvaluation,
     record: ContactProjectionRecord,
     response: FrictionlessPenaltyContactResponse,
-    surface: TriangulatedRigidSurface,
+    surface: TriangulatedRigidSurface | ConvexPolyhedralRigidSurface,
     *,
     surface_reference_point=None,
 ) -> ImplicitFacetContactContribution:
@@ -113,10 +146,35 @@ def linearize_piecewise_planar_contact(
         raise TypeError("Implicit facet contact requires ContactProjectionRecord.")
     if not isinstance(response, FrictionlessPenaltyContactResponse):
         raise TypeError("Implicit facet contact requires frictionless penalty response.")
-    if not isinstance(surface, TriangulatedRigidSurface):
-        raise TypeError("Implicit facet contact requires TriangulatedRigidSurface.")
+    if not isinstance(surface, (TriangulatedRigidSurface, ConvexPolyhedralRigidSurface)):
+        raise TypeError("Implicit facet contact requires reviewed planar geometry.")
     active = np.asarray(response.active, dtype=bool)
-    _smooth_active_facets(surface, record, active)
+    if isinstance(surface, ConvexPolyhedralRigidSurface):
+        projection = record.projection
+        if (
+            projection.surface_kind != "convex_polyhedral_rigid_surface"
+            or projection.geometry_fingerprint != surface.geometry_fingerprint
+        ):
+            raise ValueError("Convex contact projection belongs to another geometry.")
+        if projection.entity_ids is None or projection.local_coordinates is None:
+            raise ValueError("Convex contact requires facet and local-coordinate evidence.")
+        for point in np.flatnonzero(active):
+            identity = int(projection.entity_ids[point])
+            matches = np.flatnonzero(surface.facets.facet_ids == identity)
+            if matches.size != 1:
+                raise ValueError("Convex contact selected an unknown facet identity.")
+            if not np.isclose(
+                np.dot(
+                    projection.query_points[point] - projection.closest_points[point],
+                    projection.normals[point],
+                ),
+                projection.signed_gaps[point],
+                atol=surface.facets.tolerance,
+                rtol=0.0,
+            ):
+                raise ValueError("Convex contact gap and closest-point evidence disagree.")
+    else:
+        _smooth_active_facets(surface, record, active)
     return integrate_implicit_rigid_contact(
         evaluation, record, response,
         np.zeros((evaluation.trace.point_count, 3, 3)),

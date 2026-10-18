@@ -73,6 +73,70 @@ triangle transitions, MPI implicit assembly, friction, mixed pressure and
 independent curved-structure validation remain open. The source candidate is
 not promoted to a released capability by these local tests.
 
+The next serial source candidate removes an unnecessary contact/strong-BC
+disjointness restriction by lifting the native tangent and retaining
+constrained matrix rows. A full-versus-quarter indentation comparison passes
+at equal resolution. Its Hertz half-space screen does **not** yet pass an
+independent accuracy gate: finite support, mesh and penalty effects still need
+separation. See the [Dirichlet and Hertz candidate record](internal/implicit_contact_dirichlet_hertz_candidate_20261018.md).
+
+The same source branch now composes multiple named frictionless tools in both
+the ordinary serial strong-BC J2 Step and the affine-periodic J2 route, with
+the total residual and tangent reduced by the same MPC. Strong-BC J2 also admits fixed or prescribed-moving analytical-plane
+Coulomb pairs with separate accepted stick/slip and pose states, a generally nonsymmetric tangent,
+separate friction loss channels and serial restart. These are bounded source
+candidates, not a release promotion. Open/nonconvex sharp features, curved or
+faceted friction, friction with affine MPC, distributed implicit assembly and
+an external friction benchmark remain separate gates. For rotating planes the
+current-pose master transport is included in the fixed-old-state tangent;
+focused FE directional checks, nonzero moment, tool work and restart pass.
+
+A further narrow source candidate admits a **closed convex** outward-oriented
+polyhedral rigid tool for serial frictionless finite-J2 contact. Its exact
+interior support-plane gap gives a deterministic limiting normal and tangent
+at a noncoplanar feature; it does not smooth a crease or relax the old open
+triangle rejection. Local Operator and planar-limit global tests pass, but a
+small structural load path across one noncoplanar feature and its interrupted
+restart also pass. External sharp-feature comparison, broad mesh/penalty
+evidence and scalable search remain open. See the
+[closed-convex candidate record](internal/closed_convex_implicit_contact_candidate_20261018.md).
+
+The bounded serial candidate now also carries a selected-branch Coulomb
+tangent for that certified closed-convex tool, two independently moving
+frictional pairs, a two-region J2 material map, atomic restart and raw
+accepted contact-point export. CG1/CG2 hexahedral contact quadrature can be
+explicitly refined for discrete convergence checks; defaults stay unchanged
+because higher rules did not monotonically improve the Hertz force screen. The
+source-targeted and isolated installed-wheel smoke pass on Apple Silicon,
+but the closest small-strain Hertz screen still has a 1.4% force discrepancy
+after a farther-boundary Q2 mesh refinement. Sampling the Hertz pressure on the
+same trace exposes a much larger pressure-shape difference, and changing the
+face rule does not improve force and pressure together. Sharp-friction observables
+remain mesh/penalty sensitive,
+and external same-input Abaqus results are absent. This work remains an
+**experimental, limited serial contact capability**, not local Abaqus parity
+or a new release. The next promotion needs a frozen external comparator and
+controlled mesh, domain, penalty and increment limits before broader
+geometry/material/MPI admission.
+
+A later experimental geometry slice adds a **reviewed closed, possibly
+nonconvex** triangular rigid solid for frictionless serial implicit contact.
+It uses a unique nearest-feature signed distance and an exact local
+face/edge/vertex derivative; it does not average triangle normals. The
+separate [candidate record](internal/closed_general_implicit_contact_candidate_20261018.md)
+states its explicit embedding attestation, O(facets) sign-classification cost,
+local and ordinary-Step evidence, and unresolved global reentrant-edge,
+same-input reference, MPI and friction gates. This does not expand the
+released 0.4.3 contract or certify arbitrary STL/CAD.
+
+An additional reviewed triangular rigid tool may now use the *same* serial
+fixed-old-state Coulomb Operator on a current planar face branch. A coplanar
+two-triangle tool matches the analytical plane under translation and rotation,
+including tool work and interrupted restart; active free or noncoplanar edges
+still reject and roll back. This extends useful tool representation without
+promoting arbitrary sharp-edge friction, distributed contact, or an external
+Abaqus parity claim.
+
 The next source candidate removes the built-in sphere/cylinder type gate for
 smooth rigid contact: geometry owns a checked signed-gap differential, while
 the existing Operator and Procedure remain unchanged. A third-party smooth
@@ -607,6 +671,100 @@ release may ship a clearly bounded experimental subset, but its version
 number must not imply that the later gates passed. Performance is measured
 on fixed physics and an immutable installed candidate, separately from
 changing penalty, inertia, or time discretization.
+
+The current bounded serial candidate has progressed beyond the original
+single-facet slice: ordinary finite-J2 Steps now exercise prescribed-DOF
+contact, named multi-tool motion/work, reviewed planar/closed-convex Coulomb
+branches, restart and accepted-point output. The
+[candidate acceptance map](internal/implicit_contact_dirichlet_hertz_candidate_20261018.md)
+separates these completed source and installed-Mac checks from the remaining
+external same-input comparison, general sharp-feature laws, distributed
+implicit contact and cross-platform release gates. Its Hertz force, pressure,
+mesh, penalty and energy screens are directional diagnostics, not an
+industrial-contact accuracy certificate. Do not silently widen the public
+capability merely because this candidate can complete a Newton solve.
+
+The next closed-general candidate extends the **serial rigid-tool** branch to
+a caller-reviewed embedded triangle solid. Its normal law retains
+current-geometry nearest-feature/winding evidence and rejects ambiguous
+projection; a small ordinary J2 Step now exercises an active reentrant edge,
+plastic state, tangent check and restart. See the
+[bounded closed-solid record](internal/closed_general_implicit_contact_candidate_20261018.md).
+The Coulomb extension is restricted to active locally planar faces; it rejects
+physical sharp edges or vertices and rolls back the failed trial. The serial
+affine-MPC path now has a versioned accepted friction-State checkpoint and a
+tested plane/triangle/closed-face tangent reduction, but no arbitrary sharp
+friction law or distributed operator assembly. This is not
+yet a same-input external comparison, a converged parameter study, frictional
+sharp-feature law, large-CAD backend or distributed implicit contact.
+The fixed L-tool screen now exposes a concrete numerical gate: changing only
+the positive face rule changes which physical sharp-edge points are sampled,
+and a six-cell penalty bracket remains far from a hard-contact limit. Even the
+same-input degree-7 screen through twenty cell divisions still changes maximum
+PEEQ and active edge samples; a nearly stable resultant is not enough. The next
+frictionless method experiment should partition slave-face integration at
+zero-gap and nearest-feature transitions while preserving a common
+residual/tangent trial partition, then compare force, moment, penetration,
+plastic history and tool work across mesh, penalty and increment refinement.
+Do not elevate higher polynomial face quadrature or a faster sign classifier
+as an accuracy repair. Stateful edge friction and distributed ownership follow
+only after this frictionless integration gate is independently checked.
+The first bounded slice now clips a current-trial affine P1 slave triangle
+against an analytical rigid plane, with a positive common residual/tangent
+rule and an independent narrow-strip oracle. It does **not** resolve the
+L-tool's changing nearest feature or replace the still-open mesh/penalty
+convergence and independent same-input acceptance gates.
+An analytical two-plane counterexample now fixes the next design constraint:
+at an active sharp-feature switch the moving internal boundary contributes a
+nonzero line term to the contact tangent. A zero-gap clipper alone cannot be
+rebranded as a consistent L-tool edge algorithm. A research-only positive
+two-plane area-plus-feature-line oracle now matches analytic and directional
+derivative checks, including oblique planes and a spring-supported global
+fixture checked against independent integration. A one-tetrahedron linear
+elastic fixture also equilibrates, with its hand-derived bulk stiffness
+independently checked against DOLFINx assembly. The remaining nonconvex
+L-tool gate needs its nonlinear nearest-feature transition law and convergence
+evidence before any such Step promotion.
+The bounded convex-support-plane subset is now an opt-in ordinary-Step and
+serial affine-periodic J2
+implementation: it partitions at most three dominant planes per affine slave
+triangle and includes the compressed feature-line Newton term. A real
+finite-J2 Step, full Jacobian including MPC reduction, moving-tool work and
+serial restart pass. Fixed support planes are prepared once; every current
+trial still recomputes its gap, active subcells and projection, and a projection
+feature disagreement rejects the trial.
+An independent symmetric convex-corner fixture now checks exact potential,
+integrated force and five directional total tangents with three dominant
+planes; four positive-area features still reject. This expands a bounded
+convex subset, not the nonconvex reentrant-tool convergence claim.
+This does not close the nonconvex L-tool's nonlinear nearest-feature
+transition or the independent mesh/penalty benchmark.
+The current same-source fourteen-cell L-tool penalty screen is an explicit
+admission blocker: increasing its penalty from 200 through 1000 to 5000
+continues to change contact resultant, penetration and fixed-volume plastic
+response substantially. Agreement between two face quadrature degrees at
+one penalty is not a substitute for this limit. Before promoting general
+sharp-tool contact, establish a mesh-by-penalty response matrix with a
+physical penetration tolerance and an independent same-input reference;
+retain the bounded convex option as experimental in the meantime.
+If a penalty-only choice cannot satisfy both penetration and conditioning,
+evaluate an explicit augmented-Lagrangian normal law as a separate Operator
+and accepted-multiplier State. Do not silently switch enforcement inside an
+existing contact pair or reuse the penalty checkpoint identity.
+The installed-candidate penalty-20000 diagnostic did not complete under
+either basic or backtracking Newton, even after doubling fixed increments.
+This is a bounded failure observation, not proof that augmentation will
+converge or that a higher penalty is universally unusable. First prove the
+multiplier update and penetration tolerance on a fixed-point planar trace;
+the trial-partition route has changing quadrature points and needs an explicit
+State transfer/identity rule before any multiplier history can follow it.
+The same manufactured implicit-J2 contact screen also found a distinct
+scaling opportunity in the *linear solver*, not the contact law: explicit
+GMRES/GAMG with a recorded rigid-body near-nullspace preserves the tested
+fields and reduces accepted-Step time on two mesh sizes. Keep direct LU as
+the robust default while comparing the opt-in policy on independent meshes,
+materials, constraints and platforms; never silently select it solely from
+one machine's timing.
 
 Stop after this vertical route has explicit field/response and state evidence.
 Nonmatching-mesh transfer, broader nonlinear coupling, monolithic Jacobians,

@@ -206,8 +206,8 @@ independent material point while global Newton equilibrium closes.
 For a three-dimensional `nonlinear_static` study, `model.step(...)` now lowers
 this material to a global DOLFINx path. `PE` and `PEEQ` are committed at Basix
 quadrature points; `S` and `DDSDDE` are trial fields updated during Newton.
-The ordinary strong-boundary provider also accepts one analytical rigid-plane,
-frictionless penalty contact, fixed or with prescribed rigid motion. Tool pose
+The ordinary strong-boundary provider also accepts serial analytical rigid
+contact, fixed or with prescribed rigid motion. Tool pose
 uses the same resolved Step amplitude as the other prescribed inputs. Its weak
 residual and semismooth tangent enter the same Newton assembly as J2; the
 accepted ledger records contact penalty potential and tool force--coordinate
@@ -216,10 +216,23 @@ bounded path accepts one fixed or normalized-prescribed triangulated rigid tool
 with reference-area quadrature. It recomputes projection at each Newton trial,
 admits planar facet interiors and coplanar seams, and rejects active free or
 noncoplanar edges. It records accepted tool force--moment work for the
-prescribed path. Both compositions are serial and experimental. Friction,
-periodic MPC, general
-curved dies and portable cross-rank restart are not implied by the independent
-J2 or contact capabilities.
+prescribed path. Multiple named rigid pairs can share this
+ordinary Step within the bounds below; each retains its own resultant, prescribed work and checkpoint
+identity. Fixed or prescribed moving analytical planes additionally admit
+penalty Coulomb
+friction with per-pair accepted stick/slip state, a nonsymmetric tangent, separate
+sliding dissipation and numerical separation release, and serial restart.
+The [fixed-plane friction example](https://github.com/haoming-luo/agentfem/blob/main/examples/finite_j2_fixed_plane_friction.py)
+is a bounded active-contact demonstration, not general friction validation.
+The affine-periodic J2 route also admits multiple named frictionless rigid
+pairs, reducing their summed residual and tangent before Newton; it keeps
+separate accepted moving-tool work and serial restart. These compositions
+remain serial and experimental. Prescribed moving analytical planes, selected
+face-interior triangle branches and certified closed-convex tools now have
+separate bounded Coulomb tests; see the
+[contact capability matrix](guide/model_setup.md). Curved-tool friction,
+active free/noncoplanar features of an open patch, affine MPC with friction,
+general nonconvex dies and portable cross-rank restart remain unsupported.
 For a distributed mesh, `model.step(...)` reports `AFM-J2-CONTACT-MPI`
 before solving; `step_capability` reports the same reason while keeping
 `supported=false`.
