@@ -6,6 +6,7 @@ import json
 from itertools import permutations
 import runpy
 from pathlib import Path
+from types import SimpleNamespace
 
 import numpy as np
 import pytest
@@ -15,6 +16,7 @@ from agentfem.boundary_models.contact_convex_partition import (
     _unique_support_planes,
     partition_convex_p1_trace,
 )
+from agentfem.boundary_models.contact_feature_path import sampled_feature_observation
 from agentfem.boundary_models.implicit_facet_contact import (
     linearize_piecewise_planar_contact,
 )
@@ -95,6 +97,41 @@ def test_convex_partition_accepts_reordered_default_rule():
     positions = np.asarray(((0, 0, 0), (1, 0, 0), (0, 1, 0)), dtype=float)
     selected = partition_convex_p1_trace(trace, positions, _box(), penalty=7)
     assert selected.trace.point_count >= 3
+
+
+def test_polyhedral_accepted_observation_rejects_missing_or_corrupt_evidence():
+    sample = {
+        "active_point_count": 2,
+        "sampled_mixed_feature_slave_faces": 0,
+        "feature_transition_integral_certified": False,
+    }
+    provider = SimpleNamespace(
+        surface=_box(), current_point_diagnostics=lambda: sample,
+    )
+    assert sampled_feature_observation(provider) == {
+        "mixed": 0, "edge": 0, "vertex": 0, "certified": False,
+    }
+    for corrupt in (
+        {key: value for key, value in sample.items()
+         if key != "sampled_mixed_feature_slave_faces"},
+        sample | {"active_point_count": 2.0},
+        sample | {"feature_transition_integral_certified": 0},
+        sample | {"active_feature_counts": {"face": 1, "edge": 0, "vertex": 0}},
+    ):
+        provider.current_point_diagnostics = lambda corrupt=corrupt: corrupt
+        with pytest.raises(ValueError, match="feature diagnostics|active-feature counts"):
+            sampled_feature_observation(provider)
+
+    convex = _box()
+    closed = boundary_models.closed_triangulated_rigid_solid(
+        vertices=convex.facets.vertices,
+        triangles=convex.facets.triangles,
+        reviewed_embedded=True,
+    )
+    provider.surface = closed
+    provider.current_point_diagnostics = lambda: sample
+    with pytest.raises(ValueError, match="active-feature counts are missing"):
+        sampled_feature_observation(provider)
 
 
 def _evaluate(surface, positions, *, penalty=7.0, motion=None, factor=0.0):

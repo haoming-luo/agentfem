@@ -670,6 +670,39 @@ def test_reviewed_concave_edge_is_active_in_global_plastic_step_and_restart(
     assert "accepted contact feature path is incomplete" in older_claim.actual["issues"]
 
 
+def test_standard_polyhedral_feature_diagnostic_failure_rolls_back(monkeypatch):
+    step = _patch(
+        triangulated=True, convex_tool=True, increments=3,
+        tool_translation=(-0.008, 0.0, 0.0), applied_traction=0.0,
+        yield_stress=1.0e9,
+    )[3]
+    step.solve(until=1.0 / 3.0)
+    accepted_u = step.solution.x.array.copy()
+    accepted_state = step.response.state.committed_state_vectors().copy()
+    accepted_path = dict(step.contact_feature_path)
+    accepted_energy = tuple(step.energy_history)
+
+    original = step.contact_provider.current_point_diagnostics
+
+    def missing_feature_count():
+        sample = original()
+        sample.pop("sampled_mixed_feature_slave_faces")
+        return sample
+
+    monkeypatch.setattr(
+        step.contact_provider, "current_point_diagnostics", missing_feature_count,
+    )
+    with pytest.raises(RuntimeError, match="feature diagnostics are incomplete"):
+        step.solve(until=2.0 / 3.0)
+    assert step.accepted_load_factor == pytest.approx(1.0 / 3.0)
+    np.testing.assert_array_equal(step.solution.x.array, accepted_u)
+    np.testing.assert_array_equal(
+        step.response.state.committed_state_vectors(), accepted_state,
+    )
+    assert step.contact_feature_path == accepted_path
+    assert tuple(step.energy_history) == accepted_energy
+
+
 def test_fast_closed_sign_preserves_active_edge_plastic_step_result(tmp_path):
     options = dict(
         triangulated=True, closed_concave_tool=True,

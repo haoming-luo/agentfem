@@ -38,11 +38,16 @@ being silently approximated by the bounded route.
 
 “Partial” here is not a release status. The test target, geometry and
 enforcement must all match before a gate can be marked closed.
-The reentrant-tool sample carries an engineering quality failure whenever a
+   The reentrant-tool sample carries an engineering quality failure whenever a
 sampled slave face crosses nearest features without a certified transition
 integral. Release additionally requires a certified integral even if no
 switch or active point happened to be sampled. Exploratory inspection remains
-possible; an absence of sampled switches is not a whole-face certificate.
+   possible; an absence of sampled switches is not a whole-face certificate.
+Both ordinary J2 and affine/MPC acceptance now validate the same typed
+polyhedral diagnostic contract: a missing mixed-feature count, a non-Boolean
+integration claim or inconsistent active face/edge/vertex totals rejects the
+accepted step and restores its previous State. A visually plausible but
+incomplete observation cannot silently enter the historical evidence.
 
 Ownership for the next implementation is deliberately narrow: surface/search
 admission belongs under `boundary_models/`; feature integration and the

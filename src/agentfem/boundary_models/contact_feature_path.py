@@ -29,6 +29,43 @@ _PAIR_KEYS = {
 }
 
 
+def sampled_feature_observation(provider: object) -> dict[str, object]:
+    """Validate one polyhedral pair's sampled hazard evidence before acceptance."""
+
+    from .closed_polyhedron import ClosedTriangulatedRigidSolid
+
+    sample = provider.current_point_diagnostics()
+    if not isinstance(sample, Mapping):
+        raise ValueError("Polyhedral feature diagnostics must be a mapping.")
+    mixed = sample.get("sampled_mixed_feature_slave_faces")
+    certified = sample.get("feature_transition_integral_certified")
+    active = sample.get("active_point_count")
+    counts = sample.get("active_feature_counts")
+    if (
+        type(mixed) is not int or mixed < 0
+        or type(certified) is not bool
+        or type(active) is not int or active < 0
+    ):
+        raise ValueError("Polyhedral feature diagnostics are incomplete or invalid.")
+    if counts is None:
+        if isinstance(provider.surface, ClosedTriangulatedRigidSolid):
+            raise ValueError("Closed-solid active-feature counts are missing.")
+        counts = {"face": active, "edge": 0, "vertex": 0}
+    if (
+        not isinstance(counts, Mapping)
+        or set(counts) != {"face", "edge", "vertex"}
+        or any(type(value) is not int or value < 0 for value in counts.values())
+        or sum(counts.values()) != active
+    ):
+        raise ValueError("Polyhedral active-feature counts differ from contact points.")
+    return {
+        "mixed": mixed,
+        "edge": counts["edge"],
+        "vertex": counts["vertex"],
+        "certified": certified,
+    }
+
+
 @dataclass(eq=False)
 class AcceptedContactFeaturePath:
     """Observe each accepted configuration of named polyhedral contact pairs."""
@@ -56,38 +93,10 @@ class AcceptedContactFeaturePath:
         self.providers = selected
 
     def _observations(self) -> dict[str, dict[str, object]]:
-        observed = {}
-        for provider in self.providers:
-            sample = provider.current_point_diagnostics()
-            mixed = sample.get("sampled_mixed_feature_slave_faces")
-            certified = sample.get("feature_transition_integral_certified")
-            counts = sample.get("active_feature_counts")
-            if counts is None:
-                counts = {}
-            elif (
-                not isinstance(counts, Mapping)
-                or set(counts) != {"face", "edge", "vertex"}
-                or type(sample.get("active_point_count")) is not int
-                or any(type(value) is not int or value < 0 for value in counts.values())
-                or sum(counts.values()) != sample["active_point_count"]
-            ):
-                raise ValueError("Polyhedral active-feature counts differ from contact points.")
-            if (
-                type(mixed) is not int or mixed < 0
-                or type(certified) is not bool
-                or any(
-                    type(counts.get(key, 0)) is not int or counts.get(key, 0) < 0
-                    for key in ("edge", "vertex")
-                )
-            ):
-                raise ValueError("Polyhedral feature diagnostics are incomplete or invalid.")
-            observed[str(provider.name)] = {
-                "mixed": mixed,
-                "edge": int(counts.get("edge", 0)),
-                "vertex": int(counts.get("vertex", 0)),
-                "certified": certified,
-            }
-        return observed
+        return {
+            str(provider.name): sampled_feature_observation(provider)
+            for provider in self.providers
+        }
 
     def _capture(self, snapshot, *, reset: bool) -> None:
         factor = float(snapshot.load_factor)

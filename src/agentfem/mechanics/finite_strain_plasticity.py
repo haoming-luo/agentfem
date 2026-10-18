@@ -1267,22 +1267,21 @@ class FiniteStrainJ2StandardProblem:
         increment rollback snapshot can retain the previous mapping cheaply.
         """
 
+        from ..boundary_models.contact_feature_path import sampled_feature_observation
+
         names = set(self._feature_path_pair_names())
         for provider in self._contact_providers():
             if provider.name not in names:
-                continue
-            evidence = provider.current_point_diagnostics()
-            if "sampled_mixed_feature_slave_faces" not in evidence:
                 continue
             name = str(provider.name)
             old = self.contact_feature_path.get(name)
             if old is not None and abs(float(old["last_factor"]) - factor) <= 1e-12:
                 continue
-            mixed = int(evidence["sampled_mixed_feature_slave_faces"])
-            counts = evidence.get("active_feature_counts") or {}
-            edge = int(counts.get("edge", 0))
-            vertex = int(counts.get("vertex", 0))
-            certified = bool(evidence["feature_transition_integral_certified"])
+            observation = sampled_feature_observation(provider)
+            mixed = observation["mixed"]
+            edge = observation["edge"]
+            vertex = observation["vertex"]
+            certified = observation["certified"]
             self.contact_feature_path[name] = {
                 "constraint": name,
                 "accepted_station_count": (
