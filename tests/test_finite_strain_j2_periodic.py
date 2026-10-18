@@ -452,6 +452,170 @@ def test_periodic_j2_reviewed_concave_tool_reduces_total_contact_residual():
     )
 
 
+def _active_reentrant_periodic_surface():
+    """Put a reentrant line near, but not on, a periodic face quadrature point."""
+
+    polygon = 0.7 * np.asarray((
+        (0, 0), (2, 0), (2, 1), (1, 1), (1, 2), (0, 2),
+    ), dtype=float) + np.asarray((-0.34, -0.26))
+    front = np.column_stack((np.full(6, 0.95), polygon))
+    back = np.column_stack((np.full(6, 1.25), polygon))
+    top = ((0, 1, 3), (1, 2, 3), (0, 3, 5), (3, 4, 5))
+    triangles = [tuple(reversed(face)) for face in top]
+    triangles += [tuple(6 + index for index in face) for face in top]
+    for first in range(6):
+        second = (first + 1) % 6
+        triangles.extend(((first, second, second + 6),
+                          (first, second + 6, first + 6)))
+    return boundary_models.closed_triangulated_rigid_solid(
+        vertices=np.vstack((front, back)), triangles=triangles,
+        reviewed_embedded=True,
+    )
+
+
+def test_periodic_j2_active_reentrant_edge_reduces_total_tangent():
+    # A planar-limit test cannot verify the signed edge Hessian in the MPC.
+    surface = _active_reentrant_periodic_surface()
+    fixture, periodicity, step = _periodic_j2_contact_step(surface=surface)
+    assert step.solve_result().status == "completed"
+    _, record, response, _ = step.contact_provider._current_point_response()
+    features = [
+        surface._geometric_feature_projector(
+            surface._facet_slots[int(identity)], barycentric,
+        )[1]
+        for identity, barycentric in zip(
+            record.projection.entity_ids,
+            record.projection.local_coordinates, strict=True,
+        )
+    ]
+    assert any(active and feature == "edge" for active, feature in zip(
+        response.active, features, strict=True,
+    ))
+    total = step.assemble_full_residual()
+    reduction = periodicity.reduction(1.0).matrix(fixture.domain.comm)
+    reduced = reduction.createVecRight()
+    try:
+        reduction.multTranspose(total, reduced)
+        assert reduced.norm() < 1.0e-5
+    finally:
+        reduced.destroy()
+        reduction.destroy()
+        total.destroy()
+
+    transformation = periodicity.reduction(1.0).matrix(fixture.domain.comm)
+    direction = transformation.createVecRight()
+    full_direction = transformation.createVecLeft()
+    projected = transformation.createVecRight()
+    full_residual = transformation.createVecLeft()
+    accepted = step.solution.x.array.copy()
+    try:
+        direction.array[:] = np.linspace(0.1, 0.3, direction.array.size)
+        transformation.mult(direction, full_direction)
+        selected = step.contact_provider.evaluate()
+        full_residual.array[:] = selected.tangent_action(
+            full_direction.array.reshape(-1, 3),
+        ).reshape(-1)
+        transformation.multTranspose(full_residual, projected)
+        expected = projected.array.copy()
+        epsilon = 1.0e-7
+        samples = []
+        for sign in (1.0, -1.0):
+            step.solution.x.array[:] = accepted + sign * epsilon * full_direction.array
+            step.solution.x.scatter_forward()
+            full_residual.array[:] = (
+                step.contact_provider.evaluate()
+                .assembly.nodal_structural_residual.reshape(-1)
+            )
+            transformation.multTranspose(full_residual, projected)
+            samples.append(projected.array.copy())
+        np.testing.assert_allclose(
+            expected, (samples[0] - samples[1]) / (2.0 * epsilon),
+            rtol=2.0e-4, atol=2.0e-5,
+        )
+    finally:
+        step.solution.x.array[:] = accepted
+        step.solution.x.scatter_forward()
+        full_residual.destroy()
+        projected.destroy()
+        full_direction.destroy()
+        direction.destroy()
+        transformation.destroy()
+
+
+def test_periodic_j2_active_edge_total_material_contact_jacobian():
+    import dolfinx.fem as fem
+    import dolfinx.fem.petsc as fem_petsc
+
+    surface = _active_reentrant_periodic_surface()
+    _, _, completed = _periodic_j2_contact_step(surface=surface)
+    completed.solve()
+    fixture, periodicity, trial = _periodic_j2_contact_step(surface=surface)
+    trial.solve(until=2.0 / 3.0)
+    # Hold the fifth/previous accepted material state fixed while testing
+    # the final increment. Perturbing the already committed final J2 state
+    # at zero reload would measure a branch kink, not the Newton tangent.
+    trial.solution.x.array[:] = completed.solution.x.array
+    trial.solution.x.scatter_forward()
+    trial.state_transaction.refresh_trial(
+        start_factor=2.0 / 3.0, target_factor=1.0,
+    )
+    transformation = periodicity.reduction(1.0).matrix(fixture.domain.comm)
+    direction = transformation.createVecRight()
+    full_direction = transformation.createVecLeft()
+    reduced = transformation.createVecRight()
+    full_matrix = None
+    reduced_matrix = None
+    action = None
+    try:
+        direction.array[:] = np.linspace(0.1, 0.3, direction.array.size)
+        transformation.mult(direction, full_direction)
+        full_matrix = fem_petsc.assemble_matrix(fem.form(trial.jacobian_form))
+        for operator in trial.full_space_operators:
+            operator.add_tangent(full_matrix, operator.evaluate())
+        full_matrix.assemble()
+        reduced_matrix = full_matrix.PtAP(transformation)
+        action = reduced_matrix.createVecLeft()
+        reduced_matrix.mult(direction, action)
+        expected = action.array.copy()
+
+        def reduced_residual(offset):
+            trial.solution.x.array[:] = (
+                completed.solution.x.array + offset * full_direction.array
+            )
+            trial.solution.x.scatter_forward()
+            trial.state_transaction.refresh_trial(
+                start_factor=2.0 / 3.0, target_factor=1.0,
+            )
+            full = trial.assemble_full_residual()
+            try:
+                transformation.multTranspose(full, reduced)
+                return reduced.array.copy()
+            finally:
+                full.destroy()
+
+        epsilon = 1.0e-6
+        numerical = (
+            reduced_residual(epsilon) - reduced_residual(-epsilon)
+        ) / (2.0 * epsilon)
+        np.testing.assert_allclose(
+            expected, numerical, rtol=3.0e-3, atol=2.0e-4,
+        )
+    finally:
+        trial.solution.x.array[:] = completed.solution.x.array
+        trial.solution.x.scatter_forward()
+        trial.state_transaction.rollback_increment(accepted_factor=2.0 / 3.0)
+        if action is not None:
+            action.destroy()
+        if reduced_matrix is not None:
+            reduced_matrix.destroy()
+        if full_matrix is not None:
+            full_matrix.destroy()
+        reduced.destroy()
+        full_direction.destroy()
+        direction.destroy()
+        transformation.destroy()
+
+
 def _periodic_tool_motion():
     return boundary_models.prescribed_rigid_motion(
         translation=(-0.01, 0.0, 0.0),

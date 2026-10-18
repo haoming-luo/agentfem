@@ -25,6 +25,7 @@ from .rigid import (
     triangulated_rigid_surface_from_mesh,
 )
 from .search import TriangleSurfaceBVH, triangle_surface_bvh
+from ._triangle_topology import reviewed_triangle_topology
 
 
 def _solid_winding_number(point: np.ndarray, triangles: np.ndarray) -> float:
@@ -99,6 +100,10 @@ class ClosedTriangulatedRigidSolid(RigidSurface):
             )
         if not facets.summary()["closed"]:
             raise ValueError("Closed rigid solid requires a closed triangle manifold.")
+        reviewed_triangle_topology(
+            len(facets.vertices), facets.triangles,
+            require_connected_vertex_links=True,
+        )
         if not str(self.name).strip():
             raise ValueError("Closed rigid solid requires a name.")
         if self.sign_method not in ("winding_reference", "angle_weighted_pseudonormal"):

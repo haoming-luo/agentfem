@@ -446,6 +446,87 @@ def test_fast_closed_sign_preserves_active_edge_plastic_step_result(tmp_path):
         _patch(**options, closed_sign_method="angle_weighted_pseudonormal")[3].load_checkpoint(saved)
 
 
+def test_mixed_concave_and_plane_tools_keep_distinct_work_and_restart(tmp_path):
+    def build():
+        model, displacement, material, _ = _patch(
+            triangulated=True, closed_concave_tool=True,
+            closed_concave_extent=0.7, closed_concave_corner=(0.35, 0.19),
+            closed_concave_thickness=0.5, gap=0.005,
+            tool_translation=(-0.055, 0.0, 0.0), penalty=20.0,
+            applied_traction=0.0, increments=6, yield_stress=0.05,
+            make_step=False,
+        )
+        plane = boundary_models.rigid_plane(
+            point=(1.02, 0.0, 0.0), normal=(-1.0, 0.0, 0.0),
+        )
+        motion = boundary_models.prescribed_rigid_motion(
+            translation=(-0.04, 0.0, 0.0),
+            reference_point=(1.02, 0.0, 0.0),
+        )
+        model.add_boundary_model(boundary_models.rigid_contact_pair(
+            model.boundary_models[0].slave_boundary,
+            boundary_models.rigid_body(
+                plane,
+                motion_schedule=boundary_models.prescribed_rigid_motion_schedule(
+                    motion, start_time=0.0, end_time=1.0,
+                ),
+            ),
+            penalty=5.0, name="independent_flat_tool",
+        ))
+        return model.step(
+            target=displacement, material=material,
+            incrementation=steps.fixed(6), progress=False,
+        )
+
+    continuous = build()
+    result = continuous.solve_result()
+    assert result.status == "completed"
+    providers = continuous.contact_provider.providers
+    names = tuple(provider.name for provider in providers)
+    assert names == ("rigid_contact_pair", "independent_flat_tool")
+    assert all(np.count_nonzero(provider.accepted_point_samples()["active"]) > 0
+               for provider in providers)
+    pair_work = dict(continuous.energy_history[-1].pair_tool_work)
+    assert set(pair_work) == set(names)
+    assert sum(pair_work.values()) == pytest.approx(
+        continuous.energy_history[-1].tool_work,
+    )
+    assert tuple(item["constraint_name"] for item in
+                 result.metadata["constraint_duals"]) == names
+    accepted = continuous.solution.x.array.copy()
+    direction = np.random.default_rng(20261018).normal(size=accepted.shape)
+    scale = 1.0e-7
+    selected = continuous.contact_provider.evaluate()
+    try:
+        continuous.solution.x.array[:] = accepted + scale * direction
+        plus = continuous.contact_provider.evaluate()
+        continuous.solution.x.array[:] = accepted - scale * direction
+        minus = continuous.contact_provider.evaluate()
+    finally:
+        continuous.solution.x.array[:] = accepted
+    np.testing.assert_allclose(
+        selected.tangent_action(direction.reshape(-1, 3)),
+        (plus.nodal_structural_residual - minus.nodal_structural_residual)
+        / (2.0 * scale),
+        rtol=2.0e-4, atol=2.0e-5,
+    )
+
+    interrupted = build()
+    interrupted.solve(until=0.5)
+    checkpoint = interrupted.save_checkpoint(tmp_path / "mixed_closed_flat")
+    resumed = build()
+    resumed.load_checkpoint(checkpoint)
+    assert resumed.solve_result().status == "completed"
+    np.testing.assert_allclose(
+        resumed.solution.x.array, continuous.solution.x.array,
+    )
+    np.testing.assert_allclose(
+        resumed.response.state.committed_state_vectors(),
+        continuous.response.state.committed_state_vectors(),
+    )
+    assert dict(resumed.energy_history[-1].pair_tool_work) == pytest.approx(pair_work)
+
+
 def test_closed_concave_example_exports_accepted_public_result(tmp_path):
     script = Path(__file__).resolve().parents[1] / (
         "examples/finite_j2_closed_concave_contact.py"

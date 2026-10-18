@@ -17,6 +17,13 @@ component correctness or CAD fitness; the caller attests embedding after
 review. `closed_triangulated_rigid_solid_from_mesh(...)` retains imported
 source SHA-256, format and coordinate scale and does not automatically infer
 that attestation from an STL file.
+The vertex-link requirement is scoped to a **closed shell**. An open Q1
+reference patch may have two corner-adjacent pieces used only for distance
+search; forcing the closed-solid rule on every open triangle surface broke
+that existing search case in remote CI. The corrected preflight retains
+closed-shell rejection and preserves open-patch search. Open surface summaries
+state `manifold_scope="edge_incidence_only"` rather than implying a
+closed-solid vertex certificate.
 
 At every Newton trial, an exact triangle BVH finds the nearest surface point.
 A point certified beyond the complete tool AABB is exterior. The default
@@ -235,8 +242,8 @@ planned code:
 | 1. Same-input benchmark contract | The manufactured L-prism fixture and outputs are frozen in test/example code. | No independent Abaqus/Code_Aster same-input result or agreed dimensional acceptance tolerance. |
 | 2. Existing candidate audit | Ordinary Step, tool work, restart and current-trial geometry are reused; no parallel solver path was added. | Broader scientific promotion review remains separate. |
 | 3. Geometry and feature transitions | Unique nearest face/edge/vertex branches, coplanar seams, non-manifold vertex rejection and a globally active reentrant edge pass. | Self-intersection is caller-attested; medial-axis ties reject; no arbitrary CAD guarantee. |
-| 4. Implicit total operator and State | Full J2-plus-contact tangent passes fixed-old-state difference, accepted failure rolls back, and existing planar periodic-MPC total residual checks pass. | Active sharp-edge plus periodic MPC has no independent global test. |
-| 5. Multiple rigid pairs | Existing named planar/convex tool work and atomic restart tests pass. | Mixed general-closed multi-tool and large contact-set scaling remain untested. |
+| 4. Implicit total operator and State | Full J2-plus-contact tangent passes fixed-old-state difference; an active sharp edge now passes periodic MPC total-residual, reduced contact tangent, and fixed-old-state material-plus-contact reduced Jacobian differences; accepted failure rolls back. | This remains a manufactured serial fixture; cross-branch and larger mesh convergence are separate gates. |
+| 5. Multiple rigid pairs | Named planar/convex tool work and atomic restart tests pass; mixed active concave-plus-moving-plane J2 pair keeps separate work, summed tangent and checkpoint restart. | Large mixed contact-set scaling and independent multi-tool reference remain untested. |
 | 6. Friction | Existing bounded plane/facet/convex Coulomb routes pass their own tests. | This general concave/sharp tool deliberately rejects friction. |
 | 7. Material/time composition | Active-edge finite-J2 plastic path passes; explicit contact/material lifecycle is a separate existing route. | No generic historical implicit material or explicit general-closed-tool composition. |
 | 8. Independent acceptance and speed | Directional analytical checks, fixed-seed geometry timing and a manufactured whole-Step opt-in/default comparison are recorded; 24→48 increment screen is narrow. | No independent full-geometry comparison, spatial/penalty convergence, industrial whole-step speed claim or release-grade energy closure. |

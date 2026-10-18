@@ -6,7 +6,7 @@ from functools import lru_cache
 import numpy as np
 
 
-def _check(vertex_count, payload):
+def _check(vertex_count, payload, require_connected_vertex_links):
     triangles = np.frombuffer(payload, dtype=np.int64).reshape(-1, 3)
     if np.any(triangles < 0) or np.any(triangles >= vertex_count):
         raise ValueError("Surface triangle index lies outside the vertex table.")
@@ -39,47 +39,50 @@ def _check(vertex_count, payload):
             "Adjacent surface facets have inconsistent orientation; first "
             f"edge is {edge}."
         )
-    # Edge incidence alone does not make a surface manifold: two complete
-    # shells can meet at only one vertex and still give every edge degree two.
-    # The triangle fan around every vertex must be connected through edges
-    # containing that vertex (one chain for a boundary vertex, one cycle for
-    # an interior vertex). Each incident edge already has degree <= 2 above.
-    ordered = np.argsort(inverse, kind="stable")
-    paired = inverse[ordered[1:]] == inverse[ordered[:-1]]
-    first_directed = ordered[:-1][paired]
-    second_directed = ordered[1:][paired]
-    neighbors = np.full((len(triangles), 3), -1, dtype=np.int64)
-    neighbors.reshape(-1)[first_directed] = second_directed // 3
-    neighbors.reshape(-1)[second_directed] = first_directed // 3
-    incident: list[list[int]] = [[] for _ in range(vertex_count)]
-    for slot, triangle in enumerate(triangles):
-        for vertex in triangle:
-            incident[int(vertex)].append(slot)
-    for vertex, slots in enumerate(incident):
-        remaining = set(slots)
-        pending = [slots[0]]
-        while pending:
-            slot = pending.pop()
-            if slot not in remaining:
-                continue
-            remaining.remove(slot)
-            local = int(np.flatnonzero(triangles[slot] == vertex)[0])
-            for directed_edge in (local, (local + 2) % 3):
-                neighbor = int(neighbors[slot, directed_edge])
-                if neighbor >= 0:
-                    pending.append(neighbor)
-        if remaining:
-            raise ValueError(
-                "Triangulated surface contains a non-manifold vertex link; "
-                f"first vertex is {vertex}."
-            )
+    if require_connected_vertex_links:
+        # A closed solid must be a 2-manifold at vertices too: two shells can
+        # meet at one vertex while every edge still has degree two. An open
+        # reference patch may intentionally be point-adjacent, so this check
+        # belongs to the signed-solid admission rather than every triangle
+        # search user.
+        ordered = np.argsort(inverse, kind="stable")
+        paired = inverse[ordered[1:]] == inverse[ordered[:-1]]
+        first_directed = ordered[:-1][paired]
+        second_directed = ordered[1:][paired]
+        neighbors = np.full((len(triangles), 3), -1, dtype=np.int64)
+        neighbors.reshape(-1)[first_directed] = second_directed // 3
+        neighbors.reshape(-1)[second_directed] = first_directed // 3
+        incident: list[list[int]] = [[] for _ in range(vertex_count)]
+        for slot, triangle in enumerate(triangles):
+            for vertex in triangle:
+                incident[int(vertex)].append(slot)
+        for vertex, slots in enumerate(incident):
+            remaining = set(slots)
+            pending = [slots[0]]
+            while pending:
+                slot = pending.pop()
+                if slot not in remaining:
+                    continue
+                remaining.remove(slot)
+                local = int(np.flatnonzero(triangles[slot] == vertex)[0])
+                for directed_edge in (local, (local + 2) % 3):
+                    neighbor = int(neighbors[slot, directed_edge])
+                    if neighbor >= 0:
+                        pending.append(neighbor)
+            if remaining:
+                raise ValueError(
+                    "Triangulated surface contains a non-manifold vertex link; "
+                    f"first vertex is {vertex}."
+                )
     return len(edges), int(np.count_nonzero(counts == 1))
 
 
 _cached_check = lru_cache(maxsize=4)(_check)
 
 
-def reviewed_triangle_topology(vertex_count, triangles):
+def reviewed_triangle_topology(
+    vertex_count, triangles, *, require_connected_vertex_links=False,
+):
     """Return immutable counts; never cache coordinates, normals or validity.
 
     Byte equality, not an object ID or an unchecked hash, gates reuse. At most
@@ -88,4 +91,6 @@ def reviewed_triangle_topology(vertex_count, triangles):
     """
     payload = np.asarray(triangles, dtype=np.int64).tobytes(order="C")
     checker = _cached_check if len(payload) <= 4*1024*1024 else _check
-    return checker(int(vertex_count), payload)
+    return checker(
+        int(vertex_count), payload, bool(require_connected_vertex_links),
+    )

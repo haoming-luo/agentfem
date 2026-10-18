@@ -596,6 +596,7 @@ def test_triangulated_surface_summary_and_fingerprint_are_stable():
     assert summary["boundary_edge_count"] == 4
     assert summary["closed"] is False
     assert summary["manifold"] is True
+    assert summary["manifold_scope"] == "edge_incidence_only"
     assert summary["orientation_consistent"] is True
     assert summary["facet_identity"] == "user_provided"
     assert summary["projection"] == "exhaustive_reference"

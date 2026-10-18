@@ -1327,6 +1327,14 @@ class TriangulatedRigidSurface(RigidSurface):
         edge_count, boundary_edge_count = reviewed_triangle_topology(
             len(vertices), triangles
         )
+        if boundary_edge_count == 0:
+            # A signed closed shell must have one connected triangle fan at
+            # every vertex. Open reference patches may intentionally touch
+            # at a corner without defining one closed solid.
+            reviewed_triangle_topology(
+                len(vertices), triangles,
+                require_connected_vertex_links=True,
+            )
         # Neighbor identity belongs to the immutable tool topology, not to a
         # Newton trial.  Column j is the facet across the edge opposite local
         # vertex j; -1 denotes an actual free edge.
@@ -1429,6 +1437,10 @@ class TriangulatedRigidSurface(RigidSurface):
                 "boundary_edge_count": boundary_edge_count,
                 "closed": boundary_edge_count == 0,
                 "manifold": True,
+                "manifold_scope": (
+                    "closed_vertex_links_certified"
+                    if boundary_edge_count == 0 else "edge_incidence_only"
+                ),
                 "orientation_consistent": True,
                 "facet_identity": identity_source,
             },
