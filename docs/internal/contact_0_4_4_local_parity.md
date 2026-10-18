@@ -213,6 +213,10 @@ The gate stays open until its listed evidence exists at the proposed scope.
    follows [Abaqus' explicit advice to smooth analytical rigid corners for
    finite-sliding Standard contact][abaqus-rigid-smoothing], not an assumption
    that AgentFEM's present mesh already has those fillets.
+   [Wolff--Bucher's assumed-gradient distance field][distance-field] is a
+   different promising route for complex geometry, but its smooth interpolated
+   gradient is a declared gap/geometry approximation. It cannot be advertised
+   as the exact sharp-feature answer without an error study.
    A new algorithm may enter the Step only after both integral and
    differentiation checks, not merely a finer screenshot or work balance.
    For the separate *convex* route, accepted point diagnostics now say whether
@@ -223,6 +227,9 @@ The gate stays open until its listed evidence exists at the proposed scope.
    polyhedral pair; zero *observed* mixed-feature faces or active points no
    longer suffices. A future whole-face separation certificate may justify
    a separate no-contact release path, but point samples cannot.
+   The narrow-strip tests in `test_contact_active_partition.py` and the
+   missed-interior-overlap test in `test_initial_gap_bound.py` are concrete
+   counterexamples to equating zero active quadrature points with separation.
    Engineering-level verification continues to report the narrower sampled
    diagnostic. This release guard does not itself supply a scientific reference
    or make the nonconvex operator accurate.
@@ -422,9 +429,13 @@ stored contact energy. Result must reuse the ordinary constraint dual and
 accepted-path work evidence, but mark physical contact-energy closure
 unavailable until the finite-penetration enforcement residual is separately
 bounded; it must not insert the AL functional into `contact_potential` merely
-to make an energy equation appear closed. Admission requires the existing
-penalty Step to remain
-unchanged by default and the AL path to pass a fixed-trace restart identity,
+to make an energy equation appear closed. The current penalty
+`ContactTraceAssembly` explicitly requires a nonnegative physical potential,
+so reusing it as an AL wrapper would violate its contract. The new Operator
+needs a contribution type that exposes the same residual/tangent and
+force/moment protocol while keeping algorithmic and physical energy distinct.
+Admission requires the existing penalty Step to remain unchanged by default
+and the AL path to pass a fixed-trace restart identity,
 one plastic-history path and one MPC-reduced total-tangent comparison. A
 changing feature partition cannot use this State until a conservative,
 identified multiplier-transfer rule has its own tests.
@@ -441,6 +452,7 @@ identified multiplier-transfer rule has its own tests.
 [duong]: https://arxiv.org/abs/1712.01179
 [dual-mortar]: https://arxiv.org/abs/2201.01165
 [variational-mortar]: https://doi.org/10.1016/j.cma.2018.07.020
+[distance-field]: https://doi.org/10.1016/j.cma.2013.02.015
 [abaqus-rigid-smoothing]: https://docs.software.vt.edu/abaqusv2025/English/SIMACAEMODRefMap/simamod-c-rigidsurf.htm
 [burman]: https://arxiv.org/abs/1609.03326
 [hansbo-stabilized]: https://doi.org/10.1016/j.finel.2016.03.005
