@@ -298,6 +298,18 @@ about 9.3% and the sampled reentrant-edge points increase from five to eight.
 Apparent force stabilization alone is therefore not a validated damage or
 plastic-history limit.
 
+The growing **single-point maximum** is also not, by itself, proof of a
+defective material integrator. Abaqus' own
+[adaptive-remeshing guidance](https://docs.software.vt.edu/abaqusv2025/English/SIMACAEANLRefMap/simaanl-c-adpover.htm)
+warns that idealized reentrant corners and sharp-edge contact can create
+stress singularities that mesh refinement will not remove. That guidance
+does not prove this particular finite-J2 plastic field is singular. The next
+acceptance screen must therefore report both contact force/work and
+volume-weighted plasticity statistics, plus a fixed physical-distance or
+fixed physical-volume gauge away from the sharp feature; a changing maximum
+alone cannot pass or fail the continuum model. Introducing a tool fillet is
+an explicit geometry/model change and requires a separate same-input study.
+
 At fourteen cells, changing only the positive triangle rule from degree 7 to
 degree 5 gives x-resultant `-1.73819547` instead of `-1.73441914` (about
 0.22% difference), maximum PEEQ `0.05169160` instead of `0.05089190` (about
@@ -689,6 +701,8 @@ pass directional tangent differences. A real DOLFINx tetrahedral boundary
 Operator with three crossing features passes the assembled contact tangent
 difference; the manufactured geometry offsets its switches from the slave
 facet boundary, where the two-sided tangent is intentionally undefined.
+The same three-feature local patch preserves penalty energy and rotates its
+nodal force under prescribed rigid-body translation and rotation.
 Four positive-area dominant planes still reject.
 A boundary-aligned undefined
 two-sided switch also rejects. The default Gauss route is unchanged.

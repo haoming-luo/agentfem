@@ -55,13 +55,15 @@ def _trace():
     )
 
 
-def _evaluate(surface, positions, *, penalty=7.0):
+def _evaluate(surface, positions, *, penalty=7.0, motion=None, factor=0.0):
     selected = partition_convex_p1_trace(
         _trace(), positions, surface, penalty=penalty,
+        motion=motion, factor=factor,
     )
     evaluation = selected.trace.evaluate(positions)
     record = boundary_models.ContactProjectionRecord(
-        selected.trace.point_ids, surface.project(evaluation.query_points),
+        selected.trace.point_ids,
+        surface.project(evaluation.query_points, motion=motion, factor=factor),
     )
     assert record.projection.all_valid
     response = boundary_models.frictionless_penalty_contact_law(penalty).evaluate(
@@ -170,6 +172,35 @@ def test_convex_corner_perturbed_three_feature_tangent():
         np.testing.assert_allclose(
             tangent @ direction.ravel(), numerical.ravel(), rtol=2e-7, atol=2e-8,
         )
+
+
+def test_three_feature_corner_is_rigid_motion_covariant():
+    surface = boundary_models.convex_polyhedral_rigid_surface(
+        vertices=((0, 0, 0), (2, 0, 0), (0, 2, 0), (0, 0, 2)),
+        triangles=((0, 2, 1), (0, 1, 3), (0, 3, 2), (1, 2, 3)),
+    )
+    positions = np.asarray(((0.05, 0.3, 0.3),
+                            (0.3, 0.05, 0.3),
+                            (0.3, 0.3, 0.05)))
+    motion = boundary_models.prescribed_rigid_motion(
+        translation=(0.1, -0.2, 0.05), rotation=(0.05, -0.03, 0.1),
+        reference_point=(0, 0, 0),
+    )
+    pose = motion.state(1.0)
+    rotation = np.asarray(pose["rotation_matrix"])
+    transformed = positions @ rotation.T + np.asarray(pose["reference_point"])
+    original_partition, original, _ = _evaluate(surface, positions)
+    moved_partition, moved, _ = _evaluate(
+        surface, transformed, motion=motion, factor=1.0,
+    )
+    assert original_partition.active_feature_lines == 3
+    assert moved_partition.active_feature_lines == 3
+    assert moved.potential_energy == pytest.approx(original.potential_energy, rel=1e-12)
+    np.testing.assert_allclose(
+        moved.nodal_structural_residual,
+        original.nodal_structural_residual @ rotation.T,
+        rtol=1e-12, atol=1e-12,
+    )
 
 
 def test_distinct_support_planes_are_not_merged_by_query_tolerance():
