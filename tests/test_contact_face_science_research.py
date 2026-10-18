@@ -255,18 +255,20 @@ def test_initial_touching_moving_tool_preserves_work_and_restart(tmp_path):
 
 
 @pytest.mark.parametrize(
-    ("cells", "increments"),
-    ((1, 1), (2, 1), (3, 1), (2, 3)),
+    ("cells", "increments", "penalty"),
+    ((1, 1, 250.0), (1, 1, 500.0), (1, 1, 1000.0),
+     (2, 1, 500.0), (2, 3, 250.0), (2, 3, 500.0),
+     (2, 3, 1000.0), (3, 1, 500.0), (3, 3, 500.0)),
 )
 def test_inhomogeneous_clamped_column_matches_independent_planar_backend(
-    cells, increments,
+    cells, increments, penalty,
 ):
     closed_field, closed = _elastic_column(
-        cells=cells, increments=increments, penalty=500.0,
+        cells=cells, increments=increments, penalty=penalty,
         poisson=0.3, surface_mode="closed",
     )
     plane_field, plane = _elastic_column(
-        cells=cells, increments=increments, penalty=500.0,
+        cells=cells, increments=increments, penalty=penalty,
         poisson=0.3, surface_mode="plane",
     )
     closed_result = closed.solve_result()

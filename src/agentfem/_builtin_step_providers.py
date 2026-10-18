@@ -702,12 +702,14 @@ def _contact_integration_rejection_reason(model, request: StepRequest) -> str | 
         "certified_closed_two_feature_research": ClosedTriangulatedRigidSolid,
     }
 
-    if "certified_closed_two_feature_research" in modes and any(
-        mode != "certified_closed_two_feature_research" for mode in modes
+    if any(
+        mode == "certified_closed_two_feature_research"
+        and item.friction is not None
+        for item, mode in zip(pairs, modes, strict=True)
     ):
         return (
-            "AFM-CONTACT-RESEARCH: certified two-feature face integration "
-            "cannot yet mix with point-sampled pair modes in one Step."
+            "AFM-CONTACT-RESEARCH: certified faces have no tangential friction "
+            "law; a separately reviewed point pair may still use one."
         )
 
     if (any(

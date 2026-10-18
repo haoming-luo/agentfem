@@ -1550,6 +1550,9 @@ class FiniteStrainJ2StandardProblem:
             DolfinxCombinedCertifiedFaceContactTrialProvider,
             DolfinxCertifiedFaceContactTrialProvider,
         )
+        from ..boundary_models._mixed_face_point_trial_provider import (
+            DolfinxMixedFacePointContactTrialProvider,
+        )
         from ..boundary_models.dolfinx_implicit_facet_contact import (
             DolfinxImplicitRigidContact,
         )
@@ -1565,6 +1568,7 @@ class FiniteStrainJ2StandardProblem:
                 DolfinxImplicitRigidContacts,
                 DolfinxCertifiedFaceContactTrialProvider,
                 DolfinxCombinedCertifiedFaceContactTrialProvider,
+                DolfinxMixedFacePointContactTrialProvider,
             ),
         )
 
@@ -4323,14 +4327,14 @@ def finite_strain_j2_affine_problem(
         contact_modes = resolve_contact_integration_modes(
             contact_items, contact_integration,
         )
-        if (
-            "certified_closed_two_feature_research" in contact_modes
-            and any(mode != "certified_closed_two_feature_research"
-                    for mode in contact_modes)
+        if any(
+            mode == "certified_closed_two_feature_research"
+            and item.friction is not None
+            for item, mode in zip(contact_items, contact_modes, strict=True)
         ):
             raise NotImplementedError(
-                "AFM-CONTACT-RESEARCH: affine/MPC certified faces cannot yet "
-                "mix with point-sampled pair modes."
+                "AFM-CONTACT-RESEARCH: affine/MPC certified faces have no "
+                "tangential friction law."
             )
         contact_providers = tuple(
             dolfinx_implicit_rigid_contact(

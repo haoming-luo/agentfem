@@ -966,7 +966,9 @@ def test_real_dolfinx_certified_face_trial_provider_rejects_stale_tool_pose():
 
 def _research_two_feature_j2_step(
     *, moving=False, yield_stress=1e9, contact_penalty=1.0,
-    second_pair=False, contact_integration="certified_closed_two_feature_research",
+    second_pair=False, second_surface=None, second_friction=None,
+    second_tangential_penalty=1.0,
+    contact_integration="certified_closed_two_feature_research",
 ):
     from dolfinx import mesh as dolfinx_mesh
 
@@ -1042,7 +1044,12 @@ def _research_two_feature_j2_step(
     if second_pair:
         model.add_boundary_model(
             rigid_contact_pair(
-                contact, rigid_body(_tool()), penalty=contact_penalty,
+                contact, rigid_body(_tool() if second_surface is None else second_surface),
+                penalty=contact_penalty,
+                friction_coefficient=second_friction,
+                tangential_penalty=(
+                    second_tangential_penalty if second_friction is not None else None
+                ),
                 name="second_tool",
             )
         )
@@ -1101,15 +1108,209 @@ def test_research_two_feature_multiple_pairs_share_one_j2_step(tmp_path):
     )
 
 
-def test_research_face_and_sampled_point_modes_refuse_implicit_mixing():
-    with pytest.raises(NotImplementedError, match="cannot yet mix"):
-        _research_two_feature_j2_step(
-            second_pair=True,
-            contact_integration={
-                "reentrant_tool": "certified_closed_two_feature_research",
-                "second_tool": "gauss",
-            },
-        )
+def test_research_face_and_sampled_point_modes_share_one_j2_step(tmp_path):
+    from agentfem import boundary_models
+
+    settings = dict(
+        moving=True,
+        second_pair=True,
+        second_surface=boundary_models.rigid_plane(
+            point=(0.0, 0.0, 0.0), normal=(0.0, 0.0, 1.0),
+        ),
+        contact_integration={
+            "reentrant_tool": "certified_closed_two_feature_research",
+            "second_tool": "planar_active_partition",
+        },
+    )
+    step, _ = _research_two_feature_j2_step(**settings)
+    trial = step.contact_provider.evaluate()
+    assert tuple(name for name, _ in trial.pairs) == (
+        "reentrant_tool", "second_tool",
+    )
+    np.testing.assert_allclose(
+        trial.nodal_structural_residual,
+        sum(item.nodal_structural_residual for _, item in trial.pairs),
+        rtol=0.0, atol=1e-14,
+    )
+    result = step.solve_result()
+    assert result.status == "completed"
+    assert len(step.accepted_increments) == 2
+    assert result.metadata["rigid_contact_face_path"]["pairs"][0][
+        "constraint"
+    ] == "reentrant_tool"
+    assert result.metadata["rigid_contact_point_diagnostics"][
+        "constraint"
+    ] == "second_tool"
+    assert len(result.metadata["constraint_duals"]) == 2
+    assert len(result.metadata["constraint_work_evidence"]) == 2
+    assert step.energy_history[-1].tool_work > 0.0
+    partial, _ = _research_two_feature_j2_step(**settings)
+    partial.solve(until=0.5)
+    saved = partial.save_checkpoint(tmp_path / "mixed_face_point")
+    resumed, _ = _research_two_feature_j2_step(**settings)
+    resumed.load_checkpoint(saved)
+    assert resumed.solve_result().status == "completed"
+    np.testing.assert_allclose(
+        resumed.solution.x.array, step.solution.x.array, rtol=1e-9, atol=1e-12,
+    )
+    assert resumed.energy_history[-1].tool_work == pytest.approx(
+        step.energy_history[-1].tool_work, rel=1e-9, abs=1e-12,
+    )
+
+
+def test_research_mixed_face_point_trial_rejects_stale_pose_before_petsc_write():
+    from petsc4py import PETSc
+
+    from agentfem import boundary_models
+
+    step, _ = _research_two_feature_j2_step(
+        second_pair=True,
+        second_surface=boundary_models.rigid_plane(
+            point=(0.0, 0.0, 0.0), normal=(0.0, 0.0, 1.0),
+        ),
+        contact_integration={
+            "reentrant_tool": "certified_closed_two_feature_research",
+            "second_tool": "planar_active_partition",
+        },
+    )
+    provider = step.contact_provider
+    trial = provider.evaluate()
+    vector = PETSc.Vec().createSeq(len(step.solution.x.array))
+    vector.set(0.0)
+    try:
+        provider.providers[0].update_motion(0.5)
+        with pytest.raises(ValueError, match="differs from current"):
+            provider.add_residual(vector, trial)
+        np.testing.assert_array_equal(vector.array, 0.0)
+    finally:
+        vector.destroy()
+
+
+def test_research_mixed_face_point_tangent_matches_total_directional_difference():
+    from agentfem import boundary_models
+
+    step, _ = _research_two_feature_j2_step(
+        second_pair=True,
+        second_surface=boundary_models.rigid_plane(
+            point=(0.0, 0.0, 0.0), normal=(0.0, 0.0, 1.0),
+        ),
+        contact_integration={
+            "reentrant_tool": "certified_closed_two_feature_research",
+            "second_tool": "planar_active_partition",
+        },
+    )
+    provider = step.contact_provider
+    original = step.solution.x.array.copy()
+    direction = np.linspace(-0.7, 0.9, len(original)).reshape(-1, 3)
+    expected = provider.evaluate().tangent_action(direction)
+    samples = []
+    h = 1e-7
+    try:
+        for sign in (1.0, -1.0):
+            step.solution.x.array[:] = original + sign * h * direction.reshape(-1)
+            step.solution.x.scatter_forward()
+            samples.append(provider.evaluate().nodal_structural_residual)
+    finally:
+        step.solution.x.array[:] = original
+        step.solution.x.scatter_forward()
+    np.testing.assert_allclose(
+        expected, (samples[0] - samples[1]) / (2.0 * h),
+        rtol=3e-5, atol=3e-7,
+    )
+
+
+def test_research_mixed_face_and_reviewed_point_friction_restart(tmp_path):
+    from agentfem import boundary_models
+
+    settings = dict(
+        moving=True,
+        contact_penalty=100.0,
+        second_pair=True,
+        second_surface=boundary_models.rigid_plane(
+            point=(0.91, 0.0, 0.0), normal=(1.0, 0.0, 0.0),
+        ),
+        second_friction=0.001,
+        second_tangential_penalty=1000.0,
+        contact_integration={
+            "reentrant_tool": "certified_closed_two_feature_research",
+            "second_tool": "gauss",
+        },
+    )
+    step, _ = _research_two_feature_j2_step(**settings)
+    result = step.solve_result()
+    assert result.status == "completed"
+    assert result.histories["friction_dissipation"].values[-1] > 0.0
+    assert step.contact_provider.providers[1].current_point_diagnostics()[
+        "active_point_count"
+    ] > 0
+    assert step.contact_provider.providers[1].friction_state is not None
+    assert result.metadata["rigid_contact_face_path"]["complete"] is True
+    partial, _ = _research_two_feature_j2_step(**settings)
+    partial.solve(until=0.5)
+    saved = partial.save_checkpoint(tmp_path / "mixed_face_point_friction")
+    resumed, _ = _research_two_feature_j2_step(**settings)
+    resumed.load_checkpoint(saved)
+    assert resumed.solve_result().status == "completed"
+    np.testing.assert_allclose(
+        resumed.solution.x.array, step.solution.x.array,
+        rtol=1e-9, atol=1e-12,
+    )
+    assert resumed.energy_history[-1].friction_dissipation == pytest.approx(
+        step.energy_history[-1].friction_dissipation,
+        rel=1e-9, abs=1e-12,
+    )
+
+
+def test_research_mixed_face_point_failed_acceptance_rolls_back_both_pairs(
+    monkeypatch,
+):
+    from agentfem import boundary_models
+
+    step, _ = _research_two_feature_j2_step(
+        moving=True, yield_stress=1e-4, contact_penalty=100.0,
+        second_pair=True,
+        second_surface=boundary_models.rigid_plane(
+            point=(0.91, 0.0, 0.0), normal=(1.0, 0.0, 0.0),
+        ),
+        second_friction=0.001,
+        second_tangential_penalty=1000.0,
+        contact_integration={
+            "reentrant_tool": "certified_closed_two_feature_research",
+            "second_tool": "gauss",
+        },
+    )
+    step.solve(until=0.5)
+    accepted_u = step.solution.x.array.copy()
+    accepted_material = step.response.state.committed_state_vectors().copy()
+    assert np.max(accepted_material[:, -2]) > 0.0
+    accepted_pose = step.contact_provider.snapshot_motion()
+    accepted_contact_state = json.dumps(
+        step.contact_provider.snapshot_accepted_state(), sort_keys=True,
+    )
+    accepted_energy = tuple(step.energy_history)
+    accepted_face_path = dict(step.contact_face_path)
+    accepted_point_path = dict(step.contact_feature_path)
+    original = step._record_energy
+
+    def fail_after_energy(*args, **kwargs):
+        original(*args, **kwargs)
+        raise ValueError("intentional mixed-contact acceptance failure")
+
+    monkeypatch.setattr(step, "_record_energy", fail_after_energy)
+    with pytest.raises(RuntimeError, match="intentional mixed-contact"):
+        step.solve()
+    assert step.accepted_load_factor == pytest.approx(0.5)
+    assert step.contact_provider.snapshot_motion() == accepted_pose
+    assert json.dumps(
+        step.contact_provider.snapshot_accepted_state(), sort_keys=True,
+    ) == accepted_contact_state
+    np.testing.assert_array_equal(step.solution.x.array, accepted_u)
+    np.testing.assert_array_equal(
+        step.response.state.committed_state_vectors(), accepted_material,
+    )
+    assert tuple(step.energy_history) == accepted_energy
+    assert step.contact_face_path == accepted_face_path
+    assert step.contact_feature_path == accepted_point_path
 
 
 def test_research_two_tool_trial_refuses_one_stale_pose_before_petsc_mutation():

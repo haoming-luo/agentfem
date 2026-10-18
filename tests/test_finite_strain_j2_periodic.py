@@ -24,6 +24,9 @@ from agentfem.step_providers import step_capability
 
 from periodic_cube_fixture import periodic_unit_cube
 
+_INHERIT_PAIR_FRICTION = object()
+_INHERIT_PAIR_MOTION = object()
+
 
 def test_periodic_j2_rejects_registered_contact_in_capability_and_step():
     fixture = periodic_unit_cube(MPI.COMM_SELF)
@@ -72,6 +75,9 @@ def _periodic_j2_contact_step(
     *, surface=None, motion=None, pair_count=1, opposed_pair=False,
     friction_coefficient=None, tangential_penalty=None, checkpoint=None,
     linear_solver=None, contact_integration="gauss", second_surface=None,
+    second_friction_coefficient=_INHERIT_PAIR_FRICTION,
+    second_tangential_penalty=_INHERIT_PAIR_FRICTION,
+    second_motion=_INHERIT_PAIR_MOTION,
 ):
     fixture = periodic_unit_cube(MPI.COMM_SELF)
     model = models.create(
@@ -97,21 +103,34 @@ def _periodic_j2_contact_step(
             second_surface if index == 1 and second_surface is not None
             else surface
         )
+        selected_motion = (
+            second_motion
+            if index == 1 and second_motion is not _INHERIT_PAIR_MOTION
+            else motion
+        )
         pair = boundary_models.rigid_contact_pair(
             right,
             boundary_models.rigid_body(
                 selected_surface,
                 reference_point=(1.6, 0.5, 0.5),
                 motion_schedule=(
-                    None if motion is None else
+                    None if selected_motion is None else
                     boundary_models.prescribed_rigid_motion_schedule(
-                        motion, start_time=0.0, end_time=1.0,
+                        selected_motion, start_time=0.0, end_time=1.0,
                     )
                 ),
             ),
             penalty=5_000.0 / pair_count,
-            friction_coefficient=friction_coefficient,
-            tangential_penalty=tangential_penalty,
+            friction_coefficient=(
+                second_friction_coefficient
+                if index == 1 and second_friction_coefficient is not _INHERIT_PAIR_FRICTION
+                else friction_coefficient
+            ),
+            tangential_penalty=(
+                second_tangential_penalty
+                if index == 1 and second_tangential_penalty is not _INHERIT_PAIR_FRICTION
+                else tangential_penalty
+            ),
             name=("rigid_contact_pair" if pair_count == 1 else f"periodic_tool_{index}"),
         )
         model.add_boundary_model(pair)
@@ -576,6 +595,66 @@ def test_periodic_j2_certified_face_research_uses_total_mpc_residual(tmp_path):
     )
 
 
+def test_periodic_j2_moving_smooth_certified_face_matches_plane_and_restarts(tmp_path):
+    motion = boundary_models.prescribed_rigid_motion(
+        translation=(-0.01, 0.0, 0.0),
+        reference_point=(1.6, 0.5, 0.5),
+    )
+    settings = dict(
+        surface=_periodic_wide_triangular_prism_tool(), motion=motion,
+        contact_integration="certified_closed_two_feature_research",
+    )
+    fixture, periodicity, face = _periodic_j2_contact_step(**settings)
+    result = face.solve_result()
+    assert result.status == "completed"
+    assert face.contact_provider.snapshot_motion() == pytest.approx(1.0)
+    assert result.metadata["rigid_contact_face_path"]["complete"] is True
+    assert result.quantity("rigid_contact_pair_path_work") != 0.0
+    total = face.assemble_full_residual()
+    reduction = periodicity.reduction(1.0).matrix(fixture.domain.comm)
+    reduced = reduction.createVecRight()
+    try:
+        reduction.multTranspose(total, reduced)
+        assert reduced.norm() < 1.0e-5
+    finally:
+        reduced.destroy()
+        reduction.destroy()
+        total.destroy()
+
+    plane = boundary_models.rigid_plane(
+        point=(0.95, 0.0, 0.0), normal=(-1.0, 0.0, 0.0),
+    )
+    _, _, reference = _periodic_j2_contact_step(
+        surface=plane, motion=motion,
+        contact_integration="planar_active_partition",
+    )
+    reference_result = reference.solve_result()
+    assert reference_result.status == "completed"
+    np.testing.assert_allclose(
+        face.solution.x.array, reference.solution.x.array,
+        rtol=1e-7, atol=1e-8,
+    )
+    assert result.quantity("rigid_contact_pair_path_work") == pytest.approx(
+        reference_result.quantity("rigid_contact_pair_path_work"),
+        rel=2e-6, abs=1e-8,
+    )
+
+    _, _, partial = _periodic_j2_contact_step(**settings)
+    partial.solve(until=1.0 / 3.0)
+    saved = partial.save_checkpoint(tmp_path / "moving_smooth_face_mpc")
+    _, _, resumed = _periodic_j2_contact_step(**settings)
+    resumed.load_checkpoint(saved)
+    resumed_result = resumed.solve_result()
+    assert resumed_result.status == "completed"
+    np.testing.assert_allclose(
+        resumed.solution.x.array, face.solution.x.array,
+        rtol=1e-9, atol=1e-10,
+    )
+    assert resumed_result.quantity("rigid_contact_pair_path_work") == pytest.approx(
+        result.quantity("rigid_contact_pair_path_work"), rel=1e-9, abs=1e-12,
+    )
+
+
 def test_periodic_j2_certified_face_corrupt_path_restore_is_atomic(tmp_path):
     source = _periodic_j2_contact_step(
         surface=_periodic_wide_triangular_prism_tool(),
@@ -826,6 +905,111 @@ def test_periodic_j2_named_mixed_integration_modes_share_total_mpc_system(tmp_pa
     })
     with pytest.raises(ValueError, match="identity|contact|operator"):
         changed.load_checkpoint(saved)
+
+
+def test_periodic_j2_certified_face_and_point_tool_share_mpc_system(tmp_path):
+    face = _periodic_wide_triangular_prism_tool()
+    plane = boundary_models.rigid_plane(
+        point=(0.95, 0.0, 0.0), normal=(-1.0, 0.0, 0.0),
+    )
+    modes = {
+        "periodic_tool_0": "certified_closed_two_feature_research",
+        "periodic_tool_1": "planar_active_partition",
+    }
+
+    def build():
+        return _periodic_j2_contact_step(
+            surface=face, second_surface=plane, pair_count=2,
+            contact_integration=modes,
+        )
+
+    fixture, periodicity, step = build()
+    result = step.solve_result()
+    assert result.status == "completed"
+    assert step.contact_providers[0].contact_integration == "certified_closed_two_feature"
+    assert step.contact_providers[1].contact_integration == "planar_active_partition"
+    assert result.metadata["rigid_contact_face_path"]["complete"] is True
+    assert step.contact_providers[0].current_face_diagnostics()[
+        "all_faces_certified_at_current_trial"
+    ]
+    assert step.contact_providers[1].current_point_diagnostics()[
+        "active_point_count"
+    ] > 0
+    _, _, analytical = _periodic_j2_contact_step(
+        surface=plane, second_surface=plane, pair_count=2,
+        contact_integration={
+            "periodic_tool_0": "planar_active_partition",
+            "periodic_tool_1": "planar_active_partition",
+        },
+    )
+    assert analytical.solve_result().status == "completed"
+    np.testing.assert_allclose(
+        step.solution.x.array, analytical.solution.x.array,
+        rtol=1e-7, atol=1e-8,
+    )
+    total = step.assemble_full_residual()
+    reduction = periodicity.reduction(1.0).matrix(fixture.domain.comm)
+    reduced = reduction.createVecRight()
+    try:
+        reduction.multTranspose(total, reduced)
+        assert reduced.norm() < 1.0e-5
+    finally:
+        reduced.destroy()
+        reduction.destroy()
+        total.destroy()
+
+    _, _, partial = build()
+    partial.solve(until=1.0 / 3.0)
+    saved = partial.save_checkpoint(tmp_path / "periodic_face_point")
+    _, _, resumed = build()
+    resumed.load_checkpoint(saved)
+    assert resumed.solve_result().status == "completed"
+    np.testing.assert_allclose(
+        resumed.solution.x.array, step.solution.x.array,
+        rtol=1e-9, atol=1e-10,
+    )
+
+
+def test_periodic_j2_certified_face_and_separate_plane_friction_restart(tmp_path):
+    face = _periodic_wide_triangular_prism_tool()
+    plane = boundary_models.rigid_plane(
+        point=(0.95, 0.0, 0.0), normal=(-1.0, 0.0, 0.0),
+    )
+    motion = boundary_models.prescribed_rigid_motion(
+        translation=(0.0, 0.02, 0.0),
+        reference_point=(1.6, 0.5, 0.5),
+    )
+    settings = dict(
+        surface=face, second_surface=plane, pair_count=2,
+        second_motion=motion,
+        second_friction_coefficient=0.001,
+        second_tangential_penalty=1000.0,
+        contact_integration={
+            "periodic_tool_0": "certified_closed_two_feature_research",
+            "periodic_tool_1": "gauss",
+        },
+    )
+    _, _, step = _periodic_j2_contact_step(**settings)
+    result = step.solve_result()
+    assert result.status == "completed"
+    assert result.quantity("friction_dissipation") > 0.0
+    assert result.metadata["rigid_contact_face_path"]["complete"] is True
+    assert step.contact_providers[0].snapshot_accepted_state() is None
+    assert step.contact_providers[1].friction_state.accepted is not None
+    _, _, partial = _periodic_j2_contact_step(**settings)
+    partial.solve(until=1.0 / 3.0)
+    saved = partial.save_checkpoint(tmp_path / "periodic_face_with_point_friction")
+    _, _, resumed = _periodic_j2_contact_step(**settings)
+    resumed.load_checkpoint(saved)
+    resumed_result = resumed.solve_result()
+    assert resumed_result.status == "completed"
+    np.testing.assert_allclose(
+        resumed.solution.x.array, step.solution.x.array,
+        rtol=1e-9, atol=1e-10,
+    )
+    assert resumed_result.quantity("friction_dissipation") == pytest.approx(
+        result.quantity("friction_dissipation"), rel=1e-9, abs=1e-12,
+    )
 
 
 def _active_reentrant_periodic_surface():

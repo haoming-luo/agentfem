@@ -145,6 +145,11 @@ class DolfinxCertifiedFaceContactTrialProvider:
             schedule.motion.state(selected)
         self.current_factor = selected
 
+    def set_load_factor(self, factor: float) -> None:
+        """Use the affine Procedure's accepted/trial coordinate, not a cached pose."""
+
+        self.update_motion(factor)
+
     def snapshot_motion(self) -> float:
         return self.current_factor
 

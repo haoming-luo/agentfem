@@ -11,6 +11,7 @@ state, choose load increments, alter Dirichlet rows or implement MPC reduction.
 from __future__ import annotations
 
 from dataclasses import dataclass, field, replace
+from typing import TYPE_CHECKING
 
 import numpy as np
 
@@ -64,6 +65,14 @@ from .rigid import (
     SmoothRigidSurface, TriangulatedRigidSurface,
 )
 from .search import TriangleSurfaceBVH, triangle_surface_bvh
+
+if TYPE_CHECKING:
+    from ._certified_face_trial_provider import (
+        DolfinxCombinedCertifiedFaceContactTrialProvider,
+    )
+    from ._mixed_face_point_trial_provider import (
+        DolfinxMixedFacePointContactTrialProvider,
+    )
 
 
 @dataclass(eq=False)
@@ -1553,7 +1562,11 @@ def dolfinx_implicit_rigid_contacts(
     *,
     contact_quadrature_degree: int | None = None,
     contact_integration="gauss",
-) -> DolfinxImplicitRigidContacts:
+) -> (
+    DolfinxImplicitRigidContacts
+    | DolfinxCombinedCertifiedFaceContactTrialProvider
+    | DolfinxMixedFacePointContactTrialProvider
+):
     """Lower independently named rigid pairs on one serial displacement field."""
 
     selected = tuple(pairs)
@@ -1564,10 +1577,17 @@ def dolfinx_implicit_rigid_contacts(
     modes = resolve_contact_integration_modes(selected, contact_integration)
     if "certified_closed_two_feature_research" in modes:
         if any(mode != "certified_closed_two_feature_research" for mode in modes):
-            raise NotImplementedError(
-                "Certified research faces cannot yet mix with point-sampled "
-                "rigid-pair modes in one Step."
+            from ._mixed_face_point_trial_provider import (
+                DolfinxMixedFacePointContactTrialProvider,
             )
+
+            return DolfinxMixedFacePointContactTrialProvider(tuple(
+                dolfinx_implicit_rigid_contact(
+                    item, displacement,
+                    contact_quadrature_degree=contact_quadrature_degree,
+                    contact_integration=mode,
+                ) for item, mode in zip(selected, modes, strict=True)
+            ))
         from ._certified_face_trial_provider import (
             DolfinxCombinedCertifiedFaceContactTrialProvider,
         )

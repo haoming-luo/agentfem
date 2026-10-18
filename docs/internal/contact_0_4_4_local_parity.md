@@ -30,10 +30,10 @@ being silently approximated by the bounded route.
 | 2. Surface | Reviewed closed/open triangle geometry, bounded initial-overlap checks, and per-face same-plane proof with one bounded fallback subdivision | Rims, unsupported curved tools, ambiguous sharp features and target-path sliding coverage |
 | 3. Integration | Planar/convex partitions; certified zero-contact and smooth-branch faces; private wholly-interior and single-plane partially active reentrant edge/face local integral and tangent; bounded adaptive interior-ball cover; whole-face smooth numerical-touch admission | General active boundaries and feature sets; global signed-gap Step admission; other edge/point laws |
 | 4. Normal law | Penalty Step; fixed-trace AL research law plus real-mesh/reduced-rank counterexamples | Compatible multiplier space, outer global Procedure, spatial stability and checkpoint composition |
-| 5. Friction | Locally planar Coulomb State; rigid-master spin transport tested | Admitted geometry-by-friction matrix; sharp features remain rejected |
-| 6. Transaction | Total-system and restart tests for admitted penalty modes; opt-in serial standard-J2 certified-face research Step with work, plastic-history rollback/restart and two named tools; smooth-subset affine/MPC total-system path | Sharp-feature MPC, mixed face/point modes, MPI, changing feature topology and wider path tests |
+| 5. Friction | Locally planar Coulomb State; rigid-master spin transport tested; a separate smooth point tool can slide beside a frictionless certified-face tool | Admitted geometry-by-friction matrix; friction on sharp features remains rejected |
+| 6. Transaction | Total-system and restart tests for admitted penalty modes; opt-in serial standard-J2 certified-face research Step with work, plastic-history rollback/restart and two named tools; smooth-subset affine/MPC total-system path, now including a prescribed moving face; certified-face plus point pair in serial standard J2 and smooth MPC, including separate point-friction State | Sharp-feature MPC, MPI, changing feature topology and wider path tests |
 | 7. Result | Pair work/pressure samples; AL local work sign; standard and affine/MPC research face-location extensive evidence and accepted-station coverage without point pressure | Cross-law first-law, between-station coverage and a defensible pressure interpretation |
-| 8. Science | Local/oracle/installed tests; independent homogeneous elastic-limit spring equation across two meshes, two increment counts and three penalties | Inhomogeneous mesh x increment x law convergence and external observables |
+| 8. Science | Local/oracle/installed tests; independent homogeneous elastic-limit spring equation across two meshes, two increment counts and three penalties; nine inhomogeneous mesh/increment/penalty closed-face-versus-plane comparisons and directional refinement through 128 slave faces | Full mesh x increment x law convergence and external observables |
 | 9. Release | Scoped solver screens | Installed cross-platform gate and production runtime evidence |
 
 “Partial” here is not a release status. The test target, geometry and
@@ -58,6 +58,25 @@ declared tolerances. Its closed-tool center displacement changes from
 `0.00324430311741` (three); the penalty energy changes from
 `0.00703287986482` through `0.00707388762374` to `0.00708738984529`.
 This is a directional refinement screen, not proof of the asymptotic limit.
+The same unchanged nonuniform setup was also run manually at four and eight
+cells per edge, the latter using exactly the declared 128 slave-face cap:
+center displacements `0.00326938245543` and `0.00330647510339`, and penalty
+energies `0.00709406772191` and `0.00710395068898`. The closed tool and
+analytical plane still agree at the eight-cell station. Differences along
+the 1/2/4/8 sequence decrease, but this one path has no independent
+continuum-limit solution and does not cover a changing active set or a
+plastic/damaged body; it does not close the release science gate.
+Nine focused inhomogeneous column comparisons now vary one, two or three
+cells per edge, one or three increments and penalties 250, 500 or 1000,
+according to the explicit test matrix. The independently lowered analytical
+plane and closed-triangle face agree in displacement and final penalty energy
+at each tested station. At two cells and three increments, the closed-tool
+center displacements for these penalties are respectively `0.01346611117`,
+`0.00319348675` and `-0.00958666389`; penalty energies are respectively
+`0.00503498730`, `0.00707388762` and `0.00816611425`. This *sensitivity*
+is why a matched penalty must be frozen for any external comparison. Agreement
+between two representations of the same penalty law is not a zero-penetration
+limit or an independent finite-J2 validation.
 The same benchmark also starts from zero gap and advances into active contact.
 It permits a zero-force/open-side-tangent trial only when a whole-face
 coplanar coverage/competitor proof succeeds and the remaining vertex gap is
@@ -514,8 +533,20 @@ The normal residual/tangent, material and strong-boundary rows share the
 ordinary Newton path; no second solver was introduced. Two named certified-face tool
 pairs now compose in that same Step, with separate face evidence, additive
 nodal force and potential, moving-tool work and interrupted restart. A stale
-pose on just one pair refuses the whole trial before PETSc mutation. Mixed
-face/point pairs and MPI explicitly refuse this research mode. These tests
+pose on just one pair refuses the whole trial before PETSc mutation. One
+certified-face pair can now compose with one ordinary frictionless point pair
+in the same serial Step. The mixed wrapper first checks both displacement and
+tool poses, then adds separate certified-face and point contributions to the
+one Newton residual/tangent; a stale mixed trial is rejected before PETSc
+mutation. A directional difference checks the *combined* contact tangent.
+The result preserves distinct face and point diagnostics, two named duals and
+work records; moving-tool work and interrupted restart match the continuous
+run. A reviewed smooth point tool can additionally carry its own sliding
+Coulomb State beside a *frictionless* certified face. A fixture with active
+point contact has positive sliding dissipation; serial restart reproduces the
+displacement and dissipation, and a forced late acceptance failure restores
+plastic State, point-friction State, pose, work and both path ledgers.
+Friction *on the certified face* and MPI explicitly refuse this research mode. These tests
 establish a bounded *software lifecycle*, not mesh/penalty convergence, an independent global
 reference, general finite sliding across sharp features, or product release.
 
@@ -532,7 +563,19 @@ differences, and its displacement agrees with the corresponding analytical
 plane. Interrupted restart preserves the accepted face-path ledger; a
 corrupted ledger is atomically refused. A front-face triangulation seam in a
 different otherwise smooth tool still fails the stricter two-feature
-certificate. Thus this is **not** admission of sharp-feature MPC, general
+certificate. A normalized prescribed translation of that same smooth face now
+uses the affine Procedure's ordinary load-coordinate method, rather than a
+test-owned motion loop. Its reduced total residual closes, moving-tool work
+is nonzero, displacement agrees with a translated analytical plane, and
+serial interruption/restart preserves the solution and work. This does not
+admit finite-sliding sharp-feature MPC or an arbitrary rigid-motion schedule.
+A second smooth-periodic test combines one certified closed
+face with one analytical-plane point pair, verifies the total MPC-reduced
+residual, agrees with the two-plane analytical representation and checks
+interrupted restart. A distinct periodic test holds the certified face fixed
+while a separate moving smooth plane slides with nonzero Coulomb dissipation;
+its restart matches the continuous result. Thus this is **not** admission of
+moving-sharp-tool MPC, general
 coplanar seam coverage or arbitrary industrial mesh contact.
 
 For promotion beyond this research Step, the boundary adapter must keep its
@@ -547,7 +590,7 @@ before strong-BC lifting and recomputes at line-search trials, then jointly
 commits or rolls back material, tool path and contact state. The DOLFINx
 nonlinear callback contract requires exactly this current-trial assembly
 [DOLFINx nonlinear assembly][dolfinx-nonlinear]. No face integral is disguised
-as three sampled trace points. Sharp-feature MPC, mixed face/point modes,
+as three sampled trace points. Sharp-feature MPC, friction *on* research faces,
 MPI, between-station path certification, independent global
 comparison and mesh/penalty/increment convergence remain open. The opt-in
 research string must not be presented as a released general nonconvex solver;
