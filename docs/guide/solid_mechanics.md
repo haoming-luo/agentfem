@@ -111,7 +111,9 @@ nonuniform path); `steps.automatic(...)` lands on them before continuing.
 The shared Step amplitude also drives a prescribed rigid tool. Output-frame
 selection remains separate from these material-history stations. A custom
 amplitude without declared table knots requires the user to resolve its
-reversals in the increment path explicitly.
+reversals in the increment path explicitly. A tabular asset copies its input
+arrays and fingerprints its creation-time metadata, so mutating caller arrays
+later cannot silently change a checkpointed path.
 
 The ordinary finite-J2 Step also has a bounded experimental serial route for
 registered, prescribed rigid contact pairs: analytical planes or spheres,

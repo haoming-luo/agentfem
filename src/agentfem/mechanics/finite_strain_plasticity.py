@@ -3606,7 +3606,7 @@ def _tabular_amplitude_load_knots(asset: amplitudes.Amplitude) -> tuple[float, .
 
     if asset.kind != "tabular":
         return ()
-    raw = np.asarray(asset.metadata.get("times"), dtype=float)
+    raw = np.asarray(asset.summary()["metadata"].get("times"), dtype=float)
     if raw.ndim != 1 or not len(raw) or not np.all(np.isfinite(raw)) or (
         len(raw) > 1 and not np.all(np.diff(raw) > 0.0)
     ):

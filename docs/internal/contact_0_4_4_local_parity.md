@@ -302,7 +302,9 @@ The gate stays open until its listed evidence exists at the proposed scope.
    reversal, thereby changing the prescribed path while reporting Newton
    convergence. Interior table knots are now required accepted stations:
    fixed controls missing one fail before solving; automatic controls land
-   on each knot without forcing an extra output frame. The
+   on each knot without forcing an extra output frame. Tabular inputs are
+   copied and their metadata identity frozen at creation, closing the
+   caller-array mutation gap between runtime path and restart fingerprint. The
    denominator follows the [MOOSE radial-return documentation][moose-return].
    The nonconvex penalty sequence is not converged.
    Reading: [NAFEMS benchmark
