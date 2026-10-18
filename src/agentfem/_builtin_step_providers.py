@@ -676,7 +676,7 @@ def _contact_integration_rejection_reason(model, request: StepRequest) -> str | 
         return (
             "AFM-CONTACT-PARTITION: trial active partition requires "
             "frictionless analytical-plane, certified convex, or reviewed "
-            "closed-single-planar-branch rigid pairs "
+            "closed-per-face-planar-branch rigid pairs "
             "(matching the selected mode), scalar penalty and the "
             "default contact quadrature rule."
         )

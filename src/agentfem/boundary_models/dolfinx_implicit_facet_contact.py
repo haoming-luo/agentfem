@@ -567,7 +567,7 @@ class DolfinxImplicitRigidContact:
             evaluation = partition.trace.evaluate(current)
         elif self.contact_integration == "closed_planar_branch_partition":
             current = self.adapter.current_nodal_positions(self.displacement)
-            face_nodes = np.unique(self.adapter.trace.node_ids, axis=0)
+            face_nodes = self.adapter.trace.node_ids.reshape(-1, 3, 3)[:, 0, :]
             closed_planar_bound = certify_closed_planar_branch(
                 current[face_nodes], self.surface,
                 motion=None if schedule is None else schedule.motion,
@@ -576,13 +576,13 @@ class DolfinxImplicitRigidContact:
             if not closed_planar_bound.certified:
                 raise NotImplementedError(
                     "AFM-CONTACT-CLOSED-PLANAR-BRANCH: the current complete "
-                    "slave trace cannot be proved to lie on one smooth master "
-                    f"plane ({closed_planar_bound.status}); no trial was accepted."
+                    "slave trace cannot be proved to lie on a smooth master "
+                    f"plane per face ({closed_planar_bound.status}); no trial was accepted."
                 )
             trial_trace = partition_planar_p1_trace(
                 self.adapter.trace, current,
-                plane_point=closed_planar_bound.plane_point,
-                plane_normal=closed_planar_bound.plane_normal,
+                plane_point=closed_planar_bound.plane_points,
+                plane_normal=closed_planar_bound.plane_normals,
             )
             evaluation = trial_trace.evaluate(current)
         else:
@@ -636,9 +636,29 @@ class DolfinxImplicitRigidContact:
                     "the current trial is rejected."
                 )
         if closed_planar_bound is not None:
-            expected_gaps = (
-                evaluation.query_points - closed_planar_bound.plane_point
-            ) @ closed_planar_bound.plane_normal
+            original_ids = self.adapter.trace.point_ids.reshape(-1, 3)[:, 0] // 3
+            face_slots = {int(identity): slot for slot, identity in enumerate(original_ids)}
+            if len(face_slots) != len(original_ids):
+                raise ValueError(
+                    "AFM-CONTACT-CLOSED-PLANAR-BRANCH: duplicate slave face identity."
+                )
+            identity_divisor = 3 if evaluation.trace is self.adapter.trace else 16
+            try:
+                point_slots = np.asarray([
+                    face_slots[int(identity)]
+                    for identity in evaluation.trace.point_ids // identity_divisor
+                ], dtype=np.int64)
+            except KeyError as exc:
+                raise ValueError(
+                    "AFM-CONTACT-CLOSED-PLANAR-BRANCH: trial point has no "
+                    "certified parent slave face."
+                ) from exc
+            point_normals = closed_planar_bound.plane_normals[point_slots]
+            expected_gaps = np.einsum(
+                "ij,ij->i",
+                evaluation.query_points - closed_planar_bound.plane_points[point_slots],
+                point_normals,
+            )
             scale = max(1.0, float(np.max(
                 np.abs(evaluation.query_points), initial=0.0,
             )))
@@ -646,7 +666,7 @@ class DolfinxImplicitRigidContact:
                 np.any(np.abs(projection.signed_gaps - expected_gaps)
                        > 128 * np.finfo(float).eps * scale)
                 or np.any(np.linalg.norm(
-                    projection.normals - closed_planar_bound.plane_normal,
+                    projection.normals - point_normals,
                     axis=1,
                 ) > 1e-10)
             ):
@@ -750,7 +770,7 @@ class DolfinxImplicitRigidContact:
                     "minimum_competitor_clearance": (
                         closed_planar_bound.minimum_competitor_clearance
                     ),
-                    "scope": "current_affine_slave_faces_single_master_plane",
+                    "scope": "current_affine_slave_faces_one_master_plane_per_face",
                 }
                 evidence["feature_transition_integral_certified"] = True
             elif (

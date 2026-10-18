@@ -1,13 +1,14 @@
 # SPDX-FileCopyrightText: 2026 Haoming Luo and AgentFEM contributors
 # SPDX-License-Identifier: Apache-2.0
 
-"""Bound a *single smooth plane branch* of a reviewed closed rigid tool.
+"""Bound one smooth plane branch per affine slave face of a closed tool.
 
 This conservative geometric precondition is intentionally stronger than
-sampling a few nearest facets. If every affine slave triangle projects wholly
+sampling a few nearest facets. If each affine slave triangle projects wholly
 inside one master triangle and no noncoplanar master facet can become closer,
-its signed gap is one affine plane function everywhere. The fixed-reference
-planar active-set clipper may then integrate that branch exactly. A failed
+its signed gap is one affine plane function everywhere. Distinct slave faces
+may have distinct certified planes. The fixed-reference planar active-set
+clipper may then integrate each branch exactly. A failed
 certificate says nothing about physical admissibility and cannot be treated
 as an inactive contact law.
 """
@@ -29,8 +30,8 @@ from .rigid import (
 class ClosedPlanarBranchBound:
     certified: bool
     status: str
-    plane_point: np.ndarray | None
-    plane_normal: np.ndarray | None
+    plane_points: np.ndarray | None
+    plane_normals: np.ndarray | None
     slave_face_count: int
     examined_master_facet_count: int
     minimum_competitor_clearance: float | None
@@ -45,7 +46,7 @@ def certify_closed_planar_branch(
     maximum_slave_faces: int = 256,
     maximum_master_facets: int = 256,
 ) -> ClosedPlanarBranchBound:
-    """Certify one exact affine gap branch on complete current P1 faces.
+    """Certify an exact affine gap branch on each complete current P1 face.
 
     For center ``c`` and enclosing radius ``r``, both distances to the
     candidate master triangle and to any competing triangle are 1-Lipschitz.
@@ -117,9 +118,8 @@ def certify_closed_planar_branch(
     offsets = np.einsum("ij,ij->i", normals, master[:, 0, :])
     master_lower = np.min(master, axis=1)
     master_upper = np.max(master, axis=1)
-    selected_normal = None
-    selected_offset = None
-    selected_point = None
+    selected_normals = []
+    selected_points = []
     examined = 0
     minimum_clearance = float("inf")
     for cell, center, radius, identity, gap in zip(
@@ -131,15 +131,6 @@ def certify_closed_planar_branch(
         normal = normals[slot]
         point = selected_triangle[0]
         offset = float(np.dot(normal, point))
-        if selected_normal is None:
-            selected_normal = normal
-            selected_offset = offset
-            selected_point = point
-        elif (
-            np.linalg.norm(normal - selected_normal) > angular_margin
-            or abs(offset - selected_offset) > length_margin
-        ):
-            return failed("multiple_master_planes", examined)
         plane_gap = float(np.dot(normal, center) - offset)
         if abs(plane_gap - gap) > length_margin:
             return failed("inconsistent_signed_gap", examined)
@@ -180,13 +171,14 @@ def certify_closed_planar_branch(
             minimum_clearance = min(minimum_clearance, clearance)
             if clearance <= length_margin:
                 return failed("another_master_feature_can_compete", examined)
-    assert selected_point is not None and selected_normal is not None
-    world_point = moved_reference + (selected_point - reference) @ rotation.T
-    world_normal = selected_normal @ rotation.T
-    world_point.setflags(write=False)
-    world_normal.setflags(write=False)
+        selected_points.append(point)
+        selected_normals.append(normal)
+    world_points = moved_reference + (np.asarray(selected_points) - reference) @ rotation.T
+    world_normals = np.asarray(selected_normals) @ rotation.T
+    world_points.setflags(write=False)
+    world_normals.setflags(write=False)
     return ClosedPlanarBranchBound(
-        True, "single_smooth_planar_branch", world_point, world_normal,
+        True, "smooth_planar_branch_per_slave_face", world_points, world_normals,
         face_count, examined,
         None if minimum_clearance == float("inf") else minimum_clearance,
     )

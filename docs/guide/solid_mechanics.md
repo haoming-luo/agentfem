@@ -204,8 +204,9 @@ concave** rigid solid, the ordinary serial finite-J2 Step can use
 `contact_integration="closed_planar_branch_partition"`. At every Newton trial,
 it proves that every current affine P1 slave triangle projects wholly inside
 one smooth master triangle and that no other noncoplanar master feature can
-become nearer anywhere on the slave trace. All faces must share one master
-plane. Only then does it reuse the exact active-plane reference-area partition.
+become nearer anywhere on that face. Different slave faces may have different
+certified planes; one face may not cross a master feature. Only then does it
+reuse the exact active-plane reference-area partition on each face.
 It refuses a seam, competing edge/vertex, multiple plane, friction, higher-order
 trace, unsupported quadrature, or geometry above its explicit proof budget;
 it never substitutes a sampled normal. The bound is checked again after a

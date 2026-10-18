@@ -62,16 +62,17 @@ beat every noncoplanar master facet by more than twice the slave-face radius
 (plus numerical margin). Every slave face must select the same oriented
 master plane. The difference of two distance-to-set functions is
 2-Lipschitz, so this inequality certifies the closest feature over the
-*whole* face, not just at Gauss points. The current Newton trial may then
-reuse the already proved analytical-plane active partition, with the closed
-solid's own signed-gap projection checked against it. Geometry proof is
+*whole* face, not just at Gauss points. Distinct slave faces may select
+distinct certified master planes, but one face cannot cross a sharp feature.
+The current Newton trial may then reuse the already proved analytical-plane active partition, with the closed
+solid's own signed-gap projection checked against each plane. Geometry proof is
 repeated on each trial and rigid pose. A real serial finite-J2 solve has
 matched the corresponding analytical plane in displacement, PEEQ and tool
 work, with a contact directional tangent, interrupted restart and explicit
 reentrant-edge rejection; the small runnable example exports one XDMF grid
 and unsmoothed contact samples. This does **not** solve a feature switch or
-physical edge/vertex contact: those remain rejected. The current all-face
-single-plane and 256-face/256-master-facet bounds are intentionally narrow,
+physical edge/vertex contact: those remain rejected. The current per-face
+smooth-branch and 256-face/256-master-facet bounds are intentionally narrow,
 and this is not an external commercial-solver comparator.
 Both ordinary J2 and affine/MPC acceptance now validate the same typed
 polyhedral diagnostic contract: a missing mixed-feature count, a non-Boolean

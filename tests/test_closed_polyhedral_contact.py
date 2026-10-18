@@ -112,14 +112,14 @@ def test_closed_solid_planar_branch_needs_full_face_and_competitor_clearance():
                         (0.95, 1.25, 0.55)),))
     bound = certify_closed_planar_branch(cell, tool)
     assert bound.certified, bound.status
-    np.testing.assert_allclose(bound.plane_normal, (1., 0., 0.))
+    np.testing.assert_allclose(bound.plane_normals[0], (1., 0., 0.))
     assert bound.minimum_competitor_clearance > 0
     projection = tool.project(cell[0])
     assert projection.all_valid
     assert np.all(projection.signed_gaps < 0)
     np.testing.assert_allclose(
         projection.signed_gaps,
-        (cell[0] - bound.plane_point) @ bound.plane_normal,
+        (cell[0] - bound.plane_points[0]) @ bound.plane_normals[0],
     )
     shifted = boundary_models.prescribed_rigid_motion(translation=(0.2, 0, 0))
     moved = certify_closed_planar_branch(
@@ -127,8 +127,8 @@ def test_closed_solid_planar_branch_needs_full_face_and_competitor_clearance():
         motion=shifted, factor=1.0,
     )
     assert moved.certified, moved.status
-    np.testing.assert_allclose(moved.plane_normal, bound.plane_normal)
-    np.testing.assert_allclose(moved.plane_point, bound.plane_point + (0.2, 0., 0.))
+    np.testing.assert_allclose(moved.plane_normals, bound.plane_normals)
+    np.testing.assert_allclose(moved.plane_points, bound.plane_points + (0.2, 0., 0.))
     spin = boundary_models.prescribed_rigid_motion(
         translation=(0., 0., 0.), rotation=(0.0, 0.0, 0.2),
         reference_point=(0., 0., 0.),
@@ -138,8 +138,19 @@ def test_closed_solid_planar_branch_needs_full_face_and_competitor_clearance():
         cell @ rotation.T, tool, motion=spin, factor=1.0,
     )
     assert rotated.certified, rotated.status
-    np.testing.assert_allclose(rotated.plane_normal, bound.plane_normal @ rotation.T)
-    np.testing.assert_allclose(rotated.plane_point, bound.plane_point @ rotation.T)
+    np.testing.assert_allclose(rotated.plane_normals, bound.plane_normals @ rotation.T)
+    np.testing.assert_allclose(rotated.plane_points, bound.plane_points @ rotation.T)
+
+    # Disconnected slave patches may use different smooth master planes. The
+    # proof remains whole-face and does not admit a face crossing their edge.
+    lower_wall = np.asarray((((1.25, 0.05, 0.45), (1.35, 0.05, 0.45),
+                               (1.25, 0.05, 0.55)),))
+    two_patches = certify_closed_planar_branch(
+        np.concatenate((cell, lower_wall)), tool,
+    )
+    assert two_patches.certified, two_patches.status
+    np.testing.assert_allclose(two_patches.plane_normals[0], (1., 0., 0.))
+    np.testing.assert_allclose(two_patches.plane_normals[1], (0., -1., 0.))
 
     broad = certify_closed_planar_branch(
         np.asarray((((0.95, 1.25, 0.45), (0.95, 1.45, 0.45),
