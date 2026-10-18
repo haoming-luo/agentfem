@@ -96,6 +96,14 @@ sampled Gauss integration. Each lowered pair retains its own mode in
 checkpoint identity; a two-tool mixed-mode finite-J2 path and interrupted
 restart exercise this composition. This does not change the affine/MPC
 admission matrix or certify sharp-feature integration.
+The runnable closed-tool example now has a separate one-axis-at-a-time
+mesh/increment/penalty sensitivity driver. Its nine serial synthetic runs
+all completed with certified smooth branches, but their terminal tool work
+remains materially mesh- and penalty-sensitive (details in
+`evidence/contact/2026-10-19-closed-planar-branch-ladder.md`). This is
+evidence **against** promoting the present tiny fixture as a converged
+hard-contact or external-solver benchmark. The driver is a reproducible
+diagnostic, not a release threshold or a performance promise.
 Both ordinary J2 and affine/MPC acceptance now validate the same typed
 polyhedral diagnostic contract: a missing mixed-feature count, a non-Boolean
 integration claim or inconsistent active face/edge/vertex totals rejects the

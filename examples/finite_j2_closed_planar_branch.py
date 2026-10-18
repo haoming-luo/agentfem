@@ -45,15 +45,21 @@ def reviewed_tool():
     )
 
 
-def main() -> None:
-    parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--output", type=Path, default=Path("outputs/closed_planar_branch"))
-    args = parser.parse_args()
+def build_case(*, cells: int = 1, increments: int = 6, penalty: float = 5000.0):
+    """Build the fixed-geometry fixture used by the example and sensitivity study."""
+
+    if type(cells) is not int or cells < 1:
+        raise ValueError("cells must be a positive integer")
+    if type(increments) is not int or increments < 1:
+        raise ValueError("increments must be a positive integer")
+    if not np.isfinite(penalty) or penalty <= 0.0:
+        raise ValueError("penalty must be finite and positive")
     if MPI.COMM_WORLD.size != 1:
         raise RuntimeError("This bounded implicit-contact example is serial only.")
 
     domain = dolfinx_mesh.create_unit_cube(
-        MPI.COMM_SELF, 1, 1, 1, cell_type=dolfinx_mesh.CellType.tetrahedron,
+        MPI.COMM_SELF, cells, cells, cells,
+        cell_type=dolfinx_mesh.CellType.tetrahedron,
     )
     xyz = domain.geometry.x
     xyz[:, 0] = 1.05 + 0.10 * xyz[:, 0]
@@ -86,17 +92,30 @@ def main() -> None:
                 motion, start_time=0.0, end_time=1.0,
             ),
         ),
-        penalty=5000.0,
+        penalty=penalty,
     ))
     step = model.step(
         target=displacement, material=material,
-        incrementation=steps.fixed(6),
+        incrementation=steps.fixed(increments),
         contact_integration="closed_planar_branch_partition",
         solver_options=solvers.newton(
             relative_tolerance=1e-8, absolute_tolerance=1e-9,
             maximum_iterations=25, line_search="backtracking",
         ),
         progress=False,
+    )
+    return step, displacement
+
+
+def main() -> None:
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--output", type=Path, default=Path("outputs/closed_planar_branch"))
+    parser.add_argument("--cells", type=int, default=1)
+    parser.add_argument("--increments", type=int, default=6)
+    parser.add_argument("--penalty", type=float, default=5000.0)
+    args = parser.parse_args()
+    step, displacement = build_case(
+        cells=args.cells, increments=args.increments, penalty=args.penalty,
     )
     result = step.solve_result()
     args.output.mkdir(parents=True, exist_ok=True)

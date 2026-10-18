@@ -213,6 +213,29 @@ def test_coplanar_patch_coverage_uses_union_not_sum_of_facet_areas():
         face, np.asarray((left, shifted)), (0, 1), np.asarray((0., 0., 1.)),
     )
 
+    # A flat tool can be triangulated much more finely than a slave face.
+    # Coverage does not depend on master-facet ordering or only one seam.
+    tiled = []
+    for i in range(4):
+        for j in range(4):
+            x, y = i / 4, j / 4
+            a = (x, y, 0.)
+            b = (x + 0.25, y, 0.)
+            c = (x + 0.25, y + 0.25, 0.)
+            d = (x, y + 0.25, 0.)
+            tiled.extend(((a, b, c), (a, c, d)))
+    tiled = np.asarray(tiled)
+    broad = np.asarray(((0.1, 0.1, 0.), (0.9, 0.1, 0.), (0.1, 0.9, 0.)))
+    normal = np.asarray((0., 0., 1.))
+    shuffled = tiled[np.random.default_rng(73).permutation(len(tiled))]
+    assert _coplanar_patch_covers_face(
+        broad, shuffled, range(len(shuffled)), normal,
+    )
+    assert not _coplanar_patch_covers_face(
+        broad, tiled, tuple(index for index in range(len(tiled)) if index != 10),
+        normal,
+    )
+
 
 def _reentrant_vertex_tool():
     """Seven unit voxels form a solid with the positive octant removed."""
