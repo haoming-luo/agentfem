@@ -133,6 +133,20 @@ The gate stays open until its listed evidence exists at the proposed scope.
    experiment is a genuinely changing trial feature partition with verified
    residual/tangent, followed by a new mesh/increment/penalty matrix. This
    is a Gate 3 failure record, not a scientific benchmark result.
+   An opt-in `DolfinxImplicitRigidContact.quadrature_sensitivity()` diagnostic
+   now evaluates positive rules at the *same current* displacement and rigid
+   pose, without another nonlinear solve or State mutation. On the accepted
+   2-cell q9 end configuration the q9/q11 structure-force x values were
+   -0.336930/-0.320336 and active reference areas 0.428296/0.440369. This
+   isolates a roughly 5% force difference due to the rule at one fixed
+   configuration; q11 is not a reference truth. It is frictionless and
+   scalar-penalty-only, and reports
+   `certifies_feature_transition_integral=false`. The next algorithmic
+   candidate is trial-geometry segmentation or a variationally consistent
+   mortar/feature treatment, with line-tangent and coverage tests.
+   [Pinto Carvalho et al.'s rigid/deformable dual-mortar study][dual-mortar]
+   motivates a distinct longer-term formulation, but its efficiency claims
+   cannot be imported into this one-sided penalty implementation.
    For the separate *convex* route, accepted point diagnostics now say whether
    the reviewed changing-trial support-plane partition supplied its bounded
    feature integral. The default Gauss rule explicitly reports that no such
@@ -280,6 +294,7 @@ transfer is separately verified.
 [meshed-rigid]: https://docs.software.vt.edu/abaqusv2025/English/SIMACAEVERRefMap/simaver-c-finslcontdefmeshrig.htm
 [comsol-verification]: https://doc.comsol.com/6.3/doc/com.comsol.help.sme/StructuralMechanicsVerificationExamples.pdf
 [duong]: https://arxiv.org/abs/1712.01179
+[dual-mortar]: https://arxiv.org/abs/2201.01165
 [burman]: https://arxiv.org/abs/1609.03326
 [duong-friction]: https://arxiv.org/abs/1808.10420
 [comsol-settings]: https://doc.comsol.com/6.3/doc/com.comsol.help.sme/sme_ug_modeling.05.146.html

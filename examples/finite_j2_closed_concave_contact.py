@@ -53,6 +53,7 @@ def run_case(
     contact_quadrature_degree: int | None = None,
     line_search: str = "backtracking",
     linear_policy: str = "direct",
+    audit_quadrature: bool = False,
 ):
     if MPI.COMM_WORLD.size != 1:
         raise RuntimeError("This bounded implicit closed-tool example is serial only.")
@@ -143,7 +144,7 @@ def run_case(
     ))
     dual = result.metadata["constraint_duals"][0]
     contact_diagnostics = result.metadata["rigid_contact_point_diagnostics"]
-    return {
+    summary = {
         "status": result.status,
         "cells_per_axis": cells,
         "accepted_increments": len(step.accepted_increments),
@@ -168,6 +169,11 @@ def run_case(
         "output": str(output),
         "scope": "serial_manufactured_fixture_not_external_validation",
     }
+    if audit_quadrature:
+        summary["fixed_configuration_quadrature_audit"] = (
+            step.contact_provider.quadrature_sensitivity()
+        )
+    return summary
 
 
 def main() -> None:
@@ -189,6 +195,10 @@ def main() -> None:
         help="opt-in positive tetrahedral face rule for sensitivity checks",
     )
     parser.add_argument(
+        "--audit-quadrature", action="store_true",
+        help="compare positive face rules at the same accepted end configuration",
+    )
+    parser.add_argument(
         "--output", type=Path, default=Path("outputs/finite_j2_closed_concave"),
     )
     args = parser.parse_args()
@@ -198,6 +208,7 @@ def main() -> None:
         contact_quadrature_degree=args.contact_quadrature_degree,
         line_search=args.line_search,
         linear_policy=args.linear_policy,
+        audit_quadrature=args.audit_quadrature,
     ), indent=2, sort_keys=True))
 
 

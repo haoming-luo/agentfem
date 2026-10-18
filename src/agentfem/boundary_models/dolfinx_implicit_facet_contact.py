@@ -662,6 +662,80 @@ class DolfinxImplicitRigidContact:
             evidence["feature_transition_integral_certified"] = False
         return evidence
 
+    def quadrature_sensitivity(
+        self, degrees=(None, 5, 7, 9, 11),
+    ) -> dict[str, object]:
+        """Compare positive face rules on one *fixed* current configuration.
+
+        This diagnostic changes neither the displacement nor contact State.
+        It isolates integration-rule sensitivity from the feedback of
+        independently re-solving the nonlinear problem. Agreement between
+        sampled rules is not a continuous feature-boundary certificate.
+        """
+
+        try:
+            selected = tuple(degrees)
+        except TypeError as exc:
+            raise ValueError(
+                "Contact quadrature audit requires a sequence of supported rules."
+            ) from exc
+        if (not selected or any(
+            value is not None and (
+                isinstance(value, (bool, np.bool_))
+                or not isinstance(value, (int, np.integer))
+                or int(value) not in (5, 7, 9, 11)
+            ) for value in selected
+        )):
+            raise ValueError("Contact quadrature audit requires unique supported rules.")
+        selected = tuple(None if value is None else int(value) for value in selected)
+        if len(set(selected)) != len(selected):
+            raise ValueError("Contact quadrature audit requires unique supported rules.")
+        if (self.contact_integration != "gauss" or self.pair.friction is not None
+                or np.asarray(self.pair.law.penalty).ndim != 0):
+            raise NotImplementedError(
+                "AFM-CONTACT-QUADRATURE-AUDIT: requires a frictionless scalar-"
+                "penalty pair with fixed Gaussian reference integration."
+            )
+        schedule = self.pair.rigid_body.motion_schedule
+        factor = (
+            0.0 if self.motion_factor is None
+            else float(np.asarray(self.motion_factor.value).reshape(-1)[0])
+        )
+        reference_point = self.pair.rigid_body.reference_point
+        if schedule is not None:
+            reference_point = schedule.motion.state(factor)["reference_point"]
+        evaluations = []
+        for degree in selected:
+            alternative = dolfinx_implicit_rigid_contact(
+                self.pair, self.displacement,
+                contact_quadrature_degree=degree,
+            )
+            alternative.update_motion(factor)
+            evaluation, record, response, _ = alternative._current_point_response()
+            assembly = evaluation.assemble(
+                record, response, surface_reference_point=reference_point,
+            )
+            active = np.asarray(response.active, dtype=bool)
+            evaluations.append({
+                "degree": degree,
+                "quadrature_rule": alternative.adapter.quadrature_rule,
+                "sample_count": evaluation.trace.point_count,
+                "active_point_count": int(np.count_nonzero(active)),
+                "active_reference_area": float(np.sum(evaluation.trace.weights[active])),
+                "maximum_sampled_penetration": float(np.max(
+                    response.penetration, initial=0.0,
+                )),
+                "contact_force_on_structure": assembly.contact_force_on_structure.tolist(),
+                "contact_potential_energy": assembly.potential_energy,
+            })
+        return {
+            "method": "fixed_configuration_positive_rule_sensitivity",
+            "load_factor": factor,
+            "measure": "reference_area",
+            "certifies_feature_transition_integral": False,
+            "evaluations": evaluations,
+        }
+
     def accepted_point_samples(self) -> dict[str, object]:
         """Return unsmoothed point arrays without changing accepted State.
 

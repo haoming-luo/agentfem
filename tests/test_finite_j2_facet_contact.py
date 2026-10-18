@@ -754,11 +754,14 @@ def test_closed_concave_example_exports_accepted_public_result(tmp_path):
     refined_output = tmp_path / "refined_face_rule"
     refined = run_case(
         cells=1, increments=6, penalty=20.0, output=refined_output,
-        contact_quadrature_degree=7,
+        contact_quadrature_degree=7, audit_quadrature=True,
     )
     assert refined["status"] == "completed"
     assert refined["contact_quadrature_degree"] == 7
     assert refined["maximum_penetration"] > 0.0
+    assert refined["fixed_configuration_quadrature_audit"]["method"] == (
+        "fixed_configuration_positive_rule_sensitivity"
+    )
     assert (refined_output / "fields.xdmf").is_file()
     assert (refined_output / "result.json").is_file()
     refined_inputs = json.loads((refined_output / "result.json").read_text())[
@@ -773,6 +776,49 @@ def test_closed_concave_example_exports_accepted_public_result(tmp_path):
     )
     assert full_newton["status"] == "completed"
     assert full_newton["line_search"] == "basic"
+
+
+def test_fixed_configuration_contact_quadrature_audit_is_read_only():
+    _, displacement, _, step = _patch(
+        triangulated=True, closed_concave_tool=True,
+        closed_concave_extent=0.7, closed_concave_thickness=0.5,
+        closed_concave_corner=(0.35, 0.19), gap=0.005,
+        tool_translation=(-0.055, 0.0, 0.0),
+        penalty=20.0, increments=3, applied_traction=0.0,
+    )
+    step.solve()
+    provider = step.contact_provider
+    original_displacement = displacement.value.x.array.copy()
+    original_factor = float(provider.motion_factor.value)
+    original_force = provider.evaluate().contact_force_on_structure.copy()
+    audit = provider.quadrature_sensitivity((None, 9, 11))
+    assert audit["method"] == "fixed_configuration_positive_rule_sensitivity"
+    assert audit["certifies_feature_transition_integral"] is False
+    assert [item["degree"] for item in audit["evaluations"]] == [None, 9, 11]
+    assert [item["sample_count"] for item in audit["evaluations"]] == [
+        6, 38, 56,
+    ]
+    np.testing.assert_allclose(
+        audit["evaluations"][0]["contact_force_on_structure"],
+        original_force,
+    )
+    np.testing.assert_array_equal(displacement.value.x.array, original_displacement)
+    assert float(provider.motion_factor.value) == original_factor
+    np.testing.assert_array_equal(
+        provider.evaluate().contact_force_on_structure, original_force,
+    )
+    with pytest.raises(ValueError, match="supported rules"):
+        provider.quadrature_sensitivity((9, True))
+    with pytest.raises(ValueError, match="unique"):
+        provider.quadrature_sensitivity((9, 9))
+
+
+def test_contact_quadrature_audit_refuses_frictional_state():
+    _, _, _, step = _patch(
+        triangulated=True, friction_coefficient=0.2, tangential_penalty=100.0,
+    )
+    with pytest.raises(NotImplementedError, match="AFM-CONTACT-QUADRATURE-AUDIT"):
+        step.contact_provider.quadrature_sensitivity()
 
 
 def test_closed_concave_example_iterative_linear_policy_matches_direct(tmp_path):
