@@ -737,7 +737,7 @@ planned code:
 | 6. Friction | A finite-J2 strong-BC Step with a reviewed closed concave solid on a planar face matches the convex limit in displacement and friction dissipation for translated and slightly rotated tools under both sign modes; the fixed-old-state tangent and interrupted restart pass. The serial affine-periodic J2 path now commits a moving-plane Coulomb State, reduces its contact tangent by `TᵀKT`, checkpoints it in v2 and atomically rejects corrupt State; reviewed triangle and closed-concave planar faces match the same plane limit. An active reentrant edge rejects without partial State. | The planar law does not include changing-normal terms at a physical edge or vertex; general sharp-feature friction, distributed affine contact and a full thermodynamic path audit remain unsupported. |
 | 7. Material/time composition | Active-edge finite-J2 plastic path passes; explicit contact/material lifecycle is a separate existing route. | No generic historical implicit material or explicit general-closed-tool composition. |
 | 8. Independent acceptance and speed | Directional analytical checks, fixed-seed geometry timing and a manufactured whole-Step opt-in/default comparison are recorded; 24→48 increment screen is narrow. A fixed-geometry mesh/face-rule screen exposes nonmonotone active-feature sampling. At penalty 200 the degree-5/7 twenty-cell resultant and fixed-volume mean PEEQ nearly coincide, but active edge counts differ. A same-source fourteen-cell 200/1000/5000 penalty screen changes force, penetration and fixed-gauge plasticity substantially without a plateau. The independent clipped-face oracle proves that ordinary whole-face rules can miss a narrow active contact strip entirely. | No independent full-geometry comparison, sharp-feature spatial/penalty convergence, industrial whole-step speed claim or release-grade energy closure. |
-| 9. Product boundary | Public-API example exports XDMF/manifest from an isolated native Mac wheel; the pre-metadata numerical candidate passed 177 installed-wheel serial tests (8 MPI-only skips). Source archive and native Mac wheel built from numerical source `5ff2aa0b` pass isolated non-MPI installed-wheel release smoke. Unsupported MPI/friction preflight rejects. | Linux/Windows installed numerical acceptance and final remote CI remain version gates; a local Mac smoke is not cross-platform release approval. |
+| 9. Product boundary | Public-API examples export XDMF/manifest from an isolated native Mac wheel. The clean numerical source `8a38b79c` passes installed-wheel macOS platform acceptance, four project templates and a two-rank generic MPI smoke. The installed wheel also runs the new convex-feature finite-J2 Step and the opt-in GMRES/GAMG L-prism fixture. Unsupported distributed implicit/friction combinations still preflight-reject. | Linux/Windows installed numerical acceptance and final remote CI remain version gates; the generic MPI smoke does not validate distributed implicit contact, and a local Mac smoke is not cross-platform release approval. |
 
 The table intentionally refuses to turn one successful six- or 24-increment
 fixture into an Abaqus General Contact equivalence claim.
@@ -891,5 +891,21 @@ promote this experiment as a stable release.
 The subsequent three-feature extension passed 183 focused real-FEniCSx serial
 tests spanning the contact Operator, finite-J2 Step, periodic MPC, work and
 existing contact modes, along with targeted Ruff and a strict docs build.
-Its installed-package evidence must be regenerated from its exact commit;
-the hashes above identify only `ede47723`, not this extension.
+The later clean numerical source `8a38b79c` passed 101 related real-FEniCSx
+tests, targeted Ruff and a strict docs build. Its native Apple Silicon wheel
+has SHA-256 `24db75ef48d7dbef04a6ae7a5e3d26f712def9bd0c79e36ed08515906088acaf`;
+the matching source archive has SHA-256
+`1b375c32ca8323a84795cfa6f3add6afa0e6d7df38e99beb76d7b02c829f135e`.
+From the clean Git checkout, the release gate (`--dist`, `--smoke`,
+`--mpi-ranks 2`, `--require-platform macos`) passed for that exact wheel:
+installed-wheel identity,
+all four ordinary project templates and a two-rank *generic elasticity* MPI
+smoke. The installed-wheel import was independently resolved to scratch
+`site-packages`, not checkout `src`; the convex-feature finite-J2 example
+accepted two increments with two feature lines, and the L-prism example
+accepted two increments with opt-in GMRES/GAMG. The first attempt to run the
+platform gate from a Git-less source archive reported `source_commit=null` and
+failed the provenance requirement even though its numerical smoke passed;
+rerunning from clean commit `8a38b79c` resolved that test-setup error. Neither
+package check establishes sharp-feature convergence, distributed implicit
+contact, cross-platform acceptance or independent Abaqus parity.
