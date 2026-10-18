@@ -312,3 +312,53 @@ def test_plastic_clamped_column_closed_face_matches_plane_across_meshes(
         rel=2e-6, abs=1e-8,
     )
     assert closed_result.metadata["rigid_contact_face_path"]["complete"] is True
+
+
+def test_near_yield_first_increment_total_tangent_keeps_old_state_fixed():
+    settings = dict(
+        cells=3, increments=6, penalty=500.0, poisson=0.3,
+        yield_stress=1.0, maximum_iterations=100, surface_mode="closed",
+    )
+    _, solved = _elastic_column(**settings)
+    solved.solve(until=1.0 / 6.0)
+    reference = solved.solution.x.array.copy()
+
+    _, trial = _elastic_column(**settings)
+    trial._apply_loading(1.0 / 6.0)
+    direction = np.linspace(-0.2, 0.3, len(reference))
+    constrained = np.unique(np.concatenate([
+        np.asarray(bc.dof_indices()[0][:bc.dof_indices()[1]], dtype=int)
+        for bc in trial.bcs
+    ]))
+    direction[constrained] = 0.0
+    free = np.setdiff1d(np.arange(len(reference)), constrained)
+
+    def correction_rhs(scale):
+        trial.solution.x.array[:] = reference + scale * direction
+        trial.solution.x.scatter_forward()
+        trial._update_response(start_factor=0.0, target_factor=1.0 / 6.0)
+        vector, _ = trial._correction_rhs()
+        values = vector.array.copy()
+        vector.destroy()
+        return values
+
+    for base_scale in (-1e-3, 1e-3):
+        correction_rhs(base_scale)
+        matrix = trial._assemble_tangent()
+        input_vector = matrix.createVecRight()
+        output_vector = matrix.createVecLeft()
+        try:
+            input_vector.array[:] = direction
+            matrix.mult(input_vector, output_vector)
+            expected = -output_vector.array.copy()
+        finally:
+            output_vector.destroy()
+            input_vector.destroy()
+        size = 1e-6
+        measured = (
+            correction_rhs(base_scale + size)
+            - correction_rhs(base_scale - size)
+        ) / (2.0 * size)
+        np.testing.assert_allclose(
+            measured[free], expected[free], rtol=2e-4, atol=2e-6,
+        )

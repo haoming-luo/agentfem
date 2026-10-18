@@ -94,8 +94,24 @@ yield-onset and increment-policy sensitivity remain open Gate 8 evidence.
 In a separate three-cell trial, automatic cutback from 1/6 with the
 25-iteration cap exhausted eight cutbacks at a line-search failure; simply
 reducing the increment is therefore not a demonstrated remedy for this
-near-yield path. A different global strategy requires its own tangent and
-accepted-State verification before changing the Procedure default.
+near-yield path. With the same declared automatic controls but a
+50-iteration cap, it completed in seven accepted increments; the highest
+Newton count was 34. A fixed-old-State directional difference at the
+converged first-increment displacement, probed on both sides of the
+elastic/plastic return and restricted to free DOFs, matches the *total*
+J2-plus-certified-face tangent. The initial diagnostic appeared inconsistent
+only because it mistakenly perturbed strong Dirichlet DOFs while comparing a
+BC-eliminated matrix; the corrected check is now a regression. This case
+does not establish that the default 25-iteration globalization is robust.
+[PETSc SNES][petsc-snes] offers several globalization rules rather than one
+backtracking policy; [deal.II step-42][dealii-step42] couples plastic-contact
+active sets with a safeguarded Newton path, while [MOOSE's radial-return
+documentation][moose-return] distinguishes *material-point* substepping from
+discarding whole global increments. None is a drop-in fix for this observed
+case. The next comparison should freeze the same input and compare Newton
+residual history, reaction, PEEQ and work under a separately selected
+globalization. Changing the default merely because a larger iteration cap
+eventually converges would conceal rather than resolve this gate.
 The same benchmark also starts from zero gap and advances into active contact.
 It permits a zero-force/open-side-tangent trial only when a whole-face
 coplanar coverage/competitor proof succeeds and the remaining vertex gap is
