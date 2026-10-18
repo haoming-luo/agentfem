@@ -68,10 +68,17 @@ The gate stays open until its listed evidence exists at the proposed scope.
    and local regression exist, but no same-input external benchmark for the
    nonconvex finite-J2 fixture. Reading: [Abaqus' published finite-sliding
    rigid-surface verification/input list][abaqus-verification],
+   [its small-sliding stress/displacement verification cases, including
+   augmented-Lagrangian examples][abaqus-al-verification],
    [COMSOL's analytical/NAFEMS verification collection][comsol-verification]
    and [NAFEMS advanced contact benchmark catalog][nafems]. A published
    verification case is a comparator protocol, not an external result for
-   our own geometry.
+   our own geometry. A more ambitious later comparator is [NAFEMS Contact
+   Benchmark 3][nafems-contact-3], which includes elastoplastic contact and
+   springback; its detailed material, geometry and published observables must
+   be obtained and frozen before claiming a comparison. Keep this separate
+   from the smaller same-input AgentFEM/Abaqus-Standard J2 plane/convex-tool
+   pair needed for the bounded 0.4.4 claim.
 
 2. **Surface and search admission.** Validate closed/open topology, outward
    orientation, self-intersection, initial clearance/overclosure and allowed
@@ -523,6 +530,8 @@ identified multiplier-transfer rule has its own tests.
 
 [abaqus]: https://docs.software.vt.edu/abaqusv2025/English/SIMACAEITNRefMap/simaitn-c-genlcontnumcontrolsstd.htm
 [nafems]: https://www.nafems.org/publications/pubguide/list/
+[nafems-contact-3]: https://www.nafems.org/downloads/FENet_Meetings/Glasgow_UK_Oct_2004/FENET_Glasgow_Oct2004_DLE_Becker.pdf
+[abaqus-al-verification]: https://docs.software.vt.edu/abaqusv2025/English/SIMACAEVERRefMap/simaver-c-contsmslcont.htm
 [initial]: https://docs.software.vt.edu/abaqusv2025/English/SIMACAEITNRefMap/simaitn-c-adjustsurfaces.htm
 [distance]: https://arxiv.org/abs/1803.09687
 [meshed-rigid]: https://docs.software.vt.edu/abaqusv2025/English/SIMACAEVERRefMap/simaver-c-finslcontdefmeshrig.htm

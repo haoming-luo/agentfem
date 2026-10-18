@@ -617,6 +617,24 @@ def test_reviewed_concave_edge_is_active_in_global_plastic_step_and_restart(
     assert partial.contact_feature_path == accepted_feature_path
     assert partial.contact_provider.snapshot_motion() == pytest.approx(0.5)
 
+    monkeypatch.setattr(partial, "_record_energy", record_energy)
+    record_features = partial._record_accepted_contact_features
+
+    def reject_after_feature_observation(factor):
+        record_features(factor)
+        if factor > 0.5 + 1e-12:
+            raise ValueError("intentional feature-ledger acceptance rejection")
+
+    monkeypatch.setattr(
+        partial, "_record_accepted_contact_features",
+        reject_after_feature_observation,
+    )
+    with pytest.raises(RuntimeError, match="feature-ledger acceptance rejection"):
+        partial.solve(until=2.0 / 3.0)
+    assert partial.accepted_load_factor == pytest.approx(0.5)
+    assert partial.contact_feature_path == accepted_feature_path
+    np.testing.assert_array_equal(partial.solution.x.array, accepted_u)
+
     resumed = _patch(**options)[3]
     resumed.load_checkpoint(saved)
     assert resumed.contact_feature_path == accepted_feature_path
@@ -634,6 +652,22 @@ def test_reviewed_concave_edge_is_active_in_global_plastic_step_and_restart(
     assert resumed.energy_history[-1].tool_work == pytest.approx(
         reference.energy_history[-1].tool_work,
     )
+    with np.load(saved, allow_pickle=False) as archive:
+        older_payload = {
+            name: archive[name].copy() for name in archive.files
+            if name not in {"contact_feature_path", "contact_feature_path_complete"}
+        }
+    older_checkpoint = tmp_path / "older_partial_contact_path.npz"
+    np.savez(older_checkpoint, **older_payload)
+    older = _patch(**options)[3]
+    older.load_checkpoint(older_checkpoint)
+    older_result = older.solve_result()
+    assert not older_result.metadata["rigid_contact_feature_path"]["complete"]
+    older_claim = next(
+        claim for claim in older_result.verify("engineering").claims
+        if claim.name == "no_observed_uncertified_contact_feature_transition"
+    )
+    assert "accepted contact feature path is incomplete" in older_claim.actual["issues"]
 
 
 def test_fast_closed_sign_preserves_active_edge_plastic_step_result(tmp_path):
