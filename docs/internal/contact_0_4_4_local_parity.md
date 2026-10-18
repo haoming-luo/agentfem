@@ -156,6 +156,19 @@ The gate stays open until its listed evidence exists at the proposed scope.
    stabilization; independent point multipliers do not inherit its proof
    and require a spatial-pressure/mesh check.
 
+   On the same 2-cell/axis, 12-increment, q7 L-prism diagnostic above,
+   increasing the *penalty* from 20 to 200, 1,000, 10,000 and 100,000
+   completed the nonlinear solves but changed the final active reference
+   area from 0.4415 to 0.4415, 0.4415, 0.1914 and 0.0967, respectively;
+   maximum sampled penetration fell from 0.0470 to 0.0319, 0.0170, 0.00690
+   and 0.00174. Tool-force x changed from -0.337 to -1.927, -3.487, -5.099
+   and -5.705. This is **not** a hard-contact or penalty-independent limit:
+   both the contact footprint and force change substantially. The older
+   high-penalty Newton failure was a different trial and remains valid at its
+   own inputs; neither failure nor completion generalizes to every setting.
+   Adding an outer multiplier loop before fixing or bounding the nonconvex
+   integral would hide, not resolve, that spatial uncertainty.
+
 5. **Friction and moving-feature State.** Verify normal-pressure coupling,
    stick/slip return mapping, tangent, finite sliding, force/moment and
    dissipated work independently for each supported geometry. Reproject the
