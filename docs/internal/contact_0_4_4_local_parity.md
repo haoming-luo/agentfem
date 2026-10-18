@@ -114,6 +114,23 @@ The gate stays open until its listed evidence exists at the proposed scope.
    not a drop-in P1 facet implementation: its enriched pressure interpolation
    and two-half-pass force construction differ from our one-sided trace.
 
+   The next implementation must distinguish *sampling* from *consistent
+   differentiation*. For a slave face partitioned into current nearest-feature
+   regions `A_i(u)`, write the scalar contact functional as
+   `Pi(u) = sum_i integral_{A_i(u)} phi_i(u,x) dA`. At a feature-switch line,
+   the adjacent `phi_i` agree because the selected distance is continuous, so
+   the first shape-boundary term cancels. Their displacement derivatives need
+   not agree when the selected normals differ; differentiating the assembled
+   residual then has a moving-line contribution. This is a derivation for our
+   piecewise-smooth penalty law, not a formula imported from another element.
+   The candidate must reproduce both the integral and its directional
+   derivative when a manufactured feature line moves across a P1 face, then
+   pass the total Newton/MPC tangent check. A fixed quadrature rule, a frozen
+   feature partition or a smaller Newton residual alone is insufficient.
+   [Hiermeier--Wall--Popp's variationally consistent mortar study][variational-mortar]
+   is a useful independent standard for varying *all* active contributions,
+   but its symmetric two-body mortar formulation is not our algorithm.
+
    A 2026-10-18 fixed-input screen used
    `examples/finite_j2_closed_concave_contact.py` with 12 increments,
    penalty 20, direct linear solve, backtracking, one MPI rank and one
@@ -370,6 +387,7 @@ transfer is separately verified.
 [abaqus-output-times]: https://docs.software.vt.edu/abaqusv2025/English/SIMACAECAERefMap/simacae-t-simodbeditorfield.htm
 [duong]: https://arxiv.org/abs/1712.01179
 [dual-mortar]: https://arxiv.org/abs/2201.01165
+[variational-mortar]: https://doi.org/10.1016/j.cma.2018.07.020
 [abaqus-rigid-smoothing]: https://docs.software.vt.edu/abaqusv2025/English/SIMACAEMODRefMap/simamod-c-rigidsurf.htm
 [burman]: https://arxiv.org/abs/1609.03326
 [duong-friction]: https://arxiv.org/abs/1808.10420
