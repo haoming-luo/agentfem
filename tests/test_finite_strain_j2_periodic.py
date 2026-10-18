@@ -510,6 +510,143 @@ def _periodic_concave_face_tool(*, wide_smooth_patch=False):
     )
 
 
+def _periodic_wide_triangular_prism_tool():
+    polygon = np.asarray(((-2.0, -2.0), (6.0, -2.0), (-2.0, 6.0)))
+    front = np.column_stack((np.full(3, 0.95), polygon))
+    back = np.column_stack((np.full(3, 3.0), polygon))
+    triangles = [(0, 2, 1), (3, 4, 5)]
+    for first in range(3):
+        second = (first + 1) % 3
+        triangles.extend(((first, second, second + 3),
+                          (first, second + 3, first + 3)))
+    return boundary_models.closed_triangulated_rigid_solid(
+        vertices=np.vstack((front, back)), triangles=triangles,
+        reviewed_embedded=True,
+    )
+
+
+def test_periodic_j2_certified_face_research_uses_total_mpc_residual(tmp_path):
+    fixture, periodicity, step = _periodic_j2_contact_step(
+        surface=_periodic_wide_triangular_prism_tool(),
+        contact_integration="certified_closed_two_feature_research",
+    )
+    result = step.solve_result()
+    assert result.status == "completed"
+    face_path = result.metadata["rigid_contact_face_path"]
+    assert face_path["complete"] is True
+    assert face_path["accepted_station_count"] == 4
+    assert face_path["pairs"][0]["all_observed_faces_certified"] is True
+    assert step.contact_provider.current_face_diagnostics()[
+        "all_faces_certified_at_current_trial"
+    ] is True
+    total = step.assemble_full_residual()
+    reduction = periodicity.reduction(1.0).matrix(fixture.domain.comm)
+    reduced = reduction.createVecRight()
+    try:
+        reduction.multTranspose(total, reduced)
+        assert reduced.norm() < 1e-5
+    finally:
+        reduced.destroy()
+        reduction.destroy()
+        total.destroy()
+    plane = boundary_models.rigid_plane(
+        point=(0.95, 0.0, 0.0), normal=(-1.0, 0.0, 0.0),
+    )
+    _, _, planar = _periodic_j2_contact_step(surface=plane)
+    assert planar.solve_result().status == "completed"
+    np.testing.assert_allclose(
+        step.solution.x.array, planar.solution.x.array, rtol=2e-6, atol=2e-7
+    )
+    _, _, partial = _periodic_j2_contact_step(
+        surface=_periodic_wide_triangular_prism_tool(),
+        contact_integration="certified_closed_two_feature_research",
+    )
+    partial.solve(until=1 / 3)
+    saved = partial.save_checkpoint(tmp_path / "certified_face_mpc")
+    _, _, resumed = _periodic_j2_contact_step(
+        surface=_periodic_wide_triangular_prism_tool(),
+        contact_integration="certified_closed_two_feature_research",
+    )
+    resumed.load_checkpoint(saved)
+    resumed_result = resumed.solve_result()
+    assert resumed_result.status == "completed"
+    assert resumed_result.metadata["rigid_contact_face_path"] == face_path
+    np.testing.assert_allclose(
+        resumed.solution.x.array, step.solution.x.array, rtol=1e-9, atol=1e-10
+    )
+
+
+def test_periodic_j2_certified_face_corrupt_path_restore_is_atomic(tmp_path):
+    source = _periodic_j2_contact_step(
+        surface=_periodic_wide_triangular_prism_tool(),
+        contact_integration="certified_closed_two_feature_research",
+    )[2]
+    source.solve(until=1 / 3)
+    checkpoint = source.save_checkpoint(tmp_path / "certified_face_bad_path")
+    payload = json.loads(checkpoint.read_text(encoding="utf-8"))
+    payload["accepted_observer_state"]["contact_faces"]["pairs"][0][
+        "accepted_station_count"
+    ] = 123
+    checkpoint.write_text(
+        json.dumps(payload, indent=2, sort_keys=True) + "\n", encoding="utf-8"
+    )
+    target = _periodic_j2_contact_step(
+        surface=_periodic_wide_triangular_prism_tool(),
+        contact_integration="certified_closed_two_feature_research",
+    )[2]
+    before = target.solution.x.array.copy()
+    with pytest.raises(ValueError, match="Contact face path"):
+        target.load_checkpoint(checkpoint)
+    assert target.accepted_load_factor == 0.0
+    assert target.accepted_history_recorders["contact_faces"].pairs == {}
+    np.testing.assert_array_equal(target.solution.x.array, before)
+
+
+def test_periodic_j2_certified_face_reduced_tangent_matches_difference():
+    fixture, periodicity, step = _periodic_j2_contact_step(
+        surface=_periodic_wide_triangular_prism_tool(),
+        contact_integration="certified_closed_two_feature_research",
+    )
+    step.solve(until=1 / 3)
+    reduction = periodicity.reduction(1 / 3).matrix(fixture.domain.comm)
+    direction = reduction.createVecRight()
+    full_direction = reduction.createVecLeft()
+    projected = reduction.createVecRight()
+    full_residual = reduction.createVecLeft()
+    reference = step.solution.x.array.copy()
+    try:
+        direction.array[:] = np.linspace(0.1, 0.3, direction.array.size)
+        reduction.mult(direction, full_direction)
+        trial = step.contact_provider.evaluate()
+        full_residual.array[:] = trial.tangent_action(
+            full_direction.array.reshape(-1, 3)
+        ).reshape(-1)
+        reduction.multTranspose(full_residual, projected)
+        expected = projected.array.copy()
+        samples = []
+        size = 1e-6
+        for sign in (1.0, -1.0):
+            step.solution.x.array[:] = reference + sign * size * full_direction.array
+            step.solution.x.scatter_forward()
+            full_residual.array[:] = (
+                step.contact_provider.evaluate().nodal_structural_residual.reshape(-1)
+            )
+            reduction.multTranspose(full_residual, projected)
+            samples.append(projected.array.copy())
+        np.testing.assert_allclose(
+            (samples[0] - samples[1]) / (2 * size), expected,
+            rtol=2e-6, atol=2e-6,
+        )
+    finally:
+        step.solution.x.array[:] = reference
+        step.solution.x.scatter_forward()
+        full_residual.destroy()
+        projected.destroy()
+        full_direction.destroy()
+        direction.destroy()
+        reduction.destroy()
+
+
 def test_periodic_j2_reviewed_concave_tool_reduces_total_contact_residual():
     surface = _periodic_concave_face_tool()
     fixture, periodicity, step = _periodic_j2_contact_step(surface=surface)

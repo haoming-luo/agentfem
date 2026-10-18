@@ -702,10 +702,12 @@ def _contact_integration_rejection_reason(model, request: StepRequest) -> str | 
         "certified_closed_two_feature_research": ClosedTriangulatedRigidSolid,
     }
 
-    if "certified_closed_two_feature_research" in modes and len(pairs) != 1:
+    if "certified_closed_two_feature_research" in modes and any(
+        mode != "certified_closed_two_feature_research" for mode in modes
+    ):
         return (
             "AFM-CONTACT-RESEARCH: certified two-feature face integration "
-            "currently admits exactly one named rigid pair."
+            "cannot yet mix with point-sampled pair modes in one Step."
         )
 
     if (any(

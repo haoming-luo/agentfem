@@ -966,7 +966,7 @@ def test_real_dolfinx_certified_face_trial_provider_rejects_stale_tool_pose():
 
 def _research_two_feature_j2_step(
     *, moving=False, yield_stress=1e9, contact_penalty=1.0,
-    second_pair=False,
+    second_pair=False, contact_integration="certified_closed_two_feature_research",
 ):
     from dolfinx import mesh as dolfinx_mesh
 
@@ -1049,7 +1049,7 @@ def _research_two_feature_j2_step(
     step = model.step(
         target=displacement,
         material=material,
-        contact_integration="certified_closed_two_feature_research",
+        contact_integration=contact_integration,
         incrementation=steps.fixed(2),
         solver_options=solvers.newton(
             relative_tolerance=1e-8,
@@ -1062,9 +1062,81 @@ def _research_two_feature_j2_step(
     return step, displacement
 
 
-def test_research_two_feature_mode_refuses_multiple_pairs_before_solving():
-    with pytest.raises(NotImplementedError, match="exactly one named rigid pair"):
-        _research_two_feature_j2_step(second_pair=True)
+def test_research_two_feature_multiple_pairs_share_one_j2_step(tmp_path):
+    step, _ = _research_two_feature_j2_step(second_pair=True, moving=True)
+    result = step.solve_result()
+    assert result.status == "completed"
+    assert len(step.accepted_increments) == 2
+    faces = result.metadata["rigid_contact_face_diagnostics"]
+    assert len(faces) == 2
+    assert {item["constraint"] for item in faces} == {
+        "reentrant_tool", "second_tool",
+    }
+    path = result.metadata["rigid_contact_face_path"]
+    assert path["complete"] is True
+    assert len(path["pairs"]) == 2
+    assert all(item["accepted_station_count"] == 3 for item in path["pairs"])
+    trial = step.contact_provider.evaluate()
+    np.testing.assert_allclose(
+        trial.nodal_structural_residual,
+        sum(selected.nodal_structural_residual for _, selected in trial.pairs),
+        rtol=0.0, atol=1e-14,
+    )
+    assert trial.potential_energy == pytest.approx(
+        sum(selected.potential_energy for _, selected in trial.pairs),
+        rel=1e-13,
+    )
+    partial, _ = _research_two_feature_j2_step(second_pair=True, moving=True)
+    partial.solve(until=0.5)
+    saved = partial.save_checkpoint(tmp_path / "two_certified_tools")
+    resumed, _ = _research_two_feature_j2_step(second_pair=True, moving=True)
+    resumed.load_checkpoint(saved)
+    assert resumed.solve_result().status == "completed"
+    np.testing.assert_allclose(
+        resumed.solution.x.array, step.solution.x.array, rtol=1e-9, atol=1e-12
+    )
+    assert resumed.contact_face_path == step.contact_face_path
+    assert resumed.energy_history[-1].tool_work == pytest.approx(
+        step.energy_history[-1].tool_work, rel=1e-9, abs=1e-12
+    )
+
+
+def test_research_face_and_sampled_point_modes_refuse_implicit_mixing():
+    with pytest.raises(NotImplementedError, match="cannot yet mix"):
+        _research_two_feature_j2_step(
+            second_pair=True,
+            contact_integration={
+                "reentrant_tool": "certified_closed_two_feature_research",
+                "second_tool": "gauss",
+            },
+        )
+
+
+def test_research_two_tool_trial_refuses_one_stale_pose_before_petsc_mutation():
+    from petsc4py import PETSc
+
+    step, _ = _research_two_feature_j2_step(second_pair=True)
+    provider = step.contact_provider
+    trial = provider.evaluate()
+    vector = PETSc.Vec().createSeq(len(step.solution.x.array))
+    vector.set(0.0)
+    try:
+        provider.providers[1].update_motion(0.5)
+        with pytest.raises(ValueError, match="another Newton trial"):
+            provider.add_residual(vector, trial)
+        np.testing.assert_array_equal(vector.array, 0.0)
+    finally:
+        vector.destroy()
+
+
+def test_research_two_tool_pose_restore_is_atomic():
+    step, _ = _research_two_feature_j2_step(second_pair=True)
+    provider = step.contact_provider
+    provider.update_motion(0.5)
+    before = provider.snapshot_motion()
+    with pytest.raises(ValueError, match="factor must lie"):
+        provider.restore_motion((("reentrant_tool", 0.25), ("second_tool", 2.0)))
+    assert provider.snapshot_motion() == before
 
 
 def test_research_two_feature_faces_enter_existing_serial_j2_step(tmp_path):
@@ -1150,6 +1222,64 @@ def test_research_two_feature_plastic_history_survives_restart(tmp_path):
         resumed.solution.x.array, full.solution.x.array,
         rtol=1e-9, atol=1e-12,
     )
+
+
+@pytest.mark.parametrize(
+    ("yield_stress", "contact_penalty", "second_pair"),
+    ((1e9, 1.0, False), (1e-4, 100.0, False), (1e9, 1.0, True)),
+)
+def test_research_two_feature_total_j2_tangent_matches_directional_difference(
+    yield_stress, contact_penalty, second_pair
+):
+    step, _ = _research_two_feature_j2_step(
+        moving=True, yield_stress=yield_stress,
+        contact_penalty=contact_penalty, second_pair=second_pair,
+    )
+    step.solve(until=0.5)
+    reference = step.solution.x.array.copy()
+    direction = np.linspace(-0.25, 0.3, len(reference))
+    direction[np.asarray(step.contact_constrained_dofs, dtype=int)] = 0.0
+    free = np.setdiff1d(
+        np.arange(len(reference)), step.contact_constrained_dofs
+    )
+
+    def correction_rhs(scale):
+        step.solution.x.array[:] = reference + scale * direction
+        step.solution.x.scatter_forward()
+        step._update_response(start_factor=0.5, target_factor=0.5)
+        rhs, _ = step._correction_rhs()
+        values = rhs.array.copy()
+        rhs.destroy()
+        return values
+
+    try:
+        # At the accepted plastic return, positive and negative perturbations
+        # may straddle the elastic-unloading/plastic-loading kink. Probe a
+        # fixed old State on either side of the kink instead.
+        for base_scale in ((0.0,) if yield_stress >= 1.0 else (-1e-3, 1e-3)):
+            correction_rhs(base_scale)
+            matrix = step._assemble_tangent()
+            input_vector = matrix.createVecRight()
+            output_vector = matrix.createVecLeft()
+            try:
+                input_vector.array[:] = direction
+                matrix.mult(input_vector, output_vector)
+                expected = -output_vector.array.copy()
+            finally:
+                output_vector.destroy()
+                input_vector.destroy()
+            size = 1e-6
+            measured = (
+                correction_rhs(base_scale + size)
+                - correction_rhs(base_scale - size)
+            ) / (2 * size)
+            np.testing.assert_allclose(
+                measured[free], expected[free], rtol=2e-4, atol=2e-6
+            )
+    finally:
+        step.solution.x.array[:] = reference
+        step.solution.x.scatter_forward()
+        step.state_transaction.prepare_resume()
 
 
 @pytest.mark.parametrize(

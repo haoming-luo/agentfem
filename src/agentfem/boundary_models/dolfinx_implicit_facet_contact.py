@@ -1563,9 +1563,22 @@ def dolfinx_implicit_rigid_contacts(
         raise ValueError("Multiple rigid contact pair names must be unique.")
     modes = resolve_contact_integration_modes(selected, contact_integration)
     if "certified_closed_two_feature_research" in modes:
-        raise NotImplementedError(
-            "Certified research face integration has no multi-pair Step lifecycle."
+        if any(mode != "certified_closed_two_feature_research" for mode in modes):
+            raise NotImplementedError(
+                "Certified research faces cannot yet mix with point-sampled "
+                "rigid-pair modes in one Step."
+            )
+        from ._certified_face_trial_provider import (
+            DolfinxCombinedCertifiedFaceContactTrialProvider,
         )
+
+        return DolfinxCombinedCertifiedFaceContactTrialProvider(tuple(
+            dolfinx_implicit_rigid_contact(
+                item, displacement,
+                contact_quadrature_degree=contact_quadrature_degree,
+                contact_integration=mode,
+            ) for item, mode in zip(selected, modes, strict=True)
+        ))
     return DolfinxImplicitRigidContacts(tuple(
         dolfinx_implicit_rigid_contact(
             item, displacement,

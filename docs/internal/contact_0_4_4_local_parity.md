@@ -28,11 +28,11 @@ being silently approximated by the bounded route.
 | --- | --- | --- |
 | 1. Comparator | Internal and public-protocol tests | Independent same-input finite-J2 contact run and frozen observables |
 | 2. Surface | Reviewed closed/open triangle geometry, bounded initial-overlap checks, and per-face same-plane proof with one bounded fallback subdivision | Rims, unsupported curved tools, ambiguous sharp features and target-path sliding coverage |
-| 3. Integration | Planar/convex partitions; certified zero-contact and smooth-branch faces; private wholly-interior and single-plane partially active reentrant edge/face local integral and tangent | General active boundaries and feature sets; global signed-gap Step admission; other edge/point laws |
+| 3. Integration | Planar/convex partitions; certified zero-contact and smooth-branch faces; private wholly-interior and single-plane partially active reentrant edge/face local integral and tangent; bounded adaptive interior-ball cover | General active boundaries and feature sets; global signed-gap Step admission; other edge/point laws |
 | 4. Normal law | Penalty Step; fixed-trace AL research law plus real-mesh/reduced-rank counterexamples | Compatible multiplier space, outer global Procedure, spatial stability and checkpoint composition |
 | 5. Friction | Locally planar Coulomb State; rigid-master spin transport tested | Admitted geometry-by-friction matrix; sharp features remain rejected |
-| 6. Transaction | Total-system and restart tests for admitted penalty modes; opt-in serial standard-J2 certified-face research Step with work, plastic-history rollback and restart | MPC, multiple pairs, MPI, changing feature topology and wider path tests |
-| 7. Result | Pair work/pressure samples; AL local work sign; research face-location extensive evidence and accepted-station coverage without point pressure | Cross-law first-law, between-station coverage and a defensible pressure interpretation |
+| 6. Transaction | Total-system and restart tests for admitted penalty modes; opt-in serial standard-J2 certified-face research Step with work, plastic-history rollback/restart and two named tools; smooth-subset affine/MPC total-system path | Sharp-feature MPC, mixed face/point modes, MPI, changing feature topology and wider path tests |
+| 7. Result | Pair work/pressure samples; AL local work sign; standard and affine/MPC research face-location extensive evidence and accepted-station coverage without point pressure | Cross-law first-law, between-station coverage and a defensible pressure interpretation |
 | 8. Science | Local/oracle/installed tests; global elastic-limit spring-plane matrix | Mesh x increment x law convergence and external observables |
 | 9. Release | Scoped solver screens | Installed cross-platform gate and production runtime evidence |
 
@@ -460,11 +460,30 @@ face counts. That accepted-station record survives serial restart and rolls
 back on a failed increment; a corrupted station count is rejected before
 checkpoint mutation. It does not prove collision-free motion *between*
 accepted stations or provide a physical point pressure at a sharp feature.
-normal residual/tangent, material and strong-boundary rows share the ordinary
-Newton path; no second solver was introduced. Affine/MPC, multiple tools and
-MPI explicitly refuse this research mode. These tests establish a bounded
-*software lifecycle*, not mesh/penalty convergence, an independent global
+The normal residual/tangent, material and strong-boundary rows share the
+ordinary Newton path; no second solver was introduced. Two named certified-face tool
+pairs now compose in that same Step, with separate face evidence, additive
+nodal force and potential, moving-tool work and interrupted restart. A stale
+pose on just one pair refuses the whole trial before PETSc mutation. Mixed
+face/point pairs and MPI explicitly refuse this research mode. These tests
+establish a bounded *software lifecycle*, not mesh/penalty convergence, an independent global
 reference, general finite sliding across sharp features, or product release.
+
+The affine/MPC Procedure now admits the same opt-in face mode for a serial,
+single-facet **smooth** closed-tool subset. A larger P1 face that no single
+interior ball covers can be proved by a bounded longest-edge subdivision:
+every accepted child lies in a winding-classified interior ball under the
+1-Lipschitz distance bound; an unresolved or boundary-touching child refuses
+the entire face. Eight subdivision levels and a 512-child budget are explicit
+research limits, not a guarantee for all mesh sizes. On a wide triangular
+prism, the periodic finite-J2 Step reduces the complete contact/material
+residual, its reduced contact tangent matches independent directional
+differences, and its displacement agrees with the corresponding analytical
+plane. Interrupted restart preserves the accepted face-path ledger; a
+corrupted ledger is atomically refused. A front-face triangulation seam in a
+different otherwise smooth tool still fails the stricter two-feature
+certificate. Thus this is **not** admission of sharp-feature MPC, general
+coplanar seam coverage or arbitrary industrial mesh contact.
 
 For promotion beyond this research Step, the boundary adapter must keep its
 complete-face enumeration and current-Newton-trial proof for every selected
@@ -478,8 +497,8 @@ before strong-BC lifting and recomputes at line-search trials, then jointly
 commits or rolls back material, tool path and contact state. The DOLFINx
 nonlinear callback contract requires exactly this current-trial assembly
 [DOLFINx nonlinear assembly][dolfinx-nonlinear]. No face integral is disguised
-as three sampled trace points. Total-system affine/MPC reduction, multiple
-named tools, MPI, between-station path certification, independent global
+as three sampled trace points. Sharp-feature MPC, mixed face/point modes,
+MPI, between-station path certification, independent global
 comparison and mesh/penalty/increment convergence remain open. The opt-in
 research string must not be presented as a released general nonconvex solver;
 local virtual work is not by itself whole-path first-law closure.

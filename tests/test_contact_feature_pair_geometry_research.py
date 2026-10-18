@@ -193,11 +193,13 @@ def test_wholly_interior_closed_tetrahedron_has_physical_penalty_limit():
         assert projection.signed_gaps[0] == pytest.approx(-min(point[0], point[1]))
 
 
-def test_interior_ball_does_not_infer_sign_from_vertices_alone():
+def test_subdivided_interior_ball_does_not_infer_sign_from_vertices_alone():
     tool = _closed_tetrahedron()
-    # A large face reaches the boundary; a few inside points cannot prove
-    # that the complete affine face remains inside the tetrahedron.
-    nearly_boundary = np.asarray(((0.01, 0.3, 2.0), (0.7, 0.3, 2.0), (0.3, 0.7, 2.0)))
+    # A large face can be certified by bounded subfaces even when no one
+    # interior ball covers it. A different face actually touches the tool.
+    interior = np.asarray(((0.01, 0.3, 2.0), (0.7, 0.3, 2.0), (0.3, 0.7, 2.0)))
+    assert certify_wholly_interior_closed_face(interior, tool) > 0.0
+    nearly_boundary = np.asarray(((0.01, 0.3, 2.0), (0.7, 0.3, 2.0), (1.3, 0.7, 2.0)))
     with pytest.raises(NotImplementedError, match="interior ball"):
         certify_wholly_interior_closed_face(nearly_boundary, tool)
     with pytest.raises(NotImplementedError, match="interior ball"):

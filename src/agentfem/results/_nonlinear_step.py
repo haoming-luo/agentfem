@@ -395,8 +395,29 @@ def _add_affine_constraint_evidence(step, result) -> None:
         friction_release = 0.0
         has_friction = False
         point_records = []
+        face_records = []
         for contact in contacts:
             contact_contribution = contact.evaluate()
+            if hasattr(contact, "current_face_diagnostics"):
+                contact_potential += contact_contribution.potential_energy
+                evidence = contact.current_face_diagnostics()
+                face_records.append({"constraint": contact.name, **evidence})
+                result.add_quantity(
+                    f"{contact.name}_active_reference_area",
+                    sum(evidence["active_reference_areas"]),
+                    kind="diagnostic",
+                    description="Certified active P1 boundary-face reference area.",
+                )
+                if not contact.has_prescribed_motion:
+                    work_evidence = (*work_evidence, constraint_api.constraint_work(
+                        contact,
+                        value=0.0,
+                        integration="fixed_rigid_surface_zero_coordinate",
+                        sample_count=len(step.accepted_increments) + 1,
+                        role="contact_constraint",
+                        source="rigid_penalty_potential",
+                    ))
+                continue
             contact_potential += contact_contribution.assembly.potential_energy
             point_evidence = contact.current_point_diagnostics()
             point_records.append({
@@ -463,10 +484,26 @@ def _add_affine_constraint_evidence(step, result) -> None:
             kind="diagnostic",
             description="Recoverable rigid penalty contact potential.",
         )
-        result.metadata["rigid_contact_point_diagnostics"] = (
-            point_records[0] if len(point_records) == 1
-            else tuple(point_records)
-        )
+        if point_records:
+            result.metadata["rigid_contact_point_diagnostics"] = (
+                point_records[0] if len(point_records) == 1
+                else tuple(point_records)
+            )
+        if face_records:
+            result.metadata["rigid_contact_face_diagnostics"] = (
+                face_records[0] if len(face_records) == 1
+                else tuple(face_records)
+            )
+            recorder = step.accepted_history_recorders.get("contact_faces")
+            if recorder is not None:
+                result.metadata["rigid_contact_face_path"] = recorder.evidence()
+            else:
+                result.metadata["rigid_contact_face_path"] = {
+                    "schema": "agentfem.contact-face-path.v1",
+                    "complete": False,
+                    "accepted_station_count": len(step.accepted_increments) + 1,
+                    "pairs": (),
+                }
         # The accepted observer shares the affine material/Operator rollback
         # and checkpoint boundary. A manually composed older problem without
         # it retains an explicitly incomplete final-sample fallback.

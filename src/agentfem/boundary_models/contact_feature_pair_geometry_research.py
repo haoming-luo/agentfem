@@ -547,8 +547,10 @@ def certify_wholly_interior_closed_face(
     One valid winding-classified interior query whose unsigned distance to
     the boundary exceeds the radius enclosing the slave face suffices: that
     ball cannot cross the embedded boundary. An exact medial-axis query may
-    be nonunique, so all three vertices and the centroid are tried. This is
-    a same-configuration certificate, not an increment-path guarantee.
+    be nonunique, so all three vertices and the centroid are tried first.
+    Otherwise, bounded longest-edge subdivisions must each fit in a proved
+    interior ball. This is a same-configuration certificate, not an
+    increment-path guarantee.
     """
 
     slave = np.asarray(slave_vertices, dtype=float)
@@ -576,6 +578,15 @@ def certify_wholly_interior_closed_face(
         raise ValueError(
             "Interior-face geometry is unresolved at world-coordinate precision."
         )
+    if any(
+        not valid or float(gap) >= -margin
+        for valid, gap in zip(
+            projection.valid[:3], projection.signed_gaps[:3], strict=True
+        )
+    ):
+        raise NotImplementedError(
+            "A slave vertex lacks a strict interior ball certificate."
+        )
     clearances = []
     for point, valid, gap in zip(
         samples,
@@ -588,11 +599,50 @@ def certify_wholly_interior_closed_face(
         radius = float(np.max(np.linalg.norm(slave - point, axis=1)))
         if -float(gap) - radius > margin:
             clearances.append(-float(gap) - radius)
-    if not clearances:
-        raise NotImplementedError(
-            "No winding-classified interior ball covers the whole slave face."
-        )
-    return max(clearances)
+    if clearances:
+        return max(clearances)
+
+    pending = [slave]
+    proved = []
+    for depth in range(9):
+        centers = np.asarray([np.mean(face, axis=0) for face in pending])
+        evaluated = surface.project(centers)
+        remaining = []
+        for face, center, valid, gap in zip(
+            pending, centers, evaluated.valid, evaluated.signed_gaps, strict=True
+        ):
+            radius = float(np.max(np.linalg.norm(face - center, axis=1)))
+            clearance = -float(gap) - radius
+            if valid and gap < 0.0 and clearance > margin:
+                proved.append(clearance)
+                continue
+            if depth == 8:
+                raise NotImplementedError(
+                    "No bounded winding-classified interior ball cover "
+                    "proves the whole slave face."
+                )
+            edges = np.asarray((
+                np.linalg.norm(face[1] - face[0]),
+                np.linalg.norm(face[2] - face[1]),
+                np.linalg.norm(face[0] - face[2]),
+            ))
+            first = int(np.argmax(edges))
+            second = (first + 1) % 3
+            other = (first + 2) % 3
+            midpoint = 0.5 * (face[first] + face[second])
+            remaining.extend((
+                np.asarray((face[first], midpoint, face[other])),
+                np.asarray((midpoint, face[second], face[other])),
+            ))
+        if not remaining:
+            return min(proved)
+        if len(remaining) > 512:
+            raise NotImplementedError(
+                "No bounded winding-classified interior ball cover "
+                "proves the whole slave face."
+            )
+        pending = remaining
+    raise AssertionError("Interior ball subdivision depth was not bounded.")
 
 
 def _single_feature_over_slave(slave, master, length_margin, active_boundary=None):

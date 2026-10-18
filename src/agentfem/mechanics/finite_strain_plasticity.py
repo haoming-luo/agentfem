@@ -24,6 +24,10 @@ from .. import steps as step_controls
 from ..constitutive import FiniteStrainJ2Logarithmic
 from ..constitutive import MaterialQuadratureResponse
 from ..constitutive.quadrature import QuadratureField, QuadratureMaterialMap
+from ..boundary_models.contact_face_path import (
+    accepted_face_record,
+    validate_contact_face_path as _validate_contact_face_path,
+)
 from ..events import SolveEvent
 from ..solvers import (
     NewtonSolverOptions,
@@ -77,48 +81,6 @@ def _validate_contact_feature_path(
             )
         ):
             raise ValueError("Contact feature path and accepted station disagree.")
-        validated[name] = dict(record)
-    return validated
-
-
-def _validate_contact_face_path(
-    path: object, *, accepted_factor: float, accepted_count: int,
-    complete: bool,
-) -> dict[str, dict[str, object]]:
-    """Reject malformed or falsely complete whole-face accepted-path evidence."""
-
-    expected = {
-        "constraint", "accepted_station_count", "last_factor",
-        "maximum_active_reference_area", "maximum_active_face_count",
-        "maximum_mixed_feature_face_count", "all_observed_faces_certified",
-    }
-    if not isinstance(path, dict):
-        raise ValueError("Contact face path must be a pair-keyed mapping.")
-    validated = {}
-    for name, record in path.items():
-        if (
-            not isinstance(name, str) or not name
-            or not isinstance(record, dict) or set(record) != expected
-            or record["constraint"] != name
-        ):
-            raise ValueError("Contact face path pair identity or schema differs.")
-        for key in (
-            "accepted_station_count", "maximum_active_face_count",
-            "maximum_mixed_feature_face_count",
-        ):
-            value = record[key]
-            if type(value) is not int or value < (1 if key == "accepted_station_count" else 0):
-                raise ValueError("Contact face path contains an invalid count.")
-        area = record["maximum_active_reference_area"]
-        factor = record["last_factor"]
-        if (
-            type(area) not in (int, float) or not np.isfinite(area) or area < 0.0
-            or type(factor) not in (int, float) or not np.isfinite(factor)
-            or abs(float(factor) - accepted_factor) > 1e-12
-            or type(record["all_observed_faces_certified"]) is not bool
-            or (complete and record["accepted_station_count"] != accepted_count + 1)
-        ):
-            raise ValueError("Contact face path and accepted station disagree.")
         validated[name] = dict(record)
     return validated
 
@@ -1330,39 +1292,9 @@ class FiniteStrainJ2StandardProblem:
             old = self.contact_face_path.get(name)
             if old is not None and abs(float(old["last_factor"]) - factor) <= 1e-12:
                 continue
-            evidence = provider.current_face_diagnostics()
-            active = evidence["active_reference_areas"]
-            features = evidence["feature_kinds"]
-            area = float(sum(active))
-            active_count = sum(float(value) > 0.0 for value in active)
-            mixed_count = sum(item is not None and len(item) > 1 for item in features)
-            certified = bool(evidence["all_faces_certified_at_current_trial"])
-            self.contact_face_path[name] = {
-                "constraint": name,
-                "accepted_station_count": (
-                    1 if old is None else int(old["accepted_station_count"]) + 1
-                ),
-                "last_factor": float(factor),
-                "maximum_active_reference_area": max(
-                    area, 0.0 if old is None else float(
-                        old["maximum_active_reference_area"]
-                    ),
-                ),
-                "maximum_active_face_count": max(
-                    active_count, 0 if old is None else int(
-                        old["maximum_active_face_count"]
-                    ),
-                ),
-                "maximum_mixed_feature_face_count": max(
-                    mixed_count, 0 if old is None else int(
-                        old["maximum_mixed_feature_face_count"]
-                    ),
-                ),
-                "all_observed_faces_certified": (
-                    certified if old is None else
-                    bool(old["all_observed_faces_certified"]) and certified
-                ),
-            }
+            self.contact_face_path[name] = accepted_face_record(
+                provider, factor=factor, previous=old
+            )
 
     def _record_accepted_contact_features(self, factor: float) -> None:
         """Keep bounded, accepted-path feature evidence independent of output frames.
@@ -1615,6 +1547,7 @@ class FiniteStrainJ2StandardProblem:
 
     def _uses_implicit_rigid_contact(self) -> bool:
         from ..boundary_models._certified_face_trial_provider import (
+            DolfinxCombinedCertifiedFaceContactTrialProvider,
             DolfinxCertifiedFaceContactTrialProvider,
         )
         from ..boundary_models.dolfinx_implicit_facet_contact import (
@@ -1631,6 +1564,7 @@ class FiniteStrainJ2StandardProblem:
                 DolfinxImplicitRigidContact,
                 DolfinxImplicitRigidContacts,
                 DolfinxCertifiedFaceContactTrialProvider,
+                DolfinxCombinedCertifiedFaceContactTrialProvider,
             ),
         )
 
@@ -4389,10 +4323,14 @@ def finite_strain_j2_affine_problem(
         contact_modes = resolve_contact_integration_modes(
             contact_items, contact_integration,
         )
-        if "certified_closed_two_feature_research" in contact_modes:
+        if (
+            "certified_closed_two_feature_research" in contact_modes
+            and any(mode != "certified_closed_two_feature_research"
+                    for mode in contact_modes)
+        ):
             raise NotImplementedError(
-                "AFM-CONTACT-RESEARCH: certified face integration has not "
-                "validated total-residual affine/MPC reduction or restart."
+                "AFM-CONTACT-RESEARCH: affine/MPC certified faces cannot yet "
+                "mix with point-sampled pair modes."
             )
         contact_providers = tuple(
             dolfinx_implicit_rigid_contact(
@@ -4493,18 +4431,31 @@ def finite_strain_j2_affine_problem(
 
     polyhedral_providers = tuple(
         provider for provider in contact_providers
-        if isinstance(
-            provider.surface,
-            (ClosedTriangulatedRigidSolid, ConvexPolyhedralRigidSurface),
-        ) or (
-            isinstance(provider.surface, TriangulatedRigidSurface)
-            and provider.contact_integration == "reviewed_planar_branch_partition"
+        if not hasattr(provider, "current_face_diagnostics") and (
+            isinstance(
+                provider.surface,
+                (ClosedTriangulatedRigidSolid, ConvexPolyhedralRigidSurface),
+            ) or (
+                isinstance(provider.surface, TriangulatedRigidSurface)
+                and provider.contact_integration == "reviewed_planar_branch_partition"
+            )
         )
     )
     if polyhedral_providers:
         feature_path = AcceptedContactFeaturePath(polyhedral_providers)
         problem.accepted_observers = (*problem.accepted_observers, feature_path)
         problem.accepted_history_recorders["contact_features"] = feature_path
+
+    face_providers = tuple(
+        provider for provider in contact_providers
+        if hasattr(provider, "current_face_diagnostics")
+    )
+    if face_providers:
+        from ..boundary_models.contact_face_path import AcceptedContactFacePath
+
+        face_path = AcceptedContactFacePath(face_providers)
+        problem.accepted_observers = (*problem.accepted_observers, face_path)
+        problem.accepted_history_recorders["contact_faces"] = face_path
 
     def snapshot_fields():
         return solution, transaction.snapshot_fields()

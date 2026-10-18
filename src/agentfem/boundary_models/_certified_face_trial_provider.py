@@ -6,7 +6,9 @@
 This is not a separate nonlinear solver. The opt-in serial standard-J2
 Procedure owns accepted increments, material rollback, path work, checkpoint
 and Result publication. This private adapter supplies only the face Operator
-and an identity-bound trial; it does not admit MPC, multiple pairs or MPI.
+and an identity-bound trial; it does not admit MPC or MPI. Named research
+face pairs can be composed additively in one serial Step; mixing them with
+point-sampled pairs is still refused.
 Face-integrated evidence is never disguised as quadrature-point evidence.
 """
 
@@ -341,4 +343,139 @@ class DolfinxCertifiedFaceContactTrialProvider:
                     ),
                 }
             ),
+        }
+
+
+@dataclass(frozen=True, eq=False)
+class CombinedCertifiedFaceContactTrial:
+    """Additive, identity-preserving trials from independently certified faces."""
+
+    pairs: tuple[tuple[str, CertifiedFaceContactTrial], ...]
+
+    @property
+    def nodal_structural_residual(self) -> np.ndarray:
+        return np.sum(
+            [trial.nodal_structural_residual for _, trial in self.pairs], axis=0
+        )
+
+    @property
+    def potential_energy(self) -> float:
+        return float(sum(trial.potential_energy for _, trial in self.pairs))
+
+    @property
+    def friction_assembly(self) -> None:
+        return None
+
+    def tangent_action(self, direction) -> np.ndarray:
+        return np.sum(
+            [trial.tangent_action(direction) for _, trial in self.pairs], axis=0
+        )
+
+
+@dataclass(eq=False)
+class DolfinxCombinedCertifiedFaceContactTrialProvider:
+    """Research-only serial sum; every pair must prove all its faces anew."""
+
+    providers: tuple[DolfinxCertifiedFaceContactTrialProvider, ...]
+
+    def __post_init__(self) -> None:
+        self.providers = tuple(self.providers)
+        if len(self.providers) < 2 or any(
+            not isinstance(item, DolfinxCertifiedFaceContactTrialProvider)
+            for item in self.providers
+        ):
+            raise ValueError("Combined certified faces require two or more face providers.")
+        if len({item.name for item in self.providers}) != len(self.providers):
+            raise ValueError("Combined certified face pair names must be unique.")
+        displacement = self.providers[0].displacement
+        if any(item.displacement is not displacement for item in self.providers):
+            raise ValueError("Certified face pairs must share one displacement field.")
+
+    @property
+    def has_prescribed_motion(self) -> bool:
+        return any(item.has_prescribed_motion for item in self.providers)
+
+    def update_motion(self, factor: float) -> None:
+        previous = self.snapshot_motion()
+        try:
+            for item in self.providers:
+                item.update_motion(factor)
+        except Exception:
+            self.restore_motion(previous)
+            raise
+
+    def snapshot_motion(self) -> tuple[tuple[str, float], ...]:
+        return tuple((item.name, item.snapshot_motion()) for item in self.providers)
+
+    def restore_motion(self, saved) -> None:
+        records = tuple(saved)
+        if tuple(name for name, _ in records) != tuple(
+            item.name for item in self.providers
+        ):
+            raise ValueError("Certified face rigid-pair pose identities differ.")
+        previous = self.snapshot_motion()
+        try:
+            for item, (_, factor) in zip(self.providers, records, strict=True):
+                item.restore_motion(factor)
+        except Exception:
+            for item, (_, factor) in zip(self.providers, previous, strict=True):
+                item.restore_motion(factor)
+            raise
+
+    def snapshot_runtime_state(self):
+        return self.snapshot_motion()
+
+    def restore_runtime_state(self, saved) -> None:
+        self.restore_motion(saved)
+
+    def snapshot_accepted_state(self) -> None:
+        return None
+
+    def restore_accepted_state(self, saved: None) -> None:
+        if saved is not None:
+            raise ValueError("Frictionless certified face pairs have no history State.")
+
+    def validate_accepted_configuration(self) -> None:
+        self.evaluate()
+
+    def commit_accepted(self) -> None:
+        self.validate_accepted_configuration()
+
+    def evaluate(self) -> CombinedCertifiedFaceContactTrial:
+        # All pair evaluations finish before the sum can enter PETSc.
+        return CombinedCertifiedFaceContactTrial(tuple(
+            (item.name, item.evaluate()) for item in self.providers
+        ))
+
+    def _check_current(self, trial: CombinedCertifiedFaceContactTrial) -> None:
+        if (
+            not isinstance(trial, CombinedCertifiedFaceContactTrial)
+            or tuple(name for name, _ in trial.pairs)
+            != tuple(item.name for item in self.providers)
+        ):
+            raise ValueError("Combined certified face trial pair identities differ.")
+        for item, (_, selected) in zip(self.providers, trial.pairs, strict=True):
+            item._check_current(selected)
+
+    def add_residual(self, vector, trial: CombinedCertifiedFaceContactTrial) -> None:
+        self._check_current(trial)
+        add_contact_nodal_residual(vector, trial.nodal_structural_residual)
+
+    def add_tangent(
+        self, matrix, trial: CombinedCertifiedFaceContactTrial,
+        *, constrained_dofs=(),
+    ) -> None:
+        self._check_current(trial)
+        for item, (_, selected) in zip(self.providers, trial.pairs, strict=True):
+            item.add_tangent(matrix, selected, constrained_dofs=constrained_dofs)
+
+    def dual_evidences(self, problem):
+        return tuple(item.dual_evidence(problem) for item in self.providers)
+
+    def summary(self) -> dict[str, object]:
+        return {
+            "kind": "dolfinx_combined_certified_face_contact_research",
+            "pairs": tuple(item.summary() for item in self.providers),
+            "execution_scope": "serial_frictionless_standard_j2_research",
+            "product_release_admitted": False,
         }
