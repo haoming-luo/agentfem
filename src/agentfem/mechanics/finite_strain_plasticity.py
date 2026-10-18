@@ -3078,7 +3078,8 @@ class FiniteStrainJ2StandardProblem:
                             kind="diagnostic",
                             description=(
                                 "Certified face-wise initial penetration bound "
-                                "for a first-order analytical-plane trace."
+                                "for an admitted first-order rigid geometry; "
+                                "see the recorded bound method."
                             ),
                         )
                     if "sampled_mixed_feature_slave_faces" in point_evidence:
@@ -3346,7 +3347,7 @@ class FiniteStrainJ2StandardProblem:
             "kind": "finite_strain_j2_standard_problem",
             "name": self.name,
             "maturity": (
-                "experimental_analytical_plane_contact_serial"
+                "experimental_bounded_rigid_contact_serial"
                 if self.contact_provider is not None
                 else "experimental_global_mpi_restart"
             ),

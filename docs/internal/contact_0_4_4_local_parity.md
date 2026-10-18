@@ -28,12 +28,12 @@ being silently approximated by the bounded route.
 | --- | --- | --- |
 | 1. Comparator | Internal and public-protocol tests | Independent same-input finite-J2 contact run and frozen observables |
 | 2. Surface | Reviewed geometry; exact plane and conservative closed-solid initial-overlap bounds on admitted first-order traces | Open facets, unsupported curved tools, ambiguity and sliding coverage at target geometry |
-| 3. Integration | Planar/convex partitions; sampled nonconvex risk flag | Nonconvex feature-switch integral and tangent |
+| 3. Integration | Planar/convex partitions; sampled nonconvex risk flag and same-state integration screens | Nonconvex feature-switch integral and tangent |
 | 4. Normal law | Penalty Step; fixed-trace AL operator candidate | Outer global Procedure, spatial stability and checkpoint composition |
 | 5. Friction | Locally planar Coulomb State; rigid-master spin transport tested | Admitted geometry-by-friction matrix; sharp features remain rejected |
 | 6. Transaction | Total-system and restart tests for penalty | Repeat for each new enforcement/integration law |
 | 7. Result | Pair work/pressure samples; AL local work sign | Cross-law first-law and pressure interpretation |
-| 8. Science | Local/oracle/installed tests | Mesh x increment x law convergence and external observables |
+| 8. Science | Local/oracle/installed tests; global elastic-limit spring-plane matrix | Mesh x increment x law convergence and external observables |
 | 9. Release | Scoped solver screens | Installed cross-platform gate and production runtime evidence |
 
 “Partial” here is not a release status. The test target, geometry and
@@ -161,6 +161,15 @@ The gate stays open until its listed evidence exists at the proposed scope.
    force to (-0.325105, 0.017034, 0.024163), while potential remained near
    0.008136. Uniformly spending more points therefore did not close the
    feature-transition force question either.
+   The production design now branches deliberately: a user-declared physical
+   fillet/smooth tool can use the existing external `SmoothRigidSurface`
+   extension and must pass the gap/Hessian checker and independent geometry
+   comparison; the exact sharp nonconvex tool must wait for its own
+   trial-geometry segmentation/line-tangent evidence. An implicit hidden
+   normal average or silent fillet would change the model. This distinction
+   follows [Abaqus' explicit advice to smooth analytical rigid corners for
+   finite-sliding Standard contact][abaqus-rigid-smoothing], not an assumption
+   that AgentFEM's present mesh already has those fillets.
    A new algorithm may enter the Step only after both integral and
    differentiation checks, not merely a finer screenshot or work balance.
    For the separate *convex* route, accepted point diagnostics now say whether
@@ -257,8 +266,13 @@ The gate stays open until its listed evidence exists at the proposed scope.
    mesh x increment x enforcement sensitivity, regional plasticity, failure
    rollback and restart. Distinguish integration-point fields from smoothed
    display fields and compare equivalent observables with the frozen external
-   case. Current state: local/unit and installed software gates pass, but the
-   nonconvex penalty sequence is not converged. Reading: [NAFEMS benchmark
+   case. The first independent global scalar oracle now checks a nearly
+   elastic finite-J2 unit bar and rigid-plane penalty against the series
+   compliance limit `F=delta/(1/E+1/k)` at two mesh levels and two penalties;
+   all four satisfy 5e-4 relative tolerance for delta=1e-4. This small-strain
+   limit checks the total force path, not plastic flow, curved geometry or
+   Abaqus equivalence. The nonconvex penalty sequence is not converged.
+   Reading: [NAFEMS benchmark
    catalog][nafems], [Abaqus contact verification cases][abaqus-verification]
    and [COMSOL contact meshing advice][comsol-mesh].
 
@@ -311,6 +325,7 @@ transfer is separately verified.
 [comsol-verification]: https://doc.comsol.com/6.3/doc/com.comsol.help.sme/StructuralMechanicsVerificationExamples.pdf
 [duong]: https://arxiv.org/abs/1712.01179
 [dual-mortar]: https://arxiv.org/abs/2201.01165
+[abaqus-rigid-smoothing]: https://docs.software.vt.edu/abaqusv2025/English/SIMACAEMODRefMap/simamod-c-rigidsurf.htm
 [burman]: https://arxiv.org/abs/1609.03326
 [duong-friction]: https://arxiv.org/abs/1808.10420
 [comsol-settings]: https://doc.comsol.com/6.3/doc/com.comsol.help.sme/sme_ug_modeling.05.146.html

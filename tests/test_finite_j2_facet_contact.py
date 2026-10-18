@@ -835,6 +835,31 @@ def test_contact_quadrature_audit_refuses_frictional_state():
         step.contact_provider.quadrature_sensitivity()
 
 
+@pytest.mark.parametrize("cells", [1, 2])
+@pytest.mark.parametrize("penalty", [1_000.0, 10_000.0])
+def test_elastic_regime_plane_contact_approaches_independent_series_spring(
+    cells, penalty,
+):
+    # A 1 x 1 x 1 bar with nu=0 and an elastic tangent E is in series with
+    # the rigid-plane penalty compliance 1/k. The small-indentation limit is
+    # F=delta/(1/E+1/k). This is a physical oracle, not a second AgentFEM
+    # contact implementation; use a small but nonzero finite-strain path.
+    indentation = 1.0e-4
+    young = 1000.0
+    _, _, _, step = _patch(
+        triangulated=True, gap=0.0,
+        tool_translation=(-indentation, 0.0, 0.0),
+        penalty=penalty, yield_stress=1.0e9,
+        applied_traction=0.0, increments=4, cells=cells,
+    )
+    result = step.solve_result()
+    force = -step.contact_provider.evaluate().contact_force_on_structure[0]
+    expected = indentation / (1.0 / young + 1.0 / penalty)
+    assert result.status == "completed"
+    assert force == pytest.approx(expected, rel=5.0e-4)
+    assert result.quantity("maximum_equivalent_plastic_strain") == pytest.approx(0.0)
+
+
 def test_closed_concave_example_iterative_linear_policy_matches_direct(tmp_path):
     script = Path(__file__).resolve().parents[1] / (
         "examples/finite_j2_closed_concave_contact.py"

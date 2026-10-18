@@ -426,8 +426,9 @@ def _add_affine_constraint_evidence(step, result) -> None:
                     initial["maximum_penetration_bound"],
                     kind="diagnostic",
                     description=(
-                        "Certified face-wise initial penetration bound for a "
-                        "first-order analytical-plane trace."
+                        "Certified face-wise initial penetration bound for an "
+                        "admitted first-order rigid geometry; see the recorded "
+                        "bound method."
                     ),
                 )
             if "sampled_mixed_feature_slave_faces" in point_evidence:
