@@ -608,6 +608,7 @@ def test_closed_concave_example_exports_accepted_public_result(tmp_path):
     summary = run_case(cells=1, increments=6, penalty=20.0, output=tmp_path)
     assert summary["status"] == "completed"
     assert summary["contact_quadrature_degree"] == 2
+    assert summary["line_search"] == "backtracking"
     assert summary["active_reentrant_edge_points"] == 1
     assert summary["active_reference_area"] > 0.0
     assert summary["maximum_penetration"] > 0.0
@@ -625,6 +626,13 @@ def test_closed_concave_example_exports_accepted_public_result(tmp_path):
     assert refined["maximum_penetration"] > 0.0
     assert (refined_output / "fields.xdmf").is_file()
     assert (refined_output / "result.json").is_file()
+
+    full_newton = run_case(
+        cells=1, increments=6, penalty=20.0,
+        output=tmp_path / "basic_newton", line_search="basic",
+    )
+    assert full_newton["status"] == "completed"
+    assert full_newton["line_search"] == "basic"
 
 
 @pytest.mark.parametrize("tool_rotation", [(0.0, 0.0, 0.0), (0.0, 0.0, 0.01)])

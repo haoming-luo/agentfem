@@ -223,6 +223,28 @@ it is not silently counted as an accepted result. A dedicated regression
 checks the rejection reason reaches the event/exception and that accepted
 state rolls back. This failure does not establish whether a physically
 scaled hard-contact formulation would converge under another method.
+The existing `line_search="basic"` full-Newton policy, now selectable in the
+public research example with `--line-search basic`, does complete the same
+six-cell/12-increment degree-7 fixture at penalties 200, 1000 and 10000.
+Reducing the backtracking minimum step from `1/128` to `1e-4` in a one-off
+diagnostic still rejected near load factor 0.5; the issue is not merely that
+the default minimum step is too large.
+Their x-resultants are `-1.82327209`, `-3.11990251`, `-3.94146457`;
+maximum penetrations are `0.03414494`, `0.01850543`, `0.00543376` and
+maximum PEEQ values are `0.04199805`, `0.06374637`, `0.08467591`.
+The penalty response has **not plateaued** and plastic history remains
+strongly parameter-dependent. This comparison isolates the backtracking
+globalization issue; a successful full-Newton path is neither a proof that
+`basic` is universally robust nor a hard-contact accuracy certificate.
+At penalty 200, repeating the full-Newton run with 24 instead of 12
+increments gave x-resultant `-1.82503468`, maximum PEEQ `0.04178001` and
+maximum penetration `0.03418063`; it is a narrow path-step check, not spatial
+or penalty convergence.
+Backtracking remains the example default.
+Any new globalization should compare the accepted path, total residual,
+contact work, plastic history and cutback behavior against both policies;
+silently falling back to a full Newton step after rejected backtracking is
+not justified by this one fixture.
 The next numerical-method experiment
 must distinguish a contact-boundary/feature-aware integration strategy from a
 different physical model, preserve residual--tangent consistency and compare

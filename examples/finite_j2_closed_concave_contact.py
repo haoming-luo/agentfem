@@ -51,11 +51,14 @@ def _reviewed_l_prism():
 def run_case(
     *, cells: int, increments: int, penalty: float, output: Path,
     contact_quadrature_degree: int | None = None,
+    line_search: str = "backtracking",
 ):
     if MPI.COMM_WORLD.size != 1:
         raise RuntimeError("This bounded implicit closed-tool example is serial only.")
     if cells < 1 or increments < 1 or not np.isfinite(penalty) or penalty <= 0.0:
         raise ValueError("Cells, increments and penalty must be positive and finite.")
+    if line_search not in {"backtracking", "basic"}:
+        raise ValueError("This example requires backtracking or basic line search.")
     domain = dolfinx_mesh.create_unit_cube(
         MPI.COMM_SELF, cells, cells, cells,
         cell_type=dolfinx_mesh.CellType.tetrahedron,
@@ -95,7 +98,7 @@ def run_case(
         ),
         solver_options=solvers.newton(
             relative_tolerance=1.0e-8, absolute_tolerance=1.0e-9,
-            maximum_iterations=25, line_search="backtracking",
+            maximum_iterations=25, line_search=line_search,
         ),
         progress=False,
     )
@@ -117,6 +120,7 @@ def run_case(
         "cells_per_axis": cells,
         "accepted_increments": len(step.accepted_increments),
         "penalty": penalty,
+        "line_search": line_search,
         "contact_quadrature_degree": (
             2 if contact_quadrature_degree is None
             else contact_quadrature_degree
@@ -143,6 +147,11 @@ def main() -> None:
     parser.add_argument("--increments", type=int, default=24)
     parser.add_argument("--penalty", type=float, default=20.0)
     parser.add_argument(
+        "--line-search", choices=("backtracking", "basic"),
+        default="backtracking",
+        help="existing Newton policy; basic is for controlled sensitivity checks",
+    )
+    parser.add_argument(
         "--contact-quadrature-degree", type=int, choices=(5, 7),
         help="opt-in positive tetrahedral face rule for sensitivity checks",
     )
@@ -154,6 +163,7 @@ def main() -> None:
         cells=args.cells, increments=args.increments,
         penalty=args.penalty, output=args.output,
         contact_quadrature_degree=args.contact_quadrature_degree,
+        line_search=args.line_search,
     ), indent=2, sort_keys=True))
 
 
