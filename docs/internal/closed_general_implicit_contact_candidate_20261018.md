@@ -685,7 +685,11 @@ compressed dominant line contributes the affine feature term to the same
 contact Newton matrix. An independent symmetric convex-corner fixture checks
 exact potential and total force as well as five directional tangent differences
 with three positive-area dominant planes. Five perturbed corner states also
-pass directional tangent differences. Four such planes still reject.
+pass directional tangent differences. A real DOLFINx tetrahedral boundary
+Operator with three crossing features passes the assembled contact tangent
+difference; the manufactured geometry offsets its switches from the slave
+facet boundary, where the two-sided tangent is intentionally undefined.
+Four positive-area dominant planes still reject.
 A boundary-aligned undefined
 two-sided switch also rejects. The default Gauss route is unchanged.
 

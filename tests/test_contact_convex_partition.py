@@ -259,6 +259,54 @@ def test_real_dolfinx_convex_feature_operator_captures_strip_and_full_tangent():
     )
 
 
+def test_real_dolfinx_convex_corner_three_feature_operator_tangent():
+    basix_ufl = pytest.importorskip("basix.ufl")
+    fem = pytest.importorskip("dolfinx.fem")
+    mesh = pytest.importorskip("dolfinx.mesh")
+    mpi = pytest.importorskip("mpi4py.MPI")
+    agent_mesh = pytest.importorskip("agentfem.mesh")
+    domain = mesh.create_unit_cube(
+        mpi.COMM_SELF, 1, 1, 1, cell_type=mesh.CellType.tetrahedron,
+    )
+    space = fem.functionspace(
+        domain, basix_ufl.element("Lagrange", domain.basix_cell(), 1, shape=(3,)),
+    )
+    displacement = fem.Function(space)
+    displacement.x.array.reshape(-1, 3)[:, 0] = 0.2
+    facets = mesh.locate_entities_boundary(domain, 2, lambda x: np.isclose(x[0], 0))
+    tags = mesh.meshtags(domain, 2, facets, np.full(len(facets), 7, dtype=np.int32))
+    slave = agent_mesh.tagged_boundary_region(domain, tags, tag=7, name="slave")
+    surface = boundary_models.convex_polyhedral_rigid_surface(
+        # Offset the corner so no feature switch is coincident with the
+        # DOLFINx triangulation's diagonal; that case has no two-sided tangent.
+        vertices=((0, -0.04, 0.03), (3, -0.04, 0.03),
+                  (0, 2.96, 0.03), (0, -0.04, 3.03)),
+        triangles=((0, 2, 1), (0, 1, 3), (0, 3, 2), (1, 2, 3)),
+    )
+    pair = boundary_models.rigid_contact_pair(
+        slave, boundary_models.rigid_body(surface), penalty=7.0,
+    )
+    contact = dolfinx_implicit_rigid_contact(
+        pair, displacement, contact_integration="convex_feature_partition",
+    )
+    value = contact.evaluate()
+    assert value.potential_energy > 0
+    assert contact.current_point_diagnostics()["active_feature_lines"] >= 3
+    base = displacement.x.array.copy()
+    direction = np.random.default_rng(531).normal(size=base.shape)
+    h = 1e-7
+    displacement.x.array[:] = base + h * direction
+    plus = contact.evaluate()
+    displacement.x.array[:] = base - h * direction
+    minus = contact.evaluate()
+    displacement.x.array[:] = base
+    np.testing.assert_allclose(
+        value.tangent_action(direction.reshape(-1, 3)),
+        (plus.nodal_structural_residual - minus.nodal_structural_residual) / (2 * h),
+        rtol=2e-7, atol=2e-8,
+    )
+
+
 def test_convex_partition_rejects_projection_from_a_different_feature(monkeypatch):
     from dataclasses import replace
 
