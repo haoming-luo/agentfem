@@ -131,6 +131,7 @@ def test_public_arc_length_provider_matches_hyperelastic_patch(dim):
         ),
     )
     r = step.solve_result()
+    assert r.histories["load_factor"].abscissa_unit is None
     lam = r.quantity("load_factor")
     # nu=0 compressible neo-Hookean nominal P=mu*(stretch-1/stretch).
     stretch = (lam / 500 + np.sqrt((lam / 500) ** 2 + 4)) / 2
