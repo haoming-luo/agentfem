@@ -12,8 +12,21 @@ it does not prove an integration-error bound or a contact-feature tangent.
 from __future__ import annotations
 
 from dataclasses import dataclass
+from functools import lru_cache
 
 import numpy as np
+
+
+@lru_cache(maxsize=63)
+def _gauss_rule(order: int) -> tuple[np.ndarray, np.ndarray]:
+    """Share one immutable Legendre rule for each admitted order [2, 64]."""
+
+    if type(order) is not int or not 2 <= order <= 64:
+        raise ValueError("Quadratic region Gauss order must be in [2, 64].")
+    nodes, weights = np.polynomial.legendre.leggauss(order)
+    nodes.setflags(write=False)
+    weights.setflags(write=False)
+    return nodes, weights
 
 
 @dataclass(frozen=True)
@@ -91,7 +104,7 @@ def _outer_quadrature(level_set: QuadraticReferenceLevelSet, order: int):
     outer_breaks = _unique_unit_interval(
         (0.0, 1.0, *_real_roots(c2, c1, c0), *_real_roots(*upper), *tangent_breaks)
     )
-    nodes, gauss_weights = np.polynomial.legendre.leggauss(order)
+    nodes, gauss_weights = _gauss_rule(order)
     for first, last in zip(outer_breaks[:-1], outer_breaks[1:], strict=True):
         width = last - first
         if width <= 1.0e-13:
@@ -154,7 +167,7 @@ def quadratic_region_triangle_quadrature(
     if type(order) is not int or not 2 <= order <= 64:
         raise ValueError("Quadratic region Gauss order must be an integer in [2, 64].")
     a, b0, b1, c0, c1, c2 = _scaled_coefficients(level_set)[0]
-    nodes, gauss_weights = np.polynomial.legendre.leggauss(order)
+    nodes, gauss_weights = _gauss_rule(order)
     active_shapes = []
     active_weights = []
     for s, outer_weight in _outer_quadrature(level_set, order):

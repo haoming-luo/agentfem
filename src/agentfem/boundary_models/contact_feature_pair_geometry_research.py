@@ -27,6 +27,10 @@ from .contact_separation_bound import (
     ContactSeparationBound,
     certify_current_triangle_separation,
 )
+from .contact_smooth_face_research import (
+    CertifiedSmoothClosedFacePenalty,
+    integrate_certified_smooth_closed_face,
+)
 from .rigid import _closest_point_on_triangle, _triangle_barycentric_coordinates
 
 
@@ -108,6 +112,90 @@ class CertifiedSeparatedClosedFace:
             object.__setattr__(self, name, values)
 
 
+@dataclass(frozen=True, eq=False)
+class CertifiedTouchingClosedFace:
+    """Zero penalty at a resolved numerical touch on a proved smooth patch.
+
+    The penalty law has zero first derivative at the kink. Its open-side
+    tangent (zero) is used for this trial; every subsequent Newton trial must
+    be recertified and can take the active branch instead.
+    """
+
+    tool_fingerprint: str
+    reference_vertices: np.ndarray
+    current_vertices: np.ndarray
+    maximum_absolute_gap: float
+    numerical_gap_tolerance: float
+
+    def __post_init__(self) -> None:
+        for name in ("reference_vertices", "current_vertices"):
+            values = np.asarray(getattr(self, name), dtype=float).copy()
+            if values.shape != (3, 3) or not np.all(np.isfinite(values)):
+                raise ValueError("A touching face needs finite P1 triangle geometry.")
+            if np.linalg.norm(np.cross(values[1] - values[0], values[2] - values[0])) <= 0.0:
+                raise ValueError("A touching face cannot have zero area.")
+            values.setflags(write=False)
+            object.__setattr__(self, name, values)
+        if (
+            not np.isfinite(self.maximum_absolute_gap)
+            or not np.isfinite(self.numerical_gap_tolerance)
+            or not 0.0 <= self.maximum_absolute_gap <= self.numerical_gap_tolerance
+        ):
+            raise ValueError("A touching face exceeds its numerical gap tolerance.")
+
+
+def certify_touching_closed_contact_face(
+    reference_vertices,
+    current_vertices,
+    surface: ClosedTriangulatedRigidSolid,
+) -> CertifiedTouchingClosedFace:
+    """Admit only a roundoff-scale zero gap on one proved smooth patch.
+
+    This does not round a physically resolvable gap to zero. The reviewed
+    whole-face planar bound must cover the triangle and exclude all other
+    finite master features first. The numerical convention is recorded on
+    the trial; it is not an exact-arithmetic contact theorem.
+    """
+
+    from .contact_planar_branch_bound import certify_closed_planar_branch
+
+    reference = np.asarray(reference_vertices, dtype=float)
+    current = np.asarray(current_vertices, dtype=float)
+    if (
+        reference.shape != (3, 3) or current.shape != (3, 3)
+        or not np.all(np.isfinite(reference)) or not np.all(np.isfinite(current))
+        or not isinstance(surface, ClosedTriangulatedRigidSolid)
+    ):
+        raise ValueError("Touching contact proof needs finite P1 faces and a closed tool.")
+    bound = certify_closed_planar_branch(current[None, :, :], surface)
+    if not bound.certified:
+        raise NotImplementedError("A zero-gap face has no complete smooth-plane proof.")
+    normal = bound.plane_normals[0]
+    origin = bound.plane_points[0]
+    gaps = (current - origin) @ normal
+    world_scale = max(
+        1.0, float(np.max(np.abs(current))),
+        float(np.max(np.abs(surface.facets.vertices))),
+    )
+    tolerance = 8.0 * np.finfo(float).eps * world_scale
+    face_scale = max(
+        float(np.linalg.norm(current[1] - current[0])),
+        float(np.linalg.norm(current[2] - current[0])),
+    )
+    if tolerance > 1e-8 * face_scale:
+        raise ValueError("Touching geometry is unresolved at world-coordinate precision.")
+    maximum_gap = float(np.max(np.abs(gaps)))
+    if maximum_gap > tolerance:
+        raise NotImplementedError("A zero-gap face is not numerically coplanar.")
+    projection = surface.project(current)
+    if not np.all(projection.valid) or not np.all(projection.signed_gaps == 0.0):
+        raise NotImplementedError("A zero-gap face is not on the closed boundary.")
+    return CertifiedTouchingClosedFace(
+        surface.geometry_fingerprint, reference, current,
+        maximum_gap, tolerance,
+    )
+
+
 def certify_separated_closed_contact_face(
     reference_vertices,
     current_vertices,
@@ -157,13 +245,16 @@ def integrate_discovered_closed_contact_face(
     maximum_master_facets: int = 64,
 ) -> (
     CertifiedSeparatedClosedFace
+    | CertifiedTouchingClosedFace
+    | CertifiedSmoothClosedFacePenalty
     | CertifiedClosedTwoFeaturePenalty
     | CertifiedPartialClosedTwoFeaturePenalty
 ):
     """Certify one complete P1 face without user-selected master IDs.
 
     Search samples propose finite-facet pairs; only a whole-region proof may
-    accept one. The admitted subset is exactly: strict separation, one
+    accept one. The admitted subset is exactly: strict separation, exact
+    smooth touching, one certified smooth active plane, one
     transverse activation plane with two features, or a wholly interior
     two-feature face. All other geometry fails closed.
     """
@@ -190,6 +281,17 @@ def integrate_discovered_closed_contact_face(
         raise ValueError("Closed-face discovery needs a bounded P1 contact problem.")
     try:
         return certify_separated_closed_contact_face(reference, slave, surface)
+    except NotImplementedError:
+        pass
+    try:
+        return certify_touching_closed_contact_face(reference, slave, surface)
+    except NotImplementedError:
+        pass
+    try:
+        return integrate_certified_smooth_closed_face(
+            reference, slave, surface, penalty=penalty,
+            maximum_master_facets=maximum_master_facets,
+        )
     except NotImplementedError:
         pass
     try:
@@ -1004,8 +1106,10 @@ __all__ = [
     "CertifiedClosedTwoFeaturePenalty",
     "CertifiedPartialClosedTwoFeaturePenalty",
     "CertifiedSeparatedClosedFace",
+    "CertifiedTouchingClosedFace",
     "CertifiedTwoFacetDistancePair",
     "certify_separated_closed_contact_face",
+    "certify_touching_closed_contact_face",
     "integrate_discovered_closed_contact_face",
     "certify_two_facet_distance_competition",
     "certify_partial_closed_face",

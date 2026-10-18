@@ -10,6 +10,7 @@ import pytest
 
 from agentfem.boundary_models.contact_quadratic_region import (
     QuadraticReferenceLevelSet,
+    _gauss_rule,
     quadratic_level_set_boundary_quadrature,
     quadratic_region_triangle_quadrature,
 )
@@ -23,6 +24,18 @@ _ORACLE = runpy.run_path(
     )
 )
 _VERTICES = np.asarray(((1.0, 0.0), (2.0, 0.0), (2.0, 3.0)))
+
+
+def test_legendre_rules_are_shared_read_only_and_order_specific():
+    first_nodes, first_weights = _gauss_rule(24)
+    again_nodes, again_weights = _gauss_rule(24)
+    assert first_nodes is again_nodes
+    assert first_weights is again_weights
+    assert not first_nodes.flags.writeable
+    assert not first_weights.flags.writeable
+    assert _gauss_rule(12)[0] is not first_nodes
+    with pytest.raises(ValueError, match="order"):
+        _gauss_rule(65)
 
 
 def _feature_level_set(current_vertices):

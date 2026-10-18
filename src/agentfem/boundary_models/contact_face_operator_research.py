@@ -19,8 +19,10 @@ from .contact_feature_pair_geometry_research import (
     CertifiedClosedTwoFeaturePenalty,
     CertifiedPartialClosedTwoFeaturePenalty,
     CertifiedSeparatedClosedFace,
+    CertifiedTouchingClosedFace,
     integrate_discovered_closed_contact_face,
 )
+from .contact_smooth_face_research import CertifiedSmoothClosedFacePenalty
 from .contact_trace import ContactTrace
 from .rigid import PrescribedRigidMotion
 
@@ -217,6 +219,8 @@ def assemble_certified_contact_faces(
                     CertifiedClosedTwoFeaturePenalty,
                     CertifiedPartialClosedTwoFeaturePenalty,
                     CertifiedSeparatedClosedFace,
+                    CertifiedTouchingClosedFace,
+                    CertifiedSmoothClosedFacePenalty,
                 ),
             )
             for item in accepted
@@ -234,9 +238,11 @@ def assemble_certified_contact_faces(
                 "A certified contact face is paired with different geometry."
             )
     residual = np.zeros((count, 3))
-    active_count = sum(
-        not isinstance(item, CertifiedSeparatedClosedFace) for item in accepted
-    )
+    active_count = sum(isinstance(item, (
+        CertifiedClosedTwoFeaturePenalty,
+        CertifiedPartialClosedTwoFeaturePenalty,
+        CertifiedSmoothClosedFacePenalty,
+    )) for item in accepted)
     rows = np.empty(81 * active_count, dtype=np.int64)
     columns = np.empty_like(rows)
     values = np.empty(len(rows))
@@ -252,12 +258,18 @@ def assemble_certified_contact_faces(
     tool_moment = np.zeros(3)
     active_index = 0
     for face_index, (face_nodes, item) in enumerate(zip(nodes, accepted, strict=True)):
-        if isinstance(item, CertifiedSeparatedClosedFace):
+        if isinstance(item, (CertifiedSeparatedClosedFace, CertifiedTouchingClosedFace)):
             face_potential[face_index] = 0.0
             face_area[face_index] = 0.0
-            activity_kinds.append("separated")
+            activity_kinds.append(
+                "separated" if isinstance(item, CertifiedSeparatedClosedFace)
+                else "touching"
+            )
             feature_kinds.append(None)
-            separation_bounds.append(item.separation.minimum_gap_lower_bound)
+            separation_bounds.append(
+                item.separation.minimum_gap_lower_bound
+                if isinstance(item, CertifiedSeparatedClosedFace) else 0.0
+            )
             continue
         response = item.response
         if (
@@ -287,7 +299,10 @@ def assemble_certified_contact_faces(
             if isinstance(item, CertifiedPartialClosedTwoFeaturePenalty)
             else "whole"
         )
-        feature_kinds.append(item.geometry.feature_kinds)
+        feature_kinds.append(
+            ("face",) if isinstance(item, CertifiedSmoothClosedFacePenalty)
+            else item.geometry.feature_kinds
+        )
         separation_bounds.append(None)
         tool_moment += response.rigid_rotation_reaction_about_origin
         active_index += 1
@@ -436,7 +451,9 @@ def evaluate_moving_certified_closed_p1_contact_operator(
         maximum_master_facets=maximum_master_facets,
     )
     block_rotation = np.kron(np.eye(3), rotation)
-    active = sum(kind != "separated" for kind in local.face_activity_kinds)
+    active = sum(
+        kind in ("partial", "whole") for kind in local.face_activity_kinds
+    )
     transformed_tangent = np.empty_like(local.tangent_values)
     for index in range(active):
         selected = slice(81 * index, 81 * (index + 1))

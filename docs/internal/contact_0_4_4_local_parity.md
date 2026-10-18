@@ -28,16 +28,66 @@ being silently approximated by the bounded route.
 | --- | --- | --- |
 | 1. Comparator | Internal and public-protocol tests | Independent same-input finite-J2 contact run and frozen observables |
 | 2. Surface | Reviewed closed/open triangle geometry, bounded initial-overlap checks, and per-face same-plane proof with one bounded fallback subdivision | Rims, unsupported curved tools, ambiguous sharp features and target-path sliding coverage |
-| 3. Integration | Planar/convex partitions; certified zero-contact and smooth-branch faces; private wholly-interior and single-plane partially active reentrant edge/face local integral and tangent; bounded adaptive interior-ball cover | General active boundaries and feature sets; global signed-gap Step admission; other edge/point laws |
+| 3. Integration | Planar/convex partitions; certified zero-contact and smooth-branch faces; private wholly-interior and single-plane partially active reentrant edge/face local integral and tangent; bounded adaptive interior-ball cover; whole-face smooth numerical-touch admission | General active boundaries and feature sets; global signed-gap Step admission; other edge/point laws |
 | 4. Normal law | Penalty Step; fixed-trace AL research law plus real-mesh/reduced-rank counterexamples | Compatible multiplier space, outer global Procedure, spatial stability and checkpoint composition |
 | 5. Friction | Locally planar Coulomb State; rigid-master spin transport tested | Admitted geometry-by-friction matrix; sharp features remain rejected |
 | 6. Transaction | Total-system and restart tests for admitted penalty modes; opt-in serial standard-J2 certified-face research Step with work, plastic-history rollback/restart and two named tools; smooth-subset affine/MPC total-system path | Sharp-feature MPC, mixed face/point modes, MPI, changing feature topology and wider path tests |
 | 7. Result | Pair work/pressure samples; AL local work sign; standard and affine/MPC research face-location extensive evidence and accepted-station coverage without point pressure | Cross-law first-law, between-station coverage and a defensible pressure interpretation |
-| 8. Science | Local/oracle/installed tests; global elastic-limit spring-plane matrix | Mesh x increment x law convergence and external observables |
+| 8. Science | Local/oracle/installed tests; independent homogeneous elastic-limit spring equation across two meshes, two increment counts and three penalties | Inhomogeneous mesh x increment x law convergence and external observables |
 | 9. Release | Scoped solver screens | Installed cross-platform gate and production runtime evidence |
 
 “Partial” here is not a release status. The test target, geometry and
 enforcement must all match before a gate can be marked closed.
+The new `test_contact_face_science_research.py` compares an opt-in certified
+closed-triangle face Step against the independently solved scalar equilibrium
+`1000 log(1+u)/(1+u) + k(u+0.05) = 30` for a homogeneous slender column with
+Poisson ratio zero and a strictly interior initial face. At `k=500`, the
+two tetrahedral meshes and one/three increments all give
+`u=0.00334447328517` versus scalar root `0.00334447328519` (relative error
+about `5.7e-12`); `k=250/1000` also agree to better than `9e-12` relative.
+Contact potential matches the independently integrated
+`k A (u+0.05)^2/2`. Homogeneous deformation is represented exactly by
+both meshes, so this is a useful same-input *spring-limit* test, **not** a
+general mesh convergence study or an external finite-element code comparison.
+The companion Poisson-ratio-0.3 clamped column is deliberately
+inhomogeneous. At one/three increments and one/two/three cells across its
+cross-section, the whole-face closed tool and independently assembled
+analytical-plane backend agree in displacement and penalty energy to their
+declared tolerances. Its closed-tool center displacement changes from
+`0.00303999393425` (one cell) through `0.00319348675388` (two) to
+`0.00324430311741` (three); the penalty energy changes from
+`0.00703287986482` through `0.00707388762374` to `0.00708738984529`.
+This is a directional refinement screen, not proof of the asymptotic limit.
+The same benchmark also starts from zero gap and advances into active contact.
+It permits a zero-force/open-side-tangent trial only when a whole-face
+coplanar coverage/competitor proof succeeds and the remaining vertex gap is
+within `8 epsilon * world_scale` with the closed projector reporting zero.
+That numerical convention is recorded on the local certificate and refuses
+gaps of `1e-8` in either direction; it is not an exact-arithmetic theorem,
+and it rejects coordinates whose roundoff scale exceeds `1e-8` of the local
+face size. The initial contact tangent selects the zero/open-side generalized
+derivative at the penalty kink; every subsequent trial recertifies its branch.
+These statements are limited to the opt-in research route,
+and unproved rims or sharp transitions still fail closed.
+For a face that has a *separate whole-face smooth-plane certificate*, the
+two-feature research Operator now reuses the existing affine active-triangle
+clipper. Its P1 normal gap is affine and its penalty potential is quadratic,
+so the positive degree-two rule integrates the active reference area,
+residual and fixed-branch tangent without a conic two-feature partition.
+This is per-face dispatch from a fresh current-configuration proof, not a
+cached contact projection or an assumption that every tool is planar. A
+partly active face passes a re-partitioned potential-gradient and tangent
+finite difference; the reentrant two-feature regressions still take their
+original branch. A bounded immutable Gauss-rule cache also removes repeated
+Legendre-node generation without changing the rule. The reproducible
+`tools/benchmark_certified_face_step.py` alternates both certified routes on
+the *same* two-cell, three-increment J2 model, checks equal displacement and
+contact energy, and after two warmup pairs measured eight pairs on one
+Apple Silicon FEniCSx host: medians `0.7324 s` (certified two-feature
+reference) versus `0.3043 s` (smooth-face dispatch), about `2.41x` for this
+**small research Step**. The ordinary analytical-plane Step on that model
+remains faster; this is neither a production speed claim nor an estimate for
+sharp-feature models, which correctly retain the more expensive rule.
 The reentrant-tool sample carries an engineering quality failure whenever a
 sampled slave face crosses nearest features without a certified transition
 integral. Release additionally requires a certified integral even if no
