@@ -213,6 +213,16 @@ The gate stays open until its listed evidence exists at the proposed scope.
    A rim/competing feature fails closed. The open sheet never inherits the
    closed-solid 1-Lipschitz signed-distance argument, and an arbitrary
    curved projector inherits neither proof. The
+   current smooth-plane branch certificate has a separate conservative
+   refinement: when the whole slave face fails only its coarse competitor
+   radius test, it bisects the reference triangle once and admits the parent
+   only if all four children independently certify the *same oriented tool
+   plane*. This changes no quadrature or contact law. On the reviewed
+   reentrant-tool fixture a wider face formerly rejected by the coarse
+   `2r` screen is now certified with positive child clearance, while disabling
+   refinement reproduces the refusal and a true edge-transition face remains
+   rejected. The depth is bounded and child planes that differ never become
+   an approximate sharp-feature rule. The
    ordinary Step capability query reports unsupported geometry/order before
    Step construction. The explicit pair still rejects this policy. No branch
    silently moves slave nodes or the tool. Arbitrary large-CAD and ambiguous
@@ -532,13 +542,21 @@ The gate stays open until its listed evidence exists at the proposed scope.
    repairs this particular algebraic redundancy, not inf-sup stability,
    pressure accuracy, complementarity across faces or global product
    acceptance. The one-cell plastic feasibility fixture keeps the same
-   rank result after its actual strong-boundary reduction; a periodic-MPC
-   reduction and a mesh/pressure ladder remain separate gates. This is
+   rank result after its actual strong-boundary reduction; a mesh/pressure
+   ladder remains a separate gate. This is
    consistent with the
    [dual-mortar multiplier-space analysis][dual-mortar-space] and the
    [reported boundary-contact inconsistency of unmodified dual bases][dual-mortar-boundary];
    those papers motivate the space design rather than validating our nodal
-   lumping as an equivalent mortar method.
+   lumping as an equivalent mortar method. An actual periodic-J2 fixture is
+   stricter still: its 24 Gaussian point constraints have unreduced row rank
+   22 and only rank 9 after the real 81-by-21 MPC transformation. The same
+   surface's 9 coalesced nodal constraints have unreduced rank 9 but reduced
+   rank only 5. Thus even the nodal candidate is **not** admitted under
+   periodic MPC merely because its bare surface matrix is full row rank.
+   The controlled all-active screen is an algebraic counterexample, not a
+   physical pressure field; a multiplier basis compatible with the *actual*
+   primal reduction and active inequalities remains research work.
 
    A second research-only screen used the same finite-J2 Newton owner with
    coalesced nodal multipliers against an independent homogeneous hard-plane

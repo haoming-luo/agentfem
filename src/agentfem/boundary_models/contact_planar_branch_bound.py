@@ -118,6 +118,8 @@ def certify_reviewed_planar_branch(
     factor: float = 0.0,
     maximum_slave_faces: int = 1024,
     maximum_master_facets: int = 4096,
+    maximum_refinement_levels: int = 1,
+    _refinement_budget: list[int] | None = None,
 ) -> ClosedPlanarBranchBound:
     """Certify an exact affine gap branch on each complete current P1 face.
 
@@ -128,6 +130,9 @@ def certify_reviewed_planar_branch(
     triangle; otherwise a bounded polygon subtraction proves that the
     projected slave triangle is covered by the coplanar master-triangle union.
     Coplanar, identically oriented facets share the same signed-gap function.
+    If the radius test alone is inconclusive, a bounded subdivision may prove
+    that every child still has this *same* plane. Different child planes never
+    license an approximate feature-switch integral.
     """
 
     if isinstance(surface, ClosedTriangulatedRigidSolid):
@@ -159,8 +164,18 @@ def certify_reviewed_planar_branch(
     if (
         type(maximum_slave_faces) is not int or maximum_slave_faces < 1
         or type(maximum_master_facets) is not int or maximum_master_facets < 1
+        or type(maximum_refinement_levels) is not int
+        or not 0 <= maximum_refinement_levels <= 3
     ):
-        raise ValueError("Planar branch budgets must be positive integers.")
+        raise ValueError("Planar branch budgets or refinement depth are invalid.")
+    refinement_budget = [4096] if _refinement_budget is None else _refinement_budget
+    if (
+        not isinstance(refinement_budget, list)
+        or len(refinement_budget) != 1
+        or type(refinement_budget[0]) is not int
+        or refinement_budget[0] < 0
+    ):
+        raise ValueError("Planar branch refinement budget is invalid.")
     face_count = len(cells)
     master_count = len(master)
 
@@ -209,10 +224,10 @@ def certify_reviewed_planar_branch(
     selected_points = []
     examined = 0
     minimum_clearance = float("inf")
-    for cell, center, radius, identity, gap in zip(
+    for face_index, (cell, center, radius, identity, gap) in enumerate(zip(
         reference_cells, centers, radii, projection.entity_ids,
         projection.signed_gaps, strict=True,
-    ):
+    )):
         slot = slots[int(identity)]
         selected_triangle = master[slot]
         normal = normals[slot]
@@ -259,19 +274,66 @@ def certify_reviewed_planar_branch(
             - candidate_distance - 2.0 * radius
         )
         box_excluded = competing & (box_clearance > length_margin)
+        face_clearance = float("inf")
         if np.any(box_excluded):
-            minimum_clearance = min(
-                minimum_clearance, float(np.min(box_clearance[box_excluded])),
+            face_clearance = min(
+                face_clearance, float(np.min(box_clearance[box_excluded])),
             )
+        uncertain_competitor = False
         for other_slot in np.flatnonzero(competing & ~box_excluded):
             other = master[other_slot]
             examined += 1
             foot = _closest_point_on_triangle(center, *other)
             competitor_distance = float(np.linalg.norm(center - foot))
             clearance = competitor_distance - candidate_distance - 2.0 * radius
-            minimum_clearance = min(minimum_clearance, clearance)
+            face_clearance = min(face_clearance, clearance)
             if clearance <= length_margin:
+                uncertain_competitor = True
+                break
+        if uncertain_competitor:
+            if not maximum_refinement_levels:
                 return failed("another_master_feature_can_compete", examined)
+            if refinement_budget[0] < 4:
+                return failed("geometry_budget_exceeded", examined)
+            refinement_budget[0] -= 4
+            a, b, c = cells[face_index]
+            ab, bc, ca = (a + b) / 2, (b + c) / 2, (c + a) / 2
+            children = np.asarray((
+                (a, ab, ca), (ab, b, bc), (ca, bc, c), (ab, bc, ca),
+            ))
+            refined = certify_reviewed_planar_branch(
+                children, surface, projector=projector, motion=motion,
+                factor=selected_factor, maximum_slave_faces=maximum_slave_faces,
+                maximum_master_facets=maximum_master_facets,
+                maximum_refinement_levels=maximum_refinement_levels - 1,
+                _refinement_budget=refinement_budget,
+            )
+            examined += refined.examined_master_facet_count
+            if not refined.certified:
+                return failed(
+                    "geometry_budget_exceeded"
+                    if refined.status == "geometry_budget_exceeded"
+                    else "another_master_feature_can_compete",
+                    examined,
+                )
+            world_normal = normal @ rotation.T
+            world_point = moved_reference + (point - reference) @ rotation.T
+            world_offset = float(world_normal @ world_point)
+            if (
+                np.any(np.linalg.norm(
+                    refined.plane_normals - world_normal, axis=1,
+                ) > angular_margin)
+                or np.any(np.abs(
+                    np.einsum("ij,ij->i", refined.plane_normals, refined.plane_points)
+                    - world_offset,
+                ) > length_margin)
+            ):
+                return failed("another_master_feature_can_compete", examined)
+            face_clearance = (
+                float("inf") if refined.minimum_competitor_clearance is None
+                else refined.minimum_competitor_clearance
+            )
+        minimum_clearance = min(minimum_clearance, face_clearance)
         selected_points.append(point)
         selected_normals.append(normal)
     world_points = moved_reference + (np.asarray(selected_points) - reference) @ rotation.T

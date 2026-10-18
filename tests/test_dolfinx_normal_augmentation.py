@@ -21,6 +21,7 @@ from agentfem.boundary_models.normal_augmentation import (
 )
 
 from test_finite_j2_facet_contact import _patch
+from test_finite_strain_j2_periodic import _periodic_j2_contact_step
 
 
 @pytest.mark.parametrize("cells", [1, 2, 3])
@@ -89,6 +90,61 @@ def test_gauss_point_multiplier_rank_deficiency_grows_on_planar_p1_mesh(cells):
     assert nodal_rank["row_rank"] == normal_nodes
     assert nodal_rank["row_nullity"] == 0
     assert not nodal_rank["certifies_spatial_stability"]
+
+
+def test_actual_periodic_mpc_reduction_makes_even_nodal_multipliers_redundant():
+    """A good unreduced trace does not certify the constrained global system.
+
+    This is a controlled all-active algebraic screen, not a claimed physical
+    pressure field or an augmented-Lagrangian periodic Step.
+    """
+
+    fixture, periodicity, step = _periodic_j2_contact_step()
+    provider = step.contact_provider
+    transformation = periodicity.reduction(1.0).matrix(fixture.domain.comm)
+    dense = transformation.convert("dense")
+    try:
+        actual_reduction = dense.getDenseArray().copy()
+    finally:
+        dense.destroy()
+        transformation.destroy()
+
+    def rank(adapter):
+        provider.adapter = adapter
+        trace = adapter.trace
+        evaluation, record, _, _ = provider._current_point_response()
+        state = FixedTraceNormalMultiplierState(
+            trace, pair_identity=provider.name,
+            reference_evaluation=trace.evaluate(adapter.reference_nodal_positions),
+            surface_fingerprint=provider.surface.geometry_fingerprint,
+            penalty=5000.0, penetration_tolerance=1e-6,
+            complementarity_tolerance=1e-6, maximum_augmentations=4,
+            length_unit="m", pressure_unit="Pa",
+            initial_multiplier=np.full(trace.point_count, 1e6),
+        )
+        response = state.evaluate(evaluation, record)
+        return (
+            diagnose_fixed_trace_normal_constraint_rank(response),
+            diagnose_fixed_trace_normal_constraint_rank(
+                response, displacement_reduction=actual_reduction,
+            ),
+        )
+
+    gauss, reduced_gauss = rank(provider.adapter)
+    nodal_adapter = dolfinx_boundary_region_contact_trace(
+        provider.pair.slave_boundary,
+        step.solution.function_space,
+        integration="nodal_lumped",
+    )
+    nodal_adapter = boundary_models.RigidContactTracePolicy(
+        "nodal_lumped", coalesce_nodes=True,
+    ).apply(nodal_adapter, provider.pair)
+    nodal, reduced_nodal = rank(nodal_adapter)
+    assert (gauss["active_point_count"], gauss["row_nullity"]) == (24, 2)
+    assert (reduced_gauss["row_rank"], reduced_gauss["row_nullity"]) == (9, 15)
+    assert (nodal["active_point_count"], nodal["row_nullity"]) == (9, 0)
+    assert (reduced_nodal["row_rank"], reduced_nodal["row_nullity"]) == (5, 4)
+    assert not reduced_nodal["certifies_spatial_stability"]
 
 
 @pytest.mark.parametrize("geometry", ["plane", "sphere"])

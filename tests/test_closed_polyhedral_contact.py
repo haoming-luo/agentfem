@@ -268,15 +268,45 @@ def test_closed_solid_planar_branch_needs_full_face_and_competitor_clearance():
     assert seam.certified, seam.status
     np.testing.assert_allclose(seam.plane_normals[0], (1., 0., 0.))
 
-    broad = certify_closed_planar_branch(
-        np.asarray((((0.95, 1.25, 0.45), (0.95, 1.45, 0.45),
-                     (0.95, 1.25, 0.55)),)), tool,
+    broad_face = np.asarray((((0.95, 1.25, 0.45), (0.95, 1.45, 0.45),
+                              (0.95, 1.25, 0.55)),))
+    coarse_only = certify_closed_planar_branch(
+        broad_face, tool, maximum_refinement_levels=0,
     )
-    assert not broad.certified
-    assert broad.status in {
-        "another_master_feature_can_compete",
-        "projection_can_leave_master_patch",
-    }
+    assert not coarse_only.certified
+    assert coarse_only.status == "another_master_feature_can_compete"
+    broad = certify_closed_planar_branch(broad_face, tool)
+    assert broad.certified, broad.status
+    assert broad.minimum_competitor_clearance > 0
+    np.testing.assert_allclose(broad.plane_normals[0], (1., 0., 0.))
+    rotated_broad = certify_closed_planar_branch(
+        broad_face @ rotation.T, tool, motion=spin, factor=1.0,
+    )
+    assert rotated_broad.certified, rotated_broad.status
+    np.testing.assert_allclose(
+        rotated_broad.plane_normals, broad.plane_normals @ rotation.T,
+    )
+    exhausted = certify_closed_planar_branch(
+        broad_face, tool, _refinement_budget=[0],
+    )
+    assert not exhausted.certified
+    assert exhausted.status == "geometry_budget_exceeded"
+    barycentric = np.asarray([
+        (1 - r - s, r, s)
+        for r in np.linspace(0.0, 1.0, 17)
+        for s in np.linspace(0.0, 1.0 - r, 9)
+    ])
+    sampled = barycentric @ broad_face[0]
+    np.testing.assert_allclose(
+        tool.project(sampled).signed_gaps,
+        (sampled - broad.plane_points[0]) @ broad.plane_normals[0],
+        atol=1e-12,
+    )
+    for invalid_depth in (-1, 4, True):
+        with pytest.raises(ValueError, match="refinement depth"):
+            certify_closed_planar_branch(
+                broad_face, tool, maximum_refinement_levels=invalid_depth,
+            )
 
     # The face near the reentrant edge sees both wall and edge/other face.
     crossing = np.asarray((((0.95, 1.01, 0.10), (0.95, 1.35, 0.10),
