@@ -306,6 +306,45 @@ def test_hex_q1_contact_trace_refined_gauss_keeps_reference_force(
         )
 
 
+@pytest.mark.parametrize("degree, point_count", [(5, 14), (7, 30)])
+def test_tet_p1_contact_trace_refined_gauss_keeps_reference_force(
+    degree, point_count,
+):
+    domain = _cube(MPI.COMM_SELF)
+    space = _vector_space(domain)
+    region = _left_region(domain)
+    adapter = boundary_models.dolfinx_boundary_region_contact_trace(
+        region, space, contact_quadrature_degree=degree,
+    )
+    assert adapter.trace.point_count == point_count
+    assert adapter.trace.nodes_per_point == 3
+    assert f"degree_{degree}_{point_count // 2}_point" in adapter.quadrature_rule
+    np.testing.assert_allclose(np.sum(adapter.trace.weights), 1.0)
+    assert np.unique(adapter.trace.point_ids).size == point_count
+    displacement = fem.Function(space)
+    displacement.x.array.reshape((-1, 3))[:, 0] = 0.1
+    evaluation = adapter.evaluate(displacement)
+    surface = boundary_models.rigid_plane(
+        point=(0.05, 0.0, 0.0), normal=(-1.0, 0.0, 0.0),
+    )
+    record = boundary_models.ContactProjectionRecord(
+        adapter.trace.point_ids, surface.project(evaluation.query_points),
+    )
+    response = boundary_models.frictionless_penalty_contact_law(200.0).evaluate(
+        record.projection,
+    )
+    assembly = evaluation.assemble(record, response)
+    np.testing.assert_allclose(
+        assembly.contact_force_on_structure, (-10.0, 0.0, 0.0), atol=1.0e-12,
+    )
+
+    with pytest.raises(NotImplementedError, match="Gaussian CG1/CG2"):
+        boundary_models.dolfinx_boundary_region_contact_trace(
+            region, space, integration="nodal_lumped",
+            contact_quadrature_degree=degree,
+        )
+
+
 def test_warped_hexahedral_face_uses_bilinear_map_and_pointwise_jacobian():
     domain = _hex_cube(MPI.COMM_SELF)
     region = _left_region(domain)
@@ -368,7 +407,10 @@ def test_warped_hex_contact_area_converges_under_explicit_gauss_refinement():
     assert errors[2] < errors[1] < errors[0]
 
 
-def test_quadratic_displacement_trace_on_linear_tetrahedron():
+@pytest.mark.parametrize(
+    ("degree", "point_count"), [(None, 12), (5, 14), (7, 30)],
+)
+def test_quadratic_displacement_trace_on_linear_tetrahedron(degree, point_count):
     domain = _cube(MPI.COMM_SELF)
     region = _left_region(domain)
     quadratic = _vector_space(domain, degree=2)
@@ -376,12 +418,13 @@ def test_quadratic_displacement_trace_on_linear_tetrahedron():
     adapter = boundary_models.dolfinx_boundary_region_contact_trace(
         region,
         quadratic,
+        contact_quadrature_degree=degree,
     )
     displacement = fem.Function(quadratic)
     displacement.x.array.reshape((-1, 3))[:, 0] = 0.1
     evaluation = adapter.evaluate(displacement)
 
-    assert adapter.trace.point_count == 12
+    assert adapter.trace.point_count == point_count
     assert adapter.trace.nodes_per_point == 10
     assert adapter.summary()["interpolation_degree"] == 2
     assert adapter.summary()["geometry_degree"] == 1
@@ -471,7 +514,13 @@ def test_dolfinx_contact_trace_rejects_foreign_field():
         adapter.evaluate(fem.Function(second))
 
 
-def test_dolfinx_contact_trace_has_global_identity_and_empty_shards_under_mpi():
+@pytest.mark.parametrize(
+    ("contact_quadrature_degree", "global_point_count"),
+    [(None, 6), (5, 14), (7, 30)],
+)
+def test_dolfinx_contact_trace_has_global_identity_and_empty_shards_under_mpi(
+    contact_quadrature_degree, global_point_count,
+):
     if MPI.COMM_WORLD.size != 2:
         pytest.skip("DOLFINx contact trace is reviewed on two ranks.")
     comm = MPI.COMM_WORLD
@@ -479,14 +528,15 @@ def test_dolfinx_contact_trace_has_global_identity_and_empty_shards_under_mpi():
     adapter = boundary_models.dolfinx_boundary_region_contact_trace(
         _left_region(domain),
         _vector_space(domain),
+        contact_quadrature_degree=contact_quadrature_degree,
     )
     local_ids = tuple(int(value) for value in adapter.trace.point_ids)
     gathered = tuple(comm.allgather(local_ids))
     flattened = tuple(value for values in gathered for value in values)
     global_measure = comm.allreduce(float(np.sum(adapter.trace.weights)), op=MPI.SUM)
 
-    assert len(flattened) == 6
-    assert len(set(flattened)) == 6
+    assert len(flattened) == global_point_count
+    assert len(set(flattened)) == global_point_count
     np.testing.assert_allclose(global_measure, 1.0)
     evaluation = adapter.evaluate(fem.Function(adapter.function_space))
     assert evaluation.query_points.shape == (adapter.trace.point_count, 3)

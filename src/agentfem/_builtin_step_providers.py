@@ -570,13 +570,14 @@ def _contact_quadrature_rejection_reason(model, request: StepRequest) -> str | N
     domain = getattr(function_space, "mesh", None)
     if (
         domain is None
-        or str(domain.topology.cell_name()) != "hexahedron"
+        or str(domain.topology.cell_name()) not in {"tetrahedron", "hexahedron"}
         or int(function_space.element.basix_element.degree) not in (1, 2)
         or int(domain.geometry.cmaps[0].degree) not in (1, 2)
     ):
         return (
             "AFM-CONTACT-QUADRATURE: explicit degree currently requires "
-            "a CG1/CG2 hexahedral displacement and first- or second-order geometry."
+            "a CG1/CG2 tetrahedral or hexahedral displacement and "
+            "first- or second-order geometry."
         )
     return None
 

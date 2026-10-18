@@ -276,8 +276,9 @@ def _linear_trace_arrays(domain, function_space, owned, facet_geometry,
     """Bounded batches of the same P1/Q1 reference rule and owner-local map.
 
     Coordinate matching is restricted to each facet's adjacent cell. Distinct
-    bodies with coincident vertices therefore remain distinct. No search or
-    integration rule changes; the batch size bounds temporary storage only.
+    bodies with coincident vertices therefore remain distinct. The optional
+    positive face rule is explicit; batching itself changes no rule and only
+    bounds temporary storage.
     """
     n = len(owned)
     node_width = 3 if topology == "triangle" else 4
@@ -290,8 +291,26 @@ def _linear_trace_arrays(domain, function_space, owned, facet_geometry,
         cells.append(int(adjacent[0]))
     cell_blocks = np.asarray(function_space.dofmap.list)[np.asarray(cells, dtype=np.int32)]
     if topology == "triangle":
-        basis = _TRIANGLE_DEGREE_TWO
-        point_weights = None
+        if quadrature_points is None:
+            basis = _TRIANGLE_DEGREE_TWO
+            point_weights = None
+        else:
+            selected_points = np.asarray(quadrature_points, dtype=float)
+            point_weights = np.asarray(quadrature_weights, dtype=float)
+            if (
+                selected_points.ndim != 2
+                or selected_points.shape[1] != 2
+                or point_weights.shape != (len(selected_points),)
+                or not np.all(np.isfinite(selected_points))
+                or not np.all(np.isfinite(point_weights))
+                or np.any(point_weights <= 0.0)
+                or np.any(selected_points < 0.0)
+                or np.any(selected_points.sum(axis=1) > 1.0)
+            ):
+                raise ValueError("Invalid positive triangle contact quadrature.")
+            basis = np.column_stack((
+                1.0 - selected_points.sum(axis=1), selected_points,
+            ))
     else:
         selected_points = (
             _QUADRILATERAL_DEGREE_THREE
@@ -332,7 +351,10 @@ def _linear_trace_arrays(domain, function_space, owned, facet_geometry,
         blocks[start:stop] = np.take_along_axis(owners, matches.argmax(axis=2), axis=1)
         if topology == "triangle":
             area = .5*np.linalg.norm(np.cross(points[:, 1]-points[:, 0], points[:, 2]-points[:, 0]), axis=1)
-            weights[start:stop] = area[:, None]/3.
+            weights[start:stop] = (
+                area[:, None] / 3.0 if point_weights is None
+                else 2.0 * area[:, None] * point_weights[None, :]
+            )
         else:
             for q, (dr, ds) in enumerate(derivatives):
                 # Batched matrix-vector products retain the four-node Q1 trace.
@@ -482,10 +504,12 @@ def dolfinx_boundary_region_contact_trace(
             raise ValueError(
                 "Contact quadrature degree must be 5 or 7."
             )
-        if integration != "gauss" or cell_type != "CellType.hexahedron":
+        if integration != "gauss" or cell_type not in {
+            "CellType.tetrahedron", "CellType.hexahedron",
+        }:
             raise NotImplementedError(
                 "Explicit contact quadrature degree currently requires "
-                "Gaussian CG1/CG2 hexahedral boundary traces."
+                "Gaussian CG1/CG2 tetrahedral or hexahedral boundary traces."
             )
     if integration == "nodal_lumped" and high_order:
         raise NotImplementedError("Nodal lumped contact requires first-order geometry and CG1 displacement.")
@@ -587,8 +611,22 @@ def dolfinx_boundary_region_contact_trace(
             global_facet_count = partition.global_facet_count
             global_scale = partition.global_scale
             nodes_per_facet = 3
-            points_per_facet = 3
-            quadrature_rule = "triangle_degree_two_three_point"
+            if contact_quadrature_degree is None:
+                selected_points = None
+                selected_weights = None
+                points_per_facet = 3
+                quadrature_rule = "triangle_degree_two_three_point"
+            else:
+                import basix
+
+                selected_points, selected_weights = basix.make_quadrature(
+                    basix.CellType.triangle, int(contact_quadrature_degree),
+                )
+                points_per_facet = int(len(selected_points))
+                quadrature_rule = (
+                    f"triangle_basix_degree_{int(contact_quadrature_degree)}_"
+                    f"{points_per_facet}_point"
+                )
         elif facet_topology == "quadrilateral" and not high_order:
             (
                 owned,
@@ -674,12 +712,8 @@ def dolfinx_boundary_region_contact_trace(
                 global_facet_count, topology=facet_topology, coordinates=coordinates,
                 dof_coordinates=dof_coordinates, global_vertices=global_vertices,
                 tolerance=tolerance, integration=integration,
-                quadrature_points=(
-                    selected_points if facet_topology == "quadrilateral" else None
-                ),
-                quadrature_weights=(
-                    selected_weights if facet_topology == "quadrilateral" else None
-                ),
+                quadrature_points=selected_points,
+                quadrature_weights=selected_weights,
             )
         if high_order:
             import basix

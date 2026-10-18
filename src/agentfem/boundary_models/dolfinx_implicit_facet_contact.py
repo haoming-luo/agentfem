@@ -372,12 +372,12 @@ class DolfinxImplicitRigidContact:
         response = self.pair.law.evaluate(record.projection)
         return evaluation, record, response, factor
 
-    def current_point_diagnostics(self) -> dict[str, float | int | str]:
+    def current_point_diagnostics(self) -> dict[str, object]:
         """Unsmoothed reference-trace diagnostics at the current trial pose."""
 
-        evaluation, _record, response, _factor = self._current_point_response()
+        evaluation, record, response, _factor = self._current_point_response()
         active = np.asarray(response.active, dtype=bool)
-        return {
+        evidence = {
             "location": "reference_boundary_quadrature",
             "pressure_measure": "penalty_force_per_reference_area_not_cauchy_pressure",
             "active_point_count": int(np.count_nonzero(active)),
@@ -385,6 +385,20 @@ class DolfinxImplicitRigidContact:
             "maximum_pressure": float(np.max(response.pressures, initial=0.0)),
             "maximum_penetration": float(np.max(response.penetration, initial=0.0)),
         }
+        if isinstance(self.surface, ClosedTriangulatedRigidSolid):
+            # Do not infer this from nominal triangle IDs: a coplanar seam is
+            # physically a face, while a subdivided straight edge remains an
+            # edge. The same geometric feature classifier owns the tangent.
+            counts = {"face": 0, "edge": 0, "vertex": 0}
+            projection = record.projection
+            for index in np.flatnonzero(active):
+                _, feature = self.surface._geometric_feature_projector(
+                    self.surface._facet_slots[int(projection.entity_ids[index])],
+                    projection.local_coordinates[index],
+                )
+                counts[feature] += 1
+            evidence["active_feature_counts"] = counts
+        return evidence
 
     def accepted_point_samples(self) -> dict[str, object]:
         """Return unsmoothed point arrays without changing accepted State.

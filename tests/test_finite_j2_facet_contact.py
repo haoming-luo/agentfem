@@ -306,7 +306,8 @@ def test_reviewed_concave_edge_is_active_in_global_plastic_step_and_restart(
         applied_traction=0.0, increments=6, yield_stress=0.05,
     )
     reference = _patch(**options)[3]
-    assert reference.solve_result().status == "completed"
+    result = reference.solve_result()
+    assert result.status == "completed"
     provider = reference.contact_provider
     _, record, response, _ = provider._current_point_response()
     surface = provider.pair.rigid_body.surface
@@ -323,6 +324,11 @@ def test_reviewed_concave_edge_is_active_in_global_plastic_step_and_restart(
     assert any(active and feature == "edge" for active, feature in zip(
         response.active, features, strict=True,
     ))
+    feature_counts = result.metadata[
+        "rigid_contact_point_diagnostics"
+    ]["active_feature_counts"]
+    assert feature_counts["edge"] >= 1
+    assert sum(feature_counts.values()) == int(np.count_nonzero(response.active))
     assert np.max(reference.response.state.committed[
         "equivalent_plastic_strain"
     ].function.x.array) > 0.0
@@ -816,7 +822,9 @@ def test_quadratic_hexahedron_rejects_underintegrated_bulk_rule():
         )
 
 
-def test_refined_contact_quadrature_rejects_unsupported_tetra_route():
+def test_refined_tetra_contact_quadrature_keeps_planar_solution_and_restart_identity(
+    tmp_path,
+):
     model, displacement, material, _ = _patch(
         triangulated=True, make_step=False,
     )
@@ -824,16 +832,33 @@ def test_refined_contact_quadrature_rejects_unsupported_tetra_route():
         model, target=displacement,
         options={"material": material, "contact_quadrature_degree": 5},
     )
-    assert not capability["supported"]
-    assert any(
-        item["message"].startswith("AFM-CONTACT-QUADRATURE")
-        for item in capability["rejection_reasons"]
+    assert capability["supported"]
+    options = dict(
+        triangulated=True, yield_stress=1.0e9,
+        tool_translation=(-0.008, 0.0, 0.0), applied_traction=0.0,
+        increments=3,
     )
-    with pytest.raises(NotImplementedError, match="AFM-CONTACT-QUADRATURE"):
-        model.step(
-            target=displacement, material=material,
-            contact_quadrature_degree=5,
-        )
+    default = _patch(**options)[3]
+    refined = _patch(**options, contact_quadrature_degree=5)[3]
+    assert refined.contact_provider.adapter.trace.point_count > (
+        default.contact_provider.adapter.trace.point_count
+    )
+    assert "triangle_basix_degree_5" in (
+        refined.contact_provider.adapter.quadrature_rule
+    )
+    assert default.solve_result().status == refined.solve_result().status == "completed"
+    np.testing.assert_allclose(
+        refined.solution.x.array, default.solution.x.array,
+        rtol=1.0e-7, atol=1.0e-9,
+    )
+    saved = refined.save_checkpoint(tmp_path / "refined_tetra_contact")
+    same = _patch(**options, contact_quadrature_degree=5)[3]
+    same.load_checkpoint(saved)
+    np.testing.assert_allclose(same.solution.x.array, refined.solution.x.array)
+    with pytest.raises(ValueError, match="identity"):
+        _patch(**options)[3].load_checkpoint(saved)
+    with pytest.raises(ValueError, match="identity"):
+        _patch(**options, contact_quadrature_degree=7)[3].load_checkpoint(saved)
 
 
 def test_convex_contact_matches_independent_hencky_bar_penalty_equilibrium():

@@ -138,6 +138,50 @@ mesh samples a different active contact feature. The mechanical energy
 residual also is not monotonically reduced by these increments; no complete
 energy-closure or spatial-convergence assertion follows from this table.
 
+A further *same-geometry, penalty-20, 12-increment* diagnostic exposes the
+sharp-feature integration problem rather than closing it:
+
+| Cell divisions per cube edge | Element/face quadrature | x-force | Max PEEQ | Tool work | Active points | Active edge points |
+| ---: | --- | ---: | ---: | ---: | ---: | ---: |
+| 2 | tetra/default | -0.307580 | 0.006719 | 0.008062 | 10 | 0 |
+| 3 | tetra/default | -0.351190 | 0.008529 | 0.008856 | 22 | 0 |
+| 4 | tetra/default | -0.338940 | 0.008319 | 0.008825 | 42 | 0 |
+| 5 | tetra/default | -0.319805 | 0.008538 | 0.008474 | 65 | 1 |
+| 2 | Hex8/2×2 | -0.336987 | 0.007088 | 0.008496 | 6 | 0 |
+| 2 | Hex8/3×3 | -0.361257 | 0.007248 | 0.009105 | 14 | 0 |
+| 2 | Hex8/4×4 | -0.272692 | 0.005181 | 0.008063 | 31 | 1 |
+| 3 | Hex8/2×2 | -0.347405 | 0.007775 | 0.008763 | 14 | 0 |
+| 3 | Hex8/3×3 | -0.328525 | 0.007376 | 0.008784 | 36 | 0 |
+| 3 | Hex8/4×4 | -0.316077 | 0.007179 | 0.008636 | 60 | 0 |
+
+These are isolated source-checkout screens, not a mesh/face-rule convergence
+sequence: the sampled active feature and the force change nonmonotonically.
+The accepted `SimulationResult` now reports raw active `face`/`edge`/`vertex`
+quadrature counts for this reviewed closed-solid route; it classifies coplanar
+triangle seams as faces and does not relabel the point samples as a continuous
+pressure map. This makes the failure mode visible without changing the model.
+The present point-quadrature Operator is therefore **not promoted** for a
+sharp-edge-dominated structural response on this evidence. An optional
+positive-weight Basix degree-5/7 triangle rule is now available for
+tetrahedral CG1/CG2 traces, in addition to the existing Hex8 face rules.
+It preserves the default three-point triangle rule and enters checkpoint
+identity. CG1/CG2 reference-area and planar-force checks pass, as does a
+two-rank CG1 partition-canonical point-ID/weight check; the **implicit
+solver** remains serial. On the same tetrahedral 12-increment fixture,
+degree 7 gives x-force
+`-0.336957`, `-0.319265`, `-0.320473` for 2, 3, 4 cell divisions; the 3→4
+values are close but the 2→3 change is about 5.3%, max PEEQ still changes,
+and one physical edge point appears or disappears with sampling. Degree 5
+gives `-0.334865` and `-0.328318` for 2 and 3 divisions. These are
+diagnostics, not a converged method or a reason to change the default.
+The next numerical-method experiment
+must distinguish a contact-boundary/feature-aware integration strategy from a
+different physical model, preserve residual--tangent consistency and compare
+like-for-like force, moment, plastic history and work. The refined-boundary
+quadrature and contact-patch discussion of
+[Duong, De Lorenzis and Sauer](https://arxiv.org/abs/1712.01179) motivates
+that experiment; it is not validation of an implementation here.
+
 The present tests are local software evidence, not an independent structural
 benchmark. [NAFEMS contact benchmarks](https://www.nafems.org/publications/resource_center/r0094/)
 motivate same-input comparison; a reference number from a different model
@@ -334,11 +378,11 @@ planned code:
 | 1. Same-input benchmark contract | The manufactured L-prism fixture and outputs are frozen in test/example code. | No independent Abaqus/Code_Aster same-input result or agreed dimensional acceptance tolerance. |
 | 2. Existing candidate audit | Ordinary Step, tool work, restart and current-trial geometry are reused; no parallel solver path was added. | Broader scientific promotion review remains separate. |
 | 3. Geometry and feature transitions | Unique nearest face/edge/vertex branches, coplanar seams, non-manifold vertex rejection and a globally active reentrant edge pass. | Self-intersection is caller-attested; medial-axis ties reject; no arbitrary CAD guarantee. |
-| 4. Implicit total operator and State | Full J2-plus-contact tangent passes fixed-old-state difference; an active sharp edge now passes periodic MPC total-residual, reduced contact tangent, and fixed-old-state material-plus-contact reduced Jacobian differences; accepted failure rolls back. | This remains a manufactured serial fixture; cross-branch and larger mesh convergence are separate gates. |
-| 5. Multiple rigid pairs | Named planar/convex tool work and atomic restart tests pass; mixed active concave-plus-moving-plane J2 pair keeps separate work, summed tangent and checkpoint restart. | Large mixed contact-set scaling and independent multi-tool reference remain untested. |
+| 4. Implicit total operator and State | Full J2-plus-contact tangent passes fixed-old-state difference; an active sharp edge passes periodic MPC total-residual, reduced contact tangent and fixed-old-state material-plus-contact reduced Jacobian differences; accepted failure rolls back. Active-edge translation/rotation has an independently integrated force/moment and a matching fixed-displacement work derivative. | This remains a manufactured serial fixture; feature-switch and larger mesh convergence are separate gates. |
+| 5. Multiple rigid pairs | Named planar/convex tool work and atomic restart tests pass; mixed active concave-plus-moving-plane J2 pair keeps separate work, summed tangent and checkpoint restart. An active reentrant edge opposite an active sphere also passes periodic total-residual reduction and serial J2 restart. | Large mixed contact-set scaling and independent multi-tool reference remain untested. |
 | 6. Friction | A finite-J2 strong-BC Step with a reviewed closed concave solid on a planar face matches the convex limit in displacement and friction dissipation for translated and slightly rotated tools under both sign modes; the fixed-old-state tangent and interrupted restart pass. The serial affine-periodic J2 path now commits a moving-plane Coulomb State, reduces its contact tangent by `TᵀKT`, checkpoints it in v2 and atomically rejects corrupt State; reviewed triangle and closed-concave planar faces match the same plane limit. An active reentrant edge rejects without partial State. | The planar law does not include changing-normal terms at a physical edge or vertex; general sharp-feature friction, distributed affine contact and a full thermodynamic path audit remain unsupported. |
 | 7. Material/time composition | Active-edge finite-J2 plastic path passes; explicit contact/material lifecycle is a separate existing route. | No generic historical implicit material or explicit general-closed-tool composition. |
-| 8. Independent acceptance and speed | Directional analytical checks, fixed-seed geometry timing and a manufactured whole-Step opt-in/default comparison are recorded; 24→48 increment screen is narrow. | No independent full-geometry comparison, spatial/penalty convergence, industrial whole-step speed claim or release-grade energy closure. |
+| 8. Independent acceptance and speed | Directional analytical checks, fixed-seed geometry timing and a manufactured whole-Step opt-in/default comparison are recorded; 24→48 increment screen is narrow. A fixed-geometry mesh/face-rule screen exposes nonmonotone active-feature sampling rather than a convergence pass. | No independent full-geometry comparison, sharp-feature spatial/penalty convergence, industrial whole-step speed claim or release-grade energy closure. |
 | 9. Product boundary | Public-API example exports XDMF/manifest from an isolated native Mac wheel; unsupported MPI/friction preflight rejects. | Linux/Windows installed acceptance and remote final-head CI remain version gates. |
 
 The table intentionally refuses to turn one successful six- or 24-increment
