@@ -34,8 +34,12 @@ The gate stays open until its listed evidence exists at the proposed scope.
    formulation and enforcement differences. Predetermine observable-specific
    tolerances and a comparison station set. Current state: internal examples
    and local regression exist, but no same-input external benchmark for the
-   nonconvex finite-J2 fixture. Reading: [Abaqus general-contact scope][abaqus]
-   and [NAFEMS advanced contact benchmark catalog][nafems].
+   nonconvex finite-J2 fixture. Reading: [Abaqus' published finite-sliding
+   rigid-surface verification/input list][abaqus-verification],
+   [COMSOL's analytical/NAFEMS verification collection][comsol-verification]
+   and [NAFEMS advanced contact benchmark catalog][nafems]. A published
+   verification case is a comparator protocol, not an external result for
+   our own geometry.
 
 2. **Surface and search admission.** Validate closed/open topology, outward
    orientation, self-intersection, initial clearance/overclosure and allowed
@@ -46,7 +50,8 @@ The gate stays open until its listed evidence exists at the proposed scope.
    intentionally missed-candidate trap. Current state: smooth projectors,
    triangulated BVH and reviewed closed-solid classifiers exist; arbitrary
    large-CAD and ambiguous sharp features are not admitted. Reading:
-   [Abaqus finite-sliding/general-contact formulation][abaqus] and
+   [Abaqus finite-sliding/general-contact formulation][abaqus],
+   [Abaqus meshed-rigid-surface verification][meshed-rigid] and
    [Abaqus initial-overclosure choices][initial].
 
 3. **Contact-boundary/feature integration.** Make the active integration
@@ -60,6 +65,9 @@ The gate stays open until its listed evidence exists at the proposed scope.
    and opt-in <=3-plane convex partition pass; nonconvex feature transitions
    remain open. Reading: [Duong--De Lorenzis--Sauer refined-boundary
    quadrature][duong] and [COMSOL contact quadrature guidance][comsol-settings].
+   The cited isogeometric extended-mortar formulation is a comparison design,
+   not a drop-in P1 facet implementation: its enriched pressure interpolation
+   and two-half-pass force construction differ from our one-sided trace.
 
 4. **Normal enforcement as an explicit law.** Retain penalty as one declared
    approximation. Prototype a separate opt-in augmented-Lagrangian law first
@@ -75,8 +83,12 @@ The gate stays open until its listed evidence exists at the proposed scope.
    point-law, residual/tangent, spring-plane and rollback tests, but no global
    Step, MPI, or installed-package acceptance. A high-penalty L-tool trial
    failed Newton, so neither hard-contact convergence nor an AL benefit may
-   be claimed. Reading: [Abaqus contact enforcement controls][acl]
-   and [COMSOL penalty/augmentation trade-off][comsol-method].
+   be claimed. Reading: [Abaqus contact enforcement controls][acl],
+   [COMSOL penalty/augmentation trade-off][comsol-method], and
+   [Burman--Hansbo--Larson's augmented-Lagrangian FE analysis][burman]. The
+   latter warns that a discontinuous multiplier approximation can need
+   stabilization; independent point multipliers do not inherit its proof
+   and require a spatial-pressure/mesh check.
 
 5. **Friction and moving-feature State.** Verify normal-pressure coupling,
    stick/slip return mapping, tangent, finite sliding, force/moment and
@@ -85,8 +97,11 @@ The gate stays open until its listed evidence exists at the proposed scope.
    inventing a sharp-edge traction law. If an active noncoplanar edge or vertex
    is unsupported, reject and roll back. Current state: analytical and locally
    planar faceted Coulomb routes exist; sharp-edge friction is not admitted.
-   Reading: [Abaqus Coulomb law and finite-sliding term][friction] and
-   [COMSOL frictional-contact solver advice][comsol-solver].
+   Reading: [Abaqus Coulomb law and finite-sliding term][friction],
+   [COMSOL frictional-contact solver advice][comsol-solver], and
+   [Duong--Sauer's surface-potential finite-sliding formulation][duong-friction].
+   The last is a thermodynamic and tangent-design reference, not evidence
+   for an unverified sharp-edge friction law.
 
 6. **One nonlinear Procedure and State transaction.** Assemble the total
    material, contact and load residual/Jacobian before strong-boundary or
@@ -150,7 +165,9 @@ is not a 0.4.4 claim.
 The opt-in research module `boundary_models.normal_augmentation` separates
 the signed algorithmic AL functional from physical contact energy. It binds
 accepted multipliers to a fixed reference trace (point IDs, node support,
-shape values and integration weights), requires a converged *total* residual
+shape values, integration weights and reference query geometry), rigid-surface
+fingerprint, units and explicit acceptance/outer-iteration policy. It requires
+a converged *total* residual
 at each frozen-multiplier outer iterate, and atomically refuses mismatched
 restart State. Its spring/plane exact solution and smooth plane/sphere
 finite-difference tangent tests are local mathematical evidence only. They do
@@ -163,7 +180,11 @@ transfer is separately verified.
 [abaqus]: https://docs.software.vt.edu/abaqusv2025/English/SIMACAEITNRefMap/simaitn-c-genlcontnumcontrolsstd.htm
 [nafems]: https://www.nafems.org/publications/pubguide/list/
 [initial]: https://docs.software.vt.edu/abaqusv2025/English/SIMACAEITNRefMap/simaitn-c-adjustsurfaces.htm
+[meshed-rigid]: https://docs.software.vt.edu/abaqusv2025/English/SIMACAEVERRefMap/simaver-c-finslcontdefmeshrig.htm
+[comsol-verification]: https://doc.comsol.com/6.3/doc/com.comsol.help.sme/StructuralMechanicsVerificationExamples.pdf
 [duong]: https://arxiv.org/abs/1712.01179
+[burman]: https://arxiv.org/abs/1609.03326
+[duong-friction]: https://arxiv.org/abs/1808.10420
 [comsol-settings]: https://doc.comsol.com/6.3/doc/com.comsol.help.sme/sme_ug_modeling.05.146.html
 [acl]: https://docs.software.vt.edu/abaqusv2025/English/SIMACAEITNRefMap/simaitn-c-contactcontrolsstd.htm
 [comsol-method]: https://doc.comsol.com/6.3/doc/com.comsol.help.sme/sme_ug_modeling.05.143.html

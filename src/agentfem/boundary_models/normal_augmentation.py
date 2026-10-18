@@ -41,6 +41,13 @@ def _nonnegative_vector(value, count: int, *, name: str) -> np.ndarray:
     return _readonly_array(selected)
 
 
+def _nonnegative_scalar(value, *, name: str) -> float:
+    selected = float(value)
+    if not np.isfinite(selected) or selected < 0:
+        raise ValueError(f"{name} must be finite and nonnegative.")
+    return selected
+
+
 def _trace_identity(
     trace: ContactTrace, reference_evaluation: ContactTraceEvaluation,
 ) -> str:
@@ -72,6 +79,7 @@ def _trace_identity(
 class AugmentedNormalPointResponse:
     """One fixed-multiplier Newton response at currently projected points."""
 
+    evaluation: ContactTraceEvaluation
     record: ContactProjectionRecord
     multiplier: object
     penalty: float
@@ -80,6 +88,14 @@ class AugmentedNormalPointResponse:
     algorithmic_density: object
 
     def __post_init__(self) -> None:
+        if (
+            not isinstance(self.evaluation, ContactTraceEvaluation)
+            or not np.array_equal(self.evaluation.trace.point_ids, self.record.point_ids)
+            or not np.array_equal(
+                self.evaluation.query_points, self.record.projection.query_points,
+            )
+        ):
+            raise ValueError("Augmented normal response trace and projection differ.")
         count = self.record.projection.point_count
         multiplier = _nonnegative_vector(self.multiplier, count, name="Multiplier")
         pressure = _nonnegative_vector(self.pressure, count, name="Pressure")
@@ -121,6 +137,11 @@ class FixedTraceNormalMultiplierState:
         reference_evaluation: ContactTraceEvaluation,
         surface_fingerprint: str,
         penalty: float,
+        penetration_tolerance: float,
+        complementarity_tolerance: float,
+        maximum_augmentations: int,
+        length_unit: str,
+        pressure_unit: str,
         initial_multiplier=None,
     ):
         self.trace = trace
@@ -132,6 +153,24 @@ class FixedTraceNormalMultiplierState:
         self.penalty = float(penalty)
         if not np.isfinite(self.penalty) or self.penalty <= 0:
             raise ValueError("Augmented normal penalty must be finite and positive.")
+        self.penetration_tolerance = _nonnegative_scalar(
+            penetration_tolerance, name="Penetration tolerance",
+        )
+        self.complementarity_tolerance = _nonnegative_scalar(
+            complementarity_tolerance, name="Complementarity tolerance",
+        )
+        if (
+            isinstance(maximum_augmentations, bool)
+            or not isinstance(maximum_augmentations, (int, np.integer))
+            or maximum_augmentations < 1
+        ):
+            raise ValueError("Maximum augmentations must be a positive integer.")
+        self.maximum_augmentations = int(maximum_augmentations)
+        for name, unit in (("Length", length_unit), ("Pressure", pressure_unit)):
+            if not isinstance(unit, str) or not unit.strip():
+                raise ValueError(f"{name} unit must be an explicit nonempty string.")
+        self.length_unit = length_unit
+        self.pressure_unit = pressure_unit
         initial = (
             np.zeros(len(self.point_ids))
             if initial_multiplier is None else initial_multiplier
@@ -180,7 +219,8 @@ class FixedTraceNormalMultiplierState:
         )
         density = (pressure**2 - self._iterate**2) / (2.0 * self.penalty)
         return AugmentedNormalPointResponse(
-            record, self._iterate, self.penalty, pressure, pressure > 0, density,
+            evaluation, record, self._iterate, self.penalty,
+            pressure, pressure > 0, density,
         )
 
     def mark_equilibrium_converged(
@@ -208,6 +248,8 @@ class FixedTraceNormalMultiplierState:
         self._check_record(evaluation, record)
         if record is not self._converged_record:
             raise RuntimeError("Augmentation requires the current converged projection.")
+        if self._augmentation_count >= self.maximum_augmentations:
+            raise RuntimeError("Normal augmentation exceeded its declared outer-iteration limit.")
         self._iterate = np.maximum(
             0.0, self._iterate - self.penalty * record.projection.signed_gaps,
         )
@@ -230,21 +272,15 @@ class FixedTraceNormalMultiplierState:
         self,
         evaluation: ContactTraceEvaluation,
         record: ContactProjectionRecord,
-        *,
-        penetration_tolerance: float,
-        complementarity_tolerance: float,
     ) -> dict[str, float]:
         """Accept only a converged global solve and an explicit contact test."""
 
         if record is not self._converged_record:
             raise ValueError("Total equilibrium must converge with the current multiplier before acceptance.")
-        tolerances = (float(penetration_tolerance), float(complementarity_tolerance))
-        if any(not np.isfinite(value) or value < 0 for value in tolerances):
-            raise ValueError("Contact acceptance tolerances must be finite and nonnegative.")
         diagnostics = self.acceptance_diagnostics(evaluation, record)
         if (
-            diagnostics["maximum_penetration"] > tolerances[0]
-            or diagnostics["maximum_complementarity"] > tolerances[1]
+            diagnostics["maximum_penetration"] > self.penetration_tolerance
+            or diagnostics["maximum_complementarity"] > self.complementarity_tolerance
         ):
             raise ValueError("Normal augmentation has not met penetration/complementarity tolerances.")
         self._accepted = self._iterate.copy()
@@ -266,6 +302,11 @@ class FixedTraceNormalMultiplierState:
             "surface_fingerprint": self.surface_fingerprint,
             "point_ids": self.point_ids.tolist(),
             "penalty": self.penalty,
+            "penetration_tolerance": self.penetration_tolerance,
+            "complementarity_tolerance": self.complementarity_tolerance,
+            "maximum_augmentations": self.maximum_augmentations,
+            "length_unit": self.length_unit,
+            "pressure_unit": self.pressure_unit,
             "multiplier": self._accepted.tolist(),
         }
 
@@ -274,6 +315,13 @@ class FixedTraceNormalMultiplierState:
 
         if not isinstance(snapshot, dict) or snapshot.get("schema") != self.schema:
             raise ValueError("Normal multiplier checkpoint schema differs.")
+        required = {
+            "schema", "trace_identity", "surface_fingerprint", "point_ids",
+            "penalty", "penetration_tolerance", "complementarity_tolerance",
+            "maximum_augmentations", "length_unit", "pressure_unit", "multiplier",
+        }
+        if set(snapshot) != required:
+            raise ValueError("Normal multiplier checkpoint fields differ.")
         if snapshot.get("trace_identity") != self.trace_identity:
             raise ValueError("Normal multiplier checkpoint trace basis differs.")
         if snapshot.get("surface_fingerprint") != self.surface_fingerprint:
@@ -282,6 +330,12 @@ class FixedTraceNormalMultiplierState:
             raise ValueError("Normal multiplier checkpoint point IDs differ.")
         if float(snapshot.get("penalty")) != self.penalty:
             raise ValueError("Normal multiplier checkpoint penalty differs.")
+        policy = (
+            "penetration_tolerance", "complementarity_tolerance",
+            "maximum_augmentations", "length_unit", "pressure_unit",
+        )
+        if any(snapshot.get(key) != getattr(self, key) for key in policy):
+            raise ValueError("Normal multiplier checkpoint acceptance policy differs.")
         multiplier = _nonnegative_vector(
             snapshot.get("multiplier"), len(self.point_ids), name="Checkpoint multiplier",
         )
@@ -365,8 +419,12 @@ def integrate_fixed_trace_augmented_normal(
 
     if not isinstance(evaluation, ContactTraceEvaluation) or not isinstance(record, ContactProjectionRecord):
         raise TypeError("Augmented normal integration requires trace and projection evidence.")
-    if not isinstance(response, AugmentedNormalPointResponse) or response.record is not record:
-        raise TypeError("Augmented normal integration requires the same current response record.")
+    if (
+        not isinstance(response, AugmentedNormalPointResponse)
+        or response.record is not record
+        or response.evaluation is not evaluation
+    ):
+        raise TypeError("Augmented normal integration requires one identical trace/projection trial.")
     trace = evaluation.trace
     projection = record.projection
     if trace.measure_configuration != "reference":

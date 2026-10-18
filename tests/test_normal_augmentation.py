@@ -29,7 +29,11 @@ def _record(surface, point, trace):
     return evaluation, record
 
 
-def _state(trace, surface, *, penalty, reference_nodes=None, initial_multiplier=None):
+def _state(
+    trace, surface, *, penalty, reference_nodes=None, initial_multiplier=None,
+    penetration_tolerance=1e-9, complementarity_tolerance=1e-9,
+    maximum_augmentations=64,
+):
     if reference_nodes is None:
         reference_nodes = ((0.0, 0.0, 0.0),)
     return FixedTraceNormalMultiplierState(
@@ -37,6 +41,11 @@ def _state(trace, surface, *, penalty, reference_nodes=None, initial_multiplier=
         reference_evaluation=trace.evaluate(reference_nodes),
         surface_fingerprint=surface.geometry_fingerprint,
         penalty=penalty,
+        penetration_tolerance=penetration_tolerance,
+        complementarity_tolerance=complementarity_tolerance,
+        maximum_augmentations=maximum_augmentations,
+        length_unit="1",
+        pressure_unit="1",
         initial_multiplier=initial_multiplier,
     )
 
@@ -58,11 +67,7 @@ def test_independent_spring_plane_augmentation_reaches_unilateral_solution():
             evaluation, record, total_residual_norm=0.0, total_residual_tolerance=1e-12,
         )
         if state.acceptance_diagnostics(evaluation, record)["maximum_penetration"] <= 1e-9:
-            state.commit(
-                evaluation, record,
-                penetration_tolerance=1e-9,
-                complementarity_tolerance=1e-9,
-            )
+            state.commit(evaluation, record)
             break
         state.augment_after_converged(evaluation, record)
     else:
@@ -71,11 +76,7 @@ def test_independent_spring_plane_augmentation_reaches_unilateral_solution():
     # The stopped iterate has |u| <= 1e-9, hence |lambda-lambda*| <= 20e-9.
     assert state.accepted_multiplier[0] == pytest.approx(1.0, abs=2e-8)
     with pytest.raises(ValueError, match="Total equilibrium"):
-        state.commit(
-            evaluation, record,
-            penetration_tolerance=1,
-            complementarity_tolerance=1,
-        )
+        state.commit(evaluation, record)
 
 
 def test_multiplier_trial_rollback_and_atomic_restore():
@@ -96,18 +97,12 @@ def test_multiplier_trial_rollback_and_atomic_restore():
     assert state.iterate_multiplier[0] == pytest.approx(1.0)
     assert state.accepted_multiplier[0] == 0
     with pytest.raises(ValueError, match="Total equilibrium"):
-        state.commit(
-            evaluation, record,
-            penetration_tolerance=0.01,
-            complementarity_tolerance=0.01,
-        )
+        state.commit(evaluation, record)
     state.mark_equilibrium_converged(
         evaluation, record, total_residual_norm=0, total_residual_tolerance=1e-12,
     )
     with pytest.raises(ValueError, match="penetration/complementarity"):
-        state.commit(
-            evaluation, record, penetration_tolerance=0.01, complementarity_tolerance=0.01,
-        )
+        state.commit(evaluation, record)
     assert state.accepted_multiplier[0] == 0
     state.rollback()
     assert state.iterate_multiplier[0] == 0
@@ -117,18 +112,16 @@ def test_multiplier_trial_rollback_and_atomic_restore():
     state.mark_equilibrium_converged(
         open_evaluation, open_record, total_residual_norm=0, total_residual_tolerance=1e-12,
     )
-    state.commit(
-        open_evaluation, open_record,
-        penetration_tolerance=0,
-        complementarity_tolerance=0,
-    )
+    state.commit(open_evaluation, open_record)
     good = state.accepted_snapshot()
     candidate = _state(_single_trace(), plane, penalty=10.0)
     candidate.restore_accepted(good)
     assert candidate.accepted_snapshot() == good
     for key, value in (
         ("trace_identity", "wrong"), ("surface_fingerprint", "wrong"),
-        ("point_ids", [18]), ("penalty", 20.0), ("multiplier", [-1]),
+        ("point_ids", [18]), ("penalty", 20.0),
+        ("penetration_tolerance", 1e-3), ("maximum_augmentations", 2),
+        ("pressure_unit", "Pa"), ("multiplier", [-1]),
     ):
         damaged = copy.deepcopy(good)
         damaged[key] = value
@@ -146,6 +139,29 @@ def test_inactive_augmented_functional_is_not_physical_stored_energy():
     assert response.pressure[0] == 0
     assert response.algorithmic_density[0] == pytest.approx(-0.05)
     assert not hasattr(response, "potential_energy")
+
+
+def test_outer_limit_and_policy_reject_before_accepted_state_changes():
+    plane = boundary_models.rigid_plane(point=(0, 0, 0), normal=(1, 0, 0))
+    trace = _single_trace()
+    state = _state(trace, plane, penalty=10.0, maximum_augmentations=1)
+    evaluation, record = _record(plane, (-0.1, 0, 0), trace)
+    state.mark_equilibrium_converged(
+        evaluation, record, total_residual_norm=0, total_residual_tolerance=1e-12,
+    )
+    state.augment_after_converged(evaluation, record)
+    state.mark_equilibrium_converged(
+        evaluation, record, total_residual_norm=0, total_residual_tolerance=1e-12,
+    )
+    with pytest.raises(RuntimeError, match="outer-iteration limit"):
+        state.augment_after_converged(evaluation, record)
+    assert state.accepted_multiplier[0] == 0
+    state.rollback()
+    assert state.iterate_multiplier[0] == 0
+    with pytest.raises(ValueError, match="Maximum augmentations"):
+        _state(trace, plane, penalty=10.0, maximum_augmentations=0)
+    with pytest.raises(ValueError, match="Penetration tolerance"):
+        _state(trace, plane, penalty=10.0, penetration_tolerance=-1)
 
 
 @pytest.mark.parametrize(
@@ -222,6 +238,12 @@ def test_changing_point_identity_is_not_silently_remapped():
     changed_evaluation, changed_record = _record(plane, (-0.1, 0, 0), changed)
     with pytest.raises(ValueError, match="trace basis changed"):
         state.evaluate(changed_evaluation, changed_record)
+    response = state.evaluate(evaluation, record)
+    with pytest.raises(TypeError, match="identical trace/projection trial"):
+        integrate_fixed_trace_augmented_normal(
+            changed_evaluation, record, response,
+            plane.gap_differential(record.projection).hessian,
+        )
     with pytest.raises(ValueError, match="trace basis differs"):
         _state(trace, plane, penalty=10.0, reference_nodes=((0.1, 0, 0),)).restore_accepted(
             state.accepted_snapshot(),
