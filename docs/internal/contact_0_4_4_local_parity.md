@@ -154,7 +154,13 @@ remains. This admits a formerly rejected near-reentrant face that is actually
 on one smooth plane; a face truly crossing the reentrant feature is still
 rejected. The near-edge numerical-budget fixture also still refuses an
 unproved branch. Edge/vertex **competition** here is not an active edge or
-vertex contact law.
+vertex contact law. A six-increment serial finite-J2 `model.step` now also
+exercises a reviewed open sheet with this finite-vertex competitor: the
+whole-face certificate passes at refinement depth zero, disabling only the
+finite-feature bound restores the old coarse refusal, and the accepted
+displacement and tool work match an analytical plane. This checks the
+Model-to-Result route for this smooth subset, not a transition law or an
+external solver comparison.
 
 The reproducible paired component screen
 `tools/benchmark_planar_branch_certificate.py` alternates the original

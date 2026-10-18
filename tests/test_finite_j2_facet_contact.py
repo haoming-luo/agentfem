@@ -241,6 +241,7 @@ def _small_single_branch_j2_step(
     initial_penetration_limit: float | None = None,
     open_sheet_x: float = 1.10,
     open_sheet_competitor: bool = False,
+    open_sheet_competitor_kind: str = "old_refinement",
 ):
     if closed and open_sheet:
         raise ValueError("Choose either the closed solid or the open sheet.")
@@ -292,11 +293,19 @@ def _small_single_branch_j2_step(
         )
         triangles = ((0, 1, 2), (0, 2, 3))
         if open_sheet_competitor:
-            vertices += (
-                (open_sheet_x - 0.1, 1.45, 0.45),
-                (open_sheet_x - 0.1, 1.45, 0.55),
-                (open_sheet_x - 0.1, 1.50, 0.45),
-            )
+            if open_sheet_competitor_kind == "finite_vertex":
+                competitor_vertices = (
+                    (open_sheet_x - 0.3, 1.42, 0.5),
+                    (open_sheet_x - 0.1, 1.42, 0.5),
+                    (open_sheet_x - 0.3, 1.90, 0.5),
+                )
+            else:
+                competitor_vertices = (
+                    (open_sheet_x - 0.1, 1.45, 0.45),
+                    (open_sheet_x - 0.1, 1.45, 0.55),
+                    (open_sheet_x - 0.1, 1.50, 0.45),
+                )
+            vertices += competitor_vertices
             triangles += ((4, 5, 6),)
         surface = boundary_models.triangulated_rigid_surface(
             vertices=vertices,
@@ -469,6 +478,49 @@ def test_bounded_open_sheet_proof_refinement_matches_plane_in_global_j2():
         plane.energy_history[-1].tool_work, rel=1e-8,
     )
     assert sheet.contact_provider.current_point_diagnostics()[
+        "whole_face_planar_branch"
+    ]["certified"] is True
+
+
+def test_finite_vertex_competitor_certificate_matches_plane_in_global_j2(monkeypatch):
+    sheet, sheet_displacement = _small_single_branch_j2_step(
+        closed=False, open_sheet=True, open_sheet_competitor=True,
+        open_sheet_competitor_kind="finite_vertex",
+    )
+    provider = sheet.contact_provider
+    current = provider.adapter.current_nodal_positions(sheet_displacement.value)
+    face_nodes = provider.adapter.trace.node_ids.reshape(-1, 3, 3)[:, 0, :]
+    from agentfem.boundary_models import contact_planar_branch_bound as branch_bound
+
+    coarse = branch_bound.certify_reviewed_planar_branch(
+        current[face_nodes], provider.surface, projector=provider.projector,
+        maximum_refinement_levels=0,
+    )
+    assert coarse.certified
+    with monkeypatch.context() as disabled:
+        disabled.setattr(
+            branch_bound,
+            "_quadratic_finite_feature_distance_difference_lower_bound",
+            lambda *_args, **_kwargs: None,
+        )
+        old_coarse = branch_bound.certify_reviewed_planar_branch(
+            current[face_nodes], provider.surface, projector=provider.projector,
+            maximum_refinement_levels=0,
+        )
+    assert not old_coarse.certified
+    assert old_coarse.status == "another_master_feature_can_compete"
+
+    plane, plane_displacement = _small_single_branch_j2_step(closed=False)
+    assert sheet.solve_result().status == "completed"
+    assert plane.solve_result().status == "completed"
+    np.testing.assert_allclose(
+        sheet_displacement.value.x.array, plane_displacement.value.x.array,
+        rtol=1e-8, atol=1e-9,
+    )
+    assert sheet.energy_history[-1].tool_work == pytest.approx(
+        plane.energy_history[-1].tool_work, rel=1e-8,
+    )
+    assert provider.current_point_diagnostics()[
         "whole_face_planar_branch"
     ]["certified"] is True
 
