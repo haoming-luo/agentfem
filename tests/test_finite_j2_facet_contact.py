@@ -240,6 +240,7 @@ def _small_single_branch_j2_step(
     open_sheet: bool = False, integration_override: str | None = None,
     initial_penetration_limit: float | None = None,
     open_sheet_x: float = 1.10,
+    open_sheet_competitor: bool = False,
 ):
     if closed and open_sheet:
         raise ValueError("Choose either the closed solid or the open sheet.")
@@ -285,10 +286,21 @@ def _small_single_branch_j2_step(
         )
         mode = "closed_planar_branch_partition"
     elif open_sheet:
+        vertices = (
+            (open_sheet_x, 0., -1.), (open_sheet_x, 0., 1.),
+            (open_sheet_x, 2., 1.), (open_sheet_x, 2., -1.),
+        )
+        triangles = ((0, 1, 2), (0, 2, 3))
+        if open_sheet_competitor:
+            vertices += (
+                (open_sheet_x - 0.1, 1.45, 0.45),
+                (open_sheet_x - 0.1, 1.45, 0.55),
+                (open_sheet_x - 0.1, 1.50, 0.45),
+            )
+            triangles += ((4, 5, 6),)
         surface = boundary_models.triangulated_rigid_surface(
-            vertices=((open_sheet_x, 0., -1.), (open_sheet_x, 0., 1.),
-                      (open_sheet_x, 2., 1.), (open_sheet_x, 2., -1.)),
-            triangles=((0, 1, 2), (0, 2, 3)),
+            vertices=vertices,
+            triangles=triangles,
             name="reviewed_open_sheet_tool",
         )
         mode = "reviewed_planar_branch_partition"
@@ -427,6 +439,38 @@ def test_reviewed_open_sheet_planar_branch_matches_analytical_plane_global_j2(tm
     )
     with pytest.raises(ValueError, match="identity|contact|constraint"):
         wrong_mode.load_checkpoint(saved)
+
+
+def test_bounded_open_sheet_proof_refinement_matches_plane_in_global_j2():
+    sheet, sheet_displacement = _small_single_branch_j2_step(
+        closed=False, open_sheet=True, open_sheet_competitor=True,
+    )
+    plane, plane_displacement = _small_single_branch_j2_step(closed=False)
+    provider = sheet.contact_provider
+    current = provider.adapter.current_nodal_positions(sheet_displacement.value)
+    face_nodes = provider.adapter.trace.node_ids.reshape(-1, 3, 3)[:, 0, :]
+    from agentfem.boundary_models.contact_planar_branch_bound import (
+        certify_reviewed_planar_branch,
+    )
+
+    coarse = certify_reviewed_planar_branch(
+        current[face_nodes], provider.surface, projector=provider.projector,
+        maximum_refinement_levels=0,
+    )
+    assert not coarse.certified
+    assert coarse.status == "another_master_feature_can_compete"
+    assert sheet.solve_result().status == "completed"
+    assert plane.solve_result().status == "completed"
+    np.testing.assert_allclose(
+        sheet_displacement.value.x.array, plane_displacement.value.x.array,
+        rtol=1e-8, atol=1e-9,
+    )
+    assert sheet.energy_history[-1].tool_work == pytest.approx(
+        plane.energy_history[-1].tool_work, rel=1e-8,
+    )
+    assert sheet.contact_provider.current_point_diagnostics()[
+        "whole_face_planar_branch"
+    ]["certified"] is True
 
 
 def test_reviewed_open_sheet_branch_refuses_positive_area_beyond_master_edge():

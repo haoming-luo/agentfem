@@ -177,6 +177,47 @@ def test_reviewed_open_patch_proves_whole_face_across_coplanar_seam():
         )
 
 
+def test_reviewed_open_sheet_refinement_proves_only_the_same_nearest_plane():
+    surface = boundary_models.triangulated_rigid_surface(
+        vertices=(
+            (1., 0., 0.), (1., 0., 2.), (1., 2., 2.), (1., 2., 0.),
+            (0.7, 1.9, 0.8), (0.8, 1.9, 0.8), (0.7, 1.9, 0.9),
+        ),
+        triangles=((0, 1, 2), (0, 2, 3), (4, 5, 6)),
+        name="open_patch_with_nonplanar_competitor",
+    )
+    search = boundary_models.triangle_surface_bvh(surface)
+    broad = np.asarray((((0.95, 0.4, 0.8), (0.95, 1.4, 0.8),
+                         (0.95, 0.4, 1.1)),))
+    coarse = certify_reviewed_planar_branch(
+        broad, surface, projector=search, maximum_refinement_levels=0,
+    )
+    refined = certify_reviewed_planar_branch(
+        broad, surface, projector=search,
+    )
+    assert not coarse.certified
+    assert coarse.status == "another_master_feature_can_compete"
+    assert refined.certified, refined.status
+    assert refined.minimum_competitor_clearance > 0
+    samples = np.asarray((
+        broad[0, 0], broad[0, 1], broad[0, 2],
+        broad[0].mean(axis=0), 0.2 * broad[0, 0] + 0.3 * broad[0, 1]
+        + 0.5 * broad[0, 2],
+    ))
+    np.testing.assert_allclose(
+        search.project(samples).signed_gaps,
+        (samples - refined.plane_points[0]) @ refined.plane_normals[0],
+        atol=1e-12,
+    )
+    near_competitor = broad.copy()
+    near_competitor[:, :, 1] += 0.3
+    rejected = certify_reviewed_planar_branch(
+        near_competitor, surface, projector=search,
+    )
+    assert not rejected.certified
+    assert rejected.status == "another_master_feature_can_compete"
+
+
 def test_current_face_separation_refuses_hidden_and_budget_limited_contact():
     tool = _concave_tool()
     # All three standard degree-two points are in the free reentrant notch;

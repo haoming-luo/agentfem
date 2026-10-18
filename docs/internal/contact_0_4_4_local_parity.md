@@ -219,10 +219,18 @@ The gate stays open until its listed evidence exists at the proposed scope.
    only if all four children independently certify the *same oriented tool
    plane*. This changes no quadrature or contact law. On the reviewed
    reentrant-tool fixture a wider face formerly rejected by the coarse
-   `2r` screen is now certified with positive child clearance, while disabling
-   refinement reproduces the refusal and a true edge-transition face remains
-   rejected. The depth is bounded and child planes that differ never become
-   an approximate sharp-feature rule. The
+   `2r` screen is now certified with positive child clearance. The same
+   test succeeds on an open triangle sheet with a nearby noncoplanar
+   competing patch; moving its slave face nearer the competitor still fails.
+   The corresponding six-increment global finite-J2 open-sheet Step completes
+   and matches the otherwise identical analytical-plane displacement and
+   prescribed-tool work; the unrefined whole-face certificate rejects its
+   initial trace. This tests the whole Model-to-Result path, not only a
+   standalone geometric helper.
+   Disabling refinement reproduces the old refusal, and a true closed-solid
+   edge-transition face remains rejected. The depth and total subface budget
+   are bounded; child planes that differ never become an approximate
+   sharp-feature rule. The
    ordinary Step capability query reports unsupported geometry/order before
    Step construction. The explicit pair still rejects this policy. No branch
    silently moves slave nodes or the tool. Arbitrary large-CAD and ambiguous
