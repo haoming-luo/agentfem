@@ -137,6 +137,12 @@ sampled on the actual trace and a nominal pressure difference, because a
 close total force can hide an inaccurate pressure distribution. The chosen
 rule likewise changes sampled physical-edge contact on a reviewed reentrant
 tool; mesh and penalty sensitivity remain mandatory before engineering use.
+For such a tool, the result records sampled slave faces spanning multiple
+nearest features. If any are observed without a certified feature-transition
+integral, `result.verify("engineering")` and `result.verify("release")` fail
+the corresponding runtime claim. `"exploratory"` still permits inspection;
+zero observed mixed faces is not proof that the full contact boundary was
+integrated accurately.
 The rule is part of the checkpoint identity and
 is rejected for legacy plane contact and affine-periodic J2; no
 unsupported combination silently falls back. Other weak boundary models and

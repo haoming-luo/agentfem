@@ -383,3 +383,67 @@ def test_runtime_verification_rejects_serialized_constraint_work_drift():
 
     assert claim.status == "failed"
     assert "serialized provider work differs" in claim.actual["issues"][0]
+
+
+@pytest.mark.parametrize(
+    "mixed,certified,expected_status",
+    [(0, False, "passed"), (2, False, "failed"), (2, True, "passed")],
+)
+def test_quality_report_exposes_uncertified_sampled_feature_switch(
+    mixed, certified, expected_status,
+):
+    result = results.SimulationResult(
+        "bounded_contact_quality",
+        metadata={
+            "solve": {"converged": True},
+            "rigid_contact_point_diagnostics": {
+                "constraint": "tool_A",
+                "sampled_mixed_feature_slave_faces": mixed,
+                "feature_transition_integral_certified": certified,
+            },
+        },
+    )
+    result.add_quantity("force", 1.0)
+    report = result.verify("engineering")
+    claim = next(
+        item for item in report.claims
+        if item.name == "no_observed_uncertified_contact_feature_transition"
+    )
+    assert claim.status == expected_status
+    assert claim.actual["scope"] == (
+        "sampled_warning_not_complete_feature_coverage_proof"
+    )
+    if expected_status == "failed":
+        assert not report.acceptable
+        assert report.trust_level == "converged"
+        exploratory = result.verify("exploratory")
+        assert exploratory.acceptable
+        assert all(
+            item.name != "no_observed_uncertified_contact_feature_transition"
+            for item in exploratory.claims
+        )
+
+
+def test_quality_report_refuses_malformed_multi_pair_feature_evidence():
+    result = results.SimulationResult(
+        "contact_quality_invalid",
+        metadata={
+            "solve": {"converged": True},
+            "rigid_contact_point_diagnostics": (
+                {
+                    "constraint": "tool_A",
+                    "sampled_mixed_feature_slave_faces": 0,
+                    "feature_transition_integral_certified": False,
+                },
+                {"constraint": "tool_B", "sampled_mixed_feature_slave_faces": -1},
+            ),
+        },
+    )
+    result.add_quantity("force", 1.0)
+    report = result.verify("engineering")
+    claim = next(
+        item for item in report.claims
+        if item.name == "no_observed_uncertified_contact_feature_transition"
+    )
+    assert claim.status == "failed"
+    assert "invalid feature evidence" in claim.actual["issues"][0]

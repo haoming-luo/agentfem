@@ -790,8 +790,16 @@ def test_fixed_configuration_contact_quadrature_audit_is_read_only():
         tool_translation=(-0.055, 0.0, 0.0),
         penalty=20.0, increments=3, applied_traction=0.0,
     )
-    step.solve()
+    result = step.solve_result()
     provider = step.contact_provider
+    assert result.metadata["rigid_contact_point_diagnostics"][
+        "sampled_mixed_feature_slave_faces"
+    ] > 0
+    quality = result.verify("engineering")
+    assert next(
+        item for item in quality.claims
+        if item.name == "no_observed_uncertified_contact_feature_transition"
+    ).status == "failed"
     original_displacement = displacement.value.x.array.copy()
     original_factor = float(provider.motion_factor.value)
     original_force = provider.evaluate().contact_force_on_structure.copy()

@@ -524,6 +524,7 @@ def assess(
         required_quantities=tuple(required_quantities),
         required_histories=tuple(required_histories),
         required_artifacts=tuple(required_artifacts),
+        require_contact_feature_integrity=policy.name != "exploratory",
     )
     selected_convergence = (
         _infer_converged(result)
@@ -556,6 +557,7 @@ def _runtime_checks(
     required_quantities: tuple[str, ...],
     required_histories: tuple[str, ...],
     required_artifacts: tuple[str, ...],
+    require_contact_feature_integrity: bool,
 ) -> tuple[VerificationClaim, ...]:
     quantities = getattr(result, "quantities", {})
     fields = getattr(result, "fields", {})
@@ -668,6 +670,23 @@ def _runtime_checks(
             )
         )
 
+    feature_ok, feature_evidence = _contact_feature_evidence(result)
+    if require_contact_feature_integrity and feature_evidence["inspected"]:
+        claims.append(
+            _runtime_claim(
+                "no_observed_uncertified_contact_feature_transition",
+                feature_ok,
+                observable="accepted rigid-contact point diagnostics",
+                actual=feature_evidence,
+                expected="no sampled mixed-feature face without certified integration",
+                criterion=(
+                    "sampled active feature switches require a supported "
+                    "transition integral; no observed switch is not a "
+                    "whole-face coverage certificate"
+                ),
+            )
+        )
+
     execution = getattr(result, "metadata", {}).get("execution")
     if isinstance(execution, Mapping):
         events = execution.get("events", ())
@@ -696,6 +715,63 @@ def _runtime_checks(
             )
         )
     return tuple(claims)
+
+
+def _contact_feature_evidence(result) -> tuple[bool, dict[str, object]]:
+    """Expose a known contact-integration gap without inventing validation."""
+
+    metadata = getattr(result, "metadata", {})
+    raw = (
+        metadata.get("rigid_contact_point_diagnostics")
+        if isinstance(metadata, Mapping)
+        else None
+    )
+    if raw is None:
+        return True, {"inspected": False}
+    records = (raw,) if isinstance(raw, Mapping) else raw
+    if not isinstance(records, (tuple, list)):
+        return False, {
+            "inspected": True,
+            "issues": ("invalid contact diagnostic layout",),
+        }
+    observed = []
+    issues = []
+    inspected = False
+    for index, item in enumerate(records):
+        if not isinstance(item, Mapping):
+            issues.append(f"contact diagnostic {index} is not a mapping")
+            inspected = True
+            continue
+        if "sampled_mixed_feature_slave_faces" not in item:
+            continue
+        inspected = True
+        count = item["sampled_mixed_feature_slave_faces"]
+        certified = item.get("feature_transition_integral_certified")
+        if (
+            isinstance(count, bool)
+            or not isinstance(count, (int, np.integer))
+            or count < 0
+            or not isinstance(certified, bool)
+        ):
+            issues.append(f"contact diagnostic {index} has invalid feature evidence")
+            continue
+        record = {
+            "constraint": str(item.get("constraint", index)),
+            "sampled_mixed_feature_slave_faces": int(count),
+            "feature_transition_integral_certified": certified,
+        }
+        observed.append(record)
+        if count > 0 and not certified:
+            issues.append(
+                f"{record['constraint']} has {int(count)} sampled mixed-feature "
+                "slave faces without a certified transition integral"
+            )
+    return not issues, {
+        "inspected": inspected,
+        "records": tuple(observed),
+        "issues": tuple(issues),
+        "scope": "sampled_warning_not_complete_feature_coverage_proof",
+    }
 
 
 def _checkpoint_contract_evidence(result) -> tuple[bool, dict[str, object]]:
