@@ -142,6 +142,62 @@ def test_trial_partition_rejects_nonplanar_tool():
         )
 
 
+def test_rigid_pair_rejects_pointwise_penalty_before_partition():
+    _, ordinary = _narrow_contact()
+    with pytest.raises(ValueError, match="one scalar penalty"):
+        boundary_models.rigid_contact_pair(
+            ordinary.pair.slave_boundary,
+            ordinary.pair.rigid_body,
+            penalty=np.full(ordinary.adapter.trace.point_count, 17.0),
+        )
+
+
+def test_rotating_planar_partition_keeps_current_tangent_and_tool_work():
+    displacement, fixed = _narrow_contact()
+    motion = boundary_models.prescribed_rigid_motion(
+        translation=(0.01, 0, 0), rotation=(0, 0, 0.01),
+        reference_point=(0.04, 0.5, 0.5),
+    )
+    schedule = boundary_models.prescribed_rigid_motion_schedule(
+        motion, start_time=0, end_time=1,
+    )
+    pair = boundary_models.rigid_contact_pair(
+        fixed.pair.slave_boundary,
+        boundary_models.rigid_body(fixed.surface, motion_schedule=schedule),
+        penalty=17,
+    )
+    operator = dolfinx_implicit_rigid_contact(
+        pair, displacement, contact_integration="planar_active_partition",
+    )
+    operator.update_motion(0.8)
+    value = operator.evaluate()
+    assert value.active_points > 0
+    assert value.surface_generalized_moment is not None
+    base = displacement.x.array.copy()
+    direction = np.random.default_rng(260).normal(size=base.shape)
+    h = 1e-7
+    displacement.x.array[:] = base + h * direction
+    plus = operator.evaluate()
+    displacement.x.array[:] = base - h * direction
+    minus = operator.evaluate()
+    displacement.x.array[:] = base
+    np.testing.assert_allclose(
+        value.tangent_action(direction.reshape(-1, 3)),
+        (plus.nodal_structural_residual - minus.nodal_structural_residual) / (2 * h),
+        rtol=2e-7, atol=2e-8,
+    )
+    h = 1e-6
+    operator.update_motion(0.8 + h)
+    plus_energy = operator.evaluate().potential_energy
+    operator.update_motion(0.8 - h)
+    minus_energy = operator.evaluate().potential_energy
+    operator.update_motion(0.8)
+    generalized = np.r_[value.contact_force_on_structure, value.surface_generalized_moment]
+    assert (plus_energy - minus_energy) / (2 * h) == pytest.approx(
+        generalized @ motion.generalized_coordinate(1.0), rel=2e-5,
+    )
+
+
 def _ordinary_step(integration="planar_active_partition", *, tilted=False):
     domain = dolfinx_mesh.create_unit_cube(
         MPI.COMM_SELF, 1, 1, 1,

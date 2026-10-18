@@ -317,9 +317,10 @@ def finite_strain_j2(
         else ()
     )
     if affine:
-        if contact_integration != "gauss":
+        if contact_integration not in {"gauss", "convex_feature_partition"}:
             raise NotImplementedError(
-                "Trial active contact partition is limited to the strong-boundary J2 route."
+                "The selected trial contact partition is not available for "
+                "the affine-periodic J2 route."
             )
         if contact_quadrature_degree is not None:
             raise NotImplementedError(
@@ -374,6 +375,7 @@ def finite_strain_j2(
                 material=properties,
                 constraint=affine[0],
                 contact=affine_contact,
+                contact_integration=contact_integration,
                 incrementation=incrementation,
                 solver_options=solver_options,
                 quadrature_degree=selected_quadrature_degree,

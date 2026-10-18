@@ -143,7 +143,9 @@ def export_accepted_contact_points(
     samples = [item.accepted_point_samples() for item in providers]
     identity_scopes = [
         "accepted_snapshot_only"
-        if getattr(item, "contact_integration", "gauss") == "planar_active_partition"
+        if getattr(item, "contact_integration", "gauss") in {
+            "planar_active_partition", "convex_feature_partition",
+        }
         else "fixed_reference_quadrature"
         for item in providers
     ]

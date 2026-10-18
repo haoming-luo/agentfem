@@ -261,12 +261,12 @@ sensitivity data, **not** quadrature convergence or a resolved contact
 boundary. Higher degree alone cannot be the default numerical-method fix.
 The same fixture at penalty 200, 12 increments, degree-7 quadrature and
 `basic` Newton was refined without changing its physical or algorithmic
-inputs. Cells 3--8 came from the installed wheel; cells 10--14 were rerun on
+inputs. Cells 3--8 came from the installed wheel; cells 10--20 were rerun on
 the final candidate source:
 
 For each new row, run
 `PYTHONPATH=src python examples/finite_j2_closed_concave_contact.py --cells N --increments 12 --penalty 200 --contact-quadrature-degree 7 --line-search basic --output OUTPUT`
-with `N=10,12,14` on the candidate branch; the fourteen-cell face-rule
+with `N=10,12,14,16,20` on the candidate branch; the fourteen-cell face-rule
 control substitutes degree 5 and changes nothing else.
 
 | Cells per axis | x-resultant | max PEEQ | max penetration | active reentrant-edge points |
@@ -279,17 +279,25 @@ control substitutes degree 5 and changes nothing else.
 | 10 | -1.76727530 | 0.04587753 | 0.03447152 | 1 |
 | 12 | -1.75368614 | 0.04897816 | 0.03454590 | 2 |
 | 14 | -1.73441914 | 0.05089190 | 0.03538630 | 2 |
+| 16 | -1.73535783 | 0.05478494 | 0.03550203 | 5 |
+| 20 | -1.72154804 | 0.05989208 | 0.03524172 | 8 |
 
 From six to eight cells the force magnitude changes by 2.77% and maximum
 PEEQ by 9.75%. The ten-cell maximum PEEQ initially falls, then rises by
 6.76% from ten to twelve cells and by another 3.91% from twelve to fourteen;
-the active reentrant-edge sample count changes as well. The ten-, twelve- and
-fourteen-cell rows were rerun on the final candidate source at identical
+the active reentrant-edge sample count changes as well. The ten- through
+twenty-cell rows were rerun on the candidate source at identical
 physical and algorithmic inputs; the only core changes since the earlier
 installed-wheel eight-cell row are result-axis unit metadata, not numerical
 assembly. This extends the non-convergence evidence; it does not identify the
 asymptotic solution, separate spatial error from penalty error, or validate
 the full-Newton policy for other models.
+
+The 16→20-cell x-resultant changes by about 0.80%, while maximum PEEQ rises
+about 9.3% and the sampled reentrant-edge points increase from five to eight.
+Apparent force stabilization alone is therefore not a validated damage or
+plastic-history limit.
+
 At fourteen cells, changing only the positive triangle rule from degree 7 to
 degree 5 gives x-resultant `-1.73819547` instead of `-1.73441914` (about
 0.22% difference), maximum PEEQ `0.05169160` instead of `0.05089190` (about
@@ -596,7 +604,7 @@ planned code:
 | 5. Multiple rigid pairs | Named planar/convex tool work and atomic restart tests pass; mixed active concave-plus-moving-plane J2 pair keeps separate work, summed tangent and checkpoint restart. An active reentrant edge opposite an active sphere also passes periodic total-residual reduction and serial J2 restart. | Large mixed contact-set scaling and independent multi-tool reference remain untested. |
 | 6. Friction | A finite-J2 strong-BC Step with a reviewed closed concave solid on a planar face matches the convex limit in displacement and friction dissipation for translated and slightly rotated tools under both sign modes; the fixed-old-state tangent and interrupted restart pass. The serial affine-periodic J2 path now commits a moving-plane Coulomb State, reduces its contact tangent by `TᵀKT`, checkpoints it in v2 and atomically rejects corrupt State; reviewed triangle and closed-concave planar faces match the same plane limit. An active reentrant edge rejects without partial State. | The planar law does not include changing-normal terms at a physical edge or vertex; general sharp-feature friction, distributed affine contact and a full thermodynamic path audit remain unsupported. |
 | 7. Material/time composition | Active-edge finite-J2 plastic path passes; explicit contact/material lifecycle is a separate existing route. | No generic historical implicit material or explicit general-closed-tool composition. |
-| 8. Independent acceptance and speed | Directional analytical checks, fixed-seed geometry timing and a manufactured whole-Step opt-in/default comparison are recorded; 24→48 increment screen is narrow. A fixed-geometry mesh/face-rule screen exposes nonmonotone active-feature sampling. The six-cell 10/20/40 penalty bracket confirms large penetration and changing force/plastic history; at penalty 200 and full Newton, the degree-7 mesh screen through fourteen cells still changes active-edge sampling and maximum PEEQ. The independent clipped-face oracle proves that ordinary whole-face rules can miss a narrow active contact strip entirely. | No independent full-geometry comparison, sharp-feature spatial/penalty convergence, industrial whole-step speed claim or release-grade energy closure. |
+| 8. Independent acceptance and speed | Directional analytical checks, fixed-seed geometry timing and a manufactured whole-Step opt-in/default comparison are recorded; 24→48 increment screen is narrow. A fixed-geometry mesh/face-rule screen exposes nonmonotone active-feature sampling. The six-cell 10/20/40 penalty bracket confirms large penetration and changing force/plastic history; at penalty 200 and full Newton, the degree-7 mesh screen through twenty cells still changes active-edge sampling and maximum PEEQ. The independent clipped-face oracle proves that ordinary whole-face rules can miss a narrow active contact strip entirely. | No independent full-geometry comparison, sharp-feature spatial/penalty convergence, industrial whole-step speed claim or release-grade energy closure. |
 | 9. Product boundary | Public-API example exports XDMF/manifest from an isolated native Mac wheel; the pre-metadata numerical candidate passed 177 installed-wheel serial tests (8 MPI-only skips). Source archive and native Mac wheel built from numerical source `5ff2aa0b` pass isolated non-MPI installed-wheel release smoke. Unsupported MPI/friction preflight rejects. | Linux/Windows installed numerical acceptance and final remote CI remain version gates; a local Mac smoke is not cross-platform release approval. |
 
 The table intentionally refuses to turn one successful six- or 24-increment
@@ -606,7 +614,7 @@ fixture into an Abaqus General Contact equivalence claim.
 
 The first production-path slice of the boundary-integration repair is an
 explicit `contact_integration="planar_active_partition"` option.  It is admitted
-only for serial, frictionless, analytical-plane contact on an affine CG1
+only for serial, frictionless, scalar-penalty analytical-plane contact on an affine CG1
 tetrahedral slave triangle with the default positive degree-two rule.  At each
 Newton trial the current planar gap is evaluated at the three slave vertices;
 only a sign-crossing face is clipped in *reference* barycentric coordinates.
@@ -646,15 +654,55 @@ the compressed feature switch. The line term is proportional to the common
 negative gap and the outer product of the two normal jumps. It vanishes on
 the zero-gap contour but not on an interior compressed feature transition.
 Independent analytic potential/translation derivatives, directional finite
-differences, symmetry, feature-order and vertex-order checks pass. The
-oracle rejects a nonunique boundary-aligned feature switch rather than
-claiming a two-sided tangent. This is a **research-only affine two-plane
-method**, not a public Step option: the reviewed L-prism's nearest-edge and
-nearest-vertex distances are nonlinear, and its full feature graph, coverage,
-friction State and global convergence remain unproved. The next promotion
-gate is a manufactured *global* two-plane structural comparison against
-independent integration, followed by the actual closed-tool feature
-transitions; a matching local Hessian alone is insufficient.
+differences, symmetry, feature-order and vertex-order checks pass. A
+manufactured nine-DOF spring-supported triangle reaches a global stationary
+state with this full tangent; its energy and nodal force match separately
+split one-dimensional surface integration, and its assembled Jacobian matches
+a directional difference. A further manufactured one-tetrahedron *linear*
+elasticity fixture reaches equilibrium with the same contact integral. Its
+hand-derived bulk stiffness agrees with an independent DOLFINx UFL/PETSc
+assembly. These are not finite-J2, reviewed L-prism or external-solver
+comparisons. The oracle rejects a nonunique boundary-aligned feature switch
+rather than claiming a two-sided tangent. It remains an independent
+**research-only two-plane reference**, separate from the bounded convex Step
+mode below: the reviewed L-prism's nearest-edge and nearest-vertex distances
+are nonlinear, and its full feature graph, coverage, friction State and
+global convergence remain unproved.
+
+### Certified convex two-feature trial integration
+
+The next bounded production-path slice is an **opt-in**
+`contact_integration="convex_feature_partition"` for frictionless scalar-penalty
+contact against an already certified closed-convex tool. It supports affine
+CG1 tetrahedral slave triangles with the default reference-area rule and one
+MPI rank. At each current trial the tool's distinct support-plane gaps are
+evaluated at the three slave vertices. Each positive-area dominant plane
+receives a polygonal active subcell and positive degree-two quadrature; the
+sum of those areas is checked against an independently clipped convex active
+region. A face with more than two positive-area dominant planes rejects
+instead of guessing a pair. If two active planes switch across a compressed
+line, a separate positive line quadrature contributes the exact affine
+feature term to the same contact Newton matrix. A boundary-aligned undefined
+two-sided switch also rejects. The default Gauss route is unchanged.
+
+An axis-aligned convex box with a narrow interior slab gives the independent
+two-plane oracle's potential, nodal force and **full** tangent. A real DOLFINx
+boundary Operator catches a strip missed by whole-face Gauss and its
+directional tangent matches the moving trial residual. A two-increment
+ordinary finite-J2 Step has an active feature line; its full material-plus-
+contact PETSc matrix matches a fixed-old-state residual difference. The same
+option composes with the serial affine-periodic J2 route: the full
+material-plus-contact residual is reduced by the existing MPC and its total
+reduced Jacobian passes a fixed-old-state directional difference. Prescribed
+rotation, force--moment work derivative, and interrupted serial checkpoint
+match their continuous controls. The fixed tool's distinct support planes are
+prepared once per Operator, while the current trial partition and projection
+are recomputed; a disagreement between their selected active features rejects
+the trial. The chosen integration enters checkpoint identity and exported point
+IDs are accepted-snapshot-local. These are bounded
+software/numerical tests: they do not establish general convex-tool
+multi-feature coverage, nonconvex L-prism accuracy, spatial/penalty
+convergence, sharp-edge friction or Abaqus parity.
 
 Methodological context: Farah, Popp & Wall (2015),
 `doi:10.1007/s00466-014-1093-2`, compares segment- and element-based mortar

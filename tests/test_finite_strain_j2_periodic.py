@@ -71,7 +71,7 @@ def test_periodic_j2_rejects_registered_contact_in_capability_and_step():
 def _periodic_j2_contact_step(
     *, surface=None, motion=None, pair_count=1, opposed_pair=False,
     friction_coefficient=None, tangential_penalty=None, checkpoint=None,
-    linear_solver=None,
+    linear_solver=None, contact_integration="gauss",
 ):
     fixture = periodic_unit_cube(MPI.COMM_SELF)
     model = models.create(
@@ -125,11 +125,15 @@ def _periodic_j2_contact_step(
         ))
     capability = step_capability(
         model, target=displacement,
-        options={"material": material, "constraints": periodicity},
+        options={
+            "material": material, "constraints": periodicity,
+            "contact_integration": contact_integration,
+        },
     )
     assert capability["supported"]
     step = model.step(
         target=displacement, material=material, constraints=periodicity,
+        contact_integration=contact_integration,
         incrementation=steps.fixed(3), progress=False,
         solver_options=solvers.newton(
             relative_tolerance=1e-8, absolute_tolerance=1e-9,
@@ -415,6 +419,46 @@ def test_periodic_j2_closed_convex_tool_preserves_planar_mpc_limit():
     )
 
 
+def _rotated_convex_periodic_tool():
+    center = np.asarray((1.005, 0.5, 0.5))
+    theta = 0.05
+    rotation = np.asarray(((np.cos(theta), -np.sin(theta), 0),
+                           (np.sin(theta), np.cos(theta), 0),
+                           (0, 0, 1)))
+    x0, x1, y0, y1, z0, z1 = 0.98, 1.03, -1.0, 2.0, -1.0, 2.0
+    vertices = np.asarray((
+        (x0, y0, z0), (x1, y0, z0), (x1, y1, z0), (x0, y1, z0),
+        (x0, y0, z1), (x1, y0, z1), (x1, y1, z1), (x0, y1, z1),
+    ))
+    return boundary_models.convex_polyhedral_rigid_surface(
+        vertices=center + (vertices - center) @ rotation.T,
+        triangles=(
+            (0, 2, 1), (0, 3, 2), (4, 5, 6), (4, 6, 7),
+            (0, 1, 5), (0, 5, 4), (3, 7, 6), (3, 6, 2),
+            (0, 4, 7), (0, 7, 3), (1, 2, 6), (1, 6, 5),
+        ),
+    )
+
+
+def test_periodic_j2_convex_feature_partition_reduces_total_residual():
+    fixture, periodicity, step = _periodic_j2_contact_step(
+        surface=_rotated_convex_periodic_tool(),
+        contact_integration="convex_feature_partition",
+    )
+    assert step.solve_result().status == "completed"
+    assert step.contact_provider.current_point_diagnostics()["active_feature_lines"] > 0
+    total = step.assemble_full_residual()
+    reduction = periodicity.reduction(1.0).matrix(fixture.domain.comm)
+    reduced = reduction.createVecRight()
+    try:
+        reduction.multTranspose(total, reduced)
+        assert reduced.norm() < 1e-5
+    finally:
+        reduced.destroy()
+        reduction.destroy()
+        total.destroy()
+
+
 def _periodic_concave_face_tool():
     x0, x1 = 0.95, 1.25
     polygon = 1.75 * np.asarray((
@@ -615,8 +659,13 @@ def test_periodic_j2_opposed_active_tools_include_reentrant_edge_and_restart(
     )
 
 
-@pytest.mark.parametrize("with_friction", [False, True])
-def test_periodic_j2_total_material_contact_jacobian(with_friction):
+@pytest.mark.parametrize(
+    "with_friction, convex_partition",
+    ((False, False), (False, True), (True, False)),
+)
+def test_periodic_j2_total_material_contact_jacobian(
+    with_friction, convex_partition,
+):
     import dolfinx.fem as fem
     import dolfinx.fem.petsc as fem_petsc
 
@@ -633,6 +682,9 @@ def test_periodic_j2_total_material_contact_jacobian(with_friction):
             "friction_coefficient": 0.2,
             "tangential_penalty": 1000.0,
         }
+    elif convex_partition:
+        surface = _rotated_convex_periodic_tool()
+        options = {"contact_integration": "convex_feature_partition"}
     else:
         surface = _active_reentrant_periodic_surface()
     _, _, completed = _periodic_j2_contact_step(surface=surface, **options)

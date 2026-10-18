@@ -141,7 +141,7 @@ is rejected for legacy plane contact and affine-periodic J2; no
 unsupported combination silently falls back. Other weak boundary models and
 formulations need their own reviewed lowering.
 
-For the narrower experimental case of a frictionless analytical plane
+For the narrower experimental case of a frictionless, scalar-penalty analytical plane
 against an affine CG1 tetrahedral slave boundary, the ordinary Step can select
 `contact_integration="planar_active_partition"`. It partitions each
 sign-crossing triangle at the *current trial* zero-gap contour and uses positive
@@ -153,6 +153,27 @@ sharp features, friction, higher-order/quad faces, or MPI. Exported point IDs
 in this mode identify one accepted snapshot, not a stable material point across
 increments. Use independent mesh/penalty/increment checks before interpreting
 local contact pressure or plasticity as engineering results.
+
+The separate experimental `contact_integration="convex_feature_partition"`
+option addresses a **certified closed-convex** rigid tool when an affine CG1
+tetrahedral slave triangle has at most two positive-area dominant support
+planes. It partitions both the active area and the compressed feature switch;
+the latter contributes a line term to the Newton tangent. A moving/rotating
+tool, force--moment work, total J2-plus-contact Jacobian, affine-periodic MPC
+reduction, and interrupted restart have bounded regressions. The option
+requires frictionless scalar-penalty contact, the default three-point
+reference triangle rule, and a single MPI rank. More than two dominant planes
+or an undefined boundary-aligned feature switch rejects the trial; no normal is
+smoothed or third feature discarded. Accepted contact-point IDs are local to
+that snapshot. This does **not** apply to concave STL geometry, nonlinear
+nearest-edge/vertex distance branches, frictional edge transitions, or
+general hard contact. Its successful small tests are not a penalty- or
+mesh-convergence certificate.
+
+The runnable, dimensionless
+[feature-partition example](https://github.com/haoming-luo/agentfem/blob/main/examples/finite_j2_convex_feature_partition.py)
+exercises the ordinary installed-package workflow; it is a regression fixture,
+not an external forming benchmark.
 
 Bulk and contact integration are separate choices. For an ordinary CG2
 hexahedral finite-J2 displacement field, `model.step(...)` selects bulk

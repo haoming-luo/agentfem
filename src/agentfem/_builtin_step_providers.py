@@ -355,6 +355,7 @@ def _accept_finite_strain_j2_affine(model, request: StepRequest) -> bool:
         and not physical_loads
         and affine_rigid_contact_supported(model)
         and _finite_j2_bulk_quadrature_rejection_reason(request) is None
+        and _contact_integration_rejection_reason(model, request) is None
     )
 
 
@@ -434,6 +435,9 @@ def _finite_strain_j2_affine_boundary_rejection(model, request: StepRequest) -> 
     quadrature_problem = _finite_j2_bulk_quadrature_rejection_reason(request)
     if quadrature_problem is not None:
         return quadrature_problem
+    integration_problem = _contact_integration_rejection_reason(model, request)
+    if integration_problem is not None:
+        return integration_problem
     if not getattr(model, "boundary_models", ()) or affine_rigid_contact_supported(model):
         return None
     return (
@@ -590,20 +594,29 @@ def _contact_integration_rejection_reason(model, request: StepRequest) -> str | 
     selected = request.options.get("contact_integration", "gauss")
     if selected == "gauss":
         return None
-    if selected != "planar_active_partition":
+    if selected not in {"planar_active_partition", "convex_feature_partition"}:
         return "AFM-CONTACT-PARTITION: unknown contact_integration option."
-    from .boundary_models import RigidContactPair, RigidPlaneSurface
+    from .boundary_models import (
+        ConvexPolyhedralRigidSurface, RigidContactPair, RigidPlaneSurface,
+    )
 
     pairs = tuple(getattr(model, "boundary_models", ()))
     if (not pairs or not all(
         isinstance(item, RigidContactPair)
-        and isinstance(item.rigid_body.surface, RigidPlaneSurface)
-        and item.friction is None for item in pairs
+        and isinstance(
+            item.rigid_body.surface,
+            RigidPlaneSurface if selected == "planar_active_partition"
+            else ConvexPolyhedralRigidSurface,
+        )
+        and item.friction is None
+        and np.asarray(item.law.penalty).ndim == 0
+        for item in pairs
     ) or request.options.get("contact_quadrature_degree") is not None):
         return (
             "AFM-CONTACT-PARTITION: trial active partition requires "
-            "frictionless analytical-plane rigid pairs and the default "
-            "contact quadrature rule."
+            "frictionless analytical-plane or certified convex rigid pairs "
+            "(matching the selected mode), scalar penalty and the "
+            "default contact quadrature rule."
         )
     value = getattr(request.target, "value", None)
     space = getattr(value, "function_space", None)
@@ -1677,6 +1690,7 @@ register_step_provider(
         option_contract=_option_contract(
             "incrementation",
             "quadrature_degree",
+            "contact_integration",
             "output_every",
             "progress",
             "status_file",

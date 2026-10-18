@@ -699,7 +699,9 @@ yet a same-input external comparison, a converged parameter study, frictional
 sharp-feature law, large-CAD backend or distributed implicit contact.
 The fixed L-tool screen now exposes a concrete numerical gate: changing only
 the positive face rule changes which physical sharp-edge points are sampled,
-and a six-cell penalty bracket remains far from a hard-contact limit. The next
+and a six-cell penalty bracket remains far from a hard-contact limit. Even the
+same-input degree-7 screen through twenty cell divisions still changes maximum
+PEEQ and active edge samples; a nearly stable resultant is not enough. The next
 frictionless method experiment should partition slave-face integration at
 zero-gap and nearest-feature transitions while preserving a common
 residual/tangent trial partition, then compare force, moment, penetration,
@@ -717,8 +719,22 @@ at an active sharp-feature switch the moving internal boundary contributes a
 nonzero line term to the contact tangent. A zero-gap clipper alone cannot be
 rebranded as a consistent L-tool edge algorithm. A research-only positive
 two-plane area-plus-feature-line oracle now matches analytic and directional
-derivative checks, including oblique planes; its next gate is a manufactured
-global structural test before any closed-tool Step promotion.
+derivative checks, including oblique planes and a spring-supported global
+fixture checked against independent integration. A one-tetrahedron linear
+elastic fixture also equilibrates, with its hand-derived bulk stiffness
+independently checked against DOLFINx assembly. The remaining nonconvex
+L-tool gate needs its nonlinear nearest-feature transition law and convergence
+evidence before any such Step promotion.
+The bounded convex-support-plane subset is now an opt-in ordinary-Step and
+serial affine-periodic J2
+implementation: it partitions at most two dominant planes per affine slave
+triangle and includes the compressed feature-line Newton term. A real
+finite-J2 Step, full Jacobian including MPC reduction, moving-tool work and
+serial restart pass. Fixed support planes are prepared once; every current
+trial still recomputes its gap, active subcells and projection, and a projection
+feature disagreement rejects the trial.
+This does not close the nonconvex L-tool's nonlinear nearest-feature
+transition or the independent mesh/penalty benchmark.
 
 Stop after this vertical route has explicit field/response and state evidence.
 Nonmatching-mesh transfer, broader nonlinear coupling, monolithic Jacobians,

@@ -3847,6 +3847,7 @@ def finite_strain_j2_affine_problem(
     material: FiniteStrainJ2Logarithmic | QuadratureMaterialMap,
     constraint,
     contact=None,
+    contact_integration: str = "gauss",
     external_force=None,
     incrementation=None,
     solver_options=None,
@@ -3903,7 +3904,10 @@ def finite_strain_j2_affine_problem(
                 "normalized prescribed motion."
             )
         contact_providers = tuple(
-            dolfinx_implicit_rigid_contact(item, displacement.value)
+            dolfinx_implicit_rigid_contact(
+                item, displacement.value,
+                contact_integration=contact_integration,
+            )
             for item in contact_items
         )
     transaction = _finite_strain_j2_transaction(

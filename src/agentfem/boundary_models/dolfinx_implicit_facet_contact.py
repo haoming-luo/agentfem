@@ -16,6 +16,9 @@ import numpy as np
 
 from .contact_pair import RigidContactPair
 from .contact_active_partition import partition_planar_p1_trace
+from .contact_convex_partition import (
+    _unique_support_planes, partition_convex_p1_trace,
+)
 from .contact_friction import (
     TangentialContactRecord, TangentialContactState, TangentialKinematicRecord,
     TangentialKinematicState, relative_contact_displacement_increment,
@@ -51,6 +54,9 @@ class DolfinxImplicitRigidContact:
     contact_integration: str = "gauss"
     friction_state: TangentialContactState | None = field(default=None, init=False)
     friction_kinematics: TangentialKinematicState | None = field(default=None, init=False)
+    _support_planes: tuple[np.ndarray, np.ndarray] | None = field(
+        default=None, init=False, repr=False,
+    )
 
     def __post_init__(self) -> None:
         if not isinstance(self.pair, RigidContactPair):
@@ -58,11 +64,14 @@ class DolfinxImplicitRigidContact:
         if not isinstance(self.adapter, DolfinxContactTraceAdapter):
             raise TypeError("Implicit rigid contact requires a DOLFINx trace adapter.")
         surface = self.pair.rigid_body.surface
-        if self.contact_integration not in {"gauss", "planar_active_partition"}:
+        if self.contact_integration not in {
+            "gauss", "planar_active_partition", "convex_feature_partition",
+        }:
             raise ValueError("Unsupported implicit contact integration method.")
         if self.contact_integration == "planar_active_partition" and (
             not isinstance(surface, RigidPlaneSurface)
             or self.pair.friction is not None
+            or np.asarray(self.pair.law.penalty).ndim != 0
             or self.adapter.facet_topology != "triangle"
             or self.adapter.interpolation_degree != 1
             or self.adapter.geometry_degree != 1
@@ -73,6 +82,22 @@ class DolfinxImplicitRigidContact:
                 "frictionless analytical-plane contact on a P1 tetrahedral "
                 "triangle with the default positive reference-area rule."
             )
+        if self.contact_integration == "convex_feature_partition" and (
+            not isinstance(surface, ConvexPolyhedralRigidSurface)
+            or self.pair.friction is not None
+            or np.asarray(self.pair.law.penalty).ndim != 0
+            or self.adapter.facet_topology != "triangle"
+            or self.adapter.interpolation_degree != 1
+            or self.adapter.geometry_degree != 1
+            or self.adapter.quadrature_rule != "triangle_degree_two_three_point"
+        ):
+            raise NotImplementedError(
+                "AFM-CONTACT-FEATURE-PARTITION: requires frictionless certified "
+                "convex rigid geometry, scalar penalty, affine P1 tetrahedral "
+                "slave triangles and the default positive reference-area rule."
+            )
+        if self.contact_integration == "convex_feature_partition":
+            self._support_planes = _unique_support_planes(surface)
         if isinstance(surface, (ConvexPolyhedralRigidSurface, ClosedTriangulatedRigidSolid)):
             if self.projector is not surface:
                 raise ValueError("Closed-solid contact projector must share the tool geometry.")
@@ -362,13 +387,14 @@ class DolfinxImplicitRigidContact:
             ),
         )
 
-    def _current_point_response(self):
+    def _current_point_response(self, *, _include_partition=False):
         """Reproject the current trial; never reuse a previous gap or pressure."""
         schedule = self.pair.rigid_body.motion_schedule
         factor = (
             0.0 if self.motion_factor is None
             else float(np.asarray(self.motion_factor.value).reshape(-1)[0])
         )
+        partition = None
         if self.contact_integration == "planar_active_partition":
             current = self.adapter.current_nodal_positions(self.displacement)
             pose = self.surface.transformed(
@@ -379,6 +405,16 @@ class DolfinxImplicitRigidContact:
                 plane_point=pose["point"], plane_normal=pose["normal"],
             )
             evaluation = trial_trace.evaluate(current)
+        elif self.contact_integration == "convex_feature_partition":
+            current = self.adapter.current_nodal_positions(self.displacement)
+            partition = partition_convex_p1_trace(
+                self.adapter.trace, current, self.surface,
+                penalty=float(np.asarray(self.pair.law.penalty)),
+                motion=None if schedule is None else schedule.motion,
+                factor=factor,
+                _support_planes=self._support_planes,
+            )
+            evaluation = partition.trace.evaluate(current)
         else:
             evaluation = self.adapter.evaluate(self.displacement)
         projector = self.surface if self.projector is None else self.projector
@@ -396,14 +432,40 @@ class DolfinxImplicitRigidContact:
                 f"surface={self.surface.name}; the current trial is rejected "
                 "without inventing a contact normal."
             )
+        if partition is not None:
+            # The convex projector has its own geometric query tolerance.
+            # That tolerance may never silently replace the feature selected
+            # by exact reference-area partitioning at a quadrature point.
+            sampled = np.isfinite(partition.selected_gaps)
+            scale = max(1.0, float(np.max(
+                np.abs(evaluation.query_points), initial=0.0,
+            )))
+            gap_error = np.abs(
+                projection.signed_gaps[sampled] - partition.selected_gaps[sampled]
+            )
+            normal_error = np.linalg.norm(
+                projection.normals[sampled] - partition.selected_normals[sampled],
+                axis=1,
+            )
+            if (np.any(gap_error > 64 * np.finfo(float).eps * scale)
+                    or np.any(normal_error > 1e-10)):
+                raise ValueError(
+                    "AFM-CONTACT-FEATURE-PARTITION: geometry projection "
+                    "disagrees with the selected support-plane branch; "
+                    "the current trial is rejected."
+                )
         record = ContactProjectionRecord(evaluation.trace.point_ids, projection)
         response = self.pair.law.evaluate(record.projection)
+        if _include_partition:
+            return evaluation, record, response, factor, partition
         return evaluation, record, response, factor
 
     def current_point_diagnostics(self) -> dict[str, object]:
         """Unsmoothed reference-trace diagnostics at the current trial pose."""
 
-        evaluation, record, response, _factor = self._current_point_response()
+        evaluation, record, response, _factor, partition = self._current_point_response(
+            _include_partition=True,
+        )
         active = np.asarray(response.active, dtype=bool)
         evidence = {
             "location": "reference_boundary_quadrature",
@@ -413,6 +475,9 @@ class DolfinxImplicitRigidContact:
             "maximum_pressure": float(np.max(response.pressures, initial=0.0)),
             "maximum_penetration": float(np.max(response.penetration, initial=0.0)),
         }
+        if partition is not None:
+            evidence["split_slave_faces"] = partition.split_faces
+            evidence["active_feature_lines"] = partition.active_feature_lines
         if isinstance(self.surface, ClosedTriangulatedRigidSolid):
             # Do not infer this from nominal triangle IDs: a coplanar seam is
             # physically a face, while a subdivided straight edge remains an
@@ -491,7 +556,9 @@ class DolfinxImplicitRigidContact:
     def evaluate(self) -> ImplicitRigidContactContribution:
         """Reproject the current displacement and assemble a fresh trial Operator."""
 
-        evaluation, record, response, factor = self._current_point_response()
+        evaluation, record, response, factor, partition = self._current_point_response(
+            _include_partition=True,
+        )
         schedule = self.pair.rigid_body.motion_schedule
         reference_point = self.pair.rigid_body.reference_point
         if schedule is not None:
@@ -512,6 +579,17 @@ class DolfinxImplicitRigidContact:
             contribution = linearize_piecewise_planar_contact(
                 evaluation, record, response, self.surface,
                 surface_reference_point=reference_point,
+            )
+        if partition is not None and partition.tangent_values.size:
+            contribution = replace(
+                contribution,
+                tangent_rows=np.r_[contribution.tangent_rows, partition.tangent_rows],
+                tangent_columns=np.r_[
+                    contribution.tangent_columns, partition.tangent_columns,
+                ],
+                tangent_values=np.r_[
+                    contribution.tangent_values, partition.tangent_values,
+                ],
             )
         if self.friction_state is None:
             return contribution
