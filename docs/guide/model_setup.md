@@ -384,6 +384,9 @@ certified convex tool for a convex shape: its selected support-plane branch
 can continue through some face-distance ties that this general path rejects.
 See the
 [closed-general candidate record](../internal/closed_general_implicit_contact_candidate_20261018.md).
+The bounded `examples/finite_j2_closed_concave_contact.py`
+uses ordinary `model.step()` and writes an accepted XDMF/manifest pair; its
+manufactured unit-cube response is not an external validation benchmark.
 Fixed, translating or rotating analytical-plane Coulomb pairs have a separate
 narrow serial strong-BC route. The rotational friction tangent follows the
 same master material point at fixed accepted State; its generally nonsymmetric

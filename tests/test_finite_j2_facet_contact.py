@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import json
+from pathlib import Path
+import runpy
 
 from dolfinx import mesh as dolfinx_mesh
 from mpi4py import MPI
@@ -280,7 +282,9 @@ def test_reviewed_closed_concave_tool_uses_ordinary_j2_step_and_restart(tmp_path
         different_geometry.load_checkpoint(saved)
 
 
-def test_reviewed_concave_edge_is_active_in_global_plastic_step_and_restart(tmp_path):
+def test_reviewed_concave_edge_is_active_in_global_plastic_step_and_restart(
+    tmp_path, monkeypatch,
+):
     # Place the reentrant corner near, but not exactly on, one boundary
     # quadrature point. A thick tool prevents its back face from masking the
     # edge branch. This is an active-feature FE test, not an industrial tool
@@ -331,10 +335,74 @@ def test_reviewed_concave_edge_is_active_in_global_plastic_step_and_restart(tmp_
         / (2.0 * epsilon),
         rtol=1.0e-4, atol=1.0e-5,
     )
+    # Check the *assembled* material-plus-contact Newton operator with the
+    # fifth accepted state fixed. The final accepted state is unsuitable as
+    # the old state: zero reloading there lies on an elastic/plastic kink.
+    from petsc4py import PETSc
+
+    trial = _patch(**options)[3]
+    trial.solve(until=5.0 / 6.0)
+    trial.contact_provider.update_motion(1.0)
+    trial.solution.x.array[:] = accepted
+    trial.solution.x.scatter_forward()
+    constrained = np.unique(np.concatenate([
+        np.asarray(bc.dof_indices()[0], dtype=np.int64)
+        for bc in trial.bcs
+    ]))
+    direction[constrained] = 0.0
+    direction /= np.linalg.norm(direction)
+
+    def rhs_at(offset):
+        trial.solution.x.array[:] = accepted + offset * direction
+        trial.solution.x.scatter_forward()
+        trial._update_response(start_factor=5.0 / 6.0, target_factor=1.0)
+        rhs, _ = trial._correction_rhs()
+        try:
+            return rhs.array.copy()
+        finally:
+            rhs.destroy()
+
+    try:
+        rhs_at(0.0)
+        matrix = trial._assemble_tangent()
+        vector = PETSc.Vec().createWithArray(direction.copy(), comm=MPI.COMM_SELF)
+        action = matrix.createVecLeft()
+        matrix.mult(vector, action)
+        expected = action.array.copy()
+        vector.destroy()
+        action.destroy()
+        numerical = -(rhs_at(1.0e-6) - rhs_at(-1.0e-6)) / (2.0e-6)
+        np.testing.assert_allclose(
+            expected, numerical, rtol=3.0e-3, atol=2.0e-5,
+        )
+    finally:
+        trial.solution.x.array[:] = accepted
+        trial.solution.x.scatter_forward()
+        trial.response.rollback()
 
     partial = _patch(**options)[3]
     partial.solve(until=0.5)
     saved = partial.save_checkpoint(tmp_path / "active_concave_edge")
+    accepted_u = partial.solution.x.array.copy()
+    accepted_state = partial.response.state.committed_state_vectors().copy()
+    accepted_work = partial.energy_history[-1].tool_work
+    record_energy = partial._record_energy
+
+    def reject_after_recording(*args, **kwargs):
+        record_energy(*args, **kwargs)
+        raise ValueError("intentional active-edge acceptance rejection")
+
+    monkeypatch.setattr(partial, "_record_energy", reject_after_recording)
+    with pytest.raises(RuntimeError, match="active-edge acceptance rejection"):
+        partial.solve(until=2.0 / 3.0)
+    assert partial.accepted_load_factor == pytest.approx(0.5)
+    np.testing.assert_array_equal(partial.solution.x.array, accepted_u)
+    np.testing.assert_array_equal(
+        partial.response.state.committed_state_vectors(), accepted_state,
+    )
+    assert partial.energy_history[-1].tool_work == accepted_work
+    assert partial.contact_provider.snapshot_motion() == pytest.approx(0.5)
+
     resumed = _patch(**options)[3]
     resumed.load_checkpoint(saved)
     assert resumed.solve_result().status == "completed"
@@ -350,6 +418,19 @@ def test_reviewed_concave_edge_is_active_in_global_plastic_step_and_restart(tmp_
     assert resumed.energy_history[-1].tool_work == pytest.approx(
         reference.energy_history[-1].tool_work,
     )
+
+
+def test_closed_concave_example_exports_accepted_public_result(tmp_path):
+    script = Path(__file__).resolve().parents[1] / (
+        "examples/finite_j2_closed_concave_contact.py"
+    )
+    run_case = runpy.run_path(str(script))["run_case"]
+    summary = run_case(cells=1, increments=6, penalty=20.0, output=tmp_path)
+    assert summary["status"] == "completed"
+    assert summary["active_reentrant_edge_points"] == 1
+    assert summary["maximum_equivalent_plastic_strain"] > 0.0
+    assert (tmp_path / "fields.xdmf").is_file()
+    assert (tmp_path / "result.json").is_file()
 
 
 def test_reviewed_closed_concave_friction_is_rejected_before_assembly():

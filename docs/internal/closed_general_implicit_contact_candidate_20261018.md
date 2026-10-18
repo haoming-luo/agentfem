@@ -66,12 +66,38 @@ preflight rejects this serial-only implicit path before a solve. A separate
 six-increment ordinary finite-J2 Step now has an **active reentrant-edge**
 quadrature point at the accepted final state, nonzero equivalent plastic strain,
 and positive accepted tool work. Its current contact tangent agrees with a
-fixed-branch directional finite difference at that accepted state. A halfway
+fixed-branch directional finite difference at that accepted state. The
+assembled material-plus-contact Newton matrix also agrees with a finite
+difference when the *preceding* accepted J2 state is held fixed. Reloading
+from the final accepted yield-surface state is a branch kink and is not that
+discrete-update tangent test. A halfway
 checkpoint/restart reproduces its
-final displacement, committed material state and tool work. This is a small
+final displacement, committed material state and tool work. An injected
+post-energy-record failure restores the previous accepted displacement,
+material state, tool pose and work. This is a small
 manufactured FE regression; it does **not** establish a mesh, penalty or
 increment limit, a same-input Abaqus comparison, or robust convergence across
 arbitrary active-set switches.
+
+An exploratory fixed-geometry sensitivity screen used the same unit-cube
+finite-J2 fixture, tool travel, material and serial backend. These are
+dimensionless fixture values, not a physical reference solution:
+
+| Cells per cube edge | Penalty | Increments | Final x-contact force | Max PEEQ | Tool work | Active reentrant edge points |
+| ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| 1 | 20 | 6 | -0.307884 | 0.004631 | 0.010731 | 1 |
+| 1 | 20 | 12 | -0.308336 | 0.004577 | 0.010243 | 1 |
+| 1 | 20 | 24 | -0.307757 | 0.004755 | 0.010383 | 1 |
+| 1 | 20 | 48 | -0.307564 | 0.004770 | 0.010388 | 1 |
+| 1 | 40 | 6 | -0.570216 | 0.008949 | 0.019391 | 1 |
+| 2 | 20 | 6 | -0.307543 | 0.006715 | 0.008196 | 0 |
+
+The 24→48 increment comparison changes the x-force by about 0.063%, max
+PEEQ by 0.32% and tool work by 0.049%; that is only a *single-mesh load-path
+screen*. The penalty change materially alters the result, and the refined
+mesh samples a different active contact feature. The mechanical energy
+residual also is not monotonically reduced by these increments; no complete
+energy-closure or spatial-convergence assertion follows from this table.
 
 The present tests are local software evidence, not an independent structural
 benchmark. [NAFEMS contact benchmarks](https://www.nafems.org/publications/resource_center/r0094/)
@@ -94,6 +120,17 @@ completes with accepted load factor 1 and tool work
 `0.0016303122370297336` in the dimensionless flat-face fixture. This is an
 installed-package smoke, **not** a global active reentrant-edge solve, an
 independent reference or Windows/Linux qualification.
+
+The later isolated native wheel from commit `db87ea56` has SHA-256
+`2dd1ab6213ecadb459fa10a7b0ac08051f67a3ba6fd8f2cc18c1e7e893d3c08d`.
+It was installed outside the checkout and, with the native `_hex_native` and
+`_body_pipeline` modules present, ran the six-increment active-edge plastic
+fixture: maximum PEEQ `0.004630797762548862`, active edge `True`, accepted
+tool work `0.010730556638046503`. The standalone public-API
+`examples/finite_j2_closed_concave_contact.py` also ran from that isolated
+installation at 24 increments and exported an XDMF field file plus result
+manifest. These are **Mac installed-package** checks of a manufactured
+problem, not release-platform or industrial accuracy evidence.
 
 ### Sign-query performance experiment, not an activated fast path
 
