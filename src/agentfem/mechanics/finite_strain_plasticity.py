@@ -3570,6 +3570,7 @@ def finite_strain_j2_standard_problem(
     solver_options=None,
     quadrature_degree: int = 2,
     contact_quadrature_degree: int | None = None,
+    contact_integration: str = "gauss",
     amplitude=None,
     output_every: int | None = 1,
     output_factors=(),
@@ -3610,6 +3611,8 @@ def finite_strain_j2_standard_problem(
     contact_provider = contact
     if contact_quadrature_degree is not None and contact is None:
         raise ValueError("contact_quadrature_degree requires rigid contact.")
+    if contact_integration != "gauss" and contact is None:
+        raise ValueError("contact_integration requires rigid contact.")
     if contact is not None:
         from ..boundary_models import RigidContactPair, RigidObstaclePenaltyContact
 
@@ -3635,6 +3638,10 @@ def finite_strain_j2_standard_problem(
                 raise NotImplementedError(
                     "Explicit contact quadrature degree requires RigidContactPair."
                 )
+            if contact_integration != "gauss":
+                raise NotImplementedError(
+                    "Trial active contact partition requires RigidContactPair."
+                )
             plane_contact = contact_items[0]
             if plane_contact.location.domain is not domain:
                 raise ValueError("Contact boundary and J2 displacement must share a mesh.")
@@ -3655,11 +3662,13 @@ def finite_strain_j2_standard_problem(
                 dolfinx_implicit_rigid_contact(
                     contact_items[0], solution,
                     contact_quadrature_degree=contact_quadrature_degree,
+                    contact_integration=contact_integration,
                 )
                 if len(contact_items) == 1 else
                 dolfinx_implicit_rigid_contacts(
                     contact_items, solution,
                     contact_quadrature_degree=contact_quadrature_degree,
+                    contact_integration=contact_integration,
                 )
             )
 

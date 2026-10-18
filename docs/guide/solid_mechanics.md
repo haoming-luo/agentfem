@@ -141,6 +141,19 @@ is rejected for legacy plane contact and affine-periodic J2; no
 unsupported combination silently falls back. Other weak boundary models and
 formulations need their own reviewed lowering.
 
+For the narrower experimental case of a frictionless analytical plane
+against an affine CG1 tetrahedral slave boundary, the ordinary Step can select
+`contact_integration="planar_active_partition"`. It partitions each
+sign-crossing triangle at the *current trial* zero-gap contour and uses positive
+reference-area quadrature on its active part. This avoids a documented blind
+spot where a small contact strip falls between all ordinary face points.
+The same trial partition supplies residual and tangent, and the choice is
+checkpoint-identified. It is not an automatic fix for curved or faceted tools,
+sharp features, friction, higher-order/quad faces, or MPI. Exported point IDs
+in this mode identify one accepted snapshot, not a stable material point across
+increments. Use independent mesh/penalty/increment checks before interpreting
+local contact pressure or plasticity as engineering results.
+
 Bulk and contact integration are separate choices. For an ordinary CG2
 hexahedral finite-J2 displacement field, `model.step(...)` selects bulk
 `quadrature_degree=4` by default; an explicit lower degree is rejected before

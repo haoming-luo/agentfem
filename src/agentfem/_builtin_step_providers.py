@@ -509,6 +509,8 @@ def _accept_finite_strain_j2_strong(model, request: StepRequest) -> bool:
         return False
     if _contact_quadrature_rejection_reason(model, request) is not None:
         return False
+    if _contact_integration_rejection_reason(model, request) is not None:
+        return False
     boundary_models = tuple(getattr(model, "boundary_models", ()))
     if not boundary_models:
         return True
@@ -582,6 +584,40 @@ def _contact_quadrature_rejection_reason(model, request: StepRequest) -> str | N
     return None
 
 
+def _contact_integration_rejection_reason(model, request: StepRequest) -> str | None:
+    """Admit the changing trial partition only where its affine proof applies."""
+
+    selected = request.options.get("contact_integration", "gauss")
+    if selected == "gauss":
+        return None
+    if selected != "planar_active_partition":
+        return "AFM-CONTACT-PARTITION: unknown contact_integration option."
+    from .boundary_models import RigidContactPair, RigidPlaneSurface
+
+    pairs = tuple(getattr(model, "boundary_models", ()))
+    if (not pairs or not all(
+        isinstance(item, RigidContactPair)
+        and isinstance(item.rigid_body.surface, RigidPlaneSurface)
+        and item.friction is None for item in pairs
+    ) or request.options.get("contact_quadrature_degree") is not None):
+        return (
+            "AFM-CONTACT-PARTITION: trial active partition requires "
+            "frictionless analytical-plane rigid pairs and the default "
+            "contact quadrature rule."
+        )
+    value = getattr(request.target, "value", None)
+    space = getattr(value, "function_space", None)
+    domain = getattr(space, "mesh", None)
+    if (domain is None or str(domain.topology.cell_name()) != "tetrahedron"
+            or int(space.element.basix_element.degree) != 1
+            or int(domain.geometry.cmaps[0].degree) != 1):
+        return (
+            "AFM-CONTACT-PARTITION: only CG1, first-order tetrahedral "
+            "slave triangles have the reviewed affine-gap partition."
+        )
+    return None
+
+
 def _finite_j2_bulk_quadrature_rejection_reason(request: StepRequest) -> str | None:
     """Reject a known underintegrated Q2-hex J2 request before Step creation."""
 
@@ -626,6 +662,9 @@ def _finite_strain_j2_strong_rejection_reason(model, request: StepRequest) -> st
     quadrature_problem = _contact_quadrature_rejection_reason(model, request)
     if quadrature_problem is not None:
         return quadrature_problem
+    integration_problem = _contact_integration_rejection_reason(model, request)
+    if integration_problem is not None:
+        return integration_problem
     boundary_models = tuple(getattr(model, "boundary_models", ()))
     if (
         len(boundary_models) > 1
@@ -1665,6 +1704,7 @@ register_step_provider(
             "incrementation",
             "quadrature_degree",
             "contact_quadrature_degree",
+            "contact_integration",
             "amplitude",
             "output_every",
             "progress",

@@ -15,6 +15,7 @@ from dataclasses import dataclass, field, replace
 import numpy as np
 
 from .contact_pair import RigidContactPair
+from .contact_active_partition import partition_planar_p1_trace
 from .contact_friction import (
     TangentialContactRecord, TangentialContactState, TangentialKinematicRecord,
     TangentialKinematicState, relative_contact_displacement_increment,
@@ -47,6 +48,7 @@ class DolfinxImplicitRigidContact:
     displacement: object
     projector: TriangleSurfaceBVH | ConvexPolyhedralRigidSurface | ClosedTriangulatedRigidSolid | None
     motion_factor: object | None = None
+    contact_integration: str = "gauss"
     friction_state: TangentialContactState | None = field(default=None, init=False)
     friction_kinematics: TangentialKinematicState | None = field(default=None, init=False)
 
@@ -56,6 +58,21 @@ class DolfinxImplicitRigidContact:
         if not isinstance(self.adapter, DolfinxContactTraceAdapter):
             raise TypeError("Implicit rigid contact requires a DOLFINx trace adapter.")
         surface = self.pair.rigid_body.surface
+        if self.contact_integration not in {"gauss", "planar_active_partition"}:
+            raise ValueError("Unsupported implicit contact integration method.")
+        if self.contact_integration == "planar_active_partition" and (
+            not isinstance(surface, RigidPlaneSurface)
+            or self.pair.friction is not None
+            or self.adapter.facet_topology != "triangle"
+            or self.adapter.interpolation_degree != 1
+            or self.adapter.geometry_degree != 1
+            or self.adapter.quadrature_rule != "triangle_degree_two_three_point"
+        ):
+            raise NotImplementedError(
+                "AFM-CONTACT-PARTITION: the trial active partition requires "
+                "frictionless analytical-plane contact on a P1 tetrahedral "
+                "triangle with the default positive reference-area rule."
+            )
         if isinstance(surface, (ConvexPolyhedralRigidSurface, ClosedTriangulatedRigidSolid)):
             if self.projector is not surface:
                 raise ValueError("Closed-solid contact projector must share the tool geometry.")
@@ -347,12 +364,23 @@ class DolfinxImplicitRigidContact:
 
     def _current_point_response(self):
         """Reproject the current trial; never reuse a previous gap or pressure."""
-        evaluation = self.adapter.evaluate(self.displacement)
         schedule = self.pair.rigid_body.motion_schedule
         factor = (
             0.0 if self.motion_factor is None
             else float(np.asarray(self.motion_factor.value).reshape(-1)[0])
         )
+        if self.contact_integration == "planar_active_partition":
+            current = self.adapter.current_nodal_positions(self.displacement)
+            pose = self.surface.transformed(
+                None if schedule is None else schedule.motion, factor,
+            )
+            trial_trace = partition_planar_p1_trace(
+                self.adapter.trace, current,
+                plane_point=pose["point"], plane_normal=pose["normal"],
+            )
+            evaluation = trial_trace.evaluate(current)
+        else:
+            evaluation = self.adapter.evaluate(self.displacement)
         projector = self.surface if self.projector is None else self.projector
         projection = projector.project(
             evaluation.query_points,
@@ -363,12 +391,12 @@ class DolfinxImplicitRigidContact:
             first = int(np.flatnonzero(~projection.valid)[0])
             raise ValueError(
                 "AFM-IMPLICIT-CONTACT-PROJECTION: invalid projection at "
-                f"contact_point_id={int(self.adapter.trace.point_ids[first])}, "
+                f"contact_point_id={int(evaluation.trace.point_ids[first])}, "
                 f"status={projection.status_codes[first]}, "
                 f"surface={self.surface.name}; the current trial is rejected "
                 "without inventing a contact normal."
             )
-        record = ContactProjectionRecord(self.adapter.trace.point_ids, projection)
+        record = ContactProjectionRecord(evaluation.trace.point_ids, projection)
         response = self.pair.law.evaluate(record.projection)
         return evaluation, record, response, factor
 
@@ -657,6 +685,7 @@ class DolfinxImplicitRigidContact:
             "kind": "dolfinx_implicit_rigid_contact",
             "pair": self.pair.summary(),
             "trace": self.adapter.summary(),
+            "contact_integration": self.contact_integration,
             "search": (
                 self.projector.summary() if self.projector is not None
                 else {"kind": "exact_analytical_projection"}
@@ -851,6 +880,7 @@ def dolfinx_implicit_rigid_contact(
     displacement,
     *,
     contact_quadrature_degree: int | None = None,
+    contact_integration: str = "gauss",
 ) -> DolfinxImplicitRigidContact:
     """Lower one bounded rigid pair to a serial current-trial Newton Operator."""
 
@@ -870,6 +900,7 @@ def dolfinx_implicit_rigid_contact(
 
     return DolfinxImplicitRigidContact(
         pair=pair, adapter=adapter, displacement=displacement,
+        contact_integration=contact_integration,
         projector=(
             surface if isinstance(surface, (
                 ConvexPolyhedralRigidSurface, ClosedTriangulatedRigidSolid,
@@ -889,6 +920,7 @@ def dolfinx_implicit_rigid_contacts(
     displacement,
     *,
     contact_quadrature_degree: int | None = None,
+    contact_integration: str = "gauss",
 ) -> DolfinxImplicitRigidContacts:
     """Lower independently named rigid pairs on one serial displacement field."""
 
@@ -901,6 +933,7 @@ def dolfinx_implicit_rigid_contacts(
         dolfinx_implicit_rigid_contact(
             item, displacement,
             contact_quadrature_degree=contact_quadrature_degree,
+            contact_integration=contact_integration,
         ) for item in selected
     ))
 

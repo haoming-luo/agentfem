@@ -90,8 +90,10 @@ def export_accepted_contact_points(
     """Archive accepted quadrature samples without smoothing or advancing State.
 
     The coordinate is the Step's normalized load factor, not physical time.
-    Point IDs are stable only together with the named contact pair and geometry
-    fingerprint. The NPZ is a scientific-data view, **not** a restart archive.
+    Fixed-rule point IDs are stable only together with the named contact pair
+    and geometry fingerprint. Trial-partition IDs address this accepted snapshot
+    only: the same ID can move within its reference face after another trial.
+    The NPZ is a scientific-data view, **not** a restart archive.
     No contact pressure is mislabeled as a Cauchy stress or nodal field.
     ``vtk_view=True`` additionally writes vertex-only PolyData at the current
     slave positions for ParaView; it does not interpolate or smooth the samples.
@@ -139,6 +141,12 @@ def export_accepted_contact_points(
         raise ValueError("AFM-CONTACT-EXPORT-IDENTITY: pair names must be unique.")
 
     samples = [item.accepted_point_samples() for item in providers]
+    identity_scopes = [
+        "accepted_snapshot_only"
+        if getattr(item, "contact_integration", "gauss") == "planar_active_partition"
+        else "fixed_reference_quadrature"
+        for item in providers
+    ]
     for provider_item, item in zip(providers, samples, strict=True):
         expected_factor = factor if provider_item.has_prescribed_motion else 0.0
         if abs(float(item["load_factor"]) - expected_factor) > 1.0e-12:
@@ -185,6 +193,7 @@ def export_accepted_contact_points(
                 "surface_name": item["surface_name"],
                 "geometry_fingerprint": item["geometry_fingerprint"],
                 "trace_source": item["trace_source"],
+                "point_identity_scope": identity_scopes[index],
                 "point_count": len(item["point_ids"]),
             }
             for index, item in enumerate(samples)
@@ -240,6 +249,7 @@ def export_accepted_contact_points(
                     "npz_key": key,
                     "pair_index_key": "pair_index",
                     "point_id_key": "point_ids",
+                    "point_identity_scope_by_pair": identity_scopes,
                     "smoothing": "none",
                 },
             )

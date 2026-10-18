@@ -707,6 +707,11 @@ plastic history and tool work across mesh, penalty and increment refinement.
 Do not elevate higher polynomial face quadrature or a faster sign classifier
 as an accuracy repair. Stateful edge friction and distributed ownership follow
 only after this frictionless integration gate is independently checked.
+The first bounded slice now clips a current-trial affine P1 slave triangle
+against an analytical rigid plane, with a positive common residual/tangent
+rule and an independent narrow-strip oracle. It does **not** resolve the
+L-tool's changing nearest feature or replace the still-open mesh/penalty
+convergence and independent same-input acceptance gates.
 
 Stop after this vertical route has explicit field/response and state evidence.
 Nonmatching-mesh transfer, broader nonlinear coupling, monolithic Jacobians,

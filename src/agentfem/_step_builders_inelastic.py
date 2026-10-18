@@ -201,6 +201,7 @@ def finite_strain_j2(
     solver_options=None,
     quadrature_degree: int | None = None,
     contact_quadrature_degree: int | None = None,
+    contact_integration: str = "gauss",
     output=None,
     output_every: int | None = None,
     checkpoint=None,
@@ -316,6 +317,10 @@ def finite_strain_j2(
         else ()
     )
     if affine:
+        if contact_integration != "gauss":
+            raise NotImplementedError(
+                "Trial active contact partition is limited to the strong-boundary J2 route."
+            )
         if contact_quadrature_degree is not None:
             raise NotImplementedError(
                 "Explicit contact quadrature degree is currently limited to "
@@ -425,6 +430,8 @@ def finite_strain_j2(
             raise ValueError(
                 "contact_quadrature_degree requires a registered rigid contact pair."
             )
+        if contact_integration != "gauss" and not boundary_models:
+            raise ValueError("contact_integration requires a registered rigid contact pair.")
         if contact_quadrature_degree is not None and any(
             isinstance(item, RigidObstaclePenaltyContact) for item in boundary_models
         ):
@@ -491,6 +498,7 @@ def finite_strain_j2(
             solver_options=solver_options,
             quadrature_degree=selected_quadrature_degree,
             contact_quadrature_degree=contact_quadrature_degree,
+            contact_integration=contact_integration,
             amplitude=selected_amplitude,
             output_every=selected_output_every,
             output_factors=output_factors,

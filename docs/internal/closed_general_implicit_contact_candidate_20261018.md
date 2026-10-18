@@ -601,3 +601,33 @@ planned code:
 
 The table intentionally refuses to turn one successful six- or 24-increment
 fixture into an Abaqus General Contact equivalence claim.
+
+### Trial active-boundary integration (bounded source candidate)
+
+The first production-path slice of the boundary-integration repair is an
+explicit `contact_integration="planar_active_partition"` option.  It is admitted
+only for serial, frictionless, analytical-plane contact on an affine CG1
+tetrahedral slave triangle with the default positive degree-two rule.  At each
+Newton trial the current planar gap is evaluated at the three slave vertices;
+only a sign-crossing face is clipped in *reference* barycentric coordinates.
+Positive degree-two quadrature on each active subtriangle then uses the same
+trial trace for the contact residual, tangent, force, moment, potential and
+accepted-point output.  Open/full faces retain their ordinary trace.  The
+friction State and its stable point IDs are deliberately excluded.  The
+accepted checkpoint identity includes this selected integration mode.
+
+The elementary narrow-strip oracle, `g=x-a` on a unit triangle, has exact
+active area `a-a²/2` and potential `k(a³/6-a⁴/24)`; the new path matches it
+through widths `0.0001–0.2`.  A real DOLFINx unit-cube boundary test with
+`a=0.05` catches contact that whole-face quadrature reports as zero, and its
+finite-difference tangent agrees with the moving trial partition.  A small
+ordinary finite-J2 Step and checkpoint rule-identity test pass.  This repairs
+one reproducible blind spot, not the L-tool or hard-contact convergence gate.
+Curved tools, nearest-feature transitions, Q1/CG2 faces, friction and MPI remain
+outside this method; do not infer general coverage from the affine proof.
+
+Methodological context: Farah, Popp & Wall (2015),
+`doi:10.1007/s00466-014-1093-2`, compares segment- and element-based mortar
+integration; Duong, De Lorenzis & Sauer (2017), `arXiv:1712.01179`, discusses
+refined boundary quadrature for more general contact.  Neither paper validates
+the present implementation, whose scope is narrower and independently tested.
