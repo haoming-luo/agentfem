@@ -45,7 +45,7 @@ from .implicit_friction import linearize_piecewise_planar_penalty_friction
 from .implicit_smooth_contact import linearize_smooth_rigid_contact
 from .initial_gap_bound import (
     certify_initial_convex_triangle_gap, certify_initial_triangle_gap,
-    initial_gap_bound_method,
+    certify_initial_reviewed_planar_branch_gap, initial_gap_bound_method,
 )
 from .contact_separation_bound import certify_current_triangle_separation
 from .contact_planar_branch_bound import certify_reviewed_planar_branch
@@ -233,6 +233,7 @@ class DolfinxImplicitRigidContact:
             interpolation_degree=self.adapter.interpolation_degree,
             geometry_degree=self.adapter.geometry_degree,
             facet_topology=self.adapter.facet_topology,
+            contact_integration=self.contact_integration,
         )
         certified = method is not None and limit is not None
         maximum_bound = None
@@ -272,6 +273,17 @@ class DolfinxImplicitRigidContact:
             maximum_bound = certificate.maximum_penetration_bound
             certificate_samples = certificate.sampled_point_count
             certificate_depth = certificate.maximum_refinement_depth
+        elif method == "certified_reviewed_planar_branch_nodal" and limit is not None:
+            face_nodes = np.unique(evaluation.trace.node_ids, axis=0)
+            certificate = certify_initial_reviewed_planar_branch_gap(
+                self.adapter.reference_nodal_positions[face_nodes],
+                self.surface,
+                projector=self.projector,
+                penetration_limit=limit,
+            )
+            maximum_bound = certificate.maximum_penetration_bound
+            certificate_samples = certificate.sampled_point_count
+            certificate_depth = certificate.maximum_refinement_depth
         self._initial_contact_diagnostics = {
             "sampling": "reference_boundary_quadrature_at_reference_rigid_pose",
             "sampled_point_count": int(valid.size),
@@ -298,9 +310,10 @@ class DolfinxImplicitRigidContact:
             raise NotImplementedError(
                 "AFM-CONTACT-INITIAL-BOUND: an initial_penetration_limit "
                 "currently requires first-order slave interpolation and "
-                "geometry with either an analytical plane or a reviewed "
-                "closed-solid signed-distance tool on triangular faces; "
-                "open faceted or unsupported curved samples are not a bound."
+                "geometry with an analytical plane, reviewed closed-solid "
+                "signed distance, or an open sheet with a certified complete "
+                "planar branch on triangular faces; sampled curved gaps are "
+                "not a bound."
             )
         if not np.all(valid):
             first = int(np.flatnonzero(~valid)[0])

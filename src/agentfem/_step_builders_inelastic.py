@@ -218,7 +218,17 @@ def finite_strain_j2(
     from .constitutive import FiniteStrainJ2Logarithmic
     from .constitutive import QuadratureMaterialMap
 
-    model.check(target=target, step_options={"material": material})
+    # Admission must see the same integration policy that the actual Step
+    # lowers. A bounded open-sheet initial-gap proof is conditional on this
+    # policy, so checking the default Gauss path here would reject a valid
+    # explicit request (or advertise a different capability).
+    model.check(
+        target=target,
+        step_options={
+            "material": material,
+            "contact_integration": contact_integration,
+        },
+    )
     if hasattr(model.study, "require"):
         model.study.require(analysis="nonlinear_static", physics="solid_mechanics")
     dimension = int(getattr(model.study, "dimension", -1))

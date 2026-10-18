@@ -20,12 +20,12 @@ import numpy as np
 
 from .closed_polyhedron import ClosedTriangulatedRigidSolid
 from .convex_polyhedron import ConvexPolyhedralRigidSurface
-from .rigid import RigidPlaneSurface
+from .rigid import RigidPlaneSurface, TriangulatedRigidSurface
 
 
 def initial_gap_bound_method(
     surface, *, interpolation_degree: int, geometry_degree: int,
-    facet_topology: str,
+    facet_topology: str, contact_integration: str = "gauss",
 ) -> str | None:
     """Return only geometry/trace combinations with a face-wise proof."""
 
@@ -33,6 +33,12 @@ def initial_gap_bound_method(
         return None
     if isinstance(surface, RigidPlaneSurface):
         return "exact_plane_nodal"
+    if (
+        facet_topology == "triangle"
+        and isinstance(surface, TriangulatedRigidSurface)
+        and contact_integration == "reviewed_planar_branch_partition"
+    ):
+        return "certified_reviewed_planar_branch_nodal"
     if facet_topology == "triangle" and isinstance(
         surface, ConvexPolyhedralRigidSurface,
     ):
@@ -42,6 +48,53 @@ def initial_gap_bound_method(
     ):
         return "adaptive_closed_signed_distance_lipschitz"
     return None
+
+
+def certify_initial_reviewed_planar_branch_gap(
+    triangles, surface: TriangulatedRigidSurface, *, projector,
+    penetration_limit: float,
+) -> InitialGapBound:
+    """Bound an open sheet's oriented initial gap on certified affine faces.
+
+    This does not treat an open sheet as a closed signed-distance solid. The
+    whole-face branch proof first establishes one oriented plane per slave
+    face; only then is the affine gap's minimum taken at its three vertices.
+    An uncovered rim, nearest-feature switch or exhausted proof budget fails
+    closed instead of falling back to sampled quadrature gaps.
+    """
+
+    from .contact_planar_branch_bound import certify_reviewed_planar_branch
+
+    cells = np.asarray(triangles, dtype=float)
+    limit = float(penetration_limit)
+    if not isinstance(surface, TriangulatedRigidSurface):
+        raise TypeError("Open-sheet initial gap requires reviewed triangle geometry.")
+    if cells.ndim != 3 or cells.shape[1:] != (3, 3) or not np.all(np.isfinite(cells)):
+        raise ValueError("Open-sheet initial gap requires finite planar triangles.")
+    if not np.isfinite(limit) or limit < 0:
+        raise ValueError("Initial penetration limit must be finite and nonnegative.")
+    certificate = certify_reviewed_planar_branch(
+        cells, surface, projector=projector, factor=0.0,
+    )
+    if not certificate.certified:
+        raise NotImplementedError(
+            "AFM-CONTACT-INITIAL-UNCERTIFIED: the open-sheet reference trace "
+            f"has no complete oriented planar branch ({certificate.status})."
+        )
+    gaps = np.einsum(
+        "fvi,fi->fv",
+        cells - certificate.plane_points[:, None, :],
+        certificate.plane_normals,
+    )
+    scale = max(1.0, float(np.max(np.abs(cells))), limit)
+    margin = 128.0 * np.finfo(float).eps * scale
+    bound = max(0.0, -float(np.min(gaps)) + margin)
+    if bound > limit:
+        raise ValueError(
+            "AFM-CONTACT-INITIAL-OVERLAP: certified open-sheet reference "
+            f"penetration bound {bound:.6g} exceeds the declared limit {limit:.6g}."
+        )
+    return InitialGapBound(bound, 3 * len(cells), 0)
 
 
 @dataclass(frozen=True)
@@ -203,4 +256,5 @@ def certify_initial_triangle_gap(
 __all__ = [
     "InitialGapBound", "certify_initial_triangle_gap",
     "certify_initial_convex_triangle_gap", "initial_gap_bound_method",
+    "certify_initial_reviewed_planar_branch_gap",
 ]

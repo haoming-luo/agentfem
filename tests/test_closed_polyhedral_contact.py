@@ -26,6 +26,9 @@ from agentfem.boundary_models.contact_planar_branch_bound import (
     certify_reviewed_planar_branch,
 )
 from agentfem.boundary_models.contact_trace import ContactTrace
+from agentfem.boundary_models.initial_gap_bound import (
+    certify_initial_reviewed_planar_branch_gap,
+)
 from agentfem.boundary_models.implicit_contact import integrate_implicit_rigid_contact
 from agentfem.boundary_models.implicit_closed_contact import (
     sampled_mixed_feature_slave_faces,
@@ -159,6 +162,19 @@ def test_reviewed_open_patch_proves_whole_face_across_coplanar_seam():
     assert refused.status in {
         "projection_can_leave_master_patch", "another_master_feature_can_compete",
     }
+
+    admitted = certify_initial_reviewed_planar_branch_gap(
+        crossing, surface, projector=search, penetration_limit=0.03,
+    )
+    assert admitted.maximum_penetration_bound == pytest.approx(0.02, abs=1e-12)
+    with pytest.raises(ValueError, match="AFM-CONTACT-INITIAL-OVERLAP"):
+        certify_initial_reviewed_planar_branch_gap(
+            crossing, surface, projector=search, penetration_limit=0.01,
+        )
+    with pytest.raises(NotImplementedError, match="AFM-CONTACT-INITIAL-UNCERTIFIED"):
+        certify_initial_reviewed_planar_branch_gap(
+            beyond, surface, projector=search, penetration_limit=0.03,
+        )
 
 
 def test_current_face_separation_refuses_hidden_and_budget_limited_contact():

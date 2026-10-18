@@ -603,6 +603,9 @@ def _initial_contact_bound_rejection_reason(model, request: StepRequest) -> str 
     """
 
     from .boundary_models import RigidContactPair
+    from .boundary_models.contact_integration_modes import (
+        resolve_contact_integration_modes,
+    )
     from .boundary_models.initial_gap_bound import initial_gap_bound_method
 
     bounded = tuple(
@@ -612,6 +615,20 @@ def _initial_contact_bound_rejection_reason(model, request: StepRequest) -> str 
     )
     if not bounded:
         return None
+    pairs = tuple(
+        pair for pair in getattr(model, "boundary_models", ())
+        if isinstance(pair, RigidContactPair)
+    )
+    try:
+        modes = dict(zip(
+            (pair.name for pair in pairs),
+            resolve_contact_integration_modes(
+                pairs, request.options.get("contact_integration", "gauss"),
+            ),
+            strict=True,
+        ))
+    except ValueError as exc:
+        return str(exc)
     value = getattr(request.target, "value", None)
     space = getattr(value, "function_space", None)
     domain = getattr(space, "mesh", None)
@@ -630,6 +647,7 @@ def _initial_contact_bound_rejection_reason(model, request: StepRequest) -> str 
                 interpolation_degree=int(degree.degree),
                 geometry_degree=int(domain.geometry.cmaps[0].degree),
                 facet_topology=facet_topology,
+                contact_integration=modes[pair.name],
             ) is None
             for pair in bounded
         )
@@ -637,7 +655,8 @@ def _initial_contact_bound_rejection_reason(model, request: StepRequest) -> str 
         return (
             "AFM-CONTACT-INITIAL-BOUND: initial_penetration_limit requires "
             "first-order slave interpolation and geometry with an analytical "
-            "plane or reviewed closed-solid triangular signed distance; "
+            "plane, reviewed closed-solid triangular signed distance, or an "
+            "open sheet admitted by reviewed_planar_branch_partition; "
             "other sampled gaps are not a certified face-wise bound."
         )
     return None

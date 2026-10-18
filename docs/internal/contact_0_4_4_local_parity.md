@@ -205,8 +205,14 @@ The gate stays open until its listed evidence exists at the proposed scope.
    its nodal minimum directly bounds the initial penetration. Mixed-feature
    faces still use the adaptive certificate. A near-touching convex ordinary
    Step now passes a 1e-9 declared limit without refinement. This is only an
-   initial-overlap result, not a later sliding/integration certificate. No open
-   triangle sheet or arbitrary curved projector inherits that proof. The
+   initial-overlap result, not a later sliding/integration certificate. A
+   reviewed **open** triangle sheet instead needs the explicitly selected
+   `reviewed_planar_branch_partition`: complete coplanar coverage and
+   nearest-branch dominance at the reference pose certify one oriented
+   affine gap per slave face; its nodal minimum gives the initial limit.
+   A rim/competing feature fails closed. The open sheet never inherits the
+   closed-solid 1-Lipschitz signed-distance argument, and an arbitrary
+   curved projector inherits neither proof. The
    ordinary Step capability query reports unsupported geometry/order before
    Step construction. The explicit pair still rejects this policy. No branch
    silently moves slave nodes or the tool. Arbitrary large-CAD and ambiguous

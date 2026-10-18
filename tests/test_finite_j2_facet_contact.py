@@ -238,6 +238,8 @@ def _small_single_branch_j2_step(
     *, closed: bool, flat_seam: bool = False, second_plane: bool = False,
     active_second_plane: bool = False, tool_rotation=(0.0, 0.0, 0.0),
     open_sheet: bool = False, integration_override: str | None = None,
+    initial_penetration_limit: float | None = None,
+    open_sheet_x: float = 1.10,
 ):
     if closed and open_sheet:
         raise ValueError("Choose either the closed solid or the open sheet.")
@@ -284,8 +286,8 @@ def _small_single_branch_j2_step(
         mode = "closed_planar_branch_partition"
     elif open_sheet:
         surface = boundary_models.triangulated_rigid_surface(
-            vertices=((1.10, 0., -1.), (1.10, 0., 1.),
-                      (1.10, 2., 1.), (1.10, 2., -1.)),
+            vertices=((open_sheet_x, 0., -1.), (open_sheet_x, 0., 1.),
+                      (open_sheet_x, 2., 1.), (open_sheet_x, 2., -1.)),
             triangles=((0, 1, 2), (0, 2, 3)),
             name="reviewed_open_sheet_tool",
         )
@@ -307,6 +309,7 @@ def _small_single_branch_j2_step(
             ),
         ),
         penalty=5000.0,
+        initial_penetration_limit=initial_penetration_limit,
     )
     model.add_boundary_model(primary)
     integration = mode if integration_override is None else integration_override
@@ -359,6 +362,25 @@ def _small_single_branch_j2_step(
         progress=False,
     )
     return step, displacement
+
+
+def test_reviewed_open_sheet_initial_overlap_is_certified_in_ordinary_step():
+    step, _ = _small_single_branch_j2_step(
+        closed=False, open_sheet=True, flat_seam=True,
+        initial_penetration_limit=0.01,
+    )
+    initial = step.contact_provider.current_point_diagnostics()["initial_contact"]
+    assert initial["face_wise_bound_certified"] is True
+    assert initial["bound_method"] == "certified_reviewed_planar_branch_nodal"
+    assert initial["maximum_penetration_bound"] == 0.0
+    assert initial["bound_sampled_point_count"] > 0
+    assert step.solve_result().status == "completed"
+
+    with pytest.raises(ValueError, match="AFM-CONTACT-INITIAL-OVERLAP"):
+        _small_single_branch_j2_step(
+            closed=False, open_sheet=True, flat_seam=True,
+            open_sheet_x=1.04, initial_penetration_limit=0.005,
+        )
 
 
 def test_reviewed_open_sheet_planar_branch_matches_analytical_plane_global_j2(tmp_path):
