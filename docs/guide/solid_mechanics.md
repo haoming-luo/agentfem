@@ -158,6 +158,13 @@ feature integral for every polyhedral pair, even when sampled mixed-face and
 active-point counts are both zero: no sampled contact does not prove whole-face
 separation. A passed runtime check still needs an
 independent scientific reference before the result can be called verified.
+Serial standard and periodic/MPC finite-J2 paths retain those sampled
+feature observations across every accepted station and checkpoint, rather
+than only the final output frame. A checkpoint written before this ledger
+existed may resume, but its earlier feature history is explicitly incomplete;
+it cannot acquire a clean engineering claim by replaying only the last part.
+This path record is observational evidence, **not** a proof that a changing
+nonconvex contact boundary was integrated consistently.
 The rule is part of the checkpoint identity and
 is rejected for legacy plane contact and affine-periodic J2; no
 unsupported combination silently falls back. Other weak boundary models and

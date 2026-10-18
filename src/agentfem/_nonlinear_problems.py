@@ -1983,7 +1983,31 @@ class AffineNonlinearVariationalProblem:
         current_identity = json.loads(
             json.dumps(self._checkpoint_identity(), sort_keys=True)
         )
-        if payload.get("identity") != current_identity:
+        saved_identity = payload.get("identity")
+        legacy_missing_observers: set[str] = set()
+        if saved_identity != current_identity and isinstance(saved_identity, dict):
+            saved_recorders = saved_identity.get("accepted_history_recorders")
+            current_recorders = current_identity["accepted_history_recorders"]
+            if isinstance(saved_recorders, dict):
+                missing = set(current_recorders) - set(saved_recorders)
+                # A newly introduced evidence recorder may read an older path
+                # only if it explicitly knows how to mark missing history.
+                # All other scientific identity fields must still match.
+                if missing and all(
+                    callable(getattr(
+                        self.accepted_history_recorders[name],
+                        "restore_missing_checkpoint_state", None,
+                    ))
+                    for name in missing
+                ):
+                    compatible_identity = dict(current_identity)
+                    compatible_identity["accepted_history_recorders"] = {
+                        name: record for name, record in current_recorders.items()
+                        if name not in missing
+                    }
+                    if saved_identity == compatible_identity:
+                        legacy_missing_observers = missing
+        if saved_identity != current_identity and not legacy_missing_observers:
             raise ValueError(
                 "Affine checkpoint material, state, mesh, increment/solver "
                 "control, constraint equations, full-space Operator identity, "
@@ -2140,7 +2164,9 @@ class AffineNonlinearVariationalProblem:
             self.state_transaction.accepted_factor = coordinate
             self.state_transaction.prepare_resume()
             observer_state = payload.get("accepted_observer_state", {})
-            if set(observer_state) != set(self.accepted_history_recorders):
+            if set(observer_state) != (
+                set(self.accepted_history_recorders) - legacy_missing_observers
+            ):
                 raise ValueError(
                     "Affine checkpoint observer history differs from the "
                     "current output lifecycle."
@@ -2158,6 +2184,10 @@ class AffineNonlinearVariationalProblem:
                     raise TypeError(f"Accepted observer {name!r} is not restartable.")
                 recorder.restore_checkpoint_state(
                     record,
+                    current_snapshot=current_snapshot,
+                )
+            for name in legacy_missing_observers:
+                self.accepted_history_recorders[name].restore_missing_checkpoint_state(
                     current_snapshot=current_snapshot,
                 )
         except Exception:

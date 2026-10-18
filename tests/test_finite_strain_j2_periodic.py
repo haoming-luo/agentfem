@@ -217,17 +217,27 @@ def test_periodic_j2_convex_flat_face_matches_plane_total_mpc_operator():
     planar_result = planar_step.solve_result()
     assert convex_result.status == planar_result.status == "completed"
     feature_path = convex_result.metadata["rigid_contact_feature_path"]
-    assert not feature_path["complete"]
+    # All accepted stations were observed, but the Gauss contact integral is
+    # still *not* certified. The release claim must remain failed.
+    assert feature_path["complete"]
     assert feature_path["accepted_station_count"] == (
         len(convex_step.accepted_increments) + 1
     )
-    assert feature_path["pairs"][0]["accepted_station_count"] == 1
+    assert feature_path["pairs"][0]["accepted_station_count"] == (
+        len(convex_step.accepted_increments) + 1
+    )
+    assert not feature_path["pairs"][0]["all_observed_integrals_certified"]
     feature_claim = next(
         item for item in convex_result.verify("engineering").claims
         if item.name == "no_observed_uncertified_contact_feature_transition"
     )
-    assert feature_claim.status == "failed"
-    assert "accepted contact feature path is incomplete" in feature_claim.actual["issues"]
+    assert feature_claim.status == "passed"
+    assert not feature_claim.actual["issues"]
+    release_claim = next(
+        item for item in convex_result.verify("release").claims
+        if item.name == "polyhedral_contact_integral_certified"
+    )
+    assert release_claim.status == "failed"
     assert "rigid_contact_feature_path" not in planar_result.metadata
     np.testing.assert_allclose(
         convex_step.solution.x.array, planar_step.solution.x.array,
@@ -621,6 +631,16 @@ def test_periodic_j2_opposed_active_tools_include_reentrant_edge_and_restart(
     )
     result = continuous.solve_result()
     assert result.status == "completed"
+    feature_path = result.metadata["rigid_contact_feature_path"]
+    assert feature_path["complete"]
+    assert feature_path["accepted_station_count"] == (
+        len(continuous.accepted_increments) + 1
+    )
+    assert feature_path["pairs"][0]["maximum_active_edge_points"] > 0
+    assert next(
+        item for item in result.verify("engineering").claims
+        if item.name == "no_observed_uncertified_contact_feature_transition"
+    ).status == "failed"
     assert len(continuous.contact_providers) == 2
     assert all(provider.evaluate().active_points > 0
                for provider in continuous.contact_providers)
@@ -663,7 +683,9 @@ def test_periodic_j2_opposed_active_tools_include_reentrant_edge_and_restart(
         surface=surface, opposed_pair=True,
     )
     resumed.load_checkpoint(saved)
-    assert resumed.solve_result().status == "completed"
+    resumed_result = resumed.solve_result()
+    assert resumed_result.status == "completed"
+    assert resumed_result.metadata["rigid_contact_feature_path"] == feature_path
     np.testing.assert_allclose(
         resumed.solution.x.array, continuous.solution.x.array,
         rtol=1.0e-9, atol=1.0e-10,
@@ -673,6 +695,87 @@ def test_periodic_j2_opposed_active_tools_include_reentrant_edge_and_restart(
         continuous.state_transaction.response.state.committed_state_vectors(),
         rtol=1.0e-9, atol=1.0e-10,
     )
+
+
+def test_periodic_polyhedral_feature_path_legacy_and_corrupt_restart(tmp_path):
+    surface = _active_reentrant_periodic_surface()
+    _, _, partial = _periodic_j2_contact_step(surface=surface)
+    partial.solve(until=2.0 / 3.0)
+    saved = partial.save_checkpoint(tmp_path / "polyhedral_feature_path")
+    payload = json.loads(saved.read_text(encoding="utf-8"))
+    assert payload["accepted_observer_state"]["contact_features"]["complete"]
+
+    damaged = json.loads(json.dumps(payload))
+    damaged["accepted_observer_state"]["contact_features"]["pairs"][0][
+        "constraint"
+    ] = "wrong_pair"
+    damaged_path = tmp_path / "damaged_feature_path.checkpoint.json"
+    damaged_path.write_text(json.dumps(damaged), encoding="utf-8")
+    _, _, rejected = _periodic_j2_contact_step(surface=surface)
+    before = rejected.solution.x.array.copy()
+    with pytest.raises(ValueError, match="pair coverage"):
+        rejected.load_checkpoint(damaged_path)
+    np.testing.assert_array_equal(rejected.solution.x.array, before)
+    assert rejected.accepted_history_recorders["contact_features"].pairs == {}
+
+    # Simulate a real older penalty checkpoint: its scientific identity and
+    # observer state lacked this new ledger. It may resume, but its unobserved
+    # earlier stations can never be reported as a complete contact path.
+    legacy = json.loads(json.dumps(payload))
+    legacy["identity"]["accepted_history_recorders"].pop("contact_features")
+    legacy["accepted_observer_state"].pop("contact_features")
+    legacy_path = tmp_path / "legacy_feature_path.checkpoint.json"
+    legacy_path.write_text(json.dumps(legacy), encoding="utf-8")
+    changed_identity = json.loads(json.dumps(legacy))
+    changed_identity["identity"]["step_name"] = "different_scientific_step"
+    changed_path = tmp_path / "legacy_wrong_step.checkpoint.json"
+    changed_path.write_text(json.dumps(changed_identity), encoding="utf-8")
+    _, _, incompatible = _periodic_j2_contact_step(surface=surface)
+    with pytest.raises(ValueError, match="material, state, mesh"):
+        incompatible.load_checkpoint(changed_path)
+    assert incompatible.accepted_history_recorders["contact_features"].pairs == {}
+    _, _, resumed = _periodic_j2_contact_step(surface=surface)
+    resumed.load_checkpoint(legacy_path)
+    recorder = resumed.accepted_history_recorders["contact_features"]
+    assert not recorder.complete
+    assert recorder.accepted_station_count == len(resumed.accepted_increments) + 1
+    result = resumed.solve_result()
+    assert result.status == "completed"
+    assert not result.metadata["rigid_contact_feature_path"]["complete"]
+    claim = next(
+        item for item in result.verify("engineering").claims
+        if item.name == "no_observed_uncertified_contact_feature_transition"
+    )
+    assert claim.status == "failed"
+    assert "accepted contact feature path is incomplete" in claim.actual["issues"]
+    resaved = resumed.save_checkpoint(tmp_path / "resaved_incomplete_path")
+    _, _, reloaded = _periodic_j2_contact_step(surface=surface)
+    reloaded.load_checkpoint(resaved)
+    assert not reloaded.accepted_history_recorders["contact_features"].complete
+
+
+def test_periodic_polyhedral_feature_path_rolls_back_after_late_accept_failure(
+    monkeypatch,
+):
+    _, _, step = _periodic_j2_contact_step(
+        surface=_active_reentrant_periodic_surface(),
+    )
+    recorder = step.accepted_history_recorders["contact_features"]
+    before = recorder.snapshot_runtime_state()
+    initial_solution = step.solution.x.array.copy()
+    original = step._capture_operator_duals
+
+    def fail_after_feature_capture(factor):
+        if factor > 0:
+            raise RuntimeError("injected post-observer dual failure")
+        return original(factor)
+
+    monkeypatch.setattr(step, "_capture_operator_duals", fail_after_feature_capture)
+    with pytest.raises(RuntimeError, match="post-observer dual failure"):
+        step.solve()
+    assert recorder.snapshot_runtime_state() == before
+    assert step.accepted_load_factor == 0.0
+    np.testing.assert_array_equal(step.solution.x.array, initial_solution)
 
 
 @pytest.mark.parametrize(

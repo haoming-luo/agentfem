@@ -467,36 +467,39 @@ def _add_affine_constraint_evidence(step, result) -> None:
             point_records[0] if len(point_records) == 1
             else tuple(point_records)
         )
-        # The affine/MPC route currently has no accepted-path feature ledger.
-        # A clean final sample cannot erase an earlier unobserved sharp-feature
-        # event. Expose that limitation explicitly instead of letting the
-        # engineering verifier mistake a last-frame sample for path evidence.
+        # The accepted observer shares the affine material/Operator rollback
+        # and checkpoint boundary. A manually composed older problem without
+        # it retains an explicitly incomplete final-sample fallback.
         polyhedral_records = tuple(
             record for record in point_records
             if "sampled_mixed_feature_slave_faces" in record
         )
         if polyhedral_records:
-            result.metadata["rigid_contact_feature_path"] = {
-                "schema": "agentfem.contact-feature-path.v1",
-                "complete": False,
-                "accepted_station_count": len(step.accepted_increments) + 1,
-                "pairs": tuple({
-                    "constraint": record["constraint"],
-                    "accepted_station_count": 1,
-                    "maximum_sampled_mixed_feature_slave_faces": int(
-                        record["sampled_mixed_feature_slave_faces"]
-                    ),
-                    "maximum_active_edge_points": int(
-                        record.get("active_feature_counts", {}).get("edge", 0)
-                    ),
-                    "maximum_active_vertex_points": int(
-                        record.get("active_feature_counts", {}).get("vertex", 0)
-                    ),
-                    "all_observed_integrals_certified": bool(
-                        record["feature_transition_integral_certified"]
-                    ),
-                } for record in polyhedral_records),
-            }
+            recorder = step.accepted_history_recorders.get("contact_features")
+            if recorder is not None:
+                result.metadata["rigid_contact_feature_path"] = recorder.evidence()
+            else:
+                result.metadata["rigid_contact_feature_path"] = {
+                    "schema": "agentfem.contact-feature-path.v1",
+                    "complete": False,
+                    "accepted_station_count": len(step.accepted_increments) + 1,
+                    "pairs": tuple({
+                        "constraint": record["constraint"],
+                        "accepted_station_count": 1,
+                        "maximum_sampled_mixed_feature_slave_faces": int(
+                            record["sampled_mixed_feature_slave_faces"]
+                        ),
+                        "maximum_active_edge_points": int(
+                            record.get("active_feature_counts", {}).get("edge", 0)
+                        ),
+                        "maximum_active_vertex_points": int(
+                            record.get("active_feature_counts", {}).get("vertex", 0)
+                        ),
+                        "all_observed_integrals_certified": bool(
+                            record["feature_transition_integral_certified"]
+                        ),
+                    } for record in polyhedral_records),
+                }
         if has_friction:
             result.add_quantity(
                 "friction_dissipation", friction_dissipation,

@@ -31,7 +31,7 @@ being silently approximated by the bounded route.
 | 3. Integration | Planar/convex partitions; sampled nonconvex risk flag and same-state integration screens | Nonconvex feature-switch integral/tangent; separate admission or rejection of lower-dimensional edge/point contact |
 | 4. Normal law | Penalty Step; fixed-trace AL operator candidate | Outer global Procedure, spatial stability and checkpoint composition |
 | 5. Friction | Locally planar Coulomb State; rigid-master spin transport tested | Admitted geometry-by-friction matrix; sharp features remain rejected |
-| 6. Transaction | Total-system and restart tests for penalty | Repeat for each new enforcement/integration law |
+| 6. Transaction | Total-system and restart tests for penalty; serial affine/MPC accepted-feature path with legacy-incomplete migration | Repeat for each new enforcement/integration law |
 | 7. Result | Pair work/pressure samples; AL local work sign | Cross-law first-law and pressure interpretation |
 | 8. Science | Local/oracle/installed tests; global elastic-limit spring-plane matrix | Mesh x increment x law convergence and external observables |
 | 9. Release | Scoped solver screens | Installed cross-platform gate and production runtime evidence |
@@ -73,7 +73,10 @@ The gate stays open until its listed evidence exists at the proposed scope.
    [COMSOL's analytical/NAFEMS verification collection][comsol-verification]
    and [NAFEMS advanced contact benchmark catalog][nafems]. A published
    verification case is a comparator protocol, not an external result for
-   our own geometry. A more ambitious later comparator is [NAFEMS Contact
+   our own geometry. In particular, that published three-dimensional
+   meshed-rigid case deforms a **shell** around a cylinder, so its numerical
+   output cannot be relabeled as a solid finite-J2 same-input comparator.
+   A more ambitious later comparator is [NAFEMS Contact
    Benchmark 3][nafems-contact-3], which includes elastoplastic contact and
    springback; its detailed material, geometry and published observables must
    be obtained and frozen before claiming a comparison. Keep this separate
@@ -273,17 +276,18 @@ The gate stays open until its listed evidence exists at the proposed scope.
    it remain readable but mark the path incomplete. The summary is independent
    of output frames and the progress-event ring buffer, both of which may
    omit earlier states. It is still only *sampled* path evidence, not a
-   whole-face coverage proof, and the periodic/MPC route has not yet received
-   this ledger. Its Result now explicitly marks the polyhedral feature path
-   incomplete: a final-frame observation remains available, but the
-   engineering quality claim cannot pass on that observation alone. An MPC
-   path ledger must join the same accepted/rollback/checkpoint lifecycle
-   before that scope can be promoted. The affine Procedure already has
-   accepted-observer and checkpoint machinery, but adding a recorder changes
-   its checkpoint identity. Migration must read older penalty checkpoints as
-   **incomplete historical evidence** rather than silently claiming that
-   earlier stations were observed or breaking existing restarts without an
-   explicit compatibility decision.
+   whole-face coverage proof. The serial periodic/MPC path now records the
+   same sampled maxima through its existing accepted-observer transaction:
+   the initial and each accepted station are counted, late failures restore
+   the prior record, and the identified recorder is checkpointed with the
+   material and contact Operators. A damaged record is atomically refused.
+   Older affine penalty checkpoints lacking the recorder load only through
+   an explicit identity-compatible migration, marking historical coverage
+   **incomplete**; subsequent observations cannot invent the missing past.
+   An entirely observed flat convex path can now pass the narrow engineering
+   claim of *no observed* uncertified feature transition, while its release
+   integral-certificate claim still fails under plain Gauss quadrature.
+   Thus a complete observation ledger is not a whole-face integration proof.
    For the separate *convex* route, accepted point diagnostics now say whether
    the reviewed changing-trial support-plane partition supplied its bounded
    feature integral. The default Gauss rule explicitly reports that no such
@@ -534,8 +538,28 @@ The gate stays open until its listed evidence exists at the proposed scope.
    platform-scoped evidence. Run ordinary installed `model.step` cases, early
    unsupported-combination checks, serial checkpoint/export, Linux/macOS CI
    and explicit platform availability report. Current state: opt-in GMRES/GAMG
-   shows a same-host small-screen gain, not a universal speedup; distribution
-   and independent scientific acceptance remain separate. Reading:
+   shows a same-host small-screen gain, not a universal speedup. A second,
+   larger serial screen fixed the quarter finite-block sphere case at 15
+   Hex cells per side (3,375 cells), `--grading 2 --penalty 100000
+   --indentation 0.002 --radius 20 --increments 4`, with one OpenMP/BLAS
+   thread. Only `--linear-policy direct` versus `gmres_gamg` changed.
+   Reversed-order direct/GAMG/GAMG/direct runs took 28.071/11.675/11.326/
+   28.084 seconds end to end (within-process case wall time), a 2.44x median
+   ratio **on this host and input only**. All runs used 20 linear solves and
+   returned tool force 0.68951518028 within 2e-12, active area 0.1453987193
+   and maximum penetration 7.18696e-5; GMRES counted 540 Krylov iterations.
+   The direct/iterative linear phases were about 18.37/1.61 seconds, so the
+   observed gain has an identified source. This case remained elastic,
+   finite-block Hertz is not an exact scientific reference, and the screen
+   does not establish the same speed or robustness for plastic loading,
+   friction, sharp features, another mesh or another machine. A separate
+   4-cell/axis, 12-increment plastic J2 L-tool solve returned the same tool
+   force, PEEQ, active area and **failed** engineering feature claim under
+   direct and opt-in GAMG (differences below 1e-12 in reported scalar
+   observables); this checks solver-policy consistency, not validation or a
+   timed speedup on nonconvex contact. Keep the
+   iterative method explicit opt-in pending those checks; distribution and
+   independent scientific acceptance remain separate. Reading:
    [PETSc GAMG near-nullspace requirement][gamg], [PETSc profiling][profiling]
    and [Hoefler--Belli scientific benchmarking][benchmarking].
 

@@ -4245,6 +4245,26 @@ def finite_strain_j2_affine_problem(
         name=name,
     )
 
+    # Keep polyhedral feature observations on the same accepted-boundary
+    # transaction as material, tool State and MPC work. Older checkpoints may
+    # resume with explicitly incomplete historical evidence; they must never
+    # acquire a fabricated clean path.
+    from ..boundary_models.closed_polyhedron import ClosedTriangulatedRigidSolid
+    from ..boundary_models.contact_feature_path import AcceptedContactFeaturePath
+    from ..boundary_models.convex_polyhedron import ConvexPolyhedralRigidSurface
+
+    polyhedral_providers = tuple(
+        provider for provider in contact_providers
+        if isinstance(
+            provider.surface,
+            (ClosedTriangulatedRigidSolid, ConvexPolyhedralRigidSurface),
+        )
+    )
+    if polyhedral_providers:
+        feature_path = AcceptedContactFeaturePath(polyhedral_providers)
+        problem.accepted_observers = (*problem.accepted_observers, feature_path)
+        problem.accepted_history_recorders["contact_features"] = feature_path
+
     def snapshot_fields():
         return solution, transaction.snapshot_fields()
 
