@@ -19,6 +19,24 @@ or a successful run is not by itself a validated engineering capability.
 
 ## Current product phase: the 0.4 foundation
 
+### 0.4.4 bounded contact-parity sprint (target, not a capability claim)
+
+The next release target is **local, explicitly bounded parity** for serial
+three-dimensional solid-versus-prescribed-rigid, quasistatic implicit contact
+with finite-strain J2. This means a user can state and independently verify
+the same supported physical problem through the ordinary Model/Step/Result
+workflow; it does not mean all Abaqus/Standard general contact, identical
+floating-point fields, or automatic admission of every triangulated tool.
+
+The ordered nine-gate task and technical bibliography are maintained in
+[the 0.4.4 contact sprint record](internal/contact_0_4_4_local_parity.md).
+Promote only combinations that pass independent same-input comparison,
+mesh/increment/enforcement convergence, residual--tangent and lifecycle
+checks. A failed nonconvex sharp-feature gate narrows the release statement;
+it must not be hidden by a visually plausible contour or another penalty
+choice. Distributed implicit contact, deformable--deformable/self contact,
+shell-thickness contact and arbitrary CAD remain outside this bounded target.
+
 ### 0.4.3 released composition and next gate (2026-10-17)
 
 Version 0.4.3 was promoted by one composed scientific workflow, not
