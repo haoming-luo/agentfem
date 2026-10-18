@@ -649,27 +649,34 @@ def _contact_integration_rejection_reason(model, request: StepRequest) -> str | 
     selected = request.options.get("contact_integration", "gauss")
     if selected == "gauss":
         return None
-    if selected not in {"planar_active_partition", "convex_feature_partition"}:
+    if selected not in {
+        "planar_active_partition", "convex_feature_partition",
+        "closed_planar_branch_partition",
+    }:
         return "AFM-CONTACT-PARTITION: unknown contact_integration option."
     from .boundary_models import (
-        ConvexPolyhedralRigidSurface, RigidContactPair, RigidPlaneSurface,
+        ClosedTriangulatedRigidSolid, ConvexPolyhedralRigidSurface,
+        RigidContactPair, RigidPlaneSurface,
     )
+
+    required_surface = {
+        "planar_active_partition": RigidPlaneSurface,
+        "convex_feature_partition": ConvexPolyhedralRigidSurface,
+        "closed_planar_branch_partition": ClosedTriangulatedRigidSolid,
+    }[selected]
 
     pairs = tuple(getattr(model, "boundary_models", ()))
     if (not pairs or not all(
         isinstance(item, RigidContactPair)
-        and isinstance(
-            item.rigid_body.surface,
-            RigidPlaneSurface if selected == "planar_active_partition"
-            else ConvexPolyhedralRigidSurface,
-        )
+        and isinstance(item.rigid_body.surface, required_surface)
         and item.friction is None
         and np.asarray(item.law.penalty).ndim == 0
         for item in pairs
     ) or request.options.get("contact_quadrature_degree") is not None):
         return (
             "AFM-CONTACT-PARTITION: trial active partition requires "
-            "frictionless analytical-plane or certified convex rigid pairs "
+            "frictionless analytical-plane, certified convex, or reviewed "
+            "closed-single-planar-branch rigid pairs "
             "(matching the selected mode), scalar penalty and the "
             "default contact quadrature rule."
         )

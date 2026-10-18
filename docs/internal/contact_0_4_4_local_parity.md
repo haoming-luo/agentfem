@@ -28,7 +28,7 @@ being silently approximated by the bounded route.
 | --- | --- | --- |
 | 1. Comparator | Internal and public-protocol tests | Independent same-input finite-J2 contact run and frozen observables |
 | 2. Surface | Reviewed geometry; exact plane and conservative closed-solid initial-overlap bounds on admitted first-order traces | Open facets, unsupported curved tools, ambiguity and sliding coverage at target geometry |
-| 3. Integration | Planar/convex partitions; sampled nonconvex risk flag; conservative zero-contact certificate on current affine faces | Active nonconvex feature-switch integral/tangent; separate admission or rejection of lower-dimensional edge/point contact |
+| 3. Integration | Planar/convex partitions; sampled nonconvex risk flag; certified zero-contact faces and certified single-smooth-plane active subset of a closed concave tool | General active nonconvex feature-switch integral/tangent; separate admission or rejection of lower-dimensional edge/point contact |
 | 4. Normal law | Penalty Step; fixed-trace AL operator candidate | Outer global Procedure, spatial stability and checkpoint composition |
 | 5. Friction | Locally planar Coulomb State; rigid-master spin transport tested | Admitted geometry-by-friction matrix; sharp features remain rejected |
 | 6. Transaction | Total-system and restart tests for penalty; serial affine/MPC accepted-feature path with legacy-incomplete migration | Repeat for each new enforcement/integration law |
@@ -55,6 +55,24 @@ or any near/active contact leaves the integral uncertified. This is not a
 between-increment path-intersection proof and does not admit active nonconvex
 contact, friction, or lower-dimensional edge/point laws. Its reference
 geometric cost also is not a large-CAD performance guarantee.
+There is now a separate, deliberately stricter **active** subset: for a
+reviewed closed tool, each current affine slave triangle must project
+strictly inside a single master triangle; its nearest-plane distance must
+beat every noncoplanar master facet by more than twice the slave-face radius
+(plus numerical margin). Every slave face must select the same oriented
+master plane. The difference of two distance-to-set functions is
+2-Lipschitz, so this inequality certifies the closest feature over the
+*whole* face, not just at Gauss points. The current Newton trial may then
+reuse the already proved analytical-plane active partition, with the closed
+solid's own signed-gap projection checked against it. Geometry proof is
+repeated on each trial and rigid pose. A real serial finite-J2 solve has
+matched the corresponding analytical plane in displacement, PEEQ and tool
+work, with a contact directional tangent, interrupted restart and explicit
+reentrant-edge rejection; the small runnable example exports one XDMF grid
+and unsmoothed contact samples. This does **not** solve a feature switch or
+physical edge/vertex contact: those remain rejected. The current all-face
+single-plane and 256-face/256-master-facet bounds are intentionally narrow,
+and this is not an external commercial-solver comparator.
 Both ordinary J2 and affine/MPC acceptance now validate the same typed
 polyhedral diagnostic contract: a missing mixed-feature count, a non-Boolean
 integration claim or inconsistent active face/edge/vertex totals rejects the

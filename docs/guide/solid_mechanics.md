@@ -199,6 +199,23 @@ nearest-edge/vertex distance branches, frictional edge transitions, or
 general hard contact. Its successful small tests are not a penalty- or
 mesh-convergence certificate.
 
+For a still narrower experimental subset of a **reviewed closed, possibly
+concave** rigid solid, the ordinary serial finite-J2 Step can use
+`contact_integration="closed_planar_branch_partition"`. At every Newton trial,
+it proves that every current affine P1 slave triangle projects wholly inside
+one smooth master triangle and that no other noncoplanar master feature can
+become nearer anywhere on the slave trace. All faces must share one master
+plane. Only then does it reuse the exact active-plane reference-area partition.
+It refuses a seam, competing edge/vertex, multiple plane, friction, higher-order
+trace, unsupported quadrature, or geometry above its explicit proof budget;
+it never substitutes a sampled normal. The bound is checked again after a
+rigid translation or rotation and is checkpoint-identified. It is useful for
+a small smooth patch of a larger complex tool, **not** general nonconvex
+contact or an edge/point law. A separate whole-face signed-distance check can
+certify zero contact at an accepted configuration; neither certificate proves
+nonintersection between accepted stations. See the runnable
+[closed-tool smooth-face example](https://github.com/haoming-luo/agentfem/blob/main/examples/finite_j2_closed_planar_branch.py).
+
 For an affine P1 triangular slave against a reviewed closed convex tool,
 `initial_penetration_limit` also uses a face-wise certificate. If one rigid
 support plane dominates at every triangle vertex, its affine nodal minimum

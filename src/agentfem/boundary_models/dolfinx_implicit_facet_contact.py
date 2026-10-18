@@ -47,6 +47,7 @@ from .initial_gap_bound import (
     initial_gap_bound_method,
 )
 from .contact_separation_bound import certify_current_triangle_separation
+from .contact_planar_branch_bound import certify_closed_planar_branch
 from .contact_reference_refinement import refine_p1_triangle_reference_trace
 from .rigid import RigidPlaneSurface, SmoothRigidSurface, TriangulatedRigidSurface
 from .search import TriangleSurfaceBVH, triangle_surface_bvh
@@ -79,6 +80,7 @@ class DolfinxImplicitRigidContact:
         surface = self.pair.rigid_body.surface
         if self.contact_integration not in {
             "gauss", "planar_active_partition", "convex_feature_partition",
+            "closed_planar_branch_partition",
         }:
             raise ValueError("Unsupported implicit contact integration method.")
         if self.contact_integration == "planar_active_partition" and (
@@ -108,6 +110,20 @@ class DolfinxImplicitRigidContact:
                 "AFM-CONTACT-FEATURE-PARTITION: requires frictionless certified "
                 "convex rigid geometry, scalar penalty, affine P1 tetrahedral "
                 "slave triangles and the default positive reference-area rule."
+            )
+        if self.contact_integration == "closed_planar_branch_partition" and (
+            not isinstance(surface, ClosedTriangulatedRigidSolid)
+            or self.pair.friction is not None
+            or np.asarray(self.pair.law.penalty).ndim != 0
+            or self.adapter.facet_topology != "triangle"
+            or self.adapter.interpolation_degree != 1
+            or self.adapter.geometry_degree != 1
+            or self.adapter.quadrature_rule != "triangle_degree_two_three_point"
+        ):
+            raise NotImplementedError(
+                "AFM-CONTACT-CLOSED-PLANAR-BRANCH: requires a frictionless "
+                "reviewed closed solid, scalar penalty, affine P1 triangular "
+                "slave faces and the default positive reference-area rule."
             )
         if self.contact_integration == "convex_feature_partition":
             self._support_planes = _unique_support_planes(surface)
@@ -528,6 +544,7 @@ class DolfinxImplicitRigidContact:
             else float(np.asarray(self.motion_factor.value).reshape(-1)[0])
         )
         partition = None
+        closed_planar_bound = None
         if self.contact_integration == "planar_active_partition":
             current = self.adapter.current_nodal_positions(self.displacement)
             pose = self.surface.transformed(
@@ -548,6 +565,26 @@ class DolfinxImplicitRigidContact:
                 _support_planes=self._support_planes,
             )
             evaluation = partition.trace.evaluate(current)
+        elif self.contact_integration == "closed_planar_branch_partition":
+            current = self.adapter.current_nodal_positions(self.displacement)
+            face_nodes = np.unique(self.adapter.trace.node_ids, axis=0)
+            closed_planar_bound = certify_closed_planar_branch(
+                current[face_nodes], self.surface,
+                motion=None if schedule is None else schedule.motion,
+                factor=factor,
+            )
+            if not closed_planar_bound.certified:
+                raise NotImplementedError(
+                    "AFM-CONTACT-CLOSED-PLANAR-BRANCH: the current complete "
+                    "slave trace cannot be proved to lie on one smooth master "
+                    f"plane ({closed_planar_bound.status}); no trial was accepted."
+                )
+            trial_trace = partition_planar_p1_trace(
+                self.adapter.trace, current,
+                plane_point=closed_planar_bound.plane_point,
+                plane_normal=closed_planar_bound.plane_normal,
+            )
+            evaluation = trial_trace.evaluate(current)
         else:
             evaluation = self.adapter.evaluate(self.displacement)
         projector = self.surface if self.projector is None else self.projector
@@ -598,16 +635,35 @@ class DolfinxImplicitRigidContact:
                     f"partition_normal={partition.selected_normals[first].tolist()}; "
                     "the current trial is rejected."
                 )
+        if closed_planar_bound is not None:
+            expected_gaps = (
+                evaluation.query_points - closed_planar_bound.plane_point
+            ) @ closed_planar_bound.plane_normal
+            scale = max(1.0, float(np.max(
+                np.abs(evaluation.query_points), initial=0.0,
+            )))
+            if (
+                np.any(np.abs(projection.signed_gaps - expected_gaps)
+                       > 128 * np.finfo(float).eps * scale)
+                or np.any(np.linalg.norm(
+                    projection.normals - closed_planar_bound.plane_normal,
+                    axis=1,
+                ) > 1e-10)
+            ):
+                raise ValueError(
+                    "AFM-CONTACT-CLOSED-PLANAR-BRANCH: current projection "
+                    "disagrees with the certified exact plane; the trial is rejected."
+                )
         record = ContactProjectionRecord(evaluation.trace.point_ids, projection)
         response = self.pair.law.evaluate(record.projection)
         if _include_partition:
-            return evaluation, record, response, factor, partition
+            return evaluation, record, response, factor, partition, closed_planar_bound
         return evaluation, record, response, factor
 
     def current_point_diagnostics(self) -> dict[str, object]:
         """Unsmoothed reference-trace diagnostics at the current trial pose."""
 
-        evaluation, record, response, factor, partition = self._current_point_response(
+        evaluation, record, response, factor, partition, closed_planar_bound = self._current_point_response(
             _include_partition=True,
         )
         active = np.asarray(response.active, dtype=bool)
@@ -685,7 +741,19 @@ class DolfinxImplicitRigidContact:
             # signed-distance bound over every current affine slave triangle
             # may certify that this accepted configuration has no contact.
             # This does not admit any active nonconvex feature integral.
-            if (
+            if closed_planar_bound is not None:
+                evidence["whole_face_planar_branch"] = {
+                    "certified": True,
+                    "status": closed_planar_bound.status,
+                    "slave_face_count": closed_planar_bound.slave_face_count,
+                    "examined_master_facet_count": closed_planar_bound.examined_master_facet_count,
+                    "minimum_competitor_clearance": (
+                        closed_planar_bound.minimum_competitor_clearance
+                    ),
+                    "scope": "current_affine_slave_faces_single_master_plane",
+                }
+                evidence["feature_transition_integral_certified"] = True
+            elif (
                 not np.any(active)
                 and self.adapter.interpolation_degree == 1
                 and self.adapter.geometry_degree == 1
@@ -937,7 +1005,7 @@ class DolfinxImplicitRigidContact:
     def evaluate(self) -> ImplicitRigidContactContribution:
         """Reproject the current displacement and assemble a fresh trial Operator."""
 
-        evaluation, record, response, factor, partition = self._current_point_response(
+        evaluation, record, response, factor, partition, _ = self._current_point_response(
             _include_partition=True,
         )
         schedule = self.pair.rigid_body.motion_schedule

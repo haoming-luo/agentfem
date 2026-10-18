@@ -18,6 +18,7 @@ from agentfem import (
     fields,
     mesh,
     models,
+    results,
     solvers,
     steps,
     studies,
@@ -231,6 +232,189 @@ def _patch(*, triangulated: bool, gap: float = 0.005, penalty=500.0,
         progress=False,
     )
     return model, displacement, material, step
+
+
+def _small_single_branch_j2_step(*, closed: bool):
+    domain = dolfinx_mesh.create_unit_cube(
+        MPI.COMM_SELF, 1, 1, 1, cell_type=dolfinx_mesh.CellType.tetrahedron,
+    )
+    coordinates = domain.geometry.x
+    coordinates[:, 0] = 1.05 + 0.10 * coordinates[:, 0]
+    coordinates[:, 1] = 1.25 + 0.10 * coordinates[:, 1]
+    coordinates[:, 2] = 0.45 + 0.10 * coordinates[:, 2]
+    model = models.create(
+        study=studies.static_solid(dimension=3, nonlinear=True), mesh=domain,
+    )
+    displacement = model.field(fields.displacement(domain))
+    contact = mesh.boundary(
+        domain, lambda x: np.isclose(x[0], 1.05), name="contact",
+    )
+    support = mesh.boundary(
+        domain, lambda x: np.isclose(x[0], 1.15), name="support",
+    )
+    model.clamp(displacement, on=support)
+    material = model.material(constitutive.finite_strain_j2_logarithmic(
+        young=1000.0, poisson=0.0,
+        yield_stress=2.0, hardening_modulus=100.0,
+    ))
+    if closed:
+        polygon = np.asarray(
+            ((0, 0), (2, 0), (2, 1), (1, 1), (1, 2), (0, 2)), dtype=float,
+        )
+        front = np.column_stack((np.full(6, 1.10), polygon))
+        back = front.copy()
+        back[:, 0] += 0.5
+        top = ((0, 1, 3), (1, 2, 3), (0, 3, 5), (3, 4, 5))
+        triangles = [tuple(reversed(face)) for face in top]
+        triangles += [tuple(6 + index for index in face) for face in top]
+        for first in range(6):
+            second = (first + 1) % 6
+            triangles.extend(((first, second, second + 6),
+                              (first, second + 6, first + 6)))
+        surface = boundary_models.closed_triangulated_rigid_solid(
+            vertices=np.vstack((front, back)), triangles=triangles,
+            reviewed_embedded=True, name="reviewed_L_tool",
+        )
+        mode = "closed_planar_branch_partition"
+    else:
+        surface = boundary_models.rigid_plane(
+            point=(1.10, 1.3, 0.5), normal=(-1.0, 0.0, 0.0),
+        )
+        mode = "planar_active_partition"
+    motion = boundary_models.prescribed_rigid_motion(
+        translation=(-0.08, 0.0, 0.0), reference_point=(1.10, 1.3, 0.5),
+    )
+    model.add_boundary_model(boundary_models.rigid_contact_pair(
+        contact,
+        boundary_models.rigid_body(
+            surface, motion_schedule=boundary_models.prescribed_rigid_motion_schedule(
+                motion, start_time=0.0, end_time=1.0,
+            ),
+        ),
+        penalty=5000.0,
+    ))
+    assert step_capability(
+        model, target=displacement,
+        options={"material": material, "contact_integration": mode},
+    )["supported"]
+    step = model.step(
+        target=displacement, material=material,
+        incrementation=steps.fixed(6), contact_integration=mode,
+        solver_options=solvers.newton(
+            relative_tolerance=1e-8, absolute_tolerance=1e-9,
+            maximum_iterations=25, line_search="backtracking",
+        ),
+        progress=False,
+    )
+    return step, displacement
+
+
+def test_certified_closed_planar_branch_matches_analytical_plane_global_j2(tmp_path):
+    closed_step, closed_displacement = _small_single_branch_j2_step(closed=True)
+    plane_step, plane_displacement = _small_single_branch_j2_step(closed=False)
+    closed_result = closed_step.solve_result()
+    plane_result = plane_step.solve_result()
+    assert closed_result.status == plane_result.status
+    assert closed_result.quantity("maximum_equivalent_plastic_strain") > 0
+    assert closed_result.quantity("maximum_equivalent_plastic_strain") == pytest.approx(
+        plane_result.quantity("maximum_equivalent_plastic_strain"), rel=1e-8,
+    )
+    np.testing.assert_allclose(
+        closed_displacement.value.x.array, plane_displacement.value.x.array,
+        rtol=1e-8, atol=1e-9,
+    )
+    assert closed_step.energy_history[-1].tool_work > 0
+    np.testing.assert_allclose(
+        closed_step.energy_history[-1].tool_work,
+        plane_step.energy_history[-1].tool_work,
+        rtol=1e-8, atol=1e-9,
+    )
+    evidence = closed_step.contact_provider.current_point_diagnostics()
+    assert evidence["feature_transition_integral_certified"] is True
+    assert evidence["whole_face_planar_branch"]["certified"] is True
+    assert evidence["active_point_count"] > 0
+    exported = results.export_accepted_contact_points(
+        closed_step, tmp_path / "raw_contact", result=closed_result,
+        vtk_view=True,
+    )
+    metadata = json.loads(exported["contact_point_metadata"].read_text())
+    assert metadata["pairs"][0]["point_identity_scope"] == "accepted_snapshot_only"
+    assert exported["contact_point_view"].exists()
+
+
+def test_closed_planar_branch_mode_rejects_current_edge_transition():
+    step, displacement = _small_single_branch_j2_step(closed=True)
+    displacement.value.x.array.reshape((-1, 3))[:, 1] = -0.30
+    displacement.value.x.array.reshape((-1, 3))[:, 2] = 0.55
+    with pytest.raises(NotImplementedError, match="AFM-CONTACT-CLOSED-PLANAR-BRANCH"):
+        step.contact_provider.evaluate()
+    assert step.accepted_load_factor == 0.0
+
+
+def test_closed_planar_branch_mode_rejects_friction_before_step_construction():
+    model, displacement, material, _ = _patch(
+        triangulated=True, closed_concave_tool=True,
+        friction_coefficient=0.2, tangential_penalty=100.0,
+        make_step=False,
+    )
+    capability = step_capability(
+        model, target=displacement,
+        options={
+            "material": material,
+            "contact_integration": "closed_planar_branch_partition",
+        },
+    )
+    assert not capability["supported"]
+    assert any(
+        item["message"].startswith("AFM-CONTACT-PARTITION")
+        for item in capability["rejection_reasons"]
+    )
+    with pytest.raises(NotImplementedError, match="AFM-CONTACT-PARTITION"):
+        model.step(
+            target=displacement, material=material,
+            contact_integration="closed_planar_branch_partition",
+        )
+
+
+def test_closed_planar_branch_contact_tangent_matches_current_directional_difference():
+    step, _ = _small_single_branch_j2_step(closed=True)
+    assert step.solve_result().status == "completed"
+    provider = step.contact_provider
+    selected = provider.evaluate()
+    base = step.solution.x.array.copy()
+    direction = np.random.default_rng(744).normal(size=base.shape)
+    h = 1.0e-7
+    try:
+        step.solution.x.array[:] = base + h * direction
+        plus = provider.evaluate()
+        step.solution.x.array[:] = base - h * direction
+        minus = provider.evaluate()
+    finally:
+        step.solution.x.array[:] = base
+    np.testing.assert_allclose(
+        selected.tangent_action(direction.reshape((-1, 3))),
+        (plus.nodal_structural_residual - minus.nodal_structural_residual) / (2 * h),
+        rtol=1e-5, atol=1e-6,
+    )
+
+
+def test_closed_planar_branch_restart_preserves_plastic_contact_path(tmp_path):
+    full, _ = _small_single_branch_j2_step(closed=True)
+    assert full.solve_result().status == "completed"
+    partial, _ = _small_single_branch_j2_step(closed=True)
+    partial.solve(until=0.5)
+    saved = partial.save_checkpoint(tmp_path / "closed_planar_branch")
+    resumed, _ = _small_single_branch_j2_step(closed=True)
+    resumed.load_checkpoint(saved)
+    assert resumed.solve_result().status == "completed"
+    np.testing.assert_allclose(
+        resumed.solution.x.array, full.solution.x.array,
+        rtol=1e-9, atol=1e-10,
+    )
+    assert resumed.energy_history[-1].tool_work == pytest.approx(
+        full.energy_history[-1].tool_work, rel=1e-9, abs=1e-10,
+    )
+    assert resumed.contact_feature_path == full.contact_feature_path
 
 
 def test_non_normalized_tool_schedule_is_rejected_by_capability_and_step():

@@ -20,6 +20,9 @@ from agentfem.boundary_models.contact_separation_bound import (
     certify_current_triangle_separation,
 )
 from agentfem.boundary_models.contact_feature_path import AcceptedContactFeaturePath
+from agentfem.boundary_models.contact_planar_branch_bound import (
+    certify_closed_planar_branch,
+)
 from agentfem.boundary_models.contact_trace import ContactTrace
 from agentfem.boundary_models.implicit_contact import integrate_implicit_rigid_contact
 from agentfem.boundary_models.implicit_closed_contact import (
@@ -101,6 +104,66 @@ def test_current_face_separation_refuses_hidden_and_budget_limited_contact():
     )
     assert not budget.certified
     assert budget.status in {"sample_budget_exhausted", "depth_budget_exhausted"}
+
+
+def test_closed_solid_planar_branch_needs_full_face_and_competitor_clearance():
+    tool = _concave_tool()
+    cell = np.asarray((((0.95, 1.25, 0.45), (0.95, 1.35, 0.45),
+                        (0.95, 1.25, 0.55)),))
+    bound = certify_closed_planar_branch(cell, tool)
+    assert bound.certified, bound.status
+    np.testing.assert_allclose(bound.plane_normal, (1., 0., 0.))
+    assert bound.minimum_competitor_clearance > 0
+    projection = tool.project(cell[0])
+    assert projection.all_valid
+    assert np.all(projection.signed_gaps < 0)
+    np.testing.assert_allclose(
+        projection.signed_gaps,
+        (cell[0] - bound.plane_point) @ bound.plane_normal,
+    )
+    shifted = boundary_models.prescribed_rigid_motion(translation=(0.2, 0, 0))
+    moved = certify_closed_planar_branch(
+        cell + np.asarray((0.2, 0., 0.)), tool,
+        motion=shifted, factor=1.0,
+    )
+    assert moved.certified, moved.status
+    np.testing.assert_allclose(moved.plane_normal, bound.plane_normal)
+    np.testing.assert_allclose(moved.plane_point, bound.plane_point + (0.2, 0., 0.))
+    spin = boundary_models.prescribed_rigid_motion(
+        translation=(0., 0., 0.), rotation=(0.0, 0.0, 0.2),
+        reference_point=(0., 0., 0.),
+    )
+    rotation = spin.state(1.0)["rotation_matrix"]
+    rotated = certify_closed_planar_branch(
+        cell @ rotation.T, tool, motion=spin, factor=1.0,
+    )
+    assert rotated.certified, rotated.status
+    np.testing.assert_allclose(rotated.plane_normal, bound.plane_normal @ rotation.T)
+    np.testing.assert_allclose(rotated.plane_point, bound.plane_point @ rotation.T)
+
+    broad = certify_closed_planar_branch(
+        np.asarray((((0.95, 1.25, 0.45), (0.95, 1.45, 0.45),
+                     (0.95, 1.25, 0.55)),)), tool,
+    )
+    assert not broad.certified
+    assert broad.status in {
+        "another_master_feature_can_compete",
+        "projection_can_leave_master_triangle",
+    }
+
+    # The face near the reentrant edge sees both wall and edge/other face.
+    crossing = np.asarray((((0.95, 1.01, 0.10), (0.95, 1.35, 0.10),
+                             (0.95, 1.01, 0.40)),))
+    hazard = certify_closed_planar_branch(crossing, tool)
+    assert not hazard.certified
+    assert hazard.status in {
+        "another_master_feature_can_compete",
+        "projection_can_leave_master_triangle",
+        "ambiguous_center_projection",
+    }
+    assert not certify_closed_planar_branch(
+        cell, tool, maximum_master_facets=1,
+    ).certified
 
 
 def _reentrant_vertex_tool():
