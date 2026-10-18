@@ -7,11 +7,15 @@ import pytest
 
 from agentfem.boundary_models.contact_feature_pair_geometry_research import (
     _affine_feature_dominates_facet,
+    CertifiedClosedTwoFeaturePenalty,
+    CertifiedPartialClosedTwoFeaturePenalty,
+    CertifiedSeparatedClosedFace,
     certify_partial_closed_face,
     certify_two_facet_distance_competition,
     certify_wholly_interior_closed_face,
     integrate_certified_closed_two_feature_penalty,
     integrate_certified_partial_closed_two_feature_penalty,
+    integrate_discovered_closed_contact_face,
     integrate_discovered_partial_closed_two_feature_penalty,
 )
 from agentfem.boundary_models.contact_feature_pair_research import (
@@ -460,6 +464,43 @@ def test_partial_reentrant_face_matches_independent_piecewise_quadrature():
     np.testing.assert_allclose(
         response.nodal_residual, fine_force, rtol=1e-6, atol=1e-8
     )
+
+
+def test_discovery_crosses_separated_partial_and_wholly_active_states():
+    tool = _closed_L_prism()
+    reference = np.asarray(
+        ((0.895, 0.875, -0.02), (0.905, 0.875, 0.175), (0.895, 0.885, 0.16))
+    )
+    path = (
+        (-0.20, CertifiedSeparatedClosedFace),
+        (-0.08, CertifiedPartialClosedTwoFeaturePenalty),
+        (-0.04, CertifiedPartialClosedTwoFeaturePenalty),
+        (-0.02, CertifiedPartialClosedTwoFeaturePenalty),
+        (0.00, CertifiedPartialClosedTwoFeaturePenalty),
+        (0.03, CertifiedClosedTwoFeaturePenalty),
+    )
+    for offset, expected_type in path:
+        current = reference + np.asarray((0.0, 0.0, offset))
+        discovered = integrate_discovered_closed_contact_face(
+            reference, current, tool, penalty=500.0
+        )
+        assert isinstance(discovered, expected_type)
+        if isinstance(discovered, CertifiedSeparatedClosedFace):
+            continue
+        direct = (
+            integrate_certified_partial_closed_two_feature_penalty
+            if isinstance(discovered, CertifiedPartialClosedTwoFeaturePenalty)
+            else integrate_certified_closed_two_feature_penalty
+        )(reference, current, tool, (0, 12), penalty=500.0)
+        assert discovered.response.potential == pytest.approx(
+            direct.response.potential, rel=1e-10
+        )
+        np.testing.assert_allclose(
+            discovered.response.nodal_residual,
+            direct.response.nodal_residual,
+            rtol=1e-10,
+            atol=1e-12,
+        )
 
 
 def test_partial_local_penalty_refuses_additional_crossing_facet():

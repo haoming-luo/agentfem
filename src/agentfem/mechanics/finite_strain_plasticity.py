@@ -81,6 +81,48 @@ def _validate_contact_feature_path(
     return validated
 
 
+def _validate_contact_face_path(
+    path: object, *, accepted_factor: float, accepted_count: int,
+    complete: bool,
+) -> dict[str, dict[str, object]]:
+    """Reject malformed or falsely complete whole-face accepted-path evidence."""
+
+    expected = {
+        "constraint", "accepted_station_count", "last_factor",
+        "maximum_active_reference_area", "maximum_active_face_count",
+        "maximum_mixed_feature_face_count", "all_observed_faces_certified",
+    }
+    if not isinstance(path, dict):
+        raise ValueError("Contact face path must be a pair-keyed mapping.")
+    validated = {}
+    for name, record in path.items():
+        if (
+            not isinstance(name, str) or not name
+            or not isinstance(record, dict) or set(record) != expected
+            or record["constraint"] != name
+        ):
+            raise ValueError("Contact face path pair identity or schema differs.")
+        for key in (
+            "accepted_station_count", "maximum_active_face_count",
+            "maximum_mixed_feature_face_count",
+        ):
+            value = record[key]
+            if type(value) is not int or value < (1 if key == "accepted_station_count" else 0):
+                raise ValueError("Contact face path contains an invalid count.")
+        area = record["maximum_active_reference_area"]
+        factor = record["last_factor"]
+        if (
+            type(area) not in (int, float) or not np.isfinite(area) or area < 0.0
+            or type(factor) not in (int, float) or not np.isfinite(factor)
+            or abs(float(factor) - accepted_factor) > 1e-12
+            or type(record["all_observed_faces_certified"]) is not bool
+            or (complete and record["accepted_station_count"] != accepted_count + 1)
+        ):
+            raise ValueError("Contact face path and accepted station disagree.")
+        validated[name] = dict(record)
+    return validated
+
+
 def _mixed_j2_conditioning(material) -> dict[str, float]:
     """Apply a temporary guard to the subtractive mixed-tangent route.
 
@@ -1225,6 +1267,10 @@ class FiniteStrainJ2StandardProblem:
         default_factory=dict, init=False,
     )
     contact_feature_path_complete: bool = field(default=True, init=False)
+    contact_face_path: dict[str, dict[str, object]] = field(
+        default_factory=dict, init=False,
+    )
+    contact_face_path_complete: bool = field(default=True, init=False)
     last_solve_info: FiniteStrainPlasticityPathInfo | None = field(
         default=None,
         init=False,
@@ -1255,15 +1301,68 @@ class FiniteStrainJ2StandardProblem:
 
         return tuple(
             str(provider.name) for provider in self._contact_providers()
-            if isinstance(
-                getattr(provider, "surface", None),
-                (ClosedTriangulatedRigidSolid, ConvexPolyhedralRigidSurface),
-            ) or (
-                isinstance(getattr(provider, "surface", None), TriangulatedRigidSurface)
-                and getattr(provider, "contact_integration", None)
-                == "reviewed_planar_branch_partition"
+            if not hasattr(provider, "current_face_diagnostics") and (
+                isinstance(
+                    getattr(provider, "surface", None),
+                    (ClosedTriangulatedRigidSolid, ConvexPolyhedralRigidSurface),
+                ) or (
+                    isinstance(getattr(provider, "surface", None), TriangulatedRigidSurface)
+                    and getattr(provider, "contact_integration", None)
+                    == "reviewed_planar_branch_partition"
+                )
             )
         )
+
+    def _face_path_pair_names(self) -> tuple[str, ...]:
+        return tuple(
+            str(provider.name) for provider in self._contact_providers()
+            if hasattr(provider, "current_face_diagnostics")
+        )
+
+    def _record_accepted_contact_faces(self, factor: float) -> None:
+        """Summarize only fully certified faces at an accepted configuration."""
+
+        names = set(self._face_path_pair_names())
+        for provider in self._contact_providers():
+            name = str(provider.name)
+            if name not in names:
+                continue
+            old = self.contact_face_path.get(name)
+            if old is not None and abs(float(old["last_factor"]) - factor) <= 1e-12:
+                continue
+            evidence = provider.current_face_diagnostics()
+            active = evidence["active_reference_areas"]
+            features = evidence["feature_kinds"]
+            area = float(sum(active))
+            active_count = sum(float(value) > 0.0 for value in active)
+            mixed_count = sum(item is not None and len(item) > 1 for item in features)
+            certified = bool(evidence["all_faces_certified_at_current_trial"])
+            self.contact_face_path[name] = {
+                "constraint": name,
+                "accepted_station_count": (
+                    1 if old is None else int(old["accepted_station_count"]) + 1
+                ),
+                "last_factor": float(factor),
+                "maximum_active_reference_area": max(
+                    area, 0.0 if old is None else float(
+                        old["maximum_active_reference_area"]
+                    ),
+                ),
+                "maximum_active_face_count": max(
+                    active_count, 0 if old is None else int(
+                        old["maximum_active_face_count"]
+                    ),
+                ),
+                "maximum_mixed_feature_face_count": max(
+                    mixed_count, 0 if old is None else int(
+                        old["maximum_mixed_feature_face_count"]
+                    ),
+                ),
+                "all_observed_faces_certified": (
+                    certified if old is None else
+                    bool(old["all_observed_faces_certified"]) and certified
+                ),
+            }
 
     def _record_accepted_contact_features(self, factor: float) -> None:
         """Keep bounded, accepted-path feature evidence independent of output frames.
@@ -1515,6 +1614,9 @@ class FiniteStrainJ2StandardProblem:
         return self._tangent_matrix
 
     def _uses_implicit_rigid_contact(self) -> bool:
+        from ..boundary_models._certified_face_trial_provider import (
+            DolfinxCertifiedFaceContactTrialProvider,
+        )
         from ..boundary_models.dolfinx_implicit_facet_contact import (
             DolfinxImplicitRigidContact,
         )
@@ -1525,7 +1627,11 @@ class FiniteStrainJ2StandardProblem:
 
         return isinstance(
             self.contact_provider,
-            (DolfinxImplicitRigidContact, DolfinxImplicitRigidContacts),
+            (
+                DolfinxImplicitRigidContact,
+                DolfinxImplicitRigidContacts,
+                DolfinxCertifiedFaceContactTrialProvider,
+            ),
         )
 
     def _assign_trial(self, base, direction, alpha: float) -> None:
@@ -1970,6 +2076,8 @@ class FiniteStrainJ2StandardProblem:
             "energy_history_complete": bool(self.energy_history_complete),
             "contact_feature_path": dict(self.contact_feature_path),
             "contact_feature_path_complete": bool(self.contact_feature_path_complete),
+            "contact_face_path": dict(self.contact_face_path),
+            "contact_face_path_complete": bool(self.contact_face_path_complete),
             "next_increment_size": self.next_increment_size,
             "loading": self._snapshot_loading_state(),
             "contact_runtime_state": self._snapshot_contact_runtime(),
@@ -1993,6 +2101,8 @@ class FiniteStrainJ2StandardProblem:
         self.contact_feature_path_complete = bool(
             boundary["contact_feature_path_complete"]
         )
+        self.contact_face_path = dict(boundary["contact_face_path"])
+        self.contact_face_path_complete = bool(boundary["contact_face_path_complete"])
         self.next_increment_size = boundary["next_increment_size"]
         self._restore_loading_state(boundary["loading"])
         self._restore_contact_runtime(boundary["contact_runtime_state"])
@@ -2087,6 +2197,8 @@ class FiniteStrainJ2StandardProblem:
         entry_energy_history_complete = bool(self.energy_history_complete)
         entry_contact_feature_path = dict(self.contact_feature_path)
         entry_contact_feature_path_complete = bool(self.contact_feature_path_complete)
+        entry_contact_face_path = dict(self.contact_face_path)
+        entry_contact_face_path_complete = bool(self.contact_face_path_complete)
         entry_loading = self._snapshot_loading_state()
         entry_contact_state = self._snapshot_contact_runtime()
         try:
@@ -2103,6 +2215,7 @@ class FiniteStrainJ2StandardProblem:
                     )
                 self.state_transaction.prepare_resume()
             self._record_accepted_contact_features(accepted)
+            self._record_accepted_contact_faces(accepted)
             self.snapshots.clear()
             self.snapshots.append(
                 _load_snapshot(
@@ -2127,6 +2240,8 @@ class FiniteStrainJ2StandardProblem:
             self.energy_history_complete = entry_energy_history_complete
             self.contact_feature_path = entry_contact_feature_path
             self.contact_feature_path_complete = entry_contact_feature_path_complete
+            self.contact_face_path = entry_contact_face_path
+            self.contact_face_path_complete = entry_contact_face_path_complete
             self._restore_loading_state(entry_loading)
             self._restore_contact_runtime(entry_contact_state)
             self._record_failure(
@@ -2145,6 +2260,8 @@ class FiniteStrainJ2StandardProblem:
             entry_energy_history_complete,
             entry_contact_feature_path,
             entry_contact_feature_path_complete,
+            entry_contact_face_path,
+            entry_contact_face_path_complete,
             entry_loading,
             entry_contact_state,
         )
@@ -2298,6 +2415,7 @@ class FiniteStrainJ2StandardProblem:
                     ):
                         self.contact_provider.commit_accepted()
                     self._record_accepted_contact_features(target)
+                    self._record_accepted_contact_faces(target)
                     self.accepted_increments.append(info)
                     size = target - accepted
                     accepted = target
@@ -2548,6 +2666,8 @@ class FiniteStrainJ2StandardProblem:
             "energy_history_complete": bool(self.energy_history_complete),
             "contact_feature_path": dict(self.contact_feature_path),
             "contact_feature_path_complete": bool(self.contact_feature_path_complete),
+            "contact_face_path": dict(self.contact_face_path),
+            "contact_face_path_complete": bool(self.contact_face_path_complete),
             "last_solve_info": self.last_solve_info,
             "snapshots": list(self.snapshots),
             "checkpoints": list(self.checkpoints),
@@ -2577,6 +2697,8 @@ class FiniteStrainJ2StandardProblem:
         self.contact_feature_path_complete = bool(
             boundary["contact_feature_path_complete"]
         )
+        self.contact_face_path = dict(boundary["contact_face_path"])
+        self.contact_face_path_complete = bool(boundary["contact_face_path_complete"])
         self.last_solve_info = boundary["last_solve_info"]
         self.snapshots[:] = boundary["snapshots"]
         self.checkpoints[:] = boundary["checkpoints"]
@@ -2624,6 +2746,16 @@ class FiniteStrainJ2StandardProblem:
             self._feature_path_pair_names()
         ):
             raise ValueError("Contact feature path pair coverage differs.")
+        face_path = _validate_contact_face_path(
+            self.contact_face_path,
+            accepted_factor=self.accepted_load_factor,
+            accepted_count=len(self.accepted_increments),
+            complete=self.contact_face_path_complete,
+        )
+        if self.contact_face_path_complete and set(face_path) != set(
+            self._face_path_pair_names()
+        ):
+            raise ValueError("Contact face path pair coverage differs.")
         selected_portable = comm.size != 1 if portable is None else bool(portable)
         if selected_portable:
             if self.contact_provider is not None:
@@ -2670,6 +2802,8 @@ class FiniteStrainJ2StandardProblem:
             energy_history_complete=bool(self.energy_history_complete),
             contact_feature_path=json.dumps(feature_path, sort_keys=True),
             contact_feature_path_complete=bool(self.contact_feature_path_complete),
+            contact_face_path=json.dumps(face_path, sort_keys=True),
+            contact_face_path_complete=bool(self.contact_face_path_complete),
             next_increment_size=(
                 np.nan if self.next_increment_size is None else self.next_increment_size
             ),
@@ -2797,10 +2931,26 @@ class FiniteStrainJ2StandardProblem:
                 accepted_count=len(accepted),
                 complete=feature_path_complete,
             )
+            has_face_path = "contact_face_path" in data
+            face_path_complete = (
+                bool(data["contact_face_path_complete"])
+                if has_face_path else False
+            )
+            face_path = _validate_contact_face_path(
+                json.loads(str(data["contact_face_path"]))
+                if has_face_path else {},
+                accepted_factor=coordinate,
+                accepted_count=len(accepted),
+                complete=face_path_complete,
+            )
         if feature_path_complete and set(feature_path) != set(
             self._feature_path_pair_names()
         ):
             raise ValueError("Contact feature path checkpoint pair coverage differs.")
+        if face_path_complete and set(face_path) != set(
+            self._face_path_pair_names()
+        ):
+            raise ValueError("Contact face path checkpoint pair coverage differs.")
         needs_contact_state = any(
             getattr(provider, "friction_state", None) is not None
             for provider in self._contact_providers()
@@ -2838,6 +2988,8 @@ class FiniteStrainJ2StandardProblem:
             self.energy_history_complete = energy_history_complete
             self.contact_feature_path = feature_path
             self.contact_feature_path_complete = feature_path_complete
+            self.contact_face_path = face_path
+            self.contact_face_path_complete = face_path_complete
             self.last_solve_info = FiniteStrainPlasticityPathInfo(
                 tuple(accepted),
                 tuple(attempted),
@@ -3210,6 +3362,7 @@ class FiniteStrainJ2StandardProblem:
                 )
             )
             point_records = []
+            face_records = []
             for provider, dual in zip(providers, duals, strict=True):
                 if dual.distribution is not None:
                     result.add_field(
@@ -3238,6 +3391,32 @@ class FiniteStrainJ2StandardProblem:
                     kind="diagnostic",
                 )
                 if self._uses_implicit_rigid_contact():
+                    if hasattr(provider, "current_face_diagnostics"):
+                        face_evidence = provider.current_face_diagnostics()
+                        face_records.append({
+                            "constraint": dual.constraint_name, **face_evidence,
+                        })
+                        result.add_quantity(
+                            f"{dual.constraint_name}_active_reference_area",
+                            sum(face_evidence["active_reference_areas"]),
+                            kind="diagnostic",
+                            description=(
+                                "Certified active P1 boundary-face reference area; "
+                                "not a sampled point count or pressure field."
+                            ),
+                        )
+                        initial = face_evidence["initial_contact"]
+                        if initial is not None:
+                            result.add_quantity(
+                                f"{dual.constraint_name}_initial_maximum_penetration_bound",
+                                initial["maximum_penetration_bound"],
+                                kind="diagnostic",
+                                description=(
+                                    "Certified closed-solid reference-face initial "
+                                    "penetration bound."
+                                ),
+                            )
+                        continue
                     point_evidence = provider.current_point_diagnostics()
                     point_records.append({
                         "constraint": dual.constraint_name, **point_evidence,
@@ -3311,6 +3490,21 @@ class FiniteStrainJ2StandardProblem:
                             if name in self.contact_feature_path
                         ),
                     }
+            if face_records:
+                result.metadata["rigid_contact_face_diagnostics"] = (
+                    face_records[0] if len(face_records) == 1
+                    else tuple(face_records)
+                )
+                result.metadata["rigid_contact_face_path"] = {
+                    "schema": "agentfem.contact-face-path.v1",
+                    "complete": bool(self.contact_face_path_complete),
+                    "accepted_station_count": len(self.accepted_increments) + 1,
+                    "pairs": tuple(
+                        self.contact_face_path[name].copy()
+                        for name in self._face_path_pair_names()
+                        if name in self.contact_face_path
+                    ),
+                }
         has_friction = any(
             getattr(provider, "friction_state", None) is not None
             for provider in self._contact_providers()
@@ -4195,6 +4389,11 @@ def finite_strain_j2_affine_problem(
         contact_modes = resolve_contact_integration_modes(
             contact_items, contact_integration,
         )
+        if "certified_closed_two_feature_research" in contact_modes:
+            raise NotImplementedError(
+                "AFM-CONTACT-RESEARCH: certified face integration has not "
+                "validated total-residual affine/MPC reduction or restart."
+            )
         contact_providers = tuple(
             dolfinx_implicit_rigid_contact(
                 item, displacement.value,

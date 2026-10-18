@@ -699,7 +699,14 @@ def _contact_integration_rejection_reason(model, request: StepRequest) -> str | 
             ClosedTriangulatedRigidSolid, TriangulatedRigidSurface,
         ),
         "radial_active_partition": (RigidSphereSurface, RigidCylinderSurface),
+        "certified_closed_two_feature_research": ClosedTriangulatedRigidSolid,
     }
+
+    if "certified_closed_two_feature_research" in modes and len(pairs) != 1:
+        return (
+            "AFM-CONTACT-RESEARCH: certified two-feature face integration "
+            "currently admits exactly one named rigid pair."
+        )
 
     if (any(
         mode != "gauss" and (
@@ -714,7 +721,8 @@ def _contact_integration_rejection_reason(model, request: StepRequest) -> str | 
         return (
             "AFM-CONTACT-PARTITION: trial active partition requires "
             "frictionless analytical-plane, analytical radial, certified "
-            "convex, or reviewed per-face planar-branch rigid pairs "
+            "convex, reviewed per-face planar-branch, or opt-in certified "
+            "closed two-feature research rigid pairs "
             "(matching the selected mode), scalar penalty and the "
             "default contact quadrature rule."
         )

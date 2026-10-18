@@ -18,7 +18,9 @@ TRIAL_PARTITION_INTEGRATION_MODES = frozenset({
     "closed_planar_branch_partition", "reviewed_planar_branch_partition",
     "radial_active_partition",
 })
-CONTACT_INTEGRATION_MODES = TRIAL_PARTITION_INTEGRATION_MODES | {"gauss"}
+CONTACT_INTEGRATION_MODES = TRIAL_PARTITION_INTEGRATION_MODES | {
+    "gauss", "certified_closed_two_feature_research",
+}
 
 
 def resolve_contact_integration_modes(pairs, selected) -> tuple[str, ...]:

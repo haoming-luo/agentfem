@@ -138,6 +138,12 @@ def export_accepted_contact_points(
             "and material State."
         )
     providers = tuple(getattr(provider, "providers", (provider,)))
+    if any(hasattr(item, "current_face_diagnostics") for item in providers):
+        raise NotImplementedError(
+            "AFM-CONTACT-EXPORT-FACE: this contact law integrates physical "
+            "boundary faces; it has no accepted quadrature-point pressure "
+            "samples. Read rigid_contact_face_diagnostics in the result."
+        )
     if not providers or any(not hasattr(item, "accepted_point_samples") for item in providers):
         raise TypeError("AFM-CONTACT-EXPORT: unsupported contact provider.")
     if len({item.name for item in providers}) != len(providers):

@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import json
+
 import numpy as np
 import pytest
 
@@ -857,7 +859,7 @@ def test_real_dolfinx_certified_face_trial_provider_rejects_stale_displacement()
     np.testing.assert_allclose(matrix.getValues(dofs, dofs), expected)
 
 
-def test_certified_face_trial_provider_rejects_unimplemented_initial_overlap():
+def test_certified_face_trial_provider_proves_declared_initial_overlap():
     from dolfinx import fem
 
     from agentfem.boundary_models._certified_face_trial_provider import (
@@ -873,8 +875,24 @@ def test_certified_face_trial_provider_rejects_unimplemented_initial_overlap():
         penalty=500.0,
         initial_penetration_limit=0.1,
     )
-    with pytest.raises(NotImplementedError, match="initial-overlap preflight"):
+    with pytest.raises(ValueError, match="AFM-CONTACT-INITIAL-OVERLAP"):
         DolfinxCertifiedFaceContactTrialProvider(pair, adapter, fem.Function(space))
+    admitted = rigid_contact_pair(
+        region,
+        rigid_body(_tool()),
+        penalty=500.0,
+        initial_penetration_limit=0.5,
+    )
+    provider = DolfinxCertifiedFaceContactTrialProvider(
+        admitted, adapter, fem.Function(space)
+    )
+    bound = provider.initial_gap_bound
+    assert bound is not None
+    assert 0.1 < bound.maximum_penetration_bound <= 0.5
+    diagnostics = provider.current_face_diagnostics()
+    assert diagnostics["initial_contact"]["maximum_penetration_bound"] == (
+        bound.maximum_penetration_bound
+    )
 
 
 def test_real_dolfinx_certified_face_trial_provider_rejects_stale_tool_pose():
@@ -919,6 +937,19 @@ def test_real_dolfinx_certified_face_trial_provider_rejects_stale_tool_pose():
         dual.force[3:], trial.operator.moment_on_structure_about(reference)
     )
     np.testing.assert_allclose(dual.coordinate, motion.generalized_coordinate(0.25))
+    step = 1e-5
+    provider.update_motion(0.25 + step)
+    plus = provider.evaluate().potential_energy
+    provider.update_motion(0.25 - step)
+    minus = provider.evaluate().potential_energy
+    coordinate_direction = (
+        motion.generalized_coordinate(0.25 + step)
+        - motion.generalized_coordinate(0.25 - step)
+    ) / (2 * step)
+    assert (plus - minus) / (2 * step) == pytest.approx(
+        float(dual.force @ coordinate_direction), rel=1e-5, abs=1e-8
+    )
+    provider.update_motion(0.25)
     saved = provider.snapshot_motion()
     vector = PETSc.Vec().createSeq(3 * len(adapter.reference_nodal_positions))
     vector.set(0.0)
@@ -931,6 +962,251 @@ def test_real_dolfinx_certified_face_trial_provider_rejects_stale_tool_pose():
     np.testing.assert_array_equal(
         vector.array, trial.operator.nodal_residual.reshape(-1)
     )
+
+
+def _research_two_feature_j2_step(
+    *, moving=False, yield_stress=1e9, contact_penalty=1.0,
+    second_pair=False,
+):
+    from dolfinx import mesh as dolfinx_mesh
+
+    from agentfem import (
+        constitutive,
+        fields,
+        mesh as agent_mesh,
+        models,
+        solvers,
+        steps,
+        studies,
+    )
+    from agentfem.boundary_models.contact_pair import rigid_contact_pair
+    from agentfem.boundary_models.contact_work import prescribed_rigid_motion_schedule
+    from agentfem.boundary_models.rigid_body import rigid_body
+
+    domain, _, _, contact = _dolfinx_mixed_active_patch()
+    dim = domain.topology.dim - 1
+    facet_ids = np.arange(domain.topology.index_map(dim).size_local, dtype=np.int32)
+    geometry = dolfinx_mesh.entities_to_geometry(
+        domain, dim, facet_ids, permute=True
+    )
+    support_nodes = _POSITIONS[[0, 1, 3]]
+    support_id = next(
+        int(facet_id)
+        for facet_id, nodes in zip(facet_ids, geometry, strict=True)
+        if all(
+            np.min(np.linalg.norm(domain.geometry.x[nodes] - vertex, axis=1))
+            < 1e-12
+            for vertex in support_nodes
+        )
+    )
+    tags = dolfinx_mesh.meshtags(
+        domain,
+        dim,
+        np.asarray((support_id,), dtype=np.int32),
+        np.asarray((19,), dtype=np.int32),
+    )
+    support = agent_mesh.tagged_boundary_region(
+        domain, tags, tag=19, name="support"
+    )
+    model = models.create(
+        study=studies.static_solid(dimension=3, nonlinear=True), mesh=domain
+    )
+    displacement = model.field(fields.displacement(domain))
+    model.clamp(displacement, on=support)
+    material = model.material(
+        constitutive.finite_strain_j2_logarithmic(
+            young=1000.0,
+            poisson=0.0,
+            yield_stress=yield_stress,
+            hardening_modulus=100.0,
+        )
+    )
+    motion_schedule = None
+    if moving:
+        motion_schedule = prescribed_rigid_motion_schedule(
+            prescribed_rigid_motion(
+                translation=(0.0, 0.0, -0.002),
+                reference_point=(0.9, 0.88, 0.0),
+            ),
+            end_time=1.0,
+        )
+    model.add_boundary_model(
+        rigid_contact_pair(
+            contact,
+            rigid_body(_tool(), motion_schedule=motion_schedule),
+            penalty=contact_penalty,
+            initial_penetration_limit=0.5,
+            name="reentrant_tool",
+        )
+    )
+    if second_pair:
+        model.add_boundary_model(
+            rigid_contact_pair(
+                contact, rigid_body(_tool()), penalty=contact_penalty,
+                name="second_tool",
+            )
+        )
+    step = model.step(
+        target=displacement,
+        material=material,
+        contact_integration="certified_closed_two_feature_research",
+        incrementation=steps.fixed(2),
+        solver_options=solvers.newton(
+            relative_tolerance=1e-8,
+            absolute_tolerance=1e-9,
+            maximum_iterations=20,
+            line_search="backtracking",
+        ),
+        progress=False,
+    )
+    return step, displacement
+
+
+def test_research_two_feature_mode_refuses_multiple_pairs_before_solving():
+    with pytest.raises(NotImplementedError, match="exactly one named rigid pair"):
+        _research_two_feature_j2_step(second_pair=True)
+
+
+def test_research_two_feature_faces_enter_existing_serial_j2_step(tmp_path):
+    step, displacement = _research_two_feature_j2_step()
+    result = step.solve_result()
+    assert result.status == "completed"
+    assert len(step.accepted_increments) == 2
+    assert np.linalg.norm(displacement.value.x.array) > 0.0
+    face = result.metadata["rigid_contact_face_diagnostics"]
+    assert face["location"] == "boundary_faces"
+    assert face["all_faces_certified_at_current_trial"] is True
+    assert len(face["face_ids"]) == 2
+    path = result.metadata["rigid_contact_face_path"]
+    assert path["complete"] is True
+    assert path["accepted_station_count"] == 3
+    assert path["pairs"][0]["accepted_station_count"] == 3
+    assert path["pairs"][0]["all_observed_faces_certified"] is True
+    assert path["pairs"][0]["maximum_mixed_feature_face_count"] >= 1
+    assert "rigid_contact_point_diagnostics" not in result.metadata
+    from agentfem import results
+
+    with pytest.raises(NotImplementedError, match="AFM-CONTACT-EXPORT-FACE"):
+        results.export_accepted_contact_points(
+            step, tmp_path / "point_export", result=result
+        )
+
+
+def test_research_two_feature_j2_restart_matches_uninterrupted_path(tmp_path):
+    full, _ = _research_two_feature_j2_step()
+    assert full.solve_result().status == "completed"
+    partial, _ = _research_two_feature_j2_step()
+    partial.solve(until=0.5)
+    assert len(partial.accepted_increments) == 1
+    saved = partial.save_checkpoint(tmp_path / "certified_face")
+    restored, _ = _research_two_feature_j2_step()
+    restored.load_checkpoint(saved)
+    resumed_result = restored.solve_result()
+    assert resumed_result.status == "completed"
+    np.testing.assert_allclose(
+        restored.solution.x.array, full.solution.x.array, rtol=1e-9, atol=1e-12
+    )
+    assert restored.energy_history[-1].contact_potential == pytest.approx(
+        full.energy_history[-1].contact_potential, rel=1e-9, abs=1e-12
+    )
+    assert restored.contact_face_path == full.contact_face_path
+    assert resumed_result.metadata["rigid_contact_face_path"]["complete"] is True
+
+
+def test_research_two_feature_moving_tool_has_accepted_work_and_restart(tmp_path):
+    full, _ = _research_two_feature_j2_step(moving=True)
+    result = full.solve_result()
+    assert result.status == "completed"
+    assert full.energy_history[-1].tool_work > 0.0
+    assert len(result.metadata["constraint_work_evidence"]) == 1
+    partial, _ = _research_two_feature_j2_step(moving=True)
+    partial.solve(until=0.5)
+    saved = partial.save_checkpoint(tmp_path / "moving_certified_face")
+    resumed, _ = _research_two_feature_j2_step(moving=True)
+    resumed.load_checkpoint(saved)
+    assert resumed.solve_result().status == "completed"
+    assert resumed.energy_history[-1].tool_work == pytest.approx(
+        full.energy_history[-1].tool_work, rel=1e-9, abs=1e-12
+    )
+
+
+def test_research_two_feature_plastic_history_survives_restart(tmp_path):
+    settings = {"moving": True, "yield_stress": 1e-4, "contact_penalty": 100.0}
+    full, _ = _research_two_feature_j2_step(**settings)
+    assert full.solve_result().status == "completed"
+    full_state = full.response.state.committed_state_vectors()
+    assert np.max(full_state[:, -2]) > 0.0
+    partial, _ = _research_two_feature_j2_step(**settings)
+    partial.solve(until=0.5)
+    saved = partial.save_checkpoint(tmp_path / "plastic_certified_face")
+    resumed, _ = _research_two_feature_j2_step(**settings)
+    resumed.load_checkpoint(saved)
+    assert resumed.solve_result().status == "completed"
+    np.testing.assert_allclose(
+        resumed.response.state.committed_state_vectors(), full_state,
+        rtol=1e-9, atol=1e-12,
+    )
+    np.testing.assert_allclose(
+        resumed.solution.x.array, full.solution.x.array,
+        rtol=1e-9, atol=1e-12,
+    )
+
+
+@pytest.mark.parametrize(
+    ("yield_stress", "contact_penalty"),
+    ((1e9, 1.0), (1e-4, 100.0)),
+)
+def test_research_two_feature_failure_rolls_back_material_pose_and_work(
+    monkeypatch, yield_stress, contact_penalty
+):
+    step, _ = _research_two_feature_j2_step(
+        moving=True, yield_stress=yield_stress, contact_penalty=contact_penalty
+    )
+    step.solve(until=0.5)
+    accepted_u = step.solution.x.array.copy()
+    accepted_material = step.response.state.committed_state_vectors().copy()
+    if yield_stress < 1.0:
+        assert np.max(accepted_material[:, -2]) > 0.0
+    accepted_energy = tuple(step.energy_history)
+    accepted_face_path = dict(step.contact_face_path)
+    accepted_pose = step.contact_provider.current_factor
+    original = step._record_energy
+
+    def fail_after_energy(*args, **kwargs):
+        original(*args, **kwargs)
+        raise ValueError("intentional certified-face acceptance failure")
+
+    monkeypatch.setattr(step, "_record_energy", fail_after_energy)
+    with pytest.raises(RuntimeError, match="intentional certified-face"):
+        step.solve()
+    assert step.accepted_load_factor == pytest.approx(0.5)
+    assert step.contact_provider.current_factor == accepted_pose
+    np.testing.assert_array_equal(step.solution.x.array, accepted_u)
+    np.testing.assert_array_equal(
+        step.response.state.committed_state_vectors(), accepted_material
+    )
+    assert tuple(step.energy_history) == accepted_energy
+    assert step.contact_face_path == accepted_face_path
+
+
+def test_research_two_feature_corrupt_face_path_checkpoint_is_atomic(tmp_path):
+    source, _ = _research_two_feature_j2_step()
+    source.solve(until=0.5)
+    saved = source.save_checkpoint(tmp_path / "good_face_path")
+    with np.load(saved, allow_pickle=False) as archive:
+        payload = {key: np.asarray(archive[key]).copy() for key in archive.files}
+    face_path = json.loads(str(payload["contact_face_path"]))
+    face_path["reentrant_tool"]["accepted_station_count"] = 100
+    payload["contact_face_path"] = json.dumps(face_path, sort_keys=True)
+    corrupt = tmp_path / "corrupt_face_path.npz"
+    np.savez(corrupt, **payload)
+    receiver, _ = _research_two_feature_j2_step()
+    before_u = receiver.solution.x.array.copy()
+    with pytest.raises(ValueError, match="Contact face path"):
+        receiver.load_checkpoint(corrupt)
+    assert receiver.accepted_load_factor == 0.0
+    assert not receiver.contact_face_path
+    np.testing.assert_array_equal(receiver.solution.x.array, before_u)
 
 
 def test_random_accepted_local_proofs_agree_with_independent_tool_projection():

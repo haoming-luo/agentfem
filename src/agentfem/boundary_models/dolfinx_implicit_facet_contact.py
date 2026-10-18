@@ -93,6 +93,11 @@ class DolfinxImplicitRigidContact:
         surface = self.pair.rigid_body.surface
         if self.contact_integration not in CONTACT_INTEGRATION_MODES:
             raise ValueError("Unsupported implicit contact integration method.")
+        if self.contact_integration == "certified_closed_two_feature_research":
+            raise NotImplementedError(
+                "Certified face integration requires its face-level provider; "
+                "the point-sampled contact adapter cannot lower this mode."
+            )
         if self.contact_integration == "planar_active_partition" and (
             not isinstance(surface, RigidPlaneSurface)
             or self.pair.friction is not None
@@ -1511,6 +1516,18 @@ def dolfinx_implicit_rigid_contact(
         pair.slave_boundary, displacement.function_space,
         contact_quadrature_degree=contact_quadrature_degree,
     )
+    if contact_integration == "certified_closed_two_feature_research":
+        if contact_quadrature_degree is not None:
+            raise ValueError(
+                "Certified research faces require the complete default P1 trace."
+            )
+        from ._certified_face_trial_provider import (
+            DolfinxCertifiedFaceContactTrialProvider,
+        )
+
+        return DolfinxCertifiedFaceContactTrialProvider(
+            pair=pair, adapter=adapter, displacement=displacement,
+        )
     from dolfinx import fem
 
     return DolfinxImplicitRigidContact(
@@ -1545,6 +1562,10 @@ def dolfinx_implicit_rigid_contacts(
     if len({item.name for item in selected}) != len(selected):
         raise ValueError("Multiple rigid contact pair names must be unique.")
     modes = resolve_contact_integration_modes(selected, contact_integration)
+    if "certified_closed_two_feature_research" in modes:
+        raise NotImplementedError(
+            "Certified research face integration has no multi-pair Step lifecycle."
+        )
     return DolfinxImplicitRigidContacts(tuple(
         dolfinx_implicit_rigid_contact(
             item, displacement,

@@ -213,7 +213,13 @@ def integrate_discovered_closed_contact_face(
         for identity, valid in zip(projected.entity_ids, projected.valid, strict=True)
         if valid
     }
-    for first_index in sorted(seeds):
+    # Samples prioritize discovery only. A valid narrow feature may occupy
+    # none of those points; the bounded exhaustive tail still requires the
+    # complete two-feature certificate before accepting any face.
+    first_candidates = tuple(sorted(seeds)) + tuple(
+        index for index in range(count) if index not in seeds
+    )
+    for first_index in first_candidates:
         for second_index in range(count):
             if second_index == first_index:
                 continue
@@ -310,7 +316,16 @@ def integrate_discovered_partial_closed_two_feature_penalty(
             )
             if valid and surface._facet_slots[int(identity)] != first_index
         }
-        for second_index in sorted(second_seeds):
+        # A narrow active polygon can contain a second feature without any
+        # proposal sample selecting it. The samples determine search order,
+        # not admissibility: within the declared 64-facet research budget,
+        # fall back to every remaining finite facet and let the complete
+        # closest-feature/sign certificate accept or refuse the face.
+        second_candidates = tuple(sorted(second_seeds)) + tuple(
+            index for index in range(len(surface._triangles))
+            if index != first_index and index not in second_seeds
+        )
+        for second_index in second_candidates:
             try:
                 return integrate_certified_partial_closed_two_feature_penalty(
                     reference,

@@ -31,8 +31,8 @@ being silently approximated by the bounded route.
 | 3. Integration | Planar/convex partitions; certified zero-contact and smooth-branch faces; private wholly-interior and single-plane partially active reentrant edge/face local integral and tangent | General active boundaries and feature sets; global signed-gap Step admission; other edge/point laws |
 | 4. Normal law | Penalty Step; fixed-trace AL research law plus real-mesh/reduced-rank counterexamples | Compatible multiplier space, outer global Procedure, spatial stability and checkpoint composition |
 | 5. Friction | Locally planar Coulomb State; rigid-master spin transport tested | Admitted geometry-by-friction matrix; sharp features remain rejected |
-| 6. Transaction | Total-system and restart tests for admitted penalty modes; private certified-face Operator assembly and MPC tangent test | Connect the new face law to one existing Procedure/State owner, then repeat rollback/restart and work tests |
-| 7. Result | Pair work/pressure samples; AL local work sign | Cross-law first-law and pressure interpretation |
+| 6. Transaction | Total-system and restart tests for admitted penalty modes; opt-in serial standard-J2 certified-face research Step with work, plastic-history rollback and restart | MPC, multiple pairs, MPI, changing feature topology and wider path tests |
+| 7. Result | Pair work/pressure samples; AL local work sign; research face-location extensive evidence and accepted-station coverage without point pressure | Cross-law first-law, between-station coverage and a defensible pressure interpretation |
 | 8. Science | Local/oracle/installed tests; global elastic-limit spring-plane matrix | Mesh x increment x law convergence and external observables |
 | 9. Release | Scoped solver screens | Installed cross-platform gate and production runtime evidence |
 
@@ -355,7 +355,16 @@ coverage. This is an input-identity test, not a loaded global contact solve.
 One bounded dispatcher now proposes the three proved face outcomes without
 user-selected master facet numbers. Its nearest-point samples only rank
 candidates; a complete geometry proof remains mandatory for every accepted
-face. Re-evaluating a mixed partial/whole/separated patch after a trial nodal
+face. A short reentrant translation path exposed a missed *proposal*, not a
+failed physical certificate: sparse points missed the second finite feature
+on three partly active states. The dispatcher now tries sampled candidates
+first and then the remaining pairs within its declared 64-master-facet cap;
+the full finite-feature/sign proof still gates every acceptance. That path
+now traverses separated, partially active and wholly active face states, and
+each accepted response agrees with the corresponding independently selected
+two-feature proof. This exhaustive fallback may be expensive on an
+unsupported mesh and is not a production search-complexity claim.
+Re-evaluating a mixed partial/whole/separated patch after a trial nodal
 perturbation succeeds with fresh certificates. A face crossing two tool
 activation planes is refused. This avoids case-owned facet-ID glue while
 keeping the present small-facet-budget and one-cut limitations visible.
@@ -415,12 +424,15 @@ accepted-state motion ledger is claimed yet.
 A narrow private DOLFINx trial adapter now binds one named `RigidContactPair`,
 its complete P1 boundary trace and current displacement to that pure face
 Operator. It refuses friction, nonserial layouts and an initial-overlap limit
-whose preflight it does not yet implement. The adapter checks exact pair,
+whose signed-distance face bound cannot be proved within the declared
+refinement budget. It reuses the existing closed-solid 1-Lipschitz initial
+gap certificate, rather than interpreting three Gauss samples as the maximum
+initial penetration. A 0.1 limit is refused and a 0.5 limit is proved on the
+partially active reentrant fixture. The adapter checks exact pair,
 displacement and rigid-pose identities again before either PETSc insertion;
 changing the Newton displacement or tool factor after evaluation causes an
 addressable failure with no matrix/vector mutation. This creates a real
-Model-asset-to-Operator-to-PETSc path while still deliberately lacking
-`model.step`, accepted State, checkpoint, tool work and Result publication.
+Model-asset-to-Operator-to-PETSc path.
 The private adapter now also exposes a face-location diagnostics record and
 the ordinary constraint-dual sign/resultant, including the moving tool's
 moment about its declared reference point. A real DOLFINx trace checks the
@@ -431,25 +443,46 @@ the barycentric triangle at zero gap and closest-feature switches. Its
 potential and nine nodal force components agree with the certified local
 integral under independent 64/128-point convergence checks. This validates
 that bounded fixture, not every possible reentrant corner or Step result.
+The explicit `certified_closed_two_feature_research` mode now also lowers
+**one** named pair into the existing serial standard finite-J2
+`model.step(...)` Procedure. A small real tetrahedral two-face calculation
+accepts two increments, emits face-location Result metadata (never invented
+point pressure), and produces a nonzero displacement. Interrupted serial
+checkpoint/restart reproduces the continuous solution and contact potential.
+A prescribed translating tool accumulates accepted work and reproduces it
+after restart; forced failure after energy recording atomically restores the
+prior displacement, committed material, tool factor and work history. The
+same checks have now been repeated with **nonzero accumulated J2 plastic
+strain**, so material history is not inferred from an elastic-limit test.
+At each accepted station the Procedure records whether every selected
+physical face was certified, maximum active reference area and active/mixed
+face counts. That accepted-station record survives serial restart and rolls
+back on a failed increment; a corrupted station count is rejected before
+checkpoint mutation. It does not prove collision-free motion *between*
+accepted stations or provide a physical point pressure at a sharp feature.
+normal residual/tangent, material and strong-boundary rows share the ordinary
+Newton path; no second solver was introduced. Affine/MPC, multiple tools and
+MPI explicitly refuse this research mode. These tests establish a bounded
+*software lifecycle*, not mesh/penalty convergence, an independent global
+reference, general finite sliding across sharp features, or product release.
 
-For real Step admission, the boundary adapter must enumerate every selected
-physical slave face exactly once, then certify each current Newton trial as
-separated, wholly active or partially active. Any unsupported feature set,
-second activation boundary, ambiguity or proof-budget exhaustion rejects the
-trial atomically. The present `ContactTraceAssembly` requires quadrature
-point IDs and pointwise contributions; a face-integral contribution must
-instead receive its own face-level evidence type and preserve the existing
-force/work sign convention. Only then should the existing Procedure add the
-total residual and tangent before strong-BC lifting and MPC reduction,
-recompute at line-search trials, and jointly commit or roll back material,
-tool path and contact state. The DOLFINx nonlinear callback contract likewise
-requires assembly into the actual current trial vector, including line-search
-evaluations [DOLFINx nonlinear assembly][dolfinx-nonlinear]. No face integral
-may be disguised as three sampled trace points to bypass that interface.
-The global finite-J2/MPC Procedure, accepted State/Result/path-work contract,
-MPI and mesh/penalty/increment convergence are still open. No public
-nonconvex Step is enabled, and local virtual work must not be reported as
-accepted-path energy closure.
+For promotion beyond this research Step, the boundary adapter must keep its
+complete-face enumeration and current-Newton-trial proof for every selected
+face. Any unsupported feature set, second activation boundary, ambiguity or
+proof-budget exhaustion must still reject the trial atomically. The present
+`ContactTraceAssembly` requires quadrature point IDs and pointwise
+contributions; the new face-integral contribution therefore retains a
+separate face-level evidence record and the existing force/work sign
+convention. The standard Procedure now adds its total residual and tangent
+before strong-BC lifting and recomputes at line-search trials, then jointly
+commits or rolls back material, tool path and contact state. The DOLFINx
+nonlinear callback contract requires exactly this current-trial assembly
+[DOLFINx nonlinear assembly][dolfinx-nonlinear]. No face integral is disguised
+as three sampled trace points. Total-system affine/MPC reduction, multiple
+named tools, MPI, between-station path certification, independent global
+comparison and mesh/penalty/increment convergence remain open. The opt-in
+research string must not be presented as a released general nonconvex solver;
+local virtual work is not by itself whole-path first-law closure.
 The same sphere fixture runs to completion on 1, 2 and 4 subdivisions per
 cube edge (6, 48 and 384 tetrahedra). The maximum displacement is
 `1.75747e-5`, `2.49116e-5`, `4.06294e-5`; the final contact potential is

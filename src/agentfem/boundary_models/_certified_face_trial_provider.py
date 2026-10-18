@@ -3,10 +3,11 @@
 
 """Private DOLFINx trial bridge for completely certified P1 contact faces.
 
-This is deliberately *not* a Step provider. It owns neither accepted contact
-State nor path work, rollback, checkpoint, MPI assembly, or Result publication.
-It tests the boundary between a Model pair, pure face Operator and PETSc rows
-without disguising face-integrated evidence as quadrature-point evidence.
+This is not a separate nonlinear solver. The opt-in serial standard-J2
+Procedure owns accepted increments, material rollback, path work, checkpoint
+and Result publication. This private adapter supplies only the face Operator
+and an identity-bound trial; it does not admit MPC, multiple pairs or MPI.
+Face-integrated evidence is never disguised as quadrature-point evidence.
 """
 
 from __future__ import annotations
@@ -25,6 +26,7 @@ from .contact_face_operator_research import (
 )
 from .contact_pair import RigidContactPair
 from .dolfinx_contact_trace import DolfinxContactTraceAdapter
+from .initial_gap_bound import InitialGapBound, certify_initial_triangle_gap
 
 
 @dataclass(frozen=True, eq=False)
@@ -44,6 +46,10 @@ class CertifiedFaceContactTrial:
     def potential_energy(self) -> float:
         return self.operator.potential_energy
 
+    @property
+    def friction_assembly(self) -> None:
+        return None
+
     def tangent_action(self, direction) -> np.ndarray:
         return self.operator.tangent_action(direction)
 
@@ -59,6 +65,7 @@ class DolfinxCertifiedFaceContactTrialProvider:
     maximum_master_facets: int = 64
     order: int = 24
     current_factor: float = field(default=0.0, init=False)
+    initial_gap_bound: InitialGapBound | None = field(default=None, init=False)
     contact_integration: str = field(default="certified_closed_two_feature", init=False)
 
     @property
@@ -88,7 +95,6 @@ class DolfinxCertifiedFaceContactTrialProvider:
             not isinstance(self.pair.rigid_body.surface, ClosedTriangulatedRigidSolid)
             or self.pair.friction is not None
             or self.pair.law.invalid_policy != "reject"
-            or self.pair.initial_penetration_limit is not None
             or self.adapter.facet_topology != "triangle"
             or self.adapter.interpolation_degree != 1
             or self.adapter.geometry_degree != 1
@@ -96,7 +102,7 @@ class DolfinxCertifiedFaceContactTrialProvider:
         ):
             raise NotImplementedError(
                 "Research face trial admits only frictionless reviewed closed P1 "
-                "triangles with scalar penalty; initial-overlap preflight is absent."
+                "triangles with scalar penalty."
             )
         if (
             self.pair.slave_boundary.domain is not self.displacement.function_space.mesh
@@ -106,7 +112,7 @@ class DolfinxCertifiedFaceContactTrialProvider:
             raise NotImplementedError(
                 "Research face trial requires one serial mesh and displacement space."
             )
-        extract_complete_p1_face_layout(
+        layout = extract_complete_p1_face_layout(
             self.adapter.trace, self.adapter.reference_nodal_positions
         )
         schedule = self.pair.rigid_body.motion_schedule
@@ -117,6 +123,15 @@ class DolfinxCertifiedFaceContactTrialProvider:
         ):
             raise NotImplementedError(
                 "Research face trial requires normalized rigid motion without amplitude."
+            )
+        if self.pair.initial_penetration_limit is not None:
+            reference_faces = self.adapter.reference_nodal_positions[
+                layout.face_node_ids
+            ]
+            self.initial_gap_bound = certify_initial_triangle_gap(
+                reference_faces,
+                self.pair.rigid_body.surface,
+                penetration_limit=self.pair.initial_penetration_limit,
             )
 
     def update_motion(self, factor: float) -> None:
@@ -218,6 +233,10 @@ class DolfinxCertifiedFaceContactTrialProvider:
     def snapshot_accepted_state(self) -> None:
         return None
 
+    def restore_accepted_state(self, saved: None) -> None:
+        if saved is not None:
+            raise ValueError("Frictionless certified face contact has no history State.")
+
     def current_face_diagnostics(self) -> dict[str, object]:
         """Expose extensive face evidence, never a guessed point pressure."""
 
@@ -243,6 +262,20 @@ class DolfinxCertifiedFaceContactTrialProvider:
             ),
             "separation_lower_bounds": list(operator.face_separation_lower_bounds),
             "all_faces_certified_at_current_trial": True,
+            "initial_contact": (
+                None if self.initial_gap_bound is None else {
+                    "method": "adaptive_closed_signed_distance_lipschitz",
+                    "maximum_penetration_bound": (
+                        self.initial_gap_bound.maximum_penetration_bound
+                    ),
+                    "sampled_point_count": (
+                        self.initial_gap_bound.sampled_point_count
+                    ),
+                    "maximum_refinement_depth": (
+                        self.initial_gap_bound.maximum_refinement_depth
+                    ),
+                }
+            ),
         }
 
     def dual_evidence(self, problem):
@@ -297,6 +330,15 @@ class DolfinxCertifiedFaceContactTrialProvider:
             "maximum_slave_faces": self.maximum_slave_faces,
             "maximum_master_facets": self.maximum_master_facets,
             "quadrature_order": self.order,
-            "execution_scope": "serial_frictionless_research_only",
-            "accepted_step_admitted": False,
+            "execution_scope": "serial_frictionless_standard_j2_research",
+            "accepted_step_admitted": True,
+            "product_release_admitted": False,
+            "initial_gap_bound": (
+                None if self.initial_gap_bound is None else {
+                    "method": "adaptive_closed_signed_distance_lipschitz",
+                    "maximum_penetration_bound": (
+                        self.initial_gap_bound.maximum_penetration_bound
+                    ),
+                }
+            ),
         }
