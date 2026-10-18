@@ -275,7 +275,12 @@ The gate stays open until its listed evidence exists at the proposed scope.
    incomplete: a final-frame observation remains available, but the
    engineering quality claim cannot pass on that observation alone. An MPC
    path ledger must join the same accepted/rollback/checkpoint lifecycle
-   before that scope can be promoted.
+   before that scope can be promoted. The affine Procedure already has
+   accepted-observer and checkpoint machinery, but adding a recorder changes
+   its checkpoint identity. Migration must read older penalty checkpoints as
+   **incomplete historical evidence** rather than silently claiming that
+   earlier stations were observed or breaking existing restarts without an
+   explicit compatibility decision.
    For the separate *convex* route, accepted point diagnostics now say whether
    the reviewed changing-trial support-plane partition supplied its bounded
    feature integral. The default Gauss rule explicitly reports that no such
