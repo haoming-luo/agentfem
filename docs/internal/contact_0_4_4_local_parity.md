@@ -307,7 +307,17 @@ The gate stays open until its listed evidence exists at the proposed scope.
    The global AL Step still needs a reduced-constraint rank/mesh-pressure
    study. An [exact-penalty alternative][exact-penalty] exists, but would not
    repair the unresolved nonconvex integration and is not a silent replacement
-   for the declared AL policy.
+   for the declared AL policy. Nitsche is a serious *primal* alternative:
+   [Chouly--Hild][nitsche-small] analyze small-strain unilateral contact
+   without a separate multiplier or discrete inf-sup condition, and
+   [Mlika--Renard--Chouly][nitsche-large] extend an unbiased formulation to
+   large-deformation elastic frictional contact. Neither result is a proof for
+   our finite-J2 material, one-sided rigid tool or sharp nonconvex integration.
+   A fair method comparison would use the same analytical-plane J2 path,
+   penetration, reaction, Newton work and mesh ladder, while counting the
+   additional boundary traction and its consistent tangent that Nitsche
+   requires. Do not add a second public enforcement choice on the basis of a
+   1D penalty comparison alone.
 
    On the same 2-cell/axis, 12-increment, q7 L-prism diagnostic above,
    increasing the *penalty* from 20 to 200, 1,000, 10,000 and 100,000
@@ -507,6 +517,8 @@ identified multiplier-transfer rule has its own tests.
 [burman]: https://arxiv.org/abs/1609.03326
 [hansbo-stabilized]: https://doi.org/10.1016/j.finel.2016.03.005
 [exact-penalty]: https://www.sciencedirect.com/science/article/pii/S0045782520302929
+[nitsche-small]: https://doi.org/10.1137/12088344X
+[nitsche-large]: https://doi.org/10.1016/j.cma.2017.07.015
 [duong-friction]: https://arxiv.org/abs/1808.10420
 [comsol-settings]: https://doc.comsol.com/6.3/doc/com.comsol.help.sme/sme_ug_modeling.05.146.html
 [acl]: https://docs.software.vt.edu/abaqusv2025/English/SIMACAEITNRefMap/simaitn-c-contactcontrolsstd.htm
