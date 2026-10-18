@@ -125,7 +125,11 @@ The gate stays open until its listed evidence exists at the proposed scope.
    contact [point-line-surface], whereas Farah--Popp--Wall compare segment,
    element and hybrid mortar integration schemes [mortar-integration]. These
    are architecture comparisons, not drop-in algorithms or evidence that
-   our one-sided P1 operator already has their coverage.
+   our one-sided P1 operator already has their coverage. Haikal--Hjelmstad's
+   oriented-volume formulation is a third non-smooth contact direction
+   [oriented-volume], but is developed for quadrilateral/hexahedral body
+   elements; it does not convert our tetrahedral slave and triangular rigid
+   tool into a validated volume-contact operator by renaming the gap.
    Current state: analytical planar clipper, research two-plane oracle
    and opt-in <=3-plane convex partition pass; the result now flags *sampled*
    mixed-feature slave faces for reviewed closed solids in both standard and
@@ -489,6 +493,7 @@ identified multiplier-transfer rule has its own tests.
 [variational-mortar]: https://doi.org/10.1016/j.cma.2018.07.020
 [point-line-surface]: https://doi.org/10.1002/nme.5743
 [mortar-integration]: https://doi.org/10.1007/s00466-014-1093-2
+[oriented-volume]: https://doi.org/10.1016/j.cma.2007.06.002
 [distance-field]: https://doi.org/10.1016/j.cma.2013.02.015
 [abaqus-rigid-smoothing]: https://docs.software.vt.edu/abaqusv2025/English/SIMACAEMODRefMap/simamod-c-rigidsurf.htm
 [burman]: https://arxiv.org/abs/1609.03326
