@@ -35,7 +35,10 @@ from .implicit_facet_contact import (
 )
 from .implicit_contact import ImplicitRigidContactContribution
 from .implicit_contact import CombinedImplicitRigidContactContribution
-from .implicit_closed_contact import linearize_closed_rigid_solid_contact
+from .implicit_closed_contact import (
+    linearize_closed_rigid_solid_contact,
+    sampled_mixed_feature_slave_faces,
+)
 from .implicit_friction import linearize_piecewise_planar_penalty_friction
 from .implicit_smooth_contact import linearize_smooth_rigid_contact
 from .rigid import RigidPlaneSurface, SmoothRigidSurface, TriangulatedRigidSurface
@@ -463,7 +466,7 @@ class DolfinxImplicitRigidContact:
     def current_point_diagnostics(self) -> dict[str, object]:
         """Unsmoothed reference-trace diagnostics at the current trial pose."""
 
-        evaluation, record, response, _factor, partition = self._current_point_response(
+        evaluation, record, response, factor, partition = self._current_point_response(
             _include_partition=True,
         )
         active = np.asarray(response.active, dtype=bool)
@@ -491,6 +494,17 @@ class DolfinxImplicitRigidContact:
                 )
                 counts[feature] += 1
             evidence["active_feature_counts"] = counts
+            evidence["sampled_mixed_feature_slave_faces"] = (
+                sampled_mixed_feature_slave_faces(
+                    evaluation, record, response, self.surface,
+                    motion=(
+                        None if self.pair.rigid_body.motion_schedule is None
+                        else self.pair.rigid_body.motion_schedule.motion
+                    ),
+                    factor=factor,
+                )
+            )
+            evidence["feature_transition_integral_certified"] = False
         return evidence
 
     def accepted_point_samples(self) -> dict[str, object]:

@@ -16,6 +16,9 @@ from agentfem.boundary_models.contact_response import frictionless_penalty_conta
 from agentfem.boundary_models.contact_state import ContactProjectionRecord
 from agentfem.boundary_models.contact_trace import ContactTrace
 from agentfem.boundary_models.implicit_contact import integrate_implicit_rigid_contact
+from agentfem.boundary_models.implicit_closed_contact import (
+    sampled_mixed_feature_slave_faces,
+)
 from agentfem.boundary_models.dolfinx_implicit_facet_contact import (
     dolfinx_implicit_rigid_contact,
 )
@@ -99,6 +102,45 @@ def _contribution(surface, query):
         evaluation, record, response,
         surface.gap_differential(projection).hessian,
     )
+
+
+def test_sampled_feature_transition_diagnostic_distinguishes_reentrant_edge():
+    surface = _concave_tool()
+    trace = ContactTrace(
+        point_ids=(11, 12, 13), node_ids=((0, 1, 2),) * 3,
+        shape_values=((1, 0, 0), (0, 1, 0), (0, 0, 1)),
+        weights=(1 / 3, 1 / 3, 1 / 3),
+    )
+
+    def count(points, *, motion=None, factor=0.0):
+        reference_points = np.asarray(points, dtype=float)
+        current_points = reference_points
+        if motion is not None:
+            pose = motion.state(factor)
+            current_points = (
+                np.asarray(pose["reference_point"])
+                + (reference_points - np.asarray(motion.reference_point))
+                @ np.asarray(pose["rotation_matrix"]).T
+            )
+        evaluation = trace.evaluate(current_points)
+        record = ContactProjectionRecord(
+            trace.point_ids,
+            surface.project(evaluation.query_points, motion=motion, factor=factor),
+        )
+        response = frictionless_penalty_contact_law(10.0).evaluate(record.projection)
+        assert np.all(response.active)
+        return sampled_mixed_feature_slave_faces(
+            evaluation, record, response, surface, motion=motion, factor=factor,
+        )
+
+    assert count(((0.95, 1.2, 0.5), (0.95, 1.5, 0.5), (0.95, 1.8, 0.5))) == 0
+    mixed = ((0.9, 0.9, 0.5), (0.95, 1.5, 0.5), (0.95, 1.8, 0.5))
+    assert count(mixed) == 1
+    motion = boundary_models.prescribed_rigid_motion(
+        translation=(0.2, -0.1, 0), rotation=(0, 0, 0.3),
+        reference_point=(0, 0, 0),
+    )
+    assert count(mixed, motion=motion, factor=0.5) == 1
 
 
 def test_closed_concave_surface_classifies_inside_notch_and_reentrant_edge():
@@ -422,6 +464,9 @@ def test_dolfinx_reentrant_edge_assembles_current_residual_and_tangent():
     selected = operator.evaluate()
     assert selected.active_points == operator.adapter.trace.point_count
     assert selected.potential_energy > 0.0
+    point_evidence = operator.current_point_diagnostics()
+    assert point_evidence["sampled_mixed_feature_slave_faces"] >= 0
+    assert point_evidence["feature_transition_integral_certified"] is False
     base = displacement.x.array.copy()
     direction = np.random.default_rng(84).normal(size=base.shape)
     h = 1.0e-7

@@ -62,8 +62,10 @@ The gate stays open until its listed evidence exists at the proposed scope.
    before accepting a Newton trial. Verify manufactured narrow-strip,
    two-plane and curved-transition oracles, then the nonconvex L-tool response
    matrix. Current state: analytical planar clipper, research two-plane oracle
-   and opt-in <=3-plane convex partition pass; nonconvex feature transitions
-   remain open. Reading: [Duong--De Lorenzis--Sauer refined-boundary
+   and opt-in <=3-plane convex partition pass; the result now flags *sampled*
+   mixed-feature slave faces for reviewed closed solids, without claiming a
+   complete transition integral or changing the Newton law. Nonconvex feature
+   transitions remain open. Reading: [Duong--De Lorenzis--Sauer refined-boundary
    quadrature][duong] and [COMSOL contact quadrature guidance][comsol-settings].
    The cited isogeometric extended-mortar formulation is a comparison design,
    not a drop-in P1 facet implementation: its enriched pressure interpolation
@@ -169,9 +171,10 @@ is not a 0.4.4 claim.
 
 The opt-in research module `boundary_models.normal_augmentation` separates
 the signed algorithmic AL functional from physical contact energy. It binds
-accepted multipliers to a fixed reference trace (point IDs, node support,
-shape values, integration weights and reference query geometry), rigid-surface
-fingerprint, units and explicit acceptance/outer-iteration policy. It requires
+accepted multipliers to a contact-pair identity, fixed reference trace (point
+IDs, node support, shape values, integration weights and reference query
+geometry), rigid-surface fingerprint, units and explicit
+acceptance/outer-iteration policy. It requires
 a converged *total* residual
 at each frozen-multiplier outer iterate, and atomically refuses mismatched
 restart State. Its spring/plane exact solution and smooth plane/sphere

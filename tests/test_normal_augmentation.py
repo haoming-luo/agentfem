@@ -32,12 +32,13 @@ def _record(surface, point, trace):
 def _state(
     trace, surface, *, penalty, reference_nodes=None, initial_multiplier=None,
     penetration_tolerance=1e-9, complementarity_tolerance=1e-9,
-    maximum_augmentations=64,
+    maximum_augmentations=64, pair_identity="test-rigid-pair",
 ):
     if reference_nodes is None:
         reference_nodes = ((0.0, 0.0, 0.0),)
     return FixedTraceNormalMultiplierState(
         trace,
+        pair_identity=pair_identity,
         reference_evaluation=trace.evaluate(reference_nodes),
         surface_fingerprint=surface.geometry_fingerprint,
         penalty=penalty,
@@ -118,7 +119,8 @@ def test_multiplier_trial_rollback_and_atomic_restore():
     candidate.restore_accepted(good)
     assert candidate.accepted_snapshot() == good
     for key, value in (
-        ("trace_identity", "wrong"), ("surface_fingerprint", "wrong"),
+        ("pair_identity", "wrong"), ("trace_identity", "wrong"),
+        ("surface_fingerprint", "wrong"),
         ("point_ids", [18]), ("penalty", 20.0),
         ("penetration_tolerance", 1e-3), ("maximum_augmentations", 2),
         ("pressure_unit", "Pa"), ("multiplier", [-1]),

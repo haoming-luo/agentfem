@@ -134,6 +134,7 @@ class FixedTraceNormalMultiplierState:
         self,
         trace: ContactTrace,
         *,
+        pair_identity: str,
         reference_evaluation: ContactTraceEvaluation,
         surface_fingerprint: str,
         penalty: float,
@@ -145,6 +146,9 @@ class FixedTraceNormalMultiplierState:
         initial_multiplier=None,
     ):
         self.trace = trace
+        if not isinstance(pair_identity, str) or not pair_identity.strip():
+            raise ValueError("Normal multiplier State requires a contact-pair identity.")
+        self.pair_identity = pair_identity
         self.trace_identity = _trace_identity(trace, reference_evaluation)
         if not isinstance(surface_fingerprint, str) or not surface_fingerprint.strip():
             raise ValueError("Normal multiplier State requires a rigid-surface fingerprint.")
@@ -298,6 +302,7 @@ class FixedTraceNormalMultiplierState:
 
         return {
             "schema": self.schema,
+            "pair_identity": self.pair_identity,
             "trace_identity": self.trace_identity,
             "surface_fingerprint": self.surface_fingerprint,
             "point_ids": self.point_ids.tolist(),
@@ -316,12 +321,14 @@ class FixedTraceNormalMultiplierState:
         if not isinstance(snapshot, dict) or snapshot.get("schema") != self.schema:
             raise ValueError("Normal multiplier checkpoint schema differs.")
         required = {
-            "schema", "trace_identity", "surface_fingerprint", "point_ids",
+            "schema", "pair_identity", "trace_identity", "surface_fingerprint", "point_ids",
             "penalty", "penetration_tolerance", "complementarity_tolerance",
             "maximum_augmentations", "length_unit", "pressure_unit", "multiplier",
         }
         if set(snapshot) != required:
             raise ValueError("Normal multiplier checkpoint fields differ.")
+        if snapshot["pair_identity"] != self.pair_identity:
+            raise ValueError("Normal multiplier checkpoint contact pair differs.")
         if snapshot.get("trace_identity") != self.trace_identity:
             raise ValueError("Normal multiplier checkpoint trace basis differs.")
         if snapshot.get("surface_fingerprint") != self.surface_fingerprint:

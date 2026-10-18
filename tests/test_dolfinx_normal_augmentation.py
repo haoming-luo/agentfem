@@ -46,6 +46,7 @@ def test_fixed_multiplier_fem_operator_matches_independent_ufl(geometry):
     )
     state = FixedTraceNormalMultiplierState(
         trace,
+        pair_identity="test-dolfinx-rigid-pair",
         reference_evaluation=trace.evaluate(adapter.reference_nodal_positions),
         surface_fingerprint=surface.geometry_fingerprint,
         penalty=12.0,
