@@ -1241,12 +1241,20 @@ class AffineNonlinearVariationalProblem:
     def _operator_runtime_state(self) -> tuple[object, ...]:
         """Capture accepted Operator State without serializing a Newton trial."""
 
-        return tuple(
-            operator.snapshot_runtime_state()
-            if callable(getattr(operator, "snapshot_runtime_state", None))
-            else None
-            for operator in self.full_space_operators
-        )
+        states = []
+        for operator in self.full_space_operators:
+            snapshot = getattr(operator, "snapshot_runtime_state", None)
+            restore = getattr(operator, "restore_runtime_state", None)
+            commit = getattr(operator, "commit_accepted", None)
+            if callable(snapshot) != callable(restore) or (
+                callable(commit) and not callable(snapshot)
+            ):
+                raise TypeError(
+                    "Accepted affine Operator State requires paired runtime "
+                    "snapshot/restore methods before a commit method can run."
+                )
+            states.append(snapshot() if callable(snapshot) else None)
+        return tuple(states)
 
     def _restore_operator_runtime_state(self, states: tuple[object, ...]) -> None:
         if len(states) != len(self.full_space_operators):
@@ -1263,10 +1271,16 @@ class AffineNonlinearVariationalProblem:
 
         states = []
         for operator in self.full_space_operators:
+            snapshot = getattr(operator, "snapshot_accepted_state", None)
+            restore = getattr(operator, "restore_accepted_state", None)
+            if callable(snapshot) != callable(restore):
+                raise TypeError(
+                    "Accepted affine Operator checkpoint State requires paired "
+                    "snapshot/restore methods."
+                )
             validate = getattr(operator, "validate_accepted_configuration", None)
             if callable(validate):
                 validate()
-            snapshot = getattr(operator, "snapshot_accepted_state", None)
             states.append(snapshot() if callable(snapshot) else None)
         return tuple(states)
 

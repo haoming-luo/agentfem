@@ -194,6 +194,18 @@ corrupting the second pair's checkpoint data rejects the entire load before
 the first pair's friction State can remain half-restored. An injected late
 second-pair commit failure likewise restores the previous material, field,
 pose and friction boundary.
+The nonsymmetric affine Coulomb tangent rejects CG at construction; a serial
+GMRES/ILU solve matches direct LU in displacement, accepted friction
+dissipation and rigid-tool path work on the same fixed-input Step.
+The public affine friction `solve_result(output=..., strict_output=True)`
+path also writes XDMF/HDF5 field artifacts while retaining separate raw
+contact-point diagnostics; this is a final accepted field view, not a
+time-history export or a first-law verification.
+The affine Procedure now checks an external Operator's in-memory State
+snapshot/restore pair before allowing `commit_accepted`, and checks its durable
+accepted snapshot/restore pair before checkpoint publication. A deliberately
+incomplete provider fails before numerical work or an output artifact, rather
+than producing an unrollable accepted increment.
 
 The next sharp-feature friction gate is not a normal-averaging patch.
 [Abaqus' contact overview](https://docs.software.vt.edu/abaqusv2025/English/SIMACAEITNRefMap/simaitn-c-contactoverview.htm)

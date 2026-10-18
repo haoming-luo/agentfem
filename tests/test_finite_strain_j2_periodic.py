@@ -71,6 +71,7 @@ def test_periodic_j2_rejects_registered_contact_in_capability_and_step():
 def _periodic_j2_contact_step(
     *, surface=None, motion=None, pair_count=1, opposed_pair=False,
     friction_coefficient=None, tangential_penalty=None, checkpoint=None,
+    linear_solver=None,
 ):
     fixture = periodic_unit_cube(MPI.COMM_SELF)
     model = models.create(
@@ -133,6 +134,7 @@ def _periodic_j2_contact_step(
         solver_options=solvers.newton(
             relative_tolerance=1e-8, absolute_tolerance=1e-9,
             maximum_iterations=25, line_search="backtracking",
+            linear_solver=linear_solver,
         ),
         checkpoint=checkpoint,
     )
@@ -780,6 +782,102 @@ def test_periodic_j2_moving_plane_friction_commits_and_restarts(tmp_path):
     )
 
 
+def test_periodic_j2_friction_rejects_symmetric_linear_solver_policy():
+    surface = boundary_models.rigid_plane(
+        point=(1.01, 0.0, 0.0), normal=(-1.0, 0.0, 0.0),
+    )
+    with pytest.raises(ValueError, match="AFM-IMPLICIT-FRICTION-LINEAR"):
+        _periodic_j2_contact_step(
+            surface=surface,
+            friction_coefficient=0.2,
+            tangential_penalty=1000.0,
+            linear_solver=solvers.LinearSolverOptions(
+                ksp_type="cg", pc_type="jacobi",
+            ),
+        )
+
+
+def test_periodic_j2_operator_state_protocol_rejects_unpaired_methods(
+    monkeypatch, tmp_path,
+):
+    _, _, step = _periodic_j2_contact_step(
+        surface=boundary_models.rigid_plane(
+            point=(1.01, 0.0, 0.0), normal=(-1.0, 0.0, 0.0),
+        ),
+        friction_coefficient=0.2,
+        tangential_penalty=1000.0,
+    )
+    initial_solution = step.solution.x.array.copy()
+    with monkeypatch.context() as patch:
+        patch.setattr(step.contact_provider, "restore_runtime_state", None)
+        with pytest.raises(TypeError, match="paired runtime snapshot/restore"):
+            step.solve()
+    np.testing.assert_array_equal(step.solution.x.array, initial_solution)
+
+    with monkeypatch.context() as patch:
+        patch.setattr(step.contact_provider, "restore_accepted_state", None)
+        with pytest.raises(TypeError, match="paired snapshot/restore"):
+            step.save_checkpoint(tmp_path / "unpaired_operator")
+    assert not list(tmp_path.glob("*.checkpoint.json"))
+
+
+def test_periodic_j2_friction_gmres_matches_direct_linear_solve():
+    options = dict(
+        surface=boundary_models.rigid_plane(
+            point=(1.01, 0.0, 0.0), normal=(-1.0, 0.0, 0.0),
+        ),
+        motion=boundary_models.prescribed_rigid_motion(
+            translation=(0.0, 0.02, 0.0),
+            reference_point=(1.6, 0.5, 0.5),
+        ),
+        friction_coefficient=0.2,
+        tangential_penalty=1000.0,
+    )
+    _, _, direct = _periodic_j2_contact_step(**options)
+    direct_result = direct.solve_result()
+    _, _, iterative = _periodic_j2_contact_step(
+        **options,
+        linear_solver=solvers.LinearSolverOptions(
+            ksp_type="gmres", pc_type="ilu", rtol=1e-10, max_it=200,
+        ),
+    )
+    iterative_result = iterative.solve_result()
+    assert direct_result.status == iterative_result.status == "completed"
+    np.testing.assert_allclose(
+        iterative.solution.x.array, direct.solution.x.array,
+        rtol=1e-8, atol=1e-9,
+    )
+    assert iterative_result.quantity("friction_dissipation") == pytest.approx(
+        direct_result.quantity("friction_dissipation"), rel=1e-8,
+    )
+    assert iterative_result.quantity("rigid_contact_pair_path_work") == pytest.approx(
+        direct_result.quantity("rigid_contact_pair_path_work"), rel=1e-8,
+    )
+
+
+def test_periodic_j2_friction_public_result_writes_field_artifact(tmp_path):
+    _, _, step = _periodic_j2_contact_step(
+        surface=boundary_models.rigid_plane(
+            point=(1.01, 0.0, 0.0), normal=(-1.0, 0.0, 0.0),
+        ),
+        motion=boundary_models.prescribed_rigid_motion(
+            translation=(0.0, 0.02, 0.0),
+            reference_point=(1.6, 0.5, 0.5),
+        ),
+        friction_coefficient=0.2,
+        tangential_penalty=1000.0,
+    )
+    field_path = tmp_path / "fields.xdmf"
+    result = step.solve_result(output=field_path, strict_output=True)
+    assert result.status == "completed"
+    assert field_path.exists()
+    assert (tmp_path / "fields.h5").exists()
+    assert result.quantity("friction_dissipation") > 0.0
+    assert result.metadata["rigid_contact_point_diagnostics"][
+        "active_point_count"
+    ] > 0
+
+
 def test_periodic_j2_friction_scheduled_checkpoint_retention_and_resume(tmp_path):
     surface = boundary_models.rigid_plane(
         point=(1.01, 0.0, 0.0), normal=(-1.0, 0.0, 0.0),
@@ -919,7 +1017,10 @@ def test_periodic_mixed_contact_late_commit_failure_rolls_back_all_pairs(
 
 
 @pytest.mark.parametrize("tool_kind", ["triangle", "closed_concave"])
-def test_periodic_moving_planar_face_friction_matches_analytical_plane(tool_kind):
+@pytest.mark.parametrize("rotation", [0.0, 0.02])
+def test_periodic_moving_planar_face_friction_matches_analytical_plane(
+    tool_kind, rotation,
+):
     plane = boundary_models.rigid_plane(
         point=(0.95, 0.0, 0.0), normal=(-1.0, 0.0, 0.0),
     )
@@ -935,6 +1036,7 @@ def test_periodic_moving_planar_face_friction_matches_analytical_plane(tool_kind
         face = _periodic_concave_face_tool()
     motion = boundary_models.prescribed_rigid_motion(
         translation=(0.0, 0.02, 0.0),
+        rotation=(0.0, 0.0, rotation),
         reference_point=(1.6, 0.5, 0.5),
     )
     options = dict(
