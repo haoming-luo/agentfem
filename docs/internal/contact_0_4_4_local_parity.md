@@ -28,7 +28,7 @@ being silently approximated by the bounded route.
 | --- | --- | --- |
 | 1. Comparator | Internal and public-protocol tests | Independent same-input finite-J2 contact run and frozen observables |
 | 2. Surface | Reviewed geometry; exact plane and conservative closed-solid initial-overlap bounds on admitted first-order traces | Open facets, unsupported curved tools, ambiguity and sliding coverage at target geometry |
-| 3. Integration | Planar/convex partitions; sampled nonconvex risk flag and same-state integration screens | Nonconvex feature-switch integral and tangent |
+| 3. Integration | Planar/convex partitions; sampled nonconvex risk flag and same-state integration screens | Nonconvex feature-switch integral/tangent; separate admission or rejection of lower-dimensional edge/point contact |
 | 4. Normal law | Penalty Step; fixed-trace AL operator candidate | Outer global Procedure, spatial stability and checkpoint composition |
 | 5. Friction | Locally planar Coulomb State; rigid-master spin transport tested | Admitted geometry-by-friction matrix; sharp features remain rejected |
 | 6. Transaction | Total-system and restart tests for penalty | Repeat for each new enforcement/integration law |
@@ -114,7 +114,19 @@ The gate stays open until its listed evidence exists at the proposed scope.
    one consistent residual/tangent partition; refresh a changed partition
    before accepting a Newton trial. Verify manufactured narrow-strip,
    two-plane and curved-transition oracles, then the nonconvex L-tool response
-   matrix. Current state: analytical planar clipper, research two-plane oracle
+   matrix. Also distinguish a *surface quadrature crossing a nearest-feature
+   switch* from actual edge--surface, edge--edge or point contact. A corrected
+   surface integral alone does not establish the latter's nonpenetration
+   constraints or pressure units. Either admit those lower-dimensional
+   branches with independent force/moment and tangent evidence, or reject
+   them explicitly at the current geometry; do not silently assign an
+   arbitrary averaged surface normal. Farah--Wall--Popp use separate point,
+   line and surface multiplier families for non-smooth finite-deformation
+   contact [point-line-surface], whereas Farah--Popp--Wall compare segment,
+   element and hybrid mortar integration schemes [mortar-integration]. These
+   are architecture comparisons, not drop-in algorithms or evidence that
+   our one-sided P1 operator already has their coverage.
+   Current state: analytical planar clipper, research two-plane oracle
    and opt-in <=3-plane convex partition pass; the result now flags *sampled*
    mixed-feature slave faces for reviewed closed solids in both standard and
    periodic J2 Results, without claiming a complete transition integral or
@@ -219,6 +231,16 @@ The gate stays open until its listed evidence exists at the proposed scope.
    as the exact sharp-feature answer without an error study.
    A new algorithm may enter the Step only after both integral and
    differentiation checks, not merely a finer screenshot or work balance.
+   The accepted closed-solid point diagnostic already distinguishes physical
+   face, edge and vertex projections (not merely triangulation seams).
+   Engineering verification now fails if a sampled *active* point belongs to
+   a physical edge or vertex, even if no mixed-feature slave face was sampled;
+   a corrected surface integral would not by itself define that separate
+   lower-dimensional law. The diagnostic also rejects counts inconsistent
+   with the active-point total. Exploratory results retain the observation
+   without a trust upgrade; release still requires a certified integral. A
+   real finite-J2 reentrant-edge Step now supplies the negative engineering
+   test, not just synthetic metadata.
    For the separate *convex* route, accepted point diagnostics now say whether
    the reviewed changing-trial support-plane partition supplied its bounded
    feature integral. The default Gauss rule explicitly reports that no such
@@ -457,6 +479,8 @@ identified multiplier-transfer rule has its own tests.
 [duong]: https://arxiv.org/abs/1712.01179
 [dual-mortar]: https://arxiv.org/abs/2201.01165
 [variational-mortar]: https://doi.org/10.1016/j.cma.2018.07.020
+[point-line-surface]: https://doi.org/10.1002/nme.5743
+[mortar-integration]: https://doi.org/10.1007/s00466-014-1093-2
 [distance-field]: https://doi.org/10.1016/j.cma.2013.02.015
 [abaqus-rigid-smoothing]: https://docs.software.vt.edu/abaqusv2025/English/SIMACAEMODRefMap/simamod-c-rigidsurf.htm
 [burman]: https://arxiv.org/abs/1609.03326

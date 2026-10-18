@@ -680,10 +680,14 @@ def _runtime_checks(
                 feature_ok,
                 observable="accepted rigid-contact point diagnostics",
                 actual=feature_evidence,
-                expected="no sampled mixed-feature face without certified integration",
+                expected=(
+                    "no sampled mixed-feature face without certified integration "
+                    "and no unsupported active edge/vertex contact"
+                ),
                 criterion=(
                     "sampled active feature switches require a supported "
-                    "transition integral; no observed switch is not a "
+                    "transition integral; active lower-dimensional contact "
+                    "requires its own law; no observed switch is not a "
                     "whole-face coverage certificate"
                 ),
             )
@@ -770,6 +774,7 @@ def _contact_feature_evidence(result) -> tuple[bool, dict[str, object]]:
         count = item["sampled_mixed_feature_slave_faces"]
         active_count = item.get("active_point_count")
         certified = item.get("feature_transition_integral_certified")
+        feature_counts = item.get("active_feature_counts")
         if (
             isinstance(count, bool)
             or not isinstance(count, (int, np.integer))
@@ -786,6 +791,22 @@ def _contact_feature_evidence(result) -> tuple[bool, dict[str, object]]:
         ):
             issues.append(f"contact diagnostic {index} has invalid feature evidence")
             continue
+        if feature_counts is not None and (
+            not isinstance(feature_counts, Mapping)
+            or set(feature_counts) != {"face", "edge", "vertex"}
+            or any(
+                isinstance(value, bool)
+                or not isinstance(value, (int, np.integer))
+                or value < 0
+                for value in feature_counts.values()
+            )
+            or (
+                active_count is not None
+                and sum(feature_counts.values()) != active_count
+            )
+        ):
+            issues.append(f"contact diagnostic {index} has invalid active feature counts")
+            continue
         record = {
             "constraint": str(item.get("constraint", index)),
             "sampled_mixed_feature_slave_faces": int(count),
@@ -793,12 +814,23 @@ def _contact_feature_evidence(result) -> tuple[bool, dict[str, object]]:
             "active_point_count": (
                 None if active_count is None else int(active_count)
             ),
+            "active_feature_counts": (
+                None if feature_counts is None
+                else {key: int(feature_counts[key]) for key in ("face", "edge", "vertex")}
+            ),
         }
         observed.append(record)
         if count > 0 and not certified:
             issues.append(
                 f"{record['constraint']} has {int(count)} sampled mixed-feature "
                 "slave faces without a certified transition integral"
+            )
+        if feature_counts is not None and (
+            feature_counts["edge"] or feature_counts["vertex"]
+        ):
+            issues.append(
+                f"{record['constraint']} has sampled active physical "
+                "edge/vertex contact without an admitted lower-dimensional law"
             )
     return not issues, {
         "inspected": inspected,

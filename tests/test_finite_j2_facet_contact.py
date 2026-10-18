@@ -488,6 +488,14 @@ def test_reviewed_concave_edge_is_active_in_global_plastic_step_and_restart(
     ] is False
     assert feature_counts["edge"] >= 1
     assert sum(feature_counts.values()) == int(np.count_nonzero(response.active))
+    quality = result.verify("engineering")
+    feature_claim = next(
+        claim for claim in quality.claims
+        if claim.name == "no_observed_uncertified_contact_feature_transition"
+    )
+    assert feature_claim.status == "failed"
+    assert "edge/vertex contact" in feature_claim.actual["issues"][-1]
+    assert not quality.acceptable
     assert np.max(reference.response.state.committed[
         "equivalent_plastic_strain"
     ].function.x.array) > 0.0

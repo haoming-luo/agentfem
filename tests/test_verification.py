@@ -450,6 +450,66 @@ def test_quality_report_refuses_malformed_multi_pair_feature_evidence():
 
 
 @pytest.mark.parametrize(
+    "counts,expected_status",
+    [
+        ({"face": 2, "edge": 0, "vertex": 0}, "passed"),
+        ({"face": 1, "edge": 1, "vertex": 0}, "failed"),
+        ({"face": 1, "edge": 0, "vertex": 1}, "failed"),
+    ],
+)
+def test_engineering_report_separates_active_lower_dimensional_contact(
+    counts, expected_status,
+):
+    result = results.SimulationResult(
+        "closed_solid_contact_quality",
+        metadata={
+            "solve": {"converged": True},
+            "rigid_contact_point_diagnostics": {
+                "constraint": "nonconvex_tool",
+                "active_point_count": 2,
+                "active_feature_counts": counts,
+                "sampled_mixed_feature_slave_faces": 0,
+                "feature_transition_integral_certified": False,
+            },
+        },
+    )
+    result.add_quantity("force", 1.0)
+    report = result.verify("engineering")
+    claim = next(
+        item for item in report.claims
+        if item.name == "no_observed_uncertified_contact_feature_transition"
+    )
+    assert claim.status == expected_status
+    if expected_status == "failed":
+        assert "edge/vertex contact" in claim.actual["issues"][0]
+        assert not report.acceptable
+
+
+def test_engineering_report_rejects_inconsistent_active_feature_counts():
+    result = results.SimulationResult(
+        "closed_solid_invalid_feature_counts",
+        metadata={
+            "solve": {"converged": True},
+            "rigid_contact_point_diagnostics": {
+                "constraint": "nonconvex_tool",
+                "active_point_count": 1,
+                "active_feature_counts": {"face": 2, "edge": 0, "vertex": 0},
+                "sampled_mixed_feature_slave_faces": 0,
+                "feature_transition_integral_certified": False,
+            },
+        },
+    )
+    result.add_quantity("force", 1.0)
+    report = result.verify("engineering")
+    claim = next(
+        item for item in report.claims
+        if item.name == "no_observed_uncertified_contact_feature_transition"
+    )
+    assert claim.status == "failed"
+    assert "invalid active feature counts" in claim.actual["issues"][0]
+
+
+@pytest.mark.parametrize(
     "active,certified,expected_status",
     [(3, False, "failed"), (3, True, "passed"), (0, False, "failed")],
 )

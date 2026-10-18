@@ -126,6 +126,9 @@ class FixedTraceNormalMultiplierState:
     call ``augment_after_converged`` only after that solve converges, and commit
     only when its *total* equilibrium test also passes. No contact state is
     accepted merely because the point law was evaluated successfully.
+    ``penetration_tolerance`` has the declared length unit, whereas
+    ``complementarity_tolerance`` bounds ``abs(multiplier * gap)`` and has
+    pressure-times-length units. Neither tolerance is a force tolerance.
     """
 
     schema = "agentfem.fixed-trace-normal-augmentation.v1"
