@@ -7,8 +7,8 @@ For an interior point of a certified convex tool, its signed gap is the
 maximum of outward support-plane gaps. On an affine P1 slave triangle these
 gaps are affine. The positive-area subcells are therefore polygonal, while a
 compressed switch between two dominant planes contributes a *line* term to
-the derivative of the integrated penalty force. This module handles at most
-three positive-area dominant features per slave triangle. It deliberately does
+the derivative of the integrated penalty force. This module handles a bounded
+number of positive-area dominant features per slave triangle. It deliberately does
 not describe a nonconvex nearest-edge/vertex distance, friction State, or a
 current-area follower law.
 """
@@ -33,6 +33,7 @@ _DEFAULT_SHAPES = np.asarray((
 ))
 _GAUSS_TRIANGLE = ((1 / 6, 1 / 6), (2 / 3, 1 / 6), (1 / 6, 2 / 3))
 _GAUSS_LINE = (0.5 - 0.5 / np.sqrt(3), 0.5 + 0.5 / np.sqrt(3))
+_MAX_ACTIVE_FEATURES = 4
 
 
 def _clip_polygon(vertices, nodal_values):
@@ -246,9 +247,9 @@ def partition_convex_p1_trace(
             active = _clip_polygon(active, values)
         _, active_weights = _polygon_rule(active)
         total_area = sum(active_weights)
-        if len(regions) > 3:
+        if len(regions) > _MAX_ACTIVE_FEATURES:
             raise NotImplementedError(
-                "AFM-CONTACT-FEATURE-PARTITION: more than three dominant "
+                "AFM-CONTACT-FEATURE-PARTITION: more than four dominant "
                 "support planes cross one active slave triangle."
             )
         if not np.isclose(

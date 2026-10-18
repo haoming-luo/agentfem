@@ -579,11 +579,22 @@ class DolfinxImplicitRigidContact:
                 projection.normals[sampled] - partition.selected_normals[sampled],
                 axis=1,
             )
-            if (np.any(gap_error > 64 * np.finfo(float).eps * scale)
-                    or np.any(normal_error > 1e-10)):
+            mismatch = (
+                (gap_error > 64 * np.finfo(float).eps * scale)
+                | (normal_error > 1e-10)
+            )
+            if np.any(mismatch):
+                sampled_indices = np.flatnonzero(sampled)
+                first = int(sampled_indices[np.flatnonzero(mismatch)[0]])
                 raise ValueError(
                     "AFM-CONTACT-FEATURE-PARTITION: geometry projection "
-                    "disagrees with the selected support-plane branch; "
+                    "disagrees with the selected support-plane branch at "
+                    f"contact_point_id={int(evaluation.trace.point_ids[first])}, "
+                    f"query_point={evaluation.query_points[first].tolist()}, "
+                    f"projection_gap={projection.signed_gaps[first]:.6g}, "
+                    f"partition_gap={partition.selected_gaps[first]:.6g}, "
+                    f"projection_normal={projection.normals[first].tolist()}, "
+                    f"partition_normal={partition.selected_normals[first].tolist()}; "
                     "the current trial is rejected."
                 )
         record = ContactProjectionRecord(evaluation.trace.point_ids, projection)

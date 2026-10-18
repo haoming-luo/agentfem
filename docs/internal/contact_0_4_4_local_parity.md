@@ -163,7 +163,7 @@ The gate stays open until its listed evidence exists at the proposed scope.
    elements; it does not convert our tetrahedral slave and triangular rigid
    tool into a validated volume-contact operator by renaming the gap.
    Current state: analytical planar clipper, research two-plane oracle
-   and opt-in <=3-plane convex partition pass; the result now flags *sampled*
+   and opt-in <=4-plane convex partition pass; the result now flags *sampled*
    mixed-feature slave faces for reviewed closed solids in both standard and
    periodic J2 Results, without claiming a complete transition integral or
    changing the Newton law. Nonconvex feature
@@ -174,6 +174,14 @@ The gate stays open until its listed evidence exists at the proposed scope.
    shape values merely sum to one are rejected before their measure can be
    silently reinterpreted as that rule; this is an input-contract safeguard,
    not a new geometry or friction capability.
+   An independent four-feature rectangular-window integral now matches the
+   exact quadratic penalty energy, including the reference-area map; its
+   perturbed directional derivatives and a real FEniCSx assembled tangent
+   agree with the moving pairwise-line tangent. A small finite-J2 Step also
+   completes and resumes from an interrupted checkpoint with the same
+   displacement and tool work. A five-feature prism still fails closed.
+   This only widens the reviewed **convex** slice; it does not establish
+   nonconvex nearest-feature switching or physical edge/vertex contact.
    The cited isogeometric extended-mortar formulation is a comparison design,
    not a drop-in P1 facet implementation: its enriched pressure interpolation
    and two-half-pass force construction differ from our one-sided trace.

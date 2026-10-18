@@ -185,13 +185,13 @@ local contact pressure or plasticity as engineering results.
 
 The separate experimental `contact_integration="convex_feature_partition"`
 option addresses a **certified closed-convex** rigid tool when an affine CG1
-tetrahedral slave triangle has at most three positive-area dominant support
+tetrahedral slave triangle has at most four positive-area dominant support
 planes. It partitions both the active area and the compressed feature switch;
 the latter contributes a line term to the Newton tangent. A moving/rotating
 tool, force--moment work, total J2-plus-contact Jacobian, affine-periodic MPC
 reduction, and interrupted restart have bounded regressions. The option
 requires frictionless scalar-penalty contact, the default three-point
-reference triangle rule, and a single MPI rank. More than three dominant planes
+reference triangle rule, and a single MPI rank. More than four dominant planes
 or an undefined boundary-aligned feature switch rejects the trial; no normal is
 smoothed or third feature discarded. Accepted contact-point IDs are local to
 that snapshot. This does **not** apply to concave STL geometry, nonlinear
