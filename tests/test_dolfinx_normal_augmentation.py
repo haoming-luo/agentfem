@@ -19,6 +19,8 @@ from agentfem.boundary_models.normal_augmentation import (
     integrate_fixed_trace_augmented_normal,
 )
 
+from test_finite_j2_facet_contact import _patch
+
 
 @pytest.mark.parametrize("geometry", ["plane", "sphere"])
 def test_fixed_multiplier_fem_operator_matches_independent_ufl(geometry):
@@ -112,3 +114,80 @@ def test_fixed_multiplier_fem_operator_matches_independent_ufl(geometry):
         direction.destroy()
         reference_tangent.destroy()
         reference_residual.destroy()
+
+
+def test_fixed_trace_outer_law_can_balance_a_plastic_global_j2_trial(monkeypatch):
+    """Research feasibility probe, not a public Step or atomic acceptance test.
+
+    The ordinary J2 Newton owner solves each frozen-multiplier equilibrium.
+    The test alone owns the outer loop; production still needs one Procedure,
+    joint rollback/checkpoint, energy semantics, and a spatial-stability gate.
+    """
+
+    step = _patch(
+        triangulated=True, gap=0.0, penalty=3000.0,
+        tool_translation=(-0.005, 0.0, 0.0), applied_traction=0.0,
+        increments=1, yield_stress=0.05,
+    )[3]
+    provider = step.contact_provider
+    trace = provider.adapter.trace
+    state = FixedTraceNormalMultiplierState(
+        trace, pair_identity=provider.name,
+        reference_evaluation=trace.evaluate(provider.adapter.reference_nodal_positions),
+        surface_fingerprint=provider.surface.geometry_fingerprint,
+        penalty=3000.0, penetration_tolerance=1e-6,
+        complementarity_tolerance=1e-6, maximum_augmentations=20,
+        length_unit="m", pressure_unit="Pa",
+    )
+
+    def current():
+        evaluation, record, _, _ = provider._current_point_response()
+        return evaluation, record
+
+    def evaluate_augmented():
+        evaluation, record = current()
+        return integrate_fixed_trace_augmented_normal(
+            evaluation, record, state.evaluate(evaluation, record),
+            np.zeros((trace.point_count, 3, 3)),
+            surface_reference_point=provider.pair.rigid_body.reference_point,
+        )
+
+    monkeypatch.setattr(provider, "evaluate", evaluate_augmented)
+    step._apply_loading(0.0)
+    step.state_transaction.initialize()
+    step._apply_loading(1.0)
+    accepted = False
+    for _ in range(state.maximum_augmentations):
+        info = step._solve_increment(
+            increment=1, attempt=1, start_factor=0.0, target_factor=1.0,
+        )
+        assert info.converged, info.rejection_reason
+        assert step.state_transaction.accepted_factor == 0.0
+        evaluation, record = current()
+        state.mark_equilibrium_converged(
+            evaluation, record,
+            total_residual_norm=info.residual_norm,
+            total_residual_tolerance=(
+                step.solver_options.absolute_tolerance
+                + step.solver_options.relative_tolerance * info.initial_residual_norm
+            ),
+        )
+        diagnostics = state.acceptance_diagnostics(evaluation, record)
+        if (
+            diagnostics["maximum_penetration"] <= state.penetration_tolerance
+            and diagnostics["maximum_complementarity"]
+            <= state.complementarity_tolerance
+        ):
+            state.commit(evaluation, record)
+            step.state_transaction.commit_increment(
+                start_factor=0.0, target_factor=1.0,
+            )
+            accepted = True
+            break
+        state.augment_after_converged(evaluation, record)
+    assert accepted
+    assert state.augmentation_count == 0
+    assert step.state_transaction.accepted_factor == 1.0
+    assert np.max(step.response.state.committed[
+        "equivalent_plastic_strain"
+    ].function.x.array) > 0.005

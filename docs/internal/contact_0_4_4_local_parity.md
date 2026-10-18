@@ -325,6 +325,24 @@ The gate stays open until its listed evidence exists at the proposed scope.
    requires. Do not add a second public enforcement choice on the basis of a
    1D penalty comparison alone.
 
+   A private *global* feasibility probe now substitutes the fixed-trace AL
+   Operator into the existing serial J2 Newton assembly, leaving its
+   material update provisional while manually iterating the multiplier. A
+   moving planar tool compressed a plastic cube; with declared penalty 3000
+   and penetration/complementarity tolerances 1e-6 it required eight total
+   Newton equilibria before one joint **test-owned** commit, with final PEEQ
+   above 0.005. At penalty 300, another case still missed the tolerance after
+   30 equilibria. The repeatable regression locks only this bounded
+   feasibility observation; it is not a public Step, a robust penalty policy,
+   atomic checkpoint, or a general convergence proof. The slow outer
+   convergence is consistent with the linear-rate cost identified in
+   [exact-penalty] and motivates comparing a simultaneous mixed semismooth
+   route such as [Alart--Curnier][alart-curnier], rather than automatically
+   nesting dozens of solves in the product. PETSc's bound-constrained
+   [variational-inequality Newton options][petsc-vi] are another algorithmic
+   reference, but a bound on displacement DOFs does not directly represent
+   a nonmatching rigid-surface gap or cure multiplier-space instability.
+
    On the same 2-cell/axis, 12-increment, q7 L-prism diagnostic above,
    increasing the *penalty* from 20 to 200, 1,000, 10,000 and 100,000
    completed the nonlinear solves but changed the final active reference
@@ -525,6 +543,8 @@ identified multiplier-transfer rule has its own tests.
 [exact-penalty]: https://www.sciencedirect.com/science/article/pii/S0045782520302929
 [nitsche-small]: https://doi.org/10.1137/12088344X
 [nitsche-large]: https://doi.org/10.1016/j.cma.2017.07.015
+[alart-curnier]: https://doi.org/10.1016/0045-7825(91)90022-X
+[petsc-vi]: https://petsc.org/main/manual/snes/#variational-inequalities
 [duong-friction]: https://arxiv.org/abs/1808.10420
 [comsol-settings]: https://doc.comsol.com/6.3/doc/com.comsol.help.sme/sme_ug_modeling.05.146.html
 [acl]: https://docs.software.vt.edu/abaqusv2025/English/SIMACAEITNRefMap/simaitn-c-contactcontrolsstd.htm
