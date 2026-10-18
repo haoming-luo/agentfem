@@ -55,7 +55,8 @@ def _wide_closed_tool(*, initial_overlap=_INITIAL_OVERLAP):
 def _elastic_column(
     *, cells: int, increments: int, penalty: float,
     initial_overlap=_INITIAL_OVERLAP, poisson=0.0,
-    surface_mode="closed", tool_motion=False,
+    surface_mode="closed", tool_motion=False, yield_stress=1e9,
+    maximum_iterations=25,
 ):
     domain = dolfinx_mesh.create_unit_cube(MPI.COMM_SELF, cells, cells, cells)
     domain.geometry.x[:, 1:] *= _SIDE
@@ -68,7 +69,7 @@ def _elastic_column(
     right = mesh.boundary(domain, lambda x: np.isclose(x[0], 1.0), name="right")
     model.clamp(displacement, on=left)
     material = model.material(constitutive.finite_strain_j2_logarithmic(
-        young=1000.0, poisson=poisson, yield_stress=1e9,
+        young=1000.0, poisson=poisson, yield_stress=yield_stress,
         hardening_modulus=100.0,
     ))
     if surface_mode == "closed":
@@ -105,7 +106,7 @@ def _elastic_column(
         incrementation=steps.fixed(increments), progress=False,
         solver_options=solvers.newton(
             relative_tolerance=1e-9, absolute_tolerance=1e-10,
-            maximum_iterations=25, line_search="backtracking",
+            maximum_iterations=maximum_iterations, line_search="backtracking",
         ),
     )
     return displacement, step
@@ -278,6 +279,34 @@ def test_inhomogeneous_clamped_column_matches_independent_planar_backend(
         closed_field.value.x.array, plane_field.value.x.array,
         rtol=2e-6, atol=2e-8,
     )
+    assert closed_result.quantity("wide_closed_tool_contact_energy") == pytest.approx(
+        plane_result.quantity("wide_closed_tool_contact_energy"),
+        rel=2e-6, abs=1e-8,
+    )
+    assert closed_result.metadata["rigid_contact_face_path"]["complete"] is True
+
+
+@pytest.mark.parametrize("cells", (1, 2, 3, 4))
+def test_plastic_clamped_column_closed_face_matches_plane_across_meshes(
+    cells,
+):
+    settings = dict(
+        cells=cells, increments=6, penalty=500.0,
+        poisson=0.3, yield_stress=1.0, maximum_iterations=100,
+    )
+    closed_field, closed = _elastic_column(**settings, surface_mode="closed")
+    plane_field, plane = _elastic_column(**settings, surface_mode="plane")
+    closed_result = closed.solve_result()
+    plane_result = plane.solve_result()
+    assert closed_result.status == plane_result.status == "completed"
+    closed_state = closed.response.state.committed_state_vectors()
+    plane_state = plane.response.state.committed_state_vectors()
+    assert np.max(closed_state[:, -2]) > 1e-4
+    np.testing.assert_allclose(
+        closed_field.value.x.array, plane_field.value.x.array,
+        rtol=2e-6, atol=2e-8,
+    )
+    np.testing.assert_allclose(closed_state, plane_state, rtol=2e-6, atol=2e-8)
     assert closed_result.quantity("wide_closed_tool_contact_energy") == pytest.approx(
         plane_result.quantity("wide_closed_tool_contact_energy"),
         rel=2e-6, abs=1e-8,

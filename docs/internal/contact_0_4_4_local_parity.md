@@ -77,6 +77,25 @@ center displacements for these penalties are respectively `0.01346611117`,
 is why a matched penalty must be frozen for any external comparison. Agreement
 between two representations of the same penalty law is not a zero-penetration
 limit or an independent finite-J2 validation.
+An added *plastic* clamped-column screen keeps six load increments, penalty
+500, Poisson ratio 0.3 and J2 yield stress 1 across 1/2/3/4 cells per edge.
+The certified closed-face and separately lowered analytical-plane backends
+agree in displacement, committed material vectors and penalty energy at all
+four mesh sizes. Their closed-face maximum PEEQ values are about
+0.04114/0.05617/0.06391/0.06384 and final contact potentials about
+0.006190/0.005772/0.005874/0.005878. This is a useful *plastic path and
+spatial sensitivity* screen, not an external code or continuum-limit proof.
+The three-cell first increment required 34 Newton iterations; the previous
+25-iteration cap rejects that input, so this screen explicitly declares a
+100-iteration cap rather than concealing the extra solver work. A four-cell
+three-increment attempt also failed its line search. Contact integration
+agreement must not be mistaken for robust default solver convergence;
+yield-onset and increment-policy sensitivity remain open Gate 8 evidence.
+In a separate three-cell trial, automatic cutback from 1/6 with the
+25-iteration cap exhausted eight cutbacks at a line-search failure; simply
+reducing the increment is therefore not a demonstrated remedy for this
+near-yield path. A different global strategy requires its own tangent and
+accepted-State verification before changing the Procedure default.
 The same benchmark also starts from zero gap and advances into active contact.
 It permits a zero-force/open-side-tangent trial only when a whole-face
 coplanar coverage/competitor proof succeeds and the remaining vertex gap is
@@ -1118,6 +1137,12 @@ The gate stays open until its listed evidence exists at the proposed scope.
    additional boundary traction and its consistent tangent that Nitsche
    requires. Do not add a second public enforcement choice on the basis of a
    1D penalty comparison alone.
+   The [ASiMoV DOLFINx contact implementation][asimov-contact] is useful
+   concrete evidence that custom contact assembly and parallel surface
+   workflows can be built on the same FE ecosystem. Its maintainers describe
+   it as experimental and it uses Nitsche formulations; it is therefore an
+   architecture/comparator lead, **not** a drop-in backend for AgentFEM's
+   finite-J2 penalty State, rigid-tool work ledger or feature certificates.
 
    A private *global* feasibility probe now substitutes the fixed-trace AL
    Operator into the existing serial J2 Newton assembly, leaving its
@@ -1566,6 +1591,7 @@ identified multiplier-transfer rule has its own tests.
 [comsol-solver]: https://doc.comsol.com/6.3/doc/com.comsol.help.sme/sme_ug_modeling.05.152.html
 [petsc-snes]: https://petsc.org/main/manual/snes/
 [dolfinx-nonlinear]: https://docs.fenicsproject.org/dolfinx/main/python/generated/dolfinx.fem.petsc.html
+[asimov-contact]: https://github.com/Wells-Group/asimov-contact
 [abaqus-output]: https://docs.software.vt.edu/abaqusv2025/English/SIMACAEITNRefMap/simaitn-c-contactgeneral.htm
 [comsol-vars]: https://doc.comsol.com/6.3/doc/com.comsol.help.sme/sme_ug_modeling.05.155.html
 [abaqus-verification]: https://docs.software.vt.edu/abaqusv2025/English/SIMACAEVERRefMap/simaver-c-finslcontdefrigid.htm
