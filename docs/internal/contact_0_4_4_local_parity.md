@@ -245,7 +245,12 @@ The gate stays open until its listed evidence exists at the proposed scope.
    Reject trial-changing contact quadrature until a conservative multiplier
    transfer is designed and tested. Current state: the ordinary Step remains
    penalty-only. A solver-neutral fixed-reference-trace AL candidate now has
-   point-law, residual/tangent, spring-plane and rollback tests. A real serial
+   point-law, residual/tangent, spring-plane, independent scalar
+   elastoplastic-bar indent/release and rollback tests. The scalar bar freezes
+   old plastic history through each equilibrium solve, updates the normal
+   multiplier only between converged solves, and commits both histories only
+   at an accepted tool station; it is **not** an ordinary finite-element Step.
+   A real serial
    DOLFINx tetrahedral trace also matches an independently UFL-differentiated
    plane/sphere functional, residual and tangent. There is still no global
    Step, MPI, or installed-package acceptance. A high-penalty L-tool trial

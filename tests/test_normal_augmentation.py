@@ -80,6 +80,103 @@ def test_independent_spring_plane_augmentation_reaches_unilateral_solution():
         state.commit(evaluation, record)
 
 
+def test_independent_plastic_bar_augmentation_unloads_without_trial_history_leak():
+    """A scalar return map checks the AL transaction beyond elastic contact.
+
+    This is deliberately not a finite-element Step. The independently solved
+    homogeneous bar supplies total equilibrium while the contact State keeps
+    its multiplier frozen through each nonlinear solve.
+    """
+
+    young, yield_stress, hardening, penalty = 1000.0, 0.1, 100.0, 1000.0
+    plane = boundary_models.rigid_plane(point=(1, 0, 0), normal=(-1, 0, 0))
+    motion = boundary_models.prescribed_rigid_motion(translation=(-0.002, 0, 0))
+    trace = _single_trace()
+    state = _state(
+        trace, plane, penalty=penalty,
+        reference_nodes=((1.0, 0.0, 0.0),),
+        penetration_tolerance=1e-9,
+        complementarity_tolerance=1e-9,
+    )
+    axial_plastic = 0.0
+    peeq = 0.0
+
+    for factor in (1.0, 0.0):
+        old_axial, old_peeq = axial_plastic, peeq
+        for _ in range(state.maximum_augmentations + 1):
+            frozen_multiplier = float(state.iterate_multiplier[0])
+
+            def trial(
+                stretch, *, accepted_axial=old_axial, accepted_peeq=old_peeq,
+                tool_factor=factor, outer_multiplier=frozen_multiplier,
+            ):
+                logarithmic_strain = np.log(stretch)
+                effective_trial = young * (
+                    logarithmic_strain - 1.5 * accepted_axial
+                )
+                increment = max(
+                    0.0,
+                    (abs(effective_trial) - yield_stress - hardening * accepted_peeq)
+                    / (1.5 * young + hardening),
+                )
+                next_axial = accepted_axial + np.sign(effective_trial) * increment
+                next_peeq = accepted_peeq + increment
+                piola = young * (logarithmic_strain - next_axial) / stretch
+                gap = 1.0 - 0.002 * tool_factor - stretch
+                pressure = max(0.0, outer_multiplier - penalty * gap)
+                return piola + pressure, next_axial, next_peeq, pressure
+
+            lower, upper = 0.99, 1.01
+            for _ in range(75):
+                middle = 0.5 * (lower + upper)
+                if trial(middle)[0] < 0:
+                    lower = middle
+                else:
+                    upper = middle
+            stretch = 0.5 * (lower + upper)
+            residual, trial_axial, trial_peeq, pressure = trial(stretch)
+            assert abs(residual) < 1e-10
+            assert axial_plastic == old_axial and peeq == old_peeq
+            evaluation = trace.evaluate(((stretch, 0, 0),))
+            record = boundary_models.ContactProjectionRecord(
+                trace.point_ids,
+                plane.project(evaluation.query_points, motion=motion, factor=factor),
+            )
+            response = state.evaluate(evaluation, record)
+            assert response.pressure[0] == pytest.approx(pressure, abs=1e-11)
+            state.mark_equilibrium_converged(
+                evaluation, record,
+                total_residual_norm=abs(residual),
+                total_residual_tolerance=1e-10,
+            )
+            diagnostics = state.acceptance_diagnostics(evaluation, record)
+            if (
+                diagnostics["maximum_penetration"] <= state.penetration_tolerance
+                and diagnostics["maximum_complementarity"]
+                <= state.complementarity_tolerance
+            ):
+                state.commit(evaluation, record)
+                axial_plastic, peeq = trial_axial, trial_peeq
+                break
+            state.augment_after_converged(evaluation, record)
+        else:
+            pytest.fail("Scalar plastic/contact augmentation did not converge.")
+
+        if factor == 1.0:
+            # Hard contact fixes the bar end at the tool. The analytical
+            # return map gives a positive plastic increment and reaction.
+            assert stretch == pytest.approx(0.998, abs=2e-9)
+            assert peeq > 0
+            assert state.accepted_multiplier[0] > 0
+        else:
+            # The released tool has zero pressure, while accepted plastic
+            # history survives and the residual bar displacement need not.
+            assert pressure == pytest.approx(0.0, abs=1e-10)
+            assert state.accepted_multiplier[0] == pytest.approx(0.0, abs=1e-10)
+            assert stretch < 1.0
+            assert peeq > 0
+
+
 def test_multiplier_trial_rollback_and_atomic_restore():
     plane = boundary_models.rigid_plane(point=(0, 0, 0), normal=(1, 0, 0))
     trace = _single_trace()
