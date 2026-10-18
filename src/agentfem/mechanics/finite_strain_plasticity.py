@@ -5,6 +5,7 @@
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 from dataclasses import dataclass, field, replace
 import json
 from pathlib import Path
@@ -3828,7 +3829,7 @@ def finite_strain_j2_standard_problem(
     solver_options=None,
     quadrature_degree: int = 2,
     contact_quadrature_degree: int | None = None,
-    contact_integration: str = "gauss",
+    contact_integration: str | Mapping[str, str] = "gauss",
     amplitude=None,
     output_every: int | None = 1,
     output_factors=(),
@@ -3869,7 +3870,7 @@ def finite_strain_j2_standard_problem(
     contact_provider = contact
     if contact_quadrature_degree is not None and contact is None:
         raise ValueError("contact_quadrature_degree requires rigid contact.")
-    if contact_integration != "gauss" and contact is None:
+    if not (isinstance(contact_integration, str) and contact_integration == "gauss") and contact is None:
         raise ValueError("contact_integration requires rigid contact.")
     if contact is not None:
         from ..boundary_models import RigidContactPair, RigidObstaclePenaltyContact
@@ -3896,7 +3897,7 @@ def finite_strain_j2_standard_problem(
                 raise NotImplementedError(
                     "Explicit contact quadrature degree requires RigidContactPair."
                 )
-            if contact_integration != "gauss":
+            if not (isinstance(contact_integration, str) and contact_integration == "gauss"):
                 raise NotImplementedError(
                     "Trial active contact partition requires RigidContactPair."
                 )
@@ -3915,12 +3916,19 @@ def finite_strain_j2_standard_problem(
                 dolfinx_implicit_rigid_contact,
                 dolfinx_implicit_rigid_contacts,
             )
+            from ..boundary_models.contact_integration_modes import (
+                resolve_contact_integration_modes,
+            )
+
+            contact_modes = resolve_contact_integration_modes(
+                contact_items, contact_integration,
+            )
 
             contact_provider = (
                 dolfinx_implicit_rigid_contact(
                     contact_items[0], solution,
                     contact_quadrature_degree=contact_quadrature_degree,
-                    contact_integration=contact_integration,
+                    contact_integration=contact_modes[0],
                 )
                 if len(contact_items) == 1 else
                 dolfinx_implicit_rigid_contacts(

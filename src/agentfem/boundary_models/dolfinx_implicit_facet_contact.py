@@ -15,6 +15,7 @@ from dataclasses import dataclass, field, replace
 import numpy as np
 
 from .contact_pair import RigidContactPair
+from .contact_integration_modes import resolve_contact_integration_modes
 from .contact_active_partition import partition_planar_p1_trace
 from .contact_convex_partition import (
     _unique_support_planes, partition_convex_p1_trace,
@@ -1474,7 +1475,7 @@ def dolfinx_implicit_rigid_contacts(
     displacement,
     *,
     contact_quadrature_degree: int | None = None,
-    contact_integration: str = "gauss",
+    contact_integration="gauss",
 ) -> DolfinxImplicitRigidContacts:
     """Lower independently named rigid pairs on one serial displacement field."""
 
@@ -1483,12 +1484,13 @@ def dolfinx_implicit_rigid_contacts(
         raise ValueError("Multiple rigid contact requires at least two pairs.")
     if len({item.name for item in selected}) != len(selected):
         raise ValueError("Multiple rigid contact pair names must be unique.")
+    modes = resolve_contact_integration_modes(selected, contact_integration)
     return DolfinxImplicitRigidContacts(tuple(
         dolfinx_implicit_rigid_contact(
             item, displacement,
             contact_quadrature_degree=contact_quadrature_degree,
-            contact_integration=contact_integration,
-        ) for item in selected
+            contact_integration=mode,
+        ) for item, mode in zip(selected, modes, strict=True)
     ))
 
 

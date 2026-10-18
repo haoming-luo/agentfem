@@ -5,6 +5,8 @@
 
 from __future__ import annotations
 
+from collections.abc import Mapping
+
 import numpy as np
 
 from . import constraints as constraint_api
@@ -201,7 +203,7 @@ def finite_strain_j2(
     solver_options=None,
     quadrature_degree: int | None = None,
     contact_quadrature_degree: int | None = None,
-    contact_integration: str = "gauss",
+    contact_integration: str | Mapping[str, str] = "gauss",
     output=None,
     output_every: int | None = None,
     checkpoint=None,
@@ -317,10 +319,11 @@ def finite_strain_j2(
         else ()
     )
     if affine:
-        if contact_integration not in {"gauss", "convex_feature_partition"}:
+        if (not isinstance(contact_integration, str)
+                or contact_integration not in {"gauss", "convex_feature_partition"}):
             raise NotImplementedError(
-                "The selected trial contact partition is not available for "
-                "the affine-periodic J2 route."
+                "The selected trial contact partition or per-pair mode map "
+                "is not available for the affine-periodic J2 route."
             )
         if contact_quadrature_degree is not None:
             raise NotImplementedError(
@@ -432,7 +435,8 @@ def finite_strain_j2(
             raise ValueError(
                 "contact_quadrature_degree requires a registered rigid contact pair."
             )
-        if contact_integration != "gauss" and not boundary_models:
+        if (not isinstance(contact_integration, str)
+                or contact_integration != "gauss") and not boundary_models:
             raise ValueError("contact_integration requires a registered rigid contact pair.")
         if contact_quadrature_degree is not None and any(
             isinstance(item, RigidObstaclePenaltyContact) for item in boundary_models

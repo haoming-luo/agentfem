@@ -71,16 +71,9 @@ This is a bounded floating-point coverage certificate, not an exact-arithmetic
 CAD topology proof. It follows the classic reentrant polygon-clipping idea
 of [Sutherland--Hodgman][polygon-clipping], adapted to subtract a triangle
 union rather than to integrate a second contact surface.
-The closed-solid projector now takes the reviewed facet normal directly on a
-smooth face, including a coplanar seam. Dividing a nearly zero
-point-to-foot vector by the gap previously amplified tangential roundoff and
-made strict projection/plane comparisons fail near closure. The geometric
-edge/vertex branch and the signed-gap classifier are unchanged. A near-gap
-two-sided normal regression and a serial finite-J2 seam-crossing Step are
-required evidence for this numerical correction.
 The current Newton trial may then reuse the already proved analytical-plane
-active partition, with the closed
-solid's own signed-gap projection checked against each plane. Geometry proof is
+active partition, with the closed solid's own signed-gap projection checked
+against each plane. Geometry proof is
 repeated on each trial and rigid pose. A real serial finite-J2 solve has
 matched the corresponding analytical plane in displacement, PEEQ and tool
 work, with a contact directional tangent, interrupted restart and explicit
@@ -89,6 +82,20 @@ and unsmoothed contact samples. This does **not** solve a feature switch or
 physical edge/vertex contact: those remain rejected. The current per-face
 smooth-branch and 256-face/256-master-facet bounds are intentionally narrow,
 and this is not an external commercial-solver comparator.
+The closed-solid projector now takes the reviewed facet normal directly on a
+smooth face, including a coplanar seam. Dividing a nearly zero
+point-to-foot vector by the gap previously amplified tangential roundoff and
+made strict projection/plane comparisons fail near closure. The geometric
+edge/vertex branch and the signed-gap classifier are unchanged. A near-gap
+two-sided normal regression and a serial finite-J2 seam-crossing Step exercise
+this numerical correction.
+The ordinary serial Step now also accepts an exact-name mapping from rigid
+contact pairs to their already admitted integration modes. A missing or
+unknown pair name is an early capability rejection, never a fallback to
+sampled Gauss integration. Each lowered pair retains its own mode in
+checkpoint identity; a two-tool mixed-mode finite-J2 path and interrupted
+restart exercise this composition. This does not change the affine/MPC
+admission matrix or certify sharp-feature integration.
 Both ordinary J2 and affine/MPC acceptance now validate the same typed
 polyhedral diagnostic contract: a missing mixed-feature count, a non-Boolean
 integration claim or inconsistent active face/edge/vertex totals rejects the

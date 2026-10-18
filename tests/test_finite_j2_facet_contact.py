@@ -234,7 +234,9 @@ def _patch(*, triangulated: bool, gap: float = 0.005, penalty=500.0,
     return model, displacement, material, step
 
 
-def _small_single_branch_j2_step(*, closed: bool, flat_seam: bool = False):
+def _small_single_branch_j2_step(
+    *, closed: bool, flat_seam: bool = False, second_plane: bool = False,
+):
     domain = dolfinx_mesh.create_unit_cube(
         MPI.COMM_SELF, 1, 1, 1, cell_type=dolfinx_mesh.CellType.tetrahedron,
     )
@@ -284,7 +286,7 @@ def _small_single_branch_j2_step(*, closed: bool, flat_seam: bool = False):
     motion = boundary_models.prescribed_rigid_motion(
         translation=(-0.08, 0.0, 0.0), reference_point=(1.10, 1.3, 0.5),
     )
-    model.add_boundary_model(boundary_models.rigid_contact_pair(
+    primary = boundary_models.rigid_contact_pair(
         contact,
         boundary_models.rigid_body(
             surface, motion_schedule=boundary_models.prescribed_rigid_motion_schedule(
@@ -292,14 +294,28 @@ def _small_single_branch_j2_step(*, closed: bool, flat_seam: bool = False):
             ),
         ),
         penalty=5000.0,
-    ))
+    )
+    model.add_boundary_model(primary)
+    integration = mode
+    if second_plane:
+        model.add_boundary_model(boundary_models.rigid_contact_pair(
+            contact,
+            boundary_models.rigid_body(boundary_models.rigid_plane(
+                point=(0., 0., 0.), normal=(1., 0., 0.),
+            )),
+            penalty=5000.0, name="far_plane",
+        ))
+        integration = {
+            primary.name: mode,
+            "far_plane": "planar_active_partition",
+        }
     assert step_capability(
         model, target=displacement,
-        options={"material": material, "contact_integration": mode},
+        options={"material": material, "contact_integration": integration},
     )["supported"]
     step = model.step(
         target=displacement, material=material,
-        incrementation=steps.fixed(6), contact_integration=mode,
+        incrementation=steps.fixed(6), contact_integration=integration,
         solver_options=solvers.newton(
             relative_tolerance=1e-8, absolute_tolerance=1e-9,
             maximum_iterations=25, line_search="backtracking",
@@ -362,6 +378,51 @@ def test_closed_planar_branch_global_j2_crosses_only_flat_tool_triangulation_sea
     )
     evidence = closed_step.contact_provider.current_point_diagnostics()
     assert evidence["feature_transition_integral_certified"] is True
+
+
+def test_named_mixed_contact_integration_modes_keep_independent_pair_identity():
+    single, single_displacement = _small_single_branch_j2_step(closed=True)
+    mixed, mixed_displacement = _small_single_branch_j2_step(
+        closed=True, second_plane=True,
+    )
+    assert single.solve_result().status == "completed"
+    mixed_result = mixed.solve_result()
+    assert mixed_result.status == "completed"
+    np.testing.assert_allclose(
+        mixed_displacement.value.x.array, single_displacement.value.x.array,
+        rtol=1e-8, atol=1e-9,
+    )
+    modes = {
+        item.name: item.contact_integration
+        for item in mixed.contact_provider.providers
+    }
+    assert modes == {
+        single.contact_provider.name: "closed_planar_branch_partition",
+        "far_plane": "planar_active_partition",
+    }
+    assert tuple(
+        item["constraint_name"] for item in mixed_result.metadata["constraint_duals"]
+    ) == tuple(modes)
+
+
+def test_named_mixed_contact_modes_are_checkpointed_as_one_accepted_path(tmp_path):
+    full, _ = _small_single_branch_j2_step(closed=True, second_plane=True)
+    assert full.solve_result().status == "completed"
+    partial, _ = _small_single_branch_j2_step(closed=True, second_plane=True)
+    partial.solve(until=0.5)
+    saved = partial.save_checkpoint(tmp_path / "mixed_modes")
+    resumed, _ = _small_single_branch_j2_step(closed=True, second_plane=True)
+    resumed.load_checkpoint(saved)
+    assert resumed.solve_result().status == "completed"
+    np.testing.assert_allclose(
+        resumed.solution.x.array, full.solution.x.array, rtol=1e-9, atol=1e-10,
+    )
+    assert resumed.energy_history[-1].tool_work == pytest.approx(
+        full.energy_history[-1].tool_work, rel=1e-9,
+    )
+    wrong_pairs, _ = _small_single_branch_j2_step(closed=True)
+    with pytest.raises(ValueError, match="identity|contact|constraint"):
+        wrong_pairs.load_checkpoint(saved)
 
 
 def test_closed_planar_branch_mode_rejects_current_edge_transition():
@@ -2136,6 +2197,33 @@ def test_two_implicit_tools_add_residual_tangent_and_keep_separate_evidence():
             penalty=500.0,
             name="second_tool",
         )
+    )
+    incomplete = step_capability(
+        model, target=displacement,
+        options={
+            "material": material,
+            "contact_integration": {first.name: "gauss"},
+        },
+    )
+    assert not incomplete["supported"]
+    assert any(
+        item["message"].startswith("AFM-CONTACT-INTEGRATION")
+        for item in incomplete["rejection_reasons"]
+    )
+    wrong_geometry = step_capability(
+        model, target=displacement,
+        options={
+            "material": material,
+            "contact_integration": {
+                first.name: "planar_active_partition",
+                "second_tool": "gauss",
+            },
+        },
+    )
+    assert not wrong_geometry["supported"]
+    assert any(
+        item["message"].startswith("AFM-CONTACT-PARTITION")
+        for item in wrong_geometry["rejection_reasons"]
     )
     capability = step_capability(
         model, target=displacement, options={"material": material},

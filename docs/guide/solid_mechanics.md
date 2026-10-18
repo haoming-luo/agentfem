@@ -218,6 +218,13 @@ contact or an edge/point law. A separate whole-face signed-distance check can
 certify zero contact at an accepted configuration; neither certificate proves
 nonintersection between accepted stations. See the runnable
 [closed-tool smooth-face example](https://github.com/haoming-luo/agentfem/blob/main/examples/finite_j2_closed_planar_branch.py).
+When an ordinary serial finite-J2 Step has several named rigid pairs, supply
+`contact_integration={"closed_tool": "closed_planar_branch_partition",
+"flat_tool": "planar_active_partition"}` to select their already supported
+rules independently. The mapping must name **every** pair exactly; adding a
+tool cannot silently give it the default sampled rule. Its selected mode is
+part of each pair's checkpoint identity. The affine-periodic J2 route does
+not yet admit per-pair mode mappings.
 
 For an affine P1 triangular slave against a reviewed closed convex tool,
 `initial_penetration_limit` also uses a face-wise certificate. If one rigid

@@ -647,9 +647,9 @@ def _contact_integration_rejection_reason(model, request: StepRequest) -> str | 
     """Admit the changing trial partition only where its affine proof applies."""
 
     selected = request.options.get("contact_integration", "gauss")
-    if selected == "gauss":
+    if isinstance(selected, str) and selected == "gauss":
         return None
-    if selected not in {
+    if isinstance(selected, str) and selected not in {
         "planar_active_partition", "convex_feature_partition",
         "closed_planar_branch_partition",
     }:
@@ -658,21 +658,34 @@ def _contact_integration_rejection_reason(model, request: StepRequest) -> str | 
         ClosedTriangulatedRigidSolid, ConvexPolyhedralRigidSurface,
         RigidContactPair, RigidPlaneSurface,
     )
+    from .boundary_models.contact_integration_modes import (
+        resolve_contact_integration_modes,
+    )
 
+    pairs = tuple(getattr(model, "boundary_models", ()))
+    if not pairs or not all(isinstance(item, RigidContactPair) for item in pairs):
+        return (
+            "AFM-CONTACT-PARTITION: named rigid contact pairs are required "
+            "for trial active integration."
+        )
+    try:
+        modes = resolve_contact_integration_modes(pairs, selected)
+    except ValueError as exc:
+        return str(exc)
     required_surface = {
         "planar_active_partition": RigidPlaneSurface,
         "convex_feature_partition": ConvexPolyhedralRigidSurface,
         "closed_planar_branch_partition": ClosedTriangulatedRigidSolid,
-    }[selected]
+    }
 
-    pairs = tuple(getattr(model, "boundary_models", ()))
-    if (not pairs or not all(
-        isinstance(item, RigidContactPair)
-        and isinstance(item.rigid_body.surface, required_surface)
-        and item.friction is None
-        and np.asarray(item.law.penalty).ndim == 0
-        for item in pairs
-    ) or request.options.get("contact_quadrature_degree") is not None):
+    if (any(
+        mode != "gauss" and (
+            not isinstance(item.rigid_body.surface, required_surface[mode])
+            or item.friction is not None
+            or np.asarray(item.law.penalty).ndim != 0
+        ) for item, mode in zip(pairs, modes, strict=True)
+    ) or (any(mode != "gauss" for mode in modes)
+          and request.options.get("contact_quadrature_degree") is not None)):
         return (
             "AFM-CONTACT-PARTITION: trial active partition requires "
             "frictionless analytical-plane, certified convex, or reviewed "
@@ -680,6 +693,8 @@ def _contact_integration_rejection_reason(model, request: StepRequest) -> str | 
             "(matching the selected mode), scalar penalty and the "
             "default contact quadrature rule."
         )
+    if all(mode == "gauss" for mode in modes):
+        return None
     value = getattr(request.target, "value", None)
     space = getattr(value, "function_space", None)
     domain = getattr(space, "mesh", None)
