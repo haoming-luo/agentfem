@@ -338,6 +338,27 @@ The gate stays open until its listed evidence exists at the proposed scope.
    separate release criteria. This conclusion follows from our branch
    formulas and the cited 3D segmentation/linearization work; it is not a
    claim that the cited method already handles our closed-solid sign policy.
+   There is a directly relevant mathematical construction in
+   [polynomial integration over a triangle clipped by a conic][conic-integral]:
+   it subdivides until conic/triangle intersections have tractable cases and
+   integrates polynomial quantities over the selected region. It is *not* a
+   contact algorithm: its own floating-point discussion warns of delicate
+   classification and cancellation, and it supplies neither our signed
+   rigid-solid geometry nor the moving-feature derivative. A realistic
+   bounded route is therefore BVH candidate localization, admissible
+   face/edge/vertex quadratic branches, verified conic-region integration,
+   moving-boundary linearization, and a conservative unsupported fallback.
+   Adding high-order Gauss points globally is neither a geometric proof nor
+   a substitute for this partition.
+   The local oracle now also checks a cheap *preflight*, not an integrator:
+   six values of a known quadratic branch difference recover its degree-two
+   Bernstein coefficients on a P1 triangle. Their extrema bound the whole
+   face, catching a circle-like conic hidden inside a triangle whose three
+   vertices all report the opposite branch. This can reject unsafe
+   vertex-only admission or certify a single branch after subdivision; it
+   does not decide the sign of a closed solid, prove which face/edge/vertex
+   is geometrically admissible, or provide interval-certified floating-point
+   bounds by itself.
    The candidate must reproduce both the integral and its directional
    derivative and pass the total Newton/MPC tangent check. A fixed quadrature
    rule, a frozen feature partition or a smaller Newton residual alone is
@@ -971,6 +992,7 @@ identified multiplier-transfer rule has its own tests.
 [mortar-integration]: https://doi.org/10.1007/s00466-014-1093-2
 [mortar-segmentation]: https://mediatum.ub.tum.de/doc/1109994/1109994.pdf
 [laursen-corner]: https://doi.org/10.1002/cnm.1640101103
+[conic-integral]: https://arxiv.org/abs/1005.0990
 [getfem-contact]: https://getfem.readthedocs.io/en/latest/userdoc/model_contact_friction.html
 [dealii-step42]: https://dealii.org/9.7.0/doxygen/deal.II/step_42.html
 [polygon-clipping]: https://doi.org/10.1145/360767.360802

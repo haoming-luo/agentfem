@@ -32,6 +32,37 @@ def feature_height(x):
     return 0.5 * ((np.asarray(x) - 3.0) ** 2 + 1.0)
 
 
+def quadratic_bernstein_bounds(vertices, evaluate):
+    """Bound one quadratic branch difference over an affine triangle.
+
+    Degree-two Bernstein basis functions on a triangle are nonnegative and
+    sum to one. Values at the three corners and three edge midpoints recover
+    its six coefficients exactly in real arithmetic. The coefficient extrema
+    bound the *whole* triangle, including an interior switch missed by all
+    three vertices. A release implementation must add interval arithmetic
+    and verify the candidate feature's own admissibility inequalities.
+    """
+
+    selected = np.asarray(vertices, dtype=float)
+    if selected.shape != (3, 2) or not np.all(np.isfinite(selected)):
+        raise ValueError("Expected one finite planar triangle.")
+    midpoints = 0.5 * np.asarray((
+        selected[0] + selected[1],
+        selected[1] + selected[2],
+        selected[2] + selected[0],
+    ))
+    values = np.asarray(evaluate(np.vstack((selected, midpoints))), dtype=float)
+    if values.shape != (6,) or not np.all(np.isfinite(values)):
+        raise ValueError("Expected six finite quadratic branch evaluations.")
+    edge_coefficients = np.asarray((
+        2.0 * values[3] - 0.5 * (values[0] + values[1]),
+        2.0 * values[4] - 0.5 * (values[1] + values[2]),
+        2.0 * values[5] - 0.5 * (values[2] + values[0]),
+    ))
+    coefficients = np.concatenate((values[:3], edge_coefficients))
+    return float(np.min(coefficients)), float(np.max(coefficients))
+
+
 def _shapes(x, y) -> np.ndarray:
     return np.asarray((2.0 - x, x - 1.0 - y / 3.0, y / 3.0))
 

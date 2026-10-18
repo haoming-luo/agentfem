@@ -26,6 +26,28 @@ def test_parabolic_feature_boundary_is_not_a_straight_clip_line():
     assert bulk.shape == (3, 2, 3, 2)
 
 
+def test_quadratic_bernstein_bound_catches_an_interior_switch_missed_by_vertices():
+    triangle = np.asarray((
+        (1.0, 0.0), (-0.5, np.sqrt(3.0) / 2.0),
+        (-0.5, -np.sqrt(3.0) / 2.0),
+    ))
+
+    def circle_difference(points):
+        return np.sum(points**2, axis=1) - 0.25
+
+    assert np.all(circle_difference(triangle) > 0.0)
+    lower, upper = ORACLE["quadratic_bernstein_bounds"](
+        triangle, circle_difference,
+    )
+    assert lower < circle_difference(np.mean(triangle, axis=0)[None, :])[0] < 0.0
+    assert upper > 0.0
+    far_triangle = triangle + np.asarray((3.0, 0.0))
+    far_lower, far_upper = ORACLE["quadratic_bernstein_bounds"](
+        far_triangle, circle_difference,
+    )
+    assert 0.0 < far_lower < far_upper
+
+
 def test_moving_parabolic_boundary_matches_independent_nodal_differences():
     _, _, bulk, entry = ORACLE["split_residual_and_bulk_tangent"]()
     moving = ORACLE["moving_feature_tangent"](entry)
