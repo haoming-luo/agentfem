@@ -60,6 +60,11 @@ for an embedded, outward-oriented closed two-manifold. The constructor checks
 topology and orientation but **does not prove non-self-intersection**; the
 caller must review that assumption before opting in. A fast sign on a bad
 mesh is not made trustworthy by matching one short test.
+A seeded 2,000-query regression now concentrates logarithmically from
+`1e-8` to `1e-1` reference lengths around the L-prism's reentrant edge;
+opt-in pseudonormal and direct winding agree on validity, status, signed
+gap and normal for these sampled points. This is a local near-feature
+screen, not an embedding certificate or an exhaustive proof of sign parity.
 For a *convex* tool, prefer the separately certified
 `convex_polyhedral_rigid_surface(...)` path: its support-plane interior law
 has a defined deterministic limiting branch at an interior face-distance

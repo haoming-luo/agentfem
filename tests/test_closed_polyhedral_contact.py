@@ -178,6 +178,29 @@ def test_opt_in_pseudonormal_matches_reference_signed_feature_queries(fixture):
     np.testing.assert_allclose(actual.closest_points, expected.closest_points)
 
 
+def test_opt_in_pseudonormal_matches_winding_near_reentrant_edge():
+    reference = _concave_tool()
+    fast = closed_module.ClosedTriangulatedRigidSolid(
+        facets=reference.facets, reviewed_embedded=True,
+        name=reference.name, sign_method="angle_weighted_pseudonormal",
+    )
+    rng = np.random.default_rng(183)
+    count = 2000
+    radii = 10.0 ** rng.uniform(-8.0, -1.0, count)
+    angles = rng.uniform(-np.pi, np.pi, count)
+    points = np.column_stack((
+        1.0 + radii * np.cos(angles),
+        1.0 + radii * np.sin(angles),
+        rng.uniform(0.05, 0.95, count),
+    ))
+    expected = reference.project(points)
+    actual = fast.project(points)
+    np.testing.assert_array_equal(actual.valid, expected.valid)
+    np.testing.assert_array_equal(actual.status_codes, expected.status_codes)
+    np.testing.assert_allclose(actual.signed_gaps, expected.signed_gaps, rtol=0.0, atol=1e-12)
+    np.testing.assert_allclose(actual.normals, expected.normals, rtol=0.0, atol=1e-12)
+
+
 def test_opt_in_pseudonormal_uses_current_nearest_feature_without_winding(
     monkeypatch,
 ):
