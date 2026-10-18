@@ -169,8 +169,9 @@
         "named-moving-tool-force-moment-work",
         "plastic-state-and-contact-checkpoint-rollback",
         "installed-wheel-closed-convex-friction-and-cg2-contact-smoke",
+        "reviewed-closed-nonconvex-active-edge-frictionless-normal-smoke",
         "hertz-force-pressure-mesh-penalty-and-energy-screen",
-        "unsupported-nonconvex-feature-and-distributed-implicit-fail-closed"
+        "unsupported-sharp-feature-friction-and-distributed-implicit-fail-closed"
       ]
     },
     {
