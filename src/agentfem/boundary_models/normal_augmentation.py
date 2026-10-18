@@ -428,6 +428,70 @@ class AugmentedNormalContribution:
         return action.reshape(selected.shape)
 
 
+def diagnose_fixed_trace_normal_constraint_rank(
+    response: AugmentedNormalPointResponse, *, maximum_points: int = 256,
+    maximum_dofs: int = 4096, relative_tolerance: float | None = None,
+) -> dict[str, object]:
+    """Audit active multiplier identifiability on a bounded fixed trace.
+
+    The weighted gap Jacobian has one row per active contact point and one
+    column per local displacement DOF. A deficient row rank means distinct
+    point pressures can create the same nodal force. This small dense audit
+    is performed before essential-boundary/MPC reduction; even full row rank
+    here does not establish a reduced-system inf-sup constant or replace a
+    mesh stability study.
+    """
+
+    if not isinstance(response, AugmentedNormalPointResponse):
+        raise TypeError("Normal constraint rank requires a fixed-trace response.")
+    if (
+        isinstance(maximum_points, bool) or not isinstance(maximum_points, int)
+        or maximum_points < 1 or isinstance(maximum_dofs, bool)
+        or not isinstance(maximum_dofs, int) or maximum_dofs < 1
+    ):
+        raise ValueError("Normal constraint rank budgets must be positive integers.")
+    trace = response.evaluation.trace
+    active = np.flatnonzero(response.active)
+    dimension = response.record.projection.dimension
+    dofs = response.evaluation.number_of_nodes * dimension
+    if len(active) > maximum_points or dofs > maximum_dofs:
+        raise NotImplementedError(
+            "AFM-CONTACT-MULTIPLIER-RANK: dense local rank audit exceeds "
+            "its declared point/DOF budget; no stability claim was made."
+        )
+    if relative_tolerance is None:
+        tolerance = max(len(active), dofs) * np.finfo(float).eps
+    else:
+        tolerance = float(relative_tolerance)
+        if not np.isfinite(tolerance) or tolerance < 0:
+            raise ValueError("Normal constraint rank tolerance must be finite and nonnegative.")
+    jacobian = np.zeros((len(active), dofs), dtype=float)
+    normals = response.record.projection.normals[active]
+    for row, index in enumerate(active):
+        scale = np.sqrt(trace.weights[index])
+        for node, shape in zip(
+            trace.node_ids[index], trace.shape_values[index], strict=True,
+        ):
+            begin = int(node) * dimension
+            jacobian[row, begin:begin + dimension] += scale * shape * normals[row]
+    singular = np.linalg.svd(jacobian, compute_uv=False)
+    largest = float(singular[0]) if singular.size else 0.0
+    rank = int(np.count_nonzero(singular > tolerance * largest)) if largest else 0
+    return {
+        "scope": "bounded_active_fixed_trace_normal_constraint_jacobian",
+        "active_point_count": len(active),
+        "displacement_dof_count": dofs,
+        "row_rank": rank,
+        "row_nullity": len(active) - rank,
+        "relative_tolerance": tolerance,
+        "largest_singular_value": largest,
+        "smallest_retained_singular_value": (
+            float(singular[rank - 1]) if rank else None
+        ),
+        "certifies_spatial_stability": False,
+    }
+
+
 def integrate_fixed_trace_augmented_normal(
     evaluation: ContactTraceEvaluation,
     record: ContactProjectionRecord,
@@ -522,5 +586,6 @@ __all__ = [
     "AugmentedNormalPointResponse",
     "AugmentedNormalContribution",
     "FixedTraceNormalMultiplierState",
+    "diagnose_fixed_trace_normal_constraint_rank",
     "integrate_fixed_trace_augmented_normal",
 ]

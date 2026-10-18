@@ -284,8 +284,8 @@ The gate stays open until its listed evidence exists at the proposed scope.
    old plastic history through each equilibrium solve, updates the normal
    multiplier only between converged solves, and commits both histories only
    at an accepted tool station; it is **not** an ordinary finite-element Step.
-   A real serial
-   DOLFINx tetrahedral trace also matches an independently UFL-differentiated
+   A real serial DOLFINx tetrahedral trace also matches an independently
+   UFL-differentiated
    plane/sphere functional, residual and tangent. There is still no global
    Step, MPI, or installed-package acceptance. A high-penalty L-tool trial
    failed Newton, so neither hard-contact convergence nor an AL benefit may
@@ -297,7 +297,15 @@ The gate stays open until its listed evidence exists at the proposed scope.
    formulation][hansbo-stabilized] likewise explains that too many discrete
    multiplier constraints can make a system singular. Our independent point
    multipliers inherit neither proof and require a spatial-pressure/mesh
-   check. An [exact-penalty alternative][exact-penalty] exists, but would not
+   check. A bounded opt-in fixed-trace rank diagnostic now builds the active
+   weighted normal-constraint Jacobian and exposes duplicate point constraints:
+   two active multipliers with the same nodal support and normal have row
+   nullity one, whereas the three independent P1 triangle Gauss rows have
+   full local row rank. This is a *negative screen*, not an inf-sup proof: it
+   runs before Dirichlet/MPC reduction, caps dense problem size, and never
+   certifies spatial stability.
+   The global AL Step still needs a reduced-constraint rank/mesh-pressure
+   study. An [exact-penalty alternative][exact-penalty] exists, but would not
    repair the unresolved nonconvex integration and is not a silent replacement
    for the declared AL policy.
 

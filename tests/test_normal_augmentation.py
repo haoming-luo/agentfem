@@ -10,6 +10,7 @@ import pytest
 from agentfem import boundary_models
 from agentfem.boundary_models.normal_augmentation import (
     FixedTraceNormalMultiplierState,
+    diagnose_fixed_trace_normal_constraint_rank,
     integrate_fixed_trace_augmented_normal,
 )
 
@@ -175,6 +176,57 @@ def test_independent_plastic_bar_augmentation_unloads_without_trial_history_leak
             assert state.accepted_multiplier[0] == pytest.approx(0.0, abs=1e-10)
             assert stretch < 1.0
             assert peeq > 0
+
+
+def test_active_point_multipliers_with_duplicate_nodal_constraints_are_not_identifiable():
+    plane = boundary_models.rigid_plane(point=(0, 0, 0), normal=(1, 0, 0))
+    duplicate = boundary_models.ContactTrace(
+        point_ids=(10, 11), node_ids=((0,), (0,)),
+        shape_values=((1.0,), (1.0,)), weights=(0.5, 0.5),
+        source="rank_deficient_fixed_trace",
+    )
+    state = _state(
+        duplicate, plane, penalty=10.0,
+        reference_nodes=((-0.1, 0, 0),),
+    )
+    evaluation = duplicate.evaluate(((-0.1, 0, 0),))
+    record = boundary_models.ContactProjectionRecord(
+        duplicate.point_ids, plane.project(evaluation.query_points),
+    )
+    response = state.evaluate(evaluation, record)
+    report = diagnose_fixed_trace_normal_constraint_rank(response)
+    assert report["active_point_count"] == 2
+    assert report["row_rank"] == 1
+    assert report["row_nullity"] == 1
+    assert report["certifies_spatial_stability"] is False
+    with pytest.raises(NotImplementedError, match="declared point/DOF budget"):
+        diagnose_fixed_trace_normal_constraint_rank(response, maximum_points=1)
+
+
+def test_p1_triangle_gauss_normal_constraints_have_full_local_row_rank():
+    plane = boundary_models.rigid_plane(point=(0, 0, 0), normal=(1, 0, 0))
+    trace = boundary_models.ContactTrace(
+        point_ids=(10, 11, 12), node_ids=((0, 1, 2),) * 3,
+        shape_values=(
+            (2 / 3, 1 / 6, 1 / 6),
+            (1 / 6, 2 / 3, 1 / 6),
+            (1 / 6, 1 / 6, 2 / 3),
+        ),
+        weights=(1 / 6, 1 / 6, 1 / 6),
+        source="p1_triangle_gauss_fixed_trace",
+    )
+    nodes = ((-0.1, 0, 0), (-0.2, 1, 0), (-0.3, 0, 1))
+    state = _state(trace, plane, penalty=10.0, reference_nodes=nodes)
+    evaluation = trace.evaluate(nodes)
+    record = boundary_models.ContactProjectionRecord(
+        trace.point_ids, plane.project(evaluation.query_points),
+    )
+    report = diagnose_fixed_trace_normal_constraint_rank(
+        state.evaluate(evaluation, record),
+    )
+    assert report["row_rank"] == report["active_point_count"] == 3
+    assert report["row_nullity"] == 0
+    assert report["certifies_spatial_stability"] is False
 
 
 def test_multiplier_trial_rollback_and_atomic_restore():
