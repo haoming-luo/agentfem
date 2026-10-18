@@ -52,6 +52,7 @@ def run_case(
     *, cells: int, increments: int, penalty: float, output: Path,
     contact_quadrature_degree: int | None = None,
     line_search: str = "backtracking",
+    linear_policy: str = "direct",
 ):
     if MPI.COMM_WORLD.size != 1:
         raise RuntimeError("This bounded implicit closed-tool example is serial only.")
@@ -59,6 +60,8 @@ def run_case(
         raise ValueError("Cells, increments and penalty must be positive and finite.")
     if line_search not in {"backtracking", "basic"}:
         raise ValueError("This example requires backtracking or basic line search.")
+    if linear_policy not in {"direct", "gmres_gamg"}:
+        raise ValueError("This example requires direct or gmres_gamg linear policy.")
     domain = dolfinx_mesh.create_unit_cube(
         MPI.COMM_SELF, cells, cells, cells,
         cell_type=dolfinx_mesh.CellType.tetrahedron,
@@ -95,6 +98,11 @@ def run_case(
     solver_options = solvers.newton(
         relative_tolerance=1.0e-8, absolute_tolerance=1.0e-9,
         maximum_iterations=25, line_search=line_search,
+        linear_solver=(
+            solvers.LinearSolverOptions(
+                ksp_type="gmres", pc_type="gamg", rtol=1.0e-8, max_it=500,
+            ) if linear_policy == "gmres_gamg" else None
+        ),
     )
     step = model.step(
         target=displacement, material=material,
@@ -122,7 +130,9 @@ def run_case(
         incrementation=incrementation,
         solver=solver_options,
     )
-    result.write_manifest(output / "result.json")
+    # This fixture is specifically used to audit accepted work/energy paths;
+    # preserve their samples, not only their names and units.
+    result.write_manifest(output / "result.json", include_histories=True)
     samples = step.contact_provider.accepted_point_samples()
     foot = samples["master_closest_points"]
     # The L-prism's known reentrant edge has constant y=0.35, z=0.19.
@@ -139,6 +149,7 @@ def run_case(
         "accepted_increments": len(step.accepted_increments),
         "penalty": penalty,
         "line_search": line_search,
+        "linear_policy": linear_policy,
         "contact_quadrature_degree": (
             2 if contact_quadrature_degree is None
             else contact_quadrature_degree
@@ -170,6 +181,10 @@ def main() -> None:
         help="existing Newton policy; basic is for controlled sensitivity checks",
     )
     parser.add_argument(
+        "--linear-policy", choices=("direct", "gmres_gamg"), default="direct",
+        help="opt-in iterative solver for fixed-input timing and response checks",
+    )
+    parser.add_argument(
         "--contact-quadrature-degree", type=int, choices=(5, 7),
         help="opt-in positive tetrahedral face rule for sensitivity checks",
     )
@@ -182,6 +197,7 @@ def main() -> None:
         penalty=args.penalty, output=args.output,
         contact_quadrature_degree=args.contact_quadrature_degree,
         line_search=args.line_search,
+        linear_policy=args.linear_policy,
     ), indent=2, sort_keys=True))
 
 

@@ -377,6 +377,23 @@ mesh-by-penalty matrix and a penetration tolerance tied to physical
 dimensions are prerequisites. These are dimensionless manufactured-fixture
 numbers, not a recommended penalty for a physical model.
 
+The penalty-1000 twenty-cell extension, with the same rule, twelve increments
+and `basic` Newton policy, also completes. Relative to fourteen cells at that
+penalty, the x-resultant changes from `-2.93708275` to `-2.87969817` (about
+1.95% in magnitude), maximum penetration from `0.02191363` to `0.02277766`,
+and the single-point maximum PEEQ from `0.08222936` to `0.09040997`. On the
+same fixed-reference gauge, the twenty-cell physical volume is `0.01765625`,
+weighted mean PEEQ `0.04483478` and weighted 95th percentile `0.05461449`;
+the fourteen-cell mean is `0.04526075`. Thus a relatively steady regional
+plasticity measure still accompanies a moving peak and resultant. At twenty
+cells, increasing penalty 200 to 1000 changes the x-resultant by about 67%
+and this gauge mean by about 52%; mesh refinement at one penalty does not
+remove the separate penalty error. The twenty-cell penalty-200 archive was
+produced before the example gained explicit scientific-input logging; its
+physical/solver settings and core numerical code are unchanged, but unlike
+the fourteen-cell three-penalty matrix it is not an identical result-manifest
+revision.
+
 The exported *raw integration-point* PEEQ field gives a useful countercheck
 against over-interpreting the single maximum. Using each point's exported
 physical-volume weight, the degree-7 volume-weighted means for cells
@@ -652,6 +669,49 @@ seconds (2.50×); both modes again gave tool work
 not evidence of a portable regression or speed gain.
 The fast option's numerical reproducibility on a large independent model
 and malformed-mesh robustness remain open release gates.
+
+### Fixed-input implicit linear-solver screen
+
+The manufactured finite-J2/L-prism example now exposes an explicit
+`--linear-policy gmres_gamg` option alongside its unchanged `direct` LU
+default. The option lowers to the *existing* public
+`solvers.LinearSolverOptions(ksp_type="gmres", pc_type="gamg", rtol=1e-8,
+max_it=500)` contract; it does not introduce a contact-specific solver.
+The finite-J2 Step reports `reference_rigid_body_3d` near-nullspace for the
+iterative route. This follows [PETSc's GAMG elasticity guidance](https://petsc.org/main/manualpages/PC/PCGAMG/)
+and the [DOLFINx elasticity example](https://docs.fenicsproject.org/dolfinx/main/python/demos/demo_elasticity.html),
+but those sources do not predict AgentFEM's performance.
+
+On this Apple Silicon host, with one MPI rank and the same mesh, tool,
+penalty 1000, degree-7 contact rule, twelve accepted increments, `basic`
+Newton policy and `OMP_NUM_THREADS=1`, `OPENBLAS_NUM_THREADS=1`,
+`VECLIB_MAXIMUM_THREADS=1`, the serialized model contracts differ only in
+the declared linear strategy and its derived preconditioner evidence:
+
+| Cells per axis | Newton iterations, both | direct accepted-Step seconds | GMRES/GAMG accepted-Step seconds | direct linear seconds | GMRES/GAMG linear seconds |
+| ---: | ---: | ---: | ---: | ---: | ---: |
+| 14 | 72 | 118.71 | 88.18 | 33.83 | 3.32 |
+| 20 | 76 | 512.41 | 234.99 | 289.29 | 11.50 |
+
+The measured accepted-Step reduction is about 25.7% at fourteen cells and
+54.1% at twenty cells; the larger case is 2.18× faster by this *Step-only*
+timer, not by an end-to-end installed-project timer. At twenty cells the
+maximum nodal displacement difference is `7.19e-16`, maximum raw
+integration-point PEEQ difference `1.09e-14`, and maximum raw `S`-field
+component difference `9.63e-12`. At fourteen cells the displacement/PEEQ
+maxima differ by `1.19e-15`/`9.46e-15`. Final contact resultant,
+penetration, tool work and mechanical-energy residual also match within
+floating-point tolerance; the large-case serialized manifests do not by
+themselves prove every intermediate energy sample equal. The example now
+opts into the existing `include_histories=True` manifest contract; a small
+six-increment direct/iterative regression compares each accepted tool-work,
+contact-potential, plastic-dissipation and energy-residual sample. A
+one-cell control had no meaningful gain (`0.093` versus `0.097` Step seconds).
+These are one-run-per-policy, same-host screens, not cross-platform medians;
+GAMG convergence, memory and gain depend on problem scale, PETSc build,
+constraints and material tangent. Keep the default and require a recorded,
+explicit selection rather than silently switching algorithms. The example's
+`scientific_inputs` fingerprint changes with the linear policy.
 
 Open work before broader admission: independent same-input force/displacement
 comparison; controlled geometry, mesh, penalty and increment sensitivity;

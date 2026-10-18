@@ -747,6 +747,17 @@ one penalty is not a substitute for this limit. Before promoting general
 sharp-tool contact, establish a mesh-by-penalty response matrix with a
 physical penetration tolerance and an independent same-input reference;
 retain the bounded convex option as experimental in the meantime.
+If a penalty-only choice cannot satisfy both penetration and conditioning,
+evaluate an explicit augmented-Lagrangian normal law as a separate Operator
+and accepted-multiplier State. Do not silently switch enforcement inside an
+existing contact pair or reuse the penalty checkpoint identity.
+The same manufactured implicit-J2 contact screen also found a distinct
+scaling opportunity in the *linear solver*, not the contact law: explicit
+GMRES/GAMG with a recorded rigid-body near-nullspace preserves the tested
+fields and reduces accepted-Step time on two mesh sizes. Keep direct LU as
+the robust default while comparing the opt-in policy on independent meshes,
+materials, constraints and platforms; never silently select it solely from
+one machine's timing.
 
 Stop after this vertical route has explicit field/response and state evidence.
 Nonmatching-mesh transfer, broader nonlinear coupling, monolithic Jacobians,

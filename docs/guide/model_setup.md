@@ -396,6 +396,14 @@ See the
 The bounded `examples/finite_j2_closed_concave_contact.py`
 uses ordinary `model.step()` and writes an accepted XDMF/manifest pair; its
 manufactured unit-cube response is not an external validation benchmark.
+It keeps the direct linear solver as the default and exposes
+`--linear-policy gmres_gamg` for an explicit, recorded performance trial.
+The option uses the existing `solvers.LinearSolverOptions` contract and
+records the choice with the scientific inputs. On the documented fixed-input
+fourteen- and twenty-cell screens, the opt-in matched displacement and raw
+plastic fields while reducing the accepted-Step time; it is not an automatic
+cross-platform speed guarantee. Its manifest includes accepted work and
+energy histories so a reviewer can compare the path, not only its endpoint.
 Fixed, translating or rotating analytical-plane Coulomb pairs have a separate
 narrow serial strong-BC route. The rotational friction tangent follows the
 same master material point at fixed accepted State; its generally nonsymmetric

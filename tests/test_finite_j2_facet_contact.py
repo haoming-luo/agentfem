@@ -651,6 +651,49 @@ def test_closed_concave_example_exports_accepted_public_result(tmp_path):
     assert full_newton["line_search"] == "basic"
 
 
+def test_closed_concave_example_iterative_linear_policy_matches_direct(tmp_path):
+    script = Path(__file__).resolve().parents[1] / (
+        "examples/finite_j2_closed_concave_contact.py"
+    )
+    run_case = runpy.run_path(str(script))["run_case"]
+    options = dict(cells=1, increments=6, penalty=20.0, line_search="basic")
+    direct = run_case(**options, linear_policy="direct", output=tmp_path / "direct")
+    iterative = run_case(
+        **options, linear_policy="gmres_gamg", output=tmp_path / "iterative",
+    )
+    assert direct["status"] == iterative["status"] == "completed"
+    assert direct["accepted_increments"] == iterative["accepted_increments"] == 6
+    for quantity in (
+        "contact_resultant", "maximum_penetration",
+        "maximum_equivalent_plastic_strain", "tool_work",
+        "mechanical_energy_residual",
+    ):
+        np.testing.assert_allclose(
+            direct[quantity], iterative[quantity], rtol=1e-6, atol=1e-9,
+        )
+    direct_result = json.loads((tmp_path / "direct" / "result.json").read_text())
+    iterative_result = json.loads((tmp_path / "iterative" / "result.json").read_text())
+    assert (direct_result["scientific_inputs"]["fingerprint"]
+            != iterative_result["scientific_inputs"]["fingerprint"])
+    policy = iterative_result["scientific_inputs"]["record"]["solver"]["value"]
+    assert policy["linear_solver"]["ksp_type"] == "gmres"
+    assert policy["linear_solver"]["pc_type"] == "gamg"
+    direct_histories = {item["name"]: item for item in direct_result["history_records"]}
+    iterative_histories = {
+        item["name"]: item for item in iterative_result["history_records"]
+    }
+    for name in (
+        "tool_work", "contact_potential", "plastic_dissipation",
+        "mechanical_energy_residual",
+    ):
+        reference = direct_histories[name]
+        candidate = iterative_histories[name]
+        assert reference["abscissa"] == candidate["abscissa"]
+        np.testing.assert_allclose(
+            reference["values"], candidate["values"], rtol=1e-6, atol=1e-9,
+        )
+
+
 @pytest.mark.parametrize("tool_rotation", [(0.0, 0.0, 0.0), (0.0, 0.0, 0.01)])
 @pytest.mark.parametrize(
     "closed_sign_method", ["winding_reference", "angle_weighted_pseudonormal"],
