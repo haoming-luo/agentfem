@@ -402,8 +402,11 @@ piecewise-planar Coulomb branch under serial strong-BC finite-J2, including
 one tested noncoplanar feature switch and interrupted restart. This is a
 one-sided semismooth branch, not a smooth-normal law at a sharp edge.
 A reviewed open triangle patch admits Coulomb friction only while every active
-projection remains on its planar face-interior branch. Active free or
-noncoplanar patch features, general nonconvex or curved-tool friction,
+projection remains on its locally planar branch. A caller-reviewed closed
+nonconvex solid now admits the same law only on active planar faces or
+coplanar seams; an active physical edge or vertex rejects the Newton trial
+and restores the accepted state. Active free or noncoplanar patch features,
+nonconvex sharp-feature friction, curved-tool friction,
 distributed implicit assembly, and independent industrial benchmarks remain
 unsupported. The
 candidate subset does not turn `ContactTrace` into a universal implicit
@@ -417,12 +420,14 @@ matrix:
 | Analytical plane, fixed or prescribed motion | Serial supported | Serial strong-BC candidate | Frictionless only | Rejected |
 | Reviewed triangle patch | Face-interior planar branch; active free/noncoplanar edges reject | Serial strong-BC face-interior planar branch only; active free/noncoplanar edges reject | Frictionless only | Rejected |
 | Certified closed convex triangle solid | Selected one-sided sharp-feature branch | Serial strong-BC piecewise-planar candidate | Frictionless only | Rejected |
-| Reviewed embedded closed nonconvex triangle solid | Serial frictionless unique-nearest-feature candidate; O(facets) sign query | Rejected | Frictionless source candidate | Rejected |
+| Reviewed embedded closed nonconvex triangle solid | Serial unique-nearest-feature candidate; direct winding default, optional reviewed nearest-feature sign | Serial strong-BC locally planar face branch only; active sharp edges/vertices reject | Frictionless only | Rejected |
 | Open/nonreviewed general mesh or deformable master | Rejected | Rejected | Rejected | Rejected |
 
 All admitted implicit paths use finite-strain J2 on a three-dimensional solid.
 Unsupported combinations fail during capability checking or before assembly;
-they are not silently replaced with a plane, frictionless law, or serial solve.
+an active nonsmooth friction branch may be reached only during a trial and
+then fails with atomic rollback. None are silently replaced with a plane,
+frictionless law, or serial solve.
 Two region-assigned J2 parameter sets have been checked with a moving convex
 frictional tool and interrupted restart. This does not admit arbitrary user
 materials or certify general mixed-material interfaces.

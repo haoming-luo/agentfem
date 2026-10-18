@@ -78,8 +78,11 @@ current displacement. An ordinary serial finite-J2 `model.step()` uses the
 reviewed L-prism's flat face, agrees with the equivalent planar tool and
 restores a checkpoint. A separate affine-periodic finite-J2 Step checks
 `TᵀR≈0` for the **total** material-plus-contact residual and the same planar
-limit. Unsupported friction is rejected before assembly; a bounded two-rank
-preflight rejects this serial-only implicit path before a solve. A separate
+limit. Bounded Coulomb friction on an active locally planar face uses the
+existing fixed-old-state tangent and accepted tangential State. An active
+physical edge or vertex rejects the trial and rolls back; sharp-feature
+friction is not approximated by the planar law. A bounded two-rank preflight
+rejects this serial-only implicit path before a solve. A separate
 six-increment ordinary finite-J2 Step now has an **active reentrant-edge**
 quadrature point at the accepted final state, nonzero equivalent plastic strain,
 and positive accepted tool work. Its current contact tangent agrees with a
@@ -95,6 +98,17 @@ material state, tool pose and work. This is a small
 manufactured FE regression; it does **not** establish a mesh, penalty or
 increment limit, a same-input Abaqus comparison, or robust convergence across
 arbitrary active-set switches.
+
+A separate three-dimensional pressure-controlled block uses only tangential
+restraints on its opposite face, so no hidden normal support can carry the
+imposed force. With the reviewed L-prism's planar face active, the integrated
+contact resultant balances the independently prescribed `0.5` unit load,
+and the reference-area mean penetration is `0.5 / penalty` across two tetrahedral
+mesh densities and penalties 500, 1,000 and 2,000. This follows the load-balance
+check used in [Abaqus' finite-sliding deformable/rigid verification](https://docs.software.vt.edu/abaqusv2025/English/SIMACAEVERRefMap/simaver-c-finslcontdefrigid.htm),
+but our model is a different manufactured input. It validates normal-force
+assembly on a flat branch, not the reentrant-edge constitutive response or a
+same-deck code comparison.
 
 An exploratory fixed-geometry sensitivity screen used the same unit-cube
 finite-J2 fixture, tool travel, material and serial backend. These are
@@ -213,6 +227,7 @@ Newton and contact but excluding export, used the same 5,120-facet tool and
 | ---: | ---: | ---: | ---: | ---: |
 | 1 | 4 | 1.323 s | 0.684 s | 1.94× |
 | 2 | 10 | 3.719 s | 1.567 s | 2.37× |
+| 3 | 22 | 8.169 s | 3.278 s | 2.49× |
 
 `tools/benchmark_closed_j2_step.py` recreates the model for each repetition,
 times `solve_result()` only, and rejects any difference in final displacement,
@@ -220,6 +235,10 @@ material state, accepted count, active count or tool work. This is evidence
 that the local sign cost can matter at Step level on this manufactured
 contact-heavy problem, not a general 2× promise: a real tool, larger FE
 mesh, different hardware or different contact density can change the ratio.
+The three-cell row was run later with the same 5,120-facet tool, 24 accepted
+increments and three repetitions; its final tool work was 0.008853793023137713
+for both modes. A 1,280-facet control at that FE size measured 4.482 versus
+3.090 seconds (1.45×), showing the benefit depends on tool facet count.
 The fast option's numerical reproducibility on a large independent model
 and malformed-mesh robustness remain open release gates.
 
@@ -227,7 +246,7 @@ Open work before broader admission: independent same-input force/displacement
 comparison; controlled geometry, mesh, penalty and increment sensitivity;
 whole-Step speed and malformed-mesh robustness of the opt-in sign path;
 distributed ownership and
-cross-rank restart. Friction, deformable master, self-contact and arbitrary
+cross-rank restart. Sharp-feature friction, deformable master, self-contact and arbitrary
 unreviewed STL remain unsupported. Do not promote this branch into a release
 merely because a small Newton solve completes.
 
@@ -244,7 +263,7 @@ planned code:
 | 3. Geometry and feature transitions | Unique nearest face/edge/vertex branches, coplanar seams, non-manifold vertex rejection and a globally active reentrant edge pass. | Self-intersection is caller-attested; medial-axis ties reject; no arbitrary CAD guarantee. |
 | 4. Implicit total operator and State | Full J2-plus-contact tangent passes fixed-old-state difference; an active sharp edge now passes periodic MPC total-residual, reduced contact tangent, and fixed-old-state material-plus-contact reduced Jacobian differences; accepted failure rolls back. | This remains a manufactured serial fixture; cross-branch and larger mesh convergence are separate gates. |
 | 5. Multiple rigid pairs | Named planar/convex tool work and atomic restart tests pass; mixed active concave-plus-moving-plane J2 pair keeps separate work, summed tangent and checkpoint restart. | Large mixed contact-set scaling and independent multi-tool reference remain untested. |
-| 6. Friction | Existing bounded plane/facet/convex Coulomb routes pass their own tests. | This general concave/sharp tool deliberately rejects friction. |
+| 6. Friction | A finite-J2 Step with a reviewed closed concave solid on a planar face matches the convex limit in displacement and friction dissipation for translated and slightly rotated tools under both sign modes; the fixed-old-state contact tangent and interrupted restart pass. An active reentrant edge rejects and retains accepted J2/friction State. | The planar law does not include changing-normal terms at a physical edge or vertex; general sharp-feature friction remains unsupported. |
 | 7. Material/time composition | Active-edge finite-J2 plastic path passes; explicit contact/material lifecycle is a separate existing route. | No generic historical implicit material or explicit general-closed-tool composition. |
 | 8. Independent acceptance and speed | Directional analytical checks, fixed-seed geometry timing and a manufactured whole-Step opt-in/default comparison are recorded; 24→48 increment screen is narrow. | No independent full-geometry comparison, spatial/penalty convergence, industrial whole-step speed claim or release-grade energy closure. |
 | 9. Product boundary | Public-API example exports XDMF/manifest from an isolated native Mac wheel; unsupported MPI/friction preflight rejects. | Linux/Windows installed acceptance and remote final-head CI remain version gates. |

@@ -479,14 +479,14 @@ def _implicit_planar_friction_geometry_supported(pair) -> bool:
     """Admit reviewed planar-branch geometry; never infer a smoothed normal."""
 
     from .boundary_models import (
-        ConvexPolyhedralRigidSurface, RigidPlaneSurface,
+        ClosedTriangulatedRigidSolid, ConvexPolyhedralRigidSurface, RigidPlaneSurface,
         TriangulatedRigidSurface,
     )
 
     if not isinstance(
         pair.rigid_body.surface, (
             RigidPlaneSurface, ConvexPolyhedralRigidSurface,
-            TriangulatedRigidSurface,
+            TriangulatedRigidSurface, ClosedTriangulatedRigidSolid,
         ),
     ):
         return False
@@ -642,7 +642,7 @@ def _finite_strain_j2_strong_rejection_reason(model, request: StepRequest) -> st
         ):
             return (
                 "AFM-IMPLICIT-CONTACT-FRICTION: each frictional rigid pair "
-                "must have a reviewed planar-branch tangent; curved tools "
+                "must have a reviewed locally planar tangent; curved tools "
                 "remain unsupported. Active noncoplanar facet edges and "
                 "vertices are rejected during the Newton trial."
             )
@@ -684,7 +684,7 @@ def _finite_strain_j2_strong_rejection_reason(model, request: StepRequest) -> st
         ):
             return (
                 "AFM-IMPLICIT-CONTACT-FRICTION: implicit Coulomb contact is "
-                "limited to reviewed planar-branch tools in a serial strong-BC "
+                "limited to reviewed locally planar branches in a serial strong-BC "
                 "finite-strain J2 Step; curved tools remain unsupported and "
                 "active noncoplanar facet edges or vertices are rejected."
             )

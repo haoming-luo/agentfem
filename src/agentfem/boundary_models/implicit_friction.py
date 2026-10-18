@@ -7,10 +7,11 @@ This differentiates the existing penalty return map at one current Newton
 trial. It does not own accepted friction state, integration, line search,
 work, or checkpointing; those belong to the consuming backend and Procedure.
 Analytical planes, certified closed-convex tools, and reviewed triangle tools
-on a selected face-interior planar branch admit this tangent under serial
-strong-BC J2. Curved tools, active noncoplanar edges and vertices, affine MPC
-and MPI friction remain unsupported; independently named pairs share the
-owning Procedure transaction.
+on a selected locally planar branch admit this tangent under serial strong-BC
+J2. A reviewed closed nonconvex solid is admitted only when every active
+point has a zero gap Hessian (a face or coplanar seam). Curved tools, active
+noncoplanar edges and vertices, affine MPC and MPI friction remain
+unsupported; independently named pairs share the owning Procedure transaction.
 """
 
 from __future__ import annotations
@@ -23,6 +24,7 @@ from .contact_friction import PenaltyCoulombFrictionLaw, PenaltyCoulombFrictionR
 from .contact_response import FrictionlessPenaltyContactResponse, _penalty_values
 from .contact_state import ContactProjectionRecord
 from .contact_trace import ContactTraceEvaluation
+from .closed_polyhedron import ClosedTriangulatedRigidSolid
 from .convex_polyhedron import ConvexPolyhedralRigidSurface
 from .rigid import (
     PrescribedRigidMotion, RigidPlaneSurface, TriangulatedRigidSurface,
@@ -88,7 +90,10 @@ def linearize_piecewise_planar_penalty_friction(
     normal_response: FrictionlessPenaltyContactResponse,
     friction_response: PenaltyCoulombFrictionResponse,
     law: PenaltyCoulombFrictionLaw,
-    surface: RigidPlaneSurface | ConvexPolyhedralRigidSurface | TriangulatedRigidSurface,
+    surface: (
+        RigidPlaneSurface | ConvexPolyhedralRigidSurface
+        | TriangulatedRigidSurface | ClosedTriangulatedRigidSolid
+    ),
     *,
     projector: TriangleSurfaceBVH | None = None,
     motion: PrescribedRigidMotion | None = None,
@@ -120,7 +125,10 @@ def linearize_piecewise_planar_penalty_friction(
     if not isinstance(friction_response, PenaltyCoulombFrictionResponse):
         raise TypeError("Implicit friction requires a tangential return-map response.")
     if not isinstance(law, PenaltyCoulombFrictionLaw) or not isinstance(
-        surface, (RigidPlaneSurface, ConvexPolyhedralRigidSurface, TriangulatedRigidSurface),
+        surface, (
+            RigidPlaneSurface, ConvexPolyhedralRigidSurface,
+            TriangulatedRigidSurface, ClosedTriangulatedRigidSolid,
+        ),
     ):
         raise TypeError("Implicit friction requires a reviewed planar-branch geometry.")
     if projector is not None and (
@@ -208,6 +216,27 @@ def linearize_piecewise_planar_penalty_friction(
         from .implicit_facet_contact import _smooth_active_facets
 
         _smooth_active_facets(surface, record, active)
+    elif isinstance(surface, ClosedTriangulatedRigidSolid) and np.any(active):
+        # The normal Operator includes the signed-distance Hessian, whereas
+        # the existing Coulomb derivative assumes a locally constant normal.
+        # Test the *topological feature*, not a dimensionful small-Hessian
+        # threshold that could admit a distant curved edge by accident.
+        projection = record.projection
+        if projection.entity_ids is None or projection.local_coordinates is None:
+            raise ValueError("Closed-solid friction needs nearest-feature evidence.")
+        for index in np.flatnonzero(active):
+            slot = surface._facet_slots.get(int(projection.entity_ids[index]))
+            if slot is None:
+                raise ValueError("Closed-solid friction references an unknown facet.")
+            _, feature = surface._geometric_feature_projector(
+                slot, projection.local_coordinates[index],
+            )
+            if feature != "face":
+                raise ValueError(
+                    "AFM-IMPLICIT-FRICTION-BRANCH: active closed-solid edge or "
+                    "vertex has no admitted Coulomb tangent; cut back, refine "
+                    "the tool, or use frictionless contact."
+                )
     sticking = np.asarray(friction_response.sticking, dtype=bool)
     sliding = np.asarray(friction_response.sliding, dtype=bool)
     trial = (
@@ -228,7 +257,7 @@ def linearize_piecewise_planar_penalty_friction(
         1.0,
         float(np.linalg.norm(surface.point)) if isinstance(surface, RigidPlaneSurface)
         else float(surface.facets.scale)
-        if isinstance(surface, ConvexPolyhedralRigidSurface)
+        if isinstance(surface, (ConvexPolyhedralRigidSurface, ClosedTriangulatedRigidSolid))
         else float(surface.scale),
         float(np.max(np.abs(evaluation.query_points), initial=0.0)),
     )

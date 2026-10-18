@@ -35,7 +35,8 @@ def _patch(*, triangulated: bool, gap: float = 0.005, penalty=500.0,
            closed_sign_method="winding_reference",
            friction_coefficient=None, tangential_penalty=None,
            regional_material=False, contact_quadrature_degree=None,
-           hexahedral=False, displacement_degree=1, linear_solver=None):
+           hexahedral=False, displacement_degree=1, linear_solver=None,
+           clamp_left=True, left_traction=0.0):
     domain = dolfinx_mesh.create_unit_cube(
         MPI.COMM_SELF, cells, cells, cells,
         cell_type=(
@@ -52,7 +53,13 @@ def _patch(*, triangulated: bool, gap: float = 0.005, penalty=500.0,
     ))
     left = mesh.boundary(domain, lambda x: np.isclose(x[0], 0.0), name="left")
     right = mesh.boundary(domain, lambda x: np.isclose(x[0], 1.0), name="right")
-    model.clamp(displacement, on=left)
+    if clamp_left:
+        model.clamp(displacement, on=left)
+    else:
+        model.fix(displacement, on=left, component=1, value=0.0)
+        model.fix(displacement, on=left, component=2, value=0.0)
+    if left_traction:
+        model.traction((left_traction, 0.0, 0.0), on=left)
     if regional_material:
         regions = mesh.partition_cells(
             domain,
@@ -540,18 +547,142 @@ def test_closed_concave_example_exports_accepted_public_result(tmp_path):
     assert (tmp_path / "result.json").is_file()
 
 
-def test_reviewed_closed_concave_friction_is_rejected_before_assembly():
-    model, displacement, material, _ = _patch(
-        triangulated=True, closed_concave_tool=True,
+@pytest.mark.parametrize("tool_rotation", [(0.0, 0.0, 0.0), (0.0, 0.0, 0.01)])
+@pytest.mark.parametrize(
+    "closed_sign_method", ["winding_reference", "angle_weighted_pseudonormal"],
+)
+def test_reviewed_closed_concave_smooth_face_friction_matches_convex_limit_and_restart(
+    tmp_path, tool_rotation, closed_sign_method,
+):
+    options = dict(
+        triangulated=True, yield_stress=2.0,
+        tool_translation=(-0.016, 0.012, 0.0),
+        tool_rotation=tool_rotation,
+        closed_sign_method=closed_sign_method,
+        applied_traction=0.0, increments=4,
         friction_coefficient=0.2, tangential_penalty=100.0,
-        make_step=False,
     )
-    capability = step_capability(
-        model, target=displacement, options={"material": material},
+
+    def build(*, closed):
+        return _patch(**options, closed_concave_tool=closed,
+                      convex_tool=not closed)[3]
+
+    reference = build(closed=False)
+    reference.solve()
+    continuous = build(closed=True)
+    assert continuous.solve_result().status == "completed"
+    assert continuous.energy_history[-1].friction_dissipation > 0.0
+    np.testing.assert_allclose(
+        continuous.solution.x.array, reference.solution.x.array,
+        rtol=1e-8, atol=1e-10,
     )
-    assert not capability["supported"]
-    with pytest.raises(NotImplementedError):
-        model.step(target=displacement, material=material)
+    assert continuous.energy_history[-1].friction_dissipation == pytest.approx(
+        reference.energy_history[-1].friction_dissipation, rel=1e-8,
+    )
+    for name in (
+        "stored_energy", "plastic_dissipation", "contact_potential",
+        "tool_work", "friction_dissipation", "mechanical_energy_residual",
+    ):
+        np.testing.assert_allclose(
+            [getattr(frame, name) for frame in continuous.energy_history],
+            [getattr(frame, name) for frame in reference.energy_history],
+            rtol=1e-8, atol=1e-10,
+        )
+
+    accepted = continuous.solution.x.array.copy()
+    # Differentiate a genuine trial against the earlier accepted friction
+    # State. Reloading at the final accepted state lies on a Coulomb cap kink.
+    trial = build(closed=True)
+    trial.solve(until=0.5)
+    trial.contact_provider.update_motion(1.0)
+    trial.solution.x.array[:] = accepted
+    direction = np.random.default_rng(20261018).normal(size=accepted.shape)
+    scale = 1e-7
+    selected = trial.contact_provider.evaluate()
+    try:
+        trial.solution.x.array[:] = accepted + scale * direction
+        plus = trial.contact_provider.evaluate()
+        trial.solution.x.array[:] = accepted - scale * direction
+        minus = trial.contact_provider.evaluate()
+    finally:
+        trial.solution.x.array[:] = accepted
+    np.testing.assert_allclose(
+        selected.tangent_action(direction.reshape(-1, 3)),
+        (plus.nodal_structural_residual - minus.nodal_structural_residual)
+        / (2 * scale),
+        rtol=3e-4, atol=3e-5,
+    )
+
+    interrupted = build(closed=True)
+    interrupted.solve(until=0.5)
+    checkpoint = interrupted.save_checkpoint(tmp_path / "closed_face_friction")
+    resumed = build(closed=True)
+    resumed.load_checkpoint(checkpoint)
+    resumed.solve()
+    np.testing.assert_allclose(resumed.solution.x.array, accepted, rtol=1e-9, atol=1e-10)
+    assert resumed.energy_history[-1].friction_dissipation == pytest.approx(
+        continuous.energy_history[-1].friction_dissipation, rel=1e-9,
+    )
+
+
+def test_reviewed_closed_concave_active_edge_friction_fails_closed():
+    _, _, _, step = _patch(
+        triangulated=True, closed_concave_tool=True,
+        closed_concave_extent=0.7, closed_concave_corner=(0.35, 0.19),
+        closed_concave_thickness=0.5, gap=0.005,
+        penalty=20.0, increments=6, applied_traction=0.0,
+        tool_translation=(-0.055, 0.0, 0.0), yield_stress=0.05,
+        friction_coefficient=0.2, tangential_penalty=100.0,
+    )
+    with pytest.raises(ValueError, match="AFM-IMPLICIT-FRICTION-BRANCH"):
+        step.solve()
+    accepted_factor = step.accepted_load_factor
+    assert step.contact_provider.friction_state.trial is None
+    assert step.contact_provider.friction_kinematics.trial is None
+    reference = _patch(
+        triangulated=True, closed_concave_tool=True,
+        closed_concave_extent=0.7, closed_concave_corner=(0.35, 0.19),
+        closed_concave_thickness=0.5, gap=0.005,
+        penalty=20.0, increments=6, applied_traction=0.0,
+        tool_translation=(-0.055, 0.0, 0.0), yield_stress=0.05,
+        friction_coefficient=0.2, tangential_penalty=100.0,
+    )[3]
+    if accepted_factor > 0.0:
+        reference.solve(until=accepted_factor)
+    np.testing.assert_allclose(step.solution.x.array, reference.solution.x.array)
+    np.testing.assert_allclose(
+        step.response.state.committed_state_vectors(),
+        reference.response.state.committed_state_vectors(),
+    )
+
+
+@pytest.mark.parametrize("cells", [1, 2])
+@pytest.mark.parametrize("penalty", [500.0, 1000.0, 2000.0])
+def test_closed_concave_face_contact_balances_independent_applied_force(
+    cells, penalty,
+):
+    # Published finite-sliding verification suites check that an imposed
+    # pressure load is balanced by the contact resultant. This separate
+    # three-dimensional manufactured case uses a free x translation, with
+    # tangential left-face restraints only, so no hidden x support can carry
+    # the prescribed load. It is not an Abaqus same-input comparison.
+    imposed = 0.5
+    _, _, _, step = _patch(
+        triangulated=True, closed_concave_tool=True, cells=cells,
+        gap=-0.005, penalty=penalty, yield_stress=1.0e9,
+        clamp_left=False, left_traction=imposed,
+        applied_traction=0.0, increments=3,
+    )
+    assert step.solve_result().status == "completed"
+    reaction = step.contact_provider.evaluate().contact_force_on_structure
+    np.testing.assert_allclose(reaction, (-imposed, 0.0, 0.0),
+                               rtol=1e-7, atol=1e-7)
+    samples = step.contact_provider.accepted_point_samples()
+    assert np.all(samples["active"])
+    np.testing.assert_allclose(
+        np.average(samples["penetrations"], weights=samples["reference_weights"]),
+        imposed / penalty, rtol=1e-7, atol=1e-9,
+    )
 
 
 def test_refined_contact_quadrature_is_explicit_and_checkpoint_identified(tmp_path):

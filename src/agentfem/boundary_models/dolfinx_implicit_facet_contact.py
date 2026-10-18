@@ -79,12 +79,13 @@ class DolfinxImplicitRigidContact:
         if self.pair.friction is not None:
             if not isinstance(surface, (
                 RigidPlaneSurface, ConvexPolyhedralRigidSurface,
-                TriangulatedRigidSurface,
+                TriangulatedRigidSurface, ClosedTriangulatedRigidSolid,
             )):
                 raise NotImplementedError(
                     "AFM-IMPLICIT-CONTACT-FRICTION: only an analytical plane, "
                     "reviewed planar facet branch, or certified closed-convex "
-                    "polyhedron has a fixed-old-state Coulomb tangent."
+                    "polyhedron or a smooth face of a reviewed closed solid "
+                    "has a fixed-old-state Coulomb tangent."
                 )
             initial = self.adapter.evaluate(self.displacement)
             projector = surface if self.projector is None else self.projector
