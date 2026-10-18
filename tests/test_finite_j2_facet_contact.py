@@ -12,6 +12,7 @@ import numpy as np
 import pytest
 
 from agentfem import (
+    amplitudes,
     boundary_models,
     constitutive,
     fields,
@@ -38,7 +39,7 @@ def _patch(*, triangulated: bool, gap: float = 0.005, penalty=500.0,
            hexahedral=False, displacement_degree=1, linear_solver=None,
            clamp_left=True, left_traction=0.0,
            initial_penetration_limit=None,
-           transverse_boundary_fixed=False):
+           transverse_boundary_fixed=False, load_amplitude=None):
     domain = dolfinx_mesh.create_unit_cube(
         MPI.COMM_SELF, cells, cells, cells,
         cell_type=(
@@ -208,6 +209,8 @@ def _patch(*, triangulated: bool, gap: float = 0.005, penalty=500.0,
     if not make_step:
         return model, displacement, material, None
     step_options = {} if material is None else {"material": material}
+    if load_amplitude is not None:
+        step_options["amplitude"] = load_amplitude
     if contact_quadrature_degree is not None:
         step_options["contact_quadrature_degree"] = contact_quadrature_degree
     step = model.step(
@@ -949,6 +952,126 @@ def test_plastic_contact_matches_independent_hencky_return_and_penalty(cells):
     )
     assert result.quantity("maximum_equivalent_plastic_strain") == pytest.approx(
         expected_plastic_increment, rel=1e-5,
+    )
+
+
+def test_plastic_contact_unloads_and_reloads_without_losing_history(tmp_path):
+    indentation = 0.002
+    young, yield_stress, hardening, penalty = 1000.0, 0.1, 100.0, 1000.0
+    path = amplitudes.tabular(
+        (0.0, 0.5, 0.75, 1.0), (0.0, 1.0, 0.0, 1.0),
+        name="indent_release_reindent",
+    )
+
+    # Independent one-dimensional plane-strain Hencky/J2 return map. The
+    # signed axial plastic log strain a gives Fp=diag(exp(a),exp(-a/2),
+    # exp(-a/2)). With nu=0: q_trial=E*abs(log(lambda)-3*a/2),
+    # da=sign(trial)*dp, and Pxx=E*(log(lambda)-a_new)/lambda.
+    # A fresh scalar equilibrium solve follows each accepted tool station;
+    # old a and PEEQ stay fixed during its trial iterations.
+    axial_plastic, peeq = 0.0, 0.0
+    reference = {}
+    for index in range(1, 9):
+        station = index / 8
+        tool_x = 1.0 - indentation * path(station)
+
+        def response(
+            stretch, *, old_axial=axial_plastic, old_peeq=peeq,
+            tool_position=tool_x,
+        ):
+            log_strain = np.log(stretch)
+            trial = young * (log_strain - 1.5 * old_axial)
+            increment = max(
+                0.0,
+                (abs(trial) - yield_stress - hardening * old_peeq)
+                / (1.5 * young + hardening),
+            )
+            new_axial = old_axial + np.sign(trial) * increment
+            new_peeq = old_peeq + increment
+            piola = young * (log_strain - new_axial) / stretch
+            contact_force = penalty * max(0.0, stretch - tool_position)
+            return piola + contact_force, new_axial, new_peeq, contact_force
+
+        lower, upper = 0.99, 1.01
+        for _ in range(70):
+            middle = 0.5 * (lower + upper)
+            if response(middle)[0] < 0.0:
+                lower = middle
+            else:
+                upper = middle
+        stretch = 0.5 * (lower + upper)
+        _, axial_plastic, peeq, force = response(stretch)
+        reference[station] = (stretch - 1.0, peeq, force)
+
+    options = dict(
+        triangulated=True, gap=0.0,
+        tool_translation=(-indentation, 0.0, 0.0),
+        penalty=penalty, yield_stress=yield_stress,
+        applied_traction=0.0, increments=8,
+        transverse_boundary_fixed=True, load_amplitude=path,
+    )
+    _, _, _, step = _patch(**options)
+    coordinates = step.solution.function_space.tabulate_dof_coordinates()
+    right = np.isclose(coordinates[:, 0], 1.0)
+
+    step.solve(until=0.5)
+    first_displacement = float(np.mean(
+        step.solution.x.array.reshape((-1, 3))[right, 0],
+    ))
+    first_force = -step.contact_provider.evaluate().contact_force_on_structure[0]
+    first_peeq = float(np.max(
+        step.response.state.committed["equivalent_plastic_strain"].function.x.array,
+    ))
+    assert first_force > 0.0 and first_peeq > 0.0
+    first_expected = reference[0.5]
+    assert first_displacement == pytest.approx(first_expected[0], rel=1e-5)
+    assert first_peeq == pytest.approx(first_expected[1], rel=1e-5)
+    assert first_force == pytest.approx(first_expected[2], rel=1e-5)
+    checkpoint = step.save_checkpoint(tmp_path / "accepted_before_release")
+
+    step.solve(until=0.75)
+    released_displacement = float(np.mean(
+        step.solution.x.array.reshape((-1, 3))[right, 0],
+    ))
+    released_force = -step.contact_provider.evaluate().contact_force_on_structure[0]
+    assert released_force == pytest.approx(0.0, abs=1e-9)
+    assert released_displacement == pytest.approx(
+        reference[0.75][0], rel=1e-5, abs=1e-8,
+    )
+    assert np.max(step.response.state.committed[
+        "equivalent_plastic_strain"
+    ].function.x.array) == pytest.approx(reference[0.75][1], rel=1e-5)
+
+    step.solve()
+    final_force = -step.contact_provider.evaluate().contact_force_on_structure[0]
+    final_displacement = float(np.mean(
+        step.solution.x.array.reshape((-1, 3))[right, 0],
+    ))
+    assert final_force == pytest.approx(reference[1.0][2], rel=1e-5)
+    assert final_displacement == pytest.approx(reference[1.0][0], rel=1e-5)
+    assert np.max(step.response.state.committed[
+        "equivalent_plastic_strain"
+    ].function.x.array) == pytest.approx(reference[1.0][1], rel=1e-5)
+
+    resumed = _patch(**options)[3]
+    resumed.load_checkpoint(checkpoint)
+    resumed.solve(until=0.75)
+    resumed.solve()
+    np.testing.assert_allclose(
+        resumed.solution.x.array, step.solution.x.array,
+        rtol=1e-9, atol=1e-10,
+    )
+    np.testing.assert_allclose(
+        resumed.response.state.committed[
+            "equivalent_plastic_strain"
+        ].function.x.array,
+        step.response.state.committed[
+            "equivalent_plastic_strain"
+        ].function.x.array,
+        rtol=1e-9, atol=1e-10,
+    )
+    assert resumed.energy_history[-1].tool_work == pytest.approx(
+        step.energy_history[-1].tool_work, rel=1e-9, abs=1e-10,
     )
 
 

@@ -290,6 +290,14 @@ The gate stays open until its listed evidence exists at the proposed scope.
    PEEQ at two tetrahedral mesh levels; the tests compare all three without
    calling the AgentFEM material update as their reference. This checks a
    restricted homogeneous J2/contact state, not general forming. The
+   same independent scalar return map also follows an eight-increment
+   indent--release--reindent path. It checks displacement, contact force and
+   PEEQ at loaded, detached and reloaded stations; the accepted mid-path
+   checkpoint resumes to the same displacement, plastic history and tool
+   work as the uninterrupted run. Under lateral constraint, release can
+   reverse-yield before axial force vanishes, so a first-load PEEQ cannot be
+   substituted for residual displacement. This is a bounded transaction and
+   material-path reference, not nonconvex tool validation. The
    denominator follows the [MOOSE radial-return documentation][moose-return].
    The nonconvex penalty sequence is not converged.
    Reading: [NAFEMS benchmark
