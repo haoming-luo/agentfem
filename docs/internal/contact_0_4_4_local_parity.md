@@ -395,7 +395,12 @@ converged final outer iterate permits one joint commit and one checkpoint.
 An exhausted outer loop or Newton/cutback failure restores the complete
 pre-increment snapshot. In particular, a converged inner Newton iterate is
 not a valid checkpoint, and its algorithmic AL functional is not physical
-stored contact energy. Admission requires the existing penalty Step to remain
+stored contact energy. Result must reuse the ordinary constraint dual and
+accepted-path work evidence, but mark physical contact-energy closure
+unavailable until the finite-penetration enforcement residual is separately
+bounded; it must not insert the AL functional into `contact_potential` merely
+to make an energy equation appear closed. Admission requires the existing
+penalty Step to remain
 unchanged by default and the AL path to pass a fixed-trace restart identity,
 one plastic-history path and one MPC-reduced total-tangent comparison. A
 changing feature partition cannot use this State until a conservative,
