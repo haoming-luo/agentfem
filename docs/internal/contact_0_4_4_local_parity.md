@@ -127,7 +127,13 @@ The gate stays open until its listed evidence exists at the proposed scope.
    constraints or pressure units. Either admit those lower-dimensional
    branches with independent force/moment and tangent evidence, or reject
    them explicitly at the current geometry; do not silently assign an
-   arbitrary averaged surface normal. Farah--Wall--Popp use separate point,
+   arbitrary averaged surface normal. Abaqus/Standard itself distinguishes
+   the bounded small-sliding surface formulation from finite-sliding general
+   contact: its [general-contact controls][abaqus-general-controls] state
+   that small-sliding assignments deactivate edge and vertex contact. This
+   is evidence that a surface-only approximation needs an explicit scope,
+   **not** evidence that our finite-sliding route may silently do the same.
+   Farah--Wall--Popp use separate point,
    line and surface multiplier families for non-smooth finite-deformation
    contact [point-line-surface], whereas Farah--Popp--Wall compare segment,
    element and hybrid mortar integration schemes [mortar-integration]. These
@@ -265,7 +271,11 @@ The gate stays open until its listed evidence exists at the proposed scope.
    of output frames and the progress-event ring buffer, both of which may
    omit earlier states. It is still only *sampled* path evidence, not a
    whole-face coverage proof, and the periodic/MPC route has not yet received
-   this ledger.
+   this ledger. Its Result now explicitly marks the polyhedral feature path
+   incomplete: a final-frame observation remains available, but the
+   engineering quality claim cannot pass on that observation alone. An MPC
+   path ledger must join the same accepted/rollback/checkpoint lifecycle
+   before that scope can be promoted.
    For the separate *convex* route, accepted point diagnostics now say whether
    the reviewed changing-trial support-plane partition supplied its bounded
    feature integral. The default Gauss rule explicitly reports that no such
@@ -532,6 +542,7 @@ identified multiplier-transfer rule has its own tests.
 [nafems]: https://www.nafems.org/publications/pubguide/list/
 [nafems-contact-3]: https://www.nafems.org/downloads/FENet_Meetings/Glasgow_UK_Oct_2004/FENET_Glasgow_Oct2004_DLE_Becker.pdf
 [abaqus-al-verification]: https://docs.software.vt.edu/abaqusv2025/English/SIMACAEVERRefMap/simaver-c-contsmslcont.htm
+[abaqus-general-controls]: https://docs.software.vt.edu/abaqusv2025/English/SIMACAEITNRefMap/simaitn-c-genlcontnumcontrolsstd.htm
 [initial]: https://docs.software.vt.edu/abaqusv2025/English/SIMACAEITNRefMap/simaitn-c-adjustsurfaces.htm
 [distance]: https://arxiv.org/abs/1803.09687
 [meshed-rigid]: https://docs.software.vt.edu/abaqusv2025/English/SIMACAEVERRefMap/simaver-c-finslcontdefmeshrig.htm

@@ -216,6 +216,19 @@ def test_periodic_j2_convex_flat_face_matches_plane_total_mpc_operator():
     convex_result = convex_step.solve_result()
     planar_result = planar_step.solve_result()
     assert convex_result.status == planar_result.status == "completed"
+    feature_path = convex_result.metadata["rigid_contact_feature_path"]
+    assert not feature_path["complete"]
+    assert feature_path["accepted_station_count"] == (
+        len(convex_step.accepted_increments) + 1
+    )
+    assert feature_path["pairs"][0]["accepted_station_count"] == 1
+    feature_claim = next(
+        item for item in convex_result.verify("engineering").claims
+        if item.name == "no_observed_uncertified_contact_feature_transition"
+    )
+    assert feature_claim.status == "failed"
+    assert "accepted contact feature path is incomplete" in feature_claim.actual["issues"]
+    assert "rigid_contact_feature_path" not in planar_result.metadata
     np.testing.assert_allclose(
         convex_step.solution.x.array, planar_step.solution.x.array,
         rtol=1.0e-8, atol=1.0e-9,
