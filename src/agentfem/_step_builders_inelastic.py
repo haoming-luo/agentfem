@@ -320,10 +320,15 @@ def finite_strain_j2(
     )
     if affine:
         if (not isinstance(contact_integration, str)
-                or contact_integration not in {"gauss", "convex_feature_partition"}):
+                or contact_integration not in {
+                    "gauss", "convex_feature_partition",
+                    "closed_planar_branch_partition",
+                }):
             raise NotImplementedError(
-                "The selected trial contact partition or per-pair mode map "
-                "is not available for the affine-periodic J2 route."
+                "Affine-periodic J2 supports only scalar gauss, "
+                "convex_feature_partition, or "
+                "closed_planar_branch_partition contact integration; "
+                "a per-pair mode map is not available."
             )
         if contact_quadrature_degree is not None:
             raise NotImplementedError(

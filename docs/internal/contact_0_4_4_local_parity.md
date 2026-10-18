@@ -99,8 +99,11 @@ checks independently integrated pair forces, positive per-tool work, total
 work sum and joint restart while one tool uses the certified closed smooth
 branch and the other uses an analytical planar partition. A small rigid
 rotation of the closed tool also matches its equivalent analytical plane
-in a real finite-J2 Step. This does not change the affine/MPC
-admission matrix or certify sharp-feature integration.
+in a real finite-J2 Step. The serial periodic-MPC J2 route now admits this
+*one named scalar mode* on a wide reviewed smooth patch, with total-residual
+reduction, analytical-plane limit, interrupted restart and explicit
+reentrant-edge refusal tested. Per-pair mode maps remain unavailable in that
+affine route. None of these results certifies sharp-feature integration.
 The runnable closed-tool example now has a separate one-axis-at-a-time
 mesh/increment/penalty sensitivity driver. Its nine serial synthetic runs
 all completed with certified smooth branches, but their terminal tool work

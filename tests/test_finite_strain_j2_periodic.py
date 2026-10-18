@@ -482,11 +482,15 @@ def test_periodic_j2_convex_feature_partition_reduces_total_residual():
         total.destroy()
 
 
-def _periodic_concave_face_tool():
-    x0, x1 = 0.95, 1.25
-    polygon = 1.75 * np.asarray((
+def _periodic_concave_face_tool(*, wide_smooth_patch=False):
+    x0, x1 = (0.95, 3.0) if wide_smooth_patch else (0.95, 1.25)
+    polygon = np.asarray((
         (0, 0), (2, 0), (2, 1), (1, 1), (1, 2), (0, 2),
-    ), dtype=float) - 0.5
+    ), dtype=float)
+    polygon = (
+        4.0 * polygon - 2.0 if wide_smooth_patch
+        else 1.75 * polygon - 0.5
+    )
     front = np.column_stack((np.full(6, x0), polygon))
     back = np.column_stack((np.full(6, x1), polygon))
     top = ((0, 1, 3), (1, 2, 3), (0, 3, 5), (3, 4, 5))
@@ -530,6 +534,65 @@ def test_periodic_j2_reviewed_concave_tool_reduces_total_contact_residual():
         step.solution.x.array, planar.solution.x.array,
         rtol=1e-7, atol=1e-8,
     )
+
+
+def test_periodic_j2_certified_closed_smooth_branch_reduces_total_residual(tmp_path):
+    fixture, periodicity, step = _periodic_j2_contact_step(
+        surface=_periodic_concave_face_tool(wide_smooth_patch=True),
+        contact_integration="closed_planar_branch_partition",
+    )
+    result = step.solve_result()
+    assert result.status == "completed"
+    evidence = step.contact_provider.current_point_diagnostics()
+    assert evidence["feature_transition_integral_certified"] is True
+    assert evidence["active_point_count"] > 0
+    total = step.assemble_full_residual()
+    reduction = periodicity.reduction(1.0).matrix(fixture.domain.comm)
+    reduced = reduction.createVecRight()
+    try:
+        reduction.multTranspose(total, reduced)
+        assert reduced.norm() < 1.0e-5
+    finally:
+        reduced.destroy()
+        reduction.destroy()
+        total.destroy()
+
+    plane = boundary_models.rigid_plane(
+        point=(0.95, 0.0, 0.0), normal=(-1.0, 0.0, 0.0),
+    )
+    _, _, planar = _periodic_j2_contact_step(surface=plane)
+    assert planar.solve_result().status == "completed"
+    np.testing.assert_allclose(
+        step.solution.x.array, planar.solution.x.array,
+        rtol=1e-7, atol=1e-8,
+    )
+
+    _, _, partial = _periodic_j2_contact_step(
+        surface=_periodic_concave_face_tool(wide_smooth_patch=True),
+        contact_integration="closed_planar_branch_partition",
+    )
+    partial.solve(until=1.0 / 3.0)
+    saved = partial.save_checkpoint(tmp_path / "periodic_closed_smooth_branch")
+    _, _, resumed = _periodic_j2_contact_step(
+        surface=_periodic_concave_face_tool(wide_smooth_patch=True),
+        contact_integration="closed_planar_branch_partition",
+    )
+    resumed.load_checkpoint(saved)
+    assert resumed.solve_result().status == "completed"
+    np.testing.assert_allclose(
+        resumed.solution.x.array, step.solution.x.array,
+        rtol=1e-9, atol=1e-10,
+    )
+
+
+def test_periodic_j2_closed_smooth_branch_rejects_reentrant_edge():
+    _, _, step = _periodic_j2_contact_step(
+        surface=_active_reentrant_periodic_surface(),
+        contact_integration="closed_planar_branch_partition",
+    )
+    with pytest.raises(NotImplementedError, match="AFM-CONTACT-CLOSED-PLANAR-BRANCH"):
+        step.solve_result()
+    assert step.accepted_load_factor == 0.0
 
 
 def _active_reentrant_periodic_surface():
