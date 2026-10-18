@@ -1535,12 +1535,20 @@ class FiniteStrainJ2StandardProblem:
         *,
         start_factor: float,
         target_factor: float,
-    ) -> float:
+    ) -> tuple[float, PETSc.Vec | None, float | None]:
+        """Return damping and an accepted total residual owned by the caller.
+
+        Basic search does not evaluate a trial residual. Backtracking returns
+        its already-evaluated PETSc Vec only for an accepted trial; rejected
+        vectors are destroyed here, and the next Newton iteration destroys
+        the accepted vector after using it.
+        """
+
         options = self.solver_options
         alpha = 1.0
         if options.line_search in {None, "basic"}:
             self._assign_trial(base, direction, alpha)
-            return alpha
+            return alpha, None, None
         while alpha + 1.0e-15 >= options.minimum_step_length:
             self._assign_trial(base, direction, alpha)
             self._update_response(
@@ -1548,14 +1556,16 @@ class FiniteStrainJ2StandardProblem:
                 target_factor=target_factor,
             )
             rhs, trial_norm = self._correction_rhs()
-            rhs.destroy()
             if np.isfinite(trial_norm) and trial_norm < base_norm:
-                return alpha
+                # This is already the next Newton state. Retain its material
+                # trial and total residual instead of evaluating both again.
+                return alpha, rhs, trial_norm
+            rhs.destroy()
             alpha *= options.line_search_reduction
         self.solution.x.array[:] = base
         self.solution.x.scatter_forward()
         self.response.rollback()
-        return 0.0
+        return 0.0, None, None
 
     def _solve_increment(
         self,
@@ -1581,19 +1591,24 @@ class FiniteStrainJ2StandardProblem:
         converged = False
         rejection_reason = None
         iteration = 0
+        accepted_line_trial: tuple[PETSc.Vec, float] | None = None
         for iteration in range(self.solver_options.maximum_iterations + 1):
-            stage_started = time.perf_counter()
-            result, maximum_increment = self._update_response(
-                start_factor=start_factor,
-                target_factor=target_factor,
-            )
-            material_update_seconds += time.perf_counter() - stage_started
-            del result
+            if accepted_line_trial is None:
+                stage_started = time.perf_counter()
+                result, maximum_increment = self._update_response(
+                    start_factor=start_factor,
+                    target_factor=target_factor,
+                )
+                material_update_seconds += time.perf_counter() - stage_started
+                del result
+                stage_started = time.perf_counter()
+                rhs, norm = self._correction_rhs()
+                residual_assembly_seconds += time.perf_counter() - stage_started
+            else:
+                rhs, norm = accepted_line_trial
+                accepted_line_trial = None
             plastic_points = self.state_transaction.last_plastic_points
             maximum_increment = self.state_transaction.last_maximum_plastic_increment
-            stage_started = time.perf_counter()
-            rhs, norm = self._correction_rhs()
-            residual_assembly_seconds += time.perf_counter() - stage_started
             if initial_norm is None:
                 initial_norm = norm
             threshold = (
@@ -1646,7 +1661,7 @@ class FiniteStrainJ2StandardProblem:
             direction = correction.array_r.copy()
             correction.destroy()
             stage_started = time.perf_counter()
-            alpha = self._line_search(
+            alpha, trial_rhs, trial_norm = self._line_search(
                 base,
                 direction,
                 norm,
@@ -1660,6 +1675,9 @@ class FiniteStrainJ2StandardProblem:
                     f"at residual {norm:.6g}"
                 )
                 break
+            if trial_rhs is not None:
+                assert trial_norm is not None
+                accepted_line_trial = trial_rhs, trial_norm
         comm = self.solution.function_space.mesh.comm
 
         def collective_max(value: float) -> float:

@@ -594,6 +594,35 @@ The gate stays open until its listed evidence exists at the proposed scope.
    [PETSc GAMG near-nullspace requirement][gamg], [PETSc profiling][profiling]
    and [Hoefler--Belli scientific benchmarking][benchmarking].
 
+   A separate **plastic-contact runtime** screen on the same host explains
+   why changing KSP alone is not the dominant lever here. With an 8-cell/axis
+   tetrahedral reentrant L-tool, 12 increments, penalty 20, degree-5 contact
+   quadrature, direct solve and one OpenMP/BLAS thread, the pre-change accepted
+   increment ledger attributed about 9.65 s to backtracking, 6.38 s to
+   material updates, 4.90 s to residual assembly, 0.56 s to tangent assembly
+   and only 0.80 s to 60 linear solves. Opt-in GMRES/GAMG reduced linear time
+   to 0.42 s but the complete case remained about 28 s in both policies.
+   Backtracking had already evaluated the accepted next-state material and
+   total residual; the following Newton iteration was evaluating both again.
+   The standard J2 Procedure now carries that *accepted* trial response and
+   PETSc residual into the next iteration. Rejected trials still destroy their
+   residual; basic/no-line-search keeps its former path. This is the same
+   function-value handoff described in [PETSc's nonlinear-solver iteration
+   model][petsc-snes], adapted to AgentFEM's material State transaction.
+
+   On the exact same source and machine, a temporary A/B harness restored the
+   old discard-and-recompute behavior without changing tolerances or input.
+   Bracketed direct runs took 28.59/28.51 s with discard versus 19.02/19.01 s
+   with accepted-trial reuse (roughly 1.50x, or 33% less complete-case wall
+   time on this input). The selected scientific JSON fields (quantities,
+   histories, contact duals, mechanical ledger, feature path and verification)
+   had identical SHA-256 in the old-behavior and new-behavior runs; both
+   `fields.h5` and `fields.integration-points.h5` were byte-identical too.
+   This includes the **same failed** engineering feature claim: the runtime gain
+   does not validate the nonconvex contact law. It is not a cross-platform
+   speed guarantee, and the finite-J2 affine/MPC Procedure needs its own
+   ownership review before sharing this execution optimization.
+
 ## Promotion rule
 
 Gates 1--4 and 6--8 are mandatory for any claim involving nonconvex rigid

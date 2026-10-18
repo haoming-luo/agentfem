@@ -703,6 +703,74 @@ def test_standard_polyhedral_feature_diagnostic_failure_rolls_back(monkeypatch):
     assert tuple(step.energy_history) == accepted_energy
 
 
+def test_standard_backtracking_does_not_recompute_accepted_trial(monkeypatch):
+    step = _patch(
+        triangulated=True, convex_tool=True, increments=3,
+        tool_translation=(-0.008, 0.0, 0.0), applied_traction=0.0,
+        yield_stress=1.0e9,
+    )[3]
+    original_increment = step._solve_increment
+    original_update = step._update_response
+    original_residual = step._correction_rhs
+    inside_increment = False
+    last_evaluation = None
+    last_residual = None
+    line_trials = 0
+    original_search = step._line_search
+
+    def audited_update(*, start_factor, target_factor):
+        nonlocal last_evaluation
+        if inside_increment:
+            current = (
+                start_factor, target_factor, step.solution.x.array.copy(),
+            )
+            if last_evaluation is not None:
+                assert not (
+                    current[:2] == last_evaluation[:2]
+                    and np.array_equal(current[2], last_evaluation[2])
+                ), "accepted Newton trial was evaluated twice"
+            last_evaluation = current
+        return original_update(
+            start_factor=start_factor, target_factor=target_factor,
+        )
+
+    def audited_search(*args, **kwargs):
+        nonlocal line_trials
+        result = original_search(*args, **kwargs)
+        if result[1] is not None:
+            line_trials += 1
+        return result
+
+    def audited_residual():
+        nonlocal last_residual
+        if inside_increment:
+            current = step.solution.x.array.copy()
+            if last_residual is not None:
+                assert not np.array_equal(
+                    current, last_residual,
+                ), "accepted Newton residual was assembled twice"
+            last_residual = current
+        return original_residual()
+
+    def audited_increment(**kwargs):
+        nonlocal inside_increment, last_evaluation, last_residual
+        inside_increment = True
+        last_evaluation = None
+        last_residual = None
+        try:
+            return original_increment(**kwargs)
+        finally:
+            inside_increment = False
+
+    monkeypatch.setattr(step, "_solve_increment", audited_increment)
+    monkeypatch.setattr(step, "_update_response", audited_update)
+    monkeypatch.setattr(step, "_correction_rhs", audited_residual)
+    monkeypatch.setattr(step, "_line_search", audited_search)
+    step.solve()
+    assert line_trials > 0
+    assert step.accepted_load_factor == pytest.approx(1.0)
+
+
 def test_fast_closed_sign_preserves_active_edge_plastic_step_result(tmp_path):
     options = dict(
         triangulated=True, closed_concave_tool=True,
