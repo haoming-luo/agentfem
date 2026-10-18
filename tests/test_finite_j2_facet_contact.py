@@ -842,6 +842,11 @@ def test_closed_concave_example_exports_accepted_public_result(tmp_path):
     run_case = runpy.run_path(str(script))["run_case"]
     summary = run_case(cells=1, increments=6, penalty=20.0, output=tmp_path)
     assert summary["status"] == "completed"
+    assert summary["engineering_contact_feature_status"] == "failed"
+    assert any(
+        "edge/vertex contact" in issue
+        for issue in summary["engineering_contact_feature_issues"]
+    )
     assert summary["contact_quadrature_degree"] == 2
     assert summary["line_search"] == "backtracking"
     assert summary["active_reentrant_edge_points"] == 1

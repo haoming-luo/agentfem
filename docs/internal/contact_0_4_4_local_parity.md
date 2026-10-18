@@ -260,7 +260,10 @@ The gate stays open until its listed evidence exists at the proposed scope.
    test, not just synthetic metadata. Its Result exposes named face, edge and
    vertex active-point counts at the final accepted configuration beside the
    underlying per-pair metadata, so a user can inspect the reason without
-   decoding a private trace. These final counts alone do not summarize earlier
+   decoding a private trace. The runnable reentrant-tool example also prints
+   the failed engineering feature claim beside `status=completed`; nonlinear
+   completion is not silently presented as scientific acceptance. These final
+   counts alone do not summarize earlier
    accepted increments. The ordinary serial finite-J2 Step now keeps a bounded
    per-pair path summary: maximum sampled mixed-feature faces and active
    physical edge and vertex points, plus whether every observed station used

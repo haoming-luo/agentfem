@@ -145,8 +145,14 @@ def run_case(
     ))
     dual = result.metadata["constraint_duals"][0]
     contact_diagnostics = result.metadata["rigid_contact_point_diagnostics"]
+    feature_claim = next(
+        claim for claim in result.verify("engineering").claims
+        if claim.name == "no_observed_uncertified_contact_feature_transition"
+    )
     summary = {
         "status": result.status,
+        "engineering_contact_feature_status": feature_claim.status,
+        "engineering_contact_feature_issues": feature_claim.actual["issues"],
         "cells_per_axis": cells,
         "accepted_increments": len(step.accepted_increments),
         "penalty": penalty,
