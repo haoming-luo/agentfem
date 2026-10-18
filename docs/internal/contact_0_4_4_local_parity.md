@@ -172,6 +172,53 @@ plane competitor and `1.649/0.309 ms` for the finite-vertex competitor
 `3.1x` and `5.3x`, apply **only to these individual geometry proofs**,
 not the full nonlinear solve. Other geometry can incur the six-value checks
 and show no gain; no full-solve speed improvement is claimed.
+An **independent smooth-geometry branch** is now under bounded evaluation.
+Even with an exact analytical sphere/cylinder projector and curvature tangent,
+three fixed Gauss points on a P1 slave face can all be open while a small
+positive-area circular contact patch is active. The opt-in
+`radial_active_partition` derives the active region from the radial
+distance-squared quadratic, splits the reference triangle at conic tangency
+and edge events, and uses positive 12/24-order quadrature. It screens the
+per-face potential, nine nodal residual components and 81 tangent entries
+against each other; inconclusive integration, an axis/center singularity, a
+bounded-cylinder rim or a point budget refuses the trial. The paired-order
+screen is **not a rigorous error bound** and cannot license general curved
+contact. A declared initial-penetration limit now uses exact affine-face
+radial extrema (closest point to the center/axis and maximum vertex radius),
+not sampled points; the 0.001/0.0009 sphere-overlap regression catches a
+patch that ordinary Gauss sampling missed. Independent circular-patch area,
+potential, force and tangent
+formulas at three heights and full-nodal finite differences check the local
+operator. A vertex-centered quarter-circle, a patch clipped by a slave edge,
+rigid-frame and length-scale changes, and a real-Step directional tangent
+exercise the less convenient geometries. Real serial finite-J2 Steps
+demonstrate both a sphere patch and a
+cylinder strip missed entirely by ordinary three-point Gauss; prescribed
+sphere motion and interrupted checkpoint/restart also pass. This is an
+analytical smooth P1/frictionless/scalar-penalty subset, not a sharp-feature
+solution, mesh-converged hard-contact result or external solver comparator.
+In the one-cell sphere regression the opt-in mode initially has 1152
+positive-weight active points and finishes with maximum displacement
+`1.75747e-5` and contact potential `4.94207e-7`; the otherwise identical
+three-point Gauss mode reports zero active points, displacement and contact
+potential. Those values expose a sampling failure in this manufactured
+geometry, not an accuracy/performance benchmark for a production model.
+The same sphere fixture runs to completion on 1, 2 and 4 subdivisions per
+cube edge (6, 48 and 384 tetrahedra). The maximum displacement is
+`1.75747e-5`, `2.49116e-5`, `4.06294e-5`; the final contact potential is
+`4.94207e-7`, `4.84893e-7`, `4.69293e-7`, respectively. These are a
+**mesh-sensitivity warning**, not convergence or a recommended physical
+penalty: the pointwise maximum displacement changes materially. The exported
+accepted contact samples explicitly mark their IDs as snapshot-only and
+their pressure as force per reference area, not Cauchy stress.
+The commercial [analytical-rigid-surface guidance][abaqus-rigid-smoothing] also
+notes that curved analytical geometry can reduce contact noise/search cost,
+while discontinuous master normals impair implicit finite sliding. That
+motivates an *explicit model geometry choice*, never hidden rounding of the
+user's specified sharp tool. The contact-boundary quadrature issue is also
+documented in [Duong--De Lorenzis--Sauer's refined-boundary work][duong];
+their isogeometric/mortar method motivates treating the active boundary,
+but does not validate this separate P1 radial rule or its paired-order screen.
 The runnable closed-tool example now has a separate one-axis-at-a-time
 mesh/increment/penalty sensitivity driver. Its eleven serial synthetic runs
 all completed with certified smooth branches, but their terminal tool work

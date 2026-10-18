@@ -242,11 +242,18 @@ def _small_single_branch_j2_step(
     open_sheet_x: float = 1.10,
     open_sheet_competitor: bool = False,
     open_sheet_competitor_kind: str = "old_refinement",
+    radial_sphere: bool = False,
+    radial_cylinder: bool = False,
+    radial_integration: str | None = None,
+    radial_motion: tuple[float, float, float] | None = None,
+    radial_mesh_divisions: int = 1,
 ):
-    if closed and open_sheet:
-        raise ValueError("Choose either the closed solid or the open sheet.")
+    if sum((closed, open_sheet, radial_sphere, radial_cylinder)) > 1:
+        raise ValueError("Choose one reviewed rigid geometry.")
     domain = dolfinx_mesh.create_unit_cube(
-        MPI.COMM_SELF, 1, 1, 1, cell_type=dolfinx_mesh.CellType.tetrahedron,
+        MPI.COMM_SELF,
+        radial_mesh_divisions, radial_mesh_divisions, radial_mesh_divisions,
+        cell_type=dolfinx_mesh.CellType.tetrahedron,
     )
     coordinates = domain.geometry.x
     coordinates[:, 0] = 1.05 + 0.10 * coordinates[:, 0]
@@ -286,6 +293,20 @@ def _small_single_branch_j2_step(
             reviewed_embedded=True, name="reviewed_L_tool",
         )
         mode = "closed_planar_branch_partition"
+    elif radial_sphere:
+        surface = boundary_models.rigid_sphere(
+            center=(1.149, 1.30, 0.50), radius=0.1,
+            name="small_circular_patch_tool",
+        )
+        mode = "radial_active_partition" if radial_integration is None else radial_integration
+    elif radial_cylinder:
+        surface = boundary_models.rigid_cylinder(
+            axis_point=(1.149, 1.30, 0.50),
+            axis_direction=(0., 1., 0.), radius=0.1,
+            axial_interval=(-0.1, 0.1),
+            name="small_cylindrical_patch_tool",
+        )
+        mode = "radial_active_partition" if radial_integration is None else radial_integration
     elif open_sheet:
         vertices = (
             (open_sheet_x, 0., -1.), (open_sheet_x, 0., 1.),
@@ -318,15 +339,22 @@ def _small_single_branch_j2_step(
             point=(1.10, 1.3, 0.5), normal=(-1.0, 0.0, 0.0),
         )
         mode = "planar_active_partition"
-    motion = boundary_models.prescribed_rigid_motion(
-        translation=(-0.08, 0.0, 0.0), rotation=tool_rotation,
-        reference_point=(1.10, 1.3, 0.5),
-    )
+    if radial_sphere or radial_cylinder:
+        motion = None if radial_motion is None else boundary_models.prescribed_rigid_motion(
+            translation=radial_motion, reference_point=(1.149, 1.30, 0.50),
+        )
+    else:
+        motion = boundary_models.prescribed_rigid_motion(
+            translation=(-0.08, 0.0, 0.0), rotation=tool_rotation,
+            reference_point=(1.10, 1.3, 0.5),
+        )
     primary = boundary_models.rigid_contact_pair(
         contact,
         boundary_models.rigid_body(
-            surface, motion_schedule=boundary_models.prescribed_rigid_motion_schedule(
-                motion, start_time=0.0, end_time=1.0,
+            surface, motion_schedule=(
+                None if motion is None else boundary_models.prescribed_rigid_motion_schedule(
+                    motion, start_time=0.0, end_time=1.0,
+                )
             ),
         ),
         penalty=5000.0,
@@ -523,6 +551,128 @@ def test_finite_vertex_competitor_certificate_matches_plane_in_global_j2(monkeyp
     assert provider.current_point_diagnostics()[
         "whole_face_planar_branch"
     ]["certified"] is True
+
+
+def test_small_sphere_patch_missed_by_default_gauss_enters_global_j2(tmp_path):
+    radial, radial_displacement = _small_single_branch_j2_step(
+        closed=False, radial_sphere=True, initial_penetration_limit=0.0011,
+    )
+    sampled, sampled_displacement = _small_single_branch_j2_step(
+        closed=False, radial_sphere=True, radial_integration="gauss",
+    )
+    assert radial.contact_provider.current_point_diagnostics()["active_point_count"] > 0
+    initial = radial.contact_provider.current_point_diagnostics()["initial_contact"]
+    assert initial["face_wise_bound_certified"] is True
+    assert initial["bound_method"] == "exact_radial_face_extrema"
+    assert initial["maximum_penetration_bound"] == pytest.approx(0.001, abs=1e-12)
+    integration_policy = radial.contact_provider.summary()["integration_policy"]
+    assert integration_policy["quadrature_orders"] == (12, 24)
+    assert integration_policy["error_status"] == "paired_order_screen_not_rigorous_error_bound"
+    assert sampled.contact_provider.current_point_diagnostics()["active_point_count"] == 0
+    radial_result = radial.solve_result()
+    assert radial_result.status == "completed"
+    assert sampled.solve_result().status == "completed"
+    assert np.max(np.abs(radial_displacement.value.x.array)) > 1.0e-8
+    np.testing.assert_allclose(sampled_displacement.value.x.array, 0.0, atol=1.0e-11)
+    assert radial.energy_history[-1].contact_potential > 0.0
+    assert radial_result.metadata["constraint_balance_contract"]["force_balance_available"]
+    assert radial_result.metadata["constraint_balance_contract"]["work_balance_available"]
+    exported = results.export_accepted_contact_points(
+        radial, tmp_path / "radial_samples", result=radial_result, vtk_view=True,
+    )
+    metadata = json.loads(exported["contact_point_metadata"].read_text())
+    assert metadata["pairs"][0]["point_identity_scope"] == "accepted_snapshot_only"
+    assert metadata["pressure_measure"] == (
+        "penalty_force_per_reference_area_not_cauchy_pressure"
+    )
+    assert exported["contact_point_view"].is_file()
+    with pytest.raises(ValueError, match="AFM-CONTACT-INITIAL-OVERLAP"):
+        _small_single_branch_j2_step(
+            closed=False, radial_sphere=True, initial_penetration_limit=0.0009,
+        )
+
+
+def test_radial_sphere_contact_tangent_matches_current_directional_difference():
+    step, _ = _small_single_branch_j2_step(closed=False, radial_sphere=True)
+    assert step.solve_result().status == "completed"
+    provider = step.contact_provider
+    selected = provider.evaluate()
+    base = step.solution.x.array.copy()
+    direction = np.random.default_rng(20261019).normal(size=base.shape)
+    h = 1.0e-7
+    try:
+        step.solution.x.array[:] = base + h * direction
+        plus = provider.evaluate()
+        step.solution.x.array[:] = base - h * direction
+        minus = provider.evaluate()
+    finally:
+        step.solution.x.array[:] = base
+    np.testing.assert_allclose(
+        selected.tangent_action(direction.reshape((-1, 3))),
+        (plus.nodal_structural_residual - minus.nodal_structural_residual) / (2 * h),
+        rtol=2e-4, atol=2e-6,
+    )
+
+
+def test_moving_sphere_partition_restarts_with_the_same_accepted_j2_state(tmp_path):
+    motion = (0.0, 0.015, 0.0)
+    continuous, _ = _small_single_branch_j2_step(
+        closed=False, radial_sphere=True, radial_motion=motion,
+    )
+    assert continuous.solve_result().status == "completed"
+    interrupted, _ = _small_single_branch_j2_step(
+        closed=False, radial_sphere=True, radial_motion=motion,
+    )
+    interrupted.solve(until=0.5)
+    checkpoint = interrupted.save_checkpoint(tmp_path / "moving_sphere")
+    restored, _ = _small_single_branch_j2_step(
+        closed=False, radial_sphere=True, radial_motion=motion,
+    )
+    restored.load_checkpoint(checkpoint)
+    assert restored.solve_result().status == "completed"
+    np.testing.assert_allclose(
+        restored.solution.x.array, continuous.solution.x.array,
+        rtol=1e-9, atol=1e-10,
+    )
+    assert restored.energy_history[-1].contact_potential == pytest.approx(
+        continuous.energy_history[-1].contact_potential, rel=1e-9,
+    )
+    assert restored.energy_history[-1].tool_work == pytest.approx(
+        continuous.energy_history[-1].tool_work, rel=1e-9, abs=1e-12,
+    )
+    wrong_mode, _ = _small_single_branch_j2_step(
+        closed=False, radial_sphere=True, radial_motion=motion,
+        radial_integration="gauss",
+    )
+    with pytest.raises(ValueError, match="identity|contact|constraint"):
+        wrong_mode.load_checkpoint(checkpoint)
+
+
+def test_small_cylinder_patch_enters_global_j2_without_sampled_false_open():
+    radial, radial_displacement = _small_single_branch_j2_step(
+        closed=False, radial_cylinder=True,
+    )
+    sampled, _ = _small_single_branch_j2_step(
+        closed=False, radial_cylinder=True, radial_integration="gauss",
+    )
+    assert radial.contact_provider.current_point_diagnostics()["active_point_count"] > 0
+    assert sampled.contact_provider.current_point_diagnostics()["active_point_count"] == 0
+    assert radial.solve_result().status == "completed"
+    assert np.max(np.abs(radial_displacement.value.x.array)) > 1.0e-8
+    assert radial.energy_history[-1].contact_potential > 0.0
+
+
+@pytest.mark.parametrize("divisions", [2, 4])
+def test_radial_sphere_partition_on_refined_real_tetrahedral_mesh(divisions):
+    step, displacement = _small_single_branch_j2_step(
+        closed=False, radial_sphere=True, radial_mesh_divisions=divisions,
+    )
+    result = step.solve_result()
+    assert result.status == "completed"
+    assert np.all(np.isfinite(displacement.value.x.array))
+    assert np.max(np.abs(displacement.value.x.array)) > 0.0
+    assert step.energy_history[-1].contact_potential > 0.0
+    assert result.metadata["constraint_balance_contract"]["force_balance_available"]
 
 
 def test_reviewed_open_sheet_branch_refuses_positive_area_beyond_master_edge():

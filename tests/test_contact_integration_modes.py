@@ -29,6 +29,13 @@ def test_reviewed_facet_branch_is_a_named_mode_without_implicit_fallback():
     ) == ("reviewed_planar_branch_partition",)
 
 
+def test_radial_partition_must_be_explicitly_named_for_its_tool():
+    assert resolve_contact_integration_modes(
+        (_pair("sphere"), _pair("plane")),
+        {"sphere": "radial_active_partition", "plane": "planar_active_partition"},
+    ) == ("radial_active_partition", "planar_active_partition")
+
+
 @pytest.mark.parametrize("selected", (
     {"plane": "planar_active_partition"},
     {"plane": "planar_active_partition", "closed": "gauss", "unused": "gauss"},

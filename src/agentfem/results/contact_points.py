@@ -146,6 +146,7 @@ def export_accepted_contact_points(
         if getattr(item, "contact_integration", "gauss") in {
             "planar_active_partition", "convex_feature_partition",
             "closed_planar_branch_partition", "reviewed_planar_branch_partition",
+            "radial_active_partition",
         }
         else "fixed_reference_quadrature"
         for item in providers

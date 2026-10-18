@@ -655,8 +655,9 @@ def _initial_contact_bound_rejection_reason(model, request: StepRequest) -> str 
         return (
             "AFM-CONTACT-INITIAL-BOUND: initial_penetration_limit requires "
             "first-order slave interpolation and geometry with an analytical "
-            "plane, reviewed closed-solid triangular signed distance, or an "
-            "open sheet admitted by reviewed_planar_branch_partition; "
+            "plane, an analytical radial partition, reviewed closed-solid "
+            "triangular signed distance, or an open sheet admitted by "
+            "reviewed_planar_branch_partition; "
             "other sampled gaps are not a certified face-wise bound."
         )
     return None
@@ -671,11 +672,13 @@ def _contact_integration_rejection_reason(model, request: StepRequest) -> str | 
     if isinstance(selected, str) and selected not in {
         "planar_active_partition", "convex_feature_partition",
         "closed_planar_branch_partition", "reviewed_planar_branch_partition",
+        "radial_active_partition",
     }:
         return "AFM-CONTACT-PARTITION: unknown contact_integration option."
     from .boundary_models import (
         ClosedTriangulatedRigidSolid, ConvexPolyhedralRigidSurface,
-        RigidContactPair, RigidPlaneSurface, TriangulatedRigidSurface,
+        RigidContactPair, RigidCylinderSurface, RigidPlaneSurface,
+        RigidSphereSurface, TriangulatedRigidSurface,
     )
     from .boundary_models.contact_integration_modes import (
         resolve_contact_integration_modes,
@@ -698,11 +701,14 @@ def _contact_integration_rejection_reason(model, request: StepRequest) -> str | 
         "reviewed_planar_branch_partition": (
             ClosedTriangulatedRigidSolid, TriangulatedRigidSurface,
         ),
+        "radial_active_partition": (RigidSphereSurface, RigidCylinderSurface),
     }
 
     if (any(
         mode != "gauss" and (
             not isinstance(item.rigid_body.surface, required_surface[mode])
+            or (mode == "radial_active_partition"
+                and item.rigid_body.surface.dimension != 3)
             or item.friction is not None
             or np.asarray(item.law.penalty).ndim != 0
         ) for item, mode in zip(pairs, modes, strict=True)
@@ -710,8 +716,8 @@ def _contact_integration_rejection_reason(model, request: StepRequest) -> str | 
           and request.options.get("contact_quadrature_degree") is not None)):
         return (
             "AFM-CONTACT-PARTITION: trial active partition requires "
-            "frictionless analytical-plane, certified convex, or reviewed "
-            "reviewed per-face planar-branch rigid pairs "
+            "frictionless analytical-plane, analytical radial, certified "
+            "convex, or reviewed per-face planar-branch rigid pairs "
             "(matching the selected mode), scalar penalty and the "
             "default contact quadrature rule."
         )
@@ -725,7 +731,7 @@ def _contact_integration_rejection_reason(model, request: StepRequest) -> str | 
             or int(domain.geometry.cmaps[0].degree) != 1):
         return (
             "AFM-CONTACT-PARTITION: only CG1, first-order tetrahedral "
-            "slave triangles have the reviewed affine-gap partition."
+            "slave triangles have the bounded active partition."
         )
     return None
 

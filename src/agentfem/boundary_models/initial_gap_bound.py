@@ -20,7 +20,11 @@ import numpy as np
 
 from .closed_polyhedron import ClosedTriangulatedRigidSolid
 from .convex_polyhedron import ConvexPolyhedralRigidSurface
-from .rigid import RigidPlaneSurface, TriangulatedRigidSurface
+from .contact_radial_partition import _minimum_radial_distance
+from .rigid import (
+    RigidCylinderSurface, RigidPlaneSurface, RigidSphereSurface,
+    TriangulatedRigidSurface,
+)
 
 
 def initial_gap_bound_method(
@@ -33,6 +37,13 @@ def initial_gap_bound_method(
         return None
     if isinstance(surface, RigidPlaneSurface):
         return "exact_plane_nodal"
+    if (
+        facet_topology == "triangle"
+        and contact_integration == "radial_active_partition"
+        and isinstance(surface, (RigidSphereSurface, RigidCylinderSurface))
+        and surface.dimension == 3
+    ):
+        return "exact_radial_face_extrema"
     if (
         facet_topology == "triangle"
         and isinstance(surface, TriangulatedRigidSurface)
@@ -102,6 +113,75 @@ class InitialGapBound:
     maximum_penetration_bound: float
     sampled_point_count: int
     maximum_refinement_depth: int
+
+
+def certify_initial_radial_triangle_gap(
+    triangles,
+    surface: RigidSphereSurface | RigidCylinderSurface,
+    *,
+    penetration_limit: float,
+) -> InitialGapBound:
+    """Exact P1 sphere/cylinder face extrema, with roundoff safety margin.
+
+    Squared radial distance is convex on the affine slave triangle. Its
+    maximum is attained at a vertex; its minimum is the distance from the
+    center/axis to the projected triangle, found by its vertex, edge and
+    interior candidates. Neither a few Gauss points nor an assumed radial
+    direction can substitute for those extrema.
+    """
+
+    cells = np.asarray(triangles, dtype=float)
+    limit = float(penetration_limit)
+    if not isinstance(surface, (RigidSphereSurface, RigidCylinderSurface)):
+        raise TypeError("Radial initial gap requires an analytical sphere/cylinder.")
+    if cells.ndim != 3 or cells.shape[1:] != (3, 3) or not np.all(np.isfinite(cells)):
+        raise ValueError("Radial initial gap requires finite P1 triangles.")
+    if not np.isfinite(limit) or limit < 0.0:
+        raise ValueError("Initial penetration limit must be finite and nonnegative.")
+    if isinstance(surface, RigidSphereSurface):
+        center = np.asarray(surface.center)
+        projector = np.eye(3)
+    else:
+        center = np.asarray(surface.axis_point)
+        axis = np.asarray(surface.axis_direction)
+        projector = np.eye(3) - np.outer(axis, axis)
+        if surface.axial_interval is not None:
+            axial = (cells - center) @ axis
+            low, high = surface.axial_interval
+            margin = 128.0 * np.finfo(float).eps * max(
+                1.0, surface.radius, abs(low), abs(high),
+            )
+            if np.any(axial <= low + margin) or np.any(axial >= high - margin):
+                raise NotImplementedError(
+                    "AFM-CONTACT-INITIAL-UNCERTIFIED: the reference face can "
+                    "reach an unsupported cylinder rim."
+                )
+    scale = max(1.0, surface.radius, float(np.max(np.abs(cells), initial=0.0)))
+    safety = 128.0 * np.finfo(float).eps * scale
+    maximum_penetration = 0.0
+    for cell in cells:
+        relative = (cell - center) @ projector
+        minimum = _minimum_radial_distance(relative)
+        maximum = float(np.max(np.linalg.norm(relative, axis=1)))
+        if minimum <= 1.0e-12 * max(1.0, surface.radius):
+            raise NotImplementedError(
+                "AFM-CONTACT-INITIAL-UNCERTIFIED: the reference face can reach "
+                "the undefined sphere center or cylinder axis."
+            )
+        signed_minimum = (
+            minimum - surface.radius
+            if surface.admissible_side == "exterior"
+            else surface.radius - maximum
+        )
+        maximum_penetration = max(
+            maximum_penetration, max(0.0, -signed_minimum + safety),
+        )
+    if maximum_penetration > limit:
+        raise ValueError(
+            "AFM-CONTACT-INITIAL-OVERLAP: exact radial reference penetration "
+            f"bound {maximum_penetration:.6g} exceeds the declared limit {limit:.6g}."
+        )
+    return InitialGapBound(maximum_penetration, 3 * len(cells), 0)
 
 
 def certify_initial_convex_triangle_gap(
@@ -257,4 +337,5 @@ __all__ = [
     "InitialGapBound", "certify_initial_triangle_gap",
     "certify_initial_convex_triangle_gap", "initial_gap_bound_method",
     "certify_initial_reviewed_planar_branch_gap",
+    "certify_initial_radial_triangle_gap",
 ]

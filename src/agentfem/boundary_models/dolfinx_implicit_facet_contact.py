@@ -45,12 +45,19 @@ from .implicit_friction import linearize_piecewise_planar_penalty_friction
 from .implicit_smooth_contact import linearize_smooth_rigid_contact
 from .initial_gap_bound import (
     certify_initial_convex_triangle_gap, certify_initial_triangle_gap,
+    certify_initial_radial_triangle_gap,
     certify_initial_reviewed_planar_branch_gap, initial_gap_bound_method,
 )
 from .contact_separation_bound import certify_current_triangle_separation
 from .contact_planar_branch_bound import certify_reviewed_planar_branch
 from .contact_reference_refinement import refine_p1_triangle_reference_trace
-from .rigid import RigidPlaneSurface, SmoothRigidSurface, TriangulatedRigidSurface
+from .contact_radial_partition import (
+    partition_radial_p1_trace, radial_partition_policy_summary,
+)
+from .rigid import (
+    RigidCylinderSurface, RigidPlaneSurface, RigidSphereSurface,
+    SmoothRigidSurface, TriangulatedRigidSurface,
+)
 from .search import TriangleSurfaceBVH, triangle_surface_bvh
 
 
@@ -82,6 +89,7 @@ class DolfinxImplicitRigidContact:
         if self.contact_integration not in {
             "gauss", "planar_active_partition", "convex_feature_partition",
             "closed_planar_branch_partition", "reviewed_planar_branch_partition",
+            "radial_active_partition",
         }:
             raise ValueError("Unsupported implicit contact integration method.")
         if self.contact_integration == "planar_active_partition" and (
@@ -111,6 +119,21 @@ class DolfinxImplicitRigidContact:
                 "AFM-CONTACT-FEATURE-PARTITION: requires frictionless certified "
                 "convex rigid geometry, scalar penalty, affine P1 tetrahedral "
                 "slave triangles and the default positive reference-area rule."
+            )
+        if self.contact_integration == "radial_active_partition" and (
+            not isinstance(surface, (RigidSphereSurface, RigidCylinderSurface))
+            or surface.dimension != 3
+            or self.pair.friction is not None
+            or np.asarray(self.pair.law.penalty).ndim != 0
+            or self.adapter.facet_topology != "triangle"
+            or self.adapter.interpolation_degree != 1
+            or self.adapter.geometry_degree != 1
+            or self.adapter.quadrature_rule != "triangle_degree_two_three_point"
+        ):
+            raise NotImplementedError(
+                "AFM-CONTACT-RADIAL-PARTITION: requires a frictionless analytical "
+                "3D sphere or cylinder, scalar penalty, affine P1 slave triangles "
+                "and the default positive reference-area rule."
             )
         planar_branch_mode = self.contact_integration in {
             "closed_planar_branch_partition", "reviewed_planar_branch_partition",
@@ -284,6 +307,14 @@ class DolfinxImplicitRigidContact:
             maximum_bound = certificate.maximum_penetration_bound
             certificate_samples = certificate.sampled_point_count
             certificate_depth = certificate.maximum_refinement_depth
+        elif method == "exact_radial_face_extrema" and limit is not None:
+            face_nodes = np.unique(evaluation.trace.node_ids, axis=0)
+            certificate = certify_initial_radial_triangle_gap(
+                self.adapter.reference_nodal_positions[face_nodes],
+                self.surface, penetration_limit=limit,
+            )
+            maximum_bound = certificate.maximum_penetration_bound
+            certificate_samples = certificate.sampled_point_count
         self._initial_contact_diagnostics = {
             "sampling": "reference_boundary_quadrature_at_reference_rigid_pose",
             "sampled_point_count": int(valid.size),
@@ -311,9 +342,9 @@ class DolfinxImplicitRigidContact:
                 "AFM-CONTACT-INITIAL-BOUND: an initial_penetration_limit "
                 "currently requires first-order slave interpolation and "
                 "geometry with an analytical plane, reviewed closed-solid "
-                "signed distance, or an open sheet with a certified complete "
-                "planar branch on triangular faces; sampled curved gaps are "
-                "not a bound."
+                "signed distance, a bounded analytical radial partition, or "
+                "an open sheet with a certified complete planar branch on "
+                "triangular faces; sampled gaps are not a bound."
             )
         if not np.all(valid):
             first = int(np.flatnonzero(~valid)[0])
@@ -592,6 +623,15 @@ class DolfinxImplicitRigidContact:
                 _support_planes=self._support_planes,
             )
             evaluation = partition.trace.evaluate(current)
+        elif self.contact_integration == "radial_active_partition":
+            current = self.adapter.current_nodal_positions(self.displacement)
+            trial_trace = partition_radial_p1_trace(
+                self.adapter.trace, current, self.surface,
+                penalty=float(np.asarray(self.pair.law.penalty)),
+                motion=None if schedule is None else schedule.motion,
+                factor=factor,
+            )
+            evaluation = trial_trace.evaluate(current)
         elif self.contact_integration in {
             "closed_planar_branch_partition", "reviewed_planar_branch_partition",
         }:
@@ -1285,9 +1325,12 @@ class DolfinxImplicitRigidContact:
             "closed_concave" if isinstance(self.surface, ClosedTriangulatedRigidSolid)
             else "closed_convex" if isinstance(self.surface, ConvexPolyhedralRigidSurface)
             else "triangulated_face_branch"
-            if isinstance(self.surface, TriangulatedRigidSurface) else "plane"
+            if isinstance(self.surface, TriangulatedRigidSurface)
+            else "analytical_radial"
+            if isinstance(self.surface, (RigidSphereSurface, RigidCylinderSurface))
+            else "plane"
         )
-        return {
+        summary = {
             "kind": "dolfinx_implicit_rigid_contact",
             "pair": self.pair.summary(),
             "trace": self.adapter.summary(),
@@ -1305,6 +1348,9 @@ class DolfinxImplicitRigidContact:
                 else "serial_frictionless_reference_area"
             ),
         }
+        if self.contact_integration == "radial_active_partition":
+            summary["integration_policy"] = radial_partition_policy_summary()
+        return summary
 
     def _linearization_name(self) -> str:
         if self.friction_state is not None:
