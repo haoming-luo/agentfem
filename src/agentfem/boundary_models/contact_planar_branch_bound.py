@@ -114,7 +114,7 @@ def certify_closed_planar_branch(
     *,
     motion: PrescribedRigidMotion | None = None,
     factor: float = 0.0,
-    maximum_slave_faces: int = 256,
+    maximum_slave_faces: int = 1024,
     maximum_master_facets: int = 256,
 ) -> ClosedPlanarBranchBound:
     """Certify an exact affine gap branch on each complete current P1 face.

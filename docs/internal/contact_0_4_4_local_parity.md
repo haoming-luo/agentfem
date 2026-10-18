@@ -80,7 +80,7 @@ work, with a contact directional tangent, interrupted restart and explicit
 reentrant-edge rejection; the small runnable example exports one XDMF grid
 and unsmoothed contact samples. This does **not** solve a feature switch or
 physical edge/vertex contact: those remain rejected. The current per-face
-smooth-branch and 256-face/256-master-facet bounds are intentionally narrow,
+smooth-branch and 1024-face/256-master-facet bounds are intentionally narrow,
 and this is not an external commercial-solver comparator.
 The closed-solid projector now takes the reviewed facet normal directly on a
 smooth face, including a coplanar seam. Dividing a nearly zero
@@ -108,9 +108,10 @@ plane can enter a *single* total MPC system, survive interrupted restart and
 refuse a changed mode identity. This remains serial and does not admit a
 sharp-feature transition merely because the second tool is supported.
 The runnable closed-tool example now has a separate one-axis-at-a-time
-mesh/increment/penalty sensitivity driver. Its nine serial synthetic runs
+mesh/increment/penalty sensitivity driver. Its eleven serial synthetic runs
 all completed with certified smooth branches, but their terminal tool work
-remains materially mesh- and penalty-sensitive (details in
+remains mesh- and penalty-sensitive, while the pointwise maximum PEEQ is not
+monotone under mesh refinement (details in
 `evidence/contact/2026-10-19-closed-planar-branch-ladder.md`). This is
 evidence **against** promoting the present tiny fixture as a converged
 hard-contact or external-solver benchmark. The driver is a reproducible

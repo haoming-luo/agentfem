@@ -3,7 +3,7 @@
 Status: diagnostic evidence only. This is a synthetic serial finite-J2 cube
 against one reviewed closed L-prism face. It does not reproduce an external
 commercial-solver problem, establish mesh convergence, or validate sharp-edge
-contact. All nine cases use identical geometry, material, tool motion and
+contact. All eleven cases use identical geometry, material, tool motion and
 Newton controls; each row changes only the named numerical choice.
 
 Run from the repository root against the branch source:
@@ -24,6 +24,8 @@ values are from a single local run, not an uncertainty estimate.
 | baseline | 1 | 6 | 5,000 | 0.264448 | 0.00528666 | 0.0111180 |
 | mesh | 2 | 6 | 5,000 | 0.275917 | 0.00424685 | 0.00717791 |
 | mesh | 4 | 6 | 5,000 | 0.271938 | 0.00383225 | 0.00489645 |
+| mesh | 8 | 6 | 5,000 | 0.257833 | 0.00366603 | 0.00407050 |
+| mesh | 16 | 6 | 5,000 | 0.309736 | 0.00360302 | 0.00394642 |
 | increment | 1 | 3 | 5,000 | 0.264993 | 0.00546429 | 0.0112321 |
 | increment | 1 | 12 | 5,000 | 0.264252 | 0.00515762 | 0.0110617 |
 | increment | 1 | 24 | 5,000 | 0.264189 | 0.00508320 | 0.0110339 |
@@ -35,10 +37,14 @@ Every run completed and reported a certified current whole-face integration.
 That geometric certificate addresses the quadrature branch, **not** the
 accuracy of finite element discretization, load stepping, or penalty
 enforcement. In particular, tool work changes by about 9.8% from mesh 2 to
-mesh 4 and about 9.7% from penalty 10,000 to 20,000. The increment ladder is
-more settled but still changes by about 1.4% from 12 to 24. No extrapolated
-limit or product validation claim follows from these three levels.
+mesh 4 and about 1.7% from mesh 8 to mesh 16; it also changes by about 9.7%
+from penalty 10,000 to 20,000. Integrated plastic dissipation changes by
+about 0.6% from mesh 8 to 16, yet *maximum* PEEQ rises from 0.258 to 0.310:
+a local integration-point maximum is not a robust convergence observable in
+this fixture. The increment ladder is more settled but still changes tool work
+by about 1.4% from 12 to 24. No extrapolated limit or product validation
+claim follows from these levels.
 The maximum sampled penetration decreases as the penalty increases, as the
 declared penalty law should suggest; the contact footprint also changes, so
-these nine points do not isolate a hard-contact solution or a pressure field
+these eleven points do not isolate a hard-contact solution or a pressure field
 convergence rate.

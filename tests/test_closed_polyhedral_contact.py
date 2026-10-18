@@ -237,6 +237,28 @@ def test_coplanar_patch_coverage_uses_union_not_sum_of_facet_areas():
     )
 
 
+def test_closed_smooth_branch_budget_admits_a_modest_refined_trace():
+    triangles = []
+    for i in range(16):
+        for j in range(16):
+            y = 1.25 + 0.1 * i / 16
+            z = 0.45 + 0.1 * j / 16
+            dy = dz = 0.1 / 16
+            a = (0.95, y, z)
+            b = (0.95, y + dy, z)
+            c = (0.95, y + dy, z + dz)
+            d = (0.95, y, z + dz)
+            triangles.extend(((a, b, c), (a, c, d)))
+    trace = np.asarray(triangles)
+    assert len(trace) == 512
+    assert certify_closed_planar_branch(trace, _concave_tool()).certified
+    limited = certify_closed_planar_branch(
+        trace, _concave_tool(), maximum_slave_faces=256,
+    )
+    assert not limited.certified
+    assert limited.status == "geometry_budget_exceeded"
+
+
 def _reentrant_vertex_tool():
     """Seven unit voxels form a solid with the positive octant removed."""
 
