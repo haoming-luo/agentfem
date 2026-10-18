@@ -394,6 +394,34 @@ penetration-controlled enforcement method, with its own multiplier State,
 trial/commit/rollback and restart identity, rather than hiding a penalty
 increase or an algorithm switch inside the existing pair.
 
+For that comparison, the smallest sound implementation is a **separate,
+opt-in normal-enforcement contract on a fixed reference trace**, initially
+frictionless analytical-plane contact. With a frozen nonnegative multiplier
+`lambda_old` during each Newton solve, use the active pressure
+`p = max(0, lambda_old - k*g)` for the existing signed gap `g` (positive
+outside). The corresponding local augmented potential is
+`(p*p - lambda_old*lambda_old)/(2*k)`; its displacement derivative must
+produce the same residual, and its active fixed-multiplier derivative must
+produce the same tangent. This is an algorithmic Lagrangian, **not** a new
+physical stored-energy claim or a substitute for the accepted work ledger.
+An augmentation cycle may stage
+`lambda_trial = max(0, lambda_old - k*g_converged)` only **after** that
+Newton solve converges. Accepting the increment requires both the global
+residual and a separately specified penetration/complementarity tolerance;
+only then may the Procedure commit displacement, material and multiplier
+State together. A failed Newton or augmentation cycle restores all three.
+The multiplier's stable quadrature IDs, units, penalty, tolerance and
+augmentation policy belong in checkpoint identity. This first gate needs an
+independent spring/plane solution, finite-difference total tangent, reaction,
+work, retry and restart tests before finite-J2 composition. It must not be
+silently enabled on the moving convex-feature partition: its quadrature
+locations and point IDs change between trials, so transferring multiplier
+history needs a separate conservative basis/mapping and verification.
+This design follows the distinction between penalty approximation and
+augmentation iterations in
+[Abaqus' contact-control documentation](https://docs.software.vt.edu/abaqusv2025/English/SIMACAEITNRefMap/simaitn-c-contactcontrolsstd.htm),
+but the cited product does not validate this proposed AgentFEM algorithm.
+
 The penalty-1000 twenty-cell extension, with the same rule, twelve increments
 and `basic` Newton policy, also completes. Relative to fourteen cells at that
 penalty, the x-resultant changes from `-2.93708275` to `-2.87969817` (about
@@ -729,6 +757,30 @@ GAMG convergence, memory and gain depend on problem scale, PETSc build,
 constraints and material tangent. Keep the default and require a recorded,
 explicit selection rather than silently switching algorithms. The example's
 `scientific_inputs` fingerprint changes with the linear policy.
+
+An independent paired repetition used the **installed native wheel** from
+clean numerical source `8a38b79c`, in the same Apple Silicon FEniCSx
+environment and with the same declared non-solver scientific inputs (their
+canonical JSON SHA-256 matches across policies). It timed the entire example
+process with `/usr/bin/time -p` as well as summing accepted Step attempts:
+
+| Cells per axis | Policy | Accepted Step seconds | Linear solve seconds | Process wall seconds | Newton iterations |
+| ---: | --- | ---: | ---: | ---: | ---: |
+| 14 | direct LU | 115.79 | 33.28 | 146.79 | 72 |
+| 14 | GMRES/GAMG | 85.42 | 3.26 | 116.15 | 72 |
+| 20 | direct LU | 511.89 | 290.49 | 577.13 | 76 |
+| 20 | GMRES/GAMG | 232.16 | 11.49 | 297.58 | 76 |
+
+This repetition gives about 20.9% and 48.4% **process-wall** reductions at
+14 and 20 cells, respectively. `h5diff -d 1e-10` finds no differences in
+any exported field dataset at either size. Across the four accepted histories
+`contact_potential`, `tool_work`, `plastic_dissipation` and
+`mechanical_energy_residual`, the largest per-sample absolute difference is
+`1.11e-16` on the twenty-cell pair. Both paired tests ran direct first, so
+cache/warmup order was not counterbalanced; these remain two observations per
+policy on one machine, not a portable distribution or end-to-end project
+benchmark. The contact and material laws are unchanged, and the unresolved
+penalty-limit failure still blocks physics promotion.
 
 Open work before broader admission: independent same-input force/displacement
 comparison; controlled geometry, mesh, penalty and increment sensitivity;
