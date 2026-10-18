@@ -354,6 +354,7 @@ class AugmentedNormalContribution:
     nodal_structural_residual: object
     contact_force_on_structure: object
     contact_force_on_surface: object
+    surface_generalized_force: object
     surface_generalized_moment: object | None
     algorithmic_functional: float
     tangent_rows: object
@@ -368,9 +369,18 @@ class AugmentedNormalContribution:
         dimension = nodal.shape[1]
         structural = np.asarray(self.contact_force_on_structure, dtype=float)
         surface = np.asarray(self.contact_force_on_surface, dtype=float)
-        if structural.shape != (dimension,) or surface.shape != (dimension,) or not np.all(np.isfinite(structural + surface)):
+        generalized = np.asarray(self.surface_generalized_force, dtype=float)
+        if (
+            structural.shape != (dimension,) or surface.shape != (dimension,)
+            or generalized.shape != (dimension,)
+            or not np.all(np.isfinite(structural + surface + generalized))
+        ):
             raise ValueError("Augmented normal force vectors have the wrong shape or value.")
-        if not np.allclose(structural, -np.sum(nodal, axis=0), rtol=1e-12, atol=1e-12) or not np.allclose(structural, -surface, rtol=1e-12, atol=1e-12):
+        if (
+            not np.allclose(structural, -np.sum(nodal, axis=0), rtol=1e-12, atol=1e-12)
+            or not np.allclose(structural, -surface, rtol=1e-12, atol=1e-12)
+            or not np.allclose(structural, generalized, rtol=1e-12, atol=1e-12)
+        ):
             raise ValueError("Augmented normal integrated action/reaction does not balance.")
         moment = self.surface_generalized_moment
         if moment is not None:
@@ -391,6 +401,7 @@ class AugmentedNormalContribution:
         object.__setattr__(self, "nodal_structural_residual", _readonly_array(nodal))
         object.__setattr__(self, "contact_force_on_structure", _readonly_array(structural))
         object.__setattr__(self, "contact_force_on_surface", _readonly_array(surface))
+        object.__setattr__(self, "surface_generalized_force", _readonly_array(generalized))
         object.__setattr__(self, "tangent_rows", _readonly_array(rows, dtype=np.int64))
         object.__setattr__(self, "tangent_columns", _readonly_array(columns, dtype=np.int64))
         object.__setattr__(self, "tangent_values", _readonly_array(values))
@@ -487,6 +498,7 @@ def integrate_fixed_trace_augmented_normal(
         nodal_structural_residual=nodal,
         contact_force_on_structure=force_on_structure,
         contact_force_on_surface=-force_on_structure,
+        surface_generalized_force=force_on_structure,
         surface_generalized_moment=moment,
         algorithmic_functional=float(np.dot(trace.weights, response.algorithmic_density)),
         tangent_rows=rows,

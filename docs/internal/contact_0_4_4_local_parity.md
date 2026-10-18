@@ -80,7 +80,9 @@ The gate stays open until its listed evidence exists at the proposed scope.
    Reject trial-changing contact quadrature until a conservative multiplier
    transfer is designed and tested. Current state: the ordinary Step remains
    penalty-only. A solver-neutral fixed-reference-trace AL candidate now has
-   point-law, residual/tangent, spring-plane and rollback tests, but no global
+   point-law, residual/tangent, spring-plane and rollback tests. A real serial
+   DOLFINx tetrahedral trace also matches an independently UFL-differentiated
+   plane/sphere functional, residual and tangent. There is still no global
    Step, MPI, or installed-package acceptance. A high-penalty L-tool trial
    failed Newton, so neither hard-contact convergence nor an AL benefit may
    be claimed. Reading: [Abaqus contact enforcement controls][acl],
@@ -121,8 +123,11 @@ The gate stays open until its listed evidence exists at the proposed scope.
    dissipation, material work/storage and numerical penalty or augmented
    functional distinct. An algorithmic Lagrangian is not physical stored
    energy. Current state: named force/moment/work and raw contact-point output
-   exist on selected routes; a general first-law closure and cross-method
-   pressure convention are not established. Reading: [Abaqus contact output
+   exist on selected routes; the AL research candidate separately exposes
+   physical tool reaction and generalized tool force/moment. Prescribed-plane
+   translation/rotation finite differences confirm their work-conjugate signs. A
+   general first-law closure and cross-method pressure convention are not
+   established. Reading: [Abaqus contact output
    semantics][abaqus-output] and [COMSOL important contact variables][comsol-vars].
 
 8. **Independent science gates.** Run a small ladder: spring/plane exact
@@ -170,8 +175,9 @@ fingerprint, units and explicit acceptance/outer-iteration policy. It requires
 a converged *total* residual
 at each frozen-multiplier outer iterate, and atomically refuses mismatched
 restart State. Its spring/plane exact solution and smooth plane/sphere
-finite-difference tangent tests are local mathematical evidence only. They do
-not establish the J2+contact+MPC product workflow. The next admission is a
+finite-difference tangent tests and the independent DOLFINx/UFL plane/sphere
+operator oracle are local mathematical evidence only. They do not establish
+the J2+contact+MPC product workflow. The next admission is a
 single supported analytical plane in the full nonlinear Procedure, with the
 same total-system and accepted-increment transaction as penalty contact; an
 adaptive integration partition must continue to reject AL until multiplier
