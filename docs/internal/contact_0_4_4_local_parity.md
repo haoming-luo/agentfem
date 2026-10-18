@@ -68,6 +68,8 @@ The gate stays open until its listed evidence exists at the proposed scope.
    and local regression exist, but no same-input external benchmark for the
    nonconvex finite-J2 fixture. Reading: [Abaqus' published finite-sliding
    rigid-surface verification/input list][abaqus-verification],
+   its published [C3D8 solid against analytical rigid cylinder input][abaqus-c3d8-input]
+   and [finite-sliding C3D4/C3D8 surface-to-surface input list][abaqus-surface-verification],
    [its small-sliding stress/displacement verification cases, including
    augmented-Lagrangian examples][abaqus-al-verification],
    [COMSOL's analytical/NAFEMS verification collection][comsol-verification]
@@ -76,6 +78,15 @@ The gate stays open until its listed evidence exists at the proposed scope.
    our own geometry. In particular, that published three-dimensional
    meshed-rigid case deforms a **shell** around a cylinder, so its numerical
    output cannot be relabeled as a solid finite-J2 same-input comparator.
+   The C3D8 rigid-cylinder deck is an **elastic contact protocol**: it
+   specifies an analytical cylinder, a solid contact face, normal loading
+   and later sliding, but changes friction and has distinct linear and
+   geometrically nonlinear steps. It supplies an input, not numerical output
+   for our finite-J2 same-input case. The C3D4/C3D8 surface-to-surface blocks
+   use two deformable bodies rather than our prescribed rigid tool. Thus
+   neither source closes the external J2 gate; the elastic rigid-cylinder
+   portion can serve as an earlier interoperability checkpoint with matched
+   material, constraints and observables.
    A more ambitious later comparator is [NAFEMS Contact
    Benchmark 3][nafems-contact-3], which includes elastoplastic contact and
    springback; its detailed material, geometry and published observables must
@@ -153,6 +164,11 @@ The gate stays open until its listed evidence exists at the proposed scope.
    changing the Newton law. Nonconvex feature
    transitions remain open. Reading: [Duong--De Lorenzis--Sauer refined-boundary
    quadrature][duong] and [COMSOL contact quadrature guidance][comsol-settings].
+   The convex partition now admits only the actual default three-point P1
+   reference rule and its facet-ID grouping. Three arbitrary points whose
+   shape values merely sum to one are rejected before their measure can be
+   silently reinterpreted as that rule; this is an input-contract safeguard,
+   not a new geometry or friction capability.
    The cited isogeometric extended-mortar formulation is a comparison design,
    not a drop-in P1 facet implementation: its enriched pressure interpolation
    and two-half-pass force construction differ from our one-sided trace.
@@ -526,6 +542,16 @@ The gate stays open until its listed evidence exists at the proposed scope.
    The next gate needs a denser, independently checked finite-block reference
    and a declared pressure/area discretization tolerance, not a selectively
    chosen force match.
+   An additional higher-order screen used the same quarter block,
+   `--displacement-degree 2 --bulk-quadrature-degree 4
+   --contact-quadrature-degree 7 --linear-policy gmres_gamg` and four
+   increments. At penalty 100,000, 5/7 cells per side gave full tool forces
+   0.685484/0.683987, active areas 0.149148/0.144965 and maximum
+   penetrations 7.20347e-5/7.18637e-5. At 7 cells and penalty 300,000,
+   these were 0.697151, 0.136021 and 2.4576e-5. The higher-order force
+   varies less with this mesh change, but penalty and footprint sensitivity
+   persist. This is a separate discretization screen, not a converged
+   benchmark or a same-DOF performance comparison with P1.
    The nonconvex penalty sequence is not converged.
    Reading: [NAFEMS benchmark
    catalog][nafems], [Abaqus contact verification cases][abaqus-verification]
@@ -659,6 +685,8 @@ identified multiplier-transfer rule has its own tests.
 [abaqus-output]: https://docs.software.vt.edu/abaqusv2025/English/SIMACAEITNRefMap/simaitn-c-contactgeneral.htm
 [comsol-vars]: https://doc.comsol.com/6.3/doc/com.comsol.help.sme/sme_ug_modeling.05.155.html
 [abaqus-verification]: https://docs.software.vt.edu/abaqusv2025/English/SIMACAEVERRefMap/simaver-c-finslcontdefrigid.htm
+[abaqus-c3d8-input]: https://docs.software.vt.edu/abaqusv2025/English/SIMAINPRefResources/ei34srsc_surf.inp
+[abaqus-surface-verification]: https://docs.software.vt.edu/abaqusv2025/English/SIMACAEVERRefMap/simaver-c-finslsurftosurf.htm
 [comsol-mesh]: https://doc.comsol.com/6.3/doc/com.comsol.help.sme/StructuralMechanicsModuleUsersGuide.pdf
 [gamg]: https://petsc.org/main/manualpages/PC/PCGAMG/
 [profiling]: https://petsc.org/release/manual/profiling/

@@ -56,6 +56,47 @@ def _trace():
     )
 
 
+@pytest.mark.parametrize(
+    "point_ids, shape_values",
+    (
+        (
+            (0, 1, 2),
+            ((1 / 3, 1 / 3, 1 / 3),) * 3,
+        ),
+        (
+            (0, 1, 3),
+            ((2 / 3, 1 / 6, 1 / 6),
+             (1 / 6, 2 / 3, 1 / 6),
+             (1 / 6, 1 / 6, 2 / 3)),
+        ),
+    ),
+)
+def test_convex_partition_rejects_nondefault_three_point_trace(point_ids, shape_values):
+    trace = boundary_models.ContactTrace(
+        point_ids=point_ids,
+        node_ids=((0, 1, 2),) * 3,
+        shape_values=shape_values,
+        weights=(1 / 6, 1 / 6, 1 / 6),
+    )
+    positions = np.asarray(((0, 0, 0), (1, 0, 0), (0, 1, 0)), dtype=float)
+    with pytest.raises(NotImplementedError, match="default three-point P1"):
+        partition_convex_p1_trace(trace, positions, _box(), penalty=7)
+
+
+def test_convex_partition_accepts_reordered_default_rule():
+    trace = boundary_models.ContactTrace(
+        point_ids=(3, 4, 5),
+        node_ids=((0, 1, 2),) * 3,
+        shape_values=((1 / 6, 1 / 6, 2 / 3),
+                      (2 / 3, 1 / 6, 1 / 6),
+                      (1 / 6, 2 / 3, 1 / 6)),
+        weights=(1 / 6, 1 / 6, 1 / 6),
+    )
+    positions = np.asarray(((0, 0, 0), (1, 0, 0), (0, 1, 0)), dtype=float)
+    selected = partition_convex_p1_trace(trace, positions, _box(), penalty=7)
+    assert selected.trace.point_count >= 3
+
+
 def _evaluate(surface, positions, *, penalty=7.0, motion=None, factor=0.0):
     selected = partition_convex_p1_trace(
         _trace(), positions, surface, penalty=penalty,
