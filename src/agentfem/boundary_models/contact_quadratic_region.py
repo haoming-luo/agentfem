@@ -36,13 +36,22 @@ class QuadraticReferenceLevelSet:
 def _real_roots(a: float, b: float, c: float) -> tuple[float, ...]:
     """Stable real roots of a degree-at-most-two polynomial."""
 
-    scale = max(abs(a), abs(b), abs(c), np.finfo(float).tiny)
-    tol = 64.0 * np.finfo(float).eps * scale
+    scale = max(abs(a), abs(b), abs(c))
+    if scale == 0.0:
+        return ()
+    a, b, c = a / scale, b / scale, c / scale
+    tol = 64.0 * np.finfo(float).eps
     if abs(a) <= tol:
         return () if abs(b) <= tol else (-c / b,)
     discriminant = b * b - 4.0 * a * c
     discriminant_tol = (
-        128.0 * np.finfo(float).eps * max(b * b, abs(4.0 * a * c), np.finfo(float).tiny)
+        128.0
+        * np.finfo(float).eps
+        * max(
+            b * b,
+            abs(4.0 * a * c),
+            np.finfo(float).tiny,
+        )
     )
     if discriminant < -discriminant_tol:
         return ()
@@ -71,8 +80,7 @@ def _unique_unit_interval(values) -> tuple[float, ...]:
 def _outer_quadrature(level_set: QuadraticReferenceLevelSet, order: int):
     """Integrate s between conic tangencies and triangle-edge crossings."""
 
-    a, b0, b1 = level_set.a, level_set.b0, level_set.b1
-    c0, c1, c2 = level_set.c0, level_set.c1, level_set.c2
+    a, b0, b1, c0, c1, c2 = _scaled_coefficients(level_set)[0]
     discriminant = (
         b1 * b1 - 4.0 * a * c2,
         2.0 * b0 * b1 - 4.0 * a * c1,
@@ -108,6 +116,23 @@ def _outer_quadrature(level_set: QuadraticReferenceLevelSet, order: int):
             yield first + width * mapped, 0.5 * width * outer_weight * jacobian
 
 
+def _scaled_coefficients(
+    level_set: QuadraticReferenceLevelSet,
+) -> tuple[tuple[float, ...], float]:
+    """Preserve root and sign geometry while avoiding coefficient overflow."""
+
+    coefficients = (
+        level_set.a,
+        level_set.b0,
+        level_set.b1,
+        level_set.c0,
+        level_set.c1,
+        level_set.c2,
+    )
+    scale = max(abs(value) for value in coefficients)
+    return tuple(value / scale for value in coefficients), scale
+
+
 def quadratic_region_triangle_quadrature(
     level_set: QuadraticReferenceLevelSet,
     *,
@@ -128,8 +153,7 @@ def quadratic_region_triangle_quadrature(
         raise TypeError("Quadratic region side must be a boolean.")
     if type(order) is not int or not 2 <= order <= 64:
         raise ValueError("Quadratic region Gauss order must be an integer in [2, 64].")
-    a, b0, b1 = level_set.a, level_set.b0, level_set.b1
-    c0, c1, c2 = level_set.c0, level_set.c1, level_set.c2
+    a, b0, b1, c0, c1, c2 = _scaled_coefficients(level_set)[0]
     nodes, gauss_weights = np.polynomial.legendre.leggauss(order)
     active_shapes = []
     active_weights = []
@@ -177,21 +201,100 @@ def quadratic_level_set_boundary_quadrature(
 ) -> tuple[np.ndarray, np.ndarray]:
     """Positive coarea rule for ``∫_triangle f(s,t) δ(q(s,t)) ds dt``.
 
-    The regular branch must be representable as one or more graphs ``t(s)``.
-    A vertical component or unresolved ``dq/dt`` is refused. These weights
-    are *not* physical arc lengths: multiplying by an integrand derivative
-    gives the moving-region term for a separately specified piecewise law.
-    No feature-specific contact tangent is inferred by this primitive.
+    The regular branch must be representable as graphs in at least one of
+    the two reference-coordinate orientations. A singular component in both
+    orientations is refused. These weights are *not* physical arc lengths:
+    multiplying by an integrand derivative gives the moving-region term for
+    a separately specified piecewise law. No feature-specific contact
+    tangent is inferred by this primitive.
     """
 
     if not isinstance(level_set, QuadraticReferenceLevelSet):
         raise TypeError("Expected a QuadraticReferenceLevelSet.")
     if type(order) is not int or not 2 <= order <= 64:
         raise ValueError("Quadratic boundary Gauss order must be in [2, 64].")
-    a, b0, b1 = level_set.a, level_set.b0, level_set.b1
-    c0, c1, c2 = level_set.c0, level_set.c1, level_set.c2
-    coefficient_scale = max(abs(value) for value in (a, b0, b1, c0, c1, c2))
-    derivative_floor = 128.0 * np.finfo(float).eps * coefficient_scale
+    _reject_singular_boundary(level_set)
+    lower, upper = _bernstein_bounds(level_set)
+    if lower > 128.0 * np.finfo(float).eps or upper < -128.0 * np.finfo(float).eps:
+        return np.empty((0, 3)), np.empty(0)
+    try:
+        return _quadratic_boundary_graph_rule(level_set, order)
+    except NotImplementedError as first_error:
+        # The reference triangle is invariant under s <-> t. A vertical
+        # component in one orientation can therefore be integrated as an
+        # ordinary graph in the other without changing its area measure.
+        a, b0, b1 = level_set.a, level_set.b0, level_set.b1
+        c0, c1, c2 = level_set.c0, level_set.c1, level_set.c2
+        transposed = QuadraticReferenceLevelSet(c2, c1, b1, c0, b0, a)
+        try:
+            shapes, weights = _quadratic_boundary_graph_rule(transposed, order)
+        except NotImplementedError:
+            raise first_error from None
+        return shapes[:, [0, 2, 1]], weights
+
+
+def _bernstein_bounds(level_set: QuadraticReferenceLevelSet) -> tuple[float, float]:
+    """Conservative degree-two bounds on the entire reference triangle."""
+
+    a, b0, b1, c0, c1, c2 = _scaled_coefficients(level_set)[0]
+
+    def value(s, t):
+        return (a * t + b0 + b1 * s) * t + c0 + c1 * s + c2 * s * s
+
+    corners = (value(0.0, 0.0), value(1.0, 0.0), value(0.0, 1.0))
+    mids = (value(0.5, 0.0), value(0.5, 0.5), value(0.0, 0.5))
+    coefficients = (
+        *corners,
+        2.0 * mids[0] - 0.5 * (corners[0] + corners[1]),
+        2.0 * mids[1] - 0.5 * (corners[1] + corners[2]),
+        2.0 * mids[2] - 0.5 * (corners[2] + corners[0]),
+    )
+    return min(coefficients), max(coefficients)
+
+
+def _reject_singular_boundary(level_set: QuadraticReferenceLevelSet) -> None:
+    """Refuse zero sets whose coarea measure is not a regular interior curve."""
+
+    a, b0, b1, c0, c1, c2 = _scaled_coefficients(level_set)[0]
+    tolerance = 128.0 * np.finfo(float).eps
+    edge_polynomials = (
+        (c0, c1, c2),
+        (c0, b0, a),
+        (a + b0 + c0, -2.0 * a + b1 - b0 + c1, a - b1 + c2),
+    )
+    if any(
+        max(abs(value) for value in coefficients) <= tolerance
+        for coefficients in edge_polynomials
+    ):
+        raise NotImplementedError(
+            "Quadratic equality boundary coincides with a triangle edge."
+        )
+    hessian = np.asarray(((2.0 * c2, b1), (b1, 2.0 * a)))
+    linear = np.asarray((c1, b0))
+    critical, *_ = np.linalg.lstsq(hessian, -linear, rcond=None)
+    if (
+        np.all(np.isfinite(critical))
+        and np.linalg.norm(hessian @ critical + linear) <= tolerance
+        and -tolerance <= critical[0] <= 1.0 + tolerance
+        and -tolerance <= critical[1] <= 1.0 + tolerance
+        and critical.sum() <= 1.0 + tolerance
+    ):
+        s, t = critical
+        value = (a * t + b0 + b1 * s) * t + c0 + c1 * s + c2 * s * s
+        if abs(value) <= tolerance:
+            raise NotImplementedError(
+                "Quadratic equality boundary has a singular point on the triangle."
+            )
+
+
+def _quadratic_boundary_graph_rule(
+    level_set: QuadraticReferenceLevelSet,
+    order: int,
+) -> tuple[np.ndarray, np.ndarray]:
+    """Integrate regular equality branches represented as ``t(s)`` graphs."""
+
+    (a, b0, b1, c0, c1, c2), coefficient_scale = _scaled_coefficients(level_set)
+    derivative_floor = 128.0 * np.finfo(float).eps
     if abs(a) <= derivative_floor:
         if abs(b0) <= derivative_floor and abs(b1) <= derivative_floor:
             raise NotImplementedError(
@@ -220,7 +323,7 @@ def quadratic_level_set_boundary_quadrature(
                     "Quadratic boundary has an unresolved reference tangent."
                 )
             shapes.append((1.0 - s - t, s, t))
-            weights.append(outer_weight / abs(derivative))
+            weights.append((outer_weight / abs(derivative)) / coefficient_scale)
     if not shapes:
         return np.empty((0, 3)), np.empty(0)
     selected_shapes = np.asarray(shapes, dtype=float)

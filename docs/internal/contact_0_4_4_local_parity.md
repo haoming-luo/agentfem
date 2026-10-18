@@ -28,7 +28,7 @@ being silently approximated by the bounded route.
 | --- | --- | --- |
 | 1. Comparator | Internal and public-protocol tests | Independent same-input finite-J2 contact run and frozen observables |
 | 2. Surface | Reviewed closed/open triangle geometry, bounded initial-overlap checks, and per-face same-plane proof with one bounded fallback subdivision | Rims, unsupported curved tools, ambiguous sharp features and target-path sliding coverage |
-| 3. Integration | Planar/convex partitions; sampled nonconvex risk flag; certified zero-contact faces and certified per-face smooth-branch active subset of a closed concave tool | General active nonconvex feature-switch integral/tangent; separate admission or rejection of lower-dimensional edge/point contact |
+| 3. Integration | Planar/convex partitions; certified zero-contact and smooth-branch faces; private wholly-interior reentrant edge/face local integral and tangent | Near-zero partial-active nonconvex partition; global signed-gap Step admission; other edge/point laws |
 | 4. Normal law | Penalty Step; fixed-trace AL research law plus real-mesh/reduced-rank counterexamples | Compatible multiplier space, outer global Procedure, spatial stability and checkpoint composition |
 | 5. Friction | Locally planar Coulomb State; rigid-master spin transport tested | Admitted geometry-by-friction matrix; sharp features remain rejected |
 | 6. Transaction | Total-system and restart tests for penalty; serial affine/MPC accepted-feature path with legacy-incomplete migration | Repeat for each new enforcement/integration law |
@@ -212,10 +212,90 @@ in-plane nodal displacement. This validates the region integration building
 block only. A separate positive coarea rule on the quadratic equality
 boundary reproduces the oracle's **moving-boundary tangent** at those two
 states; its circular special case also matches the exact derivative of disk
-area. The physical feature-specific residual jump and branch admissibility
+area. A vertical reference-coordinate boundary is handled by transposing the
+triangle coordinates, with an independent moving-area derivative test; a
+component singular in both orientations is still refused. The physical
+feature-specific residual jump and branch admissibility
 are still supplied by the oracle. The *total* tangent needs this term in
 addition to the two bulk tangents; no general sharp-feature Step is admitted
 by these geometric primitives.
+This division follows a useful but limited literature lesson: [Farah--Popp--
+Wall's segment/element mortar comparison][mortar-integration] treats contact
+zone boundaries and integration cost together, rather than assuming that more
+fixed Gauss points always resolve a moving interface. It does not validate
+our non-mortar P1 penalty rule. More importantly, [Konyukhov--Schweizerhof's
+closest-point analysis][closest-point-domain] shows why a general nonsmooth
+surface needs explicit edge/corner projection domains and uniqueness checks.
+Our conic integral handles a *given* feature division, not the proof that the
+two supplied physical branches exhaust a real tool's nearest features.
+A private, solver-neutral `contact_feature_pair_research` operator now
+combines that division with the complete bulk-plus-moving-boundary tangent
+for the squared distance to the union of two **infinite affine** features.
+At zero and perturbed nodal displacement it matches the independent
+parabolic edge/vertex oracle; all six nodal potential derivatives and force
+derivatives agree with re-partitioned finite differences, and a three-
+dimensional rigid-frame test checks covariance. The distinct-feature
+separator has no artificial boundary force, and an exact tie is rejected.
+All six triangle-connectivity permutations preserve the reordered residual
+and tangent. The integral's translational resultant and moment about the
+origin are checked against finite differences of a rigidly translated and
+rotated pair of features, giving a local virtual-work identity; this is not
+yet an accepted *path-work* ledger for a moving tool.
+This is deliberately *not* a unilateral contact law: finite edge/face
+projection domains, closest-feature exhaustiveness, inside/outside sign,
+initial overlap, physical pressure/work and accepted-state lifecycle are not
+conferred by an accurate squared-distance integral. Those are the next
+admission tests before any sharp-feature Step can use this operator.
+One of those checks now has a private, deliberately bounded implementation:
+`contact_feature_pair_geometry_research` takes a finite triangle union and
+certifies that each of two selected triangles keeps the *same* face, edge or
+vertex closest-point branch over the whole current P1 slave face. Its
+strict KKT inequalities are affine on that face, so checking all three
+vertices proves the branch region; distance to each fixed affine feature is
+convex, so its largest vertex distance bounds the selected pair from above.
+Every other finite master triangle is excluded over the whole slave face by
+its 1-Lipschitz center/radius lower bound, or the proof refuses. A separate
+brute-force nearest-triangle sample grid corroborates an edge/vertex fixture;
+an intervening third facet, a changing selected branch, degenerate face and
+unresolvable world-coordinate precision are rejected. This certifies the
+*unsigned distance to a finite triangle union* in a tiny selected-facet
+subset, not the sign of a closed tool or the contact traction. A reviewed
+surface can have many competing features; forcing its geometry into two
+selected facets would be unsound. This is a bounded floating-point margin
+check, not an interval-arithmetic or exact-CAD topology certificate.
+For a separately attested closed, outward-oriented tool, a winding-classified
+interior point and a boundary-distance ball now also certify that the *whole*
+slave face is inside at the current configuration. Composed with the two-
+feature certificate, the private local Operator has an actual frictionless
+reference-area penalty interpretation: on a wholly penetrated face,
+`g=-distance` and `k*g*dg/dx` is the derivative of `k*distance²/2`.
+A four-facet closed tetrahedron test exercises this face/face switching law
+against an independent exact linear-clip integral of `min(x,y)²`, while a
+face reaching the boundary refuses the interior-ball proof. This is a
+**narrow local physical subset**, not a normal project Step, not a partial
+active contact patch, and not a finite-slip/restart/tool-work validation.
+The conservative competitor check now also handles an additional facet
+whose fixed finite feature is exactly the same shared edge, or whose entire
+fixed-feature squared-distance difference has a positive quadratic
+Bernstein bound. A reviewed **concave L-prism** thereby admits one small,
+wholly interior slave face where its bottom face and true reentrant vertical
+edge exchange closest-feature ownership. Independent closest-point queries
+match the two-feature distance over a deterministic reference grid; all nine
+nodal potential derivatives and 81 tangent entries match re-certified,
+re-partitioned finite differences, including the nonzero moving-boundary
+term. The tool is attested embedded, with reference winding sign. This is
+local evidence for one nonconvex reentrant transition in a deliberately
+deep-penetration subset. The practical near-zero/partial-active patch, other
+sharp feature combinations, global finite-J2/MPC Procedure and accepted
+State/Result/work contract remain open; no public nonconvex Step is enabled.
+A deliberately nearby counterexample crosses the L-prism bottom boundary:
+the contact face is only partly active, and the finite vertical reentrant
+edge changes to its bottom **vertex** in the exterior portion. The current
+whole-face two-feature proof and inside-ball proof both refuse it. Clipping
+only by the active halfspace while continuing to treat that finite edge as
+infinite would be wrong. The next algorithm must partition the active region
+and the finite-feature Voronoi regions together, then retain the correct
+moving-boundary tangent; mere higher-order Gauss points do not supply this.
 The same sphere fixture runs to completion on 1, 2 and 4 subdivisions per
 cube edge (6, 48 and 384 tetrahedra). The maximum displacement is
 `1.75747e-5`, `2.49116e-5`, `4.06294e-5`; the final contact potential is
@@ -1137,6 +1217,7 @@ identified multiplier-transfer rule has its own tests.
 [variational-mortar]: https://doi.org/10.1016/j.cma.2018.07.020
 [point-line-surface]: https://doi.org/10.1002/nme.5743
 [mortar-integration]: https://doi.org/10.1007/s00466-014-1093-2
+[closest-point-domain]: https://publikationen.bibliothek.kit.edu/1000009437
 [mortar-segmentation]: https://mediatum.ub.tum.de/doc/1109994/1109994.pdf
 [laursen-corner]: https://doi.org/10.1002/cnm.1640101103
 [conic-integral]: https://arxiv.org/abs/1005.0990

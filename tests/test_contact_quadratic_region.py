@@ -123,12 +123,80 @@ def test_parabolic_moving_boundary_term_matches_independent_oracle(perturbed):
     np.testing.assert_allclose(moving, expected, rtol=2e-8, atol=2e-9)
 
 
-def test_coarea_rule_refuses_vertical_feature_component():
-    with pytest.raises(NotImplementedError, match="vertical"):
+def test_coarea_rule_transposes_a_vertical_reference_feature():
+    # q=s-1/4 has a vertical segment of reference length 3/4.
+    shapes, weights = quadratic_level_set_boundary_quadrature(
+        QuadraticReferenceLevelSet(0.0, 0.0, 0.0, -0.25, 1.0, 0.0),
+        order=12,
+    )
+    assert weights.sum() == pytest.approx(0.75, rel=1e-13)
+    np.testing.assert_allclose(shapes[:, 1], 0.25, rtol=0.0, atol=1e-13)
+    assert np.all(shapes[:, 2] >= 0.0)
+
+
+def test_coarea_rule_refuses_a_two_orientation_singular_component():
+    # q=s*(t-1/2) has a vertical component as well as an interior line;
+    # silently retaining just one component would yield a false tangent.
+    with pytest.raises(NotImplementedError, match="triangle edge"):
         quadratic_level_set_boundary_quadrature(
-            QuadraticReferenceLevelSet(0.0, 0.0, 0.0, -0.5, 1.0, 0.0),
+            QuadraticReferenceLevelSet(0.0, 0.0, 1.0, 0.0, -0.5, 0.0),
             order=12,
         )
+
+
+def test_coarea_rule_refuses_an_isolated_singular_point():
+    # (s-0.4)^2+(t-0.3)^2=0 has no regular curve. Returning an empty
+    # quadrature would silently omit a distributional contribution.
+    with pytest.raises(NotImplementedError, match="singular point"):
+        quadratic_level_set_boundary_quadrature(
+            QuadraticReferenceLevelSet(1.0, -0.6, 0.0, 0.25, -0.8, 1.0),
+            order=12,
+        )
+
+
+def test_coarea_rule_certifies_a_uniformly_absent_boundary():
+    shapes, weights = quadratic_level_set_boundary_quadrature(
+        QuadraticReferenceLevelSet(0.0, 0.0, 0.0, 1.0, 0.0, 0.0),
+        order=12,
+    )
+    assert shapes.shape == (0, 3)
+    assert weights.shape == (0,)
+
+
+@pytest.mark.parametrize("factor", [1e-300, 1e-6, 1.0, 1e6, 1e300])
+def test_coarea_weights_follow_level_set_scaling(factor):
+    shapes, weights = quadratic_level_set_boundary_quadrature(
+        QuadraticReferenceLevelSet(0.0, 0.0, 0.0, -0.25 * factor, factor, 0.0),
+        order=12,
+    )
+    assert weights.sum() == pytest.approx(0.75 / factor, rel=1e-12, abs=0.0)
+    np.testing.assert_allclose(shapes[:, 1], 0.25, rtol=0.0, atol=1e-13)
+    _, area_weights = quadratic_region_triangle_quadrature(
+        QuadraticReferenceLevelSet(0.0, 0.0, 0.0, -0.25 * factor, factor, 0.0),
+        negative=True,
+        order=12,
+    )
+    assert area_weights.sum() == pytest.approx(0.21875, rel=1e-12, abs=0.0)
+
+
+def test_vertical_moving_boundary_matches_repartitioned_area_derivative():
+    def area(threshold):
+        _, weights = quadratic_region_triangle_quadrature(
+            QuadraticReferenceLevelSet(0.0, 0.0, 0.0, -threshold, 1.0, 0.0),
+            negative=True,
+            order=12,
+        )
+        return weights.sum()
+
+    threshold = 0.25
+    step = 1e-5
+    numerical = (area(threshold + step) - area(threshold - step)) / (2 * step)
+    _, boundary_weights = quadratic_level_set_boundary_quadrature(
+        QuadraticReferenceLevelSet(0.0, 0.0, 0.0, -threshold, 1.0, 0.0),
+        order=12,
+    )
+    assert numerical == pytest.approx(boundary_weights.sum(), rel=1e-11)
+    assert numerical == pytest.approx(1.0 - threshold, rel=1e-11)
 
 
 def test_circular_level_set_coarea_matches_analytical_disk_derivative():
