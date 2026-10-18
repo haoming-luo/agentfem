@@ -153,9 +153,10 @@ nearest features. If any are observed without a certified feature-transition
 integral, `result.verify("engineering")` and `result.verify("release")` fail
 the corresponding runtime claim. `"exploratory"` still permits inspection;
 zero observed mixed faces is not proof that the full contact boundary was
-integrated accurately. Release verification therefore also requires a
-certified feature integral for every *active* polyhedral pair, even when the
-sampled mixed-face count is zero. A passed runtime check still needs an
+integrated accurately. Release verification therefore requires a certified
+feature integral for every polyhedral pair, even when sampled mixed-face and
+active-point counts are both zero: no sampled contact does not prove whole-face
+separation. A passed runtime check still needs an
 independent scientific reference before the result can be called verified.
 The rule is part of the checkpoint identity and
 is rejected for legacy plane contact and affine-periodic J2; no

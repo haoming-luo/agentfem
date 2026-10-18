@@ -451,9 +451,9 @@ def test_quality_report_refuses_malformed_multi_pair_feature_evidence():
 
 @pytest.mark.parametrize(
     "active,certified,expected_status",
-    [(3, False, "failed"), (3, True, "passed"), (0, False, "passed")],
+    [(3, False, "failed"), (3, True, "passed"), (0, False, "failed")],
 )
-def test_release_refuses_uncertified_active_polyhedral_contact_even_without_sampled_switch(
+def test_release_refuses_uncertified_polyhedral_contact_even_without_sampled_activity(
     active, certified, expected_status,
 ):
     result = results.SimulationResult(
@@ -479,7 +479,7 @@ def test_release_refuses_uncertified_active_polyhedral_contact_even_without_samp
     report = result.verify("release", claims=(reference,))
     claim = next(
         item for item in report.claims
-        if item.name == "active_polyhedral_contact_integral_certified"
+        if item.name == "polyhedral_contact_integral_certified"
     )
     assert claim.status == expected_status
     assert report.acceptable is (expected_status == "passed")

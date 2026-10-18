@@ -127,6 +127,11 @@ The gate stays open until its listed evidence exists at the proposed scope.
    derivative when a manufactured feature line moves across a P1 face, then
    pass the total Newton/MPC tangent check. A fixed quadrature rule, a frozen
    feature partition or a smaller Newton residual alone is insufficient.
+   `tools/verify_contact_feature_transition.py` is already an independent
+   two-plane unit-triangle counterexample: its moving-line term exactly
+   cancels a nonzero fixed-branch bulk tangent. It proves why the term is
+   necessary in that manufactured setting, not that the closed nonconvex
+   three-dimensional implementation has been supplied.
    [Hiermeier--Wall--Popp's variationally consistent mortar study][variational-mortar]
    is a useful independent standard for varying *all* active contributions,
    but its symmetric two-body mortar formulation is not our algorithm.
@@ -203,8 +208,10 @@ The gate stays open until its listed evidence exists at the proposed scope.
    the reviewed changing-trial support-plane partition supplied its bounded
    feature integral. The default Gauss rule explicitly reports that no such
    certificate exists, even when no mixed-feature face happened to be sampled.
-   Release-level verification now requires this certificate for every active
-   polyhedral pair; zero *observed* mixed-feature faces no longer suffices.
+   Release-level verification now requires this certificate for every
+   polyhedral pair; zero *observed* mixed-feature faces or active points no
+   longer suffices. A future whole-face separation certificate may justify
+   a separate no-contact release path, but point samples cannot.
    Engineering-level verification continues to report the narrower sampled
    diagnostic. This release guard does not itself supply a scientific reference
    or make the nonconvex operator accurate.

@@ -691,20 +691,19 @@ def _runtime_checks(
         if require_contact_feature_certification:
             records = feature_evidence["records"]
             certified = not feature_evidence["issues"] and all(
-                item["active_point_count"] == 0
-                or item["feature_transition_integral_certified"]
+                item["feature_transition_integral_certified"]
                 for item in records
             )
             claims.append(
                 _runtime_claim(
-                    "active_polyhedral_contact_integral_certified",
+                    "polyhedral_contact_integral_certified",
                     certified,
                     observable="accepted polyhedral contact integration diagnostics",
                     actual=feature_evidence,
-                    expected="every active pair has certified feature integration",
+                    expected="every polyhedral pair has certified feature integration",
                     criterion=(
-                        "a zero sampled-switch count alone cannot certify the "
-                        "integral over an active slave face"
+                        "zero sampled-switch or active-point counts cannot certify "
+                        "the integral or whole-face separation"
                     ),
                 )
             )
