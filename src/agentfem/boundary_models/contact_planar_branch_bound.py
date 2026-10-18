@@ -5,10 +5,10 @@
 
 This conservative geometric precondition is intentionally stronger than
 sampling a few nearest facets. If each affine slave triangle projects wholly
-inside one master triangle and no noncoplanar master facet can become closer,
-its signed gap is one affine plane function everywhere. Distinct slave faces
-may have distinct certified planes. The fixed-reference planar active-set
-clipper may then integrate each branch exactly. A failed
+inside the union of a coplanar master patch and no noncoplanar master facet
+can become closer, its signed gap is one affine plane function everywhere.
+Distinct slave faces may have distinct certified planes. The fixed-reference
+planar active-set clipper may then integrate each branch exactly. A failed
 certificate says nothing about physical admissibility and cannot be treated
 as an inactive contact law.
 """
@@ -24,6 +24,77 @@ from .rigid import (
     PrescribedRigidMotion, _closest_point_on_triangle,
     _triangle_barycentric_coordinates,
 )
+
+
+def _clip_polygon_halfspace(polygon, values, *, keep_positive):
+    """Clip one convex polygon by an affine barycentric halfspace."""
+
+    if len(polygon) == 0:
+        return np.empty((0, 3))
+    signed = values if keep_positive else -values
+    retained = []
+    for index in range(len(polygon)):
+        start = polygon[index - 1]
+        end = polygon[index]
+        a = float(signed[index - 1])
+        b = float(signed[index])
+        if (a >= 0.0) != (b >= 0.0):
+            retained.append(start + a / (a - b) * (end - start))
+        if b >= 0.0:
+            retained.append(end)
+    return np.asarray(retained, dtype=float).reshape(-1, 3)
+
+
+def _planar_polygon_area(polygon, normal):
+    if len(polygon) < 3:
+        return 0.0
+    vectors = polygon[1:] - polygon[0]
+    return 0.5 * abs(float(np.sum(
+        np.cross(vectors[:-1], vectors[1:]) @ normal,
+    )))
+
+
+def _coplanar_patch_covers_face(
+    feet, master, coplanar_slots, normal, *, maximum_pieces=256,
+):
+    """Subtract a union of coplanar master triangles from one slave triangle.
+
+    The uncovered polygons form a disjoint decomposition even if master
+    triangles overlap. Zero-area shared seams do not create uncovered contact
+    area. Any positive-area remainder or exhausted piece budget fails closed.
+    """
+
+    face_area = _planar_polygon_area(feet, normal)
+    if face_area <= 0.0:
+        return False
+    area_margin = 128.0 * np.finfo(float).eps * face_area
+    uncovered = [feet]
+    for slot in coplanar_slots:
+        triangle = master[int(slot)]
+        next_uncovered = []
+        for polygon in uncovered:
+            inside_remainder = polygon
+            for corner in range(3):
+                barycentric = np.asarray([
+                    _triangle_barycentric_coordinates(point, triangle)[corner]
+                    for point in inside_remainder
+                ])
+                outside = _clip_polygon_halfspace(
+                    inside_remainder, barycentric, keep_positive=False,
+                )
+                if _planar_polygon_area(outside, normal) > area_margin:
+                    next_uncovered.append(outside)
+                inside_remainder = _clip_polygon_halfspace(
+                    inside_remainder, barycentric, keep_positive=True,
+                )
+                if len(inside_remainder) < 3:
+                    break
+            if len(next_uncovered) > maximum_pieces:
+                return False
+        uncovered = next_uncovered
+        if not uncovered:
+            return True
+    return not uncovered
 
 
 @dataclass(frozen=True, eq=False)
@@ -49,13 +120,12 @@ def certify_closed_planar_branch(
     """Certify an exact affine gap branch on each complete current P1 face.
 
     For center ``c`` and enclosing radius ``r``, both distances to the
-    candidate master triangle and to any competing triangle are 1-Lipschitz.
+    candidate master plane and to any competing triangle are 1-Lipschitz.
     Thus ``d_other(c)-d_candidate(c)>2r`` excludes that competitor everywhere
-    on the slave face. The orthogonal projection of all three slave vertices
-    must also lie *strictly* inside the candidate triangle. Barycentric
-    affinity then keeps every interior projection there. Coplanar,
-    identically oriented master triangles share the same signed-gap function
-    and are not competitors. Numerical margins only make admission stricter.
+    on the slave face. A fast barycentric check handles one containing master
+    triangle; otherwise a bounded polygon subtraction proves that the
+    projected slave triangle is covered by the coplanar master-triangle union.
+    Coplanar, identically oriented facets share the same signed-gap function.
     """
 
     if not isinstance(surface, ClosedTriangulatedRigidSolid):
@@ -112,7 +182,7 @@ def certify_closed_planar_branch(
         float(np.max(np.abs(master))),
     )
     length_margin = 128.0 * np.finfo(float).eps * scale
-    angular_margin = 1.0e-10
+    angular_margin = 128.0 * np.finfo(float).eps
     barycentric_margin = 1.0e-10
     normals = surface.facets._facet_normals
     offsets = np.einsum("ij,ij->i", normals, master[:, 0, :])
@@ -134,14 +204,28 @@ def certify_closed_planar_branch(
         plane_gap = float(np.dot(normal, center) - offset)
         if abs(plane_gap - gap) > length_margin:
             return failed("inconsistent_signed_gap", examined)
-        # A whole P1 slave triangle projects into this *one* master triangle.
-        # This deliberately rejects coplanar triangulation-seam crossings.
+        # A slave triangle may cross a triangulation seam, but only if the
+        # union of coplanar master facets covers its *whole* projection.
         feet = cell - (cell @ normal - offset)[:, None] * normal
-        if any(
+        single_triangle = all(
             np.min(_triangle_barycentric_coordinates(foot, selected_triangle))
-            <= barycentric_margin for foot in feet
-        ):
-            return failed("projection_can_leave_master_triangle", examined)
+            > barycentric_margin for foot in feet
+        )
+        if not single_triangle:
+            coplanar = (
+                (np.linalg.norm(normals - normal, axis=1) <= angular_margin)
+                & (np.abs(offsets - offset) <= length_margin)
+            )
+            foot_lower = np.min(feet, axis=0) - length_margin
+            foot_upper = np.max(feet, axis=0) + length_margin
+            nearby = coplanar & np.all(
+                (master_upper >= foot_lower) & (master_lower <= foot_upper),
+                axis=1,
+            )
+            if not _coplanar_patch_covers_face(
+                feet, master, np.flatnonzero(nearby), normal,
+            ):
+                return failed("projection_can_leave_master_patch", examined)
         candidate_distance = abs(plane_gap)
         competing = (
             (np.linalg.norm(normals - normal, axis=1) > angular_margin)

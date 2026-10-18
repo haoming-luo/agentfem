@@ -28,7 +28,7 @@ being silently approximated by the bounded route.
 | --- | --- | --- |
 | 1. Comparator | Internal and public-protocol tests | Independent same-input finite-J2 contact run and frozen observables |
 | 2. Surface | Reviewed geometry; exact plane and conservative closed-solid initial-overlap bounds on admitted first-order traces | Open facets, unsupported curved tools, ambiguity and sliding coverage at target geometry |
-| 3. Integration | Planar/convex partitions; sampled nonconvex risk flag; certified zero-contact faces and certified single-smooth-plane active subset of a closed concave tool | General active nonconvex feature-switch integral/tangent; separate admission or rejection of lower-dimensional edge/point contact |
+| 3. Integration | Planar/convex partitions; sampled nonconvex risk flag; certified zero-contact faces and certified per-face smooth-branch active subset of a closed concave tool | General active nonconvex feature-switch integral/tangent; separate admission or rejection of lower-dimensional edge/point contact |
 | 4. Normal law | Penalty Step; fixed-trace AL operator candidate | Outer global Procedure, spatial stability and checkpoint composition |
 | 5. Friction | Locally planar Coulomb State; rigid-master spin transport tested | Admitted geometry-by-friction matrix; sharp features remain rejected |
 | 6. Transaction | Total-system and restart tests for penalty; serial affine/MPC accepted-feature path with legacy-incomplete migration | Repeat for each new enforcement/integration law |
@@ -57,14 +57,29 @@ contact, friction, or lower-dimensional edge/point laws. Its reference
 geometric cost also is not a large-CAD performance guarantee.
 There is now a separate, deliberately stricter **active** subset: for a
 reviewed closed tool, each current affine slave triangle must project
-strictly inside a single master triangle; its nearest-plane distance must
+inside a completely covered coplanar master patch; its nearest-plane distance must
 beat every noncoplanar master facet by more than twice the slave-face radius
-(plus numerical margin). Every slave face must select the same oriented
-master plane. The difference of two distance-to-set functions is
+(plus numerical margin). The difference of two distance-to-set functions is
 2-Lipschitz, so this inequality certifies the closest feature over the
 *whole* face, not just at Gauss points. Distinct slave faces may select
 distinct certified master planes, but one face cannot cross a sharp feature.
-The current Newton trial may then reuse the already proved analytical-plane active partition, with the closed
+The patch check subtracts the union of coplanar master triangles from the
+projected slave polygon with a bounded halfspace clipper; an overlapping
+master-patch area sum is not accepted as coverage. It admits a flat
+triangulation seam but rejects a positive-area gap or proof-budget exhaustion.
+This is a bounded floating-point coverage certificate, not an exact-arithmetic
+CAD topology proof. It follows the classic reentrant polygon-clipping idea
+of [Sutherland--Hodgman][polygon-clipping], adapted to subtract a triangle
+union rather than to integrate a second contact surface.
+The closed-solid projector now takes the reviewed facet normal directly on a
+smooth face, including a coplanar seam. Dividing a nearly zero
+point-to-foot vector by the gap previously amplified tangential roundoff and
+made strict projection/plane comparisons fail near closure. The geometric
+edge/vertex branch and the signed-gap classifier are unchanged. A near-gap
+two-sided normal regression and a serial finite-J2 seam-crossing Step are
+required evidence for this numerical correction.
+The current Newton trial may then reuse the already proved analytical-plane
+active partition, with the closed
 solid's own signed-gap projection checked against each plane. Geometry proof is
 repeated on each trial and rigid pose. A real serial finite-J2 solve has
 matched the corresponding analytical plane in displacement, PEEQ and tool
@@ -227,7 +242,6 @@ The gate stays open until its listed evidence exists at the proposed scope.
    residual then has a moving-line contribution. This is a derivation for our
    piecewise-smooth penalty law, not a formula imported from another element.
    The candidate must reproduce both the integral and its directional
-   derivative when a manufactured feature line moves across a P1 face, then
    pass the total Newton/MPC tangent check. A fixed quadrature rule, a frozen
    feature partition or a smaller Newton residual alone is insufficient.
    `tools/verify_contact_feature_transition.py` is already an independent
@@ -737,6 +751,7 @@ identified multiplier-transfer rule has its own tests.
 [variational-mortar]: https://doi.org/10.1016/j.cma.2018.07.020
 [point-line-surface]: https://doi.org/10.1002/nme.5743
 [mortar-integration]: https://doi.org/10.1007/s00466-014-1093-2
+[polygon-clipping]: https://doi.org/10.1145/360767.360802
 [oriented-volume]: https://doi.org/10.1016/j.cma.2007.06.002
 [distance-field]: https://doi.org/10.1016/j.cma.2013.02.015
 [abaqus-rigid-smoothing]: https://docs.software.vt.edu/abaqusv2025/English/SIMACAEMODRefMap/simamod-c-rigidsurf.htm

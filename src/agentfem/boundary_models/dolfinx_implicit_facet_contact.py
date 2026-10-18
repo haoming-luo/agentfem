@@ -662,17 +662,23 @@ class DolfinxImplicitRigidContact:
             scale = max(1.0, float(np.max(
                 np.abs(evaluation.query_points), initial=0.0,
             )))
-            if (
-                np.any(np.abs(projection.signed_gaps - expected_gaps)
-                       > 128 * np.finfo(float).eps * scale)
-                or np.any(np.linalg.norm(
-                    projection.normals - point_normals,
-                    axis=1,
-                ) > 1e-10)
-            ):
+            gap_errors = np.abs(projection.signed_gaps - expected_gaps)
+            normal_errors = np.linalg.norm(
+                projection.normals - point_normals, axis=1,
+            )
+            mismatch = (
+                (gap_errors > 128 * np.finfo(float).eps * scale)
+                | (normal_errors > 512 * np.finfo(float).eps)
+            )
+            if np.any(mismatch):
+                first = int(np.flatnonzero(mismatch)[0])
                 raise ValueError(
                     "AFM-CONTACT-CLOSED-PLANAR-BRANCH: current projection "
-                    "disagrees with the certified exact plane; the trial is rejected."
+                    "disagrees with the certified exact plane at "
+                    f"contact_point_id={int(evaluation.trace.point_ids[first])}, "
+                    f"gap_error={gap_errors[first]:.6g}, "
+                    f"normal_error={normal_errors[first]:.6g}; "
+                    "the trial is rejected."
                 )
         record = ContactProjectionRecord(evaluation.trace.point_ids, projection)
         response = self.pair.law.evaluate(record.projection)

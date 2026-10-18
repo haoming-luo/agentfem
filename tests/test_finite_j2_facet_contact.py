@@ -234,13 +234,13 @@ def _patch(*, triangulated: bool, gap: float = 0.005, penalty=500.0,
     return model, displacement, material, step
 
 
-def _small_single_branch_j2_step(*, closed: bool):
+def _small_single_branch_j2_step(*, closed: bool, flat_seam: bool = False):
     domain = dolfinx_mesh.create_unit_cube(
         MPI.COMM_SELF, 1, 1, 1, cell_type=dolfinx_mesh.CellType.tetrahedron,
     )
     coordinates = domain.geometry.x
     coordinates[:, 0] = 1.05 + 0.10 * coordinates[:, 0]
-    coordinates[:, 1] = 1.25 + 0.10 * coordinates[:, 1]
+    coordinates[:, 1] = (1.45 if flat_seam else 1.25) + 0.10 * coordinates[:, 1]
     coordinates[:, 2] = 0.45 + 0.10 * coordinates[:, 2]
     model = models.create(
         study=studies.static_solid(dimension=3, nonlinear=True), mesh=domain,
@@ -340,6 +340,28 @@ def test_certified_closed_planar_branch_matches_analytical_plane_global_j2(tmp_p
     metadata = json.loads(exported["contact_point_metadata"].read_text())
     assert metadata["pairs"][0]["point_identity_scope"] == "accepted_snapshot_only"
     assert exported["contact_point_view"].exists()
+
+
+def test_closed_planar_branch_global_j2_crosses_only_flat_tool_triangulation_seam():
+    closed_step, closed_displacement = _small_single_branch_j2_step(
+        closed=True, flat_seam=True,
+    )
+    plane_step, plane_displacement = _small_single_branch_j2_step(
+        closed=False, flat_seam=True,
+    )
+    closed_result = closed_step.solve_result()
+    plane_result = plane_step.solve_result()
+    assert closed_result.status == "completed"
+    assert plane_result.status == "completed"
+    np.testing.assert_allclose(
+        closed_displacement.value.x.array, plane_displacement.value.x.array,
+        rtol=1e-8, atol=1e-9,
+    )
+    assert closed_result.quantity("maximum_equivalent_plastic_strain") == pytest.approx(
+        plane_result.quantity("maximum_equivalent_plastic_strain"), rel=1e-8,
+    )
+    evidence = closed_step.contact_provider.current_point_diagnostics()
+    assert evidence["feature_transition_integral_certified"] is True
 
 
 def test_closed_planar_branch_mode_rejects_current_edge_transition():

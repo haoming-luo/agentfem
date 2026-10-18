@@ -21,6 +21,7 @@ from agentfem.boundary_models.contact_separation_bound import (
 )
 from agentfem.boundary_models.contact_feature_path import AcceptedContactFeaturePath
 from agentfem.boundary_models.contact_planar_branch_bound import (
+    _coplanar_patch_covers_face,
     certify_closed_planar_branch,
 )
 from agentfem.boundary_models.contact_trace import ContactTrace
@@ -106,6 +107,18 @@ def test_current_face_separation_refuses_hidden_and_budget_limited_contact():
     assert budget.status in {"sample_budget_exhausted", "depth_budget_exhausted"}
 
 
+def test_closed_smooth_face_uses_facet_normal_without_near_gap_cancellation():
+    tool = _concave_tool()
+    points = np.asarray(((1.0 - 1.0e-6, 1.3, 0.5),
+                         (1.0 + 1.0e-6, 1.3, 0.5)))
+    projection = tool.project(points)
+    assert projection.all_valid
+    np.testing.assert_allclose(projection.signed_gaps, (-1e-6, 1e-6), atol=1e-14)
+    np.testing.assert_array_equal(
+        projection.normals, np.asarray(((1., 0., 0.), (1., 0., 0.))),
+    )
+
+
 def test_closed_solid_planar_branch_needs_full_face_and_competitor_clearance():
     tool = _concave_tool()
     cell = np.asarray((((0.95, 1.25, 0.45), (0.95, 1.35, 0.45),
@@ -152,6 +165,15 @@ def test_closed_solid_planar_branch_needs_full_face_and_competitor_clearance():
     np.testing.assert_allclose(two_patches.plane_normals[0], (1., 0., 0.))
     np.testing.assert_allclose(two_patches.plane_normals[1], (0., -1., 0.))
 
+    # The slave face crosses the diagonal triangulation seam of one flat L
+    # wall. This is not a physical feature switch; the coplanar union covers it.
+    across_flat_seam = np.asarray((((0.95, 1.45, 0.50),
+                                    (0.95, 1.55, 0.50),
+                                    (0.95, 1.50, 0.60)),))
+    seam = certify_closed_planar_branch(across_flat_seam, tool)
+    assert seam.certified, seam.status
+    np.testing.assert_allclose(seam.plane_normals[0], (1., 0., 0.))
+
     broad = certify_closed_planar_branch(
         np.asarray((((0.95, 1.25, 0.45), (0.95, 1.45, 0.45),
                      (0.95, 1.25, 0.55)),)), tool,
@@ -159,7 +181,7 @@ def test_closed_solid_planar_branch_needs_full_face_and_competitor_clearance():
     assert not broad.certified
     assert broad.status in {
         "another_master_feature_can_compete",
-        "projection_can_leave_master_triangle",
+        "projection_can_leave_master_patch",
     }
 
     # The face near the reentrant edge sees both wall and edge/other face.
@@ -169,12 +191,27 @@ def test_closed_solid_planar_branch_needs_full_face_and_competitor_clearance():
     assert not hazard.certified
     assert hazard.status in {
         "another_master_feature_can_compete",
-        "projection_can_leave_master_triangle",
+        "projection_can_leave_master_patch",
         "ambiguous_center_projection",
     }
     assert not certify_closed_planar_branch(
         cell, tool, maximum_master_facets=1,
     ).certified
+
+
+def test_coplanar_patch_coverage_uses_union_not_sum_of_facet_areas():
+    face = np.asarray(((0., 0., 0.), (1., 0., 0.), (0., 1., 0.)))
+    left = np.asarray(((0., 0., 0.), (0.5, 0., 0.), (0., 1., 0.)))
+    right = np.asarray(((0.5, 0., 0.), (1., 0., 0.), (0., 1., 0.)))
+    assert _coplanar_patch_covers_face(
+        face, np.asarray((left, right)), (0, 1), np.asarray((0., 0., 1.)),
+    )
+    # The two masters still have the same *sum* of area as the slave, but
+    # overlap on the left and leave an uncovered strip on the right.
+    shifted = np.asarray(((0.4, 0., 0.), (0.9, 0., 0.), (0., 1., 0.)))
+    assert not _coplanar_patch_covers_face(
+        face, np.asarray((left, shifted)), (0, 1), np.asarray((0., 0., 1.)),
+    )
 
 
 def _reentrant_vertex_tool():
