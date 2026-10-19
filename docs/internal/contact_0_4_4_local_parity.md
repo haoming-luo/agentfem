@@ -91,6 +91,15 @@ The three-cell first increment required 34 Newton iterations; the previous
 three-increment attempt also failed its line search. Contact integration
 agreement must not be mistaken for robust default solver convergence;
 yield-onset and increment-policy sensitivity remain open Gate 8 evidence.
+One additional two-cell/three-increment plastic path starts with a zero-gap
+closed triangular tool, translates it into the body and compares every
+accepted station against the separately lowered moving analytical plane.
+Displacement, committed J2 state, contact potential and cumulative tool work
+agree at the declared tolerances; tool work is nonzero. A checkpoint after the
+first accepted increment resumes to the same final displacement, plastic
+state, work and face-path evidence as the uninterrupted closed-tool run. This
+tests joint moving-tool/material lifecycle for a smooth face, not a changing
+edge/vertex feature or an external-code result.
 In a separate three-cell trial, automatic cutback from 1/6 with the
 25-iteration cap exhausted eight cutbacks at a line-search failure; simply
 reducing the increment is therefore not a demonstrated remedy for this

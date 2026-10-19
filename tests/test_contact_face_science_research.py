@@ -314,6 +314,62 @@ def test_plastic_clamped_column_closed_face_matches_plane_across_meshes(
     assert closed_result.metadata["rigid_contact_face_path"]["complete"] is True
 
 
+def test_plastic_moving_closed_face_matches_planar_work_and_restart(tmp_path):
+    settings = dict(
+        cells=2, increments=3, penalty=500.0, poisson=0.3,
+        yield_stress=1.0, initial_overlap=0.0, tool_motion=True,
+        maximum_iterations=100,
+    )
+    closed_field, closed = _elastic_column(**settings, surface_mode="closed")
+    plane_field, plane = _elastic_column(**settings, surface_mode="plane")
+    closed_result = closed.solve_result()
+    plane_result = plane.solve_result()
+    assert closed_result.status == plane_result.status == "completed"
+    assert np.max(closed.response.state.committed_state_vectors()[:, -2]) > 1e-4
+    np.testing.assert_allclose(
+        closed_field.value.x.array, plane_field.value.x.array,
+        rtol=2e-6, atol=2e-8,
+    )
+    np.testing.assert_allclose(
+        closed.response.state.committed_state_vectors(),
+        plane.response.state.committed_state_vectors(),
+        rtol=2e-6, atol=2e-8,
+    )
+    assert closed.energy_history[-1].tool_work > 0.0
+    for closed_energy, plane_energy in zip(
+        closed.energy_history, plane.energy_history, strict=True,
+    ):
+        assert closed_energy.tool_work == pytest.approx(
+            plane_energy.tool_work, rel=2e-6, abs=1e-9,
+        )
+        assert closed_energy.contact_potential == pytest.approx(
+            plane_energy.contact_potential, rel=2e-6, abs=1e-9,
+        )
+    assert closed_result.metadata["rigid_contact_face_path"]["complete"] is True
+    _, partial = _elastic_column(**settings, surface_mode="closed")
+    partial.solve(until=1 / 3)
+    checkpoint = partial.save_checkpoint(tmp_path / "moving_plastic")
+    _, restored = _elastic_column(**settings, surface_mode="closed")
+    restored.load_checkpoint(checkpoint)
+    resumed_result = restored.solve_result()
+    assert resumed_result.status == "completed"
+    np.testing.assert_allclose(
+        restored.solution.x.array, closed.solution.x.array,
+        rtol=1e-9, atol=1e-12,
+    )
+    np.testing.assert_allclose(
+        restored.response.state.committed_state_vectors(),
+        closed.response.state.committed_state_vectors(),
+        rtol=1e-9, atol=1e-12,
+    )
+    assert restored.energy_history[-1].tool_work == pytest.approx(
+        closed.energy_history[-1].tool_work, rel=1e-9, abs=1e-12,
+    )
+    assert resumed_result.metadata["rigid_contact_face_path"] == (
+        closed_result.metadata["rigid_contact_face_path"]
+    )
+
+
 def test_near_yield_first_increment_total_tangent_keeps_old_state_fixed():
     settings = dict(
         cells=3, increments=6, penalty=500.0, poisson=0.3,
