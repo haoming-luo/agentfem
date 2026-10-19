@@ -1826,6 +1826,18 @@ def test_fixed_configuration_contact_quadrature_audit_is_read_only():
         original_force,
     )
     np.testing.assert_array_equal(displacement.value.x.array, original_displacement)
+    enclosure = provider.closed_penalty_energy_enclosure(
+        maximum_depth=2, maximum_cells_per_face=16,
+    )
+    assert enclosure["method"] == (
+        "fixed_configuration_closed_penalty_energy_enclosure"
+    )
+    assert enclosure["returns_contact_residual_or_tangent"] is False
+    assert enclosure["certifies_feature_transition_integral"] is False
+    assert 0.0 <= enclosure["lower_bound"] <= enclosure["upper_bound"]
+    assert len(enclosure["faces"]) == 2
+    np.testing.assert_array_equal(displacement.value.x.array, original_displacement)
+    assert float(provider.motion_factor.value) == original_factor
     with pytest.raises(ValueError, match="supported rules"):
         provider.quadrature_sensitivity((9, True))
     with pytest.raises(ValueError, match="unique"):
@@ -1838,6 +1850,17 @@ def test_contact_quadrature_audit_refuses_frictional_state():
     )
     with pytest.raises(NotImplementedError, match="AFM-CONTACT-QUADRATURE-AUDIT"):
         step.contact_provider.quadrature_sensitivity()
+
+
+def test_closed_energy_enclosure_refuses_nondefault_face_trace():
+    _, _, _, step = _patch(
+        triangulated=True, closed_concave_tool=True,
+        closed_concave_extent=0.7, closed_concave_thickness=0.5,
+        closed_concave_corner=(0.35, 0.19),
+        contact_quadrature_degree=7, applied_traction=0.0,
+    )
+    with pytest.raises(NotImplementedError, match="AFM-CONTACT-ENERGY-ENCLOSURE"):
+        step.contact_provider.closed_penalty_energy_enclosure()
 
 
 @pytest.mark.parametrize("cells", [1, 2])

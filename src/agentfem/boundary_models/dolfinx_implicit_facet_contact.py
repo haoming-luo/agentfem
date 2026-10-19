@@ -978,6 +978,86 @@ class DolfinxImplicitRigidContact:
             "evaluations": evaluations,
         }
 
+    def closed_penalty_energy_enclosure(
+        self, *, absolute_tolerance=0.0, relative_tolerance=0.01,
+        maximum_depth=8, maximum_cells_per_face=4096, maximum_faces=32,
+    ) -> dict[str, object]:
+        """Bound the current closed-tool penalty energy without changing State.
+
+        Unlike quadrature comparisons, a positive lower bound can establish
+        that the *fixed* configuration has a missed active-area contribution.
+        This does not return forces, a Newton tangent or a corrected Step.
+        Its finite bounds carry conservative floating-point margins, not a
+        formal interval-arithmetic guarantee.
+        """
+
+        from .contact_energy_enclosure import bound_closed_contact_penalty_energy
+        from .contact_face_operator_research import extract_complete_p1_face_layout
+
+        if (
+            not isinstance(self.surface, ClosedTriangulatedRigidSolid)
+            or self.pair.friction is not None
+            or np.asarray(self.pair.law.penalty).ndim != 0
+            or self.adapter.communicator.size != 1
+            or self.adapter.facet_topology != "triangle"
+            or self.adapter.interpolation_degree != 1
+            or self.adapter.geometry_degree != 1
+            or self.adapter.quadrature_rule != "triangle_degree_two_three_point"
+            or type(maximum_faces) is not int
+            or maximum_faces < 1
+        ):
+            raise NotImplementedError(
+                "AFM-CONTACT-ENERGY-ENCLOSURE: requires serial, frictionless, "
+                "scalar-penalty contact on a reviewed closed rigid solid with "
+                "the complete default reference P1 triangular trace."
+            )
+        reference = self.adapter.reference_nodal_positions
+        layout = extract_complete_p1_face_layout(self.adapter.trace, reference)
+        if len(layout.face_ids) > maximum_faces:
+            raise NotImplementedError(
+                "AFM-CONTACT-ENERGY-ENCLOSURE: complete slave face count "
+                "exceeds the declared diagnostic budget."
+            )
+        current = self.adapter.current_nodal_positions(self.displacement)
+        schedule = self.pair.rigid_body.motion_schedule
+        factor = 0.0 if self.motion_factor is None else self.snapshot_motion()
+        faces = []
+        for face_id, nodes in zip(layout.face_ids, layout.face_node_ids, strict=True):
+            bound = bound_closed_contact_penalty_energy(
+                reference[nodes], current[nodes], self.surface,
+                penalty=float(np.asarray(self.pair.law.penalty)),
+                motion=None if schedule is None else schedule.motion,
+                factor=factor,
+                absolute_tolerance=absolute_tolerance,
+                relative_tolerance=relative_tolerance,
+                maximum_depth=maximum_depth,
+                maximum_cells=maximum_cells_per_face,
+            )
+            faces.append({
+                "face_id": int(face_id),
+                "lower_bound": bound.lower_bound,
+                "upper_bound": bound.upper_bound,
+                "status": bound.status,
+                "within_requested_tolerance": bound.within_requested_tolerance,
+                "evaluated_points": bound.evaluated_points,
+                "nonunique_nearest_points": bound.nonunique_nearest_points,
+                "unresolved_signed_distance_points": (
+                    bound.unresolved_signed_distance_points
+                ),
+                "leaf_count": bound.leaf_count,
+            })
+        return {
+            "method": "fixed_configuration_closed_penalty_energy_enclosure",
+            "load_factor": factor,
+            "measure": "reference_area",
+            "arithmetic": "floating_point_conservative_margin_not_formal_interval",
+            "certifies_feature_transition_integral": False,
+            "returns_contact_residual_or_tangent": False,
+            "lower_bound": float(sum(item["lower_bound"] for item in faces)),
+            "upper_bound": float(sum(item["upper_bound"] for item in faces)),
+            "faces": faces,
+        }
+
     def reference_subdivision_sensitivity(
         self, levels=(0, 1, 2, 3), *, maximum_points=50_000,
     ) -> dict[str, object]:

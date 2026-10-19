@@ -998,6 +998,30 @@ The gate stays open until its listed evidence exists at the proposed scope.
    reference bounds are not a production residual, pressure field or
    Newton-tangent certificate. The unresolved cells still require
    feature-region geometry and moving-boundary differentiation for Step use.
+   A new opt-in
+   `boundary_models.contact_energy_enclosure.bound_closed_contact_penalty_energy`
+   transfers the 1-Lipschitz signed-distance argument from that independent
+   2D oracle to any reviewed, closed 3D rigid tool and a current affine P1
+   slave face. It splits the largest uncertain reference-area cell first,
+   retains a scalar distance at nonunique nearest-point queries without
+   inventing a normal, and falls back to a finite tool-vertex upper bound
+   if even the winding sign is unresolved. The ordinary implicit contact
+   provider exposes the read-only diagnostic as
+   `closed_penalty_energy_enclosure()`, with explicit depth, cell and face
+   budgets; it is never part of the default Newton residual. On the same
+   extruded L fixture, the default three-point rule reports zero while the
+   new generic depth-6 interval is approximately
+   `[0.0001480, 0.0006654]`, containing the independent 512-subtriangle
+   value `0.0003499`. At depth 8 with 49,999 leaves, it narrows to
+   `[0.0002897, 0.0004174]` in about six seconds on the development Mac.
+   Those are floating-point conservative-margin bounds, **not** formally
+   directed-rounded intervals; neither a positive lower bound nor a tight
+   energy interval supplies a nodal force or consistent tangent. A trial
+   combination with exact smooth-cell proofs only reduced the depth-8 width
+   about 4% while increasing runtime from about six to ten seconds, so it
+   was not retained. The subdivision-only experiment also remains negative:
+   after depth 6, 254 child faces were still unsupported by the existing
+   complete local Operator proofs. Gate 3 therefore remains open.
    [Hiermeier--Wall--Popp's variationally consistent mortar study][variational-mortar]
    is a useful independent standard for varying *all* active contributions,
    but its symmetric two-body mortar formulation is not our algorithm.
