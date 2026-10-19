@@ -153,3 +153,38 @@ def test_invalid_enclosure_policy_rejected(options):
         bound_closed_contact_penalty_energy(
             _SLAVE, _SLAVE, _reentrant_tool(), **options
         )
+
+
+def test_smooth_face_with_all_competitors_bvh_excluded_retains_exact_operator():
+    from agentfem.boundary_models.contact_smooth_face_research import (
+        integrate_certified_smooth_closed_face,
+    )
+
+    face = np.asarray(((1.03125, 1.81875, 0.5),
+                       (1.03125, 1.884375, 0.5),
+                       (0.965625, 1.884375, 0.5)))
+    tool = _reentrant_tool()
+
+    def evaluate(current):
+        return integrate_certified_smooth_closed_face(face, current, tool, penalty=7.0)
+
+    result = evaluate(face)
+    assert result.examined_master_facet_count == 0
+    assert 0.0 < result.active_reference_fraction < 1.0
+    # Exact integral of the clipped affine gap on the reference triangle:
+    # active area fraction = (d / (d + positive_gap))**2 and mean g**2=d**2/6.
+    depth = 1.0 - face[2, 0]
+    fraction = (depth / (face[0, 0] - face[2, 0]))**2
+    area = 0.5 * np.linalg.norm(np.cross(face[1] - face[0], face[2] - face[0]))
+    assert result.response.potential == pytest.approx(7.0 * area * fraction * depth**2 / 12)
+    direction = np.asarray(((0.3, -0.1, 0.2), (-0.2, 0.1, 0.1), (0.1, 0.2, -0.1)))
+    h = 1e-6
+    plus, minus = evaluate(face + h * direction), evaluate(face - h * direction)
+    assert (plus.response.potential - minus.response.potential) / (2*h) == pytest.approx(
+        np.sum(result.response.nodal_residual * direction), rel=1e-8, abs=1e-12,
+    )
+    np.testing.assert_allclose(
+        (plus.response.nodal_residual - minus.response.nodal_residual) / (2*h),
+        np.einsum('aibj,bj->ai', result.response.nodal_tangent, direction),
+        rtol=1e-8, atol=1e-12,
+    )

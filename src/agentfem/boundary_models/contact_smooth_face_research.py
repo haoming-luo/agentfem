@@ -52,7 +52,11 @@ class SmoothFacePenaltyIntegral:
 
 @dataclass(frozen=True, eq=False)
 class CertifiedSmoothClosedFacePenalty:
-    """One whole-face planar proof paired to its immutable local response."""
+    """One whole-face planar proof paired to its immutable local response.
+
+    ``examined_master_facet_count`` counts narrow-phase *competitors*.
+    Zero is valid when the BVH excludes every noncoplanar competitor.
+    """
 
     response: SmoothFacePenaltyIntegral
     active_reference_fraction: float
@@ -65,7 +69,7 @@ class CertifiedSmoothClosedFacePenalty:
         if (
             not 0.0 < self.active_reference_fraction <= 1.0 + 1e-12
             or type(self.examined_master_facet_count) is not int
-            or self.examined_master_facet_count < 1
+            or self.examined_master_facet_count < 0
         ):
             raise ValueError("Smooth face has invalid proof coverage.")
         for name in ("reference_vertices", "current_vertices"):
