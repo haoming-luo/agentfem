@@ -112,7 +112,10 @@ case. The same three-cell/six-increment input now has a paired globalization
 regression: the existing `basic` Newton choice completes with the declared
 25-iteration cap, whereas `backtracking` needs a declared 50-iteration cap.
 Their accepted displacement, committed plastic state, contact potential and
-external work agree to the test tolerance. On the first increment, the
+external work agree to the test tolerance. A second two-cell/three-increment
+regression starts from exact zero gap and enters active contact; the same
+accepted-state comparisons pass under both globalization choices. On the first
+increment of the initially closed three-cell case, the
 observed Newton counts were 10 and 34 respectively; a separate four-cell,
 three-increment screen also completed its first increment in 11 iterations
 with `basic` where backtracking had failed its line search. This identifies

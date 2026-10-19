@@ -364,11 +364,19 @@ def test_near_yield_first_increment_total_tangent_keeps_old_state_fixed():
         )
 
 
-def test_near_yield_basic_and_backtracking_converge_to_same_accepted_path():
-    settings = dict(
-        cells=3, increments=6, penalty=500.0, poisson=0.3,
-        yield_stress=1.0,
-    )
+@pytest.mark.parametrize(
+    "settings",
+    (
+        dict(cells=3, increments=6, penalty=500.0, poisson=0.3,
+             yield_stress=1.0),
+        dict(cells=2, increments=3, penalty=500.0, poisson=0.3,
+             yield_stress=1.0, initial_overlap=0.0),
+    ),
+    ids=("initially-closed", "touching-to-active"),
+)
+def test_near_yield_basic_and_backtracking_converge_to_same_accepted_path(
+    settings,
+):
     basic_field, basic = _elastic_column(**settings)
     back_field, back = _elastic_column(**settings)
     basic.solver_options = solvers.newton(
