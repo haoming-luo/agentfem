@@ -22,7 +22,7 @@ from .normal_augmentation import (
     FixedTraceNormalMultiplierState,
     integrate_fixed_trace_augmented_normal,
 )
-from .rigid import RigidPlaneSurface
+from .rigid import RigidPlaneSurface, _readonly_array
 from .trace_policy import RigidContactTracePolicy
 
 
@@ -161,10 +161,13 @@ class DolfinxAugmentedPlaneTrialProvider(DolfinxImplicitRigidContact):
         self._last_normal_evaluation = None
         self._outer_in_progress = False
 
-    def snapshot_accepted_state(self):
+    def _require_accepted_boundary(self):
         if (self._outer_in_progress or self._pending_acceptance is not None
                 or self.normal_multiplier_state.augmentation_count):
             raise RuntimeError("AL checkpoint cannot contain an inner/outer trial.")
+
+    def snapshot_accepted_state(self):
+        self._require_accepted_boundary()
         return {
             "schema": "agentfem.augmented-plane-state.v1",
             "multiplier": self.normal_multiplier_state.accepted_snapshot(),
@@ -186,10 +189,21 @@ class DolfinxAugmentedPlaneTrialProvider(DolfinxImplicitRigidContact):
         self._outer_in_progress = False
 
     def snapshot_runtime_state(self):
-        return self.snapshot_accepted_state()
+        self._require_accepted_boundary()
+        return (self.normal_multiplier_state.snapshot_runtime_state(),
+                _readonly_array(self._accepted_positions))
 
     def restore_runtime_state(self, saved):
-        self.restore_accepted_state(saved)
+        if not isinstance(saved, tuple) or len(saved) != 2:
+            raise ValueError("AL runtime snapshot shape differs.")
+        positions = np.asarray(saved[1], dtype=float)
+        if positions.shape != self._accepted_positions.shape or not np.all(np.isfinite(positions)):
+            raise ValueError("AL runtime query geometry differs.")
+        self.normal_multiplier_state.restore_runtime_state(saved[0])
+        self._accepted_positions = _readonly_array(positions)
+        self._pending_acceptance = None
+        self._last_normal_evaluation = None
+        self._outer_in_progress = False
 
     def validate_accepted_configuration(self):
         if self._outer_in_progress or self._pending_acceptance is not None:

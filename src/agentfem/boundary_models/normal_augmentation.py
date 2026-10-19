@@ -307,6 +307,26 @@ class FixedTraceNormalMultiplierState:
         self._augmentation_count = 0
         self._converged_record = None
 
+    def _runtime_identity(self):
+        return (self, self.penalty, self.penetration_tolerance,
+                self.complementarity_tolerance, self.maximum_augmentations,
+                self.length_unit, self.pressure_unit)
+
+    def snapshot_runtime_state(self):
+        """Local rollback token with immutable numeric data, never a disk archive."""
+
+        return self._runtime_identity(), self.accepted_multiplier
+
+    def restore_runtime_state(self, saved):
+        """Restore only a token from this owner with the same numerical policy."""
+
+        if (not isinstance(saved, tuple) or len(saved) != 2
+                or saved[0] != self._runtime_identity()):
+            raise ValueError("Normal multiplier runtime owner or policy differs.")
+        multiplier = _nonnegative_vector(saved[1], len(self.point_ids), name="Runtime multiplier")
+        self._accepted = multiplier
+        self.rollback()
+
     def accepted_snapshot(self) -> dict[str, object]:
         """Serializable accepted State, not an on-disk checkpoint by itself."""
 

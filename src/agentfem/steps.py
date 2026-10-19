@@ -17,6 +17,7 @@ from contextlib import contextmanager
 from copy import deepcopy
 from dataclasses import dataclass, field
 from math import isfinite
+from numbers import Real
 from sys import float_info
 
 
@@ -39,8 +40,9 @@ class NormalAugmentationOptions:
     def __post_init__(self):
         for name in ("penetration_tolerance", "complementarity_tolerance"):
             value = getattr(self, name)
-            if isinstance(value, bool) or not isfinite(value) or value < 0:
+            if isinstance(value, bool) or not isinstance(value, Real) or not isfinite(value) or value < 0:
                 raise ValueError(f"{name} must be finite and nonnegative.")
+            object.__setattr__(self, name, float(value))
         if type(self.maximum_augmentations) is not int or self.maximum_augmentations < 1:
             raise ValueError("maximum_augmentations must be a positive integer.")
         for name in ("length_unit", "pressure_unit"):

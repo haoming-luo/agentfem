@@ -792,6 +792,17 @@ normal rows reject early. This is still experimental: general multiplier
 stability, MPC, moving/curved tools, partition transfer and enforcement-work
 closure remain separate gates. The AL functional is not physical stored
 energy; the full energy ledger is marked unavailable rather than fabricated.
+The fixed-plane route additionally has a scalar, non-FE coaxial plastic-stop
+reference through loading, unloading, reverse flow and recontact on two
+meshes, including restart after reverse plasticity. That check exposed a
+resolved-amplitude/normalized-coordinate confusion: signed load amplitudes
+must scale ordinary strong values, and fixed tools must not validate them as
+motion coordinates. Time-dependent boundary histories and moving-tool ranges
+keep their own domain checks. This does not enlarge the AL geometry scope.
+Before any default penalty/globalization tuning, retain full accepted-path
+field comparisons and the measured failure boundary. Outer augmentation and
+inner Newton/search work are now separately inspectable; local rollback uses
+numeric arrays rather than serializing a disk checkpoint every increment.
 The same manufactured implicit-J2 contact screen also found a distinct
 scaling opportunity in the *linear solver*, not the contact law: explicit
 GMRES/GAMG with a recorded rigid-body near-nullspace preserves the tested

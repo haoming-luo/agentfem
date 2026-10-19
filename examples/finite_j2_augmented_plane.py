@@ -19,16 +19,12 @@ from mpi4py import MPI
 from agentfem import boundary_models, constitutive, fields, mesh, models, results, solvers, steps, studies
 
 
-def main() -> None:
-    parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--output", type=Path, default=Path("outputs/finite_j2_augmented_plane"))
-    parser.add_argument("--until", type=float, default=1.0)
-    parser.add_argument("--restart", type=Path)
-    args = parser.parse_args()
+def make_step(*, cells=2, penalty=500., increments=4, minimum_step_length=1/128):
+    """Build the declared example, with visible mesh and numerical controls."""
+
     if MPI.COMM_WORLD.size != 1:
         raise RuntimeError("This experimental normal-augmentation path is serial only.")
-
-    domain = dolfinx_mesh.create_unit_cube(MPI.COMM_SELF, 2, 2, 2)
+    domain = dolfinx_mesh.create_unit_cube(MPI.COMM_SELF, cells, cells, cells)
     model = models.create(
         study=studies.static_solid(dimension=3, nonlinear=True), mesh=domain,
         name="finite_j2_augmented_plane",
@@ -46,20 +42,36 @@ def main() -> None:
         boundary_models.rigid_body(boundary_models.rigid_plane(
             point=(1.005, 0., 0.), normal=(-1., 0., 0.),
         )),
-        penalty=500., initial_penetration_limit=0., name="stop",
+        penalty=penalty, initial_penetration_limit=0., name="stop",
     ))
     step = model.step(
-        target=displacement, material=material, incrementation=steps.fixed(4),
+        target=displacement, material=material, incrementation=steps.fixed(increments),
         normal_augmentation=steps.normal_augmentation(
             penetration_tolerance=1e-7, complementarity_tolerance=1e-6,
             length_unit="m", pressure_unit="Pa", maximum_augmentations=120,
         ),
-        solver_options=solvers.newton(
+        solver_options=solvers.NewtonSolverOptions(
             relative_tolerance=1e-8, absolute_tolerance=1e-9,
             maximum_iterations=25, line_search="backtracking",
+            minimum_step_length=minimum_step_length,
         ),
         progress=False,
     )
+    return displacement, step
+
+
+def main() -> None:
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--output", type=Path, default=Path("outputs/finite_j2_augmented_plane"))
+    parser.add_argument("--until", type=float, default=1.0)
+    parser.add_argument("--restart", type=Path)
+    parser.add_argument("--cells", type=int, default=2)
+    parser.add_argument("--penalty", type=float, default=500., help="Explicit AL penalty in Pa/m.")
+    parser.add_argument("--minimum-step-length", type=float, default=1/128,
+                        help="Explicit Newton line-search floor, not a load increment.")
+    args = parser.parse_args()
+    displacement, step = make_step(cells=args.cells, penalty=args.penalty,
+                                   minimum_step_length=args.minimum_step_length)
     if args.restart is not None:
         step.load_checkpoint(args.restart)
     if not step.accepted_load_factor < args.until <= 1.:

@@ -425,7 +425,7 @@ and evidence remain in the linked guides and scientific function reference.
 | function | `rigid_mode_audit(target, constraints, *, tolerance: float = 1e-10) -> RigidModeAudit` | Report rigid translations/rotations removed by strong constraints. |
 | class | `TimeDependentDirichlet` | Dirichlet constraint driven by an amplitude. |
 | class | `RemoteDisplacementConstraint` | Rigid boundary motion prescribed about a named reference point. |
-| class | `PrescribedValuePath` | Update ordinary strong boundary values along a normalized step path. |
+| class | `PrescribedValuePath` | Scale strong values or evaluate a normalized boundary history. |
 | function | `prescribed_value_path(constraints) -> PrescribedValuePath` | Create a normalized load-factor driver from registered constraints. |
 | function | `dirichlet_constraints(constraints) -> tuple[object, ...]` | Return concrete Dirichlet assets from nested model constraint sets. |
 | function | `constraint_assets(constraints) -> tuple[object, ...]` | Return every concrete asset from nested constraint containers. |

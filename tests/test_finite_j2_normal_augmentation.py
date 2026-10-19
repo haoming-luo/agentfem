@@ -11,12 +11,14 @@ from agentfem.step_providers import step_capability
 from test_finite_j2_facet_contact import _patch
 
 
-def _problem(*, penalty=500.0, maximum_augmentations=60, **options):
+def _problem(*, penalty=500.0, maximum_augmentations=60,
+             penetration_tolerance=1e-7, complementarity_tolerance=1e-6, **options):
     _, displacement, _, problem = _patch(
         triangulated=False, initial_penetration_limit=0.0,
         penalty=penalty,
         normal_augmentation=steps.normal_augmentation(
-            penetration_tolerance=1e-7, complementarity_tolerance=1e-6,
+            penetration_tolerance=penetration_tolerance,
+            complementarity_tolerance=complementarity_tolerance,
             maximum_augmentations=maximum_augmentations,
             length_unit="m", pressure_unit="Pa",
         ), **options,
@@ -54,6 +56,14 @@ def test_plastic_normal_augmentation_commits_material_once_per_accepted_incremen
         for array in arrays[1:]:
             np.testing.assert_array_equal(array, arrays[0])
     assert all(info.normal_augmentations > 0 for info in problem.accepted_increments)
+    accepted_events = [event for event in problem.execution_events
+                       if event.kind == 'increment_converged']
+    assert len(accepted_events) == len(problem.accepted_increments)
+    for event, info in zip(accepted_events, problem.accepted_increments, strict=True):
+        assert event.metrics['normal_augmentations'] == info.normal_augmentations
+        assert event.metrics['maximum_inner_newton_iterations'] == info.adaptation_iterations
+        assert event.metrics['line_search_evaluations'] == info.line_search_evaluations
+        assert info.line_search_evaluations >= info.linear_solve_calls
     assert np.max(_state(problem)[:, -2]) > 0
     assert results.probe(displacement, at=(1., .5, .5))[0] == pytest.approx(.005, abs=2e-7)
     provider = problem.contact_provider
@@ -86,6 +96,9 @@ def test_augmented_restart_matches_continuous_plastic_path(tmp_path):
     assert [i.normal_augmentations for i in resumed.accepted_increments] == [
         i.normal_augmentations for i in full.accepted_increments
     ]
+    assert [i.line_search_evaluations for i in resumed.accepted_increments] == [
+        i.line_search_evaluations for i in full.accepted_increments
+    ]
     _, incompatible = _problem(penalty=600., increments=3)
     before = incompatible.solution.x.array.copy()
     with pytest.raises(ValueError):
@@ -113,6 +126,53 @@ def test_accepted_pressure_export_matches_actual_augmented_force(tmp_path):
                    provider.closed_penalty_energy_enclosure):
         with pytest.raises(NotImplementedError, match='AFM-CONTACT-AL'):
             method()
+
+
+@pytest.mark.parametrize('penalty', [50000., 500000.])
+def test_stiff_contact_onset_respects_explicit_line_search_floor(penalty, monkeypatch):
+    _, refused = _problem(penalty=penalty, cells=2, increments=4)
+    initial_state = _state(refused)
+    with pytest.raises(RuntimeError, match='declared minimum_step_length'):
+        refused.solve()
+    assert refused.accepted_load_factor == 0.
+    np.testing.assert_array_equal(refused.solution.x.array, 0.)
+    np.testing.assert_array_equal(_state(refused), initial_state)
+
+    # Tighten the *contact acceptance*, not the comparison, when comparing
+    # very different penalties in small off-diagonal stress components.
+    controls = dict(cells=2, increments=4, penetration_tolerance=1e-9,
+                    complementarity_tolerance=1e-8, maximum_augmentations=120)
+    _, reference = _problem(penalty=5000., **controls)
+    reference.solve()
+    _, tested = _problem(penalty=penalty, **controls)
+    tested.solver_options = replace(tested.solver_options, minimum_step_length=1/8192)
+    search = tested._line_search
+    accepted_steps = []
+
+    def recorded(*args, **kwargs):
+        answer = search(*args, **kwargs)
+        accepted_steps.append(answer[0])
+        return answer
+
+    monkeypatch.setattr(tested, '_line_search', recorded)
+    tested.solve()
+    assert 0 < min(accepted_steps) < 1/128
+    assert all(alpha >= 1/8192 for alpha in accepted_steps)
+    # Numerical policy, not the loading/material history, has changed. Check
+    # every accepted state rather than accepting a matching final endpoint.
+    for actual, expected in zip(tested.snapshots, reference.snapshots, strict=True):
+        assert actual.load_factor == expected.load_factor
+        np.testing.assert_allclose(actual.solution.x.array, expected.solution.x.array,
+                                   rtol=0., atol=3e-7)
+        assert actual.fields.keys() == expected.fields.keys()
+        for name in actual.fields:
+            a = getattr(actual.fields[name], 'function', actual.fields[name]).x.array
+            e = getattr(expected.fields[name], 'function', expected.fields[name]).x.array
+            np.testing.assert_allclose(a, e, rtol=5e-4, atol=5e-5)
+    np.testing.assert_allclose(_state(tested), _state(reference), rtol=5e-4, atol=1e-6)
+    diagnostics = tested.contact_provider.current_point_diagnostics()['normal_augmentation']
+    assert diagnostics['maximum_penetration'] <= 1e-9
+    assert diagnostics['maximum_complementarity'] <= 1e-8
 
 
 @pytest.mark.parametrize('failure', ['outer_limit', 'newton_limit', 'commit'])
@@ -163,6 +223,18 @@ def test_inner_newton_success_cannot_be_checkpointed(monkeypatch, tmp_path):
     assert len(blocked) > 1
     assert not list(tmp_path.glob('forbidden_inner*'))
     problem.save_checkpoint(tmp_path / 'accepted')
+
+
+def test_increment_rollback_snapshots_do_not_serialize_checkpoint_lists(monkeypatch):
+    _, problem = _problem(increments=3)
+
+    def forbidden():
+        raise AssertionError('Per-increment runtime snapshots must not serialize a checkpoint.')
+
+    monkeypatch.setattr(problem.contact_provider, 'snapshot_accepted_state', forbidden)
+    monkeypatch.setattr(problem.contact_provider.normal_multiplier_state, 'accepted_snapshot', forbidden)
+    problem.solve()
+    assert problem.accepted_load_factor == 1.
 
 
 def test_automatic_cutback_discards_failed_outer_iterates(monkeypatch):
@@ -364,6 +436,41 @@ def test_partial_contact_matches_independent_primal_dual_active_set(cells):
         sample['normal_pressures'] * sample['reference_weights'] * sample['surface_normals'][:, 0],
         oracle.reaction_field().x.array.reshape(-1, 3)[nodes, 0], atol=2e-5,
     )
+
+
+def test_public_augmented_total_jacobian_matches_frozen_state_directional_difference():
+    _, problem = _problem(cells=2, increments=1, yield_stress=1e9,
+                          penalty=1500., maximum_augmentations=150, tilt=.002)
+    problem.solve()
+    original = problem.solution.x.array.copy()
+    fixed = np.unique(np.concatenate([bc.dof_indices()[0] for bc in problem.bcs]))
+    direction = np.random.default_rng(20261019).normal(size=original.size)
+    direction[fixed] = 0.
+    direction /= np.linalg.norm(direction)
+    problem._update_response(start_factor=1., target_factor=1.)
+    problem._correction_rhs()[0].destroy()
+    tangent = problem._assemble_tangent()
+    x = tangent.createVecRight()
+    y = tangent.createVecLeft()
+    x.array[:] = direction
+    tangent.mult(x, y)
+    expected = y.array.copy()
+    x.destroy()
+    y.destroy()
+    # The tangent is cached/owned by the problem, not destroyed by this test.
+    differences = []
+    for sign in (1., -1.):
+        problem.solution.x.array[:] = original + sign * 1e-7 * direction
+        problem.solution.x.scatter_forward()
+        problem._update_response(start_factor=1., target_factor=1.)
+        rhs, _ = problem._correction_rhs()
+        differences.append(rhs.array.copy())
+        rhs.destroy()
+    problem.solution.x.array[:] = original
+    problem.solution.x.scatter_forward()
+    problem._update_response(start_factor=1., target_factor=1.)
+    numerical = -(differences[0] - differences[1]) / 2e-7
+    np.testing.assert_allclose(numerical, expected, rtol=3e-6, atol=2e-6)
 
 
 def test_nonzero_dirichlet_backtracking_stays_feasible_and_matches_full_newton(monkeypatch):

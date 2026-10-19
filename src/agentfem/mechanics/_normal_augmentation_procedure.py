@@ -63,6 +63,7 @@ def solve_augmented_plane_increment(problem, provider, **coordinates):
             "iterations", "material_update_seconds", "residual_assembly_seconds",
             "tangent_assembly_seconds", "linear_solve_seconds", "line_search_seconds",
             "linear_solve_calls", "linear_iterations",
+            "line_search_evaluations",
         )
     }
     totals["residual_assembly_seconds"] += confirmation_seconds

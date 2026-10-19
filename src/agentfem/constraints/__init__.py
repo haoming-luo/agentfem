@@ -645,12 +645,13 @@ class RemoteDisplacementConstraint:
 
 @dataclass
 class PrescribedValuePath:
-    """Update ordinary strong boundary values along a normalized step path.
+    """Scale strong values or evaluate a normalized boundary history.
 
-    Constant Dirichlet data are interpreted as end-of-step values and scaled
-    by ``0 <= factor <= 1``.  A :class:`TimeDependentDirichlet` instead
-    evaluates its own amplitude at the normalized factor.  The object keeps
-    this policy visible and reusable by nonlinear procedures.
+    Constant/field Dirichlet data are reference values scaled by a finite
+    dimensionless amplitude, which may be negative or exceed one. This is
+    distinct from a Procedure's normalized progress coordinate. When the path
+    contains :class:`TimeDependentDirichlet`, its input is instead a normalized
+    coordinate in [0, 1], at which that boundary's own amplitude is evaluated.
     """
 
     constants: tuple[tuple[object, object], ...] = ()
@@ -659,8 +660,10 @@ class PrescribedValuePath:
 
     def update(self, factor: float) -> None:
         selected = float(factor)
-        if not 0.0 <= selected <= 1.0 + 1.0e-12:
-            raise ValueError("PrescribedValuePath factor must lie in [0, 1].")
+        if not np.isfinite(selected):
+            raise ValueError("PrescribedValuePath scaling amplitude must be finite.")
+        if self.amplitudes and not 0.0 <= selected <= 1.0 + 1.0e-12:
+            raise ValueError("PrescribedValuePath boundary-history coordinate must lie in [0, 1].")
         for constant, reference in self.constants:
             constant.value = selected * reference
         for function, reference in self.fields:

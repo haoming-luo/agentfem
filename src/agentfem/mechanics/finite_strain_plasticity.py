@@ -347,6 +347,7 @@ class FiniteStrainPlasticityIncrementInfo:
     linear_converged_reasons: tuple[int, ...] = ()
     normal_augmentations: int = 0
     maximum_inner_newton_iterations: int | None = None
+    line_search_evaluations: int = 0
 
     @property
     def adaptation_iterations(self) -> int:
@@ -390,6 +391,7 @@ class FiniteStrainPlasticityIncrementInfo:
                 int(value) for value in record.get("linear_converged_reasons", ())
             ),
             normal_augmentations=int(record.get("normal_augmentations", 0)),
+            line_search_evaluations=int(record.get("line_search_evaluations", 0)),
             maximum_inner_newton_iterations=(
                 None if record.get("maximum_inner_newton_iterations") is None
                 else int(record["maximum_inner_newton_iterations"])
@@ -1254,6 +1256,7 @@ class FiniteStrainJ2StandardProblem:
     _tangent_matrix: object | None = field(default=None, init=False, repr=False)
     _linear_ksp: object | None = field(default=None, init=False, repr=False)
     _rigid_near_nullspace: object | None = field(default=None, init=False, repr=False)
+    _line_search_trial_count: int = field(default=0, init=False, repr=False)
     external_force: object | None = field(default=None, repr=False)
     follower_loads: bool = False
     contact_provider: object | None = None
@@ -1411,9 +1414,11 @@ class FiniteStrainJ2StandardProblem:
         factor = self.amplitude(coordinate)
         self.load_factor.value = PETSc.ScalarType(factor)
         self.value_path.update(factor)
-        if self.contact_provider is not None:
+        if self.contact_provider is not None and self.contact_provider.has_prescribed_motion:
             # Prescribed tool pose follows the same resolved Step amplitude
             # as strong values and natural loads, not the raw path coordinate.
+            # A fixed tool has no motion coordinate. In particular, a signed
+            # cyclic loading amplitude must not be rejected as an invalid pose.
             self.contact_provider.update_motion(factor)
 
     def _snapshot_loading_state(self) -> dict[str, object]:
@@ -1610,10 +1615,12 @@ class FiniteStrainJ2StandardProblem:
 
         options = self.solver_options
         alpha = 1.0
+        self._line_search_trial_count = 0
         if options.line_search in {None, "basic"}:
             self._assign_trial(base, direction, alpha)
             return alpha, None, None
         while alpha + 1.0e-15 >= options.minimum_step_length:
+            self._line_search_trial_count += 1
             self._assign_trial(base, direction, alpha)
             self._update_response(
                 start_factor=start_factor,
@@ -1670,6 +1677,7 @@ class FiniteStrainJ2StandardProblem:
         tangent_assembly_seconds = 0.0
         linear_solve_seconds = 0.0
         line_search_seconds = 0.0
+        line_search_evaluations = 0
         linear_solve_calls = 0
         linear_iterations = 0
         linear_reasons: list[int] = []
@@ -1758,10 +1766,13 @@ class FiniteStrainJ2StandardProblem:
                 target_factor=target_factor,
             )
             line_search_seconds += time.perf_counter() - stage_started
+            line_search_evaluations += self._line_search_trial_count
             if alpha == 0.0:
                 rejection_reason = (
                     "line search found no acceptable trial step "
-                    f"at residual {norm:.6g}"
+                    f"at residual {norm:.6g} within declared minimum_step_length="
+                    f"{self.solver_options.minimum_step_length:.6g} "
+                    f"({self._line_search_trial_count} trial evaluations)"
                 )
                 break
             if trial_rhs is not None:
@@ -1790,6 +1801,7 @@ class FiniteStrainJ2StandardProblem:
             tangent_assembly_seconds=collective_max(tangent_assembly_seconds),
             linear_solve_seconds=collective_max(linear_solve_seconds),
             line_search_seconds=collective_max(line_search_seconds),
+            line_search_evaluations=int(comm.allreduce(line_search_evaluations, op=MPI.MAX)),
             linear_solve_calls=int(comm.allreduce(linear_solve_calls, op=MPI.MAX)),
             linear_iterations=int(comm.allreduce(linear_iterations, op=MPI.MAX)),
             linear_converged_reasons=tuple(linear_reasons),
@@ -2459,10 +2471,17 @@ class FiniteStrainJ2StandardProblem:
                                 ),
                                 "linear_solve_seconds": info.linear_solve_seconds,
                                 "line_search_seconds": info.line_search_seconds,
+                                "line_search_evaluations": float(info.line_search_evaluations),
                                 "linear_solve_calls": float(
                                     info.linear_solve_calls
                                 ),
                                 "linear_iterations": float(info.linear_iterations),
+                                **({
+                                    "normal_augmentations": float(info.normal_augmentations),
+                                    "maximum_inner_newton_iterations": float(
+                                        info.maximum_inner_newton_iterations
+                                    ),
+                                } if info.maximum_inner_newton_iterations is not None else {}),
                             },
                         )
                     )

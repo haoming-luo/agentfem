@@ -58,6 +58,17 @@ left-nullspace treatment, not the optional symmetric-RHS check.
 
 ## Nonlinear convergence and failure information
 
+In standard finite-strain J2, the normalized path coordinate remains in
+`[0, 1]`, while the resolved Step amplitude may reverse sign or exceed one.
+Ordinary strong reference values and natural loads use that amplitude. A
+fixed contact tool has no motion coordinate to update. Prescribed moving tools
+still enforce the admitted range of their motion definition; supporting a
+signed traction amplitude does not authorize extrapolating a tool schedule.
+`PrescribedValuePath` accepts finite signed scaling for constant/field values.
+When independent boundary histories are present, its input remains their
+normalized coordinate. Standard finite-J2 Steps continue to reject those
+independent histories, requiring one explicit Step amplitude.
+
 Affine Newton backtracking now requires the stated sufficient residual decrease
 (or meeting the absolute residual tolerance). A merely smaller residual no
 longer bypasses that condition. Existing load cutback, material trial/commit and
@@ -104,6 +115,12 @@ units. Unit strings declare the model's coherent units; they do not convert
 values. The penalty retains pressure-per-length units. A small penalty can
 require many outer iterations; a large one can worsen linear conditioning.
 Neither a faster solve nor universal penalty independence is promised.
+Do not confuse the load increment with Newton's `minimum_step_length`: the
+latter limits residual backtracking along one Newton correction. A very stiff
+contact onset can require a shorter correction even when the load step is
+adequate. The public `NewtonSolverOptions` exposes that floor explicitly; it
+is never reduced silently. A smaller floor permits more trial evaluations,
+not a weaker convergence or penetration tolerance.
 For automatic incrementation, Newton difficulty is the maximum inner Newton
 iteration count, not their sum over all augmentations. The latter remains in
 the total-work report. This prevents repeated easy inner solves from
@@ -125,12 +142,32 @@ Fixed-tool coordinate work is zero, which alone does not prove energy closure.
 `results.export_accepted_contact_points(...)` exports the same augmented pressure
 used in equilibrium, with its nodal reference-area location and enforcement
 recorded. It does not substitute the old `penalty*penetration` pressure.
+Increment records expose total Newton work, the maximum inner Newton count,
+outer augmentations and line-search residual evaluations. A rejected search
+reports its declared minimum step and trial count; it does not diagnose every
+such failure as a tangent error or automatically relax the search floor.
+In-memory rollback snapshots use immutable numerical arrays. JSON conversion
+belongs to the on-disk checkpoint boundary, not each attempted increment.
 
 Run `examples/finite_j2_augmented_plane.py` from the source checkout
 for loading, output and restart. Tests compare a homogeneous elastic limit to
 an independent nominal-stress formula, a plastic limit to a prescribed-motion
 solution, and interrupted to uninterrupted loading. These are bounded numerical
 checks, not validation of arbitrary industrial forming.
+
+`tools/benchmark_normal_augmentation.py` compares explicit penalty candidates
+on this example using warmups, shuffled repeats, the complete four-increment
+Step and all accepted material/field snapshots. Failed candidates remain in
+the report. It is a reproducible numerical-control experiment, not automatic
+tuning or a general acceleration benchmark. Both `--penalty` and
+`--minimum-step-length` are visible example options. Compare the complete
+accepted path, not only the final displacement, before adopting different
+controls for a history-dependent material.
+
+This distinction is also made in the
+[COMSOL contact settings](https://doc.comsol.com/6.4/doc/com.comsol.help.sme/sme_ug_modeling.05.147.html):
+AL penalty affects outer convergence and can compromise robustness when too
+large. The software does not infer a universal value from one successful run.
 
 The separation of nodal and integral multiplier spaces follows the caution in
 the [GetFEM contact documentation](https://getfem.org/userdoc/model_contact_friction.html):

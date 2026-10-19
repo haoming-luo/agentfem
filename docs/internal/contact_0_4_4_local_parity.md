@@ -1694,6 +1694,73 @@ need accepted enforcement-work accounting, and changing feature partitions
 need explicit conservative transfer. The nonconvex geometry and independent
 same-input finite-J2 comparator gates remain open.
 
+### Fixed-plane follow-up: cost, reversed loading and integration checks
+
+The runtime rollback token now uses immutable numerical arrays and owner/
+policy identity. Disk checkpoint serialization remains a separate operation;
+a regression forbids checkpoint-list serialization during a normal solve.
+The global assembled fixed-multiplier tangent also passes a free-DOF
+directional difference, in addition to the local contact-law checks. Accepted
+events report outer augmentation count, maximum inner Newton count and actual
+line-search residual evaluations, rather than conflating them with load steps.
+
+`tools/benchmark_normal_augmentation.py` records warmups, shuffled repeats,
+failed candidates, source hashes and every accepted field/material snapshot
+on the public four-increment example. An initial screen with the unchanged
+`1/128` line-search floor measured median solve/result times of
+`1.377/0.641/0.344 s` for penalties `500/1500/5000 Pa/m` at two cells per
+edge, and `3.319/1.494/0.752 s` at three. This is roughly 75--77% less time
+on these **small example problems by explicit numerical-policy selection**,
+not a general software speedup or an explicit-composite-case claim. The
+example default remains unchanged. Geometry, material, load stations and
+acceptance tolerances were held fixed; all compared accepted fields met the
+script's declared screen.
+
+Penalties `50000/500000` failed at the original line-search floor. A diagnostic
+with the explicitly smaller `1/8192` floor completed at two cells (median
+`0.261/0.425 s`, versus `1.404 s` at penalty 500 in that same run), but both
+still failed at three cells. Thus neither increasing penalty nor lowering
+the search floor is a general convergence remedy. A separate stricter
+componentwise comparison initially found off-diagonal stress differences
+of order `1e-4 Pa` with the original contact acceptance. Tightening both runs'
+penetration/complementarity tolerances from `1e-7/1e-6` to `1e-9/1e-8`
+passes the unchanged componentwise comparison. Do not hide that accuracy/cost
+dependency behind endpoint displacement agreement. The numerical role and
+robustness tradeoff of AL penalty are consistent with [COMSOL's contact
+settings](https://doc.comsol.com/6.4/doc/com.comsol.help.sme/sme_ug_modeling.05.147.html).
+
+An independent scalar reference now covers sixteen accepted stations of
+loading, separation, reverse plastic flow and recontact, at one and two cells
+per edge, with and without restart after reverse flow. For homogeneous
+`F=diag(exp(e),1,1)`, zero Poisson ratio, signed plastic logarithmic strain `a`
+and PEEQ `p`, it uses
+`q_trial=E*abs(e-1.5*a)`,
+`dgamma=max(q_trial-Y-H*p,0)/(1.5*E+H)` and
+`P11=E*(e-a_new)/exp(e)`, followed by a scalar equilibrium root or the rigid
+stop stretch. No FE contact/material routine is used in that reference.
+Displacement, Fp, PEEQ, plastic dissipation and reaction match at every station.
+This is a homogeneous same-law verification, not spatial convergence or an
+independent commercial-code comparator, and does not close Gate 1 or 8.
+
+That test exposed a real input-semantic bug: a signed loading amplitude was
+incorrectly rejected as a normalized progress coordinate. Constant/field
+strong values now accept finite signed scaling; fixed tools do not consume
+a motion coordinate. Independent boundary histories retain normalized input
+checks, and moving-tool schedules retain their admitted range. No moving-AL
+capability was added.
+
+The first remote complete suite at `366824b0` reported 4301 passes, 359 skips
+and 13 failures. Eleven failures shared one builder defect: the default
+`contact_integration='gauss'` was being injected into mixed, no-contact J2
+capability checks. That default is no longer misrepresented as an explicit
+contact option. A rejection test now uses the private line-search tuple
+contract, and an absolute-residual mesh test explicitly requests tighter
+Newton tolerances instead of relying on a mesh-dependent initial relative
+norm. Its original field and `1e-6` absolute residual assertions remain.
+The two affected files plus the new cyclic reference passed 52 local tests;
+the preceding runtime/policy/standard-J2 check passed 108. Remote integration
+must be rechecked at the final revision before promotion.
+
 [abaqus]: https://docs.software.vt.edu/abaqusv2025/English/SIMACAEITNRefMap/simaitn-c-genlcontnumcontrolsstd.htm
 [nafems]: https://www.nafems.org/publications/pubguide/list/
 [nafems-contact-3]: https://www.nafems.org/downloads/FENet_Meetings/Glasgow_UK_Oct_2004/FENET_Glasgow_Oct2004_DLE_Becker.pdf

@@ -448,6 +448,26 @@ def test_remote_displacement_is_a_ramped_rigid_boundary_motion():
     assert constraint.summary()["reference_point"] == "RP-1"
 
 
+def test_prescribed_value_scaling_is_not_a_normalized_progress_coordinate():
+    from types import SimpleNamespace
+
+    value = SimpleNamespace(value=0.)
+    path = constraints.PrescribedValuePath(constants=((value, 2.),))
+    for amplitude in (-.5, 2.5):
+        path.update(amplitude)
+        assert value.value == 2. * amplitude
+    for invalid in (float('nan'), float('inf'), -float('inf')):
+        before = value.value
+        with pytest.raises(ValueError, match='must be finite'):
+            path.update(invalid)
+        assert value.value == before
+    history = SimpleNamespace(update=lambda coordinate: None)
+    normalized = constraints.PrescribedValuePath(constants=((value, 2.),), amplitudes=(history,))
+    with pytest.raises(ValueError, match='boundary-history coordinate'):
+        normalized.update(-.5)
+    assert value.value == before
+
+
 def test_elastic_foundation_is_a_mechanical_boundary_matrix():
     domain = mesh.rectangle(
         (0.0, 0.0),

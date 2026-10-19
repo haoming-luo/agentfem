@@ -25,6 +25,7 @@ def _single_trace(*, weight=1.0):
 @pytest.mark.parametrize('changes', [
     {'penetration_tolerance': -1.}, {'penetration_tolerance': True},
     {'penetration_tolerance': np.nan}, {'complementarity_tolerance': np.inf},
+    {'penetration_tolerance': np.bool_(True)}, {'penetration_tolerance': '1e-7'},
     {'maximum_augmentations': 0}, {'maximum_augmentations': True},
     {'maximum_augmentations': 3.5}, {'length_unit': ''}, {'pressure_unit': ' '},
 ])
@@ -41,7 +42,7 @@ def test_public_normal_policy_is_immutable_serializable_and_explicitly_experimen
     import json
 
     selected = steps.normal_augmentation(
-        penetration_tolerance=1e-7, complementarity_tolerance=1e-6,
+        penetration_tolerance=np.float32(1e-7), complementarity_tolerance=1e-6,
         length_unit='mm', pressure_unit='MPa',
     )
     assert json.loads(json.dumps(selected.summary()))['maturity'] == 'experimental'
@@ -359,6 +360,30 @@ def test_multiplier_trial_rollback_and_atomic_restore():
         with pytest.raises(ValueError):
             candidate.restore_accepted(damaged)
         assert candidate.accepted_snapshot() == good
+
+
+def test_runtime_multiplier_token_is_immutable_owner_bound_and_atomic():
+    plane = boundary_models.rigid_plane(point=(0, 0, 0), normal=(1, 0, 0))
+    state = _state(_single_trace(), plane, penalty=10., initial_multiplier=(1.,))
+    token = state.snapshot_runtime_state()
+    with pytest.raises(ValueError):
+        token[1].setflags(write=True)
+    other = _state(_single_trace(), plane, penalty=10.)
+    with pytest.raises(ValueError, match='owner or policy'):
+        other.restore_runtime_state(token)
+    evaluation, record = _record(plane, (0., 0., 0.), state.trace)
+    state.mark_equilibrium_converged(evaluation, record,
+                                    total_residual_norm=0., total_residual_tolerance=1e-12)
+    state.augment_after_converged(evaluation, record)
+    state.restore_runtime_state(token)
+    assert state.augmentation_count == 0
+    np.testing.assert_array_equal(state.accepted_multiplier, [1.])
+    with pytest.raises(ValueError, match='nonnegative'):
+        state.restore_runtime_state((token[0], [-1.]))
+    np.testing.assert_array_equal(state.accepted_multiplier, [1.])
+    state.penalty = 20.
+    with pytest.raises(ValueError, match='owner or policy'):
+        state.restore_runtime_state(token)
 
 
 def test_inactive_augmented_functional_is_not_physical_stored_energy():

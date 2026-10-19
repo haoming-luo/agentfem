@@ -227,7 +227,13 @@ def finite_strain_j2(
         target=target,
         step_options={
             "material": material,
-            "contact_integration": contact_integration,
+            # A builder default is not an explicit contact request. Do not
+            # inject it into mixed/no-contact providers that correctly reject
+            # contact options in their public Step contract.
+            **({"contact_integration": contact_integration}
+               if getattr(model, "boundary_models", ()) or contact_integration != "gauss"
+               else {}),
+            **({"constraints": constraints} if constraints is not None else {}),
             **({"normal_augmentation": normal_augmentation}
                if normal_augmentation is not None else {}),
         },

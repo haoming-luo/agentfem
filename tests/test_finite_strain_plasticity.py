@@ -1095,7 +1095,7 @@ def test_fixed_finite_j2_failure_reports_underlying_rejection_and_rolls_back(
 
 def test_fixed_finite_j2_real_line_search_rejection_names_cause(monkeypatch):
     step = _global_finite_strain_j2_patch(incrementation=steps.fixed(2))
-    monkeypatch.setattr(step, "_line_search", lambda *args, **kwargs: 0.0)
+    monkeypatch.setattr(step, "_line_search", lambda *args, **kwargs: (0.0, None, None))
 
     with pytest.raises(
         RuntimeError,
@@ -1208,11 +1208,17 @@ def test_global_finite_strain_j2_checkpoint_restart_matches_continuous_path(
 
 def test_global_finite_strain_j2_multielement_patch_preserves_uniform_path():
     reference = _global_finite_strain_j2_patch(incrementation=steps.fixed(4))
+    # This test asserts an absolute residual, so request sufficient accuracy
+    # explicitly instead of relying on a mesh-dependent initial relative norm.
+    reference.solver_options = replace(reference.solver_options,
+                                       relative_tolerance=1e-12, absolute_tolerance=1e-10)
     reference.solve()
     refined = _global_finite_strain_j2_patch(
         incrementation=steps.fixed(4),
         cells=(2, 2, 2),
     )
+    refined.solver_options = replace(refined.solver_options,
+                                     relative_tolerance=1e-12, absolute_tolerance=1e-10)
     refined.solve()
     reference_peeq = reference.response.state.committed_state_vectors()[:, -2]
     refined_peeq = refined.response.state.committed_state_vectors()[:, -2]
