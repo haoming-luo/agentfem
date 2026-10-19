@@ -204,6 +204,7 @@ def finite_strain_j2(
     quadrature_degree: int | None = None,
     contact_quadrature_degree: int | None = None,
     contact_integration: str | Mapping[str, str] = "gauss",
+    normal_augmentation=None,
     output=None,
     output_every: int | None = None,
     checkpoint=None,
@@ -227,6 +228,8 @@ def finite_strain_j2(
         step_options={
             "material": material,
             "contact_integration": contact_integration,
+            **({"normal_augmentation": normal_augmentation}
+               if normal_augmentation is not None else {}),
         },
     )
     if hasattr(model.study, "require"):
@@ -329,6 +332,8 @@ def finite_strain_j2(
         else ()
     )
     if affine:
+        if normal_augmentation is not None:
+            raise NotImplementedError("AFM-CONTACT-AL-SCOPE: affine/MPC augmentation is not admitted.")
         from .boundary_models.contact_integration_modes import (
             resolve_contact_integration_modes,
         )
@@ -521,6 +526,7 @@ def finite_strain_j2(
             quadrature_degree=selected_quadrature_degree,
             contact_quadrature_degree=contact_quadrature_degree,
             contact_integration=contact_integration,
+            normal_augmentation=normal_augmentation,
             amplitude=selected_amplitude,
             output_every=selected_output_every,
             output_factors=output_factors,

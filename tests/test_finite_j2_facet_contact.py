@@ -41,7 +41,7 @@ def _patch(*, triangulated: bool, gap: float = 0.005, penalty=500.0,
            clamp_left=True, left_traction=0.0,
            initial_penetration_limit=None,
            transverse_boundary_fixed=False, load_amplitude=None,
-           increment_control=None):
+           increment_control=None, normal_augmentation=None):
     domain = dolfinx_mesh.create_unit_cube(
         MPI.COMM_SELF, cells, cells, cells,
         cell_type=(
@@ -215,6 +215,8 @@ def _patch(*, triangulated: bool, gap: float = 0.005, penalty=500.0,
         step_options["amplitude"] = load_amplitude
     if contact_quadrature_degree is not None:
         step_options["contact_quadrature_degree"] = contact_quadrature_degree
+    if normal_augmentation is not None:
+        step_options["normal_augmentation"] = normal_augmentation
     step = model.step(
         target=displacement,
         **step_options,

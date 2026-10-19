@@ -127,11 +127,12 @@ class FixedTraceNormalMultiplierState:
     only when its *total* equilibrium test also passes. No contact state is
     accepted merely because the point law was evaluated successfully.
     ``penetration_tolerance`` has the declared length unit, whereas
-    ``complementarity_tolerance`` bounds ``abs(multiplier * gap)`` and has
+    ``complementarity_tolerance`` bounds both the stored multiplier and the
+    effective (augmented) pressure times gap, and has
     pressure-times-length units. Neither tolerance is a force tolerance.
     """
 
-    schema = "agentfem.fixed-trace-normal-augmentation.v1"
+    schema = "agentfem.fixed-trace-normal-augmentation.v2"
 
     def __init__(
         self,
@@ -243,7 +244,8 @@ class FixedTraceNormalMultiplierState:
         self._check_record(evaluation, record)
         norm = float(total_residual_norm)
         tolerance = float(total_residual_tolerance)
-        if not np.isfinite(norm) or not np.isfinite(tolerance) or tolerance < 0 or norm > tolerance:
+        if (not np.isfinite(norm) or norm < 0 or not np.isfinite(tolerance)
+                or tolerance < 0 or norm > tolerance):
             raise ValueError("Total equilibrium has not converged for this multiplier.")
         self._converged_record = record
 
@@ -269,9 +271,14 @@ class FixedTraceNormalMultiplierState:
     ) -> dict[str, float]:
         self._check_record(evaluation, record)
         gap = record.projection.signed_gaps
+        pressure = np.maximum(0.0, self._iterate - self.penalty * gap)
+        multiplier_product = float(np.max(np.abs(self._iterate * gap), initial=0.0))
+        pressure_product = float(np.max(np.abs(pressure * gap), initial=0.0))
         return {
             "maximum_penetration": float(np.max(np.maximum(-gap, 0.0), initial=0.0)),
-            "maximum_complementarity": float(np.max(np.abs(self._iterate * gap), initial=0.0)),
+            "maximum_complementarity": max(multiplier_product, pressure_product),
+            "maximum_multiplier_complementarity": multiplier_product,
+            "maximum_effective_pressure_complementarity": pressure_product,
             "minimum_multiplier": float(np.min(self._iterate)) if self._iterate.size else 0.0,
         }
 

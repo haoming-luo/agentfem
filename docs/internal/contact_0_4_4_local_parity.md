@@ -29,7 +29,7 @@ being silently approximated by the bounded route.
 | 1. Comparator | Internal/public-protocol tests; elastic and small-displacement published cases screened but not misidentified as finite-J2 comparators | Independent same-input finite-J2 contact run and frozen observables |
 | 2. Surface | Reviewed closed/open triangle geometry, bounded initial-overlap checks, and per-face same-plane proof with one bounded fallback subdivision | Rims, unsupported curved tools, ambiguous sharp features and target-path sliding coverage |
 | 3. Integration | Planar/convex partitions; certified zero-contact and smooth-branch faces; private wholly-interior and single-plane partially active reentrant edge/face local integral and tangent; bounded adaptive interior-ball cover; whole-face smooth numerical-touch admission | General active boundaries and feature sets; global signed-gap Step admission; other edge/point laws |
-| 4. Normal law | Penalty Step; fixed-trace AL research law plus real-mesh/reduced-rank counterexamples | Compatible multiplier space, outer global Procedure, spatial stability and checkpoint composition |
+| 4. Normal law | Penalty Step; opt-in ordinary serial P1 fixed-plane AL Step, coalesced nodal multiplier, outer Newton lifecycle and joint restart; real-mesh/reduced-rank counterexamples retained | General multiplier space and transfer, MPC/curved/moving admission, spatial stability and enforcement-work closure |
 | 5. Friction | Locally planar Coulomb State; rigid-master spin transport tested; a separate smooth point tool can slide beside a frictionless certified-face tool | Admitted geometry-by-friction matrix; friction on sharp features remains rejected |
 | 6. Transaction | Total-system and restart tests for admitted penalty modes; opt-in serial standard-J2 certified-face research Step with work, plastic-history rollback/restart and two named tools; smooth-subset affine/MPC total-system path, now including a prescribed moving face; certified-face plus point pair in serial standard J2 and smooth MPC, including separate point-friction State | Sharp-feature MPC, MPI, changing feature topology and wider path tests |
 | 7. Result | Pair work/pressure samples; AL local work sign; standard and affine/MPC research face-location extensive evidence and accepted-station coverage without point pressure | Cross-law first-law, between-station coverage and a defensible pressure interpretation |
@@ -1590,7 +1590,7 @@ same total-system and accepted-increment transaction as penalty contact; an
 adaptive integration partition must continue to reject AL until multiplier
 transfer is separately verified.
 
-### Next code boundary: whole-increment augmentation, not a second solver
+### Whole-increment augmentation design, not a second solver
 
 For that analytical-plane admission, keep `FiniteStrainJ2StandardProblem` as
 the only Newton/line-search/linear-solve owner. The contact Operator reads a
@@ -1618,6 +1618,81 @@ and the AL path to pass a fixed-trace restart identity,
 one plastic-history path and one MPC-reduced total-tangent comparison. A
 changing feature partition cannot use this State until a conservative,
 identified multiplier-transfer rule has its own tests.
+
+### 2026-10-19: bounded fixed-plane AL enters the ordinary Step
+
+`steps.normal_augmentation(...)` now explicitly selects a bounded experimental
+outer Procedure inside the existing standard finite-J2 Step. It is limited
+to one fixed frictionless analytical plane, serial P1 tetrahedra, a scalar
+penalty and ordinary strong constraints. Coalesced nodal reference weights
+remove the previously demonstrated duplicate Gaussian multiplier rows. An
+individual normal row with no free displacement after strong constraints is
+rejected. This algebraic check is not a mesh-uniform inf-sup theorem: no MPC,
+moving/curved tool, mixed space, changing trace or friction promotion follows.
+
+The Operator keeps the multiplier fixed throughout every inner Newton and
+line-search trial. The Procedure reconfirms the **total** equilibrium residual
+before augmenting. The material always starts from the same pre-increment
+committed history. Only the final outer acceptance jointly commits material,
+displacement and multiplier; inner success cannot produce a checkpoint.
+Failed Newton, exhausted augmentation and an injected post-multiplier-commit
+failure all restore the preceding accepted boundary in targeted tests.
+
+Complementarity now bounds both `abs(lambda*g)` and `abs(p*g)`, where
+`p=max(0,lambda-rho*g)`. Testing only the old multiplier could accept a large
+effective pressure with zero initial multiplier. The research multiplier
+checkpoint schema advances to v2, so old acceptance semantics are not silently
+restored. Pressure is force per reference area, and the algorithmic functional
+is not exported as physical contact energy. The mechanical-energy ledger is
+explicitly unavailable for this admission pending a bounded enforcement-work
+residual. Fixed-tool coordinate work remains zero, without a closure claim.
+
+Evidence is in `tests/test_finite_j2_normal_augmentation.py`: actual plastic
+loading/unloading, independent homogeneous nominal-stress limits at two mesh
+sizes and two penalties, plastic displacement-controlled limit, joint
+restart, corrupted multiplier rejection, and public capability/execution
+scope checks. The independent prescribed-displacement comparison exposed a
+separate standard-J2 backtracking issue: provisional iterates must first
+satisfy the current nonzero strong boundary values. The repair is covered by
+a test that inspects **every** trial and compares with full Newton. The 202
+existing standard/contact/periodic regression tests passed after this repair.
+
+Additional independent discrete-limit tests now exercise **nonuniform**
+oblique-plane pressure (elastic and plastic) and mixed open/closed nodes.
+The partial-contact oracle repeatedly solves contact-free equality-constrained
+elastic-limit J2 problems, selecting active nodes from assembled reactions and
+gaps; it does not use the AL or penalty operator. At two and three cells per
+edge, displacement, active nodes and normal nodal forces agree with the AL
+Step within the declared test tolerances. This is a same-discretization
+enforcement check, not an independent continuum pressure-convergence result.
+
+Two integration defects were found and repaired before promotion. First,
+accepted pressure export must use `max(0,lambda-rho*g)`, not the inherited
+penalty-only response. Exported pressure times reference weights and normals
+now reproduces the assembled force; metadata states augmented enforcement and
+coalesced nodal reference location. Penalty-only sensitivity/enclosure methods
+reject AL rather than silently changing its law or multiplier trace. Second,
+automatic load adaptation must not treat the sum of all inner Newton counts
+as a single Newton difficulty. That earlier implementation exhausted 50
+increments in an automatic-cutback test. The controller now uses the maximum
+inner Newton count; total iterations/timings and outer augmentation counts
+remain separately reported, and genuine outer failure still cuts back.
+
+The new public `examples/finite_j2_augmented_plane.py` uses normal Model and
+Step APIs. On its two-cell-per-edge plastic block the half-path checkpoint
+continued through all four increments, final right displacement
+`0.00500004 m`, with 198 augmentations in total. A 60-augmentation budget
+initially rejected the second increment (`2.64e-7 m` penetration versus the
+declared `1e-7 m` limit); the example now explicitly permits 120 augmentations
+per increment without loosening the acceptance tolerance. This records actual
+cost and a bounded failure, not a speedup or universal convergence claim.
+
+Next: retain the public fixed-plane slice as experimental; establish
+nonuniform pressure and active-set convergence evidence before selecting a
+general multiplier space. MPC needs a compatible reduced space, moving tools
+need accepted enforcement-work accounting, and changing feature partitions
+need explicit conservative transfer. The nonconvex geometry and independent
+same-input finite-J2 comparator gates remain open.
 
 [abaqus]: https://docs.software.vt.edu/abaqusv2025/English/SIMACAEITNRefMap/simaitn-c-genlcontnumcontrolsstd.htm
 [nafems]: https://www.nafems.org/publications/pubguide/list/

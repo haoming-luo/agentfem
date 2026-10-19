@@ -345,6 +345,15 @@ class FiniteStrainPlasticityIncrementInfo:
     linear_solve_calls: int = 0
     linear_iterations: int = 0
     linear_converged_reasons: tuple[int, ...] = ()
+    normal_augmentations: int = 0
+    maximum_inner_newton_iterations: int | None = None
+
+    @property
+    def adaptation_iterations(self) -> int:
+        """Newton difficulty, distinct from summed nested-procedure work."""
+
+        return (self.iterations if self.maximum_inner_newton_iterations is None
+                else self.maximum_inner_newton_iterations)
 
     def as_dict(self) -> dict[str, object]:
         return {name: getattr(self, name) for name in self.__dataclass_fields__}
@@ -379,6 +388,11 @@ class FiniteStrainPlasticityIncrementInfo:
             linear_iterations=int(record.get("linear_iterations", 0)),
             linear_converged_reasons=tuple(
                 int(value) for value in record.get("linear_converged_reasons", ())
+            ),
+            normal_augmentations=int(record.get("normal_augmentations", 0)),
+            maximum_inner_newton_iterations=(
+                None if record.get("maximum_inner_newton_iterations") is None
+                else int(record["maximum_inner_newton_iterations"])
             ),
         )
 
@@ -1618,6 +1632,23 @@ class FiniteStrainJ2StandardProblem:
         return 0.0, None, None
 
     def _solve_increment(
+        self, *, increment: int, attempt: int, start_factor: float, target_factor: float,
+    ) -> FiniteStrainPlasticityIncrementInfo:
+        from ..boundary_models._augmented_plane_trial_provider import (
+            DolfinxAugmentedPlaneTrialProvider,
+        )
+
+        coordinates = dict(
+            increment=increment, attempt=attempt,
+            start_factor=start_factor, target_factor=target_factor,
+        )
+        if isinstance(self.contact_provider, DolfinxAugmentedPlaneTrialProvider):
+            from ._normal_augmentation_procedure import solve_augmented_plane_increment
+
+            return solve_augmented_plane_increment(self, self.contact_provider, **coordinates)
+        return self._solve_frozen_increment(**coordinates)
+
+    def _solve_frozen_increment(
         self,
         *,
         increment: int,
@@ -1626,6 +1657,14 @@ class FiniteStrainJ2StandardProblem:
         target_factor: float,
     ) -> FiniteStrainPlasticityIncrementInfo:
         started = time.perf_counter()
+        # Newton and residual backtracking operate on the current affine
+        # Dirichlet space. Scaling a nonzero boundary correction inside line
+        # search otherwise compares residuals for different boundary data.
+        # This changes only the provisional iterate; the enclosing increment
+        # snapshot still owns rollback and the accepted material configuration.
+        for bc in self.bcs:
+            bc.set(self.solution.x.array)
+        self.solution.x.scatter_forward()
         material_update_seconds = 0.0
         residual_assembly_seconds = 0.0
         tangent_assembly_seconds = 0.0
@@ -1880,6 +1919,12 @@ class FiniteStrainJ2StandardProblem:
     ) -> None:
         """Commit one path-consistent work/energy frame after material commit."""
 
+        if not all(getattr(item, "physical_contact_potential_available", True)
+                   for item in self._contact_providers()):
+            # An AL algorithmic functional is not recoverable contact energy.
+            # Preserve the existing explicit unavailable-ledger contract.
+            self.energy_history_complete = False
+            return
         if not self.energy_history_complete:
             return
         stored = self._integrate_quadrature_scalar(
@@ -2363,7 +2408,7 @@ class FiniteStrainJ2StandardProblem:
                         self.incrementation, step_controls.AutomaticIncrementation
                     ):
                         proposed = self.incrementation.after_convergence(
-                            size, info.iterations
+                            size, info.adaptation_iterations
                         )
                         self.next_increment_size = proposed
                     save_by_increment = (
@@ -2891,11 +2936,12 @@ class FiniteStrainJ2StandardProblem:
             raise ValueError("Contact face path checkpoint pair coverage differs.")
         needs_contact_state = any(
             getattr(provider, "friction_state", None) is not None
+            or getattr(provider, "requires_accepted_state", False)
             for provider in self._contact_providers()
         )
         if needs_contact_state != (contact_state is not None):
             raise ValueError(
-                "Finite-strain J2 checkpoint friction State presence differs."
+                "Finite-strain J2 checkpoint contact State presence differs."
             )
         if not np.allclose(solution, accepted_solution, rtol=0.0, atol=1.0e-12):
             raise ValueError("Finite-strain J2 checkpoint U and U_ACCEPTED differ.")
@@ -3282,7 +3328,11 @@ class FiniteStrainJ2StandardProblem:
                     ),
                     sample_count=len(self.accepted_increments) + 1,
                     role="contact_constraint",
-                    source="rigid_obstacle_penalty_potential",
+                    source=(
+                        "rigid_obstacle_penalty_potential"
+                        if getattr(item, "physical_contact_potential_available", True)
+                        else "fixed_plane_normal_augmentation"
+                    ),
                 )
                 for item in providers
             )
@@ -3314,15 +3364,16 @@ class FiniteStrainJ2StandardProblem:
                             "method": "provider_dual_reaction_distribution",
                         },
                     )
-                result.add_quantity(
-                    f"{dual.constraint_name}_contact_energy",
-                    (
-                        provider.evaluate().potential_energy
-                        if self._uses_implicit_rigid_contact()
-                        else self._contact_potential()
-                    ),
-                    kind="diagnostic",
-                )
+                if getattr(provider, "physical_contact_potential_available", True):
+                    result.add_quantity(
+                        f"{dual.constraint_name}_contact_energy",
+                        (
+                            provider.evaluate().potential_energy
+                            if self._uses_implicit_rigid_contact()
+                            else self._contact_potential()
+                        ),
+                        kind="diagnostic",
+                    )
                 result.add_quantity(
                     f"{dual.constraint_name}_reaction_resultant",
                     dual.resultant,
@@ -3673,6 +3724,13 @@ class FiniteStrainJ2StandardProblem:
                 else "not_present"
             ),
         }
+        if not all(getattr(item, "physical_contact_potential_available", True)
+                   for item in self._contact_providers()):
+            result.metadata["mechanical_energy_ledger"].update(
+                status="unavailable_augmented_contact_enforcement_work_not_bounded",
+                internal_energy=None,
+                algorithmic_functional_is_physical_energy=False,
+            )
         for checkpoint in self.checkpoints:
             result.add_checkpoint(checkpoint)
         add_execution_trace(result, self.execution_events)
@@ -3967,6 +4025,7 @@ def finite_strain_j2_standard_problem(
     quadrature_degree: int = 2,
     contact_quadrature_degree: int | None = None,
     contact_integration: str | Mapping[str, str] = "gauss",
+    normal_augmentation=None,
     amplitude=None,
     output_every: int | None = 1,
     output_factors=(),
@@ -4075,6 +4134,17 @@ def finite_strain_j2_standard_problem(
                 )
             )
 
+    if normal_augmentation is not None:
+        from ..boundary_models._augmented_plane_trial_provider import (
+            DolfinxAugmentedPlaneTrialProvider,
+        )
+
+        if contact_quadrature_degree is not None:
+            raise NotImplementedError("AFM-CONTACT-AL-SCOPE: AL owns a fixed coalesced nodal trace.")
+        contact_provider = DolfinxAugmentedPlaneTrialProvider(
+            contact_provider, policy=normal_augmentation,
+        )
+
     from .. import constraints as constraint_api
 
     concrete_constraints = constraint_api.constraint_assets(constraints)
@@ -4118,6 +4188,13 @@ def finite_strain_j2_standard_problem(
         ))
         contact_constrained_dofs = tuple(
             np.intersect1d(contact_dofs, constrained_dofs).tolist()
+        )
+    if normal_augmentation is not None:
+        from ..boundary_models._augmented_plane_trial_provider import validate_free_plane_normal_rows
+
+        validate_free_plane_normal_rows(
+            contact_provider.adapter.trace, contact_provider.surface.normal,
+            contact_constrained_dofs,
         )
     value_path = constraint_api.prescribed_value_path(concrete_constraints)
     selected_amplitude = (

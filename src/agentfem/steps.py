@@ -21,6 +21,50 @@ from sys import float_info
 
 
 @dataclass(frozen=True)
+class NormalAugmentationOptions:
+    """Experimental normal-contact outer iteration, distinct from Newton.
+
+    Tolerances use the model's explicit units: length for penetration and
+    pressure-times-length for complementarity. They are not force tolerances.
+    Current admission is one fixed frictionless plane on serial P1 tetrahedra
+    with ordinary strong boundaries, not general mortar/MPC contact.
+    """
+
+    penetration_tolerance: float
+    complementarity_tolerance: float
+    length_unit: str
+    pressure_unit: str
+    maximum_augmentations: int = 30
+
+    def __post_init__(self):
+        for name in ("penetration_tolerance", "complementarity_tolerance"):
+            value = getattr(self, name)
+            if isinstance(value, bool) or not isfinite(value) or value < 0:
+                raise ValueError(f"{name} must be finite and nonnegative.")
+        if type(self.maximum_augmentations) is not int or self.maximum_augmentations < 1:
+            raise ValueError("maximum_augmentations must be a positive integer.")
+        for name in ("length_unit", "pressure_unit"):
+            value = getattr(self, name)
+            if not isinstance(value, str) or not value.strip():
+                raise ValueError(f"{name} must be an explicit nonempty unit.")
+
+    def summary(self):
+        return {"kind": "normal_augmentation", "maturity": "experimental", **vars(self)}
+
+
+def normal_augmentation(
+    *, penetration_tolerance: float, complementarity_tolerance: float,
+    length_unit: str, pressure_unit: str, maximum_augmentations: int = 30,
+) -> NormalAugmentationOptions:
+    """Declare bounded fixed-plane AL controls; ordinary penalty is unchanged."""
+
+    return NormalAugmentationOptions(
+        penetration_tolerance, complementarity_tolerance,
+        length_unit, pressure_unit, maximum_augmentations,
+    )
+
+
+@dataclass(frozen=True)
 class AutomaticIncrementation:
     """Adaptive load/time incrementation for one analysis step.
 
@@ -560,6 +604,8 @@ def _asset_name(asset_or_name, explicit=None) -> str:
 
 
 __all__ = [
+    "NormalAugmentationOptions",
+    "normal_augmentation",
     "AutomaticIncrementation",
     "FixedIncrementation",
     "MonotonicTargetAdvance",

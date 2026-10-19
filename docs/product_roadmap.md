@@ -782,6 +782,16 @@ converge or that a higher penalty is universally unusable. First prove the
 multiplier update and penetration tolerance on a fixed-point planar trace;
 the trial-partition route has changing quadrature points and needs an explicit
 State transfer/identity rule before any multiplier history can follow it.
+The next bounded slice is now implemented: explicit
+`steps.normal_augmentation(...)` lowers through ordinary standard J2 with one
+fixed analytical plane, serial P1 tetrahedra and coalesced nodal multipliers.
+It reuses the existing Newton, material trial state and joint accepted
+checkpoint. Independent homogeneous limits, plastic loading/unloading,
+failure rollback and restart have targeted evidence. Redundant strong/contact
+normal rows reject early. This is still experimental: general multiplier
+stability, MPC, moving/curved tools, partition transfer and enforcement-work
+closure remain separate gates. The AL functional is not physical stored
+energy; the full energy ledger is marked unavailable rather than fabricated.
 The same manufactured implicit-J2 contact screen also found a distinct
 scaling opportunity in the *linear solver*, not the contact law: explicit
 GMRES/GAMG with a recorded rigid-body near-nullspace preserves the tested

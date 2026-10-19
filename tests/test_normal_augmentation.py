@@ -7,7 +7,7 @@ import copy
 import numpy as np
 import pytest
 
-from agentfem import boundary_models
+from agentfem import boundary_models, steps
 from agentfem.boundary_models.normal_augmentation import (
     FixedTraceNormalMultiplierState,
     diagnose_fixed_trace_normal_constraint_rank,
@@ -20,6 +20,34 @@ def _single_trace(*, weight=1.0):
         point_ids=(17,), node_ids=((0,),), shape_values=((1.0,),),
         weights=(weight,), source="fixed_single_point_reference_trace",
     )
+
+
+@pytest.mark.parametrize('changes', [
+    {'penetration_tolerance': -1.}, {'penetration_tolerance': True},
+    {'penetration_tolerance': np.nan}, {'complementarity_tolerance': np.inf},
+    {'maximum_augmentations': 0}, {'maximum_augmentations': True},
+    {'maximum_augmentations': 3.5}, {'length_unit': ''}, {'pressure_unit': ' '},
+])
+def test_public_normal_policy_rejects_invalid_or_implicit_units(changes):
+    values = dict(penetration_tolerance=1e-7, complementarity_tolerance=1e-6,
+                  maximum_augmentations=30, length_unit='m', pressure_unit='Pa')
+    values.update(changes)
+    with pytest.raises(ValueError):
+        steps.normal_augmentation(**values)
+
+
+def test_public_normal_policy_is_immutable_serializable_and_explicitly_experimental():
+    from dataclasses import FrozenInstanceError
+    import json
+
+    selected = steps.normal_augmentation(
+        penetration_tolerance=1e-7, complementarity_tolerance=1e-6,
+        length_unit='mm', pressure_unit='MPa',
+    )
+    assert json.loads(json.dumps(selected.summary()))['maturity'] == 'experimental'
+    assert selected.summary()['length_unit'] == 'mm'
+    with pytest.raises(FrozenInstanceError):
+        selected.penetration_tolerance = 1.
 
 
 def _record(surface, point, trace):
@@ -78,6 +106,28 @@ def test_independent_spring_plane_augmentation_reaches_unilateral_solution():
     # The stopped iterate has |u| <= 1e-9, hence |lambda-lambda*| <= 20e-9.
     assert state.accepted_multiplier[0] == pytest.approx(1.0, abs=2e-8)
     with pytest.raises(ValueError, match="Total equilibrium"):
+        state.commit(evaluation, record)
+
+
+def test_acceptance_checks_effective_pressure_not_only_zero_old_multiplier():
+    trace = _single_trace()
+    plane = boundary_models.rigid_plane(point=(0, 0, 0), normal=(1, 0, 0))
+    state = _state(
+        trace, plane, penalty=1e12,
+        penetration_tolerance=1e-4, complementarity_tolerance=1e-3,
+    )
+    evaluation, record = _record(plane, (-1e-5, 0, 0), trace)
+    diagnostic = state.acceptance_diagnostics(evaluation, record)
+    assert diagnostic['maximum_multiplier_complementarity'] == 0.
+    assert diagnostic['maximum_effective_pressure_complementarity'] == pytest.approx(100.)
+    with pytest.raises(ValueError, match='Total equilibrium'):
+        state.mark_equilibrium_converged(
+            evaluation, record, total_residual_norm=-1., total_residual_tolerance=1e-8,
+        )
+    state.mark_equilibrium_converged(
+        evaluation, record, total_residual_norm=0., total_residual_tolerance=1e-8,
+    )
+    with pytest.raises(ValueError, match='complementarity'):
         state.commit(evaluation, record)
 
 

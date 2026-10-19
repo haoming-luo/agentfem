@@ -182,6 +182,11 @@ def export_accepted_contact_points(
 
     selected_units = {} if units is None else dict(units)
     encoded_units = json.loads(json.dumps(selected_units, allow_nan=False))
+    locations = [item.get("location", "reference_boundary_quadrature") for item in samples]
+    measures = [item.get("pressure_measure", "penalty_force_per_reference_area_not_cauchy_pressure")
+                for item in samples]
+    location = locations[0] if len(set(locations)) == 1 else "per_pair_reference_boundary_samples"
+    pressure_measure = measures[0] if len(set(measures)) == 1 else "per_pair_force_per_reference_area"
     metadata = {
         "schema": "agentfem.accepted-contact-points.v1",
         "agentfem_version": __version__,
@@ -189,8 +194,8 @@ def export_accepted_contact_points(
         "coordinate_name": "load_factor",
         "coordinate_value": factor,
         "complete": factor >= 1.0 - 1.0e-12,
-        "location": "reference_boundary_quadrature",
-        "pressure_measure": "penalty_force_per_reference_area_not_cauchy_pressure",
+        "location": location,
+        "pressure_measure": pressure_measure,
         "smoothing": "none",
         "gap_sign": "positive_admissible_negative_penetration",
         "friction_traction_sign": "force_on_rigid_surface_per_reference_area",
@@ -205,6 +210,9 @@ def export_accepted_contact_points(
                 "surface_name": item["surface_name"],
                 "geometry_fingerprint": item["geometry_fingerprint"],
                 "trace_source": item["trace_source"],
+                "location": locations[index],
+                "pressure_measure": measures[index],
+                "enforcement": item.get("enforcement", "one_sided_rigid_surface_penalty"),
                 "point_identity_scope": identity_scopes[index],
                 "point_count": len(item["point_ids"]),
             }
@@ -246,7 +254,7 @@ def export_accepted_contact_points(
         for name, key, description in (
             (
                 "rigid_contact_normal_pressure_raw", "normal_pressures",
-                "Positive penalty force per reference boundary area; no smoothing.",
+                "Positive normal contact force per reference boundary area; no smoothing.",
             ),
             (
                 "rigid_contact_friction_traction_raw", "surface_friction_tractions",
@@ -255,7 +263,7 @@ def export_accepted_contact_points(
         ):
             result.add_field(
                 name, artifact=paths["contact_points"],
-                location="reference_boundary_quadrature", description=description,
+                location=location, description=description,
                 processing={
                     "method": "accepted_raw_contact_point_export",
                     "npz_key": key,
@@ -263,6 +271,7 @@ def export_accepted_contact_points(
                     "point_id_key": "point_ids",
                     "point_identity_scope_by_pair": identity_scopes,
                     "smoothing": "none",
+                    "pressure_measure_by_pair": measures,
                 },
             )
     return paths

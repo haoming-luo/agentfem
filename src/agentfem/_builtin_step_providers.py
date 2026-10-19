@@ -666,6 +666,9 @@ def _initial_contact_bound_rejection_reason(model, request: StepRequest) -> str 
 def _contact_integration_rejection_reason(model, request: StepRequest) -> str | None:
     """Admit the changing trial partition only where its affine proof applies."""
 
+    augmentation_problem = _normal_augmentation_rejection_reason(model, request)
+    if augmentation_problem is not None:
+        return augmentation_problem
     selected = request.options.get("contact_integration", "gauss")
     from .boundary_models.contact_integration_modes import (
         CONTACT_INTEGRATION_MODES, resolve_contact_integration_modes,
@@ -742,6 +745,70 @@ def _contact_integration_rejection_reason(model, request: StepRequest) -> str | 
             "AFM-CONTACT-PARTITION: only CG1, first-order tetrahedral "
             "slave triangles have the bounded active partition."
         )
+    return None
+
+
+def _normal_augmentation_rejection_reason(model, request: StepRequest) -> str | None:
+    selected = request.options.get("normal_augmentation")
+    if selected is None:
+        return None
+    from .steps import NormalAugmentationOptions
+    from .boundary_models import RigidContactPair, RigidPlaneSurface
+    from .constraints import AbaqusPeriodicConstraint, constraint_assets
+
+    reason = (
+        "AFM-CONTACT-AL-SCOPE: normal augmentation requires one fixed frictionless "
+        "analytical plane, scalar penalty, serial CG1 tetrahedra and ordinary "
+        "strong boundaries; no MPC, mixed fields, moving tools or changing trace."
+    )
+    if not isinstance(selected, NormalAugmentationOptions):
+        return "AFM-CONTACT-AL-OPTIONS: use steps.normal_augmentation(...)."
+    pairs = tuple(getattr(model, "boundary_models", ()))
+    constraints = request.options.get("constraints")
+    if constraints is None:
+        constraints = getattr(model, "constraints", ())
+    if (
+        len(pairs) != 1 or not isinstance(pairs[0], RigidContactPair)
+        or not isinstance(pairs[0].rigid_body.surface, RigidPlaneSurface)
+        or pairs[0].rigid_body.surface.dimension != 3
+        or pairs[0].friction is not None
+        or pairs[0].rigid_body.motion_schedule is not None
+        or np.asarray(pairs[0].law.penalty).ndim != 0
+        or request.options.get("contact_integration", "gauss") != "gauss"
+        or request.options.get("contact_quadrature_degree") is not None
+        or getattr(request.target, "kind", None) == "displacement_pressure"
+        or any(isinstance(item, AbaqusPeriodicConstraint) for item in constraint_assets(constraints))
+    ):
+        return reason
+    space = getattr(getattr(request.target, "value", None), "function_space", None)
+    domain = getattr(space, "mesh", None)
+    if (
+        domain is None or domain.comm.size != 1
+        or str(domain.topology.cell_name()) != "tetrahedron"
+        or int(space.element.basix_element.degree) != 1
+        or int(domain.geometry.cmaps[0].degree) != 1
+    ):
+        return reason
+    from .boundary_models._augmented_plane_trial_provider import validate_free_plane_normal_rows
+    from .boundary_models.dolfinx_contact_trace import dolfinx_boundary_region_contact_trace
+    from .boundary_models.trace_policy import RigidContactTracePolicy
+
+    try:
+        adapter = dolfinx_boundary_region_contact_trace(
+            pairs[0].slave_boundary, space, integration="nodal_lumped",
+        )
+        adapter = RigidContactTracePolicy(
+            "nodal_lumped", coalesce_nodes=True,
+        ).apply(adapter, pairs[0])
+        bcs = tuple(getattr(item, "bc", item) for item in constraint_assets(constraints))
+        dof_arrays = [
+            np.asarray(bc.dof_indices()[0], dtype=np.int64) for bc in bcs
+            if callable(getattr(bc, "dof_indices", None))
+        ]
+        constrained = np.unique(np.concatenate(dof_arrays)) if dof_arrays else ()
+        validate_free_plane_normal_rows(adapter.trace, pairs[0].rigid_body.surface.normal, constrained)
+    except (ValueError, TypeError, NotImplementedError) as exc:
+        return str(exc)
     return None
 
 
@@ -1836,6 +1903,7 @@ register_step_provider(
             "quadrature_degree",
             "contact_quadrature_degree",
             "contact_integration",
+            "normal_augmentation",
             "amplitude",
             "output_every",
             "progress",
