@@ -756,6 +756,18 @@ The gate stays open until its listed evidence exists at the proposed scope.
    be obtained and frozen before claiming a comparison. Keep this separate
    from the smaller same-input AgentFEM/Abaqus-Standard J2 plane/convex-tool
    pair needed for the bounded 0.4.4 claim.
+   Additional comparator screening rejects two attractive but mismatched
+   shortcuts: the [public NAFEMS rounded-punch reproduction by SimScale][simscale-r0094]
+   uses *linear elastic* punch and foundation, although it provides useful
+   geometry, mesh and contact observables; the open [Frohne--Heister--Bangerth
+   elastoplastic-contact study][frohne-contact] and deal.II step-42 provide an
+   excellent semismooth/active-set algorithm reference but formulate the
+   obstacle inequality for *small displacements*. Neither is the missing
+   finite-strain J2 same-input result. NAFEMS also explicitly warns that mesh,
+   element, contact and load-step choices must be matched before cross-code
+   differences can be attributed to a solver. Until an independent deck and
+   its accepted-station results are frozen, Gate 1 remains open rather than
+   borrowing an unrelated published force curve.
 
 2. **Surface and search admission.** Validate closed/open topology, outward
    orientation, self-intersection, initial clearance/overclosure and allowed
@@ -1577,6 +1589,8 @@ identified multiplier-transfer rule has its own tests.
 [abaqus]: https://docs.software.vt.edu/abaqusv2025/English/SIMACAEITNRefMap/simaitn-c-genlcontnumcontrolsstd.htm
 [nafems]: https://www.nafems.org/publications/pubguide/list/
 [nafems-contact-3]: https://www.nafems.org/downloads/FENet_Meetings/Glasgow_UK_Oct_2004/FENET_Glasgow_Oct2004_DLE_Becker.pdf
+[simscale-r0094]: https://www.simscale.com/docs/validation-cases/3d-punch-rounded-edges-nafems-contact-benchmark-2/
+[frohne-contact]: https://www.math.colostate.edu/~bangerth/publications/2013-plasticity.pdf
 [abaqus-al-verification]: https://docs.software.vt.edu/abaqusv2025/English/SIMACAEVERRefMap/simaver-c-contsmslcont.htm
 [abaqus-general-controls]: https://docs.software.vt.edu/abaqusv2025/English/SIMACAEITNRefMap/simaitn-c-genlcontnumcontrolsstd.htm
 [initial]: https://docs.software.vt.edu/abaqusv2025/English/SIMACAEITNRefMap/simaitn-c-adjustsurfaces.htm
