@@ -237,6 +237,34 @@ def test_increment_rollback_snapshots_do_not_serialize_checkpoint_lists(monkeypa
     assert problem.accepted_load_factor == 1.
 
 
+def test_augmented_dual_cannot_label_a_trial_as_accepted(monkeypatch):
+    _, problem = _problem(increments=2)
+    problem.solve(until=.5)
+    provider = problem.contact_provider
+    accepted = provider.dual_evidence(problem)
+    old_u = problem.solution.x.array.copy()
+    nodes = provider.adapter.trace._direct_nodes
+    problem.solution.x.array.reshape(-1, 3)[nodes, 0] += .001
+    with pytest.raises(ValueError, match="another displacement"):
+        provider.dual_evidence(problem)
+    problem.solution.x.array[:] = old_u
+    np.testing.assert_array_equal(provider.dual_evidence(problem).force, accepted.force)
+    original = problem._solve_frozen_increment
+    rejected = []
+
+    def check_inner(**kwargs):
+        info = original(**kwargs)
+        with pytest.raises(RuntimeError, match="fully accepted outer increment"):
+            provider.dual_evidence(problem)
+        rejected.append(True)
+        return info
+
+    monkeypatch.setattr(problem, "_solve_frozen_increment", check_inner)
+    problem.solve()
+    assert rejected
+    assert np.all(np.isfinite(provider.dual_evidence(problem).force))
+
+
 def test_automatic_cutback_discards_failed_outer_iterates(monkeypatch):
     _, problem = _problem(
         increment_control=steps.automatic(initial=.5, maximum=.5, minimum=.01,

@@ -283,6 +283,7 @@ class DolfinxAugmentedPlaneTrialProvider(DolfinxImplicitRigidContact):
 
         if getattr(problem, "solution", None) is not self.displacement:
             raise ValueError("AL dual belongs to another problem.")
+        self.validate_accepted_configuration()
         if (getattr(problem, "last_solve_info", None) is None
                 and getattr(problem, "_constraint_dual_state", None) != "accepted"):
             raise RuntimeError("AL dual requires an accepted solution.")

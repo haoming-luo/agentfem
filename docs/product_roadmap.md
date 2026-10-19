@@ -803,6 +803,13 @@ Before any default penalty/globalization tuning, retain full accepted-path
 field comparisons and the measured failure boundary. Outer augmentation and
 inner Newton/search work are now separately inspectable; local rollback uses
 numeric arrays rather than serializing a disk checkpoint every increment.
+The material-side follow-up shares one call's elastic-trial spectral factors
+between the J2 return and its consistent tangent, without persistent caches or
+new State ownership. Fresh paired tests at three mesh sizes reduce the bounded
+implicit example's solve/result time by 11.5--13.4% while retaining every
+accepted field and iteration count. This is measured software reuse, separate
+from numerical-penalty tuning, and is not an explicit-composite full-run claim.
+Keep the public scalar contract and independent numerical tangent oracle.
 The same manufactured implicit-J2 contact screen also found a distinct
 scaling opportunity in the *linear solver*, not the contact law: explicit
 GMRES/GAMG with a recorded rigid-body near-nullspace preserves the tested

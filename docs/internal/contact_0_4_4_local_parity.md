@@ -1761,6 +1761,49 @@ The two affected files plus the new cyclic reference passed 52 local tests;
 the preceding runtime/policy/standard-J2 check passed 108. Remote integration
 must be rechecked at the final revision before promotion.
 
+### Call-local material linearization reuse
+
+A whole-Step profile of the four-increment public augmented-plane example
+identified duplicate elastic-trial SVDs and matrix inverses in the batched J2
+stress return and its consistent tangent. The material now retains those
+already-computed factors only within that update call. Nothing is cached on
+the material instance, committed State or checkpoint; scalar and independent
+derivative checks retain a recomputation path. No material equation, tangent,
+penalty, acceptance tolerance or load station changed. Three consecutive
+changed/retried batch updates use exactly three SVD calls, and reproduce the
+original accepted state and derivative.
+
+The pinned comparison is `bd9b3118`'s analytic tangent. The script
+`tools/benchmark_j2_spectral_reuse.py` measures complete columnar responses and
+the ordinary four-increment `solve_result`, excluding imports, JIT warmup,
+model construction and disk export. After a seven-pair screen, a fresh
+five-pair confirmation used three different mesh sizes. Every accepted
+displacement/field, final material state, reaction and iteration count was
+identical in this environment. On this Apple Silicon host:
+
+| Workload | Recompute median | Reuse median | Elapsed reduction |
+| --- | ---: | ---: | ---: |
+| 4096-point nonproportional material batch | 0.02678 s | 0.02162 s | 19.2% |
+| Whole Step, 3 cells per edge | 0.7473 s | 0.6612 s | 11.5% |
+| Whole Step, 5 cells per edge | 2.4861 s | 2.1581 s | 13.2% |
+| Whole Step, 8 cells per edge | 10.6094 s | 9.1895 s | 13.4% |
+
+Raw timings, source hashes, ordering and declared thread environment are in
+`evidence/contact/2026-10-19-j2-spectral-reuse-confirmation.json`; the earlier
+screen is retained beside it. These are specific material and implicit-Step
+measurements, **not** a full explicit-composite speed claim or an independent
+physical-model validation. The environment variables request one BLAS thread;
+they are not a measured guarantee about every native runtime's worker count.
+
+The related integration screen passed 402 tests, including material histories,
+analytic/numerical tangents, strong/mixed/periodic J2, AL, and finite-Hex energy.
+The preceding installed-wheel check at `bd9b3118` reproduced full versus
+resumed displacement, plastic variables and contact checkpoint data exactly.
+A real two-rank negative test also rejects the unsupported AL combination
+before trace assembly; this is not distributed AL support. An output audit
+additionally requires the current accepted configuration before publishing an
+AL reaction dual, even when an earlier increment had already converged.
+
 [abaqus]: https://docs.software.vt.edu/abaqusv2025/English/SIMACAEITNRefMap/simaitn-c-genlcontnumcontrolsstd.htm
 [nafems]: https://www.nafems.org/publications/pubguide/list/
 [nafems-contact-3]: https://www.nafems.org/downloads/FENet_Meetings/Glasgow_UK_Oct_2004/FENET_Glasgow_Oct2004_DLE_Becker.pdf

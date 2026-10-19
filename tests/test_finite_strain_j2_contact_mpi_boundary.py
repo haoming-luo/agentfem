@@ -5,9 +5,40 @@ import pytest
 from dolfinx import mesh as dolfinx_mesh
 from mpi4py import MPI
 
-from agentfem import boundary_models, constitutive, fields, mesh, models, studies
+from agentfem import boundary_models, constitutive, fields, mesh, models, steps, studies
 
 from periodic_cube_fixture import periodic_unit_cube
+
+
+@pytest.mark.skipif(MPI.COMM_WORLD.size == 1, reason="two MPI ranks required")
+def test_distributed_normal_augmentation_is_rejected_before_trace_assembly():
+    domain = dolfinx_mesh.create_unit_cube(MPI.COMM_WORLD, 2, 2, 2)
+    model = models.create(study=studies.static_solid(dimension=3, nonlinear=True), mesh=domain)
+    displacement = model.field(fields.displacement(domain))
+    left = mesh.boundary(domain, lambda x: np.isclose(x[0], 0.), name="left")
+    right = mesh.boundary(domain, lambda x: np.isclose(x[0], 1.), name="right")
+    model.clamp(displacement, on=left)
+    material = model.material(constitutive.finite_strain_j2_logarithmic(
+        young=1000., poisson=0., yield_stress=2., hardening_modulus=100.,
+    ))
+    model.add_boundary_model(boundary_models.rigid_contact_pair(
+        right, boundary_models.rigid_body(boundary_models.rigid_plane(
+            point=(1.005, 0., 0.), normal=(-1., 0., 0.),
+        )), penalty=500., initial_penetration_limit=0.,
+    ))
+    options = dict(material=material, normal_augmentation=steps.normal_augmentation(
+        penetration_tolerance=1e-7, complementarity_tolerance=1e-6,
+        length_unit="m", pressure_unit="Pa",
+    ))
+    capability = models.step_capability(model, target=displacement, options=options)
+    assert not capability["supported"]
+    assert any(item["message"].startswith("AFM-CONTACT-AL-SCOPE")
+               for item in capability["rejection_reasons"])
+    before = displacement.value.x.array.copy()
+    with pytest.raises(NotImplementedError, match="AFM-CONTACT-AL-SCOPE"):
+        model.step(target=displacement, **options)
+    np.testing.assert_array_equal(displacement.value.x.array, before)
+    assert all(MPI.COMM_WORLD.allgather(True))
 
 
 @pytest.mark.skipif(MPI.COMM_WORLD.size == 1, reason="two MPI ranks required")
