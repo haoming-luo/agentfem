@@ -362,3 +362,39 @@ def test_near_yield_first_increment_total_tangent_keeps_old_state_fixed():
         np.testing.assert_allclose(
             measured[free], expected[free], rtol=2e-4, atol=2e-6,
         )
+
+
+def test_near_yield_basic_and_backtracking_converge_to_same_accepted_path():
+    settings = dict(
+        cells=3, increments=6, penalty=500.0, poisson=0.3,
+        yield_stress=1.0,
+    )
+    basic_field, basic = _elastic_column(**settings)
+    back_field, back = _elastic_column(**settings)
+    basic.solver_options = solvers.newton(
+        relative_tolerance=1e-9, absolute_tolerance=1e-10,
+        maximum_iterations=25, line_search="basic",
+    )
+    back.solver_options = solvers.newton(
+        relative_tolerance=1e-9, absolute_tolerance=1e-10,
+        maximum_iterations=50, line_search="backtracking",
+    )
+    basic_result = basic.solve_result()
+    back_result = back.solve_result()
+    assert basic_result.status == back_result.status == "completed"
+    np.testing.assert_allclose(
+        basic_field.value.x.array, back_field.value.x.array,
+        rtol=1e-7, atol=1e-9,
+    )
+    np.testing.assert_allclose(
+        basic.response.state.committed_state_vectors(),
+        back.response.state.committed_state_vectors(),
+        rtol=1e-7, atol=1e-9,
+    )
+    assert basic_result.quantity("wide_closed_tool_contact_energy") == pytest.approx(
+        back_result.quantity("wide_closed_tool_contact_energy"),
+        rel=1e-7, abs=1e-9,
+    )
+    assert basic.energy_history[-1].external_work == pytest.approx(
+        back.energy_history[-1].external_work, rel=1e-7, abs=1e-9,
+    )

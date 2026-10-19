@@ -108,10 +108,21 @@ backtracking policy; [deal.II step-42][dealii-step42] couples plastic-contact
 active sets with a safeguarded Newton path, while [MOOSE's radial-return
 documentation][moose-return] distinguishes *material-point* substepping from
 discarding whole global increments. None is a drop-in fix for this observed
-case. The next comparison should freeze the same input and compare Newton
-residual history, reaction, PEEQ and work under a separately selected
-globalization. Changing the default merely because a larger iteration cap
-eventually converges would conceal rather than resolve this gate.
+case. The same three-cell/six-increment input now has a paired globalization
+regression: the existing `basic` Newton choice completes with the declared
+25-iteration cap, whereas `backtracking` needs a declared 50-iteration cap.
+Their accepted displacement, committed plastic state, contact potential and
+external work agree to the test tolerance. On the first increment, the
+observed Newton counts were 10 and 34 respectively; a separate four-cell,
+three-increment screen also completed its first increment in 11 iterations
+with `basic` where backtracking had failed its line search. This identifies
+strictly monotone backtracking as a *candidate* source of difficulty on this
+near-yield path, not as a generally inferior algorithm. `basic` can accept
+temporary residual growth, so the default and release claims remain unchanged.
+The next gate is a frozen matrix of load paths, active-set transitions,
+rollback/restart and negative controls before recommending any default
+globalization change. Raising a cap or changing one line-search option on a
+single case would conceal rather than resolve this gate.
 The same benchmark also starts from zero gap and advances into active contact.
 It permits a zero-force/open-side-tangent trial only when a whole-face
 coplanar coverage/competitor proof succeeds and the remaining vertex gap is
