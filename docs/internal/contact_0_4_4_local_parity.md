@@ -26,14 +26,14 @@ being silently approximated by the bounded route.
 
 | Gate | Current evidence | Still needed for promotion |
 | --- | --- | --- |
-| 1. Comparator | Internal and public-protocol tests | Independent same-input finite-J2 contact run and frozen observables |
+| 1. Comparator | Internal/public-protocol tests; elastic and small-displacement published cases screened but not misidentified as finite-J2 comparators | Independent same-input finite-J2 contact run and frozen observables |
 | 2. Surface | Reviewed closed/open triangle geometry, bounded initial-overlap checks, and per-face same-plane proof with one bounded fallback subdivision | Rims, unsupported curved tools, ambiguous sharp features and target-path sliding coverage |
 | 3. Integration | Planar/convex partitions; certified zero-contact and smooth-branch faces; private wholly-interior and single-plane partially active reentrant edge/face local integral and tangent; bounded adaptive interior-ball cover; whole-face smooth numerical-touch admission | General active boundaries and feature sets; global signed-gap Step admission; other edge/point laws |
 | 4. Normal law | Penalty Step; fixed-trace AL research law plus real-mesh/reduced-rank counterexamples | Compatible multiplier space, outer global Procedure, spatial stability and checkpoint composition |
 | 5. Friction | Locally planar Coulomb State; rigid-master spin transport tested; a separate smooth point tool can slide beside a frictionless certified-face tool | Admitted geometry-by-friction matrix; friction on sharp features remains rejected |
 | 6. Transaction | Total-system and restart tests for admitted penalty modes; opt-in serial standard-J2 certified-face research Step with work, plastic-history rollback/restart and two named tools; smooth-subset affine/MPC total-system path, now including a prescribed moving face; certified-face plus point pair in serial standard J2 and smooth MPC, including separate point-friction State | Sharp-feature MPC, MPI, changing feature topology and wider path tests |
 | 7. Result | Pair work/pressure samples; AL local work sign; standard and affine/MPC research face-location extensive evidence and accepted-station coverage without point pressure | Cross-law first-law, between-station coverage and a defensible pressure interpretation |
-| 8. Science | Local/oracle/installed tests; independent homogeneous elastic-limit spring equation across two meshes, two increment counts and three penalties; nine inhomogeneous mesh/increment/penalty closed-face-versus-plane comparisons and directional refinement through 128 slave faces | Full mesh x increment x law convergence and external observables |
+| 8. Science | Local/oracle/installed tests; independent elastic-limit spring equation; nine inhomogeneous mesh/increment/penalty comparisons; plastic mesh and moving-tool/restart screens; directional refinement through 128 slave faces | Full mesh x increment x law convergence and external observables |
 | 9. Release | Scoped solver screens | Installed cross-platform gate and production runtime evidence |
 
 “Partial” here is not a release status. The test target, geometry and
