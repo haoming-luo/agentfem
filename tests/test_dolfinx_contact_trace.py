@@ -159,6 +159,38 @@ def _vector_space(domain, degree: int = 1):
     )
 
 
+@pytest.mark.parametrize("cell_type", [mesh.CellType.tetrahedron, mesh.CellType.hexahedron])
+@pytest.mark.parametrize("integration", ["gauss", "nodal_lumped"])
+def test_linear_trace_preserves_authoritative_vertex_coordinates(cell_type, integration):
+    domain = mesh.create_unit_cube(MPI.COMM_SELF, 8, 8, 8, cell_type=cell_type)
+    coordinates = domain.geometry.x.copy()
+    space = _vector_space(domain)
+    right = agent_mesh.boundary(domain, lambda x: np.isclose(x[0], 1.), name="right")
+    adapter = boundary_models.dolfinx_boundary_region_contact_trace(
+        right, space, integration=integration,
+    )
+    nodes = np.unique(adapter.trace.node_ids)
+    np.testing.assert_array_equal(adapter.reference_nodal_positions[nodes, 0], 1.)
+    np.testing.assert_array_equal(domain.geometry.x, coordinates)
+    pair = boundary_models.rigid_contact_pair(
+        right, boundary_models.rigid_body(boundary_models.rigid_plane(
+            point=(1., 0., 0.), normal=(-1., 0., 0.),
+        )), penalty=1000., initial_penetration_limit=0.,
+    )
+    from agentfem.boundary_models.dolfinx_implicit_facet_contact import dolfinx_implicit_rigid_contact
+    provider = dolfinx_implicit_rigid_contact(pair, fem.Function(space))
+    assert provider._initial_contact_diagnostics["maximum_penetration_bound"] == 0.
+    # No tolerance relaxation: even a representable sub-picometre overlap
+    # from the input tool is still a real violation of a declared zero limit.
+    overlapping = boundary_models.rigid_contact_pair(
+        right, boundary_models.rigid_body(boundary_models.rigid_plane(
+            point=(1.-2**-45, 0., 0.), normal=(-1., 0., 0.),
+        )), penalty=1000., initial_penetration_limit=0.,
+    )
+    with pytest.raises(ValueError, match="AFM-CONTACT-INITIAL-OVERLAP"):
+        dolfinx_implicit_rigid_contact(overlapping, fem.Function(space))
+
+
 def test_dolfinx_contact_trace_builds_reference_triangle_quadrature():
     domain = _cube(MPI.COMM_SELF)
     function_space = _vector_space(domain)

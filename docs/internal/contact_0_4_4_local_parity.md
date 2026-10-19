@@ -1804,6 +1804,59 @@ before trace assembly; this is not distributed AL support. An output audit
 additionally requires the current accepted configuration before publishing an
 AL reaction dual, even when an earlier increment had already converged.
 
+### 2026-10-19: nonuniform refinement and authoritative contact coordinates
+
+`tools/verify_normal_augmentation_spatial.py` supplies an independent
+nonuniform manufactured elastic-limit solution, not another homogeneous patch:
+`u_x = A*x*(1-x)`, `A=0.02`, `E=1000`, `nu=0`, with the analytical body force
+and nominal right-face reaction derived from `P11=E*log(F11)/F11`.
+The fixed plane constrains the right face; no plastic flow occurs. Three
+tetrahedral meshes use 2, 4 and 8 cells per edge and the same explicit AL
+policy. The retained report is
+`evidence/contact/2026-10-19-normal-augmentation-spatial.json`.
+
+| Cells per edge | Displacement L2 error | Gradient seminorm error | Contact-force absolute error | Maximum nodal pressure error |
+| --- | ---: | ---: | ---: | ---: |
+| 2 | 9.132e-4 | 5.775e-3 | 4.998e-2 | 5.067 |
+| 4 | 2.289e-4 | 2.887e-3 | 1.250e-2 | 2.533 |
+| 8 | 5.741e-5 | 1.443e-3 | 3.124e-3 | 1.281 |
+
+Displacement orders are 1.996/1.996 and gradient orders 1.000/1.000.
+The exact contact-force magnitude is 20.6150; the finest nodal pressure error
+is still about 6.2%, so neither exact pressure nor general multiplier stability
+is claimed. Penetration is below 2.73e-10 for the declared 1e-9 tolerance.
+Elapsed times include measurement overhead and are not a performance comparison.
+
+This refinement found that DOLFINx tabulated displacement coordinates can map
+an original mesh vertex at `x=1` to `1+2.22e-16`. A strict zero-gap audit then
+incorrectly reports overlap. After the existing adjacent-cell vertex/block
+identity match, linear traces now copy the authoritative mesh coordinates
+into their private reference buffer. There is no tool snapping, mesh mutation
+or tolerance relaxation. Real tetrahedral/hexahedral tests with Gauss/nodal
+rules retain rejection of a genuine `2**-45` overlap. Trace/high-order/implicit
+contact regression passed 168 tests (8 skipped); a bounded two-rank trace
+regression passed 36 tests per rank. Distributed trace evidence is not
+distributed AL admission.
+
+Compatibility is explicit: loading a `7d2f4652` four-cell checkpoint under the
+corrected source rejects with `Normal multiplier checkpoint trace basis
+differs`. An affected pre-correction run must retain its original candidate;
+there is no inferred migration of multiplier history. The earlier successful
+`bd9b3118` to `7d2f4652` restart comparison predates this geometry correction.
+The corrected source was then built with `AGENTFEM_BUILD_NATIVE=0` and installed
+into an isolated target (no change to the user's installation). The public
+four-cell, penalty-5000 example passed continuous loading and half-load restart.
+Displacement, accepted displacement, plastic deformation gradient, equivalent
+plastic strain, plastic dissipation, contact State and checkpoint identity
+were exactly equal. Accepted increment numerics/counts also matched; timing
+and restart-event records are expected to differ. The wheel SHA-256 was
+`813bcbc66d640e0e5955ba359db493cf5a50d027638e1195f733a7e97f0ebafc`.
+This is installed implicit-DOLFINx evidence, not optional native-accelerator
+validation. Two focused corrupted-multiplier/trace-identity tests confirm
+atomic restore refusal; the nonuniform two-mesh and independent cyclic
+reference follow-up passed five tests, with nine two-rank-only tests skipped
+in that serial invocation.
+
 [abaqus]: https://docs.software.vt.edu/abaqusv2025/English/SIMACAEITNRefMap/simaitn-c-genlcontnumcontrolsstd.htm
 [nafems]: https://www.nafems.org/publications/pubguide/list/
 [nafems-contact-3]: https://www.nafems.org/downloads/FENet_Meetings/Glasgow_UK_Oct_2004/FENET_Glasgow_Oct2004_DLE_Becker.pdf

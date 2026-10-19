@@ -278,7 +278,9 @@ def _linear_trace_arrays(domain, function_space, owned, facet_geometry,
     Coordinate matching is restricted to each facet's adjacent cell. Distinct
     bodies with coincident vertices therefore remain distinct. The optional
     positive face rule is explicit; batching itself changes no rule and only
-    bounds temporary storage.
+    bounds temporary storage. After the unique vertex-to-block match, the
+    caller-owned coordinate buffer uses the original mesh vertex coordinates,
+    not their roundoff-perturbed tabulation through the coordinate element.
     """
     n = len(owned)
     node_width = 3 if topology == "triangle" else 4
@@ -349,6 +351,11 @@ def _linear_trace_arrays(domain, function_space, owned, facet_geometry,
             raise ValueError("each contact vertex must match exactly one CG1 displacement block; "
                              f"found {count} matches")
         blocks[start:stop] = np.take_along_axis(owners, matches.argmax(axis=2), axis=1)
+        # CG1 and linear geometry share these vertex identities. Preserve the
+        # authoritative mesh coordinates: a tabulated image of x=1 can be
+        # 1+epsilon, falsely rejecting a genuinely zero-gap initial contact.
+        # This does not snap to a tool or change the mesh/penetration limit.
+        dof_coordinates[blocks[start:stop]] = points
         if topology == "triangle":
             area = .5*np.linalg.norm(np.cross(points[:, 1]-points[:, 0], points[:, 2]-points[:, 0]), axis=1)
             weights[start:stop] = (
@@ -693,9 +700,9 @@ def dolfinx_boundary_region_contact_trace(
             domain.geometry.input_global_indices,
             dtype=np.int64,
         )
-        dof_coordinates = np.asarray(
+        dof_coordinates = np.array(
             function_space.tabulate_dof_coordinates(),
-            dtype=float,
+            dtype=float, copy=True,
         )[:, :3]
         tolerance = max(
             float(global_scale) * 1.0e-12,

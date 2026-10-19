@@ -556,14 +556,18 @@ def test_augmentation_scope_rejected_by_capability_and_execution(configuration):
         model.step(target=displacement, **kwargs)
 
 
-def test_damaged_multiplier_checkpoint_is_atomically_rejected(tmp_path):
+@pytest.mark.parametrize('damage', ['negative_multiplier', 'different_trace_basis'])
+def test_damaged_multiplier_checkpoint_is_atomically_rejected(tmp_path, damage):
     _, partial = _problem(increments=3)
     partial.solve(until=1/3)
     checkpoint = partial.save_checkpoint(tmp_path / 'state')
     with np.load(checkpoint, allow_pickle=False) as archive:
         fields = {key: archive[key].copy() for key in archive.files}
     state = json.loads(str(fields['contact_state']))
-    state['multiplier']['multiplier'][0] = -1.
+    if damage == 'negative_multiplier':
+        state['multiplier']['multiplier'][0] = -1.
+    else:
+        state['multiplier']['trace_identity'] = 'incompatible-reference-coordinates'
     fields['contact_state'] = np.asarray(json.dumps(state))
     damaged = tmp_path / 'damaged.npz'
     np.savez(damaged, **fields)

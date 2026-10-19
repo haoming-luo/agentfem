@@ -134,6 +134,14 @@ an inner Newton success cannot be checkpointed. The ordinary serial
 `save_checkpoint`/`load_checkpoint` stores the multiplier basis, policy and
 accepted configuration and rejects incompatible restoration.
 
+The October 19 candidate now uses the original mesh vertex coordinates for
+linear P1/Q1 contact traces, after identifying each vertex's displacement
+block. This removes coordinate-tabulation roundoff without moving the mesh,
+snapping to a tool or loosening an overlap limit. Experimental checkpoints
+created before this correction can have a different trace fingerprint and
+are intentionally rejected. Continue those runs with their original frozen
+candidate, or start a new run; there is no automatic multiplier transfer.
+
 Result reports the actual contact force and augmentation counts. Reference-area
 pressure is not Cauchy pressure. The signed AL functional is **not** physical
 contact stored energy: the full mechanical-energy ledger is marked unavailable
@@ -154,6 +162,14 @@ for loading, output and restart. Tests compare a homogeneous elastic limit to
 an independent nominal-stress formula, a plastic limit to a prescribed-motion
 solution, and interrupted to uninterrupted loading. These are bounded numerical
 checks, not validation of arbitrary industrial forming.
+
+`tools/verify_normal_augmentation_spatial.py` adds a nonuniform manufactured
+finite-Hencky elastic-limit solution on three refined tetrahedral meshes.
+It measures displacement and gradient errors, contact force and nodal pressure
+errors separately. The observed displacement/gradient orders are approximately
+two/one; the pressure is not exact and requires its own refinement evidence.
+This benchmark does not establish general multiplier-space stability or
+plastic-contact spatial accuracy.
 
 `tools/benchmark_normal_augmentation.py` compares explicit penalty candidates
 on this example using warmups, shuffled repeats, the complete four-increment

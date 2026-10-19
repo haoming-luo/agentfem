@@ -810,6 +810,14 @@ implicit example's solve/result time by 11.5--13.4% while retaining every
 accepted field and iteration count. This is measured software reuse, separate
 from numerical-penalty tuning, and is not an explicit-composite full-run claim.
 Keep the public scalar contract and independent numerical tangent oracle.
+The fixed-plane route now also has nonuniform manufactured-solution spatial
+evidence: P1 displacement and gradient errors converge at approximately second
+and first order, while contact force and nodal pressure errors decrease.
+This check exposed and fixed a linear-trace coordinate-tabulation roundoff
+that falsely reported initial overlap on a zero-gap mesh. Original mesh
+vertices are authoritative; real overlap still rejects at the declared limit.
+Pre-correction experimental checkpoints with changed trace identities must
+continue under their original candidate, not bypass the restore guard.
 The same manufactured implicit-J2 contact screen also found a distinct
 scaling opportunity in the *linear solver*, not the contact law: explicit
 GMRES/GAMG with a recorded rigid-body near-nullspace preserves the tested
