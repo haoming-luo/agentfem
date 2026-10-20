@@ -102,17 +102,40 @@ scalar penalty. The bounded implementation uses coalesced nodal reference-area
 weights on serial P1 tetrahedra and ordinary strong boundaries. A multiplier
 whose normal motion is already fixed by a strong boundary is rejected; the
 software does not arbitrarily divide reactions between redundant constraints.
-Rotating or curved tools, friction, MPC, mixed fields, higher-order/hex cells, custom
+Rotating or curved tools, friction, general MPC, mixed fields, higher-order/hex cells, custom
 contact quadrature and changing contact partitions are not admitted here.
 This is not a mesh-independent mortar stability or general contact claim.
 
+One narrow affine/MPC route also uses the same `normal_augmentation` option.
+It requires one exact periodic constraint and **disjoint nonzero reduced normal
+row supports** after `u = T q + u_bar`. The sparse admission rejects contact
+nodes whose normal motion is prescribed, as well as overlapping reduced
+supports; it does not delete rows or arbitrarily distribute contact pressure.
+Overlap may be mathematically solvable, but is outside this sufficient bounded
+admission. The condition proves discrete row independence, not mesh-uniform
+inf-sup stability. A plane imposed against immovable periodic corners therefore
+does not become admissible just because a smaller increment is used.
+
+`examples/finite_j2_periodic_augmented_plane.py` gives an ordinary Step example
+with an interior contact patch, plastic loading/unloading/recontact, accepted
+displacement frames and restart. The same affine Procedure performs Newton,
+cutback, joint State acceptance and checkpointing. Its `checks` record outer
+updates and the largest inner Newton count separately. Signed relative normal
+work, its discrete absolute bound and open-gap contribution appear under
+`<pair>_normal_*` histories; they are not `contact_potential`, dissipation or
+automatic energy verification. Ordinary MPC/tool generalized work remains in
+the existing constraint histories.
+
 A prescribed translation uses the existing `prescribed_rigid_motion_schedule`
 on the rigid body, with normalized endpoints 0 and 1 and no separate amplitude.
-The ordinary Step amplitude owns the tool coordinate, including unloading and
+For strong boundaries the ordinary Step amplitude owns the tool coordinate, including unloading and
 recontact. Multipliers stay on the same material-side reference nodes; every
 trial projects the current positions against the current tool pose. This does
 not require transferring history between tool facets, nor license such transfer.
 Motion along the plane is frictionless and contributes no work.
+The affine route instead uses its normalized macro-path coordinate for the
+tool schedule and the declared deformation-gradient path for the macro motion;
+it does not accept a second independent Step amplitude.
 
 For gap `g` (negative in penetration), the inner solve uses fixed multiplier
 `lambda` and pressure `p = max(0, lambda - penalty*g)`. Only after total Newton

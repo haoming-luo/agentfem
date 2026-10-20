@@ -10,7 +10,7 @@ trial displacement, material refresh, or return to the owning Procedure.
 """
 
 from contextlib import ExitStack
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 import numpy as np
 
@@ -29,6 +29,8 @@ class AffineEquilibrium:
     message: str
     residual_assemblies: int
     reused_assemblies: int
+    procedure_checks: dict[str, object] = field(default_factory=dict)
+    adaptation_iterations: int | None = None
 
 
 class _TrialAssembly:

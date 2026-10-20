@@ -5,9 +5,10 @@
 
 This private admission uses a coalesced nodal reference trace on serial P1
 tetrahedra. It does not claim a stable general mortar multiplier space, admit
-MPC/rotating tools, or reinterpret the signed AL functional as stored energy.
-The existing standard-J2 Procedure owns every inner Newton solve and joint
-accepted-increment transaction.
+rotating tools, or reinterpret the signed AL functional as stored energy.
+The existing J2 Procedure owns every inner Newton solve and joint accepted
+transaction. The affine admission separately requires disjoint reduced normal
+row supports; arbitrary MPC multiplier spaces remain unsupported.
 """
 
 from __future__ import annotations
@@ -53,6 +54,60 @@ def validate_free_plane_normal_rows(trace, normal, constrained_dofs):
         )
 
 
+def validate_affine_plane_normal_rows(trace, normal, reduction):
+    """Admit disjoint nonzero reduced nodal normal rows, without a dense T.
+
+    Disjoint column supports prove algebraic row independence in this discrete
+    space. This is deliberately sufficient, not necessary: overlap is an
+    unsupported formulation, not proof of infeasibility or an inf-sup result.
+    """
+
+    nodes = trace._direct_nodes
+    if nodes is None or not len(nodes) or len(np.unique(nodes)) != len(nodes):
+        raise ValueError("Affine AL needs distinct coalesced nodal pressure support.")
+    normal = np.asarray(normal, dtype=float)
+    if normal.shape != (3,) or not np.isfinite(normal).all():
+        raise ValueError("Affine AL needs a finite three-dimensional normal.")
+    occupied = {}
+    for point, node in zip(trace.point_ids, nodes, strict=True):
+        row = {}
+        raw_scale = 0.
+        for axis, component in enumerate(normal):
+            if component == 0.:
+                continue
+            full_row = 3 * int(node) + axis
+            begin, end = reduction.row_offsets[full_row:full_row + 2]
+            for column, coefficient in zip(
+                reduction.column_indices[begin:end],
+                reduction.coefficients[begin:end], strict=True,
+            ):
+                value = float(component * coefficient)
+                raw_scale += abs(value)
+                row[int(column)] = row.get(int(column), 0.) + value
+        row = {column: value for column, value in row.items() if value != 0.}
+        norm = float(np.hypot.reduce(tuple(row.values()), initial=0.))
+        if not np.isfinite(norm) or norm <= 128 * np.finfo(float).eps * raw_scale:
+            raise NotImplementedError(
+                "AFM-CONTACT-AL-MPC-ROWS: contact point "
+                f"{int(point)} has prescribed or numerically unresolved reduced normal motion; "
+                "this admission does not split contact and MPC reactions."
+            )
+        overlap = [column for column in row if column in occupied]
+        if overlap:
+            other = occupied[min(overlap)]
+            raise NotImplementedError(
+                "AFM-CONTACT-AL-MPC-ROWS: overlapping reduced normal supports at "
+                f"contact points {other} and {int(point)} require a separately validated "
+                "multiplier space; no constraint is silently removed."
+            )
+        occupied.update({column: int(point) for column in row})
+    return {
+        "method": "disjoint_nonzero_reduced_normal_supports",
+        "point_count": len(nodes),
+        "spatial_stability_certified": False,
+    }
+
+
 class DolfinxAugmentedPlaneTrialProvider(DolfinxImplicitRigidContact):
     """Fixed nodal multiplier State composed with ordinary contact row assembly."""
 
@@ -80,7 +135,8 @@ class DolfinxAugmentedPlaneTrialProvider(DolfinxImplicitRigidContact):
         ):
             raise NotImplementedError(
                 "AFM-CONTACT-AL-SCOPE: one fixed or translating frictionless 3D plane and serial "
-                "P1 tetrahedral displacement only; no rotation, MPC or changing trace."
+                "P1 tetrahedral displacement only; no rotation or changing trace. "
+                "Affine/MPC rows require separate admission."
             )
         adapter = dolfinx_boundary_region_contact_trace(
             base.pair.slave_boundary, base.displacement.function_space,

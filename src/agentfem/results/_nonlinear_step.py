@@ -391,6 +391,7 @@ def _add_affine_constraint_evidence(step, result) -> None:
         ))
     if contacts:
         contact_potential = 0.0
+        contact_potential_available = True
         friction_dissipation = 0.0
         friction_release = 0.0
         has_friction = False
@@ -398,6 +399,25 @@ def _add_affine_constraint_evidence(step, result) -> None:
         face_records = []
         for contact in contacts:
             contact_contribution = contact.evaluate()
+            if not getattr(contact, "physical_contact_potential_available", True):
+                contact_potential_available = False
+                point_evidence = contact.current_point_diagnostics()
+                point_records.append({"constraint": contact.name, **point_evidence})
+                for name in (
+                    "active_point_count", "active_reference_area",
+                    "maximum_pressure", "maximum_penetration",
+                ):
+                    result.add_quantity(
+                        f"{contact.name}_{name}", point_evidence[name], kind="diagnostic",
+                    )
+                if not contact.has_prescribed_motion:
+                    work_evidence = (*work_evidence, constraint_api.constraint_work(
+                        contact, value=0., integration="fixed_rigid_surface_zero_coordinate",
+                        sample_count=len(step.accepted_increments) + 1,
+                        role="contact_constraint", source="fixed_normal_contact_constraint",
+                    ))
+                _add_affine_normal_work(step, contact, result)
+                continue
             if hasattr(contact, "current_face_diagnostics"):
                 contact_potential += contact_contribution.potential_energy
                 evidence = contact.current_face_diagnostics()
@@ -479,11 +499,12 @@ def _add_affine_constraint_evidence(step, result) -> None:
                     role="contact_constraint",
                     source="rigid_penalty_potential",
                 ))
-        result.add_quantity(
-            "contact_potential", contact_potential,
-            kind="diagnostic",
-            description="Recoverable rigid penalty contact potential.",
-        )
+        if contact_potential_available:
+            result.add_quantity(
+                "contact_potential", contact_potential,
+                kind="diagnostic",
+                description="Recoverable rigid penalty contact potential.",
+            )
         if point_records:
             result.metadata["rigid_contact_point_diagnostics"] = (
                 point_records[0] if len(point_records) == 1
@@ -583,6 +604,36 @@ def _add_affine_constraint_evidence(step, result) -> None:
                     "residual owned by the affine constraint provider."
                 ),
             },
+        )
+
+
+def _add_affine_normal_work(step, contact, result):
+    """Publish signed normal work without inventing a contact spring energy."""
+
+    key = f"normal_contact_work:{contact.name}"
+    recorder = step.accepted_history_recorders.get(key)
+    if recorder is None:
+        result.metadata[key] = {
+            "status": "unavailable", "reason": "No accepted fixed-normal work history.",
+            "automatic_energy_verification": False,
+        }
+        return
+    result.metadata[key] = {
+        **recorder.summary(), "status": "complete" if recorder.complete else "incomplete",
+        "scope": "signed_relative_work_not_stored_energy_or_dissipation",
+    }
+    if not recorder.complete:
+        return
+    rows = recorder.records
+    for field, suffix, description in (
+        ("work", "relative_work", "Signed accepted normal contact work relative to the tool."),
+        ("absolute_bound", "absolute_work_bound", "Absolute bound on discrete endpoint work, not time error."),
+        ("open_gap_work", "open_gap_work", "Signed accepted normal work associated with open-gap change."),
+    ):
+        result.add_history(
+            f"{contact.name}_normal_{suffix}",
+            [row["factor"] for row in rows], [row[field] for row in rows],
+            abscissa_name="load_factor", abscissa_unit=None, description=description,
         )
 
 

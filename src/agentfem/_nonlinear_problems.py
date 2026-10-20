@@ -1217,6 +1217,7 @@ class AffineNonlinearVariationalProblem:
     checkpoint_policy: object | None = None
     acceptance_check: object | None = None
     accepted_observers: tuple[object, ...] = ()
+    _equilibrium_procedure: object | None = field(default=None, init=False, repr=False)
     last_solve_info: object | None = field(default=None, init=False)
     snapshots: list = field(default_factory=list, init=False)
     accepted_history_recorders: dict[str, object] = field(
@@ -1541,13 +1542,21 @@ class AffineNonlinearVariationalProblem:
             self._restore_operator_runtime_state(state["operator_state"])
             pending_acceptance = None
 
-        def capture(index, factor, solution, solve_info):
+        def begin_trial():
             nonlocal pending_acceptance
             if pending_acceptance is not None:
-                raise RuntimeError(
-                    "An accepted-boundary callback transaction is already active."
-                )
+                raise RuntimeError("The previous affine trial has no accepted or rolled-back boundary.")
+            # Snapshot BEFORE any outer/inner trial mutates Operator State.
+            # In particular an augmented multiplier may be provisional even
+            # though its final displacement has reached inner equilibrium.
             pending_acceptance = acceptance_backup()
+
+        def capture(index, factor, solution, solve_info):
+            nonlocal pending_acceptance
+            if pending_acceptance is None:
+                # The unchanged distributed path has no external Operators
+                # or nested equilibrium Procedure and snapshots at acceptance.
+                pending_acceptance = acceptance_backup()
             save_by_increment = (
                 self.output_every is not None and index % self.output_every == 0
             )
@@ -1650,6 +1659,8 @@ class AffineNonlinearVariationalProblem:
                 on_increment=capture,
                 on_accepted_boundary=accept_boundary,
                 on_acceptance_failure=restore_pending_acceptance,
+                on_trial_start=begin_trial,
+                equilibrium_procedure=self._equilibrium_procedure,
                 acceptance_check=self.acceptance_check,
                 state_transaction=self.state_transaction,
                 full_space_operators=self.full_space_operators,
@@ -1767,6 +1778,8 @@ class AffineNonlinearVariationalProblem:
             identity["full_space_operators"] = tuple(
                 operator.summary() for operator in self.full_space_operators
             )
+        if self._equilibrium_procedure is not None:
+            identity["equilibrium_procedure"] = self._equilibrium_procedure.summary()
         return identity
 
     @staticmethod

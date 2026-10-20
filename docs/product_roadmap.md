@@ -799,7 +799,7 @@ It reuses the existing Newton, material trial state and joint accepted
 checkpoint. Independent homogeneous limits, plastic loading/unloading,
 failure rollback and restart have targeted evidence. Redundant strong/contact
 normal rows reject early. This is still experimental: general multiplier
-stability, MPC, rotating/curved tools and partition transfer remain separate
+stability, general MPC, rotating/curved tools and partition transfer remain separate
 gates. The fixed-plane accepted-work gate now records signed numerical contact
 work, a non-cancelling discrete work bound and opening/closure contributions.
 The AL functional is never stored energy. Original and contact-aware energy
@@ -820,7 +820,17 @@ is separate. Scalar plastic compression/recontact, increment refinement,
 frozen-state tangent, joint failure rollback and serial checkpoint checks
 cover this bounded path. The new public translating-plane example uses the
 ordinary Step, not a case-owned solver. Rotation, changing normals, MPI and
-MPC augmentation remain closed until independently established.
+general MPC augmentation remain closed until independently established.
+The subsequent bounded affine gate admits one serial P1 planar pair only
+when every reduced normal row has nonzero, disjoint support. It reuses the
+ordinary affine path with a pre-trial Operator snapshot and a nested outer
+Procedure; it never commits plastic history during augmentation. A separate
+hard-obstacle elimination reference on two meshes/two penalties, cyclic
+open/recontact, successive restart and injected rollback tests establish this
+discrete slice. Signed normal work is retained at every accepted station
+independently of cloud-output cadence. Overlapping support, prescribed normal
+rows, rotating/curved tools, mixed and MPI augmentation still reject; this does
+not close general multiplier stability or the independent external reference.
 The optional safeguarded multiplier accelerator is now implemented on that
 same bounded route. Its reference-area-weighted secant history is owned by
 the attempted-increment Procedure, never the material or checkpoint State.

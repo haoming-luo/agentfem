@@ -28,7 +28,8 @@ class NormalAugmentationOptions:
     Tolerances use the model's explicit units: length for penetration and
     pressure-times-length for complementarity. They are not force tolerances.
     Current admission is one fixed or translating frictionless plane on serial P1 tetrahedra
-    with ordinary strong boundaries, not general mortar/MPC contact.
+    with ordinary strong boundaries or disjoint reduced normal MPC rows;
+    this is not general mortar/MPC contact.
     """
 
     penetration_tolerance: float

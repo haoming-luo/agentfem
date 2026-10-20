@@ -12,13 +12,18 @@ from periodic_cube_fixture import periodic_unit_cube
 
 @pytest.mark.skipif(MPI.COMM_WORLD.size == 1, reason="two MPI ranks required")
 @pytest.mark.parametrize("moving", [False, True])
-def test_distributed_normal_augmentation_is_rejected_before_trace_assembly(moving):
-    domain = dolfinx_mesh.create_unit_cube(MPI.COMM_WORLD, 2, 2, 2)
+@pytest.mark.parametrize("affine", [False, True])
+def test_distributed_normal_augmentation_is_rejected_before_trace_assembly(moving, affine):
+    fixture = periodic_unit_cube(MPI.COMM_WORLD) if affine else None
+    domain = (fixture.domain if affine else dolfinx_mesh.create_unit_cube(MPI.COMM_WORLD, 2, 2, 2))
     model = models.create(study=studies.static_solid(dimension=3, nonlinear=True), mesh=domain)
     displacement = model.field(fields.displacement(domain))
     left = mesh.boundary(domain, lambda x: np.isclose(x[0], 0.), name="left")
     right = mesh.boundary(domain, lambda x: np.isclose(x[0], 1.), name="right")
-    model.clamp(displacement, on=left)
+    if affine:
+        model.constraint(fixture.constraint(displacement))
+    else:
+        model.clamp(displacement, on=left)
     material = model.material(constitutive.finite_strain_j2_logarithmic(
         young=1000., poisson=0., yield_stress=2., hardening_modulus=100.,
     ))

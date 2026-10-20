@@ -338,8 +338,6 @@ def finite_strain_j2(
         else ()
     )
     if affine:
-        if normal_augmentation is not None:
-            raise NotImplementedError("AFM-CONTACT-AL-SCOPE: affine/MPC augmentation is not admitted.")
         from .boundary_models.contact_integration_modes import (
             resolve_contact_integration_modes,
         )
@@ -406,6 +404,7 @@ def finite_strain_j2(
                 constraint=affine[0],
                 contact=affine_contact,
                 contact_integration=contact_integration,
+                normal_augmentation=normal_augmentation,
                 incrementation=incrementation,
                 solver_options=solver_options,
                 quadrature_degree=selected_quadrature_degree,

@@ -1426,6 +1426,8 @@ def solve_affine_nonlinear_path(
     on_increment=None,
     on_accepted_boundary=None,
     on_acceptance_failure=None,
+    on_trial_start=None,
+    equilibrium_procedure=None,
     acceptance_check=None,
     state_transaction=None,
     full_space_operators=(),
@@ -1453,6 +1455,10 @@ def solve_affine_nonlinear_path(
         selected = selected.for_affine_reduction()
     _validate_affine_state_transaction(state_transaction)
     operators = tuple(full_space_operators)
+    if equilibrium_procedure is not None and not callable(
+        getattr(equilibrium_procedure, "solve", None)
+    ):
+        raise TypeError("An affine equilibrium Procedure requires solve().")
     if any(
         not all(callable(getattr(item, name, None)) for name in (
             "evaluate", "add_residual", "add_tangent",
@@ -1520,6 +1526,10 @@ def solve_affine_nonlinear_path(
         else np.asarray(space.tabulate_dof_coordinates(), dtype=float)
     )
     if space.mesh.comm.size > 1:
+        if equilibrium_procedure is not None:
+            raise NotImplementedError(
+                "Custom affine equilibrium Procedures are serial-only."
+            )
         if operators:
             raise NotImplementedError(
                 "AFM-IMPLICIT-CONTACT-MPI: external affine Operators require "
@@ -1629,6 +1639,8 @@ def solve_affine_nonlinear_path(
                 target_factor=factor,
             ),
         )
+        if on_trial_start is not None:
+            on_trial_start()
         rollback = function.x.array.copy()
         accepted_transaction_state = _snapshot_affine_accepted_state(state_transaction)
         accepted_history_state = list(history)
@@ -1658,7 +1670,11 @@ def solve_affine_nonlinear_path(
             reduced_values = previous_reduced + current_affine - previous_affine
         _assign_reconstructed(function, reduction, reduced_values)
         try:
-            equilibrium = solve_serial_affine_equilibrium(
+            solve_equilibrium = (
+                solve_serial_affine_equilibrium if equilibrium_procedure is None
+                else equilibrium_procedure.solve
+            )
+            equilibrium = solve_equilibrium(
                 residual, jacobian, function, reduction, T, reduced_values,
                 options=selected, operators=operators,
                 transaction=state_transaction, start_factor=accepted_factor,
@@ -1680,10 +1696,10 @@ def solve_affine_nonlinear_path(
         linear_solve_reasons = equilibrium.linear_reasons
         constitutive_message = equilibrium.message
 
-        checks = {}
+        checks = dict(equilibrium.procedure_checks)
         acceptance_message = constitutive_message
         if converged and acceptance_check is not None:
-            checks = dict(acceptance_check())
+            checks.update(acceptance_check())
             if not bool(checks.get("accepted", True)):
                 converged = False
                 acceptance_message = str(
@@ -1735,7 +1751,8 @@ def solve_affine_nonlinear_path(
                 if isinstance(control, step_controls.AutomaticIncrementation):
                     proposed_size = control.after_convergence(
                         accepted_size,
-                        iteration,
+                        (iteration if equilibrium.adaptation_iterations is None
+                         else equilibrium.adaptation_iterations),
                     )
                 if on_increment is not None:
                     _run_affine_acceptance_stage(
@@ -1804,6 +1821,8 @@ def solve_affine_nonlinear_path(
             state_transaction,
             accepted_factor=accepted_factor,
         )
+        if on_acceptance_failure is not None:
+            on_acceptance_failure()
         if isinstance(control, step_controls.FixedIncrementation):
             message = (
                 f"fixed increment failed at load factor {factor:.6g}: "

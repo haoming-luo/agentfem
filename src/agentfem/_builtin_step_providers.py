@@ -759,7 +759,8 @@ def _normal_augmentation_rejection_reason(model, request: StepRequest) -> str | 
     reason = (
         "AFM-CONTACT-AL-SCOPE: normal augmentation requires one fixed or translating frictionless "
         "analytical plane, scalar penalty, serial CG1 tetrahedra and ordinary "
-        "strong boundaries; no MPC, mixed fields, rotating tools or changing trace."
+        "strong boundaries or disjoint reduced normal MPC rows; "
+        "no mixed fields, rotating tools or changing trace."
     )
     if not isinstance(selected, NormalAugmentationOptions):
         return "AFM-CONTACT-AL-OPTIONS: use steps.normal_augmentation(...)."
@@ -778,7 +779,6 @@ def _normal_augmentation_rejection_reason(model, request: StepRequest) -> str | 
         or request.options.get("contact_integration", "gauss") != "gauss"
         or request.options.get("contact_quadrature_degree") is not None
         or getattr(request.target, "kind", None) == "displacement_pressure"
-        or any(isinstance(item, AbaqusPeriodicConstraint) for item in constraint_assets(constraints))
     ):
         return reason
     space = getattr(getattr(request.target, "value", None), "function_space", None)
@@ -790,7 +790,9 @@ def _normal_augmentation_rejection_reason(model, request: StepRequest) -> str | 
         or int(domain.geometry.cmaps[0].degree) != 1
     ):
         return reason
-    from .boundary_models._augmented_plane_trial_provider import validate_free_plane_normal_rows
+    from .boundary_models._augmented_plane_trial_provider import (
+        validate_free_plane_normal_rows, validate_affine_plane_normal_rows,
+    )
     from .boundary_models.dolfinx_contact_trace import dolfinx_boundary_region_contact_trace
     from .boundary_models.trace_policy import RigidContactTracePolicy
 
@@ -801,7 +803,16 @@ def _normal_augmentation_rejection_reason(model, request: StepRequest) -> str | 
         adapter = RigidContactTracePolicy(
             "nodal_lumped", coalesce_nodes=True,
         ).apply(adapter, pairs[0])
-        bcs = tuple(getattr(item, "bc", item) for item in constraint_assets(constraints))
+        assets = constraint_assets(constraints)
+        affine = tuple(item for item in assets if isinstance(item, AbaqusPeriodicConstraint))
+        if affine:
+            if len(assets) != 1:
+                return reason
+            validate_affine_plane_normal_rows(
+                adapter.trace, pairs[0].rigid_body.surface.normal, affine[0].reduction(0.),
+            )
+            return None
+        bcs = tuple(getattr(item, "bc", item) for item in assets)
         dof_arrays = [
             np.asarray(bc.dof_indices()[0], dtype=np.int64) for bc in bcs
             if callable(getattr(bc, "dof_indices", None))
@@ -1876,6 +1887,7 @@ register_step_provider(
             "incrementation",
             "quadrature_degree",
             "contact_integration",
+            "normal_augmentation",
             "output_every",
             "progress",
             "status_file",

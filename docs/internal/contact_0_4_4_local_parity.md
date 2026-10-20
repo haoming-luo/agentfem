@@ -29,7 +29,7 @@ being silently approximated by the bounded route.
 | 1. Comparator | Internal/public-protocol tests; elastic and small-displacement published cases screened but not misidentified as finite-J2 comparators | Independent same-input finite-J2 contact run and frozen observables |
 | 2. Surface | Reviewed closed/open triangle geometry, bounded initial-overlap checks, and per-face same-plane proof with one bounded fallback subdivision | Rims, unsupported curved tools, ambiguous sharp features and target-path sliding coverage |
 | 3. Integration | Planar/convex partitions; certified zero-contact and smooth-branch faces; private wholly-interior and single-plane partially active reentrant edge/face local integral and tangent; bounded adaptive interior-ball cover; whole-face smooth numerical-touch admission | General active boundaries and feature sets; global signed-gap Step admission; other edge/point laws |
-| 4. Normal law | Penalty Step; opt-in ordinary serial P1 fixed/translating-plane AL Step, coalesced nodal multiplier, outer Newton lifecycle, joint restart and accepted tool/relative-gap work with cyclic and nonuniform spatial refinement; real-mesh/reduced-rank counterexamples retained | General multiplier space and transfer, MPC/curved/rotating admission, spatial stability and wider-path work accuracy |
+| 4. Normal law | Penalty Step; opt-in ordinary serial P1 fixed/translating-plane AL Step, coalesced nodal multiplier, outer Newton lifecycle, joint restart and accepted tool/relative-gap work; bounded disjoint-normal-row MPC admission with exact active-constraint reference and cyclic restart; real-mesh/reduced-rank counterexamples retained | General multiplier space and transfer, overlapping-row MPC/curved/rotating admission, spatial stability and wider-path work accuracy |
 | 5. Friction | Locally planar Coulomb State; rigid-master spin transport tested; a separate smooth point tool can slide beside a frictionless certified-face tool | Admitted geometry-by-friction matrix; friction on sharp features remains rejected |
 | 6. Transaction | Total-system and restart tests for admitted penalty modes; opt-in serial standard-J2 certified-face research Step with work, plastic-history rollback/restart and two named tools; smooth-subset affine/MPC total-system path, now including a prescribed moving face; certified-face plus point pair in serial standard J2 and smooth MPC, including separate point-friction State | Sharp-feature MPC, MPI, changing feature topology and wider path tests |
 | 7. Result | Pair work/pressure samples; constant-normal plane AL signed relative work, prescribed tool work, discrete absolute-work bound and raw/contact-aware residuals; standard and affine/MPC research face-location extensive evidence and accepted-station coverage without point pressure | Cross-law first-law, between-station coverage and a defensible pressure interpretation |
@@ -2264,6 +2264,75 @@ release demos. Its unit/interface stage alone took about 23 minutes 10 seconds.
 The job now has a 45-minute bound and process-local single-thread BLAS/OpenMP
 settings. No tests, scientific tolerances or solver policies were removed.
 This edit is not itself a successful release acceptance.
+
+### Bounded affine augmentation admission (implemented, 2026-10-21)
+
+The actual-offset screen separates an incompatible imposed macro strain from
+an algorithm failure. A compatible interior face patch now has a separate
+hard-obstacle reference: eliminate the active reduced normal coordinates
+exactly, solve the same frozen-old-state J2 equilibrium without contact forces,
+then recover pressure from the body residual. Two penalties and two mesh sizes
+agree in displacement, plastic State and pressure; this is a discrete
+formulation comparison, not an independent constitutive model or an inf-sup proof.
+
+The **experimental** public extension is deliberately narrower than
+general full-row-rank MPC: one fixed/translating analytical plane, serial P1
+tetrahedra, one coalesced nodal pressure per contact node, and nonzero
+**disjoint reduced normal row supports**. Sparse row inspection can establish
+independence without a dense transformation or a machine-dependent rank
+tolerance. Overlapping or prescribed normal supports remain rejected, even
+when a more general method might handle them. This restriction is not a
+statement that those models are physically impossible.
+
+The ordinary affine path now passes single material commit,
+failed-outer/callback rollback, translating-tool work, accepted normal
+work, restart and capability-negative tests. A pre-trial snapshot owns
+Operator rollback; the outer Procedure never commits material. Signed normal
+work uses accepted gap/pressure endpoints and remains distinct from recoverable
+penalty energy and physical dissipation. Output thinning must not thin this
+ledger. Ordinary serial and distributed paths retain their existing behavior.
+No curved, rotating, frictional, mixed or distributed augmentation is included.
+
+The public cyclic example uses 16 increments, explicitly requests accepted
+displacement frames, and records loading, unloading and recontact. Separate
+tests resume from both loaded and unloaded boundaries and recover the same
+final material/pressure/work history. Automatic cutback discards a deliberately
+rejected converged outer trial; corrupt pressure, scalar work bounds and
+station counts are atomically rejected. Normal relative-gap work is stored
+at every accepted increment regardless of displacement-frame thinning.
+
+Stage checks on the source tree: 168 targeted contact/affine/normal-work tests
+passed in 96.65 s; 180 workflow/result/solver and corruption checks passed in
+45.24 s. Two MPI ranks each passed 30 tests in 1.97 s, including early rejection
+of both standard and affine distributed augmentation. This proves the negative
+capability boundary and preserves ordinary distributed MPC, **not** distributed
+contact support.
+
+An isolated native macOS arm64 wheel (SHA-256
+`0abbe500410d56143b18db1c128db30f0db9f7390959ee851f5893a329be178d`)
+passed 24 installed affine/rollback/restart tests in 45.66 s, plus the new
+frame-thinning/work-ledger test in 7.27 s. Its import location was explicitly
+outside the source tree. The public example completed 16 cyclic increments
+and 50 outer updates; final maximum penetration was `2.32004e-9 m`.
+Independent meshio/HDF5 inspection read 17 complete `U`/`UMAG` frames, 384
+tetrahedra and 125 points, with unwarped reference coordinates at every frame.
+The HDF5 file occupied 220169 bytes. The example now explicitly requests
+`output_every=1`; its first trial had retained only the ordinary default
+initial/final snapshots. These are small-example output facts, not a size
+estimate for the private 255041-cell composite model.
+
+The first low-penalty research attempt (`1000 Pa/m`) did not meet the declared
+outer acceptance within 60 updates. Comparisons at `10000/40000 Pa/m` on four
+cells per edge and `20000 Pa/m` on eight cells passed the unchanged penetration
+and complementarity criteria against exact active-constraint elimination.
+Penalty-independent equilibrium is an observed discrete result in this matrix,
+not a universal convergence-rate promise or a continuum pressure certificate.
+
+Remote CI for stage `8f0c52f8` reached 4436 passed, 361 skipped and one failed
+unit/interface test. That sole failure was the newly added workflow-policy
+test importing PyYAML in the deliberately minimal numerical environment; it
+was not a finite-element failure. The test now checks the fixed workflow text
+using the standard library. No numerical test, tolerance or stage was removed.
 
 [normal-al]: https://doc.comsol.com/6.4/doc/com.comsol.help.sme/sme_ug_theory.06.087.html
 [abaqus-contact-energy]: https://docs.software.vt.edu/abaqusv2025/English/SIMACAEEXARefMap/simaexa-c-contactenergy.htm

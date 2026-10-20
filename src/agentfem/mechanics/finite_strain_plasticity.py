@@ -4488,6 +4488,7 @@ def finite_strain_j2_affine_problem(
     constraint,
     contact=None,
     contact_integration: str | Mapping[str, str] = "gauss",
+    normal_augmentation=None,
     external_force=None,
     incrementation=None,
     solver_options=None,
@@ -4567,6 +4568,19 @@ def finite_strain_j2_affine_problem(
         )
     elif contact_integration != "gauss":
         raise ValueError("contact_integration requires a rigid contact pair.")
+    if normal_augmentation is not None:
+        from ..boundary_models._augmented_plane_trial_provider import (
+            DolfinxAugmentedPlaneTrialProvider, validate_affine_plane_normal_rows,
+        )
+        if len(contact_providers) != 1:
+            raise NotImplementedError("AFM-CONTACT-AL-SCOPE: affine augmentation needs exactly one plane.")
+        augmented = DolfinxAugmentedPlaneTrialProvider(
+            contact_providers[0], policy=normal_augmentation,
+        )
+        validate_affine_plane_normal_rows(
+            augmented.adapter.trace, augmented.surface.normal, constraint.reduction(0.),
+        )
+        contact_providers = (augmented,)
     transaction = _finite_strain_j2_transaction(
         displacement,
         material,
@@ -4645,6 +4659,13 @@ def finite_strain_j2_affine_problem(
         status_file=status_file,
         name=name,
     )
+    if normal_augmentation is not None:
+        from ._affine_normal_augmentation import AffinePlaneNormalAugmentation
+        from ..boundary_models._normal_work_path import AcceptedNormalContactWork
+        problem._equilibrium_procedure = AffinePlaneNormalAugmentation(contact_providers[0])
+        work = AcceptedNormalContactWork(contact_providers[0])
+        problem.accepted_observers = (*problem.accepted_observers, work)
+        problem.accepted_history_recorders[f"normal_contact_work:{contact_providers[0].name}"] = work
 
     # Keep reviewed faceted-feature observations on the same accepted-boundary
     # transaction as material, tool State and MPC work. Older checkpoints may
