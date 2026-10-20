@@ -230,6 +230,15 @@ boundaries. Increment diagnostics record the actual relaxation factors and
 reset count. The public translating-plane example accepts
 `--acceleration aitken`; use the same option when resuming its checkpoint.
 
+The partial-contact regression also exercises a tilted fixed plane under
+plastic loading, unloading and recontact. It compares every accepted
+displacement, material state, pressure, active set and energy record, restores
+a loaded checkpoint, and injects failure after pressure commit to check atomic
+rollback and retry. An independent equality-constrained elastic active-set
+reference checks both acceleration policies on two meshes. These tests cover
+a changing subset of fixed material-side nodes, not multiplier transfer to a
+new trace or curved-tool geometry.
+
 `tools/benchmark_multiplier_acceleration.py` compares the two policies on the
 32-increment cyclic example after warming both paths and alternating run order.
 The recorded serial Mac test reduced median solve time from 2.058 s to 1.404 s

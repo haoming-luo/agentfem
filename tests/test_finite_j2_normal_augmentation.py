@@ -408,7 +408,8 @@ def test_oblique_nonuniform_pressure_matches_independent_displacement_limit(cell
 
 
 @pytest.mark.parametrize('cells', [2, 3])
-def test_partial_contact_matches_independent_primal_dual_active_set(cells):
+@pytest.mark.parametrize('acceleration', ['none', 'aitken'])
+def test_partial_contact_matches_independent_primal_dual_active_set(cells, acceleration):
     """Test-only equality-constraint oracle; no AL/penalty assembly in the oracle.
 
     A fresh elastic-limit J2 problem is solved for each guessed active set.
@@ -430,6 +431,7 @@ def test_partial_contact_matches_independent_primal_dual_active_set(cells):
         normal_augmentation=steps.normal_augmentation(
             penetration_tolerance=1e-8, complementarity_tolerance=1e-7,
             maximum_augmentations=200, length_unit='m', pressure_unit='Pa',
+            acceleration=acceleration,
         ),
     )
     space = u.value.function_space

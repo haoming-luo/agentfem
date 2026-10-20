@@ -818,6 +818,13 @@ Default controls are unchanged. Independent pressure, cyclic energy and
 restart/rollback checks accompany a 32-increment serial example whose repeated
 median solve time fell 31.8%; this is not evidence for the explicit composite
 case, curved/MPC augmentation or general commercial-software speed parity.
+The follow-up acceptance adds a spatially partial plastic contact patch through
+unloading/recontact, all-station pressure/state/work comparisons, restart and
+post-commit failure recovery. Both policies also match a separate
+equality-constrained elastic active-set reference on two meshes. This narrows
+the acceleration validation gap without admitting new geometry or constraint
+families. The `a62cef23` candidate passed remote Linux tests and macOS
+installed-wheel foundation acceptance; scientific parity gates remain open.
 The moving-plane slice now also has a nonuniform Poisson-coupled plastic
 compression comparison against independently enforced prescribed displacement
 on three meshes and two penalties. Point-pressure accuracy is checked

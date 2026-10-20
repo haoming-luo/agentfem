@@ -34,7 +34,7 @@ being silently approximated by the bounded route.
 | 6. Transaction | Total-system and restart tests for admitted penalty modes; opt-in serial standard-J2 certified-face research Step with work, plastic-history rollback/restart and two named tools; smooth-subset affine/MPC total-system path, now including a prescribed moving face; certified-face plus point pair in serial standard J2 and smooth MPC, including separate point-friction State | Sharp-feature MPC, MPI, changing feature topology and wider path tests |
 | 7. Result | Pair work/pressure samples; constant-normal plane AL signed relative work, prescribed tool work, discrete absolute-work bound and raw/contact-aware residuals; standard and affine/MPC research face-location extensive evidence and accepted-station coverage without point pressure | Cross-law first-law, between-station coverage and a defensible pressure interpretation |
 | 8. Science | Local/oracle/installed tests; independent elastic-limit spring equation; nine inhomogeneous mesh/increment/penalty comparisons; plastic mesh and moving-tool/restart screens; directional refinement through 128 slave faces | Full mesh x increment x law convergence and external observables |
-| 9. Release | Scoped solver screens | Installed cross-platform gate and production runtime evidence |
+| 9. Release | Scoped solver screens; `a62cef23` remote Linux and macOS installed-wheel foundation checks passed | Final frozen release-candidate acceptance, bounded scientific gates and production runtime evidence |
 
 “Partial” here is not a release status. The test target, geometry and
 enforcement must all match before a gate can be marked closed.
@@ -2154,8 +2154,41 @@ This wheel smoke is not the same claim as running all 376 tests from that wheel.
 Remote CI for the preceding `1e60e174` revision passed its unit/interface,
 installed/native and distributed checks, but the overall FEniCSx job was
 cancelled during the release-demo suite after about 30 minutes. It is not an
-all-green release gate. The closing revision still needs its own remote CI;
-this PR remains a draft, not a merged/released 0.4.4.
+all-green release gate. The subsequent `a62cef23` revision passed
+[Test run 39375343048](https://github.com/haoming-luo/agentfem/actions/runs/39375343048)
+including Linux native distribution, FEniCSx and macOS installed-wheel
+foundation acceptance, and
+[Documentation run 39375343074](https://github.com/haoming-luo/agentfem/actions/runs/39375343074).
+The FEniCSx job took about 22 minutes 48 seconds; no CI timeout or scientific
+tolerance was changed to obtain this pass. PR #118 remains a draft, not a
+merged/released 0.4.4 or an independently validated commercial-contact match.
+
+### Partial-contact acceleration acceptance (2026-10-20)
+
+The previous timing patch did not by itself establish accelerated behavior
+on a spatially partial contact region. The follow-up tests add:
+
+- Both default and Aitken updates against a separate equality-constrained,
+  elastic-limit primal-dual active-set reference on two meshes. The reference
+  assembles no contact or augmented residual. It verifies the same discrete
+  nodal obstacle, not an independent constitutive law or continuum limit.
+- A 16-increment finite-J2 path against a tilted fixed plane, with plastic
+  loading, unloading and recontact. Every accepted displacement, material
+  state, pressure, active set and energy record is compared between policies.
+  The test requires a genuinely mixed active/open patch and changing activity.
+- A checkpoint at peak load, with all subsequent stations compared after
+  restoration; an injected failure after contact commit must restore pressure,
+  material, displacement and the accepted ledger exactly before a valid retry.
+
+The tests are `test_partial_contact_acceleration.py` and the extended independent
+reference in `test_finite_j2_normal_augmentation.py`. This is correctness and
+lifecycle coverage, not another timing claim. No runtime default, pressure
+basis, numerical tolerance, geometry admission or MPI/MPC guard was changed.
+The focused source run passed **102 tests in 56.40 seconds**, covering the
+partial patch, accelerator controls, ordinary and translating augmentation,
+independent plastic reference, rollback and restart. Correctness lint,
+generated-document consistency and diff checks passed. This follow-up does
+not substitute that source run for the preceding revision's installed CI.
 
 [normal-al]: https://doc.comsol.com/6.4/doc/com.comsol.help.sme/sme_ug_theory.06.087.html
 [abaqus-contact-energy]: https://docs.software.vt.edu/abaqusv2025/English/SIMACAEEXARefMap/simaexa-c-contactenergy.htm

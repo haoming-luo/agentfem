@@ -773,6 +773,12 @@ multiplier basis follows fixed material-side reference nodes. Checkpoint
 restoration must agree on both identities; this is not a general history
 transfer rule for rotating normals or changing contact partitions.
 
+Multiplier acceleration is a numerical Procedure policy, not a material law.
+Its secant history belongs to one attempted increment and is discarded on
+retry or restart. Changing the policy must not change contact acceptance or
+permit a failed trial to enter State. A partial-contact patch needs its own
+opening/recontact checks; a uniformly compressed patch alone is insufficient.
+
 A verification claim binds an observable to a reference, criterion,
 applicability domain, evidence record, and passed/failed/inconclusive decision.
 The ordered result trust levels are `not_computed`, `computed`, `converged`,
