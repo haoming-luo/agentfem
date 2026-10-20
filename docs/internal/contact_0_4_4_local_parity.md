@@ -2362,6 +2362,54 @@ backtracking. Two MPI ranks each passed the periodic cubic total-reduction
 comparison (one test, five then-deselected tests per rank). This is ordinary
 distributed MPC evidence, not admission of distributed augmented contact.
 
+### 2026-10-21: periodic plastic-patch sensitivity is measurable
+
+`tools/verify_affine_augmented_path.py` uses the public example and reports
+displacement norm, reference-area pressure, resultant force, mean/max PEEQ,
+normal relative-gap work and constraint mismatch at the same four physical
+stations. It does not export full field archives or tune the physical problem
+to obtain a pass. The example's inexpensive 4-cell/16-increment defaults are
+a workflow demonstration, not a mesh/increment accuracy recommendation.
+
+The 12-case matrix in
+`evidence/contact/2026-10-21-affine-augmentation-sensitivity.json` spans
+4/8 cells per edge, 16/32/64 increments and penalties 10000/40000 Pa/m.
+Every case meets the unchanged penetration/complementarity tolerances.
+At fixed mesh and increment count, the two penalties give essentially the
+same discrete response. Increment and mesh sensitivity remain significant:
+for example the 8-cell final contact-force magnitude changes from about
+0.69147 N at 16 increments to 0.75451 N at 32 increments.
+
+The frozen `cf1bfc36` installed wheel was then used for 128/256-increment
+refinement, recorded in
+`evidence/contact/2026-10-21-affine-augmentation-time-refinement.json`.
+All four cases pass numerical acceptance. At 8 cells, the final force changes
+from 0.8176322 N to 0.8273062 N (1.17% relative to the finer path);
+mean PEEQ changes from 0.05743225 to 0.05743618. At 4 cells, the corresponding
+force change remains 2.29%, and the 256-increment 4/8-cell forces differ by
+about 0.48252 N. Thus a successful solve and penalty insensitivity do **not**
+close the spatial accuracy gate. Point pressure/PEEQ maxima near the patch
+edge are not used as a universal convergence criterion.
+
+The signed relative-gap work tends toward zero along the 8-cell time sequence
+(about -2.02e-4 J at 32 increments, -1.35e-5 J at 128 and -4.31e-6 J at 256).
+It is still an accepted-endpoint path quadrature, not elastic storage,
+irreversible dissipation or automatic first-law verification. These data do
+not establish an asymptotic order. Recorded costs include setup and scalar
+observation with lightweight development overlap; this study is not a paired
+performance benchmark.
+
+The corrected-Newton wheel at `8da7b93b` (SHA-256
+`a819e2515437cb0e8c81ba3f800bec782d261f464716b331eb45dee4554e001e`)
+passed 33 installed policy/reuse/affine-augmentation tests in 76.15 s.
+The earlier `cf1bfc36` default-backtracking checkpoint restored all 16 accepted
+increments with this candidate. A separate installed TCP-transport MPI check
+passed the periodic cubic comparison on both ranks; this process-local setting
+does not alter global MPI configuration or admit distributed contact.
+The complete remote `cf1bfc36` workflow `39464864247` passed Linux numerical
+and macOS installed-wheel foundation acceptance; that does not automatically
+validate later commits or close the remaining scientific gates.
+
 [petsc-basic]: https://petsc.org/release/src/snes/linesearch/impls/basic/linesearchbasic.c.html
 [normal-al]: https://doc.comsol.com/6.4/doc/com.comsol.help.sme/sme_ug_theory.06.087.html
 [abaqus-contact-energy]: https://docs.software.vt.edu/abaqusv2025/English/SIMACAEEXARefMap/simaexa-c-contactenergy.htm

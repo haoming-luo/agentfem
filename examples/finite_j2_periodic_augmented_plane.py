@@ -27,11 +27,13 @@ from agentfem import (
 from agentfem.mesh import abaqus
 
 
-def make_step(*, cells=4, increments=16, acceleration="aitken"):
+def make_step(*, cells=4, increments=16, acceleration="aitken", penalty=10000.):
     if MPI.COMM_WORLD.size != 1:
         raise RuntimeError("This bounded augmented-contact path is serial only.")
     if cells < 4 or cells % 4 or increments < 4 or increments % 4:
         raise ValueError("Use cells and increments divisible by four to preserve patch edges and path knots.")
+    if not np.isfinite(penalty) or penalty <= 0.:
+        raise ValueError("The numerical augmentation penalty must be finite and positive.")
     domain = dolfinx_mesh.create_unit_cube(MPI.COMM_SELF, cells, cells, cells)
     model = models.create(study=studies.static_solid(dimension=3, nonlinear=True), mesh=domain)
     displacement = model.field(fields.displacement(domain))
@@ -77,7 +79,7 @@ def make_step(*, cells=4, increments=16, acceleration="aitken"):
     model.add_boundary_model(boundary_models.rigid_contact_pair(
         patch, boundary_models.rigid_body(boundary_models.rigid_plane(
             point=(1.005, 0., 0.), normal=(-1., 0., 0.),
-        )), penalty=10000., initial_penetration_limit=0., name="interior_plane",
+    )), penalty=penalty, initial_penetration_limit=0., name="interior_plane",
     ))
     return model.step(
         target=displacement, material=material, constraints=periodicity,
@@ -99,11 +101,13 @@ def main():
     parser.add_argument("--output", type=Path, default=Path("outputs/periodic_augmented_plane"))
     parser.add_argument("--cells", type=int, default=4)
     parser.add_argument("--increments", type=int, default=16)
+    parser.add_argument("--penalty", type=float, default=10000., help="Explicit numerical penalty in Pa/m.")
     parser.add_argument("--acceleration", choices=("none", "aitken"), default="aitken")
     parser.add_argument("--until", type=float, default=1.)
     parser.add_argument("--restart", type=Path)
     args = parser.parse_args()
-    step = make_step(cells=args.cells, increments=args.increments, acceleration=args.acceleration)
+    step = make_step(cells=args.cells, increments=args.increments, acceleration=args.acceleration,
+                     penalty=args.penalty)
     if args.restart:
         step.load_checkpoint(args.restart)
     if not step.accepted_load_factor < args.until <= 1.:
