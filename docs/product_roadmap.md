@@ -49,6 +49,11 @@ plane diagnostic now includes the actual MPC affine offset, distinguishing
 immovable penetration from mere multiplier redundancy. Neither improvement
 admits AL under arbitrary MPC; compatible multiplier spaces and their
 independent pressure/convergence evidence remain required.
+An option-contract audit also corrected explicit basic/no-search Newton:
+finite valid full steps may temporarily increase the residual, while invalid
+material trials still reject. Backtracking remains the default; serial and
+distributed affine paths share the meaning with PETSc, and affected legacy
+basic-mode checkpoints cannot silently change algorithm.
 
 ### 0.4.3 released composition and next gate (2026-10-17)
 

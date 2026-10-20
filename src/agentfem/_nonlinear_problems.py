@@ -1780,6 +1780,13 @@ class AffineNonlinearVariationalProblem:
             )
         if self._equilibrium_procedure is not None:
             identity["equilibrium_procedure"] = self._equilibrium_procedure.summary()
+        selected = self.solver_options
+        if isinstance(selected, NewtonSolverOptions):
+            selected = selected.for_affine_reduction()
+        if isinstance(selected, AffineNewtonOptions) and selected.line_search == "basic":
+            # Earlier affine basic mode still enforced Armijo decrease. Its
+            # checkpoints must not silently inherit the corrected algorithm.
+            identity["affine_full_step_policy"] = "finite_valid_trial_v1"
         return identity
 
     @staticmethod

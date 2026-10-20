@@ -357,11 +357,13 @@ _CORE_SOURCE_TEST_MAP = {
         "tests/test_common_workflows.py",
         "tests/test_affine_equilibrium_reuse.py",
         "tests/test_affine_normal_augmentation_research.py",
+        "tests/test_affine_newton_policy.py",
     ),
     "src/agentfem/_affine_equilibrium.py": (
         "tests/test_affine_equilibrium_reuse.py",
         "tests/test_affine_j2_automatic_restart.py",
         "tests/test_affine_normal_augmentation_research.py",
+        "tests/test_affine_newton_policy.py",
     ),
     "src/agentfem/mechanics/_affine_normal_augmentation.py": (
         "tests/test_affine_normal_augmentation_research.py",

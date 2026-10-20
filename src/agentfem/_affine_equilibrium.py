@@ -166,7 +166,8 @@ def solve_serial_affine_equilibrium(
                     trial_norm = float("inf")
                     trial_failure = trial_message
                 if np.isfinite(trial_norm) and (
-                    trial_norm <= options.atol
+                    options.line_search == "basic"
+                    or trial_norm <= options.atol
                     or trial_norm <= current_norm * (1. - 1e-4 * alpha)
                 ):
                     reduced_values = trial
@@ -180,6 +181,8 @@ def solve_serial_affine_equilibrium(
                 if current is not None:
                     current.close()
                     current = None
+                if options.line_search == "basic":
+                    break
                 alpha *= options.line_search_reduction
             if not accepted:
                 owner._assign_reconstructed(function, reduction, reduced_values)

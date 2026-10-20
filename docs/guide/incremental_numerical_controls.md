@@ -74,6 +74,21 @@ Affine Newton backtracking now requires the stated sufficient residual decrease
 longer bypasses that condition. Existing load cutback, material trial/commit and
 restart paths remain in use.
 
+`solvers.newton(line_search="basic")` instead takes the full finite,
+material-admissible Newton update, even when the residual temporarily grows.
+`line_search=None` explicitly disables the search with the same meaning;
+it is not a request for PETSc's default backtracking. These choices now have
+the same meaning in serial/distributed affine reduction and the ordinary
+Newton backend. They do not waive final equilibrium, contact acceptance or
+constitutive validity, and are not a universal robustness or speed setting.
+Backtracking remains the default. An earlier affine implementation incorrectly
+treated basic Newton as a single Armijo trial; affected experimental basic/
+no-search checkpoint identities now reject rather than silently changing the
+algorithm on continuation. Default backtracking identities are unchanged.
+The full-step interpretation follows
+[PETSc's basic line-search implementation](https://petsc.org/release/src/snes/linesearch/impls/basic/linesearchbasic.c.html);
+it does not imply that full Newton is preferable on an arbitrary contact path.
+
 Linear nonconvergence raises `diagnostics.ComputationalFailure`, retaining
 RuntimeError compatibility. `exception.as_dict()` includes a stable code,
 solver stage, PETSc reason, iterations, residual and suggested next checks.

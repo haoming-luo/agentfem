@@ -2334,6 +2334,35 @@ test importing PyYAML in the deliberately minimal numerical environment; it
 was not a finite-element failure. The test now checks the fixed workflow text
 using the standard library. No numerical test, tolerance or stage was removed.
 
+### 2026-10-21: explicit full-Newton policy is not an Armijo test
+
+Audit of the common affine Newton loop found a real option-contract defect:
+`line_search="basic"` (and explicit `None`/`"off"`) previously selected one
+trial of length one but still required Armijo residual decrease. On an
+assembled cubic residual, the mathematically valid first Newton step from
+`u=0.1` to `u=33.4` temporarily increases the residual before converging to
+`u=1`. The new regression first produced two failures (basic and None) and
+one pass (backtracking). A one-trial Armijo rejection is not basic Newton.
+
+The corrected serial and distributed affine loops accept a finite,
+constitutively valid full trial in basic mode. An invalid full trial is
+rejected and restored; it is not silently backtracked or committed. Explicit
+no-search now also lowers to PETSc `basic`, rather than leaving SNES free to
+select its default. Default backtracking and its checkpoint identity remain
+unchanged. Corrected explicit basic/no-search identities reject legacy
+checkpoints whose algorithm would otherwise change on continuation.
+This follows [PETSc's basic implementation][petsc-basic], not a claim that
+full Newton is universally faster or more robust.
+
+Evidence: 153 focused solver/workflow/material/restart/CI-scope tests passed
+with eight genuinely distributed tests skipped in the serial run. The final
+policy/reuse subset passed 17 tests, including an invalid full-trial
+restoration and moving augmented-contact restart comparisons against
+backtracking. Two MPI ranks each passed the periodic cubic total-reduction
+comparison (one test, five then-deselected tests per rank). This is ordinary
+distributed MPC evidence, not admission of distributed augmented contact.
+
+[petsc-basic]: https://petsc.org/release/src/snes/linesearch/impls/basic/linesearchbasic.c.html
 [normal-al]: https://doc.comsol.com/6.4/doc/com.comsol.help.sme/sme_ug_theory.06.087.html
 [abaqus-contact-energy]: https://docs.software.vt.edu/abaqusv2025/English/SIMACAEEXARefMap/simaexa-c-contactenergy.htm
 [abaqus]: https://docs.software.vt.edu/abaqusv2025/English/SIMACAEITNRefMap/simaitn-c-genlcontnumcontrolsstd.htm

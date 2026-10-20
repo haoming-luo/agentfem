@@ -196,7 +196,7 @@ class NewtonSolverOptions:
             atol=self.absolute_tolerance,
             max_it=self.maximum_iterations,
             line_search_type={
-                None: None,
+                None: "basic",
                 "backtracking": "bt",
                 "basic": "basic",
             }[self.line_search],
@@ -224,10 +224,11 @@ class NewtonSolverOptions:
             ksp_max_it=1000 if linear.max_it is None else int(linear.max_it),
             factor_solver_type=linear.factor_solver_type,
             error_if_not_converged=self.error_if_not_converged,
+            line_search=self.line_search or "basic",
         )
 
     def summary(self) -> dict[str, object]:
-        return {
+        record = {
             "kind": "newton_solver",
             "relative_tolerance": self.relative_tolerance,
             "absolute_tolerance": self.absolute_tolerance,
@@ -238,6 +239,11 @@ class NewtonSolverOptions:
             "linear_solver": self.linear_solver.summary(),
             "error_if_not_converged": self.error_if_not_converged,
         }
+        if self.line_search is None:
+            # Distinguish explicit no-search from legacy SNES backend-default
+            # behavior in checkpoint identity; backtracking identities stay put.
+            record["resolved_line_search"] = "basic"
+        return record
 
 
 def newton(
@@ -298,6 +304,7 @@ class AffineNewtonOptions:
     ksp_max_it: int = 1000
     factor_solver_type: str | None = "mumps"
     error_if_not_converged: bool = True
+    line_search: str = "backtracking"
 
     def __post_init__(self) -> None:
         if self.rtol <= 0.0 or self.atol <= 0.0:
@@ -310,6 +317,8 @@ class AffineNewtonOptions:
             raise ValueError("line_search_minimum must lie in (0, 1].")
         if self.ksp_rtol <= 0.0 or self.ksp_max_it <= 0:
             raise ValueError("Affine Newton KSP tolerances must be positive.")
+        if self.line_search not in {"backtracking", "basic"}:
+            raise ValueError("Affine Newton line_search must be 'backtracking' or 'basic'.")
 
     @property
     def linear_options(self) -> LinearSolverOptions:
@@ -322,7 +331,7 @@ class AffineNewtonOptions:
         )
 
     def summary(self) -> dict[str, object]:
-        return {
+        record = {
             "kind": "affine_newton_options",
             "rtol": self.rtol,
             "atol": self.atol,
@@ -332,6 +341,9 @@ class AffineNewtonOptions:
             "linear_solver": self.linear_options.summary(),
             "error_if_not_converged": self.error_if_not_converged,
         }
+        if self.line_search != "backtracking":
+            record["line_search"] = self.line_search
+        return record
 
 
 @dataclass(frozen=True)
@@ -2153,12 +2165,15 @@ def _solve_distributed_affine_nonlinear_path(
                     trial_norm = float("inf")
                     trial_failure_message = trial_message
                 if np.isfinite(trial_norm) and (
-                    trial_norm <= options.atol
+                    options.line_search == "basic"
+                    or trial_norm <= options.atol
                     or trial_norm <= current_norm * (1.0 - 1.0e-4 * alpha)
                 ):
                     current_norm = trial_norm
                     accepted_steps.append(alpha)
                     accepted = True
+                    break
+                if options.line_search == "basic":
                     break
                 alpha *= options.line_search_reduction
             if not accepted:
