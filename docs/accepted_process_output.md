@@ -29,6 +29,11 @@ the material-state descriptor; an in-place provider schema change is rejected
 before another frame is written. Rejected first-frame data does not establish
 a successful schema. These copies contain small descriptors, not full state
 or mesh arrays.
+This response adapter requires one finite 3×3 Cauchy stress tensor per cell.
+It does not reinterpret a different stress measure or silently export a scalar
+under the tensor's name. The provider's source location is preserved in the
+series metadata and cannot change between frames. These checks protect output
+meaning; they do not independently validate the constitutive law.
 
 Open `process.xdmf` and use ParaView's time controls. Apply Warp By Vector once.
 Each frame is one volume grid with all selected point and cell fields. The

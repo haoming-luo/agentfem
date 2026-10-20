@@ -17,6 +17,13 @@ def _response_fields(step, *, state_fields=None, velocity=False, acceleration=Fa
     if domain.comm.size != 1:
         raise NotImplementedError("AFM-EXPORT-MPI: accepted response export is serial")
     keys = record["cell_keys"]
+    stress = np.asarray(record.get("cauchy_stress"))
+    if (stress.shape != (len(keys), 3, 3) or stress.dtype.kind not in "fiu"
+            or not np.isfinite(stress).all()):
+        raise ValueError("AFM-EXPORT-ARRAY: expected one finite real 3x3 Cauchy stress per cell")
+    if (record.get("stress_measure") != "cauchy"
+            or not isinstance(record.get("location"), str) or not record["location"].strip()):
+        raise ValueError("AFM-EXPORT-SEMANTICS: require Cauchy stress and an explicit source location")
     selected = {} if state_fields is None else dict(state_fields)
     reserved = {"cauchy_stress", displacement.name, "velocity", "acceleration"}
     if transport is None or not transport.matches(domain, keys):
@@ -130,7 +137,7 @@ class AcceptedResponseSeries:
             raise RuntimeError("AFM-FRAMES-CLOSED: use a new series")
         record, nodal, fields, selected, self._transport = _response_fields(
             step, transport=self._transport, **self.options)
-        identity = (record["state_schema"], selected)
+        identity = (record["state_schema"], selected, record["location"], record["stress_measure"])
         if self._identity is not None and identity != self._identity:
             raise ValueError("AFM-FRAMES-SCHEMA: state schema changed")
         if self._writer is None:
@@ -162,6 +169,7 @@ class AcceptedResponseSeries:
                 "restart_archive": False, "scientifically_validated": False,
                 "stations": self.stations, "units": self.units,
                 "state_schema": self._identity[0], "state_fields": self._identity[1],
+                "location": self._identity[2], "stress_measure": self._identity[3],
             }, indent=2, allow_nan=False) + '\n')
             self._published = True
         return self.artifacts()

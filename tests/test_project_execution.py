@@ -307,6 +307,61 @@ def test_rejected_first_frame_does_not_bind_a_schema(tmp_path):
     assert [station['increment'] for station in metadata['stations']] == [0]
 
 
+@pytest.mark.parametrize('defect', ['scalar_stress', 'different_measure', 'missing_location'])
+def test_response_series_rejects_mislabelled_provider_data(tmp_path, defect):
+    from agentfem import results
+    from test_response_material_step import make_step
+    from types import SimpleNamespace
+    step = make_step()
+    record = dict(step.accepted_material_fields())
+    if defect == 'scalar_stress':
+        record['cauchy_stress'] = np.zeros(len(record['cell_keys']))
+    elif defect == 'different_measure':
+        record['stress_measure'] = 'first_piola'
+    else:
+        record['location'] = ''
+    provider = SimpleNamespace(
+        state=step.state, steps=step.steps, completed_steps=0,
+        accepted_material_fields=lambda: record,
+    )
+    path = tmp_path / 'mislabelled.xdmf'
+    series = results.AcceptedResponseSeries(path)
+    try:
+        with pytest.raises(ValueError, match='AFM-EXPORT-(ARRAY|SEMANTICS)'):
+            series.write(provider)
+    finally:
+        series.close()
+    assert not list(tmp_path.iterdir())
+
+
+def test_response_series_preserves_provider_location(tmp_path):
+    from agentfem import results
+    from test_response_material_step import make_step
+    from types import SimpleNamespace
+    step = make_step()
+    record = dict(step.accepted_material_fields())
+    location = record['location']
+    provider = SimpleNamespace(
+        state=step.state, steps=step.steps, completed_steps=0,
+        accepted_material_fields=lambda: record,
+    )
+    path = tmp_path / 'location.xdmf'
+    series = results.AcceptedResponseSeries(path)
+    series.write(provider)
+    record['location'] = 'different_cell_sampling'
+    record['time'] = step.dt
+    provider.completed_steps = 1
+    try:
+        with pytest.raises(ValueError, match='AFM-FRAMES-SCHEMA'):
+            series.write(provider)
+    finally:
+        series.close()
+    metadata = json.loads(path.with_suffix('.json').read_text())
+    assert metadata['location'] == location
+    assert metadata['stress_measure'] == 'cauchy'
+    assert [station['increment'] for station in metadata['stations']] == [0]
+
+
 def test_cell_transport_reuses_mapping_not_field_storage():
     from agentfem.results.cell_data import _CellFieldTransport
     from test_response_material_step import make_step

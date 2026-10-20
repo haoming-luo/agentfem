@@ -2476,6 +2476,29 @@ transport, expose unrelated environment values or add restart restrictions.
 The private composite replay retains the earlier frozen `8da7b93b` installation;
 this later diagnostic change is not injected into the running candidate.
 
+### Accepted-series output boundary audit (2026-10-21)
+
+A secondary audit while the frozen private replay runs found two mutable
+descriptor aliases: caller-owned nested field selectors and a provider-owned
+state schema. Two tests failed before the fix; the series now owns independent
+small descriptors and freezes the schema only after its first successful
+frame. It does not add a whole-state copy or change the numerical trajectory.
+
+Four additional failing counterexamples showed that the streaming adapter
+accepted a scalar under `cauchy_stress`, a different declared stress measure,
+a missing source location, or a location change between frames. It now
+requires its documented per-cell finite real 3×3 Cauchy stress and retains
+the source location/measure in metadata. A changed provider descriptor is
+rejected before writing the next frame. Existing valid frames can still be
+closed as an incomplete segment; no physical validation is inferred from
+correct labels or shapes.
+
+The final combined output/project/cell-transport/journal/topology subset
+passed **85 tests in 3.73 s**. This is a short source regression run, not a
+performance measurement. The ongoing private full run remains on its frozen
+`8da7b93b` wheel: its provider already satisfies these contracts, and no
+runtime files were replaced during execution.
+
 [cell-periodicity]: https://doc.comsol.com/6.4/doc/com.comsol.help.sme/sme_ug_theory.06.080.html
 [petsc-basic]: https://petsc.org/release/src/snes/linesearch/impls/basic/linesearchbasic.c.html
 [normal-al]: https://doc.comsol.com/6.4/doc/com.comsol.help.sme/sme_ug_theory.06.087.html
