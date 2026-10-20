@@ -17,6 +17,7 @@ from dolfinx import fem
 import dolfinx.fem.petsc as fem_petsc
 
 from . import steps as step_controls
+from ._affine_equilibrium import solve_serial_affine_equilibrium
 from .events import SolveEvent
 
 
@@ -1656,177 +1657,28 @@ def solve_affine_nonlinear_path(
                 )
             reduced_values = previous_reduced + current_affine - previous_affine
         _assign_reconstructed(function, reduction, reduced_values)
-        trial_valid, constitutive_message = _try_refresh_affine_trial_state(
-            state_transaction,
-            start_factor=accepted_factor,
-            target_factor=factor,
-        )
-
-        accepted_steps: list[float] = []
-        linear_solve_iterations: list[int] = []
-        linear_solve_reasons: list[int] = []
         try:
-            initial_norm = (
-                _reduced_residual_norm(residual, T, operators)
-                if trial_valid else float("inf")
+            equilibrium = solve_serial_affine_equilibrium(
+                residual, jacobian, function, reduction, T, reduced_values,
+                options=selected, operators=operators,
+                transaction=state_transaction, start_factor=accepted_factor,
+                target_factor=factor, reporter=reporter, step_name=step_name,
+                step_number=step_number, increment_number=increment_number,
+                attempt_number=attempt_number,
             )
         except BaseException:
             T.destroy()
             raise
-        current_norm = initial_norm
-        threshold = (
-            selected.atol + selected.rtol * initial_norm
-            if np.isfinite(initial_norm)
-            else selected.atol
-        )
-        converged = np.isfinite(current_norm) and current_norm <= threshold
-        iteration = 0
-        reduced_tangent = None
-        while not converged and iteration < selected.max_it:
-            if not np.isfinite(current_norm):
-                break
-            iteration += 1
-            full_residual = None
-            full_tangent = None
-            try:
-                full_residual, contributions = _assemble_affine_full_residual(
-                    residual, operators,
-                )
-                full_tangent = fem_petsc.assemble_matrix(jacobian)
-                for operator, contribution in contributions:
-                    operator.add_tangent(full_tangent, contribution)
-                full_tangent.assemble()
-            except BaseException:
-                if full_residual is not None:
-                    full_residual.destroy()
-                if full_tangent is not None:
-                    full_tangent.destroy()
-                if reduced_tangent is not None:
-                    reduced_tangent.destroy()
-                T.destroy()
-                raise
-            reduced_residual = T.createVecRight()
-            T.multTranspose(full_residual, reduced_residual)
-            reduced_tangent = full_tangent.PtAP(T, result=reduced_tangent)
-            right_hand_side = reduced_residual.copy()
-            right_hand_side.scale(-1.0)
-            increment = reduced_residual.duplicate()
-            increment.set(0.0)
-            linear_info = solve_matrix_system(
-                reduced_tangent,
-                right_hand_side,
-                increment,
-                selected.linear_options,
-                raise_on_failure=False,
-            )
-            linear_solve_iterations.append(int(linear_info.iterations))
-            linear_solve_reasons.append(int(linear_info.converged_reason))
-            direction = increment.array_r.copy() if linear_info.converged else None
-
-            full_residual.destroy()
-            full_tangent.destroy()
-            reduced_residual.destroy()
-            right_hand_side.destroy()
-            increment.destroy()
-
-            if direction is None:
-                _emit(
-                    reporter,
-                    SolveEvent(
-                        "iteration",
-                        step_name,
-                        step_number=step_number,
-                        increment=increment_number,
-                        attempt=attempt_number,
-                        start_factor=accepted_factor,
-                        target_factor=factor,
-                        iteration=iteration,
-                        residual_norm=current_norm,
-                        step_length=0.0,
-                        message=(
-                            "linear correction failed: "
-                            f"KSP reason {linear_info.converged_reason}"
-                        ),
-                    ),
-                )
-                break
-
-            alpha = 1.0
-            accepted = False
-            trial_failure_message = ""
-            while alpha + 1.0e-15 >= selected.line_search_minimum:
-                trial = reduced_values + alpha * direction
-                _assign_reconstructed(function, reduction, trial)
-                trial_valid, trial_message = _try_refresh_affine_trial_state(
-                    state_transaction,
-                    start_factor=accepted_factor,
-                    target_factor=factor,
-                )
-                if trial_valid:
-                    try:
-                        trial_norm = _reduced_residual_norm(residual, T, operators)
-                    except BaseException:
-                        if reduced_tangent is not None:
-                            reduced_tangent.destroy()
-                        T.destroy()
-                        raise
-                else:
-                    trial_norm = float("inf")
-                    trial_failure_message = trial_message
-                if np.isfinite(trial_norm) and (
-                    trial_norm <= selected.atol
-                    or trial_norm <= current_norm * (1.0 - 1.0e-4 * alpha)
-                ):
-                    reduced_values = trial
-                    current_norm = trial_norm
-                    accepted_steps.append(alpha)
-                    accepted = True
-                    break
-                alpha *= selected.line_search_reduction
-            if not accepted:
-                _assign_reconstructed(function, reduction, reduced_values)
-                restored, restore_message = _try_refresh_affine_trial_state(
-                    state_transaction,
-                    start_factor=accepted_factor,
-                    target_factor=factor,
-                )
-                if not restored:
-                    trial_failure_message = restore_message
-                if trial_failure_message:
-                    constitutive_message = trial_failure_message
-                _emit(
-                    reporter,
-                    SolveEvent(
-                        "iteration",
-                        step_name,
-                        step_number=step_number,
-                        increment=increment_number,
-                        attempt=attempt_number,
-                        start_factor=accepted_factor,
-                        target_factor=factor,
-                        iteration=iteration,
-                        residual_norm=current_norm,
-                        step_length=0.0,
-                        message=trial_failure_message,
-                    ),
-                )
-                break
-            _emit(
-                reporter,
-                SolveEvent(
-                    "iteration",
-                    step_name,
-                    step_number=step_number,
-                    increment=increment_number,
-                    attempt=attempt_number,
-                    start_factor=accepted_factor,
-                    target_factor=factor,
-                    iteration=iteration,
-                    residual_norm=current_norm,
-                    step_length=accepted_steps[-1],
-                ),
-            )
-            converged = current_norm <= threshold
+        reduced_values = equilibrium.reduced_values
+        initial_norm = equilibrium.initial_norm
+        current_norm = equilibrium.residual_norm
+        threshold = equilibrium.threshold
+        converged = equilibrium.converged
+        iteration = equilibrium.iterations
+        accepted_steps = equilibrium.step_lengths
+        linear_solve_iterations = equilibrium.linear_iterations
+        linear_solve_reasons = equilibrium.linear_reasons
+        constitutive_message = equilibrium.message
 
         checks = {}
         acceptance_message = constitutive_message
@@ -1840,8 +1692,6 @@ def solve_affine_nonlinear_path(
                         "increment failed its physical acceptance check",
                     )
                 )
-        if reduced_tangent is not None:
-            reduced_tangent.destroy()
         mismatch = float(constraint.mismatch(factor))
         increment_info = AffineLoadIncrementInfo(
             load_factor=factor,

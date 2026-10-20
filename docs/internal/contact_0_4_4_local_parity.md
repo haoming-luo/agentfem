@@ -2190,6 +2190,81 @@ independent plastic reference, rollback and restart. Correctness lint,
 generated-document consistency and diff checks passed. This follow-up does
 not substitute that source run for the preceding revision's installed CI.
 
+### Serial affine execution and actual-offset diagnostic (2026-10-20)
+
+The serial affine Procedure now delegates its fixed-factor Newton equilibrium
+to `_affine_equilibrium.py`. The path owner still owns increment prediction,
+cutback, physical acceptance, material/contact commit, output and restart.
+The inner owner retains a full residual and its Operator contributions only
+at the identical current trial, avoiding the former norm-evaluation followed
+by a second residual/contact evaluation before tangent assembly. Changed
+displacement or material trial reassembles; no trial cache crosses an increment
+or checkpoint. PETSc resources are released on rejected trials and exceptions.
+The distributed affine implementation and unsupported contact combinations
+are unchanged.
+
+`tools/benchmark_affine_trial_reuse.py` loads only the historical serial path
+function from frozen commit `a5b5a8fc`, retaining the same material and Operator
+implementations. It warms each path and alternates five measured repetitions,
+checking accepted iteration/line-search paths, displacement, material vectors,
+snapshot fields and contact nodal residual. The committed report is
+`evidence/contact/2026-10-20-affine-trial-reuse.json`:
+
+| Small serial path | Old median | Reuse median | Elapsed reduction |
+| --- | --- | --- | --- |
+| Fixed sphere | 0.10193 s | 0.09485 s | 6.95% |
+| Moving sphere | 0.11023 s | 0.10133 s | 8.07% |
+| Plane friction | 0.09730 s | 0.08907 s | 8.46% |
+| Automatic plastic cutback, no contact | 0.07696 s | 0.07700 s | no demonstrated gain |
+
+These tiny whole-path measurements identify avoided work, not a universal
+speedup, statistical confidence interval, or a composite-run forecast.
+The focused integrated source run passed 107 tests, with 10 MPI-only tests
+skipped. A subsequent single bounded two-rank run passed 28 tests on each rank,
+including those negative-admission checks and distributed affine tests.
+Installed and cross-rank restart acceptance must be recorded separately.
+
+Closing checks found a missing transfer of the residual threshold into the
+fixed-increment failure report. It was repaired and a public-path regression
+now requires the diagnostic and exact accepted displacement/material rollback
+after an intentionally failed next increment. The expanded source run passed
+218 tests in 63.60 seconds; correctness lint passed. An isolated native macOS
+wheel, imported outside the checkout with the source-path override disabled,
+passed 82 focused tests in 20.24 seconds. Its SHA-256 is
+`524b653c2030140f5f38aaf2bac2801bbb8ef7f29e04b08fca28c5fea9436473`.
+The installed ordinary periodic-J2 checkpoint driver passed 1→2 and 2→1 rank
+restore. This checks preservation of the existing distributed no-contact
+route; it does **not** admit distributed implicit contact.
+
+The new private `contact_affine_gap_research.py` constructs **all supplied**
+analytical-plane trace gaps as `g(q) = A q + b`, using actual reference
+coordinates, transformation and affine offset. Exactly zero rows with
+resolved negative offsets are algebraic incompatibility witnesses for this
+floating-point discrete system; merely small rows are not treated as zero.
+For a real periodic fixture at macro stretch 1.02, a plane limiting x to
+1.01 conflicts at four immovable trace nodes, while x <= 1.03 has an explicit
+feasible witness. Direct projection at randomized reduced coordinates agrees
+with the affine gaps. This closes the earlier missing-offset diagnostic, not
+the AL/MPC solver or multiplier-space gate.
+
+A bounded optional SciPy/HiGHS search uses **free** displacement variables and
+rechecks every gap of any returned candidate. Optimizer infeasibility alone is
+reported as unresolved, not a proof; the witness says nothing about material
+invertibility or points outside this trace. Tests include conflicting
+nonstationary inequalities, tiny nonzero rows and a false optimizer witness.
+The focused diagnostic/normal-law/CI-contract run passed 95 tests. The
+[HiGHS API](https://docs.scipy.org/doc/scipy/reference/optimize.linprog-highs.html)
+documents the variable bounds and numerical statuses used here. Multiplier
+identifiability and primal feasibility remain different questions; neither
+this screen nor removing duplicate rows proves spatial inf-sup stability.
+
+CI operational repair: at `a5b5a8fc`, the FEniCSx job passed its unit/interface
+and installed/distributed checks, then hit its 30-minute job budget during the
+release demos. Its unit/interface stage alone took about 23 minutes 10 seconds.
+The job now has a 45-minute bound and process-local single-thread BLAS/OpenMP
+settings. No tests, scientific tolerances or solver policies were removed.
+This edit is not itself a successful release acceptance.
+
 [normal-al]: https://doc.comsol.com/6.4/doc/com.comsol.help.sme/sme_ug_theory.06.087.html
 [abaqus-contact-energy]: https://docs.software.vt.edu/abaqusv2025/English/SIMACAEEXARefMap/simaexa-c-contactenergy.htm
 [abaqus]: https://docs.software.vt.edu/abaqusv2025/English/SIMACAEITNRefMap/simaitn-c-genlcontnumcontrolsstd.htm

@@ -40,6 +40,16 @@ license the other. Distributed implicit contact, deformable--deformable/self
 contact, shell-thickness contact and arbitrary CAD remain outside this bounded
 target.
 
+The current serial affine Newton implementation reuses the total residual and
+Operator responses only within an unchanged trial, avoiding a second contact
+evaluation before the tangent solve. Small frozen-old-Procedure comparisons
+cover fixed/moving sphere contact, friction and automatic plastic cutback;
+this is not an explicit-composite speed claim. A separate bounded analytical
+plane diagnostic now includes the actual MPC affine offset, distinguishing
+immovable penetration from mere multiplier redundancy. Neither improvement
+admits AL under arbitrary MPC; compatible multiplier spaces and their
+independent pressure/convergence evidence remain required.
+
 ### 0.4.3 released composition and next gate (2026-10-17)
 
 Version 0.4.3 was promoted by one composed scientific workflow, not

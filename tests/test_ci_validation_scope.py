@@ -12,6 +12,19 @@ from ci_validation_scope import (
 )
 
 
+def test_core_release_job_has_bounded_runtime_and_no_nested_blas_oversubscription():
+    import yaml
+
+    workflow = yaml.safe_load(Path(".github/workflows/test.yml").read_text(encoding="utf-8"))
+    job = workflow["jobs"]["fenicsx"]
+    assert job["timeout-minutes"] == 45
+    for name in ("OMP_NUM_THREADS", "OPENBLAS_NUM_THREADS", "MKL_NUM_THREADS"):
+        assert job["env"][name] == "1"
+    names = {step["name"] for step in job["steps"]}
+    assert {"Run unit and interface tests", "Run release demo smoke suite",
+            "Record the candidate-bound 0.4 foundation acceptance"} <= names
+
+
 @pytest.mark.parametrize(
     ("paths", "expected"),
     (

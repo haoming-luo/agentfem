@@ -228,7 +228,10 @@ jobs:
       needs.change-scope.outputs.level == 'core' ||
       needs.change-scope.outputs.level == 'release'
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    # The release tier includes the full serial suite, MPI restart checks and
+    # installed demos. Successful tests previously exhausted 30 min before
+    # the demo gate finished; allow bounded runner variance without skipping it.
+    timeout-minutes: 45
     concurrency:
       group: test-core-${{ github.event.pull_request.number || github.ref }}
       cancel-in-progress: true
@@ -237,6 +240,9 @@ jobs:
     # and TCP transports, including the two-rank regression jobs below.
     env:
       UCX_TLS: tcp,sm,self
+      OMP_NUM_THREADS: "1"
+      OPENBLAS_NUM_THREADS: "1"
+      MKL_NUM_THREADS: "1"
       VALIDATION_LEVEL: ${{ needs.change-scope.outputs.level }}
       CHANGED_TESTS: ${{ needs.change-scope.outputs.tests }}
       CHANGED_MPI_TESTS: ${{ needs.change-scope.outputs.mpi_tests }}
