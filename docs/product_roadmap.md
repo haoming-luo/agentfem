@@ -789,9 +789,13 @@ It reuses the existing Newton, material trial state and joint accepted
 checkpoint. Independent homogeneous limits, plastic loading/unloading,
 failure rollback and restart have targeted evidence. Redundant strong/contact
 normal rows reject early. This is still experimental: general multiplier
-stability, MPC, moving/curved tools, partition transfer and enforcement-work
-closure remain separate gates. The AL functional is not physical stored
-energy; the full energy ledger is marked unavailable rather than fabricated.
+stability, MPC, moving/curved tools and partition transfer remain separate
+gates. The fixed-plane accepted-work gate now records signed numerical contact
+work, a non-cancelling discrete work bound and opening/closure contributions.
+The AL functional is never stored energy. Original and contact-aware energy
+residuals remain visible, with independent cyclic-reference and increment
+refinement evidence; no automatic energy-verification claim follows. Legacy
+checkpoints without work history remain unavailable rather than fabricated.
 The fixed-plane route additionally has a scalar, non-FE coaxial plastic-stop
 reference through loading, unloading, reverse flow and recontact on two
 meshes, including restart after reverse plasticity. That check exposed a

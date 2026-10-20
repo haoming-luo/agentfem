@@ -92,7 +92,14 @@ def main() -> None:
     print(f"Right-face displacement: {results.probe(displacement, at=(1., .5, .5))[0]:.6g} m")
     print(f"Accepted increments: {len(step.accepted_increments)}")
     print(f"Normal augmentations: {sum(i.normal_augmentations for i in step.accepted_increments)}")
-    print("Energy audit: unavailable (AL enforcement-work residual is not yet bounded).")
+    if step.energy_history_complete and step.energy_history:
+        energy = step.energy_history[-1]
+        print(f"Numerical normal-contact work: {energy.normal_contact_work:.6g} J")
+        print(f"Discrete absolute work bound: {energy.normal_contact_work_bound:.6g} J")
+        print(f"Corrected energy residual: {energy.mechanical_energy_residual + energy.normal_contact_work:.6g} J")
+        print("Energy ledger: available; increment refinement and explicit verification still required.")
+    else:
+        print("Energy ledger: unavailable (restart lacks prior work history).")
     status = result.status if result is not None else "accepted partial checkpoint"
     print(f"Status: {status}; experimental fixed-plane scope only.")
     print(f"Results: {args.output.resolve()}")

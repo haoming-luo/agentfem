@@ -29,10 +29,10 @@ being silently approximated by the bounded route.
 | 1. Comparator | Internal/public-protocol tests; elastic and small-displacement published cases screened but not misidentified as finite-J2 comparators | Independent same-input finite-J2 contact run and frozen observables |
 | 2. Surface | Reviewed closed/open triangle geometry, bounded initial-overlap checks, and per-face same-plane proof with one bounded fallback subdivision | Rims, unsupported curved tools, ambiguous sharp features and target-path sliding coverage |
 | 3. Integration | Planar/convex partitions; certified zero-contact and smooth-branch faces; private wholly-interior and single-plane partially active reentrant edge/face local integral and tangent; bounded adaptive interior-ball cover; whole-face smooth numerical-touch admission | General active boundaries and feature sets; global signed-gap Step admission; other edge/point laws |
-| 4. Normal law | Penalty Step; opt-in ordinary serial P1 fixed-plane AL Step, coalesced nodal multiplier, outer Newton lifecycle and joint restart; real-mesh/reduced-rank counterexamples retained | General multiplier space and transfer, MPC/curved/moving admission, spatial stability and enforcement-work closure |
+| 4. Normal law | Penalty Step; opt-in ordinary serial P1 fixed-plane AL Step, coalesced nodal multiplier, outer Newton lifecycle, joint restart and accepted numerical-work ledger with cyclic increment refinement; real-mesh/reduced-rank counterexamples retained | General multiplier space and transfer, MPC/curved/moving admission, spatial stability and wider-path work accuracy |
 | 5. Friction | Locally planar Coulomb State; rigid-master spin transport tested; a separate smooth point tool can slide beside a frictionless certified-face tool | Admitted geometry-by-friction matrix; friction on sharp features remains rejected |
 | 6. Transaction | Total-system and restart tests for admitted penalty modes; opt-in serial standard-J2 certified-face research Step with work, plastic-history rollback/restart and two named tools; smooth-subset affine/MPC total-system path, now including a prescribed moving face; certified-face plus point pair in serial standard J2 and smooth MPC, including separate point-friction State | Sharp-feature MPC, MPI, changing feature topology and wider path tests |
-| 7. Result | Pair work/pressure samples; AL local work sign; standard and affine/MPC research face-location extensive evidence and accepted-station coverage without point pressure | Cross-law first-law, between-station coverage and a defensible pressure interpretation |
+| 7. Result | Pair work/pressure samples; fixed-plane AL accepted signed work, discrete absolute-work bound and raw/contact-aware residuals; standard and affine/MPC research face-location extensive evidence and accepted-station coverage without point pressure | Cross-law first-law, between-station coverage and a defensible pressure interpretation |
 | 8. Science | Local/oracle/installed tests; independent elastic-limit spring equation; nine inhomogeneous mesh/increment/penalty comparisons; plastic mesh and moving-tool/restart screens; directional refinement through 128 slave faces | Full mesh x increment x law convergence and external observables |
 | 9. Release | Scoped solver screens | Installed cross-platform gate and production runtime evidence |
 
@@ -1857,6 +1857,68 @@ atomic restore refusal; the nonuniform two-mesh and independent cyclic
 reference follow-up passed five tests, with nine two-rank-only tests skipped
 in that serial invocation.
 
+## Fixed-plane accepted normal-work gate (2026-10-20)
+
+This supersedes the earlier unavailable-energy statement **only** for the
+admitted serial fixed-plane AL path with complete accepted history. It does
+not close the broader Gate 4 or Gate 7 matrices above.
+
+The existing contact-work module now integrates matched accepted pressure/gap
+endpoints. With positive gap on the admissible side and reference weights,
+`Wn=sum(w*(p0+p1)/2*(g1-g0))` is positive work into the structure;
+`Bn=sum(w*(p0+p1)/2*abs(g1-g0))` is its non-cancelling discrete bound.
+Positive-gap work is reported separately. Exact endpoint complementarity
+does not eliminate closure/opening quadrature work. The
+[Abaqus contact-energy example][abaqus-contact-energy] explicitly distinguishes
+signed contact discontinuity work from physical stored energy; this is the
+reason for separate channels, not a claim of identical algorithms.
+
+The Procedure uses the existing accepted energy frames and joint transaction;
+there is no new work State owner or solver. Augmentation/Newton iterations
+are not path stations. AL has no physical spring-energy history. The raw
+`Wext-U` residual is unchanged; the additional `Wext+Wn-U` diagnostic retains
+material/path integration error rather than being forced to zero. A bound on
+discrete work is not a bound on continuous-path error. No automatic energy
+verification is added. Legacy incomplete ledgers stay unavailable, and
+corrupt/missing/nonfinite/inconsistent new histories reject before restore.
+
+Independent evidence uses the existing scalar finite-J2 stop reference,
+including load, unload, reverse plasticity and recontact. The reference uses
+no AgentFEM material or contact solver; stored Hencky/hardening energy,
+plastic dissipation and endpoint work are reconstructed independently.
+
+| Increments | Raw residual | Contact-aware residual | Discrete absolute normal-work bound |
+| --- | ---: | ---: | ---: |
+| 16 | -7.80259e-5 | -3.14497e-3 | 4.22724e-3 |
+| 32 | -1.25948e-4 | -6.44190e-4 | 9.13273e-4 |
+| 64 | 2.53142e-5 | -6.84374e-5 | 1.06248e-4 |
+| 128 | 9.08018e-6 | -2.74590e-5 | 4.26926e-5 |
+
+Units are joules for the unit-cube SI reference. The coarse raw residual is
+misleadingly small due to cancellation. The corrected residual and absolute
+work decline substantially under refinement, not identically to zero. This
+is a bounded cyclic numerical check, not industrial validation or a universal
+convergence rate. Reproduce with
+`pytest tests/test_normal_contact_energy.py -q -s` in `fenicsx-env`.
+The same suite compares contact work to an independent nodal-force dot
+displacement path and verifies reverse-plastic restart and post-recording
+failed-commit rollback. Test tolerances propagate the independently checked
+stretch accuracy into accumulated external work rather than borrowing a
+single-state energy tolerance.
+
+Acceptance: 203 focused tests passed from an isolated installed wheel in
+55.82 seconds, with the package import path asserted outside the checkout.
+This includes the new numerical-work checks and existing penalty, multiple-pair,
+mixed-J2 energy and contact-work transaction tests. The default public example
+also completed from that installation and exported fields, contact samples,
+checkpoint and result manifest. Its deliberately coarse four increments have
+contact-aware residual `-0.00248248 J`; completion is not energy verification.
+Correctness lint, generated-document consistency and strict documentation
+build passed. Native acceleration was disabled for this implicit-DOLFINx
+wheel; neither MPI AL nor accelerator performance is claimed. Wheel SHA-256:
+`af0e97c59eb2f40bde7f8b25da565ae812a4e21017f9a485f8e8ec86d7dc45c1`.
+
+[abaqus-contact-energy]: https://docs.software.vt.edu/abaqusv2025/English/SIMACAEEXARefMap/simaexa-c-contactenergy.htm
 [abaqus]: https://docs.software.vt.edu/abaqusv2025/English/SIMACAEITNRefMap/simaitn-c-genlcontnumcontrolsstd.htm
 [nafems]: https://www.nafems.org/publications/pubguide/list/
 [nafems-contact-3]: https://www.nafems.org/downloads/FENet_Meetings/Glasgow_UK_Oct_2004/FENET_Glasgow_Oct2004_DLE_Becker.pdf

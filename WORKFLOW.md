@@ -112,6 +112,11 @@ record.
     physical change. Their normalized amplitude is not a displacement unit.
 18. Evaluate physical QoIs, diagnostics, and histories. Keep coefficient
     statistics distinct from assembled physical integrals.
+    For experimental fixed-plane normal augmentation, inspect both the raw
+    mechanical-energy residual and the contact-aware residual, signed numerical
+    normal work and its discrete absolute-work bound. Refine accepted increments
+    before making an energy claim. An AL functional is not stored energy, and
+    endpoint complementarity alone does not eliminate contact-onset work.
 19. Write visualization/output artifacts and attach them to the result. The
     standard transient lifecycle performs this automatically; low-level
     `run(output=...)` remains available for expert loops.

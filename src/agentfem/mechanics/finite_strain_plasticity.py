@@ -445,8 +445,21 @@ class FiniteStrainJ2EnergyFrame:
     pair_tool_work: tuple[tuple[str, float], ...] = ()
     friction_dissipation: float = 0.0
     friction_separation_release: float = 0.0
+    normal_contact_work: float | None = None
+    normal_contact_work_bound: float | None = None
+    normal_contact_open_gap_work: float | None = None
 
     def __post_init__(self) -> None:
+        normal = (self.normal_contact_work, self.normal_contact_work_bound,
+                  self.normal_contact_open_gap_work)
+        if any(value is not None for value in normal):
+            if (any(value is None for value in normal) or not np.isfinite(normal).all()
+                    or self.normal_contact_work_bound < 0
+                    or max(abs(self.normal_contact_work), abs(self.normal_contact_open_gap_work),
+                           abs(self.normal_contact_work - self.normal_contact_open_gap_work))
+                    > self.normal_contact_work_bound
+                    + 32*np.finfo(float).eps*max(self.normal_contact_work_bound, 1e-30)):
+                raise ValueError("Invalid accepted normal-contact work/bound channels.")
         selected = tuple(self.pair_tool_work)
         names = tuple(str(name) for name, _ in selected)
         if len(set(names)) != len(names) or any(not name for name in names):
@@ -467,7 +480,7 @@ class FiniteStrainJ2EnergyFrame:
 
     def as_dict(self) -> dict[str, object]:
         values = {
-            name: float(getattr(self, name))
+            name: None if getattr(self, name) is None else float(getattr(self, name))
             for name in self.__dataclass_fields__
             if name != "pair_tool_work"
         }
@@ -482,6 +495,7 @@ class FiniteStrainJ2EnergyFrame:
             if name not in {
                 "contact_potential", "tool_work", "pair_tool_work",
                 "friction_dissipation", "friction_separation_release",
+                "normal_contact_work", "normal_contact_work_bound", "normal_contact_open_gap_work",
             }
         }
         pair_work = record.get("pair_tool_work", {})
@@ -498,6 +512,9 @@ class FiniteStrainJ2EnergyFrame:
             friction_separation_release=float(
                 record.get("friction_separation_release", 0.0)
             ),
+            **{name: None if record.get(name) is None else float(record[name])
+               for name in ("normal_contact_work", "normal_contact_work_bound",
+                            "normal_contact_open_gap_work")},
         )
 
 
@@ -1931,10 +1948,10 @@ class FiniteStrainJ2StandardProblem:
     ) -> None:
         """Commit one path-consistent work/energy frame after material commit."""
 
+        providers = self._contact_providers()
+        has_normal_work = any(hasattr(item, "normal_work_increment") for item in providers)
         if not all(getattr(item, "physical_contact_potential_available", True)
-                   for item in self._contact_providers()):
-            # An AL algorithmic functional is not recoverable contact energy.
-            # Preserve the existing explicit unavailable-ledger contract.
+                   or hasattr(item, "normal_work_increment") for item in providers):
             self.energy_history_complete = False
             return
         if not self.energy_history_complete:
@@ -1947,7 +1964,10 @@ class FiniteStrainJ2StandardProblem:
         )
         if self._uses_implicit_rigid_contact():
             contact_contribution = self.contact_provider.evaluate()
-            contact_potential = contact_contribution.potential_energy
+            # An augmented functional is not recoverable contact energy.
+            # The bounded hard-normal route has no physical contact spring;
+            # its signed numerical work is accounted separately below.
+            contact_potential = 0.0 if has_normal_work else contact_contribution.potential_energy
             contact_parts = (
                 tuple(item for _, item in contact_contribution.pairs)
                 if hasattr(contact_contribution, "pairs")
@@ -1968,6 +1988,8 @@ class FiniteStrainJ2StandardProblem:
                 and contribution.friction_assembly is None
             ):
                 raise RuntimeError("Frictional rigid pair omitted its energy assembly.")
+            if not getattr(provider, "physical_contact_potential_available", True):
+                continue
             if contribution.friction_assembly is None:
                 continue
             friction_dissipation += contribution.friction_assembly.cumulative_dissipation
@@ -2036,6 +2058,20 @@ class FiniteStrainJ2StandardProblem:
             stored + dissipation + contact_potential
             + friction_dissipation + friction_release
         )
+        normal_work = normal_bound = normal_open_work = None
+        if has_normal_work:
+            previous = self.energy_history[-1] if self.energy_history else None
+            normal_work = previous.normal_contact_work if previous else 0.0
+            normal_bound = previous.normal_contact_work_bound if previous else 0.0
+            normal_open_work = previous.normal_contact_open_gap_work if previous else 0.0
+            if any(value is None for value in (normal_work, normal_bound, normal_open_work)):
+                raise RuntimeError("Normal-contact work history is incomplete; missing work cannot be reconstructed.")
+            for provider in providers:
+                if hasattr(provider, "normal_work_increment"):
+                    work = provider.normal_work_increment()
+                    normal_work += work.work_on_structure
+                    normal_bound += work.absolute_work_bound
+                    normal_open_work += work.open_gap_work
         self.energy_history.append(
             FiniteStrainJ2EnergyFrame(
                 load_factor=float(load_factor),
@@ -2052,8 +2088,37 @@ class FiniteStrainJ2StandardProblem:
                 pair_tool_work=tuple(sorted(pair_work.items())),
                 friction_dissipation=friction_dissipation,
                 friction_separation_release=friction_release,
+                normal_contact_work=normal_work,
+                normal_contact_work_bound=normal_bound,
+                normal_contact_open_gap_work=normal_open_work,
             )
         )
+
+    def _validate_normal_work_history(self, history, accepted, complete):
+        """A legacy incomplete ledger stays unavailable; never infer missing work."""
+
+        if not complete or not any(hasattr(item, "normal_work_increment")
+                                   for item in self._contact_providers()):
+            return
+        if len(history) != len(accepted):
+            raise ValueError("Normal-contact work history does not cover every accepted increment.")
+        previous_bound = previous_work = previous_open_work = 0.0
+        for frame, increment in zip(history, accepted, strict=True):
+            if (frame.normal_contact_work is None
+                    or not np.isfinite(frame.load_factor)
+                    or abs(frame.load_factor - increment.load_factor) > 1e-12
+                    or frame.normal_contact_work_bound < previous_bound):
+                raise ValueError("Normal-contact work history is incomplete or inconsistent.")
+            increment_bound = frame.normal_contact_work_bound - previous_bound
+            increment_work = frame.normal_contact_work - previous_work
+            increment_open_work = frame.normal_contact_open_gap_work - previous_open_work
+            tolerance = 64*np.finfo(float).eps*max(frame.normal_contact_work_bound, 1e-30)
+            if max(abs(increment_work), abs(increment_open_work),
+                   abs(increment_work-increment_open_work)) > increment_bound + tolerance:
+                raise ValueError("Normal-contact work increment exceeds its recorded bound.")
+            previous_bound = frame.normal_contact_work_bound
+            previous_work = frame.normal_contact_work
+            previous_open_work = frame.normal_contact_open_gap_work
 
     def _snapshot_increment_boundary(self) -> dict[str, object]:
         """Capture the accepted boundary before one provisional attempt."""
@@ -2774,6 +2839,9 @@ class FiniteStrainJ2StandardProblem:
         if selected.suffix != ".npz":
             selected = selected.with_suffix(".npz")
         snapshot = self.response.snapshot()
+        self._validate_normal_work_history(
+            self.energy_history, self.accepted_increments, self.energy_history_complete,
+        )
         contact_state = (
             self.contact_provider.snapshot_accepted_state()
             if self.contact_provider is not None
@@ -2962,6 +3030,7 @@ class FiniteStrainJ2StandardProblem:
             raise ValueError(
                 "Finite-strain J2 checkpoint contact State presence differs."
             )
+        self._validate_normal_work_history(energy_history, accepted, energy_history_complete)
         if not np.allclose(solution, accepted_solution, rtol=0.0, atol=1.0e-12):
             raise ValueError("Finite-strain J2 checkpoint U and U_ACCEPTED differ.")
         if accepted:
@@ -3574,6 +3643,8 @@ class FiniteStrainJ2StandardProblem:
             abscissa_unit=None,
             description="Accepted normalized load increment size.",
         )
+        has_normal_work = any(hasattr(item, "normal_work_increment")
+                              for item in self._contact_providers())
         if self.energy_history_complete and self.energy_history:
             energy_factors = np.asarray(
                 [item.load_factor for item in self.energy_history],
@@ -3589,14 +3660,14 @@ class FiniteStrainJ2StandardProblem:
                         {"contact_potential": [
                             item.contact_potential for item in self.energy_history
                         ]}
-                        if self.contact_provider is not None
+                        if self.contact_provider is not None and not has_normal_work
                         else {}
                     ),
                     **(
                         {"tool_work": [
                             item.tool_work for item in self.energy_history
                         ]}
-                        if self.contact_provider is not None
+                        if self.contact_provider is not None and not has_normal_work
                         and self.contact_provider.has_prescribed_motion
                         else {}
                     ),
@@ -3643,7 +3714,7 @@ class FiniteStrainJ2StandardProblem:
                             "Accepted recoverable normal and, when declared, "
                             "tangential contact penalty potential."
                         )}
-                        if self.contact_provider is not None
+                        if self.contact_provider is not None and not has_normal_work
                         else {}
                     ),
                     **(
@@ -3711,6 +3782,41 @@ class FiniteStrainJ2StandardProblem:
                 },
                 kind="verification",
             )
+            if has_normal_work:
+                normal_channels = {
+                    "normal_contact_work": (
+                        "Signed work of fixed-normal contact on the structure, from accepted "
+                        "pressure/gap endpoints; numerical enforcement work, not stored energy or dissipation."
+                    ),
+                    "normal_contact_work_bound": (
+                        "Cumulative sum of absolute pointwise endpoint work; bounds the magnitude "
+                        "of recorded normal work without cancellation, not the unobserved continuous path."
+                    ),
+                    "normal_contact_open_gap_work": (
+                        "Signed endpoint contact work against change of positive gap; exposes "
+                        "opening/closure quadrature defects even with exact endpoint complementarity."
+                    ),
+                }
+                values = {key: [getattr(frame, key) for frame in self.energy_history]
+                          for key in normal_channels}
+                values["normal_contact_corrected_energy_residual"] = [
+                    frame.mechanical_energy_residual + frame.normal_contact_work
+                    for frame in self.energy_history
+                ]
+                result.add_histories(
+                    energy_factors, values, abscissa_name="load_factor", abscissa_unit=None,
+                    descriptions={**normal_channels, "normal_contact_corrected_energy_residual": (
+                        "External work plus signed numerical normal-contact work minus recorded "
+                        "internal energy. Retains bulk/path discretization error; not an enforced identity."
+                    )},
+                )
+                corrected = last_energy.mechanical_energy_residual + last_energy.normal_contact_work
+                result.add_quantities({
+                    **{key: getattr(last_energy, key) for key in normal_channels},
+                    "normal_contact_corrected_energy_residual": corrected,
+                    "relative_normal_contact_corrected_energy_residual": abs(corrected) / scale,
+                    "relative_normal_contact_work_bound": last_energy.normal_contact_work_bound / scale,
+                }, kind="verification")
         result.metadata["mechanical_energy_ledger"] = {
             "status": (
                 "complete_accepted_path"
@@ -3746,9 +3852,17 @@ class FiniteStrainJ2StandardProblem:
         if not all(getattr(item, "physical_contact_potential_available", True)
                    for item in self._contact_providers()):
             result.metadata["mechanical_energy_ledger"].update(
-                status="unavailable_augmented_contact_enforcement_work_not_bounded",
-                internal_energy=None,
+                status=("complete_accepted_path_with_normal_contact_work"
+                        if has_normal_work and self.energy_history_complete else
+                        "unavailable_legacy_checkpoint_without_work_history" if has_normal_work else
+                        "unavailable_contact_enforcement_work_not_recorded"),
+                internal_energy="stored_energy + plastic_dissipation" if has_normal_work else None,
                 algorithmic_functional_is_physical_energy=False,
+                normal_contact_work=("signed_numerical_work_on_structure" if has_normal_work else None),
+                balance="external_work + normal_contact_work - internal_energy" if has_normal_work else None,
+                bound_scope="discrete_endpoint_work_only_not_continuous_path_error" if has_normal_work else None,
+                requires_increment_refinement=True,
+                automatic_energy_verification=False,
             )
         for checkpoint in self.checkpoints:
             result.add_checkpoint(checkpoint)

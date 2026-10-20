@@ -6,6 +6,13 @@ experimental formulation to a validated one.
 
 ## [Unreleased]
 
+- Record accepted signed normal-contact work for the experimental serial
+  fixed-plane finite-J2 augmentation route. Keep its discrete absolute-work
+  bound, open-gap contribution and raw/contact-aware energy residuals separate
+  from stored energy. Joint restart/rollback and cyclic increment refinement
+  are checked; absent legacy work history stays unavailable. This does not
+  promote moving/curved augmentation, MPI or automatic energy verification.
+
 - Develop a bounded serial implicit rigid-contact candidate for finite-strain
   J2: shared Newton residual/tangent, prescribed-tool force and work, reviewed
   faceted and convex geometry branches, friction State, atomic restart, raw

@@ -16,6 +16,7 @@ import numpy as np
 
 from ..steps import NormalAugmentationOptions
 from .contact_state import ContactProjectionRecord
+from .contact_work import _fixed_normal_work_increment
 from .dolfinx_contact_trace import dolfinx_boundary_region_contact_trace
 from .dolfinx_implicit_facet_contact import DolfinxImplicitRigidContact
 from .normal_augmentation import (
@@ -160,6 +161,31 @@ class DolfinxAugmentedPlaneTrialProvider(DolfinxImplicitRigidContact):
         self._pending_acceptance = None
         self._last_normal_evaluation = None
         self._outer_in_progress = False
+
+    def normal_work_increment(self):
+        """Observe a converged outer endpoint before the joint State commit.
+
+        Only the enclosing Procedure publishes this increment. It never
+        sums Newton iterates or multiplier augmentations as physical motion.
+        """
+
+        if self._pending_acceptance is None:
+            raise RuntimeError("AL normal work requires a converged outer endpoint.")
+        response = self.normal_response()
+        if not np.array_equal(
+            self._pending_acceptance[0].query_points, response.evaluation.query_points,
+        ):
+            raise RuntimeError("AL normal-work endpoint changed after convergence.")
+        old_gap = self.surface.project(self._accepted_positions).signed_gaps
+        old_pressure = np.maximum(
+            0., self.normal_multiplier_state.accepted_multiplier
+            - self.normal_multiplier_state.penalty * old_gap,
+        )
+        return _fixed_normal_work_increment(
+            weights=self.adapter.trace.weights,
+            old_gap=old_gap, new_gap=response.record.projection.signed_gaps,
+            old_pressure=old_pressure, new_pressure=response.pressure,
+        )
 
     def _require_accepted_boundary(self):
         if (self._outer_in_progress or self._pending_acceptance is not None

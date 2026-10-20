@@ -70,9 +70,12 @@ def test_plastic_normal_augmentation_commits_material_once_per_accepted_incremen
     diagnostic = provider.current_point_diagnostics()['normal_augmentation']
     assert diagnostic['maximum_penetration'] <= 1e-7
     assert diagnostic['maximum_complementarity'] <= 1e-6
-    assert not problem.energy_history_complete
-    assert not problem.energy_history
-    assert result.metadata['mechanical_energy_ledger']['status'].startswith('unavailable_augmented')
+    assert problem.energy_history_complete
+    assert len(problem.energy_history) == len(problem.accepted_increments)
+    assert result.metadata['mechanical_energy_ledger']['status'] == 'complete_accepted_path_with_normal_contact_work'
+    assert not result.metadata['mechanical_energy_ledger']['automatic_energy_verification']
+    assert 'contact_potential' not in result.histories
+    assert 'normal_contact_work' in result.histories
     assert f'{provider.name}_contact_energy' not in result.quantities
     assert not hasattr(provider.evaluate(), 'potential_energy')
 

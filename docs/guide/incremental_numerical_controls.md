@@ -144,9 +144,30 @@ candidate, or start a new run; there is no automatic multiplier transfer.
 
 Result reports the actual contact force and augmentation counts. Reference-area
 pressure is not Cauchy pressure. The signed AL functional is **not** physical
-contact stored energy: the full mechanical-energy ledger is marked unavailable
-until the finite-penetration enforcement-work residual has an explicit bound.
-Fixed-tool coordinate work is zero, which alone does not prove energy closure.
+contact stored energy. The accepted ledger now reports signed numerical
+`normal_contact_work` separately, together with a non-cancelling
+`normal_contact_work_bound` and the positive-gap component
+`normal_contact_open_gap_work`. For matched fixed-plane samples these are
+`sum(w * (p_old+p_new)/2 * delta_gap)` and, for the bound, the same sum with
+`abs(delta_gap)`. Positive work enters the structure. Opening/closure can
+produce nonzero endpoint work even with exact complementarity at both ends.
+The bound applies only to this discrete work, **not** to the continuous-path
+integration error or general contact accuracy.
+
+The original `mechanical_energy_residual` remains external work minus stored
+material energy and plastic dissipation. The additional
+`normal_contact_corrected_energy_residual` includes signed normal work;
+neither residual is forced to zero. There is no AL `contact_potential`
+history. Fixed-tool coordinate work is zero, which alone does not prove energy
+closure. Compare both residuals, the absolute-work bound, and increment
+refinement; cancellation can make an inaccurate coarse path look balanced.
+These histories do not automatically promote the result to verified.
+
+Only jointly accepted endpoints enter this ledger. Failed attempts restore it
+with displacement, plastic state and multipliers. New checkpoints retain and
+check its complete accepted-path coverage; legacy checkpoints without prior
+work remain energy-unavailable after continuation. No missing history is
+reconstructed. These semantics do not enable moving/curved AL or MPI.
 `results.export_accepted_contact_points(...)` exports the same augmented pressure
 used in equilibrium, with its nodal reference-area location and enforcement
 recorded. It does not substitute the old `penalty*penetration` pressure.
@@ -162,6 +183,14 @@ for loading, output and restart. Tests compare a homogeneous elastic limit to
 an independent nominal-stress formula, a plastic limit to a prescribed-motion
 solution, and interrupted to uninterrupted loading. These are bounded numerical
 checks, not validation of arbitrary industrial forming.
+
+The independent cyclic finite-J2 stop reference additionally checks stored
+energy, plastic dissipation and accepted work at 16/32/64/128 increments.
+See `tests/test_normal_contact_energy.py`. Numerical contact discontinuity work
+is also distinguished from physical stored energy in the
+[Abaqus contact-energy example](https://docs.software.vt.edu/abaqusv2025/English/SIMACAEEXARefMap/simaexa-c-contactenergy.htm).
+This motivates separate reporting, not equivalence with Abaqus algorithms or
+its output variables.
 
 `tools/verify_normal_augmentation_spatial.py` adds a nonuniform manufactured
 finite-Hencky elastic-limit solution on three refined tetrahedral meshes.

@@ -760,6 +760,14 @@ damage, contact, or active-set changes.
 
 ## Verification Claim and Trust Level
 
+Numerical constraint work is distinct from stored energy and irreversible
+dissipation. In bounded fixed-plane augmented contact, accepted pressure/gap
+endpoints define signed normal work and a non-cancelling discrete work bound.
+That bound does not bound the unknown continuous path or prove integration
+accuracy. Results retain raw and contact-aware energy residuals; increment
+refinement and explicit verification remain necessary. Only accepted states
+enter the work history, and missing checkpoint history is not reconstructed.
+
 A verification claim binds an observable to a reference, criterion,
 applicability domain, evidence record, and passed/failed/inconclusive decision.
 The ordered result trust levels are `not_computed`, `computed`, `converged`,
