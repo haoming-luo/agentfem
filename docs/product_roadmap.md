@@ -811,6 +811,13 @@ frozen-state tangent, joint failure rollback and serial checkpoint checks
 cover this bounded path. The new public translating-plane example uses the
 ordinary Step, not a case-owned solver. Rotation, changing normals, MPI and
 MPC augmentation remain closed until independently established.
+The optional safeguarded multiplier accelerator is now implemented on that
+same bounded route. Its reference-area-weighted secant history is owned by
+the attempted-increment Procedure, never the material or checkpoint State.
+Default controls are unchanged. Independent pressure, cyclic energy and
+restart/rollback checks accompany a 32-increment serial example whose repeated
+median solve time fell 31.8%; this is not evidence for the explicit composite
+case, curved/MPC augmentation or general commercial-software speed parity.
 The moving-plane slice now also has a nonuniform Poisson-coupled plastic
 compression comparison against independently enforced prescribed displacement
 on three meshes and two penalties. Point-pressure accuracy is checked

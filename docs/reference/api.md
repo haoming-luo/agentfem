@@ -675,7 +675,7 @@ and evidence remain in the linked guides and scientific function reference.
 | Kind | Public object | Purpose |
 | --- | --- | --- |
 | class | `NormalAugmentationOptions` | Experimental normal-contact outer iteration, distinct from Newton. |
-| function | `normal_augmentation(*, penetration_tolerance: float, complementarity_tolerance: float, length_unit: str, pressure_unit: str, maximum_augmentations: int = 30) -> NormalAugmentationOptions` | Declare bounded constant-normal plane AL controls; penalty is unchanged. |
+| function | `normal_augmentation(*, penetration_tolerance: float, complementarity_tolerance: float, length_unit: str, pressure_unit: str, maximum_augmentations: int = 30, acceleration: str = 'none') -> NormalAugmentationOptions` | Declare bounded plane AL controls; penalty and acceptance are unchanged. |
 | class | `AutomaticIncrementation` | Adaptive load/time incrementation for one analysis step. |
 | class | `FixedIncrementation` | A prescribed monotone load-factor path for one analysis step. |
 | function | `automatic(*, initial: float = 0.1, minimum: float = 1e-05, maximum: float = 0.25, max_increments: int = 100, max_cutbacks: int = 5, cutback_factor: float = 0.25, growth_factor: float = 1.5, fast_iterations: int = 4, slow_iterations: int = 10, maximum_inelastic_increment: float \| None = None) -> AutomaticIncrementation` | Create inspectable Abaqus-style automatic incrementation. |

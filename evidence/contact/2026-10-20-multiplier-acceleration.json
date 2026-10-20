@@ -1,0 +1,180 @@
+{
+  "schema": "agentfem.multiplier-acceleration-screen.v1",
+  "scope": "serial_cyclic_translating_plane_finite_J2_not_general_contact_damage_performance",
+  "platform": "macOS-26.6.2-arm64-arm-64bit",
+  "records": [
+    {
+      "mode": "none",
+      "repeat": -1,
+      "warmup": true,
+      "cells": 3,
+      "increments": 32,
+      "setup_seconds": 0.0888049160130322,
+      "solve_seconds": 2.083012375049293,
+      "augmentations": 106,
+      "newton_iterations": 209,
+      "linear_solves": 209,
+      "acceleration_resets": 0,
+      "errors": {
+        "displacement_path": 0.0,
+        "material_state": 0.0,
+        "pressure": 0.0,
+        "energy_path": 0.0
+      }
+    },
+    {
+      "mode": "aitken",
+      "repeat": -1,
+      "warmup": true,
+      "cells": 3,
+      "increments": 32,
+      "setup_seconds": 0.027642332948744297,
+      "solve_seconds": 1.396491624880582,
+      "augmentations": 45,
+      "newton_iterations": 140,
+      "linear_solves": 140,
+      "acceleration_resets": 0,
+      "errors": {
+        "displacement_path": 1.1084522189008794e-10,
+        "material_state": 3.336878932891363e-10,
+        "pressure": 5.019592119737126e-08,
+        "energy_path": 2.296922503738051e-08
+      }
+    },
+    {
+      "mode": "none",
+      "repeat": 0,
+      "warmup": false,
+      "cells": 3,
+      "increments": 32,
+      "setup_seconds": 0.02600487507879734,
+      "solve_seconds": 2.058290666900575,
+      "augmentations": 106,
+      "newton_iterations": 209,
+      "linear_solves": 209,
+      "acceleration_resets": 0,
+      "errors": {
+        "displacement_path": 0.0,
+        "material_state": 0.0,
+        "pressure": 0.0,
+        "energy_path": 0.0
+      }
+    },
+    {
+      "mode": "aitken",
+      "repeat": 0,
+      "warmup": false,
+      "cells": 3,
+      "increments": 32,
+      "setup_seconds": 0.026157125364989042,
+      "solve_seconds": 1.411336874589324,
+      "augmentations": 45,
+      "newton_iterations": 140,
+      "linear_solves": 140,
+      "acceleration_resets": 0,
+      "errors": {
+        "displacement_path": 1.1084522189008794e-10,
+        "material_state": 3.336878932891363e-10,
+        "pressure": 5.019592119737126e-08,
+        "energy_path": 2.296922503738051e-08
+      }
+    },
+    {
+      "mode": "aitken",
+      "repeat": 1,
+      "warmup": false,
+      "cells": 3,
+      "increments": 32,
+      "setup_seconds": 0.025673250202089548,
+      "solve_seconds": 1.402291334234178,
+      "augmentations": 45,
+      "newton_iterations": 140,
+      "linear_solves": 140,
+      "acceleration_resets": 0,
+      "errors": {
+        "displacement_path": 1.1084522189008794e-10,
+        "material_state": 3.336878932891363e-10,
+        "pressure": 5.019592119737126e-08,
+        "energy_path": 2.296922503738051e-08
+      }
+    },
+    {
+      "mode": "none",
+      "repeat": 1,
+      "warmup": false,
+      "cells": 3,
+      "increments": 32,
+      "setup_seconds": 0.027721791993826628,
+      "solve_seconds": 2.0592879159376025,
+      "augmentations": 106,
+      "newton_iterations": 209,
+      "linear_solves": 209,
+      "acceleration_resets": 0,
+      "errors": {
+        "displacement_path": 0.0,
+        "material_state": 0.0,
+        "pressure": 0.0,
+        "energy_path": 0.0
+      }
+    },
+    {
+      "mode": "none",
+      "repeat": 2,
+      "warmup": false,
+      "cells": 3,
+      "increments": 32,
+      "setup_seconds": 0.026042959187179804,
+      "solve_seconds": 2.0559867080301046,
+      "augmentations": 106,
+      "newton_iterations": 209,
+      "linear_solves": 209,
+      "acceleration_resets": 0,
+      "errors": {
+        "displacement_path": 0.0,
+        "material_state": 0.0,
+        "pressure": 0.0,
+        "energy_path": 0.0
+      }
+    },
+    {
+      "mode": "aitken",
+      "repeat": 2,
+      "warmup": false,
+      "cells": 3,
+      "increments": 32,
+      "setup_seconds": 0.026904416270554066,
+      "solve_seconds": 1.4035420408472419,
+      "augmentations": 45,
+      "newton_iterations": 140,
+      "linear_solves": 140,
+      "acceleration_resets": 0,
+      "errors": {
+        "displacement_path": 1.1084522189008794e-10,
+        "material_state": 3.336878932891363e-10,
+        "pressure": 5.019592119737126e-08,
+        "energy_path": 2.296922503738051e-08
+      }
+    }
+  ],
+  "median_solve_seconds": {
+    "none": 2.058290666900575,
+    "aitken": 1.4035420408472419
+  },
+  "solve_time_reduction": 0.31810309232916545,
+  "reference": "same_model_unaccelerated_policy; independent_reference_checks_in_tests",
+  "comparison_tolerances": {
+    "displacement_path": 3e-08,
+    "material_state": 1e-07,
+    "pressure": 2e-05,
+    "energy_path": 3e-07
+  },
+  "git_base": "1e60e174c3be6f6ef7eb5de2b3aee2308273915d",
+  "source_sha256": {
+    "tools/benchmark_multiplier_acceleration.py": "a0348534c4804b873691436deba99c6673a413d8235a93de419fce500814bd1e",
+    "examples/finite_j2_translating_augmented_plane.py": "875a9710e5123007d86887d1496723fc8584d9a878eaf30dcfd2f472bc4cc198",
+    "src/agentfem/mechanics/_normal_multiplier_acceleration.py": "e499567ef91ca714ea685449268ae47d458a7778a8747ca5b362a61951591bf6",
+    "src/agentfem/mechanics/_normal_augmentation_procedure.py": "f655ccd3708cbfddb34e293887101e564f435fc19188770fe117a456ee7e1c1c",
+    "src/agentfem/boundary_models/normal_augmentation.py": "6d37a3fb497b4d715d4a502600da3fb884c92d648f893e34173aae4576e79505",
+    "src/agentfem/boundary_models/_augmented_plane_trial_provider.py": "ece6bbcb8d1384555e56ea8e47d099a024a1b5b268f27227c9fa6904351623d0"
+  }
+}

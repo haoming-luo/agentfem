@@ -36,6 +36,7 @@ class NormalAugmentationOptions:
     length_unit: str
     pressure_unit: str
     maximum_augmentations: int = 30
+    acceleration: str = "none"
 
     def __post_init__(self):
         for name in ("penetration_tolerance", "complementarity_tolerance"):
@@ -49,20 +50,35 @@ class NormalAugmentationOptions:
             value = getattr(self, name)
             if not isinstance(value, str) or not value.strip():
                 raise ValueError(f"{name} must be an explicit nonempty unit.")
+        if not isinstance(self.acceleration, str) or self.acceleration not in ("none", "aitken"):
+            raise ValueError("normal augmentation acceleration must be 'none' or 'aitken'.")
 
     def summary(self):
-        return {"kind": "normal_augmentation", "maturity": "experimental", **vars(self)}
+        values = dict(vars(self))
+        # Preserve the default numerical-policy identity of older checkpoints.
+        if self.acceleration == "none":
+            values.pop("acceleration")
+        else:
+            values["relaxation_bounds"] = [0.1, 10.0]
+        return {"kind": "normal_augmentation", "maturity": "experimental", **values}
 
 
 def normal_augmentation(
     *, penetration_tolerance: float, complementarity_tolerance: float,
     length_unit: str, pressure_unit: str, maximum_augmentations: int = 30,
+    acceleration: str = "none",
 ) -> NormalAugmentationOptions:
-    """Declare bounded constant-normal plane AL controls; penalty is unchanged."""
+    """Declare bounded plane AL controls; penalty and acceptance are unchanged.
+
+    Optional ``acceleration="aitken"`` uses area-weighted, projected dynamic
+    relaxation bounded to [0.1, 10], resetting at active-set changes and every
+    increment/attempt. It changes only outer updates, not the inner Newton
+    method, loading, accepted-state tolerances or physical work accounting.
+    """
 
     return NormalAugmentationOptions(
         penetration_tolerance, complementarity_tolerance,
-        length_unit, pressure_unit, maximum_augmentations,
+        length_unit, pressure_unit, maximum_augmentations, acceleration,
     )
 
 

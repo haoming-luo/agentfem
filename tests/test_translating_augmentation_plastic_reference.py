@@ -18,7 +18,7 @@ from agentfem import (
 )
 
 
-def _build(cells, *, penalty=None):
+def _build(cells, *, penalty=None, acceleration="none"):
     domain = dm.create_unit_cube(MPI.COMM_SELF, cells, cells, cells)
     model = models.create(study=studies.static_solid(dimension=3, nonlinear=True), mesh=domain)
     u = model.field(fields.displacement(domain))
@@ -45,6 +45,7 @@ def _build(cells, *, penalty=None):
         options['normal_augmentation'] = steps.normal_augmentation(
             penetration_tolerance=1e-10, complementarity_tolerance=1e-9,
             maximum_augmentations=120, length_unit='m', pressure_unit='Pa',
+            acceleration=acceleration,
         )
     return model.step(
         target=u, material=material, incrementation=steps.fixed(8), progress=False,
@@ -57,7 +58,8 @@ def _build(cells, *, penalty=None):
 
 
 @pytest.mark.parametrize('cells', [1, 2, 3])
-def test_nonuniform_plastic_press_matches_no_contact_displacement_reference(cells):
+@pytest.mark.parametrize('acceleration', ['none', 'aitken'])
+def test_nonuniform_plastic_press_matches_no_contact_displacement_reference(cells, acceleration):
     reference = _build(cells)
     states = []
     for factor in np.linspace(1/8, 1., 8):
@@ -70,7 +72,7 @@ def test_nonuniform_plastic_press_matches_no_contact_displacement_reference(cell
         ))
     assert np.max(states[-1][1][:, 9]) > 0.
     for penalty in (1000., 5000.):
-        target = _build(cells, penalty=penalty)
+        target = _build(cells, penalty=penalty, acceleration=acceleration)
         for factor, (u, state, reaction, work) in zip(
             np.linspace(1/8, 1., 8), states, strict=True,
         ):

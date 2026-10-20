@@ -14,6 +14,8 @@ import time
 
 import numpy as np
 
+from ._normal_multiplier_acceleration import ProjectedMultiplierAitken
+
 
 def solve_augmented_plane_increment(problem, provider, **coordinates):
     started = time.perf_counter()
@@ -25,6 +27,9 @@ def solve_augmented_plane_increment(problem, provider, **coordinates):
     rejection = None
     ready = False
     confirmation_seconds = 0.0
+    accelerator = (ProjectedMultiplierAitken(provider.adapter.trace.weights)
+                   if provider.policy.acceleration == "aitken" else None)
+    relaxations = []
     for _ in range(state.maximum_augmentations + 1):
         info = problem._solve_frozen_increment(**coordinates)
         infos.append(info)
@@ -55,7 +60,9 @@ def solve_augmented_plane_increment(problem, provider, **coordinates):
                 f"{diagnostics['maximum_complementarity']:.6g}"
             )
             break
-        provider.augment()
+        relaxation = provider.augment(accelerator=accelerator)
+        if accelerator is not None:
+            relaxations.append(relaxation)
     last = infos[-1]
     totals = {
         name: sum(getattr(info, name) for info in infos)
@@ -72,6 +79,8 @@ def solve_augmented_plane_increment(problem, provider, **coordinates):
         initial_residual_norm=infos[0].initial_residual_norm,
         total_seconds=time.perf_counter() - started,
         normal_augmentations=state.augmentation_count,
+        normal_relaxation_factors=tuple(relaxations),
+        normal_acceleration_resets=0 if accelerator is None else accelerator.resets,
         maximum_inner_newton_iterations=max(info.iterations for info in infos),
         linear_converged_reasons=tuple(
             reason for info in infos for reason in info.linear_converged_reasons

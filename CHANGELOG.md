@@ -6,6 +6,13 @@ experimental formulation to a validated one.
 
 ## [Unreleased]
 
+- Add opt-in, safeguarded `acceleration="aitken"` to experimental plane normal
+  augmentation. Reduce repeated converged Newton solves without changing
+  contact acceptance, penalty, loading or work semantics. Keep the default
+  update unchanged, identify accelerated checkpoints, and record outer-update
+  diagnostics. Independent plastic pressure, cyclic work, rollback and restart
+  tests accompany a bounded repeated-timing benchmark, not a general speed claim.
+
 - Fix accepted contact-point output for cyclic prescribed motion: validate tool
   pose against the resolved Step amplitude, not the normalized Step coordinate.
   Record both independently and reject stale/nonfinite pose samples before

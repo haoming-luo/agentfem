@@ -11,7 +11,7 @@ from agentfem.step_providers import step_capability
 from test_finite_j2_facet_contact import _patch
 
 
-def _problem(*, penalty=500.0, maximum_augmentations=60,
+def _problem(*, penalty=500.0, maximum_augmentations=60, acceleration="none",
              penetration_tolerance=1e-7, complementarity_tolerance=1e-6, **options):
     _, displacement, _, problem = _patch(
         triangulated=False, initial_penetration_limit=0.0,
@@ -21,6 +21,7 @@ def _problem(*, penalty=500.0, maximum_augmentations=60,
             complementarity_tolerance=complementarity_tolerance,
             maximum_augmentations=maximum_augmentations,
             length_unit="m", pressure_unit="Pa",
+            acceleration=acceleration,
         ), **options,
     )
     return displacement, problem
@@ -268,11 +269,13 @@ def test_augmented_dual_cannot_label_a_trial_as_accepted(monkeypatch):
     assert np.all(np.isfinite(provider.dual_evidence(problem).force))
 
 
-def test_automatic_cutback_discards_failed_outer_iterates(monkeypatch):
+@pytest.mark.parametrize("acceleration", ["none", "aitken"])
+def test_automatic_cutback_discards_failed_outer_iterates(monkeypatch, acceleration):
     _, problem = _problem(
         increment_control=steps.automatic(initial=.5, maximum=.5, minimum=.01,
                                           max_increments=50, max_cutbacks=4),
         maximum_augmentations=120,
+        acceleration=acceleration,
     )
     original = problem._solve_frozen_increment
     visits = []
@@ -305,6 +308,10 @@ def test_automatic_cutback_discards_failed_outer_iterates(monkeypatch):
                for item in problem.accepted_increments)
     assert any(item.iterations > item.adaptation_iterations for item in problem.accepted_increments)
     assert problem.contact_provider.normal_multiplier_state.augmentation_count == 0
+    if acceleration == "aitken":
+        assert problem.attempted_increments[0].normal_relaxation_factors == (1.,)
+        assert all(info.normal_relaxation_factors[0] == 1.
+                   for info in problem.accepted_increments if info.normal_relaxation_factors)
 
 
 def test_augmented_loading_then_separation_releases_pressure():

@@ -157,7 +157,7 @@ class DolfinxAugmentedPlaneTrialProvider(DolfinxImplicitRigidContact):
         self._pending_acceptance = (evaluation, record, self.snapshot_motion()) if ready else None
         return ready, diagnostics
 
-    def augment(self):
+    def augment(self, *, accelerator=None):
         if self._last_normal_evaluation is None:
             raise RuntimeError("AL update needs converged equilibrium evidence.")
         evaluation, record, factor = self._last_normal_evaluation
@@ -165,9 +165,16 @@ class DolfinxAugmentedPlaneTrialProvider(DolfinxImplicitRigidContact):
             evaluation.query_points, self.adapter.evaluate(self.displacement).query_points,
         ):
             raise RuntimeError("AL augmentation evidence refers to another displacement or tool pose.")
-        self.normal_multiplier_state.augment_after_converged(evaluation, record)
+        state = self.normal_multiplier_state
+        relaxation = 1.
+        if accelerator is not None:
+            relaxation = accelerator.relaxation(
+                state.iterate_multiplier, state.evaluate(evaluation, record).pressure,
+            )
+        state.augment_after_converged(evaluation, record, relaxation=relaxation)
         self._last_normal_evaluation = None
         self._pending_acceptance = None
+        return relaxation
 
     def _validate_pending_endpoint(self):
         if self._pending_acceptance is None:
@@ -228,23 +235,32 @@ class DolfinxAugmentedPlaneTrialProvider(DolfinxImplicitRigidContact):
         self._require_accepted_boundary()
         self.validate_accepted_configuration()
         return {
-            "schema": ("agentfem.augmented-plane-state.v2" if self.has_prescribed_motion
-                       else "agentfem.augmented-plane-state.v1"),
+            "schema": f"agentfem.augmented-plane-state.v{self._checkpoint_version()}",
             "multiplier": self.normal_multiplier_state.accepted_snapshot(),
             "query_points": self._accepted_positions.tolist(),
             **({"motion_factor": self._accepted_motion_factor,
                 "motion_identity": self._motion_identity()}
                if self.has_prescribed_motion else {}),
+            **({"acceleration": self.policy.acceleration}
+               if self.policy.acceleration != "none" else {}),
         }
+
+    def _checkpoint_version(self):
+        return (3 if self.policy.acceleration != "none" else
+                2 if self.has_prescribed_motion else 1)
 
     def restore_accepted_state(self, saved):
         moving = self.has_prescribed_motion
         expected_keys = {"schema", "multiplier", "query_points"}
         if moving:
             expected_keys |= {"motion_factor", "motion_identity"}
+        if self.policy.acceleration != "none":
+            expected_keys.add("acceleration")
         if (not isinstance(saved, dict) or set(saved) != expected_keys
-                or saved["schema"] != f"agentfem.augmented-plane-state.v{2 if moving else 1}"):
+                or saved["schema"] != f"agentfem.augmented-plane-state.v{self._checkpoint_version()}"):
             raise ValueError("AL accepted checkpoint schema differs.")
+        if saved.get("acceleration", "none") != self.policy.acceleration:
+            raise ValueError("AL accepted checkpoint acceleration policy differs.")
         factor = saved.get("motion_factor")
         if moving and (
             isinstance(factor, bool) or not isinstance(factor, (int, float)) or not np.isfinite(factor)

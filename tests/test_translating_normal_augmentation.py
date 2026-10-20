@@ -146,7 +146,8 @@ def test_cyclic_point_export_uses_resolved_tool_pose_not_step_coordinate(
             assert not rejected.exists()
 
 
-def test_translating_cyclic_energy_matches_independent_reference_and_refines():
+@pytest.mark.parametrize("acceleration", ["none", "aitken"])
+def test_translating_cyclic_energy_matches_independent_reference_and_refines(acceleration):
     from math import log
 
     amplitude = amplitudes.tabular((0., .5, .75, 1.), (0., 1., 0., 1.))
@@ -171,7 +172,8 @@ def test_translating_cyclic_energy_matches_independent_reference_and_refines():
             bound -= .5*(force+force_old)*abs(gap-old_gap)
             force_old, old_tool, old_gap = force, tool, gap
         stored = 500.*((log(stretch)-a)**2 + .5*a*a) + 50.*p*p
-        problem = _moving(increments=increments, amplitude=amplitude, cells=1)
+        problem = _moving(increments=increments, amplitude=amplitude, cells=1,
+                          acceleration=acceleration)
         problem.solve()
         frame = problem.energy_history[-1]
         assert frame.stored_energy == pytest.approx(stored, abs=3e-8)
@@ -189,14 +191,15 @@ def test_translating_cyclic_energy_matches_independent_reference_and_refines():
     assert observations[-1][4] < observations[0][4]/4
 
 
-def test_translating_cycle_restart_and_atomic_failure(tmp_path, monkeypatch):
+@pytest.mark.parametrize("acceleration", ["none", "aitken"])
+def test_translating_cycle_restart_and_atomic_failure(tmp_path, monkeypatch, acceleration):
     amplitude = amplitudes.tabular((0., .5, .75, 1.), (0., 1., 0., 1.))
-    full = _moving(amplitude=amplitude)
+    full = _moving(amplitude=amplitude, acceleration=acceleration)
     full.solve()
-    partial = _moving(amplitude=amplitude)
+    partial = _moving(amplitude=amplitude, acceleration=acceleration)
     partial.solve(until=.5)
     path = partial.save_checkpoint(tmp_path / 'loaded')
-    resumed = _moving(amplitude=amplitude)
+    resumed = _moving(amplitude=amplitude, acceleration=acceleration)
     resumed.load_checkpoint(path)
     resumed.solve(until=.75)
     provider = resumed.contact_provider
@@ -245,4 +248,19 @@ def test_wrong_tool_checkpoint_is_atomically_rejected(tmp_path, damage):
         target.load_checkpoint(broken)
     assert target.contact_provider.snapshot_accepted_state() == saved
     assert target.contact_provider.snapshot_motion() == 0.
+
+
+@pytest.mark.parametrize("saved_policy,target_policy", [("none", "aitken"), ("aitken", "none")])
+def test_restart_cannot_silently_change_multiplier_acceleration(tmp_path, saved_policy, target_policy):
+    source = _moving(acceleration=saved_policy)
+    source.solve(until=.5)
+    path = source.save_checkpoint(tmp_path / "saved")
+    target = _moving(acceleration=target_policy)
+    before = target.contact_provider.snapshot_accepted_state()
+    u, state = target.solution.x.array.copy(), _state(target)
+    with pytest.raises(ValueError):
+        target.load_checkpoint(path)
+    assert target.contact_provider.snapshot_accepted_state() == before
+    np.testing.assert_array_equal(target.solution.x.array, u)
+    np.testing.assert_array_equal(_state(target), state)
     assert target.accepted_load_factor == 0.

@@ -348,6 +348,8 @@ class FiniteStrainPlasticityIncrementInfo:
     normal_augmentations: int = 0
     maximum_inner_newton_iterations: int | None = None
     line_search_evaluations: int = 0
+    normal_relaxation_factors: tuple[float, ...] = ()
+    normal_acceleration_resets: int = 0
 
     @property
     def adaptation_iterations(self) -> int:
@@ -391,6 +393,10 @@ class FiniteStrainPlasticityIncrementInfo:
                 int(value) for value in record.get("linear_converged_reasons", ())
             ),
             normal_augmentations=int(record.get("normal_augmentations", 0)),
+            normal_relaxation_factors=tuple(
+                float(value) for value in record.get("normal_relaxation_factors", ())
+            ),
+            normal_acceleration_resets=int(record.get("normal_acceleration_resets", 0)),
             line_search_evaluations=int(record.get("line_search_evaluations", 0)),
             maximum_inner_newton_iterations=(
                 None if record.get("maximum_inner_newton_iterations") is None
@@ -2546,6 +2552,12 @@ class FiniteStrainJ2StandardProblem:
                                     "maximum_inner_newton_iterations": float(
                                         info.maximum_inner_newton_iterations
                                     ),
+                                    "normal_acceleration_resets": float(
+                                        info.normal_acceleration_resets
+                                    ),
+                                    "normal_accelerated_updates": float(sum(
+                                        value != 1. for value in info.normal_relaxation_factors
+                                    )),
                                 } if info.maximum_inner_newton_iterations is not None else {}),
                             },
                         )

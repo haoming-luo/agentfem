@@ -2076,6 +2076,87 @@ Next: finish remote CI acceptance, then address the broader
 mesh-by-penalty and changing-feature gates. Translation alone does not close
 the nonconvex L-tool, multiplier transfer or commercial local-parity matrix.
 
+### 2026-10-20 design: optional multiplier-iteration acceleration
+
+The next bounded experiment targets repeated converged Newton solves, not a
+new material algorithm or a relaxed acceptance criterion. A private weighted
+dynamic-Aitken probe reduced outer updates on the nonuniform plastic press
+and the unloading/recontact example while keeping the existing equilibrium,
+penetration and complementarity checks. This is screening evidence only.
+
+Design before promotion:
+
+- Procedure owns increment-local secant history. State still owns the frozen,
+  trial and accepted multiplier; no accelerator can commit material or contact.
+- Apply the projected map `F(lambda) = max(0, lambda - penalty*gap)`. Use the
+  fixed reference-trace area metric for the vector secant, then project the
+  relaxed proposal onto nonnegative pressures. The penalty and Newton tangent
+  are unchanged. The inner solve always sees a frozen multiplier.
+- Reset history at each new increment/attempt and active-set change. Degenerate
+  secants use the ordinary update; relaxation is bounded to `[0.1, 10]`.
+  This safeguard is not a general convergence theorem or a promise that every
+  problem is faster. Failed inner solves retain normal rollback/cutback.
+- Add an explicit experimental `acceleration="aitken"` option; default `"none"`
+  preserves the old path and checkpoint encoding. Accelerated checkpoints
+  identify the numerical policy. No secant history crosses accepted boundaries.
+- Validate scalar/degenerate maps, state witness and atomic failure, independent
+  prescribed-displacement pressure, cyclic unloading/recontact, restart and
+  work histories. Record actual outer/Newton work and alternate timing order.
+- Do not extend AL admission to MPC, curved or changing traces in this change.
+  The periodic reduced normal rows require a separately designed multiplier
+  space and joint Procedure integration; deleting the guard is not a solution.
+
+The research basis is the projected dual fixed-point formulation and dynamic
+Aitken/Crossed-Secant comparison in Koliesnikova and Ramière,
+[arXiv:2603.12205, sections 2 and 4](https://arxiv.org/html/2603.12205v1).
+Their constant linear stiffness and reported performance are not assumed for
+our finite-J2 Newton solves. We use a bounded, area-weighted variant with
+active-set resets, not their claim of parameter-unbounded performance.
+
+Implementation and bounded acceptance:
+
+- The option is now a core Procedure control, not a benchmark monkeypatch.
+  Its State update remains witnessed by the current converged total residual.
+  Fixed/moving default checkpoint v1/v2 encodings remain unchanged; opt-in
+  accelerated provider checkpoints use v3 and refuse a changed policy.
+- A 121-test focused pass covered the initial implementation, independent
+  prescribed-displacement pressure on three meshes/two penalties, scalar cyclic
+  reference/refinement, injected cutback, joint failure rollback and restart.
+  Further closing checks are recorded in the task report, not added to this
+  count when they overlap.
+- The committed benchmark warms both policies and alternates three repetitions
+  of the public 32-increment translating-plane example on a 3×3×3 cube mesh.
+  Median solve times: default 2.058291 s; Aitken 1.403542 s, **31.81% less
+  solve time**. Outer updates: 106 → 45; Newton/linear solves: 209 → 140.
+  All accepted displacement snapshots differ by at most 1.11e-10 m,
+  final material state by 3.34e-10, final pressure by 5.02e-8 Pa and energy
+  histories by 2.30e-8 J (the latter comparison also includes load coordinates).
+  Setup was measured separately. This is a small same-machine implicit test,
+  not a full composite run, universal speed guarantee or confidence interval.
+- The first benchmark reader incorrectly treated the per-tool work dictionary
+  as a float. It was corrected to flatten named tool channels and compare their
+  availability; the solver and numerical tolerances were not changed.
+
+No new MPC, rotation, curved trace, multiplier transfer or MPI admission was
+added. Those gates remain explicit future work.
+
+Closing verification: **376 targeted source tests passed in 118.47 s**, including
+the nearby finite-J2, penalty/friction, active/convex partition and pressure/work
+paths. Generated API consistency, correctness lint, diff checks and a strict
+documentation build outside `site/` passed. A fresh isolated wheel ran the
+public 32-increment example with `--acceleration aitken` from outside the
+checkout, including accepted contact output, result manifest and checkpoint:
+45 outer updates, final right-face displacement −0.015 m, tool work 0.0730628 J.
+Wheel SHA-256:
+`000f5fb3e096abe4cbff7eed2d00a16e07af01adcf7357c5c51334ddd3bee5de`.
+This wheel smoke is not the same claim as running all 376 tests from that wheel.
+
+Remote CI for the preceding `1e60e174` revision passed its unit/interface,
+installed/native and distributed checks, but the overall FEniCSx job was
+cancelled during the release-demo suite after about 30 minutes. It is not an
+all-green release gate. The closing revision still needs its own remote CI;
+this PR remains a draft, not a merged/released 0.4.4.
+
 [normal-al]: https://doc.comsol.com/6.4/doc/com.comsol.help.sme/sme_ug_theory.06.087.html
 [abaqus-contact-energy]: https://docs.software.vt.edu/abaqusv2025/English/SIMACAEEXARefMap/simaexa-c-contactenergy.htm
 [abaqus]: https://docs.software.vt.edu/abaqusv2025/English/SIMACAEITNRefMap/simaitn-c-genlcontnumcontrolsstd.htm

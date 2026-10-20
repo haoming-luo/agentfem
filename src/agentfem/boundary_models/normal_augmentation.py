@@ -14,6 +14,7 @@ from __future__ import annotations
 import hashlib
 import json
 from dataclasses import dataclass
+from numbers import Real
 
 import numpy as np
 
@@ -251,6 +252,7 @@ class FixedTraceNormalMultiplierState:
 
     def augment_after_converged(
         self, evaluation: ContactTraceEvaluation, record: ContactProjectionRecord,
+        *, relaxation: float = 1.,
     ) -> np.ndarray:
         """Stage one outer update only after equilibrium with the old multiplier."""
 
@@ -259,9 +261,18 @@ class FixedTraceNormalMultiplierState:
             raise RuntimeError("Augmentation requires the current converged projection.")
         if self._augmentation_count >= self.maximum_augmentations:
             raise RuntimeError("Normal augmentation exceeded its declared outer-iteration limit.")
-        self._iterate = np.maximum(
+        if (isinstance(relaxation, (bool, np.bool_)) or not isinstance(relaxation, Real)
+                or not np.isfinite(relaxation) or not .1 <= relaxation <= 10.):
+            raise ValueError("Normal multiplier relaxation must be finite and within [0.1, 10].")
+        plain = np.maximum(
             0.0, self._iterate - self.penalty * record.projection.signed_gaps,
         )
+        # Keep the default update bit-for-bit unchanged. An accelerator proposes
+        # only a bounded scalar; this State owner performs the projected update.
+        with np.errstate(over="ignore", invalid="ignore"):
+            proposal = (plain if relaxation == 1. else
+                        np.maximum(0., self._iterate + relaxation * (plain - self._iterate)))
+        self._iterate = _nonnegative_vector(proposal, len(self.point_ids), name="Trial multiplier")
         self._augmentation_count += 1
         self._converged_record = None
         return self.iterate_multiplier

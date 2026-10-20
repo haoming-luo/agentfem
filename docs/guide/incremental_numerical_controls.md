@@ -214,6 +214,32 @@ must be checked separately against contact-tolerance and mesh refinement.
 See `tests/test_translating_augmentation_plastic_reference.py`; its tighter
 benchmark tolerances do not change the software defaults.
 
+For this bounded plane route, `steps.normal_augmentation(...,
+acceleration="aitken")` optionally accelerates the outer multiplier updates.
+It uses reference-area-weighted dynamic relaxation, bounded to `[0.1, 10]`,
+with resets on active-set changes and at every attempted increment. Degenerate
+or invalid secants revert to the ordinary update. The inner Newton method,
+penalty, loading and equilibrium/penetration/complementarity tolerances do not
+change. Failure still invokes the ordinary rollback/cutback path; there is no
+universal convergence or speed guarantee.
+
+The default remains `acceleration="none"`. Accelerated checkpoints carry a
+distinct numerical-policy identity and do not silently load into a different
+policy. Secant history is not physical State and never persists across accepted
+boundaries. Increment diagnostics record the actual relaxation factors and
+reset count. The public translating-plane example accepts
+`--acceleration aitken`; use the same option when resuming its checkpoint.
+
+`tools/benchmark_multiplier_acceleration.py` compares the two policies on the
+32-increment cyclic example after warming both paths and alternating run order.
+The recorded serial Mac test reduced median solve time from 2.058 s to 1.404 s
+(31.8%), with outer updates 106 → 45 and Newton/linear solves 209 → 140.
+Accepted displacement history, final material/pressure and energy histories
+passed the declared comparison thresholds. This small implicit-plane result
+does not establish a speedup for explicit composite damage, general curved
+contact, MPI or other machines. The benchmark evidence is retained under
+`evidence/contact/2026-10-20-multiplier-acceleration.json`.
+
 Accepted contact-point exports preserve the normalized Step coordinate as
 `coordinate_value` and record `resolved_load_amplitude` separately, with
 `tool_motion_factor` for each moving pair. For a cyclic path, coordinate 0.5

@@ -26,7 +26,7 @@ from agentfem import (
 )
 
 
-def make_step(*, cells=2, increments=32):
+def make_step(*, cells=2, increments=32, acceleration="none"):
     if MPI.COMM_WORLD.size != 1:
         raise RuntimeError("This experimental normal-augmentation path is serial only.")
     domain = dolfinx_mesh.create_unit_cube(MPI.COMM_SELF, cells, cells, cells)
@@ -66,6 +66,7 @@ def make_step(*, cells=2, increments=32):
         normal_augmentation=steps.normal_augmentation(
             penetration_tolerance=1e-9, complementarity_tolerance=1e-8,
             maximum_augmentations=120, length_unit="m", pressure_unit="Pa",
+            acceleration=acceleration,
         ),
         solver_options=solvers.newton(
             relative_tolerance=1e-8, absolute_tolerance=1e-9,
@@ -83,10 +84,13 @@ def main():
     parser.add_argument("--increments", type=int, default=32)
     parser.add_argument("--until", type=float, default=1.)
     parser.add_argument("--restart", type=Path)
+    parser.add_argument("--acceleration", choices=("none", "aitken"), default="none")
     args = parser.parse_args()
     if args.cells < 1 or args.increments < 4 or args.increments % 4:
         parser.error("Use positive cells and increments divisible by four to preserve reversals.")
-    displacement, problem = make_step(cells=args.cells, increments=args.increments)
+    displacement, problem = make_step(
+        cells=args.cells, increments=args.increments, acceleration=args.acceleration,
+    )
     if args.restart is not None:
         problem.load_checkpoint(args.restart)
     if not problem.accepted_load_factor < args.until <= 1.:
@@ -106,6 +110,7 @@ def main():
         result.write_manifest(args.output / "result.json")
     energy = problem.energy_history[-1]
     print(f"Accepted increments: {len(problem.accepted_increments)}")
+    print(f"Outer multiplier updates: {sum(i.normal_augmentations for i in problem.accepted_increments)}")
     print(f"Right-face displacement: {results.probe(displacement, at=(1., .5, .5))[0]:.6g} m")
     print(f"Tool work: {energy.tool_work:.6g} J")
     print(f"Numerical relative-gap work: {energy.normal_contact_work:.6g} J")
