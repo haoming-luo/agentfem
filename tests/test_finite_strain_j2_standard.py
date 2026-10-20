@@ -714,9 +714,16 @@ def test_standard_j2_real_cutback_and_manual_restart_are_equivalent(tmp_path):
     )
     assert len(restarted.energy_history) == len(reference.energy_history)
     for name in restarted.energy_history[0].__dataclass_fields__:
+        actual = [getattr(item, name) for item in restarted.energy_history]
+        expected = [getattr(item, name) for item in reference.energy_history]
+        if any(value is None for value in actual + expected):
+            # Unavailable evidence must remain unavailable after restart;
+            # it is not a numeric zero and must not enter a floating compare.
+            assert actual == expected
+            continue
         np.testing.assert_allclose(
-            [getattr(item, name) for item in restarted.energy_history],
-            [getattr(item, name) for item in reference.energy_history],
+            actual,
+            expected,
             rtol=2.0e-10,
             atol=2.0e-12,
         )
