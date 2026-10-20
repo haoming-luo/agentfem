@@ -11,7 +11,8 @@ from periodic_cube_fixture import periodic_unit_cube
 
 
 @pytest.mark.skipif(MPI.COMM_WORLD.size == 1, reason="two MPI ranks required")
-def test_distributed_normal_augmentation_is_rejected_before_trace_assembly():
+@pytest.mark.parametrize("moving", [False, True])
+def test_distributed_normal_augmentation_is_rejected_before_trace_assembly(moving):
     domain = dolfinx_mesh.create_unit_cube(MPI.COMM_WORLD, 2, 2, 2)
     model = models.create(study=studies.static_solid(dimension=3, nonlinear=True), mesh=domain)
     displacement = model.field(fields.displacement(domain))
@@ -22,9 +23,13 @@ def test_distributed_normal_augmentation_is_rejected_before_trace_assembly():
         young=1000., poisson=0., yield_stress=2., hardening_modulus=100.,
     ))
     model.add_boundary_model(boundary_models.rigid_contact_pair(
-        right, boundary_models.rigid_body(boundary_models.rigid_plane(
-            point=(1.005, 0., 0.), normal=(-1., 0., 0.),
-        )), penalty=500., initial_penetration_limit=0.,
+        right, boundary_models.rigid_body(
+            boundary_models.rigid_plane(point=(1.005, 0., 0.), normal=(-1., 0., 0.)),
+            motion_schedule=(None if not moving else boundary_models.prescribed_rigid_motion_schedule(
+                boundary_models.prescribed_rigid_motion(translation=(-.02, 0., 0.)),
+                start_time=0., end_time=1.,
+            )),
+        ), penalty=500., initial_penetration_limit=0.,
     ))
     options = dict(material=material, normal_augmentation=steps.normal_augmentation(
         penetration_tolerance=1e-7, complementarity_tolerance=1e-6,

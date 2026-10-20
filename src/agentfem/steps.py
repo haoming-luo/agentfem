@@ -27,7 +27,7 @@ class NormalAugmentationOptions:
 
     Tolerances use the model's explicit units: length for penetration and
     pressure-times-length for complementarity. They are not force tolerances.
-    Current admission is one fixed frictionless plane on serial P1 tetrahedra
+    Current admission is one fixed or translating frictionless plane on serial P1 tetrahedra
     with ordinary strong boundaries, not general mortar/MPC contact.
     """
 
@@ -58,7 +58,7 @@ def normal_augmentation(
     *, penetration_tolerance: float, complementarity_tolerance: float,
     length_unit: str, pressure_unit: str, maximum_augmentations: int = 30,
 ) -> NormalAugmentationOptions:
-    """Declare bounded fixed-plane AL controls; ordinary penalty is unchanged."""
+    """Declare bounded constant-normal plane AL controls; penalty is unchanged."""
 
     return NormalAugmentationOptions(
         penetration_tolerance, complementarity_tolerance,

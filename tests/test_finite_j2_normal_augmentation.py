@@ -469,9 +469,12 @@ def test_partial_contact_matches_independent_primal_dual_active_set(cells):
     )
 
 
-def test_public_augmented_total_jacobian_matches_frozen_state_directional_difference():
+@pytest.mark.parametrize('moving', [False, True])
+def test_public_augmented_total_jacobian_matches_frozen_state_directional_difference(moving):
+    motion = ({'tool_translation': (-.02, .01, 0.), 'applied_traction': 0.}
+              if moving else {})
     _, problem = _problem(cells=2, increments=1, yield_stress=1e9,
-                          penalty=1500., maximum_augmentations=150, tilt=.002)
+                          penalty=1500., maximum_augmentations=150, tilt=.002, **motion)
     problem.solve()
     original = problem.solution.x.array.copy()
     fixed = np.unique(np.concatenate([bc.dof_indices()[0] for bc in problem.bcs]))
@@ -585,7 +588,7 @@ def test_damaged_multiplier_checkpoint_is_atomically_rejected(tmp_path, damage):
     assert json.dumps(target.contact_provider.snapshot_accepted_state(), sort_keys=True) == normal
 
 
-@pytest.mark.parametrize('scope', ['moving', 'multiple', 'raw_vector_bc', 'wrong_options'])
+@pytest.mark.parametrize('scope', ['rotating', 'multiple', 'raw_vector_bc', 'wrong_options'])
 def test_extra_unsupported_scopes_fail_in_public_inspection_and_execution(scope):
     from dolfinx import fem
     from agentfem.constraints import DirichletConstraint
@@ -594,11 +597,13 @@ def test_extra_unsupported_scopes_fail_in_public_inspection_and_execution(scope)
         triangulated=False, initial_penetration_limit=0., make_step=False,
     )
     pair = model.boundary_models[0]
-    if scope == 'moving':
+    if scope == 'rotating':
         model.boundary_models[0] = replace(pair, rigid_body=boundary_models.rigid_body(
             pair.rigid_body.surface,
             motion_schedule=boundary_models.prescribed_rigid_motion_schedule(
-                boundary_models.prescribed_rigid_motion(translation=(-.01, 0., 0.)),
+                boundary_models.prescribed_rigid_motion(
+                    translation=(-.01, 0., 0.), rotation=(0., 0., .01),
+                ),
                 start_time=0., end_time=1.,
             ),
         ))

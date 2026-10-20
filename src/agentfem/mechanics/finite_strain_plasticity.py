@@ -2069,7 +2069,7 @@ class FiniteStrainJ2StandardProblem:
             for provider in providers:
                 if hasattr(provider, "normal_work_increment"):
                     work = provider.normal_work_increment()
-                    normal_work += work.work_on_structure
+                    normal_work += work.relative_work
                     normal_bound += work.absolute_work_bound
                     normal_open_work += work.open_gap_work
         self.energy_history.append(
@@ -3419,7 +3419,7 @@ class FiniteStrainJ2StandardProblem:
                     source=(
                         "rigid_obstacle_penalty_potential"
                         if getattr(item, "physical_contact_potential_available", True)
-                        else "fixed_plane_normal_augmentation"
+                        else "constant_normal_plane_augmentation"
                     ),
                 )
                 for item in providers
@@ -3667,7 +3667,7 @@ class FiniteStrainJ2StandardProblem:
                         {"tool_work": [
                             item.tool_work for item in self.energy_history
                         ]}
-                        if self.contact_provider is not None and not has_normal_work
+                        if self.contact_provider is not None
                         and self.contact_provider.has_prescribed_motion
                         else {}
                     ),
@@ -3785,8 +3785,8 @@ class FiniteStrainJ2StandardProblem:
             if has_normal_work:
                 normal_channels = {
                     "normal_contact_work": (
-                        "Signed work of fixed-normal contact on the structure, from accepted "
-                        "pressure/gap endpoints; numerical enforcement work, not stored energy or dissipation."
+                        "Signed numerical relative normal work from accepted pressure/gap endpoints; "
+                        "tool work is accounted in external_work separately. Not stored energy or dissipation."
                     ),
                     "normal_contact_work_bound": (
                         "Cumulative sum of absolute pointwise endpoint work; bounds the magnitude "
@@ -3858,7 +3858,7 @@ class FiniteStrainJ2StandardProblem:
                         "unavailable_contact_enforcement_work_not_recorded"),
                 internal_energy="stored_energy + plastic_dissipation" if has_normal_work else None,
                 algorithmic_functional_is_physical_energy=False,
-                normal_contact_work=("signed_numerical_work_on_structure" if has_normal_work else None),
+                normal_contact_work=("signed_numerical_relative_gap_work" if has_normal_work else None),
                 balance="external_work + normal_contact_work - internal_energy" if has_normal_work else None,
                 bound_scope="discrete_endpoint_work_only_not_continuous_path_error" if has_normal_work else None,
                 requires_increment_refinement=True,

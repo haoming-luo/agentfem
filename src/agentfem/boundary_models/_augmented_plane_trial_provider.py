@@ -1,16 +1,18 @@
 # SPDX-FileCopyrightText: 2026 Haoming Luo and AgentFEM contributors
 # SPDX-License-Identifier: Apache-2.0
 
-"""Bounded fixed-plane AL Operator/State bridge, not a new Newton solver.
+"""Bounded constant-normal plane AL bridge, not a new Newton solver.
 
 This private admission uses a coalesced nodal reference trace on serial P1
 tetrahedra. It does not claim a stable general mortar multiplier space, admit
-MPC/moving tools, or reinterpret the signed AL functional as stored energy.
+MPC/rotating tools, or reinterpret the signed AL functional as stored energy.
 The existing standard-J2 Procedure owns every inner Newton solve and joint
 accepted-increment transaction.
 """
 
 from __future__ import annotations
+
+import json
 
 import numpy as np
 
@@ -66,7 +68,8 @@ class DolfinxAugmentedPlaneTrialProvider(DolfinxImplicitRigidContact):
         if (
             not isinstance(base.surface, RigidPlaneSurface)
             or base.surface.dimension != 3
-            or base.has_prescribed_motion
+            or (base.has_prescribed_motion
+                and np.any(np.asarray(base.pair.rigid_body.motion_schedule.motion.rotation) != 0.))
             or base.pair.friction is not None
             or base.contact_integration != "gauss"
             or base.adapter.communicator.size != 1
@@ -76,8 +79,8 @@ class DolfinxAugmentedPlaneTrialProvider(DolfinxImplicitRigidContact):
             or np.asarray(base.pair.law.penalty).ndim != 0
         ):
             raise NotImplementedError(
-                "AFM-CONTACT-AL-SCOPE: one fixed frictionless 3D plane and serial "
-                "P1 tetrahedral displacement only; no MPC or changing trace."
+                "AFM-CONTACT-AL-SCOPE: one fixed or translating frictionless 3D plane and serial "
+                "P1 tetrahedral displacement only; no rotation, MPC or changing trace."
             )
         adapter = dolfinx_boundary_region_contact_trace(
             base.pair.slave_boundary, base.displacement.function_space,
@@ -86,7 +89,8 @@ class DolfinxAugmentedPlaneTrialProvider(DolfinxImplicitRigidContact):
         adapter = RigidContactTracePolicy(
             "nodal_lumped", coalesce_nodes=True,
         ).apply(adapter, base.pair)
-        super().__init__(base.pair, adapter, base.displacement, None)
+        super().__init__(base.pair, adapter, base.displacement, None,
+                         motion_factor=base.motion_factor)
         self.policy = policy
         self.normal_multiplier_state = FixedTraceNormalMultiplierState(
             adapter.trace, pair_identity=self.name,
@@ -100,34 +104,46 @@ class DolfinxAugmentedPlaneTrialProvider(DolfinxImplicitRigidContact):
         )
         self._pending_acceptance = None
         self._accepted_positions = adapter.evaluate(self.displacement).query_points.copy()
+        self._accepted_motion_factor = self.snapshot_motion()
         self._last_normal_evaluation = None
         self._outer_in_progress = False
 
+    def _project(self, positions, factor):
+        schedule = self.pair.rigid_body.motion_schedule
+        return self.surface.project(
+            positions, motion=None if schedule is None else schedule.motion,
+            factor=0. if factor is None else factor,
+        )
+
     def normal_response(self):
         evaluation = self.adapter.evaluate(self.displacement)
+        factor = self.snapshot_motion()
         record = ContactProjectionRecord(
-            evaluation.trace.point_ids, self.surface.project(evaluation.query_points),
+            evaluation.trace.point_ids, self._project(evaluation.query_points, factor),
         )
         response = self.normal_multiplier_state.evaluate(evaluation, record)
-        self._last_normal_evaluation = evaluation, record
+        self._last_normal_evaluation = evaluation, record, factor
         return response
 
     def evaluate(self):
         response = self.normal_response()
+        schedule = self.pair.rigid_body.motion_schedule
+        reference_point = (self.pair.rigid_body.reference_point if schedule is None else
+                           schedule.motion.state(self.snapshot_motion())["reference_point"])
         return integrate_fixed_trace_augmented_normal(
             response.evaluation, response.record, response,
             np.zeros((response.record.projection.point_count, 3, 3)),
-            surface_reference_point=self.pair.rigid_body.reference_point,
+            surface_reference_point=reference_point,
         )
 
     def finish_frozen_equilibrium(self, *, residual_norm, residual_tolerance):
         if self._last_normal_evaluation is None:
             raise RuntimeError("AL acceptance requires the current total residual evaluation.")
-        evaluation, record = self._last_normal_evaluation
+        evaluation, record, factor = self._last_normal_evaluation
         if not np.array_equal(
             evaluation.query_points, self.adapter.evaluate(self.displacement).query_points,
-        ):
-            raise RuntimeError("AL equilibrium evidence refers to another displacement.")
+        ) or factor != self.snapshot_motion():
+            raise RuntimeError("AL equilibrium evidence refers to another displacement or tool pose.")
         state = self.normal_multiplier_state
         state.mark_equilibrium_converged(
             evaluation, record, total_residual_norm=residual_norm,
@@ -138,26 +154,36 @@ class DolfinxAugmentedPlaneTrialProvider(DolfinxImplicitRigidContact):
             diagnostics["maximum_penetration"] <= state.penetration_tolerance
             and diagnostics["maximum_complementarity"] <= state.complementarity_tolerance
         )
-        self._pending_acceptance = (evaluation, record) if ready else None
+        self._pending_acceptance = (evaluation, record, self.snapshot_motion()) if ready else None
         return ready, diagnostics
 
     def augment(self):
         if self._last_normal_evaluation is None:
             raise RuntimeError("AL update needs converged equilibrium evidence.")
-        self.normal_multiplier_state.augment_after_converged(*self._last_normal_evaluation)
+        evaluation, record, factor = self._last_normal_evaluation
+        if factor != self.snapshot_motion() or not np.array_equal(
+            evaluation.query_points, self.adapter.evaluate(self.displacement).query_points,
+        ):
+            raise RuntimeError("AL augmentation evidence refers to another displacement or tool pose.")
+        self.normal_multiplier_state.augment_after_converged(evaluation, record)
         self._last_normal_evaluation = None
         self._pending_acceptance = None
 
-    def commit_accepted(self):
+    def _validate_pending_endpoint(self):
         if self._pending_acceptance is None:
             raise RuntimeError("AL cannot commit an unconverged outer iteration.")
-        evaluation, record = self._pending_acceptance
+        evaluation, record, factor = self._pending_acceptance
         if not np.array_equal(
             evaluation.query_points, self.adapter.evaluate(self.displacement).query_points,
-        ):
-            raise RuntimeError("AL converged displacement changed before joint commit.")
+        ) or factor != self.snapshot_motion():
+            raise RuntimeError("AL converged displacement or tool pose changed before joint commit.")
+        return evaluation, record, factor
+
+    def commit_accepted(self):
+        evaluation, record, factor = self._validate_pending_endpoint()
         self.normal_multiplier_state.commit(evaluation, record)
         self._accepted_positions = evaluation.query_points.copy()
+        self._accepted_motion_factor = factor
         self._pending_acceptance = None
         self._last_normal_evaluation = None
         self._outer_in_progress = False
@@ -171,12 +197,13 @@ class DolfinxAugmentedPlaneTrialProvider(DolfinxImplicitRigidContact):
 
         if self._pending_acceptance is None:
             raise RuntimeError("AL normal work requires a converged outer endpoint.")
+        self._validate_pending_endpoint()
         response = self.normal_response()
         if not np.array_equal(
             self._pending_acceptance[0].query_points, response.evaluation.query_points,
         ):
             raise RuntimeError("AL normal-work endpoint changed after convergence.")
-        old_gap = self.surface.project(self._accepted_positions).signed_gaps
+        old_gap = self._project(self._accepted_positions, self._accepted_motion_factor).signed_gaps
         old_pressure = np.maximum(
             0., self.normal_multiplier_state.accepted_multiplier
             - self.normal_multiplier_state.penalty * old_gap,
@@ -192,24 +219,46 @@ class DolfinxAugmentedPlaneTrialProvider(DolfinxImplicitRigidContact):
                 or self.normal_multiplier_state.augmentation_count):
             raise RuntimeError("AL checkpoint cannot contain an inner/outer trial.")
 
+    def _motion_identity(self):
+        # Disk checkpoints are JSON: tuple/list differences are encoding, not
+        # a different prescribed motion. Keep one JSON-native identity at both ends.
+        return json.loads(json.dumps(self.pair.rigid_body.motion_schedule.summary()))
+
     def snapshot_accepted_state(self):
         self._require_accepted_boundary()
+        self.validate_accepted_configuration()
         return {
-            "schema": "agentfem.augmented-plane-state.v1",
+            "schema": ("agentfem.augmented-plane-state.v2" if self.has_prescribed_motion
+                       else "agentfem.augmented-plane-state.v1"),
             "multiplier": self.normal_multiplier_state.accepted_snapshot(),
             "query_points": self._accepted_positions.tolist(),
+            **({"motion_factor": self._accepted_motion_factor,
+                "motion_identity": self._motion_identity()}
+               if self.has_prescribed_motion else {}),
         }
 
     def restore_accepted_state(self, saved):
-        if (not isinstance(saved, dict)
-                or set(saved) != {"schema", "multiplier", "query_points"}
-                or saved["schema"] != "agentfem.augmented-plane-state.v1"):
+        moving = self.has_prescribed_motion
+        expected_keys = {"schema", "multiplier", "query_points"}
+        if moving:
+            expected_keys |= {"motion_factor", "motion_identity"}
+        if (not isinstance(saved, dict) or set(saved) != expected_keys
+                or saved["schema"] != f"agentfem.augmented-plane-state.v{2 if moving else 1}"):
             raise ValueError("AL accepted checkpoint schema differs.")
+        factor = saved.get("motion_factor")
+        if moving and (
+            isinstance(factor, bool) or not isinstance(factor, (int, float)) or not np.isfinite(factor)
+            or not 0. <= factor <= 1. + 1e-12
+            or saved["motion_identity"] != self._motion_identity()
+            or abs(factor - self.snapshot_motion()) > 1e-12
+        ):
+            raise ValueError("AL accepted tool motion identity or coordinate differs.")
         positions = np.asarray(saved["query_points"], dtype=float)
         if positions.shape != self._accepted_positions.shape or not np.all(np.isfinite(positions)):
             raise ValueError("AL checkpoint query geometry differs.")
         self.normal_multiplier_state.restore_accepted(saved["multiplier"])
         self._accepted_positions = positions.copy()
+        self._accepted_motion_factor = factor
         self._pending_acceptance = None
         self._last_normal_evaluation = None
         self._outer_in_progress = False
@@ -217,16 +266,24 @@ class DolfinxAugmentedPlaneTrialProvider(DolfinxImplicitRigidContact):
     def snapshot_runtime_state(self):
         self._require_accepted_boundary()
         return (self.normal_multiplier_state.snapshot_runtime_state(),
-                _readonly_array(self._accepted_positions))
+                _readonly_array(self._accepted_positions), self._accepted_motion_factor)
 
     def restore_runtime_state(self, saved):
-        if not isinstance(saved, tuple) or len(saved) != 2:
+        if not isinstance(saved, tuple) or len(saved) != 3:
             raise ValueError("AL runtime snapshot shape differs.")
         positions = np.asarray(saved[1], dtype=float)
         if positions.shape != self._accepted_positions.shape or not np.all(np.isfinite(positions)):
             raise ValueError("AL runtime query geometry differs.")
+        factor = saved[2]
+        if self.has_prescribed_motion:
+            if (isinstance(factor, bool) or not isinstance(factor, (int, float))
+                    or not np.isfinite(factor) or not 0. <= factor <= 1. + 1e-12):
+                raise ValueError("AL runtime tool coordinate differs.")
+        elif factor is not None:
+            raise ValueError("A fixed AL plane has no runtime tool coordinate.")
         self.normal_multiplier_state.restore_runtime_state(saved[0])
         self._accepted_positions = _readonly_array(positions)
+        self._accepted_motion_factor = factor
         self._pending_acceptance = None
         self._last_normal_evaluation = None
         self._outer_in_progress = False
@@ -234,6 +291,8 @@ class DolfinxAugmentedPlaneTrialProvider(DolfinxImplicitRigidContact):
     def validate_accepted_configuration(self):
         if self._outer_in_progress or self._pending_acceptance is not None:
             raise RuntimeError("AL output requires a fully accepted outer increment.")
+        if self._accepted_motion_factor != self.snapshot_motion():
+            raise ValueError("AL accepted multiplier belongs to another tool pose.")
         if not np.allclose(
             self._accepted_positions, self.adapter.evaluate(self.displacement).query_points,
             rtol=1e-12, atol=1e-12,
@@ -266,7 +325,7 @@ class DolfinxAugmentedPlaneTrialProvider(DolfinxImplicitRigidContact):
         return {
             "constraint_name": self.name, "surface_name": self.surface.name,
             "geometry_fingerprint": self.surface.geometry_fingerprint,
-            "trace_source": trace.source, "load_factor": 0.,
+            "trace_source": trace.source, "load_factor": self.snapshot_motion() or 0.,
             "location": "coalesced_reference_boundary_nodes",
             "pressure_measure": "augmented_force_per_reference_area_not_cauchy_pressure",
             "enforcement": "fixed_trace_normal_augmented_lagrangian_research",
@@ -309,7 +368,12 @@ class DolfinxAugmentedPlaneTrialProvider(DolfinxImplicitRigidContact):
 
         if getattr(problem, "solution", None) is not self.displacement:
             raise ValueError("AL dual belongs to another problem.")
-        self.validate_accepted_configuration()
+        if self._pending_acceptance is None:
+            self.validate_accepted_configuration()
+        else:
+            if getattr(problem, "_constraint_dual_state", None) != "accepted":
+                raise RuntimeError("AL provisional dual is reserved for the joint accepted-work transaction.")
+            self._validate_pending_endpoint()
         if (getattr(problem, "last_solve_info", None) is None
                 and getattr(problem, "_constraint_dual_state", None) != "accepted"):
             raise RuntimeError("AL dual requires an accepted solution.")
@@ -317,17 +381,25 @@ class DolfinxAugmentedPlaneTrialProvider(DolfinxImplicitRigidContact):
         distribution = fem.Function(self.displacement.function_space, name=f"{self.name}_reaction")
         distribution.x.array[:] = -contribution.nodal_structural_residual.reshape(-1)
         distribution.x.scatter_forward()
+        force = contribution.contact_force_on_structure
+        coordinate = None
+        if self.has_prescribed_motion:
+            force = np.concatenate((force, contribution.surface_generalized_moment))
+            coordinate = self.pair.rigid_body.motion_schedule.motion.generalized_coordinate(
+                self.snapshot_motion(),
+            )
         return constraint_dual(
-            self.pair, force=contribution.contact_force_on_structure,
+            self.pair, force=force, coordinate=coordinate,
             resultant=contribution.contact_force_on_structure, distribution=distribution,
-            role="contact_constraint", source="bounded_fixed_plane_normal_augmentation",
+            role="contact_constraint", source="bounded_constant_normal_plane_augmentation",
             diagnostics=self.current_point_diagnostics(),
         )
 
     def summary(self):
         return {
             **super().summary(),
-            "kind": "bounded_fixed_plane_normal_augmentation",
+            "kind": ("bounded_translating_plane_normal_augmentation" if self.has_prescribed_motion
+                     else "bounded_fixed_plane_normal_augmentation"),
             "enforcement": "fixed_trace_normal_augmented_lagrangian_research",
             "contact_integration": "coalesced_reference_nodal",
             "policy": self.policy.summary(),
@@ -345,5 +417,6 @@ class DolfinxAugmentedPlaneTrialProvider(DolfinxImplicitRigidContact):
         return replace(
             super().capabilities(),
             enforcement="fixed_trace_normal_augmented_lagrangian_research",
-            work_evidence="provider_dual_required",
+            work_evidence=("provider_dual_path_required" if self.has_prescribed_motion
+                           else "provider_dual_required"),
         )

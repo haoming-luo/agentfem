@@ -6,12 +6,20 @@ experimental formulation to a validated one.
 
 ## [Unreleased]
 
+- Extend experimental serial P1 finite-J2 normal augmentation to prescribed
+  translation of one analytical plane. Preserve material-side multiplier
+  identity, distinguish tool work from numerical relative-gap work, and
+  jointly restore tool pose, plastic history, pressure and the accepted
+  ledger. Add a public compression/unloading/recontact example and independent
+  scalar, tangent, refinement and restart checks. Rotating/curved tools,
+  friction, MPC and MPI augmentation remain unsupported.
+
 - Record accepted signed normal-contact work for the experimental serial
   fixed-plane finite-J2 augmentation route. Keep its discrete absolute-work
   bound, open-gap contribution and raw/contact-aware energy residuals separate
   from stored energy. Joint restart/rollback and cyclic increment refinement
   are checked; absent legacy work history stays unavailable. This does not
-  promote moving/curved augmentation, MPI or automatic energy verification.
+  promote curved augmentation, MPI or automatic energy verification.
 
 - Develop a bounded serial implicit rigid-contact candidate for finite-strain
   J2: shared Newton residual/tangent, prescribed-tool force and work, reviewed

@@ -79,7 +79,7 @@ RuntimeError compatibility. `exception.as_dict()` includes a stable code,
 solver stage, PETSc reason, iterations, residual and suggested next checks.
 These are diagnostics, not a claim that one root cause has been proven.
 
-### Experimental fixed-plane normal augmentation
+### Experimental constant-normal plane augmentation
 
 Finite-strain J2 accepts an opt-in outer augmented-Lagrangian iteration through
 the ordinary Step. The default remains penalty contact:
@@ -97,14 +97,22 @@ step = model.step(
 )
 ```
 
-Declare a named `rigid_contact_pair` with one fixed analytical plane and a
+Declare a named `rigid_contact_pair` with one fixed or translating analytical plane and a
 scalar penalty. The bounded implementation uses coalesced nodal reference-area
 weights on serial P1 tetrahedra and ordinary strong boundaries. A multiplier
 whose normal motion is already fixed by a strong boundary is rejected; the
 software does not arbitrarily divide reactions between redundant constraints.
-Moving tools, friction, MPC, mixed fields, higher-order/hex cells, custom
+Rotating or curved tools, friction, MPC, mixed fields, higher-order/hex cells, custom
 contact quadrature and changing contact partitions are not admitted here.
 This is not a mesh-independent mortar stability or general contact claim.
+
+A prescribed translation uses the existing `prescribed_rigid_motion_schedule`
+on the rigid body, with normalized endpoints 0 and 1 and no separate amplitude.
+The ordinary Step amplitude owns the tool coordinate, including unloading and
+recontact. Multipliers stay on the same material-side reference nodes; every
+trial projects the current positions against the current tool pose. This does
+not require transferring history between tool facets, nor license such transfer.
+Motion along the plane is frictionless and contributes no work.
 
 For gap `g` (negative in penetration), the inner solve uses fixed multiplier
 `lambda` and pressure `p = max(0, lambda - penalty*g)`. Only after total Newton
@@ -129,7 +137,7 @@ the increment and follows the ordinary cutback policy.
 
 Materials always start their trial update from the same accepted state during
 the entire outer loop. One accepted increment jointly commits displacement,
-plastic history and multiplier. Newton/outer failures restore that boundary;
+plastic history, multiplier and prescribed tool pose. Newton/outer failures restore that boundary;
 an inner Newton success cannot be checkpointed. The ordinary serial
 `save_checkpoint`/`load_checkpoint` stores the multiplier basis, policy and
 accepted configuration and rejects incompatible restoration.
@@ -147,9 +155,12 @@ pressure is not Cauchy pressure. The signed AL functional is **not** physical
 contact stored energy. The accepted ledger now reports signed numerical
 `normal_contact_work` separately, together with a non-cancelling
 `normal_contact_work_bound` and the positive-gap component
-`normal_contact_open_gap_work`. For matched fixed-plane samples these are
+`normal_contact_open_gap_work`. For matched constant-normal plane samples these are
 `sum(w * (p_old+p_new)/2 * delta_gap)` and, for the bound, the same sum with
-`abs(delta_gap)`. Positive work enters the structure. Opening/closure can
+`abs(delta_gap)`. For a fixed tool positive work enters the structure. For a
+translating tool this is **relative-gap work**: structural contact work equals
+tool work plus relative-gap work. Tool work is already part of external work,
+so it must not be added twice. Opening/closure can
 produce nonzero endpoint work even with exact complementarity at both ends.
 The bound applies only to this discrete work, **not** to the continuous-path
 integration error or general contact accuracy.
@@ -167,7 +178,10 @@ Only jointly accepted endpoints enter this ledger. Failed attempts restore it
 with displacement, plastic state and multipliers. New checkpoints retain and
 check its complete accepted-path coverage; legacy checkpoints without prior
 work remain energy-unavailable after continuation. No missing history is
-reconstructed. These semantics do not enable moving/curved AL or MPI.
+reconstructed. Moving-plane checkpoints additionally validate the motion
+identity and resolved amplitude against the Step coordinate before publishing
+the restored state. Fixed-plane v1 snapshots retain their format. These
+semantics do not enable rotating/curved AL or MPI.
 `results.export_accepted_contact_points(...)` exports the same augmented pressure
 used in equilibrium, with its nodal reference-area location and enforcement
 recorded. It does not substitute the old `penalty*penetration` pressure.
@@ -183,6 +197,19 @@ for loading, output and restart. Tests compare a homogeneous elastic limit to
 an independent nominal-stress formula, a plastic limit to a prescribed-motion
 solution, and interrupted to uninterrupted loading. These are bounded numerical
 checks, not validation of arbitrary industrial forming.
+
+`examples/finite_j2_translating_augmented_plane.py` adds prescribed compression,
+unloading and recontact through the same ordinary API. It exports accepted
+pressure, tool work, relative-gap work, raw/contact-aware residuals and a
+restart checkpoint. `tests/test_translating_normal_augmentation.py` compares
+this path with a scalar finite-J2 reference and 16/32/64/128 increments.
+Both pressure and plastic history are compared; balancing total force alone
+is insufficient. The independently checked moving-tool tangent freezes the
+old material state and multiplier, not the current geometry.
+
+The split outer-multiplier/inner-equilibrium design follows the established
+[segregated normal-contact formulation](https://doc.comsol.com/6.4/doc/com.comsol.help.sme/sme_ug_theory.06.087.html).
+This is methodological context, not an implementation equivalence claim.
 
 The independent cyclic finite-J2 stop reference additionally checks stored
 energy, plastic dissipation and accepted work at 16/32/64/128 increments.

@@ -36,7 +36,7 @@ _COUNT_COLUMNS = ("active_point_count", "invalid_point_count")
 
 @dataclass(frozen=True)
 class _FixedNormalWorkIncrement:
-    work_on_structure: float
+    relative_work: float
     absolute_work_bound: float
     open_gap_work: float
 
@@ -44,7 +44,9 @@ class _FixedNormalWorkIncrement:
 def _fixed_normal_work_increment(*, weights, old_gap, new_gap, old_pressure, new_pressure):
     """Integrate matched fixed-normal, reference-area endpoint samples.
 
-    W = sum(w * (p0+p1)/2 * (g1-g0)), positive into the structure.
+    W = sum(w * (p0+p1)/2 * (g1-g0)), relative to the plane.
+    For a translating plane, structural contact work is tool work plus W.
+    For a stationary plane, W alone is work into the structure.
     B = sum(w * (p0+p1)/2 * abs(g1-g0)) bounds abs(W) without
     cancellation. Open-gap work replaces g by max(g,0); W minus that term
     is the penetration-motion contribution. Neither is stored energy or

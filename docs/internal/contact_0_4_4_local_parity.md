@@ -29,10 +29,10 @@ being silently approximated by the bounded route.
 | 1. Comparator | Internal/public-protocol tests; elastic and small-displacement published cases screened but not misidentified as finite-J2 comparators | Independent same-input finite-J2 contact run and frozen observables |
 | 2. Surface | Reviewed closed/open triangle geometry, bounded initial-overlap checks, and per-face same-plane proof with one bounded fallback subdivision | Rims, unsupported curved tools, ambiguous sharp features and target-path sliding coverage |
 | 3. Integration | Planar/convex partitions; certified zero-contact and smooth-branch faces; private wholly-interior and single-plane partially active reentrant edge/face local integral and tangent; bounded adaptive interior-ball cover; whole-face smooth numerical-touch admission | General active boundaries and feature sets; global signed-gap Step admission; other edge/point laws |
-| 4. Normal law | Penalty Step; opt-in ordinary serial P1 fixed-plane AL Step, coalesced nodal multiplier, outer Newton lifecycle, joint restart and accepted numerical-work ledger with cyclic increment refinement; real-mesh/reduced-rank counterexamples retained | General multiplier space and transfer, MPC/curved/moving admission, spatial stability and wider-path work accuracy |
+| 4. Normal law | Penalty Step; opt-in ordinary serial P1 fixed/translating-plane AL Step, coalesced nodal multiplier, outer Newton lifecycle, joint restart and accepted tool/relative-gap work with cyclic and nonuniform spatial refinement; real-mesh/reduced-rank counterexamples retained | General multiplier space and transfer, MPC/curved/rotating admission, spatial stability and wider-path work accuracy |
 | 5. Friction | Locally planar Coulomb State; rigid-master spin transport tested; a separate smooth point tool can slide beside a frictionless certified-face tool | Admitted geometry-by-friction matrix; friction on sharp features remains rejected |
 | 6. Transaction | Total-system and restart tests for admitted penalty modes; opt-in serial standard-J2 certified-face research Step with work, plastic-history rollback/restart and two named tools; smooth-subset affine/MPC total-system path, now including a prescribed moving face; certified-face plus point pair in serial standard J2 and smooth MPC, including separate point-friction State | Sharp-feature MPC, MPI, changing feature topology and wider path tests |
-| 7. Result | Pair work/pressure samples; fixed-plane AL accepted signed work, discrete absolute-work bound and raw/contact-aware residuals; standard and affine/MPC research face-location extensive evidence and accepted-station coverage without point pressure | Cross-law first-law, between-station coverage and a defensible pressure interpretation |
+| 7. Result | Pair work/pressure samples; constant-normal plane AL signed relative work, prescribed tool work, discrete absolute-work bound and raw/contact-aware residuals; standard and affine/MPC research face-location extensive evidence and accepted-station coverage without point pressure | Cross-law first-law, between-station coverage and a defensible pressure interpretation |
 | 8. Science | Local/oracle/installed tests; independent elastic-limit spring equation; nine inhomogeneous mesh/increment/penalty comparisons; plastic mesh and moving-tool/restart screens; directional refinement through 128 slave faces | Full mesh x increment x law convergence and external observables |
 | 9. Release | Scoped solver screens | Installed cross-platform gate and production runtime evidence |
 
@@ -1918,6 +1918,105 @@ build passed. Native acceleration was disabled for this implicit-DOLFINx
 wheel; neither MPI AL nor accelerator performance is claimed. Wheel SHA-256:
 `af0e97c59eb2f40bde7f8b25da565ae812a4e21017f9a485f8e8ec86d7dc45c1`.
 
+## Prescribed-translation normal-augmentation gate (2026-10-20)
+
+Decision: admit translation of the same analytical plane, not arbitrary
+moving geometry. The multiplier basis is attached to the fixed material-side
+reference nodes; rigid translation changes current gaps but not pressure
+identities or normals. Every trial projects current positions against the
+current tool pose. Rotations (including about a plane normal), curved tools,
+changing traces, friction, MPC and MPI augmentation still reject.
+
+The established segregated AL method holds pressure fixed inside equilibrium
+iterations and updates it outside; see [COMSOL normal contact][normal-al].
+We retain that architecture and the existing ordinary finite-J2 Procedure.
+This is not a new coupled solver or a claim of mortar equivalence. Motion uses
+the same normalized rigid schedule and resolved Step amplitude as the existing
+penalty path; unloading/recontact does not erase plastic history.
+
+For constant normal `n`, `dg=n·(du-dq)`, so endpoint structural contact work
+splits into prescribed-tool work plus relative-gap work. The former already
+enters `external_work`; the latter uses the existing signed normal-work
+channel. Do not add total structural work to external work again. Tangential
+plane translation produces no work. AL still has no physical spring energy.
+
+State: a converged endpoint is tied to both displacement and resolved tool
+factor. Changing either invalidates augmentation/commit evidence. Moving
+checkpoints use a v2 contact payload containing the JSON-native motion identity
+and accepted factor; restore validates it against the Step amplitude before
+joint publication. Fixed v1 contact payloads retain their format. In-memory
+rollback uses numerical snapshots, not per-increment JSON serialization.
+After-contact-commit failure restores displacement, plastic state, multipliers,
+tool pose and work together.
+
+Independent checks:
+
+- Scalar finite-J2 compression reference on two meshes: full accepted material
+  state/pressure path, not just final force balance.
+- Oblique translation: added tangential motion leaves displacement, plastic
+  history and work unchanged.
+- Global directional tangent with a tilted translating plane, fixed old
+  material state and frozen multiplier.
+- Load/unload/recontact with restart and atomic failed joint commit.
+- Corrupt motion identity/factor refuses restoration; old optional `None`
+  energy fields compare as unavailable, never coerced to numerical zeros.
+- Current-point samples and ordinary Result retain the actual augmented
+  pressure and separate tool/relative-gap histories.
+
+The cyclic scalar reference is independent of the AgentFEM material update
+and contact solver. It solves the traction-free one-dimensional branch when
+open and imposes the translated stop when closed. The increment screen gives:
+
+| Increments | Tool work | Raw residual | Contact-aware residual | Discrete relative-work bound |
+| --- | ---: | ---: | ---: | ---: |
+| 16 | 0.0716047 | -1.73303e-3 | -2.85968e-3 | 3.08773e-3 |
+| 32 | 0.0730628 | -2.74924e-4 | -7.57166e-4 | 1.06100e-3 |
+| 64 | 0.0731485 | -1.89257e-4 | -2.56478e-4 | 1.47999e-4 |
+| 128 | 0.0733219 | -1.58346e-5 | -4.29142e-5 | 5.96754e-5 |
+
+All energies are J for this deliberately soft unit-cube reference.
+The corrected residual decreases by about 67 times; it is not forced to zero
+and the discrete-work bound is not a bound on total energy error. Reproduce
+with `pytest tests/test_translating_normal_augmentation.py -q -s`.
+The source-focused contact/J2/restart set passed 205 tests in 67.44 seconds.
+The public `examples/finite_j2_translating_augmented_plane.py` is the ordinary
+Model/Step entrypoint for the same compression/unloading/recontact workflow.
+
+The same installed candidate passed 205 focused tests in 66.88 seconds.
+Public full/half/restarted 32-increment runs agree exactly in displacement,
+plastic deformation gradient, equivalent plastic strain, plastic dissipation,
+contact State, accepted energy history and checkpoint identity. Timing and
+restart events appropriately differ. A subsequent guard also reserves
+converged-but-uncommitted reaction duals for Procedure-owned work recording;
+a previous successful solve does not license public trial output.
+
+`tools/verify_normal_augmentation_spatial.py --tool-travel 0.01` independently
+checks the final nonuniform elastic-limit field
+`u=(0.02*x*(1-x)-0.01*x,0,0)`, with manufactured reference body force. On
+2/4/8 cells per edge, observed displacement orders are 1.996/1.995 and
+gradient orders 1.000/1.000. Contact force errors decrease from 0.0518575 to
+0.0129639 to 0.00324105 N; maximum nodal pressure errors decrease from
+5.22111 to 2.60956 to 1.31982 Pa. This is an elastic spatial benchmark, not
+a manufactured intermediate load path or plastic spatial-convergence proof.
+Reconstructable evidence is
+`evidence/contact/2026-10-20-translating-normal-augmentation-spatial.json`.
+Two-rank fixed and translating negative-admission tests both reject before
+distributed assembly; no MPI augmentation capability is promoted.
+
+The final candidate including that provisional-dual guard passed **251**
+focused tests from an isolated installed wheel in 76.74 seconds. Package
+imports were asserted outside the checkout. Native accelerators were disabled
+for this implicit-DOLFINx wheel; no native acceleration result follows.
+Wheel SHA-256:
+`b4094ebfa5d67a87d09d2bdd54629b19ca9053e3661f69b0e015ddaa5b720dd8`.
+Correctness lint, generated-document consistency and the external-directory
+strict documentation build passed.
+
+Next: finish remote CI acceptance, then address the broader
+mesh-by-penalty and changing-feature gates. Translation alone does not close
+the nonconvex L-tool, multiplier transfer or commercial local-parity matrix.
+
+[normal-al]: https://doc.comsol.com/6.4/doc/com.comsol.help.sme/sme_ug_theory.06.087.html
 [abaqus-contact-energy]: https://docs.software.vt.edu/abaqusv2025/English/SIMACAEEXARefMap/simaexa-c-contactenergy.htm
 [abaqus]: https://docs.software.vt.edu/abaqusv2025/English/SIMACAEITNRefMap/simaitn-c-genlcontnumcontrolsstd.htm
 [nafems]: https://www.nafems.org/publications/pubguide/list/

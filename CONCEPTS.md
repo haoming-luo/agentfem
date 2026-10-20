@@ -761,12 +761,17 @@ damage, contact, or active-set changes.
 ## Verification Claim and Trust Level
 
 Numerical constraint work is distinct from stored energy and irreversible
-dissipation. In bounded fixed-plane augmented contact, accepted pressure/gap
+dissipation. In bounded constant-normal plane augmented contact, accepted pressure/gap
 endpoints define signed normal work and a non-cancelling discrete work bound.
 That bound does not bound the unknown continuous path or prove integration
 accuracy. Results retain raw and contact-aware energy residuals; increment
 refinement and explicit verification remain necessary. Only accepted states
 enter the work history, and missing checkpoint history is not reconstructed.
+For prescribed plane translation, structural contact work is tool work plus
+relative-gap work. The tool follows the Step's resolved amplitude, while the
+multiplier basis follows fixed material-side reference nodes. Checkpoint
+restoration must agree on both identities; this is not a general history
+transfer rule for rotating normals or changing contact partitions.
 
 A verification claim binds an observable to a reference, criterion,
 applicability domain, evidence record, and passed/failed/inconclusive decision.

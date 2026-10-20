@@ -200,7 +200,15 @@ def _patch(*, triangulated: bool, gap: float = 0.005, penalty=500.0,
             )
         else:
             model.add_boundary_model(boundary_models.rigid_contact_pair(
-                right, boundary_models.rigid_body(surface),
+                right, boundary_models.rigid_body(
+                    surface,
+                    motion_schedule=(
+                        None if tool_motion is None
+                        else boundary_models.prescribed_rigid_motion_schedule(
+                            tool_motion, start_time=0, end_time=schedule_end,
+                        )
+                    ),
+                ),
                 penalty=penalty,
                 initial_penetration_limit=initial_penetration_limit,
             ))

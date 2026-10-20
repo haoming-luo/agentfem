@@ -757,9 +757,9 @@ def _normal_augmentation_rejection_reason(model, request: StepRequest) -> str | 
     from .constraints import AbaqusPeriodicConstraint, constraint_assets
 
     reason = (
-        "AFM-CONTACT-AL-SCOPE: normal augmentation requires one fixed frictionless "
+        "AFM-CONTACT-AL-SCOPE: normal augmentation requires one fixed or translating frictionless "
         "analytical plane, scalar penalty, serial CG1 tetrahedra and ordinary "
-        "strong boundaries; no MPC, mixed fields, moving tools or changing trace."
+        "strong boundaries; no MPC, mixed fields, rotating tools or changing trace."
     )
     if not isinstance(selected, NormalAugmentationOptions):
         return "AFM-CONTACT-AL-OPTIONS: use steps.normal_augmentation(...)."
@@ -772,7 +772,8 @@ def _normal_augmentation_rejection_reason(model, request: StepRequest) -> str | 
         or not isinstance(pairs[0].rigid_body.surface, RigidPlaneSurface)
         or pairs[0].rigid_body.surface.dimension != 3
         or pairs[0].friction is not None
-        or pairs[0].rigid_body.motion_schedule is not None
+        or (pairs[0].rigid_body.motion_schedule is not None
+            and np.any(np.asarray(pairs[0].rigid_body.motion_schedule.motion.rotation) != 0.))
         or np.asarray(pairs[0].law.penalty).ndim != 0
         or request.options.get("contact_integration", "gauss") != "gauss"
         or request.options.get("contact_quadrature_degree") is not None

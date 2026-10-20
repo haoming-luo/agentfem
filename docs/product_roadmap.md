@@ -784,12 +784,12 @@ the trial-partition route has changing quadrature points and needs an explicit
 State transfer/identity rule before any multiplier history can follow it.
 The next bounded slice is now implemented: explicit
 `steps.normal_augmentation(...)` lowers through ordinary standard J2 with one
-fixed analytical plane, serial P1 tetrahedra and coalesced nodal multipliers.
+fixed or prescribed-translating analytical plane, serial P1 tetrahedra and coalesced nodal multipliers.
 It reuses the existing Newton, material trial state and joint accepted
 checkpoint. Independent homogeneous limits, plastic loading/unloading,
 failure rollback and restart have targeted evidence. Redundant strong/contact
 normal rows reject early. This is still experimental: general multiplier
-stability, MPC, moving/curved tools and partition transfer remain separate
+stability, MPC, rotating/curved tools and partition transfer remain separate
 gates. The fixed-plane accepted-work gate now records signed numerical contact
 work, a non-cancelling discrete work bound and opening/closure contributions.
 The AL functional is never stored energy. Original and contact-aware energy
@@ -803,6 +803,14 @@ resolved-amplitude/normalized-coordinate confusion: signed load amplitudes
 must scale ordinary strong values, and fixed tools must not validate them as
 motion coordinates. Time-dependent boundary histories and moving-tool ranges
 keep their own domain checks. This does not enlarge the AL geometry scope.
+The subsequent translation-only gate retains the same material-side nodal
+multiplier basis while recomputing gaps against the current tool pose.
+Tool work is recorded once as external input; numerical relative-gap work
+is separate. Scalar plastic compression/recontact, increment refinement,
+frozen-state tangent, joint failure rollback and serial checkpoint checks
+cover this bounded path. The new public translating-plane example uses the
+ordinary Step, not a case-owned solver. Rotation, changing normals, MPI and
+MPC augmentation remain closed until independently established.
 Before any default penalty/globalization tuning, retain full accepted-path
 field comparisons and the measured failure boundary. Outer augmentation and
 inner Newton/search work are now separately inspectable; local rollback uses

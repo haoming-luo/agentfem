@@ -15,18 +15,18 @@ def _work(g0, g1, p0, p1, weights=(1.,)):
 
 def test_exact_endpoint_complementarity_does_not_remove_closure_work():
     closed = _work([.02], [0.], [0.], [10.])
-    assert closed.work_on_structure == pytest.approx(-.1)
-    assert closed.open_gap_work == closed.work_on_structure
+    assert closed.relative_work == pytest.approx(-.1)
+    assert closed.open_gap_work == closed.relative_work
     assert closed.absolute_work_bound == pytest.approx(.1)
     opened = _work([0.], [.02], [10.], [0.])
-    assert opened.work_on_structure == pytest.approx(.1)
-    assert opened.open_gap_work == opened.work_on_structure
+    assert opened.relative_work == pytest.approx(.1)
+    assert opened.open_gap_work == opened.relative_work
 
 
 def test_closed_contact_and_penetration_have_distinct_work():
-    assert _work([0.], [0.], [10.], [20.]).work_on_structure == 0.
+    assert _work([0.], [0.], [10.], [20.]).relative_work == 0.
     penetrated = _work([0.], [-.001], [10.], [20.])
-    assert penetrated.work_on_structure == pytest.approx(-.015)
+    assert penetrated.relative_work == pytest.approx(-.015)
     assert penetrated.open_gap_work == 0.
     # No force means no work, even with a very large gap change.
     assert _work([.02], [4.], [0.], [0.]).absolute_work_bound == 0.
@@ -34,7 +34,7 @@ def test_closed_contact_and_penetration_have_distinct_work():
 
 def test_bound_preserves_large_opposite_work_that_cancels_in_the_sum():
     record = _work([.02, 0.], [0., .02], [0., 10.], [10., 0.], weights=(2., 2.))
-    assert record.work_on_structure == pytest.approx(0., abs=1e-16)
+    assert record.relative_work == pytest.approx(0., abs=1e-16)
     assert record.absolute_work_bound == pytest.approx(.4)
 
 
@@ -46,8 +46,8 @@ def test_fixed_normal_work_is_work_conjugate_to_nodal_force():
     p0, p1 = random.uniform(0, 10, (2, 32))
     result = _work(x0@n, x1@n, p0, p1, weights=w)
     force = w[:, None] * (.5*p0 + .5*p1)[:, None] * n
-    assert result.work_on_structure == pytest.approx(np.sum(force*(x1-x0)))
-    assert abs(result.work_on_structure) <= result.absolute_work_bound
+    assert result.relative_work == pytest.approx(np.sum(force*(x1-x0)))
+    assert abs(result.relative_work) <= result.absolute_work_bound
     assert abs(result.open_gap_work) <= result.absolute_work_bound
 
 
