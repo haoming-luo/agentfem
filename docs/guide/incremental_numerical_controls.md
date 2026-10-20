@@ -207,6 +207,20 @@ Both pressure and plastic history are compared; balancing total force alone
 is insufficient. The independently checked moving-tool tangent freezes the
 old material state and multiplier, not the current geometry.
 
+The nonuniform Poisson-coupled plastic reference additionally compares normal
+pressure with independently imposed displacement reactions on each mesh.
+A displacement tolerance is not a pressure-error tolerance: pressure accuracy
+must be checked separately against contact-tolerance and mesh refinement.
+See `tests/test_translating_augmentation_plastic_reference.py`; its tighter
+benchmark tolerances do not change the software defaults.
+
+Accepted contact-point exports preserve the normalized Step coordinate as
+`coordinate_value` and record `resolved_load_amplitude` separately, with
+`tool_motion_factor` for each moving pair. For a cyclic path, coordinate 0.5
+may mean tool factor 1 and coordinate 0.75 may mean factor 0. Comparing these
+different quantities would falsely reject valid intermediate frames.
+Stale or nonfinite tool factors still reject before output creation.
+
 The split outer-multiplier/inner-equilibrium design follows the established
 [segregated normal-contact formulation](https://doc.comsol.com/6.4/doc/com.comsol.help.sme/sme_ug_theory.06.087.html).
 This is methodological context, not an implementation equivalence claim.

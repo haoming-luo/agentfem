@@ -2003,7 +2003,36 @@ Reconstructable evidence is
 Two-rank fixed and translating negative-admission tests both reject before
 distributed assembly; no MPI augmentation capability is promoted.
 
-The final candidate including that provisional-dual guard passed **251**
+An additional nonuniform **plastic** gate uses a clamped block with Poisson
+ratio 0.3, free lateral motion and a translating plane at zero initial gap.
+The independent enforcement reference has no contact Operator: it prescribes
+the same normal displacement on the right face and obtains normal reactions
+from the full finite-J2 residual. Positive pressure is checked at every
+station, because a displacement constraint could otherwise pull a body that
+should separate. Eight accepted stations on 1/2/3-cell meshes are compared at
+penalties 1000 and 5000 Pa/m.
+
+The exploratory `1e-8 m` penetration / `1e-7 Pa m` complementarity settings
+passed displacement/state checks but missed the unchanged point-pressure
+criterion on the three-cell mesh: maximum discrepancies at its first station
+were about `9.44e-5` and `5.50e-5 Pa`. Tightening those contact tolerances by
+100, without changing the mesh, material, pressure criterion or solver method,
+made all six comparisons pass. The final maximum pressure discrepancies over
+the full eight-station paths were:
+
+| Cells per edge | Penalty 1000 | Penalty 5000 |
+| --- | ---: | ---: |
+| 1 | 1.58e-7 Pa | 9.88e-8 Pa |
+| 2 | 5.93e-7 Pa | 3.27e-7 Pa |
+| 3 | 7.71e-7 Pa | 6.72e-7 Pa |
+
+This demonstrates tolerance sensitivity of a point-pressure observable, not
+a reason to silently tighten every user's defaults or a proof of continuum
+pressure convergence. The reference shares the constitutive kernel, so it is
+independent enforcement, not independent material verification. Reproduce
+with `tests/test_translating_augmentation_plastic_reference.py`.
+
+The candidate including that provisional-dual guard passed **251**
 focused tests from an isolated installed wheel in 76.74 seconds. Package
 imports were asserted outside the checkout. Native accelerators were disabled
 for this implicit-DOLFINx wheel; no native acceleration result follows.
@@ -2011,6 +2040,37 @@ Wheel SHA-256:
 `b4094ebfa5d67a87d09d2bdd54629b19ca9053e3661f69b0e015ddaa5b720dd8`.
 Correctness lint, generated-document consistency and the external-directory
 strict documentation build passed.
+
+### Cyclic accepted-output follow-up
+
+Installed CLI use exposed a common output defect, not a contact-law failure:
+at normalized Step coordinate 0.5 the cyclic tool amplitude is 1.0, and at
+coordinate 0.75 it is 0.0. The old exporter compared the accepted tool pose
+to the coordinate instead of the resolved amplitude. Both ordinary penalty
+contact and augmentation reproduced `AFM-CONTACT-EXPORT-POSE` after a valid
+solve. The shared Result exporter now checks the Procedure's resolved amplitude,
+records coordinate and amplitude separately, and continues to reject stale or
+nonfinite pose samples before creating output. This is not a bypass of pose
+validation and does not change the solver or loading.
+
+The follow-up wheel passed **331** targeted tests in 94.13 seconds from an
+isolated installation, including ordinary friction and active/convex contact
+partitions. SHA-256:
+`c93795ccb5c35c5a6d6c962d7db6e2b146abb97113fed7779af82b9caf4df544`.
+The public example was then run from outside the checkout: one continuous
+32-increment run versus save at 0.5, restart to 0.75, and restart to 1.0.
+Displacement, plastic/contact State, complete energy history and checkpoint
+identity are exactly equal. Increment diagnostics also agree excluding elapsed
+timings; execution logs correctly retain the two restart events. Both
+intermediate stations now export their accepted raw contact arrays and VTP
+view with the correct tool factor. This remains serial Mac evidence, not a
+cross-platform or performance claim.
+
+Compatibility was also checked against an actual fixed-plane v1 checkpoint
+produced before this translation change (`f226d34c` candidate): the final
+state and four energy frames load without altering the numerical solution.
+That check is a completed-checkpoint restore, not a legacy partial-run
+continuation claim.
 
 Next: finish remote CI acceptance, then address the broader
 mesh-by-penalty and changing-feature gates. Translation alone does not close

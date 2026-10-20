@@ -7,7 +7,8 @@ import json
 import numpy as np
 import pytest
 
-from agentfem import amplitudes
+from agentfem import amplitudes, results
+from test_finite_j2_facet_contact import _patch
 from test_finite_j2_normal_augmentation import _problem, _state
 from test_normal_augmentation_coaxial_reference import _response
 
@@ -111,6 +112,38 @@ def test_provisional_tool_dual_cannot_escape_joint_work_recording(monkeypatch):
     problem.solve()
     assert calls
     problem.contact_provider.dual_evidence(problem)  # Public only after the joint commit.
+
+
+@pytest.mark.parametrize('augmented', [False, True])
+def test_cyclic_point_export_uses_resolved_tool_pose_not_step_coordinate(
+    tmp_path, monkeypatch, augmented,
+):
+    amplitude = amplitudes.tabular((0., .5, .75, 1.), (0., 1., 0., 1.))
+    problem = (_moving(amplitude=amplitude) if augmented else _patch(
+        triangulated=False, initial_penetration_limit=0., increments=16,
+        applied_traction=0., tool_translation=(-.02, 0., 0.),
+        load_amplitude=amplitude, transverse_boundary_fixed=True,
+    )[3])
+    for coordinate, pose in ((.5, 1.), (.75, 0.)):
+        problem.solve(until=coordinate)
+        paths = results.export_accepted_contact_points(problem, tmp_path / str(coordinate))
+        metadata = json.loads(paths['contact_point_metadata'].read_text())
+        assert metadata['coordinate_value'] == coordinate
+        assert metadata['resolved_load_amplitude'] == pose
+        assert metadata['pairs'][0]['tool_motion_factor'] == pose
+        provider = problem.contact_provider
+        sample = provider.accepted_point_samples()
+
+        for index, stale in enumerate((coordinate, float('nan'))):
+            def stale_pose(sample=sample, stale=stale):
+                return {**sample, 'load_factor': stale}
+
+            rejected = tmp_path / f'rejected-{coordinate}-{index}'
+            with monkeypatch.context() as patch:
+                patch.setattr(provider, 'accepted_point_samples', stale_pose)
+                with pytest.raises(RuntimeError, match='AFM-CONTACT-EXPORT-POSE'):
+                    results.export_accepted_contact_points(problem, rejected)
+            assert not rejected.exists()
 
 
 def test_translating_cyclic_energy_matches_independent_reference_and_refines():

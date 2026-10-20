@@ -90,6 +90,8 @@ def export_accepted_contact_points(
     """Archive accepted quadrature samples without smoothing or advancing State.
 
     The coordinate is the Step's normalized load factor, not physical time.
+    Resolved loading amplitude and each prescribed tool factor are recorded
+    separately; a cyclic amplitude need not equal the Step coordinate.
     Fixed-rule point IDs are stable only together with the named contact pair
     and geometry fingerprint. Trial-partition IDs address this accepted snapshot
     only: the same ID can move within its reference face after another trial.
@@ -126,8 +128,13 @@ def export_accepted_contact_points(
     if domain.comm.size != 1:
         raise NotImplementedError("AFM-CONTACT-EXPORT-MPI: point export is serial only.")
     factor = float(step.accepted_load_factor)
+    amplitude = getattr(step, "amplitude", None)
+    resolved_amplitude = factor if amplitude is None else float(amplitude(factor))
+    material_factor = float(step.state_transaction.accepted_factor)
     if (
-        abs(float(step.state_transaction.accepted_factor) - factor) > 1.0e-12
+        not np.isfinite(factor) or not np.isfinite(resolved_amplitude)
+        or not np.isfinite(material_factor)
+        or abs(material_factor - factor) > 1.0e-12
         or not np.allclose(
             step.solution.x.array, step.accepted_solution.x.array,
             rtol=0.0, atol=1.0e-12,
@@ -160,8 +167,9 @@ def export_accepted_contact_points(
         for item in providers
     ]
     for provider_item, item in zip(providers, samples, strict=True):
-        expected_factor = factor if provider_item.has_prescribed_motion else 0.0
-        if abs(float(item["load_factor"]) - expected_factor) > 1.0e-12:
+        expected_factor = resolved_amplitude if provider_item.has_prescribed_motion else 0.0
+        actual_factor = float(item["load_factor"])
+        if not np.isfinite(actual_factor) or abs(actual_factor - expected_factor) > 1.0e-12:
             raise RuntimeError("AFM-CONTACT-EXPORT-POSE: tool pose is not accepted.")
         count = len(item["point_ids"])
         for field in _ARRAY_FIELDS:
@@ -193,6 +201,7 @@ def export_accepted_contact_points(
         "step_name": step.name,
         "coordinate_name": "load_factor",
         "coordinate_value": factor,
+        "resolved_load_amplitude": resolved_amplitude,
         "complete": factor >= 1.0 - 1.0e-12,
         "location": location,
         "pressure_measure": pressure_measure,
@@ -215,6 +224,9 @@ def export_accepted_contact_points(
                 "enforcement": item.get("enforcement", "one_sided_rigid_surface_penalty"),
                 "point_identity_scope": identity_scopes[index],
                 "point_count": len(item["point_ids"]),
+                "tool_motion_factor": (
+                    float(item["load_factor"]) if providers[index].has_prescribed_motion else None
+                ),
             }
             for index, item in enumerate(samples)
         ],

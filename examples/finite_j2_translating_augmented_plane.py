@@ -98,11 +98,11 @@ def main():
     with results.UnifiedXDMFTimeSeries(args.output / "fields.xdmf") as writer:
         writer.write_fields(args.until, displacement.value)
     problem.save_checkpoint(args.output / "checkpoint")
+    results.export_accepted_contact_points(
+        problem, args.output / "contact", result=result, vtk_view=True,
+        units={"length": "m", "pressure": "Pa", "force": "N"},
+    )
     if result is not None:
-        results.export_accepted_contact_points(
-            problem, args.output / "contact", result=result, vtk_view=True,
-            units={"length": "m", "pressure": "Pa", "force": "N"},
-        )
         result.write_manifest(args.output / "result.json")
     energy = problem.energy_history[-1]
     print(f"Accepted increments: {len(problem.accepted_increments)}")

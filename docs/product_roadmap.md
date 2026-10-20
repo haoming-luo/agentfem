@@ -811,6 +811,12 @@ frozen-state tangent, joint failure rollback and serial checkpoint checks
 cover this bounded path. The new public translating-plane example uses the
 ordinary Step, not a case-owned solver. Rotation, changing normals, MPI and
 MPC augmentation remain closed until independently established.
+The moving-plane slice now also has a nonuniform Poisson-coupled plastic
+compression comparison against independently enforced prescribed displacement
+on three meshes and two penalties. Point-pressure accuracy is checked
+separately from displacement. Cyclic accepted-point export records Step
+coordinate and resolved tool amplitude separately; intermediate output and
+two successive restarts are exercised from an isolated installed wheel.
 Before any default penalty/globalization tuning, retain full accepted-path
 field comparisons and the measured failure boundary. Outer augmentation and
 inner Newton/search work are now separately inspectable; local rollback uses

@@ -6,6 +6,11 @@ experimental formulation to a validated one.
 
 ## [Unreleased]
 
+- Fix accepted contact-point output for cyclic prescribed motion: validate tool
+  pose against the resolved Step amplitude, not the normalized Step coordinate.
+  Record both independently and reject stale/nonfinite pose samples before
+  writing. This applies to ordinary penalty contact as well as augmentation.
+
 - Extend experimental serial P1 finite-J2 normal augmentation to prescribed
   translation of one analytical plane. Preserve material-side multiplier
   identity, distinguish tool work from numerical relative-gap work, and
