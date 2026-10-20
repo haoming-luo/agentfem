@@ -51,6 +51,25 @@ never remove identity checks to visualize a historical checkpoint.
 
 ## Checkpoint policy
 
+The serial unified HDF5 writer flushes storage after each successfully written
+output frame, rather than holding object metadata until the end of a long run.
+An abrupt exit **between completed writes** can therefore leave readable heavy
+data. Each successful frame also atomically updates `fields.partial.xdmf`,
+explicitly labelled incomplete. Read this index **only after the writer has
+stopped**; concurrent live reading is not supported by this non-SWMR layout.
+Clean close atomically publishes `fields.xdmf` and removes its own partial
+index, so successful output still has one visualization entry point. An
+existing partial index is preserved and requires a fresh output path.
+A readable HDF5 file or partial index is not a completed result or a restart archive. This bounded
+protection does not promise recovery from interruption during a write, disk
+failure, or power loss, and cannot repair previously damaged files. Continue
+to use verified checkpoints for resuming computation.
+
+The implementation follows the documented [HDF5 buffer flush](https://docs.h5py.org/en/stable/high/file.html#h5py.File.flush)
+boundary, not the stronger [SWMR](https://docs.h5py.org/en/stable/swmr.html)
+protocol. SWMR would require a different predeclared/appendable dataset layout;
+simply enabling its flag on the present per-frame group writer is not valid.
+
 Keep the existing `checkpointing.every(..., keep_last=2)` for interrupted runs.
 The project wrapper reuses an integrity-checked scheduled endpoint instead of
 writing another `accepted-final` copy. `report.json` and SimulationResult give

@@ -61,6 +61,13 @@ finite-area supported fixture; changing the fixture is not credited as a
 solver improvement. Neither numerical acceptance nor penalty insensitivity
 closes the independent spatial-accuracy gate.
 
+An interrupted long output exposed buffered HDF5 metadata loss between saved
+stations. The serial unified writer now flushes complete frames and atomically
+maintains an explicitly incomplete index, removed after clean final publication.
+Abrupt-process-exit and independent-reader checks cover that bounded recovery
+case; they do not establish SWMR, mid-write/power-loss recovery, or repair of
+older damaged files. Checkpoints remain the only restart contract.
+
 ### 0.4.3 released composition and next gate (2026-10-17)
 
 Version 0.4.3 was promoted by one composed scientific workflow, not

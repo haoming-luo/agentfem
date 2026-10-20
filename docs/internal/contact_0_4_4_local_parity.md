@@ -2499,6 +2499,29 @@ performance measurement. The ongoing private full run remains on its frozen
 `8da7b93b` wheel: its provider already satisfies these contracts, and no
 runtime files were replaced during execution.
 
+### Interrupted output follow-up (2026-10-21)
+
+A two-frame serial Hex8 counterexample exits the child process with `os._exit`
+after `write_fields` returns, skipping context cleanup and destructors. Before
+the fix, reopening the heavy-data file fails with `bad object header version
+number`. Complete-frame HDF5 flushes eliminate this reproduced failure.
+An atomically replaced `*.partial.xdmf` labels the last written view incomplete;
+an independent meshio reader verifies both frames, the volume topology and
+point/cell data after the child has stopped. Clean close atomically publishes
+the ordinary index and removes only its own partial index. Existing partial
+output is not overwritten. Flush, partial-index and final-index failures are
+tested explicitly.
+
+The combined output/layout/project/response-material/history subset passed
+**158 tests in 6.74 s**; lint and diff whitespace checks passed. These are
+correctness checks, not a performance experiment. The frozen private replay
+was not modified. This fix does not recover its previously damaged artifact,
+provide concurrent readers or guarantee mid-write/power-loss safety. The
+current per-frame-group format cannot merely toggle SWMR: that protocol
+requires predeclared appendable datasets and a separate compatibility design.
+The final result metadata and verified checkpoints still own completion and
+restart respectively; an incomplete visualization is neither.
+
 [cell-periodicity]: https://doc.comsol.com/6.4/doc/com.comsol.help.sme/sme_ug_theory.06.080.html
 [petsc-basic]: https://petsc.org/release/src/snes/linesearch/impls/basic/linesearchbasic.c.html
 [normal-al]: https://doc.comsol.com/6.4/doc/com.comsol.help.sme/sme_ug_theory.06.087.html
