@@ -2410,6 +2410,73 @@ The complete remote `cf1bfc36` workflow `39464864247` passed Linux numerical
 and macOS installed-wheel foundation acceptance; that does not automatically
 validate later commits or close the remaining scientific gates.
 
+### 2026-10-21: distinguish a support-model defect from contact convergence
+
+The original point-pinned periodic example was deliberately kept unchanged
+while inspecting its full-space accepted residual. With 4 cells per edge,
+32 increments and penalty 40000 Pa/m, the resultant balancing the one-sided
+tool is about 1.18533 N in x. The eight nodes of the pinned periodic corner
+class carry that entire resultant; the sum on the other nodes is below
+1e-11 N. Thus the point constraint is not merely removing a harmless rigid
+translation in a self-equilibrated cell: it supplies the net external reaction.
+This observation gives a concrete reason to question a continuum refinement
+claim for that fixture. It does not prove that all sensitivity comes from
+one cause or that any new fixture is automatically converged.
+
+The 12-cell, 128-increment original-fixture run is retained in
+`evidence/contact/2026-10-21-affine-augmentation-spatial-refinement.json`.
+It completed all increments and numerical contact tolerances, with final
+contact-force magnitude 0.530237 N versus 0.817632 N on 8 cells.
+The subsequently started 16-cell run was intentionally stopped after the
+support diagnosis; it is explicitly marked incomplete, not a failed
+constitutive solve or a passed refinement point.
+
+The example now accepts `--affine-end-face-support`, an explicit *physical*
+change: x-motion on the two z end faces follows the declared macroscopic
+affine motion. It reuses existing linear equations and the same contact law,
+material, Procedure and State. The contact patch remains free in its normal
+direction. This is a supported periodic structure, **not** a homogenization
+RVE or a numerical stabilization setting. The distinction matters:
+[COMSOL's periodic-cell theory][cell-periodicity] states the homogenization
+assumptions and its own rigid-motion handling; it does not justify adding
+arbitrary supports to an RVE. Our support conclusion comes from the measured
+force balance, not from borrowing a commercial capability claim.
+
+Three installed-fixture regressions passed: the original corner-class
+resultant, the supported finite-area reaction and prescribed displacement,
+and rejection of a checkpoint belonging to the other fixture followed by
+supported restart/continuous agreement. They check the engineering problem
+being solved, not only whether Newton terminates. The sensitivity driver
+now records the fixture, installed runtime identity and transport setting,
+and atomically saves every common physical station so an interrupted
+experiment cannot lose all its intermediate evidence.
+
+The supported-fixture matrix
+`evidence/contact/2026-10-21-supported-periodic-contact-refinement.json`
+completed all six 4/8/12-cell and 32/64-increment candidates at penalty
+40000 Pa/m. Every accepted increment meets the unchanged 1e-8 m penetration
+and 1e-7 pressure-length complementarity bounds. At 64 increments the final
+force magnitudes are 4.588710, 4.229122 and 3.960610 N. The 8-to-12-cell
+force difference is still 6.78% relative to the finer mesh, while displacement
+L2 and mean PEEQ differ by about 0.96% and 0.59%. At 12 cells, doubling
+32 to 64 increments changes final force by 5.89%. Consequently the new
+fixture has **not** passed a converged engineering-response claim either.
+The smaller sensitivity is not credited as a solver speed or accuracy gain:
+the physical support changed. Neither the sign nor the coarse-path relative
+error of the small signed gap-work quadrature is used as a dissipation test.
+The earlier two-case screen is retained separately. All costs here include
+setup/observations and brief lightweight test overlap, not paired timing.
+
+The completed post-fixture checks were three source regressions, 82 focused
+project-execution/environment/CI-selection tests, lint, generated-document
+consistency and a strict documentation build. An adjacent read-only
+execution-environment improvement records allowlisted MPI transport/progress
+requests and Accelerate/NumExpr thread settings. It does not choose a
+transport, expose unrelated environment values or add restart restrictions.
+The private composite replay retains the earlier frozen `8da7b93b` installation;
+this later diagnostic change is not injected into the running candidate.
+
+[cell-periodicity]: https://doc.comsol.com/6.4/doc/com.comsol.help.sme/sme_ug_theory.06.080.html
 [petsc-basic]: https://petsc.org/release/src/snes/linesearch/impls/basic/linesearchbasic.c.html
 [normal-al]: https://doc.comsol.com/6.4/doc/com.comsol.help.sme/sme_ug_theory.06.087.html
 [abaqus-contact-energy]: https://docs.software.vt.edu/abaqusv2025/English/SIMACAEEXARefMap/simaexa-c-contactenergy.htm

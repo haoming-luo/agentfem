@@ -350,6 +350,10 @@ _CORE_SOURCE_TEST_MAP = {
         "tests/test_common_workflows.py",
         "tests/test_results.py",
     ),
+    "src/agentfem/_execution_environment.py": (
+        "tests/test_execution_environment.py",
+        "tests/test_project_execution.py",
+    ),
     "src/agentfem/results": ("tests/test_results.py",),
     "src/agentfem/solvers.py": (
         "tests/test_solvers.py",
@@ -367,6 +371,10 @@ _CORE_SOURCE_TEST_MAP = {
     ),
     "src/agentfem/mechanics/_affine_normal_augmentation.py": (
         "tests/test_affine_normal_augmentation_research.py",
+        "tests/test_periodic_contact_fixture.py",
+    ),
+    "examples/finite_j2_periodic_augmented_plane.py": (
+        "tests/test_periodic_contact_fixture.py",
     ),
     "src/agentfem/boundary_models/_normal_work_path.py": (
         "tests/test_affine_normal_augmentation_research.py",

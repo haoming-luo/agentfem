@@ -54,6 +54,12 @@ finite valid full steps may temporarily increase the residual, while invalid
 material trials still reject. Backtracking remains the default; serial and
 distributed affine paths share the meaning with PETSc, and affected legacy
 basic-mode checkpoints cannot silently change algorithm.
+The bounded periodic-plane route now has joint work/restart and explicit
+mesh/increment/penalty sensitivity records. A reaction audit distinguishes its
+point-pinned one-sided-load demonstration from a separately declared,
+finite-area supported fixture; changing the fixture is not credited as a
+solver improvement. Neither numerical acceptance nor penalty insensitivity
+closes the independent spatial-accuracy gate.
 
 ### 0.4.3 released composition and next gate (2026-10-17)
 

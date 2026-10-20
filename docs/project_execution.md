@@ -199,6 +199,11 @@ settings exceeding the CPU affinity. Run admission saves
 `execution-environment.json` beside the outputs. It records visible resources,
 mount detection and explicitly supplied thread settings, not a speed prediction
 or a claim that all available cores are used.
+The allowlisted `mpi_environment` records requested `FI_PROVIDER` and MPI
+asynchronous-progress settings when supplied. An absent variable is unknown,
+not an inferred default; a recorded request does not prove the active transport
+or actual CPU use. These operational observations are not checkpoint identity
+constraints. The snapshot never captures the entire process environment.
 
 For I/O-heavy runs, a WSL-native working copy can avoid Windows filesystem
 interop costs. Export or back up results to Windows afterward: a distribution's

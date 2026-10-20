@@ -11,6 +11,7 @@ No full field archives are produced. Failed candidates remain in the report.
 import argparse
 import hashlib
 import json
+import os
 from pathlib import Path
 import platform
 import runpy
@@ -23,6 +24,7 @@ from dolfinx import fem
 from mpi4py import MPI
 
 import agentfem
+from agentfem import provenance
 
 
 def observe(step, factor):
@@ -79,6 +81,7 @@ def main():
     parser.add_argument("--cells", nargs="+", type=int, default=[4, 8])
     parser.add_argument("--increments", nargs="+", type=int, default=[16, 32, 64])
     parser.add_argument("--penalties", nargs="+", type=float, default=[10000.])
+    parser.add_argument("--affine-end-face-support", action="store_true")
     parser.add_argument("--output", type=Path, required=True)
     args = parser.parse_args()
     if MPI.COMM_WORLD.size != 1:
@@ -104,9 +107,14 @@ def main():
         "git_commit": subprocess.check_output(["git", "rev-parse", "HEAD"], cwd=root, text=True).strip(),
         "example_sha256": hashlib.sha256(example.read_bytes()).hexdigest(),
         "tool_sha256": hashlib.sha256(Path(__file__).read_bytes()).hexdigest(),
+        "runtime_identity": provenance.runtime_manifest()["identity"],
+        "mpi_transport_environment": {"FI_PROVIDER": os.environ.get("FI_PROVIDER")},
         "material": {"young": 1000., "poisson": .3, "yield_stress": 2., "hardening_modulus": 100.},
         "units": {"length": "m", "stress": "Pa", "force": "N", "work": "J"},
         "physical_path": "fixed plane x=1.005; periodic stretch 1/1.02/0.99/1.02 at 0/0.25/0.75/1",
+        "fixture": ("affine_x_motion_on_z_end_faces" if args.affine_end_face_support
+                    else "point_pinned_periodic_corner_class"),
+        "area_interpretation": "active_reference_area counts strictly positive multipliers, including numerical remnants; not a thresholded physical contact-area certificate",
         "numerical_tolerances": {"penetration": 1e-8, "complementarity": 1e-7},
         "records": [], "comparisons": [],
     }
@@ -120,14 +128,22 @@ def main():
     for cells in args.cells:
         for increments in args.increments:
             for penalty in args.penalties:
-                row = {"cells": cells, "increments": increments, "penalty": penalty, "stations": []}
+                row = {"cells": cells, "increments": increments, "penalty": penalty,
+                       "status": "running", "stations": []}
                 started = perf_counter()
+                report["records"].append(row)
+                save()
                 try:
-                    step = build(cells=cells, increments=increments, penalty=penalty)
+                    step = build(cells=cells, increments=increments, penalty=penalty,
+                                 affine_end_face_support=args.affine_end_face_support)
                     step.output_every = None
                     for factor in (.25, .5, .75, 1.):
                         step.solve(until=factor)
                         row["stations"].append(observe(step, factor))
+                        row["setup_solve_observe_seconds"] = perf_counter() - started
+                        save()
+                        print(json.dumps({"cells": cells, "increments": increments,
+                                          "penalty": penalty, "accepted_station": factor}), flush=True)
                     row.update(
                         status="completed",
                         accepted_increments=len(step.accepted_increments),
@@ -143,7 +159,6 @@ def main():
                 except (RuntimeError, ValueError) as exc:
                     row.update(status="failed", error=f"{type(exc).__name__}: {exc}")
                 row["setup_solve_observe_seconds"] = perf_counter() - started
-                report["records"].append(row)
                 save()
                 print(json.dumps({key: value for key, value in row.items() if key != "stations"}), flush=True)
     completed = [row for row in report["records"] if row["status"] == "completed"]

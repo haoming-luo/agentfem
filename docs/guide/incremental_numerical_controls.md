@@ -141,6 +141,15 @@ work, its discrete absolute bound and open-gap contribution appear under
 automatic energy verification. Ordinary MPC/tool generalized work remains in
 the existing constraint histories.
 
+The example's default point-pinned periodic corner class carries the net
+one-sided tool force. It is a discrete lifecycle demonstration, not a suitable
+continuum mesh-accuracy reference. The optional `--affine-end-face-support`
+declares finite-area x-motion guides on the two z end faces while leaving the
+interior contact patch free in its normal direction. This is a different
+physical fixture, not numerical stabilization or a repair of the contact law;
+its checkpoint identity differs. The associated sensitivity tool records which
+fixture was used and compares observables at common physical path stations.
+
 A prescribed translation uses the existing `prescribed_rigid_motion_schedule`
 on the rigid body, with normalized endpoints 0 and 1 and no separate amplitude.
 For strong boundaries the ordinary Step amplitude owns the tool coordinate, including unloading and

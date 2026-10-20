@@ -47,3 +47,32 @@ def test_path_fallback_and_missing_proc(monkeypatch):
     assert record['storage']['project']['windows_mount']
     assert not record['storage']['output']['windows_mount']
     assert not record['memory_bytes']
+
+
+def test_operational_environment_is_allowlisted_and_never_changed(monkeypatch):
+    monkeypatch.setattr(env.platform, 'system', lambda: 'Darwin')
+    for name in ('FI_PROVIDER', 'MPICH_ASYNC_PROGRESS', 'MPIR_CVAR_ASYNC_PROGRESS',
+                 'I_MPI_ASYNC_PROGRESS'):
+        monkeypatch.delenv(name, raising=False)
+    monkeypatch.setenv('FI_PROVIDER', 'tcp')
+    monkeypatch.setenv('MPICH_ASYNC_PROGRESS', '0')
+    monkeypatch.setenv('VECLIB_MAXIMUM_THREADS', '1')
+    monkeypatch.setenv('NUMEXPR_NUM_THREADS', '2')
+    monkeypatch.setenv('PRIVATE_SERVICE_TOKEN', 'must-not-be-recorded')
+    before = dict(env.os.environ)
+    record = env.execution_environment(project='/tmp/project', output='/tmp/output')
+    assert record['mpi_environment'] == {'FI_PROVIDER': 'tcp', 'MPICH_ASYNC_PROGRESS': '0'}
+    assert record['thread_environment']['VECLIB_MAXIMUM_THREADS'] == '1'
+    assert record['thread_environment']['NUMEXPR_NUM_THREADS'] == '2'
+    assert 'must-not-be-recorded' not in repr(record)
+    assert dict(env.os.environ) == before
+    assert not record['settings_modified']
+    assert record['scope'] == 'startup_snapshot_not_execution_route_or_speed_prediction'
+
+
+def test_unset_mpi_environment_is_unknown_not_an_inferred_default(monkeypatch):
+    for name in ('FI_PROVIDER', 'MPICH_ASYNC_PROGRESS', 'MPIR_CVAR_ASYNC_PROGRESS',
+                 'I_MPI_ASYNC_PROGRESS'):
+        monkeypatch.delenv(name, raising=False)
+    record = env.execution_environment(project='/tmp/project', output='/tmp/output')
+    assert record['mpi_environment'] == {}
