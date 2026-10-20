@@ -2,6 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 """Single-station output for providers exposing accepted cell responses."""
 from pathlib import Path
+from copy import deepcopy
 import json
 import numpy as np
 
@@ -110,7 +111,10 @@ class AcceptedResponseSeries:
         self.path = Path(path)
         if self.path.suffix != ".xdmf":
             raise ValueError("AFM-FRAMES-PATH: expected .xdmf")
-        self.options = dict(state_fields=state_fields, velocity=velocity, acceleration=acceleration)
+        # Output choices belong to this series. In particular, list-valued
+        # selectors must not change when a caller edits its original mapping.
+        self.options = dict(state_fields=deepcopy(state_fields),
+                            velocity=velocity, acceleration=acceleration)
         self.units = json.loads(json.dumps(units or {}, allow_nan=False))
         self._writer = None
         self._closed = False
@@ -134,8 +138,11 @@ class AcceptedResponseSeries:
                 raise FileExistsError("AFM-FRAMES-EXISTS: use a fresh series path")
             self._writer = ResultWriter(self.path, nodal[0].function_space.mesh)
             self._writer.__enter__()
-            self._identity = identity
         self._writer.write(record["time"], *nodal, *fields)
+        if self._identity is None:
+            # Freeze only a successfully written descriptor, and never retain
+            # a provider-owned mutable schema as the previous-frame identity.
+            self._identity = deepcopy(identity)
         self.stations.append({"increment": int(step.completed_steps), "time": float(record["time"])})
 
     def close(self, *, complete=False):

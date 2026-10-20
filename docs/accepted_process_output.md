@@ -22,6 +22,14 @@ its endpoint; a restart writes a new continuation segment on the original
 schedule. Missing earlier frames are not reconstructed. Zero-state fields at
 initialization remain the provider's responsibility, not the output adapter's.
 
+The series owns its field-selection configuration, including nested component
+selectors. Later edits to the caller's mapping do not change what the series
+means. The first successfully written frame freezes an independent copy of
+the material-state descriptor; an in-place provider schema change is rejected
+before another frame is written. Rejected first-frame data does not establish
+a successful schema. These copies contain small descriptors, not full state
+or mesh arrays.
+
 Open `process.xdmf` and use ParaView's time controls. Apply Warp By Vector once.
 Each frame is one volume grid with all selected point and cell fields. The
 existing writer shares topology and reference coordinates, compresses field

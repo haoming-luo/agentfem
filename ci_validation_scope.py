@@ -354,6 +354,11 @@ _CORE_SOURCE_TEST_MAP = {
         "tests/test_execution_environment.py",
         "tests/test_project_execution.py",
     ),
+    "src/agentfem/results/accepted_export.py": (
+        "tests/test_project_execution.py",
+        "tests/test_xdmf_layout.py",
+        "tests/test_xdmf_cell_ordering.py",
+    ),
     "src/agentfem/results": ("tests/test_results.py",),
     "src/agentfem/solvers.py": (
         "tests/test_solvers.py",

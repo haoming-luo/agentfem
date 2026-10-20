@@ -238,6 +238,75 @@ def test_series_with_raw_endpoint_has_one_visualization(tmp_path):
         np.testing.assert_array_equal(archive['state'], step.accepted_material_fields()['state'])
 
 
+def test_series_owns_mutable_field_selection(tmp_path):
+    from agentfem import results
+    from test_response_material_step import make_step
+    selected = {'clock': ['clock', None]}
+    series = results.AcceptedResponseSeries(tmp_path / 'owned.xdmf', state_fields=selected)
+    step = make_step(steps=3)
+    series.write(step)
+    # Configuration ownership must include nested list selectors, not only
+    # copying the outer mapping. A caller's later edits are not an output edit.
+    selected['clock'][0] = 'unknown_after_construction'
+    selected['added_later'] = ('clock', None)
+    step.run(until_step=1)
+    series.write(step)
+    series.close()
+    metadata = json.loads((tmp_path / 'owned.json').read_text())
+    assert metadata['state_fields'] == {'clock': ['clock', None]}
+    assert len(metadata['stations']) == 2
+
+
+def test_series_detects_in_place_provider_schema_change(tmp_path):
+    from agentfem import results
+    from test_response_material_step import make_step
+    from types import SimpleNamespace
+    step = make_step(steps=3)
+    record = dict(step.accepted_material_fields())
+    original_schema = json.loads(json.dumps(record['state_schema']))
+    provider = SimpleNamespace(
+        state=step.state, steps=step.steps, completed_steps=0,
+        accepted_material_fields=lambda: record,
+    )
+    series = results.AcceptedResponseSeries(tmp_path / 'schema.xdmf')
+    series.write(provider)
+    # A buggy provider can mutate one shared schema dictionary. The writer
+    # must compare against its owned previous descriptor, not the same object.
+    record['state_schema']['identity'] = 'changed-schema@2'
+    record['time'] = step.dt
+    provider.completed_steps = 1
+    with pytest.raises(ValueError, match='AFM-FRAMES-SCHEMA'):
+        series.write(provider)
+    series.close()
+    metadata = json.loads((tmp_path / 'schema.json').read_text())
+    assert metadata['state_schema'] == original_schema
+    assert [station['increment'] for station in metadata['stations']] == [0]
+
+
+def test_rejected_first_frame_does_not_bind_a_schema(tmp_path):
+    from agentfem import results
+    from test_response_material_step import make_step
+    from types import SimpleNamespace
+    step = make_step(steps=3)
+    record = dict(step.accepted_material_fields())
+    provider = SimpleNamespace(
+        state=step.state, steps=step.steps, completed_steps=0,
+        accepted_material_fields=lambda: record,
+    )
+    series = results.AcceptedResponseSeries(tmp_path / 'first-valid.xdmf')
+    step.state.u.value.x.array[:] = np.nan
+    with pytest.raises(ValueError, match='finite real'):
+        series.write(provider)
+    assert not series.stations
+    step.state.u.value.x.array[:] = 0.
+    record['state_schema']['identity'] = 'first-successful-schema@1'
+    series.write(provider)
+    series.close()
+    metadata = json.loads((tmp_path / 'first-valid.json').read_text())
+    assert metadata['state_schema']['identity'] == 'first-successful-schema@1'
+    assert [station['increment'] for station in metadata['stations']] == [0]
+
+
 def test_cell_transport_reuses_mapping_not_field_storage():
     from agentfem.results.cell_data import _CellFieldTransport
     from test_response_material_step import make_step
