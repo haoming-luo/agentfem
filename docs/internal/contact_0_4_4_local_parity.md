@@ -24,6 +24,37 @@ being silently approximated by the bounded route.
 
 ## Live gate status
 
+### 2026-10-22 separated time/space refinement
+
+The finite-area-supported periodic J2/plane fixture now has both 128- and
+256-increment paths on 8- and 12-cell meshes. The 12-cell study explicitly
+selects MUMPS after the same-model backend comparison below; its numerical
+and physical inputs otherwise match. All accepted stations meet penetration
+1e-8 and complementarity 1e-7, including opening, unloading and recontact.
+
+| Cells per edge | Increments | Final force magnitude (N) | Displacement L2 | Mean PEEQ | Signed relative-gap work (J) |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| 8 | 128 | 4.38449911 | 0.0110007384 | 0.0635272994 | -7.27418e-5 |
+| 8 | 256 | 4.46981161 | 0.0110002343 | 0.0635578553 | -1.86169e-5 |
+| 12 | 128 | 4.09973201 | 0.0111094465 | 0.0631515272 | -8.04070e-5 |
+| 12 | 256 | 4.17988201 | 0.0111101705 | 0.0631811981 | -1.89452e-5 |
+
+On the 12-cell mesh, 128→256 changes final reaction by 1.9175% and mean
+PEEQ by 0.0470%, relative to the finer path. At 256 increments, 8→12 changes
+reaction by 6.94% and mean PEEQ by about 0.60%, relative to the finer mesh.
+Thus the spatial reaction gap is not explained away by the earlier coarse
+increment path. The signed relative-gap work decreases in magnitude with
+refinement; it is not plastic dissipation or a general first-law certificate.
+Peak pressures/PEEQ are not substituted for these integral comparisons.
+
+Evidence: `2026-10-22-supported-periodic-time-refinement.json` and
+`2026-10-22-supported-periodic-refinement-12-mumps.json`. The latter accepted
+128/256 increments with 1271/2288 Newton iterations. Its elapsed durations
+are scientific-study provenance, not an isolated speed comparison.
+Gate 8 remains open: next compare spatial discretization/contact enforcement
+at a fixed resolved path and retain the external same-input comparator gate.
+Do not lower accuracy requirements merely to promote this release target.
+
 ### 2026-10-22 linear backend and option-transport audit
 
 The public Newton adapter silently dropped explicitly supplied inner linear
