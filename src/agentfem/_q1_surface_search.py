@@ -7,7 +7,7 @@ import heapq
 import numpy as np
 
 from ._q1_surface_geometry import q1_closest_point, q1_triangulation_distance_bound
-from .boundary_models.rigid import TriangulatedRigidSurface
+from .boundary_models.rigid import TriangulatedRigidSurface, _readonly_array
 from .boundary_models.search import TriangleSurfaceBVH, _bbox_squared_distance
 
 
@@ -182,7 +182,14 @@ class Q1SurfaceSearch:
     def __init__(self, vertices, *, node_ids=None, _previous=None, execution=None):
         self.execution = execution
         self.vertices = np.array(vertices, dtype=float, copy=True)
+        if _previous is not None and (
+            not isinstance(_previous, Q1SurfaceSearch)
+            or self.vertices.shape != _previous.vertices.shape
+            or not np.array_equal(node_ids, _previous.node_ids)
+        ):
+            raise ValueError("Q1 refit requires unchanged ordered trace topology.")
         self.node_ids = None
+        self._node_order = None
         if node_ids is not None:
             ids = np.asarray(node_ids)
             if (
@@ -193,9 +200,12 @@ class Q1SurfaceSearch:
                 raise ValueError(
                     "Q1 node identities must be nonnegative facet connectivity."
                 )
-            self.node_ids = ids.copy()
-            self.node_ids.flags.writeable = False
-            order = np.argsort(ids.ravel(), kind="stable")
+            # Sorting reuse depends on these exact identity bytes, not merely
+            # a reversible ndarray writeable flag.
+            self.node_ids = _readonly_array(ids, dtype=ids.dtype)
+            order = (np.argsort(ids.ravel(), kind="stable") if _previous is None
+                     else _previous._node_order)
+            self._node_order = _readonly_array(order, dtype=np.int64)
             ordered_ids = ids.ravel()[order]
             ordered_points = self.vertices.reshape(-1, 3)[order]
             if np.any(
@@ -216,13 +226,24 @@ class Q1SurfaceSearch:
         # Coordinate welding is unchanged, but storage follows first facet
         # occurrence rather than lexicographic current coordinates. Ordinary
         # motion must not gratuitously renumber unchanged triangle topology.
-        nodes, inverse = _weld_coordinates(self.vertices.reshape(-1, 3))
+        points = self.vertices.reshape(-1, 3)
+        reused = False
+        if _previous is not None:
+            inverse, first = _previous._weld_inverse, _previous._weld_first
+            nodes = points[first]
+            # Coordinate equality, not small motion, licenses reuse. Existing
+            # weld classes must remain equal and distinct classes must not meet.
+            # Splitting/merging classes follows the original fresh-weld path.
+            reused = (np.array_equal(points, nodes[inverse])
+                      and len(np.unique(nodes, axis=0)) == len(nodes))
+        if not reused:
+            nodes, inverse = _weld_coordinates(points)
+            first = np.full(len(nodes), len(points), dtype=np.int64)
+            np.minimum.at(first, inverse, np.arange(len(points)))
+        self._weld_inverse = _readonly_array(inverse, dtype=np.int64)
+        self._weld_first = _readonly_array(first, dtype=np.int64)
         surface = TriangulatedRigidSurface(nodes, inverse[triangles])
         if _previous is not None:
-            if (not isinstance(_previous, Q1SurfaceSearch)
-                    or self.vertices.shape != _previous.vertices.shape
-                    or not np.array_equal(self.node_ids, _previous.node_ids)):
-                raise ValueError("Q1 refit requires unchanged ordered trace topology.")
             self.tree = _previous.tree._refitted(surface)
         else:
             self.tree = TriangleSurfaceBVH(surface)

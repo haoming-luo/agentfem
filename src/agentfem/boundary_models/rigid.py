@@ -1322,7 +1322,7 @@ class TriangulatedRigidSurface(RigidSurface):
                 raise ValueError("Surface triangle indices must be integers.")
         else:
             triangles = triangles_raw.astype(np.int64, copy=True)
-        from ._triangle_topology import reviewed_triangle_topology
+        from ._triangle_topology import reviewed_triangle_topology, reviewed_edge_neighbors
 
         edge_count, boundary_edge_count = reviewed_triangle_topology(
             len(vertices), triangles
@@ -1338,17 +1338,7 @@ class TriangulatedRigidSurface(RigidSurface):
         # Neighbor identity belongs to the immutable tool topology, not to a
         # Newton trial.  Column j is the facet across the edge opposite local
         # vertex j; -1 denotes an actual free edge.
-        opposite_edges = triangles[:, ((1, 2), (2, 0), (0, 1))].reshape(-1, 2)
-        _, inverse = np.unique(
-            np.sort(opposite_edges, axis=1), axis=0, return_inverse=True,
-        )
-        edge_order = np.argsort(inverse, kind="stable")
-        paired = inverse[edge_order[1:]] == inverse[edge_order[:-1]]
-        first = edge_order[:-1][paired]
-        second = edge_order[1:][paired]
-        edge_neighbors = np.full(triangles.shape, -1, dtype=np.int64)
-        edge_neighbors.reshape(-1)[first] = second // 3
-        edge_neighbors.reshape(-1)[second] = first // 3
+        edge_neighbors = reviewed_edge_neighbors(triangles)
 
         lower = np.min(vertices, axis=0)
         upper = np.max(vertices, axis=0)

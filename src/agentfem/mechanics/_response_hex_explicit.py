@@ -252,11 +252,15 @@ class ResponseHexExplicitResidual:
         self.time = float(time)
 
     def assemble_vector(self):
-        try:
-            return self._assemble_vector()
-        except BaseException:
-            self.rollback()
-            raise
+        from contextlib import nullcontext
+        ledger = getattr(self, 'performance', None)
+        scope = nullcontext() if ledger is None else ledger.measure('body_residual_inclusive')
+        with scope:
+            try:
+                return self._assemble_vector()
+            except BaseException:
+                self.rollback()
+                raise
 
     def _assemble_vector(self):
         from ..constitutive._explicit_material import explicit_increment_policy_identity

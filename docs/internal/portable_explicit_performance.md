@@ -8,6 +8,106 @@ numerical-method comparison and hardware selection. The next major target is
 the accepted-increment execution path and the number of full-domain updates,
 not another isolated arithmetic kernel or output-format rewrite.
 
+## 2026-10-22: late-path audit and bounded execution changes
+
+The completed 25-frame trajectory at `743f10b4` recorded 14,932.091 s of
+process elapsed time (not an isolated benchmark); inclusive residual assembly
+was approximately 89% of solver wall time. Field output is not the dominant
+cost. Preserve that run rather than regenerate a delivery archive.
+
+A separate 95,000-to-95,120 continuation with detailed profiling recorded
+18.939 s of advancement, 14.853 s inclusive body time and 13.795 s inclusive
+deformable-contact time. The latter two **overlap** and cannot be summed.
+These profiled numbers locate work; they are not uninstrumented throughput.
+The contact-thread profile revealed repeated connectivity sorting during
+current-geometry refitting, in addition to projection and inside/outside work.
+
+### Invariants before implementation
+
+- Reuse only exact connectivity adjacency and verified coordinate-equivalence
+  maps. Adjacency cache keys are full ordered connectivity bytes, with at most
+  four inputs of at most 4 MiB. Returned metadata are independent over immutable
+  byte storage. No cached normal, gap, contact force or geometry-validity result
+  survives a new configuration.
+- For Q1 refitting, reuse the first-occurrence weld map only if every existing
+  class still has equal coordinates and distinct classes remain distinct.
+  Splitting/merging classes rebuilds through the original welding algorithm;
+  a shared physical node with inconsistent coordinates still rejects. Geometry,
+  normals, degenerate triangles, bounds and exact projection remain current.
+- Extend the native affine-remainder **sufficient** cell screen beyond the
+  near-identity ball. A normalized, cancellation-filtered determinant establishes
+  orientation independently of the Gram matrix. Gershgorin lower/upper bounds
+  on `F.T F`, with roundoff margins, bound singular values for the existing
+  remainder test. Uncertain orientation, nonpositive spectral lower bounds,
+  overflow or an excessive nonaffine remainder retain reference SVD/Bernstein
+  checks. Positive mean determinant alone never admits a cell. These floating
+  point guards are not a formal interval-arithmetic proof.
+- No material law, increment, numerical mass, contact tolerance, force summation
+  order or accepted-state/checkpoint payload is changed by these optimizations.
+
+The spectral bounds use the standard [Gershgorin inclusion theorem](
+https://www.cs.cornell.edu/courses/cs6210/2025fa/lec/2025-10-22.html).
+The full-cell fallback retains the Bernstein approach described by
+[Johnen, Weill and Remacle](https://hdl.handle.net/2078.5/258622).
+Neither reference is a performance result for AgentFEM.
+
+### Performance ownership
+
+The existing `PerformanceLedger` now records `body_residual_inclusive`,
+`body_cell_gather`, `body_kinematics_admission`, `body_material_and_force`,
+`body_bulk_viscosity`, `body_force_scatter`, `deformable_contact_inclusive`
+and `contact_owner_wait` when those paths execute. Body subphases are nested;
+contact may overlap the body. `contact_owner_wait` measures the owner's wait
+at the join, not total contact cost and not CPU utilization. Native-call elapsed
+time may include scheduler/interpreter contention. Attempted failed phases
+remain timing evidence; timing does not mean physical state acceptance.
+Workers return elapsed durations; only the owner thread mutates the shared
+ledger. Timings are operational evidence, not restart identity or physical state.
+
+Promotion requires an unprofiled alternating same-state continuation comparison,
+including displacement, velocity, acceleration, deformation gradient, material
+history and stress. The early profiled screens had equal numerical fields but
+are insufficient to claim a whole-run percentage. Full-run, other-machine and
+WSL throughput remain separate evidence obligations.
+
+### Same-state alternating continuation evidence
+
+The 95,000-to-95,600 continuation used the unchanged private review material
+and checkpoint, with material/cell workers 8/4 and geometry/projection workers
+2/4. Runs were sequential, with cProfile disabled. Setup, checkpoint loading and
+the final comparison archive are outside the measured advancement; five small
+elapsed-time wrappers are present in both routes. This is not a complete-run
+benchmark or a change to the recommended worker count on other computers.
+
+| Execution order | Route | Advancement seconds |
+| --- | --- | ---: |
+| A1 | Frozen installed `743f10b4` | 87.257603 |
+| B1 | Native affine screen + topology/weld reuse + shared timing ledger | 76.804792 |
+| B2 | Same candidate, including immutable node-identity storage | 75.001206 |
+| A2 | Frozen installed `743f10b4` | 85.470891 |
+
+Candidate mean is 75.902999 s versus 86.364247 s for the baseline: **12.11%
+less elapsed time in this late-path window**, or 1.138 times throughput. B1
+preceded the metadata-only node-identity immutability hardening; B2 includes it.
+All six compared full arrays (displacement, velocity, acceleration, deformation
+gradient, material history and Cauchy stress) are bitwise equal across all four
+runs. Body summaries, including accumulated material internal work and bulk
+viscosity work, are equal. This parity verifies unchanged execution for the
+tested path, not the physical validity of the mass scaling or material model.
+
+Mean inclusive contact time decreased from 64.391321 to 52.776002 s; mean
+inclusive body time decreased from 69.464271 to 58.818001 s, while the directly
+wrapped material/force call stayed near 30.3 s. The concurrent branches cannot
+be added. Reduced contact-side sorting/interpreter work can also shorten body
+waiting, so these are not independent speedup contributions.
+
+The affected geometry, response-material, deformable-contact, rollback/restart,
+viscosity and performance-ledger regressions passed **190 tests** in the real
+FEniCSx environment. Lint and whitespace checks passed. The next promotion gate
+is representative earlier states and the installed combined route, not another
+unrelated full test suite. Private full arrays remain in local evidence folders;
+no confidential material or model assets are copied into this repository.
+
 ## Completed baseline
 
 Frozen core `608c50bb` completed the 255,041-cell, 100,000-increment review path

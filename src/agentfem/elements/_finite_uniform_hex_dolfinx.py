@@ -270,6 +270,10 @@ class FiniteUniformHexResidual:
         )
         from ._finite_uniform_hex_material import FiniteHexMaterialTrial
         from ..state import field_transaction
+        from contextlib import nullcontext
+
+        ledger = getattr(self, 'performance', None)
+        measure = (lambda name: nullcontext()) if ledger is None else ledger.measure
 
         if self.comm.size != 1 or not isinstance(self.response, ExplicitQuadratureResponse):
             raise NotImplementedError("Expected serial response-only quadrature.")
@@ -284,20 +288,23 @@ class FiniteUniformHexResidual:
                 nodal = self.displacement.x.array.copy()
                 # Axis-specific gather creates detached cell storage without
                 # the generic multi-axis advanced-indexing overhead.
-                displacement = self._gather_cell_vectors(nodal.reshape(-1, 3))
-                if self.execution_kernel is not None and self.execution_kernel.prepare_kinematics is not None:
-                    from .explicit_execution import prepare_kernel_kinematics
-                    from ..constitutive.material_array_batch import _array
-                    displacement = _array(displacement, displacement.shape, 'cell_displacement')
-                    gradient = prepare_kernel_kinematics(self.execution_kernel,
-                                                         self._execution_geometry, displacement)
-                else:
-                    gradient = self.cells.deformation_gradient(displacement)
-                prepared, element = self._prepare_explicit_response(
-                    material, displacement, gradient,
-                    deformation_gradient_old=deformation_gradient_old,
-                    time=time, time_increment=time_increment)
-                self.response._assign_prepared(prepared)
+                with measure('body_cell_gather'):
+                    displacement = self._gather_cell_vectors(nodal.reshape(-1, 3))
+                with measure('body_kinematics_admission'):
+                    if self.execution_kernel is not None and self.execution_kernel.prepare_kinematics is not None:
+                        from .explicit_execution import prepare_kernel_kinematics
+                        from ..constitutive.material_array_batch import _array
+                        displacement = _array(displacement, displacement.shape, 'cell_displacement')
+                        gradient = prepare_kernel_kinematics(self.execution_kernel,
+                                                             self._execution_geometry, displacement)
+                    else:
+                        gradient = self.cells.deformation_gradient(displacement)
+                with measure('body_material_and_force'):
+                    prepared, element = self._prepare_explicit_response(
+                        material, displacement, gradient,
+                        deformation_gradient_old=deformation_gradient_old,
+                        time=time, time_increment=time_increment)
+                    self.response._assign_prepared(prepared)
                 response = prepared.response
                 if not np.array_equal(self.displacement.x.array, nodal):
                     raise RuntimeError("Material callback changed the admitted Hex8 configuration.")
@@ -309,28 +316,30 @@ class FiniteUniformHexResidual:
                     from ._bulk_viscosity_policy import BulkViscosityPolicy
                     from .._small_matrix import determinants_3x3
 
-                    velocity_field = unwrap(velocity)
-                    if velocity_field.function_space is not self.displacement.function_space:
-                        raise ValueError("Velocity and displacement must share the function space.")
-                    options = (bulk_viscosity.options(determinants_3x3(gradient))
-                               if isinstance(bulk_viscosity, BulkViscosityPolicy)
-                               else bulk_viscosity)
-                    cell_velocity = self._gather_cell_vectors(velocity_field.x.array.reshape(-1, 3))
-                    def reference_viscosity():
-                        return _bulk_viscosity_from_checked_gradient(
-                            self.cells, gradient, cell_velocity, **options)
-                    if self.execution_kernel is not None and self.execution_kernel.evaluate_viscosity is not None:
-                        from .explicit_execution import prepare_kernel_viscosity
-                        viscosity = prepare_kernel_viscosity(self.execution_kernel, self._execution_geometry,
-                            gradient, cell_velocity, options, reference_viscosity)
-                    else:
-                        viscosity = reference_viscosity()
+                    with measure('body_bulk_viscosity'):
+                        velocity_field = unwrap(velocity)
+                        if velocity_field.function_space is not self.displacement.function_space:
+                            raise ValueError("Velocity and displacement must share the function space.")
+                        options = (bulk_viscosity.options(determinants_3x3(gradient))
+                                   if isinstance(bulk_viscosity, BulkViscosityPolicy)
+                                   else bulk_viscosity)
+                        cell_velocity = self._gather_cell_vectors(velocity_field.x.array.reshape(-1, 3))
+                        def reference_viscosity():
+                            return _bulk_viscosity_from_checked_gradient(
+                                self.cells, gradient, cell_velocity, **options)
+                        if self.execution_kernel is not None and self.execution_kernel.evaluate_viscosity is not None:
+                            from .explicit_execution import prepare_kernel_viscosity
+                            viscosity = prepare_kernel_viscosity(self.execution_kernel, self._execution_geometry,
+                                gradient, cell_velocity, options, reference_viscosity)
+                        else:
+                            viscosity = reference_viscosity()
                     # Both contributions share the same cell-to-node map.
                     # Assemble once, retaining separate response/energy records.
-                vector = self._scatter(
-                    cell_force,
-                    additional_cell_values=None if viscosity is None else viscosity.internal_force,
-                )
+                with measure('body_force_scatter'):
+                    vector = self._scatter(
+                        cell_force,
+                        additional_cell_values=None if viscosity is None else viscosity.internal_force,
+                    )
                 gradient.setflags(write=False)
                 yield vector, FiniteHexMaterialTrial(gradient, element, response, viscosity)
                 if not np.array_equal(self.displacement.x.array, nodal):

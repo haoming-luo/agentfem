@@ -19,6 +19,43 @@ or a successful run is not by itself a validated engineering capability.
 
 ## Current product phase: the 0.4 foundation
 
+### 2026-10-22 implementation priorities
+
+Keep the implicit-contact scientific gate and the explicit-composite throughput
+gate separate. A faster explicit implementation does not close implicit contact
+convergence; a completed composite run does not establish external-code parity.
+
+1. **Measure and remove redundant execution.** The completed 100,000-increment
+   composite run still attributes approximately 89% of solver wall time to
+   residual assembly. Profile the late damaged configuration, including the
+   overlapping body/contact branches, before changing algorithms. First test
+   whether native whole-cell geometry admission can avoid repeated reference
+   work for proper large rotations and stretches. Retain uncertain-cell fallback,
+   the material law, increment, numerical mass and accepted-state contracts.
+2. **Make execution evidence explainable.** Distinguish inclusive body cost,
+   geometry cost, owner-thread waiting and publication cost. These are concurrent
+   or nested quantities, not additive percentages. Use the existing performance
+   ledger; do not create a second authoritative solver/state or benchmark policy.
+3. **Close the actual implicit-contact accuracy gap.** Continue the bounded
+   finite-area-supported J2/plane fixture with common accepted load stations and
+   independent spatial/increment refinement. Diagnose contact integration and
+   material path errors separately before extending geometry or enforcement.
+   Keep the independent comparator and unsupported sharp-feature boundaries
+   explicit; do not promote the 0.4.4 parity target by test count.
+4. **Preserve recovery and usable output.** Keep the verified 25-frame run and
+   its final checkpoint unchanged. New profiling runs write to separate locations.
+   A restart identity mismatch must be investigated, never bypassed to make a
+   timing experiment work. Packaging and another full production run are deferred
+   until a measured change merits them.
+
+The execution decomposition follows the distinction between element restriction,
+quadrature work and global reduction in [libCEED's interface concepts](
+https://libceed.org/en/latest/libCEEDapi/). Displacement-bounded candidate reuse
+is informed by [LAMMPS neighbor-list maintenance](
+https://docs.lammps.org/Developer_par_neigh.html), but any Q1 contact reuse requires
+its own complete-coverage and moving-geometry tests. Neither source supplies an
+AgentFEM speedup number.
+
 ### 0.4.4 bounded contact-parity sprint (target, not a capability claim)
 
 The next release target is **local, explicitly bounded parity** for serial

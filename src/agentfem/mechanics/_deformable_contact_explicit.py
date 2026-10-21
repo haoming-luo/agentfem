@@ -4,6 +4,7 @@
 
 from dataclasses import replace
 from contextlib import contextmanager
+from time import monotonic
 
 import numpy as np
 
@@ -149,7 +150,10 @@ class DeformableQ1ContactResidual:
         vector = None
         try:
             values = self._values()
-            response = self._evaluate_contact(values)
+            try:
+                response = self._evaluate_contact_timed(values)
+            finally:
+                self._record_contact_time()
             vector = self.base.assemble_vector()
             self._add(vector, response)
             self.trial = (*values, response)
@@ -170,14 +174,21 @@ class DeformableQ1ContactResidual:
             values = self._values()
             for value in values:
                 value.flags.writeable = False
-            future = self._geometry_executor.submit(self._evaluate_contact, values)
+            self._last_contact_seconds = None
+            future = self._geometry_executor.submit(self._evaluate_contact_timed, values)
             body_error = None
             try:
                 vector = self.base.assemble_vector()
             except BaseException as error:
                 body_error = error
             # Preserve contact-before-body failure precedence of serial assembly.
-            response = future.result()
+            started = monotonic()
+            try:
+                response = future.result()
+            finally:
+                ledger = getattr(self, 'performance', None)
+                if ledger is not None:
+                    ledger.add('contact_owner_wait', monotonic() - started)
             if body_error is not None:
                 raise body_error
             self._add(vector, response)
@@ -196,7 +207,24 @@ class DeformableQ1ContactResidual:
             self.rollback()
             raise
         finally:
+            if future is not None:
+                # Success and error paths have both joined the geometry worker.
+                # Never publish into the shared ledger from the worker itself.
+                self._record_contact_time()
             self._geometry_busy = False
+
+    def _evaluate_contact_timed(self, values):
+        started = monotonic()
+        try:
+            return self._evaluate_contact(values)
+        finally:
+            self._last_contact_seconds = monotonic() - started
+
+    def _record_contact_time(self):
+        ledger = getattr(self, 'performance', None)
+        elapsed = getattr(self, '_last_contact_seconds', None)
+        if ledger is not None and elapsed is not None:
+            ledger.add('deformable_contact_inclusive', elapsed)
 
     def _evaluate_contact(self, values):
         """Geometry-only evaluation from copied displacement arrays.

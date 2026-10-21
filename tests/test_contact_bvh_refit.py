@@ -61,3 +61,48 @@ def test_single_leaf_refit():
     moved = TriangulatedRigidSurface(surface.vertices+[0,0,2],surface.triangles)
     answer = tree._refitted(moved)
     np.testing.assert_array_equal(answer.bounds,[[0,0,2],[1,1,2]])
+
+
+def test_q1_refit_reuses_only_unchanged_exact_weld_classes(monkeypatch):
+    from agentfem import _q1_surface_search as module
+    from test_q1_surface_search import square
+    vertices = np.array([square(), square() + [1, 0, 0]])
+    original_weld = module._weld_coordinates
+    calls = []
+    def tracked(points):
+        calls.append(len(points))
+        return original_weld(points)
+    monkeypatch.setattr(module, '_weld_coordinates', tracked)
+    original = module.Q1SurfaceSearch(vertices)
+    moved = module.Q1SurfaceSearch(vertices + [3, 4, 5], _previous=original)
+    assert calls == [8]
+    assert not moved._weld_inverse.flags.writeable
+    # Changing coordinate equivalence without changing facet count must not
+    # silently retain the old welding. This generic open patch has no node IDs.
+    split = vertices.copy(); split[1, :, 2] += .1
+    split_search = module.Q1SurfaceSearch(split, _previous=original)
+    assert calls == [8, 8]
+    merged = module.Q1SurfaceSearch(vertices, _previous=split_search)
+    assert calls == [8, 8, 8]
+    query = np.array([[.2, .3, .01], [1.2, .3, .01]])
+    for current, expected in ((merged, original),
+                              (split_search, module.Q1SurfaceSearch(split))):
+        a, b = (s.project(query, maximum_distance=.2) for s in (current, expected))
+        for name in ('points', 'normals', 'weights', 'facet_indices', 'distances'):
+            np.testing.assert_array_equal(a[name], b[name])
+
+
+def test_cached_node_sort_does_not_hide_inconsistent_coordinates():
+    from agentfem._q1_surface_search import Q1SurfaceSearch
+    from test_q1_surface_search import square
+    vertices = np.array([square(), square() + [1, 0, 0]])
+    ids = np.array([[0, 1, 2, 3], [1, 4, 5, 2]])
+    initial = Q1SurfaceSearch(vertices, node_ids=ids)
+    with pytest.raises(ValueError):
+        initial.node_ids.setflags(write=True)
+    moved = vertices.copy(); moved[1, :, 2] += .1
+    with pytest.raises(ValueError, match='inconsistent coordinates'):
+        Q1SurfaceSearch(moved, node_ids=ids, _previous=initial)
+    changed = ids.copy(); changed[1, 0] = 6
+    with pytest.raises(ValueError, match='unchanged ordered trace topology'):
+        Q1SurfaceSearch(vertices, node_ids=changed, _previous=initial)

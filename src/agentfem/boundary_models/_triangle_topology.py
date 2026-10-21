@@ -80,6 +80,37 @@ def _check(vertex_count, payload, require_connected_vertex_links):
 _cached_check = lru_cache(maxsize=4)(_check)
 
 
+def _edge_neighbors(payload):
+    """Coordinate-independent adjacency for an already reviewed topology."""
+    triangles = np.frombuffer(payload, dtype=np.int64).reshape(-1, 3)
+    edges = triangles[:, ((1, 2), (2, 0), (0, 1))].reshape(-1, 2)
+    _, inverse = np.unique(np.sort(edges, axis=1), axis=0, return_inverse=True)
+    order = np.argsort(inverse, kind='stable')
+    paired = inverse[order[1:]] == inverse[order[:-1]]
+    first, second = order[:-1][paired], order[1:][paired]
+    neighbors = np.full(triangles.shape, -1, dtype=np.int64)
+    neighbors.reshape(-1)[first] = second // 3
+    neighbors.reshape(-1)[second] = first // 3
+    # Cache immutable bytes, not ndarray metadata writable by a caller.
+    return neighbors.tobytes(order='C')
+
+
+_cached_edge_neighbors = lru_cache(maxsize=4)(_edge_neighbors)
+
+
+def reviewed_edge_neighbors(triangles):
+    """Reuse bounded exact connectivity only, never a deformed geometry.
+
+    Call only after reviewed_triangle_topology. A changed ordering or index
+    changes the byte key. Every returned array has independent metadata over
+    immutable storage. Large inputs use the same algorithm without retention.
+    """
+    selected = np.asarray(triangles, dtype=np.int64)
+    payload = selected.tobytes(order='C')
+    build = _cached_edge_neighbors if len(payload) <= 4*1024*1024 else _edge_neighbors
+    return np.frombuffer(build(payload), dtype=np.int64).reshape(selected.shape)
+
+
 def reviewed_triangle_topology(
     vertex_count, triangles, *, require_connected_vertex_links=False,
 ):

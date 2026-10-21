@@ -163,6 +163,9 @@ def test_affine_removed_random_nonaffine_admission_is_conservative():
 
 
 def test_near_rigid_affine_screen_avoids_svd_but_keeps_nonaffine_fallback(monkeypatch):
+    from agentfem.elements import _hex_validity
+    # Exercise the NumPy fallback independently of optional native screens.
+    monkeypatch.setattr(_hex_validity, '_native_affine_screen', None)
     from agentfem.elements._hex_validity import reference_perturbation_radius, admits_affine_perturbation
     x=np.tile(basix.cell.geometry(basix.CellType.hexahedron),(3,1,1))
     radius=reference_perturbation_radius(x)
