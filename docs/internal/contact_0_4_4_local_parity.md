@@ -24,6 +24,37 @@ being silently approximated by the bounded route.
 
 ## Live gate status
 
+### 2026-10-22 independent confined plastic-contact reference
+
+`tests/test_contact_plastic_coaxial_reference.py` supplies a scalar reference
+independent of AgentFEM's material, contact and equilibrium implementations.
+For a homogeneous, transversely confined column, write
+`F=diag(lambda,1,1)` and `Fp=diag(exp(p),exp(-p/2),exp(-p/2))`. Quadratic
+Hencky elasticity and associative linear-hardening J2 then give
+`q_trial=2*mu*log(lambda)-3*mu*p_old`,
+`delta_gamma=max(0,(abs(q_trial)-yield-H*alpha_old)/(3*mu+H))`,
+`p=p_old+sign(q_trial)*delta_gamma`, and `alpha=alpha_old+delta_gamma`.
+The independent nominal stress is
+`P11=(K*log(lambda)+2*mu*(2*log(lambda)/3-p))/lambda`.
+A scalar bracketed root enforces
+`P11 + penalty*max(0,u-gap) = applied_reference_traction`.
+
+The 32-increment cycle includes compression/tension reversal, contact opening
+and recontact, with genuine forward and reverse plastic flow. At every accepted
+station, two P1 mesh sizes and both analytical-plane and certified closed-face
+integration compare displacement, all nine Fp components, PEEQ, stored
+`yield_stress*PEEQ` dissipation and integrated contact force against that
+reference (2e-9 absolute / 2e-7 relative for fields/state/resultants). All four
+FE paths and the scalar path-coverage test pass. No material parameter or
+acceptance tolerance was fitted to the computed FE response.
+
+This extends the earlier elastic-only spring reference to cyclic plastic
+history. It does not validate noncoaxial flow, curved feature transitions,
+MPC, a general energy closure or the inhomogeneous spatial convergence gate.
+The underlying multiplicative-plasticity framework is described by
+[Simo (1992)](https://doi.org/10.1016/0045-7825(92)90123-2); the confined scalar
+fixture above is an explicitly derived test, not a claimed published benchmark.
+
 ### 2026-10-22 separated time/space refinement
 
 The finite-area-supported periodic J2/plane fixture now has both 128- and
