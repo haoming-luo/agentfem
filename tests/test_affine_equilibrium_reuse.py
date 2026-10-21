@@ -34,7 +34,7 @@ def _step(kind):
     return _periodic_j2_contact_step(**kwargs)[2]
 
 
-def _frozen(step, *, reuse=True, options=None):
+def _frozen(step, *, reuse=True, reuse_linear_solver=True, options=None):
     """Advance just the frozen inner solve; never commit the returned trial."""
     start, target = 1/3, 2/3
     constraint, function = step.constraint, step.solution
@@ -60,6 +60,7 @@ def _frozen(step, *, reuse=True, options=None):
             step_name='test_frozen_equilibrium', step_number=1,
             increment_number=2, attempt_number=1,
             reuse_accepted_assembly=reuse,
+            reuse_linear_solver=reuse_linear_solver,
         )
     finally:
         transformation.destroy()
@@ -102,6 +103,36 @@ def test_candidate_frozen_solver_matches_existing_path_without_committing(kind):
     assert records[0].residual_assemblies - records[1].residual_assemblies == records[1].iterations
 
 
+@pytest.mark.parametrize('kind', ['sphere', 'moving', 'friction'])
+def test_scoped_ksp_reuse_refreshes_current_tangent_and_matches_fresh(kind, monkeypatch):
+    records, arrays = [], []
+    original_create = solvers.create_ksp
+    created = []
+    def tracked_create(*args, **kwargs):
+        solver = original_create(*args, **kwargs)
+        created.append(solver)
+        return solver
+    for reuse in (False, True):
+        step = _step(kind)
+        step.solve(until=1/3)
+        with monkeypatch.context() as scoped:
+            scoped.setattr(solvers, 'create_ksp', tracked_create)
+            created.clear()
+            result = _frozen(step, reuse_linear_solver=reuse)
+        assert result.converged and result.iterations > 1
+        assert len(created) == (1 if reuse else result.iterations)
+        assert all(not solver for solver in created)
+        records.append(result)
+        arrays.append((step.solution.x.array.copy(),
+                       step.response.state.trial_state_vectors().copy()))
+    assert records[0].iterations == records[1].iterations
+    assert records[0].step_lengths == records[1].step_lengths
+    assert records[0].linear_reasons == records[1].linear_reasons
+    assert records[0].residual_norm == pytest.approx(records[1].residual_norm, abs=1e-11)
+    for a, b in zip(*arrays, strict=True):
+        np.testing.assert_allclose(a, b, atol=1e-12, rtol=1e-10)
+
+
 @pytest.mark.parametrize('failure', ['linear', 'tangent', 'material', 'iteration_limit'])
 def test_candidate_failure_releases_residuals_and_does_not_commit(monkeypatch, failure):
     step = _step('moving')
@@ -116,6 +147,13 @@ def test_candidate_failure_releases_residuals_and_does_not_commit(monkeypatch, f
             objects.append(self)
 
     monkeypatch.setattr(candidate, '_TrialAssembly', TrackedAssembly)
+    created = []
+    original_create = solvers.create_ksp
+    def tracked_create(*args, **kwargs):
+        solver = original_create(*args, **kwargs)
+        created.append(solver)
+        return solver
+    monkeypatch.setattr(solvers, 'create_ksp', tracked_create)
     options = step.solver_options.for_affine_reduction()
     if failure == 'linear':
         def failed_linear(*args, **kwargs):
@@ -137,6 +175,7 @@ def test_candidate_failure_releases_residuals_and_does_not_commit(monkeypatch, f
     else:
         assert not _frozen(step, options=options).converged
     assert all(item.residual is None and not item.contributions for item in objects)
+    assert all(not solver for solver in created)
     np.testing.assert_array_equal(step.response.state.committed_state_vectors(), committed)
     assert step.state_transaction.accepted_factor == 1/3
 

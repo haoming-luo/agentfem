@@ -2476,6 +2476,58 @@ transport, expose unrelated environment values or add restart restrictions.
 The private composite replay retains the earlier frozen `8da7b93b` installation;
 this later diagnostic change is not injected into the running candidate.
 
+### Scoped linear-solver ownership (2026-10-22)
+
+The frozen serial affine equilibrium now owns one KSP across its Newton
+iterations and releases it on success or failure. Every iteration still
+assembles and sets the current reduced tangent; neither numerical factors nor
+an old preconditioner are deliberately frozen. The scope ends before an outer
+augmentation, a new increment, or a changed constraint reduction. The general
+one-shot linear-solve helper also releases its owned KSP after configuration,
+operator, solve or diagnostic exceptions; borrowed KSPs remain caller-owned.
+
+This follows [PETSc's operator lifetime rules](
+https://petsc.org/release/manualpages/KSP/KSPSetOperators/), not the distinct
+[preconditioner-lagging option](
+https://petsc.org/release/manualpages/KSP/KSPSetReusePreconditioner/).
+The same-model 8-cell/16-increment supported-fixture screen has two warmups
+and alternating fresh/scoped/scoped/fresh measurements. Median solve costs
+were 25.2611 versus 24.8704 seconds (1.55% lower); this small single-host
+difference is **not a substantial performance claim**. KSP creations decreased
+from 149 to 59 over the path. All measured displacement/material/contact/work
+arrays had zero maximum difference and the accepted Newton paths agreed.
+Evidence and the reproducible driver are
+`evidence/contact/2026-10-22-affine-linear-reuse-corrected.json` and
+`tools/benchmark_affine_linear_reuse.py`. The first driver's post-solve result
+access error is retained separately; it was not a failed physical solve.
+The value retained here is bounded ownership and exception safety, with a
+small measured reduction in repeated setup, not a claim of 20% acceleration.
+
+### Supported-fixture time refinement (2026-10-22)
+
+The eight-cell supported periodic fixture was continued with 128 and 256
+increments at unchanged penalty 40000 Pa/m, penetration tolerance 1e-8 m,
+complementarity tolerance 1e-7, material and reversal stations. Evidence is
+`evidence/contact/2026-10-22-supported-periodic-time-refinement.json`.
+Both paths completed and every accepted increment met the numerical contact
+criteria; this is not an independent material or continuum verification.
+
+| Increments | Final force magnitude (N) | Displacement L2 | Mean PEEQ | Newton iterations |
+| --- | ---: | ---: | ---: | ---: |
+| 128 | 4.384499107 | 0.01100073837 | 0.06352729940 | 1113 |
+| 256 | 4.469811614 | 0.01100023434 | 0.06355785533 | 2075 |
+
+The final force difference is 1.91% relative to the finer path, whereas mean
+PEEQ differs by about 0.048%. The signed relative-gap work approaches zero
+(-7.27418e-5 versus -1.86169e-5 J); it is not relabelled plastic dissipation.
+This narrows the temporal uncertainty without removing the separate spatial
+sensitivity or external-reference gate. In particular, the earlier 8-to-12
+mesh comparison at only 64 increments is not a temporally converged spatial
+study. The next mesh comparison must use a sufficiently refined common path.
+Recorded costs include setup and observation, with brief independent test
+overlap; they are not a speed comparison. These runs loaded the pre-KSP-reuse
+implementation, and their runtime source identity is retained in the report.
+
 ### Accepted-series output boundary audit (2026-10-21)
 
 A secondary audit while the frozen private replay runs found two mutable

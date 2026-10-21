@@ -1,0 +1,84 @@
+{
+  "schema": "agentfem.affine-linear-reuse-screen.v1",
+  "scope": "serial_supported_periodic_J2_plane_not_explicit_composite_or_external_validation",
+  "platform": "macOS-26.6.2-arm64-arm-64bit",
+  "cells": 8,
+  "increments": 16,
+  "penalty": 40000.0,
+  "affine_end_face_support": true,
+  "timing_scope": "solve_only_excludes_model_construction_and_array_comparison",
+  "source_sha256": {
+    "src/agentfem/_affine_equilibrium.py": "65689674f747be8cd983890d12758fcd770c708add0f0e55c8977fbdc9d846f0",
+    "src/agentfem/solvers.py": "4e4d1d46eaab3d223cc949fcdc9585b0fd821aecf0ca007f328774d1a86e2496",
+    "examples/finite_j2_periodic_augmented_plane.py": "a01843070d17f3aed13da71472f834f4a830b7abf9db995cfb995706c683db69",
+    "tools/benchmark_affine_linear_reuse.py": "4e2e9897d90d85d74b39fbf2a7a244ab8343398e4d07fbb8d2e05d6b4c744299"
+  },
+  "records": [
+    {
+      "mode": "scoped",
+      "repeat": -1,
+      "warmup": true,
+      "status": "completed",
+      "solve_seconds": 24.13835124997422,
+      "created_ksp": 59,
+      "newton_iterations": 149,
+      "maximum_array_difference": 0.0
+    },
+    {
+      "mode": "fresh",
+      "repeat": -1,
+      "warmup": true,
+      "status": "completed",
+      "solve_seconds": 24.96274120779708,
+      "created_ksp": 149,
+      "newton_iterations": 149,
+      "maximum_array_difference": 0.0
+    },
+    {
+      "mode": "fresh",
+      "repeat": 0,
+      "warmup": false,
+      "status": "completed",
+      "solve_seconds": 25.146719957701862,
+      "created_ksp": 149,
+      "newton_iterations": 149,
+      "maximum_array_difference": 0.0
+    },
+    {
+      "mode": "scoped",
+      "repeat": 0,
+      "warmup": false,
+      "status": "completed",
+      "solve_seconds": 24.839791082777083,
+      "created_ksp": 59,
+      "newton_iterations": 149,
+      "maximum_array_difference": 0.0
+    },
+    {
+      "mode": "scoped",
+      "repeat": 1,
+      "warmup": false,
+      "status": "completed",
+      "solve_seconds": 24.901018749922514,
+      "created_ksp": 59,
+      "newton_iterations": 149,
+      "maximum_array_difference": 0.0
+    },
+    {
+      "mode": "fresh",
+      "repeat": 1,
+      "warmup": false,
+      "status": "completed",
+      "solve_seconds": 25.375575624872,
+      "created_ksp": 149,
+      "newton_iterations": 149,
+      "maximum_array_difference": 0.0
+    }
+  ],
+  "complete": true,
+  "median_seconds": {
+    "fresh": 25.26114779128693,
+    "scoped": 24.8704049163498
+  },
+  "elapsed_reduction": 0.01546813621318932
+}

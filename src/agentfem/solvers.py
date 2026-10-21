@@ -468,21 +468,25 @@ def create_ksp(comm, options: LinearSolverOptions | None = None):
 
     options = options or LinearSolverOptions()
     ksp = PETSc.KSP().create(comm)
-    ksp.setType(options.ksp_type)
-    pc = ksp.getPC()
-    pc.setType(options.pc_type)
-    if options.factor_solver_type is not None:
-        pc.setFactorSolverType(options.factor_solver_type)
-    if (
-        options.rtol is not None
-        or options.atol is not None
-        or options.max_it is not None
-    ):
-        ksp.setTolerances(
-            rtol=options.rtol,
-            atol=options.atol,
-            max_it=options.max_it,
-        )
+    try:
+        ksp.setType(options.ksp_type)
+        pc = ksp.getPC()
+        pc.setType(options.pc_type)
+        if options.factor_solver_type is not None:
+            pc.setFactorSolverType(options.factor_solver_type)
+        if (
+            options.rtol is not None
+            or options.atol is not None
+            or options.max_it is not None
+        ):
+            ksp.setTolerances(
+                rtol=options.rtol,
+                atol=options.atol,
+                max_it=options.max_it,
+            )
+    except BaseException:
+        ksp.destroy()
+        raise
     return ksp
 
 
@@ -1081,15 +1085,17 @@ def solve_matrix_system(
 
     selected = options or LinearSolverOptions()
     selected_ksp = create_ksp(A.comm, selected) if ksp is None else ksp
-    selected_ksp.setOperators(A)
-    selected_ksp.solve(b, x)
-    info = LinearSolveInfo(
-        converged_reason=int(selected_ksp.getConvergedReason()),
-        iterations=int(selected_ksp.getIterationNumber()),
-        residual_norm=float(selected_ksp.getResidualNorm()),
-    )
-    if ksp is None:
-        selected_ksp.destroy()
+    try:
+        selected_ksp.setOperators(A)
+        selected_ksp.solve(b, x)
+        info = LinearSolveInfo(
+            converged_reason=int(selected_ksp.getConvergedReason()),
+            iterations=int(selected_ksp.getIterationNumber()),
+            residual_norm=float(selected_ksp.getResidualNorm()),
+        )
+    finally:
+        if ksp is None:
+            selected_ksp.destroy()
     should_raise = (
         selected.error_if_not_converged
         if raise_on_failure is None

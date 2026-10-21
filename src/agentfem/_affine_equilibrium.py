@@ -62,13 +62,16 @@ def solve_serial_affine_equilibrium(
     residual, jacobian, function, reduction, transformation, reduced_values, *,
     options, operators, transaction, start_factor, target_factor,
     reporter, step_name, step_number, increment_number, attempt_number,
-    reuse_accepted_assembly=True,
+    reuse_accepted_assembly=True, reuse_linear_solver=True,
 ):
     """Solve fixed-factor equilibrium, retaining accepted line-search work.
 
     ``reuse_accepted_assembly=False`` is a private recomputation reference for
     tests/benchmarks, not a new user solver policy or checkpoint identity.
     Both modes use the same trial refresh, reduction, Newton and line search.
+    ``reuse_linear_solver=False`` retains the private fresh-KSP comparison.
+    Reuse owns an object only within this fixed reduction, not a stale tangent
+    or frozen numerical preconditioner. Every solve sets the current operator.
     The caller owns the transformation; this routine releases all its PETSc
     objects on success, a rejected trial, or an exception.
     """
@@ -81,6 +84,7 @@ def solve_serial_affine_equilibrium(
         raise NotImplementedError("Serial affine equilibrium does not admit MPI.")
     current = None
     reduced_tangent = None
+    linear_solver = None
     assemblies = reused = 0
     steps, linear_iterations, linear_reasons = [], [], []
 
@@ -138,9 +142,13 @@ def solve_serial_affine_equilibrium(
                 correction = reduced_residual.duplicate()
                 allocated.callback(correction.destroy)
                 correction.set(0.0)
+                if reuse_linear_solver and linear_solver is None:
+                    linear_solver = owner.create_ksp(
+                        reduced_tangent.comm, options.linear_options,
+                    )
                 info = owner.solve_matrix_system(
                     reduced_tangent, rhs, correction, options.linear_options,
-                    raise_on_failure=False,
+                    ksp=linear_solver, raise_on_failure=False,
                 )
                 linear_iterations.append(int(info.iterations))
                 linear_reasons.append(int(info.converged_reason))
@@ -205,5 +213,7 @@ def solve_serial_affine_equilibrium(
     finally:
         if current is not None:
             current.close()
+        if linear_solver is not None:
+            linear_solver.destroy()
         if reduced_tangent is not None:
             reduced_tangent.destroy()
