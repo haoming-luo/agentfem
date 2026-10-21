@@ -25,13 +25,25 @@ Keep the implicit-contact scientific gate and the explicit-composite throughput
 gate separate. A faster explicit implementation does not close implicit contact
 convergence; a completed composite run does not establish external-code parity.
 
+Sprint evidence now includes a complete frozen 100,000-increment run in
+3 h 24 min 56 s, with all 25 frames, accepted histories and checkpoint arrays
+equal to the preceding baseline. Independent VTK reads every frame correctly.
+The controlled late-path comparison supports 12.11% less advancement time;
+do not attribute the entire larger whole-run difference to code changes.
+Reusable changes cover sufficient cell admission, exact topology/coordinate
+reuse, operational restart identity, linear-option transport, prepared-operator
+failure cleanup and opt-in lossless history archives with a data-only reader.
+The new independent confined cyclic plastic/contact reference passes, while
+the inhomogeneous spatial convergence and external-comparator gates stay open.
+
 1. **Measure and remove redundant execution.** The completed 100,000-increment
    composite run still attributes approximately 89% of solver wall time to
    residual assembly. Profile the late damaged configuration, including the
    overlapping body/contact branches, before changing algorithms. First test
-   whether native whole-cell geometry admission can avoid repeated reference
-   work for proper large rotations and stretches. Retain uncertain-cell fallback,
-   the material law, increment, numerical mass and accepted-state contracts.
+   whether a coherent body/contact execution change removes remaining work.
+   The sufficient native whole-cell screen is now installed and verified;
+   retain uncertain-cell fallback, the material law, increment, numerical mass
+   and accepted-state contracts rather than repeatedly retesting this same gain.
 2. **Make execution evidence explainable.** Distinguish inclusive body cost,
    geometry cost, owner-thread waiting and publication cost. These are concurrent
    or nested quantities, not additive percentages. Use the existing performance
@@ -45,8 +57,10 @@ convergence; a completed composite run does not establish external-code parity.
 4. **Preserve recovery and usable output.** Keep the verified 25-frame run and
    its final checkpoint unchanged. New profiling runs write to separate locations.
    A restart identity mismatch must be investigated, never bypassed to make a
-   timing experiment work. Packaging and another full production run are deferred
-   until a measured change merits them.
+   timing experiment work. The selected combined change has now passed frozen
+   installed whole-path acceptance; another full run is deferred until a new
+   measured change merits it. History encoding is an output choice, not a
+   solver/physical policy or a substitute for saved field frames.
 
 The execution decomposition follows the distinction between element restriction,
 quadrature work and global reduction in [libCEED's interface concepts](

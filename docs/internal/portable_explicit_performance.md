@@ -10,6 +10,30 @@ not another isolated arithmetic kernel or output-format rewrite.
 
 ## 2026-10-22: late-path audit and bounded execution changes
 
+Installed whole-path acceptance is now complete at `1ed3c1e1`: 12,295.686 s
+including preparation, output and shutdown; 25 frames, final material and
+checkpoint arrays, 10,000 energy records and 800 observations equal the frozen
+baseline. Independent VTK verifies every frame and zero Warp error. See the
+public performance evidence for timing-scope distinctions. Do not replace the
+controlled 12.11% late-window finding with the larger, confounded whole-run
+difference. Retain the prior complete run as reference.
+
+The closing source audit also adds explicit exception cleanup to prepared
+linear operators: constructor failures release already owned PETSc objects,
+RHS vectors release on failed solves, stale convergence evidence is cleared,
+and failed matrix refresh closes the unusable owner. Six fault-injection tests
+fail on the frozen old implementation and pass on the corrected source.
+This is a lifetime/failure-semantics correction, not an explicit-run speedup.
+
+The complete-history encoding is separately opt-in through
+`RunPolicy(history_storage="npz")` or result publication. It retains every
+binary64 sample, deduplicates identical axes and publishes immutable companion
+arrays before the manifest commit point. Data-only readers do not initialize
+FEniCSx; malformed files and rank-inconsistent histories reject explicitly.
+The combined source regressions pass 237 tests (one MPI-only skip), and the
+two-rank history/prepared-solver subset passes 14 tests per rank. The synthetic
+storage benchmark is recorded separately from solver timing.
+
 The completed 25-frame trajectory at `743f10b4` recorded 14,932.091 s of
 process elapsed time (not an isolated benchmark); inclusive residual assembly
 was approximately 89% of solver wall time. Field output is not the dominant
