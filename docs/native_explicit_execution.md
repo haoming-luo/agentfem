@@ -100,6 +100,34 @@ but a particle cutoff is not substituted for the deformable Q1 distance problem.
 
 ## Compiled user materials
 
+### Restart compatibility versus execution provenance
+
+New checkpoints from the built-in native-material binding record a versioned
+restart compatibility digest separately from the actual execution digest.
+Material and cell worker counts, and static versus dynamic tile scheduling,
+may change on resume because this ABI requires pointwise, batch-partition-
+invariant material updates. Material code and parameters, state encoding,
+dispatcher revision, numerical increment policy, mesh, mass, viscosity and
+hourglass definitions remain checked. This is not MPI or cross-binary state
+portability, nor permission to alter the numerical method.
+The standalone built-in `explicit_hex_kernel` also permits changes to its
+independent cell-worker budget, but still rejects changing native/NumPy
+arithmetic or admitted auxiliary capabilities on resume.
+
+Older v4 body records still require their original exact execution identity.
+To move one to the new format, restore it with that compatible configuration
+and save a **new** checkpoint before adjusting workers. Never edit the old
+archive or its identity. Unknown schemas reject. The original execution
+configuration remains visible in summaries and the saved record.
+
+Custom `ExplicitHexBodyKernel` implementations keep exact-identity recovery
+unless the author explicitly supplies a nonempty `restart_identity` mapping.
+That declaration is a scientific compatibility responsibility, not automatic
+verification: include everything that changes discrete updates or state
+meaning. A kernel name is not enough. The descriptor is frozen independently
+of caller-owned mappings. Core still validates restored arrays and performs
+atomic rejection; this change does not bypass checkpoint integrity checks.
+
 Provider authors may use `elements.native_explicit_hex_kernel` to fuse a
 reentrant C material update and the same core force arithmetic in one batch.
 The C ABI, state width, material parameters, density, implementation identity,
@@ -155,9 +183,10 @@ The trusted provider must produce the same pointwise response independently of
 batch partitioning. Stress, state, work and body arithmetic retain original cell
 order; this is not a parallel reduction. Exact repair runs only after all tiles
 join, preserves global rejected-point ordering, and repairs only those points.
-Queue scheduling and tile size are recorded in execution identity, so a frozen
-checkpoint must not silently switch scheduling. Test representative damaged
-states as well as startup before choosing an operational tile size.
+Queue scheduling and tile size remain recorded in execution provenance. New
+versioned body records allow these operational changes under the partition-
+invariance contract above; legacy records still require exact identity.
+Test representative damaged states as well as startup before choosing a tile size.
 The approach uses the existing pthread executor, without adding OpenMP or oneTBB
 dependencies; their [dynamic scheduling](https://openmp.org/spec-html/5.0/openmpsu41.html)
 and [chunking tradeoffs](https://uxlfoundation.github.io/oneTBB/main/tbb_userguide/Automatic_Chunking.html)
@@ -201,9 +230,10 @@ platform, including their shared-library dependencies. A locally built macOS
 wheel is not a portable Linux/Windows release artifact.
 
 `auto` explicitly records the selected implementation in kernel identity;
-`native` fails if its required extension is unavailable. Keep execution choices
-unchanged across a restart. An implementation change requires a separately
-reviewed migration or a fresh run, not removal of checkpoint identity checks.
+`native` fails if its required extension is unavailable. Only the worker and
+scheduling choices explicitly covered by the versioned restart contract may
+change across a restart. An arithmetic implementation change requires a
+separately reviewed migration or a fresh run, not removal of identity checks.
 
 `agentfem doctor --json` reports `execution.accelerators` for the installed Hex
 arithmetic, material/body dispatcher and Q1 geometry. `available` means the

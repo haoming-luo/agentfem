@@ -103,6 +103,7 @@ class ResponseHexExplicitResidual:
         bulk_viscosity=None,
         require_material_increment_limit=False,
         numerical_inertia=None,
+        material_restart_identity=None,
     ):
         from ..constitutive._explicit_material_driver import ExplicitQuadratureResponse
         from ..constitutive._explicit_material import explicit_increment_policy_identity
@@ -128,6 +129,10 @@ class ResponseHexExplicitResidual:
             raise ValueError("A finite positive caller increment ceiling is required.")
         if not isinstance(material_identity, dict) or not material_identity:
             raise ValueError("Explicit material identity is required for recovery.")
+        if material_restart_identity is not None and (
+            not isinstance(material_restart_identity, dict) or not material_restart_identity
+        ):
+            raise ValueError("Explicit material restart identity must be a nonempty dictionary.")
         if np.any(internal.displacement.x.array != 0):
             raise ValueError("Response-only initialization requires zero displacement.")
         initial = material.state_schema.initial_state()
@@ -188,43 +193,40 @@ class ResponseHexExplicitResidual:
         self.checkpoint_state_required = True
         self.comm = internal.comm
         self.ceiling = ceiling
-        digest = sha256(
-            content_fingerprint(
-                {
-                    "material": material_identity,
-                    "state": repr(material.state_schema),
-                    "ceiling": ceiling,
-                    "stress_free_initial_state": True,
-                    **(
-                        {"numerical_inertia": numerical_inertia.checkpoint_identity()}
-                        if numerical_inertia is not None
-                        else {}
-                    ),
-                    **(
-                        {"material_increment_policy": self.material_increment_policy}
-                        if self.material_increment_policy is not None
-                        else {}
-                    ),
-                    "bulk_viscosity": None
-                    if bulk_viscosity is None
-                    else bulk_viscosity.summary(),
-                }
-            ).encode()
-        )
+        identity_record = {
+            "material": material_identity,
+            "state": repr(material.state_schema),
+            "ceiling": ceiling,
+            "stress_free_initial_state": True,
+            **({"numerical_inertia": numerical_inertia.checkpoint_identity()}
+               if numerical_inertia is not None else {}),
+            **({"material_increment_policy": self.material_increment_policy}
+               if self.material_increment_policy is not None else {}),
+            "bulk_viscosity": None if bulk_viscosity is None else bulk_viscosity.summary(),
+        }
+        digest = sha256(content_fingerprint(identity_record).encode())
+        restart_digest = (None if material_restart_identity is None else sha256(
+            content_fingerprint({**identity_record, "material": material_restart_identity}).encode()))
+        digests = (digest,) if restart_digest is None else (digest, restart_digest)
         for array in (
             internal.cells.coordinates,
             internal.cell_nodes,
             internal.mass_diagonal,
             internal.cells.hourglass_coefficient,
         ):
-            digest.update(str((array.shape, array.dtype.str)).encode())
-            digest.update(np.ascontiguousarray(array).tobytes())
-        self.identity = digest.hexdigest()
+            layout = str((array.shape, array.dtype.str)).encode()
+            payload = np.ascontiguousarray(array).tobytes()
+            for item in digests:
+                item.update(layout)
+                item.update(payload)
         if cohesive is not None:
-            digest.update(content_fingerprint(cohesive.snapshot()).encode())
-            digest.update(cohesive.negative_dofs.tobytes())
-            digest.update(cohesive.positive_dofs.tobytes())
-            self.identity = digest.hexdigest()
+            interface_payloads = (content_fingerprint(cohesive.snapshot()).encode(),
+                                  cohesive.negative_dofs.tobytes(), cohesive.positive_dofs.tobytes())
+            for item in digests:
+                for payload in interface_payloads:
+                    item.update(payload)
+        self.identity = digest.hexdigest()
+        self.restart_identity = None if restart_digest is None else restart_digest.hexdigest()
         self.accepted_gradient = _freeze(np.tile(np.eye(3), (len(internal.cell_nodes), 1, 1)))
         self.accepted_time = self.time = 0.0
         self.internal_work = 0.0
@@ -444,8 +446,10 @@ class ResponseHexExplicitResidual:
         if self._trial is not None:
             raise RuntimeError("Cannot save an unaccepted response-only trial.")
         return {
-            "schema": "agentfem.private-response-hex.v4",
+            "schema": ("agentfem.private-response-hex.v4" if self.restart_identity is None
+                       else "agentfem.private-response-hex.v5"),
             "identity": self.identity,
+            **({"restart_identity": self.restart_identity} if self.restart_identity is not None else {}),
             "time": self.accepted_time,
             "gradient": _freeze(self.accepted_gradient),
             "internal_work": self.internal_work,
@@ -510,11 +514,23 @@ class ResponseHexExplicitResidual:
 
     checkpoint_snapshot = transaction_snapshot
 
+    def _compatible_record(self, record):
+        # Legacy archives contain only an execution digest. Preserve their
+        # exact check: no guessing thread counts or dropping unknown identity.
+        if record.get("schema") == "agentfem.private-response-hex.v4":
+            return record.get("identity") == self.identity
+        return (record.get("schema") == "agentfem.private-response-hex.v5"
+                and self.restart_identity is not None
+                and record.get("restart_identity") == self.restart_identity
+                and (record.get("identity") == self.identity or (
+                    isinstance(record.get("identity"), str)
+                    and len(record["identity"]) == 64
+                    and all(c in '0123456789abcdef' for c in record["identity"]))))
+
     def _increment_field_scope(self, record):
         from .._field_rollback_scope import _accepted_field_scope
 
-        if (record.get("schema") != "agentfem.private-response-hex.v4"
-                or record.get("identity") != self.identity):
+        if not self._compatible_record(record):
             raise ValueError("Increment field owner identity mismatch.")
         if self.internal.response._owned is not None:
             from contextlib import nullcontext
@@ -560,10 +576,7 @@ class ResponseHexExplicitResidual:
         return record
 
     def restore(self, record):
-        if (
-            record.get("schema") != "agentfem.private-response-hex.v4"
-            or record.get("identity") != self.identity
-        ):
+        if not self._compatible_record(record):
             raise ValueError("Response-only checkpoint identity mismatch.")
         fields = self._fields()
         if set(record["fields"]) != set(fields):

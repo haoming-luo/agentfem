@@ -142,6 +142,24 @@ or replace the late alternating comparison. Setup and final comparison archive
 remain excluded. A frozen installed complete trajectory is still required for
 a whole-run runtime claim.
 
+### Versioned operational restart and policy consistency
+
+The native body now records scientific restart compatibility separately from
+actual execution provenance. Only declared independent-point/cell scheduling
+may change: material/cell workers and material tile scheduling. Code/law,
+parameters, state encoding, numerical controls, mesh/mass and backend arithmetic
+remain checked. Legacy v4 body archives retain exact execution identity and
+must first be restored compatibly and saved to a new record; no identity is
+removed or rewritten. Custom kernels default to exact identity.
+
+The targeted material/response/contact/substep suite passed 194 tests. A
+subsequent 136-test subset covers bidirectional worker/tile restart, legacy
+resave, atomic mismatch/corruption rejection, built-in native worker changes,
+NumPy/backend refusal, and solver policy/lifecycle checks. Counts overlap;
+they are not added into one claimed independent suite. Both field-backed and
+owned-array material paths retain the tested accepted-state equivalence.
+This removes a portability restriction, not a measured runtime percentage.
+
 ## Completed baseline
 
 Frozen core `608c50bb` completed the 255,041-cell, 100,000-increment review path
@@ -164,7 +182,7 @@ Lightweight development and read-only diagnostics overlapped the full run.
 | Model and material equations | Common Model/Step workflow; law remains external | Scientific inputs, not hardware tuning |
 | Performance records | `results/performance.py` stores elapsed cost; no four-hour correctness gate | Result evidence, separately from accuracy |
 | Workers | Native pool and dispatchers use 16-entry arrays; Python rejects counts above 16 | Backend implementation limit, not FEM semantics; replace with checked allocation when extending tested capacity |
-| Restart | `_step_response_hex.py` embeds the whole execution-kernel summary in material identity | Split model/state compatibility, numerical implementation and operational provenance in a versioned migration; do not strip old checks |
+| Restart | Native-material body records now separate versioned restart compatibility from actual execution provenance; v4 retains its exact check | Worker/tile changes require a partition-invariant declaration; code/law/numerical settings stay checked. Restore old archives with their original configuration, then save a new compatible record; never strip checks |
 | Time grid | The private provider applies a uniform per-point increment ceiling | Case policy requiring scientific evidence; not a universal material or platform limit |
 | Fixed final counters | 100,000-step checks belong to this private delivery reviewer | Use declared termination criteria for other problems |
 | Scalar precision and order | Bitwise replay is useful for unchanged arithmetic | Algorithm/backend changes use justified observable errors and convergence instead |

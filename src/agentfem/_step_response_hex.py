@@ -313,14 +313,18 @@ def lower(model, request):
                 damping_names=("bulk_viscosity",) if viscosity is not None else ())
             numerical_inertia.validate_state(history)
         inertia = internal if numerical_inertia is None else numerical_inertia
-        residual = ResponseHexExplicitResidual(internal, material,
-            time_increment_ceiling=roles['body'], material_identity={**material.summary(),
+        material_identity = {**material.summary(),
                 "operator_increment_ceilings": roles,
                 "execution_kernel": None if execution_kernel is None else execution_kernel.summary(),
                 "material_storage": storage,
                 **({"mass_scaling_policy": scaling_policy.summary()} if scaling_policy is not None else {}),
                 "substep_policy": None if substeps is None else substeps.summary(),
-                "contact_trace_policy": trace_policy.summary(), "bond_contact_policy": overlap_policy},
+                "contact_trace_policy": trace_policy.summary(), "bond_contact_policy": overlap_policy}
+        restart_kernel = None if execution_kernel is None else execution_kernel.checkpoint_summary()
+        residual = ResponseHexExplicitResidual(internal, material,
+            time_increment_ceiling=roles['body'], material_identity=material_identity,
+            material_restart_identity=(None if restart_kernel is None else
+                {**material_identity, "execution_kernel": restart_kernel}),
             stress_free_initial_state=True, bulk_viscosity=viscosity,
             numerical_inertia=numerical_inertia, cohesive=cohesive)
         material_residual = residual

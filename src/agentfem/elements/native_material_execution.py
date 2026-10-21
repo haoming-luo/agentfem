@@ -102,7 +102,7 @@ def native_explicit_hex_kernel(material, function, *, properties, density,
 
     from .body_auxiliary import auxiliary_callbacks, gather_callback
     kinematics, viscosity = auxiliary_callbacks(workers=cell_workers, executor=executor)
-    return ExplicitHexBodyKernel(evaluate, {
+    execution_identity = {
         'provider': 'agentfem.native_material_hex', 'abi': 1, 'revision': 6,
         'worker_validation': hasattr(_body_pipeline, 'run_checked'),
         'worker_lifecycle': 'instance_sleeping_joined_batches',
@@ -110,7 +110,14 @@ def native_explicit_hex_kernel(material, function, *, properties, density,
         'material': identity, 'state_width': width, 'property_count': len(parameters),
         **({'material_scheduling': 'dynamic_tiles', 'tile_size': tile_size} if tile_size is not None else {}),
         'workers': workers, 'cell_workers': cell_workers, 'state_owner': 'core', 'density': float(density),
-        'properties_sha256': hashlib.sha256(parameters.tobytes()).hexdigest()},
+        'properties_sha256': hashlib.sha256(parameters.tobytes()).hexdigest()}
+    # ABI v1 requires independent points and partition-invariant providers.
+    # Preserve code/law/properties/precision identity; only scheduling may vary.
+    restart_identity = {key: value for key, value in execution_identity.items()
+                        if key not in {'workers', 'cell_workers', 'material_scheduling', 'tile_size'}}
+    restart_identity['scheduling_contract'] = 'independent_points.v1'
+    return ExplicitHexBodyKernel(evaluate, execution_identity,
         prepare_kinematics=kinematics, evaluate_viscosity=viscosity,
         gather_cell_vectors=gather_callback(workers=cell_workers, executor=executor),
-        release_resources=None if executor is None else executor.close)
+        release_resources=None if executor is None else executor.close,
+        restart_identity=restart_identity)

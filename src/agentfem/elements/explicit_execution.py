@@ -119,6 +119,8 @@ class ExplicitHexBodyKernel:
     callback must preserve the material's declared law and exact fallback rules.
     Identify its pinned implementation in ``identity``. Core checks transport
     and acceptance; scientific equivalence needs separate reference tests.
+    Optional ``restart_identity`` declares invariant scientific/state semantics
+    across operational configurations; omitting it retains exact identity.
     """
     evaluate: Callable
     identity: Mapping
@@ -126,7 +128,9 @@ class ExplicitHexBodyKernel:
     evaluate_viscosity: Callable | None = None
     gather_cell_vectors: Callable | None = None
     release_resources: Callable | None = field(default=None, repr=False, compare=False)
+    restart_identity: Mapping | None = None
     _identity_json: str = field(init=False, repr=False)
+    _restart_identity_json: str | None = field(init=False, repr=False)
 
     def __post_init__(self):
         if not callable(self.evaluate) or not isinstance(self.identity, Mapping):
@@ -135,6 +139,12 @@ class ExplicitHexBodyKernel:
         if not self.identity:
             raise ValueError("Kernel requires a nonempty pinned identity")
         object.__setattr__(self, "_identity_json", encoded)
+        if self.restart_identity is not None and (
+            not isinstance(self.restart_identity, Mapping) or not self.restart_identity
+        ):
+            raise TypeError("restart_identity must be a nonempty compatibility mapping or None")
+        object.__setattr__(self, "_restart_identity_json", None if self.restart_identity is None
+                           else json.dumps(dict(self.restart_identity), sort_keys=True, allow_nan=False))
         if self.prepare_kinematics is not None and not callable(self.prepare_kinematics):
             raise TypeError("prepare_kinematics must be callable or None")
         if self.evaluate_viscosity is not None and not callable(self.evaluate_viscosity):
@@ -161,6 +171,19 @@ class ExplicitHexBodyKernel:
                 "kinematic_screen": self.prepare_kinematics is not None,
                 "bulk_viscosity": self.evaluate_viscosity is not None,
                 "cell_gather": self.gather_cell_vectors is not None}
+
+    def checkpoint_summary(self):
+        """Explicit provider compatibility, never inferred from a backend name.
+
+        A declaration may omit operational settings only when those settings
+        preserve the law, discrete update and state encoding. The original
+        summary retains actual execution provenance. Without a declaration,
+        legacy exact-identity behavior remains unchanged.
+        """
+        if self._restart_identity_json is None:
+            return None
+        return {**self.summary(), "identity": json.loads(self._restart_identity_json),
+                "restart_contract": "agentfem.hex-kernel-restart.v1"}
 
 
 def prepare_kernel_viscosity(kernel, geometry, gradient, velocity, options, reference):
