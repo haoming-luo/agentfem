@@ -11,13 +11,18 @@ continuum pressure proof.
 
 import numpy as np
 import pytest
+from dataclasses import replace
+from pathlib import Path
+import runpy
 from types import SimpleNamespace
 from dolfinx import fem
 from mpi4py import MPI
+from petsc4py import PETSc
 
 from agentfem import boundary_models, constitutive, constraints, fields, mesh, models, solvers, steps, studies
 from agentfem._affine_equilibrium import solve_serial_affine_equilibrium
 from agentfem.boundary_models._augmented_plane_trial_provider import DolfinxAugmentedPlaneTrialProvider
+from agentfem.boundary_models.dolfinx_implicit_facet_contact import DolfinxImplicitRigidContact
 from agentfem.boundary_models.contact_affine_gap_research import affine_plane_gap_system
 from agentfem.constraints.affine import AffineReduction
 from periodic_cube_fixture import periodic_unit_cube
@@ -94,9 +99,35 @@ def _solve(step, reduction, matrix, values, operators):
     )
 
 
-@pytest.mark.parametrize("cells,penalty", [(4, 10000.), (4, 40000.), (8, 20000.)])
-def test_compatible_periodic_patch_al_matches_exact_active_constraint_elimination(cells, penalty):
-    step, provider = _patch(cells=cells, penalty=penalty)
+@pytest.mark.parametrize("cells,penalty,supported_elastic", [
+    (4, 10000., False), (4, 40000., False), (8, 20000., False),
+    (8, 40000., True), (12, 40000., True),
+])
+def test_compatible_periodic_patch_al_matches_exact_active_constraint_elimination(
+    cells, penalty, supported_elastic, record_property,
+):
+    if supported_elastic:
+        make = runpy.run_path(str(
+            Path(__file__).resolve().parents[1]
+            / "examples/finite_j2_periodic_augmented_plane.py"
+        ))["make_step"]
+        step = make(cells=cells, increments=32, penalty=penalty,
+                    affine_end_face_support=True, yield_stress=1e6,
+                    linear_solver=solvers.direct_solver(
+                        package="mumps" if PETSc.Sys.hasExternalPackage("mumps") else None,
+                    ))
+        # This diagnostic jumps directly to full load rather than following
+        # the public incremental path. Allow more outer iterations, but keep
+        # the original penetration/complementarity tolerances unchanged.
+        provider = DolfinxAugmentedPlaneTrialProvider(
+            DolfinxImplicitRigidContact(
+                step.contact_provider.pair, step.contact_provider.adapter,
+                step.solution, None,
+            ),
+            policy=replace(step.contact_provider.policy, maximum_augmentations=120),
+        )
+    else:
+        step, provider = _patch(cells=cells, penalty=penalty)
     step.state_transaction.initialize()
     committed = step.response.state.committed_state_vectors().copy()
     reduction = step.constraint.reduction(1.)
@@ -110,6 +141,7 @@ def test_compatible_periodic_patch_al_matches_exact_active_constraint_eliminatio
     gap_map = affine_plane_gap_system(
         provider.adapter.trace, provider.adapter.reference_nodal_positions,
         transformation, reduction.offset, provider.surface,
+        maximum_dofs=8192 if supported_elastic else 4096,
     )
     point_count = (cells // 2 + 1) ** 2
     assert len(gap_map.offset) == point_count
@@ -181,9 +213,15 @@ def test_compatible_periodic_patch_al_matches_exact_active_constraint_eliminatio
             weighted_pressure, *_ = np.linalg.lstsq(gap_map.matrix.T, reduced_body, rcond=None)
             pressure = weighted_pressure / gap_map.weights
             np.testing.assert_allclose(pressure, response.pressure, rtol=2e-5, atol=1e-5)
+            record_property("augmented_normal_resultant", float(gap_map.weights @ response.pressure))
+            record_property("exact_constraint_normal_resultant", float(np.sum(weighted_pressure)))
+            record_property("supported_elastic_diagnostic", supported_elastic)
             # State column 9 is equivalent plastic strain for this J2 law,
             # not an identity deformation-gradient component.
-            assert np.max(augmented_state[:, 9]) > 1e-3
+            if supported_elastic:
+                assert np.max(augmented_state[:, 9]) == 0.
+            else:
+                assert np.max(augmented_state[:, 9]) > 1e-3
             assert step.constraint.mismatch(1.) < 1e-12
         finally:
             hard_T.destroy()

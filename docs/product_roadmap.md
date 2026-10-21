@@ -35,6 +35,17 @@ reuse, operational restart identity, linear-option transport, prepared-operator
 failure cleanup and opt-in lossless history archives with a data-only reader.
 The new independent confined cyclic plastic/contact reference passes, while
 the inhomogeneous spatial convergence and external-comparator gates stay open.
+The complete 16-cell/256-increment contact path meets the original nonlinear
+acceptance bounds, but the 12→16 final reaction difference is still 5.2481%.
+Mean PEEQ and displacement L2 change much less (0.3729% / 0.2490%); neither
+is a substitute for reaction convergence. Preserve this unresolved distinction
+when choosing the next discretization/contact study.
+An explicitly separate elastic-limit cycle also retains a 6.5122% 8→12
+reaction gap with zero plastic strain. Prioritize spatial discretization and
+the contact constraint representation; do not assume the J2 update is its cause.
+Exact active-normal elimination on those same elastic meshes agrees with
+augmentation to below 3e-8 N in total reaction, while preserving the spatial
+gap. Further penalty tuning is not the priority for that observed difference.
 
 1. **Measure and remove redundant execution.** The completed 100,000-increment
    composite run still attributes approximately 89% of solver wall time to

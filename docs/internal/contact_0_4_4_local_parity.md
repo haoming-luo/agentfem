@@ -58,7 +58,8 @@ fixture above is an explicitly derived test, not a claimed published benchmark.
 ### 2026-10-22 separated time/space refinement
 
 The finite-area-supported periodic J2/plane fixture now has both 128- and
-256-increment paths on 8- and 12-cell meshes. The 12-cell study explicitly
+256-increment paths on 8- and 12-cell meshes, plus a complete 16-cell,
+256-increment path. The refined study explicitly
 selects MUMPS after the same-model backend comparison below; its numerical
 and physical inputs otherwise match. All accepted stations meet penetration
 1e-8 and complementarity 1e-7, including opening, unloading and recontact.
@@ -69,22 +70,75 @@ and physical inputs otherwise match. All accepted stations meet penetration
 | 8 | 256 | 4.46981161 | 0.0110002343 | 0.0635578553 | -1.86169e-5 |
 | 12 | 128 | 4.09973201 | 0.0111094465 | 0.0631515272 | -8.04070e-5 |
 | 12 | 256 | 4.17988201 | 0.0111101705 | 0.0631811981 | -1.89452e-5 |
+| 16 | 256 | 3.97145647 | 0.0111379022 | 0.0629464910 | -2.05871e-5 |
 
 On the 12-cell mesh, 128→256 changes final reaction by 1.9175% and mean
 PEEQ by 0.0470%, relative to the finer path. At 256 increments, 8→12 changes
 reaction by 6.94% and mean PEEQ by about 0.60%, relative to the finer mesh.
+The next 12→16 comparison changes reaction by 5.2481%, mean PEEQ by 0.3729%
+and displacement L2 by 0.2490%. Reaction differences decrease, but this does
+not establish an asymptotic convergence rate or close the accuracy gate.
 Thus the spatial reaction gap is not explained away by the earlier coarse
-increment path. The signed relative-gap work decreases in magnitude with
-refinement; it is not plastic dissipation or a general first-law certificate.
+increment path. Time refinement reduces signed relative-gap work magnitudes
+on the 8/12-cell meshes; spatial refinement is not monotone in that quantity.
+It is not plastic dissipation or a general first-law certificate.
 Peak pressures/PEEQ are not substituted for these integral comparisons.
 
 Evidence: `2026-10-22-supported-periodic-time-refinement.json` and
-`2026-10-22-supported-periodic-refinement-12-mumps.json`. The latter accepted
-128/256 increments with 1271/2288 Newton iterations. Its elapsed durations
+`2026-10-22-supported-periodic-refinement-12-mumps.json`, plus
+`2026-10-22-supported-periodic-refinement-16-mumps.json`. The 12-cell paths accepted
+128/256 increments with 1271/2288 Newton iterations. The 16-cell path accepted
+all 256 increments with 2626 Newton iterations and 977 augmentation updates,
+in 3634.224 s. Maximum accepted penetration/complementarity are
+8.813e-9 / 9.971e-8, within the original 1e-8 / 1e-7 bounds. Elapsed durations
 are scientific-study provenance, not an isolated speed comparison.
 Gate 8 remains open: next compare spatial discretization/contact enforcement
 at a fixed resolved path and retain the external same-input comparator gate.
 Do not lower accuracy requirements merely to promote this release target.
+
+### Elastic-limit diagnostic: the spatial gap is not plastic history alone
+
+`2026-10-22-supported-periodic-elastic-limit.json` keeps the supported geometry,
+elastic constants, 40,000 penalty and original acceptance tolerances, but
+explicitly changes yield stress from 2 Pa to 1,000,000 Pa. This is a separate
+physical diagnostic, not a replacement material or an acceleration candidate.
+Both 8/12-cell, 32-increment cycles finish with exactly zero PEEQ and zero MPC
+mismatch. Final reactions are 27.18411331 / 25.52207474 N: a 6.5122% difference
+relative to the finer mesh despite no plastic flow. Displacement L2 changes
+only about 0.0295%. The elastic first/final loaded stations agree to numerical
+tolerance, unlike the history-dependent plastic cycle.
+
+Therefore plastic integration alone cannot explain the spatial reaction gap.
+The same-mesh exact active-normal elimination now supplies that discriminating
+check. In `test_affine_normal_augmentation_research.py`, augmented/exact
+resultants are 27.1841132431 / 27.1841132697 N on 8 cells and
+25.5220747284 / 25.5220747419 N on 12 cells. Displacement, state and nodal pressure
+comparisons also meet the pre-existing reference tolerances. Thus the elastic
+spatial reaction gap persists under exact enforcement of the same nodal
+constraints; incomplete augmentation is not its explanation. This does not
+prove continuum convergence, remove edge singularities, establish a general
+inf-sup condition or identify locking. The external comparison stays open.
+
+The direct full-load diagnostic initially exhausted 60 outer updates on the
+8-cell case (complementarity 3.462e-7, required 1e-7), while the 12-cell dense
+diagnostic exceeded its default 4096-DOF budget. The corrected diagnostic
+explicitly permits 120 outer updates and 8192 dense DOFs, without changing
+physical parameters or tolerances. A separate constructor misuse in the test
+harness was rejected and corrected. These are test-only budgets; the public
+32-increment cycle above retains its 60-update policy. Five exact-elimination
+cases pass in 101.46 s, including the three earlier plastic discrete checks.
+Evidence and retained failure summaries are in
+`2026-10-22-exact-normal-elimination.json`.
+
+For the next discretization decision, compare a fixed physical patch and
+integrated reaction, not only nodal peak pressure. MOOSE distinguishes
+[node/face enforcement from mortar surface discretization](https://mooseframework.inl.gov/modules/contact/)
+and documents the [conditioning tradeoff of penalty parameters](https://mooseframework.inl.gov/syntax/Contact/).
+These are useful design alternatives, not evidence that mortar is already
+needed here or that a larger penalty repairs a spatial error. First isolate
+the current discrete constraint from the continuum approximation; any later
+surface method must retain the same State/Result contracts and earn its own
+patch, force/moment, tangent and convergence evidence.
 
 ### 2026-10-22 linear backend and option-transport audit
 
@@ -126,6 +180,44 @@ The implementation reuses the existing PETSc-backed public policy, following
 and [GMRES](https://petsc.org/release/manualpages/KSP/KSPGMRES/).
 Neither documentation promises these timings; they are local observations.
 
+### Next implicit cost hypothesis, not a selected optimization
+
+A one-second read-only stack sample of the 16-cell refinement finds both MUMPS
+numeric factorization and small tensor algebra in the live execution. It does
+not establish whole-path percentages. Source inspection confirms that
+`FiniteStrainJ2StateTransaction.refresh_trial` requests the full material
+response, including its tangent, on trial refresh. Before extending another
+backend, count which residual/line-search evaluations actually need that
+tangent. A future stress/state-only request must be explicit in the material
+contract; never fill a missing tangent with zeros. A later Jacobian request
+must produce the derivative of that same trial from fixed committed history.
+Ordinary nonzero-BC lifting and mixed-pressure transformations currently use
+the tangent even outside a matrix assembly, so they cannot inherit a shortcut
+without their own dependency checks. Start with a bounded affine residual
+path only if a profile establishes redundant tangent work.
+
+This is a candidate research direction, not implemented acceleration. The
+explicit composite response-only path already avoids algorithmic tangents;
+neither this idea nor a different KSP can be credited as an improvement to
+that explicit run. The separate elastic-limit fixture diagnostic varies only
+the declared yield stress to help distinguish spatial effects associated with
+plastic history; it must not replace the original plastic acceptance problem.
+
+If factorization remains dominant on the larger mesh, collect the actual
+ordering, fill, numeric-factor time and memory before selecting another
+backend. [MUMPS documents ordering and scaling](https://mumps-solver.org/doc/userguide_5.8.2.pdf),
+and [PETSc exposes its controls](https://petsc.org/main/manualpages/Mat/MatMumpsSetIcntl/).
+These are scoped solver-policy candidates, not permission to change global
+PETSc options, freeze an obsolete tangent, or assume symmetric positive
+definiteness in plastic/contact corrections. Compare total nonlinear work and
+the accepted trajectory, not only one successful factorization.
+The serial loop already calls `PtAP(..., result=reduced_tangent)` within each
+equilibrium solve; proposing that same reuse again is not a new optimization.
+Any longer-lived matrix-product cache must establish invariant sparsity and
+constraint reduction, and invalidate when either changes. PETSc's
+[matrix-product reuse](https://petsc.org/release/manualpages/Mat/MatPtAP/)
+is distinct from retaining old numerical factors.
+
 | Gate | Current evidence | Still needed for promotion |
 | --- | --- | --- |
 | 1. Comparator | Internal/public-protocol tests; elastic and small-displacement published cases screened but not misidentified as finite-J2 comparators | Independent same-input finite-J2 contact run and frozen observables |
@@ -135,7 +227,7 @@ Neither documentation promises these timings; they are local observations.
 | 5. Friction | Locally planar Coulomb State; rigid-master spin transport tested; a separate smooth point tool can slide beside a frictionless certified-face tool | Admitted geometry-by-friction matrix; friction on sharp features remains rejected |
 | 6. Transaction | Total-system and restart tests for admitted penalty modes; opt-in serial standard-J2 certified-face research Step with work, plastic-history rollback/restart and two named tools; smooth-subset affine/MPC total-system path, now including a prescribed moving face; certified-face plus point pair in serial standard J2 and smooth MPC, including separate point-friction State | Sharp-feature MPC, MPI, changing feature topology and wider path tests |
 | 7. Result | Pair work/pressure samples; constant-normal plane AL signed relative work, prescribed tool work, discrete absolute-work bound and raw/contact-aware residuals; standard and affine/MPC research face-location extensive evidence and accepted-station coverage without point pressure | Cross-law first-law, between-station coverage and a defensible pressure interpretation |
-| 8. Science | Local/oracle/installed tests; independent elastic and cyclic confined plastic histories; separated inhomogeneous space/time refinement through 12 cells and 256 increments; moving-tool/restart screens; directional refinement through 128 slave faces | Full mesh x increment x law convergence and external observables |
+| 8. Science | Local/oracle/installed tests; independent elastic and cyclic confined plastic histories; separated inhomogeneous space/time refinement through 16 cells and 256 increments; moving-tool/restart screens; directional refinement through 128 slave faces | Full mesh x increment x law convergence and external observables |
 | 9. Release | Scoped solver screens; remote Linux and local macOS installed-wheel checks; unchanged explicit full trajectory with 25 verified frames; closing `0913ab9a` installed regression | Final frozen release-candidate acceptance and bounded contact scientific gates; explicit runtime does not certify implicit contact |
 
 “Partial” here is not a release status. The test target, geometry and

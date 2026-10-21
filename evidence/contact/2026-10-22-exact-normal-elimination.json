@@ -1,0 +1,35 @@
+{
+  "scope": "same discrete active nodal constraints; not an independent continuum, material or vendor reference",
+  "core_commit": "867845247e8edd3d6940316ccf47971eef1f3c2a",
+  "test": "tests/test_affine_normal_augmentation_research.py::test_compatible_periodic_patch_al_matches_exact_active_constraint_elimination",
+  "test_revision": "extended supported-elastic parameters in the commit containing this record",
+  "platform": "macOS arm64, fenicsx-env, serial, one numerical thread per library",
+  "passed": 5,
+  "failed": 0,
+  "seconds": 101.46,
+  "junit_sha256": "072612ce2f6ba2071bd2d42fe09b0f50835e3208fbab81a34ae6b9d733341521",
+  "supported_elastic": {
+    "material": {"young": 1000.0, "poisson": 0.3, "yield_stress": 1000000.0, "hardening_modulus": 100.0},
+    "penalty": 40000.0,
+    "maximum_augmentations_direct_jump": 120,
+    "dense_diagnostic_maximum_dofs": 8192,
+    "penetration_tolerance": 1e-8,
+    "complementarity_tolerance": 1e-7,
+    "linear_factor_package_tested": "mumps",
+    "rows": [
+      {"cells": 8, "augmented_resultant_N": 27.18411324310739, "exact_resultant_N": 27.184113269725323},
+      {"cells": 12, "augmented_resultant_N": 25.522074728448818, "exact_resultant_N": 25.522074741948785}
+    ],
+    "fields_and_trial_state_match": true,
+    "nodal_pressures_match": true,
+    "peeq_exactly_zero": true
+  },
+  "earlier_plastic_discrete_cases_also_pass": [[4,10000.0],[4,40000.0],[8,20000.0]],
+  "retained_failed_attempts": [
+    "The initial direct full-load jump on 8 cells exhausted 60 updates at complementarity 3.4619293947574815e-7; the original required tolerance was and remains 1e-7.",
+    "The 12-cell diagnostic rejected the default 4096 dense DOF budget; the explicit test-only budget is now 8192.",
+    "An attempted wrapper around an already augmented provider was rejected by its exact-type admission; the diagnostic now constructs the ordinary provider first. No production admission check was bypassed."
+  ],
+  "interpretation": "The elastic spatial reaction difference remains under exact enforcement of the same nodal constraints. It is not explained by incomplete augmentation. Further spatial/contact-discretization evidence is required; locking, edge singularity and continuum error are not individually established.",
+  "production_policy_changed": false
+}

@@ -42,6 +42,16 @@ claim that a second full trajectory ran at the closing revision. Source,
 wheel and local JUnit fingerprints are recorded in
 `evidence/performance/2026-10-22-closing-installed-validation.json`.
 
+The final source follow-up aligns the two prepared MPC paths with ordinary
+linear solves: clear previous convergence evidence at the start of a new
+attempt, clear old algebraic residual/periodicity diagnostics, and honor the
+explicit nonconvergence policy. Diagnostic return retains a failed reason and
+actual residual; it does not promote an unconverged field. The algebraic
+summary now exposes its solver policy and latest solve record. Both stale-state
+regressions fail on the preceding installed candidate; 45 source checks and
+six targeted checks per MPI rank pass after the fix. These are separate from
+the preceding installed-wheel and complete explicit-run evidence.
+
 The completed 25-frame trajectory at `743f10b4` recorded 14,932.091 s of
 process elapsed time (not an isolated benchmark); inclusive residual assembly
 was approximately 89% of solver wall time. Field output is not the dominant
