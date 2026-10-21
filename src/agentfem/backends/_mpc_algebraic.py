@@ -56,6 +56,9 @@ class PreparedAlgebraicMPCLinearProblem:
 
         if self.closed:
             raise RuntimeError("Algebraic MPC problem is closed.")
+        self.last_solve_info = None
+        self.relative_residual = None
+        self.periodic_error = None
         u, backend = self.solution, self.constraint.backend
         comm = u.function_space.mesh.comm
         dm = u.function_space.dofmap
@@ -173,7 +176,7 @@ class PreparedAlgebraicMPCLinearProblem:
                 iterations=int(ksp.getIterationNumber()),
                 residual_norm=residual.norm(),
             )
-            if not self.last_solve_info.converged:
+            if not self.last_solve_info.converged and self.options.error_if_not_converged:
                 raise RuntimeError(
                     "AFM-RVE-009: reduced periodic system failed to converge."
                 )
@@ -210,6 +213,10 @@ class PreparedAlgebraicMPCLinearProblem:
             "matrix_values_reassembled": True,
             "graph_numbering": "replicated",
             "solve_count": self.solve_count,
+            "solver": self.options.summary(),
+            "last_solve": (
+                None if self.last_solve_info is None else self.last_solve_info.as_dict()
+            ),
             "relative_residual": self.relative_residual,
             "periodic_relative_error": self.periodic_error,
         }

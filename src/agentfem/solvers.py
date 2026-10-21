@@ -923,6 +923,7 @@ class PreparedMPCLinearProblem:
         """Refresh the load, solve, backsubstitute, and copy owned DOFs."""
 
         self._require_open()
+        self.last_solve_info = None
         solved = self.problem.solve()
         _copy_owned_function_values(self.solution, solved)
         solver = self.problem.solver
