@@ -24,6 +24,46 @@ being silently approximated by the bounded route.
 
 ## Live gate status
 
+### 2026-10-22 linear backend and option-transport audit
+
+The public Newton adapter silently dropped explicitly supplied inner linear
+`rtol`, `atol` and `max_it` on SNES; the affine adapter dropped `atol`. Both now
+preserve these controls. A real SNES regression inspects its actual KSP
+tolerances, not just a Python options dictionary. Explicit affected policies
+receive a versioned identity; a legacy-policy checkpoint is rejected before
+mutating accepted state, while a corrected checkpoint resumes equivalently.
+Unspecified default policies retain their old identity. The focused solver,
+affine lifecycle and standard/periodic finite-J2 suite passed 146 tests.
+
+The sequential, same-input screen in
+`tools/benchmark_affine_linear_policy.py` uses the finite-area-supported
+periodic fixture, 16 increments, penalty 40,000 and unchanged nonlinear/contact
+tolerances. Four common stations compare displacement, committed material
+state, nodal contact force and relative-gap work. The default actual backend
+was PETSc's built-in serial LU, not MUMPS.
+
+| Cells per edge | PETSc LU | MUMPS LU | GMRES/ILU | Newton iterations for each |
+| --- | ---: | ---: | ---: | ---: |
+| 8 | 24.703 s | 20.011 s | 18.759 s | 149 |
+| 12 | 187.329 s | 83.448 s | 70.722 s | 173 |
+
+These are single sequential screens, not statistically established universal
+speedups. The 12-cell MUMPS screen used 55.45% less solve time, while GMRES/ILU
+used 62.25% less; all four stations satisfy the predeclared 1e-7 absolute/relative
+comparison and the observed maximum state difference is below 5e-13.
+The iterative route explicitly uses linear rtol 1e-12, atol 1e-14 and at most
+1,000 iterations per correction; it performs 13,170 linear iterations on the
+12-cell case. Results are in `2026-10-22-affine-linear-policy-screen*.json`.
+This is an **implicit** solve finding, not an explicit-composite acceleration.
+No core default or scientific input is changed. MUMPS is selected explicitly
+for the subsequent refined scientific study, and its policy is stored in that
+study's report. Backend choice does not close the continuum/comparator gate.
+
+The implementation reuses the existing PETSc-backed public policy, following
+[PETSc's optional MUMPS backend](https://petsc.org/release/manualpages/Mat/MATSOLVERMUMPS/)
+and [GMRES](https://petsc.org/release/manualpages/KSP/KSPGMRES/).
+Neither documentation promises these timings; they are local observations.
+
 | Gate | Current evidence | Still needed for promotion |
 | --- | --- | --- |
 | 1. Comparator | Internal/public-protocol tests; elastic and small-displacement published cases screened but not misidentified as finite-J2 comparators | Independent same-input finite-J2 contact run and frozen observables |

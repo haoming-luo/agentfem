@@ -130,6 +130,18 @@ geometry, contact, solver-lifecycle and nonlinear restart subset passed 187
 tests. This inexpensive common helper is retained without inflating the
 earlier 12.11% window-scoped result.
 
+### Early-path confirmation
+
+A separate from-start 600-increment pair took 93.194532 s on the frozen
+`743f10b4` installation and 81.550461 s with the combined candidate through
+`f500e484`: 12.49% less advancement time in this single pair. Both executed
+614 residual attempts (including initial substeps), with bitwise-equal six
+state arrays and equal complete body/work summaries. This extends execution
+parity to the initial path; one pair does not establish a statistical speedup
+or replace the late alternating comparison. Setup and final comparison archive
+remain excluded. A frozen installed complete trajectory is still required for
+a whole-run runtime claim.
+
 ## Completed baseline
 
 Frozen core `608c50bb` completed the 255,041-cell, 100,000-increment review path

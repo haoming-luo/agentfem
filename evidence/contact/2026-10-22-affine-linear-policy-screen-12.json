@@ -1,0 +1,200 @@
+{
+  "schema": "agentfem.affine-linear-policy-screen.v1",
+  "platform": "macOS-26.6.2-arm64-arm-64bit",
+  "cells": 12,
+  "increments": 16,
+  "scope": "serial_supported_periodic_finite_J2_not_explicit_composite",
+  "timing_scope": "solve_only_excludes_setup_and_station_comparison",
+  "source_sha256": {
+    "src/agentfem/solvers.py": "c3358847f7335e639ccf2d4476a0e4c7698faa0200c75f8a286f6bd26e9edaf1",
+    "src/agentfem/_affine_equilibrium.py": "65689674f747be8cd983890d12758fcd770c708add0f0e55c8977fbdc9d846f0",
+    "examples/finite_j2_periodic_augmented_plane.py": "3f6ea36a5e6f2c67a1d1ced208d3531034eff5a38076470e48ef4ef48734d5a3",
+    "tools/benchmark_affine_linear_policy.py": "0890e2c50c99f36c97a123c933fa79d83ab50d5d3e6196163bdac109ab9873e8"
+  },
+  "mumps_available": true,
+  "records": [
+    {
+      "policy": "default",
+      "options": {
+        "kind": "linear_solver_options",
+        "mpc_assembly": "native",
+        "ksp_type": "preonly",
+        "pc_type": "lu",
+        "rtol": null,
+        "atol": null,
+        "max_it": null,
+        "factor_solver_type": null,
+        "error_if_not_converged": true
+      },
+      "status": "completed",
+      "stations": [
+        {
+          "factor": 0.25,
+          "maximum_array_differences": [
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ]
+        },
+        {
+          "factor": 0.5,
+          "maximum_array_differences": [
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ]
+        },
+        {
+          "factor": 0.75,
+          "maximum_array_differences": [
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ]
+        },
+        {
+          "factor": 1.0,
+          "maximum_array_differences": [
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ]
+        }
+      ],
+      "solve_seconds": 187.32900183275342,
+      "actual_factor_backends": [
+        "petsc"
+      ],
+      "linear_iterations": 173,
+      "newton_iterations": 173,
+      "maximum_penetration": 3.578437546281066e-10,
+      "maximum_complementarity": 5.8315334334321486e-08
+    },
+    {
+      "policy": "mumps",
+      "options": {
+        "kind": "linear_solver_options",
+        "mpc_assembly": "native",
+        "ksp_type": "preonly",
+        "pc_type": "lu",
+        "rtol": null,
+        "atol": null,
+        "max_it": null,
+        "factor_solver_type": "mumps",
+        "error_if_not_converged": true
+      },
+      "status": "completed",
+      "stations": [
+        {
+          "factor": 0.25,
+          "maximum_array_differences": [
+            7.476658181460039e-16,
+            1.239286451237831e-14,
+            5.973693761873733e-14,
+            5.245821017752013e-16
+          ]
+        },
+        {
+          "factor": 0.5,
+          "maximum_array_differences": [
+            5.48172618408671e-16,
+            1.6514567491299204e-14,
+            0.0,
+            4.3021142204224816e-16
+          ]
+        },
+        {
+          "factor": 0.75,
+          "maximum_array_differences": [
+            7.407269242420966e-16,
+            2.098321516541546e-14,
+            0.0,
+            4.3021142204224816e-16
+          ]
+        },
+        {
+          "factor": 1.0,
+          "maximum_array_differences": [
+            9.527968691802613e-16,
+            1.9512169657787126e-14,
+            7.261552470438914e-14,
+            9.6710833785707e-16
+          ]
+        }
+      ],
+      "solve_seconds": 83.44833129132167,
+      "actual_factor_backends": [
+        "mumps"
+      ],
+      "linear_iterations": 173,
+      "newton_iterations": 173,
+      "maximum_penetration": 3.578437546281066e-10,
+      "maximum_complementarity": 5.8315334334323584e-08
+    },
+    {
+      "policy": "gmres_ilu",
+      "options": {
+        "kind": "linear_solver_options",
+        "mpc_assembly": "native",
+        "ksp_type": "gmres",
+        "pc_type": "ilu",
+        "rtol": 1e-12,
+        "atol": 1e-14,
+        "max_it": 1000,
+        "factor_solver_type": null,
+        "error_if_not_converged": true
+      },
+      "status": "completed",
+      "stations": [
+        {
+          "factor": 0.25,
+          "maximum_array_differences": [
+            3.10324682617491e-14,
+            2.026573353575145e-13,
+            9.381384558082573e-14,
+            3.090009982945686e-16
+          ]
+        },
+        {
+          "factor": 0.5,
+          "maximum_array_differences": [
+            2.23113628267102e-14,
+            2.1453672172100369e-13,
+            0.0,
+            3.3436794999452957e-16
+          ]
+        },
+        {
+          "factor": 0.75,
+          "maximum_array_differences": [
+            5.061923102900323e-14,
+            3.159972283839352e-13,
+            0.0,
+            3.3436794999452957e-16
+          ]
+        },
+        {
+          "factor": 1.0,
+          "maximum_array_differences": [
+            2.2684599424588336e-14,
+            4.167916012320916e-13,
+            1.3785153574197295e-13,
+            3.230488793137809e-15
+          ]
+        }
+      ],
+      "solve_seconds": 70.72196333389729,
+      "actual_factor_backends": [
+        "petsc"
+      ],
+      "linear_iterations": 13170,
+      "newton_iterations": 173,
+      "maximum_penetration": 3.578428664496869e-10,
+      "maximum_complementarity": 5.8315189594028494e-08
+    }
+  ]
+}

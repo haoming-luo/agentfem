@@ -24,7 +24,7 @@ from dolfinx import fem
 from mpi4py import MPI
 
 import agentfem
-from agentfem import provenance
+from agentfem import provenance, solvers
 
 
 def observe(step, factor):
@@ -82,6 +82,8 @@ def main():
     parser.add_argument("--increments", nargs="+", type=int, default=[16, 32, 64])
     parser.add_argument("--penalties", nargs="+", type=float, default=[10000.])
     parser.add_argument("--affine-end-face-support", action="store_true")
+    parser.add_argument("--factor-solver", default=None,
+                        help="Explicit installed PETSc factor package (for example mumps); default unchanged.")
     parser.add_argument("--output", type=Path, required=True)
     args = parser.parse_args()
     if MPI.COMM_WORLD.size != 1:
@@ -116,6 +118,7 @@ def main():
                     else "point_pinned_periodic_corner_class"),
         "area_interpretation": "active_reference_area counts strictly positive multipliers, including numerical remnants; not a thresholded physical contact-area certificate",
         "numerical_tolerances": {"penetration": 1e-8, "complementarity": 1e-7},
+        "linear_solver": solvers.direct_solver(package=args.factor_solver).summary(),
         "records": [], "comparisons": [],
     }
     args.output.parent.mkdir(parents=True, exist_ok=True)
@@ -135,7 +138,8 @@ def main():
                 save()
                 try:
                     step = build(cells=cells, increments=increments, penalty=penalty,
-                                 affine_end_face_support=args.affine_end_face_support)
+                                 affine_end_face_support=args.affine_end_face_support,
+                                 linear_solver=solvers.direct_solver(package=args.factor_solver))
                     step.output_every = None
                     for factor in (.25, .5, .75, 1.):
                         step.solve(until=factor)

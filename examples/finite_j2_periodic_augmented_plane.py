@@ -28,7 +28,7 @@ from agentfem.mesh import abaqus
 
 
 def make_step(*, cells=4, increments=16, acceleration="aitken", penalty=10000.,
-              affine_end_face_support=False):
+              affine_end_face_support=False, linear_solver=None):
     if MPI.COMM_WORLD.size != 1:
         raise RuntimeError("This bounded augmented-contact path is serial only.")
     if cells < 4 or cells % 4 or increments < 4 or increments % 4:
@@ -113,6 +113,7 @@ def make_step(*, cells=4, increments=16, acceleration="aitken", penalty=10000.,
         solver_options=solvers.newton(
             relative_tolerance=1e-9, absolute_tolerance=1e-10,
             maximum_iterations=60, line_search="backtracking",
+            linear_solver=linear_solver or solvers.direct_solver(),
         ),
     )
 

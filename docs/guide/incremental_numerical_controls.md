@@ -111,6 +111,27 @@ object is released on success, failure or interruption. A supplied KSP remains
 caller-owned in `solve_matrix_system`; a one-shot KSP is always released by
 that helper, including exceptions during setup or solve.
 
+For an implicit problem, a direct factorization package can be selected without
+changing the model or implementing a new solver:
+
+```python
+solver_options = solvers.newton(
+    linear_solver=solvers.direct_solver(package="mumps"),
+)
+```
+
+This requires a PETSc build containing MUMPS. It is an explicit choice, not a
+portable speed guarantee or a new default. The default `direct_solver()` leaves
+the package selection to PETSc. Record the selected backend when comparing
+runtime: "LU" alone does not identify the factorization implementation.
+[PETSc documents MUMPS as an optional direct backend](
+https://petsc.org/release/manualpages/Mat/MATSOLVERMUMPS/).
+Iterative alternatives must also converge the total nonlinear problem at the
+declared accuracy; they do not justify loosening contact or material criteria.
+In particular, an ILU preconditioner is not generally symmetric, so a CG choice
+cannot be justified just by a symmetric-looking stiffness matrix; see
+[PETSc PCILU](https://petsc.org/release/manualpages/PC/PCILU/).
+
 ### Experimental constant-normal plane augmentation
 
 Finite-strain J2 accepts an opt-in outer augmented-Lagrangian iteration through
