@@ -16,13 +16,31 @@ pytestmark = pytest.mark.skipif(
 )
 
 
-def _step(supported):
+def _step(supported, **material):
     make = runpy.run_path(str(
         Path(__file__).resolve().parents[1]
         / "examples/finite_j2_periodic_augmented_plane.py"
     ))["make_step"]
     return make(cells=4, increments=8, penalty=40000.,
-                affine_end_face_support=supported)
+                affine_end_face_support=supported, **material)
+
+
+@pytest.mark.parametrize("yield_stress", [2., 1e6])
+def test_explicit_yield_stress_separates_plastic_and_elastic_diagnostic(yield_stress):
+    step = _step(True, yield_stress=yield_stress)
+    step.solve(until=.25)
+    peeq = step.response.state.committed_state_vectors()[:, 9]
+    if yield_stress == 2.:
+        assert np.max(peeq) > 0.
+    else:
+        assert np.max(peeq) == 0.
+    assert np.linalg.norm(step.contact_provider.evaluate().contact_force_on_structure) > .1
+
+
+@pytest.mark.parametrize("yield_stress", [0., -1., np.nan, np.inf])
+def test_invalid_diagnostic_yield_stress_rejects_before_model_construction(yield_stress):
+    with pytest.raises(ValueError, match="physical yield stress"):
+        _step(True, yield_stress=yield_stress)
 
 
 @pytest.mark.parametrize("supported", [False, True])
@@ -54,11 +72,12 @@ def test_periodic_contact_fixture_identifies_where_the_net_force_is_carried(supp
         residual.destroy()
 
 
-def test_changing_the_physical_fixture_cannot_silently_reuse_a_checkpoint(tmp_path):
+@pytest.mark.parametrize("change", ["support", "yield_stress"])
+def test_changing_the_physical_fixture_cannot_silently_reuse_a_checkpoint(tmp_path, change):
     partial = _step(True)
     partial.solve(until=.5)
     checkpoint = partial.save_checkpoint(tmp_path / "supported")
-    wrong_fixture = _step(False)
+    wrong_fixture = _step(False) if change == "support" else _step(True, yield_stress=1e6)
     before = wrong_fixture.solution.x.array.copy()
     with pytest.raises(ValueError, match="identity"):
         wrong_fixture.load_checkpoint(checkpoint)

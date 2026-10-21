@@ -81,6 +81,8 @@ def main():
     parser.add_argument("--cells", nargs="+", type=int, default=[4, 8])
     parser.add_argument("--increments", nargs="+", type=int, default=[16, 32, 64])
     parser.add_argument("--penalties", nargs="+", type=float, default=[10000.])
+    parser.add_argument("--yield-stress", type=float, default=2.,
+                        help="Physical Pa, not a solver tuning parameter. High values enable a separate elastic-limit diagnostic.")
     parser.add_argument("--affine-end-face-support", action="store_true")
     parser.add_argument("--factor-solver", default=None,
                         help="Explicit installed PETSc factor package (for example mumps); default unchanged.")
@@ -90,6 +92,8 @@ def main():
         parser.error("The bounded affine augmentation route is serial only.")
     if args.output.exists():
         parser.error("Use a new evidence path; prior reports are not overwritten.")
+    if not np.isfinite(args.yield_stress) or args.yield_stress <= 0.:
+        parser.error("yield-stress must be finite and positive.")
     for name in ("cells", "increments"):
         values = getattr(args, name)
         if values != sorted(set(values)) or any(value < 4 or value % 4 for value in values):
@@ -111,7 +115,7 @@ def main():
         "tool_sha256": hashlib.sha256(Path(__file__).read_bytes()).hexdigest(),
         "runtime_identity": provenance.runtime_manifest()["identity"],
         "mpi_transport_environment": {"FI_PROVIDER": os.environ.get("FI_PROVIDER")},
-        "material": {"young": 1000., "poisson": .3, "yield_stress": 2., "hardening_modulus": 100.},
+        "material": {"young": 1000., "poisson": .3, "yield_stress": args.yield_stress, "hardening_modulus": 100.},
         "units": {"length": "m", "stress": "Pa", "force": "N", "work": "J"},
         "physical_path": "fixed plane x=1.005; periodic stretch 1/1.02/0.99/1.02 at 0/0.25/0.75/1",
         "fixture": ("affine_x_motion_on_z_end_faces" if args.affine_end_face_support
@@ -139,7 +143,8 @@ def main():
                 try:
                     step = build(cells=cells, increments=increments, penalty=penalty,
                                  affine_end_face_support=args.affine_end_face_support,
-                                 linear_solver=solvers.direct_solver(package=args.factor_solver))
+                                 linear_solver=solvers.direct_solver(package=args.factor_solver),
+                                 yield_stress=args.yield_stress)
                     step.output_every = None
                     for factor in (.25, .5, .75, 1.):
                         step.solve(until=factor)

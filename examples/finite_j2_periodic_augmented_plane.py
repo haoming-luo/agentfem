@@ -28,20 +28,22 @@ from agentfem.mesh import abaqus
 
 
 def make_step(*, cells=4, increments=16, acceleration="aitken", penalty=10000.,
-              affine_end_face_support=False, linear_solver=None):
+              affine_end_face_support=False, linear_solver=None, yield_stress=2.):
     if MPI.COMM_WORLD.size != 1:
         raise RuntimeError("This bounded augmented-contact path is serial only.")
     if cells < 4 or cells % 4 or increments < 4 or increments % 4:
         raise ValueError("Use cells and increments divisible by four to preserve patch edges and path knots.")
     if not np.isfinite(penalty) or penalty <= 0.:
         raise ValueError("The numerical augmentation penalty must be finite and positive.")
+    if not np.isfinite(yield_stress) or yield_stress <= 0.:
+        raise ValueError("The physical yield stress must be finite and positive.")
     if type(affine_end_face_support) is not bool:
         raise TypeError("affine_end_face_support must be an explicit boolean.")
     domain = dolfinx_mesh.create_unit_cube(MPI.COMM_SELF, cells, cells, cells)
     model = models.create(study=studies.static_solid(dimension=3, nonlinear=True), mesh=domain)
     displacement = model.field(fields.displacement(domain))
     material = model.material(constitutive.finite_strain_j2_logarithmic(
-        young=1000., poisson=.3, yield_stress=2., hardening_modulus=100.,
+        young=1000., poisson=.3, yield_stress=yield_stress, hardening_modulus=100.,
     ))
 
     # Engineering definition of periodic equations: positive-face nodes wrap
@@ -124,6 +126,8 @@ def main():
     parser.add_argument("--cells", type=int, default=4)
     parser.add_argument("--increments", type=int, default=16)
     parser.add_argument("--penalty", type=float, default=10000., help="Explicit numerical penalty in Pa/m.")
+    parser.add_argument("--yield-stress", type=float, default=2.,
+                        help="Physical yield stress in Pa; changing it is a different material study.")
     parser.add_argument("--acceleration", choices=("none", "aitken"), default="aitken")
     parser.add_argument("--affine-end-face-support", action="store_true",
                         help="Declare finite-area x-motion guides on z=0/1; changes the physical fixture.")
@@ -131,7 +135,8 @@ def main():
     parser.add_argument("--restart", type=Path)
     args = parser.parse_args()
     step = make_step(cells=args.cells, increments=args.increments, acceleration=args.acceleration,
-                     penalty=args.penalty, affine_end_face_support=args.affine_end_face_support)
+                     penalty=args.penalty, affine_end_face_support=args.affine_end_face_support,
+                     yield_stress=args.yield_stress)
     if args.restart:
         step.load_checkpoint(args.restart)
     if not step.accepted_load_factor < args.until <= 1.:
