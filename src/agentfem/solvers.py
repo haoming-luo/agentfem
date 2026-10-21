@@ -7,6 +7,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from math import isfinite
+from numbers import Real
 import time
 
 import numpy as np
@@ -19,6 +20,16 @@ import dolfinx.fem.petsc as fem_petsc
 from . import steps as step_controls
 from ._affine_equilibrium import solve_serial_affine_equilibrium
 from .events import SolveEvent
+
+
+def _positive_finite(value):
+    return (isinstance(value, Real) and not isinstance(value, (bool, np.bool_))
+            and isfinite(value) and value > 0)
+
+
+def _positive_integer(value):
+    return (isinstance(value, (int, np.integer))
+            and not isinstance(value, (bool, np.bool_)) and value > 0)
 
 
 @dataclass(frozen=True)
@@ -37,15 +48,12 @@ class LinearSolverOptions:
     def __post_init__(self) -> None:
         if self.mpc_assembly not in {"native", "algebraic"}:
             raise ValueError("mpc_assembly must be native or algebraic.")
-        if self.rtol is not None and (not isfinite(self.rtol) or self.rtol <= 0.0):
-            raise ValueError("LinearSolverOptions.rtol must be positive.")
-        if self.atol is not None and (not isfinite(self.atol) or self.atol <= 0.0):
-            raise ValueError("LinearSolverOptions.atol must be positive.")
-        if self.max_it is not None and (
-            isinstance(self.max_it, bool) or not isinstance(self.max_it, (int, np.integer))
-            or self.max_it <= 0
-        ):
-            raise ValueError("LinearSolverOptions.max_it must be positive.")
+        if self.rtol is not None and not _positive_finite(self.rtol):
+            raise ValueError("LinearSolverOptions.rtol must be finite and positive.")
+        if self.atol is not None and not _positive_finite(self.atol):
+            raise ValueError("LinearSolverOptions.atol must be finite and positive.")
+        if self.max_it is not None and not _positive_integer(self.max_it):
+            raise ValueError("LinearSolverOptions.max_it must be a positive integer.")
         factor_pc_types = {"lu", "cholesky", "ilu", "icc"}
         if (
             self.factor_solver_type is not None
@@ -118,10 +126,10 @@ class NonlinearSolverOptions:
     ksp_max_it: int | None = None
 
     def __post_init__(self) -> None:
-        if self.rtol <= 0.0 or self.atol <= 0.0:
-            raise ValueError("Nonlinear solver tolerances must be positive.")
-        if self.max_it <= 0:
-            raise ValueError("NonlinearSolverOptions.max_it must be positive.")
+        if not _positive_finite(self.rtol) or not _positive_finite(self.atol):
+            raise ValueError("Nonlinear solver tolerances must be finite and positive.")
+        if not _positive_integer(self.max_it):
+            raise ValueError("NonlinearSolverOptions.max_it must be a positive integer.")
         LinearSolverOptions(ksp_type=self.ksp_type, pc_type=self.pc_type,
                             rtol=self.ksp_rtol, atol=self.ksp_atol,
                             max_it=self.ksp_max_it, factor_solver_type=self.factor_solver_type)
@@ -168,7 +176,11 @@ class NonlinearSolverOptions:
 
 @dataclass(frozen=True)
 class NewtonSolverOptions:
-    """Backend-neutral Newton policy for nonlinear equilibrium."""
+    """Common Newton policy with explicit backend-specific search boundaries.
+
+    Search reduction/minimum tune AgentFEM's bounded native Newton loops;
+    SNES retains its own default backtracking rule and rejects custom values.
+    """
 
     relative_tolerance: float = 1.0e-8
     absolute_tolerance: float = 1.0e-9
@@ -180,10 +192,12 @@ class NewtonSolverOptions:
     error_if_not_converged: bool = True
 
     def __post_init__(self) -> None:
-        if self.relative_tolerance <= 0.0 or self.absolute_tolerance <= 0.0:
-            raise ValueError("Newton tolerances must be positive.")
-        if self.maximum_iterations <= 0:
-            raise ValueError("Newton maximum_iterations must be positive.")
+        if not _positive_finite(self.relative_tolerance) or not _positive_finite(self.absolute_tolerance):
+            raise ValueError("Newton tolerances must be finite and positive.")
+        if not _positive_integer(self.maximum_iterations):
+            raise ValueError("Newton maximum_iterations must be a positive integer.")
+        if not isinstance(self.linear_solver, LinearSolverOptions):
+            raise TypeError("Newton linear_solver must be LinearSolverOptions.")
         selected = (
             None
             if self.line_search is None
@@ -199,15 +213,23 @@ class NewtonSolverOptions:
             raise ValueError(
                 "Newton line_search must be 'backtracking', 'basic', or None."
             )
-        if not 0.0 < self.line_search_reduction < 1.0:
+        if not _positive_finite(self.line_search_reduction) or self.line_search_reduction >= 1.0:
             raise ValueError("Newton line_search_reduction must lie in (0, 1).")
-        if not 0.0 < self.minimum_step_length <= 1.0:
+        if not _positive_finite(self.minimum_step_length) or self.minimum_step_length > 1.0:
             raise ValueError("Newton minimum_step_length must lie in (0, 1].")
         object.__setattr__(self, "line_search", selected)
 
     def for_snes(self) -> NonlinearSolverOptions:
         """Translate this policy to the DOLFINx/PETSc SNES path."""
 
+        if self.line_search == "backtracking" and (
+            self.line_search_reduction != 0.5 or self.minimum_step_length != 1.0 / 128.0
+        ):
+            raise NotImplementedError(
+                "AFM-SOLVER-SNES-SEARCH: customized line_search_reduction and "
+                "minimum_step_length belong to the native Newton route; "
+                "this SNES adapter cannot silently discard them."
+            )
         linear = self.linear_solver
         return NonlinearSolverOptions(
             rtol=self.relative_tolerance,
@@ -333,17 +355,17 @@ class AffineNewtonOptions:
     ksp_atol: float | None = None
 
     def __post_init__(self) -> None:
-        if self.rtol <= 0.0 or self.atol <= 0.0:
-            raise ValueError("Affine Newton tolerances must be positive.")
-        if self.max_it <= 0:
-            raise ValueError("AffineNewtonOptions.max_it must be positive.")
-        if not 0.0 < self.line_search_reduction < 1.0:
+        if not _positive_finite(self.rtol) or not _positive_finite(self.atol):
+            raise ValueError("Affine Newton tolerances must be finite and positive.")
+        if not _positive_integer(self.max_it):
+            raise ValueError("AffineNewtonOptions.max_it must be a positive integer.")
+        if not _positive_finite(self.line_search_reduction) or self.line_search_reduction >= 1.0:
             raise ValueError("line_search_reduction must lie between zero and one.")
-        if not 0.0 < self.line_search_minimum <= 1.0:
+        if not _positive_finite(self.line_search_minimum) or self.line_search_minimum > 1.0:
             raise ValueError("line_search_minimum must lie in (0, 1].")
-        if self.ksp_rtol <= 0.0 or self.ksp_max_it <= 0:
+        if not _positive_finite(self.ksp_rtol) or not _positive_integer(self.ksp_max_it):
             raise ValueError("Affine Newton KSP tolerances must be positive.")
-        if self.ksp_atol is not None and (not isfinite(self.ksp_atol) or self.ksp_atol <= 0):
+        if self.ksp_atol is not None and not _positive_finite(self.ksp_atol):
             raise ValueError("Affine Newton KSP absolute tolerance must be finite and positive.")
         if self.line_search not in {"backtracking", "basic"}:
             raise ValueError("Affine Newton line_search must be 'backtracking' or 'basic'.")

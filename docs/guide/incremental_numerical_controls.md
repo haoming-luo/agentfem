@@ -104,6 +104,16 @@ affine route. Explicitly configured policies now have a corrected transport
 identity, so an old affected checkpoint is not silently resumed under changed
 behavior. Unspecified default policies retain their existing identity.
 
+Solver tolerances must be finite positive real values; iteration limits must
+be positive integers. Boolean values are not numerical controls. Invalid
+settings reject at policy construction rather than reaching the solver.
+Custom `NewtonSolverOptions.line_search_reduction` and `minimum_step_length`
+apply to AgentFEM's native Newton loops. The SNES adapter now refuses custom
+backtracking values rather than silently dropping them. Default SNES behavior
+is unchanged: [PETSc BT](https://petsc.org/release/manualpages/SNES/SNESLINESEARCHBT/)
+uses its own polynomial/backtracking search, not the native fixed-ratio rule.
+Selecting a common `backtracking` name does not promise identical trial sequences.
+
 The serial affine frozen-equilibrium loop reuses its KSP object only while the
 constraint reduction is fixed. Each Newton solve still assembles and installs
 the current tangent; no numerical preconditioner is deliberately frozen. The

@@ -118,6 +118,58 @@ def test_inner_linear_options_reject_nonfinite_or_nonintegral_controls(kwargs):
         LinearSolverOptions(**kwargs)
 
 
+@pytest.mark.parametrize("policy,field", [
+    ("LinearSolverOptions", "rtol"), ("LinearSolverOptions", "atol"),
+    ("NonlinearSolverOptions", "rtol"), ("NonlinearSolverOptions", "atol"),
+    ("NonlinearSolverOptions", "ksp_rtol"), ("NonlinearSolverOptions", "ksp_atol"),
+    ("NewtonSolverOptions", "relative_tolerance"),
+    ("NewtonSolverOptions", "absolute_tolerance"),
+    ("NewtonSolverOptions", "minimum_step_length"),
+    ("AffineNewtonOptions", "rtol"), ("AffineNewtonOptions", "atol"),
+    ("AffineNewtonOptions", "ksp_rtol"), ("AffineNewtonOptions", "ksp_atol"),
+    ("AffineNewtonOptions", "line_search_minimum"),
+])
+@pytest.mark.parametrize("invalid", [float("nan"), float("inf"), True])
+def test_solver_families_reject_nonfinite_or_boolean_real_controls(policy, field, invalid):
+    from agentfem import solvers
+    with pytest.raises(ValueError):
+        getattr(solvers, policy)(**{field: invalid})
+
+
+@pytest.mark.parametrize("policy,field", [
+    ("LinearSolverOptions", "max_it"), ("NonlinearSolverOptions", "max_it"),
+    ("NonlinearSolverOptions", "ksp_max_it"),
+    ("NewtonSolverOptions", "maximum_iterations"),
+    ("AffineNewtonOptions", "max_it"), ("AffineNewtonOptions", "ksp_max_it"),
+])
+@pytest.mark.parametrize("invalid", [1.5, True, float("inf")])
+def test_solver_families_require_integer_iteration_limits(policy, field, invalid):
+    from agentfem import solvers
+    with pytest.raises(ValueError):
+        getattr(solvers, policy)(**{field: invalid})
+
+
+def test_solver_controls_accept_numpy_real_scalars_and_reject_wrong_linear_policy():
+    import numpy as np
+    from agentfem import solvers
+    assert solvers.AffineNewtonOptions(rtol=np.float64(1e-8), max_it=np.int64(30)).max_it == 30
+    with pytest.raises(TypeError, match="linear_solver"):
+        newton(linear_solver={"ksp_type": "gmres"})
+
+
+@pytest.mark.parametrize("setting", [{"line_search_reduction": .25},
+                                     {"minimum_step_length": 1/8192}])
+def test_snes_refuses_to_discard_custom_native_search_controls(setting):
+    policy = NewtonSolverOptions(**setting)
+    with pytest.raises(NotImplementedError, match="AFM-SOLVER-SNES-SEARCH"):
+        policy.for_snes()
+    native = policy.for_affine_reduction()
+    assert native.line_search_reduction == policy.line_search_reduction
+    assert native.line_search_minimum == policy.minimum_step_length
+    # These controls do not apply to a deliberately disabled search.
+    assert NewtonSolverOptions(line_search="basic", **setting).for_snes().line_search_type == "basic"
+
+
 def test_snes_backend_receives_declared_inner_tolerances(monkeypatch):
     import numpy as np
     import ufl
