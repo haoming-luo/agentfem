@@ -34,6 +34,14 @@ The combined source regressions pass 237 tests (one MPI-only skip), and the
 two-rank history/prepared-solver subset passes 14 tests per rank. The synthetic
 storage benchmark is recorded separately from solver timing.
 
+A clean native wheel built from `0913ab9a` also passes the same 237 targeted
+tests (one MPI-only skip), with repository pytest path injection disabled.
+All three native binary hashes match the earlier complete-run wheel exactly.
+The closing Python changes have separate regression coverage; this is not a
+claim that a second full trajectory ran at the closing revision. Source,
+wheel and local JUnit fingerprints are recorded in
+`evidence/performance/2026-10-22-closing-installed-validation.json`.
+
 The completed 25-frame trajectory at `743f10b4` recorded 14,932.091 s of
 process elapsed time (not an isolated benchmark); inclusive residual assembly
 was approximately 89% of solver wall time. Field output is not the dominant
@@ -127,9 +135,10 @@ waiting, so these are not independent speedup contributions.
 
 The affected geometry, response-material, deformable-contact, rollback/restart,
 viscosity and performance-ledger regressions passed **190 tests** in the real
-FEniCSx environment. Lint and whitespace checks passed. The next promotion gate
-is representative earlier states and the installed combined route, not another
-unrelated full test suite. Private full arrays remain in local evidence folders;
+FEniCSx environment. Lint and whitespace checks passed. Subsequent early-state
+and installed whole-path checks close this execution-parity gate, not
+independent physical verification. Private full arrays remain in local evidence
+folders;
 no confidential material or model assets are copied into this repository.
 
 ### Exact coordinate identity follow-up
@@ -163,8 +172,8 @@ A separate from-start 600-increment pair took 93.194532 s on the frozen
 state arrays and equal complete body/work summaries. This extends execution
 parity to the initial path; one pair does not establish a statistical speedup
 or replace the late alternating comparison. Setup and final comparison archive
-remain excluded. A frozen installed complete trajectory is still required for
-a whole-run runtime claim.
+remain excluded. The later complete installed trajectory above supplies a
+whole-run runtime, with its separate load caveats explicitly retained.
 
 ### Versioned operational restart and policy consistency
 
