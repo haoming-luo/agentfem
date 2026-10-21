@@ -94,6 +94,23 @@ RuntimeError compatibility. `exception.as_dict()` includes a stable code,
 solver stage, PETSc reason, iterations, residual and suggested next checks.
 These are diagnostics, not a claim that one root cause has been proven.
 
+`solvers.newton(linear_solver=solvers.LinearSolverOptions(...))` preserves
+explicit inner `rtol`, `atol` and `max_it` on both SNES and affine-reduced
+routes. These control the linear correction, not the nonlinear equilibrium or
+contact tolerance. Unspecified SNES inner tolerances retain PETSc defaults;
+the existing affine relative-tolerance/iteration defaults are unchanged.
+Earlier adapters dropped these settings on SNES and dropped `atol` on the
+affine route. Explicitly configured policies now have a corrected transport
+identity, so an old affected checkpoint is not silently resumed under changed
+behavior. Unspecified default policies retain their existing identity.
+
+The serial affine frozen-equilibrium loop reuses its KSP object only while the
+constraint reduction is fixed. Each Newton solve still assembles and installs
+the current tangent; no numerical preconditioner is deliberately frozen. The
+object is released on success, failure or interruption. A supplied KSP remains
+caller-owned in `solve_matrix_system`; a one-shot KSP is always released by
+that helper, including exceptions during setup or solve.
+
 ### Experimental constant-normal plane augmentation
 
 Finite-strain J2 accepts an opt-in outer augmented-Lagrangian iteration through

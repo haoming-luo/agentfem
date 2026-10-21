@@ -37,11 +37,14 @@ class LinearSolverOptions:
     def __post_init__(self) -> None:
         if self.mpc_assembly not in {"native", "algebraic"}:
             raise ValueError("mpc_assembly must be native or algebraic.")
-        if self.rtol is not None and self.rtol <= 0.0:
+        if self.rtol is not None and (not isfinite(self.rtol) or self.rtol <= 0.0):
             raise ValueError("LinearSolverOptions.rtol must be positive.")
-        if self.atol is not None and self.atol <= 0.0:
+        if self.atol is not None and (not isfinite(self.atol) or self.atol <= 0.0):
             raise ValueError("LinearSolverOptions.atol must be positive.")
-        if self.max_it is not None and self.max_it <= 0:
+        if self.max_it is not None and (
+            isinstance(self.max_it, bool) or not isinstance(self.max_it, (int, np.integer))
+            or self.max_it <= 0
+        ):
             raise ValueError("LinearSolverOptions.max_it must be positive.")
         factor_pc_types = {"lu", "cholesky", "ilu", "icc"}
         if (
@@ -110,12 +113,18 @@ class NonlinearSolverOptions:
     pc_type: str = "lu"
     factor_solver_type: str | None = None
     error_if_not_converged: bool = True
+    ksp_rtol: float | None = None
+    ksp_atol: float | None = None
+    ksp_max_it: int | None = None
 
     def __post_init__(self) -> None:
         if self.rtol <= 0.0 or self.atol <= 0.0:
             raise ValueError("Nonlinear solver tolerances must be positive.")
         if self.max_it <= 0:
             raise ValueError("NonlinearSolverOptions.max_it must be positive.")
+        LinearSolverOptions(ksp_type=self.ksp_type, pc_type=self.pc_type,
+                            rtol=self.ksp_rtol, atol=self.ksp_atol,
+                            max_it=self.ksp_max_it, factor_solver_type=self.factor_solver_type)
 
     def petsc_options(self) -> dict[str, object]:
         options: dict[str, object] = {
@@ -131,10 +140,14 @@ class NonlinearSolverOptions:
             options["snes_linesearch_type"] = self.line_search_type
         if self.factor_solver_type is not None:
             options["pc_factor_mat_solver_type"] = self.factor_solver_type
+        for name in ("ksp_rtol", "ksp_atol", "ksp_max_it"):
+            value = getattr(self, name)
+            if value is not None:
+                options[name] = value
         return options
 
     def summary(self) -> dict[str, object]:
-        return {
+        record = {
             "kind": "nonlinear_solver_options",
             "snes_type": self.snes_type,
             "rtol": self.rtol,
@@ -146,6 +159,11 @@ class NonlinearSolverOptions:
             "factor_solver_type": self.factor_solver_type,
             "error_if_not_converged": self.error_if_not_converged,
         }
+        for name in ("ksp_rtol", "ksp_atol", "ksp_max_it"):
+            value = getattr(self, name)
+            if value is not None:
+                record[name] = value
+        return record
 
 
 @dataclass(frozen=True)
@@ -203,6 +221,9 @@ class NewtonSolverOptions:
             ksp_type=linear.ksp_type,
             pc_type=linear.pc_type,
             factor_solver_type=linear.factor_solver_type,
+            ksp_rtol=linear.rtol,
+            ksp_atol=linear.atol,
+            ksp_max_it=linear.max_it,
             error_if_not_converged=self.error_if_not_converged,
         )
 
@@ -221,6 +242,7 @@ class NewtonSolverOptions:
             ksp_type=linear.ksp_type,
             pc_type=linear.pc_type,
             ksp_rtol=1.0e-10 if linear.rtol is None else float(linear.rtol),
+            ksp_atol=linear.atol,
             ksp_max_it=1000 if linear.max_it is None else int(linear.max_it),
             factor_solver_type=linear.factor_solver_type,
             error_if_not_converged=self.error_if_not_converged,
@@ -243,6 +265,9 @@ class NewtonSolverOptions:
             # Distinguish explicit no-search from legacy SNES backend-default
             # behavior in checkpoint identity; backtracking identities stay put.
             record["resolved_line_search"] = "basic"
+        if any(getattr(self.linear_solver, name) is not None
+               for name in ("rtol", "atol", "max_it")):
+            record["linear_tolerance_transport"] = "explicit.v1"
         return record
 
 
@@ -305,6 +330,7 @@ class AffineNewtonOptions:
     factor_solver_type: str | None = "mumps"
     error_if_not_converged: bool = True
     line_search: str = "backtracking"
+    ksp_atol: float | None = None
 
     def __post_init__(self) -> None:
         if self.rtol <= 0.0 or self.atol <= 0.0:
@@ -317,6 +343,8 @@ class AffineNewtonOptions:
             raise ValueError("line_search_minimum must lie in (0, 1].")
         if self.ksp_rtol <= 0.0 or self.ksp_max_it <= 0:
             raise ValueError("Affine Newton KSP tolerances must be positive.")
+        if self.ksp_atol is not None and (not isfinite(self.ksp_atol) or self.ksp_atol <= 0):
+            raise ValueError("Affine Newton KSP absolute tolerance must be finite and positive.")
         if self.line_search not in {"backtracking", "basic"}:
             raise ValueError("Affine Newton line_search must be 'backtracking' or 'basic'.")
 
@@ -326,6 +354,7 @@ class AffineNewtonOptions:
             ksp_type=self.ksp_type,
             pc_type=self.pc_type,
             rtol=self.ksp_rtol,
+            atol=self.ksp_atol,
             max_it=self.ksp_max_it,
             factor_solver_type=self.factor_solver_type,
         )

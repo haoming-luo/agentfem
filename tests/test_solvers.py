@@ -87,6 +87,70 @@ def test_public_newton_policy_adapts_to_snes_and_affine_reduction():
     assert affine.factor_solver_type == "mumps"
 
 
+def test_newton_preserves_explicit_inner_linear_tolerances_on_both_routes():
+    linear = LinearSolverOptions(ksp_type="gmres", pc_type="ilu",
+                                 rtol=3e-12, atol=7e-14, max_it=321)
+    policy = newton(linear_solver=linear)
+    snes = policy.for_snes()
+    options = snes.petsc_options()
+    assert options["ksp_rtol"] == linear.rtol
+    assert options["ksp_atol"] == linear.atol
+    assert options["ksp_max_it"] == linear.max_it
+    assert policy.for_affine_reduction().linear_options == linear
+    assert snes.summary()["ksp_rtol"] == linear.rtol
+    # Checkpoint identity must distinguish this corrected policy from an old
+    # execution which silently dropped explicitly requested inner tolerances.
+    assert policy.summary()["linear_tolerance_transport"] == "explicit.v1"
+
+
+def test_default_newton_keeps_unspecified_inner_backend_defaults_and_identity():
+    policy = newton()
+    assert "linear_tolerance_transport" not in policy.summary()
+    for key in ("ksp_rtol", "ksp_atol", "ksp_max_it"):
+        assert key not in policy.for_snes().petsc_options()
+        assert key not in policy.for_snes().summary()
+
+
+@pytest.mark.parametrize("kwargs", [{"rtol": float("nan")}, {"atol": float("inf")},
+                                   {"max_it": 1.5}, {"max_it": True}])
+def test_inner_linear_options_reject_nonfinite_or_nonintegral_controls(kwargs):
+    with pytest.raises(ValueError):
+        LinearSolverOptions(**kwargs)
+
+
+def test_snes_backend_receives_declared_inner_tolerances(monkeypatch):
+    import numpy as np
+    import ufl
+    from dolfinx import fem, mesh
+    import dolfinx.fem.petsc as fem_petsc
+    from mpi4py import MPI
+    from agentfem import solvers
+
+    domain = mesh.create_unit_interval(MPI.COMM_SELF, 3)
+    space = fem.functionspace(domain, ("Lagrange", 1))
+    u = fem.Function(space)
+    u.x.array[:] = .8
+    v = ufl.TestFunction(space)
+    residual = (u**3 + u - 2.) * v * ufl.dx
+    original = fem_petsc.NonlinearProblem
+    captured = []
+    def build(*args, **kwargs):
+        problem = original(*args, **kwargs)
+        captured.append(problem)
+        return problem
+    monkeypatch.setattr(fem_petsc, "NonlinearProblem", build)
+    linear = LinearSolverOptions(ksp_type="gmres", pc_type="ilu",
+                                 rtol=3e-12, atol=7e-14, max_it=321)
+    _, info = solvers.solve_nonlinear_problem(
+        residual, u, options=newton(linear_solver=linear),
+        petsc_options_prefix="test_inner_tolerance_transport_",
+    )
+    assert info.converged
+    np.testing.assert_allclose(u.x.array, 1., atol=1e-9, rtol=0.)
+    rtol, atol, _, maximum = captured[0].solver.getKSP().getTolerances()
+    assert (rtol, atol, maximum) == (linear.rtol, linear.atol, linear.max_it)
+
+
 @pytest.mark.parametrize("line_search", ("invalid", "cubic"))
 def test_public_newton_policy_rejects_unknown_line_search(line_search):
     with pytest.raises(ValueError):
