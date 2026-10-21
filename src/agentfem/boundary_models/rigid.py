@@ -1304,7 +1304,8 @@ class TriangulatedRigidSurface(RigidSurface):
             raise ValueError("Surface vertices must have shape (count >= 3, 3).")
         if not np.all(np.isfinite(vertices)):
             raise ValueError("Surface vertices must be finite.")
-        if np.unique(vertices, axis=0).shape[0] != vertices.shape[0]:
+        from .._coordinate_identity import has_duplicate_coordinates
+        if has_duplicate_coordinates(vertices):
             raise ValueError(
                 "Surface contains duplicate vertices; weld the reviewed "
                 "triangle topology before creating a rigid surface."

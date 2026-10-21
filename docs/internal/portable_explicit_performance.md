@@ -108,6 +108,28 @@ is representative earlier states and the installed combined route, not another
 unrelated full test suite. Private full arrays remain in local evidence folders;
 no confidential material or model assets are copied into this repository.
 
+### Exact coordinate identity follow-up
+
+An internal shared coordinate-identity helper now uses stable columnar
+`numpy.lexsort` rather than structured-row `numpy.unique` for duplicate checks
+and first-occurrence Q1 welding. This is exact binary64 equality, not a new
+mesh-merging tolerance. Signed zero remains equal, adjacent representable
+coordinates remain distinct, and the first input point owns its stored bits.
+Nonfinite/complex/malformed inputs reject. The helper does not change imported
+mesh numbering or the STL importer's separate lexicographic storage convention.
+[NumPy documents the stable multikey ordering](
+https://numpy.org/doc/stable/reference/generated/numpy.lexsort.html).
+
+On one synthetic 50,000-point input, ten duplicate checks took 0.128–0.132 s
+with the former row sort and 0.083–0.085 s with column sorting. This is a
+microbenchmark only. A fresh full-mesh 95,000-to-95,600 continuation took
+76.183 s, within the earlier combined candidate range: **no distinct extra
+whole-step gain is established**. All six arrays and the complete body/work
+summary remain exactly equal to the frozen original baseline. The combined
+geometry, contact, solver-lifecycle and nonlinear restart subset passed 187
+tests. This inexpensive common helper is retained without inflating the
+earlier 12.11% window-scoped result.
+
 ## Completed baseline
 
 Frozen core `608c50bb` completed the 255,041-cell, 100,000-increment review path

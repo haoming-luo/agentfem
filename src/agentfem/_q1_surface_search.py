@@ -6,6 +6,7 @@ import heapq
 
 import numpy as np
 
+from ._coordinate_identity import has_duplicate_coordinates, weld_coordinates_first
 from ._q1_surface_geometry import q1_closest_point, q1_triangulation_distance_bound
 from .boundary_models.rigid import TriangulatedRigidSurface, _readonly_array
 from .boundary_models.search import TriangleSurfaceBVH, _bbox_squared_distance
@@ -161,11 +162,7 @@ def _patch_enclosure_bound(vertices, point, pad, target, depth=0):
 
 def _weld_coordinates(points):
     """Exact coordinate equality, with vertex storage in first-occurrence order."""
-    nodes, first, inverse = np.unique(points, axis=0, return_index=True, return_inverse=True)
-    order = np.argsort(first, kind="stable")
-    renumber = np.empty_like(order)
-    renumber[order] = np.arange(len(order))
-    return nodes[order], renumber[inverse]
+    return weld_coordinates_first(points)
 
 
 class Q1SurfaceSearch:
@@ -235,7 +232,7 @@ class Q1SurfaceSearch:
             # weld classes must remain equal and distinct classes must not meet.
             # Splitting/merging classes follows the original fresh-weld path.
             reused = (np.array_equal(points, nodes[inverse])
-                      and len(np.unique(nodes, axis=0)) == len(nodes))
+                      and not has_duplicate_coordinates(nodes))
         if not reused:
             nodes, inverse = _weld_coordinates(points)
             first = np.full(len(nodes), len(points), dtype=np.int64)
