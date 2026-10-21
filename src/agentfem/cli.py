@@ -586,6 +586,15 @@ def _command_compare(args) -> int:
     from .results.comparison import compare_records
     reference, left = _load_record(args.reference, args.project)
     candidate, right = _load_record(args.candidate, args.project)
+    if args.history:
+        from .results.history_archive import read_histories
+
+        # File access is explicit here, never hidden inside compare_records.
+        # Enriched records are ephemeral; do not rewrite their sealed manifests.
+        if reference.get("history_archive") is not None:
+            reference = {**reference, "history_records": [h.as_dict() for h in read_histories(left)]}
+        if candidate.get("history_archive") is not None:
+            candidate = {**candidate, "history_records": [h.as_dict() for h in read_histories(right)]}
     record = compare_records(reference, candidate, quantities=args.quantity,
                              histories=args.history, atol=args.atol, rtol=args.rtol)
     record.update(reference=str(left), candidate=str(right))

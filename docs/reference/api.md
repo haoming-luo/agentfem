@@ -546,6 +546,7 @@ and evidence remain in the linked guides and scientific function reference.
 | function | `consolidate_xdmf_fields(source, destination) -> Path` | Group synchronized fields on one grid per time, without copying HDF5. |
 | function | `cell_field_from_values(domain, values, *, name, cell_keys = None)` | Create a detached DG0 field from one scalar/vector/tensor per cell. |
 | function | `compare_records(reference: Mapping, candidate: Mapping, *, quantities: Sequence[str] = (), histories: Sequence[str] = (), atol: float = 0.0, rtol: float = 0.0) -> dict` | Compare selected observables with explicit componentwise tolerances. |
+| function | `read_histories(manifest_path: str \| Path) -> tuple[HistoryResult, ...]` | Read complete histories from an inline or NPZ result manifest. |
 | class | `AcceptedResponseSeries(path, *, state_fields = None, velocity = False, acceleration = False, units = None, storage = 'single_file')` | Streaming accepted fields; fixed mesh stored once, never a restart archive. |
 | function | `export_accepted_response(step, directory, *, state_fields = None, velocity = False, acceleration = False, units = None, visualization = True)` | Export one accepted response, raw state and cell keys. |
 | function | `export_accepted_contact_points(step, directory, *, units = None, result = None, vtk_view = False) -> dict[str, Path]` | Archive accepted quadrature samples without smoothing or advancing State. |

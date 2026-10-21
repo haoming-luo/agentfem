@@ -64,6 +64,19 @@ def test_bad_policy(kwargs):
         project.RunPolicy(**kwargs)
 
 
+def test_run_policy_binary_history_publication(tmp_path):
+    from agentfem import results
+    run = context(tmp_path / "binary-history")
+    report = project.execute_step(heat_step(), context=run,
+        policy=project.RunPolicy(history_storage="npz", journal_every=1))
+    assert report["complete"]
+    record = json.loads(run.manifest_path.read_text())
+    assert record["history_archive"]["schema"] == "agentfem.history-arrays"
+    assert len(results.read_histories(run.manifest_path)) == len(record["history_records"])
+    with pytest.raises(ValueError, match="AFM-RUN-POLICY"):
+        project.RunPolicy(history_storage="lossy")
+
+
 def test_response_export_and_generic_run(tmp_path):
     from agentfem import results
     from test_response_material_step import make_step

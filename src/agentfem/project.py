@@ -751,7 +751,8 @@ class RunContext:
         self._write_latest_pointer(status)
         return self.execution_path
 
-    def publish(self, result, *, include_histories: bool = True) -> Path:
+    def publish(self, result, *, include_histories: bool = True,
+                history_storage: str = "inline") -> Path:
         """Publish a ``SimulationResult`` through the stable run contract."""
 
         if not hasattr(result, "write_manifest"):
@@ -759,10 +760,12 @@ class RunContext:
         from .presentation import result_summary_markdown
 
         result.metadata.setdefault("run", self.summary())
+        storage_options = {} if history_storage == "inline" else {"history_storage": history_storage}
         path = result.write_manifest(
             self.manifest_path,
             include_histories=include_histories,
             relative_artifacts=True,
+            **storage_options,
         )
         record = json.loads(path.read_text(encoding="utf-8"))
         self.artifact("summary.md").write_text(
