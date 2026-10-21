@@ -2,6 +2,9 @@
 
 Process visualization, scalar histories and restart checkpoints have different
 jobs. Field output must not change the integration time grid or material state.
+Machine-readable XDMF/PVD time indices retain binary64 round-trip precision;
+the compact numerical formatting of terminal progress does not apply to stored
+times. Adjacent distinct accepted time values must not collapse in the index.
 
 ```python
 frames = results.AcceptedResponseSeries(

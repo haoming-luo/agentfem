@@ -137,6 +137,33 @@ def test_live_rejects_existing_output_and_incompatible_mode(tmp_path):
         ResultWriter(tmp_path / "other.pvd", domain, storage="frame_files")
 
 
+@pytest.mark.parametrize("storage", ["single_file", "frame_files"])
+@pytest.mark.parametrize("start", [1., 1e-30, 1e15])
+def test_time_index_preserves_distinct_binary64_stations(tmp_path, storage, start):
+    domain, u, damage = fields()
+    path = tmp_path / "results.xdmf"
+    times = np.array([start, np.nextafter(start, np.inf)])
+    with ResultWriter(path, domain, (u, damage), storage=storage) as writer:
+        for time_value in times:
+            writer.write(time_value)
+    parsed = [float(item.get("Value")) for item in ET.parse(path).findall(".//Time")]
+    np.testing.assert_array_equal(parsed, times)
+    assert parsed[1] > parsed[0]
+    np.testing.assert_array_equal([record[0] for record in read(path)[1]], times)
+
+
+def test_pvd_index_preserves_distinct_binary64_stations(tmp_path):
+    pytest.importorskip("pyvista")
+    from types import SimpleNamespace
+    from agentfem.results.output import write_deformed_vtk_series
+    _, u, _ = fields()
+    times = [1., np.nextafter(1., np.inf)]
+    snapshots = [SimpleNamespace(solution=u, load_factor=t) for t in times]
+    path, _ = write_deformed_vtk_series(tmp_path / "results.pvd", snapshots, [(), ()])
+    parsed = [float(item.get("timestep")) for item in ET.parse(path).findall(".//DataSet")]
+    np.testing.assert_array_equal(parsed, times)
+
+
 def test_accepted_project_has_one_hundred_frames_and_one_entry(tmp_path):
     from agentfem import project, results
     from test_project_execution import context

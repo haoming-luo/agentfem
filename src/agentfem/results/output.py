@@ -709,7 +709,9 @@ class UnifiedXDMFTimeSeries:
             Name=f"Frame_{frame_name}",
             GridType="Uniform",
         )
-        ET.SubElement(grid, "Time", Value=f"{float(time):.16g}")
+        # Presentation logs may round; a machine-readable time index must
+        # round-trip binary64 so distinct accepted stations cannot collapse.
+        ET.SubElement(grid, "Time", Value=f"{float(time):.17g}")
         topology_xml = ET.SubElement(
             grid,
             "Topology",
@@ -1352,7 +1354,7 @@ def write_deformed_vtk_series(
         ET.SubElement(
             collection,
             "DataSet",
-            timestep=f"{snapshot.load_factor:.16g}",
+            timestep=f"{float(snapshot.load_factor):.17g}",
             group="",
             part="0",
             file=str(frame_path.relative_to(pvd.parent)),
