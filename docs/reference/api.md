@@ -546,7 +546,7 @@ and evidence remain in the linked guides and scientific function reference.
 | function | `consolidate_xdmf_fields(source, destination) -> Path` | Group synchronized fields on one grid per time, without copying HDF5. |
 | function | `cell_field_from_values(domain, values, *, name, cell_keys = None)` | Create a detached DG0 field from one scalar/vector/tensor per cell. |
 | function | `compare_records(reference: Mapping, candidate: Mapping, *, quantities: Sequence[str] = (), histories: Sequence[str] = (), atol: float = 0.0, rtol: float = 0.0) -> dict` | Compare selected observables with explicit componentwise tolerances. |
-| class | `AcceptedResponseSeries(path, *, state_fields = None, velocity = False, acceleration = False, units = None)` | Streaming accepted fields; fixed mesh stored once, never a restart archive. |
+| class | `AcceptedResponseSeries(path, *, state_fields = None, velocity = False, acceleration = False, units = None, storage = 'single_file')` | Streaming accepted fields; fixed mesh stored once, never a restart archive. |
 | function | `export_accepted_response(step, directory, *, state_fields = None, velocity = False, acceleration = False, units = None, visualization = True)` | Export one accepted response, raw state and cell keys. |
 | function | `export_accepted_contact_points(step, directory, *, units = None, result = None, vtk_view = False) -> dict[str, Path]` | Archive accepted quadrature samples without smoothing or advancing State. |
 | class | `CheckpointRecord` | One restart asset with an explicit portability boundary. |
@@ -1365,7 +1365,7 @@ and evidence remain in the linked guides and scientific function reference.
 | class | `LinearSolverOptions` | PETSc KSP options for a linear solve. |
 | function | `direct_solver(*, package: str \| None = None) -> LinearSolverOptions` | Create a direct linear-solver policy without PETSc option names. |
 | class | `NonlinearSolverOptions` | PETSc SNES/KSP policy for nonlinear finite-element solves. |
-| class | `NewtonSolverOptions` | Backend-neutral Newton policy for nonlinear equilibrium. |
+| class | `NewtonSolverOptions` | Common Newton policy with explicit backend-specific search boundaries. |
 | function | `newton(*, relative_tolerance: float = 1e-08, absolute_tolerance: float = 1e-09, maximum_iterations: int = 30, line_search: str \| None = 'backtracking', linear_solver: LinearSolverOptions \| None = None, error_if_not_converged: bool = True) -> NewtonSolverOptions` | Create one Newton policy for ordinary and affine-constrained steps. |
 | class | `NonlinearSolveInfo` | Convergence evidence returned by a PETSc SNES solve. |
 | class | `AffineNewtonOptions` | Newton policy for an affine-reduced nonlinear equilibrium path. |
@@ -1699,7 +1699,7 @@ and evidence remain in the linked guides and scientific function reference.
 | class | `CSVLogger` | Rank-zero CSV writer for time histories and scalar diagnostics. |
 | class | `XDMFTimeSeries(path: Path, domain, mode: str = 'w') -> None` | Small context manager for writing a mesh and time-dependent fields. |
 | class | `ParaViewTimeSeries(path: Path, domain, mode: str = 'w') -> None` | Collective VTK/PVD series with one geometry carrying all fields. |
-| class | `ResultWriter(path: Path, domain, fields = (), mode: str = 'w') -> None` | Named visualization writer for one mesh and a stable field list. |
+| class | `ResultWriter(path: Path, domain, fields = (), mode: str = 'w', *, storage = 'single_file') -> None` | Named visualization writer for one mesh and a stable field list. |
 | function | `interpolate_for_xdmf(field, *, degree: int = 1, name: str \| None = None)` | Interpolate a field to an XDMF-friendly Lagrange output space. |
 
 ## `agentfem.integrations`
