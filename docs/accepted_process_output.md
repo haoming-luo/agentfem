@@ -5,7 +5,7 @@ jobs. Field output must not change the integration time grid or material state.
 
 ```python
 frames = results.AcceptedResponseSeries(
-    context.artifact("process.xdmf"),
+    context.artifact("results.xdmf"), storage="frame_files",
     state_fields={"damage": ("damage", None)},
     velocity=True, acceleration=True, units={"time": "s"},
 )
@@ -35,7 +35,7 @@ under the tensor's name. The provider's source location is preserved in the
 series metadata and cannot change between frames. These checks protect output
 meaning; they do not independently validate the constitutive law.
 
-Open `process.xdmf` and use ParaView's time controls. Apply Warp By Vector once.
+Open `results.xdmf` and use ParaView's time controls. Apply Warp By Vector once.
 Each frame is one volume grid with all selected point and cell fields. The
 existing writer shares topology and reference coordinates, compresses field
 arrays, and streams one station at a time rather than retaining all fields in
@@ -50,6 +50,31 @@ loads a checkpoint itself. Restore with the original compatible model/runtime;
 never remove identity checks to visualize a historical checkpoint.
 
 ## Checkpoint policy
+
+### Live viewing with immutable frames
+
+The opt-in serial `storage="frame_files"` backend publishes one `results.xdmf`
+entry point and a managed `results-data/` directory. It writes the shared mesh
+once, closes each compressed frame file, then atomically updates the index.
+Published heavy-data files are never modified. ParaView may read the index while
+the solver continues; use **Reload Files** to discover newly published times.
+Keep the index and its data directory together when moving the result.
+
+An interruption during a later frame leaves earlier published frames readable;
+unfinished temporary files are not included in the index. This is not an HDF5
+SWMR writer, a power-loss guarantee, or a restart archive. The live index is
+marked incomplete until clean close; the series JSON `complete` flag records
+whether the analysis reached its horizon. A cleanly closed partial analysis is
+still not a completed simulation. Existing output paths are rejected, not
+overwritten. Restart currently writes a separate continuation segment; missing
+earlier frames cannot be reconstructed from a final checkpoint.
+
+For 100 frames including initial and final states, use
+`RunPolicy(field_intervals=99)` with at least 99 increments. A partial run may
+have an additional partial endpoint. Frame count does not change integration
+steps. The legacy `storage="single_file"` remains the default for compatibility.
+
+### Legacy single-file output
 
 The serial unified HDF5 writer flushes storage after each successfully written
 output frame, rather than holding object metadata until the end of a long run.

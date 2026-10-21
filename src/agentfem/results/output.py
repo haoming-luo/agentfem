@@ -566,6 +566,39 @@ class UnifiedXDMFTimeSeries:
                 "ReferenceGeometry", data=self._reference_coordinates, **self._h5_options
             )
 
+    def _write_frame_attributes(self, group, attributes, component_metadata):
+        groups = {"Node": group.create_group("Point"), "Cell": group.create_group("Cell")}
+        for name, center, values in attributes:
+            dataset = groups[center].create_dataset(name, data=values, **self._h5_options)
+            if name in component_metadata:
+                physical, stored = component_metadata[name]
+                dataset.attrs["physical_components"] = physical
+                dataset.attrs["stored_components"] = stored
+            if name == self._primary_name and self._vector_primary:
+                dataset.attrs["semantic_name"] = self._primary_semantic_name
+
+    def _store_frame(self, frame_name, time, geometry, attributes, component_metadata):
+        if self._h5 is None:
+            self._open_storage()
+        group = self._h5.create_group(f"Frames/{frame_name}")
+        group.attrs["load_factor"] = time
+        group.attrs["coordinate"] = time
+        if self._effective_scale == 0 and self._frame_count:
+            group["Geometry"] = self._h5["Frames/0000/Geometry"]
+        elif self._effective_scale == 0 and self.store_reference_geometry:
+            group["Geometry"] = self._h5["Mesh/ReferenceGeometry"]
+        else:
+            group.create_dataset("Geometry", data=geometry, **self._h5_options)
+        self._write_frame_attributes(group, attributes, component_metadata)
+        # Bounded protection for exits between writes, not SWMR or checkpointing.
+        self._h5.flush()
+        return (self.h5_path.name, self.h5_path.name,
+                f"{self.h5_path.name}:/Frames/{frame_name}/Geometry")
+
+    def _publish_frame_index(self):
+        self._publish_index(self.partial_path, partial=True)
+        self._partial_owned = True
+
     def write_fields(self, time: float, *fields) -> None:
         """Append one time value with one primary and any auxiliary fields."""
 
@@ -664,34 +697,8 @@ class UnifiedXDMFTimeSeries:
         # time or field cannot poison the next valid frame or publish partial data.
         frame_name = f"{self._frame_count:04d}"
         try:
-            if self._h5 is None:
-                self._open_storage()
-            frame_group = self._h5.create_group(f"Frames/{frame_name}")
-            frame_group.attrs["load_factor"] = time
-            frame_group.attrs["coordinate"] = time
-            if self._effective_scale == 0 and self._frame_count:
-                frame_group["Geometry"] = self._h5["Frames/0000/Geometry"]
-            elif self._effective_scale == 0 and self.store_reference_geometry:
-                frame_group["Geometry"] = self._h5["Mesh/ReferenceGeometry"]
-            else:
-                frame_group.create_dataset("Geometry", data=geometry, **self._h5_options)
-            groups = {"Node": frame_group.create_group("Point"),
-                      "Cell": frame_group.create_group("Cell")}
-            for name, center, values in attributes:
-                dataset = groups[center].create_dataset(name, data=values, **self._h5_options)
-                if name in component_metadata:
-                    physical, stored = component_metadata[name]
-                    dataset.attrs["physical_components"] = physical
-                    dataset.attrs["stored_components"] = stored
-                if name == self._primary_name and self._vector_primary:
-                    dataset.attrs["semantic_name"] = self._primary_semantic_name
-            # A long solve may be terminated between output stations. Do not
-            # retain completed frames' HDF5 object headers only in process
-            # memory until the final context exit. Flush at the frame boundary,
-            # not per dataset or numerical increment. This is not an atomic
-            # checkpoint, SWMR protocol, or protection against mid-write/power
-            # failure; the final XDMF is still published only on clean close.
-            self._h5.flush()
+            mesh_reference, frame_reference, geometry_reference = self._store_frame(
+                frame_name, time, geometry, attributes, component_metadata)
         except BaseException:
             self._write_failed = True
             raise
@@ -714,13 +721,13 @@ class UnifiedXDMFTimeSeries:
             topology_xml,
             dimensions=self._connectivity.shape,
             number_type="Int",
-            value=f"{self.h5_path.name}:/Mesh/Topology",
+            value=f"{mesh_reference}:/Mesh/Topology",
         )
         geometry_xml = ET.SubElement(grid, "Geometry", GeometryType="XYZ")
         _data_item(
             geometry_xml,
             dimensions=geometry.shape,
-            value=f"{self.h5_path.name}:/Frames/{frame_name}/Geometry",
+            value=geometry_reference,
         )
         for name, center, values in attributes:
             group_name = "Point" if center == "Node" else "Cell"
@@ -729,14 +736,13 @@ class UnifiedXDMFTimeSeries:
                 name,
                 center,
                 values,
-                f"{self.h5_path.name}:/Frames/{frame_name}/{group_name}/{name}",
+                f"{frame_reference}:/Frames/{frame_name}/{group_name}/{name}",
             )
         try:
             # Only reference a fully written/flushed frame. This small index
             # is explicitly incomplete and must not be used for live reads
             # while the non-SWMR heavy-data writer is active.
-            self._publish_index(self.partial_path, partial=True)
-            self._partial_owned = True
+            self._publish_frame_index()
         except BaseException:
             self._write_failed = True
             raise

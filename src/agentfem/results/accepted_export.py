@@ -114,10 +114,14 @@ class AcceptedResponseSeries:
     file, never an append to an earlier run. Private state selection stays data.
     """
 
-    def __init__(self, path, *, state_fields=None, velocity=False, acceleration=False, units=None):
+    def __init__(self, path, *, state_fields=None, velocity=False, acceleration=False, units=None,
+                 storage="single_file"):
         self.path = Path(path)
         if self.path.suffix != ".xdmf":
             raise ValueError("AFM-FRAMES-PATH: expected .xdmf")
+        if storage not in {"single_file", "frame_files"}:
+            raise ValueError("AFM-FRAMES-STORAGE: expected single_file or frame_files")
+        self.storage = storage
         # Output choices belong to this series. In particular, list-valued
         # selectors must not change when a caller edits its original mapping.
         self.options = dict(state_fields=deepcopy(state_fields),
@@ -143,7 +147,7 @@ class AcceptedResponseSeries:
         if self._writer is None:
             if any(p.exists() for p in (self.path, self.path.with_suffix('.h5'), self.path.with_suffix('.json'))):
                 raise FileExistsError("AFM-FRAMES-EXISTS: use a fresh series path")
-            self._writer = ResultWriter(self.path, nodal[0].function_space.mesh)
+            self._writer = ResultWriter(self.path, nodal[0].function_space.mesh, storage=self.storage)
             self._writer.__enter__()
         self._writer.write(record["time"], *nodal, *fields)
         if self._identity is None:
@@ -167,6 +171,7 @@ class AcceptedResponseSeries:
             atomic_write_text(self.path.with_suffix('.json'), json.dumps({
                 "schema": "agentfem.accepted-response-series.v1", "complete": bool(complete),
                 "restart_archive": False, "scientifically_validated": False,
+                "storage": self.storage,
                 "stations": self.stations, "units": self.units,
                 "state_schema": self._identity[0], "state_fields": self._identity[1],
                 "location": self._identity[2], "stress_measure": self._identity[3],
@@ -177,5 +182,7 @@ class AcceptedResponseSeries:
     def artifacts(self):
         if not self._published:
             return {}
-        return {"process_fields": self.path, "process_arrays": self.path.with_suffix('.h5'),
+        arrays = (self.path.with_name(f"{self.path.stem}-data") if self.storage == "frame_files"
+                  else self.path.with_suffix('.h5'))
+        return {"process_fields": self.path, "process_arrays": arrays,
                 "process_metadata": self.path.with_suffix('.json')}
