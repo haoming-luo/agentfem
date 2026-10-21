@@ -627,6 +627,8 @@ class PreparedLinearProblem:
         self._lifting_matrix = None
         self._prescribed = None
         self._boundary_action = None
+        self.matrix = self.ksp = None
+        self._closed = False
         self.bilinear_form = (
             bilinear_form
             if hasattr(bilinear_form, "_cpp_object")
@@ -640,37 +642,44 @@ class PreparedLinearProblem:
         self.solution = solution
         self.bcs = [] if bcs is None else list(bcs)
         self.options = options or LinearSolverOptions()
-        if bc_assembly == "matrix_elimination":
-            V = solution.function_space
-            if any(bc.function_space != V._cpp_object for bc in self.bcs):
-                raise ValueError(
-                    "Matrix elimination requires full-space boundary conditions"
+        try:
+            if bc_assembly == "matrix_elimination":
+                V = solution.function_space
+                if any(bc.function_space != V._cpp_object for bc in self.bcs):
+                    raise ValueError(
+                        "Matrix elimination requires full-space boundary conditions"
+                    )
+                self._lifting_matrix = fem_petsc.assemble_matrix(self.bilinear_form)
+                self._lifting_matrix.assemble()
+                self.matrix = self._lifting_matrix.copy()
+                bs = int(V.dofmap.index_map_bs)
+                start = int(V.dofmap.index_map.local_range[0]) * bs
+                owned = [bc.dof_indices()[0][: bc.dof_indices()[1]] for bc in self.bcs]
+                rows = (
+                    np.unique(np.concatenate(owned)).astype(PETSc.IntType) + start
+                    if owned
+                    else np.empty(0, dtype=PETSc.IntType)
                 )
-            raw = fem_petsc.assemble_matrix(self.bilinear_form)
-            raw.assemble()
-            self._lifting_matrix = raw
-            self.matrix = raw.copy()
-            bs = int(V.dofmap.index_map_bs)
-            start = int(V.dofmap.index_map.local_range[0]) * bs
-            owned = [bc.dof_indices()[0][: bc.dof_indices()[1]] for bc in self.bcs]
-            rows = (
-                np.unique(np.concatenate(owned)).astype(PETSc.IntType) + start
-                if owned
-                else np.empty(0, dtype=PETSc.IntType)
-            )
-            self.matrix.zeroRowsColumns(rows, diag=1.0)
-            self._prescribed = solution.x.petsc_vec.duplicate()
-            self._boundary_action = solution.x.petsc_vec.duplicate()
-        else:
-            self.matrix = fem_petsc.assemble_matrix(self.bilinear_form, bcs=self.bcs)
-            self.matrix.assemble()
-        self.ksp = create_ksp(self.matrix.comm, self.options)
-        self.ksp.setOperators(self.matrix)
+                self.matrix.zeroRowsColumns(rows, diag=1.0)
+                self._prescribed = solution.x.petsc_vec.duplicate()
+                self._boundary_action = solution.x.petsc_vec.duplicate()
+            else:
+                self.matrix = fem_petsc.assemble_matrix(self.bilinear_form, bcs=self.bcs)
+                self.matrix.assemble()
+            self.ksp = create_ksp(self.matrix.comm, self.options)
+            self.ksp.setOperators(self.matrix)
+        except BaseException as original:
+            # A failed constructor cannot be closed by its caller. Release
+            # every allocation already owned, including partial lifting setup.
+            try:
+                self.close()
+            except Exception as cleanup:
+                raise original from cleanup
+            raise
         self.last_solve_info: LinearSolveInfo | None = None
         self.solve_count = 0
         self.matrix_assembly_count = 1
         self.rhs_assembly_count = 0
-        self._closed = False
 
     @property
     def closed(self) -> bool:
@@ -686,38 +695,40 @@ class PreparedLinearProblem:
         """Assemble the current right-hand side and reuse the prepared solve."""
 
         self._require_open()
+        self.last_solve_info = None
         vector = fem_petsc.assemble_vector(self.linear_form)
         self.rhs_assembly_count += 1
-        if self.bc_assembly == "matrix_elimination":
-            vector.ghostUpdate(
-                addv=PETSc.InsertMode.ADD, mode=PETSc.ScatterMode.REVERSE
+        try:
+            if self.bc_assembly == "matrix_elimination":
+                vector.ghostUpdate(
+                    addv=PETSc.InsertMode.ADD, mode=PETSc.ScatterMode.REVERSE
+                )
+                self._prescribed.set(0.0)
+                fem_petsc.set_bc(self._prescribed, self.bcs)
+                # Cached A*g replaces repeated cell integration. Global norm
+                # makes the homogeneous shortcut collective and MPI-safe.
+                if self._prescribed.norm() != 0.0:
+                    self._lifting_matrix.mult(self._prescribed, self._boundary_action)
+                    vector.axpy(-1.0, self._boundary_action)
+            else:
+                fem_petsc.apply_lifting(vector, [self.bilinear_form], [self.bcs])
+                vector.ghostUpdate(
+                    addv=PETSc.InsertMode.ADD, mode=PETSc.ScatterMode.REVERSE
+                )
+            fem_petsc.set_bc(vector, self.bcs)
+            solution_vector = self.solution.x.petsc_vec
+            # NumPy writes do not advance PETSc state. Invalidate cached norms
+            # before a zero-RHS shortcut can retain an old nonzero solution.
+            solution_vector.stateIncrease()
+            self.ksp.solve(vector, solution_vector)
+            self.solution.x.scatter_forward()
+            info = LinearSolveInfo(
+                converged_reason=int(self.ksp.getConvergedReason()),
+                iterations=int(self.ksp.getIterationNumber()),
+                residual_norm=float(self.ksp.getResidualNorm()),
             )
-            self._prescribed.set(0.0)
-            fem_petsc.set_bc(self._prescribed, self.bcs)
-            # Cached A*g replaces repeated cell integration. Global norm makes
-            # the homogeneous-boundary shortcut collective and MPI-safe.
-            if self._prescribed.norm() != 0.0:
-                self._lifting_matrix.mult(self._prescribed, self._boundary_action)
-                vector.axpy(-1.0, self._boundary_action)
-        else:
-            fem_petsc.apply_lifting(vector, [self.bilinear_form], [self.bcs])
-            vector.ghostUpdate(
-                addv=PETSc.InsertMode.ADD, mode=PETSc.ScatterMode.REVERSE
-            )
-        fem_petsc.set_bc(vector, self.bcs)
-        solution_vector = self.solution.x.petsc_vec
-        # DOLFINx exposes a NumPy view that can change between solves without
-        # advancing PETSc's object state. Invalidate cached norms before KSP
-        # can take a zero-RHS/zero-initial-guess shortcut on stale information.
-        solution_vector.stateIncrease()
-        self.ksp.solve(vector, solution_vector)
-        self.solution.x.scatter_forward()
-        info = LinearSolveInfo(
-            converged_reason=int(self.ksp.getConvergedReason()),
-            iterations=int(self.ksp.getIterationNumber()),
-            residual_norm=float(self.ksp.getResidualNorm()),
-        )
-        vector.destroy()
+        finally:
+            vector.destroy()
         self.last_solve_info = info
         self.solve_count += 1
         if not info.converged and self.options.error_if_not_converged:
@@ -729,27 +740,37 @@ class PreparedLinearProblem:
 
         RHS-only or prescribed-value changes need no refresh. Mesh, space or
         constrained-dof changes require a new prepared problem.
+        A failed reassembly closes this owner: a partially modified operator
+        must not be used by a later solve.
         """
         self._require_open()
-        if self.bc_assembly == "matrix_elimination":
-            self._lifting_matrix.zeroEntries()
-            fem_petsc.assemble_matrix(self._lifting_matrix, self.bilinear_form)
-            self._lifting_matrix.assemble()
-            self.matrix.zeroEntries()
-            self.matrix.axpy(1.0, self._lifting_matrix)
-            start, _ = self.matrix.getOwnershipRange()
-            owned = [bc.dof_indices()[0][: bc.dof_indices()[1]] for bc in self.bcs]
-            rows = (
-                np.unique(np.concatenate(owned)).astype(PETSc.IntType) + start
-                if owned
-                else np.empty(0, dtype=PETSc.IntType)
-            )
-            self.matrix.zeroRowsColumns(rows, diag=1.0)
-        else:
-            self.matrix.zeroEntries()
-            fem_petsc.assemble_matrix(self.matrix, self.bilinear_form, bcs=self.bcs)
-            self.matrix.assemble()
-        self.ksp.setOperators(self.matrix)
+        self.last_solve_info = None
+        try:
+            if self.bc_assembly == "matrix_elimination":
+                self._lifting_matrix.zeroEntries()
+                fem_petsc.assemble_matrix(self._lifting_matrix, self.bilinear_form)
+                self._lifting_matrix.assemble()
+                self.matrix.zeroEntries()
+                self.matrix.axpy(1.0, self._lifting_matrix)
+                start, _ = self.matrix.getOwnershipRange()
+                owned = [bc.dof_indices()[0][: bc.dof_indices()[1]] for bc in self.bcs]
+                rows = (
+                    np.unique(np.concatenate(owned)).astype(PETSc.IntType) + start
+                    if owned
+                    else np.empty(0, dtype=PETSc.IntType)
+                )
+                self.matrix.zeroRowsColumns(rows, diag=1.0)
+            else:
+                self.matrix.zeroEntries()
+                fem_petsc.assemble_matrix(self.matrix, self.bilinear_form, bcs=self.bcs)
+                self.matrix.assemble()
+            self.ksp.setOperators(self.matrix)
+        except BaseException as original:
+            try:
+                self.close()
+            except Exception as cleanup:
+                raise original from cleanup
+            raise
         self.matrix_assembly_count += 1
 
     def summary(self) -> dict[str, object]:
