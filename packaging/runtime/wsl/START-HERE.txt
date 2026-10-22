@@ -3,17 +3,23 @@ AgentFEM Complete Runtime for Windows (WSL2 Preview)
 
 Runtime version: @VERSION@
 
-1. Extract the entire ZIP file. Do not run the installer from inside the ZIP.
-2. Open PowerShell in this extracted folder.
-3. Run:
+1. Extract the entire ZIP. Do not run files from inside the ZIP.
+2. Double-click Install-AgentFEM.cmd. It keeps the result/error window open.
+3. Approve the Windows administrator request if WSL needs preparation.
+4. If Windows requires a restart, save your work and restart when ready, then
+   reopen the same launcher. Existing imported runtime state is checked and reused.
+5. Complete the ordinary Linux account/password prompt if shown. Keep the password.
 
+The installer protects project storage and runs a fresh-cache finite-element
+acceptance check automatically. Completion means those checks passed.
+Logs, acceptance results and status.json are in:
+   %LOCALAPPDATA%\AgentFEM\Installations\<installation-id>
+
+Agents and existing PowerShell sessions can use the non-pausing entry point:
    powershell -ExecutionPolicy Bypass -File .\Install-AgentFEM.ps1
 
-The installer prepares or updates WSL when needed, verifies the bundled image,
-creates an AgentFEM WSL2 distribution, and opens its first-time setup. Windows
-may show one administrator approval prompt. If it asks for a restart, restart
-Windows and run the exact same installer command again. Choose a Linux username
-and password when prompted. Password characters are intentionally not displayed.
+Do not launch the CMD wrapper from a host tool that forbids nested shells.
+The launcher is a user convenience, not a way to bypass WorkBuddy policy.
 
 The Complete Runtime already includes the C/C++ compiler required by FEniCSx
 to compile a new finite-element form. You should not need to install gcc
@@ -156,3 +162,17 @@ distribution name, AgentFEM version, health-check result, persistent project
 directory, and retained backup path, if any. Never replace the bundled WSL
 bootstrap with bare `wsl --install`, because that downloads an unrelated default
 Linux distribution.
+
+WorkBuddy installation policy
+-----------------------------
+Use the native PowerShell tool. Do all permitted preparation and verification
+without asking the user to copy commands. A non-admin session alone is not a
+reason to stop: the installer can request approved UAC elevation. When WorkBuddy
+explicitly blocks wsl.exe or elevation, request its authorised approval/allowlist
+once, or ask the user to open the official launcher. Do not try equivalent APIs,
+Bash-to-PowerShell, or sandbox-disable flags to bypass a refusal.
+A source retry is for an executed WSL command failure, not an authorisation
+refusal or restart request. Never report success from a launched process alone.
+After restart/session recovery, read status.json and inspect the actual runtime;
+re-run the same installer with the same options. No automatic reboot or startup
+registration is performed. Keep this extracted package until installation finishes.

@@ -87,8 +87,9 @@ speedup or a claim that hardware-independent timing is possible.
 
 ### Installing a complete runtime
 
-Extract the entire Preview ZIP, open PowerShell in the extracted folder, and
-run the bundled installer:
+Extract the entire Preview ZIP and open `Install-AgentFEM.cmd` for a persistent
+result/error window. Agents using an approved PowerShell tool can invoke the
+installer directly (without the pausing launcher):
 
 ```powershell
 powershell -ExecutionPolicy Bypass -File .\Install-AgentFEM.ps1
@@ -190,6 +191,14 @@ feature; this may require administrator access, a reboot, and Microsoft network
 access. The installer and bundled `START-HERE.txt` own that transition and
 include the alternate source, official MSI, and exact `wsl --status` / `wsl
 --version` diagnostics.
+
+First-install progress is saved under
+`%LOCALAPPDATA%\AgentFEM\Installations\<identity>` as `status.json`, `install.log`
+and the first-solve `acceptance.json`. Reopening the same installer after reboot
+or interruption checks and reuses its recorded distribution. It does not schedule
+an automatic restart or login task. A fresh-cache serial solve is required before
+completion; MPI and clean-host WorkBuddy acceptance remain separate release gates.
+See [Windows agent installation](windows_agent_installation.md).
 
 The imported distribution creates a Start-menu entry and Windows Terminal
 profile using its registered distribution name. The installer creates the
