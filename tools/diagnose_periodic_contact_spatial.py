@@ -28,13 +28,27 @@ from scipy.sparse import csr_matrix
 from agentfem.checkpointing import atomic_write_text
 
 
-def solve_linear_reference(cells, *, amplitude=1.):
+def graded_coordinate_lines(cells):
+    """Same physical patch, clustered near its edges and the loaded faces.
+
+    This changes the mesh approximation, not the physical boundary conditions.
+    It is a diagnostic family, not an automatic meshing policy.
+    """
+    s = np.linspace(0., 1., cells // 4 + 1)
+    local = .5 * (1. - np.cos(np.pi * s))
+    tangential = np.concatenate([(.25 * (k + local))[:-1] for k in range(4)] + [np.array([1.])])
+    normal = .5 * (1. - np.cos(np.pi * np.linspace(0., 1., cells + 1)))
+    return np.vstack([normal, tangential, tangential])
+
+
+def solve_linear_reference(cells, *, amplitude=1., graded=False):
     if not np.isfinite(amplitude) or amplitude <= 0.:
         raise ValueError("The diagnostic requires positive finite amplitude.")
     make = runpy.run_path(str(
         Path(__file__).resolve().parents[1] / "examples/finite_j2_periodic_augmented_plane.py"
     ))["make_step"]
-    step = make(cells=cells, increments=4, affine_end_face_support=True, yield_stress=1e6)
+    step = make(cells=cells, increments=4, affine_end_face_support=True, yield_stress=1e6,
+                coordinate_lines=graded_coordinate_lines(cells) if graded else None)
     reduction = step.constraint.reduction(.25)
     T = csr_matrix((reduction.coefficients, reduction.column_indices, reduction.row_offsets),
                    shape=(reduction.full_size, reduction.reduced_size))
@@ -112,6 +126,7 @@ def solve_linear_reference(cells, *, amplitude=1.):
         return {
             "cells_per_edge": cells, "full_dofs": len(imposed), "contact_nodes": len(nodes),
             "amplitude": amplitude, "reaction_magnitude": total,
+            "mesh_family": "edge_graded_cosine" if graded else "uniform",
             "amplitude_normalized_reaction": total / amplitude,
             "edge_nodal_force_fraction": float(np.sum(contact_force[edge]) / total),
             "minimum_nodal_force": float(np.min(contact_force)),
@@ -126,6 +141,7 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--cells", nargs="+", type=int, default=[4, 8, 12, 16])
     parser.add_argument("--amplitude", type=float, default=1.)
+    parser.add_argument("--graded", action="store_true")
     parser.add_argument("--output", type=Path, required=True)
     args = parser.parse_args()
     if args.output.exists() or not np.isfinite(args.amplitude) or args.amplitude <= 0.:
@@ -137,7 +153,7 @@ def main():
     }
     args.output.parent.mkdir(parents=True, exist_ok=True)
     for cells in args.cells:
-        row = solve_linear_reference(cells, amplitude=args.amplitude)
+        row = solve_linear_reference(cells, amplitude=args.amplitude, graded=args.graded)
         report["records"].append(row)
         atomic_write_text(args.output, json.dumps(report, indent=2, allow_nan=False) + "\n")
         print(json.dumps(row), flush=True)

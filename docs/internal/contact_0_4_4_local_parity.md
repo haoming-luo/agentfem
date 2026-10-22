@@ -24,6 +24,56 @@ being silently approximated by the bounded route.
 
 ## Live gate status
 
+### Explicit Q1 classification reuse: tested, not promoted (2026-10-22)
+
+A private prototype transported a certified inside/outside classification only
+while a conservative clearance exceeded query and surface motion. Every force
+and projection still used current geometry; expired certificates fell back to
+the existing two-ray classification. A second variant removed best-fit rigid
+rotation before bounding the residual motion. Neither cached old contact forces.
+
+On 40 evolving prescribed geometries sampled between the last two accepted
+composite frames, the translated certificate reduced native classifications
+from 307,140 to 294,703, but ABBA elapsed sums were A=3.865/3.910 s versus
+B=4.135/4.129 s. Rotation compensation reduced them to 269,798, yet remained
+slower: A=4.190/4.320 s versus B=4.481/4.539 s. Forces, gap bounds, interpolation
+weights and potential matched exactly at every sample. This was geometry replay,
+not a dynamic trajectory or full-solver timing claim.
+
+The active inside clearance had median 5.57e-6 mm, whereas the next global
+maximum surface motion was about 3.34e-5 mm. Nearly every inside point already
+had a positive certificate, so merely increasing clearance-query coverage is
+not the leading fix. Global motion bounds expire too quickly in this tested
+configuration. The prototype was removed from production code and retained as
+a recoverable private patch. Reconsider tighter spatially local certificates
+only with complete coverage proof and a whole-step benefit; do not retain
+extra cache/State complexity for a query-count improvement alone.
+
+### Edge-graded spatial diagnostic (2026-10-22)
+
+An optional research mesh clusters coordinates near patch/support edges while
+preserving the physical patch, periodic face matching and default uniform
+fixture. The independent linear exact-constraint diagnostic gives forces
+27.7036, 25.5705, 24.6039, 23.7530 and 23.3888 N for 8, 12, 16, 24 and 32
+cells per edge. All patch reactions remain compressive; residual/gap bounds
+remain below 2.7e-13 / 1.1e-16. This is a separate discretization study, not
+an equivalent-execution speedup or proof of a converged continuum value.
+
+The complete graded 12-cell, 256-increment finite-J2 cycle also meets the
+original penetration/complementarity bounds: maxima 4.711e-9 / 9.678e-8.
+Final reaction magnitude is 4.13932494 N and reference-volume-weighted PEEQ
+is 0.06307447. It takes 2634 Newton iterations and 962 augmentation updates.
+Unlike the uniform grid, graded elements require physical-volume weighting,
+not an arithmetic average of quadrature-point PEEQ. The tool now makes that
+distinction explicit. One graded mesh does not close spatial convergence;
+the uniform 12-cell force is 4.17988201 N and the uniform 16-cell force is
+3.97145647 N, so agreement with one coarse result is not an accuracy criterion.
+
+Evidence: `2026-10-22-independent-linear-graded.json` and
+`2026-10-22-affine-j2-graded12.json` under `evidence/contact/`. The fixture's
+graded option and periodic affine coordinate mapping pass 13 targeted tests
+together with the existing affine equilibrium reuse regressions.
+
 ### Retained material response, not a lagged Jacobian (2026-10-22)
 
 The serial affine AL Procedure can request reuse of an unchanged built-in J2

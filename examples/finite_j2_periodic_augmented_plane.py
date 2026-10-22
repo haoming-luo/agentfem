@@ -28,7 +28,8 @@ from agentfem.mesh import abaqus
 
 
 def make_step(*, cells=4, increments=16, acceleration="aitken", penalty=10000.,
-              affine_end_face_support=False, linear_solver=None, yield_stress=2.):
+              affine_end_face_support=False, linear_solver=None, yield_stress=2.,
+              coordinate_lines=None):
     if MPI.COMM_WORLD.size != 1:
         raise RuntimeError("This bounded augmented-contact path is serial only.")
     if cells < 4 or cells % 4 or increments < 4 or increments % 4:
@@ -39,7 +40,19 @@ def make_step(*, cells=4, increments=16, acceleration="aitken", penalty=10000.,
         raise ValueError("The physical yield stress must be finite and positive.")
     if type(affine_end_face_support) is not bool:
         raise TypeError("affine_end_face_support must be an explicit boolean.")
+    uniform = np.arange(cells + 1, dtype=float) / cells
+    lines = np.tile(uniform, (3, 1)) if coordinate_lines is None else np.asarray(coordinate_lines)
+    if (lines.shape != (3, cells + 1) or np.iscomplexobj(lines)
+            or not np.isfinite(lines).all() or np.any(np.diff(lines, axis=1) <= 0.)
+            or np.any(lines[:, 0] != 0.) or np.any(lines[:, -1] != 1.)
+            or any(not np.any(line == edge) for line in lines[1:] for edge in (.25, .75))):
+        raise ValueError("Coordinate lines must increase from 0 to 1 and retain y/z patch edges.")
     domain = dolfinx_mesh.create_unit_cube(MPI.COMM_SELF, cells, cells, cells)
+    if coordinate_lines is not None:
+        # Geometry is chosen before spaces, traces, constraints or material state.
+        # Opposing faces keep identical tangential meshes for periodic matching.
+        for axis in range(3):
+            domain.geometry.x[:, axis] = np.interp(domain.geometry.x[:, axis], uniform, lines[axis])
     model = models.create(study=studies.static_solid(dimension=3, nonlinear=True), mesh=domain)
     displacement = model.field(fields.displacement(domain))
     material = model.material(constitutive.finite_strain_j2_logarithmic(
@@ -77,8 +90,10 @@ def make_step(*, cells=4, increments=16, acceleration="aitken", penalty=10000.,
                 label = labels[(i, j, 0)]
                 if label == anchor:
                     continue
-                weights = ((references[0], i / cells), (references[1], j / cells),
-                           (anchor, 1. - (i + j) / cells))
+                weights = (((references[0], i / cells), (references[1], j / cells),
+                            (anchor, 1. - (i + j) / cells)) if coordinate_lines is None else
+                           ((references[0], lines[0, i]), (references[1], lines[1, j]),
+                            (anchor, 1. - lines[0, i] - lines[1, j])))
                 equations.append(abaqus.LinearEquation((
                     abaqus.EquationTerm(label, 1, 1.),
                     *(abaqus.EquationTerm(node, 1, -weight)
@@ -88,7 +103,9 @@ def make_step(*, cells=4, increments=16, acceleration="aitken", penalty=10000.,
     periodicity = model.constraint(constraints.abaqus_periodic_cell(
         displacement,
         nodes=abaqus.AbaqusNodeTable(
-            labels=np.arange(1, len(indices) + 1), coordinates=np.array(indices, dtype=float) / cells,
+            labels=np.arange(1, len(indices) + 1),
+            coordinates=(np.array(indices, dtype=float) / cells if coordinate_lines is None else
+                         np.array([[lines[axis, index[axis]] for axis in range(3)] for index in indices])),
         ),
         equations=abaqus.AbaqusEquationSet(tuple(equations)),
         anchor_node=anchor, reference_nodes=references,

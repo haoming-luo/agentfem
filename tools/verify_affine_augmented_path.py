@@ -27,7 +27,7 @@ import agentfem
 from agentfem import provenance, solvers
 
 
-def observe(step, factor):
+def observe(step, factor, *, volume_weighted=False):
     provider = step.contact_provider
     samples = provider.accepted_point_samples()
     contribution = provider.evaluate()
@@ -35,6 +35,12 @@ def observe(step, factor):
     state = step.response.state.committed_state_vectors()
     weights = samples["reference_weights"]
     pressure = samples["normal_pressures"]
+    mean_peeq = float(state[:, 9].mean())
+    if volume_weighted:
+        peeq = step.response.state.committed["equivalent_plastic_strain"].cell_average()
+        dx = ufl.dx(domain=u.function_space.mesh)
+        mean_peeq = float(fem.assemble_scalar(fem.form(peeq * dx))
+                          / fem.assemble_scalar(fem.form(1. * dx)))
     return {
         "factor": factor,
         "displacement_l2": float(np.sqrt(fem.assemble_scalar(fem.form(ufl.inner(u, u) * ufl.dx)))),
@@ -43,10 +49,9 @@ def observe(step, factor):
         "maximum_pressure": float(pressure.max(initial=0.)),
         "active_reference_area": float(weights[pressure > 0.].sum()),
         "maximum_penetration": float(samples["penetrations"].max(initial=0.)),
-        # This example has equal-volume affine tetrahedra and the same
-        # quadrature rule on every cell. The arithmetic quadrature mean is
-        # therefore a reference-volume mean, not a nodal smoothed peak.
-        "peeq_reference_volume_mean": float(state[:, 9].mean()),
+        # Uniform affine tetrahedra admit an arithmetic quadrature mean.
+        # Graded affine tetrahedra require actual reference-volume weighting.
+        "peeq_reference_volume_mean": mean_peeq,
         "maximum_peeq": float(state[:, 9].max(initial=0.)),
         "normal_relative_work": step.accepted_history_recorders[
             "normal_contact_work:interior_plane"
@@ -84,6 +89,8 @@ def main():
     parser.add_argument("--yield-stress", type=float, default=2.,
                         help="Physical Pa, not a solver tuning parameter. High values enable a separate elastic-limit diagnostic.")
     parser.add_argument("--affine-end-face-support", action="store_true")
+    parser.add_argument("--edge-graded", action="store_true",
+                        help="Separate edge-clustered mesh study; does not change the physical patch.")
     parser.add_argument("--factor-solver", default=None,
                         help="Explicit installed PETSc factor package (for example mumps); default unchanged.")
     parser.add_argument("--output", type=Path, required=True)
@@ -120,6 +127,7 @@ def main():
         "physical_path": "fixed plane x=1.005; periodic stretch 1/1.02/0.99/1.02 at 0/0.25/0.75/1",
         "fixture": ("affine_x_motion_on_z_end_faces" if args.affine_end_face_support
                     else "point_pinned_periodic_corner_class"),
+        "mesh_family": "edge_graded_cosine" if args.edge_graded else "uniform",
         "area_interpretation": "active_reference_area counts strictly positive multipliers, including numerical remnants; not a thresholded physical contact-area certificate",
         "numerical_tolerances": {"penetration": 1e-8, "complementarity": 1e-7},
         "linear_solver": solvers.direct_solver(package=args.factor_solver).summary(),
@@ -141,14 +149,16 @@ def main():
                 report["records"].append(row)
                 save()
                 try:
+                    lines = (runpy.run_path(str(root / "tools/diagnose_periodic_contact_spatial.py"))[
+                        "graded_coordinate_lines"](cells) if args.edge_graded else None)
                     step = build(cells=cells, increments=increments, penalty=penalty,
                                  affine_end_face_support=args.affine_end_face_support,
                                  linear_solver=solvers.direct_solver(package=args.factor_solver),
-                                 yield_stress=args.yield_stress)
+                                 yield_stress=args.yield_stress, coordinate_lines=lines)
                     step.output_every = None
                     for factor in (.25, .5, .75, 1.):
                         step.solve(until=factor)
-                        row["stations"].append(observe(step, factor))
+                        row["stations"].append(observe(step, factor, volume_weighted=args.edge_graded))
                         row["setup_solve_observe_seconds"] = perf_counter() - started
                         save()
                         print(json.dumps({"cells": cells, "increments": increments,
