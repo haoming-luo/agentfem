@@ -37,7 +37,8 @@ def retained_trial_digest(transaction, old_gradient, new_gradient, *, start_fact
         array(value.function.x.array)
 
     for callback in (transaction.refresh_trial, response.update,
-                     transaction.material.update, transaction.material.update_batch):
+                     transaction.material.update, transaction.material.update_batch,
+                     transaction.material.update_array_batch):
         describe((id(getattr(callback, "__func__", callback)),
                   id(getattr(callback, "__self__", None))))
     describe((

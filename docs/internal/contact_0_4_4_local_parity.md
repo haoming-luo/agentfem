@@ -46,6 +46,14 @@ It captures code identity before the run, retains it on failure, and refuses
 to promote timing if the tool or selected runtime sources change during the
 comparison. Three targeted failure/provenance tests pass. The source used by
 the completed comparison remains reconstructable at commit `d1e1a368`.
+Follow-up dispatch review reproduced a missed invalidation when the actual
+preferred `update_array_batch` callback is replaced after a refresh. Its bound
+callback identity now participates in the one-shot guard alongside scalar and
+object-batch entries. The new regression fails before the correction; afterward
+53 focused material-retention, adaptive-correction, workspace, automatic-restart
+and benchmark-failure checks pass. No constitutive formula or default solver
+policy changes. The recorded timing remains the earlier tested source result,
+not a new timing claim for this guard-only follow-up.
 This is a bounded implicit execution result, not continuum convergence,
 external-code parity, MPI admission or a full explicit-composite speedup.
 

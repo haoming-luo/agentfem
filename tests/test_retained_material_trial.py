@@ -121,6 +121,24 @@ def test_same_update_function_bound_to_another_owner_invalidates_lease(transacti
         assert not reuse(transaction)
 
 
+def test_replaced_array_batch_provider_is_not_bypassed(transaction, monkeypatch):
+    with transaction._trial_response_reuse_scope():
+        refresh(transaction)
+
+        def fail(self, request):
+            raise RuntimeError("injected array provider failure")
+
+        # The material driver prefers this entry point over update_batch.
+        # Its replacement must invalidate retained evidence too.
+        monkeypatch.setattr(type(transaction.material), "update_array_batch", fail)
+        assert not reuse(transaction)
+        valid, message = solvers._try_refresh_affine_trial_state(
+            transaction, start_factor=0., target_factor=.25,
+        )
+        assert not valid
+        assert "injected array provider failure" in message
+
+
 @pytest.mark.parametrize("action", ["commit", "rollback", "resume", "restore", "exception"])
 def test_lifecycle_does_not_retain_a_trial_lease(transaction, action):
     with transaction._trial_response_reuse_scope():
