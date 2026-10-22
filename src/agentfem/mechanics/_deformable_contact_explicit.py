@@ -97,15 +97,16 @@ class DeformableQ1ContactResidual:
                 "Deformable contact requires disjoint independent trace dofs."
             )
         self.secondary_dofs, self.primary_dofs = maps
-        self.identity = content_fingerprint(
-            {
+        identity_record = {
                 "operator": operator.identity,
                 "name": self.name,
                 "ceiling": self.ceiling,
                 "secondary_dofs": maps[0].tolist(),
                 "primary_dofs": maps[1].tolist(),
             }
-        )
+        self.identity = content_fingerprint(identity_record)
+        self.restart_identity = content_fingerprint(
+            {**identity_record, "operator": operator.restart_identity})
         self.accepted = self.trial = None
         self._separation_anchor = None
         self._reset_separation_anchor = False
@@ -394,8 +395,9 @@ class DeformableQ1ContactResidual:
         if self.trial is not None:
             raise RuntimeError("Contact checkpoint requires an accepted boundary.")
         return {
-            "schema": "agentfem.private-deformable-q1-contact.v1",
+            "schema": "agentfem.private-deformable-q1-contact.v2",
             "identity": self.identity,
+            "restart_identity": self.restart_identity,
             "time": self.accepted_time,
             "accepted": None
             if self.accepted is None
@@ -421,11 +423,22 @@ class DeformableQ1ContactResidual:
         return record
 
     def restore(self, record):
+        legacy = isinstance(record, dict) and record.get("schema") == (
+            "agentfem.private-deformable-q1-contact.v1")
+        required = {"schema", "identity", "accepted", "base", "time"}
+        if not legacy:
+            required.add("restart_identity")
         if (
             not isinstance(record, dict)
-            or set(record) != {"schema", "identity", "accepted", "base", "time"}
-            or record["schema"] != "agentfem.private-deformable-q1-contact.v1"
-            or record["identity"] != self.identity
+            or set(record) != required
+            or (legacy and record["identity"] != self.identity)
+            or (not legacy and (
+                record["schema"] != "agentfem.private-deformable-q1-contact.v2"
+                or record["restart_identity"] != self.restart_identity))
+            or not isinstance(record["identity"], str)
+            or len(record["identity"]) != 71
+            or not record["identity"].startswith("sha256:")
+            or any(c not in "0123456789abcdef" for c in record["identity"][7:])
         ):
             raise ValueError("Deformable contact checkpoint identity differs.")
         stamp = record["time"]

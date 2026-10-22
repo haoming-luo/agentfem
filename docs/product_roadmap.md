@@ -28,9 +28,13 @@ first**. A separate contributor is handling WSL installation: inspect that
 work for later integration instead of starting a competing installation sprint.
 The joined body/viscosity policy now has a complete late-state ABBA comparison
 (5.69% less mean advancement time, identical accepted fields and physical
-history). This is not a full-run gain. The next execution candidate is current
-smooth-interior Q1 sign evaluation with two-ray fallback; prescribed evolving
-geometry evidence is positive, while complete-step confirmation is pending.
+history). This is not a full-run gain. Current smooth-interior Q1 sign evaluation
+with two-ray fallback also preserves the complete late accepted state. Combined
+ABBA screening shows 4.83% less mean advancement time, not the sum of component
+improvements. Process-local worker selection is next; a versioned contact
+restart contract separates explicitly partition-invariant execution budgets
+from physical identity. Legacy checkpoints remain strict until resaved through
+their original runtime. No silent identity bypass is permitted.
 Keep the graded finite-J2 spatial study separate from both timing experiments.
 
 | Order | Work | Acceptance / stop condition |

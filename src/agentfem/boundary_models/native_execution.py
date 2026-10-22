@@ -70,7 +70,13 @@ class Q1ContactRuntime:
             closest_point=self.closest, classify_inside=self.inside,
             distance_bounds=make_bounds(), separated_paths=make_swept(),
             project_batch=self.batch, separation_reuse=separation_reuse,
-            sign_policy=sign_policy)
+            sign_policy=sign_policy,
+            restart_identity={
+                'provider': 'agentfem.q1_geometry', 'revision': 1,
+                'arithmetic': 'native_gmp',
+                'exact_arithmetic': exact_geometry_arithmetic(),
+                'scope': 'projection-classification-conservative-bounds-swept-proof',
+                'partition': 'independent-ordered-queries-v1'})
         if geometry_workers:
             self.workers = ProjectionWorkers(geometry_workers, timeout=geometry_timeout)
 

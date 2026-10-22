@@ -10,6 +10,18 @@ not another isolated arithmetic kernel or output-format rewrite.
 
 ## 2026-10-22: late-path audit and bounded execution changes
 
+Worker-budget screening initially stopped at checkpoint admission: the Q1
+execution identity contained projection/exact-service worker counts. Preserve
+that failure as evidence, not a reason to patch a checkpoint. Contact snapshots
+now have a v2 compatibility digest, using the same explicit-provider-declaration
+pattern as the body kernel. Native ordered independent queries declare their
+partition invariance; all physical, arithmetic and search/reuse settings remain.
+The old v1 path still requires the original execution identity, then an ordinary
+save upgrades the record. 58 targeted geometry/contact/restart tests pass,
+including both worker directions, strict legacy migration, changed-provider and
+malformed-record rejection, and outer-commit rollback. This is operational
+portability, not a performance result by itself.
+
 Installed whole-path acceptance is now complete at `1ed3c1e1`: 12,295.686 s
 including preparation, output and shutdown; 25 frames, final material and
 checkpoint arrays, 10,000 energy records and 800 observations equal the frozen

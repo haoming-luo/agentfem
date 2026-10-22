@@ -286,6 +286,18 @@ scheduling choices explicitly covered by the versioned restart contract may
 change across a restart. An arithmetic implementation change requires a
 separately reviewed migration or a fresh run, not removal of identity checks.
 
+Native Q1 geometry declares independent, ordered query partitioning. New
+deformable-contact checkpoints (v2) therefore allow changing projection and
+exact-geometry worker counts while retaining the arithmetic revision, exact
+arithmetic provider, geometry, law, candidate coverage, search limits and reuse
+policy. Runtime summaries still record the actual worker counts. Derived search
+data is rebuilt from accepted coordinates; no old projection or force is reused.
+Legacy v1 checkpoints remain exact-configuration records: load with the original
+settings and save a new checkpoint before tuning workers. External
+`Q1ContactExecution` providers remain strict unless they explicitly supply a
+`restart_identity` compatibility declaration. Such a declaration is a trusted
+provider contract, not an automatic equivalence certificate.
+
 `agentfem doctor --json` reports `execution.accelerators` for the installed Hex
 arithmetic, material/body dispatcher and Q1 geometry. `available` means the
 extension can load; `not_built` means absent; `load_failed` records a loader or
