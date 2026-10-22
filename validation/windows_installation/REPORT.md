@@ -3,7 +3,7 @@
 
 # Windows first-install recovery development
 
-2026-10-23. Branch: feat/windows-install-recovery. Base: 36f4c1b0.
+2026-10-23. Branch: feat/windows-install-recovery. Base: a87cc121 (rebased onto remote main).
 
 ## Implemented
 
@@ -26,7 +26,17 @@
 Bash syntax and Python lint/diff checks passed. These are not Windows acceptance.
 Added Windows PowerShell 5.1/7 CI tests for state persistence, duplicate locks,
 elevation refusal, restart classification, one-time source fallback, recorded
-import reuse and identity mismatch. CI has NOT been executed in this session.
+import reuse and identity mismatch. CI has now executed on both Windows shells.
+It exposed a PowerShell 5.1 atomic state-file replacement incompatibility, which
+was fixed by supplying a real backup filename. Subsequent runs reached the
+first-solve test but exposed a harness issue: dynamically evaluated functions
+lost their script directory. The harness now loads definitions from a real file.
+Fresh acceptance reports, stale-report rejection, Chinese/spaced paths and
+corrupt state preservation are also covered. Both Windows PowerShell 5.1 and
+PowerShell 7 passed on commit adf8bae9:
+https://github.com/haoming-luo/agentfem/actions/runs/39826091662
+Documentation CI also passed. The broader numerical CI was still running when
+this installer-specific evidence was recorded; no full-suite result is claimed.
 
 ## Required before customer distribution
 
@@ -35,11 +45,11 @@ UAC rejection, blacklist, paths with spaces/Chinese text, interrupted OOBE,
 existing distributions, project protection and first cold-cache solve.
 Follow docs/windows_agent_installation.md. Preserve logs/status/acceptance JSON.
 
-This is source development, not a published installer. No Windows VM/WorkBuddy
-execution is available here. Attempts to fetch current main via GitHub SSH and
-HTTPS failed/timed out; portable PowerShell retrieval also timed out. Development
-therefore starts from the last known local main commit 36f4c1b0, not a claimed
-current remote head. Reconcile latest main and run Windows CI before promotion.
+This is source development, not a published installer. No clean Windows
+VM/WorkBuddy installation is available here. Windows CI uses real PowerShell
+but mocked WSL/elevation operations; it is not end-to-end customer acceptance.
+Development is rebased onto remote main a87cc121. Draft PR:
+https://github.com/haoming-luo/agentfem/pull/119
 No release or merge is performed.
 
 ## Remaining product work

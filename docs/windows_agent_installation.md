@@ -68,3 +68,17 @@ Test the exact published bundle on clean Windows 11 x64 with WorkBuddy:
 
 PowerShell contract CI mocks process exits and tests state handling on Windows
 5.1 and 7. It does not validate UAC, WorkBuddy, firmware or real WSL installation.
+
+## Suggested initial user prompt
+
+> Bring AgentFEM to life using https://github.com/haoming-luo/agentfem.
+> Read INSTALL.md and AGENT_GUIDE.md; on Windows also follow
+> docs/windows_agent_installation.md. Reuse a healthy existing environment;
+> otherwise choose the documented compatible installation route. If I request
+> the mirror channel, use its verified route. Complete every permitted step
+> yourself. Ask me only for required consent, restart or account credentials,
+> explaining the exact action. Respect the host's security controls; do not
+> retry blocked actions through another shell. Preserve installation progress
+> and continue after interruption. Verify the installed version, doctor and
+> first solve before reporting success. Reply briefly with the environment,
+> AgentFEM version and actual verification result.
