@@ -17,7 +17,7 @@ from contextlib import contextmanager
 from copy import deepcopy
 from dataclasses import dataclass, field
 from math import isfinite
-from numbers import Real
+from numbers import Integral, Real
 from sys import float_info
 
 
@@ -83,6 +83,26 @@ def normal_augmentation(
     )
 
 
+def _finite_increment_control(value, name):
+    if isinstance(value, bool) or not isinstance(value, Real):
+        raise ValueError(f"{name} must be a finite real number, not a boolean or string.")
+    try:
+        selected = float(value)
+    except (OverflowError, ValueError):
+        raise ValueError(f"{name} must be a finite real number.") from None
+    if not isfinite(selected):
+        raise ValueError(f"{name} must be a finite real number.")
+    # Preserve Python integer-vs-float spelling in existing automatic-policy
+    # summaries/checkpoint identities; normalize non-Python scalar wrappers.
+    return value if type(value) in (int, float) else selected
+
+
+def _integer_increment_control(value, name):
+    if isinstance(value, bool) or not isinstance(value, Integral):
+        raise ValueError(f"{name} must be an integer, not a boolean or a truncated real number.")
+    return int(value)
+
+
 @dataclass(frozen=True)
 class AutomaticIncrementation:
     """Adaptive load/time incrementation for one analysis step.
@@ -104,6 +124,16 @@ class AutomaticIncrementation:
     maximum_inelastic_increment: float | None = None
 
     def __post_init__(self) -> None:
+        # Validate the policy once, before it owns a numerical path. In
+        # particular, NaN counters must not disable stopping conditions and
+        # fractional counts must not silently change a user's requested path.
+        for name in ("initial", "minimum", "maximum", "cutback_factor", "growth_factor"):
+            object.__setattr__(self, name, _finite_increment_control(getattr(self, name), name))
+        for name in ("max_increments", "max_cutbacks", "fast_iterations", "slow_iterations"):
+            object.__setattr__(self, name, _integer_increment_control(getattr(self, name), name))
+        if self.maximum_inelastic_increment is not None:
+            object.__setattr__(self, "maximum_inelastic_increment", _finite_increment_control(
+                self.maximum_inelastic_increment, "maximum_inelastic_increment"))
         sizes = (self.initial, self.minimum, self.maximum)
         if any(not isfinite(value) or value <= 0.0 for value in sizes):
             raise ValueError("Automatic increment sizes must be finite and positive.")
@@ -177,7 +207,8 @@ class FixedIncrementation:
     load_factors: tuple[float, ...]
 
     def __post_init__(self) -> None:
-        factors = tuple(float(value) for value in self.load_factors)
+        factors = tuple(float(_finite_increment_control(value, "Fixed load factors"))
+                        for value in self.load_factors)
         if not factors or any(not isfinite(value) or value <= 0.0 for value in factors):
             raise ValueError("Fixed load factors must be finite and positive.")
         if any(right <= left for left, right in zip(factors, factors[1:])):
@@ -234,7 +265,7 @@ def automatic(
 def fixed(increments: int) -> FixedIncrementation:
     """Divide the normalized step interval into exactly ``increments`` parts."""
 
-    selected = int(increments)
+    selected = _integer_increment_control(increments, "Fixed increments")
     if selected <= 0:
         raise ValueError("Fixed increments must be positive.")
     return FixedIncrementation(

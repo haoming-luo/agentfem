@@ -107,6 +107,17 @@ behavior. Unspecified default policies retain their existing identity.
 Solver tolerances must be finite positive real values; iteration limits must
 be positive integers. Boolean values are not numerical controls. Invalid
 settings reject at policy construction rather than reaching the solver.
+The same early-validation principle applies to incrementation: `steps.fixed`
+requires a positive integer (not a truncated float or numeric string), automatic
+counts must be integers, and step sizes/growth/cutback controls must be finite
+real numbers in their declared ranges. `max_cutbacks=0` explicitly disables
+retries and remains valid. Existing valid Python policy summaries retain their
+checkpoint identity; non-Python numeric scalars are normalized for JSON output.
+For supported inelastic Steps, `maximum_inelastic_increment` limits the
+accepted internal-variable increment and can trigger a cutback. It is **not**
+an estimate of force, displacement or accumulated path error. Small Newton
+residuals and an accepted plastic-increment bound do not replace mesh/path
+refinement at common physical stations.
 Custom `NewtonSolverOptions.line_search_reduction` and `minimum_step_length`
 apply to AgentFEM's native Newton loops. The SNES adapter now refuses custom
 backtracking values rather than silently dropping them. Default SNES behavior

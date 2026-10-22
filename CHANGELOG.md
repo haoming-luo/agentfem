@@ -6,6 +6,12 @@ experimental formulation to a validated one.
 
 ## [Unreleased]
 
+- Reject fractional/boolean increment counts and nonfinite or nonnumeric
+  automatic-incrementation controls before solving, instead of truncating a
+  requested fixed path or admitting invalid stopping/growth conditions.
+  Preserve valid Python policy summaries and default checkpoint identity;
+  accept NumPy numeric scalars with JSON-safe normalization.
+
 - Correct quadrature-to-DG0 recovery on non-affine and curved meshes: include
   the mesh Jacobian in physical cell averages, retain discontinuities and raw
   integration-point state, and identify the averaging measure in result
@@ -37,8 +43,10 @@ experimental formulation to a validated one.
   identity, distinguish tool work from numerical relative-gap work, and
   jointly restore tool pose, plastic history, pressure and the accepted
   ledger. Add a public compression/unloading/recontact example and independent
-  scalar, tangent, refinement and restart checks. Rotating/curved tools,
-  friction, MPC and MPI augmentation remain unsupported.
+  scalar, tangent, refinement and restart checks. One bounded periodic-MPC
+  route is also admitted when reduced normal rows have disjoint nonzero
+  supports. Rotating/curved tools, friction, general MPC and MPI augmentation
+  remain unsupported.
 
 - Record accepted signed normal-contact work for the experimental serial
   fixed-plane finite-J2 augmentation route. Keep its discrete absolute-work

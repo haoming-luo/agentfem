@@ -265,6 +265,34 @@ mesh/penalty sweep or admit P2 nodal AL without a compatible normal space.
 Next use a bounded common-path refinement at the selected P2 rules, then assess
 the penalty error separately. The supported nodal-AL capability remains P1.
 
+The lifecycle audit confirms that the current path driver retains prescribed
+deformation-path knots, starts each constitutive trial from committed history,
+and already supports a maximum accepted plastic-strain increment. That bound
+is not an error estimator. Do not conflate local return-map convergence,
+global Newton convergence and path accuracy. A separate control audit found
+that fractional fixed counts could be truncated and several automatic controls
+admitted NaN, infinity or noninteger counts. Early typed/finite validation now
+rejects those inputs while preserving valid Python policy/checkpoint spelling.
+107 focused controller, automatic-restart, material-substep and adaptive-contact
+tests pass (one MPI-only test skipped in serial). This changes admission, not
+the integration algorithm or default path.
+
+For a later accuracy/cost experiment, [MOOSE's radial-return documentation](
+https://mooseframework.inl.gov/source/materials/RadialReturnStressUpdate.html)
+distinguishes global material-limited steps from local constitutive substeps.
+Local substeps may avoid some discarded global solves, but they cannot resolve
+an equilibrium/contact event skipped by the global path. They are not enabled
+here. A finite-strain implementation must specify its deformation interpolation,
+carry state sensitivities through the full sequence and differentiate that
+sequence, rather than returning the last substep's tangent; the general
+consistency issue is treated by [Pérez-Foguet et al. (2001)](
+https://doi.org/10.1016/S0045-7825(00)00336-4).
+First compare the existing global controller against common-path refinement;
+only pursue local substepping if material integration, rather than contact
+events or spatial approximation, is shown to limit useful step size. No new
+runtime dependency, automatic differentiation framework or hidden material
+path is introduced by this research note.
+
 ### Worker-local nodal transport: coherent prototype withdrawn (2026-10-23)
 
 A native prototype removed the complete Hex8 cell-displacement intermediate:
