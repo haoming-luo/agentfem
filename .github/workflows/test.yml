@@ -401,7 +401,7 @@ jobs:
       - name: Run distributed constraint and result tests
         if: needs.change-scope.outputs.level == 'release'
         run: >-
-          mpirun -n 2 python -m pytest
+          agentfem mpi-run -n 2 --timeout 180 -- python -m pytest
           tests/test_parallel_affine.py
           tests/test_parallel_cli.py
           tests/test_parallel_cohesive.py
@@ -410,6 +410,7 @@ jobs:
           tests/test_parallel_mixed.py
           tests/test_parallel_modal.py
           tests/test_parallel_results.py
+          tests/test_quadrature_physical_recovery.py
           tests/test_parallel_transient.py
           tests/test_parallel_uniform_hex.py
           tests/test_parallel_viscoelasticity.py

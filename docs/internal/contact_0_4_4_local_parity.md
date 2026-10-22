@@ -42,6 +42,10 @@ tangent, pressure and normal relative work meet the predeclared
 differences, policy and runtime/source identity in
 `evidence/performance/2026-10-23-combined-affine-execution.json`.
 The driver now preserves unsuccessful setup/solve/comparison evidence too.
+It captures code identity before the run, retains it on failure, and refuses
+to promote timing if the tool or selected runtime sources change during the
+comparison. Three targeted failure/provenance tests pass. The source used by
+the completed comparison remains reconstructable at commit `d1e1a368`.
 This is a bounded implicit execution result, not continuum convergence,
 external-code parity, MPI admission or a full explicit-composite speedup.
 
@@ -69,6 +73,9 @@ mixed-J2 energy diagnostics, contact traces and benchmark-failure persistence.
 Embedded-surface area weighting and changed mesh coordinates are covered too.
 The latter fixture evaluates physical coordinates through the backend rather
 than assuming a reference axis is aligned with physical y.
+The complete fourteen-test recovery file also passes on each of two MPI
+ranks (0.39 s per rank). It now participates in the existing distributed
+result CI group, whose launcher has a 180-second timeout.
 
 ### Fixed-reduction linear ownership investigation (2026-10-23)
 
@@ -216,6 +223,39 @@ These differences are far smaller than the current 4 -> 8-cell force gap;
 neither is a spatial-convergence certificate or a reason to increase every
 user's quadrature default. Sampled maximum penetration changes with the set of
 sample points and is not a continuous-face penetration bound.
+
+### Separate path and elastic spatial diagnostics (2026-10-23)
+
+With the eight-cell P2 mesh, contact rule 11, bulk rule 6 and unchanged penalty,
+32/64/128 accepted increments give final reactions -2.7300627/-2.9171279/
+-3.0121821 N. Successive differences, relative to the finer result, are 6.4126%
+and 3.1557%. The maximum PEEQ changes from 0.1100375 to 0.1106489 to 0.1113156.
+The trend is consistent with a remaining loading-path discretization error;
+128 accepted increments are not a path-independence certificate. These are
+diagnostics, not grounds to change every user's increment count. See
+`evidence/contact/2026-10-23-periodic-contact-p2-time64.json` and
+`evidence/contact/2026-10-23-periodic-contact-p2-time128.json`.
+
+An elastic-limit control changes only yield stress to 1e12 Pa, holding the
+geometry, boundary path, penalty and integration rules fixed. All reported
+PEEQ values are zero; four increments capture the four loading stations. First
+and final loaded forces agree to roundoff, and unloaded forces are below
+1.1e-10 N. Under the **same Gaussian penalty formulation**, the 8 -> 12-cell
+reaction change is 4.4570% for P1 and 1.0191% for P2. P2 forces on 4/8/12-cell
+meshes are -19.6330568/-18.8842501/-18.6937424 N. Records:
+
+- `evidence/contact/2026-10-23-periodic-contact-p1-elastic.json`
+- `evidence/contact/2026-10-23-periodic-contact-p2-elastic.json`
+- `evidence/contact/2026-10-23-periodic-contact-p2-elastic-coarse.json`
+
+This narrows the next decision: volume/trace approximation matters even without
+plasticity, and plasticity adds an appreciable path error. It does not prove
+locking, identify a unique error source, validate the finite penalty as an exact
+constraint, or compare P2 penalty directly to the P1 nodal-AL reaction. There is
+still no independent continuum reference. Do not launch another unstructured
+mesh/penalty sweep or admit P2 nodal AL without a compatible normal space.
+Next use a bounded common-path refinement at the selected P2 rules, then assess
+the penalty error separately. The supported nodal-AL capability remains P1.
 
 ### Worker-local nodal transport: coherent prototype withdrawn (2026-10-23)
 

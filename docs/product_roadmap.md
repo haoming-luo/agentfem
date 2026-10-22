@@ -80,6 +80,14 @@ prototype preserves the late accepted path but its 1.41% mean timing change
 is smaller than the 2.17% baseline drift; it is withdrawn rather than added as
 another public performance switch.
 
+Further diagnostics distinguish two remaining errors rather than attributing
+everything to contact: at fixed eight-cell P2 discretization, 32 -> 64 -> 128
+increments change the final plastic reaction by 6.41% then 3.16%. With plasticity
+disabled by a high yield stress, common Gaussian-penalty 8 -> 12-cell controls
+change reaction by 4.46% for P1 and 1.02% for P2. This supports investigating
+compatible volume/trace approximation and path refinement separately; it does
+not certify continuum accuracy, prove locking or authorize P2 nodal AL.
+
 An output audit found a separate correctness issue: integration-point cell
 recovery normalized reference-rule weights without the geometric Jacobian.
 The physical-measure correction now passes analytical distorted Q1/Hex8 and
@@ -88,12 +96,12 @@ owned/ghost publication, an empty rank and collective invalid-measure rejection.
 Raw constitutive states and solver updates are unchanged; metadata distinguishes
 mesh-geometry weighting from any inferred deformation-volume weighting.
 
-| Order | Work | Acceptance / stop condition |
+| Order | Work | Current decision / acceptance boundary |
 | --- | --- | --- |
-| 1 | Retain unchanged material trials across serial AL outer iterations | Same accepted fields, tangent, contact and work; mutation/rollback/restart guards; measured whole-path benefit. Unsupported materials/mixed/MPI use ordinary refresh. |
-| 2 | Isolate the supported contact fixture's spatial reaction error | Hold the physical patch fixed; separate volume approximation, constraint representation and edge effects. Do not keep tuning AL after exact discrete elimination agrees. |
-| 3 | Explicit body/contact critical-path reduction | Reuse the 25-frame baseline. Audit existing candidate/separation reuse before adding another cache; select on evolving late-state whole-step timing, not kernel percentages. |
-| 4 | Bounded release integration | Latest full CI and installed checks; scientific claims remain limited to passed geometry/law combinations. No commercial-parity claim from passing CI alone. |
+| 1 | Retain unchanged material trials and scoped linear work | Implemented for bounded serial J2/AL; combined 24.32% timing reduction with station parity and mutation/rollback/restart guards. Unsupported materials/mixed/MPI use ordinary refresh; no scope expansion inferred. |
+| 2 | Isolate the supported contact fixture's spatial reaction error | Open. Hold the physical patch fixed; separate volume approximation, constraint representation, integration and loading-path effects. Do not keep tuning AL after exact discrete elimination agrees. |
+| 3 | Explicit body/contact critical-path reduction | Selected joined-viscosity/interior-sign route remains a late-path result, not a new full-run claim. Reuse the 25-frame baseline; the new nodal-gather prototype is withdrawn rather than added as an unproven switch. |
+| 4 | Bounded release integration | Prior solver stage passes full CI and installed checks; latest recovery correction has source and MPI evidence and awaits its own remote CI. Scientific claims remain limited to passed geometry/law combinations. |
 
 The first retained-material source candidate is scoped to a single equilibrium
 attempt and compares evaluated old/new gradients, committed/trial state, current

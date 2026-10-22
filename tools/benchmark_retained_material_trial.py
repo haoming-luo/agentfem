@@ -30,6 +30,24 @@ from agentfem.checkpointing import atomic_write_text
 from agentfem.mechanics._affine_normal_augmentation import AffinePlaneNormalAugmentation
 
 
+def source_fingerprints():
+    """Capture tested source, not just a reusable development version label."""
+    return {name: sha256((
+                Path(agentfem.__file__).parent / name.removeprefix("src/agentfem/")
+                if name.startswith("src/agentfem/") else
+                Path(__file__).resolve().parents[1] / name).read_bytes()).hexdigest()
+            for name in (
+                "src/agentfem/mechanics/_retained_trial_response.py",
+                "src/agentfem/mechanics/finite_strain_plasticity.py",
+                "src/agentfem/constitutive/quadrature.py",
+                "src/agentfem/mechanics/_affine_normal_augmentation.py",
+                "src/agentfem/_affine_equilibrium.py",
+                "src/agentfem/solvers.py",
+                "src/agentfem/_adaptive_linear_correction.py",
+                "examples/finite_j2_periodic_augmented_plane.py",
+            )}
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--output", type=Path, required=True)
@@ -52,6 +70,10 @@ def main():
                       "mechanism": args.mechanism, "order": "ABBA", "runs": rows,
                       "tool_sha256": sha256(Path(__file__).read_bytes()).hexdigest(),
                       "agentfem_version": agentfem.__version__,
+                      "source_sha256": source_fingerprints(),
+                      "platform": platform.platform(), "python": platform.python_version(),
+                      "threads": {key: os.environ.get(key) for key in (
+                          "OMP_NUM_THREADS", "OPENBLAS_NUM_THREADS", "VECLIB_MAXIMUM_THREADS")},
                       "status": "running"}
     def save_partial():
         atomic_write_text(args.output, json.dumps(partial_report, indent=2, allow_nan=False) + "\n")
@@ -145,25 +167,9 @@ def main():
         "scope": "serial built-in J2, affine periodic fixed-plane augmentation",
         "tool_sha256": partial_report["tool_sha256"],
         "agentfem_version": agentfem.__version__,
-        "package_name": agentfem.__name__, "platform": platform.platform(),
-        "python": platform.python_version(),
-        "threads": {key: os.environ.get(key) for key in (
-            "OMP_NUM_THREADS", "OPENBLAS_NUM_THREADS", "VECLIB_MAXIMUM_THREADS",
-        )},
-        "source_sha256": {name: sha256((
-                              Path(agentfem.__file__).parent / name.removeprefix("src/agentfem/")
-                              if name.startswith("src/agentfem/") else
-                              Path(__file__).resolve().parents[1] / name).read_bytes()).hexdigest()
-                          for name in (
-                              "src/agentfem/mechanics/_retained_trial_response.py",
-                              "src/agentfem/mechanics/finite_strain_plasticity.py",
-                              "src/agentfem/constitutive/quadrature.py",
-                              "src/agentfem/mechanics/_affine_normal_augmentation.py",
-                              "src/agentfem/_affine_equilibrium.py",
-                              "src/agentfem/solvers.py",
-                              "src/agentfem/_adaptive_linear_correction.py",
-                              "examples/finite_j2_periodic_augmented_plane.py",
-                          )},
+        "package_name": agentfem.__name__, "platform": partial_report["platform"],
+        "python": partial_report["python"], "threads": partial_report["threads"],
+        "source_sha256": partial_report["source_sha256"],
         "cells": args.cells, "increments": args.increments,
         "mechanism": args.mechanism,
         "order": "ABBA", "runs": rows,
@@ -173,14 +179,20 @@ def main():
         "exclusions": "Not explicit performance, MPI, mixed pressure, external material, or continuum validation",
         "status": "completed" if len(rows) == 4 and all(row["accepted_by_declared_comparison"] for row in rows) else "failed",
     }
+    current_sources = source_fingerprints()
+    current_tool = sha256(Path(__file__).read_bytes()).hexdigest()
+    if current_sources != report["source_sha256"] or current_tool != report["tool_sha256"]:
+        report.update(status="failed", source_sha256_after=current_sources,
+                      tool_sha256_after=current_tool,
+                      failure="Runtime source changed during the comparison; timing is not promoted.")
     if report["status"] == "completed":
         before = np.mean([row["solve_and_observe_seconds"] for row in rows if not row["reuse_enabled"]])
         after = np.mean([row["solve_and_observe_seconds"] for row in rows if row["reuse_enabled"]])
         report["observed_elapsed_reduction"] = 1. - after / before
     args.output.parent.mkdir(parents=True, exist_ok=True)
     atomic_write_text(args.output, json.dumps(report, indent=2, allow_nan=False) + "\n")
-    if not all(row["accepted_by_declared_comparison"] for row in rows):
-        raise RuntimeError("The reuse candidate exceeded the declared trajectory comparison.")
+    if report["status"] != "completed":
+        raise RuntimeError(report.get("failure", "The reuse candidate exceeded the declared trajectory comparison."))
 
 
 if __name__ == "__main__":

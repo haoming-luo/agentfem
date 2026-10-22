@@ -1,0 +1,111 @@
+{
+  "scope": "P1/P2 Gaussian penalty diagnostic, not nodal AL or independent continuum reference",
+  "agentfem_version": "0.4.4.dev0",
+  "tool_sha256": "5b246119c988b1e438f3498a34d07bf39f23edbb7c47b75e0dd6063a43515e0c",
+  "source_sha256": {
+    "solvers.py": "64c4093ac62cf7f859badcf756f269e0d027d7af30501c84db37a0c4086a96a1",
+    "_affine_equilibrium.py": "9f3bc9d4825597892f67db3ebb96fe941363a5dcc6307e0cdef7d4e93cc4ff6f",
+    "mechanics/finite_strain_plasticity.py": "a3dff95248534d5b05a19a91dd8424d018553b2ded1d0294416d9a2f20cef3bb",
+    "constitutive/quadrature.py": "c48fdef1fffdc1eb5657e1cf1b00e32483ef8b1ac2cc8461a00ab94ee10cc0e3",
+    "boundary_models/dolfinx_contact_trace.py": "7e696da048967bfbf3a9847973f57e0ffd840e5c98db5ab7bcca268ff8119982"
+  },
+  "units": {
+    "length": "m",
+    "stress": "Pa",
+    "force": "N",
+    "work": "J"
+  },
+  "options": {
+    "cells": [
+      8
+    ],
+    "degrees": [
+      2
+    ],
+    "increments": 64,
+    "penalty": 40000,
+    "contact_degree": 11,
+    "bulk_degree": 6,
+    "yield_stress": 2
+  },
+  "records": [
+    {
+      "cells": 8,
+      "degree": 2,
+      "status": "completed",
+      "stations": [
+        {
+          "factor": 0.25,
+          "displacement_l2": 0.011000097676130777,
+          "force_on_structure": [
+            -4.168701147475002,
+            0,
+            0
+          ],
+          "pressure_area_mean": 16.674804589899978,
+          "maximum_pressure": 128.46056703971874,
+          "active_reference_area": 0.2500000000000002,
+          "maximum_penetration": 0.003211514175992969,
+          "peeq_reference_volume_mean": 0.02259242036466265,
+          "maximum_peeq": 0.07226657305377678,
+          "mpc_equation_mismatch": 3.4854536596614444e-18,
+          "normal_relative_work_status": "unavailable_on_this_diagnostic_route"
+        },
+        {
+          "factor": 0.5,
+          "displacement_l2": 0.005305481898051314,
+          "force_on_structure": [
+            0,
+            0,
+            0
+          ],
+          "pressure_area_mean": 0,
+          "maximum_pressure": 0,
+          "active_reference_area": 0,
+          "maximum_penetration": 0,
+          "peeq_reference_volume_mean": 0.030646347774152163,
+          "maximum_peeq": 0.07919061725960282,
+          "mpc_equation_mismatch": 8.713634149153611e-19,
+          "normal_relative_work_status": "unavailable_on_this_diagnostic_route"
+        },
+        {
+          "factor": 0.75,
+          "displacement_l2": 0.012358003929090521,
+          "force_on_structure": [
+            0,
+            0,
+            0
+          ],
+          "pressure_area_mean": 0,
+          "maximum_pressure": 0,
+          "active_reference_area": 0,
+          "maximum_penetration": 0,
+          "peeq_reference_volume_mean": 0.04445299214332047,
+          "maximum_peeq": 0.09043538041246124,
+          "mpc_equation_mismatch": 1.7427268298307222e-18,
+          "normal_relative_work_status": "unavailable_on_this_diagnostic_route"
+        },
+        {
+          "factor": 1,
+          "displacement_l2": 0.011049499211120103,
+          "force_on_structure": [
+            -2.9171278749516167,
+            0,
+            0
+          ],
+          "pressure_area_mean": 11.668511499806469,
+          "maximum_pressure": 119.85355153831811,
+          "active_reference_area": 0.2417205646110903,
+          "maximum_penetration": 0.002996338788457953,
+          "peeq_reference_volume_mean": 0.062016643257134206,
+          "maximum_peeq": 0.11064888168976136,
+          "mpc_equation_mismatch": 3.469446951953614e-18,
+          "normal_relative_work_status": "unavailable_on_this_diagnostic_route"
+        }
+      ],
+      "full_dofs": 14739,
+      "accepted_increments": 64,
+      "setup_solve_observe_seconds": 290.9745050002821
+    }
+  ]
+}
