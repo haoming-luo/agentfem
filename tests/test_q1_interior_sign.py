@@ -110,6 +110,8 @@ def test_connected_shell_with_handle_and_nonconvex_interior():
 
 @pytest.mark.parametrize("backend", ["reference", "native"])
 def test_runtime_policy_and_current_refit(backend):
+    if backend == "native":
+        pytest.importorskip("agentfem._q1_native")
     with q1_contact_runtime(backend=backend, sign_policy="interior_normal") as runtime:
         assert runtime.execution.summary()["sign_policy"] == "interior_normal-v1"
         x, faces = solid()

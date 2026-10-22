@@ -312,6 +312,7 @@ jobs:
           python -m pip install --no-deps --target "${native_root}/site" "${native_root}"/dist/*.whl
           export PYTHONPATH="${native_root}/site"
           python -c "import agentfem._hex_native"
+          python -c "import agentfem._q1_native; from agentfem import _body_pipeline as b; assert hasattr(b, 'run_damped_checked')"
           python -m pytest -q -o pythonpath= \
             tests/test_hex_native.py tests/test_hex_validity_blocks.py \
             tests/test_hex_validity.py tests/test_orientation.py \
@@ -321,6 +322,8 @@ jobs:
             tests/test_builtin_hex_execution.py tests/test_native_material_execution.py \
             tests/test_native_hex_auxiliary.py \
             tests/test_builtin_q1_execution.py \
+            tests/test_q1_interior_sign.py tests/test_q1_worker_restart.py \
+            tests/test_native_damped_body.py \
             tests/test_response_substeps.py tests/test_response_deformable_step.py \
             tests/test_finite_uniform_hex_dolfinx.py
 

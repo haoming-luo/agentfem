@@ -12,6 +12,7 @@ from test_deformable_contact_explicit import make_step
 
 @pytest.mark.parametrize("old,new", [(1, 4), (4, 2), (2, 1)])
 def test_native_q1_worker_restart_preserves_fields_history_and_provenance(tmp_path, old, new):
+    pytest.importorskip("agentfem._q1_native")
     with ExitStack() as owners:
         a = owners.enter_context(q1_contact_runtime(backend="native", projection_workers=old))
         b = owners.enter_context(q1_contact_runtime(backend="native", projection_workers=new))
@@ -34,6 +35,7 @@ def test_native_q1_worker_restart_preserves_fields_history_and_provenance(tmp_pa
 
 
 def test_legacy_q1_checkpoint_requires_original_workers_then_explicit_resave(tmp_path, monkeypatch):
+    pytest.importorskip("agentfem._q1_native")
     with ExitStack() as owners:
         a = owners.enter_context(q1_contact_runtime(backend="native", projection_workers=1))
         b = owners.enter_context(q1_contact_runtime(backend="native", projection_workers=2))
@@ -75,6 +77,7 @@ def test_q1_compatibility_declaration_is_opt_in_and_frozen():
 
 @pytest.mark.parametrize("change", ["provider", "revision", "arithmetic", "reuse"])
 def test_q1_restart_rejects_changed_semantics_atomically(tmp_path, change):
+    pytest.importorskip("agentfem._q1_native")
     with q1_contact_runtime(backend="native") as runtime:
         old = make_step(closed=True, execution=runtime.execution)
         old.run(until_step=2)
