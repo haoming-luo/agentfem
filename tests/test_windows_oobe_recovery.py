@@ -1,3 +1,5 @@
+# SPDX-FileCopyrightText: 2026 Haoming Luo and AgentFEM contributors
+# SPDX-License-Identifier: Apache-2.0
 """Exercise the real OOBE shell flow with OS operations replaced by stubs."""
 
 from pathlib import Path

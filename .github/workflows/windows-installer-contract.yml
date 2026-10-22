@@ -6,14 +6,19 @@ on:
 permissions:
   contents: read
 jobs:
-  installer-contract:
+  windows-powershell:
+    name: Installer on Windows PowerShell 5.1
     runs-on: windows-latest
-    strategy:
-      fail-fast: false
-      matrix:
-        shell: [powershell, pwsh]
     steps:
       - uses: actions/checkout@v6
       - name: Exercise installer state and failure handling
-        shell: ${{ matrix.shell }}
+        shell: powershell
+        run: ./tests/windows/installer_contract.ps1
+  powershell-core:
+    name: Installer on PowerShell 7
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v6
+      - name: Exercise installer state and failure handling
+        shell: pwsh
         run: ./tests/windows/installer_contract.ps1

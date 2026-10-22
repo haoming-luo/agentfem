@@ -1,3 +1,6 @@
+<!-- SPDX-FileCopyrightText: 2026 Haoming Luo and AgentFEM contributors -->
+<!-- SPDX-License-Identifier: Apache-2.0 -->
+
 # Windows first-install recovery development
 
 2026-10-23. Branch: feat/windows-install-recovery. Base: 36f4c1b0.
