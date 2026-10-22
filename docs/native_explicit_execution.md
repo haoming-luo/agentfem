@@ -98,6 +98,30 @@ measurements show a benefit. Additional bound evaluation can itself cost time.
 The reusable idea resembles [displacement-bounded neighbor reuse in LAMMPS](https://docs.lammps.org/Developer_par_neigh.html),
 but a particle cutoff is not substituted for the deformable Q1 distance problem.
 
+### Current-geometry closed Q1 signs
+
+`q1_contact_runtime(..., sign_policy="interior_normal")` is an opt-in execution
+policy for the **reviewed embedded closed-solid** route. At an unambiguous
+global closest point strictly inside a smooth Q1 patch, the current outward
+normal determines the signed distance. The normal is reconstructed from that
+patch's bilinear geometry; no triangle surrogate or cached force is used.
+Current bilinear flux volume checks orientation for a connected shell.
+Disconnected/nested components, edges, vertices, near-zero offsets and unresolved
+alignment retain the existing independently checked rays. Arbitrary surface
+self-intersection detection is not supplied by this optimization.
+The smooth-interior sign argument is discussed by
+[Bærentzen and Aanæs](https://doi.org/10.1109/TVCG.2005.49). Their triangular
+edge/vertex pseudonormal construction is not substituted for the Q1 fallback.
+
+The default remains `sign_policy="two_rays"`. Both policies use the same
+closest-point search, ambiguity decisions, interpolation, forces and state
+transactions. Only this core-owned arithmetic choice is excluded from the
+accepted-coordinate checkpoint identity; it remains visible in execution
+provenance. Restore recomputes current geometry and discards derived caches.
+Callback identities and other search settings are not silently made compatible.
+Compare complete accepted steps before choosing a policy: reduced ray counts
+do not by themselves prove a faster solve when body and contact work overlap.
+
 ## Compiled user materials
 
 ### Restart compatibility versus execution provenance

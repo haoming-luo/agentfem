@@ -1,0 +1,24 @@
+{
+  "scope": "whole accepted-step combined candidate screen, not full-run acceleration",
+  "base_revision": "5abb621c",
+  "changes": ["joined body and bulk viscosity", "current smooth-interior Q1 sign with two-ray fallback"],
+  "cells": 255041,
+  "initial_increment": 95000,
+  "final_increment": 95600,
+  "material_workers": 8,
+  "cell_workers": 4,
+  "contact_projection_workers": 4,
+  "contact_geometry_workers": 2,
+  "order": ["reference", "combined", "combined", "reference"],
+  "seconds": [73.95017450023443, 72.35745658399537, 71.6893827910535, 77.40508149983361],
+  "observed_percent_less_time": 4.828650697809844,
+  "accepted_fields_and_physical_history_exact": true,
+  "ray_queries_first_pair_including_preparation": [4676043, 63682],
+  "prepared_points_first_pair_including_preparation": [4973416, 4973416],
+  "limits": [
+    "Startup, checkpoint loading and result serialization are not timed.",
+    "Body/contact stages overlap. Local gains cannot be added.",
+    "This comparison does not isolate the additional whole-step contribution of the sign policy.",
+    "Same-machine thread-budget screening and fresh confirmation remain separate decisions."
+  ]
+}

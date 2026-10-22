@@ -48,11 +48,14 @@ the original failed artifacts are retained, not relabelled as a completed test.
 The candidate's first-response comparison also agrees on ten body/material/
 viscosity arrays, including work and damping bound.
 
-Do **not** promote this single pair to a speed claim: desktop applications
-were consuming CPU, and the fresh confirmation has not started. Local execution
-permission reviews timed out twice; the sandbox rejects MPI endpoint creation,
-and a subsequent network-permission request returned no grant. Complete a fresh
-whole-step comparison before selecting the policy for the composite case.
+The earlier permission blockage was resolved in the next authorized window.
+A fresh complete ABBA confirmation on 95,000–95,600 records separate-pass
+82.892/79.564 s versus joined-pass 76.712/76.502 s: **5.69% less mean elapsed
+time for this late interval**. All accepted U/V/A, material state/stress/gradient
+and physical residual history match exactly. Preparation, checkpoint loading
+and serialization are outside the timing. Evidence:
+`evidence/performance/2026-10-22-joined-viscosity-confirmation.json`.
+Do not extrapolate this interval into an achieved full-run improvement.
 Neither the reference case nor its completed 25-frame output was modified.
 
 The next separate geometry experiment evaluates a current closest-point normal
@@ -62,7 +65,30 @@ unresolved orientation retain the existing two-ray classifier. This follows the
 smooth-surface sign argument described by
 [Bærentzen and Aanæs](https://doi.org/10.1109/TVCG.2005.49), not an unverified
 transfer of triangular pseudonormals to warped Q1 patches. The private prototype
-and tests are prepared but not executed; no production sign policy has changed.
+passes eight geometry tests, including warped/concave surfaces, current refits,
+disconnected/nested shells, reversed orientation, near-zero fallback and
+unchanged rejection of distinct equally near faces. On the same 40 prescribed
+late geometries, ABBA contact times are 3.261/3.257 s versus 2.911/2.932 s.
+Ray queries fall from 307,140 to 5,094; all contact forces, gaps, weights and
+potential match exactly. This is not a dynamic trajectory or a complete-step
+performance claim.
+
+The optional core `sign_policy="interior_normal"` now reconstructs its normal
+from current Q1 derivatives rather than trusting a callback's unit-normal
+transport. Connected-shell orientation is rechecked after geometry refits.
+107 targeted geometry/explicit-contact tests pass, including a toroidal shell,
+both cross-policy checkpoint directions and rejection of changed provider
+identity. Checkpoint compatibility omits only the core sign arithmetic choice;
+actual execution provenance retains it. The default two-ray route is unchanged.
+
+A whole-step combined ABBA on the same late interval records baseline
+73.950/77.405 s versus combined 72.357/71.689 s, with identical accepted fields
+and physical history: **4.83% less mean time in this screen**. Rays decrease
+4,676,043 to 63,682 in the first pair (including setup), with identical
+4,973,416 prepared points. This does not establish an additional gain over
+body fusion alone. Concurrent critical paths and changed CPU contention matter;
+do not add the geometry and body percentages. Next screen process-local worker
+budgets and confirm any selected combination on fresh runs.
 
 ### Explicit Q1 classification reuse: tested, not promoted (2026-10-22)
 

@@ -20,9 +20,12 @@ class Q1ContactExecution:
     separated_paths: object = None
     project_batch: object = None
     separation_reuse: str = "incremental"
+    sign_policy: str = "two_rays"
     _identity_json: str = field(init=False, repr=False)
 
     def __post_init__(self):
+        if self.sign_policy not in ("two_rays", "interior_normal"):
+            raise ValueError("Q1 sign_policy must be two_rays or interior_normal")
         if self.separation_reuse not in ("incremental", "anchored"):
             raise ValueError("Q1 separation_reuse must be incremental or anchored")
         if not isinstance(self.identity, dict) or not self.identity:
@@ -40,7 +43,22 @@ class Q1ContactExecution:
                 "distance_bounds": self.distance_bounds is not None,
                 "separated_paths": self.separated_paths is not None,
                 "project_batch": self.project_batch is not None,
+                **({"sign_policy": "interior_normal-v1"}
+                   if self.sign_policy == "interior_normal" else {}),
                 **({"separation_reuse": "anchored-v1"} if self.separation_reuse == "anchored" else {})}
+
+    def checkpoint_summary(self):
+        """Retain the same accepted-coordinate contract across core sign policies.
+
+        No sign cache is serialized: restore recomputes geometry from accepted
+        coordinates. Both policies solve the same globally closest Q1 signed
+        distance problem. Only this core-owned arithmetic choice is omitted;
+        callback identities, search/reuse policies and other settings remain.
+        ``summary`` always retains the actual execution provenance.
+        """
+        value = self.summary()
+        value.pop("sign_policy", None)
+        return value
 
     def project(self, surface, points, reference, **options):
         """Validate transport, not the plugin's global-minimum certificate."""

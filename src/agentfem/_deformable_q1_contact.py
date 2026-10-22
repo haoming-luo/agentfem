@@ -205,7 +205,8 @@ class DeformableQ1Penalty:
                 "measure": "reference_nodal",
                 "normal": "primary_connectivity_outward",
                 "geometry_policy": self.geometry_policy,
-                **({"execution": execution.summary()} if execution is not None else {}),
+                **({"execution": execution.checkpoint_summary()}
+                   if execution is not None else {}),
             }
         )
 
@@ -413,6 +414,8 @@ class DeformableQ1Penalty:
             "implicit_tangent": False,
             "mpi": False,
             "geometry_policy": self.geometry_policy,
+            **({"execution": self.execution.summary()}
+               if self.execution is not None else {}),
             "far_candidate_policy": ("positive_closed_solid_distance_bound"
                                      if self.geometry_policy == "reviewed_closed_solid"
                                      else "reject_search_escape"),

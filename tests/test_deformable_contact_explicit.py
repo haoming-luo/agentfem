@@ -148,6 +148,37 @@ def test_actual_two_body_contact_restart_and_momentum(tmp_path, closed, reuse):
     np.testing.assert_allclose(momentum, initial_momentum, atol=1e-14)
 
 
+@pytest.mark.parametrize("first,second", [("two_rays", "interior_normal"),
+                                          ("interior_normal", "two_rays")])
+def test_core_sign_policy_restart_matches_continuous_path(tmp_path, first, second):
+    from agentfem.boundary_models import Q1ContactExecution
+
+    def build(sign):
+        return make_step(closed=True, execution=Q1ContactExecution(
+            {"test": "sign-policy"}, sign_policy=sign))
+
+    continuous = build(first)
+    continuous.run()
+    partial = build(first)
+    partial.run(until_step=8)
+    path = partial.save_checkpoint(tmp_path / "sign-policy")
+    resumed = build(second)
+    assert partial.residual.identity == resumed.residual.identity
+    assert partial.residual.operator.summary() != resumed.residual.operator.summary()
+    resumed.load_checkpoint(path)
+    resumed.run()
+    for name in ("u", "v", "a"):
+        np.testing.assert_array_equal(getattr(resumed.state, name).value.x.array,
+                                      getattr(continuous.state, name).value.x.array)
+    assert resumed.history_records == continuous.history_records
+    assert resumed.residual.snapshot() == continuous.residual.snapshot()
+    assert resumed.residual.accepted[2].potential_energy > 0
+    changed = make_step(closed=True, execution=Q1ContactExecution(
+        {"test": "different-provider"}, sign_policy=second))
+    with pytest.raises(ValueError, match="identity"):
+        changed.load_checkpoint(path)
+
+
 def test_changed_contact_coverage_cannot_resume_old_checkpoint(tmp_path):
     old = make_step(closed=True, exclude_first=True)
     old.run(until_step=2)
