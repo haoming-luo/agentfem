@@ -44,6 +44,9 @@ function Save-InstallState {
     $path = Join-Path $script:InstallStateDirectory 'status.json'
     $temporary = "$path.tmp"
     $script:InstallState | ConvertTo-Json -Depth 6 | Set-Content -Encoding UTF8 $temporary
-    if (Test-Path $path) { [IO.File]::Replace($temporary, $path, $null) }
-    else { [IO.File]::Move($temporary, $path) }
+    if (Test-Path $path) {
+        # PS 5.1 binds $null to an empty string for this .NET string argument.
+        # A real backup path works in both 5.1 and 7 and preserves prior evidence.
+        [IO.File]::Replace($temporary, $path, "$path.previous")
+    } else { [IO.File]::Move($temporary, $path) }
 }
