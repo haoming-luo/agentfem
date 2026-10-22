@@ -63,6 +63,31 @@ study must address compatible volume, contact-trace and periodic spaces.
 Do not silently use P2 volume interpolation with the current P1 nodal AL
 contract. The commercial-parity and independent-reference gates stay open.
 
+The combined serial implicit execution route has also completed an isolated
+12-cell/48-increment ABBA comparison: 24.32% less mean solve-and-observe time
+relative to fresh material trials, separate outer workspaces and direct solves.
+All four paths retain 48 accepted increments and 533 Newton corrections, and
+all four-station field/state/contact/work comparisons pass. This evidence
+supports the composition, not addition of its individual percentages, and
+does not change the explicit-composite timing claim. See
+`evidence/performance/2026-10-23-combined-affine-execution.json`.
+
+The eight-cell P2 diagnostic now separates contact and bulk integration:
+contact quadrature 7 -> 11 changes final reaction by 0.0351%, then bulk
+quadrature 4 -> 6 by 0.00887%. These do not explain the much larger spatial
+gap, and defaults remain unchanged. A separate native worker-local nodal-gather
+prototype preserves the late accepted path but its 1.41% mean timing change
+is smaller than the 2.17% baseline drift; it is withdrawn rather than added as
+another public performance switch.
+
+An output audit found a separate correctness issue: integration-point cell
+recovery normalized reference-rule weights without the geometric Jacobian.
+The physical-measure correction now passes analytical distorted Q1/Hex8 and
+curved-triangle tests, scalar/vector/tensor recovery, and two-rank checks for
+owned/ghost publication, an empty rank and collective invalid-measure rejection.
+Raw constitutive states and solver updates are unchanged; metadata distinguishes
+mesh-geometry weighting from any inferred deformation-volume weighting.
+
 | Order | Work | Acceptance / stop condition |
 | --- | --- | --- |
 | 1 | Retain unchanged material trials across serial AL outer iterations | Same accepted fields, tangent, contact and work; mutation/rollback/restart guards; measured whole-path benefit. Unsupported materials/mixed/MPI use ordinary refresh. |

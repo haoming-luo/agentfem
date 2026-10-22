@@ -185,6 +185,17 @@ same 355 Newton corrections and agreeing at four physical stations. Fresh
 implicit results, not composite explicit-run or hardware-independent speed
 guarantees. See `evidence/performance/2026-10-23-adaptive-preconditioner-screen.json`
 and `evidence/performance/2026-10-23-adaptive-preconditioner-confirmation.json`.
+An additional combined ABBA comparison disables retained material trials and
+the outer linear workspace in the direct reference, then enables those owners
+with the managed policy. Its four times are 261.223, 196.909, 195.732 and
+257.591 s: 24.32% less mean solve-and-observe time. All runs retain 48 accepted
+increments and 533 Newton corrections; U, committed state, first Piola stress,
+tangent, pressure and normal work pass the declared four-station comparison
+(`rtol=1e-7`, `atol=1e-9`). The two candidate paths each reuse 172 material
+responses and 435 preconditioners, with 98 preconditioner builds and no retry.
+This measures the combination, not a sum of separate percentage gains. The
+reference and candidate use the same material, load path, penalty and contact
+acceptance. See `evidence/performance/2026-10-23-combined-affine-execution.json`.
 The implementation follows PETSc's distinction between
 [reusing a preconditioner](https://petsc.org/main/manualpages/PC/PCSetReusePreconditioner/)
 and [choosing its side](https://petsc.org/main/manualpages/KSP/KSPSetPCSide/).

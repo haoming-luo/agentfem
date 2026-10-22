@@ -173,6 +173,15 @@ def test_quadratic_field_initial_plane_bound_uses_face_geometry_not_cell_dofs(ce
     assert evidence["maximum_penetration_bound"] == 0.
     np.testing.assert_array_equal(provider.adapter.reference_facet_vertices[:, 0], 0.)
     assert not provider.adapter.reference_facet_vertices.flags.writeable
+    from dataclasses import replace
+    vertices = provider.adapter.reference_facet_vertices.copy()
+    adapter = replace(provider.adapter, reference_facet_vertices=vertices)
+    vertices[:] = 100.
+    np.testing.assert_array_equal(adapter.reference_facet_vertices[:, 0], 0.)
+    for invalid in (np.empty((0, 3)), np.ones((1, 3), dtype=complex),
+                    np.full((1, 3), np.nan), np.zeros((3,))):
+        with pytest.raises(ValueError, match="Reference facet vertices"):
+            replace(provider.adapter, reference_facet_vertices=invalid)
     # Exact touching is admitted, while representable tiny reference overlap
     # is rejected without replacing the user's zero limit by a tolerance.
     assert create((0., 0., 0.), (1., 0., 0.))._initial_contact_diagnostics["maximum_penetration_bound"] == 0.

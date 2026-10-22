@@ -43,6 +43,9 @@ class FieldRecovery:
         return {
             "kind": "field_recovery",
             "method": "quadrature_weighted_cell_average",
+            "averaging_measure": "mesh_geometry",
+            "geometric_weighting": "absolute_jacobian_determinant",
+            "deformation_gradient_weighting": False,
             "source_position": "integration_points",
             "target_position": "cells",
             "target_space": "DG0",

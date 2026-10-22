@@ -1,0 +1,55 @@
+{
+  "schema": "agentfem.execution-experiment.v1",
+  "decision": "withdraw_inconclusive_whole_step_gain",
+  "scope": "600 accepted late-state steps on the original 255041-cell explicit model; setup and field archives excluded",
+  "comparison": "worker-local nodal gather versus existing full cell displacement temporary; both use joined body viscosity",
+  "order": [
+    "reference",
+    "candidate",
+    "candidate",
+    "reference"
+  ],
+  "seconds": [
+    73.11076145805418,
+    73.06508633308113,
+    72.64948908332735,
+    74.69476595893502
+  ],
+  "mean_reduction_fraction": 0.014146642802347564,
+  "baseline_order_drift_fraction": 0.021665818674171833,
+  "initial_step": 95000,
+  "completed_step": 95600,
+  "accepted_fields_and_physical_history_exact": true,
+  "environment": {
+    "FI_PROVIDER": "tcp",
+    "OMP_NUM_THREADS": "1",
+    "OPENBLAS_NUM_THREADS": "1",
+    "VECLIB_MAXIMUM_THREADS": "1"
+  },
+  "native_sha256": "152443de706e0b608ffcbb4f7b7ba23ec1470602e5b77a5023ec091eb52e66bc",
+  "source_sha256": [
+    {
+      "constitutive/material_array_batch.py": "fc5156ba2f0ec03e5d1ce45b73b46fbbaa22bc83d2b270832f5fa4bcea53a9df",
+      "elements/_finite_uniform_hex_dolfinx.py": "8f2e26f23ff733cee7d815d2057ad54e041eb71932d6a3eefe35ad918af84c05"
+    },
+    {
+      "constitutive/material_array_batch.py": "fc5156ba2f0ec03e5d1ce45b73b46fbbaa22bc83d2b270832f5fa4bcea53a9df",
+      "elements/_finite_uniform_hex_dolfinx.py": "8f2e26f23ff733cee7d815d2057ad54e041eb71932d6a3eefe35ad918af84c05"
+    },
+    {
+      "constitutive/material_array_batch.py": "fc5156ba2f0ec03e5d1ce45b73b46fbbaa22bc83d2b270832f5fa4bcea53a9df",
+      "elements/_finite_uniform_hex_dolfinx.py": "8f2e26f23ff733cee7d815d2057ad54e041eb71932d6a3eefe35ad918af84c05"
+    },
+    {
+      "constitutive/material_array_batch.py": "fc5156ba2f0ec03e5d1ce45b73b46fbbaa22bc83d2b270832f5fa4bcea53a9df",
+      "elements/_finite_uniform_hex_dolfinx.py": "8f2e26f23ff733cee7d815d2057ad54e041eb71932d6a3eefe35ad918af84c05"
+    }
+  ],
+  "limits": [
+    "No full-run speed claim",
+    "Logical temporary removal is not a measured peak-RSS reduction",
+    "All fields, per-step history and material state agree; this does not establish independent physical validity",
+    "The coherent prototype and 39 passing targeted tests are retained privately; no new public option ships"
+  ],
+  "next_decision": "Reconsider only with an end-to-end execution design or measured memory constraint that justifies its added interface."
+}

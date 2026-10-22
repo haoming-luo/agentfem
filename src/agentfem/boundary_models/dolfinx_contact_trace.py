@@ -423,11 +423,15 @@ class DolfinxContactTraceAdapter:
         if int(self.geometry_degree) not in {1, 2}:
             raise ValueError("DOLFINx contact geometry degree must be one or two.")
         if self.reference_facet_vertices is not None:
-            vertices = np.asarray(self.reference_facet_vertices, dtype=float)
+            raw_vertices = np.asarray(self.reference_facet_vertices)
+            if np.iscomplexobj(raw_vertices):
+                raise ValueError("Reference facet vertices must be real coordinates.")
+            vertices = _readonly_array(np.asarray(raw_vertices, dtype=float))
             if (self.geometry_degree != 1 or vertices.ndim != 2 or vertices.shape[1] != 3
-                    or not np.isfinite(vertices).all()):
+                    or not np.isfinite(vertices).all()
+                    or (len(vertices) == 0 and self.trace.point_count > 0)):
                 raise ValueError("Reference facet vertices require finite first-order geometry.")
-            object.__setattr__(self, "reference_facet_vertices", _readonly_array(vertices))
+            object.__setattr__(self, "reference_facet_vertices", vertices)
         object.__setattr__(
             self,
             "reference_nodal_positions",

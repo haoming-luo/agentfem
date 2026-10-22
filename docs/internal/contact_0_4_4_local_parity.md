@@ -24,6 +24,52 @@ being silently approximated by the bounded route.
 
 ## Live gate status
 
+### Combined implicit execution confirmation (2026-10-23)
+
+After the individual mechanisms were selected, the combined serial
+J2/plane/periodic-MPC route was timed independently with twelve cells per edge
+and 48 increments. Reference A disables retained material responses and outer
+workspace reuse and uses direct MUMPS; candidate B enables the owners and the
+explicit managed GMRES policy. The ABBA times are 261.223, 196.909, 195.732 and
+257.591 s, a 24.32% mean reduction, with no concurrent local numerical test or
+build. Setup is excluded and four-station observations are included.
+
+All paths complete 48 accepted increments and 533 Newton corrections. Each
+candidate records 172 retained material responses, 435 preconditioner reuses,
+98 builds and no fresh-PC retry. U, committed state, first Piola stress,
+tangent, pressure and normal relative work meet the predeclared
+`rtol=1e-7`, `atol=1e-9` comparison. The report retains individual times,
+differences, policy and runtime/source identity in
+`evidence/performance/2026-10-23-combined-affine-execution.json`.
+The driver now preserves unsuccessful setup/solve/comparison evidence too.
+This is a bounded implicit execution result, not continuum convergence,
+external-code parity, MPI admission or a full explicit-composite speedup.
+
+### Physical cell-recovery audit (2026-10-23)
+
+Reference-rule averaging was correct for affine geometry but not a physical
+cell average on a variable-Jacobian map. For `X(r,s)=(r*(1+s),s)`, the old
+recovery gave mean `s=1/2` instead of `5/9`, a 10% relative error. The corrected
+DG0 recovery normalizes `w_q*abs(det(J_mesh,q))`, keeps each owned cell separate,
+uses the backend DOF map for bulk assignment, and forward-scatters only after
+collective validation. It does not modify the constitutive state or infer a
+current-volume factor from displacement. Curved quadratic triangle recovery
+also matches the independent centroid `3/8`.
+
+Fifty-one serial recovery/constitutive checks pass, with three MPI-specific
+checks skipped; the latter then pass on each of two ranks. The first empty-rank
+test used a one-cell ParMETIS graph and failed during mesh construction,
+before recovery. Its MPI group timed out safely; a fail-fast diagnostic
+identified the external partitioner error. The corrected test explicitly
+assigns that cell to rank zero and verifies the deliberately empty rank.
+No partitioner or solver behavior was changed to make the fixture run.
+The wider affected source subset then passed 165 tests in 5.14 s, with the
+same three MPI-only cases skipped in serial. It includes result contracts,
+mixed-J2 energy diagnostics, contact traces and benchmark-failure persistence.
+Embedded-surface area weighting and changed mesh coordinates are covered too.
+The latter fixture evaluates physical coordinates through the backend rather
+than assuming a reference axis is aligned with physical y.
+
 ### Fixed-reduction linear ownership investigation (2026-10-23)
 
 The serial affine outer Procedure can own the KSP and reduced product matrix
@@ -158,6 +204,35 @@ corner nodes; [Abaqus's contact-control guidance](
 https://docs.software.vt.edu/abaqusv2025/English/SIMACAEITNRefMap/simaitn-c-contactcontrolsstd.htm)
 distinguishes that node-to-surface issue from surface-integrated contact.
 It motivates this separate diagnostic, not automatic admission of P2 nodal AL.
+
+The fixed eight-cell P2 sensitivity probes now separate integration from mesh
+order. Increasing only the contact rule 7 -> 11 changes final x-reaction from
+-2.7307783 to -2.7298206 N (0.0351%). Keeping rule 11 and increasing only bulk
+quadrature 4 -> 6 gives -2.7300627 N (0.00887%). Both complete all 32 increments
+and unloading/recontact. The two records are
+`evidence/contact/2026-10-23-periodic-contact-p2-quadrature11.json` and
+`evidence/contact/2026-10-23-periodic-contact-p2-bulk6.json`.
+These differences are far smaller than the current 4 -> 8-cell force gap;
+neither is a spatial-convergence certificate or a reason to increase every
+user's quadrature default. Sampled maximum penetration changes with the set of
+sample points and is not a continuous-face penetration bound.
+
+### Worker-local nodal transport: coherent prototype withdrawn (2026-10-23)
+
+A native prototype removed the complete Hex8 cell-displacement intermediate:
+kinematics and material/body workers gathered their 24 local values directly
+from the immutable nodal snapshot. It retained uncertain-geometry fallback,
+material repair, viscosity, current forces and accepted-state ownership.
+Thirty-nine arithmetic/lifecycle tests passed, and four 600-step late-state
+trajectories retained identical fields, material state and per-step histories.
+The ABBA times were 73.111, 73.065, 72.649 and 74.695 s. Mean reduction is
+1.41%, while the two baseline runs differ by 2.17%. This does not select a
+useful whole-step speed gain; the option and implementation are withdrawn,
+with the prototype retained privately. Logical temporary removal is not a
+measured peak-memory reduction. See
+`evidence/performance/2026-10-23-nodal-transport-screen.json`.
+Reconsider with a measured memory limit or a combined dependency/critical-path
+change, not repeated short sampling until a preferred percentage appears.
 
 ### Joined body/viscosity candidate (2026-10-22)
 

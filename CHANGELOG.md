@@ -6,6 +6,20 @@ experimental formulation to a validated one.
 
 ## [Unreleased]
 
+- Correct quadrature-to-DG0 recovery on non-affine and curved meshes: include
+  the mesh Jacobian in physical cell averages, retain discontinuities and raw
+  integration-point state, and identify the averaging measure in result
+  metadata. Check owned cells before MPI publication; invalid local measures
+  reject collectively. Analytical quadrilateral, Hex8 and curved-triangle
+  checks and empty-rank MPI checks accompany the correction.
+
+- Add opt-in managed preconditioner reuse for serial affine Newton: retain the
+  current tangent, use an earlier LU/ILU only as a GMRES preconditioner, verify
+  the true linear residual, and retry once with a fresh preconditioner if
+  needed. Preserve default solver/checkpoint behavior and reject unsupported
+  adapters. Retained material response and attempt-owned linear workspace
+  reduce repeated work without introducing another state owner.
+
 - Add opt-in, safeguarded `acceleration="aitken"` to experimental plane normal
   augmentation. Reduce repeated converged Newton solves without changing
   contact acceptance, penalty, loading or work semantics. Keep the default
