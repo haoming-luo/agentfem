@@ -13,6 +13,7 @@
   "seconds": [73.95017450023443, 72.35745658399537, 71.6893827910535, 77.40508149983361],
   "observed_percent_less_time": 4.828650697809844,
   "accepted_fields_and_physical_history_exact": true,
+  "physical_history_scope": "Final accepted residual state and cumulative work snapshot; not a separately fingerprinted per-increment history series.",
   "ray_queries_first_pair_including_preparation": [4676043, 63682],
   "prepared_points_first_pair_including_preparation": [4973416, 4973416],
   "limits": [

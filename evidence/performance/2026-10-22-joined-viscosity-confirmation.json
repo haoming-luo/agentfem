@@ -15,6 +15,7 @@
   "mean_seconds_joined": 76.60729497880675,
   "observed_percent_less_time": 5.688580622484862,
   "checks": {"accepted_displacement_velocity_acceleration_exact": true, "accepted_material_state_stress_gradient_exact": true, "physical_residual_history_exact": true, "same_scientific_parameters": true},
+  "physical_residual_history_scope": "Final accepted residual state and cumulative work snapshot; not a separately fingerprinted per-increment history series.",
   "timing_excludes": ["model_preparation", "checkpoint_loading", "result_serialization"],
   "limitations": [
     "One machine and one late physical interval; this does not establish full-run gain.",

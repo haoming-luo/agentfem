@@ -22,6 +22,17 @@ including both worker directions, strict legacy migration, changed-provider and
 malformed-record rejection, and outer-commit rollback. This is operational
 portability, not a performance result by itself.
 
+The resumed 400-increment worker screen retains identical accepted fields and
+residual-state/work snapshots. Joined execution with material/projection budgets
+8/4, 6/2, 4/2 and 8/2 takes 47.682, 50.749, 53.872 and 48.615 s with the smooth
+sign policy. Bracketing two-ray 8/4 runs take 47.967 and 48.886 s. No worker
+change is selected; the sign-policy timing difference is inconclusive at this
+scale. These are not recommendations for another computer. The next private
+harness also fingerprints per-increment history records separately: the earlier
+"physical history" fingerprints referred to the final accepted residual snapshot
+and cumulative work, not every intermediate record. Public evidence now makes
+that scope explicit.
+
 Installed whole-path acceptance is now complete at `1ed3c1e1`: 12,295.686 s
 including preparation, output and shutdown; 25 frames, final material and
 checkpoint arrays, 10,000 energy records and 800 observations equal the frozen

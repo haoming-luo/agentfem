@@ -108,6 +108,19 @@ def test_replaced_update_is_not_bypassed_by_retention(transaction, monkeypatch):
         assert "injected replacement update" in message
 
 
+def test_same_update_function_bound_to_another_owner_invalidates_lease(transaction, monkeypatch):
+    from copy import copy
+    from types import MethodType
+
+    with transaction._trial_response_reuse_scope():
+        refresh(transaction)
+        # A bound method includes its owner, not just its function body.
+        other = copy(transaction)
+        replacement = MethodType(transaction.refresh_trial.__func__, other)
+        monkeypatch.setattr(transaction, "refresh_trial", replacement)
+        assert not reuse(transaction)
+
+
 @pytest.mark.parametrize("action", ["commit", "rollback", "resume", "restore", "exception"])
 def test_lifecycle_does_not_retain_a_trial_lease(transaction, action):
     with transaction._trial_response_reuse_scope():
