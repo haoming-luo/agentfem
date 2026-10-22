@@ -3,7 +3,7 @@ $ErrorActionPreference = 'Stop'
 $root = (Resolve-Path (Join-Path $PSScriptRoot '../..')).Path
 . (Join-Path $root 'packaging/runtime/wsl/Installer-State.ps1')
 $originalLocal = $env:LOCALAPPDATA
-$temp = Join-Path ([IO.Path]::GetTempPath()) ([guid]::NewGuid().ToString())
+$temp = Join-Path ([IO.Path]::GetTempPath()) ('AgentFEM ' + [char]0x6d4b + [char]0x8bd5 + ' ' + [guid]::NewGuid().ToString())
 $env:LOCALAPPDATA = $temp
 function Assert($Condition, $Message) { if (-not $Condition) { throw $Message } }
 try {
@@ -24,6 +24,15 @@ try {
     $state = Get-Content -Raw (Join-Path $script:InstallStateDirectory 'status.json') | ConvertFrom-Json
     Assert ($state.stage -eq 'completed') 'Atomic replacement failed'
     $script:InstallLock.Dispose()
+    # Corrupt state is retained instead of authorising reuse or silently resetting.
+    $statePath = Join-Path $script:InstallStateDirectory 'status.json'
+    Set-Content -LiteralPath $statePath -Value '{bad json' -Encoding UTF8
+    $corrupt = $false
+    try { Initialize-InstallState -Identity @{version='test'; image_sha256='abc'} }
+    catch { $corrupt = $true }
+    Assert $corrupt 'Corrupt state was silently accepted'
+    Assert ((Get-Content -Raw -LiteralPath $statePath) -match 'bad json') 'Corrupt evidence was overwritten'
+    $script:InstallLock.Dispose()
     $tokens = $null; $errors = $null
     $ast = [Management.Automation.Language.Parser]::ParseFile(
         (Join-Path $root 'packaging/runtime/wsl/Install-AgentFEM.ps1'), [ref]$tokens, [ref]$errors)
@@ -31,6 +40,7 @@ try {
     foreach ($fn in $ast.FindAll({param($n) $n -is [Management.Automation.Language.FunctionDefinitionAst]}, $false)) {
         Invoke-Expression $fn.Extent.Text
     }
+    $completeImplementation = ${function:Complete-NewInstallation}
     $script:InstallStateOwned = $false
     function Test-AdministratorSession { return $false }
     $script:launchCount = 0
@@ -77,6 +87,28 @@ try {
     try { Install-SideBySide -RequestedName 'AgentFEM' -Projects 'C:\Projects' }
     catch { $mismatch = $_.Exception.Message -match 'RESUME-IDENTITY' }
     Assert ($mismatch -and $script:completed -eq 1) 'Resume accepted a different runtime'
+    # First-install completion requires fresh acceptance, not only exit code zero.
+    function Set-ProjectWorkspaceEnvironment { }
+    function Restore-ProjectWorkspaceEnvironment { }
+    function Get-DefaultLinuxUser { return 'researcher' }
+    function Convert-ToWslPath { param($Name, $WindowsPath) return $WindowsPath }
+    function Test-AgentFEMDistribution { }
+    function Save-InstallState { param($Stage, $Message) $script:lastStage = $Stage }
+    $script:writeAcceptance = $true
+    function Invoke-WslChecked {
+        param($Arguments, $FailureMessage)
+        if ($Arguments -contains '--output' -and $script:writeAcceptance) {
+            @{schema='agentfem.runtime-acceptance';status='accepted'} | ConvertTo-Json |
+                Set-Content -LiteralPath (Join-Path $script:InstallStateDirectory 'acceptance.json') -Encoding UTF8
+        }
+    }
+    & $completeImplementation -Name 'AgentFEM-test' -Projects 'C:\Projects'
+    Assert ($script:lastStage -eq 'completed') 'Valid acceptance did not finish'
+    $script:writeAcceptance = $false
+    $noReport = $false
+    try { & $completeImplementation -Name 'AgentFEM-test' -Projects 'C:\Projects' }
+    catch { $noReport = $true }
+    Assert ($noReport -and $script:lastStage -ne 'completed') 'Missing fresh report reused stale success'
     Write-Host 'Installer contract passed (mocked, not real WSL).'
 } finally {
     if ($script:InstallLock) { $script:InstallLock.Dispose() }
