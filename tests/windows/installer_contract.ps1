@@ -32,6 +32,7 @@ try {
         Invoke-Expression $fn.Extent.Text
     }
     $script:InstallStateOwned = $false
+    function Test-AdministratorSession { return $false }
     $script:launchCount = 0
     function Start-Process { $script:launchCount++; throw 'sandbox policy rejected launch' }
     $blocked = $false
@@ -54,6 +55,13 @@ try {
     $script:launchCount = 0
     Install-WslPlatform -Source 'Auto'
     Assert ($script:launchCount -eq 2) 'Documented fallback did not run once'
+    # Already elevated: use the current authorised process, no extra UAC launcher.
+    function Test-AdministratorSession { return $true }
+    function wsl.exe { $global:LASTEXITCODE = 0; $script:directCalls++ }
+    $script:launchCount = 0; $script:directCalls = 0
+    Install-WslPlatform -Source 'Auto'
+    Assert ($script:directCalls -eq 1 -and $script:launchCount -eq 0) 'Admin session launched unnecessary UAC'
+    function Test-AdministratorSession { return $false }
     # A recorded import must be reused and verified, not imported twice.
     $script:InstallState = @{distribution='AgentFEM-test'}
     $RuntimeVersion = 'test'
