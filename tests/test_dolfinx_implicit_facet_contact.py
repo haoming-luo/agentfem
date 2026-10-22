@@ -151,6 +151,35 @@ def test_faceted_initial_overlap_limit_does_not_pretend_samples_bound_a_face():
         dolfinx_implicit_facet_contact(pair, displacement)
 
 
+@pytest.mark.parametrize("cell_type", [mesh.CellType.tetrahedron, mesh.CellType.hexahedron])
+def test_quadratic_field_initial_plane_bound_uses_face_geometry_not_cell_dofs(cell_type):
+    original, operator = _model(cell_type=cell_type)
+    domain = original.function_space.mesh
+    space = fem.functionspace(domain, basix.ufl.element("Lagrange", domain.basix_cell(), 2, shape=(3,)))
+    u = fem.Function(space)
+    left = operator.pair.slave_boundary
+
+    def create(point, normal):
+        pair = boundary_models.rigid_contact_pair(
+            left, boundary_models.rigid_body(boundary_models.rigid_plane(point=point, normal=normal)),
+            penalty=200., initial_penetration_limit=0.)
+        return dolfinx_implicit_rigid_contact(pair, u)
+
+    # Interior cell DOFs are behind this plane but the entire selected left
+    # boundary is separated. Taking all high-order trace cell nodes is wrong.
+    provider = create((.05, 0., 0.), (-1., 0., 0.))
+    evidence = provider.current_point_diagnostics()["initial_contact"]
+    assert evidence["bound_method"] == "exact_plane_geometry_vertices"
+    assert evidence["maximum_penetration_bound"] == 0.
+    np.testing.assert_array_equal(provider.adapter.reference_facet_vertices[:, 0], 0.)
+    assert not provider.adapter.reference_facet_vertices.flags.writeable
+    # Exact touching is admitted, while representable tiny reference overlap
+    # is rejected without replacing the user's zero limit by a tolerance.
+    assert create((0., 0., 0.), (1., 0., 0.))._initial_contact_diagnostics["maximum_penetration_bound"] == 0.
+    with pytest.raises(ValueError, match="AFM-CONTACT-INITIAL-OVERLAP"):
+        create((2**-45, 0., 0.), (1., 0., 0.))
+
+
 @pytest.mark.parametrize("cell_type", [
     mesh.CellType.tetrahedron, mesh.CellType.hexahedron,
 ])

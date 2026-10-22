@@ -24,6 +24,141 @@ being silently approximated by the bounded route.
 
 ## Live gate status
 
+### Fixed-reduction linear ownership investigation (2026-10-23)
+
+The serial affine outer Procedure can own the KSP and reduced product matrix
+for one augmentation attempt rather than recreate them for every frozen
+equilibrium. Current full tangents and PtAP values are still assembled at each
+Newton correction; there is no frozen Jacobian. Changed transformation identity,
+PETSc state or solver options reject, and attempt exit releases owned objects.
+The first source regressions pass 40 solver/material tests and 13 cyclic/contact
+lifecycle tests. Isolated twelve-cell/32-increment ABBA times are 151.933,
+149.915, 150.727 and 152.032 s: a small 1.09% mean reduction. Every observed
+station array is identical, with 32 accepted increments and 355 Newton
+corrections in all four runs. This is allocation/lifetime consolidation, not
+a major acceleration. The evidence is
+`evidence/performance/2026-10-23-affine-linear-workspace.json`.
+
+Do not assume consecutive tangents are identical just because the starting
+material response was retained. A four-cell cyclic probe finds **zero exact
+consecutive matrices in 109 linear solves**: the last factorization generally
+belongs to the preceding Newton iterate, not its accepted line-search endpoint.
+Consequently exact-matrix factor reuse is not implemented on this hypothesis.
+
+A separate private algorithm probe keeps the current matrix and uses an earlier
+LU only as a right GMRES preconditioner. It checks the true unpreconditioned
+linear residual and rebuilds on failure; it must never be used with `preonly`.
+The first binding attempt failed because this petsc4py exposes reuse on PC,
+not KSP; that failure record is retained. Corrected four-cell/16-increment
+loading, unloading and recontact match the direct-solve fields within declared
+1e-7 relative / 1e-9 absolute checks. All 109 corrections satisfy the configured
+true linear residual target; 87 reuse a preconditioner, without a failed-solve
+rebuild. This small model has no demonstrated elapsed-time advantage. Larger
+accuracy screening precedes timing and any public option design. The twelve-cell,
+32-increment screen also matches all four accepted stations (32 increments,
+355 Newton corrections). It reuses 287 preconditioners, needs no failed-solve
+rebuild, and uses at most 31 Krylov iterations. Its concurrent 156.23/137.19 s
+observations are **not** an isolated speedup claim.
+
+If isolated screening selects this mechanism, the design is an explicit linear
+execution policy, not a contact/material tuning parameter. The owning linear
+sequence must keep the current operator, verify the true residual against the
+declared linear tolerance, rebuild once after a stale-preconditioner failure,
+and reject if the fresh correction still fails. Direct `preonly` must never
+reuse a changed factorization. Scope and cleanup follow the existing attempted
+increment; acceptance, rollback and restart do not retain the PETSc factor.
+Unsupported adapters (including an SNES translation that cannot enforce these
+rules) must reject the option rather than discard it. The default direct route
+and legacy checkpoint summaries stay unchanged. Required tests include current
+matrix changes, changed layout, a failed reused solve, a failed fresh solve,
+nonfinite true residual, exception cleanup, and continuous/restarted cyclic
+plastic-contact agreement. Do not ship a public option solely on the present
+two private accuracy probes.
+
+The implemented opt-in public boundary is `LinearSolverOptions(preconditioner_reuse=
+"adaptive")`, initially lowered only by the serial affine Newton owner. The
+existing common Newton factory transports that linear policy; it does not add
+a contact-specific tuning knob. A raw KSP/SNES or unreviewed nonlinear adapter
+must reject it rather than silently enable PETSc lagging. The owner selects
+right-preconditioned GMRES, requires explicit linear tolerances/iteration limit,
+and rebuilds after an expensive correction (initial bounded threshold: eight
+Krylov iterations). Result diagnostics count reuses, rebuild retries and the
+maximum true residual-to-tolerance ratio. Default summaries omit the new
+policy key so existing direct-solver restart identities remain unchanged.
+
+The isolated twelve-cell/32-increment ABBA screen subsequently measured
+149.995, 129.921, 130.073 and 150.193 s (13.39% less mean solve-and-observe
+time), with all declared four-station comparisons passing. This selects the
+mechanism for integration, not for a full-run explicit performance claim.
+The integrated owner and option transport pass 131 focused serial tests;
+the separate two-rank admission test rejects unsupported distributed reuse
+before field mutation. Failed correction cleanup, true-residual false
+convergence, one-rebuild retry, restart and default-policy compatibility
+are exercised. Fresh 48-increment integrated ABBA confirmation finishes at
+226.635, 195.011, 195.842 and 226.402 s: **13.73% less mean time**. Each run
+accepts 48 increments and uses 533 Newton corrections. Candidate runs reuse
+435 preconditioners and build 98, with no failed-solve retry. Their maximum
+true residual/threshold ratio is 0.998462. All four station comparisons pass;
+maximum displacement/state differences are about 1.33e-15/4.67e-14, and the
+largest tangent difference is 4.39e-9 under the declared relative/absolute
+criterion. See `evidence/performance/2026-10-23-adaptive-preconditioner-confirmation.json`.
+Do not add this percentage to retained-material or explicit-body measurements.
+
+The distinction follows PETSc's [preconditioner lagging](
+https://petsc.org/main/manualpages/SNES/SNESSetLagPreconditioner/) and
+[current-system KSP operators](https://petsc.org/release/manualpages/KSP/KSPSetOperators/).
+These sources are algorithm guidance, not AgentFEM speed evidence.
+
+### Discretization investigation after graded-mesh failure
+
+The next bounded diagnostic compares P1/P2 displacement with the already
+supported Gaussian penalty trace and explicit bulk/contact quadrature.
+`tools/diagnose_periodic_contact_order.py` builds periodic equations from
+**all field DOF coordinates**, not just mesh vertices, and keeps the same
+finite-area physical guides and interior patch. Tests apply arbitrary reduced
+fluctuations to check opposing-face jumps and the guides, including midsides.
+This avoids an apparently successful P2 solve with missing periodic equations.
+
+This is not the existing nodal augmented-Lagrangian discretization, so no
+reaction difference can be attributed to polynomial order alone. First compare
+P1/P2 at common penalty/integration/path settings, then separately examine
+quadrature and penalty sensitivity. Failed solves remain in the scalar report;
+do not produce large field archives or tune a value to match the AL reaction.
+The physical-model and independent-reference gates remain open.
+
+The first P2 diagnostic correctly failed existing initial-overlap admission:
+the old rule required both field and geometry degree one. The narrowed
+extension now separates these concepts for analytical planes: CG2 on linear
+tetrahedral or Q1 hexahedral reference geometry uses authoritative face vertices
+for the reference gap bound. High-order traces also carry off-face cell DOFs,
+so using all trace node IDs would falsely reject separated faces. Two real
+mesh tests exercise that distinction and exact touching/sub-picometre overlap;
+curved reference geometry stays rejected. This is an initial-reference proof,
+not a bound for deformed quadratic contact or permission for P2 nodal AL.
+
+The corrected 4/8-cell, 32-increment P1/P2 Gaussian study completes all four
+loading/unloading/recontact paths. Final structure forces in x are respectively
+-4.05337/-3.68946 N for P1 and -3.29373/-2.73078 N for P2. These differences
+are not a convergence pass. Gaussian order seven and bulk order four are held
+fixed; integration sensitivity must be separated from spatial interpolation
+before interpreting the result. Maximum sampled penetration is about 0.00260 m
+in the final eight-cell P2 station; a converged nonlinear residual alone says
+nothing about adequate penalty accuracy. Evidence:
+`evidence/contact/2026-10-23-periodic-contact-order.json`.
+
+The first reporting attempt failed after each first solve because it requested
+the AL-only normal-work recorder from a penalty Step. The observer now explicitly
+omits that quantity and marks work unavailable on this diagnostic route; it
+does not substitute zero or claim energy closure. The regression exercises
+the actual P2 solve and observer together. Source trace/initial-bound tests pass
+163 checks, with eight two-rank-specific checks skipped in this serial run.
+
+Ordinary quadratic tetrahedra can have zero equivalent pressure force at
+corner nodes; [Abaqus's contact-control guidance](
+https://docs.software.vt.edu/abaqusv2025/English/SIMACAEITNRefMap/simaitn-c-contactcontrolsstd.htm)
+distinguishes that node-to-surface issue from surface-integrated contact.
+It motivates this separate diagnostic, not automatic admission of P2 nodal AL.
+
 ### Joined body/viscosity candidate (2026-10-22)
 
 An opt-in native cell pass now gathers nodal velocity locally and evaluates the
@@ -139,6 +274,30 @@ Evidence: `2026-10-22-independent-linear-graded.json` and
 `2026-10-22-affine-j2-graded12.json` under `evidence/contact/`. The fixture's
 graded option and periodic affine coordinate mapping pass 13 targeted tests
 together with the existing affine equilibrium reuse regressions.
+
+The graded 16-cell/256-increment cycle finished on 2026-10-23. All 256
+increments meet the original numerical contact gates (maximum penetration
+4.689e-9 m, complementarity 9.866e-8). It takes 3148 Newton corrections and
+1282 outer updates. Final reaction magnitude is 3.85809815 N, versus
+4.13932494 N on graded 12: **7.2893% difference relative to the finer grid**.
+The first loading peak differs by 3.7488%; final volume-weighted PEEQ differs
+by 0.4579%. Neither the smaller PEEQ difference nor successful nonlinear
+convergence substitutes for reaction convergence. Evidence:
+`evidence/contact/2026-10-23-affine-j2-graded16.json`.
+
+This grading experiment does not close the spatial gate. Do not initiate
+another expensive graded cycle solely hoping to meet a percentage. The next
+discretization study must separate volume interpolation and boundary multiplier
+approximation. The current AL adapter explicitly owns a coalesced P1 nodal
+trace with disjoint reduced rows. Merely changing the volume to P2 leaves
+unconstrained midside contact/periodic degrees of freedom or violates that
+multiplier contract. A higher-order comparison therefore needs a compatible
+trace and periodic constraint construction, not a degree flag in this example.
+Adaptive plastic-contact examples such as
+[deal.II step-42](https://dealii.org/9.7.0/doxygen/deal.II/step_42.html)
+inform the next study; their small-strain formulation and estimator are not
+an independent reference for this finite-J2 cyclic problem. External-code
+comparison and a converged spatial reference remain open release claims.
 
 ### Retained material response, not a lagged Jacobian (2026-10-22)
 

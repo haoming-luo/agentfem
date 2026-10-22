@@ -392,6 +392,7 @@ class DolfinxContactTraceAdapter:
     quadrature_rule: str = "triangle_degree_two_three_point"
     interpolation_degree: int = 1
     geometry_degree: int = 1
+    reference_facet_vertices: object | None = None
 
     def __post_init__(self) -> None:
         if not isinstance(self.trace, ContactTrace):
@@ -421,6 +422,12 @@ class DolfinxContactTraceAdapter:
             raise ValueError("DOLFINx contact interpolation degree must be one or two.")
         if int(self.geometry_degree) not in {1, 2}:
             raise ValueError("DOLFINx contact geometry degree must be one or two.")
+        if self.reference_facet_vertices is not None:
+            vertices = np.asarray(self.reference_facet_vertices, dtype=float)
+            if (self.geometry_degree != 1 or vertices.ndim != 2 or vertices.shape[1] != 3
+                    or not np.isfinite(vertices).all()):
+                raise ValueError("Reference facet vertices require finite first-order geometry.")
+            object.__setattr__(self, "reference_facet_vertices", _readonly_array(vertices))
         object.__setattr__(
             self,
             "reference_nodal_positions",
@@ -836,6 +843,11 @@ def dolfinx_boundary_region_contact_trace(
             quadrature_rule=quadrature_rule,
             interpolation_degree=interpolation_degree,
             geometry_degree=geometry_degree,
+            # High-order displacement traces carry whole-cell field DOFs,
+            # including off-face nodes. Use authoritative face geometry for
+            # the reference overlap bound, never all those field coordinates.
+            reference_facet_vertices=(coordinates[np.unique(facet_geometry.reshape(-1))]
+                                      if high_order and geometry_degree == 1 else None),
         )
     except Exception as exc:
         local_error = f"{type(exc).__name__}: {exc}"

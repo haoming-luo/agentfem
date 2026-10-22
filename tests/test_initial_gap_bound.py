@@ -7,6 +7,7 @@ from agentfem import boundary_models
 from agentfem.boundary_models.initial_gap_bound import (
     certify_initial_convex_triangle_gap,
     certify_initial_triangle_gap,
+    initial_gap_bound_method,
 )
 
 
@@ -24,6 +25,19 @@ class SphereDistance:
 
 
 TRIANGLE = np.asarray((((0., 0., 0.), (1., 0., 0.), (0., 1., 0.)),))
+
+
+@pytest.mark.parametrize("interpolation", [1, 2])
+@pytest.mark.parametrize("geometry", [1, 2])
+@pytest.mark.parametrize("topology", ["triangle", "quadrilateral"])
+def test_plane_reference_certificate_depends_on_geometry_not_field_order(interpolation, geometry, topology):
+    surface = boundary_models.rigid_plane(point=(0., 0., 0.), normal=(1., 0., 0.))
+    method = initial_gap_bound_method(surface, interpolation_degree=interpolation,
+                                     geometry_degree=geometry, facet_topology=topology)
+    if geometry == 2:
+        assert method is None  # vertices do not bound a curved reference face
+    else:
+        assert method == ("exact_plane_nodal" if interpolation == 1 else "exact_plane_geometry_vertices")
 
 
 def _convex_cube():

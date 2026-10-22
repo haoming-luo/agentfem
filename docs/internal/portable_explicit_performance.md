@@ -10,6 +10,43 @@ not another isolated arithmetic kernel or output-format rewrite.
 
 ## 2026-10-22: late-path audit and bounded execution changes
 
+An isolated 600-increment ABBA continuation at step 95,000 tested one native
+gather-and-kinematics pass, with unchanged fused viscosity in both routes.
+Baseline times were 72.042702 and 75.198250 s; candidate times were 72.993829
+and 73.740268 s. All accepted fields, the final physical snapshot and the
+per-increment history fingerprint matched exactly. The approximately 0.34%
+mean difference is smaller than the observed timing variation: **inconclusive,
+not a selected speedup**. The extra public flag and native operation were
+withdrawn; the local prototype and evidence remain recoverable. This finding
+does not reject larger fused execution designs that eliminate intermediate
+payloads, which this particular prototype still retained.
+
+An ownership audit found a correctness issue independent of timing: a copied
+Python execution context could retain a completed increment's borrowed field
+snapshot. Reusing that context could roll a later failed operation back to the
+wrong accepted state, while also retaining large arrays. Two new regressions
+reproduce this on the prior source. Scope exit now invalidates the shared lease
+and releases its entries, including on exceptions. The fix passes 45 focused
+serial tests (one MPI-only skip) and the single distributed rollback check on
+both ranks. It changes neither formulas nor checkpoint content; no speedup is
+claimed. Commit: `4c466726`.
+
+A bounded transport prototype scoped finite-value evidence to immutable byte
+ranges within one explicit trial. A 12-increment mechanism probe reduced scans
+from 744 to 540, but that count did not predict a useful runtime benefit.
+Isolated 600-increment late-path ABBA times were 73.022581, 73.203479,
+73.233830 and 75.157280 s. Fields, the final physical snapshot and every
+increment's history fingerprint matched exactly. The 1.18% mean difference is
+smaller than baseline drift: **inconclusive, withdrawn**. The context cache,
+weak witnesses and extra trial wrapper are not part of the selected runtime.
+The prototype remains recoverable privately; compact evidence is in
+`evidence/performance/2026-10-23-immutable-validation-screen.json`.
+
+Retain only the independently useful correctness fix: freeze mutable transport
+inputs before validating the detached snapshot that is actually published.
+Two mutation-injection regressions exercise this ordering. No acceleration is
+claimed for that change, and scan-count reduction is not a solver-speed metric.
+
 Worker-budget screening initially stopped at checkpoint admission: the Q1
 execution identity contained projection/exact-service worker counts. Preserve
 that failure as evidence, not a reason to patch a checkpoint. Contact snapshots

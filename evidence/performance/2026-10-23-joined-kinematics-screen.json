@@ -1,0 +1,30 @@
+{
+  "schema": "agentfem.performance-screen.v1",
+  "experiment": "joined-gather-kinematics",
+  "decision": "inconclusive_not_promoted",
+  "scope": "Same-model explicit accepted increments 95000 through 95600; fused viscosity in both routes; setup and archive excluded",
+  "order": "ABBA",
+  "runs": [
+    {
+      "candidate": false,
+      "seconds": 72.04270208440721
+    },
+    {
+      "candidate": true,
+      "seconds": 72.99382937513292
+    },
+    {
+      "candidate": true,
+      "seconds": 73.74026812519878
+    },
+    {
+      "candidate": false,
+      "seconds": 75.19824987510219
+    }
+  ],
+  "native_sha256": "822664a89e86391131e6ca241eb6248a8fcb0fa844fe52e01073c6b140f7862b",
+  "accepted_fields_equal": true,
+  "accepted_increment_histories_equal": true,
+  "final_physical_snapshot_equal": true,
+  "interpretation": "Mean elapsed difference approximately 0.34%, smaller than observed run variation. No full-run or other-machine performance claim. Extra kernel operation/public switch withdrawn; private prototype retained."
+}

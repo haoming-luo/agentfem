@@ -1,0 +1,29 @@
+{
+  "scope": "Isolated late accepted-step ABBA, unchanged private composite model; preparation/archive excluded",
+  "mechanism": "Trial-local immutable byte-span validation evidence plus immutable nodal snapshot; reference restores both old array validator and old residual method",
+  "initial_step": 95000,
+  "final_step": 95600,
+  "order": "ABBA",
+  "seconds": [
+    73.02258120896295,
+    73.20347858313471,
+    73.23383016698062,
+    75.15727991703898
+  ],
+  "observed_elapsed_reduction": 0.011759711222868785,
+  "accepted_fields_and_final_physical_snapshot_exact": true,
+  "accepted_per_increment_history_exact": true,
+  "environment": {
+    "FI_PROVIDER": "tcp",
+    "OMP_NUM_THREADS": "1",
+    "OPENBLAS_NUM_THREADS": "1",
+    "VECLIB_MAXIMUM_THREADS": "1"
+  },
+  "native_sha256": "822664a89e86391131e6ca241eb6248a8fcb0fa844fe52e01073c6b140f7862b",
+  "source_sha256": {
+    "constitutive/material_array_batch.py": "2d61a91fb8d10928eeb303df1cc9107936443cfcfa731ce15b08abd09ae4ca0e",
+    "elements/_finite_uniform_hex_dolfinx.py": "09f7556589eb01bed675f64ee7a7c96d9431e5c9ef7c52ce542e8bfd8c8053b2"
+  },
+  "harness_sha256": "06fbd83843c49185b2bfa911d450ebd53973ee30be696cfe15b7f37cc1b718c1",
+  "decision": "Inconclusive at approximately 1% with bracket drift; cache and snapshot prototype withdrawn. Retain only freeze-before-validation correctness correction and regressions."
+}

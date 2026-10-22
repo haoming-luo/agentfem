@@ -116,8 +116,11 @@ Selecting a common `backtracking` name does not promise identical trial sequence
 
 The serial affine frozen-equilibrium loop reuses its KSP object only while the
 constraint reduction is fixed. Each Newton solve still assembles and installs
-the current tangent; no numerical preconditioner is deliberately frozen. The
-object is released on success, failure or interruption. A supplied KSP remains
+the current tangent. By default, no numerical preconditioner is deliberately
+frozen. The bounded normal-augmentation Procedure can retain this allocation
+across its outer iterations within one attempted increment; it never survives
+acceptance, cutback or restart. The object is released on success, failure or
+interruption. A supplied KSP remains
 caller-owned in `solve_matrix_system`; a one-shot KSP is always released by
 that helper, including exceptions during setup or solve.
 
@@ -141,6 +144,50 @@ declared accuracy; they do not justify loosening contact or material criteria.
 In particular, an ILU preconditioner is not generally symmetric, so a CG choice
 cannot be justified just by a symmetric-looking stiffness matrix; see
 [PETSc PCILU](https://petsc.org/release/manualpages/PC/PCILU/).
+
+### Optional adaptive preconditioning
+
+The serial affine Newton route also accepts an explicit managed linear policy:
+
+```python
+solver_options = solvers.newton(
+    linear_solver=solvers.LinearSolverOptions(
+        ksp_type="gmres", pc_type="lu", factor_solver_type="mumps",
+        rtol=1e-12, atol=1e-14, max_it=50,
+        preconditioner_reuse="adaptive",
+    ),
+)
+```
+
+Every correction still uses the current total tangent, including contact and
+MPC reduction. Only the earlier factorization may be used as a **right
+preconditioner**; it is never substituted for the current matrix. The owner
+checks `||A x - b|| <= max(atol, rtol * ||b||)` explicitly. An unsuccessful
+reused correction gets one fresh-preconditioner retry, after which ordinary
+nonconvergence/cutback rules apply. More than eight Krylov iterations causes
+the next correction to rebuild. These controls do not loosen nonlinear,
+contact or constitutive tolerances.
+
+This first policy requires GMRES, LU or ILU, explicit positive linear
+tolerances and an iteration limit. MPI, raw KSP/SNES adapters and other
+nonlinear routes reject it rather than silently discard its verification
+contract. Defaults and existing direct-solver checkpoint identities are
+unchanged. The selected policy is recorded; factors themselves are never
+checkpointed. Increment checks report preconditioner uses/builds, rebuild
+retries and the maximum true linear residual-to-tolerance ratio.
+
+A twelve-cell-edge, 32-increment cyclic finite-J2/plane-contact ABBA screen
+measured 13.39% less solve-and-observe time with this algorithm, retaining the
+same 355 Newton corrections and agreeing at four physical stations. Fresh
+48-increment confirmation through the integrated public policy measures
+13.73% less mean time (226.635, 195.011, 195.842, 226.402 s), with the same
+533 Newton corrections and passing all station comparisons. These are bounded
+implicit results, not composite explicit-run or hardware-independent speed
+guarantees. See `evidence/performance/2026-10-23-adaptive-preconditioner-screen.json`
+and `evidence/performance/2026-10-23-adaptive-preconditioner-confirmation.json`.
+The implementation follows PETSc's distinction between
+[reusing a preconditioner](https://petsc.org/main/manualpages/PC/PCSetReusePreconditioner/)
+and [choosing its side](https://petsc.org/main/manualpages/KSP/KSPSetPCSide/).
 
 ### Experimental constant-normal plane augmentation
 

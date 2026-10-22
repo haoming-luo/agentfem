@@ -27,7 +27,7 @@ import agentfem
 from agentfem import provenance, solvers
 
 
-def observe(step, factor, *, volume_weighted=False):
+def observe(step, factor, *, volume_weighted=False, include_normal_work=True):
     provider = step.contact_provider
     samples = provider.accepted_point_samples()
     contribution = provider.evaluate()
@@ -41,7 +41,7 @@ def observe(step, factor, *, volume_weighted=False):
         dx = ufl.dx(domain=u.function_space.mesh)
         mean_peeq = float(fem.assemble_scalar(fem.form(peeq * dx))
                           / fem.assemble_scalar(fem.form(1. * dx)))
-    return {
+    observation = {
         "factor": factor,
         "displacement_l2": float(np.sqrt(fem.assemble_scalar(fem.form(ufl.inner(u, u) * ufl.dx)))),
         "force_on_structure": contribution.contact_force_on_structure.tolist(),
@@ -53,11 +53,13 @@ def observe(step, factor, *, volume_weighted=False):
         # Graded affine tetrahedra require actual reference-volume weighting.
         "peeq_reference_volume_mean": mean_peeq,
         "maximum_peeq": float(state[:, 9].max(initial=0.)),
-        "normal_relative_work": step.accepted_history_recorders[
-            "normal_contact_work:interior_plane"
-        ].records[-1]["work"],
         "mpc_equation_mismatch": float(step.constraint.mismatch(factor)),
     }
+    if include_normal_work:
+        observation["normal_relative_work"] = step.accepted_history_recorders[
+            "normal_contact_work:interior_plane"
+        ].records[-1]["work"]
+    return observation
 
 
 def differences(coarse, fine):
@@ -94,6 +96,8 @@ def main():
     parser.add_argument("--factor-solver", default=None,
                         help="Explicit installed PETSc factor package (for example mumps); default unchanged.")
     parser.add_argument("--output", type=Path, required=True)
+    parser.add_argument("--progress", action="store_true",
+                        help="Show ordinary Step progress during long spatial checks; evidence format is unchanged.")
     args = parser.parse_args()
     if MPI.COMM_WORLD.size != 1:
         parser.error("The bounded affine augmentation route is serial only.")
@@ -156,6 +160,8 @@ def main():
                                  linear_solver=solvers.direct_solver(package=args.factor_solver),
                                  yield_stress=args.yield_stress, coordinate_lines=lines)
                     step.output_every = None
+                    if args.progress:
+                        step.progress = True
                     for factor in (.25, .5, .75, 1.):
                         step.solve(until=factor)
                         row["stations"].append(observe(step, factor, volume_weighted=args.edge_graded))

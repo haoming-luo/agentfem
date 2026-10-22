@@ -350,11 +350,6 @@ def finite_strain_j2(
             raise ValueError(
                 "contact_integration requires a registered rigid contact pair."
             )
-        if contact_quadrature_degree is not None:
-            raise NotImplementedError(
-                "Explicit contact quadrature degree is currently limited to "
-                "the strong-boundary J2 route."
-            )
         from .boundary_models.implicit_admission import affine_rigid_contact_supported
 
         if model.boundary_models and (
@@ -403,6 +398,7 @@ def finite_strain_j2(
                 material=properties,
                 constraint=affine[0],
                 contact=affine_contact,
+                contact_quadrature_degree=contact_quadrature_degree,
                 contact_integration=contact_integration,
                 normal_augmentation=normal_augmentation,
                 incrementation=incrementation,

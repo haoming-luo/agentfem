@@ -201,6 +201,8 @@ jobs:
       - name: Build and install the wheel under test
         run: |
           python -m pip install --upgrade build
+          export AGENTFEM_GMP_PREFIX="${CONDA_PREFIX}"
+          test -f "${AGENTFEM_GMP_PREFIX}/include/gmp.h"
           python -m build --wheel
           python -m pip install meshio
           python -m pip install --no-deps --force-reinstall dist/*.whl
@@ -267,6 +269,10 @@ jobs:
       - name: Build and install the wheel users receive
         run: |
           python -m pip install --upgrade build twine
+          # PEP 517 builds in a temporary Python environment. Keep the reviewed
+          # numerical environment's optional GMP headers/library discoverable.
+          export AGENTFEM_GMP_PREFIX="${CONDA_PREFIX}"
+          test -f "${AGENTFEM_GMP_PREFIX}/include/gmp.h"
           python -m build
           python -m twine check dist/*
           python release_gate.py --dist dist
@@ -308,6 +314,8 @@ jobs:
       - name: Verify the optional stateless native kernels from an installed wheel
         run: |
           native_root=$(mktemp -d)
+          export AGENTFEM_GMP_PREFIX="${CONDA_PREFIX}"
+          test -f "${AGENTFEM_GMP_PREFIX}/include/gmp.h"
           AGENTFEM_BUILD_NATIVE=1 python -m build --wheel --outdir "${native_root}/dist"
           python -m pip install --no-deps --target "${native_root}/site" "${native_root}"/dist/*.whl
           export PYTHONPATH="${native_root}/site"

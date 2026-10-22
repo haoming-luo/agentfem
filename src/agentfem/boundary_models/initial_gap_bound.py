@@ -36,10 +36,15 @@ def initial_gap_bound_method(
 ) -> str | None:
     """Return only geometry/trace combinations with a face-wise proof."""
 
+    # This admission audits REFERENCE geometry, not the deformed trial field.
+    # Raising displacement order does not curve a first-order reference face.
+    if (isinstance(surface, RigidPlaneSurface) and geometry_degree == 1
+            and interpolation_degree in (1, 2)
+            and facet_topology in {"triangle", "quadrilateral"}):
+        return ("exact_plane_nodal" if interpolation_degree == 1
+                else "exact_plane_geometry_vertices")
     if interpolation_degree != 1 or geometry_degree != 1:
         return None
-    if isinstance(surface, RigidPlaneSurface):
-        return "exact_plane_nodal"
     if (
         facet_topology == "triangle"
         and contact_integration == "radial_active_partition"

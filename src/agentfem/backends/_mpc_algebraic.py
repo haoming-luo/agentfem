@@ -33,6 +33,7 @@ class PreparedAlgebraicMPCLinearProblem:
 
         self.solution, self.constraint = solution, constraint
         self.options = options or LinearSolverOptions()
+        self.options._require_unmanaged_preconditioner()
         self.bcs = [getattr(b, "bc", b) for b in (bcs or ())]
         probe = fem.Function(solution.function_space)
         fem_petsc.set_bc(probe.x.petsc_vec, self.bcs)

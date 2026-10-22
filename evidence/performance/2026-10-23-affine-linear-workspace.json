@@ -1,0 +1,59 @@
+{
+  "scope": "serial built-in J2, affine periodic fixed-plane augmentation",
+  "package_name": "agentfem",
+  "platform": "macOS-26.6.2-arm64-arm-64bit",
+  "python": "3.11.15",
+  "threads": {
+    "OMP_NUM_THREADS": "1",
+    "OPENBLAS_NUM_THREADS": "1",
+    "VECLIB_MAXIMUM_THREADS": "1"
+  },
+  "source_sha256": {
+    "src/agentfem/mechanics/_retained_trial_response.py": "37796e45af7438cd3ae3724d520f8c24ce852da717f4e598aaa9c61c15512cd1",
+    "src/agentfem/mechanics/finite_strain_plasticity.py": "f65af15d5ee8c286419a4e6fd03d008834258f7b3d649fee10f32c511f488b4d",
+    "src/agentfem/mechanics/_affine_normal_augmentation.py": "b146a630f7826759a4aecc9877182f81ab6d3bce3a156d4a85209d3ac0cbbd88",
+    "src/agentfem/_affine_equilibrium.py": "2209b4fbbcf674c7e0c6b5394f003cdc68c1beaed3a005ffec968eebebcf3c8c",
+    "examples/finite_j2_periodic_augmented_plane.py": "26774066f1c6efe24b8b588ed63b141e6f09cef8d5f103c9801004c38179a389"
+  },
+  "cells": 12,
+  "increments": 32,
+  "mechanism": "linear",
+  "order": "ABBA",
+  "runs": [
+    {
+      "reuse_enabled": false,
+      "solve_and_observe_seconds": 151.93298174999654,
+      "material_response_reuses": 116,
+      "all_station_arrays_equal": true,
+      "accepted_increments": 32,
+      "newton_iterations": 355
+    },
+    {
+      "reuse_enabled": true,
+      "solve_and_observe_seconds": 149.91529487492517,
+      "material_response_reuses": 116,
+      "all_station_arrays_equal": true,
+      "accepted_increments": 32,
+      "newton_iterations": 355
+    },
+    {
+      "reuse_enabled": true,
+      "solve_and_observe_seconds": 150.72746633272618,
+      "material_response_reuses": 116,
+      "all_station_arrays_equal": true,
+      "accepted_increments": 32,
+      "newton_iterations": 355
+    },
+    {
+      "reuse_enabled": false,
+      "solve_and_observe_seconds": 152.03166358312592,
+      "material_response_reuses": 116,
+      "all_station_arrays_equal": true,
+      "accepted_increments": 32,
+      "newton_iterations": 355
+    }
+  ],
+  "comparison": "Exact U, committed state, first Piola, tangent, pressures and normal work at four stations",
+  "exclusions": "Not explicit performance, MPI, mixed pressure, external material, or continuum validation",
+  "observed_elapsed_reduction": 0.010928521380605183
+}

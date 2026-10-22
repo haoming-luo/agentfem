@@ -1124,7 +1124,7 @@ def test_certified_plane_initial_overlap_limit_reaches_ordinary_j2_result():
     ]["face_wise_bound_certified"] is True
 
 
-def test_quadratic_plane_initial_overlap_limit_is_not_misadvertised():
+def test_quadratic_displacement_plane_reference_overlap_bound_reaches_step():
     model, displacement, material, _ = _patch(
         triangulated=False, initial_penetration_limit=0.01,
         displacement_degree=2, make_step=False,
@@ -1132,13 +1132,12 @@ def test_quadratic_plane_initial_overlap_limit_is_not_misadvertised():
     capability = step_capability(
         model, target=displacement, options={"material": material},
     )
-    assert not capability["supported"]
-    assert any(
-        item["message"].startswith("AFM-CONTACT-INITIAL-BOUND")
-        for item in capability["rejection_reasons"]
-    )
-    with pytest.raises(NotImplementedError, match="AFM-CONTACT-INITIAL-BOUND"):
-        model.step(target=displacement, material=material)
+    assert capability["supported"]
+    step = model.step(target=displacement, material=material)
+    evidence = step.contact_provider.current_point_diagnostics()["initial_contact"]
+    assert evidence["face_wise_bound_certified"]
+    assert evidence["bound_method"] == "exact_plane_geometry_vertices"
+    assert evidence["maximum_penetration_bound"] == 0.
 
 
 @pytest.mark.parametrize("closed_concave_tool", [False, True])

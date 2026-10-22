@@ -165,9 +165,13 @@ existed may resume, but its earlier feature history is explicitly incomplete;
 it cannot acquire a clean engineering claim by replaying only the last part.
 This path record is observational evidence, **not** a proof that a changing
 nonconvex contact boundary was integrated consistently.
-The rule is part of the checkpoint identity and
-is rejected for legacy plane contact and affine-periodic J2; no
-unsupported combination silently falls back. Other weak boundary models and
+The rule is part of the checkpoint identity. Both the strong-boundary and
+affine-periodic/MPC finite-J2 penalty-contact paths accept this explicit
+control; restoring a checkpoint with a different rule is rejected before
+changing the accepted state. Nodal normal augmentation and partitioned-face
+integration use their own integration definitions and reject this Gauss-rule
+override. Legacy plane contact also rejects it; no unsupported combination
+silently falls back. Other weak boundary models and
 formulations need their own reviewed lowering.
 
 For the narrower experimental case of a frictionless, scalar-penalty analytical plane
@@ -246,6 +250,14 @@ friction or parallel implicit assembly. The earlier
 for reviewed closed solids. The same small example supports
 `--tool-kind open_sheet`; its result and contact samples are exported to a
 single named output directory unless `--output` is supplied.
+
+For an analytical plane and first-order tetrahedral/hexahedral reference
+geometry, `initial_penetration_limit` is checked at authoritative face
+vertices, including when displacement uses CG2. A quadratic field does not
+make the reference geometry quadratic. The check does **not** bound a later
+deformed CG2 face, and curved reference geometry remains unsupported for
+this vertex certificate. Whole-cell interpolation nodes and sampled Gauss
+gaps are not substitutes for the selected face's geometry vertices.
 
 For an affine P1 triangular slave against a reviewed closed convex tool,
 `initial_penetration_limit` also uses a face-wise certificate. If one rigid

@@ -325,6 +325,21 @@ def _accept_small_strain_material(model, request: StepRequest) -> bool:
     )
 
 
+def _linear_reuse_rejection_reason(request: StepRequest, *, affine=False) -> str | None:
+    policy = request.option("solver_options")
+    linear = getattr(policy, "linear_solver", policy)
+    if getattr(linear, "preconditioner_reuse", "none") == "none":
+        return None
+    domain = getattr(getattr(getattr(request.target, "value", None), "function_space", None), "mesh", None)
+    if not affine or domain is None or domain.comm.size != 1:
+        return (
+            "AFM-LINEAR-REUSE: adaptive preconditioning requires the serial "
+            "affine Newton correction owner; this path does not enforce its "
+            "true-residual and rebuild contract."
+        )
+    return None
+
+
 def _accept_finite_strain_j2_affine(model, request: StepRequest) -> bool:
     from . import loads as load_api
     from .boundary_models.implicit_admission import affine_rigid_contact_supported
@@ -354,7 +369,9 @@ def _accept_finite_strain_j2_affine(model, request: StepRequest) -> bool:
         and isinstance(selected_constraints[0], AbaqusPeriodicConstraint)
         and not physical_loads
         and affine_rigid_contact_supported(model)
+        and _linear_reuse_rejection_reason(request, affine=True) is None
         and _finite_j2_bulk_quadrature_rejection_reason(request) is None
+        and _contact_quadrature_rejection_reason(model, request) is None
         and _contact_integration_rejection_reason(model, request) is None
         and _initial_contact_bound_rejection_reason(model, request) is None
     )
@@ -399,6 +416,7 @@ def _accept_finite_strain_j2_mixed_affine(
         getattr(study, "physics", None) == "solid_mechanics"
         and interpolation_supported
         and domain is not None
+        and _linear_reuse_rejection_reason(request, affine=True) is None
         and getattr(request.target, "kind", None) == "displacement_pressure"
         and _all_materials_support(
             model,
@@ -433,9 +451,15 @@ def _finite_strain_j2_affine_boundary_rejection(model, request: StepRequest) -> 
         )
     ):
         return None
+    solver_problem = _linear_reuse_rejection_reason(request, affine=True)
+    if solver_problem is not None:
+        return solver_problem
     quadrature_problem = _finite_j2_bulk_quadrature_rejection_reason(request)
     if quadrature_problem is not None:
         return quadrature_problem
+    contact_quadrature_problem = _contact_quadrature_rejection_reason(model, request)
+    if contact_quadrature_problem is not None:
+        return contact_quadrature_problem
     integration_problem = _contact_integration_rejection_reason(model, request)
     if integration_problem is not None:
         return integration_problem
@@ -512,6 +536,8 @@ def _accept_finite_strain_j2_strong(model, request: StepRequest) -> bool:
     )
 
     if not _finite_strain_j2_strong_preconditions(model, request):
+        return False
+    if _linear_reuse_rejection_reason(request) is not None:
         return False
     if _finite_j2_bulk_quadrature_rejection_reason(request) is not None:
         return False
@@ -654,8 +680,9 @@ def _initial_contact_bound_rejection_reason(model, request: StepRequest) -> str 
     ):
         return (
             "AFM-CONTACT-INITIAL-BOUND: initial_penetration_limit requires "
-            "first-order slave interpolation and geometry with an analytical "
-            "plane, an analytical radial partition, reviewed closed-solid "
+            "first-order reference geometry with an analytical plane "
+            "(CG1 or CG2 displacement), or first-order slave interpolation "
+            "and geometry with an analytical radial partition, reviewed closed-solid "
             "triangular signed distance, or an open sheet admitted by "
             "reviewed_planar_branch_partition; "
             "other sampled gaps are not a certified face-wise bound."
@@ -862,6 +889,9 @@ def _finite_strain_j2_strong_rejection_reason(model, request: StepRequest) -> st
 
     if not _finite_strain_j2_strong_preconditions(model, request):
         return None
+    solver_problem = _linear_reuse_rejection_reason(request)
+    if solver_problem is not None:
+        return solver_problem
     bulk_quadrature_problem = _finite_j2_bulk_quadrature_rejection_reason(request)
     if bulk_quadrature_problem is not None:
         return bulk_quadrature_problem
@@ -1886,6 +1916,7 @@ register_step_provider(
         option_contract=_option_contract(
             "incrementation",
             "quadrature_degree",
+            "contact_quadrature_degree",
             "contact_integration",
             "normal_augmentation",
             "output_every",

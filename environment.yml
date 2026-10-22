@@ -13,6 +13,8 @@ dependencies:
   - slepc4py
   - scipy
   - h5py
+  # Explicit native-contact CI input; setup remains optional without GMP.
+  - gmp
   # CI exercises optional CAD/true-void fixtures; AgentFEM runtime stays optional.
   - gmsh
   - python-gmsh

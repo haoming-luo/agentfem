@@ -14,7 +14,7 @@ from dataclasses import replace
 
 import numpy as np
 
-from .._affine_equilibrium import solve_serial_affine_equilibrium
+from .._affine_equilibrium import _AffineLinearWorkspace, solve_serial_affine_equilibrium
 from ..boundary_models._augmented_plane_trial_provider import (
     DolfinxAugmentedPlaneTrialProvider, validate_affine_plane_normal_rows,
 )
@@ -39,10 +39,17 @@ class AffinePlaneNormalAugmentation:
     def solve(self, residual, jacobian, function, reduction, transformation, values, **options):
         transaction = options.get("transaction")
         scope = getattr(transaction, "_trial_response_reuse_scope", None)
-        with scope() if callable(scope) else nullcontext():
+        with (scope() if callable(scope) else nullcontext(),
+              self._linear_workspace_scope(transformation, options["options"].linear_options)
+              as workspace):
             return self._solve(
-                residual, jacobian, function, reduction, transformation, values, **options,
+                residual, jacobian, function, reduction, transformation, values,
+                _linear_workspace=workspace, **options,
             )
+
+    def _linear_workspace_scope(self, transformation, options):
+        """Private recomputation seam; not a user policy or checkpoint field."""
+        return _AffineLinearWorkspace(transformation, options)
 
     def _solve(self, residual, jacobian, function, reduction, transformation, values, **options):
         from ..solvers import _reduced_residual_norm
@@ -91,6 +98,14 @@ class AffinePlaneNormalAugmentation:
                 )
                 break
             relaxations.append(provider.augment(accelerator=accelerator))
+        correction_checks = {}
+        if options["options"].linear_options.preconditioner_reuse == "adaptive":
+            for name in ("linear_preconditioner_reuses", "linear_preconditioner_builds",
+                         "linear_preconditioner_rebuild_retries"):
+                correction_checks[name] = sum(item.procedure_checks[name] for item in infos)
+            ratios = [item.procedure_checks["maximum_true_linear_residual_ratio"] for item in infos]
+            correction_checks["maximum_true_linear_residual_ratio"] = (
+                None if any(value is None for value in ratios) else max(ratios))
         return replace(
             infos[-1], converged=ready, message=message,
             initial_norm=infos[0].initial_norm,
@@ -111,5 +126,6 @@ class AffinePlaneNormalAugmentation:
                 "material_response_reuses": sum(
                     item.procedure_checks.get("material_response_reuses", 0) for item in infos
                 ),
+                **correction_checks,
             },
         )

@@ -4416,6 +4416,7 @@ def finite_strain_j2_standard_problem(
     if not np.isclose(selected_amplitude(0.0), 0.0):
         raise ValueError("Finite-strain J2 amplitude must start at zero.")
     selected_options = newton() if solver_options is None else solver_options
+    selected_options.linear_solver._require_unmanaged_preconditioner()
     if not bool(getattr(selected_options, "error_if_not_converged", True)):
         raise ValueError(
             "Public stateful finite-strain J2 requires error_if_not_converged=True."
@@ -4553,6 +4554,7 @@ def finite_strain_j2_affine_problem(
     material: FiniteStrainJ2Logarithmic | QuadratureMaterialMap,
     constraint,
     contact=None,
+    contact_quadrature_degree: int | None = None,
     contact_integration: str | Mapping[str, str] = "gauss",
     normal_augmentation=None,
     external_force=None,
@@ -4583,6 +4585,8 @@ def finite_strain_j2_affine_problem(
         )
     if getattr(constraint, "target", None) is not displacement:
         raise ValueError("Affine finite-strain J2 constraint must target displacement.")
+    if normal_augmentation is not None and contact_quadrature_degree is not None:
+        raise ValueError("AFM-CONTACT-AL-SCOPE: nodal augmentation has no Gauss quadrature override.")
     contact_items = (
         () if contact is None else
         tuple(contact) if isinstance(contact, (tuple, list)) else (contact,)
@@ -4628,12 +4632,15 @@ def finite_strain_j2_affine_problem(
         contact_providers = tuple(
             dolfinx_implicit_rigid_contact(
                 item, displacement.value,
+                contact_quadrature_degree=contact_quadrature_degree,
                 contact_integration=mode,
             )
             for item, mode in zip(contact_items, contact_modes, strict=True)
         )
     elif contact_integration != "gauss":
         raise ValueError("contact_integration requires a rigid contact pair.")
+    if contact_quadrature_degree is not None and not contact_items:
+        raise ValueError("contact_quadrature_degree requires a rigid contact pair.")
     if normal_augmentation is not None:
         from ..boundary_models._augmented_plane_trial_provider import (
             DolfinxAugmentedPlaneTrialProvider, validate_affine_plane_normal_rows,

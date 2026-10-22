@@ -242,8 +242,10 @@ class DolfinxImplicitRigidContact:
         """Sample reference geometry before Newton without moving the mesh.
 
         A prescribed initial overclosure is a modeling choice, not a hidden
-        geometry adjustment. An affine first-order slave trace against an
-        analytical plane has an exact nodal extrema bound. For other geometry
+        geometry adjustment. First-order reference geometry against an
+        analytical plane has an exact vertex extrema bound even with a
+        quadratic displacement field. This does not bound deformed P2 faces.
+        For other geometry
         the sampled evidence is *not* a bound, so it cannot enforce a limit.
         """
 
@@ -264,17 +266,25 @@ class DolfinxImplicitRigidContact:
             facet_topology=self.adapter.facet_topology,
             contact_integration=self.contact_integration,
         )
+        if method == "exact_plane_geometry_vertices" and self.adapter.reference_facet_vertices is None:
+            # Expert-created adapters without authoritative face geometry may
+            # still report samples, but cannot claim a reference-face bound.
+            method = None
         certified = method is not None and limit is not None
         maximum_bound = None
         certificate_samples = 0
         certificate_depth = 0
-        if method == "exact_plane_nodal":
+        if method in {"exact_plane_nodal", "exact_plane_geometry_vertices"}:
             certified = True
-            boundary_nodes = np.unique(evaluation.trace.node_ids.reshape(-1))
-            nodal = projector.project(
-                self.adapter.reference_nodal_positions[boundary_nodes],
-                factor=0.0,
-            )
+            if method == "exact_plane_geometry_vertices":
+                points = self.adapter.reference_facet_vertices
+                if points is None:
+                    raise NotImplementedError(
+                        "AFM-CONTACT-INITIAL-BOUND: authoritative reference facet vertices are required.")
+            else:
+                boundary_nodes = np.unique(evaluation.trace.node_ids.reshape(-1))
+                points = self.adapter.reference_nodal_positions[boundary_nodes]
+            nodal = projector.project(points, factor=0.0)
             if not nodal.all_valid:
                 raise ValueError(
                     "AFM-CONTACT-INITIAL-PROJECTION: analytical-plane "
@@ -283,7 +293,7 @@ class DolfinxImplicitRigidContact:
             maximum_bound = float(np.max(
                 np.maximum(0.0, -np.asarray(nodal.signed_gaps)), initial=0.0,
             ))
-            certificate_samples = len(boundary_nodes)
+            certificate_samples = len(points)
         elif method in {
             "adaptive_closed_signed_distance_lipschitz",
             "convex_support_plane_or_adaptive_lipschitz",
@@ -346,8 +356,9 @@ class DolfinxImplicitRigidContact:
         if not certified:
             raise NotImplementedError(
                 "AFM-CONTACT-INITIAL-BOUND: an initial_penetration_limit "
-                "currently requires first-order slave interpolation and "
-                "geometry with an analytical plane, reviewed closed-solid "
+                "requires first-order reference geometry with authoritative "
+                "facet vertices for an analytical plane (CG1/CG2 displacement), "
+                "or first-order slave interpolation and geometry with reviewed closed-solid "
                 "signed distance, a bounded analytical radial partition, or "
                 "an open sheet with a certified complete planar branch on "
                 "triangular faces; sampled gaps are not a bound."

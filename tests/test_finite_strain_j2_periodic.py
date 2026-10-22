@@ -78,6 +78,7 @@ def _periodic_j2_contact_step(
     second_friction_coefficient=_INHERIT_PAIR_FRICTION,
     second_tangential_penalty=_INHERIT_PAIR_FRICTION,
     second_motion=_INHERIT_PAIR_MOTION,
+    contact_quadrature_degree=None,
 ):
     fixture = periodic_unit_cube(MPI.COMM_SELF)
     model = models.create(
@@ -151,12 +152,14 @@ def _periodic_j2_contact_step(
         options={
             "material": material, "constraints": periodicity,
             "contact_integration": contact_integration,
+            "contact_quadrature_degree": contact_quadrature_degree,
         },
     )
-    assert capability["supported"]
+    assert capability["supported"], capability
     step = model.step(
         target=displacement, material=material, constraints=periodicity,
         contact_integration=contact_integration,
+        contact_quadrature_degree=contact_quadrature_degree,
         incrementation=steps.fixed(3), progress=False,
         solver_options=solvers.newton(
             relative_tolerance=1e-8, absolute_tolerance=1e-9,

@@ -44,6 +44,7 @@ class LinearSolverOptions:
     factor_solver_type: str | None = None
     error_if_not_converged: bool = True
     mpc_assembly: str = "native"
+    preconditioner_reuse: str = "none"
 
     def __post_init__(self) -> None:
         if self.mpc_assembly not in {"native", "algebraic"}:
@@ -54,6 +55,16 @@ class LinearSolverOptions:
             raise ValueError("LinearSolverOptions.atol must be finite and positive.")
         if self.max_it is not None and not _positive_integer(self.max_it):
             raise ValueError("LinearSolverOptions.max_it must be a positive integer.")
+        if self.preconditioner_reuse not in ("none", "adaptive"):
+            raise ValueError("preconditioner_reuse must be none or adaptive.")
+        if self.preconditioner_reuse == "adaptive" and (
+            self.ksp_type != "gmres" or self.pc_type not in {"lu", "ilu"}
+            or self.rtol is None or self.atol is None or self.max_it is None
+        ):
+            raise ValueError(
+                "Adaptive preconditioning requires GMRES with LU/ILU and "
+                "explicit rtol, atol and max_it."
+            )
         factor_pc_types = {"lu", "cholesky", "ilu", "icc"}
         if (
             self.factor_solver_type is not None
@@ -67,7 +78,7 @@ class LinearSolverOptions:
     def summary(self) -> dict[str, object]:
         """Return an inspectable solver-policy record."""
 
-        return {
+        record = {
             "kind": "linear_solver_options",
             "mpc_assembly": self.mpc_assembly,
             "ksp_type": self.ksp_type,
@@ -78,10 +89,23 @@ class LinearSolverOptions:
             "factor_solver_type": self.factor_solver_type,
             "error_if_not_converged": self.error_if_not_converged,
         }
+        if self.preconditioner_reuse != "none":
+            record["preconditioner_reuse"] = self.preconditioner_reuse
+        return record
+
+    def _require_unmanaged_preconditioner(self) -> None:
+        """Raw KSP/SNES adapters cannot silently discard a managed policy."""
+        if self.preconditioner_reuse != "none":
+            raise NotImplementedError(
+                "AFM-LINEAR-REUSE: adaptive preconditioning requires the "
+                "serial affine Newton correction owner; this adapter does "
+                "not enforce its true-residual and rebuild contract."
+            )
 
     def petsc_options(self) -> dict[str, object]:
         """Return the namespaced PETSc options consumed by linear problems."""
 
+        self._require_unmanaged_preconditioner()
         values: dict[str, object] = {
             "ksp_type": self.ksp_type,
             "pc_type": self.pc_type,
@@ -222,6 +246,7 @@ class NewtonSolverOptions:
     def for_snes(self) -> NonlinearSolverOptions:
         """Translate this policy to the DOLFINx/PETSc SNES path."""
 
+        self.linear_solver._require_unmanaged_preconditioner()
         if self.line_search == "backtracking" and (
             self.line_search_reduction != 0.5 or self.minimum_step_length != 1.0 / 128.0
         ):
@@ -269,6 +294,7 @@ class NewtonSolverOptions:
             factor_solver_type=linear.factor_solver_type,
             error_if_not_converged=self.error_if_not_converged,
             line_search=self.line_search or "basic",
+            preconditioner_reuse=linear.preconditioner_reuse,
         )
 
     def summary(self) -> dict[str, object]:
@@ -353,6 +379,7 @@ class AffineNewtonOptions:
     error_if_not_converged: bool = True
     line_search: str = "backtracking"
     ksp_atol: float | None = None
+    preconditioner_reuse: str = "none"
 
     def __post_init__(self) -> None:
         if not _positive_finite(self.rtol) or not _positive_finite(self.atol):
@@ -369,6 +396,7 @@ class AffineNewtonOptions:
             raise ValueError("Affine Newton KSP absolute tolerance must be finite and positive.")
         if self.line_search not in {"backtracking", "basic"}:
             raise ValueError("Affine Newton line_search must be 'backtracking' or 'basic'.")
+        _ = self.linear_options  # validate the transported linear execution policy
 
     @property
     def linear_options(self) -> LinearSolverOptions:
@@ -379,6 +407,7 @@ class AffineNewtonOptions:
             atol=self.ksp_atol,
             max_it=self.ksp_max_it,
             factor_solver_type=self.factor_solver_type,
+            preconditioner_reuse=self.preconditioner_reuse,
         )
 
     def summary(self) -> dict[str, object]:
@@ -518,6 +547,7 @@ def create_ksp(comm, options: LinearSolverOptions | None = None):
     """Create and configure a PETSc KSP object."""
 
     options = options or LinearSolverOptions()
+    options._require_unmanaged_preconditioner()
     ksp = PETSc.KSP().create(comm)
     try:
         ksp.setType(options.ksp_type)
@@ -1157,6 +1187,7 @@ def solve_matrix_system(
     """
 
     selected = options or LinearSolverOptions()
+    selected._require_unmanaged_preconditioner()
     selected_ksp = create_ksp(A.comm, selected) if ksp is None else ksp
     try:
         selected_ksp.setOperators(A)
@@ -1544,6 +1575,13 @@ def solve_affine_nonlinear_path(
     selected = options or AffineNewtonOptions()
     if isinstance(selected, NewtonSolverOptions):
         selected = selected.for_affine_reduction()
+    if selected.preconditioner_reuse != "none":
+        function = solution.value if hasattr(solution, "value") else solution
+        if function.function_space.mesh.comm.size != 1:
+            raise NotImplementedError(
+                "AFM-LINEAR-REUSE-MPI: adaptive preconditioning is validated "
+                "only for serial affine Newton."
+            )
     _validate_affine_state_transaction(state_transaction)
     operators = tuple(full_space_operators)
     if equilibrium_procedure is not None and not callable(

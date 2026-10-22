@@ -1,10 +1,12 @@
 # SPDX-FileCopyrightText: 2026 Haoming Luo and AgentFEM contributors
 # SPDX-License-Identifier: Apache-2.0
-"""Bounded ABBA screen of retained J2 trials in the same AL/MPC trajectory.
+"""Bounded ABBA screen of scoped reuse in the same AL/MPC trajectory.
 
 This measures an implicit contact path, not explicit-composite performance.
 Use PYTHONPATH for source development or run with an installed candidate.
-The reference disables only the private retention scope, never physics.
+The reference disables only the selected private reuse scope, never physics.
+The preconditioner mode instead compares explicit direct and managed GMRES
+policies at declared tolerances; it does not require bitwise-identical arithmetic.
 """
 
 import argparse
@@ -21,6 +23,7 @@ import numpy as np
 
 import agentfem
 from agentfem import solvers
+from agentfem.mechanics._affine_normal_augmentation import AffinePlaneNormalAugmentation
 
 
 def main():
@@ -28,6 +31,7 @@ def main():
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--cells", type=int, default=8)
     parser.add_argument("--increments", type=int, default=16)
+    parser.add_argument("--mechanism", choices=("material", "linear", "preconditioner"), default="material")
     args = parser.parse_args()
     if args.output.exists():
         parser.error("Use a new output path; existing evidence is not overwritten.")
@@ -37,42 +41,72 @@ def main():
     baseline = None
     rows = []
     for enabled in (False, True, True, False):
+        linear = solvers.direct_solver(package="mumps")
+        if enabled and args.mechanism == "preconditioner":
+            linear = solvers.LinearSolverOptions(
+                ksp_type="gmres", pc_type="lu", factor_solver_type="mumps",
+                rtol=1e-12, atol=1e-14, max_it=50, preconditioner_reuse="adaptive")
         step = make(cells=args.cells, increments=args.increments, penalty=40000.,
-                    affine_end_face_support=True,
-                    linear_solver=solvers.direct_solver(package="mumps"))
+                    affine_end_face_support=True, linear_solver=linear)
         step.output_every = None
-        if not enabled:
+        if not enabled and args.mechanism == "material":
             step.state_transaction._trial_response_reuse_scope = nullcontext
+        original_scope = AffinePlaneNormalAugmentation._linear_workspace_scope
+        if not enabled and args.mechanism == "linear":
+            AffinePlaneNormalAugmentation._linear_workspace_scope = lambda *a: nullcontext(None)
         snapshots = []
         started = perf_counter()
-        for station in (.25, .5, .75, 1.):
-            step.solve(until=station)
-            response = step.response
-            snapshots.append([
-                step.solution.x.array.copy(), response.state.committed_state_vectors().copy(),
-                response.first_piola_stress.values.copy(), response.tangent.values.copy(),
-                step.contact_provider.accepted_point_samples()["normal_pressures"].copy(),
-                np.asarray([record["work"] for record in step.accepted_history_recorders[
-                    "normal_contact_work:interior_plane"
-                ].records]),
-            ])
+        try:
+            for station in (.25, .5, .75, 1.):
+                step.solve(until=station)
+                response = step.response
+                snapshots.append([
+                    step.solution.x.array.copy(), response.state.committed_state_vectors().copy(),
+                    response.first_piola_stress.values.copy(), response.tangent.values.copy(),
+                    step.contact_provider.accepted_point_samples()["normal_pressures"].copy(),
+                    np.asarray([record["work"] for record in step.accepted_history_recorders[
+                        "normal_contact_work:interior_plane"
+                    ].records]),
+                ])
+        finally:
+            AffinePlaneNormalAugmentation._linear_workspace_scope = original_scope
         elapsed = perf_counter() - started
         if baseline is None:
             baseline = snapshots
         equal = all(np.array_equal(a, b) for group, reference in zip(snapshots, baseline, strict=True)
                     for a, b in zip(group, reference, strict=True))
+        differences = [[float(np.max(np.abs(a-b), initial=0.))
+                        for a, b in zip(group, reference, strict=True)]
+                       for group, reference in zip(snapshots, baseline, strict=True)]
+        parity = (all(np.allclose(a, b, rtol=1e-7, atol=1e-9)
+                      for group, reference in zip(snapshots, baseline, strict=True)
+                      for a, b in zip(group, reference, strict=True))
+                  if args.mechanism == "preconditioner" else equal)
         row = {
             "reuse_enabled": enabled, "solve_and_observe_seconds": elapsed,
             "material_response_reuses": sum(
                 item.checks.get("material_response_reuses", 0) for item in step.accepted_increments
             ),
             "all_station_arrays_equal": equal,
+            "accepted_by_declared_comparison": parity,
+            "station_max_absolute_differences": differences,
             "accepted_increments": len(step.accepted_increments),
             "newton_iterations": sum(item.iterations for item in step.accepted_increments),
         }
+        if args.mechanism == "preconditioner":
+            row["linear_policy"] = linear.summary()
+            row["preconditioner_reuses"] = sum(
+                item.checks.get("linear_preconditioner_reuses", 0) for item in step.accepted_increments)
+            row["preconditioner_builds"] = sum(
+                item.checks.get("linear_preconditioner_builds", 0) for item in step.accepted_increments)
+            row["rebuild_retries"] = sum(
+                item.checks.get("linear_preconditioner_rebuild_retries", 0) for item in step.accepted_increments)
+            row["maximum_true_linear_residual_ratio"] = max(
+                item.checks.get("maximum_true_linear_residual_ratio", 0.)
+                for item in step.accepted_increments)
         rows.append(row)
         print(json.dumps(row), flush=True)
-        if not equal:
+        if not parity:
             break
     report = {
         "scope": "serial built-in J2, affine periodic fixed-plane augmentation",
@@ -81,17 +115,25 @@ def main():
         "threads": {key: os.environ.get(key) for key in (
             "OMP_NUM_THREADS", "OPENBLAS_NUM_THREADS", "VECLIB_MAXIMUM_THREADS",
         )},
-        "source_sha256": {name: sha256((Path(__file__).resolve().parents[1] / name).read_bytes()).hexdigest()
+        "source_sha256": {name: sha256((
+                              Path(agentfem.__file__).parent / name.removeprefix("src/agentfem/")
+                              if name.startswith("src/agentfem/") else
+                              Path(__file__).resolve().parents[1] / name).read_bytes()).hexdigest()
                           for name in (
                               "src/agentfem/mechanics/_retained_trial_response.py",
                               "src/agentfem/mechanics/finite_strain_plasticity.py",
                               "src/agentfem/mechanics/_affine_normal_augmentation.py",
                               "src/agentfem/_affine_equilibrium.py",
+                              "src/agentfem/solvers.py",
+                              "src/agentfem/_adaptive_linear_correction.py",
                               "examples/finite_j2_periodic_augmented_plane.py",
                           )},
         "cells": args.cells, "increments": args.increments,
+        "mechanism": args.mechanism,
         "order": "ABBA", "runs": rows,
-        "comparison": "Exact U, committed state, first Piola, tangent, pressures and normal work at four stations",
+        "comparison": "U, committed state, first Piola, tangent, pressures and normal work at four stations",
+        "comparison_tolerance": ({"rtol": 1e-7, "atol": 1e-9}
+                                 if args.mechanism == "preconditioner" else "exact"),
         "exclusions": "Not explicit performance, MPI, mixed pressure, external material, or continuum validation",
     }
     if len(rows) == 4:
@@ -100,8 +142,8 @@ def main():
         report["observed_elapsed_reduction"] = 1. - after / before
     args.output.parent.mkdir(parents=True, exist_ok=True)
     args.output.write_text(json.dumps(report, indent=2, allow_nan=False) + "\n", encoding="utf-8")
-    if not all(row["all_station_arrays_equal"] for row in rows):
-        raise RuntimeError("The retained-response candidate changed the trajectory.")
+    if not all(row["accepted_by_declared_comparison"] for row in rows):
+        raise RuntimeError("The reuse candidate exceeded the declared trajectory comparison.")
 
 
 if __name__ == "__main__":

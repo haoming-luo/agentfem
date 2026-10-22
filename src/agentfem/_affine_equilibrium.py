@@ -58,11 +58,62 @@ class _TrialAssembly:
         self.contributions = ()
 
 
+class _AffineLinearWorkspace:
+    """PETSc allocation owner for one fixed-reduction augmentation attempt.
+
+    The bounded plane Procedure guarantees an unchanged potential sparsity
+    graph, as within its Newton loop. PtAP and setOperators still run for every
+    correction. The optional managed Krylov owner may retain a preconditioner,
+    never a tangent. Nothing survives acceptance, cutback or restart.
+    """
+
+    def __init__(self, transformation, options):
+        self.transformation = transformation
+        self.transformation_state = transformation.stateGet()
+        self.options = options
+        self.reduced_tangent = None
+        self.linear_solver = None
+        self.linear_correction = None
+        self.closed = False
+
+    def validate(self, transformation, options):
+        if self.closed:
+            raise RuntimeError("Affine linear workspace is already closed.")
+        if (transformation is not self.transformation
+                or transformation.stateGet() != self.transformation_state
+                or options != self.options):
+            raise ValueError("Affine linear workspace requires its unchanged reduction and options.")
+
+    def __enter__(self):
+        self.validate(self.transformation, self.options)
+        return self
+
+    def __exit__(self, *exc):
+        self.close()
+
+    def close(self):
+        self.closed = True
+        try:
+            if self.linear_solver is not None:
+                self.linear_solver.destroy()
+        finally:
+            self.linear_solver = None
+            try:
+                if self.linear_correction is not None:
+                    self.linear_correction.close()
+            finally:
+                self.linear_correction = None
+                if self.reduced_tangent is not None:
+                    self.reduced_tangent.destroy()
+                    self.reduced_tangent = None
+
+
 def solve_serial_affine_equilibrium(
     residual, jacobian, function, reduction, transformation, reduced_values, *,
     options, operators, transaction, start_factor, target_factor,
     reporter, step_name, step_number, increment_number, attempt_number,
     reuse_accepted_assembly=True, reuse_linear_solver=True,
+    _linear_workspace=None,
 ):
     """Solve fixed-factor equilibrium, retaining accepted line-search work.
 
@@ -72,8 +123,9 @@ def solve_serial_affine_equilibrium(
     ``reuse_linear_solver=False`` retains the private fresh-KSP comparison.
     Reuse owns an object only within this fixed reduction, not a stale tangent
     or frozen numerical preconditioner. Every solve sets the current operator.
-    The caller owns the transformation; this routine releases all its PETSc
-    objects on success, a rejected trial, or an exception.
+    A bounded outer augmentation may own ``_linear_workspace`` across its
+    frozen equilibria. Otherwise this routine releases all its PETSc objects.
+    The caller always owns the transformation.
     """
     # Import at execution time: solvers owns the public options and existing
     # assembly/transaction primitives, and dispatches this private serial loop.
@@ -83,8 +135,22 @@ def solve_serial_affine_equilibrium(
     if function.function_space.mesh.comm.size != 1:
         raise NotImplementedError("Serial affine equilibrium does not admit MPI.")
     current = None
-    reduced_tangent = None
-    linear_solver = None
+    if _linear_workspace is not None:
+        if not reuse_linear_solver:
+            raise ValueError("A shared workspace requires linear solver reuse.")
+        _linear_workspace.validate(transformation, options.linear_options)
+    reduced_tangent = None if _linear_workspace is None else _linear_workspace.reduced_tangent
+    linear_solver = None if _linear_workspace is None else _linear_workspace.linear_solver
+    linear_correction = None if _linear_workspace is None else _linear_workspace.linear_correction
+    adaptive = options.linear_options.preconditioner_reuse == "adaptive"
+    if adaptive and not reuse_linear_solver:
+        raise ValueError("Adaptive preconditioning requires its linear-sequence owner.")
+    correction_checks = ({
+        "linear_preconditioner_reuses": 0,
+        "linear_preconditioner_builds": 0,
+        "linear_preconditioner_rebuild_retries": 0,
+        "maximum_true_linear_residual_ratio": 0.,
+    } if adaptive else {})
     assemblies = reused = 0
     steps, linear_iterations, linear_reasons = [], [], []
 
@@ -140,20 +206,43 @@ def solve_serial_affine_equilibrium(
                 allocated.callback(reduced_residual.destroy)
                 transformation.multTranspose(current.residual, reduced_residual)
                 reduced_tangent = full_tangent.PtAP(transformation, result=reduced_tangent)
+                if _linear_workspace is not None:
+                    _linear_workspace.reduced_tangent = reduced_tangent
                 rhs = reduced_residual.copy()
                 allocated.callback(rhs.destroy)
                 rhs.scale(-1.0)
                 correction = reduced_residual.duplicate()
                 allocated.callback(correction.destroy)
                 correction.set(0.0)
-                if reuse_linear_solver and linear_solver is None:
-                    linear_solver = owner.create_ksp(
-                        reduced_tangent.comm, options.linear_options,
+                if adaptive:
+                    if linear_correction is None:
+                        from ._adaptive_linear_correction import _AdaptiveLinearCorrection
+                        linear_correction = _AdaptiveLinearCorrection(options.linear_options)
+                        if _linear_workspace is not None:
+                            _linear_workspace.linear_correction = linear_correction
+                    info = linear_correction.solve(reduced_tangent, rhs, correction)
+                    evidence = linear_correction.last_evidence
+                    correction_checks["linear_preconditioner_reuses"] += int(evidence.reused)
+                    correction_checks["linear_preconditioner_builds"] += int(
+                        not evidence.reused or evidence.rebuilt)
+                    correction_checks["linear_preconditioner_rebuild_retries"] += int(evidence.rebuilt)
+                    ratio = evidence.true_residual / evidence.threshold
+                    previous = correction_checks["maximum_true_linear_residual_ratio"]
+                    correction_checks["maximum_true_linear_residual_ratio"] = (
+                        max(previous, ratio)
+                        if previous is not None and np.isfinite(ratio) else None
                     )
-                info = owner.solve_matrix_system(
-                    reduced_tangent, rhs, correction, options.linear_options,
-                    ksp=linear_solver, raise_on_failure=False,
-                )
+                else:
+                    if reuse_linear_solver and linear_solver is None:
+                        linear_solver = owner.create_ksp(
+                            reduced_tangent.comm, options.linear_options,
+                        )
+                        if _linear_workspace is not None:
+                            _linear_workspace.linear_solver = linear_solver
+                    info = owner.solve_matrix_system(
+                        reduced_tangent, rhs, correction, options.linear_options,
+                        ksp=linear_solver, raise_on_failure=False,
+                    )
                 linear_iterations.append(int(info.iterations))
                 linear_reasons.append(int(info.converged_reason))
                 direction = correction.array_r.copy() if info.converged else None
@@ -213,12 +302,14 @@ def solve_serial_affine_equilibrium(
             reduced_values, converged, iteration, initial_norm, current_norm,
             threshold, tuple(steps), tuple(linear_iterations),
             tuple(linear_reasons), message, assemblies, reused,
-            procedure_checks={"material_response_reuses": int(material_reused)},
+            procedure_checks={"material_response_reuses": int(material_reused), **correction_checks},
         )
     finally:
         if current is not None:
             current.close()
-        if linear_solver is not None:
+        if linear_solver is not None and _linear_workspace is None:
             linear_solver.destroy()
-        if reduced_tangent is not None:
+        if linear_correction is not None and _linear_workspace is None:
+            linear_correction.close()
+        if reduced_tangent is not None and _linear_workspace is None:
             reduced_tangent.destroy()

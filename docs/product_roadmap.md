@@ -26,16 +26,42 @@ Historical entries below remain evidence, not a second current backlog.
 The user's 2026-10-23 clarification keeps **solver capability and throughput
 first**. A separate contributor is handling WSL installation: inspect that
 work for later integration instead of starting a competing installation sprint.
+That work is draft PR #119 (`feat/windows-install-recovery`, reviewed at
+`c9bcdedc`), not missing local development. Its PowerShell contract CI passes,
+but WSL/elevation are mocked there and clean Windows/WorkBuddy acceptance is
+still explicitly pending. Before later integration, review first-install
+resume against same-version/different-build runtime identity, validate the
+saved installation identity before reusing its distribution, and serialize
+different installer identities that target the same distribution. These are
+review findings, not completed fixes or a reason to divert the solver sprint.
 The joined body/viscosity policy now has a complete late-state ABBA comparison
 (5.69% less mean advancement time, identical accepted fields and physical
 history). This is not a full-run gain. Current smooth-interior Q1 sign evaluation
 with two-ray fallback also preserves the complete late accepted state. Combined
 ABBA screening shows 4.83% less mean advancement time, not the sum of component
-improvements. Process-local worker selection is next; a versioned contact
+improvements. Process-local worker screening did not select a faster budget;
+a versioned contact
 restart contract separates explicitly partition-invariant execution budgets
 from physical identity. Legacy checkpoints remain strict until resaved through
 their original runtime. No silent identity bypass is permitted.
 Keep the graded finite-J2 spatial study separate from both timing experiments.
+The immutable-array validation cache has been withdrawn: its isolated late-path
+comparison cannot distinguish the small mean difference from timing drift.
+Keep the snapshot-before-validation correctness fix without the cache.
+A Procedure-owned linear workspace now keeps current PtAP/tangents across
+frozen normal-augmentation equilibria and releases resources at attempt exit.
+Its small allocation-only gain enables a separate opt-in adaptive GMRES
+preconditioner policy. The isolated 12-cell/32-increment screen reduces mean
+time by 13.39%, with accepted station arrays within declared tolerances; fresh
+48-increment confirmation of the integrated public route measures 13.73%,
+with 48 accepted increments and 533 Newton corrections in every run. This is
+an implicit-solver result, not an explicit-composite or full-run speed claim.
+The graded 16/256 study is now complete: contact tolerances pass, but final
+reaction changes 7.2893% from graded 12/256. Grading alone has not closed the
+spatial gate. Stop blind refinement/penalty tuning; the next discretization
+study must address compatible volume, contact-trace and periodic spaces.
+Do not silently use P2 volume interpolation with the current P1 nodal AL
+contract. The commercial-parity and independent-reference gates stay open.
 
 | Order | Work | Acceptance / stop condition |
 | --- | --- | --- |
