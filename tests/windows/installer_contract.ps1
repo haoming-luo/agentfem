@@ -37,9 +37,14 @@ try {
     $ast = [Management.Automation.Language.Parser]::ParseFile(
         (Join-Path $root 'packaging/runtime/wsl/Install-AgentFEM.ps1'), [ref]$tokens, [ref]$errors)
     Assert ($errors.Count -eq 0) 'Installer syntax errors'
-    foreach ($fn in $ast.FindAll({param($n) $n -is [Management.Automation.Language.FunctionDefinitionAst]}, $false)) {
-        Invoke-Expression $fn.Extent.Text
-    }
+    # Load from a real file so PowerShell preserves $PSScriptRoot in functions.
+    # Evaluating their text loses that automatic variable and does not reproduce
+    # the packaged installer execution context.
+    $definitions = $ast.FindAll({param($n) $n -is [Management.Automation.Language.FunctionDefinitionAst]}, $false) |
+        ForEach-Object { $_.Extent.Text }
+    $functionFile = Join-Path $temp 'installer-functions.ps1'
+    Set-Content -LiteralPath $functionFile -Value ($definitions -join "`n") -Encoding UTF8
+    . $functionFile
     $completeImplementation = ${function:Complete-NewInstallation}
     $script:InstallStateOwned = $false
     function Test-AdministratorSession { return $false }
