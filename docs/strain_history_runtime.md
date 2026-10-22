@@ -59,6 +59,13 @@ Legacy checkpoints still need the original execution configuration before they
 can be restored and saved in the new format. This does not admit a different
 material binary, numerical increment policy or state encoding.
 
+`fuse_viscosity=True` optionally joins core bulk-viscosity arithmetic to the
+native material/body cell pass. It does not change the source material or its
+state schema, and requires a dispatcher supporting that capability. The default
+is unchanged; choose this experimental execution option only after a relevant
+whole-step comparison. See [joined body execution](native_explicit_execution.md#optional-joined-body-and-bulk-viscosity-execution)
+for validation, fallback and restart boundaries.
+
 `unused_channels` is a substantive source-review assertion, not a convenience
 toggle. The source may use properties, density, strain increment, previous
 stress/history and time increment. It must not use the listed context channels

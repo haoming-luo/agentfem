@@ -86,9 +86,9 @@ class FiniteUniformHexResidual:
             self.cells.average_gradient, self.cells.hourglass_modes,
             self.cells.volume, self.cells.hourglass_coefficient,
             self.cells.coordinates, self.cells._reference_perturbation_radius,
-            self.cells.lumped_mass)
+            self.cells.lumped_mass, self.cell_nodes)
         self._execution_cell_nodes = (None if execution_kernel is None else
-            np.frombuffer(self.cell_nodes.tobytes(), dtype=np.int32).reshape(self.cell_nodes.shape))
+            self._execution_geometry.cell_nodes)
 
     def _prepare_cells(self, density, hourglass_modulus, hourglass_scale, chunk_size):
         if self.response.domain is not self.displacement.function_space.mesh:
@@ -299,30 +299,43 @@ class FiniteUniformHexResidual:
                                                              self._execution_geometry, displacement)
                     else:
                         gradient = self.cells.deformation_gradient(displacement)
-                with measure('body_material_and_force'):
-                    prepared, element = self._prepare_explicit_response(
-                        material, displacement, gradient,
-                        deformation_gradient_old=deformation_gradient_old,
-                        time=time, time_increment=time_increment)
-                    self.response._assign_prepared(prepared)
+                viscosity = None
+                fused = (bulk_viscosity is not None and self.execution_kernel is not None
+                         and self.execution_kernel.evaluate_damped is not None)
+                if bulk_viscosity is not None:
+                    from ..fields import unwrap
+                    from ._bulk_viscosity_policy import BulkViscosityPolicy
+                    from .._small_matrix import determinants_3x3
+                    velocity_field = unwrap(velocity)
+                    if velocity_field.function_space is not self.displacement.function_space:
+                        raise ValueError("Velocity and displacement must share the function space.")
+                    options = (bulk_viscosity.options(determinants_3x3(gradient))
+                               if isinstance(bulk_viscosity, BulkViscosityPolicy)
+                               else bulk_viscosity)
+                if fused:
+                    from .explicit_execution import prepare_kernel_damped_response
+                    with measure('body_material_force_and_viscosity'):
+                        prepared, element, viscosity = prepare_kernel_damped_response(
+                            self.execution_kernel, self._execution_geometry, self, material,
+                            displacement, gradient,
+                            nodal_velocity=velocity_field.x.array.reshape(-1, 3), options=options,
+                            deformation_gradient_old=deformation_gradient_old,
+                            time=time, time_increment=time_increment)
+                else:
+                    with measure('body_material_and_force'):
+                        prepared, element = self._prepare_explicit_response(
+                            material, displacement, gradient,
+                            deformation_gradient_old=deformation_gradient_old,
+                            time=time, time_increment=time_increment)
+                self.response._assign_prepared(prepared)
                 response = prepared.response
                 if not np.array_equal(self.displacement.x.array, nodal):
                     raise RuntimeError("Material callback changed the admitted Hex8 configuration.")
                 cell_force = element.internal_force
-                viscosity = None
-                if bulk_viscosity is not None:
-                    from ..fields import unwrap
+                if bulk_viscosity is not None and not fused:
                     from ._bulk_viscosity import _bulk_viscosity_from_checked_gradient
-                    from ._bulk_viscosity_policy import BulkViscosityPolicy
-                    from .._small_matrix import determinants_3x3
 
                     with measure('body_bulk_viscosity'):
-                        velocity_field = unwrap(velocity)
-                        if velocity_field.function_space is not self.displacement.function_space:
-                            raise ValueError("Velocity and displacement must share the function space.")
-                        options = (bulk_viscosity.options(determinants_3x3(gradient))
-                                   if isinstance(bulk_viscosity, BulkViscosityPolicy)
-                                   else bulk_viscosity)
                         cell_velocity = self._gather_cell_vectors(velocity_field.x.array.reshape(-1, 3))
                         def reference_viscosity():
                             return _bulk_viscosity_from_checked_gradient(

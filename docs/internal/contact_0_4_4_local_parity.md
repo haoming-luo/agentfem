@@ -24,6 +24,46 @@ being silently approximated by the bounded route.
 
 ## Live gate status
 
+### Joined body/viscosity candidate (2026-10-22)
+
+An opt-in native cell pass now gathers nodal velocity locally and evaluates the
+existing bulk-viscosity formula alongside body force. The public defaults are
+unchanged. It retains separate material work and viscous power, current damping
+stability bounds, exact material repair and the viscosity-conditioning fallback.
+All physical contributions validate before the ordinary trial is published.
+
+The isolated native build and source path pass 133 focused native/body/material/
+restart tests, followed by 16 restart tests including both cross-policy recovery
+directions and different worker/tile budgets. A later pure-native recheck passes
+all 13 damped-dispatch tests without requiring MPI initialization. These are
+source/candidate-build results, not a frozen installed release acceptance.
+
+One real late-state pair advances increments 95,000 to 95,600 in 128.845 s and
+118.889 s. Numerical U/V/A, material state/stress/gradient and the physical
+history snapshot match exactly. However the comparison harness incorrectly
+hashed dictionaries as NumPy object-array bytes (process-local pointers),
+which aborted the intended ABBA sequence after the first pair. The harness is
+fixed to fingerprint nested content and reject object-array pointer hashing;
+the original failed artifacts are retained, not relabelled as a completed test.
+The candidate's first-response comparison also agrees on ten body/material/
+viscosity arrays, including work and damping bound.
+
+Do **not** promote this single pair to a speed claim: desktop applications
+were consuming CPU, and the fresh confirmation has not started. Local execution
+permission reviews timed out twice; the sandbox rejects MPI endpoint creation,
+and a subsequent network-permission request returned no grant. Complete a fresh
+whole-step comparison before selecting the policy for the composite case.
+Neither the reference case nor its completed 25-frame output was modified.
+
+The next separate geometry experiment evaluates a current closest-point normal
+only at a strictly interior smooth Q1 point on a reviewed embedded, connected,
+outward closed surface. Edges, vertices, ambiguous numerical projections and
+unresolved orientation retain the existing two-ray classifier. This follows the
+smooth-surface sign argument described by
+[Bærentzen and Aanæs](https://doi.org/10.1109/TVCG.2005.49), not an unverified
+transfer of triangular pseudonormals to warped Q1 patches. The private prototype
+and tests are prepared but not executed; no production sign policy has changed.
+
 ### Explicit Q1 classification reuse: tested, not promoted (2026-10-22)
 
 A private prototype transported a certified inside/outside classification only

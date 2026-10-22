@@ -31,8 +31,14 @@ def build(rt, storage="owned_arrays"):
 @pytest.mark.parametrize("old,new", [
     (dict(workers=1, cell_workers=1), dict(workers=3, cell_workers=2, tile_size=2)),
     (dict(workers=3, cell_workers=2, tile_size=2), dict(workers=1, cell_workers=1)),
+    (dict(workers=1), dict(workers=3, cell_workers=2, tile_size=2, fuse_viscosity=True)),
+    (dict(workers=3, cell_workers=2, tile_size=2, fuse_viscosity=True), dict(workers=1)),
 ])
 def test_native_worker_change_preserves_restart_and_actual_provenance(tmp_path, storage, old, new):
+    if old.get('fuse_viscosity') or new.get('fuse_viscosity'):
+        native = pytest.importorskip('agentfem._body_pipeline')
+        if not hasattr(native, 'run_damped_checked'):
+            pytest.skip('requires fused viscosity dispatcher')
     path = manifest(tmp_path)
     with ExitStack() as owners:
         a = owners.enter_context(runtime(path, **old))

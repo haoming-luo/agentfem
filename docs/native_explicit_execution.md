@@ -192,6 +192,33 @@ dependencies; their [dynamic scheduling](https://openmp.org/spec-html/5.0/openmp
 and [chunking tradeoffs](https://uxlfoundation.github.io/oneTBB/main/tbb_userguide/Automatic_Chunking.html)
 provide general design context, not evidence of an AgentFEM speedup.
 
+### Optional joined body and bulk-viscosity execution
+
+`native_explicit_hex_kernel(..., fuse_viscosity=True)` (also available through
+`StrainHistoryRuntime`) evaluates the existing bulk-viscosity arithmetic in
+the material/body cell pass. The default remains `False`. Each worker gathers
+its cell velocity into local scratch rather than creating another full-mesh
+cell-velocity array and launching a separate auxiliary pass. This option
+requires the installed `run_damped_checked` dispatcher; an older native build
+rejects the explicit request instead of silently ignoring it.
+
+The material law, internal work, viscosity coefficients, dissipative power,
+hourglass response and damping stability bound are unchanged. Body and
+viscosity remain separate physical contributions, despite sharing execution.
+All workers and exact material repairs finish before publication; invalid
+body or damping output rejects the entire trial. Ill-conditioned viscosity
+conversion retains the reference fallback without repeating material updates.
+No extra state owner, time integrator or global worker pool is introduced.
+
+Execution provenance records the selected policy. The versioned restart
+contract permits switching this policy because the per-cell arithmetic and
+scientific inputs remain unchanged; old exact-identity checkpoints must first
+be restored with their compatible configuration and saved in the new format.
+Cross-policy recovery, failed-trial rollback and static/tiled execution have
+targeted regression coverage. This is an opt-in execution experiment, not a
+whole-model speed guarantee: overlapping contact work can hide a body gain.
+Select it using a representative whole-step comparison on the target machine.
+
 ```python
 with elements.native_explicit_hex_kernel(
     material, c_function, properties=parameters, density=density,
