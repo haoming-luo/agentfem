@@ -24,6 +24,73 @@ being silently approximated by the bounded route.
 
 ## Live gate status
 
+### Retained material response, not a lagged Jacobian (2026-10-22)
+
+The serial affine AL Procedure can request reuse of an unchanged built-in J2
+response between outer equilibria. The transaction owns a one-shot, SHA-256
+buffer guard scoped to that attempted equilibrium. It includes evaluated
+old/new gradients (so live expression inputs are checked), material identity
+and parameters, time, old/trial internal state, current stress, tangent,
+energy and diagnostic fields. Raw field storage avoids copying quadrature
+arrays merely to inspect them. No result array is cached or re-owned.
+
+Every changed Newton displacement still receives its current constitutive
+update and tangent. A changed writable response buffer invalidates reuse too.
+Commit, rollback, restart, failure and leaving the scope discard retention;
+mixed pressure, regional/user material and MPI keep ordinary refresh. A
+failed optional guard falls back to that same refresh/error path. The guard
+is operational evidence, not a new scientific checkpoint identity or tolerance.
+Contact residuals and global tangent assembly are never reused by this change.
+This differs from [PETSc Jacobian lagging](https://petsc.org/release/manualpages/SNES/SNESSetLagJacobian/),
+which deliberately changes how frequently the nonlinear Jacobian is rebuilt.
+
+The first source checks pass 24 mutation/lifecycle/trajectory tests and the
+18 existing AL/MPC exact-reference, restart and failure tests. These are
+scoped source results, not a new installed release or a continuum-accuracy
+certificate. `tools/benchmark_retained_material_trial.py` compares the actual
+implementation against normal recomputation, including the guard cost; it
+does not extrapolate the implicit-path speedup to the explicit composite run.
+
+After adding callable and field-space identity guards, the fresh 12-cell,
+32-increment ABBA confirmation records A=208.220/211.357 s and B=173.141/172.245 s:
+**17.68% less elapsed solve-and-observe time** on this machine and implicit route.
+Both candidates reuse 116 unchanged material trials; all four runs take 355
+Newton iterations and 32 accepted increments. U, committed internal variables,
+first Piola stress, algorithmic tangent, normal pressure and work histories are
+exactly equal at four common stations. Source hashes and thread settings are in
+`evidence/performance/2026-10-22-retained-material-trial-confirmation.json`.
+The smaller first screen measured 14.47%; these are different workloads, not
+additive speedups and not claims about explicit composite throughput.
+The final focused source group passes 37 tests covering retained response,
+affine assembly reuse and independent linear-reference amplitude scaling.
+
+### Independent spatial diagnostic (2026-10-22)
+
+`tools/diagnose_periodic_contact_spatial.py` keeps the supported periodic mesh,
+patch and affine constraint elimination, but removes both plastic integration
+and normal augmentation. It independently assembles small-strain Hooke
+elasticity and exactly imposes the known active nodal patch. All contact
+reactions must be compressive; a tensile reaction rejects that assumed active
+set. It is a research diagnostic, not a replacement public contact solver.
+
+| Cells/edge | Contact force (N) | Edge-node share of contact force |
+| ---: | ---: | ---: |
+| 8 | 27.73441371 | 81.38% |
+| 12 | 26.05503776 | 71.16% |
+| 16 | 25.21188874 | 63.84% |
+| 24 | 24.37327238 | 54.06% |
+| 32 | 23.95763141 | 47.70% |
+
+The free residual norm stays below 9e-14 and imposed-gap error below 2e-16 m.
+The reaction trend therefore persists without plasticity, penalty or an AL
+stopping criterion. This narrows the investigation to the spatial formulation
+and physical fixture; it does not by itself distinguish bulk approximation,
+boundary-patch discretization or edge regularity. The finite-Hencky material
+differs from this linear law, so numerical equality with the J2 fixture is
+neither claimed nor required. Keep the finite-J2 continuum-accuracy gate open.
+Evidence: `evidence/contact/2026-10-22-independent-linear-spatial.json` and
+`evidence/contact/2026-10-22-independent-linear-spatial-fine.json`.
+
 ### 2026-10-22 independent confined plastic-contact reference
 
 `tests/test_contact_plastic_coaxial_reference.py` supplies a scalar reference

@@ -19,6 +19,25 @@ or a successful run is not by itself a validated engineering capability.
 
 ## Current product phase: the 0.4 foundation
 
+### Active sprint decision board (2026-10-22)
+
+Historical entries below remain evidence, not a second current backlog.
+
+| Order | Work | Acceptance / stop condition |
+| --- | --- | --- |
+| 1 | Retain unchanged material trials across serial AL outer iterations | Same accepted fields, tangent, contact and work; mutation/rollback/restart guards; measured whole-path benefit. Unsupported materials/mixed/MPI use ordinary refresh. |
+| 2 | Isolate the supported contact fixture's spatial reaction error | Hold the physical patch fixed; separate volume approximation, constraint representation and edge effects. Do not keep tuning AL after exact discrete elimination agrees. |
+| 3 | Explicit body/contact critical-path reduction | Reuse the 25-frame baseline. Audit existing candidate/separation reuse before adding another cache; select on evolving late-state whole-step timing, not kernel percentages. |
+| 4 | Bounded release integration | Latest full CI and installed checks; scientific claims remain limited to passed geometry/law combinations. No commercial-parity claim from passing CI alone. |
+
+The first retained-material source candidate is scoped to a single equilibrium
+attempt and compares evaluated old/new gradients, committed/trial state, current
+stress/tangent/energy buffers, material parameters and time. State retains no
+second response array, and the transient guard is never checkpointed. The
+contact residual and global Jacobian remain current; this is not Jacobian
+lagging. See `tests/test_retained_material_trial.py` and
+`tools/benchmark_retained_material_trial.py` for mutation and ABBA checks.
+
 ### 2026-10-22 implementation priorities
 
 Keep the implicit-contact scientific gate and the explicit-composite throughput

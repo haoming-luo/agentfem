@@ -9,6 +9,7 @@ This owner performs outer iterations only: the affine path still owns trial
 snapshots, load factors, material/Operator commit, rollback and checkpoints.
 """
 
+from contextlib import nullcontext
 from dataclasses import replace
 
 import numpy as np
@@ -36,6 +37,14 @@ class AffinePlaneNormalAugmentation:
         }
 
     def solve(self, residual, jacobian, function, reduction, transformation, values, **options):
+        transaction = options.get("transaction")
+        scope = getattr(transaction, "_trial_response_reuse_scope", None)
+        with scope() if callable(scope) else nullcontext():
+            return self._solve(
+                residual, jacobian, function, reduction, transformation, values, **options,
+            )
+
+    def _solve(self, residual, jacobian, function, reduction, transformation, values, **options):
         from ..solvers import _reduced_residual_norm
 
         provider = self.provider
@@ -99,5 +108,8 @@ class AffinePlaneNormalAugmentation:
                 "normal_acceleration_resets": 0 if accelerator is None else accelerator.resets,
                 "normal_acceptance": diagnostics,
                 "normal_augmentation_scope": "bounded_affine_disjoint_normal_rows",
+                "material_response_reuses": sum(
+                    item.procedure_checks.get("material_response_reuses", 0) for item in infos
+                ),
             },
         )

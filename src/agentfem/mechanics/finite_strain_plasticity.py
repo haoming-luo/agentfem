@@ -6,6 +6,7 @@
 from __future__ import annotations
 
 from collections.abc import Mapping
+from contextlib import contextmanager
 from dataclasses import dataclass, field, replace
 import json
 from pathlib import Path
@@ -574,6 +575,54 @@ class FiniteStrainJ2StateTransaction:
         init=False,
         repr=False,
     )
+    _retain_trial_response: bool = field(default=False, init=False, repr=False)
+    _retained_trial_digest: bytes | None = field(default=None, init=False, repr=False)
+
+    @contextmanager
+    def _trial_response_reuse_scope(self):
+        """Permit one-shot material reuse within one serial outer equilibrium.
+
+        Only the built-in, displacement-only J2 transaction is admitted. MPI,
+        regional/user laws and mixed pressure keep the ordinary refresh route.
+        No retained evidence crosses an increment, failure, or restart.
+        """
+        enabled = (
+            type(self) is FiniteStrainJ2StateTransaction
+            and type(self.material) is FiniteStrainJ2Logarithmic
+            and self.pressure_evaluator is None
+            and self.response.domain.comm.size == 1
+            and not self._retain_trial_response
+        )
+        if not enabled:
+            yield
+            return
+        self._retain_trial_response = True
+        self._retained_trial_digest = None
+        try:
+            yield
+        finally:
+            self._retain_trial_response = False
+            self._retained_trial_digest = None
+
+    def _reuse_trial_response(self, *, start_factor, target_factor) -> bool:
+        """Consume retained evidence, or request the ordinary material update."""
+        retained, self._retained_trial_digest = self._retained_trial_digest, None
+        if (not self._retain_trial_response or retained is None
+                or type(self.material) is not FiniteStrainJ2Logarithmic
+                or self.pressure_evaluator is not None
+                or self.response.domain.comm.size != 1):
+            return False
+        from ._retained_trial_response import retained_trial_digest
+
+        try:
+            gradients = self._evaluate_gradients()
+            current = retained_trial_digest(
+                self, *gradients, start_factor=start_factor, target_factor=target_factor,
+            )
+        except Exception:
+            # The regular refresh owns structured constitutive failure/cutback.
+            return False
+        return current == retained
 
     def algorithmic_linearization_evidence(
         self,
@@ -631,6 +680,7 @@ class FiniteStrainJ2StateTransaction:
         self.accepted_solution.x.scatter_forward()
         self.response.rollback()
         self.refresh_trial(start_factor=0.0, target_factor=0.0)
+        self._retained_trial_digest = None
 
     def prepare_resume(self) -> None:
         """Rebuild trial response fields from one restored accepted boundary."""
@@ -642,6 +692,7 @@ class FiniteStrainJ2StateTransaction:
             start_factor=self.accepted_factor,
             target_factor=self.accepted_factor,
         )
+        self._retained_trial_digest = None
 
     def _evaluate_gradients(self) -> tuple[np.ndarray, np.ndarray]:
         return (
@@ -661,6 +712,7 @@ class FiniteStrainJ2StateTransaction:
         start_factor: float,
         target_factor: float,
     ):
+        self._retained_trial_digest = None
         comm = self.response.domain.comm
         old_gradient = None
         new_gradient = None
@@ -801,6 +853,17 @@ class FiniteStrainJ2StateTransaction:
             float(start_factor),
             float(target_factor),
         )
+        if self._retain_trial_response and type(self.material) is FiniteStrainJ2Logarithmic:
+            from ._retained_trial_response import retained_trial_digest
+
+            try:
+                self._retained_trial_digest = retained_trial_digest(
+                    self, old_gradient, new_gradient,
+                    start_factor=start_factor, target_factor=target_factor,
+                )
+            except Exception:
+                # Optional reuse evidence must not change refresh semantics.
+                self._retained_trial_digest = None
         return result
 
     def commit_increment(
@@ -809,6 +872,7 @@ class FiniteStrainJ2StateTransaction:
         start_factor: float,
         target_factor: float,
     ) -> None:
+        self._retained_trial_digest = None
         expected_origin = (
             float(self.accepted_factor),
             float(start_factor),
@@ -835,6 +899,7 @@ class FiniteStrainJ2StateTransaction:
             start_factor=self.accepted_factor,
             target_factor=self.accepted_factor,
         )
+        self._retained_trial_digest = None
 
     def snapshot_accepted_boundary(self) -> dict[str, object]:
         """Capture the compact state needed to undo a provisional commit.
@@ -933,6 +998,7 @@ class FiniteStrainJ2StateTransaction:
     def restore_runtime_state(self, snapshot: dict[str, object]) -> None:
         """Restore state and derived response fields after a failed operation."""
 
+        self._retained_trial_digest = None
         self.response.restore(snapshot["committed_state"])
         for name, selected in self.response.state.trial.items():
             selected.assign(snapshot["trial_state"][name])

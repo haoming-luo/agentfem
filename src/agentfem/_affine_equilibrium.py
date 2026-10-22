@@ -104,9 +104,13 @@ def solve_serial_affine_equilibrium(
         ))
 
     try:
-        valid, message = owner._try_refresh_affine_trial_state(
+        reuse_trial = getattr(transaction, "_reuse_trial_response", None)
+        material_reused = bool(callable(reuse_trial) and reuse_trial(
+            start_factor=start_factor, target_factor=target_factor,
+        ))
+        valid, message = ((True, "") if material_reused else owner._try_refresh_affine_trial_state(
             transaction, start_factor=start_factor, target_factor=target_factor,
-        )
+        ))
         if valid:
             current = assemble()
         initial_norm = current.norm if current is not None else float("inf")
@@ -209,6 +213,7 @@ def solve_serial_affine_equilibrium(
             reduced_values, converged, iteration, initial_norm, current_norm,
             threshold, tuple(steps), tuple(linear_iterations),
             tuple(linear_reasons), message, assemblies, reused,
+            procedure_checks={"material_response_reuses": int(material_reused)},
         )
     finally:
         if current is not None:
