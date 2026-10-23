@@ -175,6 +175,10 @@ complete prior snapshot, so polling progress does not lock out state publication
 Inspect the log and resume the same verified installer/options; do not delete
 the record or distribution to make the status look clean. Keep corrupt records
 for diagnosis; the query exits nonzero if any record cannot be read.
+If a full disk or permission error prevents writing a failure record, the
+installer still reports the original error and a nonzero exit, plus
+`AFM-WIN-STATE-WRITE`. Keep the terminal/transcript: the prior JSON record may
+then be stale and must not be taken as current success.
 
 | Recorded state / code | Agent action |
 | --- | --- |

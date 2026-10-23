@@ -93,6 +93,27 @@ try {
     $report = (& $statusScript -StateRoot (Join-Path $env:LOCALAPPDATA 'AgentFEM\Installations') | Out-String) | ConvertFrom-Json
     Assert (@($report.installations | Where-Object { $_.error_code -eq 'AFM-WIN-PACKAGE-CHECKSUM' }).Count -eq 1) 'Wrong checksum lost its named failure'
     Assert (@(Get-Content -LiteralPath $env:AGENTFEM_WSL_FIXTURE_LOG).Count -eq 9) 'Bad image reached WSL before checksum rejection'
+    # Inject a storage fault only into the private fixture helper. Recording a
+    # failure may fail too, but the original error and nonzero exit must survive.
+    $helperPath = Join-Path $bundle 'Installer-State.ps1'
+    $helperSource = Get-Content -LiteralPath $helperPath -Raw
+    $fault = @'
+
+$script:SaveStateWithoutFault = ${function:Save-InstallState}
+function Save-InstallState {
+    param([string]$Stage, [string]$Message = '')
+    if ($Stage -eq 'failed') { throw 'injected state-storage failure' }
+    & $script:SaveStateWithoutFault -Stage $Stage -Message $Message
+}
+'@
+    Set-Content -LiteralPath $helperPath -Value ($helperSource + $fault) -Encoding UTF8
+    $failureOutput = (& $fullInstaller -Image $image -ExpectedSha256 ('0' * 64) `
+        -NonInteractive -WslBootstrapSource None 3>&1 6>&1 | Out-String)
+    Assert ($LASTEXITCODE -ne 0) 'Failure-record storage fault hid unsuccessful installation'
+    Assert ($failureOutput -match 'AFM-WIN-STATE-WRITE' -and $failureOutput -match 'AFM-WIN-PACKAGE-CHECKSUM') 'Failure-record storage fault swallowed the original error'
+    $report = (& $statusScript -StateRoot (Join-Path $env:LOCALAPPDATA 'AgentFEM\Installations') | Out-String) | ConvertFrom-Json
+    Assert (-not $report.installer_busy) 'Failure-record storage fault leaked the installation lock'
+    Assert (@(Get-Content -LiteralPath $env:AGENTFEM_WSL_FIXTURE_LOG).Count -eq 9) 'Failure-record storage fault launched WSL'
     Write-Host 'Platform entry point passed (inert native WSL fixture, no real host preparation).'
 } finally {
     $env:PATH = $originalPath

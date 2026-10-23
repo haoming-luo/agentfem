@@ -821,7 +821,14 @@ try {
     if ($message -match "AFM-WIN-RESTART") { $stage = "restart_required"; $exitCode = 3010 }
     elseif ($message -match "AFM-WIN-(ELEVATION|COMMAND-BLOCKED)") { $stage = "awaiting_authorization" }
     elseif ($message -match "AFM-WIN-ACCOUNT-INPUT-REQUIRED") { $stage = "account_setup" }
-    if ($script:InstallStateOwned) { Save-InstallState -Stage $stage -Message $message }
+    if ($script:InstallStateOwned) {
+        try { Save-InstallState -Stage $stage -Message $message }
+        catch {
+            # Disk-full/permission failures must not replace the original WSL
+            # or package error with a second exception while recording it.
+            Write-Warning "[AFM-WIN-STATE-WRITE] Could not persist the failure record: $($_.Exception.Message). Keep this terminal/transcript; the saved status may be stale."
+        }
+    }
     Write-Host $message -ForegroundColor Red
     if ($script:InstallStateDirectory) { Write-Host "Installation records: $script:InstallStateDirectory" }
 } finally {
