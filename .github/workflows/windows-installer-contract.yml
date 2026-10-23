@@ -16,6 +16,7 @@ jobs:
         run: |
           ./tests/windows/installer_contract.ps1
           ./tests/windows/platform_entrypoint_contract.ps1
+          ./tests/windows/host_probe_contract.ps1
   powershell-core:
     name: Installer on PowerShell 7
     runs-on: windows-latest
@@ -26,3 +27,4 @@ jobs:
         run: |
           ./tests/windows/installer_contract.ps1
           ./tests/windows/platform_entrypoint_contract.ps1
+          ./tests/windows/host_probe_contract.ps1

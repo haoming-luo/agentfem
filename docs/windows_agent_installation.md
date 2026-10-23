@@ -73,6 +73,23 @@ or unrestricted agent permissions are prerequisites imposed by AgentFEM.
 
 ## Agent procedure
 
+Before installing, the source-usable read-only preflight is:
+
+```powershell
+powershell.exe -NoProfile -File .\packaging\runtime\wsl\Test-AgentFEMWindowsHost.ps1 -Route UbuntuMirror
+```
+
+In an extracted bundle use `Test-AgentFEMWindowsHost.ps1` and keep its companion
+`Windows-HostProbe.ps1` beside it. Select `CompleteRuntime` only for that route.
+The JSON distinguishes tooling version from each distro's WSL1/WSL2 version,
+blocked/missing commands, failed probes, and required image-format updates.
+It never launches a distribution or changes Windows. Each read-only command
+has a 15-second timeout (configurable with `-TimeoutSeconds`); a failed command
+stops the probe sequence, not triggers another launcher. It reports
+`runtime_verified: false` even when a WSL2 inventory is available. Inventory is
+not evidence that Linux, a mirror or AgentFEM is healthy. Preserve a failed
+probe and inspect its code instead of inferring that WSL needs reinstallation.
+
 1. Inspect Windows architecture, WSL availability and existing distributions with
    the host's supported tools. In WorkBuddy use its PowerShell tool directly.
 2. Retain the selected route. For Complete Runtime, obtain the official

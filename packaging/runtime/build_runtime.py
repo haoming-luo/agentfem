@@ -763,7 +763,10 @@ def build_wsl(args: argparse.Namespace) -> Path:
         encoding="utf-8",
     )
     companion_files = []
-    for name in ("Installer-State.ps1", "Install-AgentFEM.cmd", "Get-AgentFEMInstallStatus.ps1"):
+    for name in (
+        "Installer-State.ps1", "Install-AgentFEM.cmd", "Get-AgentFEMInstallStatus.ps1",
+        "Windows-HostProbe.ps1", "Test-AgentFEMWindowsHost.ps1",
+    ):
         destination = output / name
         shutil.copyfile(RUNTIME / "wsl" / name, destination)
         companion_files.append(destination)
