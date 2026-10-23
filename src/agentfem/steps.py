@@ -122,6 +122,7 @@ class AutomaticIncrementation:
     fast_iterations: int = 4
     slow_iterations: int = 10
     maximum_inelastic_increment: float | None = None
+    inelastic_prediction_safety: float | None = None
 
     def __post_init__(self) -> None:
         # Validate the policy once, before it owns a numerical path. In
@@ -164,20 +165,47 @@ class AutomaticIncrementation:
             raise ValueError(
                 "maximum_inelastic_increment must be finite and positive."
             )
+        if self.inelastic_prediction_safety is not None:
+            safety = _finite_increment_control(
+                self.inelastic_prediction_safety, "inelastic_prediction_safety")
+            if not 0.0 < safety < 1.0:
+                raise ValueError("inelastic_prediction_safety must lie strictly between zero and one.")
+            if self.maximum_inelastic_increment is None:
+                raise ValueError("inelastic_prediction_safety requires maximum_inelastic_increment.")
+            object.__setattr__(self, "inelastic_prediction_safety", safety)
 
     @property
     def automatic(self) -> bool:
         return True
 
-    def after_convergence(self, size: float, iterations: int) -> float:
-        """Return the proposed size of the next increment."""
+    def after_convergence(
+        self, size: float, iterations: int, *, inelastic_increment: float | None = None,
+    ) -> float:
+        """Propose the next size using Newton work and optional accepted evidence.
+
+        The lagged material prediction only caps the ordinary proposal. It is
+        not an error estimator and never relaxes the current-attempt acceptance
+        bound. A zero accepted measure leaves the Newton proposal unchanged.
+        """
 
         selected = float(size)
         if iterations <= self.fast_iterations:
             selected *= self.growth_factor
         elif iterations >= self.slow_iterations:
             selected *= 0.5
-        return min(self.maximum, max(self.minimum, selected))
+        selected = min(self.maximum, max(self.minimum, selected))
+        if self.inelastic_prediction_safety is not None:
+            measured = _finite_increment_control(inelastic_increment, "accepted inelastic_increment")
+            limit = self.maximum_inelastic_increment
+            if measured < 0.0 or measured > limit:
+                raise ValueError("Accepted inelastic_increment must lie between zero and its declared limit.")
+            if measured > 0.0:
+                # This branch can only lower the ordinary proposal. Avoid a
+                # division by a subnormal measured value when no cap is needed.
+                fraction = measured / limit
+                if fraction > float(size) * self.inelastic_prediction_safety / selected:
+                    selected = max(self.minimum, float(size) * self.inelastic_prediction_safety / fraction)
+        return selected
 
     def after_failure(self, size: float) -> float:
         """Return a cut-back size after a failed attempt."""
@@ -185,7 +213,7 @@ class AutomaticIncrementation:
         return float(size) * self.cutback_factor
 
     def summary(self) -> dict[str, object]:
-        return {
+        summary = {
             "kind": "automatic_incrementation",
             "initial": self.initial,
             "minimum": self.minimum,
@@ -198,6 +226,12 @@ class AutomaticIncrementation:
             "slow_iterations": self.slow_iterations,
             "maximum_inelastic_increment": self.maximum_inelastic_increment,
         }
+        if self.inelastic_prediction_safety is not None:
+            summary["inelastic_prediction"] = {
+                "algorithm": "accepted_increment_proportional_cap_v1",
+                "safety": self.inelastic_prediction_safety,
+            }
+        return summary
 
 
 @dataclass(frozen=True)
@@ -245,6 +279,7 @@ def automatic(
     fast_iterations: int = 4,
     slow_iterations: int = 10,
     maximum_inelastic_increment: float | None = None,
+    inelastic_prediction_safety: float | None = None,
 ) -> AutomaticIncrementation:
     """Create inspectable Abaqus-style automatic incrementation."""
 
@@ -259,6 +294,7 @@ def automatic(
         fast_iterations=fast_iterations,
         slow_iterations=slow_iterations,
         maximum_inelastic_increment=maximum_inelastic_increment,
+        inelastic_prediction_safety=inelastic_prediction_safety,
     )
 
 
@@ -284,6 +320,7 @@ def normalize(
     *,
     increments: int | None = None,
     load_factors=None,
+    inelastic_feedback: bool = False,
 ):
     """Normalize public and compatibility incrementation inputs."""
 
@@ -304,7 +341,20 @@ def normalize(
         raise TypeError(
             "incrementation must be steps.automatic(...) or steps.fixed(...)."
         )
+    if getattr(value, "inelastic_prediction_safety", None) is not None and not inelastic_feedback:
+        raise NotImplementedError(
+            "AFM-INCREMENT-FEEDBACK: this Procedure does not supply supported "
+            "accepted inelastic-increment evidence; disable inelastic_prediction_safety."
+        )
     return value
+
+
+def _after_convergence(control, size, iterations, *, inelastic_increment=None):
+    """Preserve existing two-argument policies when prediction is disabled."""
+
+    if control.inelastic_prediction_safety is None:
+        return control.after_convergence(size, iterations)
+    return control.after_convergence(size, iterations, inelastic_increment=inelastic_increment)
 
 
 @dataclass(frozen=True)

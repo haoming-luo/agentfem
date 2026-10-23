@@ -1216,6 +1216,7 @@ class AffineNonlinearVariationalProblem:
     full_space_operators: tuple[object, ...] = ()
     checkpoint_policy: object | None = None
     acceptance_check: object | None = None
+    inelastic_increment_measure: str | None = None
     accepted_observers: tuple[object, ...] = ()
     _equilibrium_procedure: object | None = field(default=None, init=False, repr=False)
     last_solve_info: object | None = field(default=None, init=False)
@@ -1288,6 +1289,7 @@ class AffineNonlinearVariationalProblem:
     def checkpoint_capabilities(self) -> checkpointing.CheckpointCapabilities:
         """Declare the stateful affine restart contract."""
 
+        prediction = getattr(self.incrementation, "inelastic_prediction_safety", None) is not None
         return checkpointing.CheckpointCapabilities(
             schemas=(
                 "agentfem.affine-stateful-checkpoint.v1",
@@ -1306,7 +1308,7 @@ class AffineNonlinearVariationalProblem:
             ),
             atomic_publication=True,
             rank_count_portability=(
-                "unsupported" if self.full_space_operators else "supported"
+                "unsupported" if self.full_space_operators or prediction else "supported"
             ),
             identity_scope=(
                 "mesh and function space",
@@ -1318,17 +1320,17 @@ class AffineNonlinearVariationalProblem:
                     if self.full_space_operators else ()
                 ),
             ),
-            limitations=(
+            limitations=(("accepted inelastic prediction is serial only",) if prediction else ()) + (
                 ("requires a durable state transaction",)
                 if not self.full_space_operators else (
                     "requires a durable state transaction",
                     "external full-space Operator composition is serial only",
                 )
             ),
-            evidence=(
+            evidence=(("serial accepted-increment prediction restart",) if prediction else (
                 ("MPI 1-to-2 and 2-to-1 portable restart",)
                 if not self.full_space_operators else ()
-            ),
+            )),
         )
 
     def assemble_full_residual(self):
@@ -1662,6 +1664,9 @@ class AffineNonlinearVariationalProblem:
                 on_trial_start=begin_trial,
                 equilibrium_procedure=self._equilibrium_procedure,
                 acceptance_check=self.acceptance_check,
+                **({"inelastic_increment_measure": self.inelastic_increment_measure}
+                   if getattr(self.incrementation, "inelastic_prediction_safety", None) is not None
+                   else {}),
                 state_transaction=self.state_transaction,
                 full_space_operators=self.full_space_operators,
                 stop_factor=selected_until,
@@ -1774,6 +1779,8 @@ class AffineNonlinearVariationalProblem:
                 for name, recorder in sorted(self.accepted_history_recorders.items())
             },
         }
+        if getattr(self.incrementation, "inelastic_prediction_safety", None) is not None:
+            identity["inelastic_increment_measure"] = self.inelastic_increment_measure
         if self.full_space_operators:
             identity["full_space_operators"] = tuple(
                 operator.summary() for operator in self.full_space_operators

@@ -82,8 +82,13 @@ class StepOptionContract:
     accepted: tuple[str, ...]
     required: tuple[str, ...] = ()
     exactly_one_of: tuple[tuple[str, ...], ...] = ()
+    inelastic_increment_feedback: bool = False
 
     def __post_init__(self) -> None:
+        if type(self.inelastic_increment_feedback) is not bool:
+            raise ValueError("inelastic_increment_feedback must be a boolean capability declaration.")
+        if self.inelastic_increment_feedback and "incrementation" not in self.accepted:
+            raise ValueError("Inelastic feedback requires an accepted incrementation option.")
         raw_groups = tuple(tuple(group) for group in self.exactly_one_of)
         grouped_names = tuple(name for group in raw_groups for name in group)
         raw = (*self.accepted, *self.required, *grouped_names)
@@ -126,6 +131,15 @@ class StepOptionContract:
 
         accepted = set(self.accepted)
         issues = []
+        control = options.get("incrementation")
+        if (getattr(control, "inelastic_prediction_safety", None) is not None
+                and not self.inelastic_increment_feedback):
+            issues.append({
+                "code": "AFM-INCREMENT-FEEDBACK",
+                "option": "incrementation",
+                "message": "This Step provider does not support inelastic_prediction_safety.",
+                "suggestions": (),
+            })
         for name in sorted(set(options).difference(accepted)):
             suggestions = tuple(
                 get_close_matches(name, self.accepted, n=3, cutoff=0.58)
@@ -191,11 +205,14 @@ class StepOptionContract:
         )
 
     def summary(self) -> dict[str, object]:
-        return {
+        summary = {
             "accepted": self.accepted,
             "required": self.required,
             "exactly_one_of": self.exactly_one_of,
         }
+        if self.inelastic_increment_feedback:
+            summary["inelastic_increment_feedback"] = True
+        return summary
 
 
 @dataclass(frozen=True)

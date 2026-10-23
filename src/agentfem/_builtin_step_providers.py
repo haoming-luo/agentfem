@@ -370,6 +370,7 @@ def _accept_finite_strain_j2_affine(model, request: StepRequest) -> bool:
         and not physical_loads
         and affine_rigid_contact_supported(model)
         and _linear_reuse_rejection_reason(request, affine=True) is None
+        and _inelastic_prediction_rejection_reason(model, request) is None
         and _finite_j2_bulk_quadrature_rejection_reason(request) is None
         and _contact_quadrature_rejection_reason(model, request) is None
         and _contact_integration_rejection_reason(model, request) is None
@@ -451,6 +452,9 @@ def _finite_strain_j2_affine_boundary_rejection(model, request: StepRequest) -> 
         )
     ):
         return None
+    prediction_problem = _inelastic_prediction_rejection_reason(model, request)
+    if prediction_problem is not None:
+        return prediction_problem
     solver_problem = _linear_reuse_rejection_reason(request, affine=True)
     if solver_problem is not None:
         return solver_problem
@@ -536,6 +540,8 @@ def _accept_finite_strain_j2_strong(model, request: StepRequest) -> bool:
     )
 
     if not _finite_strain_j2_strong_preconditions(model, request):
+        return False
+    if _inelastic_prediction_rejection_reason(model, request) is not None:
         return False
     if _linear_reuse_rejection_reason(request) is not None:
         return False
@@ -879,6 +885,25 @@ def _finite_j2_bulk_quadrature_rejection_reason(request: StepRequest) -> str | N
     return None
 
 
+def _inelastic_prediction_rejection_reason(model, request: StepRequest) -> str | None:
+    """Bounded admission shared by capability inspection and lowering."""
+
+    if getattr(request.option("incrementation"), "inelastic_prediction_safety", None) is None:
+        return None
+    from .constitutive import FiniteStrainJ2Logarithmic
+
+    domain = getattr(getattr(request.target, "space", None), "mesh", None)
+    materials = _registered_materials(model, request)
+    if (domain is None or domain.comm.size != 1
+            or getattr(request.target, "kind", None) == "displacement_pressure"
+            or len(materials) != 1 or not isinstance(materials[0], FiniteStrainJ2Logarithmic)):
+        return (
+            "AFM-INCREMENT-FEEDBACK: inelastic prediction currently requires a serial "
+            "displacement-only Step with one built-in finite-strain J2 material."
+        )
+    return None
+
+
 def _finite_strain_j2_strong_rejection_reason(model, request: StepRequest) -> str | None:
     """Explain the bounded contact/MPI near-match without claiming support."""
 
@@ -889,6 +914,9 @@ def _finite_strain_j2_strong_rejection_reason(model, request: StepRequest) -> st
 
     if not _finite_strain_j2_strong_preconditions(model, request):
         return None
+    prediction_problem = _inelastic_prediction_rejection_reason(model, request)
+    if prediction_problem is not None:
+        return prediction_problem
     solver_problem = _linear_reuse_rejection_reason(request)
     if solver_problem is not None:
         return solver_problem
@@ -1478,6 +1506,7 @@ def _option_contract(
     *extra: str,
     required=(),
     exactly_one_of=(),
+    inelastic_increment_feedback=False,
 ) -> StepOptionContract:
     """Build a deterministic built-in contract without repeated core names."""
 
@@ -1485,6 +1514,7 @@ def _option_contract(
         accepted=tuple(dict.fromkeys((*_COMMON_STEP_OPTIONS, *extra))),
         required=tuple(required),
         exactly_one_of=tuple(tuple(group) for group in exactly_one_of),
+        inelastic_increment_feedback=inelastic_increment_feedback,
     )
 
 
@@ -1923,6 +1953,7 @@ register_step_provider(
             "progress",
             "status_file",
             "checkpoint",
+            inelastic_increment_feedback=True,
         ),
     )
 )
@@ -1953,6 +1984,7 @@ register_step_provider(
             "progress",
             "status_file",
             "checkpoint",
+            inelastic_increment_feedback=True,
         ),
     )
 )

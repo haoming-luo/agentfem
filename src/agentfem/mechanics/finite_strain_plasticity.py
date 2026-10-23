@@ -1463,6 +1463,7 @@ class FiniteStrainJ2StandardProblem:
             provider.restore_runtime_state(saved)
 
     def checkpoint_capabilities(self) -> checkpointing.CheckpointCapabilities:
+        prediction = getattr(self.incrementation, "inelastic_prediction_safety", None) is not None
         return checkpointing.CheckpointCapabilities(
             schemas=(
                 "agentfem.finite-strain-j2-standard-checkpoint.v2",
@@ -1480,7 +1481,7 @@ class FiniteStrainJ2StandardProblem:
             atomic_publication=True,
             rank_count_portability=(
                 "unsupported"
-                if self.contact_provider is not None
+                if self.contact_provider is not None or prediction
                 else "requires_portable_policy"
             ),
             identity_scope=(
@@ -1488,15 +1489,15 @@ class FiniteStrainJ2StandardProblem:
                 "material and quadrature schema",
                 "constraints, loads, and solver controls",
             ),
-            limitations=(
+            limitations=(("accepted inelastic prediction is serial only",) if prediction else ()) + (
                 "serial layout checkpoints are not portable",
                 "distributed writes require the portable format",
             ),
-            evidence=(
+            evidence=(("serial accepted-increment prediction restart",) if prediction else (
                 ("serial finite-J2/rigid-contact accepted restart",)
                 if self.contact_provider is not None
                 else ("MPI cross-rank-count portable restart",)
-            ),
+            )),
         )
 
     def _apply_loading(self, coordinate: float) -> None:
@@ -2556,8 +2557,9 @@ class FiniteStrainJ2StandardProblem:
                     if isinstance(
                         self.incrementation, step_controls.AutomaticIncrementation
                     ):
-                        proposed = self.incrementation.after_convergence(
-                            size, info.adaptation_iterations
+                        proposed = step_controls._after_convergence(
+                            self.incrementation, size, info.adaptation_iterations,
+                            inelastic_increment=info.maximum_plastic_increment,
                         )
                         self.next_increment_size = proposed
                     save_by_increment = (
@@ -4247,6 +4249,13 @@ def finite_strain_j2_standard_problem(
 ) -> FiniteStrainJ2StandardProblem:
     """Build stateful finite-strain J2 under ordinary strong boundaries."""
 
+    selected_incrementation = step_controls.normalize(
+        incrementation,
+        inelastic_feedback=(
+            displacement.value.function_space.mesh.comm.size == 1
+            and isinstance(material, FiniteStrainJ2Logarithmic)
+        ),
+    )
     transaction = _finite_strain_j2_transaction(
         displacement,
         material,
@@ -4436,7 +4445,6 @@ def finite_strain_j2_standard_problem(
             )
     from .. import procedures
 
-    selected_incrementation = step_controls.normalize(incrementation)
     selected_output_factors = tuple(float(value) for value in output_factors)
     required_load_factors = _tabular_amplitude_load_knots(selected_amplitude)
     if isinstance(selected_incrementation, step_controls.FixedIncrementation):
@@ -4577,6 +4585,13 @@ def finite_strain_j2_affine_problem(
 
     from .. import problems
 
+    control = step_controls.normalize(
+        incrementation,
+        inelastic_feedback=(
+            displacement.value.function_space.mesh.comm.size == 1
+            and isinstance(material, FiniteStrainJ2Logarithmic)
+        ),
+    )
     if external_force is not None:
         raise NotImplementedError(
             "The first stateful affine J2 route accepts prescribed macroscopic "
@@ -4675,7 +4690,7 @@ def finite_strain_j2_affine_problem(
 
     def acceptance():
         limit = getattr(
-            step_controls.normalize(incrementation),
+            control,
             "maximum_inelastic_increment",
             None,
         )
@@ -4720,7 +4735,7 @@ def finite_strain_j2_affine_problem(
         solution,
         jacobian=jacobian,
         constraint=constraint,
-        incrementation=step_controls.normalize(incrementation),
+        incrementation=control,
         solver_options=selected_solver_options,
         output_every=output_every,
         output_factors=output_factors,
@@ -4728,6 +4743,7 @@ def finite_strain_j2_affine_problem(
         full_space_operators=contact_providers,
         checkpoint_policy=checkpoint_policy,
         acceptance_check=acceptance,
+        inelastic_increment_measure="maximum_plastic_increment",
         progress=progress,
         status_file=status_file,
         name=name,

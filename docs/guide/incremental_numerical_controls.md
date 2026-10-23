@@ -118,6 +118,64 @@ accepted internal-variable increment and can trigger a cutback. It is **not**
 an estimate of force, displacement or accumulated path error. Small Newton
 residuals and an accepted plastic-increment bound do not replace mesh/path
 refinement at common physical stations.
+
+### Accepted-material prediction (experimental, opt-in)
+
+Serial displacement-only finite-strain J2 Steps with one built-in material
+may cap the next automatic increment using the last accepted plastic increment:
+
+```python
+incrementation = steps.automatic(
+    initial=0.02, minimum=1e-5, maximum=0.1, max_increments=1000,
+    maximum_inelastic_increment=0.001,
+    inelastic_prediction_safety=0.8,
+)
+step = model.step(target=displacement, incrementation=incrementation)
+```
+
+Both ordinary strong boundaries and supported affine-periodic constraints use
+the same controller. If `h` is the accepted increment, `p` its maximum plastic
+increment, `L` the declared limit and `s` the safety fraction, the proposal is
+`max(minimum, min(Newton_proposal, h*s*L/p))`. For `p=0` it retains the ordinary
+Newton proposal. The cap never increases that proposal. The original hard
+acceptance check still applies to the next solve: prediction is lagged, does
+not foresee new contact or yielding, and cannot force acceptance at minimum.
+Loading knots, cutbacks, solver tolerances and the physical model are unchanged.
+
+The default is disabled, preserving existing policy summaries and checkpoint
+identities. Enabling prediction adds its versioned algorithm and safety to
+identity; affine restart also binds the named acceptance measure. Resume
+restores the saved next increment. Invalid/missing evidence is an error, and
+failed proposal finalization restores the joint accepted boundary. No accepted
+field or energy history may include that failed attempt. Existing custom
+two-argument iteration policies remain callable when prediction is disabled.
+
+Mixed displacement-pressure, regional materials, other material models and
+MPI are not admitted for this option yet. Capability inspection and execution
+reject unsupported requests; these restrictions do not apply to their existing
+non-predictive paths. Expert affine providers can explicitly name an
+`inelastic_increment_measure` in their `acceptance_check` record; its units and
+meaning must agree with the declared limit. That protocol is not automatic
+scientific validation of an external model.
+
+This reduces avoidable rejected work; it is not a force-error estimator or an
+explicit-dynamics stability bound. Compare reaction, plastic state, contact
+and work histories at common physical stations and refine the limit. A larger
+or smaller number of accepted increments is not itself an accuracy criterion.
+The design is informed by MOOSE's
+[lagged material timestep limit](https://mooseframework.inl.gov/source/postprocessors/MaterialTimeStepPostprocessor.html)
+and its combination with
+[iteration-based adaptation](https://mooseframework.inl.gov/source/timesteppers/IterationAdaptiveDT.html),
+not by a claim that another code's performance transfers to AgentFEM.
+
+The reproducible bounded comparison is
+`tools/benchmark_inelastic_prediction.py`; it retains failed records, a finite
+fixed-path reference, common stations, repeated fields, ABBA timing and source
+identity. It does not establish continuum convergence or energy closure of the
+Gaussian-contact diagnostic.
+
+### Solver and assembly policies
+
 Custom `NewtonSolverOptions.line_search_reduction` and `minimum_step_length`
 apply to AgentFEM's native Newton loops. The SNES adapter now refuses custom
 backtracking values rather than silently dropping them. Default SNES behavior

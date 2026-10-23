@@ -1551,6 +1551,7 @@ def solve_affine_nonlinear_path(
     on_trial_start=None,
     equilibrium_procedure=None,
     acceptance_check=None,
+    inelastic_increment_measure: str | None = None,
     state_transaction=None,
     full_space_operators=(),
     stop_factor: float = 1.0,
@@ -1600,6 +1601,12 @@ def solve_affine_nonlinear_path(
     control = step_controls.normalize(
         incrementation,
         load_factors=load_factors,
+        inelastic_feedback=(
+            callable(acceptance_check)
+            and isinstance(inelastic_increment_measure, str)
+            and bool(inelastic_increment_measure.strip())
+            and (solution.value if hasattr(solution, "value") else solution).function_space.mesh.comm.size == 1
+        ),
     )
     selected_stop = float(stop_factor)
     if not np.isfinite(selected_stop) or not 0.0 < selected_stop <= 1.0:
@@ -1878,10 +1885,12 @@ def solve_affine_nonlinear_path(
                 accepted_factor = factor
                 cutbacks = 0
                 if isinstance(control, step_controls.AutomaticIncrementation):
-                    proposed_size = control.after_convergence(
+                    proposed_size = step_controls._after_convergence(
+                        control,
                         accepted_size,
                         (iteration if equilibrium.adaptation_iterations is None
                          else equilibrium.adaptation_iterations),
+                        inelastic_increment=checks.get(inelastic_increment_measure),
                     )
                 if on_increment is not None:
                     _run_affine_acceptance_stage(

@@ -227,6 +227,7 @@ def finite_strain_j2(
         target=target,
         step_options={
             "material": material,
+            "incrementation": incrementation,
             # A builder default is not an explicit contact request. Do not
             # inject it into mixed/no-contact providers that correctly reject
             # contact options in their public Step contract.

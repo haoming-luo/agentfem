@@ -66,7 +66,7 @@ def periodic_field_equations(coordinates):
 
 
 def make_step(*, cells=4, degree=1, increments=16, penalty=40000., contact_degree=7,
-              yield_stress=2., bulk_degree=4):
+              yield_stress=2., bulk_degree=4, incrementation=None):
     if MPI.COMM_WORLD.size != 1:
         raise ValueError("This diagnostic is serial only.")
     if cells < 4 or cells % 4 or increments < 4 or increments % 4 or degree not in (1, 2):
@@ -92,7 +92,8 @@ def make_step(*, cells=4, degree=1, increments=16, penalty=40000., contact_degre
     return model.step(
         target=u, material=material, constraints=periodicity,
         quadrature_degree=bulk_degree, contact_quadrature_degree=contact_degree,
-        incrementation=steps.fixed(increments), progress=False, output_every=None,
+        incrementation=steps.fixed(increments) if incrementation is None else incrementation,
+        progress=False, output_every=None,
         solver_options=solvers.newton(relative_tolerance=1e-9, absolute_tolerance=1e-10,
                                       maximum_iterations=60, line_search="backtracking",
                                       linear_solver=solvers.direct_solver(package="mumps")),
