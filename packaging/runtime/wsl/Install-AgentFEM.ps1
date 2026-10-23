@@ -790,6 +790,9 @@ try {
         Write-Host "Image integrity verified." -ForegroundColor Green
     }
 
+    # Persist the resolved default before a possible UAC/restart handoff. A
+    # later Windows Documents redirection must not silently relocate projects.
+    $persistentProjects = Resolve-InstallProjectDirectory -RequestedPath $ProjectDirectory
     Save-InstallState -Stage "preparing_wsl"
     $installedWslVersion = Require-WslPlatform -Source $WslBootstrapSource
 
@@ -797,14 +800,6 @@ try {
     if (-not $requestedName) {
         throw "DistributionName must not be empty."
     }
-    if (-not $ProjectDirectory) {
-        $documents = [Environment]::GetFolderPath("MyDocuments")
-        if (-not $documents) {
-            $documents = Join-Path $env:USERPROFILE "Documents"
-        }
-        $ProjectDirectory = Join-Path $documents "AgentFEMProjects"
-    }
-    $persistentProjects = [System.IO.Path]::GetFullPath($ProjectDirectory)
     New-Item -ItemType Directory -Force -Path $persistentProjects | Out-Null
     Write-Host "User projects will persist outside WSL at: $persistentProjects" -ForegroundColor Green
     if ($Upgrade) {

@@ -67,6 +67,7 @@ try {
                     state_file = $path; stage = $record.stage
                     activity = $activity
                     identity = $record.identity; distribution = $record.distribution
+                    effective_project_directory = $record.effective_project_directory
                     updated_at = $record.updated_at; error_code = $record.error_code
                     message = $record.message; next_action = $nextAction
                     recorded_next_action = $record.next_action

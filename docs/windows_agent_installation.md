@@ -150,6 +150,12 @@ also excludes **different** packages that could target the same distribution.
 Never launch a second copy while one is progressing. Before resuming, the saved
 request identity must match and the installed runtime-release record must match
 the package's SHA-256. The same version string alone is not sufficient.
+For full-runtime installs the resolved project directory is also saved before
+platform preparation can request a restart. Resume reuses that destination even
+if Windows redirects Documents in the meantime. Status exposes it as
+`effective_project_directory`; explicit destinations must agree with it. Older
+records without that field resolve and save the destination on their next run;
+they cannot reconstruct a former default that was never recorded.
 
 Agents can read progress without launching WSL or modifying Windows:
 

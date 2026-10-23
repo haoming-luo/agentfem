@@ -59,8 +59,38 @@ function Initialize-InstallState {
         }
         $script:InstallState.distribution = $old.distribution
         $script:InstallState.linux_user = $old.linux_user
+        $script:InstallState.effective_project_directory = $old.effective_project_directory
     }
     $script:InstallStateOwned = $true
+}
+
+function Get-DefaultInstallProjectDirectory {
+    $documents = [Environment]::GetFolderPath('MyDocuments')
+    if (-not $documents) { $documents = Join-Path $env:USERPROFILE 'Documents' }
+    return (Join-Path $documents 'AgentFEMProjects')
+}
+
+function Resolve-InstallProjectDirectory {
+    param([string]$RequestedPath = '')
+    # A redirected Documents folder may change between a restart and resume.
+    # Keep the original effective default in state without changing request
+    # identity or rewriting the user's saved argv to a different request.
+    $saved = $script:InstallState.effective_project_directory
+    if ($null -ne $saved -and $saved -cne '') {
+        if (-not ($saved -is [string]) -or -not [IO.Path]::IsPathRooted($saved) -or
+            [IO.Path]::GetFullPath($saved) -cne $saved) {
+            throw '[AFM-WIN-STATE-PATH] The recorded project directory is not an absolute canonical path. Preserve the record for inspection.'
+        }
+        if ($RequestedPath -and [IO.Path]::GetFullPath($RequestedPath) -ine $saved) {
+            throw '[AFM-WIN-STATE-PATH] The recorded project directory conflicts with this installation request. No workspace was moved.'
+        }
+        return $saved
+    }
+    $selected = $RequestedPath
+    if (-not $selected) { $selected = Get-DefaultInstallProjectDirectory }
+    $selected = [IO.Path]::GetFullPath($selected)
+    $script:InstallState.effective_project_directory = $selected
+    return $selected
 }
 
 function Resolve-InstallPathParameters {

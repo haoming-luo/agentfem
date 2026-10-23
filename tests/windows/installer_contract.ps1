@@ -31,6 +31,30 @@ try {
     try { Resolve-InstallPathParameters -Parameters @{ProjectDirectory='Env:\TEMP'} }
     catch { $invalidProvider = $_.Exception.Message -match 'AFM-WIN-PATH-INVALID' }
     Assert $invalidProvider 'Non-filesystem path was accepted'
+    $firstDefault = Join-Path $temp 'original [Documents]'
+    $laterDefault = Join-Path $temp 'redirected [Documents]'
+    function Get-DefaultInstallProjectDirectory { return $firstDefault }
+    Initialize-InstallState -Identity @{version='path-test'; project_directory=''}
+    Assert ((Resolve-InstallProjectDirectory) -eq $firstDefault) 'Default project directory was not resolved'
+    Save-InstallState -Stage 'restart_required'
+    $script:InstallLock.Dispose()
+    function Get-DefaultInstallProjectDirectory { return $laterDefault }
+    Initialize-InstallState -Identity @{version='path-test'; project_directory=''}
+    Assert ((Resolve-InstallProjectDirectory) -eq $firstDefault) 'Resume followed a changed Documents folder instead of its recorded destination'
+    Assert (-not (Test-Path -LiteralPath $firstDefault) -and -not (Test-Path -LiteralPath $laterDefault)) 'Path selection created workspace directories before approval'
+    $badPathRejected = $false
+    try { Resolve-InstallProjectDirectory -RequestedPath $laterDefault | Out-Null }
+    catch { $badPathRejected = $_.Exception.Message -match 'AFM-WIN-STATE-PATH' }
+    Assert $badPathRejected 'A conflicting recorded workspace was silently selected'
+    $script:InstallState.effective_project_directory = '.\relative'
+    $badPathRejected = $false
+    try { Resolve-InstallProjectDirectory | Out-Null }
+    catch { $badPathRejected = $_.Exception.Message -match 'AFM-WIN-STATE-PATH' }
+    Assert $badPathRejected 'Relative saved workspace could change across resume'
+    $pathTestDirectory = $script:InstallStateDirectory
+    $script:InstallLock.Dispose()
+    # Isolate the following inventory assertions from this additional record.
+    Remove-Item -LiteralPath $pathTestDirectory -Recurse -Force
     Initialize-InstallState -Identity @{version='test'; image_sha256='abc'}
     $script:InstallState.distribution = 'AgentFEM-test'
     Save-InstallState -Stage 'importing'
