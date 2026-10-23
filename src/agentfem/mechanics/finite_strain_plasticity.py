@@ -1463,7 +1463,12 @@ class FiniteStrainJ2StandardProblem:
             provider.restore_runtime_state(saved)
 
     def checkpoint_capabilities(self) -> checkpointing.CheckpointCapabilities:
-        prediction = getattr(self.incrementation, "inelastic_prediction_safety", None) is not None
+        # Capability discovery also inspects a procedure before its numerical
+        # state is constructed. Optional controls must not require assembly just
+        # to describe the ordinary checkpoint contract.
+        prediction = getattr(
+            getattr(self, "incrementation", None), "inelastic_prediction_safety", None
+        ) is not None
         return checkpointing.CheckpointCapabilities(
             schemas=(
                 "agentfem.finite-strain-j2-standard-checkpoint.v2",
