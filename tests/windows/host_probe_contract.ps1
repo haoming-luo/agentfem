@@ -62,8 +62,13 @@ try {
     $report = Get-AgentFEMWindowsHostReport
     Assert ($report.status -eq 'wsl1_only') 'Existing WSL1 not preserved for user decision'
     Set-Inventory '' 'NAME STATE VERSION'
+    $script:responses['--list --verbose'] = @{ok=$false; code='AFM-WIN-PROBE-FAILED'; exit_code=-1; stdout=''; stderr='Wsl/WSL_E_DEFAULT_DISTRO_NOT_FOUND'}
     $report = Get-AgentFEMWindowsHostReport
     Assert ($report.status -eq 'no_distribution') 'Empty successful inventory misclassified'
+    Assert ($script:calls.Count -eq 3) 'Empty inventory still invoked failing verbose list'
+    $script:responses['--status'] = Ok 'Virtualisation warning with success exit'
+    $report = Get-AgentFEMWindowsHostReport
+    Assert ($report.platform_status_text -match 'warning' -and -not $report.virtual_machine_verified) 'Status warning disappeared or VM was certified from exit zero'
     Set-Inventory 'Ubuntu' 'NAME STATE VERSION'
     $report = Get-AgentFEMWindowsHostReport
     Assert ($report.errors[0].code -eq 'AFM-WIN-DISTRO-INVENTORY') 'Inconsistent inventory accepted'

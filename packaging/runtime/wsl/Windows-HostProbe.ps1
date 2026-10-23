@@ -97,6 +97,7 @@ function Get-AgentFEMWindowsHostReport {
         route=$Route; status='unknown'; next_action='inspect_probe_error'
         architecture=$env:PROCESSOR_ARCHITEW6432
         wsl_command=$null; wsl_version=$null; distributions=@(); probes=@(); errors=@()
+        platform_status_text=''; virtual_machine_verified=$false
         distribution_started=$false; runtime_verified=$false; changes_made=$false
     }
     if (-not $report.architecture) { $report.architecture = $env:PROCESSOR_ARCHITECTURE }
@@ -114,7 +115,11 @@ function Get-AgentFEMWindowsHostReport {
         return $report
     }
     $report.wsl_command = $command.Source
+    $names = @(); $verboseLines = @()
     foreach ($arguments in @('--version', '--status', '--list --quiet', '--list --verbose')) {
+        # Microsoft's verbose list raises DEFAULT_DISTRO_NOT_FOUND for an
+        # empty inventory; the quiet list legitimately returns an empty list.
+        if ($arguments -eq '--list --verbose' -and $names.Count -eq 0) { continue }
         $probe = Invoke-WslHostProbe -Executable $command.Source -Arguments $arguments -TimeoutSeconds $TimeoutSeconds
         $report.probes += @{arguments=$arguments; exit_code=$probe.exit_code; code=$probe.code}
         if (-not $probe.ok) {
@@ -137,6 +142,13 @@ function Get-AgentFEMWindowsHostReport {
             return $report
         }
         switch ($arguments) {
+            '--status' {
+                # WSL can print virtualisation warnings yet exit zero. Keep
+                # its evidence without pretending inventory verifies the VM.
+                $detail = ($probe.stdout + "`n" + $probe.stderr).Trim()
+                if ($detail.Length -gt 8192) { $detail = $detail.Substring(0, 8192) }
+                $report.platform_status_text = $detail
+            }
             '--version' {
                 $match = [regex]::Match($probe.stdout, '(?m)^\s*WSL[^\r\n\d]*(\d+\.\d+\.\d+(?:\.\d+)?)')
                 if (-not $match.Success) {

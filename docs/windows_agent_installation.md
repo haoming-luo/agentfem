@@ -91,6 +91,11 @@ stable WSL error names report `component_required`; generic failures remain
 unknown rather than triggering reinstallation. Platform preparation uses its
 existing consent/restart path for those known component failures, then checks
 status again. It does not alter firmware, convert distributions or reboot.
+The raw `platform_status_text` is retained because WSL may print a virtualisation
+warning while returning success. `virtual_machine_verified` remains false:
+neither status nor inventory substitutes for launching the selected WSL2 distro.
+An empty successful quiet inventory skips the verbose query (which WSL rejects
+when there is no default distribution); it is not treated as a broken install.
 It never launches a distribution or changes Windows. Each read-only command
 has a 15-second timeout (configurable with `-TimeoutSeconds`); a failed command
 stops the probe sequence, not triggers another launcher. It reports
