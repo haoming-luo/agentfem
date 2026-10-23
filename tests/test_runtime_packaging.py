@@ -90,7 +90,7 @@ def test_windows_installer_defaults_to_side_by_side_without_overwrite():
     assert '"--install", "--no-distribution"' in installer
     assert "Invoke-ElevatedWslCommand" in installer
     assert "AFM-WIN-RESTART-REQUIRED" in installer
-    assert "AFM-WIN-WINDOWS-TOO-OLD" in installer
+    assert "AFM-WIN-WSL-COMMAND-MISSING" in installer
     assert "AFM-WIN-ARCH-UNSUPPORTED" in installer
     assert 'nativeArchitecture -ne "AMD64"' in installer
     assert "@IMAGE_FILENAME@" in installer

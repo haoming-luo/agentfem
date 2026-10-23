@@ -9,6 +9,7 @@ param(
     [string]$BackupDirectory = "",
     [switch]$RemoveBackupAfterSuccess,
     [switch]$NonInteractive,
+    [switch]$PrepareWslOnly,
     [ValidateSet("Auto", "Web", "Store", "None")]
     [string]$WslBootstrapSource = "Auto"
 )
@@ -147,9 +148,10 @@ function Require-WslPlatform {
     $wslCommand = Get-Command wsl.exe -ErrorAction SilentlyContinue
     if (-not $wslCommand) {
         throw (
-            "[AFM-WIN-WINDOWS-TOO-OLD] Windows does not provide wsl.exe. " +
-            "AgentFEM requires Windows 10 version 2004 (build 19041) or newer, " +
-            "or Windows 11. Update Windows, then run this installer again."
+            "[AFM-WIN-WSL-COMMAND-MISSING] This session cannot resolve wsl.exe. " +
+            "Check the Windows WSL component and the host's command permissions. " +
+            "Do not infer an unsupported Windows version from this alone. " +
+            "Use Microsoft's supported WSL installation route, then retry."
         )
     }
 
@@ -674,20 +676,40 @@ function Complete-NewInstallation {
 
 $exitCode = 0
 try {
-    Initialize-InstallState -Identity @{
-        image_sha256 = $ExpectedSha256
-        runtime_record_sha256 = $ExpectedRuntimeRecordSha256
-        version = $RuntimeVersion
-        distribution = $DistributionName
-        install_location = $InstallLocation
-        project_directory = $ProjectDirectory
-        upgrade = [bool]$Upgrade
+    if ($PrepareWslOnly) {
+        # Also usable from a source checkout for Ubuntu + mirror users. No
+        # unpublished Complete Runtime image or scientific Python is required.
+        Initialize-InstallState -Identity @{operation='prepare_wsl_platform'; architecture='x86_64'}
+    } else {
+        Initialize-InstallState -Identity @{
+            image_sha256 = $ExpectedSha256
+            runtime_record_sha256 = $ExpectedRuntimeRecordSha256
+            version = $RuntimeVersion
+            distribution = $DistributionName
+            install_location = $InstallLocation
+            project_directory = $ProjectDirectory
+            upgrade = [bool]$Upgrade
+        }
     }
     Start-Transcript -Path (Join-Path $script:InstallStateDirectory "install.log") -Append | Out-Null
     $script:TranscriptStarted = $true
+    $script:InstallState.bootstrap_source = $WslBootstrapSource
+    if ($PrepareWslOnly) {
+        if ($Upgrade -or $InstallLocation -or $ProjectDirectory) {
+            throw '[AFM-WIN-OPTION-CONFLICT] Platform-only preparation does not install or upgrade an AgentFEM distribution. Remove distribution-install options.'
+        }
+        Save-InstallState -Stage 'preparing_wsl'
+        $platformVersion = Require-WslPlatform -Source $WslBootstrapSource
+        $script:InstallState.wsl_version = $platformVersion.ToString()
+        Save-InstallState -Stage 'platform_ready'
+        Write-Host 'WSL platform prepared. AgentFEM is not installed by this operation.' -ForegroundColor Green
+        Write-Host 'Reuse an existing WSL2 Ubuntu or install the named Ubuntu distribution, then follow INSTALL.md for the mirror environment.'
+        exit 0
+    }
     if ($NonInteractive -and $Upgrade) {
         throw '[AFM-WIN-UPGRADE-INTERACTIVE] Replacement upgrades require an attended terminal. No distribution was changed.'
     }
+    Save-InstallState -Stage 'checking_package'
 
     foreach ($requiredFile in @($Image, (Join-Path $PSScriptRoot "verify_installed_runtime.py"))) {
         if (-not (Test-Path -LiteralPath $requiredFile -PathType Leaf)) {

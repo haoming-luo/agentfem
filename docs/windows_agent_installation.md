@@ -30,6 +30,24 @@ For a new machine, choose one route and retain it after reboot:
 | Published Complete Runtime bundle | Bundled installer prepares WSL **without** a separate Ubuntu download | Imports the verified local `.wsl` image; no conda solve |
 | Ubuntu + documented mirror | Microsoft `wsl --install -d Ubuntu`; user approves platform changes and required restart | Reuse/install Miniforge from its verified distribution, then use the one-mirror command in INSTALL.md |
 
+For the Ubuntu/mirror route, an agent may prepare just the WSL platform through
+the same tested elevation/restart policy (no runtime image or Python needed):
+
+```powershell
+powershell.exe -NoProfile -File .\packaging\runtime\wsl\Install-AgentFEM.ps1 -PrepareWslOnly -WslBootstrapSource Store
+```
+
+Use that path from a verified source checkout; in an extracted bundle use
+`.\Install-AgentFEM.ps1` instead. Keep `Installer-State.ps1` beside the installer.
+Use `-NonInteractive` if the host has no interactive console. This operation
+does **not** install Ubuntu, AgentFEM or change existing distro contents. Its
+successful state is `platform_ready`, not `completed`. After any required reboot,
+rerun it with the same options. The agent then inspects `wsl --list --verbose`,
+reuses an appropriate WSL2 distro, or installs the named Ubuntu only if absent.
+Opening Ubuntu for its initial username/password is a one-time user step;
+afterwards the agent continues with the documented mirror commands. Do not
+convert/remove an existing WSL1 or unrelated distro automatically.
+
 The warning against bare `wsl --install` applies to the Complete Runtime route;
 it is **not** a claim that Microsoft's default Ubuntu is unrelated to the
 Ubuntu/mirror route. Do not invent a candidate package or a mirror download URL

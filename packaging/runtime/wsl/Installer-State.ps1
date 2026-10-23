@@ -70,6 +70,7 @@ function Save-InstallState {
         'awaiting_authorization' { 'request_host_approval_or_user_launch' }
         'account_setup' { 'user_enters_linux_credentials_in_local_terminal' }
         'completed' { 'use_verified_runtime' }
+        'platform_ready' { 'reuse_or_install_named_distribution_then_mirror_environment' }
         'failed' { 'inspect_error_and_log_before_retry' }
         default { 'wait_for_current_installer' }
     }
