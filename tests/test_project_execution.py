@@ -564,3 +564,32 @@ def test_series_storage_close_failure_remains_explicit(tmp_path, monkeypatch):
         assert not series.path.with_suffix('.json').exists()
     finally:
         original_exit(RuntimeError, RuntimeError('failed storage'), None)
+
+
+@pytest.mark.parametrize("storage", ["single_file", "frame_files"])
+def test_series_invalid_metadata_still_closes_accepted_fields(tmp_path, monkeypatch, storage):
+    from agentfem import results
+    from test_response_material_step import make_step
+    from meshio.xdmf import TimeSeriesReader
+
+    series = results.AcceptedResponseSeries(tmp_path / 'invalid-metadata.xdmf', storage=storage)
+    series.write(make_step())
+    original_exit = series._writer.__exit__
+    closed = []
+    def close_once(*args):
+        closed.append(True)
+        return original_exit(*args)
+    monkeypatch.setattr(series._writer, '__exit__', close_once)
+    series.units['invalid'] = float('nan')
+    with pytest.raises(ValueError):
+        series.close()
+    assert closed == [True]
+    assert series.artifacts() == {}
+    assert not series.path.with_suffix('.json').exists()
+    with pytest.raises(RuntimeError, match='AFM-FRAMES-CLOSE-FAILED'):
+        series.close()
+    assert closed == [True]
+    with TimeSeriesReader(series.path) as reader:
+        reader.read_points_cells()
+        assert reader.num_steps == 1
+        reader.read_data(0)

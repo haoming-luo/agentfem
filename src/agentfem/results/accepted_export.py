@@ -177,22 +177,26 @@ class AcceptedResponseSeries:
             self._closed = True
             self._close_complete = bool(complete)
             try:
-                if self.stations:
-                    # Freeze small metadata before closing; aliases must not
-                    # change the description of already-written frames on retry.
-                    self._pending_metadata = json.dumps({
-                        "schema": "agentfem.accepted-response-series.v1", "complete": bool(complete),
-                        "restart_archive": False, "scientifically_validated": False,
-                        "storage": self.storage,
-                        "stations": self.stations, "units": self.units,
-                        "state_schema": self._identity[0], "state_fields": self._identity[1],
-                        "location": self._identity[2], "stress_measure": self._identity[3],
-                    }, indent=2, allow_nan=False) + '\n'
-                if self._writer is not None:
+                try:
                     if self.stations:
-                        self._writer.__exit__(None, None, None)
-                    else:
-                        self._writer.__exit__(RuntimeError, RuntimeError("No accepted frames"), None)
+                        # Freeze small metadata before closing; aliases must not
+                        # change the description of written frames on retry.
+                        self._pending_metadata = json.dumps({
+                            "schema": "agentfem.accepted-response-series.v1", "complete": bool(complete),
+                            "restart_archive": False, "scientifically_validated": False,
+                            "storage": self.storage,
+                            "stations": self.stations, "units": self.units,
+                            "state_schema": self._identity[0], "state_fields": self._identity[1],
+                            "location": self._identity[2], "stress_measure": self._identity[3],
+                        }, indent=2, allow_nan=False) + '\n'
+                finally:
+                    # Invalid small metadata must not leak an open HDF5 handle
+                    # or prevent already accepted fields from being closed.
+                    if self._writer is not None:
+                        if self.stations:
+                            self._writer.__exit__(None, None, None)
+                        else:
+                            self._writer.__exit__(RuntimeError, RuntimeError("No accepted frames"), None)
             except BaseException as error:
                 # Do not retain a traceback and the large solver state it may
                 # reference. Preserve the original exception for this caller.
