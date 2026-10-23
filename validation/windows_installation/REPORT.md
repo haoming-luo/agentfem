@@ -102,6 +102,17 @@ verification passed. That verifies command usability, not a newly installed
 Windows build or broad scientific validation. No installation-speed claim is
 made, and no published runtime bundle has been rebuilt.
 
+Final implementation checkpoint `96e2525e`: both Windows PowerShell contract
+jobs passed, including source-only platform entry, preserved resume arguments,
+and denied WSL probe handling:
+https://github.com/haoming-luo/agentfem/actions/runs/39890900292
+Documentation CI also passed:
+https://github.com/haoming-luo/agentfem/actions/runs/39890900164
+A local strict documentation build passed into a temporary directory; existing
+`site/` output in the simulation checkout was not touched. The broader Test
+workflow was still running when this evidence was recorded; no full-suite pass
+is claimed.
+
 The remaining customer gate is still a clean Windows/WorkBuddy run with real
 UAC, reboot and account setup, plus network-route availability. Source changes
 and mocked Windows tests do not remove that gate.
