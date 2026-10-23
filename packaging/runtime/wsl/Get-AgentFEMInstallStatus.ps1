@@ -13,7 +13,8 @@ try {
                 [IO.FileAccess]::Read, [IO.FileShare]::None)
             $probe.Dispose()
         } catch [IO.IOException] {
-            if (([int64]$_.Exception.HResult -band 65535) -in @(32, 33)) {
+            $exception = $_.Exception.GetBaseException()
+            if (([int64]$exception.HResult -band 65535) -in @(32, 33)) {
                 $busy = $true
             } else {
                 # Missing/corrupt/unreadable storage is not a live installer.
