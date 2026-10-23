@@ -75,9 +75,13 @@ or unrestricted agent permissions are prerequisites imposed by AgentFEM.
 
 1. Inspect Windows architecture, WSL availability and existing distributions with
    the host's supported tools. In WorkBuddy use its PowerShell tool directly.
-2. Download and extract the official compatible bundle; verify its digest.
-   Prepare the installer before requesting any user action.
-3. Invoke Install-AgentFEM.ps1 in the allowed PowerShell tool. The installer
+2. Retain the selected route. For Complete Runtime, obtain the official
+   compatible bundle and verify its digest. For Ubuntu/mirror, reuse the
+   existing environment or prepare WSL as described above; no runtime bundle
+   is required. Prepare the relevant installer before requesting user action.
+3. When using Install-AgentFEM.ps1, invoke it in the allowed PowerShell tool
+   with the selected route options (`-PrepareWslOnly` for platform-only work).
+   The installer
    requests administrator approval only for WSL preparation/update. Never ask
    for manual commands merely because the current shell is non-admin.
    For a tool without an interactive console, add `-NonInteractive`. It performs
@@ -86,7 +90,9 @@ or unrestricted agent permissions are prerequisites imposed by AgentFEM.
    the same identity/state is reused. This mode rejects replacement upgrades.
 4. If WorkBuddy blocks wsl.exe, request its authorised allowlist/approval. If
    elevation is explicitly blocked, explain that exact blocker and ask the user
-   to open the extracted Install-AgentFEM.cmd. Do not change shells or APIs to
+   to run the same trusted installer/options in their local terminal. The
+   extracted Install-AgentFEM.cmd is for the Complete Runtime route only.
+   Do not change shells or APIs to
    bypass policy. The CMD launcher is for human use, not a sandbox escape.
 5. If restart is required, preserve the package and installation record; ask the
    user to save their work and restart. On session recovery read status.json,
@@ -95,7 +101,9 @@ or unrestricted agent permissions are prerequisites imposed by AgentFEM.
 6. Complete the ordinary account prompt with the user entering their password.
    Never request passwords in chat or recommend routine root use.
 7. Require project protection, runtime identity/doctor and the installed
-   fresh-cache solve check. Report the actual distribution/version and results.
+   first-solve check. The bundle runs its fresh-cache acceptance check;
+   Ubuntu/mirror users use INSTALL.md's installed-template check. Report the
+   actual distribution/version and results, not just platform readiness.
 
 ## State and failure handling
 
