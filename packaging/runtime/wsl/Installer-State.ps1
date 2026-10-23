@@ -107,9 +107,12 @@ function Save-InstallState {
     $temporary = "$path.tmp"
     $script:InstallState | ConvertTo-Json -Depth 6 | Set-Content -Encoding UTF8 -LiteralPath $temporary
     if (Test-Path -LiteralPath $path) {
-        # PS 5.1 binds $null to an empty string for this .NET string argument.
-        # A real backup path works in both 5.1 and 7 and preserves prior evidence.
-        [IO.File]::Replace($temporary, $path, "$path.previous")
+        # A fixed .previous name races with a reader holding an older snapshot
+        # across multiple publications. Use the API's no-backup atomic replace;
+        # NullString passes an actual null string even on Windows PowerShell 5.1.
+        # Existing .previous files are left untouched; the transcript retains
+        # the diagnostic history, not a repeatedly overwritten backup inode.
+        [IO.File]::Replace($temporary, $path, [System.Management.Automation.Language.NullString]::Value)
     } else { [IO.File]::Move($temporary, $path) }
 }
 
