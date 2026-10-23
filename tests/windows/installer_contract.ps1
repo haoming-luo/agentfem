@@ -49,6 +49,13 @@ try {
     $report = (& $statusScript -StateRoot $stateRoot | Out-String) | ConvertFrom-Json
     Assert ($report.installer_busy -and -not $report.runtime_probed) 'Read-only status lost busy state'
     $script:InstallLock.Dispose()
+    $statePath = Join-Path $script:InstallStateDirectory 'status.json'
+    $beforeStatus = (Get-FileHash -LiteralPath $statePath -Algorithm SHA256).Hash
+    $report = (& $statusScript -StateRoot $stateRoot | Out-String) | ConvertFrom-Json
+    Assert ($report.installations[0].activity -eq 'interrupted') 'Unlocked import was presented as still running'
+    Assert ($report.installations[0].next_action -eq 'inspect_log_then_resume_same_installer') 'Interrupted agent would wait forever'
+    Assert ($report.installations[0].recorded_next_action -eq 'wait_for_current_installer') 'Historical next action was lost'
+    Assert ((Get-FileHash -LiteralPath $statePath -Algorithm SHA256).Hash -eq $beforeStatus) 'Read-only inference rewrote saved evidence'
     Initialize-InstallState -Identity @{version='test'; image_sha256='abc'}
     Assert ($script:InstallState.distribution -eq 'AgentFEM-test') 'Resume lost imported distribution'
     Save-InstallState -Stage 'restart_required'
@@ -57,6 +64,8 @@ try {
     Assert ($state.stage -eq 'completed') 'Atomic replacement failed'
     Assert ($state.next_action -eq 'use_verified_runtime') 'Agent next action absent'
     $script:InstallLock.Dispose()
+    $report = (& $statusScript -StateRoot $stateRoot | Out-String) | ConvertFrom-Json
+    Assert ($report.installations[0].activity -eq 'completed_record' -and -not $report.runtime_probed) 'Historical completion was presented as fresh verification'
     # A syntactically valid but foreign record must not authorise reuse either.
     $statePath = Join-Path $script:InstallStateDirectory 'status.json'
     $state.identity.version = 'tampered'
@@ -104,6 +113,26 @@ try {
     }
     $completeImplementation = ${function:Complete-NewInstallation}
     $identityImplementation = ${function:Test-AgentFEMBuildIdentity}
+    $invokeCheckedImplementation = ${function:Invoke-WslChecked}
+    $Image = Join-Path $temp 'image [trial].wsl'
+    Set-Content -LiteralPath $Image -Value 'inert test image'
+    function Invoke-WslChecked {
+        param($Arguments, $FailureMessage)
+        Assert ($Arguments[2] -eq (Resolve-Path -LiteralPath $Image).Path) 'Import path was globbed or split'
+        $script:importProbeCalls++
+    }
+    $script:importProbeCalls = 0
+    Install-AgentFEMDistribution -Name 'AgentFEM-test'
+    Assert ($script:importProbeCalls -eq 1) 'Literal bracketed image did not reach import adapter'
+    $occupied = Join-Path $temp '[occupied]'
+    New-Item -ItemType Directory -Path $occupied | Out-Null
+    Set-Content -LiteralPath (Join-Path $occupied 'precious.txt') -Value 'user data'
+    $nonemptyRejected = $false
+    try { Install-AgentFEMDistribution -Name 'AgentFEM-test' -Location $occupied }
+    catch { $nonemptyRejected = $_.Exception.Message -match 'must be empty' }
+    Assert ($nonemptyRejected -and $script:importProbeCalls -eq 1) 'Bracketed occupied directory was not rejected before import'
+    Assert ((Get-Content -LiteralPath (Join-Path $occupied 'precious.txt')) -eq 'user data') 'Occupied path was changed'
+    ${function:Invoke-WslChecked} = $invokeCheckedImplementation
     function wsl.exe { $global:LASTEXITCODE = 0; return 'Kernel version: 5.15.0' }
     $wrongVersion = $false
     try { Get-InstalledWslVersion | Out-Null }

@@ -166,6 +166,10 @@ omit only `-NonInteractive`; if the package moved, verify its identity before
 substituting the new installer path. The query does not prove the environment is
 healthy (`runtime_probed: false`) and does not authorise installation. A stale
 `preparing_wsl` record with no lock is interrupted, not necessarily still running.
+The status query reports `activity: interrupted` and an inspect/resume action
+for an unfinished stage with no busy lock or recorded handoff. It preserves
+`recorded_next_action` and never rewrites the saved evidence. When the shared
+lock is busy, it does not guess which saved record owns that installer.
 Inspect the log and resume the same verified installer/options; do not delete
 the record or distribution to make the status look clean. Keep corrupt records
 for diagnosis; the query exits nonzero if any record cannot be read.

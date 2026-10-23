@@ -261,13 +261,13 @@ function Install-AgentFEMDistribution {
 
     $arguments = @(
         "--install",
-        "--from-file", (Resolve-Path $Image).Path,
+        "--from-file", (Resolve-Path -LiteralPath $Image).Path,
         "--name", $Name,
         "--no-launch"
     )
     if ($Location) {
         $resolvedLocation = [System.IO.Path]::GetFullPath($Location)
-        if ((Test-Path $resolvedLocation) -and (Get-ChildItem -Force $resolvedLocation | Select-Object -First 1)) {
+        if ((Test-Path -LiteralPath $resolvedLocation) -and (Get-ChildItem -Force -LiteralPath $resolvedLocation | Select-Object -First 1)) {
             throw "InstallLocation must be empty: $resolvedLocation"
         }
         New-Item -ItemType Directory -Force -Path $resolvedLocation | Out-Null
@@ -513,7 +513,7 @@ function Upgrade-AgentFEMDistribution {
         created_at = (Get-Date).ToUniversalTime().ToString("o")
         full_backup = $fullBackup
         home_backup = $homeBackup
-    } | ConvertTo-Json | Set-Content -Encoding UTF8 $transactionRecord
+    } | ConvertTo-Json | Set-Content -Encoding UTF8 -LiteralPath $transactionRecord
 
     try {
         # The new scientific runtime must work before the old installation is touched.
@@ -596,7 +596,7 @@ function Upgrade-AgentFEMDistribution {
             doctor = "passed"
             projects_restored = $true
             persistent_projects = $Projects
-        } | ConvertTo-Json | Set-Content -Encoding UTF8 $transactionRecord
+        } | ConvertTo-Json | Set-Content -Encoding UTF8 -LiteralPath $transactionRecord
 
         Write-Host "AgentFEM was upgraded in place to $RuntimeVersion." -ForegroundColor Green
         Write-Host "Projects and user settings were restored for '$oldUser'." -ForegroundColor Green
@@ -607,7 +607,7 @@ function Upgrade-AgentFEMDistribution {
         }
         if ($RemoveBackupAfterSuccess) {
             try {
-                Remove-Item -Force $fullBackup, $homeBackup
+                Remove-Item -Force -LiteralPath $fullBackup, $homeBackup
                 Write-Host "Successful-upgrade backups were removed as requested."
             } catch {
                 Write-Warning "Upgrade succeeded, but recovery files could not be removed: $($_.Exception.Message)"
@@ -619,7 +619,7 @@ function Upgrade-AgentFEMDistribution {
     } catch {
         $failure = $_
         Write-Warning "Upgrade did not complete: $($failure.Exception.Message)"
-        if ($oldRemoved -and (Test-Path $fullBackup)) {
+        if ($oldRemoved -and (Test-Path -LiteralPath $fullBackup)) {
             Write-Warning "Restoring the previous AgentFEM distribution from its complete backup..."
             $registered = Get-WslDistributions
             if ($registered -contains $Name) {
@@ -643,7 +643,7 @@ function Upgrade-AgentFEMDistribution {
                 full_backup = $fullBackup
                 home_backup = $homeBackup
                 error = $failure.Exception.Message
-            } | ConvertTo-Json | Set-Content -Encoding UTF8 $transactionRecord
+            } | ConvertTo-Json | Set-Content -Encoding UTF8 -LiteralPath $transactionRecord
             Write-Warning "The previous AgentFEM runtime was restored. Backup retained at '$transactionDirectory'."
         }
         $registered = Get-WslDistributions
@@ -662,7 +662,7 @@ function Upgrade-AgentFEMDistribution {
                 full_backup = $fullBackup
                 home_backup = $homeBackup
                 error = $failure.Exception.Message
-            } | ConvertTo-Json | Set-Content -Encoding UTF8 $transactionRecord
+            } | ConvertTo-Json | Set-Content -Encoding UTF8 -LiteralPath $transactionRecord
         }
         throw $failure
     }
@@ -742,7 +742,7 @@ try {
             upgrade = [bool]$Upgrade
         }
     }
-    Start-Transcript -Path (Join-Path $script:InstallStateDirectory "install.log") -Append | Out-Null
+    Start-Transcript -LiteralPath (Join-Path $script:InstallStateDirectory "install.log") -Append | Out-Null
     $script:TranscriptStarted = $true
     Set-InstallResumeInvocation -InstallerPath $PSCommandPath -Parameters $PSBoundParameters
     $script:InstallState.bootstrap_source = $WslBootstrapSource
@@ -782,7 +782,7 @@ try {
 
 
     if ($ExpectedSha256) {
-        $actual = (Get-FileHash -Algorithm SHA256 $Image).Hash.ToLowerInvariant()
+        $actual = (Get-FileHash -Algorithm SHA256 -LiteralPath $Image).Hash.ToLowerInvariant()
         if ($actual -ne $ExpectedSha256.ToLowerInvariant()) {
             throw "[AFM-WIN-PACKAGE-CHECKSUM] SHA-256 mismatch. Expected $ExpectedSha256, received $actual."
         }
@@ -824,7 +824,11 @@ try {
     Write-Host $message -ForegroundColor Red
     if ($script:InstallStateDirectory) { Write-Host "Installation records: $script:InstallStateDirectory" }
 } finally {
-    if ($script:TranscriptStarted) { Stop-Transcript | Out-Null }
-    if ($script:InstallLock) { $script:InstallLock.Dispose() }
+    try {
+        if ($script:TranscriptStarted) { Stop-Transcript | Out-Null }
+    } finally {
+        # Even a transcript/storage failure must release the process-owned lock.
+        if ($script:InstallLock) { $script:InstallLock.Dispose() }
+    }
 }
 exit $exitCode

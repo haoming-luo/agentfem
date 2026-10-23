@@ -10,7 +10,7 @@ $originalWow = $env:PROCESSOR_ARCHITEW6432
 $originalPath = $env:PATH
 $originalMode = $env:AGENTFEM_WSL_FIXTURE_MODE
 $originalLog = $env:AGENTFEM_WSL_FIXTURE_LOG
-$temp = Join-Path ([IO.Path]::GetTempPath()) ('AgentFEM platform ' + [guid]::NewGuid().ToString())
+$temp = Join-Path ([IO.Path]::GetTempPath()) ('AgentFEM [platform] ' + [char]0x6d4b + ' ' + [guid]::NewGuid().ToString())
 function Assert($Condition, $Message) { if (-not $Condition) { throw $Message } }
 try {
     New-Item -ItemType Directory -Path $temp | Out-Null
@@ -68,7 +68,7 @@ try {
     $env:LOCALAPPDATA = $originalLocal
     $env:PROCESSOR_ARCHITECTURE = $originalArch
     $env:PROCESSOR_ARCHITEW6432 = $originalWow
-    Remove-Item -Recurse -Force $temp -ErrorAction SilentlyContinue
+    Remove-Item -LiteralPath $temp -Recurse -Force -ErrorAction SilentlyContinue
 }
 # Expected failing installer calls above set LASTEXITCODE. Do not let the CI
 # shell mistake that asserted failure for a failure of the test harness itself.

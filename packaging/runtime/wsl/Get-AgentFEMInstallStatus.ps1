@@ -33,11 +33,27 @@ try {
                     $null -eq $record.identity -or -not ($record.stage -is [string])) {
                     throw 'Unsupported installation state schema.'
                 }
+                $activity = 'recorded'
+                $nextAction = $record.next_action
+                if ($busy) {
+                    # The lock is per user, not per record: do not pretend all
+                    # saved packages belong to the currently running installer.
+                    $activity = 'not_inferred_while_installer_busy'
+                } elseif ($record.stage -in @('completed', 'platform_ready')) {
+                    $activity = 'completed_record'
+                } elseif (-not $record.error_code -and $record.stage -in @(
+                    'created', 'preparing_wsl', 'requesting_elevation', 'importing',
+                    'account_setup', 'protecting_workspace', 'verifying_runtime')) {
+                    $activity = 'interrupted'
+                    $nextAction = 'inspect_log_then_resume_same_installer'
+                }
                 $records += [pscustomobject]@{
                     state_file = $path; stage = $record.stage
+                    activity = $activity
                     identity = $record.identity; distribution = $record.distribution
                     updated_at = $record.updated_at; error_code = $record.error_code
-                    message = $record.message; next_action = $record.next_action
+                    message = $record.message; next_action = $nextAction
+                    recorded_next_action = $record.next_action
                     interrupted_stage = $record.interrupted_stage
                     resume = $record.resume
                     installer = $record.installer; acceptance_report = $record.acceptance_report
