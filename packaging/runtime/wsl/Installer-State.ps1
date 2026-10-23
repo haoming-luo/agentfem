@@ -1,4 +1,17 @@
 # Installation state belongs to the invoking Windows user, not the elevated helper.
+function ConvertTo-InstallIdentityJson {
+    param([Parameter(Mandatory = $true)]$Identity)
+    $ordered = [ordered]@{}
+    if ($Identity -is [System.Collections.IDictionary]) {
+        foreach ($key in ($Identity.Keys | Sort-Object)) { $ordered[$key] = $Identity[$key] }
+    } else {
+        foreach ($property in ($Identity.PSObject.Properties | Sort-Object Name)) {
+            $ordered[$property.Name] = $property.Value
+        }
+    }
+    return ($ordered | ConvertTo-Json -Compress -Depth 6)
+}
+
 function Initialize-InstallState {
     param([Parameter(Mandatory = $true)][hashtable]$Identity)
     $canonical = ($Identity.GetEnumerator() | Sort-Object Key | ForEach-Object {
@@ -8,15 +21,21 @@ function Initialize-InstallState {
     try { $hash = $sha.ComputeHash([Text.Encoding]::UTF8.GetBytes($canonical)) }
     finally { $sha.Dispose() }
     $key = ([BitConverter]::ToString($hash)).Replace('-', '').ToLowerInvariant()
-    $script:InstallStateDirectory = Join-Path $env:LOCALAPPDATA "AgentFEM\Installations\$key"
-    New-Item -ItemType Directory -Force -Path $script:InstallStateDirectory | Out-Null
+    $stateDirectory = Join-Path $env:LOCALAPPDATA "AgentFEM\Installations\$key"
+    New-Item -ItemType Directory -Force -Path $stateDirectory | Out-Null
+    # Different images/options can still select the SAME distribution. Serialize
+    # installer mutations per Windows user, not merely per package identity.
+    $lockPath = Join-Path (Split-Path $stateDirectory -Parent) 'install.lock'
     try {
-        $script:InstallLock = [IO.File]::Open(
-            (Join-Path $script:InstallStateDirectory 'install.lock'),
+        $lock = [IO.File]::Open(
+            $lockPath,
             [IO.FileMode]::OpenOrCreate, [IO.FileAccess]::ReadWrite, [IO.FileShare]::None)
     } catch {
         throw '[AFM-WIN-INSTALL-BUSY] Another installer is using this installation. Do not start a duplicate.'
     }
+    $script:InstallLock = $lock
+    $script:InstallStateDirectory = $stateDirectory
+    $script:InstallStateOwned = $false
     $path = Join-Path $script:InstallStateDirectory 'status.json'
     $script:InstallState = @{
         schema = 'agentfem.windows-install'; schema_version = 1
@@ -29,6 +48,10 @@ function Initialize-InstallState {
         if ($old.schema -ne 'agentfem.windows-install' -or $old.schema_version -ne 1) {
             throw '[AFM-WIN-STATE-INVALID] Unsupported installation record. Preserve it for diagnosis.'
         }
+        if ($null -eq $old.identity -or
+            (ConvertTo-InstallIdentityJson $old.identity) -cne (ConvertTo-InstallIdentityJson $Identity)) {
+            throw '[AFM-WIN-STATE-IDENTITY] Installation record does not match this request. Preserve it; no distribution was reused.'
+        }
         $script:InstallState.distribution = $old.distribution
         $script:InstallState.linux_user = $old.linux_user
     }
@@ -40,6 +63,16 @@ function Save-InstallState {
     if (-not $script:InstallStateOwned) { return }
     $script:InstallState.stage = $Stage
     $script:InstallState.message = $Message
+    $script:InstallState.error_code = ''
+    if ($Message -match '\[(AFM-WIN-[A-Z-]+)\]') { $script:InstallState.error_code = $Matches[1] }
+    $script:InstallState.next_action = switch ($Stage) {
+        'restart_required' { 'save_work_restart_then_rerun_same_installer' }
+        'awaiting_authorization' { 'request_host_approval_or_user_launch' }
+        'account_setup' { 'user_enters_linux_credentials_in_local_terminal' }
+        'completed' { 'use_verified_runtime' }
+        'failed' { 'inspect_error_and_log_before_retry' }
+        default { 'wait_for_current_installer' }
+    }
     $script:InstallState.updated_at = (Get-Date).ToUniversalTime().ToString('o')
     $path = Join-Path $script:InstallStateDirectory 'status.json'
     $temporary = "$path.tmp"

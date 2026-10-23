@@ -8,12 +8,14 @@ param(
     [switch]$Upgrade,
     [string]$BackupDirectory = "",
     [switch]$RemoveBackupAfterSuccess,
+    [switch]$NonInteractive,
     [ValidateSet("Auto", "Web", "Store", "None")]
     [string]$WslBootstrapSource = "Auto"
 )
 
 $ErrorActionPreference = "Stop"
 $RuntimeVersion = "@VERSION@"
+$ExpectedRuntimeRecordSha256 = "@RUNTIME_RECORD_SHA256@"
 . (Join-Path $PSScriptRoot "Installer-State.ps1")
 Write-Host "AgentFEM Runtime for WSL2" -ForegroundColor Blue
 
@@ -39,6 +41,9 @@ function Invoke-ElevatedWslCommand {
     )
 
     Write-Host "$Action requires Windows administrator approval." -ForegroundColor Yellow
+    if ($NonInteractive -and -not (Test-AdministratorSession)) {
+        throw '[AFM-WIN-ELEVATION-REQUIRED] An administrator operation needs user approval. Open this same installer in a local terminal without -NonInteractive; do not bypass host policy.'
+    }
     Save-InstallState -Stage "requesting_elevation" -Message $Action
     try {
         if (Test-AdministratorSession) {
@@ -231,6 +236,7 @@ function Test-AgentFEMDistribution {
     param([Parameter(Mandatory = $true)][string]$Name)
 
     Write-Host "Checking candidate runtime '$Name'..."
+    Test-AgentFEMBuildIdentity -Name $Name
     Invoke-WslChecked -Arguments @(
         "--distribution", $Name,
         "--user", "root",
@@ -244,6 +250,19 @@ function Test-AgentFEMDistribution {
         throw "Candidate identity mismatch. Expected AgentFEM $RuntimeVersion, received '$reportedVersion'."
     }
     Write-Host "Candidate AgentFEM $reportedVersion passed its health check." -ForegroundColor Green
+}
+
+function Test-AgentFEMBuildIdentity {
+    param([Parameter(Mandatory = $true)][string]$Name)
+    # This file is embedded before the image is hashed. Comparing its digest
+    # distinguishes same-version development builds without a circular image hash.
+    $output = (& wsl.exe --distribution $Name --user root --exec sha256sum `
+        /opt/conda/share/agentfem/runtime-release.json | Out-String).Trim()
+    $digest = ($output -split '\s+')[0]
+    if ($LASTEXITCODE -ne 0 -or $digest -notmatch '^[a-fA-F0-9]{64}$' -or
+        $digest -ne $ExpectedRuntimeRecordSha256) {
+        throw '[AFM-WIN-RESUME-IDENTITY] Installed build does not match this package. No account, workspace or distribution will be replaced.'
+    }
 }
 
 function Get-AgentFEMRuntimeVersion {
@@ -374,6 +393,7 @@ function Install-SideBySide {
         if ((Get-AgentFEMRuntimeVersion -Name $resumeName) -ne $RuntimeVersion) {
             throw "[AFM-WIN-RESUME-IDENTITY] Recorded distribution has a different runtime identity. Nothing was replaced."
         }
+        Test-AgentFEMBuildIdentity -Name $resumeName
         Complete-NewInstallation -Name $resumeName -Projects $Projects
         return
     }
@@ -393,6 +413,7 @@ function Install-SideBySide {
     Save-InstallState -Stage "importing"
     Write-Host "Installing the offline AgentFEM distribution as '$selectedName'..."
     Install-AgentFEMDistribution -Name $selectedName -Location $InstallLocation
+    Test-AgentFEMBuildIdentity -Name $selectedName
     Complete-NewInstallation -Name $selectedName -Projects $Projects
 }
 
@@ -482,7 +503,7 @@ function Upgrade-AgentFEMDistribution {
             Write-Host "Recreating Linux account '$oldUser'. Choose its sudo password when prompted..."
             Invoke-WslChecked -Arguments @(
                 "--distribution", $Name,
-                "--exec", "true"
+                "--user", "root", "--exec", "/usr/lib/agentfem/oobe.sh"
             ) -FailureMessage "The upgraded runtime could not complete first-use account setup."
         } finally {
             Restore-UpgradeUserEnvironment
@@ -603,10 +624,21 @@ function Upgrade-AgentFEMDistribution {
 function Complete-NewInstallation {
     param([string]$Name, [string]$Projects)
     Save-InstallState -Stage "account_setup"
+    if ($NonInteractive) {
+        # Explicit root is limited to this read-only readiness probe, never used
+        # as the simulation account or to set a password on the user's behalf.
+        $account = (& wsl.exe --distribution $Name --user root --exec sh -c `
+            'u=$(getent passwd 1000 | cut -d: -f1); test -n "$u" && passwd -S "$u"' | Out-String).Trim()
+        if ($LASTEXITCODE -ne 0 -or $account -notmatch '^[a-z_][a-z0-9_-]*\s+P\s') {
+            throw '[AFM-WIN-ACCOUNT-INPUT-REQUIRED] A Linux username/password must be entered privately in a local terminal. Reopen this installer without -NonInteractive; never send the password in chat.'
+        }
+    }
     Set-ProjectWorkspaceEnvironment -WindowsPath $Projects
     try {
-        # Execute and return after OOBE instead of leaving an interactive shell open.
-        Invoke-WslChecked -Arguments @("--distribution", $Name, "--exec", "true") `
+        # WSL documents OOBE for the first interactive shell. An exec of `true`
+        # is not an account-setup contract: invoke our idempotent setup explicitly.
+        Invoke-WslChecked -Arguments @("--distribution", $Name, "--user", "root",
+            "--exec", "/usr/lib/agentfem/oobe.sh") `
             -FailureMessage "[AFM-WIN-ACCOUNT-SETUP] Linux account setup is incomplete. Reopen the installer to continue."
     } finally {
         Restore-ProjectWorkspaceEnvironment
@@ -644,6 +676,7 @@ $exitCode = 0
 try {
     Initialize-InstallState -Identity @{
         image_sha256 = $ExpectedSha256
+        runtime_record_sha256 = $ExpectedRuntimeRecordSha256
         version = $RuntimeVersion
         distribution = $DistributionName
         install_location = $InstallLocation
@@ -652,13 +685,17 @@ try {
     }
     Start-Transcript -Path (Join-Path $script:InstallStateDirectory "install.log") -Append | Out-Null
     $script:TranscriptStarted = $true
+    if ($NonInteractive -and $Upgrade) {
+        throw '[AFM-WIN-UPGRADE-INTERACTIVE] Replacement upgrades require an attended terminal. No distribution was changed.'
+    }
 
     foreach ($requiredFile in @($Image, (Join-Path $PSScriptRoot "verify_installed_runtime.py"))) {
         if (-not (Test-Path -LiteralPath $requiredFile -PathType Leaf)) {
             throw "[AFM-WIN-PACKAGE-INCOMPLETE] Missing package file: $requiredFile. Extract the entire official ZIP before installing."
         }
     }
-    if ($ExpectedSha256 -notmatch '^[a-fA-F0-9]{64}$') {
+    if ($ExpectedSha256 -notmatch '^[a-fA-F0-9]{64}$' -or
+        $ExpectedRuntimeRecordSha256 -notmatch '^[a-fA-F0-9]{64}$') {
         throw "[AFM-WIN-PACKAGE-IDENTITY] A rendered release image checksum is required. Use the official complete package."
     }
 
@@ -700,6 +737,7 @@ try {
     $exitCode = 1
     if ($message -match "AFM-WIN-RESTART") { $stage = "restart_required"; $exitCode = 3010 }
     elseif ($message -match "AFM-WIN-ELEVATION") { $stage = "awaiting_authorization" }
+    elseif ($message -match "AFM-WIN-ACCOUNT-INPUT-REQUIRED") { $stage = "account_setup" }
     if ($script:InstallStateOwned) { Save-InstallState -Stage $stage -Message $message }
     Write-Host $message -ForegroundColor Red
     if ($script:InstallStateDirectory) { Write-Host "Installation records: $script:InstallStateDirectory" }

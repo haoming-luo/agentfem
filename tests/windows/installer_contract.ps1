@@ -16,6 +16,14 @@ try {
     try { Initialize-InstallState -Identity @{version='test'; image_sha256='abc'} }
     catch { $busy = $_.Exception.Message -match 'AFM-WIN-INSTALL-BUSY' }
     Assert $busy 'Duplicate install was not rejected'
+    $busy = $false
+    try { Initialize-InstallState -Identity @{version='other'; image_sha256='def'} }
+    catch { $busy = $_.Exception.Message -match 'AFM-WIN-INSTALL-BUSY' }
+    Assert $busy 'Different packages can race over the same WSL distribution'
+    $statusScript = Join-Path $root 'packaging/runtime/wsl/Get-AgentFEMInstallStatus.ps1'
+    $stateRoot = Split-Path $script:InstallStateDirectory -Parent
+    $report = (& $statusScript -StateRoot $stateRoot | Out-String) | ConvertFrom-Json
+    Assert ($report.installer_busy -and -not $report.runtime_probed) 'Read-only status lost busy state'
     $script:InstallLock.Dispose()
     Initialize-InstallState -Identity @{version='test'; image_sha256='abc'}
     Assert ($script:InstallState.distribution -eq 'AgentFEM-test') 'Resume lost imported distribution'
@@ -23,6 +31,17 @@ try {
     Save-InstallState -Stage 'completed'
     $state = Get-Content -Raw (Join-Path $script:InstallStateDirectory 'status.json') | ConvertFrom-Json
     Assert ($state.stage -eq 'completed') 'Atomic replacement failed'
+    Assert ($state.next_action -eq 'use_verified_runtime') 'Agent next action absent'
+    $script:InstallLock.Dispose()
+    # A syntactically valid but foreign record must not authorise reuse either.
+    $statePath = Join-Path $script:InstallStateDirectory 'status.json'
+    $state.identity.version = 'tampered'
+    $state | ConvertTo-Json -Depth 6 | Set-Content -LiteralPath $statePath -Encoding UTF8
+    $identityMismatch = $false
+    try { Initialize-InstallState -Identity @{version='test'; image_sha256='abc'} }
+    catch { $identityMismatch = $_.Exception.Message -match 'STATE-IDENTITY' }
+    Assert $identityMismatch 'Saved request identity was not validated'
+    Assert (-not $script:InstallStateOwned) 'Invalid state could be overwritten as owned'
     $script:InstallLock.Dispose()
     # Corrupt state is retained instead of authorising reuse or silently resetting.
     $statePath = Join-Path $script:InstallStateDirectory 'status.json'
@@ -33,6 +52,11 @@ try {
     Assert $corrupt 'Corrupt state was silently accepted'
     Assert ((Get-Content -Raw -LiteralPath $statePath) -match 'bad json') 'Corrupt evidence was overwritten'
     $script:InstallLock.Dispose()
+    $report = (& $statusScript -StateRoot $stateRoot | Out-String) | ConvertFrom-Json
+    Assert ($LASTEXITCODE -eq 1 -and $report.errors.Count -eq 1) 'Status hid a damaged record'
+    $report = (& $statusScript -StateRoot (Join-Path $temp 'absent') | Out-String) | ConvertFrom-Json
+    Assert ($report.status -eq 'not_started') 'Empty status is not explicit'
+    Assert (-not (Test-Path (Join-Path $temp 'absent'))) 'Status query created state'
     $tokens = $null; $errors = $null
     $ast = [Management.Automation.Language.Parser]::ParseFile(
         (Join-Path $root 'packaging/runtime/wsl/Install-AgentFEM.ps1'), [ref]$tokens, [ref]$errors)
@@ -46,8 +70,17 @@ try {
     Set-Content -LiteralPath $functionFile -Value ($definitions -join "`n") -Encoding UTF8
     . $functionFile
     $completeImplementation = ${function:Complete-NewInstallation}
+    $identityImplementation = ${function:Test-AgentFEMBuildIdentity}
     $script:InstallStateOwned = $false
     function Test-AdministratorSession { return $false }
+    $NonInteractive = $true
+    $script:launchCount = 0
+    function Start-Process { $script:launchCount++; throw 'should not prompt' }
+    $needsApproval = $false
+    try { Install-WslPlatform -Source 'Auto' }
+    catch { $needsApproval = $_.Exception.Message -match 'ELEVATION-REQUIRED' }
+    Assert ($needsApproval -and $script:launchCount -eq 0) 'Agent mode opened a hidden UAC prompt'
+    $NonInteractive = $false
     $script:launchCount = 0
     function Start-Process { $script:launchCount++; throw 'sandbox policy rejected launch' }
     $blocked = $false
@@ -83,6 +116,7 @@ try {
     $script:imports = 0; $script:completed = 0
     function Get-WslDistributions { return @('AgentFEM-test') }
     function Get-AgentFEMRuntimeVersion { return 'test' }
+    function Test-AgentFEMBuildIdentity { }
     function Install-AgentFEMDistribution { $script:imports++ }
     function Complete-NewInstallation { $script:completed++ }
     Install-SideBySide -RequestedName 'AgentFEM' -Projects 'C:\Projects'
@@ -92,6 +126,15 @@ try {
     try { Install-SideBySide -RequestedName 'AgentFEM' -Projects 'C:\Projects' }
     catch { $mismatch = $_.Exception.Message -match 'RESUME-IDENTITY' }
     Assert ($mismatch -and $script:completed -eq 1) 'Resume accepted a different runtime'
+    # A same-version different wheel/lock is also not this package.
+    $ExpectedRuntimeRecordSha256 = 'a' * 64
+    function wsl.exe { $global:LASTEXITCODE = 0; return (('b' * 64) + '  runtime-release.json') }
+    $mismatch = $false
+    try { & $identityImplementation -Name 'AgentFEM-test' }
+    catch { $mismatch = $_.Exception.Message -match 'RESUME-IDENTITY' }
+    Assert $mismatch 'Same version / different build was accepted'
+    function wsl.exe { $global:LASTEXITCODE = 0; return (('a' * 64) + '  runtime-release.json') }
+    & $identityImplementation -Name 'AgentFEM-test'
     # First-install completion requires fresh acceptance, not only exit code zero.
     function Set-ProjectWorkspaceEnvironment { }
     function Restore-ProjectWorkspaceEnvironment { }
@@ -107,6 +150,13 @@ try {
                 Set-Content -LiteralPath (Join-Path $script:InstallStateDirectory 'acceptance.json') -Encoding UTF8
         }
     }
+    $NonInteractive = $true
+    function wsl.exe { $global:LASTEXITCODE = 0; return 'researcher L 2026-01-01 0 99999 7 -1' }
+    $needsAccount = $false
+    try { & $completeImplementation -Name 'AgentFEM-test' -Projects 'C:\Projects' }
+    catch { $needsAccount = $_.Exception.Message -match 'ACCOUNT-INPUT-REQUIRED' }
+    Assert $needsAccount 'Agent mode did not hand off a locked account'
+    function wsl.exe { $global:LASTEXITCODE = 0; return 'researcher P 2026-01-01 0 99999 7 -1' }
     & $completeImplementation -Name 'AgentFEM-test' -Projects 'C:\Projects'
     Assert ($script:lastStage -eq 'completed') 'Valid acceptance did not finish'
     $script:writeAcceptance = $false

@@ -175,12 +175,15 @@ def test_windows_installer_and_guide_render_without_placeholders():
     installer = RUNTIME_BUILDER["render_wsl_installer"](
         image_filename="AgentFEM-Complete-9.8.7-WSL2-x86_64.wsl",
         image_sha256="a" * 64,
+        runtime_record_sha256="b" * 64,
         version="9.8.7",
     )
     guide = RUNTIME_BUILDER["render_wsl_start_here"](version="9.8.7")
 
     assert "@IMAGE_FILENAME@" not in installer
     assert "@IMAGE_SHA256@" not in installer
+    assert "@RUNTIME_RECORD_SHA256@" not in installer
+    assert '$ExpectedRuntimeRecordSha256 = "' + "b" * 64 + '"' in installer
     assert "@VERSION@" not in installer
     assert '$RuntimeVersion = "9.8.7"' in installer
     assert '"AgentFEM-$RuntimeVersion"' in installer
@@ -494,4 +497,4 @@ def test_windows_bundle_includes_recovery_and_real_solve_verifier():
     assert 'RUNTIME / "verify_installed_runtime.py"' in builder
     assert '"--skip-mpi", "--output", $report' in installer
     assert installer.index('SHA-256 mismatch') < installer.index('$installedWslVersion = Require-WslPlatform')
-    assert '"--distribution", $Name, "--exec", "true"' in installer
+    assert '"--exec", "/usr/lib/agentfem/oobe.sh"' in installer
