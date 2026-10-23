@@ -60,6 +60,12 @@ Opening Ubuntu for its initial username/password is a one-time user step;
 afterwards the agent continues with the documented mirror commands. Do not
 convert/remove an existing WSL1 or unrelated distro automatically.
 
+The installer's read-only version/status queries use the same bounded probe as
+the preflight (15 seconds per query; `-ProbeTimeoutSeconds 1..120` when needed).
+A timeout records `AFM-WIN-PROBE-TIMEOUT`, releases the installer lock and stops;
+it does not terminate an installation, distribution, service or simulation.
+Downloads, imports and first solves are not given this short probe timeout.
+
 The warning against bare `wsl --install` applies to the Complete Runtime route;
 it is **not** a claim that Microsoft's default Ubuntu is unrelated to the
 Ubuntu/mirror route. Do not invent a candidate package or a mirror download URL

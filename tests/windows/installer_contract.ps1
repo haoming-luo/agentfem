@@ -93,6 +93,15 @@ try {
     $functionFile = Join-Path $temp 'installer-functions.ps1'
     Set-Content -LiteralPath $functionFile -Value ($definitions -join "`n") -Encoding UTF8
     . $functionFile
+    # Policy unit tests use an in-process WSL stub. The actual entrypoint test
+    # separately exercises native child probes and timeout against an inert EXE.
+    function Invoke-InstallerPlatformProbe {
+        param($Arguments)
+        $output = (& wsl.exe $Arguments | Out-String)
+        return @{ok=($LASTEXITCODE -eq 0); exit_code=$LASTEXITCODE;
+            code=(Get-WslProbeFailureCode -ExitCode $LASTEXITCODE -Output $output);
+            stdout=$output; stderr=''}
+    }
     $completeImplementation = ${function:Complete-NewInstallation}
     $identityImplementation = ${function:Test-AgentFEMBuildIdentity}
     function wsl.exe { $global:LASTEXITCODE = 0; return 'Kernel version: 5.15.0' }

@@ -1,4 +1,4 @@
-# Execute the actual platform-only entry point. Only wsl.exe is stubbed; no
+# Execute the actual platform-only entry point. Only wsl.exe is a fixture; no
 # distribution, feature or Windows permission is changed by this test.
 $ErrorActionPreference = 'Stop'
 $root = (Resolve-Path (Join-Path $PSScriptRoot '../..')).Path
@@ -7,18 +7,21 @@ $statusScript = Join-Path $root 'packaging/runtime/wsl/Get-AgentFEMInstallStatus
 $originalLocal = $env:LOCALAPPDATA
 $originalArch = $env:PROCESSOR_ARCHITECTURE
 $originalWow = $env:PROCESSOR_ARCHITEW6432
+$originalPath = $env:PATH
+$originalMode = $env:AGENTFEM_WSL_FIXTURE_MODE
+$originalLog = $env:AGENTFEM_WSL_FIXTURE_LOG
 $temp = Join-Path ([IO.Path]::GetTempPath()) ('AgentFEM platform ' + [guid]::NewGuid().ToString())
 function Assert($Condition, $Message) { if (-not $Condition) { throw $Message } }
-$global:AgentFEMTestVersionProbes = 0
-function global:wsl.exe {
-    if (($args -join ' ') -eq '--status') { $global:LASTEXITCODE = 0; return 'Ready' }
-    if (($args -join ' ') -ne '--version') { throw "Unexpected WSL mutation: $args" }
-    $global:AgentFEMTestVersionProbes++
-    $global:LASTEXITCODE = 0
-    # Ubuntu/mirror users must not inherit the 2.4.4 floor of .wsl packages.
-    return 'WSL version: 2.3.26.0'
-}
 try {
+    New-Item -ItemType Directory -Path $temp | Out-Null
+    $compiler = Join-Path $env:WINDIR 'Microsoft.NET\Framework64\v4.0.30319\csc.exe'
+    $exe = Join-Path $temp 'wsl.exe'
+    & $compiler /nologo /target:exe "/out:$exe" (Join-Path $PSScriptRoot 'WslProbeFixture.cs')
+    Assert ($LASTEXITCODE -eq 0) 'WSL fixture did not compile'
+    $env:PATH = $temp + ';' + $originalPath
+    $env:AGENTFEM_WSL_FIXTURE_MODE = 'platform'
+    $env:AGENTFEM_WSL_FIXTURE_LOG = Join-Path $temp 'calls.txt'
+    Assert ((Get-Command wsl.exe -CommandType Application).Source -eq $exe) 'Real Windows WSL would be invoked by this test'
     $env:LOCALAPPDATA = $temp
     $env:PROCESSOR_ARCHITECTURE = 'AMD64'
     $env:PROCESSOR_ARCHITEW6432 = 'AMD64'
@@ -35,20 +38,33 @@ try {
     Assert ($resume.arguments -contains $installer) 'Resume script path was not preserved as one argument'
     Assert (-not $report.installer_busy) 'Installer lock leaked after completion'
     & $installer -PrepareWslOnly -NonInteractive -WslBootstrapSource None
-    Assert ($LASTEXITCODE -eq 0 -and $global:AgentFEMTestVersionProbes -eq 2) 'Platform preparation not resumable'
+    Assert ($LASTEXITCODE -eq 0) 'Platform preparation not resumable'
+    $calls = @(Get-Content -LiteralPath $env:AGENTFEM_WSL_FIXTURE_LOG)
+    Assert (($calls -join ',') -eq '--version,--status,--version,--status') 'Repeated platform entry launched an unexpected WSL operation'
     & $installer -PrepareWslOnly -Upgrade -NonInteractive -WslBootstrapSource None
     Assert ($LASTEXITCODE -ne 0) 'Platform-only silently accepted destructive upgrade options'
-    Assert ($global:AgentFEMTestVersionProbes -eq 2) 'Conflicting options reached WSL'
-    function global:wsl.exe { $global:LASTEXITCODE = -2147024891; return '' }
+    Assert (@(Get-Content -LiteralPath $env:AGENTFEM_WSL_FIXTURE_LOG).Count -eq 4) 'Conflicting options reached WSL'
+    $env:AGENTFEM_WSL_FIXTURE_MODE = 'denied'
     & $installer -PrepareWslOnly -NonInteractive -WslBootstrapSource None
     Assert ($LASTEXITCODE -ne 0) 'Denied version probe was accepted'
     $report = (& $statusScript -StateRoot $stateRoot | Out-String) | ConvertFrom-Json
     Assert ($report.installations[0].error_code -eq 'AFM-WIN-COMMAND-BLOCKED') 'Denied probe was confused with missing WSL'
     Assert ($report.installations[0].stage -eq 'awaiting_authorization') 'Denied probe did not request scoped approval'
-    Write-Host 'Platform entry point passed (WSL mocked, no real host preparation).'
+    $env:AGENTFEM_WSL_FIXTURE_MODE = 'timeout'
+    $timer = [Diagnostics.Stopwatch]::StartNew()
+    & $installer -PrepareWslOnly -NonInteractive -WslBootstrapSource None -ProbeTimeoutSeconds 1
+    $timer.Stop()
+    Assert ($LASTEXITCODE -ne 0 -and $timer.Elapsed.TotalSeconds -lt 8) 'Installer query was not bounded'
+    $report = (& $statusScript -StateRoot $stateRoot | Out-String) | ConvertFrom-Json
+    Assert ($report.installations[0].error_code -eq 'AFM-WIN-PROBE-TIMEOUT') 'Timeout lost its stable failure code'
+    Assert (-not $report.installer_busy) 'Timed-out probe leaked the installation lock'
+    Assert ($report.installations[0].resume.arguments -contains '-ProbeTimeoutSeconds') 'Resume lost explicit timeout'
+    Assert (@(Get-Content -LiteralPath $env:AGENTFEM_WSL_FIXTURE_LOG).Count -eq 6) 'Failure triggered an unexpected repair/retry'
+    Write-Host 'Platform entry point passed (inert native WSL fixture, no real host preparation).'
 } finally {
-    Remove-Item Function:\wsl.exe -ErrorAction SilentlyContinue
-    Remove-Variable AgentFEMTestVersionProbes -Scope Global -ErrorAction SilentlyContinue
+    $env:PATH = $originalPath
+    $env:AGENTFEM_WSL_FIXTURE_MODE = $originalMode
+    $env:AGENTFEM_WSL_FIXTURE_LOG = $originalLog
     $env:LOCALAPPDATA = $originalLocal
     $env:PROCESSOR_ARCHITECTURE = $originalArch
     $env:PROCESSOR_ARCHITEW6432 = $originalWow

@@ -10,6 +10,7 @@ param(
     [switch]$RemoveBackupAfterSuccess,
     [switch]$NonInteractive,
     [switch]$PrepareWslOnly,
+    [ValidateRange(1, 120)][int]$ProbeTimeoutSeconds = 15,
     [ValidateSet("Auto", "Web", "Store", "None")]
     [string]$WslBootstrapSource = "Auto"
 )
@@ -21,23 +22,24 @@ $ExpectedRuntimeRecordSha256 = "@RUNTIME_RECORD_SHA256@"
 . (Join-Path $PSScriptRoot "Windows-HostProbe.ps1")
 Write-Host "AgentFEM Runtime for WSL2" -ForegroundColor Blue
 
+function Invoke-InstallerPlatformProbe {
+    param([ValidateSet('--version', '--status')][string]$Arguments)
+    $command = Get-Command wsl.exe -CommandType Application -ErrorAction SilentlyContinue |
+        Select-Object -First 1
+    if (-not $command) {
+        throw '[AFM-WIN-WSL-COMMAND-MISSING] wsl.exe is not visible to this session. Inspect the host permission/platform state; no alternate launcher attempted.'
+    }
+    return Invoke-WslHostProbe -Executable $command.Source -Arguments $Arguments -TimeoutSeconds $ProbeTimeoutSeconds
+}
+
 function Get-InstalledWslVersion {
-    try { $versionText = (& wsl.exe --version 2>&1 | Out-String) }
-    catch {
-        throw "[AFM-WIN-WSL-PROBE-FAILED] WSL version could not be inspected: $($_.Exception.Message). Inspect the host error; do not infer a missing platform or retry through another launcher."
-    }
-    $probeExitCode = $LASTEXITCODE
-    $win32Code = ([int64]$probeExitCode -band 65535)
-    if ($win32Code -in @(5, 740, 1223)) {
-        throw '[AFM-WIN-COMMAND-BLOCKED] The read-only WSL version probe was denied. Request the host-supported command approval; platform installation was not attempted.'
-    }
-    if ($win32Code -in @(3010, 1641)) {
-        throw '[AFM-WIN-RESTART-REQUIRED] WSL reports a pending restart. Save work and restart, then rerun the same installer/options.'
-    }
-    if ($probeExitCode -ne 0) {
-        $failureCode = Get-WslProbeFailureCode -ExitCode $probeExitCode -Output $versionText
-        if ($failureCode -eq 'AFM-WIN-COMPONENT-REQUIRED') { return $null }
-        throw "[AFM-WIN-WSL-PROBE-FAILED] WSL version probe failed (exit $probeExitCode): $versionText. Installation state is unknown; inspect 'wsl --status' or Test-AgentFEMWindowsHost.ps1 before repairing. No automatic reinstallation attempted."
+    $probe = Invoke-InstallerPlatformProbe -Arguments '--version'
+    $versionText = ($probe.stdout + "`n" + $probe.stderr).Trim()
+    if (-not $probe.ok) {
+        if ($probe.code -eq 'AFM-WIN-COMPONENT-REQUIRED') { return $null }
+        $code = $probe.code
+        if ($code -eq 'AFM-WIN-PROBE-FAILED') { $code = 'AFM-WIN-WSL-PROBE-FAILED' }
+        throw "[$code] WSL version probe failed (exit $($probe.exit_code)): $versionText. Installation state is unknown; no automatic reinstallation or alternate launcher attempted."
     }
     $versionMatch = [regex]::Match(($versionText -replace "`0", ''),
         '(?m)^\s*WSL[^\r\n\d]*(\d+\.\d+\.\d+(?:\.\d+)?)')
@@ -54,12 +56,11 @@ function Test-AdministratorSession {
 }
 
 function Test-WslPlatformStatus {
-    try { $statusText = (& wsl.exe --status 2>&1 | Out-String) }
-    catch { throw "[AFM-WIN-WSL-PROBE-FAILED] WSL status could not be inspected: $($_.Exception.Message)" }
-    $code = Get-WslProbeFailureCode -ExitCode $LASTEXITCODE -Output $statusText
-    if (-not $code) { return $true }
-    if ($code -eq 'AFM-WIN-COMPONENT-REQUIRED') { return $false }
-    throw "[$code] WSL status probe did not confirm platform readiness: $statusText. No automatic repair or alternate launcher attempted."
+    $probe = Invoke-InstallerPlatformProbe -Arguments '--status'
+    if ($probe.ok) { return $true }
+    if ($probe.code -eq 'AFM-WIN-COMPONENT-REQUIRED') { return $false }
+    $statusText = ($probe.stdout + "`n" + $probe.stderr).Trim()
+    throw "[$($probe.code)] WSL status probe did not confirm platform readiness: $statusText. No automatic repair or alternate launcher attempted."
 }
 
 function Invoke-ElevatedWslCommand {
