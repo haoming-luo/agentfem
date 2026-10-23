@@ -20,7 +20,8 @@ try {
             if (-not (Test-Path -LiteralPath $path)) { continue }
             try {
                 $record = Get-Content -LiteralPath $path -Raw | ConvertFrom-Json
-                if ($record.schema -ne 'agentfem.windows-install' -or $record.schema_version -ne 1) {
+                if ($record.schema -ne 'agentfem.windows-install' -or $record.schema_version -ne 1 -or
+                    $null -eq $record.identity -or -not ($record.stage -is [string])) {
                     throw 'Unsupported installation state schema.'
                 }
                 $records += [pscustomobject]@{
@@ -28,6 +29,8 @@ try {
                     identity = $record.identity; distribution = $record.distribution
                     updated_at = $record.updated_at; error_code = $record.error_code
                     message = $record.message; next_action = $record.next_action
+                    interrupted_stage = $record.interrupted_stage
+                    resume = $record.resume
                     installer = $record.installer; acceptance_report = $record.acceptance_report
                 }
             } catch {

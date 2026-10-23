@@ -27,12 +27,22 @@ try {
     $report = (& $statusScript -StateRoot $stateRoot | Out-String) | ConvertFrom-Json
     Assert ($report.installations.Count -eq 1) 'Platform state not addressable'
     Assert ($report.installations[0].stage -eq 'platform_ready') 'Platform was falsely reported as installed AgentFEM'
+    $resume = $report.installations[0].resume
+    Assert ($resume.arguments -contains '-PrepareWslOnly') 'Resume lost the mirror platform route'
+    Assert ($resume.arguments -contains 'None') 'Resume lost the selected WSL source'
+    Assert ($resume.arguments -contains $installer) 'Resume script path was not preserved as one argument'
     Assert (-not $report.installer_busy) 'Installer lock leaked after completion'
     & $installer -PrepareWslOnly -NonInteractive -WslBootstrapSource None
     Assert ($LASTEXITCODE -eq 0 -and $global:AgentFEMTestVersionProbes -eq 2) 'Platform preparation not resumable'
     & $installer -PrepareWslOnly -Upgrade -NonInteractive -WslBootstrapSource None
     Assert ($LASTEXITCODE -ne 0) 'Platform-only silently accepted destructive upgrade options'
     Assert ($global:AgentFEMTestVersionProbes -eq 2) 'Conflicting options reached WSL'
+    function global:wsl.exe { $global:LASTEXITCODE = -2147024891; return '' }
+    & $installer -PrepareWslOnly -NonInteractive -WslBootstrapSource None
+    Assert ($LASTEXITCODE -ne 0) 'Denied version probe was accepted'
+    $report = (& $statusScript -StateRoot $stateRoot | Out-String) | ConvertFrom-Json
+    Assert ($report.installations[0].error_code -eq 'AFM-WIN-COMMAND-BLOCKED') 'Denied probe was confused with missing WSL'
+    Assert ($report.installations[0].stage -eq 'awaiting_authorization') 'Denied probe did not request scoped approval'
     Write-Host 'Platform entry point passed (WSL mocked, no real host preparation).'
 } finally {
     Remove-Item Function:\wsl.exe -ErrorAction SilentlyContinue

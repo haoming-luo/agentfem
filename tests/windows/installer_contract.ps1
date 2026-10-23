@@ -96,6 +96,11 @@ try {
     $denied = $false
     try { Install-WslPlatform -Source 'Auto' } catch { $denied = $_.Exception.Message -match 'ELEVATION-BLOCKED' }
     Assert ($denied -and $script:launchCount -eq 1) 'Elevation-required exit retried another source'
+    function Start-Process { $script:launchCount++; return [pscustomobject]@{ExitCode=-2147024891} }
+    $script:launchCount = 0
+    $denied = $false
+    try { Install-WslPlatform -Source 'Auto' } catch { $denied = $_.Exception.Message -match 'ELEVATION-BLOCKED' }
+    Assert ($denied -and $script:launchCount -eq 1) 'HRESULT access denial retried another source'
     function Start-Process {
         $script:launchCount++
         return [pscustomobject]@{ExitCode=$(if ($script:launchCount -eq 1) {1} else {0})}

@@ -61,6 +61,9 @@ function Initialize-InstallState {
 function Save-InstallState {
     param([Parameter(Mandatory = $true)][string]$Stage, [string]$Message = '')
     if (-not $script:InstallStateOwned) { return }
+    if ($Stage -in @('failed', 'restart_required', 'awaiting_authorization')) {
+        $script:InstallState.interrupted_stage = $script:InstallState.stage
+    }
     $script:InstallState.stage = $Stage
     $script:InstallState.message = $Message
     $script:InstallState.error_code = ''
@@ -83,4 +86,18 @@ function Save-InstallState {
         # A real backup path works in both 5.1 and 7 and preserves prior evidence.
         [IO.File]::Replace($temporary, $path, "$path.previous")
     } else { [IO.File]::Move($temporary, $path) }
+}
+
+function Set-InstallResumeInvocation {
+    param([string]$InstallerPath, [System.Collections.IDictionary]$Parameters)
+    # Store argv as data, never a command string for Invoke-Expression. There
+    # are no password parameters. Callers still review the saved operation.
+    $arguments = @('-NoProfile', '-File', $InstallerPath)
+    foreach ($key in ($Parameters.Keys | Sort-Object)) {
+        $value = $Parameters[$key]
+        if ($value -is [Management.Automation.SwitchParameter]) {
+            if ($value.IsPresent) { $arguments += "-$key" }
+        } else { $arguments += @("-$key", [string]$value) }
+    }
+    $script:InstallState.resume = @{executable='powershell.exe'; arguments=$arguments}
 }

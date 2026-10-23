@@ -21,9 +21,20 @@ $ExpectedRuntimeRecordSha256 = "@RUNTIME_RECORD_SHA256@"
 Write-Host "AgentFEM Runtime for WSL2" -ForegroundColor Blue
 
 function Get-InstalledWslVersion {
-    $versionText = (& wsl.exe --version 2>&1 | Out-String)
+    try { $versionText = (& wsl.exe --version 2>&1 | Out-String) }
+    catch {
+        throw "[AFM-WIN-WSL-PROBE-FAILED] WSL version could not be inspected: $($_.Exception.Message). Inspect the host error; do not infer a missing platform or retry through another launcher."
+    }
+    $probeExitCode = $LASTEXITCODE
+    $win32Code = ([int64]$probeExitCode -band 65535)
+    if ($win32Code -in @(5, 740, 1223)) {
+        throw '[AFM-WIN-COMMAND-BLOCKED] The read-only WSL version probe was denied. Request the host-supported command approval; platform installation was not attempted.'
+    }
+    if ($win32Code -in @(3010, 1641)) {
+        throw '[AFM-WIN-RESTART-REQUIRED] WSL reports a pending restart. Save work and restart, then rerun the same installer/options.'
+    }
     $versionMatch = [regex]::Match($versionText, '(\d+\.\d+\.\d+)')
-    if ($LASTEXITCODE -ne 0 -or -not $versionMatch.Success) {
+    if ($probeExitCode -ne 0 -or -not $versionMatch.Success) {
         return $null
     }
     return [version]$versionMatch.Groups[1].Value
@@ -63,10 +74,13 @@ function Invoke-ElevatedWslCommand {
         }
         throw "[AFM-WIN-ELEVATION-BLOCKED] Cannot launch the approved administrator operation: $($_.Exception.Message). If WorkBuddy blocks it, request its supported approval or launch the official installer yourself; do not switch shells to bypass the policy."
     }
-    if ($commandExitCode -in @(3010, 1641)) {
-        throw "[AFM-WIN-RESTART-REQUIRED] Windows requires a restart. Save your work, restart when ready, then reopen Install-AgentFEM.cmd."
+    # WSL may return a Win32 code directly or wrapped in a signed HRESULT.
+    # Access denial must never be misclassified as a download-source failure.
+    $win32Code = ([int64]$commandExitCode -band 65535)
+    if ($win32Code -in @(3010, 1641)) {
+        throw "[AFM-WIN-RESTART-REQUIRED] Windows requires a restart. Save your work, restart when ready, then rerun this same installer command and options (recorded in status.json)."
     }
-    if ($commandExitCode -in @(5, 740, 1223)) {
+    if ($win32Code -in @(5, 740, 1223)) {
         throw "[AFM-WIN-ELEVATION-BLOCKED] Windows rejected or requires administrator approval (exit $commandExitCode). No alternate source will be attempted."
     }
     if ($commandExitCode -ne 0) {
@@ -693,9 +707,17 @@ try {
     }
     Start-Transcript -Path (Join-Path $script:InstallStateDirectory "install.log") -Append | Out-Null
     $script:TranscriptStarted = $true
+    Set-InstallResumeInvocation -InstallerPath $PSCommandPath -Parameters $PSBoundParameters
     $script:InstallState.bootstrap_source = $WslBootstrapSource
     if ($PrepareWslOnly) {
-        if ($Upgrade -or $InstallLocation -or $ProjectDirectory) {
+        $distributionOptions = @('Image', 'ExpectedSha256', 'DistributionName',
+            'InstallLocation', 'ProjectDirectory', 'Upgrade', 'BackupDirectory',
+            'RemoveBackupAfterSuccess')
+        $conflictingOptions = @()
+        foreach ($option in $distributionOptions) {
+            if ($PSBoundParameters.ContainsKey($option)) { $conflictingOptions += $option }
+        }
+        if ($conflictingOptions.Count) {
             throw '[AFM-WIN-OPTION-CONFLICT] Platform-only preparation does not install or upgrade an AgentFEM distribution. Remove distribution-install options.'
         }
         Save-InstallState -Stage 'preparing_wsl'
@@ -725,7 +747,7 @@ try {
     if ($ExpectedSha256) {
         $actual = (Get-FileHash -Algorithm SHA256 $Image).Hash.ToLowerInvariant()
         if ($actual -ne $ExpectedSha256.ToLowerInvariant()) {
-            throw "SHA-256 mismatch. Expected $ExpectedSha256, received $actual."
+            throw "[AFM-WIN-PACKAGE-CHECKSUM] SHA-256 mismatch. Expected $ExpectedSha256, received $actual."
         }
         Write-Host "Image integrity verified." -ForegroundColor Green
     }
@@ -755,10 +777,11 @@ try {
     Save-InstallState -Stage "completed"
 } catch {
     $message = $_.Exception.Message
+    if ($message -notmatch '\[AFM-WIN-[A-Z-]+\]') { $message = "[AFM-WIN-INSTALL-FAILED] $message" }
     $stage = "failed"
     $exitCode = 1
     if ($message -match "AFM-WIN-RESTART") { $stage = "restart_required"; $exitCode = 3010 }
-    elseif ($message -match "AFM-WIN-ELEVATION") { $stage = "awaiting_authorization" }
+    elseif ($message -match "AFM-WIN-(ELEVATION|COMMAND-BLOCKED)") { $stage = "awaiting_authorization" }
     elseif ($message -match "AFM-WIN-ACCOUNT-INPUT-REQUIRED") { $stage = "account_setup" }
     if ($script:InstallStateOwned) { Save-InstallState -Stage $stage -Message $message }
     Write-Host $message -ForegroundColor Red

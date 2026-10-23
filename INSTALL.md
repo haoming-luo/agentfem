@@ -132,7 +132,7 @@ For AI-assisted installation and WorkBuddy permissions, follow
 [Windows agent installation](docs/windows_agent_installation.md).
 The Complete Runtime installer
 prepares WSL without downloading Ubuntu and then imports the bundled AgentFEM
-image. Existing WSL users may instead use Ubuntu, Miniforge/Mambaforge, and the
+image. Existing WSL users may instead use Ubuntu, Miniforge, and the
 Linux environment above; this uses the same package family exercised by
 AgentFEM's Linux CI.
 
@@ -172,6 +172,25 @@ Windows CI gate. A hand-built expert environment may work for a subset, but it
 is not an installation promise.
 
 ## Smoke Test
+
+For an installed environment, no repository clone or downloaded example is
+required. From a Linux/WSL terminal (or an activated macOS environment):
+
+```bash
+agentfem init --template static-solid ~/AgentFEMProjects/install-check
+agentfem check --project ~/AgentFEMProjects/install-check --json
+agentfem run --project ~/AgentFEMProjects/install-check --name first-solve
+agentfem verify --project ~/AgentFEMProjects/install-check --json
+```
+
+Use a new directory, or inspect and reuse your own existing check project;
+do not delete a user's project to repeat the check. For non-interactive agent
+tools, prefix each command with `mamba run -n agentfem-env` using the installed
+Mamba executable. Shell activation in one tool call is not guaranteed to carry
+over to the next. A successful `doctor` alone is not a successful finite-element
+solve: report the run and verification results separately.
+
+For developers working from a repository checkout, the equivalent example is:
 
 From the `agentfem` repository directory:
 

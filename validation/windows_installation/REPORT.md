@@ -61,3 +61,47 @@ No release or merge is performed.
 - WorkBuddy's approved WSL/elevation channel remains outside AgentFEM's control.
 - Crash-safe recovery of replacement upgrades is separate from first-install resume;
   existing explicit backup/rollback upgrade logic is retained.
+
+## Agent onboarding follow-up (2026-10-23)
+
+Isolated follow-up branch `feat/wsl-agent-onboarding`, based on c9bcdedc;
+[PR #120](https://github.com/haoming-luo/agentfem/pull/120) targets #119's branch.
+The original contributor branch and simulation checkout were not changed.
+
+- Added `-PrepareWslOnly` for Ubuntu/mirror users. It reuses the platform
+  preparation policy without a Complete Runtime image, verifier, or Python.
+  It reports `platform_ready`, never an installed scientific environment.
+- `-NonInteractive` hands off elevation and account credentials explicitly;
+  no hidden password/UAC wait and no automatic replacement upgrade.
+- `Get-AgentFEMInstallStatus.ps1` returns read-only structured progress without
+  launching WSL. Saved invocation arguments preserve route/source after reboot;
+  they are data, not executable shell expressions or new authorisation.
+- A per-user lock excludes competing packages targeting the same distro.
+  Saved request identity and embedded runtime-release SHA-256 must match before
+  reuse. Same-version development builds are no longer interchangeable.
+- OOBE is invoked explicitly rather than assuming `--exec true` starts an
+  interactive account wizard. Signed HRESULT access-denied results do not
+  trigger another download/elevation attempt.
+- Public guidance separates Windows-platform downloads from conda mirrors,
+  respects an explicit mirror request, uses non-activating environment commands,
+  and provides an installed-template first solve without cloning GitHub examples.
+
+Evidence: 31 packaging/OOBE Python tests, installation-documentation regression,
+Bash syntax, Python lint and diff checks pass locally. Windows PowerShell 5.1
+and 7 contract/real-entrypoint harnesses passed at 75e2f8fc:
+https://github.com/haoming-luo/agentfem/actions/runs/39889656101
+The first platform-only harness kept an expected nonzero installer exit code;
+the harness now exits zero only after all assertions pass. WSL and elevation
+remain mocked. Latest-head checks are attached to PR #120; this earlier run is
+not evidence for later changes by itself.
+
+The documented `init/check/run/verify` sequence was also exercised in a fresh
+temporary project on the existing Mac `fenicsx-env` (installed 0.4.2.dev0),
+with a fresh JIT cache. Project check passed, the solve completed, and provenance
+verification passed. That verifies command usability, not a newly installed
+Windows build or broad scientific validation. No installation-speed claim is
+made, and no published runtime bundle has been rebuilt.
+
+The remaining customer gate is still a clean Windows/WorkBuddy run with real
+UAC, reboot and account setup, plus network-route availability. Source changes
+and mocked Windows tests do not remove that gate.

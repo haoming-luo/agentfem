@@ -22,6 +22,13 @@ command in INSTALL.md. Do not install a second distro or replace a working
 Miniforge installation. Use `mamba run -n agentfem-env ...` in agent tools;
 an interactive `mamba activate` in one tool invocation may not persist in the
 next invocation. Query the mirror for the requested version before installing.
+After a reviewed environment-create plan, agents may add `--yes` to avoid a
+hidden package confirmation prompt. If Mamba is not on PATH after a batch
+Miniforge install, use its actual absolute executable path; do not rewrite the
+user's shell startup files just to make a transient agent tool work.
+Finish with INSTALL.md's installed `init/check/run/verify` smoke test, which
+does not require cloning the repository from GitHub. Preserve its small project
+and result as evidence instead of accepting imports alone.
 
 For a new machine, choose one route and retain it after reboot:
 
@@ -104,7 +111,12 @@ powershell.exe -NoProfile -File .\Get-AgentFEMInstallStatus.ps1
 ```
 
 This prints JSON with `installer_busy`, recorded stages, `error_code`,
-`next_action`, and evidence paths. It does not prove the current environment is
+`next_action`, the saved `resume` argument array, and evidence paths. Read the
+arguments as data: review the route, target and privileges before invoking a
+trusted installer; never feed them to `Invoke-Expression`. Keep the recorded
+`-PrepareWslOnly`/source options after reboot. For the private user handoff,
+omit only `-NonInteractive`; if the package moved, verify its identity before
+substituting the new installer path. The query does not prove the environment is
 healthy (`runtime_probed: false`) and does not authorise installation. A stale
 `preparing_wsl` record with no lock is interrupted, not necessarily still running.
 Inspect the log and resume the same verified installer/options; do not delete
