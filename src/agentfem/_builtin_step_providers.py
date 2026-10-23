@@ -894,12 +894,18 @@ def _inelastic_prediction_rejection_reason(model, request: StepRequest) -> str |
 
     domain = getattr(getattr(request.target, "space", None), "mesh", None)
     materials = _registered_materials(model, request)
+    # Match _quadrature_material: one regional assignment still lowers to
+    # a material map, whereas an explicitly selected material is global.
+    regional_dispatch = request.material is None and any(
+        record.region is not None for record in model.materials
+    )
     if (domain is None or domain.comm.size != 1
             or getattr(request.target, "kind", None) == "displacement_pressure"
+            or regional_dispatch
             or len(materials) != 1 or not isinstance(materials[0], FiniteStrainJ2Logarithmic)):
         return (
             "AFM-INCREMENT-FEEDBACK: inelastic prediction currently requires a serial "
-            "displacement-only Step with one built-in finite-strain J2 material."
+            "displacement-only Step with one global built-in finite-strain J2 material."
         )
     return None
 

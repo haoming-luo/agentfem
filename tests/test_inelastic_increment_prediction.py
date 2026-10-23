@@ -106,6 +106,47 @@ def test_public_prediction_capability_agrees_with_execution():
     assert supported == {"finite_strain_j2_strong_static", "finite_strain_j2_affine_static"}
 
 
+def test_single_regional_assignment_does_not_advertise_prediction_support():
+    from dolfinx import mesh as dm
+    from mpi4py import MPI
+    from agentfem import constitutive, fields, mesh, models, studies
+    from agentfem.step_providers import step_capability
+    domain = dm.create_unit_cube(MPI.COMM_SELF, 1, 1, 1)
+    model = models.create(study=studies.static_solid(dimension=3, nonlinear=True), mesh=domain)
+    target = model.field(fields.displacement(domain))
+    region = mesh.partition_cells(domain, all_cells=lambda x: np.ones(x.shape[1], dtype=bool)).all_cells
+    model.material(constitutive.finite_strain_j2_logarithmic(
+        young=1000., poisson=.3, yield_stress=2., hardening_modulus=100.), region=region)
+    left = mesh.boundary(domain, lambda x: np.isclose(x[0], 0.), name="left")
+    model.clamp(target, on=left)
+    assert step_capability(model, target=target, options={"incrementation": steps.fixed(1)})["supported"]
+    capability = step_capability(model, target=target, options={"incrementation": _control()})
+    assert not capability["supported"], capability
+    with pytest.raises((ValueError, NotImplementedError), match="AFM-INCREMENT-FEEDBACK"):
+        model.step(target=target, incrementation=_control(), progress=False)
+
+
+def test_distributed_prediction_is_rejected_before_material_allocation():
+    from dolfinx import mesh as dm
+    from mpi4py import MPI
+    from agentfem import constitutive, fields, mechanics, mesh, models, studies
+    from agentfem.step_providers import step_capability
+    if MPI.COMM_WORLD.size == 1:
+        pytest.skip("Run with agentfem mpi-run -n 2 to check distributed admission.")
+    domain = dm.create_unit_cube(MPI.COMM_WORLD, 2, 1, 1)
+    model = models.create(study=studies.static_solid(dimension=3, nonlinear=True), mesh=domain)
+    target = model.field(fields.displacement(domain))
+    material = model.material(constitutive.finite_strain_j2_logarithmic(
+        young=1000., poisson=.3, yield_stress=2., hardening_modulus=100.))
+    model.clamp(target, on=mesh.boundary(domain, lambda x: np.isclose(x[0], 0.), name="left"))
+    assert not step_capability(model, target=target, options={"incrementation": _control()})["supported"]
+    with pytest.raises((ValueError, NotImplementedError), match="AFM-INCREMENT-FEEDBACK"):
+        model.step(target=target, incrementation=_control(), progress=False)
+    with pytest.raises(NotImplementedError, match="AFM-INCREMENT-FEEDBACK"):
+        mechanics.finite_strain_j2_standard_problem(displacement=target, material=material,
+                                                    incrementation=_control())
+
+
 def test_prediction_does_not_accept_an_oversized_increment_at_minimum():
     from test_finite_strain_j2_standard import _standard_patch
     control = steps.automatic(initial=.25, minimum=.25, maximum=.25,
@@ -164,8 +205,9 @@ def test_prediction_checkpoint_binds_the_measure_name(tmp_path):
     np.testing.assert_array_equal(changed.solution.x.array, untouched)
 
 
-@pytest.mark.parametrize("kind", ["standard", "affine"])
-def test_public_prediction_restart_and_proposal_failure_are_atomic(tmp_path, monkeypatch, kind):
+@pytest.mark.parametrize("kind", ["standard", "affine", "augmented_moving_cyclic"])
+@pytest.mark.parametrize("portable", [False, True])
+def test_public_prediction_restart_and_proposal_failure_are_atomic(tmp_path, monkeypatch, kind, portable):
     from test_affine_j2_automatic_restart import _automatic_periodic_j2_step
     from test_finite_strain_j2_standard import _standard_patch
 
@@ -174,12 +216,18 @@ def test_public_prediction_restart_and_proposal_failure_are_atomic(tmp_path, mon
                                   max_increments=100, max_cutbacks=12, cutback_factor=.5,
                                   maximum_inelastic_increment=.0045,
                                   inelastic_prediction_safety=safety)
+        if kind == "augmented_moving_cyclic":
+            from agentfem import amplitudes
+            from test_finite_j2_normal_augmentation import _problem
+            return _problem(increment_control=control, tool_translation=(-.002, 0., 0.),
+                            load_amplitude=amplitudes.tabular((0., .25, .75, 1.), (0., 1., .2, 1.)))[1]
         return (_automatic_periodic_j2_step(incrementation=control) if kind == "affine"
                 else _standard_patch(incrementation=control)[-1])
 
     def arrays(step):
         return (step.solution.x.array.copy(), step.response.state.committed_state_vectors().copy(),
-                step.response.first_piola_stress.values.copy())
+                step.response.first_piola_stress.values.copy(),
+                step.response.strain_energy_density.values.copy())
 
     def same(actual, expected):
         for value, reference in zip(actual, expected, strict=True):
@@ -190,7 +238,14 @@ def test_public_prediction_restart_and_proposal_failure_are_atomic(tmp_path, mon
     assert reference.checkpoint_capabilities().rank_count_portability == "unsupported"
     reference.solve(until=.5)
     boundary = arrays(reference)
-    checkpoint = reference.save_checkpoint(tmp_path / kind)
+    if portable and kind == "augmented_moving_cyclic":
+        # Prediction does not widen the existing contact restart boundary.
+        with pytest.raises(NotImplementedError, match="Portable restart"):
+            reference.save_checkpoint(tmp_path / kind, portable=True)
+        same(arrays(reference), boundary)
+        assert not (tmp_path / kind).exists()
+        return
+    checkpoint = reference.save_checkpoint(tmp_path / kind, portable=portable)
     next_size = reference.next_increment_size
     reference.solve()
     restarted = make()
@@ -200,6 +255,8 @@ def test_public_prediction_restart_and_proposal_failure_are_atomic(tmp_path, mon
     assert restarted.accepted_load_factor == .5
     previous_count = len(restarted.accepted_increments)
     previous_energy = list(getattr(restarted, "energy_history", ()))
+    if kind == "augmented_moving_cyclic":
+        previous_contact = restarted.contact_provider.snapshot_accepted_state()
     with monkeypatch.context() as patch:
         def fail(*args, **kwargs):
             raise ValueError("injected accepted prediction failure")
@@ -211,20 +268,29 @@ def test_public_prediction_restart_and_proposal_failure_are_atomic(tmp_path, mon
     assert restarted.next_increment_size == next_size
     assert len(restarted.accepted_increments) == previous_count
     assert list(getattr(restarted, "energy_history", ())) == previous_energy
+    if kind == "augmented_moving_cyclic":
+        assert restarted.contact_provider.snapshot_accepted_state() == previous_contact
     restarted.solve()
     same(arrays(restarted), arrays(reference))
     np.testing.assert_allclose(restarted.response.tangent.values, reference.response.tangent.values,
                                rtol=2e-8, atol=2e-8)
     assert restarted.next_increment_size == pytest.approx(reference.next_increment_size)
-    if kind == "standard":
+    if kind != "affine":
         from dataclasses import asdict
+        def same_record(actual, expected):
+            if isinstance(actual, dict):
+                assert actual.keys() == expected.keys()
+                for key in actual:
+                    same_record(actual[key], expected[key])
+            elif isinstance(actual, (tuple, list)):
+                for a, e in zip(actual, expected, strict=True):
+                    same_record(a, e)
+            elif isinstance(actual, (int, float)):
+                assert actual == pytest.approx(expected, rel=2e-8, abs=2e-10)
+            else:
+                assert actual == expected
         for actual, expected in zip(restarted.energy_history, reference.energy_history, strict=True):
-            actual, expected = asdict(actual), asdict(expected)
-            for name, value in actual.items():
-                if isinstance(value, (int, float)):
-                    assert value == pytest.approx(expected[name], rel=2e-8, abs=2e-10)
-                else:
-                    assert value == expected[name]
+            same_record(asdict(actual), asdict(expected))
     for name in ("accepted_increments", "attempted_increments"):
         actual = [(x.load_factor, x.iterations, x.converged) for x in getattr(restarted, name)]
         expected = [(x.load_factor, x.iterations, x.converged) for x in getattr(reference, name)]
@@ -233,6 +299,12 @@ def test_public_prediction_restart_and_proposal_failure_are_atomic(tmp_path, mon
         measure = (item.checks["maximum_plastic_increment"] if kind == "affine"
                    else item.maximum_plastic_increment)
         assert measure <= .0045
+    if kind == "augmented_moving_cyclic":
+        assert all(any(abs(item.load_factor - knot) < 1e-12 for item in restarted.accepted_increments)
+                   for knot in (.25, .75))
+        assert restarted.energy_history_complete
+        assert abs(restarted.energy_history[-1].tool_work) > 0.
+        assert restarted.energy_history[-1].pair_tool_work
     wrong_policy = make(None)
     untouched = arrays(wrong_policy)
     with pytest.raises((ValueError, RuntimeError), match="identity"):

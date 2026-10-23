@@ -15,7 +15,7 @@ from math import exp, log
 import numpy as np
 import pytest
 
-from agentfem import amplitudes
+from agentfem import amplitudes, steps
 from test_finite_j2_normal_augmentation import _problem, _state
 
 
@@ -51,14 +51,25 @@ def _equilibrium(traction, old_a, old_p):
 
 @pytest.mark.parametrize('cells', [1, 2])
 @pytest.mark.parametrize('restart', [False, True])
-def test_coaxial_plastic_contact_reversal_matches_scalar_reference(cells, restart, tmp_path):
+@pytest.mark.parametrize('prediction', [False, True])
+def test_coaxial_plastic_contact_reversal_matches_scalar_reference(cells, restart, prediction, tmp_path):
     path = amplitudes.tabular((0., .25, .5, .625, .75, 1.),
                               (0., 1., 0., -.5, 0., 1.))
     def build():
+        control = (steps.automatic(
+            initial=1/16, minimum=1/4096, maximum=1/8,
+            max_increments=512, max_cutbacks=12, cutback_factor=.5,
+            maximum_inelastic_increment=.00075, inelastic_prediction_safety=.8,
+        ) if prediction else None)
         return _problem(
             cells=cells, penalty=5000., increments=16,
+            increment_control=control,
             transverse_boundary_fixed=True, load_amplitude=path,
-            penetration_tolerance=1e-9, complementarity_tolerance=1e-8,
+            # On unloading, positive gap is controlled by pressure*gap, not
+            # penetration. The old 1e-8 product allows a 4.7e-9 gap at ~1.9
+            # pressure, above the unchanged 3e-9 displacement reference gate.
+            # Tighten the solve for both policies; do not relax reference error.
+            penetration_tolerance=1e-11, complementarity_tolerance=1e-10,
             maximum_augmentations=120,
         )[1]
 
@@ -73,7 +84,7 @@ def test_coaxial_plastic_contact_reversal_matches_scalar_reference(cells, restar
         expected_u = np.zeros_like(reference_coordinates)
         expected_u[:, 0] = (stretch - 1.) * reference_coordinates[:, 0]
         np.testing.assert_allclose(problem.solution.x.array.reshape(-1, 3), expected_u,
-                                   rtol=0., atol=3e-9)
+                                   rtol=0., atol=3e-9, err_msg=f"factor={factor}")
         state = _state(problem)
         fp = np.diag([exp(a), exp(-a/2), exp(-a/2)])
         np.testing.assert_allclose(state[:, :9], np.broadcast_to(fp.ravel(), state[:, :9].shape),

@@ -19,7 +19,7 @@ or a successful run is not by itself a validated engineering capability.
 
 ## Current product phase: the 0.4 foundation
 
-### Active sprint decision board (2026-10-22)
+### Active sprint decision board (2026-10-23)
 
 Historical entries below remain evidence, not a second current backlog.
 
@@ -96,12 +96,28 @@ owned/ghost publication, an empty rank and collective invalid-measure rejection.
 Raw constitutive states and solver updates are unchanged; metadata distinguishes
 mesh-geometry weighting from any inferred deformation-volume weighting.
 
+The next work-reduction mechanism is now an opt-in core increment policy,
+`steps.automatic(inelastic_prediction_safety=...)`, using the last accepted
+plastic increment to cap the ordinary Newton-based next proposal. It does not
+relax the declared plastic-increment limit or change mandatory load knots.
+The bounded serial global-J2 strong/affine routes share explicit admission,
+accepted-state rollback and versioned restart identity. Regional/mixed/MPI
+prediction remains rejected, without restricting their existing policies.
+On a cyclic P2/J2/plane-penalty/MPC fixture, source-frozen ABBA means are
+186.400 s ordinary and 114.687 s predictive (38.47% less), with rejected
+attempts 140 -> 13 and Newton corrections 1300 -> 806. Common-station reaction
+differs by at most 0.204% from a finite 512-increment reference; that reference
+does not establish continuum accuracy. This is a new increment algorithm,
+not another unchanged-path execution gain, and cannot be added to 24.32% or
+applied to the explicit composite runtime. Compact evidence is in
+`evidence/performance/2026-10-23-inelastic-increment-prediction.json`.
+
 | Order | Work | Current decision / acceptance boundary |
 | --- | --- | --- |
 | 1 | Retain unchanged material trials and scoped linear work | Implemented for bounded serial J2/AL; combined 24.32% timing reduction with station parity and mutation/rollback/restart guards. Unsupported materials/mixed/MPI use ordinary refresh; no scope expansion inferred. |
-| 2 | Isolate the supported contact fixture's spatial reaction error | Open. Hold the physical patch fixed; separate volume approximation, constraint representation, integration and loading-path effects. Do not keep tuning AL after exact discrete elimination agrees. |
+| 2 | Isolate spatial/path error and reduce rejected work | Spatial gate remains open. Accepted-plastic prediction now reduces rejected work on a bounded cyclic fixture; it is not an error estimator. Hold the physical patch fixed and keep volume/trace approximation and path-refinement evidence separate. |
 | 3 | Explicit body/contact critical-path reduction | Selected joined-viscosity/interior-sign route remains a late-path result, not a new full-run claim. Reuse the 25-frame baseline; the new nodal-gather prototype is withdrawn rather than added as an unproven switch. |
-| 4 | Bounded release integration | Prior solver stage passes full CI and installed checks; latest recovery correction has source and MPI evidence and awaits its own remote CI. Scientific claims remain limited to passed geometry/law combinations. |
+| 4 | Bounded release integration | Recovery/solver stage `e61cad92` passes full remote CI (4870 serial tests plus native, MPI and installed-wheel gates). New accepted-increment prediction needs its own source-specific acceptance; previous CI is not evidence for later edits. Scientific claims remain limited to passed geometry/law combinations. |
 
 The first retained-material source candidate is scoped to a single equilibrium
 attempt and compares evaluated old/new gradients, committed/trial state, current

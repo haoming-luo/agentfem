@@ -174,6 +174,21 @@ fixed-path reference, common stations, repeated fields, ABBA timing and source
 identity. It does not establish continuum convergence or energy closure of the
 Gaussian-contact diagnostic.
 
+A four-cell-edge cyclic P2/J2/plane-penalty/periodic-MPC comparison, with a
+maximum accepted plastic increment of `0.00075`, records ordinary/prediction/
+prediction/ordinary times of 186.897, 115.284, 114.090 and 185.903 s. The
+prediction reduces mean setup/solve/observe time by 38.47%, rejected attempts
+from 140 to 13 and total Newton corrections from 1300 to 806. Accepted
+increments change from 250 to 232: this is a different discretized path, not
+an equivalent-execution optimization. Across four common stations the largest
+reaction difference against the 512-increment reference is 0.204%, displacement
+vector relative difference 0.0235%, and reference-volume mean PEEQ difference
+0.00448%. The reference is finite, not exact; this does not establish spatial
+convergence or guarantee those errors on another problem. Repeated fields
+pass `rtol=2e-8`, `atol=2e-10`. The source-frozen report is
+`evidence/performance/2026-10-23-inelastic-increment-prediction.json`.
+Do not add this percentage to the separate unchanged-path execution gain.
+
 ### Solver and assembly policies
 
 Custom `NewtonSolverOptions.line_search_reduction` and `minimum_step_length`

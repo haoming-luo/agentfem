@@ -36,6 +36,8 @@ def main():
     parser.add_argument("--cells", type=int, default=4)
     parser.add_argument("--limit", type=float, default=.00075)
     parser.add_argument("--reference-increments", type=int, default=512)
+    parser.add_argument("--refine-limit", action="store_true",
+                        help="Compare the prediction limit and half that limit to the fixed reference; no ABBA speed claim.")
     parser.add_argument("--output", type=Path, required=True)
     args = parser.parse_args()
     if args.output.exists():
@@ -76,14 +78,16 @@ def main():
             raise RuntimeError(report["error"])
     references = []
     repeat_reference = {}
-    names = ("fixed_reference", "ordinary", "prediction", "prediction", "ordinary")
+    names = (("fixed_reference", "prediction", "prediction_refined") if args.refine_limit
+             else ("fixed_reference", "ordinary", "prediction", "prediction", "ordinary"))
     for name in names:
         require_frozen_source()
+        limit = args.limit / 2 if name == "prediction_refined" else args.limit
         control = (steps.fixed(args.reference_increments) if name == "fixed_reference" else
                    steps.automatic(initial=1/32, minimum=1/4096, maximum=1/16,
                                    max_increments=1024, max_cutbacks=12, cutback_factor=.5,
-                                   maximum_inelastic_increment=args.limit,
-                                   inelastic_prediction_safety=.8 if name == "prediction" else None))
+                                   maximum_inelastic_increment=limit,
+                                   inelastic_prediction_safety=.8 if name.startswith("prediction") else None))
         row = {"policy": name, "control": control.summary(), "status": "running", "stations": []}
         report["records"].append(row)
         save()
@@ -119,7 +123,7 @@ def main():
                 print(json.dumps({"policy": name, "factor": factor}), flush=True)
             if name != "fixed_reference":
                 repeat_reference[name] = current
-                assert all(item.checks["maximum_plastic_increment"] <= args.limit for item in step.accepted_increments)
+                assert all(item.checks["maximum_plastic_increment"] <= limit for item in step.accepted_increments)
             assert all(any(abs(item.load_factor - knot) < 1e-12 for item in step.accepted_increments)
                        for knot in (.25, .5, .75, 1.))
             row.update(status="completed", accepted=len(step.accepted_increments),
@@ -136,6 +140,11 @@ def main():
         print(json.dumps({key: value for key, value in row.items()
                           if key not in ("stations", "accepted_factors", "control")}), flush=True)
     require_frozen_source()
+    if args.refine_limit:
+        report.update(source_unchanged=True, status="completed_limit_refinement",
+                      comparison="common physical stations; finite reference; no repeated timing or exact-error claim")
+        save()
+        return
     means = {name: statistics.mean(row["setup_solve_observe_seconds"] for row in report["records"] if row["policy"] == name)
              for name in ("ordinary", "prediction")}
     report["paired_timing"] = {"order": "ABBA", "mean_seconds": means,

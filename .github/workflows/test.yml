@@ -411,6 +411,7 @@ jobs:
           tests/test_parallel_modal.py
           tests/test_parallel_results.py
           tests/test_quadrature_physical_recovery.py
+          tests/test_inelastic_increment_prediction.py::test_distributed_prediction_is_rejected_before_material_allocation
           tests/test_parallel_transient.py
           tests/test_parallel_uniform_hex.py
           tests/test_parallel_viscoelasticity.py

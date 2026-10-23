@@ -24,6 +24,64 @@ being silently approximated by the bounded route.
 
 ## Live gate status
 
+### Accepted-plastic increment prediction (2026-10-23)
+
+The two-hour solver sprint promotes the private work-reduction experiment into
+the existing automatic-increment policy, not a separate case solver. The
+optional `inelastic_prediction_safety` caps the Newton-based next proposal
+using the last accepted maximum plastic increment. Acceptance still enforces
+the same declared hard bound; failure cutback and mandatory load knots remain
+unchanged. This is a lagged workload predictor, not a local/global error
+estimator or an explicit stability bound. Defaults and old default checkpoint
+identities are unchanged. Enabled identity binds algorithm, safety and the
+expert affine acceptance-measure name.
+
+Source-frozen commit `b83a3936` was compared on a public four-cell-edge P2/J2
+cyclic plane-penalty/MPC fixture with limit `0.00075`. ABBA setup/solve/observe
+times are 186.897, 115.284, 114.090 and 185.903 s: **38.47% less mean elapsed
+time**. Accepted increments are 250 -> 232; rejected attempts 140 -> 13;
+Newton corrections 1300 -> 806. This changes the discrete path and must not be
+presented as bitwise-equivalent execution or combined arithmetically with the
+separate 24.32% execution result. The maximum accepted plastic increment is
+0.000748321, below the unchanged 0.00075 bound. A finite 512-increment reference
+primes compilation and supplies four common stations, not a continuum truth.
+Maximum candidate differences to it are 0.204% reaction, 0.0235% displacement
+vector and 0.00448% reference-volume mean PEEQ. Zero reaction uses absolute
+error, not a misleading relative error. Repeated U/state/stress/tangent pass
+`rtol=2e-8`, `atol=2e-10`. Runtime and driver hashes remain unchanged throughout
+the comparison; compact evidence is
+`evidence/performance/2026-10-23-inelastic-increment-prediction.json`.
+
+Serial standard and affine global-J2 paths are admitted. Single-region dispatch
+was initially advertised by capability inspection although it lowered to a
+material map rejected by the backend. A failing regression established that
+mismatch; admission now follows the actual lowering. Regional, mixed and MPI
+prediction stay unsupported, without restricting their old increment policies.
+The real two-rank admission test passes on both ranks with a 120-second launcher
+limit. It checks early refusal, not distributed prediction success.
+
+The expanded 48-test focused set passes (one MPI-only test skipped in serial).
+It includes ordinary/affine serial and portable-format restart, cyclic moving
+AL tool state/work rollback, invalid measure rejection, policy-identity mismatch,
+minimum-increment exhaustion and retained benchmark failure evidence. Portable
+combined-contact restart is still explicitly refused, not silently promoted.
+The independent scalar confined-J2 reference exercises loading, unloading,
+reverse plasticity and recontact with one/two-cell meshes and interrupted paths.
+Its original 3e-9 displacement gate first failed: the old 1e-8 complementarity
+product allowed a 4.678e-9 positive gap at pressure 1.895, product 8.866e-9.
+The reference fixture now uses stricter 1e-10 complementarity and 1e-11
+penetration tolerances for both increment policies; original field/state/force
+error gates are unchanged and pass. No runtime default or timed fixture was
+changed to repair this test. Spatial convergence, general energy closure of
+the Gaussian diagnostic, and explicit-composite acceleration remain separate.
+The broader affected source regression passes 283 tests (one MPI-only test
+skipped in serial), followed by four benchmark-protocol tests. These counts
+overlap and are not summed. Generated API checks and a strict documentation
+build in a separate temporary directory pass; existing `site/` edits are
+untouched. The benchmark also has a `--refine-limit` mode for a prospective
+fixed-reference/limit/half-limit comparison, which deliberately emits no ABBA
+speed claim.
+
 ### Combined implicit execution confirmation (2026-10-23)
 
 After the individual mechanisms were selected, the combined serial
