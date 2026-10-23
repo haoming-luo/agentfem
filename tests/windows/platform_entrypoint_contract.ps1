@@ -60,6 +60,39 @@ try {
     Assert (-not $report.installer_busy) 'Timed-out probe leaked the installation lock'
     Assert ($report.installations[0].resume.arguments -contains '-ProbeTimeoutSeconds') 'Resume lost explicit timeout'
     Assert (@(Get-Content -LiteralPath $env:AGENTFEM_WSL_FIXTURE_LOG).Count -eq 6) 'Failure triggered an unexpected repair/retry'
+
+    # Exercise full-package validation before the inventory query. This is an
+    # inert local fixture, NOT a built/accepted runtime or a real WSL image.
+    $bundle = Join-Path $temp 'bundle [test]'
+    New-Item -ItemType Directory -Path $bundle | Out-Null
+    foreach ($helper in @('Installer-State.ps1', 'Windows-HostProbe.ps1')) {
+        Copy-Item -LiteralPath (Join-Path $root ('packaging/runtime/wsl/' + $helper)) -Destination $bundle
+    }
+    $image = Join-Path $bundle 'image [test].wsl'
+    Set-Content -LiteralPath $image -Value 'inert image fixture'
+    $digest = (Get-FileHash -LiteralPath $image -Algorithm SHA256).Hash
+    Set-Content -LiteralPath (Join-Path $bundle 'verify_installed_runtime.py') -Value '# never executed'
+    $fullInstaller = Join-Path $bundle 'Install-AgentFEM.ps1'
+    $source = Get-Content -LiteralPath $installer -Raw
+    $source.Replace('@VERSION@', 'fixture').Replace('@RUNTIME_RECORD_SHA256@', ('a' * 64)) |
+        Set-Content -LiteralPath $fullInstaller -Encoding UTF8
+    $env:LOCALAPPDATA = Join-Path $temp 'full-state'
+    $env:AGENTFEM_WSL_FIXTURE_MODE = 'inventory-timeout'
+    $timer.Restart()
+    & $fullInstaller -Image $image -ExpectedSha256 $digest -NonInteractive -WslBootstrapSource None `
+        -ProbeTimeoutSeconds 1 -ProjectDirectory (Join-Path $temp 'projects [test]')
+    $timer.Stop()
+    Assert ($LASTEXITCODE -ne 0 -and $timer.Elapsed.TotalSeconds -lt 8) 'Full installer inventory query was not bounded'
+    $report = (& $statusScript -StateRoot (Join-Path $env:LOCALAPPDATA 'AgentFEM\Installations') | Out-String) | ConvertFrom-Json
+    Assert ($report.installations[0].error_code -eq 'AFM-WIN-PROBE-TIMEOUT') 'Full package failed before its inventory timeout'
+    Assert (-not $report.installer_busy -and -not $report.installations[0].distribution) 'Failed inventory acquired a distribution or leaked its lock'
+    $calls = @(Get-Content -LiteralPath $env:AGENTFEM_WSL_FIXTURE_LOG)
+    Assert ($calls.Count -eq 9 -and ($calls[6..8] -join ',') -eq '--version,--status,--list --quiet') 'Inventory failure triggered a mutation or retry'
+    & $fullInstaller -Image $image -ExpectedSha256 ('0' * 64) -NonInteractive -WslBootstrapSource None
+    Assert ($LASTEXITCODE -ne 0) 'Invalid image checksum was accepted'
+    $report = (& $statusScript -StateRoot (Join-Path $env:LOCALAPPDATA 'AgentFEM\Installations') | Out-String) | ConvertFrom-Json
+    Assert (@($report.installations | Where-Object { $_.error_code -eq 'AFM-WIN-PACKAGE-CHECKSUM' }).Count -eq 1) 'Wrong checksum lost its named failure'
+    Assert (@(Get-Content -LiteralPath $env:AGENTFEM_WSL_FIXTURE_LOG).Count -eq 9) 'Bad image reached WSL before checksum rejection'
     Write-Host 'Platform entry point passed (inert native WSL fixture, no real host preparation).'
 } finally {
     $env:PATH = $originalPath

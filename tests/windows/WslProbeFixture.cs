@@ -18,10 +18,15 @@ class WslProbeFixture
             if (mode == "timeout") { Thread.Sleep(10000); return 0; }
             if (args.Length == 1 && args[0] == "--version")
             {
-                Console.WriteLine("WSL version: 2.3.26.0");
+                Console.WriteLine(mode == "inventory-timeout" ? "WSL version: 2.6.1.0" : "WSL version: 2.3.26.0");
                 return 0;
             }
             if (args.Length == 1 && args[0] == "--status") return 0;
+            if (mode == "inventory-timeout" && args.Length == 2 && args[0] == "--list" && args[1] == "--quiet")
+            {
+                Thread.Sleep(10000);
+                return 0;
+            }
             // No test should reach install, update, distro launch or UAC.
             return 5;
         }

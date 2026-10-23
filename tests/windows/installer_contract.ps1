@@ -46,7 +46,27 @@ try {
     Assert $busy 'Different packages can race over the same WSL distribution'
     $statusScript = Join-Path $root 'packaging/runtime/wsl/Get-AgentFEMInstallStatus.ps1'
     $stateRoot = Split-Path $script:InstallStateDirectory -Parent
+    $statusTokens = $null; $statusErrors = $null
+    $statusAst = [Management.Automation.Language.Parser]::ParseFile($statusScript, [ref]$statusTokens, [ref]$statusErrors)
+    Assert ($statusErrors.Count -eq 0) 'Status script syntax errors'
+    $snapshotFunction = $statusAst.Find({param($node)
+        $node -is [Management.Automation.Language.FunctionDefinitionAst] -and $node.Name -eq 'Open-InstallStatusSnapshot'
+    }, $false)
+    . ([scriptblock]::Create($snapshotFunction.Extent.Text))
+    $statePath = Join-Path $script:InstallStateDirectory 'status.json'
+    $snapshot = Open-InstallStatusSnapshot -Path $statePath
+    try {
+        # Keep a real reader open across two actual atomic replacements. A
+        # reader without delete sharing causes Windows sharing-violation here.
+        Save-InstallState -Stage 'verifying_runtime'
+        Save-InstallState -Stage 'importing' -Message 'new snapshot after concurrent publication'
+        $reader = New-Object IO.StreamReader($snapshot, [Text.Encoding]::UTF8, $true)
+        try { $oldSnapshot = $reader.ReadToEnd() | ConvertFrom-Json }
+        finally { $reader.Dispose() }
+        Assert ($oldSnapshot.stage -eq 'importing' -and $oldSnapshot.message -eq '') 'Opened snapshot changed while the installer published another revision'
+    } finally { $snapshot.Dispose() }
     $report = (& $statusScript -StateRoot $stateRoot | Out-String) | ConvertFrom-Json
+    Assert ($report.installations[0].message -eq 'new snapshot after concurrent publication') 'New status reader did not see the published snapshot'
     Assert ($report.installer_busy -and -not $report.runtime_probed) 'Read-only status lost busy state'
     $script:InstallLock.Dispose()
     $statePath = Join-Path $script:InstallStateDirectory 'status.json'
@@ -58,6 +78,11 @@ try {
     Assert ((Get-FileHash -LiteralPath $statePath -Algorithm SHA256).Hash -eq $beforeStatus) 'Read-only inference rewrote saved evidence'
     Initialize-InstallState -Identity @{version='test'; image_sha256='abc'}
     Assert ($script:InstallState.distribution -eq 'AgentFEM-test') 'Resume lost imported distribution'
+    Save-InstallState -Stage 'checking_package'
+    $script:InstallLock.Dispose()
+    $report = (& $statusScript -StateRoot $stateRoot | Out-String) | ConvertFrom-Json
+    Assert ($report.installations[0].activity -eq 'interrupted') 'Interrupted package hashing would be reported as running'
+    Initialize-InstallState -Identity @{version='test'; image_sha256='abc'}
     Save-InstallState -Stage 'restart_required'
     Save-InstallState -Stage 'completed'
     $state = Get-Content -Raw (Join-Path $script:InstallStateDirectory 'status.json') | ConvertFrom-Json
@@ -133,6 +158,16 @@ try {
     Assert ($nonemptyRejected -and $script:importProbeCalls -eq 1) 'Bracketed occupied directory was not rejected before import'
     Assert ((Get-Content -LiteralPath (Join-Path $occupied 'precious.txt')) -eq 'user data') 'Occupied path was changed'
     ${function:Invoke-WslChecked} = $invokeCheckedImplementation
+    function wsl.exe { $global:LASTEXITCODE = 0; return @('Ubuntu', ('Project ' + [char]0x6d4b)) }
+    $inventory = @(Get-WslDistributions)
+    Assert ($inventory.Count -eq 2 -and $inventory[1] -eq ('Project ' + [char]0x6d4b)) 'Inventory changed a spaced/localised distro name'
+    function wsl.exe { $global:LASTEXITCODE = 0 }
+    Assert (@(Get-WslDistributions).Count -eq 0) 'Successful empty inventory was not empty'
+    function wsl.exe { $global:LASTEXITCODE = 5 }
+    $deniedInventory = $false
+    try { Get-WslDistributions | Out-Null }
+    catch { $deniedInventory = $_.Exception.Message -match 'COMMAND-BLOCKED' }
+    Assert $deniedInventory 'Denied inventory was treated as no distributions'
     function wsl.exe { $global:LASTEXITCODE = 0; return 'Kernel version: 5.15.0' }
     $wrongVersion = $false
     try { Get-InstalledWslVersion | Out-Null }

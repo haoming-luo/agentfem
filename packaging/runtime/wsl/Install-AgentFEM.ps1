@@ -23,7 +23,7 @@ $ExpectedRuntimeRecordSha256 = "@RUNTIME_RECORD_SHA256@"
 Write-Host "AgentFEM Runtime for WSL2" -ForegroundColor Blue
 
 function Invoke-InstallerPlatformProbe {
-    param([ValidateSet('--version', '--status')][string]$Arguments)
+    param([ValidateSet('--version', '--status', '--list --quiet')][string]$Arguments)
     $command = Get-Command wsl.exe -CommandType Application -ErrorAction SilentlyContinue |
         Select-Object -First 1
     if (-not $command) {
@@ -242,13 +242,14 @@ function Invoke-WslChecked {
 }
 
 function Get-WslDistributions {
-    $reported = @(& wsl.exe --list --quiet)
-    if ($LASTEXITCODE -ne 0) {
-        throw "WSL could not list its installed distributions. Run 'wsl --status' and retry."
+    $probe = Invoke-InstallerPlatformProbe -Arguments '--list --quiet'
+    if (-not $probe.ok) {
+        $detail = ($probe.stdout + "`n" + $probe.stderr).Trim()
+        throw "[$($probe.code)] WSL distribution inventory could not be read: $detail. No distribution was selected, imported or replaced."
     }
     return @(
-        $reported |
-            ForEach-Object { ($_ -replace "`0", "").Trim() } |
+        $probe.stdout -split '\r?\n' |
+            ForEach-Object { $_.Trim() } |
             Where-Object { $_ }
     )
 }

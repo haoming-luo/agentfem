@@ -2,6 +2,17 @@
 [CmdletBinding()]
 param([string]$StateRoot = (Join-Path $env:LOCALAPPDATA 'AgentFEM\Installations'))
 $ErrorActionPreference = 'Stop'
+
+function Open-InstallStatusSnapshot {
+    param([Parameter(Mandatory = $true)][string]$Path)
+    # The installer publishes complete snapshots by File.Replace. Ordinary
+    # Get-Content denies delete sharing on Windows and can make that publish
+    # fail just because an agent is reading progress at the same instant.
+    # A shared-delete reader keeps the opened revision intact through rename.
+    return [IO.File]::Open($Path, [IO.FileMode]::Open, [IO.FileAccess]::Read,
+        ([IO.FileShare]::ReadWrite -bor [IO.FileShare]::Delete))
+}
+
 $records = @()
 $errors = @()
 $busy = $false
@@ -28,7 +39,12 @@ try {
             $path = Join-Path $directory.FullName 'status.json'
             if (-not (Test-Path -LiteralPath $path)) { continue }
             try {
-                $record = Get-Content -LiteralPath $path -Raw | ConvertFrom-Json
+                $stream = Open-InstallStatusSnapshot -Path $path
+                try {
+                    $reader = New-Object IO.StreamReader($stream, [Text.Encoding]::UTF8, $true)
+                    try { $record = $reader.ReadToEnd() | ConvertFrom-Json }
+                    finally { $reader.Dispose() }
+                } finally { $stream.Dispose() }
                 if ($record.schema -ne 'agentfem.windows-install' -or $record.schema_version -ne 1 -or
                     $null -eq $record.identity -or -not ($record.stage -is [string])) {
                     throw 'Unsupported installation state schema.'
@@ -42,7 +58,7 @@ try {
                 } elseif ($record.stage -in @('completed', 'platform_ready')) {
                     $activity = 'completed_record'
                 } elseif (-not $record.error_code -and $record.stage -in @(
-                    'created', 'preparing_wsl', 'requesting_elevation', 'importing',
+                    'created', 'checking_package', 'preparing_wsl', 'requesting_elevation', 'importing',
                     'account_setup', 'protecting_workspace', 'verifying_runtime')) {
                     $activity = 'interrupted'
                     $nextAction = 'inspect_log_then_resume_same_installer'

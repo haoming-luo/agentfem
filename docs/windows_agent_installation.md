@@ -60,7 +60,7 @@ Opening Ubuntu for its initial username/password is a one-time user step;
 afterwards the agent continues with the documented mirror commands. Do not
 convert/remove an existing WSL1 or unrelated distro automatically.
 
-The installer's read-only version/status queries use the same bounded probe as
+The installer's read-only version/status/inventory queries use the same bounded probe as
 the preflight (15 seconds per query; `-ProbeTimeoutSeconds 1..120` when needed).
 A timeout records `AFM-WIN-PROBE-TIMEOUT`, releases the installer lock and stops;
 it does not terminate an installation, distribution, service or simulation.
@@ -170,6 +170,8 @@ The status query reports `activity: interrupted` and an inspect/resume action
 for an unfinished stage with no busy lock or recorded handoff. It preserves
 `recorded_next_action` and never rewrites the saved evidence. When the shared
 lock is busy, it does not guess which saved record owns that installer.
+Status readers allow atomic replacement of the state file while they hold a
+complete prior snapshot, so polling progress does not lock out state publication.
 Inspect the log and resume the same verified installer/options; do not delete
 the record or distribution to make the status look clean. Keep corrupt records
 for diagnosis; the query exits nonzero if any record cannot be read.
