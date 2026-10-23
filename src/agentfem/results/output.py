@@ -439,14 +439,35 @@ class UnifiedXDMFTimeSeries:
         self._field_contract = None
         self._last_time = None
         self._write_failed = False
+        self._closed = False
+        self._close_error = None
+
+    def _require_open(self) -> None:
+        if self._closed:
+            raise RuntimeError("Output writer is closed; use a new writer and artifact.")
 
     def __enter__(self):
+        self._require_open()
         self.path.parent.mkdir(parents=True, exist_ok=True)
         if self.partial_path.exists():
             raise FileExistsError("A partial output index exists; use a fresh result path.")
         return self
 
     def __exit__(self, exc_type, exc, tb):
+        if self._closed:
+            if self._close_error is not None:
+                raise RuntimeError("Output writer close failed; artifact remains incomplete.") from self._close_error
+            return False
+        # A completed or interrupted writer cannot be revived. In particular,
+        # opening its HDF5 path again in write mode would truncate prior frames.
+        self._closed = True
+        try:
+            return self._close(exc_type)
+        except BaseException as error:
+            self._close_error = error
+            raise
+
+    def _close(self, exc_type):
         if self._h5 is not None:
             self._h5.close()
             self._h5 = None
@@ -602,6 +623,7 @@ class UnifiedXDMFTimeSeries:
     def write_fields(self, time: float, *fields) -> None:
         """Append one time value with one primary and any auxiliary fields."""
 
+        self._require_open()
         if not fields:
             raise ValueError("UnifiedXDMFTimeSeries requires at least one field.")
         if self._write_failed:

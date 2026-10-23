@@ -24,6 +24,7 @@ class LiveXDMFTimeSeries(UnifiedXDMFTimeSeries):
         self._mesh_ready = False
 
     def __enter__(self):
+        self._require_open()
         if self.path.exists() or self.data_directory.exists():
             raise FileExistsError("Live output exists; use a fresh result path.")
         return super().__enter__()

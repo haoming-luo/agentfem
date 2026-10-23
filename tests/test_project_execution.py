@@ -215,6 +215,9 @@ def test_streaming_frames_and_completion_retention(tmp_path):
     assert all(value >= 0 for value in timing.values())
     assert timing['advance_inclusive'] >= timing['accepted_callbacks']
     assert len(list(run.output_directory.rglob('*.checkpoint.json'))) == 1
+    manifest = json.loads(run.manifest_path.read_text())
+    assert len(manifest['checkpoint_records']) == 1
+    assert (run.output_directory / manifest['checkpoint_records'][0]['path']).is_file()
     assert not (run.output_directory/'accepted-final.checkpoint.json').exists()
     final = report['artifacts']['checkpoint']
     restored = make_step(steps=7)
@@ -484,6 +487,28 @@ def test_export_failure_does_not_prune(tmp_path):
         project.execute_step(step, context=run,
             policy=project.RunPolicy(completed_checkpoint_keep=1), export=fail)
     assert len(list((run.output_directory/'checkpoints').glob('*.checkpoint.json'))) == 2
+
+
+@pytest.mark.parametrize('stage', ['solve_result', 'publish'])
+def test_publication_failure_does_not_prune(tmp_path, monkeypatch, stage):
+    from agentfem import checkpointing
+    from test_response_material_step import make_step
+    run = context(tmp_path / 'failed-publication')
+    step = make_step(checkpoint=checkpointing.every(
+        2, directory=run.output_directory / 'checkpoints', keep_last=2))
+
+    def fail(*args, **kwargs):
+        raise OSError('publication disk failure')
+
+    owner = type(step) if stage == 'solve_result' else type(run)
+    monkeypatch.setattr(owner, stage, fail)
+    with pytest.raises(OSError, match='publication disk failure'):
+        project.execute_step(step, context=run,
+            policy=project.RunPolicy(completed_checkpoint_keep=1))
+    assert len(list((run.output_directory / 'checkpoints').glob('*.checkpoint.json'))) == 2
+    report = json.loads((run.output_directory / 'report.json').read_text())
+    assert report['status'] == 'failed'
+    assert 'checkpoint_retention' not in report
 
 
 def test_series_refuses_existing_output(tmp_path):

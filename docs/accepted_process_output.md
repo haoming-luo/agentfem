@@ -60,6 +60,11 @@ Further writes remain closed. A heavy-data close failure is different: later
 calls keep reporting `AFM-FRAMES-CLOSE-FAILED`, rather than silently returning
 an empty successful-looking artifact set. This is an in-process publication
 retry, not automatic recovery of damaged HDF5 or missing metadata after a crash.
+The underlying serial `ResultWriter`/`UnifiedXDMFTimeSeries` objects also reject
+writes and re-entry after close, whether the context completed or was aborted.
+Repeated cleanup cannot promote an interrupted index to complete. Continue in
+a new series rather than reusing a closed writer: the original heavy data must
+not be reopened in truncating mode.
 
 ## Checkpoint policy
 
@@ -113,8 +118,11 @@ writing another `accepted-final` copy. `report.json` and SimulationResult give
 the authoritative checkpoint path; consumers must not assume its filename.
 
 `RunPolicy(completed_checkpoint_keep=1)` explicitly removes older owned transient
-checkpoints only after reaching the full horizon and successfully exporting
-results. The final checkpoint's payload hashes are verified before pruning.
+checkpoints only after reaching the full horizon, exporting fields and publishing
+the structured result successfully. A result-construction or publication failure
+preserves the existing checkpoints. The published result lists only checkpoints
+selected for retention; physical removal happens afterwards. The final checkpoint's
+payload hashes are verified before pruning.
 Only current-run recorded paths inside its output directory are eligible;
 restart-source records, other directories and unrelated files are untouched.
 Removal is permanent and reported in `checkpoint_retention`. Default `None`

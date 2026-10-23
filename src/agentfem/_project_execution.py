@@ -181,7 +181,7 @@ def execute_step(step, *, context, policy=None, metadata=None, observations=None
         if observation_journal is not None:
             report["observations"] = observation_journal.summary()
             artifacts["observations"] = str(observation_journal.path)
-        from ._project_checkpoints import final_checkpoint, retain_completed
+        from ._project_checkpoints import completed_retention_paths, final_checkpoint, retain_completed
         checkpoint = timed("terminal_checkpoint", final_checkpoint, step, output)
         artifacts["checkpoint"] = str(checkpoint)
         complete = step.completed_steps == step.steps
@@ -203,13 +203,17 @@ def execute_step(step, *, context, policy=None, metadata=None, observations=None
                 if not path.is_file():
                     raise ValueError(f"AFM-RUN-ARTIFACT: missing export {name}")
                 artifacts[name] = str(path)
-        if complete and policy.completed_checkpoint_keep is not None:
-            report["checkpoint_retention"] = timed("terminal_checkpoint", retain_completed, step, output, checkpoint,
-                policy.completed_checkpoint_keep, comm)
         report.update(complete=complete, status="completed" if complete else "paused",
                       accepted_steps=step.completed_steps, summary=step.summary())
         if complete:
             result = timed("publication", step.solve_result, metadata=metadata)
+            if policy.completed_checkpoint_keep is not None:
+                planned = set(timed("terminal_checkpoint", completed_retention_paths,
+                    step, output, checkpoint, policy.completed_checkpoint_keep))
+                # Publish only retained restart references, but keep every
+                # payload and the Step's records intact until publication succeeds.
+                result.checkpoints = {name: record for name, record in result.checkpoints.items()
+                    if Path(record.path).resolve() not in planned}
             if frames is not None:
                 result.metadata["visualization"] = {
                     "primary_artifact": "process_fields", "kind": "accepted_time_series",
@@ -221,6 +225,9 @@ def execute_step(step, *, context, policy=None, metadata=None, observations=None
                 {} if policy.history_storage == "inline" else {"history_storage": policy.history_storage}
             )
             timed("publication", context.publish, result, **publication_options)
+            if policy.completed_checkpoint_keep is not None:
+                report["checkpoint_retention"] = timed("terminal_checkpoint", retain_completed,
+                    step, output, checkpoint, policy.completed_checkpoint_keep, comm)
         else:
             context.write_execution("paused", structured_result=False)
         printer.status("Run completed" if complete else "Partial run completed")

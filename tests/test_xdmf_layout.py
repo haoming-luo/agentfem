@@ -55,6 +55,52 @@ def test_result_writer_single_grid_and_warp(tmp_path):
     check_warp(path)
 
 
+@pytest.mark.parametrize("storage", ["single_file", "frame_files"])
+@pytest.mark.parametrize("abort", [False, True])
+def test_closed_writer_cannot_reopen_or_republish_accepted_data(tmp_path, storage, abort):
+    domain, u, damage = fields()
+    path = tmp_path / "closed.xdmf"
+    writer = ResultWriter(path, domain, (u, damage), storage=storage)
+    writer.__enter__()
+    writer.write(0.)
+    error = RuntimeError("simulation interrupted") if abort else None
+    writer.__exit__(type(error) if error is not None else None, error, None)
+    before = {p: hashlib.sha256(p.read_bytes()).hexdigest()
+              for p in tmp_path.rglob("*") if p.is_file()}
+    with pytest.raises(RuntimeError, match="closed"):
+        writer.write(1.)
+    with pytest.raises(RuntimeError, match="closed"):
+        writer.__enter__()
+    # Cleanup may be repeated, but must never promote an interrupted series
+    # or reopen/truncate its heavy data on an accidental post-context write.
+    writer.__exit__(None, None, None)
+    after = {p: hashlib.sha256(p.read_bytes()).hexdigest()
+             for p in tmp_path.rglob("*") if p.is_file()}
+    assert after == before
+    if abort:
+        index = path if storage == "frame_files" else path.with_name("closed.partial.xdmf")
+        assert ET.parse(index).find("Domain/Information").get("Value") == "incomplete"
+
+
+@pytest.mark.parametrize("storage", ["single_file", "frame_files"])
+def test_writer_failed_close_cannot_be_reported_as_success(tmp_path, monkeypatch, storage):
+    from agentfem.results.output import UnifiedXDMFTimeSeries
+    domain, u, damage = fields()
+    writer = ResultWriter(tmp_path / 'failed-close.xdmf', domain, (u, damage), storage=storage)
+    writer.__enter__()
+    writer.write(0.)
+    def fail(*args, **kwargs):
+        raise OSError('index publication failure')
+    monkeypatch.setattr(UnifiedXDMFTimeSeries, '_publish_index', fail)
+    with pytest.raises(OSError, match='index publication failure'):
+        writer.__exit__(None, None, None)
+    with pytest.raises(RuntimeError, match='close failed') as caught:
+        writer.__exit__(None, None, None)
+    assert isinstance(caught.value.__cause__, OSError)
+    with pytest.raises(RuntimeError, match='closed'):
+        writer.write(1.)
+
+
 @pytest.mark.parametrize("fault", ["time_nan", "time_repeat", "time_backwards",
                                   "nonfinite", "duplicate", "reserved", "unsafe_name",
                                   "schema", "mesh_motion"])
