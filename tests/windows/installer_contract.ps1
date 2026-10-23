@@ -145,7 +145,7 @@ try {
     function Test-AdministratorSession { return $false }
     function wsl.exe { $global:LASTEXITCODE = 0; return 'WSL version: 2.3.26.0' }
     $platformVersion = Require-WslPlatform -Source 'None' -PlatformOnly
-    Assert ($platformVersion -eq [version]'2.3.26') 'Mirror route forced a packaging-only update'
+    Assert ($platformVersion -eq [version]'2.3.26.0') 'Mirror route changed the tooling version or forced an image-only update'
     $imageVersionRejected = $false
     try { Require-WslPlatform -Source 'None' | Out-Null }
     catch { $imageVersionRejected = $_.Exception.Message -match 'WSL-TOO-OLD' }
