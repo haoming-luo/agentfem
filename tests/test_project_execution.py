@@ -496,3 +496,71 @@ def test_series_refuses_existing_output(tmp_path):
         series.write(make_step())
     assert series.close() == {}
     assert path.read_text() == 'precious'
+
+
+@pytest.mark.parametrize("storage", ["single_file", "frame_files"])
+def test_series_retries_metadata_publication_without_rewriting_fields(tmp_path, monkeypatch, storage):
+    from agentfem import checkpointing, results
+    from test_response_material_step import make_step
+    from meshio.xdmf import TimeSeriesReader
+
+    path = tmp_path / "retry.xdmf"
+    series = results.AcceptedResponseSeries(path, storage=storage)
+    step = make_step(steps=3)
+    series.write(step)
+    step.run(until_step=1)
+    series.write(step)
+    write_text = checkpointing.atomic_write_text
+    attempted = []
+    def fail_metadata_once(target, content, **kwargs):
+        if target == path.with_suffix('.json'):
+            attempted.append(content)
+            if len(attempted) == 1:
+                raise OSError('injected metadata publication failure')
+        return write_text(target, content, **kwargs)
+    monkeypatch.setattr(checkpointing, 'atomic_write_text', fail_metadata_once)
+    with pytest.raises(OSError, match='metadata publication'):
+        series.close(complete=False)
+    assert series.artifacts() == {}
+    with TimeSeriesReader(path) as reader:
+        reader.read_points_cells()
+        assert reader.num_steps == 2
+        time, points, cells = reader.read_data(1)
+        assert np.isfinite(points[step.state.u.value.name]).all()
+    with pytest.raises(RuntimeError, match='AFM-FRAMES-CLOSED'):
+        series.write(step)
+    with pytest.raises(ValueError, match='AFM-FRAMES-COMPLETION'):
+        series.close(complete=True)
+    original_exit = series._writer.__exit__
+    def must_not_reclose(*args):
+        raise AssertionError('already-finalized heavy data was closed again')
+    monkeypatch.setattr(series._writer, '__exit__', must_not_reclose)
+    # Public metadata aliases cannot alter a pending close after an I/O failure.
+    series.stations.append({'increment': 9999, 'time': 9999.})
+    recovered = series.close(complete=False)
+    assert recovered['process_metadata'] == path.with_suffix('.json')
+    assert len(attempted) == 2 and attempted[0] == attempted[1]
+    metadata = json.loads(path.with_suffix('.json').read_text())
+    assert not metadata['complete'] and len(metadata['stations']) == 2
+    assert series.close(complete=False) == recovered
+    monkeypatch.setattr(series._writer, '__exit__', original_exit)
+
+
+def test_series_storage_close_failure_remains_explicit(tmp_path, monkeypatch):
+    from agentfem import results
+    from test_response_material_step import make_step
+    series = results.AcceptedResponseSeries(tmp_path / 'failed-close.xdmf')
+    series.write(make_step())
+    original_exit = series._writer.__exit__
+    def fail_storage(*args):
+        raise OSError('injected storage close failure')
+    monkeypatch.setattr(series._writer, '__exit__', fail_storage)
+    try:
+        with pytest.raises(OSError, match='storage close'):
+            series.close(complete=True)
+        with pytest.raises(RuntimeError, match='AFM-FRAMES-CLOSE-FAILED'):
+            series.close(complete=True)
+        assert series.artifacts() == {}
+        assert not series.path.with_suffix('.json').exists()
+    finally:
+        original_exit(RuntimeError, RuntimeError('failed storage'), None)

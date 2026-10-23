@@ -52,6 +52,15 @@ states using `write(step)` and `close(complete=False)`. It never integrates or
 loads a checkpoint itself. Restore with the original compatible model/runtime;
 never remove identity checks to visualize a historical checkpoint.
 
+If heavy-data close succeeds but the final JSON metadata publication fails,
+the same series object may retry `close` with the original `complete` flag.
+The retry publishes the already-frozen metadata only: it does not rerun the
+solver, rewrite frames or change a partial analysis into a completed one.
+Further writes remain closed. A heavy-data close failure is different: later
+calls keep reporting `AFM-FRAMES-CLOSE-FAILED`, rather than silently returning
+an empty successful-looking artifact set. This is an in-process publication
+retry, not automatic recovery of damaged HDF5 or missing metadata after a crash.
+
 ## Checkpoint policy
 
 ### Live viewing with immutable frames

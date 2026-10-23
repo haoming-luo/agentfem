@@ -130,6 +130,9 @@ class AcceptedResponseSeries:
         self._writer = None
         self._closed = False
         self._published = False
+        self._close_error = None
+        self._close_complete = None
+        self._pending_metadata = None
         self.stations = []
         self._identity = None
         self._transport = None
@@ -157,26 +160,50 @@ class AcceptedResponseSeries:
         self.stations.append({"increment": int(step.completed_steps), "time": float(record["time"])})
 
     def close(self, *, complete=False):
+        """Close fields once, then atomically publish their owned metadata.
+
+        A metadata-only I/O failure can be retried with the same ``complete``
+        flag, without rewriting heavy data or running another increment.
+        A storage-close failure remains explicit: its safety is not inferred
+        merely because a later call to close no longer has work to do.
+        """
         from ..checkpointing import atomic_write_text
 
-        if self._closed:
+        if self._published:
             return self.artifacts()
-        self._closed = True
-        if self._writer is not None:
-            if self.stations:
-                self._writer.__exit__(None, None, None)
-            else:
-                self._writer.__exit__(RuntimeError, RuntimeError("No accepted frames"), None)
-        if self.stations:
-            atomic_write_text(self.path.with_suffix('.json'), json.dumps({
-                "schema": "agentfem.accepted-response-series.v1", "complete": bool(complete),
-                "restart_archive": False, "scientifically_validated": False,
-                "storage": self.storage,
-                "stations": self.stations, "units": self.units,
-                "state_schema": self._identity[0], "state_fields": self._identity[1],
-                "location": self._identity[2], "stress_measure": self._identity[3],
-            }, indent=2, allow_nan=False) + '\n')
+        if self._close_error is not None:
+            raise RuntimeError(f"AFM-FRAMES-CLOSE-FAILED: {self._close_error}")
+        if not self._closed:
+            self._closed = True
+            self._close_complete = bool(complete)
+            try:
+                if self.stations:
+                    # Freeze small metadata before closing; aliases must not
+                    # change the description of already-written frames on retry.
+                    self._pending_metadata = json.dumps({
+                        "schema": "agentfem.accepted-response-series.v1", "complete": bool(complete),
+                        "restart_archive": False, "scientifically_validated": False,
+                        "storage": self.storage,
+                        "stations": self.stations, "units": self.units,
+                        "state_schema": self._identity[0], "state_fields": self._identity[1],
+                        "location": self._identity[2], "stress_measure": self._identity[3],
+                    }, indent=2, allow_nan=False) + '\n'
+                if self._writer is not None:
+                    if self.stations:
+                        self._writer.__exit__(None, None, None)
+                    else:
+                        self._writer.__exit__(RuntimeError, RuntimeError("No accepted frames"), None)
+            except BaseException as error:
+                # Do not retain a traceback and the large solver state it may
+                # reference. Preserve the original exception for this caller.
+                self._close_error = f"{type(error).__name__}: {error}"
+                raise
+        elif bool(complete) != self._close_complete:
+            raise ValueError("AFM-FRAMES-COMPLETION: retry close with the original complete flag.")
+        if self._pending_metadata is not None:
+            atomic_write_text(self.path.with_suffix('.json'), self._pending_metadata)
             self._published = True
+            self._pending_metadata = None
         return self.artifacts()
 
     def artifacts(self):
