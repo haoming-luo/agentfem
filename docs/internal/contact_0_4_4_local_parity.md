@@ -82,6 +82,27 @@ untouched. The benchmark also has a `--refine-limit` mode for a prospective
 fixed-reference/limit/half-limit comparison, which deliberately emits no ABBA
 speed claim.
 
+That prospective refinement is now complete at frozen `33412d59`, with no
+concurrent numerical run or build and unchanged source hashes. The 1024-step
+reference has final reaction -3.71250393, versus -3.69748392 for 512 steps
+(0.4046% change). Limits 0.00075 / 0.000375 give final reactions -3.70501173 /
+-3.71635888; the sign of their difference from a finite reference matters.
+Maximum four-station reaction differences are 0.20181% / 0.10384%, displacement
+vector differences 0.03834% / 0.01184%, volume-mean PEEQ differences 0.02909% /
+0.001654%, and maximum PEEQ differences 0.08964% / 0.005264%. Open-contact
+station forces are zero in each path. The refined prediction takes 449
+accepted increments, 18 rejected attempts and 1447 Newton corrections;
+its maximum accepted plastic increment is 0.000370597 < 0.000375.
+The coarse path reproduces the previous 232/13/806 counts. Observed individual
+times are 382.705 s reference, 114.241 s coarse prediction and 208.196 s refined
+prediction, not a new ABBA performance claim. Evidence:
+`evidence/performance/2026-10-23-inelastic-increment-refinement.json`.
+These results support controlled limit refinement, not an exact/global error
+bound. No third blind parameter/mesh sweep is started in this sprint. The next
+gate is compatible volume/contact/periodic approximation with loading-path
+error explicitly separated. No current experimental capability is promoted
+to commercial-code parity or released based on this timing result.
+
 ### Combined implicit execution confirmation (2026-10-23)
 
 After the individual mechanisms were selected, the combined serial

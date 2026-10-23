@@ -189,6 +189,17 @@ pass `rtol=2e-8`, `atol=2e-10`. The source-frozen report is
 `evidence/performance/2026-10-23-inelastic-increment-prediction.json`.
 Do not add this percentage to the separate unchanged-path execution gain.
 
+A prospective refinement at `33412d59` uses a 1024-increment reference and
+limits `0.00075` / `0.000375`. Maximum common-station differences to that
+reference decrease from 0.202% to 0.104% in reaction, 0.0384% to 0.0119% in
+displacement vector, and 0.0291% to 0.00166% in volume-mean PEEQ. Accepted
+increments increase from 232 to 449; stricter resolution costs more work.
+The 512 -> 1024 fixed-reference final reaction itself changes by 0.405%, so
+neither reference should be labelled exact and the earlier smaller PEEQ
+difference to 512 steps is not an accuracy certificate. See
+`evidence/performance/2026-10-23-inelastic-increment-refinement.json`; this
+single refinement comparison makes no additional repeated-timing claim.
+
 ### Solver and assembly policies
 
 Custom `NewtonSolverOptions.line_search_reduction` and `minimum_step_length`

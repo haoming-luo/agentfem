@@ -111,6 +111,14 @@ does not establish continuum accuracy. This is a new increment algorithm,
 not another unchanged-path execution gain, and cannot be added to 24.32% or
 applied to the explicit composite runtime. Compact evidence is in
 `evidence/performance/2026-10-23-inelastic-increment-prediction.json`.
+Prospective 1024-step-reference confirmation retains the same predictive
+232-increment path. Halving the plastic limit gives 449 accepted increments
+and reduces maximum reaction/displacement/mean-PEEQ differences to that
+reference from 0.202%/0.0384%/0.0291% to 0.104%/0.0119%/0.00166%.
+Fixed-reference 512 -> 1024 final reaction still changes by 0.405%: preserve
+the remaining path-accuracy uncertainty rather than selecting the more
+flattering reference. The next scientific gate remains compatible spatial
+approximation at controlled path resolution, not another controller knob.
 
 | Order | Work | Current decision / acceptance boundary |
 | --- | --- | --- |
