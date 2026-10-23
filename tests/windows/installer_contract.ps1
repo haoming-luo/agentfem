@@ -2,6 +2,7 @@
 $ErrorActionPreference = 'Stop'
 $root = (Resolve-Path (Join-Path $PSScriptRoot '../..')).Path
 . (Join-Path $root 'packaging/runtime/wsl/Installer-State.ps1')
+. (Join-Path $root 'packaging/runtime/wsl/Windows-HostProbe.ps1')
 $originalLocal = $env:LOCALAPPDATA
 $temp = Join-Path ([IO.Path]::GetTempPath()) ('AgentFEM ' + [char]0x6d4b + [char]0x8bd5 + ' ' + [guid]::NewGuid().ToString())
 $env:LOCALAPPDATA = $temp
@@ -100,6 +101,10 @@ try {
     catch { $wrongVersion = $_.Exception.Message -match 'VERSION-UNRECOGNIZED' }
     Assert $wrongVersion 'Installer used kernel version as WSL tooling version'
     function wsl.exe { $global:LASTEXITCODE = 1 }
+    $unknownPlatform = $false
+    try { Get-InstalledWslVersion | Out-Null }
+    catch { $unknownPlatform = $_.Exception.Message -match 'WSL-PROBE-FAILED' }
+    Assert $unknownPlatform 'Unknown probe error authorised platform reinstallation'
     Assert ((Get-AgentFEMRuntimeVersion -Name 'missing') -eq 'unknown') 'Blank runtime probe caused a null exception'
     $unknownUser = $false
     try { Get-DefaultLinuxUser -Name 'missing' | Out-Null }
@@ -152,6 +157,42 @@ try {
     function wsl.exe { $global:LASTEXITCODE = 0; return 'WSL version: 2.3.26.0' }
     $platformVersion = Require-WslPlatform -Source 'None' -PlatformOnly
     Assert ($platformVersion -eq [version]'2.3.26.0') 'Mirror route changed the tooling version or forced an image-only update'
+    function wsl.exe {
+        $global:LASTEXITCODE = 0
+        if (($args -join ' ') -eq '--status') {
+            $global:LASTEXITCODE = -1
+            return 'Wsl/WSL_E_VIRTUAL_MACHINE_PLATFORM_REQUIRED'
+        }
+        return 'WSL version: 2.3.26.0'
+    }
+    $missingComponent = $false
+    try { Require-WslPlatform -Source 'None' -PlatformOnly | Out-Null }
+    catch { $missingComponent = $_.Exception.Message -match 'WSL-NOT-READY' }
+    Assert $missingComponent 'Tooling version masked a missing Windows component'
+    $platformInstallImplementation = ${function:Install-WslPlatform}
+    $script:componentRepairs = 0
+    function Install-WslPlatform { param($Source) $script:componentRepairs++ }
+    function wsl.exe {
+        $global:LASTEXITCODE = 0
+        if (($args -join ' ') -eq '--status' -and $script:componentRepairs -eq 0) {
+            $global:LASTEXITCODE = -2147220691
+            return 'component required'
+        }
+        return 'WSL version: 2.3.26.0'
+    }
+    Require-WslPlatform -Source 'Store' -PlatformOnly | Out-Null
+    Assert ($script:componentRepairs -eq 1) 'Known missing component did not use one preparation operation'
+    function wsl.exe {
+        $global:LASTEXITCODE = 0
+        if (($args -join ' ') -eq '--status') { $global:LASTEXITCODE = 5 }
+        return 'WSL version: 2.3.26.0'
+    }
+    $blockedStatus = $false
+    try { Require-WslPlatform -Source 'Store' -PlatformOnly | Out-Null }
+    catch { $blockedStatus = $_.Exception.Message -match 'COMMAND-BLOCKED' }
+    Assert ($blockedStatus -and $script:componentRepairs -eq 1) 'Denied status triggered a repair'
+    ${function:Install-WslPlatform} = $platformInstallImplementation
+    function wsl.exe { $global:LASTEXITCODE = 0; return 'WSL version: 2.3.26.0' }
     $imageVersionRejected = $false
     try { Require-WslPlatform -Source 'None' | Out-Null }
     catch { $imageVersionRejected = $_.Exception.Message -match 'WSL-TOO-OLD' }

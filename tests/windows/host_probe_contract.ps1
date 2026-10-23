@@ -8,6 +8,12 @@ $nativeProbe = ${function:Invoke-WslHostProbe}
 $originalOS = $env:OS
 $temp = Join-Path ([IO.Path]::GetTempPath()) ('AgentFEM probe ' + [guid]::NewGuid().ToString())
 try {
+    foreach ($code in @(2147746593, -2147220703, 2147746605, -2147220691)) {
+        Assert ((Get-WslProbeFailureCode -ExitCode $code) -eq 'AFM-WIN-COMPONENT-REQUIRED') 'Known component HRESULT lost'
+    }
+    Assert ((Get-WslProbeFailureCode -ExitCode -1 -Output 'Wsl/WSL_E_VIRTUAL_MACHINE_PLATFORM_REQUIRED') -eq 'AFM-WIN-COMPONENT-REQUIRED') 'Stable symbolic error lost'
+    Assert ((Get-WslProbeFailureCode -ExitCode 1 -Output 'some localised error') -eq 'AFM-WIN-PROBE-FAILED') 'Unknown error guessed as missing components'
+    Assert ((Get-WslProbeFailureCode -ExitCode 5 -Output 'WSL_E_WSL_OPTIONAL_COMPONENT_REQUIRED') -eq 'AFM-WIN-COMMAND-BLOCKED') 'Component text bypassed permission failure'
     # UTF-8, UTF-16LE, Chinese names and BOMs must not become broken identities.
     $chinese = ([string][char]0x6d4b + [char]0x8bd5) * 20
     foreach ($value in @('Ubuntu 24.04', $chinese)) {
@@ -32,6 +38,7 @@ try {
         $script:calls = @()
         $script:responses = @{
             '--version' = (Ok "WSL version: 2.3.26.0`nKernel version: 5.15.0")
+            '--status' = (Ok 'Ready')
             '--list --quiet' = (Ok $Names)
             '--list --verbose' = (Ok $Rows)
         }
@@ -40,6 +47,11 @@ try {
     Set-Inventory "Ubuntu 24.04`n$chinese" "NAME STATE VERSION`n* Ubuntu 24.04 Running 2`n  $chinese Stopped 1"
     $report = Get-AgentFEMWindowsHostReport
     Assert ($report.status -eq 'inventory_available') 'Available WSL2 not detected'
+    Set-Inventory '' ''
+    $script:responses['--status'] = @{ok=$false; code='AFM-WIN-COMPONENT-REQUIRED'; exit_code=-1; stdout=''; stderr='component required'}
+    $missing = Get-AgentFEMWindowsHostReport
+    Assert ($missing.status -eq 'component_required' -and $script:calls.Count -eq 2) 'Version success masked missing components or continued inventory'
+    Set-Inventory "Ubuntu 24.04`n$chinese" "NAME STATE VERSION`n* Ubuntu 24.04 Running 2`n  $chinese Stopped 1"
     Assert ($report.distributions.Count -eq 2 -and $report.distributions[0].is_default) 'Inventory/default marker lost'
     Assert ($report.distributions[1].name -ceq $chinese) 'Chinese name changed'
     Assert ($report.distributions[1].wsl_version -eq 1) 'WSL1 was assumed to be WSL2'

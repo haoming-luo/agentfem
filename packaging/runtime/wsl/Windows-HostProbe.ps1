@@ -23,11 +23,27 @@ function ConvertFrom-WslProbeBytes {
     return $text.TrimStart([char]0xfeff).TrimEnd([char]0)
 }
 
+function Get-WslProbeFailureCode {
+    param([long]$ExitCode, [string]$Output = '')
+    if ($ExitCode -eq 0) { return '' }
+    $win32Code = ($ExitCode -band 65535)
+    if ($win32Code -in @(5, 740, 1223)) { return 'AFM-WIN-COMMAND-BLOCKED' }
+    if ($win32Code -in @(3010, 1641)) { return 'AFM-WIN-RESTART-REQUIRED' }
+    # Microsoft WSL HRESULTs; some clients return -1 but print the stable
+    # symbolic code. Do not infer missing features from localised prose.
+    $unsignedCode = ($ExitCode -band 4294967295)
+    if ($unsignedCode -in @(2147746593, 2147746605) -or
+        $Output -match '\bWSL_E_(WSL_OPTIONAL_COMPONENT|VIRTUAL_MACHINE_PLATFORM)_REQUIRED\b') {
+        return 'AFM-WIN-COMPONENT-REQUIRED'
+    }
+    return 'AFM-WIN-PROBE-FAILED'
+}
+
 function Invoke-WslHostProbe {
     param(
         [Parameter(Mandatory = $true)][string]$Executable,
         [Parameter(Mandatory = $true)]
-        [ValidateSet('--version', '--list --quiet', '--list --verbose')][string]$Arguments,
+        [ValidateSet('--version', '--status', '--list --quiet', '--list --verbose')][string]$Arguments,
         [ValidateRange(1, 120)][int]$TimeoutSeconds = 15
     )
     $process = New-Object Diagnostics.Process
@@ -54,14 +70,11 @@ function Invoke-WslHostProbe {
             [Threading.Tasks.Task[]]@($outTask, $errTask), 1000)) {
             throw 'WSL probe output did not close after exit.'
         }
-        $code = ''
-        $win32Code = ([int64]$process.ExitCode -band 65535)
-        if ($win32Code -in @(5, 740, 1223)) { $code = 'AFM-WIN-COMMAND-BLOCKED' }
-        elseif ($win32Code -in @(3010, 1641)) { $code = 'AFM-WIN-RESTART-REQUIRED' }
-        elseif ($process.ExitCode -ne 0) { $code = 'AFM-WIN-PROBE-FAILED' }
+        $outText = ConvertFrom-WslProbeBytes $stdout.ToArray()
+        $errText = ConvertFrom-WslProbeBytes $stderr.ToArray()
+        $code = Get-WslProbeFailureCode -ExitCode $process.ExitCode -Output ($outText + "`n" + $errText)
         return @{ok=($process.ExitCode -eq 0); code=$code; exit_code=$process.ExitCode;
-            stdout=(ConvertFrom-WslProbeBytes $stdout.ToArray());
-            stderr=(ConvertFrom-WslProbeBytes $stderr.ToArray())}
+            stdout=$outText; stderr=$errText}
     } catch {
         $exception = $_.Exception.GetBaseException()
         $code = 'AFM-WIN-PROBE-FAILED'
@@ -101,7 +114,7 @@ function Get-AgentFEMWindowsHostReport {
         return $report
     }
     $report.wsl_command = $command.Source
-    foreach ($arguments in @('--version', '--list --quiet', '--list --verbose')) {
+    foreach ($arguments in @('--version', '--status', '--list --quiet', '--list --verbose')) {
         $probe = Invoke-WslHostProbe -Executable $command.Source -Arguments $arguments -TimeoutSeconds $TimeoutSeconds
         $report.probes += @{arguments=$arguments; exit_code=$probe.exit_code; code=$probe.code}
         if (-not $probe.ok) {
@@ -109,11 +122,13 @@ function Get-AgentFEMWindowsHostReport {
                 'AFM-WIN-COMMAND-BLOCKED' { 'blocked' }
                 'AFM-WIN-RESTART-REQUIRED' { 'restart_required' }
                 'AFM-WIN-PROBE-TIMEOUT' { 'probe_timeout' }
+                'AFM-WIN-COMPONENT-REQUIRED' { 'component_required' }
                 default { 'probe_failed' }
             }
             $report.next_action = switch ($report.status) {
                 'blocked' { 'request_scoped_host_approval' }
                 'restart_required' { 'save_work_restart_then_probe_again' }
+                'component_required' { 'prepare_windows_components_with_consent' }
                 default { 'inspect_probe_error_without_reinstalling' }
             }
             $detail = ($probe.stderr + "`n" + $probe.stdout).Trim()

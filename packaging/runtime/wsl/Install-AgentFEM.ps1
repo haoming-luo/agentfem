@@ -18,6 +18,7 @@ $ErrorActionPreference = "Stop"
 $RuntimeVersion = "@VERSION@"
 $ExpectedRuntimeRecordSha256 = "@RUNTIME_RECORD_SHA256@"
 . (Join-Path $PSScriptRoot "Installer-State.ps1")
+. (Join-Path $PSScriptRoot "Windows-HostProbe.ps1")
 Write-Host "AgentFEM Runtime for WSL2" -ForegroundColor Blue
 
 function Get-InstalledWslVersion {
@@ -34,7 +35,9 @@ function Get-InstalledWslVersion {
         throw '[AFM-WIN-RESTART-REQUIRED] WSL reports a pending restart. Save work and restart, then rerun the same installer/options.'
     }
     if ($probeExitCode -ne 0) {
-        return $null
+        $failureCode = Get-WslProbeFailureCode -ExitCode $probeExitCode -Output $versionText
+        if ($failureCode -eq 'AFM-WIN-COMPONENT-REQUIRED') { return $null }
+        throw "[AFM-WIN-WSL-PROBE-FAILED] WSL version probe failed (exit $probeExitCode): $versionText. Installation state is unknown; inspect 'wsl --status' or Test-AgentFEMWindowsHost.ps1 before repairing. No automatic reinstallation attempted."
     }
     $versionMatch = [regex]::Match(($versionText -replace "`0", ''),
         '(?m)^\s*WSL[^\r\n\d]*(\d+\.\d+\.\d+(?:\.\d+)?)')
@@ -48,6 +51,15 @@ function Test-AdministratorSession {
     $identity = [Security.Principal.WindowsIdentity]::GetCurrent()
     $principal = New-Object Security.Principal.WindowsPrincipal($identity)
     return $principal.IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)
+}
+
+function Test-WslPlatformStatus {
+    try { $statusText = (& wsl.exe --status 2>&1 | Out-String) }
+    catch { throw "[AFM-WIN-WSL-PROBE-FAILED] WSL status could not be inspected: $($_.Exception.Message)" }
+    $code = Get-WslProbeFailureCode -ExitCode $LASTEXITCODE -Output $statusText
+    if (-not $code) { return $true }
+    if ($code -eq 'AFM-WIN-COMPONENT-REQUIRED') { return $false }
+    throw "[$code] WSL status probe did not confirm platform readiness: $statusText. No automatic repair or alternate launcher attempted."
 }
 
 function Invoke-ElevatedWslCommand {
@@ -204,7 +216,15 @@ function Require-WslPlatform {
             )
         }
     }
-    Write-Host "WSL $installedVersion is ready." -ForegroundColor Green
+    # Tooling can exist while Windows optional components remain disabled.
+    # Only a known missing-component code authorises the existing consent path.
+    if (-not (Test-WslPlatformStatus)) {
+        Install-WslPlatform -Source $Source
+        if (-not (Test-WslPlatformStatus)) {
+            throw '[AFM-WIN-COMPONENT-REQUIRED] Required Windows components remain unavailable after preparation. Inspect Windows status/restart requirements; no distribution was replaced.'
+        }
+    }
+    Write-Host "WSL $installedVersion tooling/status checks passed; distro launch remains to be verified." -ForegroundColor Green
     return $installedVersion
 }
 

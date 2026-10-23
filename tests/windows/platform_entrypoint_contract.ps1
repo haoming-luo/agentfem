@@ -11,6 +11,7 @@ $temp = Join-Path ([IO.Path]::GetTempPath()) ('AgentFEM platform ' + [guid]::New
 function Assert($Condition, $Message) { if (-not $Condition) { throw $Message } }
 $global:AgentFEMTestVersionProbes = 0
 function global:wsl.exe {
+    if (($args -join ' ') -eq '--status') { $global:LASTEXITCODE = 0; return 'Ready' }
     if (($args -join ' ') -ne '--version') { throw "Unexpected WSL mutation: $args" }
     $global:AgentFEMTestVersionProbes++
     $global:LASTEXITCODE = 0

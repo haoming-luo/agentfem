@@ -45,10 +45,12 @@ powershell.exe -NoProfile -File .\packaging\runtime\wsl\Install-AgentFEM.ps1 -Pr
 ```
 
 Use that path from a verified source checkout; in an extracted bundle use
-`.\Install-AgentFEM.ps1` instead. Keep `Installer-State.ps1` beside the installer.
+`.\Install-AgentFEM.ps1` instead. Keep `Installer-State.ps1` and
+`Windows-HostProbe.ps1` beside the installer.
 Use `-NonInteractive` if the host has no interactive console. This operation
 does **not** install Ubuntu, AgentFEM or change existing distro contents. Its
-successful state is `platform_ready`, not `completed`. This checks WSL tooling;
+successful state is `platform_ready`, not `completed`. This checks WSL tooling
+and the read-only platform status;
 it does not certify a working WSL2 VM or installed scientific environment. The
 2.4.4 minimum for `.wsl` packages is not imposed on this Ubuntu/mirror route.
 After any required reboot,
@@ -83,6 +85,12 @@ In an extracted bundle use `Test-AgentFEMWindowsHost.ps1` and keep its companion
 `Windows-HostProbe.ps1` beside it. Select `CompleteRuntime` only for that route.
 The JSON distinguishes tooling version from each distro's WSL1/WSL2 version,
 blocked/missing commands, failed probes, and required image-format updates.
+It also runs `wsl --status`: a successful version query alone does not show
+that the Windows components are ready. Known missing-component HRESULTs or
+stable WSL error names report `component_required`; generic failures remain
+unknown rather than triggering reinstallation. Platform preparation uses its
+existing consent/restart path for those known component failures, then checks
+status again. It does not alter firmware, convert distributions or reboot.
 It never launches a distribution or changes Windows. Each read-only command
 has a 15-second timeout (configurable with `-TimeoutSeconds`); a failed command
 stops the probe sequence, not triggers another launcher. It reports
@@ -196,6 +204,9 @@ PowerShell contract CI mocks process exits and tests state handling on Windows
 - [Microsoft WSL installation](https://learn.microsoft.com/en-us/windows/wsl/install)
   and [command options](https://learn.microsoft.com/en-us/windows/wsl/basic-commands).
 - [Custom distro/OOBE contract](https://learn.microsoft.com/en-us/windows/wsl/build-custom-distro).
+- [Microsoft WSL error definitions](https://github.com/microsoft/WSL/blob/master/src/windows/service/inc/wslservice.idl):
+  optional-component and virtual-machine-platform requirements are distinct
+  from version discovery, denied access and unknown probe failure.
 - [WorkBuddy permissions](https://www.codebuddy.cn/docs/workbuddy/From-Beginner-to-Expert-Guide/Function-Description/Permission-Modes):
   request scoped approval; do not require disabling its sandbox or switching on
   global full access. Exact UI labels may change; follow the installed client's
