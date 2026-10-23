@@ -145,7 +145,10 @@ function Update-WslPlatform {
 }
 
 function Require-WslPlatform {
-    param([Parameter(Mandatory = $true)][string]$Source)
+    param(
+        [Parameter(Mandatory = $true)][string]$Source,
+        [switch]$PlatformOnly
+    )
 
     $nativeArchitecture = $env:PROCESSOR_ARCHITEW6432
     if (-not $nativeArchitecture) {
@@ -183,7 +186,10 @@ function Require-WslPlatform {
         }
     }
 
-    if ($installedVersion -lt [version]'2.4.4') {
+    # The 2.4.4 floor belongs to .wsl packaging, not Ubuntu + conda. A
+    # platform-only preparation must not impose an unrelated image requirement.
+    # Distro launch/WSL2 selection and scientific acceptance remain later gates.
+    if (-not $PlatformOnly -and $installedVersion -lt [version]'2.4.4') {
         Write-Host "WSL $installedVersion must be updated for .wsl packages." -ForegroundColor Yellow
         Update-WslPlatform -Source $Source
         $installedVersion = Get-InstalledWslVersion
@@ -721,7 +727,7 @@ try {
             throw '[AFM-WIN-OPTION-CONFLICT] Platform-only preparation does not install or upgrade an AgentFEM distribution. Remove distribution-install options.'
         }
         Save-InstallState -Stage 'preparing_wsl'
-        $platformVersion = Require-WslPlatform -Source $WslBootstrapSource
+        $platformVersion = Require-WslPlatform -Source $WslBootstrapSource -PlatformOnly
         $script:InstallState.wsl_version = $platformVersion.ToString()
         Save-InstallState -Stage 'platform_ready'
         Write-Host 'WSL platform prepared. AgentFEM is not installed by this operation.' -ForegroundColor Green

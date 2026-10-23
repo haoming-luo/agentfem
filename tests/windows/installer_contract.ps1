@@ -115,6 +115,13 @@ try {
     Install-WslPlatform -Source 'Auto'
     Assert ($script:directCalls -eq 1 -and $script:launchCount -eq 0) 'Admin session launched unnecessary UAC'
     function Test-AdministratorSession { return $false }
+    function wsl.exe { $global:LASTEXITCODE = 0; return 'WSL version: 2.3.26.0' }
+    $platformVersion = Require-WslPlatform -Source 'None' -PlatformOnly
+    Assert ($platformVersion -eq [version]'2.3.26') 'Mirror route forced a packaging-only update'
+    $imageVersionRejected = $false
+    try { Require-WslPlatform -Source 'None' | Out-Null }
+    catch { $imageVersionRejected = $_.Exception.Message -match 'WSL-TOO-OLD' }
+    Assert $imageVersionRejected 'Full .wsl package lost its minimum-version gate'
     # A recorded import must be reused and verified, not imported twice.
     $script:InstallState = @{distribution='AgentFEM-test'}
     $RuntimeVersion = 'test'

@@ -48,7 +48,10 @@ Use that path from a verified source checkout; in an extracted bundle use
 `.\Install-AgentFEM.ps1` instead. Keep `Installer-State.ps1` beside the installer.
 Use `-NonInteractive` if the host has no interactive console. This operation
 does **not** install Ubuntu, AgentFEM or change existing distro contents. Its
-successful state is `platform_ready`, not `completed`. After any required reboot,
+successful state is `platform_ready`, not `completed`. This checks WSL tooling;
+it does not certify a working WSL2 VM or installed scientific environment. The
+2.4.4 minimum for `.wsl` packages is not imposed on this Ubuntu/mirror route.
+After any required reboot,
 rerun it with the same options. The agent then inspects `wsl --list --verbose`,
 reuses an appropriate WSL2 distro, or installs the named Ubuntu only if absent.
 Opening Ubuntu for its initial username/password is a one-time user step;

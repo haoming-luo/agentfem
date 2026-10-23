@@ -14,7 +14,8 @@ function global:wsl.exe {
     if (($args -join ' ') -ne '--version') { throw "Unexpected WSL mutation: $args" }
     $global:AgentFEMTestVersionProbes++
     $global:LASTEXITCODE = 0
-    return 'WSL version: 2.6.1.0'
+    # Ubuntu/mirror users must not inherit the 2.4.4 floor of .wsl packages.
+    return 'WSL version: 2.3.26.0'
 }
 try {
     $env:LOCALAPPDATA = $temp
