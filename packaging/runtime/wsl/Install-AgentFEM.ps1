@@ -33,9 +33,13 @@ function Get-InstalledWslVersion {
     if ($win32Code -in @(3010, 1641)) {
         throw '[AFM-WIN-RESTART-REQUIRED] WSL reports a pending restart. Save work and restart, then rerun the same installer/options.'
     }
-    $versionMatch = [regex]::Match($versionText, '(\d+\.\d+\.\d+)')
-    if ($probeExitCode -ne 0 -or -not $versionMatch.Success) {
+    if ($probeExitCode -ne 0) {
         return $null
+    }
+    $versionMatch = [regex]::Match(($versionText -replace "`0", ''),
+        '(?m)^\s*WSL[^\r\n\d]*(\d+\.\d+\.\d+(?:\.\d+)?)')
+    if (-not $versionMatch.Success) {
+        throw '[AFM-WIN-VERSION-UNRECOGNIZED] WSL returned success but its tooling version could not be identified. Do not substitute the kernel or Windows version; inspect the probe output before installing.'
     }
     return [version]$versionMatch.Groups[1].Value
 }
@@ -264,10 +268,10 @@ function Test-AgentFEMDistribution {
         "--user", "root",
         "--exec", "/opt/conda/bin/agentfem", "doctor", "--json"
     ) -FailureMessage "The candidate runtime failed 'agentfem doctor'."
-    $reportedVersion = (
+    $reportedVersion = ((
         & wsl.exe --distribution $Name --user root --exec `
             sh -c "cat /usr/lib/agentfem/runtime-version"
-    ).Trim()
+    ) | Out-String).Trim()
     if ($LASTEXITCODE -ne 0 -or $reportedVersion -ne $RuntimeVersion) {
         throw "Candidate identity mismatch. Expected AgentFEM $RuntimeVersion, received '$reportedVersion'."
     }
@@ -290,10 +294,10 @@ function Test-AgentFEMBuildIdentity {
 function Get-AgentFEMRuntimeVersion {
     param([Parameter(Mandatory = $true)][string]$Name)
 
-    $reportedVersion = (
+    $reportedVersion = ((
         & wsl.exe --distribution $Name --user root --exec `
             sh -c "cat /usr/lib/agentfem/runtime-version 2>/dev/null || true"
-    ).Trim()
+    ) | Out-String).Trim()
     if ($LASTEXITCODE -ne 0 -or -not $reportedVersion) {
         return "unknown"
     }
@@ -303,9 +307,9 @@ function Get-AgentFEMRuntimeVersion {
 function Get-DefaultLinuxUser {
     param([Parameter(Mandatory = $true)][string]$Name)
 
-    $username = (
+    $username = ((
         & wsl.exe --distribution $Name --exec sh -c "id -un"
-    ).Trim()
+    ) | Out-String).Trim()
     if ($LASTEXITCODE -ne 0 -or $username -notmatch '^[a-z_][a-z0-9_-]*$' -or $username -eq "root") {
         throw "Could not identify a non-root default user in '$Name'."
     }
@@ -318,9 +322,9 @@ function Convert-ToWslPath {
         [Parameter(Mandatory = $true)][string]$WindowsPath
     )
 
-    $linuxPath = (
+    $linuxPath = ((
         & wsl.exe --distribution $Name --exec wslpath -a -u $WindowsPath
-    ).Trim()
+    ) | Out-String).Trim()
     if ($LASTEXITCODE -ne 0 -or -not $linuxPath) {
         throw "Could not map the backup path into WSL: $WindowsPath"
     }
@@ -696,6 +700,12 @@ function Complete-NewInstallation {
 
 $exitCode = 0
 try {
+    Resolve-InstallPathParameters -Parameters $PSBoundParameters
+    foreach ($pathParameter in @('Image', 'InstallLocation', 'ProjectDirectory', 'BackupDirectory')) {
+        if ($PSBoundParameters.ContainsKey($pathParameter)) {
+            Set-Variable -Name $pathParameter -Value $PSBoundParameters[$pathParameter]
+        }
+    }
     if ($PrepareWslOnly) {
         # Also usable from a source checkout for Ubuntu + mirror users. No
         # unpublished Complete Runtime image or scientific Python is required.

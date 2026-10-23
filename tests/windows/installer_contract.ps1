@@ -7,6 +7,23 @@ $temp = Join-Path ([IO.Path]::GetTempPath()) ('AgentFEM ' + [char]0x6d4b + [char
 $env:LOCALAPPDATA = $temp
 function Assert($Condition, $Message) { if (-not $Condition) { throw $Message } }
 try {
+    New-Item -ItemType Directory -Path $temp -Force | Out-Null
+    Push-Location $temp
+    try {
+        $paths = @{Image='.\source file.wsl'; ProjectDirectory='.\project files'; WslBootstrapSource='Store'}
+        Resolve-InstallPathParameters -Parameters $paths
+        Assert ($paths.Image -eq (Join-Path $temp 'source file.wsl')) 'Image path not anchored to original PowerShell location'
+        Assert ($paths.ProjectDirectory -eq (Join-Path $temp 'project files')) 'Project destination not anchored'
+        Assert ($paths.WslBootstrapSource -eq 'Store') 'Non-path option was changed'
+        Assert (-not (Test-Path $paths.ProjectDirectory)) 'Resolving paths created user directories'
+        $firstPath = $paths.ProjectDirectory
+    } finally { Pop-Location }
+    Resolve-InstallPathParameters -Parameters $paths
+    Assert ($paths.ProjectDirectory -eq $firstPath) 'Resume from another directory changed target'
+    $invalidProvider = $false
+    try { Resolve-InstallPathParameters -Parameters @{ProjectDirectory='Env:\TEMP'} }
+    catch { $invalidProvider = $_.Exception.Message -match 'AFM-WIN-PATH-INVALID' }
+    Assert $invalidProvider 'Non-filesystem path was accepted'
     Initialize-InstallState -Identity @{version='test'; image_sha256='abc'}
     $script:InstallState.distribution = 'AgentFEM-test'
     Save-InstallState -Stage 'importing'
@@ -71,6 +88,17 @@ try {
     . $functionFile
     $completeImplementation = ${function:Complete-NewInstallation}
     $identityImplementation = ${function:Test-AgentFEMBuildIdentity}
+    function wsl.exe { $global:LASTEXITCODE = 0; return 'Kernel version: 5.15.0' }
+    $wrongVersion = $false
+    try { Get-InstalledWslVersion | Out-Null }
+    catch { $wrongVersion = $_.Exception.Message -match 'VERSION-UNRECOGNIZED' }
+    Assert $wrongVersion 'Installer used kernel version as WSL tooling version'
+    function wsl.exe { $global:LASTEXITCODE = 1 }
+    Assert ((Get-AgentFEMRuntimeVersion -Name 'missing') -eq 'unknown') 'Blank runtime probe caused a null exception'
+    $unknownUser = $false
+    try { Get-DefaultLinuxUser -Name 'missing' | Out-Null }
+    catch { $unknownUser = $_.Exception.Message -match 'non-root default user' }
+    Assert $unknownUser 'Blank account probe lost its actionable failure'
     $script:InstallStateOwned = $false
     function Test-AdministratorSession { return $false }
     $NonInteractive = $true

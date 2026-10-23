@@ -31,7 +31,12 @@ function Initialize-InstallState {
             $lockPath,
             [IO.FileMode]::OpenOrCreate, [IO.FileAccess]::ReadWrite, [IO.FileShare]::None)
     } catch {
-        throw '[AFM-WIN-INSTALL-BUSY] Another installer is using this installation. Do not start a duplicate.'
+        $exception = $_.Exception.GetBaseException()
+        if ($exception -is [IO.IOException] -and
+            (([int64]$exception.HResult -band 65535) -in @(32, 33))) {
+            throw '[AFM-WIN-INSTALL-BUSY] Another installer is using this installation. Do not start a duplicate.'
+        }
+        throw "[AFM-WIN-STATE-ACCESS] Cannot acquire installation-state access: $($exception.Message). Inspect permissions/storage; this is not evidence of a running installer."
     }
     $script:InstallLock = $lock
     $script:InstallStateDirectory = $stateDirectory
@@ -56,6 +61,24 @@ function Initialize-InstallState {
         $script:InstallState.linux_user = $old.linux_user
     }
     $script:InstallStateOwned = $true
+}
+
+function Resolve-InstallPathParameters {
+    param([Parameter(Mandatory = $true)][System.Collections.IDictionary]$Parameters)
+    # Relative paths depend on the invoking PowerShell location, which may
+    # change after reboot or a new agent tool call. Canonicalize before BOTH
+    # identity construction and saving argv, not just before filesystem writes.
+    foreach ($name in @('Image', 'InstallLocation', 'ProjectDirectory', 'BackupDirectory')) {
+        if ($Parameters.Contains($name) -and -not [string]::IsNullOrWhiteSpace([string]$Parameters[$name])) {
+            $provider = $null; $drive = $null
+            $resolved = $ExecutionContext.SessionState.Path.GetUnresolvedProviderPathFromPSPath(
+                [string]$Parameters[$name], [ref]$provider, [ref]$drive)
+            if ($provider.Name -ne 'FileSystem') {
+                throw "[AFM-WIN-PATH-INVALID] $name must identify a filesystem path."
+            }
+            $Parameters[$name] = $resolved
+        }
+    }
 }
 
 function Save-InstallState {
