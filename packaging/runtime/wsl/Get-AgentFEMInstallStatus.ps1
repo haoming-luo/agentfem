@@ -12,7 +12,15 @@ try {
             $probe = [IO.File]::Open($lockPath, [IO.FileMode]::Open,
                 [IO.FileAccess]::Read, [IO.FileShare]::None)
             $probe.Dispose()
-        } catch [IO.IOException] { $busy = $true }
+        } catch [IO.IOException] {
+            if (([int64]$_.Exception.HResult -band 65535) -in @(32, 33)) {
+                $busy = $true
+            } else {
+                # Missing/corrupt/unreadable storage is not a live installer.
+                # Preserve the failure through the structured outer handler.
+                throw
+            }
+        }
     }
     if (Test-Path -LiteralPath $StateRoot) {
         foreach ($directory in (Get-ChildItem -LiteralPath $StateRoot -Directory)) {

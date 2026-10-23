@@ -125,3 +125,68 @@ installation-documentation test, and strict documentation construction.
 The remaining customer gate is still a clean Windows/WorkBuddy run with real
 UAC, reboot and account setup, plus network-route availability. Source changes
 and mocked Windows tests do not remove that gate.
+
+## Host diagnosis and recent-change review (2026-10-23)
+
+This follow-up keeps the Ubuntu/mirror route primary for the user's request.
+It does not publish a new runtime bundle, change security permissions, replace
+an existing environment or claim an installation-speed improvement.
+
+Implemented on `feat/wsl-agent-onboarding`:
+
+- Read-only `Test-AgentFEMWindowsHost.ps1`: bounded native command probes,
+  UTF-8/UTF-16 output, localised distro names, separate tooling and distro
+  versions, explicit permission/restart/component/unknown failure.
+- Probe both output streams concurrently and terminate only the timed-out
+  read-only probe child. Windows CI compiles an inert subprocess fixture to
+  test encoding, dual-pipe drain and timeout, not merely mocked return values.
+- Preserve relative-path identity across restart/tool working-directory
+  changes. Detect inaccessible state separately from an active lock.
+- Preserve the fourth WSL tooling version component; do not parse a kernel
+  version as WSL. An unknown failed query does not authorise reinstallation.
+- Check platform status independently. Only known Microsoft component codes
+  use the existing consent-based preparation path. Preserve status warnings
+  even on exit zero; a working VM remains unverified until actual launch.
+- Skip verbose inventory for an empty successful quiet list, matching the
+  Microsoft client implementation rather than interpreting its deliberate
+  no-default-distro error as corruption.
+- Avoid recursive ownership changes to existing user data and duplicate,
+  ignored health checks during account-setup recovery.
+
+Windows PowerShell 5.1 and 7 passed at `7003c974`:
+https://github.com/haoming-luo/agentfem/actions/runs/39941540010
+Documentation passed at that revision:
+https://github.com/haoming-luo/agentfem/actions/runs/39941539957
+Later empty-inventory/status-warning changes (`c16956e3`) require their own
+head checks; the earlier passing run is not substituted for them.
+Local packaging/OOBE tests: **32 passed**. Failures found and fixed during CI
+include a three-vs-four-component version expectation and PowerShell's
+`PSBoundParametersDictionary.Contains` overload; both now have regressions.
+
+The scoped simulation review is on the separate existing PR #118, not this
+installer branch. Commits `1a60d6a8` and `f12d6dee` address accepted-series close:
+retry only final metadata publication without rewriting closed heavy data;
+keep storage-close failures explicit; close HDF5 even if metadata is invalid.
+Both output layouts are read by an independent meshio reader after injected
+failures. Source-runtime tests: **86 output tests passed**, **56 increment/
+linear-correction tests passed**, **27 retained-material tests passed**.
+One MPI-admission test was skipped in this serial run; no MPI success is
+claimed. Subprocess tests used an explicit source PYTHONPATH to avoid loading
+the older installed package. This is not an installed-wheel or full-run test.
+
+Remaining gates, in order:
+
+1. Exact-head Windows contract and documentation checks.
+2. Review/integrate #119 and its dependent #120 in order; do not merge #120
+   into the wrong base or claim a public release from a draft branch.
+3. A real clean Windows/WorkBuddy mirror-route trial: scoped consent, reboot,
+   private credentials, normal-user environment and installed first solve.
+   Network reachability, UAC and firmware cannot be certified by these mocks.
+4. Only then promote the documented onboarding claim. The simulation review
+   is risk-based (state reuse, increment control, output failure), not a claim
+   that all recent source changes or contact capability gates were revalidated.
+
+Primary references: Microsoft WSL command documentation, WslClient.cpp's
+Status/ListDistributionsHelper implementations, WSL error definitions and
+the WorkBuddy permission documentation linked in the user guide. No locale-
+specific error prose or speculative alternate security channel is relied on.
