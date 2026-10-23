@@ -176,7 +176,8 @@ the older installed package. This is not an installed-wheel or full-run test.
 
 Remaining gates, in order:
 
-1. Exact-head Windows contract and documentation checks.
+1. Preserve exact-head Windows contract and documentation checks for each
+   implementation change; the `5000d5ee` checkpoint below has passed them.
 2. Review/integrate #119 and its dependent #120 in order; do not merge #120
    into the wrong base or claim a public release from a draft branch.
 3. A real clean Windows/WorkBuddy mirror-route trial: scoped consent, reboot,
@@ -190,3 +191,51 @@ Primary references: Microsoft WSL command documentation, WslClient.cpp's
 Status/ListDistributionsHelper implementations, WSL error definitions and
 the WorkBuddy permission documentation linked in the user guide. No locale-
 specific error prose or speculative alternate security channel is relied on.
+
+## Recovery hardening checkpoint (2026-10-23, `5000d5ee`)
+
+The installer now shares the preflight's bounded version, status and inventory
+queries. A timed-out read-only child stops that attempt and releases the lock;
+it does not kill a distro, simulation, download or import. The actual installer
+entrypoint is tested with an inert native WSL fixture, including a full-route
+package/checksum check followed by inventory timeout. Invalid checksums never
+reach WSL, and inventory errors never become an empty-list permission to import.
+
+Additional verified boundaries:
+
+- Literal paths preserve Chinese text, spaces and brackets in image, state,
+  transcript and location handling; nonempty locations are rejected intact.
+- An unlocked unfinished stage is reported as interrupted without rewriting
+  its evidence; historical completion remains distinct from fresh verification.
+- Progress readers hold a complete snapshot without blocking its replacement.
+  A regression with a reader spanning two publications exposed Windows' fixed
+  `.previous` backup-name conflict. Publication now uses `File.Replace` with
+  an explicit `NullString` no-backup argument (also valid in PowerShell 5.1).
+  Existing backup files are not removed. The failing regression was retained.
+- A failure while saving the error record preserves the original console
+  error, nonzero exit and lock release, and warns that the JSON may be stale.
+  This is tested by injected storage failure, not by filling a customer's disk.
+
+Evidence for the implementation checkpoint:
+
+| Gate | Result | Evidence |
+| --- | --- | --- |
+| Windows PowerShell 5.1 and 7 | Both passed | [Windows contracts](https://github.com/haoming-luo/agentfem/actions/runs/39959783489) |
+| Documentation | Passed | [Documentation CI](https://github.com/haoming-luo/agentfem/actions/runs/39959783340) |
+| Main Test workflow | Passed | [Test CI](https://github.com/haoming-luo/agentfem/actions/runs/39959783474) |
+| Local packaging/OOBE | 32 passed | Existing `fenicsx-env`; no new runtime installation |
+| Installation-documentation regression | 1 passed | Targeted local test |
+| Strict documentation build / shell syntax | Passed | Temporary site directory; existing `site/` untouched |
+
+The main workflow passed FEniCSx, Linux native distribution, macOS installed-wheel
+foundation, optional bridge and lint/documentation jobs. Its separate targeted
+FEniCSx job was skipped by classification, not counted as a pass. Windows tests
+run on real Windows shells but do not import a real WSL image or exercise UAC,
+reboot, WorkBuddy policy or domestic network reachability. Those remain the
+customer-acceptance gate. No runtime bundle, release, numerical change or
+installation-time improvement is claimed by this checkpoint.
+
+Implementation references:
+[PowerShell file reader sharing](https://github.com/PowerShell/PowerShell/blob/master/src/System.Management.Automation/namespaces/FileSystemProvider.cs),
+[Windows replacement semantics](https://learn.microsoft.com/en-us/windows/win32/api/winbase/nf-winbase-replacefilew),
+and [explicit null string arguments](https://learn.microsoft.com/en-us/dotnet/api/system.management.automation.language.nullstring).

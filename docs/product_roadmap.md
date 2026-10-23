@@ -160,6 +160,11 @@ task: reuse WSL preparation for Ubuntu/mirror and Complete Runtime routes,
 preserve explicit approval/reboot/account handoffs, verify build identity on
 resume, and report machine-readable progress. Source and mocked Windows-shell
 evidence are tracked in [the installation guide](windows_agent_installation.md).
+The source checkpoint also bounds read-only installer queries, preserves literal
+Windows paths and interruption evidence, and tests concurrent status publication
+and failure-record storage faults on PowerShell 5.1/7. The
+[review record](https://github.com/haoming-luo/agentfem/pull/120) distinguishes
+these passing software contracts from real-machine acceptance.
 Clean Windows/WorkBuddy installation and actual domestic download availability
 remain promotion gates; this is not a new solver capability or a speed claim.
 
