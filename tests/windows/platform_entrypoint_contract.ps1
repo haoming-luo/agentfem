@@ -42,3 +42,6 @@ try {
     $env:PROCESSOR_ARCHITEW6432 = $originalWow
     Remove-Item -Recurse -Force $temp -ErrorAction SilentlyContinue
 }
+# Expected failing installer calls above set LASTEXITCODE. Do not let the CI
+# shell mistake that asserted failure for a failure of the test harness itself.
+exit 0

@@ -124,14 +124,23 @@ MPI libraries.
 
 ## Windows
 
-The simplest new-user route is the Windows Complete Runtime. Open its bundled `Install-AgentFEM.cmd` after fully extracting the ZIP.
+When a compatible published Windows Complete Runtime is available, open its
+bundled `Install-AgentFEM.cmd` after fully extracting the ZIP. An explicitly
+requested Ubuntu + mirror route remains supported; it does not require this
+bundle or a development candidate package.
 For AI-assisted installation and WorkBuddy permissions, follow
 [Windows agent installation](docs/windows_agent_installation.md).
- Its installer
+The Complete Runtime installer
 prepares WSL without downloading Ubuntu and then imports the bundled AgentFEM
 image. Existing WSL users may instead use Ubuntu, Miniforge/Mambaforge, and the
 Linux environment above; this uses the same package family exercised by
 AgentFEM's Linux CI.
+
+Agents can use the source installer's `-PrepareWslOnly` option to prepare only
+the Windows platform before an Ubuntu + mirror installation. This does not
+install the scientific software or replace existing distributions. See the
+Windows agent guide for non-interactive handoffs and structured progress;
+users still approve platform changes and enter their own account credentials.
 
 The published v0.3.6 Windows Preview has one known first-solve issue: its
 exported WSL image may not expose a C compiler to FEniCSx. Repair that existing
