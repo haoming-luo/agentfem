@@ -113,6 +113,15 @@ A local strict documentation build passed into a temporary directory; existing
 workflow was still running when this evidence was recorded; no full-suite pass
 is claimed.
 
+Route audit follow-up `1069eb45` also passed both Windows shells and
+documentation CI. The Ubuntu/mirror platform entry accepts existing WSL tooling
+without the `.wsl` image's 2.4.4 upgrade floor; the full image route still enforces
+that floor. Both behaviours are covered by the Windows contracts:
+https://github.com/haoming-luo/agentfem/actions/runs/39891849926
+https://github.com/haoming-luo/agentfem/actions/runs/39891849915
+The final local rerun again passed 31 packaging/OOBE tests, one targeted
+installation-documentation test, and strict documentation construction.
+
 The remaining customer gate is still a clean Windows/WorkBuddy run with real
 UAC, reboot and account setup, plus network-route availability. Source changes
 and mocked Windows tests do not remove that gate.
