@@ -69,7 +69,9 @@ function Resolve-InstallPathParameters {
     # change after reboot or a new agent tool call. Canonicalize before BOTH
     # identity construction and saving argv, not just before filesystem writes.
     foreach ($name in @('Image', 'InstallLocation', 'ProjectDirectory', 'BackupDirectory')) {
-        if ($Parameters.Contains($name) -and -not [string]::IsNullOrWhiteSpace([string]$Parameters[$name])) {
+        # PSBoundParametersDictionary exposes a generic Contains overload,
+        # unlike Hashtable.Contains(key). Inspect keys for both representations.
+        if ($Parameters.Keys -contains $name -and -not [string]::IsNullOrWhiteSpace([string]$Parameters[$name])) {
             $provider = $null; $drive = $null
             $resolved = $ExecutionContext.SessionState.Path.GetUnresolvedProviderPathFromPSPath(
                 [string]$Parameters[$name], [ref]$provider, [ref]$drive)

@@ -20,6 +20,12 @@ try {
     } finally { Pop-Location }
     Resolve-InstallPathParameters -Parameters $paths
     Assert ($paths.ProjectDirectory -eq $firstPath) 'Resume from another directory changed target'
+    function Resolve-BoundPath {
+        param([string]$ProjectDirectory)
+        Resolve-InstallPathParameters -Parameters $PSBoundParameters
+        return $PSBoundParameters.ProjectDirectory
+    }
+    Assert ((Resolve-BoundPath -ProjectDirectory $firstPath) -eq $firstPath) 'Actual bound-parameter dictionary not supported'
     $invalidProvider = $false
     try { Resolve-InstallPathParameters -Parameters @{ProjectDirectory='Env:\TEMP'} }
     catch { $invalidProvider = $_.Exception.Message -match 'AFM-WIN-PATH-INVALID' }
