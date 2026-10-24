@@ -68,3 +68,39 @@ def test_quadratic_periodic_gauss_contact_accepts_current_total_residual():
 def test_duplicate_field_coordinates_rejected():
     with pytest.raises(ValueError, match="Duplicate"):
         functions()["periodic_field_equations"](np.zeros((2, 3)))
+
+
+@pytest.mark.parametrize("limit,measured", [(None, .001), (.000375, .0003), (.000375, .0004)])
+def test_diagnostic_records_and_enforces_selected_path_policy(tmp_path, monkeypatch, limit, measured):
+    import json
+    import sys
+    from types import SimpleNamespace
+    main = functions()["main"]
+    output = tmp_path / "comparison.json"
+    arguments = ["diagnostic", "--cells", "4", "--degrees", "2", "--output", str(output)]
+    if limit is not None:
+        arguments += ["--plastic-increment-limit", str(limit)]
+    monkeypatch.setattr(sys, "argv", arguments)
+    policies = []
+    def make(**kwargs):
+        policies.append(kwargs["incrementation"])
+        history = []
+        def solve(*, until):
+            history.append(SimpleNamespace(converged=True, iterations=2,
+                checks={"maximum_plastic_increment": measured}))
+        return SimpleNamespace(solve=solve, accepted_increments=history, attempted_increments=history,
+            solution=SimpleNamespace(x=SimpleNamespace(array=np.zeros(3))))
+    monkeypatch.setitem(main.__globals__, "make_step", make)
+    monkeypatch.setitem(main.__globals__, "observe_penalty", lambda step, factor: {"factor": factor})
+    if limit is not None and measured > limit:
+        with pytest.raises(RuntimeError, match="failed; evidence preserved"):
+            main()
+    else:
+        main()
+    report = json.loads(output.read_text())
+    assert report["incrementation"] == json.loads(json.dumps(policies[0].summary()))
+    row = report["records"][0]
+    assert row["maximum_accepted_plastic_increment"] == measured
+    assert row["rejected_attempts"] == 0 and row["newton_iterations"] == 8
+    assert (row["status"] == "failed") == (limit is not None and measured > limit)
+    assert report["accuracy_claim"].startswith("none:")

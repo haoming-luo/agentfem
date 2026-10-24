@@ -19,21 +19,21 @@ or a successful run is not by itself a validated engineering capability.
 
 ## Current product phase: the 0.4 foundation
 
-### Active sprint decision board (2026-10-23)
+### Active sprint decision board (2026-10-24)
 
 Historical entries below remain evidence, not a second current backlog.
 
 The user's 2026-10-23 clarification keeps **solver capability and throughput
 first**. A separate contributor is handling WSL installation: inspect that
 work for later integration instead of starting a competing installation sprint.
-That work is draft PR #119 (`feat/windows-install-recovery`, reviewed at
-`c9bcdedc`), not missing local development. Its PowerShell contract CI passes,
-but WSL/elevation are mocked there and clean Windows/WorkBuddy acceptance is
-still explicitly pending. Before later integration, review first-install
-resume against same-version/different-build runtime identity, validate the
-saved installation identity before reusing its distribution, and serialize
-different installer identities that target the same distribution. These are
-review findings, not completed fixes or a reason to divert the solver sprint.
+PR #119 and its dependent #120 are now merged into main at `d87f1c0e` and
+`a7f69a8a`. Same-version build identity, installation identity, cross-package
+locking, bounded host probes and preserved restart paths have source-level
+regressions. The final onboarding head `af36afde` passed Windows PowerShell
+5.1/7, numerical and installed-wheel CI. WSL/elevation remain mocked in those
+Windows tests: real clean Windows/WorkBuddy acceptance is still explicitly
+pending, and no new installer bundle is released. This closes source integration,
+not the customer-acceptance gate or solver sprint.
 The joined body/viscosity policy now has a complete late-state ABBA comparison
 (5.69% less mean advancement time, identical accepted fields and physical
 history). This is not a full-run gain. Current smooth-interior Q1 sign evaluation
@@ -125,7 +125,20 @@ approximation at controlled path resolution, not another controller knob.
 | 1 | Retain unchanged material trials and scoped linear work | Implemented for bounded serial J2/AL; combined 24.32% timing reduction with station parity and mutation/rollback/restart guards. Unsupported materials/mixed/MPI use ordinary refresh; no scope expansion inferred. |
 | 2 | Isolate spatial/path error and reduce rejected work | Spatial gate remains open. Accepted-plastic prediction now reduces rejected work on a bounded cyclic fixture; it is not an error estimator. Hold the physical patch fixed and keep volume/trace approximation and path-refinement evidence separate. |
 | 3 | Explicit body/contact critical-path reduction | Selected joined-viscosity/interior-sign route remains a late-path result, not a new full-run claim. Reuse the 25-frame baseline; the new nodal-gather prototype is withdrawn rather than added as an unproven switch. |
-| 4 | Bounded release integration | Recovery/solver stage `e61cad92` passes full remote CI (4870 serial tests plus native, MPI and installed-wheel gates). New accepted-increment prediction needs its own source-specific acceptance; previous CI is not evidence for later edits. Scientific claims remain limited to passed geometry/law combinations. |
+| 4 | Bounded release integration | Solver/output head `0db7a413` passes its own full remote CI, including numerical and installed-wheel gates. The subsequent main integration requires its own checks. Scientific claims remain limited to passed geometry/law combinations; PR #118 remains a development candidate while spatial/reference gates are open. |
+
+The output/recovery review reproduced and fixed two additional failure paths:
+a closed serial writer could reopen and truncate its previous HDF5 file, and
+completion cleanup could prune earlier checkpoints before result publication
+succeeded. Closed writers now reject re-entry and writes; failed closes remain
+explicit, and repeated cleanup cannot promote an interrupted index. Completion
+retention publishes only surviving checkpoint references before deleting owned
+older files. Result-construction/publication failures preserve those files.
+The affected output/archive/project set passes 124 tests (one MPI-only skip).
+After interruption, the focused material reuse, linear workspace, increment
+prediction and checkpoint review passes 116 tests (one MPI-only skip). These
+are overlapping risk-based regressions, not new timing or scientific-validation
+claims. Existing generated `site/` changes remain untouched.
 
 The first retained-material source candidate is scoped to a single equilibrium
 attempt and compares evaluated old/new gradients, committed/trial state, current

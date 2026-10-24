@@ -14,6 +14,7 @@ from hashlib import sha256
 import json
 from pathlib import Path
 import runpy
+import subprocess
 from time import perf_counter
 
 import numpy as np
@@ -113,7 +114,11 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--cells", type=int, nargs="+", default=[4, 8])
     parser.add_argument("--degrees", type=int, nargs="+", default=[1, 2])
-    parser.add_argument("--increments", type=int, default=32)
+    path_policy = parser.add_mutually_exclusive_group()
+    path_policy.add_argument("--increments", type=int, default=None,
+                             help="Fixed path increments (default: 32).")
+    path_policy.add_argument("--plastic-increment-limit", type=float, default=None,
+                             help="Use the existing accepted-plastic predictor at this limit; refine it separately from mesh size.")
     parser.add_argument("--penalty", type=float, default=40000.)
     parser.add_argument("--contact-degree", type=int, default=7)
     parser.add_argument("--bulk-degree", type=int, default=4)
@@ -122,16 +127,27 @@ def main():
     args = parser.parse_args()
     if args.output.exists():
         parser.error("Choose a fresh evidence path.")
+    control = (steps.fixed(32 if args.increments is None else args.increments)
+               if args.plastic_increment_limit is None else steps.automatic(
+                   initial=1/32, minimum=1/4096, maximum=1/16,
+                   max_increments=4096, max_cutbacks=12, cutback_factor=.5,
+                   maximum_inelastic_increment=args.plastic_increment_limit,
+                   inelastic_prediction_safety=.8))
     report = {"scope": "P1/P2 Gaussian penalty diagnostic, not nodal AL or independent continuum reference",
               "agentfem_version": agentfem.__version__,
+              "git_commit": subprocess.check_output(["git", "rev-parse", "HEAD"],
+                  cwd=Path(__file__).resolve().parents[1], text=True).strip(),
               "tool_sha256": sha256(Path(__file__).read_bytes()).hexdigest(),
               "source_sha256": {name: sha256((Path(agentfem.__file__).parent / name).read_bytes()).hexdigest()
                                 for name in ("solvers.py", "_affine_equilibrium.py",
                                              "mechanics/finite_strain_plasticity.py",
                                              "constitutive/quadrature.py",
+                                             "steps.py", "_nonlinear_problems.py",
                                              "boundary_models/dolfinx_contact_trace.py")},
               "units": {"length": "m", "stress": "Pa", "force": "N", "work": "J"},
               "options": {k: v for k, v in vars(args).items() if k != "output"}, "records": []}
+    report["incrementation"] = control.summary()
+    report["accuracy_claim"] = "none: limit refinement and spatial refinement are independent diagnostics"
     args.output.parent.mkdir(parents=True, exist_ok=True)
     def save():
         atomic_write_text(args.output, json.dumps(report, indent=2, allow_nan=False) + "\n")
@@ -142,9 +158,9 @@ def main():
             save()
             started = perf_counter()
             try:
-                step = make_step(cells=cells, degree=degree, increments=args.increments, penalty=args.penalty,
+                step = make_step(cells=cells, degree=degree, penalty=args.penalty,
                                  contact_degree=args.contact_degree, bulk_degree=args.bulk_degree,
-                                 yield_stress=args.yield_stress)
+                                 yield_stress=args.yield_stress, incrementation=control)
                 row["full_dofs"] = len(step.solution.x.array)
                 for factor in (.25, .5, .75, 1.):
                     step.solve(until=factor)
@@ -155,6 +171,14 @@ def main():
                     print(json.dumps({"cells": cells, "degree": degree, "factor": factor}), flush=True)
                 row["status"] = "completed"
                 row["accepted_increments"] = len(step.accepted_increments)
+                row["rejected_attempts"] = sum(not item.converged for item in step.attempted_increments)
+                row["newton_iterations"] = sum(item.iterations for item in step.attempted_increments)
+                row["maximum_accepted_plastic_increment"] = max(
+                    item.checks["maximum_plastic_increment"] for item in step.accepted_increments)
+                if args.plastic_increment_limit is not None and (
+                    row["maximum_accepted_plastic_increment"] > args.plastic_increment_limit
+                ):
+                    raise ValueError("Accepted plastic increment exceeded the declared limit.")
             except Exception as exc:
                 row.update(status="failed", error_type=type(exc).__name__, error=str(exc))
             row["setup_solve_observe_seconds"] = perf_counter() - started
