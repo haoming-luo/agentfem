@@ -675,14 +675,16 @@ class FiniteStrainJ2Logarithmic:
         states_new = states.copy()
         if np.any(plastic):
             selected_vectors = left_vectors[plastic]
-            elastic_left_stretch = np.einsum(
-                "nia,na,nja->nij",
-                selected_vectors,
-                np.exp(logarithmic_strain[plastic]),
-                selected_vectors,
+            # Fe_new = U diag(exp(e_new)) V^T. Reuse the trial SVD to
+            # apply its inverse, instead of reconstructing Ve and Re and
+            # factoring Fe_new again. The scalar path retains that independent
+            # reconstruction for comparison; state ownership is unchanged.
+            plastic_new = (
+                right_vectors_transpose[plastic].swapaxes(1, 2)
+                * np.exp(-logarithmic_strain[plastic])[:, None, :]
+            ) @ (
+                selected_vectors.swapaxes(1, 2) @ gradients[plastic]
             )
-            elastic_new = elastic_left_stretch @ elastic_rotation[plastic]
-            plastic_new = np.linalg.solve(elastic_new, gradients[plastic])
             if np.any(np.abs(np.linalg.det(plastic_new) - 1.0) > 2.0e-10):
                 raise RuntimeError(
                     "Isochoric finite-strain J2 batch update drifted from det(Fp)=1."

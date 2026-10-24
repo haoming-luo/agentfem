@@ -402,11 +402,15 @@ class DolfinxAugmentedPlaneTrialProvider(DolfinxImplicitRigidContact):
             "pressure_measure": "augmented_force_per_reference_area_not_cauchy_pressure",
             "enforcement": "fixed_trace_normal_augmented_lagrangian_research",
             "point_ids": trace.point_ids.copy(),
+            "reference_positions": trace.evaluate(
+                self.adapter.reference_nodal_positions
+            ).query_points.copy(),
             "slave_positions": projection.query_points.copy(),
             "master_closest_points": projection.closest_points.copy(),
             "surface_normals": projection.normals.copy(),
             "signed_gaps": projection.signed_gaps.copy(),
             "reference_weights": trace.weights.copy(),
+            "measure_configuration": trace.measure_configuration,
             "normal_pressures": response.pressure.copy(),
             "penetrations": np.maximum(-projection.signed_gaps, 0.),
             "active": response.active.copy(),

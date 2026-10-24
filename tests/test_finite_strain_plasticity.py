@@ -685,6 +685,46 @@ def test_finite_strain_j2_vectorized_batch_matches_scalar_updates():
         )
 
 
+@pytest.mark.parametrize("hardening", [0., 100.])
+def test_batch_spectral_return_preserves_cyclic_rotated_history(hardening):
+    """Independent scalar reconstruction vs batched inverse-SVD application.
+
+    Include elastic points, repeated stretches, unloading/reversal, a distorted
+    isochoric old state and both sides of the tangent chunk boundary. Each
+    route advances its own history so small state errors cannot be reset away.
+    """
+    material = constitutive.finite_strain_j2_logarithmic(
+        young=1000., poisson=.3, yield_stress=2., hardening_modulus=hardening,
+    )
+    count = 1025
+    scalar = np.tile(material.state_schema.initial_state(), (count, 1))
+    # Rotated isochoric prehistory; cond(Fp) ranges from 1 to 10^4.
+    stretches = np.geomspace(1., 100., count)
+    plastic = np.asarray([_rotation(.37) @ np.diag((s, 1./s, 1.))
+                          @ _rotation(-.19) for s in stretches])
+    scalar[:, :9] = plastic.reshape(count, 9)
+    scalar[:, 9] = 2. * np.log(stretches)
+    scalar[:, 10] = material.yield_stress * scalar[:, 9]
+    batched = scalar.copy()
+    for index, shear in enumerate((0., .08, .02, -.10, -.02, .12)):
+        elastic = np.eye(3) + np.asarray(((0., shear, 0.), (0., 0., 0.), (0., 0., 0.)))
+        gradients = (_rotation(.23 * index) @ elastic) @ plastic
+        before = batched.copy()
+        result = material._integrate_batch(gradients, batched)
+        np.testing.assert_array_equal(batched, before)
+        expected = [material._integrate(f, old) for f, old in zip(gradients, scalar, strict=True)]
+        for name in ("state", "cauchy_stress", "first_piola_stress",
+                     "elastic_energy_density", "hardening_energy_density",
+                     "plastic_dissipation_density"):
+            np.testing.assert_allclose(result[name], [getattr(r, name) for r in expected],
+                                       rtol=2e-9, atol=2e-9)
+        np.testing.assert_allclose(np.linalg.det(result["state"][:, :9].reshape(-1, 3, 3)),
+                                   1., rtol=0., atol=2e-10)
+        assert np.all(result["state"][:, 9] >= before[:, 9])
+        scalar = np.asarray([r.state for r in expected])
+        batched = result["state"]
+
+
 def test_finite_strain_j2_batch_uses_nineteen_vectorized_integrations(monkeypatch):
     material = constitutive.finite_strain_j2_logarithmic(
         young=210_000.0,

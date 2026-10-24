@@ -23,26 +23,27 @@ import numpy as np
 from mpi4py import MPI
 
 import agentfem
-from agentfem.constitutive.finite_strain_plasticity import FiniteStrainJ2Logarithmic
+from agentfem.constitutive.finite_strain_plasticity import FiniteStrainJ2Logarithmic, _J2TrialSpectrum
 from agentfem.checkpointing import atomic_write_text
 from benchmark_finite_hex_kernels import paired
 from diagnose_periodic_contact_order import make_step, observe_penalty
 
 
 REFERENCE = "197ba2c89b2e624c931258fa3416550af846ac24"
+RETURN_REFERENCE = "d5347eebb261b613027a33d2eec1ad118ca94bc5"
 MATERIAL = "constitutive/finite_strain_plasticity.py"
 
 
-def reference_tangent():
+def reference_tangent(revision=REFERENCE, method_name="_analytic_algorithmic_tangent_batch"):
     source = subprocess.check_output(
-        ["git", "show", f"{REFERENCE}:src/agentfem/{MATERIAL}"],
+        ["git", "show", f"{revision}:src/agentfem/{MATERIAL}"],
         cwd=Path(__file__).resolve().parents[1], text=True,
     )
     owner = next(n for n in ast.parse(source).body
                  if isinstance(n, ast.ClassDef) and n.name == "FiniteStrainJ2Logarithmic")
     method = next(n for n in owner.body if isinstance(n, ast.FunctionDef)
-                  and n.name == "_analytic_algorithmic_tangent_batch")
-    namespace = {"np": np}
+                  and n.name == method_name)
+    namespace = {"np": np, "_J2TrialSpectrum": _J2TrialSpectrum}
     exec(compile(ast.Module(body=[method], type_ignores=[]),
                  "trusted-committed-tangent", "exec"), namespace)
     return namespace[method.name], sha256(source.encode()).hexdigest()
@@ -70,11 +71,19 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--global-path", action="store_true")
+    parser.add_argument("--operation", choices=("tangent", "return-map"), default="tangent")
+    parser.add_argument("--increments", type=int, default=32)
     args = parser.parse_args()
     if MPI.COMM_WORLD.size != 1 or args.output.exists():
         parser.error("Use one process and a fresh evidence path.")
-    reference, reference_hash = reference_tangent()
-    candidate = FiniteStrainJ2Logarithmic._analytic_algorithmic_tangent_batch
+    if args.increments < 4 or args.increments % 4:
+        parser.error("Use positive increments divisible by four for common stations.")
+    method_name = ("_integrate_batch" if args.operation == "return-map"
+                   else "_analytic_algorithmic_tangent_batch")
+    reference_revision = RETURN_REFERENCE if args.operation == "return-map" else REFERENCE
+    reference, reference_hash = (reference_tangent(RETURN_REFERENCE, method_name)
+                                if args.operation == "return-map" else reference_tangent())
+    candidate = getattr(FiniteStrainJ2Logarithmic, method_name)
     root = Path(agentfem.__file__).parent
     repository = Path(__file__).resolve().parents[1]
     source_paths = sorted(root.rglob("*.py"))
@@ -92,7 +101,9 @@ def main():
     frozen = fingerprint()
     report = {"schema": "agentfem.j2-tangent-algebra.v1", "status": "running",
               "scope": "serial spectral finite-J2; not explicit composite or universal speedup",
-              "reference_revision": REFERENCE, "reference_source_sha256": reference_hash,
+              "operation": args.operation,
+              "increments": args.increments,
+              "reference_revision": reference_revision, "reference_source_sha256": reference_hash,
               "runtime_source_sha256": frozen,
               "candidate_material_sha256": sha256((root / MATERIAL).read_bytes()).hexdigest(),
               "tool_sha256": sha256(Path(__file__).read_bytes()).hexdigest(),
@@ -119,11 +130,19 @@ def main():
             gradients = preload + rng.uniform(-.003, .003, (count, 3, 3))
             gradients[::3] = np.eye(3)
             baseline = material._integrate_batch(gradients, states)
+            kwargs = {} if args.operation == "return-map" else {"baseline": baseline}
+            def equivalent(a, b):
+                if args.operation == "return-map":
+                    for key in a:
+                        if key != "_trial_spectrum":
+                            np.testing.assert_allclose(a[key], b[key], rtol=2e-12, atol=2e-11)
+                else:
+                    np.testing.assert_allclose(a, b, rtol=2e-12, atol=2e-11)
             result = paired(
-                partial(reference, material, gradients, states, baseline=baseline),
-                partial(candidate, material, gradients, states, baseline=baseline),
+                partial(reference, material, gradients, states, **kwargs),
+                partial(candidate, material, gradients, states, **kwargs),
                 repetitions=21,
-                equivalent=lambda a, b: np.testing.assert_allclose(a, b, rtol=2e-12, atol=2e-11),
+                equivalent=equivalent,
             )
             report["kernels"].append({"points": count, **result})
             save()
@@ -133,10 +152,10 @@ def main():
             for name in ("reference_warmup", "candidate_warmup", "reference",
                          "candidate", "candidate", "reference"):
                 method = reference if name.startswith("reference") else candidate
-                step = make_step(cells=4, degree=2, increments=32,
+                step = make_step(cells=4, degree=2, increments=args.increments,
                                  contact_degree=11, bulk_degree=6)
                 snapshots, observations = [], []
-                with patch.object(FiniteStrainJ2Logarithmic, "_analytic_algorithmic_tangent_batch", method):
+                with patch.object(FiniteStrainJ2Logarithmic, method_name, method):
                     started = perf_counter()
                     for factor in (.25, .5, .75, 1.):
                         step.solve(until=factor)

@@ -112,6 +112,11 @@ record.
     physical change. Their normalized amplitude is not a displacement unit.
 18. Evaluate physical QoIs, diagnostics, and histories. Keep coefficient
     statistics distinct from assembled physical integrals.
+    Expert implicit-contact observations may use `accepted_point_samples()`:
+    `reference_positions`, current `slave_positions`, point IDs and
+    `reference_weights` refer to the same unsmoothed trace. Check
+    `measure_configuration`; reference-area pressure is not automatically
+    current-area Cauchy traction. The owning Step must be at an accepted state.
     For experimental constant-normal plane augmentation, inspect both the raw
     mechanical-energy residual and the contact-aware residual, signed numerical
     normal work and its discrete absolute-work bound. Refine accepted increments

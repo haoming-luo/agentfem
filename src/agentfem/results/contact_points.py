@@ -20,7 +20,7 @@ _ARRAY_FIELDS = (
     "cumulative_friction_dissipation_densities",
 )
 _VECTOR_FIELDS = {
-    "slave_positions", "master_closest_points", "surface_normals",
+    "slave_positions", "reference_positions", "master_closest_points", "surface_normals",
     "surface_friction_tractions", "accepted_elastic_tangential_slips",
 }
 _INTEGER_FIELDS = {"point_ids", "entity_ids"}
@@ -157,6 +157,10 @@ def export_accepted_contact_points(
         raise ValueError("AFM-CONTACT-EXPORT-IDENTITY: pair names must be unique.")
 
     samples = [item.accepted_point_samples() for item in providers]
+    # Optional for older external providers; never invent reference coordinates
+    # from current positions or silently export a partial mixed-pair array.
+    has_reference = ["reference_positions" in item for item in samples]
+    array_fields = (*_ARRAY_FIELDS, *(("reference_positions",) if all(has_reference) else ()))
     identity_scopes = [
         "accepted_snapshot_only"
         if (
@@ -172,7 +176,7 @@ def export_accepted_contact_points(
         if not np.isfinite(actual_factor) or abs(actual_factor - expected_factor) > 1.0e-12:
             raise RuntimeError("AFM-CONTACT-EXPORT-POSE: tool pose is not accepted.")
         count = len(item["point_ids"])
-        for field in _ARRAY_FIELDS:
+        for field in (*_ARRAY_FIELDS, *(("reference_positions",) if "reference_positions" in item else ())):
             array = np.asarray(item[field])
             expected_shape = (count, 3) if field in _VECTOR_FIELDS else (count,)
             expected_kind = (
@@ -206,6 +210,7 @@ def export_accepted_contact_points(
         "location": location,
         "pressure_measure": pressure_measure,
         "smoothing": "none",
+        "reference_positions_status": "available" if all(has_reference) else "unavailable_for_some_pairs",
         "gap_sign": "positive_admissible_negative_penetration",
         "friction_traction_sign": "force_on_rigid_surface_per_reference_area",
         "units": encoded_units,
@@ -221,6 +226,8 @@ def export_accepted_contact_points(
                 "trace_source": item["trace_source"],
                 "location": locations[index],
                 "pressure_measure": measures[index],
+                "measure_configuration": item.get("measure_configuration", "unspecified"),
+                "reference_positions_available": has_reference[index],
                 "enforcement": item.get("enforcement", "one_sided_rigid_surface_penalty"),
                 "point_identity_scope": identity_scopes[index],
                 "point_count": len(item["point_ids"]),
@@ -243,7 +250,7 @@ def export_accepted_contact_points(
         raise FileExistsError("AFM-CONTACT-EXPORT-EXISTS: use a fresh output directory.")
     arrays = {
         field: np.concatenate([np.asarray(item[field]) for item in samples], axis=0)
-        for field in _ARRAY_FIELDS
+        for field in array_fields
     }
     arrays["pair_index"] = np.concatenate([
         np.full(len(item["point_ids"]), index, dtype=np.int32)

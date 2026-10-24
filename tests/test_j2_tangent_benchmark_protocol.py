@@ -46,6 +46,17 @@ def test_tangent_benchmark_never_overwrites_evidence(tmp_path, monkeypatch):
     assert output.read_text() == "keep previous evidence"
 
 
+@pytest.mark.parametrize("increments", [0, -4, 6])
+def test_benchmark_rejects_invalid_common_station_partition(tmp_path, monkeypatch, increments):
+    main = entry(monkeypatch)
+    output = tmp_path / "invalid.json"
+    monkeypatch.setattr(sys, "argv", ["benchmark", "--output", str(output),
+                                    "--operation", "return-map", "--increments", str(increments)])
+    with pytest.raises(SystemExit):
+        main()
+    assert not output.exists()
+
+
 def test_tangent_comparison_uses_each_points_stiffness_scale(monkeypatch):
     compare = entry(monkeypatch).__globals__["compare_tangent_tensors"]
     reference = np.full((2, 3, 3, 3, 3), 1000.)

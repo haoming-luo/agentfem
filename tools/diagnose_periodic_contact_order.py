@@ -110,6 +110,52 @@ def observe_penalty(step, factor):
     return observation
 
 
+def patch_pressure_partition(samples, *, edge_width=.0625):
+    """Fixed physical edge belt, not one mesh-dependent row of points.
+
+    Only this unit-cube diagnostic owns the .25--.75 square. Samples and their
+    reference positions/measure come from the existing contact provider.
+    The partition diagnoses force distribution; it is not an error estimator.
+    """
+    points = np.asarray(samples["reference_positions"])
+    weights = np.asarray(samples["reference_weights"])
+    pressure = np.asarray(samples["normal_pressures"])
+    if (samples["measure_configuration"] != "reference"
+            or not 0. < edge_width < .25
+            or points.shape != (len(weights), 3) or pressure.shape != weights.shape
+            or not all(np.isfinite(x).all() for x in (points, weights, pressure))
+            or np.any(weights <= 0.) or np.any(pressure < 0.)):
+        raise ValueError("Expected finite reference-area contact samples and positive edge width.")
+    yz = points[:, 1:]
+    if (not np.allclose(points[:, 0], 1., rtol=0., atol=1e-12)
+            or np.any(yz < .25-1e-12) or np.any(yz > .75+1e-12)
+            or not np.isclose(weights.sum(), .25, rtol=0., atol=1e-12)):
+        raise ValueError("Contact samples do not cover the declared square patch.")
+    distance = np.minimum(yz - .25, .75 - yz).min(axis=1)
+    edge = distance < edge_width
+    rows = {}
+    for name, mask in (("edge", edge), ("interior", ~edge)):
+        rows[name] = {
+            "reference_area": float(weights[mask].sum()),
+            "active_reference_area": float(weights[mask & (pressure > 0.)].sum()),
+            "normal_force_magnitude": float(weights[mask] @ pressure[mask]),
+            "maximum_pressure": float(pressure[mask].max(initial=0.)),
+        }
+    # A continuous partition avoids mistaking a discontinuous belt indicator's
+    # quadrature error for pressure redistribution. Its center weight is one
+    # at the center and zero on all four edges; integral over the square=1/9.
+    center = 256. * np.prod((yz - .25) * (.75 - yz), axis=1)
+    smooth = {name: {
+        "weighted_reference_area": float(weights @ fraction),
+        "weighted_normal_force": float((weights * fraction) @ pressure),
+    } for name, fraction in (("edge", 1. - center), ("center", center))}
+    return {"edge_width": edge_width, "classification": "reference_square_distance",
+            "partition_quadrature": "sampled_indicator_not_exact_subcell_integration",
+            "total_reference_area": float(weights.sum()),
+            "normal_force_magnitude": float(weights @ pressure), "regions": rows,
+            "smooth_partition": smooth}
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--cells", type=int, nargs="+", default=[4, 8])
@@ -124,6 +170,10 @@ def main():
     parser.add_argument("--bulk-degree", type=int, default=4)
     parser.add_argument("--yield-stress", type=float, default=2.)
     parser.add_argument("--output", type=Path, required=True)
+    parser.add_argument("--until", type=float, choices=(.25, .5, .75, 1.), default=1.,
+                        help="Stop at a declared common station, without claiming a complete cycle.")
+    parser.add_argument("--patch-partition", action="store_true",
+                        help="Record fixed reference edge/interior pressure integrals.")
     args = parser.parse_args()
     if args.output.exists():
         parser.error("Choose a fresh evidence path.")
@@ -165,13 +215,22 @@ def main():
                                  yield_stress=args.yield_stress, incrementation=control)
                 row["full_dofs"] = len(step.solution.x.array)
                 for factor in (.25, .5, .75, 1.):
+                    if factor > args.until:
+                        break
                     step.solve(until=factor)
                     observation = observe_penalty(step, factor)
+                    if args.patch_partition:
+                        partition = patch_pressure_partition(step.contact_provider.accepted_point_samples())
+                        np.testing.assert_allclose(partition["normal_force_magnitude"],
+                            -observation["force_on_structure"][0], rtol=2e-12, atol=1e-12)
+                        observation["patch_partition"] = partition
                     json.dumps(observation, allow_nan=False)
                     row["stations"].append(observation)
                     save()
                     print(json.dumps({"cells": cells, "degree": degree, "factor": factor}), flush=True)
                 row["status"] = "completed"
+                row["complete_cycle"] = args.until == 1.
+                row["accepted_through"] = args.until
                 row["accepted_increments"] = len(step.accepted_increments)
                 row["rejected_attempts"] = sum(not item.converged for item in step.attempted_increments)
                 row["newton_iterations"] = sum(item.iterations for item in step.attempted_increments)

@@ -24,6 +24,73 @@ being silently approximated by the bounded route.
 
 ## Live gate status
 
+### Integration boundary and focused diagnostic sprint (2026-10-25)
+
+At entry, PR #118 head `d5347eeb` passes all applicable remote checks, including
+Linux native distribution, FEniCSx and macOS installed-wheel acceptance. It
+remains draft. The candidate release contract now names bounded serial periodic
+J2/contact separately as **experimental** and explicitly excludes nonuniform
+mesh independence, Gaussian-diagnostic energy closure, portable combined-contact
+restart and transferring implicit performance gains to the explicit composite.
+This is a claim audit, not a tagged release or a substitute for final acceptance.
+
+**Equivalent material execution.** With trial `Fe = U diag(s) V^T`, the same
+radial return gives `Fe_new = U diag(exp(e_new)) V^T`. Therefore
+`Fp_new = V diag(exp(-e_new)) U^T F`. The batched core now applies this identity
+using the existing SVD instead of reconstructing the left stretch and rotation
+and factoring their product again. The scalar implementation is deliberately
+unchanged as an independent arithmetic reference. No law, acceptance threshold,
+state schema, public option or tangent definition changes. Tests advance both
+histories independently through elastic/plastic loading, unloading, reversal,
+rotation and isochoric prehistory with condition numbers up to 10^4, including
+1025 points. Existing numerical-tangent and chunk-boundary tests still apply.
+
+An isolated 32-increment screen measures 2.87% less solve-and-observe time.
+A fresh 64-increment confirmation records ABBA 28.72407 / 27.53229 / 27.40486 /
+28.00160 s: means 28.36284 -> 27.46857 s, **3.15% less**. Every route retains
+64 accepted increments, 208 Newton corrections and identical line-search/linear
+reason histories. Maximum U/state/stress difference is 5.042e-11; maximum
+per-point relative tangent error is 5.355e-12. This is a small bounded gain,
+not an order-of-magnitude improvement or an explicit-composite result. Timing
+excludes setup/publication and includes station observation. Both reports keep
+individual timings, gates, runtime hashes and fixed reference `d5347eeb`:
+
+- `evidence/performance/2026-10-25-j2-svd-return-screen.json`
+- `evidence/performance/2026-10-25-j2-svd-return-confirmation.json`
+
+**Spatial discrimination.** Accepted implicit-contact samples expose reference
+positions and the integration measure alongside current positions, weights and
+point IDs. Exports preserve this optional array when all providers supply it;
+older providers remain usable without fabricated reference coordinates. The
+square-patch diagnostic partitions pressure on the fixed reference geometry.
+A sharp edge-belt indicator has mesh-dependent sampled area, so a second smooth
+partition is mandatory for interpreting redistribution: center weight
+`256(y-.25)(.75-y)(z-.25)(.75-z)`, edge weight its complement. Their exact areas
+are 1/9 and 5/36; this is an observable, not a contact enforcement law or an
+error estimator.
+
+At the first loading station, P2 elastic controls on 4/8/12 meshes give total
+reaction magnitudes 19.63306 / 18.88425 / 18.69374 N. Smooth edge contributions
+are 13.71058 / 12.75983 / 12.49675 N; center contributions are 5.92248 / 6.12442 /
+6.19699 N. All have reference active area 0.25, zero PEEQ and periodic mismatch
+below 4e-18. Thus reaction differences persist without plastic history or a
+changing active area; edge-weighted redistribution exceeds the total change
+and is partly offset in the center. This narrows the diagnosis but proves
+neither a constitutive bug nor continuum accuracy. Evidence:
+`evidence/contact/2026-10-25-periodic-elastic-pressure-moments.json`.
+The diagnostic explicitly stops at 0.25 (`complete_cycle=false`); it does not
+claim reverse loading or recontact. Plastic controlled-path comparison is the
+remaining discriminating experiment; do not infer its answer from this elastic
+control or replace the nodal AL contract with Gaussian P2 silently.
+
+Methodological sources: [Simo's multiplicative return mapping](https://doi.org/10.1016/0045-7825(92)90123-2)
+and [COMSOL's multiplicative-plasticity integration description](https://doc.comsol.com/6.4/doc/com.comsol.help.sme/sme_ug_theory.06.033.html)
+support keeping the discrete flow and volume-preserving update explicit; neither
+provides our timing result. [Contact stability and patch-test analysis](https://www.sciencedirect.com/science/article/pii/S0045794901000487)
+motivates separating integral accuracy from approximation/stability. The
+publisher abstract was available, not the paywalled full text; the algebra and
+new pressure moments above are independently derived and tested here.
+
 ### Batched J2 tangent contractions (2026-10-24)
 
 The existing logarithmic J2 derivative still evaluates the same nine dP/dF

@@ -1200,11 +1200,15 @@ class DolfinxImplicitRigidContact:
             "trace_source": evaluation.trace.source,
             "load_factor": factor,
             "point_ids": record.point_ids.copy(),
+            "reference_positions": evaluation.trace.evaluate(
+                self.adapter.reference_nodal_positions
+            ).query_points.copy(),
             "slave_positions": projection.query_points.copy(),
             "master_closest_points": projection.closest_points.copy(),
             "surface_normals": projection.normals.copy(),
             "signed_gaps": projection.signed_gaps.copy(),
             "reference_weights": evaluation.trace.weights.copy(),
+            "measure_configuration": evaluation.trace.measure_configuration,
             "normal_pressures": normal.pressures.copy(),
             "penetrations": normal.penetration.copy(),
             "active": normal.active.copy(),

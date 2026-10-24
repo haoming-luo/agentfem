@@ -19,7 +19,26 @@ or a successful run is not by itself a validated engineering capability.
 
 ## Current product phase: the 0.4 foundation
 
-### Active sprint decision board (2026-10-24)
+### Active sprint decision board (2026-10-25)
+
+The current seven-hour budget prioritizes bounded delivery over expanding the
+capability surface. At entry, PR #118 head `d5347eeb` is mergeable and all
+applicable remote checks pass, but it is still draft. CI establishes source/
+installation regressions, not nonuniform spatial accuracy or commercial parity.
+
+| Order | Work | Decision gate |
+| --- | --- | --- |
+| P0 | Keep engineering integration separate from scientific maturity | The release contract names periodic J2/contact as experimental; no general contact or mesh-independence promotion |
+| P0 | Locate the nonuniform spatial discrepancy | Fixed physical patch, common accepted station, reference-area pressure moments, and unchanged MPC equations; no blind larger-mesh sweep |
+| P1 | Reuse the existing SVD in plastic-gradient reconstruction | Independent scalar/history/rotation/conditioning checks, then fresh whole-path timing; never transfer the gain to explicit composites |
+| P1 | Freeze and test installed ordinary use | Same installed identity, interruption/restart, valid incremental output; no AI-provided executable glue |
+| Exit | Commit tested improvements and retain open science gates | No release tag or commercial-parity claim on partial validation; reuse unaffected full composite evidence |
+
+The fixed-width edge-belt diagnostic must also record its sampled area: a
+discontinuous indicator has mesh-dependent quadrature error. Complement it
+with a continuous polynomial edge/center partition of unity whose reference
+areas are known analytically. This diagnoses pressure redistribution without
+inventing an error estimator or changing the contact law.
 
 Historical entries below remain evidence, not a second current backlog.
 

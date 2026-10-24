@@ -449,6 +449,10 @@ def test_accepted_contact_point_export_is_raw_and_reconstructs_tool_resultant(tm
     assert metadata["complete"] and not metadata["restart_archive"]
     assert metadata["units"] == {"length": "m", "force": "N"}
     assert metadata["vtk_view"] == "current_slave_positions_vertex_only"
+    assert metadata["reference_positions_status"] == "available"
+    assert metadata["pairs"][0]["measure_configuration"] == "reference"
+    np.testing.assert_allclose(samples["reference_positions"],
+        step.contact_provider.accepted_point_samples()["reference_positions"])
     assert result.artifacts["accepted_contact_points_vtp"] == paths[
         "contact_point_view"
     ]
@@ -459,6 +463,7 @@ def test_accepted_contact_point_export_is_raw_and_reconstructs_tool_resultant(tm
     assert int(vtk_piece.attrib["NumberOfPoints"]) == len(samples["point_ids"])
     assert int(vtk_piece.attrib["NumberOfVerts"]) == len(samples["point_ids"])
     assert vtk_piece.find("./PointData/DataArray[@Name='normal_pressures']") is not None
+    assert vtk_piece.find("./PointData/DataArray[@Name='reference_positions']") is not None
     assert vtk_piece.find("./PointData/DataArray[@Name='pair_index']") is not None
     assert np.any(samples["active"])
     assert np.all(samples["normal_pressures"] >= 0.0)
@@ -507,8 +512,9 @@ def test_contact_point_vtp_is_readable_as_unsmoothed_vertices(tmp_path):
         )
 
 
+@pytest.mark.parametrize("corrupt_field", ["normal_pressures", "reference_positions"])
 def test_contact_point_export_rejects_nonfinite_provider_data_before_writing(
-    tmp_path, monkeypatch,
+    tmp_path, monkeypatch, corrupt_field,
 ):
     step = _moving_friction_patch_step(increments=2)
     step.solve()
@@ -534,9 +540,9 @@ def test_contact_point_export_rejects_nonfinite_provider_data_before_writing(
 
     def corrupt():
         sample = original()
-        pressure = sample["normal_pressures"].copy()
+        pressure = sample[corrupt_field].copy()
         pressure[0] = np.nan
-        sample["normal_pressures"] = pressure
+        sample[corrupt_field] = pressure
         return sample
 
     monkeypatch.setattr(provider, "accepted_point_samples", corrupt)
@@ -544,6 +550,25 @@ def test_contact_point_export_rejects_nonfinite_provider_data_before_writing(
     with pytest.raises(ValueError, match="AFM-CONTACT-EXPORT-ARRAY"):
         results.export_accepted_contact_points(step, destination)
     assert not destination.exists()
+
+
+def test_contact_export_keeps_older_provider_without_inventing_reference_positions(tmp_path, monkeypatch):
+    step = _moving_friction_patch_step(increments=2)
+    step.solve()
+    original = step.contact_provider.accepted_point_samples
+    def legacy():
+        sample = original()
+        sample.pop("reference_positions")
+        sample.pop("measure_configuration")
+        return sample
+    monkeypatch.setattr(step.contact_provider, "accepted_point_samples", legacy)
+    paths = results.export_accepted_contact_points(step, tmp_path / "legacy", vtk_view=True)
+    with np.load(paths["contact_points"], allow_pickle=False) as data:
+        assert "reference_positions" not in data.files
+        assert "slave_positions" in data.files
+    metadata = json.loads(paths["contact_point_metadata"].read_text())
+    assert metadata["reference_positions_status"] == "unavailable_for_some_pairs"
+    assert metadata["pairs"][0]["measure_configuration"] == "unspecified"
 
 
 @pytest.mark.parametrize("tool_travel", [0.03, 0.40])

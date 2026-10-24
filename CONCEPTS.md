@@ -423,6 +423,14 @@ to a deformable field. These are separate assets so changing a tool path does
 not redefine contact enforcement, and changing a contact law does not redefine
 geometry.
 
+Accepted contact samples distinguish reference material positions from current
+slave positions and projected master positions. Their point IDs, pressure and
+integration weights share one trace and a declared measure configuration.
+Reference-area nominal pressure must not be relabeled as current-area Cauchy
+traction. Reference coordinates are optional for legacy external providers;
+exports report their absence instead of reconstructing them from current
+positions. Contact sample archives are observations, not restart state.
+
 Every rigid surface exposes one solver-neutral projection contract: query
 points, closest points, admissible-side unit normals, signed gaps, validity flags, the
 projection method, geometry fingerprint, and optional stable entity identities.
