@@ -14,6 +14,7 @@ param(
 
 $ErrorActionPreference = "Stop"
 $RuntimeVersion = "@VERSION@"
+. (Join-Path $PSScriptRoot "Installer-State.ps1")
 Write-Host "AgentFEM Runtime for WSL2" -ForegroundColor Blue
 
 function Get-InstalledWslVersion {
@@ -25,6 +26,12 @@ function Get-InstalledWslVersion {
     return [version]$versionMatch.Groups[1].Value
 }
 
+function Test-AdministratorSession {
+    $identity = [Security.Principal.WindowsIdentity]::GetCurrent()
+    $principal = New-Object Security.Principal.WindowsPrincipal($identity)
+    return $principal.IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)
+}
+
 function Invoke-ElevatedWslCommand {
     param(
         [Parameter(Mandatory = $true)][string[]]$Arguments,
@@ -32,10 +39,32 @@ function Invoke-ElevatedWslCommand {
     )
 
     Write-Host "$Action requires Windows administrator approval." -ForegroundColor Yellow
-    $process = Start-Process -FilePath "wsl.exe" -ArgumentList $Arguments `
-        -Verb RunAs -Wait -PassThru
-    if ($process.ExitCode -ne 0) {
-        throw "[AFM-WIN-WSL-SETUP] $Action failed with exit code $($process.ExitCode)."
+    Save-InstallState -Stage "requesting_elevation" -Message $Action
+    try {
+        if (Test-AdministratorSession) {
+            # Already-authorised sessions do not need another elevated child process.
+            & wsl.exe @Arguments
+            $commandExitCode = $LASTEXITCODE
+        } else {
+            $process = Start-Process -FilePath "wsl.exe" -ArgumentList $Arguments `
+                -Verb RunAs -Wait -PassThru
+            $commandExitCode = $process.ExitCode
+        }
+    } catch {
+        $nativeCode = $_.Exception.NativeErrorCode
+        if ($nativeCode -eq 1223) {
+            throw "[AFM-WIN-ELEVATION-CANCELLED] Administrator approval was cancelled. No alternate launch will be attempted."
+        }
+        throw "[AFM-WIN-ELEVATION-BLOCKED] Cannot launch the approved administrator operation: $($_.Exception.Message). If WorkBuddy blocks it, request its supported approval or launch the official installer yourself; do not switch shells to bypass the policy."
+    }
+    if ($commandExitCode -in @(3010, 1641)) {
+        throw "[AFM-WIN-RESTART-REQUIRED] Windows requires a restart. Save your work, restart when ready, then reopen Install-AgentFEM.cmd."
+    }
+    if ($commandExitCode -in @(5, 740, 1223)) {
+        throw "[AFM-WIN-ELEVATION-BLOCKED] Windows rejected or requires administrator approval (exit $commandExitCode). No alternate source will be attempted."
+    }
+    if ($commandExitCode -ne 0) {
+        throw "[AFM-WIN-WSL-COMMAND-FAILED] $Action failed with exit code $commandExitCode."
     }
 }
 
@@ -59,7 +88,7 @@ function Install-WslPlatform {
             "Preparing WSL without downloading an unnecessary Linux distribution"
         )
     } catch {
-        if ($Source -ne "Auto") {
+        if ($Source -ne "Auto" -or $_.Exception.Message -notmatch "\[AFM-WIN-WSL-COMMAND-FAILED\]") {
             throw
         }
         Write-Warning "The direct web route failed; trying the Microsoft Store route once."
@@ -85,7 +114,7 @@ function Update-WslPlatform {
     try {
         Invoke-ElevatedWslCommand -Arguments $arguments -Action "Updating WSL"
     } catch {
-        if ($Source -ne "Auto") {
+        if ($Source -ne "Auto" -or $_.Exception.Message -notmatch "\[AFM-WIN-WSL-COMMAND-FAILED\]") {
             throw
         }
         Write-Warning "The direct web update failed; trying the Microsoft Store route once."
@@ -340,6 +369,14 @@ function Install-SideBySide {
 
     $existing = Get-WslDistributions
     $selectedName = $RequestedName
+    $resumeName = $script:InstallState.distribution
+    if ($resumeName -and $existing -contains $resumeName) {
+        if ((Get-AgentFEMRuntimeVersion -Name $resumeName) -ne $RuntimeVersion) {
+            throw "[AFM-WIN-RESUME-IDENTITY] Recorded distribution has a different runtime identity. Nothing was replaced."
+        }
+        Complete-NewInstallation -Name $resumeName -Projects $Projects
+        return
+    }
     if ($existing -contains $selectedName) {
         if ($selectedName -ne "AgentFEM") {
             throw "A WSL distribution named '$selectedName' already exists. Choose a different -DistributionName; no existing distribution was changed."
@@ -352,22 +389,11 @@ function Install-SideBySide {
         Write-Host "Your existing projects and environment will not be modified." -ForegroundColor Yellow
     }
 
+    $script:InstallState.distribution = $selectedName
+    Save-InstallState -Stage "importing"
     Write-Host "Installing the offline AgentFEM distribution as '$selectedName'..."
     Install-AgentFEMDistribution -Name $selectedName -Location $InstallLocation
-    Write-Host "Starting AgentFEM for first-time user setup..." -ForegroundColor Green
-    Write-Host "When setup is complete, run 'agentfem doctor'." -ForegroundColor Green
-    Set-ProjectWorkspaceEnvironment -WindowsPath $Projects
-    $setupExitCode = 0
-    try {
-        & wsl.exe --distribution $selectedName
-        $setupExitCode = $LASTEXITCODE
-    } finally {
-        Restore-ProjectWorkspaceEnvironment
-    }
-    if ($setupExitCode -ne 0) {
-        throw "The AgentFEM first-time setup did not complete. The Windows project directory was not removed."
-    }
-    Write-Host "Persistent projects: $Projects" -ForegroundColor Green
+    Complete-NewInstallation -Name $selectedName -Projects $Projects
 }
 
 function Upgrade-AgentFEMDistribution {
@@ -574,36 +600,111 @@ function Upgrade-AgentFEMDistribution {
     }
 }
 
-if (-not (Test-Path $Image)) {
-    throw "Runtime image not found: $Image"
-}
-
-$installedWslVersion = Require-WslPlatform -Source $WslBootstrapSource
-
-if ($ExpectedSha256) {
-    $actual = (Get-FileHash -Algorithm SHA256 $Image).Hash.ToLowerInvariant()
-    if ($actual -ne $ExpectedSha256.ToLowerInvariant()) {
-        throw "SHA-256 mismatch. Expected $ExpectedSha256, received $actual."
+function Complete-NewInstallation {
+    param([string]$Name, [string]$Projects)
+    Save-InstallState -Stage "account_setup"
+    Set-ProjectWorkspaceEnvironment -WindowsPath $Projects
+    try {
+        # Execute and return after OOBE instead of leaving an interactive shell open.
+        Invoke-WslChecked -Arguments @("--distribution", $Name, "--exec", "true") `
+            -FailureMessage "[AFM-WIN-ACCOUNT-SETUP] Linux account setup is incomplete. Reopen the installer to continue."
+    } finally {
+        Restore-ProjectWorkspaceEnvironment
     }
-    Write-Host "Image integrity verified." -ForegroundColor Green
+    $user = Get-DefaultLinuxUser -Name $Name
+    Save-InstallState -Stage "protecting_workspace"
+    $linuxProjects = Convert-ToWslPath -Name $Name -WindowsPath $Projects
+    Invoke-WslChecked -Arguments @("--distribution", $Name, "--exec", "/opt/conda/bin/agentfem",
+        "workspace", "--protect", "--path", $linuxProjects, "--json") `
+        -FailureMessage "[AFM-WIN-WORKSPACE] Project protection did not complete."
+    Save-InstallState -Stage "verifying_runtime"
+    Test-AgentFEMDistribution -Name $Name
+    # Run as the ordinary user with a fresh JIT cache, not merely an import check.
+    $verifier = Convert-ToWslPath -Name $Name -WindowsPath (Join-Path $PSScriptRoot "verify_installed_runtime.py")
+    $acceptancePath = Join-Path $script:InstallStateDirectory "acceptance.json"
+    if (Test-Path -LiteralPath $acceptancePath) {
+        Move-Item -LiteralPath $acceptancePath -Destination (Join-Path $script:InstallStateDirectory ("acceptance-" + [guid]::NewGuid().ToString() + ".json"))
+    }
+    $report = Convert-ToWslPath -Name $Name -WindowsPath $acceptancePath
+    Invoke-WslChecked -Arguments @("--distribution", $Name, "--exec", "/opt/conda/bin/python",
+        $verifier, "--prefix", "/opt/conda", "--profile", "core", "--skip-mpi", "--output", $report) `
+        -FailureMessage "[AFM-WIN-FIRST-SOLVE] Runtime acceptance failed. Keep the log and reopen the installer after correcting the reported issue."
+    $acceptancePath = Join-Path $script:InstallStateDirectory "acceptance.json"
+    $acceptance = Get-Content -LiteralPath $acceptancePath -Raw | ConvertFrom-Json
+    if ($acceptance.schema -ne "agentfem.runtime-acceptance" -or $acceptance.status -ne "accepted") {
+        throw "[AFM-WIN-FIRST-SOLVE] The acceptance record is missing or did not accept this runtime."
+    }
+    $script:InstallState.acceptance_report = $acceptancePath
+    $script:InstallState.linux_user = $user
+    Save-InstallState -Stage "completed"
+    Write-Host "AgentFEM $RuntimeVersion passed its first-solve checks. Persistent projects: $Projects" -ForegroundColor Green
 }
 
-$requestedName = $DistributionName.Trim()
-if (-not $requestedName) {
-    throw "DistributionName must not be empty."
-}
-if (-not $ProjectDirectory) {
-    $documents = [Environment]::GetFolderPath("MyDocuments")
-    if (-not $documents) {
-        $documents = Join-Path $env:USERPROFILE "Documents"
+$exitCode = 0
+try {
+    Initialize-InstallState -Identity @{
+        image_sha256 = $ExpectedSha256
+        version = $RuntimeVersion
+        distribution = $DistributionName
+        install_location = $InstallLocation
+        project_directory = $ProjectDirectory
+        upgrade = [bool]$Upgrade
     }
-    $ProjectDirectory = Join-Path $documents "AgentFEMProjects"
+    Start-Transcript -Path (Join-Path $script:InstallStateDirectory "install.log") -Append | Out-Null
+    $script:TranscriptStarted = $true
+
+    foreach ($requiredFile in @($Image, (Join-Path $PSScriptRoot "verify_installed_runtime.py"))) {
+        if (-not (Test-Path -LiteralPath $requiredFile -PathType Leaf)) {
+            throw "[AFM-WIN-PACKAGE-INCOMPLETE] Missing package file: $requiredFile. Extract the entire official ZIP before installing."
+        }
+    }
+    if ($ExpectedSha256 -notmatch '^[a-fA-F0-9]{64}$') {
+        throw "[AFM-WIN-PACKAGE-IDENTITY] A rendered release image checksum is required. Use the official complete package."
+    }
+
+
+    if ($ExpectedSha256) {
+        $actual = (Get-FileHash -Algorithm SHA256 $Image).Hash.ToLowerInvariant()
+        if ($actual -ne $ExpectedSha256.ToLowerInvariant()) {
+            throw "SHA-256 mismatch. Expected $ExpectedSha256, received $actual."
+        }
+        Write-Host "Image integrity verified." -ForegroundColor Green
+    }
+
+    Save-InstallState -Stage "preparing_wsl"
+    $installedWslVersion = Require-WslPlatform -Source $WslBootstrapSource
+
+    $requestedName = $DistributionName.Trim()
+    if (-not $requestedName) {
+        throw "DistributionName must not be empty."
+    }
+    if (-not $ProjectDirectory) {
+        $documents = [Environment]::GetFolderPath("MyDocuments")
+        if (-not $documents) {
+            $documents = Join-Path $env:USERPROFILE "Documents"
+        }
+        $ProjectDirectory = Join-Path $documents "AgentFEMProjects"
+    }
+    $persistentProjects = [System.IO.Path]::GetFullPath($ProjectDirectory)
+    New-Item -ItemType Directory -Force -Path $persistentProjects | Out-Null
+    Write-Host "User projects will persist outside WSL at: $persistentProjects" -ForegroundColor Green
+    if ($Upgrade) {
+        Upgrade-AgentFEMDistribution -Name $requestedName -Projects $persistentProjects
+    } else {
+        Install-SideBySide -RequestedName $requestedName -Projects $persistentProjects
+    }
+    Save-InstallState -Stage "completed"
+} catch {
+    $message = $_.Exception.Message
+    $stage = "failed"
+    $exitCode = 1
+    if ($message -match "AFM-WIN-RESTART") { $stage = "restart_required"; $exitCode = 3010 }
+    elseif ($message -match "AFM-WIN-ELEVATION") { $stage = "awaiting_authorization" }
+    if ($script:InstallStateOwned) { Save-InstallState -Stage $stage -Message $message }
+    Write-Host $message -ForegroundColor Red
+    if ($script:InstallStateDirectory) { Write-Host "Installation records: $script:InstallStateDirectory" }
+} finally {
+    if ($script:TranscriptStarted) { Stop-Transcript | Out-Null }
+    if ($script:InstallLock) { $script:InstallLock.Dispose() }
 }
-$persistentProjects = [System.IO.Path]::GetFullPath($ProjectDirectory)
-New-Item -ItemType Directory -Force -Path $persistentProjects | Out-Null
-Write-Host "User projects will persist outside WSL at: $persistentProjects" -ForegroundColor Green
-if ($Upgrade) {
-    Upgrade-AgentFEMDistribution -Name $requestedName -Projects $persistentProjects
-} else {
-    Install-SideBySide -RequestedName $requestedName -Projects $persistentProjects
-}
+exit $exitCode

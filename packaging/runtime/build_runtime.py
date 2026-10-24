@@ -761,12 +761,21 @@ def build_wsl(args: argparse.Namespace) -> Path:
         render_wsl_start_here(),
         encoding="utf-8",
     )
+    companion_files = []
+    for name in ("Installer-State.ps1", "Install-AgentFEM.cmd"):
+        destination = output / name
+        shutil.copyfile(RUNTIME / "wsl" / name, destination)
+        companion_files.append(destination)
+    verifier = output / "verify_installed_runtime.py"
+    shutil.copyfile(RUNTIME / "verify_installed_runtime.py", verifier)
+    companion_files.append(verifier)
     bundle = output / f"{product}-{project_version()}-WSL2-x86_64-preview-offline.zip"
     bundle_files = [
         artifact,
         installer,
         remover,
         start_here,
+        *companion_files,
         record_path,
         sbom,
         published["lock"],

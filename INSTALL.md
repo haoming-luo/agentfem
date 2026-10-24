@@ -124,7 +124,10 @@ MPI libraries.
 
 ## Windows
 
-The simplest new-user route is the Windows Complete Runtime. Its installer
+The simplest new-user route is the Windows Complete Runtime. Open its bundled `Install-AgentFEM.cmd` after fully extracting the ZIP.
+For AI-assisted installation and WorkBuddy permissions, follow
+[Windows agent installation](docs/windows_agent_installation.md).
+ Its installer
 prepares WSL without downloading Ubuntu and then imports the bundled AgentFEM
 image. Existing WSL users may instead use Ubuntu, Miniforge/Mambaforge, and the
 Linux environment above; this uses the same package family exercised by

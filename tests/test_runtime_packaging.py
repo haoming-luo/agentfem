@@ -484,3 +484,14 @@ def test_runtime_release_publishes_one_identity_to_optional_china_mirror():
     assert workflow.index("Publish byte-identical mainland mirror") < workflow.index(
         "Publish accepted assets and download routes"
     )
+
+
+def test_windows_bundle_includes_recovery_and_real_solve_verifier():
+    builder = (RUNTIME / "build_runtime.py").read_text(encoding="utf-8")
+    installer = (RUNTIME / "wsl" / "Install-AgentFEM.ps1").read_text(encoding="utf-8")
+    assert '"Installer-State.ps1", "Install-AgentFEM.cmd"' in builder
+    assert '*companion_files' in builder
+    assert 'RUNTIME / "verify_installed_runtime.py"' in builder
+    assert '"--skip-mpi", "--output", $report' in installer
+    assert installer.index('SHA-256 mismatch') < installer.index('$installedWslVersion = Require-WslPlatform')
+    assert '"--distribution", $Name, "--exec", "true"' in installer

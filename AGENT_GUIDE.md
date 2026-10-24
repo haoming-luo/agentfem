@@ -21,6 +21,10 @@ finite-element simulation with AgentFEM.
    machine, prefer the Complete Runtime installer: it owns WSL preparation and
    deliberately avoids bare `wsl --install`, which downloads an unrelated
    default distribution.
+   For Windows/WorkBuddy installation, follow
+   `docs/windows_agent_installation.md`. A non-admin shell alone is not a blocker;
+   use only approved user-confirmed elevation. Explicit host-policy refusal is
+   not a network failure and must not trigger alternate-shell attempts.
 2. For an installed case, run `agentfem doctor --json`. On WSL, also run
    `agentfem workspace --json`; before any runtime replacement or removal it
    must report `protected_from_distribution_removal: true`. If it does not,
