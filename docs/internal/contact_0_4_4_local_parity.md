@@ -95,12 +95,15 @@ full-model comparison. The test timing includes concurrent spatial work.
 
 Fresh remote confirmation of `e4207c56` completes in
 [CI run 40115587874](https://github.com/haoming-luo/agentfem/actions/runs/40115587874):
-4976 serial tests pass, 428 are skipped by suite/platform selection, and the
+4976 serial tests pass, 428 are skipped (including optional native modules
+absent in this job and tests requiring multiple ranks), and the
 subsequent distributed inelastic, finite-J2 invariants and installed release
 smokes pass. All applicable checks, including Linux native distribution and
 macOS installed-wheel acceptance, pass. This resolves the earlier Linux
 precision-test failure for that head; it does not certify later safety commits
 without their own CI, nor establish distributed implicit-contact support.
+Native distribution and the local installed explicit subset are separate
+evidence; the serial pytest count must not be presented as native-backend coverage.
 
 At entry, PR #118 head `d5347eeb` passes all applicable remote checks, including
 Linux native distribution, FEniCSx and macOS installed-wheel acceptance. It
