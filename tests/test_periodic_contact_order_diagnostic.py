@@ -70,6 +70,18 @@ def test_duplicate_field_coordinates_rejected():
         functions()["periodic_field_equations"](np.zeros((2, 3)))
 
 
+@pytest.mark.parametrize("increments", [0, 1, 6, -4])
+def test_fixed_diagnostic_rejects_invalid_station_partition(tmp_path, monkeypatch, increments):
+    import sys
+    output = tmp_path / "invalid.json"
+    monkeypatch.setattr(sys, "argv", ["diagnostic", "--increments", str(increments),
+                                    "--output", str(output)])
+    with pytest.raises(SystemExit) as error:
+        functions()["main"]()
+    assert error.value.code == 2
+    assert not output.exists()
+
+
 @pytest.mark.parametrize("limit,measured", [(None, .001), (.000375, .0003), (.000375, .0004)])
 def test_diagnostic_records_and_enforces_selected_path_policy(tmp_path, monkeypatch, limit, measured):
     import json

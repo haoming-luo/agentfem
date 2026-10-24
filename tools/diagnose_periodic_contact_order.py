@@ -127,6 +127,8 @@ def main():
     args = parser.parse_args()
     if args.output.exists():
         parser.error("Choose a fresh evidence path.")
+    if args.increments is not None and (args.increments < 4 or args.increments % 4):
+        parser.error("Fixed increments must be positive multiples of four for the common stations.")
     control = (steps.fixed(32 if args.increments is None else args.increments)
                if args.plastic_increment_limit is None else steps.automatic(
                    initial=1/32, minimum=1/4096, maximum=1/16,

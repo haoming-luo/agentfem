@@ -555,13 +555,16 @@ class FiniteStrainJ2Logarithmic:
                 principal_derivative[region],
                 np.diagonal(principal_variation, axis1=2, axis2=3),
             )
+            # All nine directions share U and U^T F^-T. Pack them into
+            # 3x27/27x3 blocks instead of dispatching 27 tiny products per
+            # point. The existing chunk bound also bounds packing scratch;
+            # no factor is retained across material trials.
+            right = left_t @ inverse_t
+            variation_rows = (
+                left @ variation_stress.swapaxes(1, 2).reshape(-1, 3, 27)
+            ).reshape(-1, 3, 9, 3).swapaxes(1, 2).reshape(-1, 27, 3)
             variation_piola = (
-                (
-                    left[:, None]
-                    @ variation_stress
-                    @ left_t[:, None]
-                    @ inverse_t[:, None]
-                )
+                (variation_rows @ right)
                 .reshape(-1, 3, 3, 3, 3)
                 .transpose(0, 3, 4, 1, 2)
             )

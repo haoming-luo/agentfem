@@ -717,6 +717,44 @@ def test_finite_strain_j2_batch_uses_nineteen_vectorized_integrations(monkeypatc
     assert call_count == 19
 
 
+@pytest.mark.parametrize("cached_spectrum", [False, True])
+def test_finite_strain_j2_tangent_chunk_boundary_and_history(cached_spectrum):
+    """Direction batching must preserve tensor order and keep old state fixed."""
+    material = constitutive.finite_strain_j2_logarithmic(
+        young=1000., poisson=.3, yield_stress=2., hardening_modulus=100.,
+    )
+    # One extra point crosses the internal 1024-point working-set boundary.
+    count = 1025
+    rng = np.random.default_rng(241024)
+    initial = np.tile(material.state_schema.initial_state(), (count, 1))
+    preload = np.eye(3) + rng.uniform(-.03, .03, (count, 3, 3))
+    states = material._integrate_batch(preload, initial)["state"]
+    gradients = preload + rng.uniform(-.004, .004, (count, 3, 3))
+    # Repeated principal stretches and rigid rotation, with elastic old state.
+    for index, gradient in ((0, np.eye(3)), (511, _rotation(.51)),
+                            (1023, _isochoric_extension(1.08))):
+        states[index] = initial[index]
+        gradients[index] = gradient
+    before = states.copy()
+    baseline = material._integrate_batch(gradients, states)
+    if not cached_spectrum:
+        baseline.pop("_trial_spectrum")
+    tangent = material._analytic_algorithmic_tangent_batch(
+        gradients, states, baseline=baseline,
+    )
+    indices = [0, 1, 511, 1023, 1024]
+    selected = gradients[indices]
+    old = states[indices]
+    numerical = material._numerical_algorithmic_tangent_batch(
+        selected, old, baseline=material._integrate_batch(selected, old),
+    )
+    errors = np.linalg.norm(tangent[indices] - numerical, axis=(1, 2))
+    scales = np.linalg.norm(numerical, axis=(1, 2))
+    assert np.all(errors / scales < 2e-5)
+    np.testing.assert_array_equal(states, before)
+    assert np.isfinite(tangent).all()
+
+
 def test_finite_strain_j2_rejects_nonisochoric_committed_plastic_state():
     material = constitutive.finite_strain_j2_logarithmic(
         young=210_000.0,
