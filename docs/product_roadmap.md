@@ -54,16 +54,20 @@ clean Windows installation or new full-composite performance proof. Details and
 the reconstruction protocol are in
 `evidence/contact/2026-10-25-installed-periodic-contact.json`.
 
-Integration still requires current-head CI. An intermediate Linux run exposed
+PR #118 is merged at `897f1f74` after final source `d8392e98` passed all applicable
+checks in run 40121006505, including Linux native distribution, FEniCSx and
+macOS installed-wheel acceptance. The final serial suite reports 4988 passed
+and 428 skipped; optional-native and rank-specific skips are not native coverage.
+Separate native and distributed gates pass. This is engineering integration,
+not a 0.4.4 release tag or promotion of experimental contact.
+An intermediate Linux run exposed
 one ill-conditioned first-Piola component comparison failure (4961 other tests
 passed). The failure is preserved; an independent high-precision diagnosis and
 per-point objective tensor comparison replace that componentwise test, without
 changing the runtime or its tolerances. Fresh Linux confirmation at `e4207c56`
-passes 4976 serial tests (428 skipped, including absent optional native modules
-and tests requiring multiple ranks), subsequent distributed
-and release-smoke checks; all applicable Linux/macOS checks pass in run
-40115587874. The later boundary-admission safety delta still requires its own
-current-head CI. See the precision follow-up in the sprint ledger. The workflow and
+passed 4976 serial tests and subsequent distributed/release-smoke checks in
+run 40115587874. The final-head confirmation above also covers the later
+boundary-admission safety changes. See the precision follow-up in the sprint ledger. The workflow and
 material guide also separate finite-strain contact from small-strain
 J2/Chaboche and defer geometry/friction/MPC combinations to one current
 capability matrix rather than stale one-tool restrictions.
@@ -79,10 +83,24 @@ The spatial gate is narrower, not closed: the controlled 4/8-cell plastic
 first-station force gap is 6.52%, with different sampled contact activity.
 On the same coarse mesh, supported contact quadrature 7 -> 11 changes force by
 only 0.00557%; halving the coarse plastic increment cap changes force by 0.02025%.
-Neither explains the spatial gap on its own. Independent polynomial P2/Q2 trace tests pass force, moment,
-virtual-work and tangent integrals. The next bounded check is one 12-cell
-first-station comparison with the same physical/path/integration inputs and
-recoverable accepted checkpoints, not more penalty tuning or a full-cycle sweep.
+Raising coarse bulk quadrature 6 -> 8 changes force by only 0.0008892%.
+None explains the spatial gap on its own. Independent polynomial P2/Q2 trace
+tests pass force, moment, virtual-work and tangent integrals. The bounded
+12-cell continuation now completes the first station with 305 accepted
+increments. Forces on 4/8/12 meshes are 4.48528146 / 4.19262706 / 4.10251562 N;
+successive coarse-relative differences decrease from 6.52% to 2.15%.
+The 8/12 sampled active areas agree, but peak pressure continues to grow and
+edge-weighted redistribution exceeds the total force change. This is a useful
+trend, not a continuum-error bound or full-cycle accuracy certificate.
+Evidence: `evidence/contact/2026-10-25-periodic-plastic-pressure-moments12.json`.
+
+**Next bounded science gate:** stop uniform refinement here. First compare
+contact-edge resolution against the same physical patch and controls, using
+integrated reaction and smooth pressure moments rather than peak pressure alone;
+then obtain an independent same-input reference. Any claimed improvement needs
+its own fine-path sensitivity check. Do not simultaneously open a new contact
+law, penalty sweep, full-cycle sweep or larger uniform mesh. Promotion remains
+separate from the engineering fixes already merged.
 
 The existing J2 tangent backend now packs its nine derivative directions into
 small rectangular products and reuses their common transform, without another
