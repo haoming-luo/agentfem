@@ -54,6 +54,16 @@ clean Windows installation or new full-composite performance proof. Details and
 the reconstruction protocol are in
 `evidence/contact/2026-10-25-installed-periodic-contact.json`.
 
+Integration still requires current-head CI. An intermediate Linux run exposed
+one ill-conditioned first-Piola component comparison failure (4961 other tests
+passed). The failure is preserved; an independent high-precision diagnosis and
+per-point objective tensor comparison replace that componentwise test, without
+changing the runtime or its tolerances. Local checks pass; Linux confirmation
+is pending. See the precision follow-up in the sprint ledger. The workflow and
+material guide also separate finite-strain contact from small-strain
+J2/Chaboche and defer geometry/friction/MPC combinations to one current
+capability matrix rather than stale one-tool restrictions.
+
 The spatial gate is narrower, not closed: the controlled 4/8-cell plastic
 first-station force gap is 6.52%, with different sampled contact activity.
 On the same coarse mesh, supported contact quadrature 7 -> 11 changes force by

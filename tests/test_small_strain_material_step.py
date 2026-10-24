@@ -199,3 +199,41 @@ def test_public_model_step_dispatches_small_strain_material():
     assert isinstance(step, mechanics.SmallStrainMaterialStep)
     step.solve()
     assert step.last_solve_info.completed_step
+
+
+@pytest.mark.parametrize("kind", ["j2", "chaboche", "provider"])
+@pytest.mark.parametrize("boundary_kind", ["rigid_contact", "foundation"])
+def test_small_strain_boundary_operator_is_never_silently_ignored(kind, boundary_kind):
+    from agentfem import boundary_models
+    from agentfem.step_providers import step_capability
+
+    domain = dolfinx_mesh.create_unit_cube(MPI.COMM_SELF, 1, 1, 1)
+    model = models.create(study=studies.static_solid(dimension=3, nonlinear=True), mesh=domain)
+    u = model.field(fields.displacement(domain))
+    material = (
+        constitutive.J2LinearIsotropicHardening(young=1000., poisson=.3, yield_stress=2.)
+        if kind == "j2" else constitutive.chaboche(
+            young=1000., poisson=.3, yield_stress=2., backstresses=((100., 10.),))
+        if kind == "chaboche" else LinearBatchMaterial()
+    )
+    model.material(material)
+    left = mesh.boundary(domain, lambda x: np.isclose(x[0], 0.), name="left")
+    right = mesh.boundary(domain, lambda x: np.isclose(x[0], 1.), name="right")
+    model.clamp(u, on=left)
+    assert step_capability(model, target=u)["supported"]
+    if boundary_kind == "rigid_contact":
+        model.add_boundary_model(boundary_models.rigid_contact_pair(
+            right, boundary_models.rigid_body(boundary_models.rigid_plane(
+                point=(1.005, 0., 0.), normal=(-1., 0., 0.))), penalty=1000., name="tool"))
+    else:
+        model.elastic_foundation(on=right, stiffness=1000.)
+    before = u.value.x.array.copy()
+    capability = step_capability(model, target=u)
+    assert not capability["supported"]
+    assert len(capability["rejection_reasons"]) == 1
+    assert any(item["message"].startswith("AFM-SMALL-STRAIN-BOUNDARY")
+               for item in capability["rejection_reasons"])
+    with pytest.raises(NotImplementedError, match="AFM-SMALL-STRAIN-BOUNDARY"):
+        model.step(target=u, incrementation=steps.fixed(1), progress=False)
+    assert model.steps == []
+    np.testing.assert_array_equal(u.value.x.array, before)

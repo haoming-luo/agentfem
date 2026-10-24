@@ -283,7 +283,7 @@ def _accept_mixed_neo_hookean(model, request: StepRequest) -> bool:
     )
 
 
-def _accept_j2(model, request: StepRequest) -> bool:
+def _j2_preconditions(model, request: StepRequest) -> bool:
     from .constitutive.plasticity import (
         ChabocheCombinedHardening,
         J2LinearIsotropicHardening,
@@ -311,7 +311,11 @@ def _accept_j2(model, request: StepRequest) -> bool:
     )
 
 
-def _accept_small_strain_material(model, request: StepRequest) -> bool:
+def _accept_j2(model, request: StepRequest) -> bool:
+    return _j2_preconditions(model, request) and not getattr(model, "boundary_models", ())
+
+
+def _small_strain_material_preconditions(model, request: StepRequest) -> bool:
     from .constitutive.small_strain_user_material import SmallStrainUserMaterial
 
     study = getattr(model, "study", None)
@@ -322,6 +326,36 @@ def _accept_small_strain_material(model, request: StepRequest) -> bool:
         and getattr(study, "dimension", None) == 3
         and _is_vector_target(request.target)
         and isinstance(material, SmallStrainUserMaterial)
+    )
+
+
+def _accept_small_strain_material(model, request: StepRequest) -> bool:
+    return (
+        _small_strain_material_preconditions(model, request)
+        and not getattr(model, "boundary_models", ())
+    )
+
+
+def _unsupported_small_strain_boundary(model) -> str | None:
+    if getattr(model, "boundary_models", ()):
+        return (
+            "AFM-SMALL-STRAIN-BOUNDARY: this small-strain material Step does not "
+            "assemble registered weak/contact boundary Operators. They cannot "
+            "be ignored or replaced with external loads. Choose a verified "
+            "material/Operator combination; do not change kinematics merely "
+            "to bypass this restriction."
+        )
+    return None
+
+
+def _j2_boundary_rejection(model, request: StepRequest) -> str | None:
+    return _unsupported_small_strain_boundary(model) if _j2_preconditions(model, request) else None
+
+
+def _small_strain_boundary_rejection(model, request: StepRequest) -> str | None:
+    return (
+        _unsupported_small_strain_boundary(model)
+        if _small_strain_material_preconditions(model, request) else None
     )
 
 
@@ -1653,6 +1687,7 @@ register_step_provider(
         name="small_strain_user_material_static",
         analyses=("nonlinear_static",),
         accepts=_accept_small_strain_material,
+        rejection_reason=_small_strain_boundary_rejection,
         lower=_lower_small_strain_material,
         priority=115,
         description=(
@@ -1999,6 +2034,7 @@ register_step_provider(
         name="j2_small_strain_static",
         analyses=("nonlinear_static",),
         accepts=_accept_j2,
+        rejection_reason=_j2_boundary_rejection,
         lower=_lower_j2,
         priority=110,
         description=(

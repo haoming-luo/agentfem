@@ -6,6 +6,13 @@ experimental formulation to a validated one.
 
 ## [Unreleased]
 
+- Reject unassembled weak/contact boundary models for small-strain J2,
+  Chaboche and provider-neutral small-strain Steps during both capability
+  inspection and execution. Previously the native J2 route could omit these
+  registered contributions, while the provider-neutral route advertised
+  support before rejecting construction. Keep the finite-strain contact
+  capability separate; do not silently substitute materials or kinematics.
+
 - Reuse the trial elastic spectrum in batched finite-J2 plastic-gradient
   reconstruction instead of factoring the reconstructed elastic gradient again.
   Preserve the scalar reference, constitutive law, tangent and state contract.

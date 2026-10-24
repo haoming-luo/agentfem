@@ -26,6 +26,22 @@ being silently approximated by the bounded route.
 
 ### Integration boundary and focused diagnostic sprint (2026-10-25)
 
+**Release-scope audit finding.** The material guide had placed finite-strain
+contact claims inside the small-strain J2/Chaboche description and retained
+outdated one-tool/affine-friction exclusions. Checking the actual dispatch
+revealed a separate defect: small-strain native J2/Chaboche and provider-neutral
+material capability predicates accepted registered contact or foundation
+Operators even though those builders did not assemble them. The native builder
+could omit them; the neutral builder already rejected them later. Six real
+model counterexamples failed the capability gate before the fix. Both built-in
+predicates now reject these unsupported compositions with one stable
+`AFM-SMALL-STRAIN-BOUNDARY` reason, consumed by capability and execution, before
+Step registration or field mutation. An external provider may still implement
+its own supported composition. No material conversion or new contact law is
+introduced. The combined constitutive/global-material subset passes 50 tests
+in 2.54 s, including all six counterexamples. The finite-strain numerical
+implementation used by the ongoing spatial diagnostic is unchanged.
+
 At entry, PR #118 head `d5347eeb` passes all applicable remote checks, including
 Linux native distribution, FEniCSx and macOS installed-wheel acceptance. It
 remains draft. The candidate release contract now names bounded serial periodic

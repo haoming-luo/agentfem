@@ -96,15 +96,17 @@ record.
     optional endpoint creep-rate time-error tolerance as separate acceptance
     decisions. Declare a model unit system when time histories require a
     physical unit label.
-    An experimental serial finite-J2 Step can also consume one fixed or
-    normalized-prescribed frictionless triangulated tool through the ordinary
-    `RigidContactPair` asset. Its prescribed pose follows the shared Step
-    amplitude, and the accepted ledger records tool force--moment work. It
-    rejects active non-smooth/free tool edges and does not imply periodic MPC
-    or distributed implicit contact. The source candidate also admits strong
-    prescribed DOFs on the contact trace by lifting the contact tangent and
-    preserving constrained matrix rows; use the focused sphere-indentation
-    comparison before generalizing that numerical evidence.
+    Experimental serial finite-strain J2 Steps can consume named rigid contact
+    pairs through the ordinary `RigidContactPair` asset, with fixed or
+    normalized-prescribed tool motion. The strong-boundary and supported
+    affine-periodic routes assemble the same total material-plus-contact
+    residual and tangent; tool work, tangential history where admitted, and
+    rollback belong to their accepted lifecycle. Geometry, integration and
+    friction restrictions are combination-specific: consult the candidate
+    matrix in `docs/guide/model_setup.md`, not the material's name alone.
+    This does not extend contact to small-strain J2/Chaboche, mixed affine
+    fields or distributed implicit execution. Nonuniform spatial accuracy and
+    general energy closure remain separate verification gates.
     A modal result additionally retains relative eigenpair residuals,
     mass-orthogonality and stiffness-diagonalization errors. Mode fields use a
     deterministic largest-global-component-positive orientation so repeated
