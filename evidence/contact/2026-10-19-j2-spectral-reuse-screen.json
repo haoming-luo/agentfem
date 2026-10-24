@@ -1,0 +1,224 @@
+{
+  "schema": "agentfem.j2-call-local-spectrum-benchmark.v1",
+  "scope": "specific_material_batch_and_serial_implicit_plane_contact_not_general_speedup",
+  "reference_revision": "bd9b3118",
+  "reference_source_sha256": "7b591ccdc0eaf9efe9adb3824d46c87a55ed912075f5aff09130c180196914eb",
+  "current_source_sha256": "65dfd7810a5752d3c9a8a745deffe98634c25b4755a710d62455d94e2e6f9318",
+  "benchmark_sha256": "d02c9bf419d53121e1e17be7b05c7e7bca9639c4c636d5737ffaa23a588ab4d7",
+  "git_commit": "bd9b3118473886f8e3047b1deed2a248d389fda1",
+  "platform": "macOS-26.6.2-arm64-arm-64bit",
+  "numpy_version": "2.4.6",
+  "thread_environment": {
+    "OMP_NUM_THREADS": "1",
+    "OPENBLAS_NUM_THREADS": "1",
+    "VECLIB_MAXIMUM_THREADS": "1"
+  },
+  "excluded": "imports_setup_JIT_warmup_checkpoint_export",
+  "comparisons": {
+    "material_4096_points": {
+      "seconds": {
+        "reference": [
+          0.026998874731361866,
+          0.027229332830756903,
+          0.02674058312550187,
+          0.026977624744176865,
+          0.027127959299832582,
+          0.026900624856352806,
+          0.027413458097726107
+        ],
+        "reused": [
+          0.021948958281427622,
+          0.021854833234101534,
+          0.022092374972999096,
+          0.021159416064620018,
+          0.02171820867806673,
+          0.02172945812344551,
+          0.021817749831825495
+        ]
+      },
+      "median_seconds": {
+        "reference": 0.026998874731361866,
+        "reused": 0.021817749831825495
+      },
+      "elapsed_reduction_fraction": 0.19190151260333754,
+      "maximum_absolute_difference": {
+        "stress": 0.0,
+        "tangent": 0.0,
+        "state": 0.0,
+        "energy": 0.0,
+        "dissipation": 0.0
+      }
+    },
+    "whole_step_2_cells_per_edge": {
+      "seconds": {
+        "reference": [
+          0.35222962498664856,
+          0.35614324966445565,
+          0.3507449170574546,
+          0.3517259997315705,
+          0.3519436661154032,
+          0.3503836249001324,
+          0.3678990830667317
+        ],
+        "reused": [
+          0.32752254186198115,
+          0.32496983325108886,
+          0.32405487494543195,
+          0.3194510410539806,
+          0.3174894582480192,
+          0.3194680828601122,
+          0.32533895783126354
+        ]
+      },
+      "median_seconds": {
+        "reference": 0.3519436661154032,
+        "reused": 0.32405487494543195
+      },
+      "elapsed_reduction_fraction": 0.07924220224729495,
+      "maximum_absolute_difference": {
+        "u": 0.0,
+        "state": 0.0,
+        "force": 0.0,
+        "iterations": 0.0,
+        "factor_0": 0.0,
+        "u_0": 0.0,
+        "field_0_F": 0.0,
+        "field_0_P": 0.0,
+        "field_0_S": 0.0,
+        "field_0_MISES": 0.0,
+        "field_0_SENER": 0.0,
+        "field_0_FP": 0.0,
+        "field_0_PEEQ": 0.0,
+        "field_0_PDENER": 0.0,
+        "field_0_ELENER": 0.0,
+        "field_0_HARDENER": 0.0,
+        "factor_1": 0.0,
+        "u_1": 0.0,
+        "field_1_F": 0.0,
+        "field_1_P": 0.0,
+        "field_1_S": 0.0,
+        "field_1_MISES": 0.0,
+        "field_1_SENER": 0.0,
+        "field_1_FP": 0.0,
+        "field_1_PEEQ": 0.0,
+        "field_1_PDENER": 0.0,
+        "field_1_ELENER": 0.0,
+        "field_1_HARDENER": 0.0
+      }
+    },
+    "whole_step_4_cells_per_edge": {
+      "seconds": {
+        "reference": [
+          1.3018254158087075,
+          1.2962053753435612,
+          1.2956983339972794,
+          1.32536879228428,
+          1.2848724578507245,
+          1.2932004579342902,
+          1.2764149173162878
+        ],
+        "reused": [
+          1.1213427088223398,
+          1.1039175833575428,
+          1.1037980411201715,
+          1.105315416585654,
+          1.1238171658478677,
+          1.1366072916425765,
+          1.1046628332696855
+        ]
+      },
+      "median_seconds": {
+        "reference": 1.2956983339972794,
+        "reused": 1.105315416585654
+      },
+      "elapsed_reduction_fraction": 0.14693460076026088,
+      "maximum_absolute_difference": {
+        "u": 0.0,
+        "state": 0.0,
+        "force": 0.0,
+        "iterations": 0.0,
+        "factor_0": 0.0,
+        "u_0": 0.0,
+        "field_0_F": 0.0,
+        "field_0_P": 0.0,
+        "field_0_S": 0.0,
+        "field_0_MISES": 0.0,
+        "field_0_SENER": 0.0,
+        "field_0_FP": 0.0,
+        "field_0_PEEQ": 0.0,
+        "field_0_PDENER": 0.0,
+        "field_0_ELENER": 0.0,
+        "field_0_HARDENER": 0.0,
+        "factor_1": 0.0,
+        "u_1": 0.0,
+        "field_1_F": 0.0,
+        "field_1_P": 0.0,
+        "field_1_S": 0.0,
+        "field_1_MISES": 0.0,
+        "field_1_SENER": 0.0,
+        "field_1_FP": 0.0,
+        "field_1_PEEQ": 0.0,
+        "field_1_PDENER": 0.0,
+        "field_1_ELENER": 0.0,
+        "field_1_HARDENER": 0.0
+      }
+    },
+    "whole_step_6_cells_per_edge": {
+      "seconds": {
+        "reference": [
+          4.473479874897748,
+          4.468890542164445,
+          4.516912584193051,
+          4.513342207763344,
+          4.466874124947935,
+          4.450296084396541,
+          4.435539375059307
+        ],
+        "reused": [
+          3.877022625412792,
+          3.864958125166595,
+          3.859019000083208,
+          3.900371459312737,
+          3.831914583221078,
+          3.8572098333388567,
+          3.859978166874498
+        ]
+      },
+      "median_seconds": {
+        "reference": 4.468890542164445,
+        "reused": 3.859978166874498
+      },
+      "elapsed_reduction_fraction": 0.1362558267079481,
+      "maximum_absolute_difference": {
+        "u": 0.0,
+        "state": 0.0,
+        "force": 0.0,
+        "iterations": 0.0,
+        "factor_0": 0.0,
+        "u_0": 0.0,
+        "field_0_F": 0.0,
+        "field_0_P": 0.0,
+        "field_0_S": 0.0,
+        "field_0_MISES": 0.0,
+        "field_0_SENER": 0.0,
+        "field_0_FP": 0.0,
+        "field_0_PEEQ": 0.0,
+        "field_0_PDENER": 0.0,
+        "field_0_ELENER": 0.0,
+        "field_0_HARDENER": 0.0,
+        "factor_1": 0.0,
+        "u_1": 0.0,
+        "field_1_F": 0.0,
+        "field_1_P": 0.0,
+        "field_1_S": 0.0,
+        "field_1_MISES": 0.0,
+        "field_1_SENER": 0.0,
+        "field_1_FP": 0.0,
+        "field_1_PEEQ": 0.0,
+        "field_1_PDENER": 0.0,
+        "field_1_ELENER": 0.0,
+        "field_1_HARDENER": 0.0
+      }
+    }
+  }
+}

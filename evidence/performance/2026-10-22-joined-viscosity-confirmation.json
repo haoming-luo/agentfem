@@ -1,0 +1,26 @@
+{
+  "scope": "late-state whole accepted-step comparison, not full-run acceleration",
+  "core_revision": "5abb621c",
+  "candidate_native_sha256": "88ba0ec014ecc708ce85721a2512051ef08c3720dc0a913fdf70cb0b1c88cd44",
+  "checkpoint_sha256": "e5bfc9b5b3cce706bd67aaf93460715a71421742ce56656392a560e79cbea8dc",
+  "cells": 255041,
+  "nodes": 296074,
+  "initial_increment": 95000,
+  "final_increment": 95600,
+  "increment": 0.000001,
+  "execution": {"material_workers": 8, "cell_workers": 4, "contact_geometry_workers": 2, "contact_projection_workers": 4, "blas_openmp_threads": 1},
+  "order": ["separate", "joined", "joined", "separate"],
+  "seconds": [82.8916736249812, 76.71247329190373, 76.50211666570976, 79.56435870798305],
+  "mean_seconds_separate": 81.22801616648212,
+  "mean_seconds_joined": 76.60729497880675,
+  "observed_percent_less_time": 5.688580622484862,
+  "checks": {"accepted_displacement_velocity_acceleration_exact": true, "accepted_material_state_stress_gradient_exact": true, "physical_residual_history_exact": true, "same_scientific_parameters": true},
+  "physical_residual_history_scope": "Final accepted residual state and cumulative work snapshot; not a separately fingerprinted per-increment history series.",
+  "timing_excludes": ["model_preparation", "checkpoint_loading", "result_serialization"],
+  "limitations": [
+    "One machine and one late physical interval; this does not establish full-run gain.",
+    "Four fresh processes in ABBA order reduce but do not eliminate runtime variation.",
+    "Private geometry and material are not redistributed; source unit regressions cover the generic execution contract.",
+    "Default execution policy remains unchanged."
+  ]
+}

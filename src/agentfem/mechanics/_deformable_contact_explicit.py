@@ -4,6 +4,7 @@
 
 from dataclasses import replace
 from contextlib import contextmanager
+from time import monotonic
 
 import numpy as np
 
@@ -96,15 +97,16 @@ class DeformableQ1ContactResidual:
                 "Deformable contact requires disjoint independent trace dofs."
             )
         self.secondary_dofs, self.primary_dofs = maps
-        self.identity = content_fingerprint(
-            {
+        identity_record = {
                 "operator": operator.identity,
                 "name": self.name,
                 "ceiling": self.ceiling,
                 "secondary_dofs": maps[0].tolist(),
                 "primary_dofs": maps[1].tolist(),
             }
-        )
+        self.identity = content_fingerprint(identity_record)
+        self.restart_identity = content_fingerprint(
+            {**identity_record, "operator": operator.restart_identity})
         self.accepted = self.trial = None
         self._separation_anchor = None
         self._reset_separation_anchor = False
@@ -149,7 +151,10 @@ class DeformableQ1ContactResidual:
         vector = None
         try:
             values = self._values()
-            response = self._evaluate_contact(values)
+            try:
+                response = self._evaluate_contact_timed(values)
+            finally:
+                self._record_contact_time()
             vector = self.base.assemble_vector()
             self._add(vector, response)
             self.trial = (*values, response)
@@ -170,14 +175,21 @@ class DeformableQ1ContactResidual:
             values = self._values()
             for value in values:
                 value.flags.writeable = False
-            future = self._geometry_executor.submit(self._evaluate_contact, values)
+            self._last_contact_seconds = None
+            future = self._geometry_executor.submit(self._evaluate_contact_timed, values)
             body_error = None
             try:
                 vector = self.base.assemble_vector()
             except BaseException as error:
                 body_error = error
             # Preserve contact-before-body failure precedence of serial assembly.
-            response = future.result()
+            started = monotonic()
+            try:
+                response = future.result()
+            finally:
+                ledger = getattr(self, 'performance', None)
+                if ledger is not None:
+                    ledger.add('contact_owner_wait', monotonic() - started)
             if body_error is not None:
                 raise body_error
             self._add(vector, response)
@@ -196,7 +208,24 @@ class DeformableQ1ContactResidual:
             self.rollback()
             raise
         finally:
+            if future is not None:
+                # Success and error paths have both joined the geometry worker.
+                # Never publish into the shared ledger from the worker itself.
+                self._record_contact_time()
             self._geometry_busy = False
+
+    def _evaluate_contact_timed(self, values):
+        started = monotonic()
+        try:
+            return self._evaluate_contact(values)
+        finally:
+            self._last_contact_seconds = monotonic() - started
+
+    def _record_contact_time(self):
+        ledger = getattr(self, 'performance', None)
+        elapsed = getattr(self, '_last_contact_seconds', None)
+        if ledger is not None and elapsed is not None:
+            ledger.add('deformable_contact_inclusive', elapsed)
 
     def _evaluate_contact(self, values):
         """Geometry-only evaluation from copied displacement arrays.
@@ -366,8 +395,9 @@ class DeformableQ1ContactResidual:
         if self.trial is not None:
             raise RuntimeError("Contact checkpoint requires an accepted boundary.")
         return {
-            "schema": "agentfem.private-deformable-q1-contact.v1",
+            "schema": "agentfem.private-deformable-q1-contact.v2",
             "identity": self.identity,
+            "restart_identity": self.restart_identity,
             "time": self.accepted_time,
             "accepted": None
             if self.accepted is None
@@ -393,11 +423,22 @@ class DeformableQ1ContactResidual:
         return record
 
     def restore(self, record):
+        legacy = isinstance(record, dict) and record.get("schema") == (
+            "agentfem.private-deformable-q1-contact.v1")
+        required = {"schema", "identity", "accepted", "base", "time"}
+        if not legacy:
+            required.add("restart_identity")
         if (
             not isinstance(record, dict)
-            or set(record) != {"schema", "identity", "accepted", "base", "time"}
-            or record["schema"] != "agentfem.private-deformable-q1-contact.v1"
-            or record["identity"] != self.identity
+            or set(record) != required
+            or (legacy and record["identity"] != self.identity)
+            or (not legacy and (
+                record["schema"] != "agentfem.private-deformable-q1-contact.v2"
+                or record["restart_identity"] != self.restart_identity))
+            or not isinstance(record["identity"], str)
+            or len(record["identity"]) != 71
+            or not record["identity"].startswith("sha256:")
+            or any(c not in "0123456789abcdef" for c in record["identity"][7:])
         ):
             raise ValueError("Deformable contact checkpoint identity differs.")
         stamp = record["time"]

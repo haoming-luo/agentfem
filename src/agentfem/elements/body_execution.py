@@ -63,12 +63,16 @@ def explicit_hex_kernel(*, backend="auto", cell_workers=1):
             gather = gather_callback(workers=cell_workers)
         except ImportError:
             pass
-    return ExplicitHexBodyKernel(evaluate, {
+    execution_identity = {
         "provider": "agentfem.explicit_hex_body", "revision": 3,
         "arithmetic": "native" if native is not None else "numpy",
         "material_protocol": "explicit_array_batch", "state_owner": "core",
         "native_auxiliary": kinematics is not None,
         "fused_affine_screen": kinematics is not None,
         "cell_workers": cell_workers if kinematics is not None else 1,
-    }, prepare_kinematics=kinematics, evaluate_viscosity=viscosity,
-        gather_cell_vectors=gather)
+    }
+    restart_identity = {key: value for key, value in execution_identity.items() if key != "cell_workers"}
+    restart_identity["scheduling_contract"] = "independent_cells.v1"
+    return ExplicitHexBodyKernel(evaluate, execution_identity,
+        prepare_kinematics=kinematics, evaluate_viscosity=viscosity,
+        gather_cell_vectors=gather, restart_identity=restart_identity)

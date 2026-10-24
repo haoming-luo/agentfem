@@ -1,0 +1,119 @@
+{
+  "schema": "agentfem.affine-plane-augmentation-sensitivity.v1",
+  "post_run_annotation": {
+    "run_complete": false,
+    "reason": "The completed 12-cell result remains mesh sensitive. A separate residual audit found the one-sided tool resultant concentrated on the eight point-pinned periodic corners. The ongoing 16-cell trial was deliberately interrupted with SIGINT to investigate a separately declared finite-area fixture, not relabeled as passed.",
+    "interrupted_candidate": {"cells": 16, "increments": 128, "penalty": 40000.0},
+    "retained_records": "Completed 12-cell observables below are unchanged.",
+    "driver_source_revision": "21232cc8",
+    "external_or_continuum_verification": false
+  },
+  "scope": "serial_disjoint_normal_rows_cyclic_finite_J2_not_general_mortar_or_external_reference",
+  "agentfem_version": "0.4.4.dev0",
+  "platform": "macOS-26.6.2-arm64-arm-64bit",
+  "git_commit": "cf1bfc36a8a3e6aad503831ccec3a2e8655f003d",
+  "example_sha256": "0a2987bdedb68938b3095302158555a74f874d2841b2c722171a38596144b2d1",
+  "tool_sha256": "53dc9fea56a47109705f283196eea73eeacdd1ce3dc5e8a9eb686666e0e3fa5f",
+  "material": {
+    "young": 1000.0,
+    "poisson": 0.3,
+    "yield_stress": 2.0,
+    "hardening_modulus": 100.0
+  },
+  "units": {
+    "length": "m",
+    "stress": "Pa",
+    "force": "N",
+    "work": "J"
+  },
+  "physical_path": "fixed plane x=1.005; periodic stretch 1/1.02/0.99/1.02 at 0/0.25/0.75/1",
+  "numerical_tolerances": {
+    "penetration": 1e-08,
+    "complementarity": 1e-07
+  },
+  "records": [
+    {
+      "cells": 12,
+      "increments": 128,
+      "penalty": 40000.0,
+      "stations": [
+        {
+          "factor": 0.25,
+          "displacement_l2": 0.013651869012030313,
+          "force_on_structure": [
+            -0.5774142010896266,
+            -0.0,
+            -0.0
+          ],
+          "pressure_area_mean": 2.3096568043585064,
+          "maximum_pressure": 27.527699501756725,
+          "active_reference_area": 0.25,
+          "maximum_penetration": 1.3623007166785328e-09,
+          "peeq_reference_volume_mean": 0.017133641869703578,
+          "maximum_peeq": 0.10763007419682318,
+          "normal_relative_work": 1.2717127176274857e-10,
+          "mpc_equation_mismatch": 0.0
+        },
+        {
+          "factor": 0.5,
+          "displacement_l2": 0.009924518890561715,
+          "force_on_structure": [
+            -0.0,
+            -0.0,
+            -0.0
+          ],
+          "pressure_area_mean": 0.0,
+          "maximum_pressure": 0.0,
+          "active_reference_area": 0.0,
+          "maximum_penetration": 0.0,
+          "peeq_reference_volume_mean": 0.02502671867154571,
+          "maximum_peeq": 0.1218295769040761,
+          "normal_relative_work": 1.486146155428033e-06,
+          "mpc_equation_mismatch": 4.336808689942018e-19
+        },
+        {
+          "factor": 0.75,
+          "displacement_l2": 0.015389521682292854,
+          "force_on_structure": [
+            -0.0,
+            -0.0,
+            -0.0
+          ],
+          "pressure_area_mean": 0.0,
+          "maximum_pressure": 0.0,
+          "active_reference_area": 0.0,
+          "maximum_penetration": 0.0,
+          "peeq_reference_volume_mean": 0.03882027195946525,
+          "maximum_peeq": 0.13620352439768438,
+          "normal_relative_work": 1.486146155428033e-06,
+          "mpc_equation_mismatch": 1.734723475976807e-18
+        },
+        {
+          "factor": 1.0,
+          "displacement_l2": 0.014127303013390968,
+          "force_on_structure": [
+            -0.5302365374419915,
+            -0.0,
+            -0.0
+          ],
+          "pressure_area_mean": 2.120946149767966,
+          "maximum_pressure": 36.8791699756466,
+          "active_reference_area": 0.25,
+          "maximum_penetration": 0.0,
+          "peeq_reference_volume_mean": 0.05698923074986072,
+          "maximum_peeq": 0.15587272569906607,
+          "normal_relative_work": -1.2076241515587444e-05,
+          "mpc_equation_mismatch": 0.0
+        }
+      ],
+      "status": "completed",
+      "accepted_increments": 128,
+      "outer_updates": 372,
+      "newton_iterations": 1053,
+      "maximum_penetration_all_stations": 9.490149777136025e-09,
+      "maximum_complementarity_all_stations": 9.803850464520177e-08,
+      "setup_solve_observe_seconds": 1313.0226337499917
+    }
+  ],
+  "comparisons": []
+}

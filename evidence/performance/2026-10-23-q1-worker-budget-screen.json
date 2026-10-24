@@ -1,0 +1,27 @@
+{
+  "scope": "process-local execution screening, not confirmed or full-run acceleration",
+  "core_revision": "91ebe59c",
+  "hardware": {"physical_cores": 10, "performance_cores": 4, "efficiency_cores": 6},
+  "cells": 255041,
+  "accepted_increment_interval": [95000, 95400],
+  "cell_workers": 4,
+  "geometry_workers": 2,
+  "fuse_viscosity": true,
+  "runs": [
+    {"material_workers": 8, "projection_workers": 4, "sign_policy": "two_rays", "seconds": 47.96685129078105},
+    {"material_workers": 8, "projection_workers": 4, "sign_policy": "interior_normal", "seconds": 47.68198129115626},
+    {"material_workers": 6, "projection_workers": 2, "sign_policy": "interior_normal", "seconds": 50.7490907497704},
+    {"material_workers": 4, "projection_workers": 2, "sign_policy": "interior_normal", "seconds": 53.87195145897567},
+    {"material_workers": 8, "projection_workers": 2, "sign_policy": "interior_normal", "seconds": 48.61508291680366},
+    {"material_workers": 8, "projection_workers": 4, "sign_policy": "two_rays", "seconds": 48.8856542496942}
+  ],
+  "accepted_fields_and_residual_state_work_snapshot_exact": true,
+  "decision": "No worker-budget change selected. Reduced worker counts do not show a useful gain in this screen. The sign-policy timing difference is inconclusive at this scale.",
+  "limits": [
+    "One late state and one machine; each candidate has only one screening observation.",
+    "Native pool counts are operational options, not scientific requirements or cross-machine recommendations.",
+    "Timing excludes preparation, checkpoint load and archive encoding.",
+    "The first attempt correctly rejected legacy checkpoint identity; the original runtime restored and resaved through the v2 compatibility contract before this test.",
+    "Snapshot parity includes accepted material state and cumulative work, not a separately fingerprinted record of every intermediate increment."
+  ]
+}

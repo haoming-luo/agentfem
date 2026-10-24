@@ -710,15 +710,34 @@ def affine_nonlinear(
     full_space_operators=(),
     checkpoint_policy=None,
     acceptance_check=None,
+    inelastic_increment_measure: str | None = None,
     progress=True,
     status_file=None,
     name: str = "affine_nonlinear",
     procedure=None,
 ) -> AffineNonlinearVariationalProblem:
-    """Create a nonlinear problem reduced by an affine constraint map."""
+    """Create a nonlinear problem reduced by an affine constraint map.
+
+    An opted-in serial Procedure may name a finite nonnegative accepted
+    increment measure returned by ``acceptance_check``. It must have the same
+    meaning and units as ``maximum_inelastic_increment``; naming a field does
+    not validate a constitutive model or its path accuracy.
+    """
 
     from . import procedures
 
+    if getattr(incrementation, "inelastic_prediction_safety", None) is not None:
+        from . import steps as step_controls
+
+        step_controls.normalize(
+            incrementation, load_factors=load_factors,
+            inelastic_feedback=(
+                callable(acceptance_check)
+                and isinstance(inelastic_increment_measure, str)
+                and bool(inelastic_increment_measure.strip())
+                and (solution.value if hasattr(solution, "value") else solution).function_space.mesh.comm.size == 1
+            ),
+        )
     return AffineNonlinearVariationalProblem(
         residual_form=residual,
         jacobian_form=jacobian,
@@ -737,6 +756,7 @@ def affine_nonlinear(
         full_space_operators=tuple(full_space_operators),
         checkpoint_policy=checkpoint_policy,
         acceptance_check=acceptance_check,
+        inelastic_increment_measure=inelastic_increment_measure,
         progress=progress,
         status_file=status_file,
         name=name,

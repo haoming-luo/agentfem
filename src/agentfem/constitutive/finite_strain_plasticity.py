@@ -47,6 +47,22 @@ class _FiniteStrainJ2Integration:
 
 
 @dataclass(frozen=True)
+class _J2TrialSpectrum:
+    """Call-local linearization data; never committed or reused across trials.
+
+    All arrays were already needed by this batch's discrete return. Retaining
+    their references until its tangent is built avoids a second SVD and two
+    inverses without introducing a persistent material cache or state owner.
+    """
+
+    inverse_plastic: np.ndarray
+    elastic_trial: np.ndarray
+    left_vectors: np.ndarray
+    stretches: np.ndarray
+    inverse_transpose: np.ndarray
+
+
+@dataclass(frozen=True)
 class FiniteStrainJ2Logarithmic:
     """Multiplicative finite-strain J2 plasticity with Hencky elasticity.
 
@@ -395,10 +411,20 @@ class FiniteStrainJ2Logarithmic:
         gradients = np.asarray(deformation_gradients, dtype=float)
         states = np.asarray(states_old, dtype=float)
         point_count = len(gradients)
-        plastic_gradients = states[:, :9].reshape((-1, 3, 3))
-        inverse_plastic = np.linalg.inv(plastic_gradients)
-        elastic_trial = gradients @ inverse_plastic
-        left_vectors, stretches, _right_vectors_transpose = np.linalg.svd(elastic_trial)
+        spectrum = baseline.get("_trial_spectrum")
+        if spectrum is None:
+            # Scalar updates and independent derivative checks need no cache.
+            plastic_gradients = states[:, :9].reshape((-1, 3, 3))
+            inverse_plastic = np.linalg.inv(plastic_gradients)
+            elastic_trial = gradients @ inverse_plastic
+            left_vectors, stretches, _ = np.linalg.svd(elastic_trial)
+            inverse_transpose = np.swapaxes(np.linalg.inv(gradients), 1, 2)
+        else:
+            inverse_plastic = spectrum.inverse_plastic
+            elastic_trial = spectrum.elastic_trial
+            left_vectors = spectrum.left_vectors
+            stretches = spectrum.stretches
+            inverse_transpose = spectrum.inverse_transpose
         eigenvalues = stretches**2
         logarithmic_trial = np.log(stretches)
         volumetric = np.sum(logarithmic_trial, axis=1)
@@ -466,7 +492,6 @@ class FiniteStrainJ2Logarithmic:
         kirchhoff_stress = (
             left_vectors * principal_stress[:, None, :]
         ) @ left_transpose
-        inverse_transpose = np.swapaxes(np.linalg.inv(gradients), 1, 2)
         first_piola = kirchhoff_stress @ inverse_transpose
         baseline_piola = np.asarray(baseline["first_piola_stress"], dtype=float)
         scale = np.maximum(
@@ -530,13 +555,16 @@ class FiniteStrainJ2Logarithmic:
                 principal_derivative[region],
                 np.diagonal(principal_variation, axis1=2, axis2=3),
             )
+            # All nine directions share U and U^T F^-T. Pack them into
+            # 3x27/27x3 blocks instead of dispatching 27 tiny products per
+            # point. The existing chunk bound also bounds packing scratch;
+            # no factor is retained across material trials.
+            right = left_t @ inverse_t
+            variation_rows = (
+                left @ variation_stress.swapaxes(1, 2).reshape(-1, 3, 27)
+            ).reshape(-1, 3, 9, 3).swapaxes(1, 2).reshape(-1, 27, 3)
             variation_piola = (
-                (
-                    left[:, None]
-                    @ variation_stress
-                    @ left_t[:, None]
-                    @ inverse_t[:, None]
-                )
+                (variation_rows @ right)
                 .reshape(-1, 3, 3, 3, 3)
                 .transpose(0, 3, 4, 1, 2)
             )
@@ -593,7 +621,8 @@ class FiniteStrainJ2Logarithmic:
                 "Finite-strain J2 requires isochoric committed plastic states."
             )
 
-        elastic_trial = gradients @ np.linalg.inv(plastic_gradients)
+        inverse_plastic = np.linalg.inv(plastic_gradients)
+        elastic_trial = gradients @ inverse_plastic
         left_vectors, stretches, right_vectors_transpose = np.linalg.svd(elastic_trial)
         if np.any(stretches <= 0.0):
             raise ValueError("Elastic principal stretches must be positive.")
@@ -646,14 +675,16 @@ class FiniteStrainJ2Logarithmic:
         states_new = states.copy()
         if np.any(plastic):
             selected_vectors = left_vectors[plastic]
-            elastic_left_stretch = np.einsum(
-                "nia,na,nja->nij",
-                selected_vectors,
-                np.exp(logarithmic_strain[plastic]),
-                selected_vectors,
+            # Fe_new = U diag(exp(e_new)) V^T. Reuse the trial SVD to
+            # apply its inverse, instead of reconstructing Ve and Re and
+            # factoring Fe_new again. The scalar path retains that independent
+            # reconstruction for comparison; state ownership is unchanged.
+            plastic_new = (
+                right_vectors_transpose[plastic].swapaxes(1, 2)
+                * np.exp(-logarithmic_strain[plastic])[:, None, :]
+            ) @ (
+                selected_vectors.swapaxes(1, 2) @ gradients[plastic]
             )
-            elastic_new = elastic_left_stretch @ elastic_rotation[plastic]
-            plastic_new = np.linalg.solve(elastic_new, gradients[plastic])
             if np.any(np.abs(np.linalg.det(plastic_new) - 1.0) > 2.0e-10):
                 raise RuntimeError(
                     "Isochoric finite-strain J2 batch update drifted from det(Fp)=1."
@@ -691,6 +722,10 @@ class FiniteStrainJ2Logarithmic:
             * (equivalent_plastic_strain + plastic_increment) ** 2
         )
         return {
+            "_trial_spectrum": _J2TrialSpectrum(
+                inverse_plastic, elastic_trial, left_vectors, stretches,
+                inverse_transpose,
+            ),
             "cauchy_stress": cauchy_stress,
             "first_piola_stress": first_piola_stress,
             "state": states_new,

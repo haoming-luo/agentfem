@@ -7,6 +7,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from math import isfinite
+from numbers import Real
 import time
 
 import numpy as np
@@ -17,7 +18,18 @@ from dolfinx import fem
 import dolfinx.fem.petsc as fem_petsc
 
 from . import steps as step_controls
+from ._affine_equilibrium import solve_serial_affine_equilibrium
 from .events import SolveEvent
+
+
+def _positive_finite(value):
+    return (isinstance(value, Real) and not isinstance(value, (bool, np.bool_))
+            and isfinite(value) and value > 0)
+
+
+def _positive_integer(value):
+    return (isinstance(value, (int, np.integer))
+            and not isinstance(value, (bool, np.bool_)) and value > 0)
 
 
 @dataclass(frozen=True)
@@ -32,16 +44,27 @@ class LinearSolverOptions:
     factor_solver_type: str | None = None
     error_if_not_converged: bool = True
     mpc_assembly: str = "native"
+    preconditioner_reuse: str = "none"
 
     def __post_init__(self) -> None:
         if self.mpc_assembly not in {"native", "algebraic"}:
             raise ValueError("mpc_assembly must be native or algebraic.")
-        if self.rtol is not None and self.rtol <= 0.0:
-            raise ValueError("LinearSolverOptions.rtol must be positive.")
-        if self.atol is not None and self.atol <= 0.0:
-            raise ValueError("LinearSolverOptions.atol must be positive.")
-        if self.max_it is not None and self.max_it <= 0:
-            raise ValueError("LinearSolverOptions.max_it must be positive.")
+        if self.rtol is not None and not _positive_finite(self.rtol):
+            raise ValueError("LinearSolverOptions.rtol must be finite and positive.")
+        if self.atol is not None and not _positive_finite(self.atol):
+            raise ValueError("LinearSolverOptions.atol must be finite and positive.")
+        if self.max_it is not None and not _positive_integer(self.max_it):
+            raise ValueError("LinearSolverOptions.max_it must be a positive integer.")
+        if self.preconditioner_reuse not in ("none", "adaptive"):
+            raise ValueError("preconditioner_reuse must be none or adaptive.")
+        if self.preconditioner_reuse == "adaptive" and (
+            self.ksp_type != "gmres" or self.pc_type not in {"lu", "ilu"}
+            or self.rtol is None or self.atol is None or self.max_it is None
+        ):
+            raise ValueError(
+                "Adaptive preconditioning requires GMRES with LU/ILU and "
+                "explicit rtol, atol and max_it."
+            )
         factor_pc_types = {"lu", "cholesky", "ilu", "icc"}
         if (
             self.factor_solver_type is not None
@@ -55,7 +78,7 @@ class LinearSolverOptions:
     def summary(self) -> dict[str, object]:
         """Return an inspectable solver-policy record."""
 
-        return {
+        record = {
             "kind": "linear_solver_options",
             "mpc_assembly": self.mpc_assembly,
             "ksp_type": self.ksp_type,
@@ -66,10 +89,23 @@ class LinearSolverOptions:
             "factor_solver_type": self.factor_solver_type,
             "error_if_not_converged": self.error_if_not_converged,
         }
+        if self.preconditioner_reuse != "none":
+            record["preconditioner_reuse"] = self.preconditioner_reuse
+        return record
+
+    def _require_unmanaged_preconditioner(self) -> None:
+        """Raw KSP/SNES adapters cannot silently discard a managed policy."""
+        if self.preconditioner_reuse != "none":
+            raise NotImplementedError(
+                "AFM-LINEAR-REUSE: adaptive preconditioning requires the "
+                "serial affine Newton correction owner; this adapter does "
+                "not enforce its true-residual and rebuild contract."
+            )
 
     def petsc_options(self) -> dict[str, object]:
         """Return the namespaced PETSc options consumed by linear problems."""
 
+        self._require_unmanaged_preconditioner()
         values: dict[str, object] = {
             "ksp_type": self.ksp_type,
             "pc_type": self.pc_type,
@@ -109,12 +145,18 @@ class NonlinearSolverOptions:
     pc_type: str = "lu"
     factor_solver_type: str | None = None
     error_if_not_converged: bool = True
+    ksp_rtol: float | None = None
+    ksp_atol: float | None = None
+    ksp_max_it: int | None = None
 
     def __post_init__(self) -> None:
-        if self.rtol <= 0.0 or self.atol <= 0.0:
-            raise ValueError("Nonlinear solver tolerances must be positive.")
-        if self.max_it <= 0:
-            raise ValueError("NonlinearSolverOptions.max_it must be positive.")
+        if not _positive_finite(self.rtol) or not _positive_finite(self.atol):
+            raise ValueError("Nonlinear solver tolerances must be finite and positive.")
+        if not _positive_integer(self.max_it):
+            raise ValueError("NonlinearSolverOptions.max_it must be a positive integer.")
+        LinearSolverOptions(ksp_type=self.ksp_type, pc_type=self.pc_type,
+                            rtol=self.ksp_rtol, atol=self.ksp_atol,
+                            max_it=self.ksp_max_it, factor_solver_type=self.factor_solver_type)
 
     def petsc_options(self) -> dict[str, object]:
         options: dict[str, object] = {
@@ -130,10 +172,14 @@ class NonlinearSolverOptions:
             options["snes_linesearch_type"] = self.line_search_type
         if self.factor_solver_type is not None:
             options["pc_factor_mat_solver_type"] = self.factor_solver_type
+        for name in ("ksp_rtol", "ksp_atol", "ksp_max_it"):
+            value = getattr(self, name)
+            if value is not None:
+                options[name] = value
         return options
 
     def summary(self) -> dict[str, object]:
-        return {
+        record = {
             "kind": "nonlinear_solver_options",
             "snes_type": self.snes_type,
             "rtol": self.rtol,
@@ -145,11 +191,20 @@ class NonlinearSolverOptions:
             "factor_solver_type": self.factor_solver_type,
             "error_if_not_converged": self.error_if_not_converged,
         }
+        for name in ("ksp_rtol", "ksp_atol", "ksp_max_it"):
+            value = getattr(self, name)
+            if value is not None:
+                record[name] = value
+        return record
 
 
 @dataclass(frozen=True)
 class NewtonSolverOptions:
-    """Backend-neutral Newton policy for nonlinear equilibrium."""
+    """Common Newton policy with explicit backend-specific search boundaries.
+
+    Search reduction/minimum tune AgentFEM's bounded native Newton loops;
+    SNES retains its own default backtracking rule and rejects custom values.
+    """
 
     relative_tolerance: float = 1.0e-8
     absolute_tolerance: float = 1.0e-9
@@ -161,10 +216,12 @@ class NewtonSolverOptions:
     error_if_not_converged: bool = True
 
     def __post_init__(self) -> None:
-        if self.relative_tolerance <= 0.0 or self.absolute_tolerance <= 0.0:
-            raise ValueError("Newton tolerances must be positive.")
-        if self.maximum_iterations <= 0:
-            raise ValueError("Newton maximum_iterations must be positive.")
+        if not _positive_finite(self.relative_tolerance) or not _positive_finite(self.absolute_tolerance):
+            raise ValueError("Newton tolerances must be finite and positive.")
+        if not _positive_integer(self.maximum_iterations):
+            raise ValueError("Newton maximum_iterations must be a positive integer.")
+        if not isinstance(self.linear_solver, LinearSolverOptions):
+            raise TypeError("Newton linear_solver must be LinearSolverOptions.")
         selected = (
             None
             if self.line_search is None
@@ -180,28 +237,40 @@ class NewtonSolverOptions:
             raise ValueError(
                 "Newton line_search must be 'backtracking', 'basic', or None."
             )
-        if not 0.0 < self.line_search_reduction < 1.0:
+        if not _positive_finite(self.line_search_reduction) or self.line_search_reduction >= 1.0:
             raise ValueError("Newton line_search_reduction must lie in (0, 1).")
-        if not 0.0 < self.minimum_step_length <= 1.0:
+        if not _positive_finite(self.minimum_step_length) or self.minimum_step_length > 1.0:
             raise ValueError("Newton minimum_step_length must lie in (0, 1].")
         object.__setattr__(self, "line_search", selected)
 
     def for_snes(self) -> NonlinearSolverOptions:
         """Translate this policy to the DOLFINx/PETSc SNES path."""
 
+        self.linear_solver._require_unmanaged_preconditioner()
+        if self.line_search == "backtracking" and (
+            self.line_search_reduction != 0.5 or self.minimum_step_length != 1.0 / 128.0
+        ):
+            raise NotImplementedError(
+                "AFM-SOLVER-SNES-SEARCH: customized line_search_reduction and "
+                "minimum_step_length belong to the native Newton route; "
+                "this SNES adapter cannot silently discard them."
+            )
         linear = self.linear_solver
         return NonlinearSolverOptions(
             rtol=self.relative_tolerance,
             atol=self.absolute_tolerance,
             max_it=self.maximum_iterations,
             line_search_type={
-                None: None,
+                None: "basic",
                 "backtracking": "bt",
                 "basic": "basic",
             }[self.line_search],
             ksp_type=linear.ksp_type,
             pc_type=linear.pc_type,
             factor_solver_type=linear.factor_solver_type,
+            ksp_rtol=linear.rtol,
+            ksp_atol=linear.atol,
+            ksp_max_it=linear.max_it,
             error_if_not_converged=self.error_if_not_converged,
         )
 
@@ -220,13 +289,16 @@ class NewtonSolverOptions:
             ksp_type=linear.ksp_type,
             pc_type=linear.pc_type,
             ksp_rtol=1.0e-10 if linear.rtol is None else float(linear.rtol),
+            ksp_atol=linear.atol,
             ksp_max_it=1000 if linear.max_it is None else int(linear.max_it),
             factor_solver_type=linear.factor_solver_type,
             error_if_not_converged=self.error_if_not_converged,
+            line_search=self.line_search or "basic",
+            preconditioner_reuse=linear.preconditioner_reuse,
         )
 
     def summary(self) -> dict[str, object]:
-        return {
+        record = {
             "kind": "newton_solver",
             "relative_tolerance": self.relative_tolerance,
             "absolute_tolerance": self.absolute_tolerance,
@@ -237,6 +309,14 @@ class NewtonSolverOptions:
             "linear_solver": self.linear_solver.summary(),
             "error_if_not_converged": self.error_if_not_converged,
         }
+        if self.line_search is None:
+            # Distinguish explicit no-search from legacy SNES backend-default
+            # behavior in checkpoint identity; backtracking identities stay put.
+            record["resolved_line_search"] = "basic"
+        if any(getattr(self.linear_solver, name) is not None
+               for name in ("rtol", "atol", "max_it")):
+            record["linear_tolerance_transport"] = "explicit.v1"
+        return record
 
 
 def newton(
@@ -297,18 +377,26 @@ class AffineNewtonOptions:
     ksp_max_it: int = 1000
     factor_solver_type: str | None = "mumps"
     error_if_not_converged: bool = True
+    line_search: str = "backtracking"
+    ksp_atol: float | None = None
+    preconditioner_reuse: str = "none"
 
     def __post_init__(self) -> None:
-        if self.rtol <= 0.0 or self.atol <= 0.0:
-            raise ValueError("Affine Newton tolerances must be positive.")
-        if self.max_it <= 0:
-            raise ValueError("AffineNewtonOptions.max_it must be positive.")
-        if not 0.0 < self.line_search_reduction < 1.0:
+        if not _positive_finite(self.rtol) or not _positive_finite(self.atol):
+            raise ValueError("Affine Newton tolerances must be finite and positive.")
+        if not _positive_integer(self.max_it):
+            raise ValueError("AffineNewtonOptions.max_it must be a positive integer.")
+        if not _positive_finite(self.line_search_reduction) or self.line_search_reduction >= 1.0:
             raise ValueError("line_search_reduction must lie between zero and one.")
-        if not 0.0 < self.line_search_minimum <= 1.0:
+        if not _positive_finite(self.line_search_minimum) or self.line_search_minimum > 1.0:
             raise ValueError("line_search_minimum must lie in (0, 1].")
-        if self.ksp_rtol <= 0.0 or self.ksp_max_it <= 0:
+        if not _positive_finite(self.ksp_rtol) or not _positive_integer(self.ksp_max_it):
             raise ValueError("Affine Newton KSP tolerances must be positive.")
+        if self.ksp_atol is not None and not _positive_finite(self.ksp_atol):
+            raise ValueError("Affine Newton KSP absolute tolerance must be finite and positive.")
+        if self.line_search not in {"backtracking", "basic"}:
+            raise ValueError("Affine Newton line_search must be 'backtracking' or 'basic'.")
+        _ = self.linear_options  # validate the transported linear execution policy
 
     @property
     def linear_options(self) -> LinearSolverOptions:
@@ -316,12 +404,14 @@ class AffineNewtonOptions:
             ksp_type=self.ksp_type,
             pc_type=self.pc_type,
             rtol=self.ksp_rtol,
+            atol=self.ksp_atol,
             max_it=self.ksp_max_it,
             factor_solver_type=self.factor_solver_type,
+            preconditioner_reuse=self.preconditioner_reuse,
         )
 
     def summary(self) -> dict[str, object]:
-        return {
+        record = {
             "kind": "affine_newton_options",
             "rtol": self.rtol,
             "atol": self.atol,
@@ -331,6 +421,9 @@ class AffineNewtonOptions:
             "linear_solver": self.linear_options.summary(),
             "error_if_not_converged": self.error_if_not_converged,
         }
+        if self.line_search != "backtracking":
+            record["line_search"] = self.line_search
+        return record
 
 
 @dataclass(frozen=True)
@@ -454,22 +547,27 @@ def create_ksp(comm, options: LinearSolverOptions | None = None):
     """Create and configure a PETSc KSP object."""
 
     options = options or LinearSolverOptions()
+    options._require_unmanaged_preconditioner()
     ksp = PETSc.KSP().create(comm)
-    ksp.setType(options.ksp_type)
-    pc = ksp.getPC()
-    pc.setType(options.pc_type)
-    if options.factor_solver_type is not None:
-        pc.setFactorSolverType(options.factor_solver_type)
-    if (
-        options.rtol is not None
-        or options.atol is not None
-        or options.max_it is not None
-    ):
-        ksp.setTolerances(
-            rtol=options.rtol,
-            atol=options.atol,
-            max_it=options.max_it,
-        )
+    try:
+        ksp.setType(options.ksp_type)
+        pc = ksp.getPC()
+        pc.setType(options.pc_type)
+        if options.factor_solver_type is not None:
+            pc.setFactorSolverType(options.factor_solver_type)
+        if (
+            options.rtol is not None
+            or options.atol is not None
+            or options.max_it is not None
+        ):
+            ksp.setTolerances(
+                rtol=options.rtol,
+                atol=options.atol,
+                max_it=options.max_it,
+            )
+    except BaseException:
+        ksp.destroy()
+        raise
     return ksp
 
 
@@ -559,6 +657,8 @@ class PreparedLinearProblem:
         self._lifting_matrix = None
         self._prescribed = None
         self._boundary_action = None
+        self.matrix = self.ksp = None
+        self._closed = False
         self.bilinear_form = (
             bilinear_form
             if hasattr(bilinear_form, "_cpp_object")
@@ -572,37 +672,44 @@ class PreparedLinearProblem:
         self.solution = solution
         self.bcs = [] if bcs is None else list(bcs)
         self.options = options or LinearSolverOptions()
-        if bc_assembly == "matrix_elimination":
-            V = solution.function_space
-            if any(bc.function_space != V._cpp_object for bc in self.bcs):
-                raise ValueError(
-                    "Matrix elimination requires full-space boundary conditions"
+        try:
+            if bc_assembly == "matrix_elimination":
+                V = solution.function_space
+                if any(bc.function_space != V._cpp_object for bc in self.bcs):
+                    raise ValueError(
+                        "Matrix elimination requires full-space boundary conditions"
+                    )
+                self._lifting_matrix = fem_petsc.assemble_matrix(self.bilinear_form)
+                self._lifting_matrix.assemble()
+                self.matrix = self._lifting_matrix.copy()
+                bs = int(V.dofmap.index_map_bs)
+                start = int(V.dofmap.index_map.local_range[0]) * bs
+                owned = [bc.dof_indices()[0][: bc.dof_indices()[1]] for bc in self.bcs]
+                rows = (
+                    np.unique(np.concatenate(owned)).astype(PETSc.IntType) + start
+                    if owned
+                    else np.empty(0, dtype=PETSc.IntType)
                 )
-            raw = fem_petsc.assemble_matrix(self.bilinear_form)
-            raw.assemble()
-            self._lifting_matrix = raw
-            self.matrix = raw.copy()
-            bs = int(V.dofmap.index_map_bs)
-            start = int(V.dofmap.index_map.local_range[0]) * bs
-            owned = [bc.dof_indices()[0][: bc.dof_indices()[1]] for bc in self.bcs]
-            rows = (
-                np.unique(np.concatenate(owned)).astype(PETSc.IntType) + start
-                if owned
-                else np.empty(0, dtype=PETSc.IntType)
-            )
-            self.matrix.zeroRowsColumns(rows, diag=1.0)
-            self._prescribed = solution.x.petsc_vec.duplicate()
-            self._boundary_action = solution.x.petsc_vec.duplicate()
-        else:
-            self.matrix = fem_petsc.assemble_matrix(self.bilinear_form, bcs=self.bcs)
-            self.matrix.assemble()
-        self.ksp = create_ksp(self.matrix.comm, self.options)
-        self.ksp.setOperators(self.matrix)
+                self.matrix.zeroRowsColumns(rows, diag=1.0)
+                self._prescribed = solution.x.petsc_vec.duplicate()
+                self._boundary_action = solution.x.petsc_vec.duplicate()
+            else:
+                self.matrix = fem_petsc.assemble_matrix(self.bilinear_form, bcs=self.bcs)
+                self.matrix.assemble()
+            self.ksp = create_ksp(self.matrix.comm, self.options)
+            self.ksp.setOperators(self.matrix)
+        except BaseException as original:
+            # A failed constructor cannot be closed by its caller. Release
+            # every allocation already owned, including partial lifting setup.
+            try:
+                self.close()
+            except Exception as cleanup:
+                raise original from cleanup
+            raise
         self.last_solve_info: LinearSolveInfo | None = None
         self.solve_count = 0
         self.matrix_assembly_count = 1
         self.rhs_assembly_count = 0
-        self._closed = False
 
     @property
     def closed(self) -> bool:
@@ -618,38 +725,40 @@ class PreparedLinearProblem:
         """Assemble the current right-hand side and reuse the prepared solve."""
 
         self._require_open()
+        self.last_solve_info = None
         vector = fem_petsc.assemble_vector(self.linear_form)
         self.rhs_assembly_count += 1
-        if self.bc_assembly == "matrix_elimination":
-            vector.ghostUpdate(
-                addv=PETSc.InsertMode.ADD, mode=PETSc.ScatterMode.REVERSE
+        try:
+            if self.bc_assembly == "matrix_elimination":
+                vector.ghostUpdate(
+                    addv=PETSc.InsertMode.ADD, mode=PETSc.ScatterMode.REVERSE
+                )
+                self._prescribed.set(0.0)
+                fem_petsc.set_bc(self._prescribed, self.bcs)
+                # Cached A*g replaces repeated cell integration. Global norm
+                # makes the homogeneous shortcut collective and MPI-safe.
+                if self._prescribed.norm() != 0.0:
+                    self._lifting_matrix.mult(self._prescribed, self._boundary_action)
+                    vector.axpy(-1.0, self._boundary_action)
+            else:
+                fem_petsc.apply_lifting(vector, [self.bilinear_form], [self.bcs])
+                vector.ghostUpdate(
+                    addv=PETSc.InsertMode.ADD, mode=PETSc.ScatterMode.REVERSE
+                )
+            fem_petsc.set_bc(vector, self.bcs)
+            solution_vector = self.solution.x.petsc_vec
+            # NumPy writes do not advance PETSc state. Invalidate cached norms
+            # before a zero-RHS shortcut can retain an old nonzero solution.
+            solution_vector.stateIncrease()
+            self.ksp.solve(vector, solution_vector)
+            self.solution.x.scatter_forward()
+            info = LinearSolveInfo(
+                converged_reason=int(self.ksp.getConvergedReason()),
+                iterations=int(self.ksp.getIterationNumber()),
+                residual_norm=float(self.ksp.getResidualNorm()),
             )
-            self._prescribed.set(0.0)
-            fem_petsc.set_bc(self._prescribed, self.bcs)
-            # Cached A*g replaces repeated cell integration. Global norm makes
-            # the homogeneous-boundary shortcut collective and MPI-safe.
-            if self._prescribed.norm() != 0.0:
-                self._lifting_matrix.mult(self._prescribed, self._boundary_action)
-                vector.axpy(-1.0, self._boundary_action)
-        else:
-            fem_petsc.apply_lifting(vector, [self.bilinear_form], [self.bcs])
-            vector.ghostUpdate(
-                addv=PETSc.InsertMode.ADD, mode=PETSc.ScatterMode.REVERSE
-            )
-        fem_petsc.set_bc(vector, self.bcs)
-        solution_vector = self.solution.x.petsc_vec
-        # DOLFINx exposes a NumPy view that can change between solves without
-        # advancing PETSc's object state. Invalidate cached norms before KSP
-        # can take a zero-RHS/zero-initial-guess shortcut on stale information.
-        solution_vector.stateIncrease()
-        self.ksp.solve(vector, solution_vector)
-        self.solution.x.scatter_forward()
-        info = LinearSolveInfo(
-            converged_reason=int(self.ksp.getConvergedReason()),
-            iterations=int(self.ksp.getIterationNumber()),
-            residual_norm=float(self.ksp.getResidualNorm()),
-        )
-        vector.destroy()
+        finally:
+            vector.destroy()
         self.last_solve_info = info
         self.solve_count += 1
         if not info.converged and self.options.error_if_not_converged:
@@ -661,27 +770,37 @@ class PreparedLinearProblem:
 
         RHS-only or prescribed-value changes need no refresh. Mesh, space or
         constrained-dof changes require a new prepared problem.
+        A failed reassembly closes this owner: a partially modified operator
+        must not be used by a later solve.
         """
         self._require_open()
-        if self.bc_assembly == "matrix_elimination":
-            self._lifting_matrix.zeroEntries()
-            fem_petsc.assemble_matrix(self._lifting_matrix, self.bilinear_form)
-            self._lifting_matrix.assemble()
-            self.matrix.zeroEntries()
-            self.matrix.axpy(1.0, self._lifting_matrix)
-            start, _ = self.matrix.getOwnershipRange()
-            owned = [bc.dof_indices()[0][: bc.dof_indices()[1]] for bc in self.bcs]
-            rows = (
-                np.unique(np.concatenate(owned)).astype(PETSc.IntType) + start
-                if owned
-                else np.empty(0, dtype=PETSc.IntType)
-            )
-            self.matrix.zeroRowsColumns(rows, diag=1.0)
-        else:
-            self.matrix.zeroEntries()
-            fem_petsc.assemble_matrix(self.matrix, self.bilinear_form, bcs=self.bcs)
-            self.matrix.assemble()
-        self.ksp.setOperators(self.matrix)
+        self.last_solve_info = None
+        try:
+            if self.bc_assembly == "matrix_elimination":
+                self._lifting_matrix.zeroEntries()
+                fem_petsc.assemble_matrix(self._lifting_matrix, self.bilinear_form)
+                self._lifting_matrix.assemble()
+                self.matrix.zeroEntries()
+                self.matrix.axpy(1.0, self._lifting_matrix)
+                start, _ = self.matrix.getOwnershipRange()
+                owned = [bc.dof_indices()[0][: bc.dof_indices()[1]] for bc in self.bcs]
+                rows = (
+                    np.unique(np.concatenate(owned)).astype(PETSc.IntType) + start
+                    if owned
+                    else np.empty(0, dtype=PETSc.IntType)
+                )
+                self.matrix.zeroRowsColumns(rows, diag=1.0)
+            else:
+                self.matrix.zeroEntries()
+                fem_petsc.assemble_matrix(self.matrix, self.bilinear_form, bcs=self.bcs)
+                self.matrix.assemble()
+            self.ksp.setOperators(self.matrix)
+        except BaseException as original:
+            try:
+                self.close()
+            except Exception as cleanup:
+                raise original from cleanup
+            raise
         self.matrix_assembly_count += 1
 
     def summary(self) -> dict[str, object]:
@@ -834,6 +953,7 @@ class PreparedMPCLinearProblem:
         """Refresh the load, solve, backsubstitute, and copy owned DOFs."""
 
         self._require_open()
+        self.last_solve_info = None
         solved = self.problem.solve()
         _copy_owned_function_values(self.solution, solved)
         solver = self.problem.solver
@@ -1067,16 +1187,19 @@ def solve_matrix_system(
     """
 
     selected = options or LinearSolverOptions()
+    selected._require_unmanaged_preconditioner()
     selected_ksp = create_ksp(A.comm, selected) if ksp is None else ksp
-    selected_ksp.setOperators(A)
-    selected_ksp.solve(b, x)
-    info = LinearSolveInfo(
-        converged_reason=int(selected_ksp.getConvergedReason()),
-        iterations=int(selected_ksp.getIterationNumber()),
-        residual_norm=float(selected_ksp.getResidualNorm()),
-    )
-    if ksp is None:
-        selected_ksp.destroy()
+    try:
+        selected_ksp.setOperators(A)
+        selected_ksp.solve(b, x)
+        info = LinearSolveInfo(
+            converged_reason=int(selected_ksp.getConvergedReason()),
+            iterations=int(selected_ksp.getIterationNumber()),
+            residual_norm=float(selected_ksp.getResidualNorm()),
+        )
+    finally:
+        if ksp is None:
+            selected_ksp.destroy()
     should_raise = (
         selected.error_if_not_converged
         if raise_on_failure is None
@@ -1425,7 +1548,10 @@ def solve_affine_nonlinear_path(
     on_increment=None,
     on_accepted_boundary=None,
     on_acceptance_failure=None,
+    on_trial_start=None,
+    equilibrium_procedure=None,
     acceptance_check=None,
+    inelastic_increment_measure: str | None = None,
     state_transaction=None,
     full_space_operators=(),
     stop_factor: float = 1.0,
@@ -1450,8 +1576,19 @@ def solve_affine_nonlinear_path(
     selected = options or AffineNewtonOptions()
     if isinstance(selected, NewtonSolverOptions):
         selected = selected.for_affine_reduction()
+    if selected.preconditioner_reuse != "none":
+        function = solution.value if hasattr(solution, "value") else solution
+        if function.function_space.mesh.comm.size != 1:
+            raise NotImplementedError(
+                "AFM-LINEAR-REUSE-MPI: adaptive preconditioning is validated "
+                "only for serial affine Newton."
+            )
     _validate_affine_state_transaction(state_transaction)
     operators = tuple(full_space_operators)
+    if equilibrium_procedure is not None and not callable(
+        getattr(equilibrium_procedure, "solve", None)
+    ):
+        raise TypeError("An affine equilibrium Procedure requires solve().")
     if any(
         not all(callable(getattr(item, name, None)) for name in (
             "evaluate", "add_residual", "add_tangent",
@@ -1464,6 +1601,12 @@ def solve_affine_nonlinear_path(
     control = step_controls.normalize(
         incrementation,
         load_factors=load_factors,
+        inelastic_feedback=(
+            callable(acceptance_check)
+            and isinstance(inelastic_increment_measure, str)
+            and bool(inelastic_increment_measure.strip())
+            and (solution.value if hasattr(solution, "value") else solution).function_space.mesh.comm.size == 1
+        ),
     )
     selected_stop = float(stop_factor)
     if not np.isfinite(selected_stop) or not 0.0 < selected_stop <= 1.0:
@@ -1519,6 +1662,10 @@ def solve_affine_nonlinear_path(
         else np.asarray(space.tabulate_dof_coordinates(), dtype=float)
     )
     if space.mesh.comm.size > 1:
+        if equilibrium_procedure is not None:
+            raise NotImplementedError(
+                "Custom affine equilibrium Procedures are serial-only."
+            )
         if operators:
             raise NotImplementedError(
                 "AFM-IMPLICIT-CONTACT-MPI: external affine Operators require "
@@ -1628,6 +1775,8 @@ def solve_affine_nonlinear_path(
                 target_factor=factor,
             ),
         )
+        if on_trial_start is not None:
+            on_trial_start()
         rollback = function.x.array.copy()
         accepted_transaction_state = _snapshot_affine_accepted_state(state_transaction)
         accepted_history_state = list(history)
@@ -1656,182 +1805,37 @@ def solve_affine_nonlinear_path(
                 )
             reduced_values = previous_reduced + current_affine - previous_affine
         _assign_reconstructed(function, reduction, reduced_values)
-        trial_valid, constitutive_message = _try_refresh_affine_trial_state(
-            state_transaction,
-            start_factor=accepted_factor,
-            target_factor=factor,
-        )
-
-        accepted_steps: list[float] = []
-        linear_solve_iterations: list[int] = []
-        linear_solve_reasons: list[int] = []
         try:
-            initial_norm = (
-                _reduced_residual_norm(residual, T, operators)
-                if trial_valid else float("inf")
+            solve_equilibrium = (
+                solve_serial_affine_equilibrium if equilibrium_procedure is None
+                else equilibrium_procedure.solve
+            )
+            equilibrium = solve_equilibrium(
+                residual, jacobian, function, reduction, T, reduced_values,
+                options=selected, operators=operators,
+                transaction=state_transaction, start_factor=accepted_factor,
+                target_factor=factor, reporter=reporter, step_name=step_name,
+                step_number=step_number, increment_number=increment_number,
+                attempt_number=attempt_number,
             )
         except BaseException:
             T.destroy()
             raise
-        current_norm = initial_norm
-        threshold = (
-            selected.atol + selected.rtol * initial_norm
-            if np.isfinite(initial_norm)
-            else selected.atol
-        )
-        converged = np.isfinite(current_norm) and current_norm <= threshold
-        iteration = 0
-        reduced_tangent = None
-        while not converged and iteration < selected.max_it:
-            if not np.isfinite(current_norm):
-                break
-            iteration += 1
-            full_residual = None
-            full_tangent = None
-            try:
-                full_residual, contributions = _assemble_affine_full_residual(
-                    residual, operators,
-                )
-                full_tangent = fem_petsc.assemble_matrix(jacobian)
-                for operator, contribution in contributions:
-                    operator.add_tangent(full_tangent, contribution)
-                full_tangent.assemble()
-            except BaseException:
-                if full_residual is not None:
-                    full_residual.destroy()
-                if full_tangent is not None:
-                    full_tangent.destroy()
-                if reduced_tangent is not None:
-                    reduced_tangent.destroy()
-                T.destroy()
-                raise
-            reduced_residual = T.createVecRight()
-            T.multTranspose(full_residual, reduced_residual)
-            reduced_tangent = full_tangent.PtAP(T, result=reduced_tangent)
-            right_hand_side = reduced_residual.copy()
-            right_hand_side.scale(-1.0)
-            increment = reduced_residual.duplicate()
-            increment.set(0.0)
-            linear_info = solve_matrix_system(
-                reduced_tangent,
-                right_hand_side,
-                increment,
-                selected.linear_options,
-                raise_on_failure=False,
-            )
-            linear_solve_iterations.append(int(linear_info.iterations))
-            linear_solve_reasons.append(int(linear_info.converged_reason))
-            direction = increment.array_r.copy() if linear_info.converged else None
+        reduced_values = equilibrium.reduced_values
+        initial_norm = equilibrium.initial_norm
+        current_norm = equilibrium.residual_norm
+        threshold = equilibrium.threshold
+        converged = equilibrium.converged
+        iteration = equilibrium.iterations
+        accepted_steps = equilibrium.step_lengths
+        linear_solve_iterations = equilibrium.linear_iterations
+        linear_solve_reasons = equilibrium.linear_reasons
+        constitutive_message = equilibrium.message
 
-            full_residual.destroy()
-            full_tangent.destroy()
-            reduced_residual.destroy()
-            right_hand_side.destroy()
-            increment.destroy()
-
-            if direction is None:
-                _emit(
-                    reporter,
-                    SolveEvent(
-                        "iteration",
-                        step_name,
-                        step_number=step_number,
-                        increment=increment_number,
-                        attempt=attempt_number,
-                        start_factor=accepted_factor,
-                        target_factor=factor,
-                        iteration=iteration,
-                        residual_norm=current_norm,
-                        step_length=0.0,
-                        message=(
-                            "linear correction failed: "
-                            f"KSP reason {linear_info.converged_reason}"
-                        ),
-                    ),
-                )
-                break
-
-            alpha = 1.0
-            accepted = False
-            trial_failure_message = ""
-            while alpha + 1.0e-15 >= selected.line_search_minimum:
-                trial = reduced_values + alpha * direction
-                _assign_reconstructed(function, reduction, trial)
-                trial_valid, trial_message = _try_refresh_affine_trial_state(
-                    state_transaction,
-                    start_factor=accepted_factor,
-                    target_factor=factor,
-                )
-                if trial_valid:
-                    try:
-                        trial_norm = _reduced_residual_norm(residual, T, operators)
-                    except BaseException:
-                        if reduced_tangent is not None:
-                            reduced_tangent.destroy()
-                        T.destroy()
-                        raise
-                else:
-                    trial_norm = float("inf")
-                    trial_failure_message = trial_message
-                if np.isfinite(trial_norm) and (
-                    trial_norm <= selected.atol
-                    or trial_norm <= current_norm * (1.0 - 1.0e-4 * alpha)
-                ):
-                    reduced_values = trial
-                    current_norm = trial_norm
-                    accepted_steps.append(alpha)
-                    accepted = True
-                    break
-                alpha *= selected.line_search_reduction
-            if not accepted:
-                _assign_reconstructed(function, reduction, reduced_values)
-                restored, restore_message = _try_refresh_affine_trial_state(
-                    state_transaction,
-                    start_factor=accepted_factor,
-                    target_factor=factor,
-                )
-                if not restored:
-                    trial_failure_message = restore_message
-                if trial_failure_message:
-                    constitutive_message = trial_failure_message
-                _emit(
-                    reporter,
-                    SolveEvent(
-                        "iteration",
-                        step_name,
-                        step_number=step_number,
-                        increment=increment_number,
-                        attempt=attempt_number,
-                        start_factor=accepted_factor,
-                        target_factor=factor,
-                        iteration=iteration,
-                        residual_norm=current_norm,
-                        step_length=0.0,
-                        message=trial_failure_message,
-                    ),
-                )
-                break
-            _emit(
-                reporter,
-                SolveEvent(
-                    "iteration",
-                    step_name,
-                    step_number=step_number,
-                    increment=increment_number,
-                    attempt=attempt_number,
-                    start_factor=accepted_factor,
-                    target_factor=factor,
-                    iteration=iteration,
-                    residual_norm=current_norm,
-                    step_length=accepted_steps[-1],
-                ),
-            )
-            converged = current_norm <= threshold
-
-        checks = {}
+        checks = dict(equilibrium.procedure_checks)
         acceptance_message = constitutive_message
         if converged and acceptance_check is not None:
-            checks = dict(acceptance_check())
+            checks.update(acceptance_check())
             if not bool(checks.get("accepted", True)):
                 converged = False
                 acceptance_message = str(
@@ -1840,8 +1844,6 @@ def solve_affine_nonlinear_path(
                         "increment failed its physical acceptance check",
                     )
                 )
-        if reduced_tangent is not None:
-            reduced_tangent.destroy()
         mismatch = float(constraint.mismatch(factor))
         increment_info = AffineLoadIncrementInfo(
             load_factor=factor,
@@ -1883,9 +1885,12 @@ def solve_affine_nonlinear_path(
                 accepted_factor = factor
                 cutbacks = 0
                 if isinstance(control, step_controls.AutomaticIncrementation):
-                    proposed_size = control.after_convergence(
+                    proposed_size = step_controls._after_convergence(
+                        control,
                         accepted_size,
-                        iteration,
+                        (iteration if equilibrium.adaptation_iterations is None
+                         else equilibrium.adaptation_iterations),
+                        inelastic_increment=checks.get(inelastic_increment_measure),
                     )
                 if on_increment is not None:
                     _run_affine_acceptance_stage(
@@ -1954,6 +1959,8 @@ def solve_affine_nonlinear_path(
             state_transaction,
             accepted_factor=accepted_factor,
         )
+        if on_acceptance_failure is not None:
+            on_acceptance_failure()
         if isinstance(control, step_controls.FixedIncrementation):
             message = (
                 f"fixed increment failed at load factor {factor:.6g}: "
@@ -2284,12 +2291,15 @@ def _solve_distributed_affine_nonlinear_path(
                     trial_norm = float("inf")
                     trial_failure_message = trial_message
                 if np.isfinite(trial_norm) and (
-                    trial_norm <= options.atol
+                    options.line_search == "basic"
+                    or trial_norm <= options.atol
                     or trial_norm <= current_norm * (1.0 - 1.0e-4 * alpha)
                 ):
                     current_norm = trial_norm
                     accepted_steps.append(alpha)
                     accepted = True
+                    break
+                if options.line_search == "basic":
                     break
                 alpha *= options.line_search_reduction
             if not accepted:

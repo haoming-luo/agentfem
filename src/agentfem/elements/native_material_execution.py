@@ -16,7 +16,7 @@ from ..constitutive._explicit_material import ExplicitMaterialBatchOutput, Expli
 
 def native_explicit_hex_kernel(material, function, *, properties, density,
                                identity, fallback, validate=None, workers=1, cell_workers=1,
-                               tile_size=None):
+                               tile_size=None, fuse_viscosity=False):
     """Bind trusted C material code, not a data-file address.
 
     ABI: void(int n, double* F_old, F_new, state_old, properties,
@@ -26,8 +26,15 @@ def native_explicit_hex_kernel(material, function, *, properties, density,
     function must retain its CDLL owner for the entire kernel lifetime.
     Optional tile_size dynamically distributes independent material points.
     Providers must be invariant to batch partitioning. None retains static slices.
+    fuse_viscosity optionally joins the unchanged bulk-viscosity cell arithmetic
+    to body execution, with local nodal gather and separate physical outputs.
+    It requires the checked damped dispatcher; False preserves ordinary execution.
     """
     from .. import _body_pipeline
+    if type(fuse_viscosity) is not bool:
+        raise TypeError('fuse_viscosity must be boolean')
+    if fuse_viscosity and not hasattr(_body_pipeline, 'run_damped_checked'):
+        raise RuntimeError('This installed native dispatcher does not support fused viscosity')
     if isinstance(workers, bool) or not isinstance(workers, int) or not 1 <= workers <= 16:
         raise ValueError('Native material workers must be an integer in [1,16]')
     if tile_size is not None:
@@ -56,7 +63,7 @@ def native_explicit_hex_kernel(material, function, *, properties, density,
     executor = (_body_pipeline.create_pool(max(workers, cell_workers))
                 if max(workers, cell_workers) > 1 else None)
 
-    def evaluate(selected, request, geometry, displacement):
+    def evaluate(selected, request, geometry, displacement, _damping=None):
         # Capturing function pins the executable, not just its numerical address.
         if function is None or selected is not material or request.state_schema != material.state_schema:
             raise ValueError('Native binding and material schema/owner differ')
@@ -76,21 +83,24 @@ def native_explicit_hex_kernel(material, function, *, properties, density,
                ('temperature', 'temperature_increment', 'field_variables')):
             raise ValueError('Native material ABI v1 does not carry extra fields')
         checked = hasattr(_body_pipeline, 'run_checked')
-        execute = (_body_pipeline.run_tiled_checked if tile_size is not None else
+        execute = (_body_pipeline.run_damped_checked if _damping is not None else
+                   _body_pipeline.run_tiled_checked if tile_size is not None else
                    _body_pipeline.run_checked if checked else _body_pipeline.run)
+        extra = ((tile_size or 0, _damping) if _damping is not None else
+                 (tile_size,) if tile_size is not None else ())
         raw = execute(address,
             (request.deformation_gradient_old, request.deformation_gradient_new,
              request.state_old, parameters, displacement, geometry.average_gradient,
              geometry.hourglass_modes, geometry.volume, geometry.hourglass_coefficient),
             request.time_increment, density, workers, width, len(parameters), repair, executor,
-            *((tile_size,) if tile_size is not None else ()))
+            *extra)
         n = request.point_count
         if checked:
             from ._checked_body_transport import checked_body_transport
-            output = checked_body_transport(raw, request.state_schema, n)
+            output = checked_body_transport(raw[:6], request.state_schema, n)
             if validate is not None:
                 validate(output.material_response)
-            return output
+            return (output, raw[6:]) if _damping is not None else output
         shapes = ((n,3,3), (n,width), (n,), (n,3,3), (n,8,3), (n,))
         stress, state, work, piola, force, energy = (
             np.frombuffer(value, dtype=float).reshape(shape)
@@ -100,17 +110,45 @@ def native_explicit_hex_kernel(material, function, *, properties, density,
             validate(response)
         return ExplicitHexBodyOutput(response, piola, force, energy)
 
+    def damped(selected, request, geometry, displacement, velocity, coefficients):
+        from ._bulk_viscosity import BulkViscosityResponse, _bulk_viscosity_from_checked_gradient
+        payload = (velocity, geometry.cell_nodes, geometry.lumped_mass,
+                   *(coefficients[name] for name in
+                     ('density', 'wave_speed', 'characteristic_length', 'linear', 'quadratic')))
+        body, raw = evaluate(selected, request, geometry, displacement, payload)
+        if np.any(np.frombuffer(raw[-1], dtype=np.int32)):
+            # Preserve the established conditioning fallback, without repeating
+            # material evaluation or publishing partially valid damping.
+            viscosity = _bulk_viscosity_from_checked_gradient(
+                geometry, request.deformation_gradient_new,
+                velocity[geometry.cell_nodes], **coefficients)
+        else:
+            n = request.point_count
+            viscosity = BulkViscosityResponse(*(
+                np.frombuffer(value, dtype=float).reshape(shape)
+                for value, shape in zip(raw[:-1], ((n,8,3), (n,), (n,), (n,), (n,)), strict=True)))
+        return body, viscosity
+
     from .body_auxiliary import auxiliary_callbacks, gather_callback
     kinematics, viscosity = auxiliary_callbacks(workers=cell_workers, executor=executor)
-    return ExplicitHexBodyKernel(evaluate, {
+    execution_identity = {
         'provider': 'agentfem.native_material_hex', 'abi': 1, 'revision': 6,
         'worker_validation': hasattr(_body_pipeline, 'run_checked'),
         'worker_lifecycle': 'instance_sleeping_joined_batches',
         'fused_affine_screen': True,
         'material': identity, 'state_width': width, 'property_count': len(parameters),
+        **({'viscosity_scheduling': 'body_cell_fused'} if fuse_viscosity else {}),
         **({'material_scheduling': 'dynamic_tiles', 'tile_size': tile_size} if tile_size is not None else {}),
         'workers': workers, 'cell_workers': cell_workers, 'state_owner': 'core', 'density': float(density),
-        'properties_sha256': hashlib.sha256(parameters.tobytes()).hexdigest()},
+        'properties_sha256': hashlib.sha256(parameters.tobytes()).hexdigest()}
+    # ABI v1 requires independent points and partition-invariant providers.
+    # Preserve code/law/properties/precision identity; only scheduling may vary.
+    restart_identity = {key: value for key, value in execution_identity.items()
+                        if key not in {'workers', 'cell_workers', 'material_scheduling', 'tile_size',
+                                       'viscosity_scheduling'}}
+    restart_identity['scheduling_contract'] = 'independent_points.v1'
+    return ExplicitHexBodyKernel(evaluate, execution_identity,
         prepare_kinematics=kinematics, evaluate_viscosity=viscosity,
         gather_cell_vectors=gather_callback(workers=cell_workers, executor=executor),
-        release_resources=None if executor is None else executor.close)
+        release_resources=None if executor is None else executor.close,
+        restart_identity=restart_identity, evaluate_damped=damped if fuse_viscosity else None)

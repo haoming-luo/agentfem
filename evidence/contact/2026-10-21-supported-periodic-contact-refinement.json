@@ -1,0 +1,1572 @@
+{
+  "schema": "agentfem.affine-plane-augmentation-sensitivity.v1",
+  "scope": "serial_disjoint_normal_rows_cyclic_finite_J2_not_general_mortar_or_external_reference",
+  "agentfem_version": "0.4.4.dev0",
+  "platform": "macOS-26.6.2-arm64-arm-64bit",
+  "git_commit": "21232cc83936394c6699040ce65c509cc28ffc2e",
+  "example_sha256": "a01843070d17f3aed13da71472f834f4a830b7abf9db995cfb995706c683db69",
+  "tool_sha256": "356109724c231bdd3f781ff5fa8806fb5177cf80649e5f2135887a76727d8605",
+  "runtime_identity": {
+    "platform": {
+      "system": "macOS",
+      "route": "native macOS with conda-forge/Homebrew-compatible FEniCSx stack"
+    },
+    "python": "3.11.15",
+    "machine": "arm64",
+    "operating_system": {
+      "system": "Darwin",
+      "release": "25.6.0",
+      "version": "Darwin Kernel Version 25.6.0: Fri Jul 31 19:16:20 PDT 2026; root:xnu-12377.161.14~5/RELEASE_ARM64_T8142"
+    },
+    "packages": {
+      "agentfem": "0.4.4.dev0",
+      "fenics-dolfinx": "0.11.0",
+      "fenics-ufl": "2026.1.0",
+      "fenics-basix": "0.11.0",
+      "fenics-ffcx": "0.11.0",
+      "numpy": "2.4.6",
+      "mpi4py": "4.1.2",
+      "petsc4py": "3.25.2",
+      "h5py": "3.16.0"
+    },
+    "mpi": {
+      "vendor": "MPICH 5.0.1",
+      "rank_count": 1
+    },
+    "numerics": {
+      "python_float_mantissa_bits": 53,
+      "numpy_default_float": "float64",
+      "petsc_scalar_type": "float64",
+      "petsc_real_type": "float64",
+      "petsc_complex": false
+    },
+    "execution": {
+      "mode": "installed_distribution",
+      "source": null,
+      "distribution": {
+        "version": "0.4.4.dev0",
+        "record_sha256": "b5e34e1b9e7afa10a8f597e3daa195f753e96bc661f468086aa81f544b64c20e",
+        "vcs_info": null
+      }
+    }
+  },
+  "mpi_transport_environment": {
+    "FI_PROVIDER": "tcp"
+  },
+  "material": {
+    "young": 1000.0,
+    "poisson": 0.3,
+    "yield_stress": 2.0,
+    "hardening_modulus": 100.0
+  },
+  "units": {
+    "length": "m",
+    "stress": "Pa",
+    "force": "N",
+    "work": "J"
+  },
+  "physical_path": "fixed plane x=1.005; periodic stretch 1/1.02/0.99/1.02 at 0/0.25/0.75/1",
+  "fixture": "affine_x_motion_on_z_end_faces",
+  "area_interpretation": "active_reference_area counts strictly positive multipliers, including numerical remnants; not a thresholded physical contact-area certificate",
+  "numerical_tolerances": {
+    "penetration": 1e-08,
+    "complementarity": 1e-07
+  },
+  "records": [
+    {
+      "cells": 4,
+      "increments": 32,
+      "penalty": 40000.0,
+      "status": "completed",
+      "stations": [
+        {
+          "factor": 0.25,
+          "displacement_l2": 0.010922100851096572,
+          "force_on_structure": [
+            -5.400731647799531,
+            -0.0,
+            -0.0
+          ],
+          "pressure_area_mean": 21.602926591198127,
+          "maximum_pressure": 77.43588791236029,
+          "active_reference_area": 0.24999999999999994,
+          "maximum_penetration": 2.741429305785914e-10,
+          "peeq_reference_volume_mean": 0.025080631108836727,
+          "maximum_peeq": 0.039737415162392785,
+          "normal_relative_work": -4.222792190036776e-09,
+          "mpc_equation_mismatch": 0.0
+        },
+        {
+          "factor": 0.5,
+          "displacement_l2": 0.0073356591362083185,
+          "force_on_structure": [
+            -0.0,
+            -0.0,
+            -0.0
+          ],
+          "pressure_area_mean": 0.0,
+          "maximum_pressure": 0.0,
+          "active_reference_area": 0.0,
+          "maximum_penetration": 0.0,
+          "peeq_reference_volume_mean": 0.03286735189010241,
+          "maximum_peeq": 0.05017722437249069,
+          "normal_relative_work": 0.0008323357348807816,
+          "mpc_equation_mismatch": 0.0
+        },
+        {
+          "factor": 0.75,
+          "displacement_l2": 0.014639935411814346,
+          "force_on_structure": [
+            -0.0,
+            -0.0,
+            -0.0
+          ],
+          "pressure_area_mean": 0.0,
+          "maximum_pressure": 0.0,
+          "active_reference_area": 0.0,
+          "maximum_penetration": 0.0,
+          "peeq_reference_volume_mean": 0.04665327143624661,
+          "maximum_peeq": 0.06429334397421227,
+          "normal_relative_work": 0.0008323357348807816,
+          "mpc_equation_mismatch": 1.734723475976807e-18
+        },
+        {
+          "factor": 1.0,
+          "displacement_l2": 0.010883247784648425,
+          "force_on_structure": [
+            -4.2994501460250785,
+            -0.0,
+            -0.0
+          ],
+          "pressure_area_mean": 17.197800584100317,
+          "maximum_pressure": 72.20949596134085,
+          "active_reference_area": 0.24999999999999994,
+          "maximum_penetration": 1.1167589075711248e-09,
+          "peeq_reference_volume_mean": 0.06409377086795037,
+          "maximum_peeq": 0.08141711626391014,
+          "normal_relative_work": -7.948624471727957e-05,
+          "mpc_equation_mismatch": 0.0
+        }
+      ],
+      "setup_solve_observe_seconds": 4.063770291861147,
+      "accepted_increments": 32,
+      "outer_updates": 60,
+      "newton_iterations": 210,
+      "maximum_penetration_all_stations": 1.1619254447481353e-09,
+      "maximum_complementarity_all_stations": 9.597689554561053e-08
+    },
+    {
+      "cells": 4,
+      "increments": 64,
+      "penalty": 40000.0,
+      "status": "completed",
+      "stations": [
+        {
+          "factor": 0.25,
+          "displacement_l2": 0.010922147315940147,
+          "force_on_structure": [
+            -5.421264053048268,
+            -0.0,
+            -0.0
+          ],
+          "pressure_area_mean": 21.685056212193075,
+          "maximum_pressure": 77.70598001172135,
+          "active_reference_area": 0.24999999999999994,
+          "maximum_penetration": 3.568103590367855e-10,
+          "peeq_reference_volume_mean": 0.025127316458541993,
+          "maximum_peeq": 0.03989598629804179,
+          "normal_relative_work": -8.632390334726565e-10,
+          "mpc_equation_mismatch": 0.0
+        },
+        {
+          "factor": 0.5,
+          "displacement_l2": 0.007326983650042767,
+          "force_on_structure": [
+            -0.0,
+            -0.0,
+            -0.0
+          ],
+          "pressure_area_mean": 0.0,
+          "maximum_pressure": 0.0,
+          "active_reference_area": 0.0,
+          "maximum_penetration": 0.0,
+          "peeq_reference_volume_mean": 0.03291848218444832,
+          "maximum_peeq": 0.050382338402847955,
+          "normal_relative_work": 0.00019730965164081296,
+          "mpc_equation_mismatch": 0.0
+        },
+        {
+          "factor": 0.75,
+          "displacement_l2": 0.014632225132444924,
+          "force_on_structure": [
+            -0.0,
+            -0.0,
+            -0.0
+          ],
+          "pressure_area_mean": 0.0,
+          "maximum_pressure": 0.0,
+          "active_reference_area": 0.0,
+          "maximum_penetration": 0.0,
+          "peeq_reference_volume_mean": 0.04670484147731014,
+          "maximum_peeq": 0.06450367637081765,
+          "normal_relative_work": 0.00019730965164081296,
+          "mpc_equation_mismatch": 1.734723475976807e-18
+        },
+        {
+          "factor": 1.0,
+          "displacement_l2": 0.010882631202424648,
+          "force_on_structure": [
+            -4.588710223711878,
+            -0.0,
+            -0.0
+          ],
+          "pressure_area_mean": 18.35484089484752,
+          "maximum_pressure": 75.86965407574736,
+          "active_reference_area": 0.24999999999999994,
+          "maximum_penetration": 8.966272169175227e-11,
+          "peeq_reference_volume_mean": 0.06415561235567448,
+          "maximum_peeq": 0.08182128061566621,
+          "normal_relative_work": -0.00022709171814162192,
+          "mpc_equation_mismatch": 0.0
+        }
+      ],
+      "setup_solve_observe_seconds": 7.923592083156109,
+      "accepted_increments": 64,
+      "outer_updates": 124,
+      "newton_iterations": 415,
+      "maximum_penetration_all_stations": 4.31399671541044e-09,
+      "maximum_complementarity_all_stations": 9.701280719591861e-08
+    },
+    {
+      "cells": 8,
+      "increments": 32,
+      "penalty": 40000.0,
+      "status": "completed",
+      "stations": [
+        {
+          "factor": 0.25,
+          "displacement_l2": 0.011014945743030632,
+          "force_on_structure": [
+            -4.936967819350882,
+            -0.0,
+            -0.0
+          ],
+          "pressure_area_mean": 19.747871277403533,
+          "maximum_pressure": 143.46918304299479,
+          "active_reference_area": 0.24999999999999994,
+          "maximum_penetration": 1.0929790406066786e-10,
+          "peeq_reference_volume_mean": 0.024155989843174065,
+          "maximum_peeq": 0.05255113991686288,
+          "normal_relative_work": -7.607724712935431e-11,
+          "mpc_equation_mismatch": 0.0
+        },
+        {
+          "factor": 0.5,
+          "displacement_l2": 0.006665641947445707,
+          "force_on_structure": [
+            -0.0,
+            -0.0,
+            -0.0
+          ],
+          "pressure_area_mean": 0.0,
+          "maximum_pressure": 0.0,
+          "active_reference_area": 0.0,
+          "maximum_penetration": 0.0,
+          "peeq_reference_volume_mean": 0.03205322262496873,
+          "maximum_peeq": 0.06264461331165072,
+          "normal_relative_work": 0.0007779941341026201,
+          "mpc_equation_mismatch": 0.0
+        },
+        {
+          "factor": 0.75,
+          "displacement_l2": 0.013752787152706732,
+          "force_on_structure": [
+            -0.0,
+            -0.0,
+            -0.0
+          ],
+          "pressure_area_mean": 0.0,
+          "maximum_pressure": 0.0,
+          "active_reference_area": 0.0,
+          "maximum_penetration": 0.0,
+          "peeq_reference_volume_mean": 0.04584388896782546,
+          "maximum_peeq": 0.07677234058820098,
+          "normal_relative_work": 0.0007779941341026201,
+          "mpc_equation_mismatch": 1.734723475976807e-18
+        },
+        {
+          "factor": 1.0,
+          "displacement_l2": 0.011001736635785245,
+          "force_on_structure": [
+            -3.978365082663293,
+            -0.0,
+            -0.0
+          ],
+          "pressure_area_mean": 15.913460330653175,
+          "maximum_pressure": 142.80228994095324,
+          "active_reference_area": 0.24999999999999994,
+          "maximum_penetration": 5.16270803885277e-10,
+          "peeq_reference_volume_mean": 0.06341464602491807,
+          "maximum_peeq": 0.09498087627116857,
+          "normal_relative_work": 0.00014332168914543648,
+          "mpc_equation_mismatch": 0.0
+        }
+      ],
+      "setup_solve_observe_seconds": 51.673136124853045,
+      "accepted_increments": 32,
+      "outer_updates": 94,
+      "newton_iterations": 300,
+      "maximum_penetration_all_stations": 5.715504292069795e-09,
+      "maximum_complementarity_all_stations": 9.705228382441579e-08
+    },
+    {
+      "cells": 8,
+      "increments": 64,
+      "penalty": 40000.0,
+      "status": "completed",
+      "stations": [
+        {
+          "factor": 0.25,
+          "displacement_l2": 0.011017972779547558,
+          "force_on_structure": [
+            -4.9588724268631905,
+            -0.0,
+            -0.0
+          ],
+          "pressure_area_mean": 19.835489707452766,
+          "maximum_pressure": 144.02681486887872,
+          "active_reference_area": 0.24999999999999994,
+          "maximum_penetration": 1.819313588669047e-10,
+          "peeq_reference_volume_mean": 0.024201363923801993,
+          "maximum_peeq": 0.05279063886366401,
+          "normal_relative_work": -3.4854291800780704e-10,
+          "mpc_equation_mismatch": 0.0
+        },
+        {
+          "factor": 0.5,
+          "displacement_l2": 0.0066536994400383295,
+          "force_on_structure": [
+            -0.0,
+            -0.0,
+            -0.0
+          ],
+          "pressure_area_mean": 0.0,
+          "maximum_pressure": 0.0,
+          "active_reference_area": 0.0,
+          "maximum_penetration": 0.0,
+          "peeq_reference_volume_mean": 0.03210855517802961,
+          "maximum_peeq": 0.06292075169998788,
+          "normal_relative_work": 7.039575738461506e-05,
+          "mpc_equation_mismatch": 0.0
+        },
+        {
+          "factor": 0.75,
+          "displacement_l2": 0.013737196264423624,
+          "force_on_structure": [
+            -0.0,
+            -0.0,
+            -0.0
+          ],
+          "pressure_area_mean": 0.0,
+          "maximum_pressure": 0.0,
+          "active_reference_area": 0.0,
+          "maximum_penetration": 0.0,
+          "peeq_reference_volume_mean": 0.04589989287874472,
+          "maximum_peeq": 0.07705030671766615,
+          "normal_relative_work": 7.039575738461506e-05,
+          "mpc_equation_mismatch": 1.734723475976807e-18
+        },
+        {
+          "factor": 1.0,
+          "displacement_l2": 0.011001778217868498,
+          "force_on_structure": [
+            -4.2291219482121205,
+            -0.0,
+            -0.0
+          ],
+          "pressure_area_mean": 16.916487792848486,
+          "maximum_pressure": 148.00688158043502,
+          "active_reference_area": 0.24999999999999994,
+          "maximum_penetration": 8.972447229638192e-10,
+          "peeq_reference_volume_mean": 0.06347842777083622,
+          "maximum_peeq": 0.09564841127024865,
+          "normal_relative_work": -0.00021380861869069095,
+          "mpc_equation_mismatch": 0.0
+        }
+      ],
+      "setup_solve_observe_seconds": 103.02638129238039,
+      "accepted_increments": 64,
+      "outer_updates": 195,
+      "newton_iterations": 594,
+      "maximum_penetration_all_stations": 1.0693848029319497e-09,
+      "maximum_complementarity_all_stations": 9.500494025882151e-08
+    },
+    {
+      "cells": 12,
+      "increments": 32,
+      "penalty": 40000.0,
+      "status": "completed",
+      "stations": [
+        {
+          "factor": 0.25,
+          "displacement_l2": 0.011000531000366727,
+          "force_on_structure": [
+            -4.71505863899465,
+            -0.0,
+            -0.0
+          ],
+          "pressure_area_mean": 18.8602345559786,
+          "maximum_pressure": 195.19176201562078,
+          "active_reference_area": 0.25,
+          "maximum_penetration": 2.968270074177326e-11,
+          "peeq_reference_volume_mean": 0.023723459401020084,
+          "maximum_peeq": 0.06438018506482665,
+          "normal_relative_work": -1.145689767679109e-10,
+          "mpc_equation_mismatch": 0.0
+        },
+        {
+          "factor": 0.5,
+          "displacement_l2": 0.006312865435533229,
+          "force_on_structure": [
+            -0.0,
+            -0.0,
+            -0.0
+          ],
+          "pressure_area_mean": 0.0,
+          "maximum_pressure": 0.0,
+          "active_reference_area": 0.0,
+          "maximum_penetration": 0.0,
+          "peeq_reference_volume_mean": 0.03165618213164858,
+          "maximum_peeq": 0.07519507032701665,
+          "normal_relative_work": 0.0007363220247403084,
+          "mpc_equation_mismatch": 0.0
+        },
+        {
+          "factor": 0.75,
+          "displacement_l2": 0.013331158151507868,
+          "force_on_structure": [
+            -0.0,
+            -0.0,
+            -0.0
+          ],
+          "pressure_area_mean": 0.0,
+          "maximum_pressure": 0.0,
+          "active_reference_area": 0.0,
+          "maximum_penetration": 0.0,
+          "peeq_reference_volume_mean": 0.0454496701475798,
+          "maximum_peeq": 0.0896576087140834,
+          "normal_relative_work": 0.0007363220247403084,
+          "mpc_equation_mismatch": 1.734723475976807e-18
+        },
+        {
+          "factor": 1.0,
+          "displacement_l2": 0.011104470429737367,
+          "force_on_structure": [
+            -3.7273938842578427,
+            -0.0,
+            -0.0
+          ],
+          "pressure_area_mean": 14.90957553703137,
+          "maximum_pressure": 189.73548758865724,
+          "active_reference_area": 0.25,
+          "maximum_penetration": 8.275380380950992e-11,
+          "peeq_reference_volume_mean": 0.0630454498919726,
+          "maximum_peeq": 0.10818817831545893,
+          "normal_relative_work": 0.000193783710230413,
+          "mpc_equation_mismatch": 0.0
+        }
+      ],
+      "setup_solve_observe_seconds": 396.8310622498393,
+      "accepted_increments": 32,
+      "outer_updates": 116,
+      "newton_iterations": 355,
+      "maximum_penetration_all_stations": 2.8948445862653216e-09,
+      "maximum_complementarity_all_stations": 9.920492781431758e-08
+    },
+    {
+      "cells": 12,
+      "increments": 64,
+      "penalty": 40000.0,
+      "status": "completed",
+      "stations": [
+        {
+          "factor": 0.25,
+          "displacement_l2": 0.0110023031097379,
+          "force_on_structure": [
+            -4.737697727622954,
+            -0.0,
+            -0.0
+          ],
+          "pressure_area_mean": 18.95079091049181,
+          "maximum_pressure": 196.01400081862025,
+          "active_reference_area": 0.25,
+          "maximum_penetration": 1.0582335008280097e-10,
+          "peeq_reference_volume_mean": 0.02376686216845107,
+          "maximum_peeq": 0.06467701998874407,
+          "normal_relative_work": 1.5137297676024653e-10,
+          "mpc_equation_mismatch": 0.0
+        },
+        {
+          "factor": 0.5,
+          "displacement_l2": 0.006297736590625709,
+          "force_on_structure": [
+            -0.0,
+            -0.0,
+            -0.0
+          ],
+          "pressure_area_mean": 0.0,
+          "maximum_pressure": 0.0,
+          "active_reference_area": 0.0,
+          "maximum_penetration": 0.0,
+          "peeq_reference_volume_mean": 0.03171003108551814,
+          "maximum_peeq": 0.07554446709798757,
+          "normal_relative_work": 4.24335526600952e-05,
+          "mpc_equation_mismatch": 0.0
+        },
+        {
+          "factor": 0.75,
+          "displacement_l2": 0.013311952764766346,
+          "force_on_structure": [
+            -0.0,
+            -0.0,
+            -0.0
+          ],
+          "pressure_area_mean": 0.0,
+          "maximum_pressure": 0.0,
+          "active_reference_area": 0.0,
+          "maximum_penetration": 0.0,
+          "peeq_reference_volume_mean": 0.04550424114657175,
+          "maximum_peeq": 0.09002148471166851,
+          "normal_relative_work": 4.24335526600952e-05,
+          "mpc_equation_mismatch": 1.734723475976807e-18
+        },
+        {
+          "factor": 1.0,
+          "displacement_l2": 0.011108032833731383,
+          "force_on_structure": [
+            -3.9606096717112993,
+            -0.0,
+            -0.0
+          ],
+          "pressure_area_mean": 15.842438686845199,
+          "maximum_pressure": 196.38394432593793,
+          "active_reference_area": 0.25,
+          "maximum_penetration": 2.989521963314701e-10,
+          "peeq_reference_volume_mean": 0.06310718343532844,
+          "maximum_peeq": 0.10905190190471384,
+          "normal_relative_work": -0.0001914883254562046,
+          "mpc_equation_mismatch": 0.0
+        }
+      ],
+      "setup_solve_observe_seconds": 770.7386019169353,
+      "accepted_increments": 64,
+      "outer_updates": 227,
+      "newton_iterations": 686,
+      "maximum_penetration_all_stations": 3.1883271578436734e-09,
+      "maximum_complementarity_all_stations": 8.06145324215762e-08
+    }
+  ],
+  "comparisons": [
+    {
+      "varied": "increments",
+      "coarse": {
+        "cells": 4,
+        "increments": 32,
+        "penalty": 40000.0
+      },
+      "fine": {
+        "cells": 4,
+        "increments": 64,
+        "penalty": 40000.0
+      },
+      "station_differences": [
+        {
+          "factor": 0.25,
+          "displacement_l2": {
+            "absolute_difference": 4.6464843575164116e-08,
+            "relative_to_fine": 4.254185759548561e-06
+          },
+          "pressure_area_mean": {
+            "absolute_difference": 0.08212962099494803,
+            "relative_to_fine": 0.0037873833570589584
+          },
+          "peeq_reference_volume_mean": {
+            "absolute_difference": 4.6685349705265916e-05,
+            "relative_to_fine": 0.0018579520730871882
+          },
+          "maximum_peeq": {
+            "absolute_difference": 0.00015857113564900216,
+            "relative_to_fine": 0.003974613748470865
+          },
+          "normal_relative_work": {
+            "absolute_difference": 3.3595531565641193e-09,
+            "relative_to_fine": 3.891799404678489
+          },
+          "force_absolute_difference": 0.020532405248737007
+        },
+        {
+          "factor": 0.5,
+          "displacement_l2": {
+            "absolute_difference": 8.675486165551916e-06,
+            "relative_to_fine": 0.0011840460658734072
+          },
+          "pressure_area_mean": {
+            "absolute_difference": 0.0,
+            "relative_to_fine": null
+          },
+          "peeq_reference_volume_mean": {
+            "absolute_difference": 5.1130294345905214e-05,
+            "relative_to_fine": 0.001553239728958728
+          },
+          "maximum_peeq": {
+            "absolute_difference": 0.0002051140303572646,
+            "relative_to_fine": 0.004071149471412192
+          },
+          "normal_relative_work": {
+            "absolute_difference": 0.0006350260832399686,
+            "relative_to_fine": 3.2184238224493185
+          },
+          "force_absolute_difference": 0.0
+        },
+        {
+          "factor": 0.75,
+          "displacement_l2": {
+            "absolute_difference": 7.710279369422743e-06,
+            "relative_to_fine": 0.0005269382680783302
+          },
+          "pressure_area_mean": {
+            "absolute_difference": 0.0,
+            "relative_to_fine": null
+          },
+          "peeq_reference_volume_mean": {
+            "absolute_difference": 5.157004106352836e-05,
+            "relative_to_fine": 0.0011041690632561465
+          },
+          "maximum_peeq": {
+            "absolute_difference": 0.00021033239660538106,
+            "relative_to_fine": 0.0032607815312142166
+          },
+          "normal_relative_work": {
+            "absolute_difference": 0.0006350260832399686,
+            "relative_to_fine": 3.2184238224493185
+          },
+          "force_absolute_difference": 0.0
+        },
+        {
+          "factor": 1.0,
+          "displacement_l2": {
+            "absolute_difference": 6.165822237762936e-07,
+            "relative_to_fine": 5.665745832119342e-05
+          },
+          "pressure_area_mean": {
+            "absolute_difference": 1.1570403107472025,
+            "relative_to_fine": 0.06303733807205057
+          },
+          "peeq_reference_volume_mean": {
+            "absolute_difference": 6.184148772410414e-05,
+            "relative_to_fine": 0.0009639295059839662
+          },
+          "maximum_peeq": {
+            "absolute_difference": 0.00040416435175606724,
+            "relative_to_fine": 0.00493959943812811
+          },
+          "normal_relative_work": {
+            "absolute_difference": 0.00014760547342434235,
+            "relative_to_fine": 0.6499817546507385
+          },
+          "force_absolute_difference": 0.28926007768679973
+        }
+      ]
+    },
+    {
+      "varied": "cells",
+      "coarse": {
+        "cells": 4,
+        "increments": 32,
+        "penalty": 40000.0
+      },
+      "fine": {
+        "cells": 8,
+        "increments": 32,
+        "penalty": 40000.0
+      },
+      "station_differences": [
+        {
+          "factor": 0.25,
+          "displacement_l2": {
+            "absolute_difference": 9.284489193405951e-05,
+            "relative_to_fine": 0.0084289922165803
+          },
+          "pressure_area_mean": {
+            "absolute_difference": 1.855055313794594,
+            "relative_to_fine": 0.0939369761801738
+          },
+          "peeq_reference_volume_mean": {
+            "absolute_difference": 0.0009246412656626624,
+            "relative_to_fine": 0.038277929062962616
+          },
+          "maximum_peeq": {
+            "absolute_difference": 0.012813724754470096,
+            "relative_to_fine": 0.24383343110618924
+          },
+          "normal_relative_work": {
+            "absolute_difference": 4.146714942907422e-09,
+            "relative_to_fine": 54.50663765286818
+          },
+          "force_absolute_difference": 0.4637638284486485
+        },
+        {
+          "factor": 0.5,
+          "displacement_l2": {
+            "absolute_difference": 0.0006700171887626116,
+            "relative_to_fine": 0.1005180287278053
+          },
+          "pressure_area_mean": {
+            "absolute_difference": 0.0,
+            "relative_to_fine": null
+          },
+          "peeq_reference_volume_mean": {
+            "absolute_difference": 0.0008141292651336826,
+            "relative_to_fine": 0.02539929524900546
+          },
+          "maximum_peeq": {
+            "absolute_difference": 0.01246738893916003,
+            "relative_to_fine": 0.19901773321093086
+          },
+          "normal_relative_work": {
+            "absolute_difference": 5.4341600778161445e-05,
+            "relative_to_fine": 0.06984834254674933
+          },
+          "force_absolute_difference": 0.0
+        },
+        {
+          "factor": 0.75,
+          "displacement_l2": {
+            "absolute_difference": 0.0008871482591076146,
+            "relative_to_fine": 0.06450679773176102
+          },
+          "pressure_area_mean": {
+            "absolute_difference": 0.0,
+            "relative_to_fine": null
+          },
+          "peeq_reference_volume_mean": {
+            "absolute_difference": 0.0008093824684211534,
+            "relative_to_fine": 0.01765518778280789
+          },
+          "maximum_peeq": {
+            "absolute_difference": 0.012478996613988713,
+            "relative_to_fine": 0.16254547560201116
+          },
+          "normal_relative_work": {
+            "absolute_difference": 5.4341600778161445e-05,
+            "relative_to_fine": 0.06984834254674933
+          },
+          "force_absolute_difference": 0.0
+        },
+        {
+          "factor": 1.0,
+          "displacement_l2": {
+            "absolute_difference": 0.00011848885113682067,
+            "relative_to_fine": 0.010770013413283598
+          },
+          "pressure_area_mean": {
+            "absolute_difference": 1.2843402534471426,
+            "relative_to_fine": 0.08070779244494
+          },
+          "peeq_reference_volume_mean": {
+            "absolute_difference": 0.0006791248430322999,
+            "relative_to_fine": 0.010709274364875355
+          },
+          "maximum_peeq": {
+            "absolute_difference": 0.013563760007258424,
+            "relative_to_fine": 0.14280516815336755
+          },
+          "normal_relative_work": {
+            "absolute_difference": 0.00022280793386271605,
+            "relative_to_fine": 1.554600250605618
+          },
+          "force_absolute_difference": 0.32108506336178566
+        }
+      ]
+    },
+    {
+      "varied": "cells",
+      "coarse": {
+        "cells": 4,
+        "increments": 32,
+        "penalty": 40000.0
+      },
+      "fine": {
+        "cells": 12,
+        "increments": 32,
+        "penalty": 40000.0
+      },
+      "station_differences": [
+        {
+          "factor": 0.25,
+          "displacement_l2": {
+            "absolute_difference": 7.843014927015439e-05,
+            "relative_to_fine": 0.007129669401189792
+          },
+          "pressure_area_mean": {
+            "absolute_difference": 2.7426920352195268,
+            "relative_to_fine": 0.14542194727637187
+          },
+          "peeq_reference_volume_mean": {
+            "absolute_difference": 0.0013571717078166429,
+            "relative_to_fine": 0.057208001787390494
+          },
+          "maximum_peeq": {
+            "absolute_difference": 0.024642769902433866,
+            "relative_to_fine": 0.38276947911255926
+          },
+          "normal_relative_work": {
+            "absolute_difference": 4.108223213268865e-09,
+            "relative_to_fine": 35.858077196509605
+          },
+          "force_absolute_difference": 0.6856730088048808
+        },
+        {
+          "factor": 0.5,
+          "displacement_l2": {
+            "absolute_difference": 0.0010227937006750893,
+            "relative_to_fine": 0.16201734554931105
+          },
+          "pressure_area_mean": {
+            "absolute_difference": 0.0,
+            "relative_to_fine": null
+          },
+          "peeq_reference_volume_mean": {
+            "absolute_difference": 0.0012111697584538325,
+            "relative_to_fine": 0.03826013362625159
+          },
+          "maximum_peeq": {
+            "absolute_difference": 0.025017845954525962,
+            "relative_to_fine": 0.3327059319942861
+          },
+          "normal_relative_work": {
+            "absolute_difference": 9.601371014047316e-05,
+            "relative_to_fine": 0.13039635772722674
+          },
+          "force_absolute_difference": 0.0
+        },
+        {
+          "factor": 0.75,
+          "displacement_l2": {
+            "absolute_difference": 0.0013087772603064783,
+            "relative_to_fine": 0.09817431054618794
+          },
+          "pressure_area_mean": {
+            "absolute_difference": 0.0,
+            "relative_to_fine": null
+          },
+          "peeq_reference_volume_mean": {
+            "absolute_difference": 0.0012036012886668113,
+            "relative_to_fine": 0.026482068731381172
+          },
+          "maximum_peeq": {
+            "absolute_difference": 0.025364264739871134,
+            "relative_to_fine": 0.28290141911722566
+          },
+          "normal_relative_work": {
+            "absolute_difference": 9.601371014047316e-05,
+            "relative_to_fine": 0.13039635772722674
+          },
+          "force_absolute_difference": 0.0
+        },
+        {
+          "factor": 1.0,
+          "displacement_l2": {
+            "absolute_difference": 0.00022122264508894242,
+            "relative_to_fine": 0.01992194463380408
+          },
+          "pressure_area_mean": {
+            "absolute_difference": 2.2882250470689467,
+            "relative_to_fine": 0.15347352051610133
+          },
+          "peeq_reference_volume_mean": {
+            "absolute_difference": 0.0010483209759777762,
+            "relative_to_fine": 0.01662801959180334
+          },
+          "maximum_peeq": {
+            "absolute_difference": 0.02677106205154879,
+            "relative_to_fine": 0.24744905098123363
+          },
+          "normal_relative_work": {
+            "absolute_difference": 0.00027326995494769257,
+            "relative_to_fine": 1.4101802190843014
+          },
+          "force_absolute_difference": 0.5720562617672358
+        }
+      ]
+    },
+    {
+      "varied": "cells",
+      "coarse": {
+        "cells": 4,
+        "increments": 64,
+        "penalty": 40000.0
+      },
+      "fine": {
+        "cells": 8,
+        "increments": 64,
+        "penalty": 40000.0
+      },
+      "station_differences": [
+        {
+          "factor": 0.25,
+          "displacement_l2": {
+            "absolute_difference": 9.582546360741018e-05,
+            "relative_to_fine": 0.008697195529951669
+          },
+          "pressure_area_mean": {
+            "absolute_difference": 1.8495665047403094,
+            "relative_to_fine": 0.09324531594727273
+          },
+          "peeq_reference_volume_mean": {
+            "absolute_difference": 0.0009259525347399995,
+            "relative_to_fine": 0.03826034506383035
+          },
+          "maximum_peeq": {
+            "absolute_difference": 0.012894652565622222,
+            "relative_to_fine": 0.24426021058248
+          },
+          "normal_relative_work": {
+            "absolute_difference": 5.146961154648495e-10,
+            "relative_to_fine": 1.4767080002851207
+          },
+          "force_absolute_difference": 0.46239162618507734
+        },
+        {
+          "factor": 0.5,
+          "displacement_l2": {
+            "absolute_difference": 0.0006732842100044371,
+            "relative_to_fine": 0.10118945348703015
+          },
+          "pressure_area_mean": {
+            "absolute_difference": 0.0,
+            "relative_to_fine": null
+          },
+          "peeq_reference_volume_mean": {
+            "absolute_difference": 0.0008099270064187078,
+            "relative_to_fine": 0.025224648132809887
+          },
+          "maximum_peeq": {
+            "absolute_difference": 0.012538413297139929,
+            "relative_to_fine": 0.1992731008193334
+          },
+          "normal_relative_work": {
+            "absolute_difference": 0.00012691389425619788,
+            "relative_to_fine": 1.8028628282637786
+          },
+          "force_absolute_difference": 0.0
+        },
+        {
+          "factor": 0.75,
+          "displacement_l2": {
+            "absolute_difference": 0.0008950288680212998,
+            "relative_to_fine": 0.06515367843576869
+          },
+          "pressure_area_mean": {
+            "absolute_difference": 0.0,
+            "relative_to_fine": null
+          },
+          "peeq_reference_volume_mean": {
+            "absolute_difference": 0.0008049485985654192,
+            "relative_to_fine": 0.01753704743259159
+          },
+          "maximum_peeq": {
+            "absolute_difference": 0.012546630346848497,
+            "relative_to_fine": 0.16283686439851378
+          },
+          "normal_relative_work": {
+            "absolute_difference": 0.00012691389425619788,
+            "relative_to_fine": 1.8028628282637786
+          },
+          "force_absolute_difference": 0.0
+        },
+        {
+          "factor": 1.0,
+          "displacement_l2": {
+            "absolute_difference": 0.00011914701544384933,
+            "relative_to_fine": 0.010829796155164911
+          },
+          "pressure_area_mean": {
+            "absolute_difference": 1.4383531019990343,
+            "relative_to_fine": 0.08502669819009973
+          },
+          "peeq_reference_volume_mean": {
+            "absolute_difference": 0.0006771845848382585,
+            "relative_to_fine": 0.010667948287613012
+          },
+          "maximum_peeq": {
+            "absolute_difference": 0.013827130654582437,
+            "relative_to_fine": 0.14456205253127247
+          },
+          "normal_relative_work": {
+            "absolute_difference": 1.3283099450930972e-05,
+            "relative_to_fine": 0.062126117891192885
+          },
+          "force_absolute_difference": 0.3595882754997577
+        }
+      ]
+    },
+    {
+      "varied": "cells",
+      "coarse": {
+        "cells": 4,
+        "increments": 64,
+        "penalty": 40000.0
+      },
+      "fine": {
+        "cells": 12,
+        "increments": 64,
+        "penalty": 40000.0
+      },
+      "station_differences": [
+        {
+          "factor": 0.25,
+          "displacement_l2": {
+            "absolute_difference": 8.015579379775338e-05,
+            "relative_to_fine": 0.0072853649820653656
+          },
+          "pressure_area_mean": {
+            "absolute_difference": 2.7342653017012637,
+            "relative_to_fine": 0.14428238455142683
+          },
+          "peeq_reference_volume_mean": {
+            "absolute_difference": 0.001360454290090924,
+            "relative_to_fine": 0.05724164512961399
+          },
+          "maximum_peeq": {
+            "absolute_difference": 0.024781033690702288,
+            "relative_to_fine": 0.3831505176802364
+          },
+          "normal_relative_work": {
+            "absolute_difference": 1.0146120102329032e-09,
+            "relative_to_fine": 6.702728795773804
+          },
+          "force_absolute_difference": 0.6835663254253141
+        },
+        {
+          "factor": 0.5,
+          "displacement_l2": {
+            "absolute_difference": 0.0010292470594170577,
+            "relative_to_fine": 0.16343126528173788
+          },
+          "pressure_area_mean": {
+            "absolute_difference": 0.0,
+            "relative_to_fine": null
+          },
+          "peeq_reference_volume_mean": {
+            "absolute_difference": 0.0012084510989301758,
+            "relative_to_fine": 0.03810942649886178
+          },
+          "maximum_peeq": {
+            "absolute_difference": 0.02516212869513961,
+            "relative_to_fine": 0.3330770559609905
+          },
+          "normal_relative_work": {
+            "absolute_difference": 0.00015487609898071775,
+            "relative_to_fine": 3.6498499246885894
+          },
+          "force_absolute_difference": 0.0
+        },
+        {
+          "factor": 0.75,
+          "displacement_l2": {
+            "absolute_difference": 0.0013202723676785776,
+            "relative_to_fine": 0.09917946607901379
+          },
+          "pressure_area_mean": {
+            "absolute_difference": 0.0,
+            "relative_to_fine": null
+          },
+          "peeq_reference_volume_mean": {
+            "absolute_difference": 0.0012006003307383911,
+            "relative_to_fine": 0.02638436111638889
+          },
+          "maximum_peeq": {
+            "absolute_difference": 0.025517808340850864,
+            "relative_to_fine": 0.2834635356502098
+          },
+          "normal_relative_work": {
+            "absolute_difference": 0.00015487609898071775,
+            "relative_to_fine": 3.6498499246885894
+          },
+          "force_absolute_difference": 0.0
+        },
+        {
+          "factor": 1.0,
+          "displacement_l2": {
+            "absolute_difference": 0.0002254016313067344,
+            "relative_to_fine": 0.02029176854989706
+          },
+          "pressure_area_mean": {
+            "absolute_difference": 2.512402208002321,
+            "relative_to_fine": 0.1585868348721147
+          },
+          "peeq_reference_volume_mean": {
+            "absolute_difference": 0.0010484289203460395,
+            "relative_to_fine": 0.01661346400319796
+          },
+          "maximum_peeq": {
+            "absolute_difference": 0.02723062128904763,
+            "relative_to_fine": 0.24970331386646424
+          },
+          "normal_relative_work": {
+            "absolute_difference": 3.560339268541732e-05,
+            "relative_to_fine": 0.1859298346287967
+          },
+          "force_absolute_difference": 0.6281005520005789
+        }
+      ]
+    },
+    {
+      "varied": "increments",
+      "coarse": {
+        "cells": 8,
+        "increments": 32,
+        "penalty": 40000.0
+      },
+      "fine": {
+        "cells": 8,
+        "increments": 64,
+        "penalty": 40000.0
+      },
+      "station_differences": [
+        {
+          "factor": 0.25,
+          "displacement_l2": {
+            "absolute_difference": 3.0270365169258323e-06,
+            "relative_to_fine": 0.0002747362493529535
+          },
+          "pressure_area_mean": {
+            "absolute_difference": 0.08761843004923264,
+            "relative_to_fine": 0.004417255703866584
+          },
+          "peeq_reference_volume_mean": {
+            "absolute_difference": 4.537408062792875e-05,
+            "relative_to_fine": 0.00187485634160079
+          },
+          "maximum_peeq": {
+            "absolute_difference": 0.00023949894680112827,
+            "relative_to_fine": 0.00453676924463167
+          },
+          "normal_relative_work": {
+            "absolute_difference": 2.724656708784527e-10,
+            "relative_to_fine": 0.7817277494427523
+          },
+          "force_absolute_difference": 0.02190460751230816
+        },
+        {
+          "factor": 0.5,
+          "displacement_l2": {
+            "absolute_difference": 1.1942507407377428e-05,
+            "relative_to_fine": 0.001794867278722261
+          },
+          "pressure_area_mean": {
+            "absolute_difference": 0.0,
+            "relative_to_fine": null
+          },
+          "peeq_reference_volume_mean": {
+            "absolute_difference": 5.533255306088003e-05,
+            "relative_to_fine": 0.0017232962602671553
+          },
+          "maximum_peeq": {
+            "absolute_difference": 0.0002761383883371632,
+            "relative_to_fine": 0.004388669570475211
+          },
+          "normal_relative_work": {
+            "absolute_difference": 0.000707598376718005,
+            "relative_to_fine": 10.051719066704013
+          },
+          "force_absolute_difference": 0.0
+        },
+        {
+          "factor": 0.75,
+          "displacement_l2": {
+            "absolute_difference": 1.559088828310788e-05,
+            "relative_to_fine": 0.0011349396181726632
+          },
+          "pressure_area_mean": {
+            "absolute_difference": 0.0,
+            "relative_to_fine": null
+          },
+          "peeq_reference_volume_mean": {
+            "absolute_difference": 5.6003910919262545e-05,
+            "relative_to_fine": 0.0012201316257362505
+          },
+          "maximum_peeq": {
+            "absolute_difference": 0.0002779661294651653,
+            "relative_to_fine": 0.003607592770314476
+          },
+          "normal_relative_work": {
+            "absolute_difference": 0.000707598376718005,
+            "relative_to_fine": 10.051719066704013
+          },
+          "force_absolute_difference": 0.0
+        },
+        {
+          "factor": 1.0,
+          "displacement_l2": {
+            "absolute_difference": 4.158208325236168e-08,
+            "relative_to_fine": 3.7795783944113954e-06
+          },
+          "pressure_area_mean": {
+            "absolute_difference": 1.0030274621953108,
+            "relative_to_fine": 0.059292890727550715
+          },
+          "peeq_reference_volume_mean": {
+            "absolute_difference": 6.378174591814556e-05,
+            "relative_to_fine": 0.0010047782870175102
+          },
+          "maximum_peeq": {
+            "absolute_difference": 0.00066753499908008,
+            "relative_to_fine": 0.00697904952330051
+          },
+          "normal_relative_work": {
+            "absolute_difference": 0.00035713030783612746,
+            "relative_to_fine": 1.6703269962787362
+          },
+          "force_absolute_difference": 0.2507568655488277
+        }
+      ]
+    },
+    {
+      "varied": "cells",
+      "coarse": {
+        "cells": 8,
+        "increments": 32,
+        "penalty": 40000.0
+      },
+      "fine": {
+        "cells": 12,
+        "increments": 32,
+        "penalty": 40000.0
+      },
+      "station_differences": [
+        {
+          "factor": 0.25,
+          "displacement_l2": {
+            "absolute_difference": 1.441474266390512e-05,
+            "relative_to_fine": 0.001310367896188336
+          },
+          "pressure_area_mean": {
+            "absolute_difference": 0.8876367214249328,
+            "relative_to_fine": 0.047063928011624664
+          },
+          "peeq_reference_volume_mean": {
+            "absolute_difference": 0.0004325304421539805,
+            "relative_to_fine": 0.018232182534701585
+          },
+          "maximum_peeq": {
+            "absolute_difference": 0.01182904514796377,
+            "relative_to_fine": 0.1837373585685206
+          },
+          "normal_relative_work": {
+            "absolute_difference": 3.8491729638556586e-11,
+            "relative_to_fine": 0.335969917201334
+          },
+          "force_absolute_difference": 0.2219091803562323
+        },
+        {
+          "factor": 0.5,
+          "displacement_l2": {
+            "absolute_difference": 0.00035277651191247764,
+            "relative_to_fine": 0.05588215296445324
+          },
+          "pressure_area_mean": {
+            "absolute_difference": 0.0,
+            "relative_to_fine": null
+          },
+          "peeq_reference_volume_mean": {
+            "absolute_difference": 0.0003970404933201499,
+            "relative_to_fine": 0.0125422734702807
+          },
+          "maximum_peeq": {
+            "absolute_difference": 0.012550457015365932,
+            "relative_to_fine": 0.1669053165424956
+          },
+          "normal_relative_work": {
+            "absolute_difference": 4.167210936231172e-05,
+            "relative_to_fine": 0.056594951613743935
+          },
+          "force_absolute_difference": 0.0
+        },
+        {
+          "factor": 0.75,
+          "displacement_l2": {
+            "absolute_difference": 0.0004216290011988637,
+            "relative_to_fine": 0.031627334730191754
+          },
+          "pressure_area_mean": {
+            "absolute_difference": 0.0,
+            "relative_to_fine": null
+          },
+          "peeq_reference_volume_mean": {
+            "absolute_difference": 0.00039421882024565785,
+            "relative_to_fine": 0.008673744363063327
+          },
+          "maximum_peeq": {
+            "absolute_difference": 0.012885268125882421,
+            "relative_to_fine": 0.14371639296083974
+          },
+          "normal_relative_work": {
+            "absolute_difference": 4.167210936231172e-05,
+            "relative_to_fine": 0.056594951613743935
+          },
+          "force_absolute_difference": 0.0
+        },
+        {
+          "factor": 1.0,
+          "displacement_l2": {
+            "absolute_difference": 0.00010273379395212175,
+            "relative_to_fine": 0.009251570761718127
+          },
+          "pressure_area_mean": {
+            "absolute_difference": 1.003884793621804,
+            "relative_to_fine": 0.06733154750974799
+          },
+          "peeq_reference_volume_mean": {
+            "absolute_difference": 0.00036919613294547626,
+            "relative_to_fine": 0.005856031380188231
+          },
+          "maximum_peeq": {
+            "absolute_difference": 0.013207302044290367,
+            "relative_to_fine": 0.12207712755621088
+          },
+          "normal_relative_work": {
+            "absolute_difference": 5.046202108497652e-05,
+            "relative_to_fine": 0.26040383386702676
+          },
+          "force_absolute_difference": 0.2509711984054501
+        }
+      ]
+    },
+    {
+      "varied": "cells",
+      "coarse": {
+        "cells": 8,
+        "increments": 64,
+        "penalty": 40000.0
+      },
+      "fine": {
+        "cells": 12,
+        "increments": 64,
+        "penalty": 40000.0
+      },
+      "station_differences": [
+        {
+          "factor": 0.25,
+          "displacement_l2": {
+            "absolute_difference": 1.5669669809656797e-05,
+            "relative_to_fine": 0.00142421724373217
+          },
+          "pressure_area_mean": {
+            "absolute_difference": 0.8846987969609543,
+            "relative_to_fine": 0.04668400390989247
+          },
+          "peeq_reference_volume_mean": {
+            "absolute_difference": 0.0004345017553509245,
+            "relative_to_fine": 0.01828183090688752
+          },
+          "maximum_peeq": {
+            "absolute_difference": 0.011886381125080066,
+            "relative_to_fine": 0.1837805935887072
+          },
+          "normal_relative_work": {
+            "absolute_difference": 4.999158947680536e-10,
+            "relative_to_fine": 3.3025438586693707
+          },
+          "force_absolute_difference": 0.2211746992402368
+        },
+        {
+          "factor": 0.5,
+          "displacement_l2": {
+            "absolute_difference": 0.00035596284941262057,
+            "relative_to_fine": 0.056522346447845644
+          },
+          "pressure_area_mean": {
+            "absolute_difference": 0.0,
+            "relative_to_fine": null
+          },
+          "peeq_reference_volume_mean": {
+            "absolute_difference": 0.00039852409251146803,
+            "relative_to_fine": 0.012567761016591137
+          },
+          "maximum_peeq": {
+            "absolute_difference": 0.012623715397999682,
+            "relative_to_fine": 0.16710311003485742
+          },
+          "normal_relative_work": {
+            "absolute_difference": 2.7962204724519863e-05,
+            "relative_to_fine": 0.6589644979411707
+          },
+          "force_absolute_difference": 0.0
+        },
+        {
+          "factor": 0.75,
+          "displacement_l2": {
+            "absolute_difference": 0.00042524349965727785,
+            "relative_to_fine": 0.03194448682110703
+          },
+          "pressure_area_mean": {
+            "absolute_difference": 0.0,
+            "relative_to_fine": null
+          },
+          "peeq_reference_volume_mean": {
+            "absolute_difference": 0.0003956517321729719,
+            "relative_to_fine": 0.008694832002550161
+          },
+          "maximum_peeq": {
+            "absolute_difference": 0.012971177994002367,
+            "relative_to_fine": 0.14408980295701626
+          },
+          "normal_relative_work": {
+            "absolute_difference": 2.7962204724519863e-05,
+            "relative_to_fine": 0.6589644979411707
+          },
+          "force_absolute_difference": 0.0
+        },
+        {
+          "factor": 1.0,
+          "displacement_l2": {
+            "absolute_difference": 0.00010625461586288507,
+            "relative_to_fine": 0.009565565519416301
+          },
+          "pressure_area_mean": {
+            "absolute_difference": 1.0740491060032866,
+            "relative_to_fine": 0.06779569277393672
+          },
+          "peeq_reference_volume_mean": {
+            "absolute_difference": 0.000371244335507781,
+            "relative_to_fine": 0.005882758749457234
+          },
+          "maximum_peeq": {
+            "absolute_difference": 0.013403490634465193,
+            "relative_to_fine": 0.12290927897962518
+          },
+          "normal_relative_work": {
+            "absolute_difference": 2.232029323448635e-05,
+            "relative_to_fine": 0.11656216211254737
+          },
+          "force_absolute_difference": 0.2685122765008212
+        }
+      ]
+    },
+    {
+      "varied": "increments",
+      "coarse": {
+        "cells": 12,
+        "increments": 32,
+        "penalty": 40000.0
+      },
+      "fine": {
+        "cells": 12,
+        "increments": 64,
+        "penalty": 40000.0
+      },
+      "station_differences": [
+        {
+          "factor": 0.25,
+          "displacement_l2": {
+            "absolute_difference": 1.7721093711741548e-06,
+            "relative_to_fine": 0.00016106712871832255
+          },
+          "pressure_area_mean": {
+            "absolute_difference": 0.09055635451321109,
+            "relative_to_fine": 0.00477850000777941
+          },
+          "peeq_reference_volume_mean": {
+            "absolute_difference": 4.340276743098476e-05,
+            "relative_to_fine": 0.0018261883762089152
+          },
+          "maximum_peeq": {
+            "absolute_difference": 0.0002968349239174245,
+            "relative_to_fine": 0.004589495990524664
+          },
+          "normal_relative_work": {
+            "absolute_difference": 2.6594195352815746e-10,
+            "relative_to_fine": 1.7568654539269057
+          },
+          "force_absolute_difference": 0.02263908862830366
+        },
+        {
+          "factor": 0.5,
+          "displacement_l2": {
+            "absolute_difference": 1.5128844907520353e-05,
+            "relative_to_fine": 0.002402267019239881
+          },
+          "pressure_area_mean": {
+            "absolute_difference": 0.0,
+            "relative_to_fine": null
+          },
+          "peeq_reference_volume_mean": {
+            "absolute_difference": 5.38489538695619e-05,
+            "relative_to_fine": 0.0016981678045139012
+          },
+          "maximum_peeq": {
+            "absolute_difference": 0.00034939677097091393,
+            "relative_to_fine": 0.004625047794932708
+          },
+          "normal_relative_work": {
+            "absolute_difference": 0.0006938884720802132,
+            "relative_to_fine": 16.352353941195
+          },
+          "force_absolute_difference": 0.0
+        },
+        {
+          "factor": 0.75,
+          "displacement_l2": {
+            "absolute_difference": 1.9205386741522057e-05,
+            "relative_to_fine": 0.001442717464589738
+          },
+          "pressure_area_mean": {
+            "absolute_difference": 0.0,
+            "relative_to_fine": null
+          },
+          "peeq_reference_volume_mean": {
+            "absolute_difference": 5.4570998991948505e-05,
+            "relative_to_fine": 0.0011992508306241656
+          },
+          "maximum_peeq": {
+            "absolute_difference": 0.00036387599758511135,
+            "relative_to_fine": 0.004042101713280741
+          },
+          "normal_relative_work": {
+            "absolute_difference": 0.0006938884720802132,
+            "relative_to_fine": 16.352353941195
+          },
+          "force_absolute_difference": 0.0
+        },
+        {
+          "factor": 1.0,
+          "displacement_l2": {
+            "absolute_difference": 3.562403994015681e-06,
+            "relative_to_fine": 0.0003207052092246118
+          },
+          "pressure_area_mean": {
+            "absolute_difference": 0.9328631498138282,
+            "relative_to_fine": 0.058883810015211424
+          },
+          "peeq_reference_volume_mean": {
+            "absolute_difference": 6.17335433558408e-05,
+            "relative_to_fine": 0.0009782332215650961
+          },
+          "maximum_peeq": {
+            "absolute_difference": 0.0008637235892549056,
+            "relative_to_fine": 0.007920298263203153
+          },
+          "normal_relative_work": {
+            "absolute_difference": 0.0003852720356866176,
+            "relative_to_fine": 2.011987074244552
+          },
+          "force_absolute_difference": 0.2332157874534566
+        }
+      ]
+    }
+  ],
+  "all_numerical_acceptance_passed": true,
+  "continuum_or_external_verification": false
+}

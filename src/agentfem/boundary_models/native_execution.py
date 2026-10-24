@@ -14,7 +14,10 @@ from ._cell_batches import CellBatches
 class Q1ContactRuntime:
 
     def __init__(self, geometry_workers=0, projection_workers=1, backend='auto',
-                 separation_reuse='incremental', geometry_timeout=300.0):
+                 separation_reuse='incremental', geometry_timeout=300.0,
+                 sign_policy='two_rays'):
+        if sign_policy not in ('two_rays', 'interior_normal'):
+            raise ValueError('sign_policy must be two_rays or interior_normal')
         if geometry_timeout is not None and (
             isinstance(geometry_timeout, (bool, np.bool_))
             or not isinstance(geometry_timeout, (int, float, np.floating))
@@ -37,7 +40,8 @@ class Q1ContactRuntime:
         library = None if backend == 'reference' else load_library(required=backend == 'native')
         if library is None:
             self.execution = Q1ContactExecution({'provider': 'agentfem.q1_geometry',
-                'revision': 1, 'arithmetic': 'reference'}, separation_reuse=separation_reuse)
+                'revision': 1, 'arithmetic': 'reference'}, separation_reuse=separation_reuse,
+                sign_policy=sign_policy)
             return
         self.convex_library = self.winding_library = library
         real = np.ctypeslib.ndpointer(dtype=np.float64, flags='C_CONTIGUOUS')
@@ -65,7 +69,14 @@ class Q1ContactRuntime:
             'scope': 'projection-classification-conservative-bounds-swept-proof'},
             closest_point=self.closest, classify_inside=self.inside,
             distance_bounds=make_bounds(), separated_paths=make_swept(),
-            project_batch=self.batch, separation_reuse=separation_reuse)
+            project_batch=self.batch, separation_reuse=separation_reuse,
+            sign_policy=sign_policy,
+            restart_identity={
+                'provider': 'agentfem.q1_geometry', 'revision': 1,
+                'arithmetic': 'native_gmp',
+                'exact_arithmetic': exact_geometry_arithmetic(),
+                'scope': 'projection-classification-conservative-bounds-swept-proof',
+                'partition': 'independent-ordered-queries-v1'})
         if geometry_workers:
             self.workers = ProjectionWorkers(geometry_workers, timeout=geometry_timeout)
 

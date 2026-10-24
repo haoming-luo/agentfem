@@ -1,0 +1,35 @@
+{
+  "scope": "independent linear-elastic sparse exact-active-patch diagnostic",
+  "exclusions": "Not finite-Hencky, plastic history, arbitrary active-set search or external-code validation",
+  "source_sha256": "47f6f76f3fb7a178cf590d1723d14b3181fbd1da9174247e3c858c88cfcc3841",
+  "records": [
+    {
+      "cells_per_edge": 24,
+      "full_dofs": 46875,
+      "contact_nodes": 169,
+      "amplitude": 1.0,
+      "reaction_magnitude": 24.373272380980875,
+      "amplitude_normalized_reaction": 24.373272380980875,
+      "edge_nodal_force_fraction": 0.5405942401775173,
+      "minimum_nodal_force": 0.06350472398583502,
+      "free_residual_norm": 6.886110906356918e-14,
+      "maximum_absolute_gap": 1.0668549377257364e-16,
+      "elastic_energy": 0.4113407450046169,
+      "assembly_and_solve_seconds": 5.811138084158301
+    },
+    {
+      "cells_per_edge": 32,
+      "full_dofs": 107811,
+      "contact_nodes": 289,
+      "amplitude": 1.0,
+      "reaction_magnitude": 23.957631414951415,
+      "amplitude_normalized_reaction": 23.957631414951415,
+      "edge_nodal_force_fraction": 0.47698135146421383,
+      "minimum_nodal_force": 0.03644779724392859,
+      "free_residual_norm": 8.200940395665655e-14,
+      "maximum_absolute_gap": 1.0668549377257364e-16,
+      "elastic_energy": 0.40822343775940095,
+      "assembly_and_solve_seconds": 34.02453583292663
+    }
+  ]
+}

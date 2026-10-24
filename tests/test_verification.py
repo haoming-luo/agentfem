@@ -383,3 +383,276 @@ def test_runtime_verification_rejects_serialized_constraint_work_drift():
 
     assert claim.status == "failed"
     assert "serialized provider work differs" in claim.actual["issues"][0]
+
+
+@pytest.mark.parametrize(
+    "mixed,certified,expected_status",
+    [(0, False, "passed"), (2, False, "failed"), (2, True, "passed")],
+)
+def test_quality_report_exposes_uncertified_sampled_feature_switch(
+    mixed, certified, expected_status,
+):
+    result = results.SimulationResult(
+        "bounded_contact_quality",
+        metadata={
+            "solve": {"converged": True},
+            "rigid_contact_point_diagnostics": {
+                "constraint": "tool_A",
+                "sampled_mixed_feature_slave_faces": mixed,
+                "feature_transition_integral_certified": certified,
+            },
+        },
+    )
+    result.add_quantity("force", 1.0)
+    report = result.verify("engineering")
+    claim = next(
+        item for item in report.claims
+        if item.name == "no_observed_uncertified_contact_feature_transition"
+    )
+    assert claim.status == expected_status
+    assert claim.actual["scope"] == (
+        "sampled_warning_not_complete_feature_coverage_proof"
+    )
+    if expected_status == "failed":
+        assert not report.acceptable
+        assert report.trust_level == "converged"
+        exploratory = result.verify("exploratory")
+        assert exploratory.acceptable
+        assert all(
+            item.name != "no_observed_uncertified_contact_feature_transition"
+            for item in exploratory.claims
+        )
+
+
+def test_quality_report_refuses_malformed_multi_pair_feature_evidence():
+    result = results.SimulationResult(
+        "contact_quality_invalid",
+        metadata={
+            "solve": {"converged": True},
+            "rigid_contact_point_diagnostics": (
+                {
+                    "constraint": "tool_A",
+                    "sampled_mixed_feature_slave_faces": 0,
+                    "feature_transition_integral_certified": False,
+                },
+                {"constraint": "tool_B", "sampled_mixed_feature_slave_faces": -1},
+            ),
+        },
+    )
+    result.add_quantity("force", 1.0)
+    report = result.verify("engineering")
+    claim = next(
+        item for item in report.claims
+        if item.name == "no_observed_uncertified_contact_feature_transition"
+    )
+    assert claim.status == "failed"
+    assert "invalid feature evidence" in claim.actual["issues"][0]
+
+
+@pytest.mark.parametrize(
+    "counts,expected_status",
+    [
+        ({"face": 2, "edge": 0, "vertex": 0}, "passed"),
+        ({"face": 1, "edge": 1, "vertex": 0}, "failed"),
+        ({"face": 1, "edge": 0, "vertex": 1}, "failed"),
+    ],
+)
+def test_engineering_report_separates_active_lower_dimensional_contact(
+    counts, expected_status,
+):
+    result = results.SimulationResult(
+        "closed_solid_contact_quality",
+        metadata={
+            "solve": {"converged": True},
+            "rigid_contact_point_diagnostics": {
+                "constraint": "nonconvex_tool",
+                "active_point_count": 2,
+                "active_feature_counts": counts,
+                "sampled_mixed_feature_slave_faces": 0,
+                "feature_transition_integral_certified": False,
+            },
+        },
+    )
+    result.add_quantity("force", 1.0)
+    report = result.verify("engineering")
+    claim = next(
+        item for item in report.claims
+        if item.name == "no_observed_uncertified_contact_feature_transition"
+    )
+    assert claim.status == expected_status
+    if expected_status == "failed":
+        assert "edge/vertex contact" in claim.actual["issues"][0]
+        assert not report.acceptable
+
+
+def test_engineering_report_rejects_inconsistent_active_feature_counts():
+    result = results.SimulationResult(
+        "closed_solid_invalid_feature_counts",
+        metadata={
+            "solve": {"converged": True},
+            "rigid_contact_point_diagnostics": {
+                "constraint": "nonconvex_tool",
+                "active_point_count": 1,
+                "active_feature_counts": {"face": 2, "edge": 0, "vertex": 0},
+                "sampled_mixed_feature_slave_faces": 0,
+                "feature_transition_integral_certified": False,
+            },
+        },
+    )
+    result.add_quantity("force", 1.0)
+    report = result.verify("engineering")
+    claim = next(
+        item for item in report.claims
+        if item.name == "no_observed_uncertified_contact_feature_transition"
+    )
+    assert claim.status == "failed"
+    assert "invalid active feature counts" in claim.actual["issues"][0]
+
+
+@pytest.mark.parametrize(
+    "active,certified,expected_status",
+    [(3, False, "failed"), (3, True, "passed"), (0, False, "failed")],
+)
+def test_release_refuses_uncertified_polyhedral_contact_even_without_sampled_activity(
+    active, certified, expected_status,
+):
+    result = results.SimulationResult(
+        "polyhedral_contact_release",
+        metadata={
+            "solve": {"converged": True},
+            "rigid_contact_point_diagnostics": {
+                "constraint": "tool_A",
+                "active_point_count": active,
+                "sampled_mixed_feature_slave_faces": 0,
+                "feature_transition_integral_certified": certified,
+            },
+            "rigid_contact_feature_path": {
+                "schema": "agentfem.contact-feature-path.v1",
+                "complete": True,
+                "accepted_station_count": 2,
+                "pairs": ({
+                    "constraint": "tool_A",
+                    "accepted_station_count": 2,
+                    "maximum_sampled_mixed_feature_slave_faces": 0,
+                    "maximum_active_edge_points": 0,
+                    "maximum_active_vertex_points": 0,
+                    "all_observed_integrals_certified": certified,
+                },),
+            },
+        },
+    )
+    result.add_quantity("force", 1.0)
+    reference = verification.VerificationClaim.compare(
+        name="independent_force_reference",
+        observable="force",
+        actual=1.0,
+        expected=1.0,
+        reference="fixed external comparator",
+    )
+    report = result.verify("release", claims=(reference,))
+    claim = next(
+        item for item in report.claims
+        if item.name == "polyhedral_contact_integral_certified"
+    )
+    assert claim.status == expected_status
+    assert report.acceptable is (expected_status == "passed")
+
+
+@pytest.mark.parametrize("earlier_hazard", ["edge", "mixed"])
+def test_engineering_report_retains_earlier_accepted_contact_feature_hazard(
+    earlier_hazard,
+):
+    result = results.SimulationResult(
+        "feature_path_not_just_final_frame",
+        metadata={
+            "solve": {"converged": True},
+            "rigid_contact_point_diagnostics": {
+                "constraint": "tool_A",
+                "active_point_count": 0,
+                "active_feature_counts": {"face": 0, "edge": 0, "vertex": 0},
+                "sampled_mixed_feature_slave_faces": 0,
+                "feature_transition_integral_certified": False,
+            },
+            "rigid_contact_feature_path": {
+                "schema": "agentfem.contact-feature-path.v1",
+                "complete": True,
+                "accepted_station_count": 3,
+                "pairs": ({
+                    "constraint": "tool_A",
+                    "accepted_station_count": 3,
+                    "maximum_sampled_mixed_feature_slave_faces": int(
+                        earlier_hazard == "mixed"
+                    ),
+                    "maximum_active_edge_points": int(earlier_hazard == "edge"),
+                    "maximum_active_vertex_points": 0,
+                    "all_observed_integrals_certified": False,
+                },),
+            },
+        },
+    )
+    result.add_quantity("force", 0.0)
+    claim = next(
+        item for item in result.verify("engineering").claims
+        if item.name == "no_observed_uncertified_contact_feature_transition"
+    )
+    assert claim.status == "failed"
+    assert any("earlier accepted station" in issue for issue in claim.actual["issues"])
+
+
+def test_engineering_report_refuses_incomplete_contact_feature_path():
+    result = results.SimulationResult(
+        "feature_path_incomplete",
+        metadata={
+            "solve": {"converged": True},
+            "rigid_contact_point_diagnostics": {
+                "constraint": "tool_A",
+                "sampled_mixed_feature_slave_faces": 0,
+                "feature_transition_integral_certified": False,
+            },
+            "rigid_contact_feature_path": {
+                "schema": "agentfem.contact-feature-path.v1",
+                "complete": False,
+                "accepted_station_count": 2,
+                "pairs": ({
+                    "constraint": "tool_A",
+                    "accepted_station_count": 1,
+                    "maximum_sampled_mixed_feature_slave_faces": 0,
+                    "maximum_active_edge_points": 0,
+                    "maximum_active_vertex_points": 0,
+                    "all_observed_integrals_certified": False,
+                },),
+            },
+        },
+    )
+    result.add_quantity("force", 0.0)
+    claim = next(
+        item for item in result.verify("engineering").claims
+        if item.name == "no_observed_uncertified_contact_feature_transition"
+    )
+    assert claim.status == "failed"
+    assert "accepted contact feature path is incomplete" in claim.actual["issues"]
+
+
+@pytest.mark.parametrize("point_diagnostics", [None, ()])
+def test_feature_path_without_current_polyhedral_pair_cannot_pass_vacuously(
+    point_diagnostics,
+):
+    metadata = {
+        "solve": {"converged": True},
+        "rigid_contact_feature_path": {
+            "schema": "agentfem.contact-feature-path.v1",
+            "complete": True,
+            "accepted_station_count": 1,
+            "pairs": (),
+        },
+    }
+    if point_diagnostics is not None:
+        metadata["rigid_contact_point_diagnostics"] = point_diagnostics
+    result = results.SimulationResult("empty_contact_path", metadata=metadata)
+    result.add_quantity("force", 0.0)
+    claim = next(
+        item for item in result.verify("engineering").claims
+        if item.name == "no_observed_uncertified_contact_feature_transition"
+    )
+    assert claim.status == "failed"
+    assert not result.verify("release").acceptable

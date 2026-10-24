@@ -1216,7 +1216,9 @@ class AffineNonlinearVariationalProblem:
     full_space_operators: tuple[object, ...] = ()
     checkpoint_policy: object | None = None
     acceptance_check: object | None = None
+    inelastic_increment_measure: str | None = None
     accepted_observers: tuple[object, ...] = ()
+    _equilibrium_procedure: object | None = field(default=None, init=False, repr=False)
     last_solve_info: object | None = field(default=None, init=False)
     snapshots: list = field(default_factory=list, init=False)
     accepted_history_recorders: dict[str, object] = field(
@@ -1287,6 +1289,7 @@ class AffineNonlinearVariationalProblem:
     def checkpoint_capabilities(self) -> checkpointing.CheckpointCapabilities:
         """Declare the stateful affine restart contract."""
 
+        prediction = getattr(self.incrementation, "inelastic_prediction_safety", None) is not None
         return checkpointing.CheckpointCapabilities(
             schemas=(
                 "agentfem.affine-stateful-checkpoint.v1",
@@ -1305,7 +1308,7 @@ class AffineNonlinearVariationalProblem:
             ),
             atomic_publication=True,
             rank_count_portability=(
-                "unsupported" if self.full_space_operators else "supported"
+                "unsupported" if self.full_space_operators or prediction else "supported"
             ),
             identity_scope=(
                 "mesh and function space",
@@ -1317,17 +1320,17 @@ class AffineNonlinearVariationalProblem:
                     if self.full_space_operators else ()
                 ),
             ),
-            limitations=(
+            limitations=(("accepted inelastic prediction is serial only",) if prediction else ()) + (
                 ("requires a durable state transaction",)
                 if not self.full_space_operators else (
                     "requires a durable state transaction",
                     "external full-space Operator composition is serial only",
                 )
             ),
-            evidence=(
+            evidence=(("serial accepted-increment prediction restart",) if prediction else (
                 ("MPI 1-to-2 and 2-to-1 portable restart",)
                 if not self.full_space_operators else ()
-            ),
+            )),
         )
 
     def assemble_full_residual(self):
@@ -1541,13 +1544,21 @@ class AffineNonlinearVariationalProblem:
             self._restore_operator_runtime_state(state["operator_state"])
             pending_acceptance = None
 
-        def capture(index, factor, solution, solve_info):
+        def begin_trial():
             nonlocal pending_acceptance
             if pending_acceptance is not None:
-                raise RuntimeError(
-                    "An accepted-boundary callback transaction is already active."
-                )
+                raise RuntimeError("The previous affine trial has no accepted or rolled-back boundary.")
+            # Snapshot BEFORE any outer/inner trial mutates Operator State.
+            # In particular an augmented multiplier may be provisional even
+            # though its final displacement has reached inner equilibrium.
             pending_acceptance = acceptance_backup()
+
+        def capture(index, factor, solution, solve_info):
+            nonlocal pending_acceptance
+            if pending_acceptance is None:
+                # The unchanged distributed path has no external Operators
+                # or nested equilibrium Procedure and snapshots at acceptance.
+                pending_acceptance = acceptance_backup()
             save_by_increment = (
                 self.output_every is not None and index % self.output_every == 0
             )
@@ -1650,7 +1661,12 @@ class AffineNonlinearVariationalProblem:
                 on_increment=capture,
                 on_accepted_boundary=accept_boundary,
                 on_acceptance_failure=restore_pending_acceptance,
+                on_trial_start=begin_trial,
+                equilibrium_procedure=self._equilibrium_procedure,
                 acceptance_check=self.acceptance_check,
+                **({"inelastic_increment_measure": self.inelastic_increment_measure}
+                   if getattr(self.incrementation, "inelastic_prediction_safety", None) is not None
+                   else {}),
                 state_transaction=self.state_transaction,
                 full_space_operators=self.full_space_operators,
                 stop_factor=selected_until,
@@ -1763,10 +1779,21 @@ class AffineNonlinearVariationalProblem:
                 for name, recorder in sorted(self.accepted_history_recorders.items())
             },
         }
+        if getattr(self.incrementation, "inelastic_prediction_safety", None) is not None:
+            identity["inelastic_increment_measure"] = self.inelastic_increment_measure
         if self.full_space_operators:
             identity["full_space_operators"] = tuple(
                 operator.summary() for operator in self.full_space_operators
             )
+        if self._equilibrium_procedure is not None:
+            identity["equilibrium_procedure"] = self._equilibrium_procedure.summary()
+        selected = self.solver_options
+        if isinstance(selected, NewtonSolverOptions):
+            selected = selected.for_affine_reduction()
+        if isinstance(selected, AffineNewtonOptions) and selected.line_search == "basic":
+            # Earlier affine basic mode still enforced Armijo decrease. Its
+            # checkpoints must not silently inherit the corrected algorithm.
+            identity["affine_full_step_policy"] = "finite_valid_trial_v1"
         return identity
 
     @staticmethod
@@ -1983,7 +2010,31 @@ class AffineNonlinearVariationalProblem:
         current_identity = json.loads(
             json.dumps(self._checkpoint_identity(), sort_keys=True)
         )
-        if payload.get("identity") != current_identity:
+        saved_identity = payload.get("identity")
+        legacy_missing_observers: set[str] = set()
+        if saved_identity != current_identity and isinstance(saved_identity, dict):
+            saved_recorders = saved_identity.get("accepted_history_recorders")
+            current_recorders = current_identity["accepted_history_recorders"]
+            if isinstance(saved_recorders, dict):
+                missing = set(current_recorders) - set(saved_recorders)
+                # A newly introduced evidence recorder may read an older path
+                # only if it explicitly knows how to mark missing history.
+                # All other scientific identity fields must still match.
+                if missing and all(
+                    callable(getattr(
+                        self.accepted_history_recorders[name],
+                        "restore_missing_checkpoint_state", None,
+                    ))
+                    for name in missing
+                ):
+                    compatible_identity = dict(current_identity)
+                    compatible_identity["accepted_history_recorders"] = {
+                        name: record for name, record in current_recorders.items()
+                        if name not in missing
+                    }
+                    if saved_identity == compatible_identity:
+                        legacy_missing_observers = missing
+        if saved_identity != current_identity and not legacy_missing_observers:
             raise ValueError(
                 "Affine checkpoint material, state, mesh, increment/solver "
                 "control, constraint equations, full-space Operator identity, "
@@ -2140,7 +2191,9 @@ class AffineNonlinearVariationalProblem:
             self.state_transaction.accepted_factor = coordinate
             self.state_transaction.prepare_resume()
             observer_state = payload.get("accepted_observer_state", {})
-            if set(observer_state) != set(self.accepted_history_recorders):
+            if set(observer_state) != (
+                set(self.accepted_history_recorders) - legacy_missing_observers
+            ):
                 raise ValueError(
                     "Affine checkpoint observer history differs from the "
                     "current output lifecycle."
@@ -2158,6 +2211,10 @@ class AffineNonlinearVariationalProblem:
                     raise TypeError(f"Accepted observer {name!r} is not restartable.")
                 recorder.restore_checkpoint_state(
                     record,
+                    current_snapshot=current_snapshot,
+                )
+            for name in legacy_missing_observers:
+                self.accepted_history_recorders[name].restore_missing_checkpoint_state(
                     current_snapshot=current_snapshot,
                 )
         except Exception:

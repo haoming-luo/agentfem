@@ -1815,7 +1815,7 @@ def _bind_performance_ledger(consumer, ledger, visited=None) -> None:
         consumer.performance = ledger
     except (AttributeError, TypeError):
         pass
-    for name in ("base", "bulk", "cohesive", "energy"):
+    for name in ("base", "bulk", "cohesive", "energy", "internal"):
         nested = getattr(consumer, name, None)
         if nested is not None:
             _bind_performance_ledger(nested, ledger, selected_visited)

@@ -2,6 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 """Single-station output for providers exposing accepted cell responses."""
 from pathlib import Path
+from copy import deepcopy
 import json
 import numpy as np
 
@@ -16,6 +17,13 @@ def _response_fields(step, *, state_fields=None, velocity=False, acceleration=Fa
     if domain.comm.size != 1:
         raise NotImplementedError("AFM-EXPORT-MPI: accepted response export is serial")
     keys = record["cell_keys"]
+    stress = np.asarray(record.get("cauchy_stress"))
+    if (stress.shape != (len(keys), 3, 3) or stress.dtype.kind not in "fiu"
+            or not np.isfinite(stress).all()):
+        raise ValueError("AFM-EXPORT-ARRAY: expected one finite real 3x3 Cauchy stress per cell")
+    if (record.get("stress_measure") != "cauchy"
+            or not isinstance(record.get("location"), str) or not record["location"].strip()):
+        raise ValueError("AFM-EXPORT-SEMANTICS: require Cauchy stress and an explicit source location")
     selected = {} if state_fields is None else dict(state_fields)
     reserved = {"cauchy_stress", displacement.name, "velocity", "acceleration"}
     if transport is None or not transport.matches(domain, keys):
@@ -106,15 +114,25 @@ class AcceptedResponseSeries:
     file, never an append to an earlier run. Private state selection stays data.
     """
 
-    def __init__(self, path, *, state_fields=None, velocity=False, acceleration=False, units=None):
+    def __init__(self, path, *, state_fields=None, velocity=False, acceleration=False, units=None,
+                 storage="single_file"):
         self.path = Path(path)
         if self.path.suffix != ".xdmf":
             raise ValueError("AFM-FRAMES-PATH: expected .xdmf")
-        self.options = dict(state_fields=state_fields, velocity=velocity, acceleration=acceleration)
+        if storage not in {"single_file", "frame_files"}:
+            raise ValueError("AFM-FRAMES-STORAGE: expected single_file or frame_files")
+        self.storage = storage
+        # Output choices belong to this series. In particular, list-valued
+        # selectors must not change when a caller edits its original mapping.
+        self.options = dict(state_fields=deepcopy(state_fields),
+                            velocity=velocity, acceleration=acceleration)
         self.units = json.loads(json.dumps(units or {}, allow_nan=False))
         self._writer = None
         self._closed = False
         self._published = False
+        self._close_error = None
+        self._close_complete = None
+        self._pending_metadata = None
         self.stations = []
         self._identity = None
         self._transport = None
@@ -126,41 +144,76 @@ class AcceptedResponseSeries:
             raise RuntimeError("AFM-FRAMES-CLOSED: use a new series")
         record, nodal, fields, selected, self._transport = _response_fields(
             step, transport=self._transport, **self.options)
-        identity = (record["state_schema"], selected)
+        identity = (record["state_schema"], selected, record["location"], record["stress_measure"])
         if self._identity is not None and identity != self._identity:
             raise ValueError("AFM-FRAMES-SCHEMA: state schema changed")
         if self._writer is None:
             if any(p.exists() for p in (self.path, self.path.with_suffix('.h5'), self.path.with_suffix('.json'))):
                 raise FileExistsError("AFM-FRAMES-EXISTS: use a fresh series path")
-            self._writer = ResultWriter(self.path, nodal[0].function_space.mesh)
+            self._writer = ResultWriter(self.path, nodal[0].function_space.mesh, storage=self.storage)
             self._writer.__enter__()
-            self._identity = identity
         self._writer.write(record["time"], *nodal, *fields)
+        if self._identity is None:
+            # Freeze only a successfully written descriptor, and never retain
+            # a provider-owned mutable schema as the previous-frame identity.
+            self._identity = deepcopy(identity)
         self.stations.append({"increment": int(step.completed_steps), "time": float(record["time"])})
 
     def close(self, *, complete=False):
+        """Close fields once, then atomically publish their owned metadata.
+
+        A metadata-only I/O failure can be retried with the same ``complete``
+        flag, without rewriting heavy data or running another increment.
+        A storage-close failure remains explicit: its safety is not inferred
+        merely because a later call to close no longer has work to do.
+        """
         from ..checkpointing import atomic_write_text
 
-        if self._closed:
+        if self._published:
             return self.artifacts()
-        self._closed = True
-        if self._writer is not None:
-            if self.stations:
-                self._writer.__exit__(None, None, None)
-            else:
-                self._writer.__exit__(RuntimeError, RuntimeError("No accepted frames"), None)
-        if self.stations:
-            atomic_write_text(self.path.with_suffix('.json'), json.dumps({
-                "schema": "agentfem.accepted-response-series.v1", "complete": bool(complete),
-                "restart_archive": False, "scientifically_validated": False,
-                "stations": self.stations, "units": self.units,
-                "state_schema": self._identity[0], "state_fields": self._identity[1],
-            }, indent=2, allow_nan=False) + '\n')
+        if self._close_error is not None:
+            raise RuntimeError(f"AFM-FRAMES-CLOSE-FAILED: {self._close_error}")
+        if not self._closed:
+            self._closed = True
+            self._close_complete = bool(complete)
+            try:
+                try:
+                    if self.stations:
+                        # Freeze small metadata before closing; aliases must not
+                        # change the description of written frames on retry.
+                        self._pending_metadata = json.dumps({
+                            "schema": "agentfem.accepted-response-series.v1", "complete": bool(complete),
+                            "restart_archive": False, "scientifically_validated": False,
+                            "storage": self.storage,
+                            "stations": self.stations, "units": self.units,
+                            "state_schema": self._identity[0], "state_fields": self._identity[1],
+                            "location": self._identity[2], "stress_measure": self._identity[3],
+                        }, indent=2, allow_nan=False) + '\n'
+                finally:
+                    # Invalid small metadata must not leak an open HDF5 handle
+                    # or prevent already accepted fields from being closed.
+                    if self._writer is not None:
+                        if self.stations:
+                            self._writer.__exit__(None, None, None)
+                        else:
+                            self._writer.__exit__(RuntimeError, RuntimeError("No accepted frames"), None)
+            except BaseException as error:
+                # Do not retain a traceback and the large solver state it may
+                # reference. Preserve the original exception for this caller.
+                self._close_error = f"{type(error).__name__}: {error}"
+                raise
+        elif bool(complete) != self._close_complete:
+            raise ValueError("AFM-FRAMES-COMPLETION: retry close with the original complete flag.")
+        if self._pending_metadata is not None:
+            atomic_write_text(self.path.with_suffix('.json'), self._pending_metadata)
             self._published = True
+            self._pending_metadata = None
         return self.artifacts()
 
     def artifacts(self):
         if not self._published:
             return {}
-        return {"process_fields": self.path, "process_arrays": self.path.with_suffix('.h5'),
+        arrays = (self.path.with_name(f"{self.path.stem}-data") if self.storage == "frame_files"
+                  else self.path.with_suffix('.h5'))
+        return {"process_fields": self.path, "process_arrays": arrays,
                 "process_metadata": self.path.with_suffix('.json')}

@@ -697,6 +697,41 @@ class TriangleSurfaceBVH:
                 pending.extend((int(self._left[node]), int(self._right[node])))
         return np.asarray(sorted(found, key=lambda i: self.surface.facet_ids[i]), dtype=np.int64)
 
+    def facets_within_distance(self, point, maximum_distance):
+        """Conservative facet candidates inside a point-to-AABB distance bound.
+
+        A triangle is contained in its leaf box, so rejecting a box farther
+        than this radius cannot reject a triangle within the radius. This is
+        broad-phase evidence only: callers must still evaluate exact geometry.
+        Stable facet-ID ordering makes the answer traversal-independent.
+        """
+
+        point = np.asarray(point, dtype=float)
+        distance = float(maximum_distance)
+        if (point.shape != (3,) or not np.all(np.isfinite(point))
+                or np.isnan(distance) or distance < 0.0):
+            raise ValueError("Distance search needs a finite point and nonnegative radius.")
+        if np.isinf(distance):
+            found = np.arange(len(self.surface.facet_ids), dtype=np.int64)
+        else:
+            squared_limit = np.nextafter(distance * distance, np.inf)
+            pending, selected = [self._root], []
+            while pending:
+                node = pending.pop()
+                if _bbox_squared_distance(
+                    point, self._lower[node], self._upper[node],
+                ) > squared_limit:
+                    continue
+                facet = int(self._facet[node])
+                if facet >= 0:
+                    selected.append(facet)
+                else:
+                    pending.extend((int(self._left[node]), int(self._right[node])))
+            found = np.asarray(selected, dtype=np.int64)
+        return np.asarray(
+            sorted(found, key=lambda i: self.surface.facet_ids[i]), dtype=np.int64,
+        )
+
     def segment_overlapping_facets(self, start, end, *, padding=0.0):
         """Broad-phase facet boxes intersected by a closed line segment.
 

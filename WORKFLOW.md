@@ -112,6 +112,22 @@ record.
     physical change. Their normalized amplitude is not a displacement unit.
 18. Evaluate physical QoIs, diagnostics, and histories. Keep coefficient
     statistics distinct from assembled physical integrals.
+    Expert implicit-contact observations may use `accepted_point_samples()`:
+    `reference_positions`, current `slave_positions`, point IDs and
+    `reference_weights` refer to the same unsmoothed trace. Check
+    `measure_configuration`; reference-area pressure is not automatically
+    current-area Cauchy traction. The owning Step must be at an accepted state.
+    For experimental constant-normal plane augmentation, inspect both the raw
+    mechanical-energy residual and the contact-aware residual, signed numerical
+    normal work and its discrete absolute-work bound. Refine accepted increments
+    before making an energy claim. An AL functional is not stored energy, and
+    endpoint complementarity alone does not eliminate contact-onset work.
+    With prescribed translation, tool work is external input and numerical
+    relative-gap work is separate; never count the tool work twice.
+    Optional multiplier acceleration belongs in Step numerical controls.
+    Compare the complete accepted path, including partial contact, unloading,
+    pressure and restart, before adopting it; retain the default when evidence
+    for the intended contact regime is missing.
 19. Write visualization/output artifacts and attach them to the result. The
     standard transient lifecycle performs this automatically; low-level
     `run(output=...)` remains available for expert loops.

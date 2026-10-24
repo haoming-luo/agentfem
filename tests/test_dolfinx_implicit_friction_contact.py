@@ -127,6 +127,76 @@ def test_translating_plane_friction_uses_relative_tool_motion_and_tangent(
         operator.validate_accepted_configuration()
 
 
+def test_co_rotating_plane_transports_implicit_stick_state_without_false_slip():
+    motion = boundary_models.prescribed_rigid_motion(
+        translation=(0.0, 0.0, 0.0), rotation=(np.pi / 2, 0.0, 0.0),
+        reference_point=(0.05, 0.5, 0.5),
+    )
+    displacement, operator = _operator(motion=motion)
+    nodal = displacement.x.array.reshape((-1, 3))
+    nodal[:, 0] = 0.1
+    nodal[:, 1] = 0.02
+    operator.commit_accepted()
+    old = operator.evaluate()
+    assert old.friction_assembly.dissipation_increment == 0.0
+    accepted_slip = operator.friction_state.accepted.elastic_slips.copy()
+
+    reference = np.asarray(motion.reference_point)
+    rotation = np.asarray(motion.state(1.0)["rotation_matrix"])
+    old_positions = operator.adapter.reference_nodal_positions + nodal.copy()
+    new_positions = reference + (old_positions - reference) @ rotation.T
+    nodal[:] = new_positions - operator.adapter.reference_nodal_positions
+    operator.update_motion(1.0)
+    _, record, _, factor = operator._current_point_response()
+    relative = boundary_models.relative_contact_displacement_increment(
+        operator.friction_kinematics.accepted, record,
+        motion=motion, current_motion_factor=factor,
+    )
+    np.testing.assert_allclose(relative, 0.0, atol=1e-13)
+    spun = operator.evaluate()
+    np.testing.assert_allclose(
+        spun.friction_assembly.contact_force_on_structure,
+        old.friction_assembly.contact_force_on_structure @ rotation.T,
+        atol=1e-11,
+    )
+    assert spun.friction_assembly.recoverable_penalty_energy == pytest.approx(
+        old.friction_assembly.recoverable_penalty_energy,
+    )
+    assert spun.friction_assembly.dissipation_increment == pytest.approx(0.0)
+    base = displacement.x.array.copy()
+    direction = np.random.default_rng(412).normal(size=base.shape)
+    direction /= np.linalg.norm(direction)
+    epsilon = 1.0e-7
+    displacement.x.array[:] = base + epsilon * direction
+    plus = operator.evaluate().nodal_structural_residual
+    displacement.x.array[:] = base - epsilon * direction
+    minus = operator.evaluate().nodal_structural_residual
+    displacement.x.array[:] = base
+    np.testing.assert_allclose(
+        spun.tangent_action(direction.reshape((-1, 3))),
+        (plus - minus) / (2.0 * epsilon), rtol=2e-5, atol=2e-6,
+    )
+    np.testing.assert_allclose(
+        operator.friction_state.accepted.elastic_slips, accepted_slip,
+    )
+    operator.commit_accepted()
+    np.testing.assert_allclose(
+        operator.friction_state.accepted.elastic_slips,
+        accepted_slip @ rotation.T, atol=1e-13,
+    )
+    snapshot = operator.snapshot_accepted_state()
+    restored_displacement, restored = _operator(motion=motion)
+    restored_displacement.x.array[:] = displacement.x.array
+    restored_displacement.x.scatter_forward()
+    restored.update_motion(1.0)
+    restored.restore_accepted_state(snapshot)
+    restored.validate_accepted_configuration()
+    np.testing.assert_allclose(
+        restored.evaluate().friction_assembly.contact_force_on_structure,
+        spun.friction_assembly.contact_force_on_structure, atol=1e-12,
+    )
+
+
 def test_coplanar_triangle_tool_matches_analytical_plane_friction_operator():
     motion = boundary_models.prescribed_rigid_motion(
         translation=(0.0, 0.2, 0.0),
@@ -379,6 +449,10 @@ def test_accepted_contact_point_export_is_raw_and_reconstructs_tool_resultant(tm
     assert metadata["complete"] and not metadata["restart_archive"]
     assert metadata["units"] == {"length": "m", "force": "N"}
     assert metadata["vtk_view"] == "current_slave_positions_vertex_only"
+    assert metadata["reference_positions_status"] == "available"
+    assert metadata["pairs"][0]["measure_configuration"] == "reference"
+    np.testing.assert_allclose(samples["reference_positions"],
+        step.contact_provider.accepted_point_samples()["reference_positions"])
     assert result.artifacts["accepted_contact_points_vtp"] == paths[
         "contact_point_view"
     ]
@@ -389,6 +463,7 @@ def test_accepted_contact_point_export_is_raw_and_reconstructs_tool_resultant(tm
     assert int(vtk_piece.attrib["NumberOfPoints"]) == len(samples["point_ids"])
     assert int(vtk_piece.attrib["NumberOfVerts"]) == len(samples["point_ids"])
     assert vtk_piece.find("./PointData/DataArray[@Name='normal_pressures']") is not None
+    assert vtk_piece.find("./PointData/DataArray[@Name='reference_positions']") is not None
     assert vtk_piece.find("./PointData/DataArray[@Name='pair_index']") is not None
     assert np.any(samples["active"])
     assert np.all(samples["normal_pressures"] >= 0.0)
@@ -437,8 +512,9 @@ def test_contact_point_vtp_is_readable_as_unsmoothed_vertices(tmp_path):
         )
 
 
+@pytest.mark.parametrize("corrupt_field", ["normal_pressures", "reference_positions"])
 def test_contact_point_export_rejects_nonfinite_provider_data_before_writing(
-    tmp_path, monkeypatch,
+    tmp_path, monkeypatch, corrupt_field,
 ):
     step = _moving_friction_patch_step(increments=2)
     step.solve()
@@ -464,9 +540,9 @@ def test_contact_point_export_rejects_nonfinite_provider_data_before_writing(
 
     def corrupt():
         sample = original()
-        pressure = sample["normal_pressures"].copy()
+        pressure = sample[corrupt_field].copy()
         pressure[0] = np.nan
-        sample["normal_pressures"] = pressure
+        sample[corrupt_field] = pressure
         return sample
 
     monkeypatch.setattr(provider, "accepted_point_samples", corrupt)
@@ -474,6 +550,25 @@ def test_contact_point_export_rejects_nonfinite_provider_data_before_writing(
     with pytest.raises(ValueError, match="AFM-CONTACT-EXPORT-ARRAY"):
         results.export_accepted_contact_points(step, destination)
     assert not destination.exists()
+
+
+def test_contact_export_keeps_older_provider_without_inventing_reference_positions(tmp_path, monkeypatch):
+    step = _moving_friction_patch_step(increments=2)
+    step.solve()
+    original = step.contact_provider.accepted_point_samples
+    def legacy():
+        sample = original()
+        sample.pop("reference_positions")
+        sample.pop("measure_configuration")
+        return sample
+    monkeypatch.setattr(step.contact_provider, "accepted_point_samples", legacy)
+    paths = results.export_accepted_contact_points(step, tmp_path / "legacy", vtk_view=True)
+    with np.load(paths["contact_points"], allow_pickle=False) as data:
+        assert "reference_positions" not in data.files
+        assert "slave_positions" in data.files
+    metadata = json.loads(paths["contact_point_metadata"].read_text())
+    assert metadata["reference_positions_status"] == "unavailable_for_some_pairs"
+    assert metadata["pairs"][0]["measure_configuration"] == "unspecified"
 
 
 @pytest.mark.parametrize("tool_travel", [0.03, 0.40])
@@ -634,7 +729,10 @@ def _frictional_j2_step(
     return step
 
 
-def test_mixed_convex_and_planar_friction_pairs_keep_separate_identity(tmp_path):
+@pytest.mark.parametrize("legacy_second_provider", [False, True])
+def test_mixed_convex_and_planar_friction_pairs_keep_separate_identity(
+    tmp_path, monkeypatch, legacy_second_provider,
+):
     reference = _frictional_j2_step(tangential_load=100.0)
     mixed = _frictional_j2_step(
         tangential_load=100.0, pair_count=2, first_convex=True,
@@ -652,15 +750,33 @@ def test_mixed_convex_and_planar_friction_pairs_keep_separate_identity(tmp_path)
     assert mixed.energy_history[-1].friction_dissipation == pytest.approx(
         reference.energy_history[-1].friction_dissipation, rel=1e-8,
     )
-    paths = results.export_accepted_contact_points(mixed, tmp_path / "mixed_points")
+    if legacy_second_provider:
+        provider = mixed.contact_provider.providers[1]
+        original = provider.accepted_point_samples
+        def legacy():
+            samples = original()
+            samples.pop("reference_positions")
+            samples.pop("measure_configuration")
+            return samples
+        monkeypatch.setattr(provider, "accepted_point_samples", legacy)
+    paths = results.export_accepted_contact_points(mixed, tmp_path / "mixed_points", vtk_view=True)
     with np.load(paths["contact_points"], allow_pickle=False) as archive:
         pair_index = archive["pair_index"]
         assert set(pair_index.tolist()) == {0, 1}
         assert len(archive["point_ids"]) == len(pair_index)
+        assert ("reference_positions" in archive.files) is not legacy_second_provider
+        if not legacy_second_provider:
+            assert archive["reference_positions"].shape == archive["slave_positions"].shape
     metadata = json.loads(paths["contact_point_metadata"].read_text())
     assert [item["constraint_name"] for item in metadata["pairs"]] == [
         item["constraint_name"] for item in mixed_result.metadata["constraint_duals"]
     ]
+    assert [item["reference_positions_available"] for item in metadata["pairs"]] == [
+        True, not legacy_second_provider,
+    ]
+    view = ET.parse(paths["contact_point_view"])
+    reference_array = view.find(".//PointData/DataArray[@Name='reference_positions']")
+    assert (reference_array is None) is legacy_second_provider
 
 
 def test_public_friction_rejects_symmetry_only_linear_solver():

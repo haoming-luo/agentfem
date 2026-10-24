@@ -77,8 +77,9 @@ def partition_planar_p1_trace(
 
     The input is the reviewed three-point P1 triangular trace.  Full and open
     faces retain their ordinary three points; this also keeps an all-open trace
-    admissible to projection backends.  Crossing faces use the current planar
-    signed gap but integrate on the *reference* face area.  New point IDs are
+    admissible to projection backends. The plane may be shared or supplied
+    separately for each face, in trace order. Crossing faces use the current
+    planar signed gap but integrate on the *reference* face area. New point IDs are
     deterministic within one trial; they are not historical State identities.
     """
 
@@ -102,16 +103,21 @@ def partition_planar_p1_trace(
     positions = np.asarray(nodal_positions, dtype=float)
     point = np.asarray(plane_point, dtype=float)
     normal = np.asarray(plane_normal, dtype=float)
+    face_count = ids.size // 3
+    if point.shape == (3,) and normal.shape == (3,):
+        point = np.broadcast_to(point, (face_count, 3))
+        normal = np.broadcast_to(normal, (face_count, 3))
     if (positions.ndim != 2 or positions.shape[1] != 3
             or not np.all(np.isfinite(positions))
-            or point.shape != (3,) or normal.shape != (3,)
+            or point.shape != (face_count, 3)
+            or normal.shape != (face_count, 3)
             or not np.all(np.isfinite(point)) or not np.all(np.isfinite(normal))
             or ids.size and int(nodes.max()) >= len(positions)):
         raise ValueError("Planar partition has invalid positions or plane geometry.")
     if ids.size and int(ids.max()) // 3 > np.iinfo(np.int64).max // 16:
         raise OverflowError("Planar partition point identity exceeds int64.")
     rows = nodes.reshape(-1, 3, 3)[:, 0, :]
-    gaps = np.einsum("fij,j->fi", positions[rows] - point, normal)
+    gaps = np.einsum("fij,fj->fi", positions[rows] - point[:, None, :], normal)
     if not np.any((np.min(gaps, axis=1) < 0.0) & (np.max(gaps, axis=1) > 0.0)):
         return trace
     new_ids = []

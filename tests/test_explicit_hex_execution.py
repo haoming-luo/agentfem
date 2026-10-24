@@ -146,3 +146,59 @@ def test_bulk_execution_equivalence_and_invalid_output_rollback():
     with pytest.raises(ValueError, match='nonnegative'):
         failing.run()
     assert failing.residual.snapshot() == before
+
+
+@pytest.mark.parametrize('storage', ['fields', 'owned_arrays'])
+def test_damped_body_execution_equivalence_and_failure_atomicity(storage):
+    from dataclasses import replace
+    from agentfem.elements._bulk_viscosity import _bulk_viscosity_from_checked_gradient
+    policy = elements.BulkViscosityPolicy(1., 10., .5)
+    kernel = reference_kernel([])
+    calls = []
+    fail = [False]
+
+    def damped(material, request, geometry, displacement, velocity, coefficients):
+        assert not velocity.flags.writeable
+        assert not geometry.cell_nodes.flags.writeable
+        assert not coefficients['density'].flags.writeable
+        body = kernel.evaluate(material, request, geometry, displacement)
+        damping = _bulk_viscosity_from_checked_gradient(geometry,
+            request.deformation_gradient_new, velocity[geometry.cell_nodes], **coefficients)
+        calls.append(1)
+        if fail[0]:
+            damping = replace(damping, artificial_power=np.full_like(damping.artificial_power, -1.))
+        return body, damping
+
+    reference = contact_step(bulk_viscosity=policy, material_storage=storage,
+                             execution_kernel=kernel)
+    candidate = contact_step(bulk_viscosity=policy, material_storage=storage,
+                             execution_kernel=replace(kernel, evaluate_damped=damped))
+    reference.run(); candidate.run(until_step=1)
+    before = candidate.residual.snapshot()
+    displacement = candidate.state.u.value.x.array.copy()
+    fail[0] = True
+    with pytest.raises(ValueError, match='nonnegative'):
+        candidate.run()
+    assert candidate.residual.snapshot() == before
+    np.testing.assert_array_equal(candidate.state.u.value.x.array, displacement)
+    fail[0] = False
+    candidate.run()
+    assert calls
+    np.testing.assert_array_equal(candidate.state.u.value.x.array, reference.state.u.value.x.array)
+    assert candidate.material_residual.viscosity_work == reference.material_residual.viscosity_work
+
+
+def test_hex_node_map_validates_and_owns_unsigned_indices():
+    def geometry(nodes):
+        return elements.ExplicitHexGeometry(np.zeros((1,8,3)), np.zeros((1,8,4)),
+            np.ones(1), np.zeros(1), cell_nodes=nodes)
+    nodes = np.arange(8, dtype=np.uint32)[None]
+    result = geometry(nodes)
+    nodes[:] = 0
+    assert result._maximum_cell_node == 7
+    assert not result.cell_nodes.flags.writeable
+    np.testing.assert_array_equal(result.cell_nodes, np.arange(8)[None])
+    for bad in (np.ones((1,8), dtype=float), np.full((1,8), -1),
+                np.full((1,8), 2**32, dtype=np.uint64)):
+        with pytest.raises(ValueError, match='node map'):
+            geometry(bad)

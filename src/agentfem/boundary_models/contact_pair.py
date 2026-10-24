@@ -48,6 +48,7 @@ class RigidContactPair:
     law: FrictionlessPenaltyContactLaw
     name: str = "rigid_contact_pair"
     friction: PenaltyCoulombFrictionLaw | None = None
+    initial_penetration_limit: float | None = None
 
     def __post_init__(self) -> None:
         if not isinstance(self.slave_boundary, BoundaryRegion):
@@ -76,6 +77,13 @@ class RigidContactPair:
         if not str(self.name).strip():
             raise ValueError("RigidContactPair requires a name.")
         object.__setattr__(self, "name", str(self.name))
+        if self.initial_penetration_limit is not None:
+            limit = float(self.initial_penetration_limit)
+            if not np.isfinite(limit) or limit < 0.0:
+                raise ValueError(
+                    "Initial contact penetration limit must be finite and non-negative."
+                )
+            object.__setattr__(self, "initial_penetration_limit", limit)
 
     @property
     def dimension(self) -> int:
@@ -89,7 +97,7 @@ class RigidContactPair:
 
     def _identity_payload(self) -> dict[str, object]:
         boundary = self.slave_boundary
-        return {
+        payload = {
             "name": self.name,
             "slave_boundary": {
                 "name": boundary.name,
@@ -100,6 +108,11 @@ class RigidContactPair:
             "law": self.law.summary(),
             "friction": None if self.friction is None else self.friction.summary(),
         }
+        # Preserve existing scientific/checkpoint identities for projects
+        # that did not opt into the new initial-overlap admission rule.
+        if self.initial_penetration_limit is not None:
+            payload["initial_penetration_limit"] = self.initial_penetration_limit
+        return payload
 
     def summary(self) -> dict[str, object]:
         return {
@@ -120,6 +133,7 @@ def rigid_contact_pair(
     friction_coefficient: float | None = None,
     tangential_penalty=None,
     invalid_policy: str = "reject",
+    initial_penetration_limit: float | None = None,
     name: str = "rigid_contact_pair",
 ) -> RigidContactPair:
     """Create one solver-neutral rigid pair with optional friction semantics."""
@@ -147,6 +161,7 @@ def rigid_contact_pair(
         ),
         name=name,
         friction=friction,
+        initial_penetration_limit=initial_penetration_limit,
     )
 
 

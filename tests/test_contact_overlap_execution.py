@@ -11,6 +11,12 @@ from agentfem.mechanics._deformable_contact_explicit import DeformableQ1ContactR
 def test_owner_thread_join_and_failure_precedence(body_failure, geometry_failure):
     contact = object.__new__(DeformableQ1ContactResidual)
     owner = get_ident()
+    from agentfem.diagnostics import PerformanceLedger
+    class OwnerLedger(PerformanceLedger):
+        def add(self, name, elapsed):
+            assert get_ident() == owner
+            super().add(name, elapsed)
+    contact.performance = OwnerLedger()
     started, body_started, finished = Event(), Event(), Event()
     calls = []
     vector = SimpleNamespace(destroy=lambda: calls.append('destroy'))
@@ -50,6 +56,9 @@ def test_owner_thread_join_and_failure_precedence(body_failure, geometry_failure
             assert calls == [('add',owner,'response')]
         assert not contact._geometry_busy
     assert contact._geometry_executor is None
+    assert contact.performance.counts['deformable_contact_inclusive'] == 1
+    assert contact.performance.counts['contact_owner_wait'] == 1
+    assert contact.performance.seconds['deformable_contact_inclusive'] >= 0
 
 
 def test_real_contact_same_path_and_restart(tmp_path):

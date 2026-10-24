@@ -1,13 +1,17 @@
 # SPDX-FileCopyrightText: 2026 Haoming Luo and AgentFEM contributors
 # SPDX-License-Identifier: Apache-2.0
 
-"""Accepted-path work State for prescribed rigid contact motion.
+"""Accepted-path work evidence for rigid contact.
 
 The contact backend supplies generalized force and generalized coordinate
 samples.  This module owns only transactional State: a trial sample is staged
 during one increment, committed after the Procedure accepts that increment,
 or discarded on rollback.  The resulting work ledger is backend-neutral and
 JSON serializable for transient checkpoint/restart.
+
+Fixed-normal gap work is separate from prescribed-tool work and physical
+stored energy. Its endpoint quadrature can include signed contact-opening
+and closure defects even when endpoint complementarity is exact.
 """
 
 from __future__ import annotations
@@ -28,6 +32,43 @@ _NUMERIC_STATE_SCHEMA = "agentfem.prescribed-contact-work-state.v2"
 _SCALAR_COLUMNS = ("time", "factor", "contact_potential_energy")
 _VECTOR_COLUMNS = ("generalized_force", "generalized_coordinate", "contact_resultant")
 _COUNT_COLUMNS = ("active_point_count", "invalid_point_count")
+
+
+@dataclass(frozen=True)
+class _FixedNormalWorkIncrement:
+    relative_work: float
+    absolute_work_bound: float
+    open_gap_work: float
+
+
+def _fixed_normal_work_increment(*, weights, old_gap, new_gap, old_pressure, new_pressure):
+    """Integrate matched fixed-normal, reference-area endpoint samples.
+
+    W = sum(w * (p0+p1)/2 * (g1-g0)), relative to the plane.
+    For a translating plane, structural contact work is tool work plus W.
+    For a stationary plane, W alone is work into the structure.
+    B = sum(w * (p0+p1)/2 * abs(g1-g0)) bounds abs(W) without
+    cancellation. Open-gap work replaces g by max(g,0); W minus that term
+    is the penetration-motion contribution. Neither is stored energy or
+    dissipation. B bounds this discrete quadrature, NOT an unobserved
+    continuous path, a moving-normal path, or its quadrature error.
+    The caller owns identity matching and accepted/trial lifecycle admission.
+    """
+
+    arrays = [np.asarray(value, dtype=float) for value in
+              (weights, old_gap, new_gap, old_pressure, new_pressure)]
+    w, g0, g1, p0, p1 = arrays
+    if (w.ndim != 1 or any(a.shape != w.shape or not np.isfinite(a).all() for a in arrays)
+            or np.any(w <= 0) or np.any(p0 < 0) or np.any(p1 < 0)):
+        raise ValueError("Fixed-normal work needs matched finite vectors, positive weights and nonnegative pressures.")
+    weighted_pressure = w * (0.5*p0 + 0.5*p1)
+    delta = g1 - g0
+    work = float(np.dot(weighted_pressure, delta))
+    bound = float(np.dot(weighted_pressure, np.abs(delta)))
+    opened = float(np.dot(weighted_pressure, np.maximum(g1, 0) - np.maximum(g0, 0)))
+    if not np.isfinite((work, bound, opened)).all():
+        raise ValueError("Fixed-normal contact work overflowed.")
+    return _FixedNormalWorkIncrement(work, bound, opened)
 
 
 @dataclass(frozen=True)

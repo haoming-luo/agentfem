@@ -1,0 +1,44 @@
+{
+  "scope": "serial built-in J2, affine periodic fixed-plane augmentation",
+  "package_origin": "source checkout; first buffer-guard prototype before callable-identity guard",
+  "cells": 8,
+  "increments": 16,
+  "order": "ABBA",
+  "runs": [
+    {
+      "reuse_enabled": false,
+      "solve_and_observe_seconds": 22.895087375305593,
+      "material_response_reuses": 0,
+      "all_station_arrays_equal": true,
+      "accepted_increments": 16,
+      "newton_iterations": 149
+    },
+    {
+      "reuse_enabled": true,
+      "solve_and_observe_seconds": 18.87545754155144,
+      "material_response_reuses": 45,
+      "all_station_arrays_equal": true,
+      "accepted_increments": 16,
+      "newton_iterations": 149
+    },
+    {
+      "reuse_enabled": true,
+      "solve_and_observe_seconds": 19.056833000387996,
+      "material_response_reuses": 45,
+      "all_station_arrays_equal": true,
+      "accepted_increments": 16,
+      "newton_iterations": 149
+    },
+    {
+      "reuse_enabled": false,
+      "solve_and_observe_seconds": 21.45677874982357,
+      "material_response_reuses": 0,
+      "all_station_arrays_equal": true,
+      "accepted_increments": 16,
+      "newton_iterations": 149
+    }
+  ],
+  "comparison": "Exact U, committed state, first Piola, tangent, pressures and normal work at four stations",
+  "exclusions": "Not explicit performance, MPI, mixed pressure, external material, or continuum validation",
+  "observed_elapsed_reduction": 0.14474194986696354
+}

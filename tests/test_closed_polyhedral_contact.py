@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from types import SimpleNamespace
+
 import numpy as np
 import pytest
 import basix.ufl
@@ -14,8 +16,26 @@ from agentfem.boundary_models.closed_polyhedron import (
 )
 from agentfem.boundary_models.contact_response import frictionless_penalty_contact_law
 from agentfem.boundary_models.contact_state import ContactProjectionRecord
+from agentfem.boundary_models.contact_separation_bound import (
+    certify_current_triangle_separation,
+)
+from agentfem.boundary_models.contact_feature_path import AcceptedContactFeaturePath
+from agentfem.boundary_models.contact_planar_branch_bound import (
+    _coplanar_patch_covers_face,
+    _quadratic_finite_feature_distance_difference_lower_bound,
+    _quadratic_plane_distance_difference_lower_bound,
+    certify_closed_planar_branch,
+    certify_reviewed_planar_branch,
+)
 from agentfem.boundary_models.contact_trace import ContactTrace
+from agentfem.boundary_models.initial_gap_bound import (
+    certify_initial_reviewed_planar_branch_gap,
+)
 from agentfem.boundary_models.implicit_contact import integrate_implicit_rigid_contact
+from agentfem.boundary_models.implicit_closed_contact import (
+    sampled_mixed_feature_slave_faces,
+)
+from agentfem.boundary_models.rigid import _closest_point_on_triangle
 from agentfem.boundary_models.dolfinx_implicit_facet_contact import (
     dolfinx_implicit_rigid_contact,
 )
@@ -43,6 +63,498 @@ def _concave_tool():
         vertices=vertices, triangles=triangles, reviewed_embedded=True,
         name="reviewed_L_prism",
     )
+
+
+def _tiled_closed_cube(subdivisions):
+    """Closed, consistently oriented box with many coplanar seam facets."""
+
+    faces = (
+        ((1, 0, 0), (0, 1, 0), (0, 0, 1)),
+        ((0, 0, 0), (0, 0, 1), (0, 1, 0)),
+        ((0, 1, 0), (0, 0, 1), (1, 0, 0)),
+        ((0, 0, 0), (1, 0, 0), (0, 0, 1)),
+        ((0, 0, 1), (1, 0, 0), (0, 1, 0)),
+        ((0, 0, 0), (0, 1, 0), (1, 0, 0)),
+    )
+    vertices, triangles, indices = [], [], {}
+
+    def index(coordinates):
+        key = tuple(int(round(subdivisions * value)) for value in coordinates)
+        if key not in indices:
+            indices[key] = len(vertices)
+            vertices.append(np.asarray(key, dtype=float) / subdivisions)
+        return indices[key]
+
+    def face_index(origin, axis_u, axis_v, i, j):
+        return index(origin + (i * axis_u + j * axis_v) / subdivisions)
+
+    for origin, axis_u, axis_v in faces:
+        origin = np.asarray(origin, dtype=float)
+        axis_u = np.asarray(axis_u, dtype=float)
+        axis_v = np.asarray(axis_v, dtype=float)
+        for i in range(subdivisions):
+            for j in range(subdivisions):
+                first = face_index(origin, axis_u, axis_v, i, j)
+                second = face_index(origin, axis_u, axis_v, i + 1, j)
+                third = face_index(origin, axis_u, axis_v, i, j + 1)
+                fourth = face_index(origin, axis_u, axis_v, i + 1, j + 1)
+                triangles.extend(((first, second, third), (second, fourth, third)))
+    return closed_triangulated_rigid_solid(
+        vertices=np.asarray(vertices), triangles=np.asarray(triangles),
+        reviewed_embedded=True, name="tiled_closed_cube",
+    )
+
+
+def test_current_face_separation_uses_whole_triangle_bound_and_current_rigid_pose():
+    tool = _concave_tool()
+    triangle = np.asarray((((3., 0.4, 0.5), (3., 0.8, 0.5),
+                            (3., 0.4, 0.8)),))
+    far = certify_current_triangle_separation(triangle, tool)
+    assert far.certified
+    assert far.minimum_gap_lower_bound > 0
+    assert far.sampled_point_count == 0
+    assert far.status == "strictly_separated_aabb"
+    notch = certify_current_triangle_separation(
+        np.asarray((((1.2, 1.6, 0.5), (1.35, 1.6, 0.5),
+                     (1.2, 1.75, 0.5)),)), tool,
+    )
+    assert notch.certified
+    assert notch.sampled_point_count >= 1
+    assert notch.minimum_gap_lower_bound > 0
+    motion = boundary_models.prescribed_rigid_motion(translation=(2.5, 0, 0))
+    approached = certify_current_triangle_separation(
+        triangle, tool, motion=motion, factor=1.0, maximum_depth=3,
+    )
+    assert not approached.certified
+    assert approached.minimum_gap_lower_bound is None
+    assert approached.status in {"contact_not_excluded", "depth_budget_exhausted"}
+
+
+def test_closed_planar_branch_covers_tiled_master_seams_beyond_small_reference_budget():
+    tool = _tiled_closed_cube(12)
+    assert len(tool.facets.triangles) == 1728
+    triangle = np.asarray((((1.02, 0.38, 0.38), (1.02, 0.45, 0.38),
+                            (1.02, 0.38, 0.45)),))
+    bound = certify_closed_planar_branch(triangle, tool)
+    assert bound.certified, bound.status
+    np.testing.assert_allclose(bound.plane_normals, ((1.0, 0.0, 0.0),))
+
+
+def test_reviewed_open_patch_proves_whole_face_across_coplanar_seam():
+    surface = boundary_models.triangulated_rigid_surface(
+        vertices=((1., 0., 0.), (1., 1., 0.), (1., 0., 1.), (1., 1., 1.)),
+        triangles=((0, 1, 2), (1, 3, 2)), name="reviewed_open_patch",
+    )
+    search = boundary_models.triangle_surface_bvh(surface)
+    crossing = np.asarray((((0.98, 0.42, 0.42), (0.98, 0.58, 0.42),
+                            (0.98, 0.42, 0.58)),))
+    proven = certify_reviewed_planar_branch(
+        crossing, surface, projector=search,
+    )
+    assert proven.certified, proven.status
+    np.testing.assert_allclose(proven.plane_normals, ((1., 0., 0.),))
+    np.testing.assert_allclose(
+        (crossing[0] - proven.plane_points[0]) @ proven.plane_normals[0],
+        -0.02,
+    )
+    beyond = crossing + np.asarray((0., 0.6, 0.))
+    refused = certify_reviewed_planar_branch(
+        beyond, surface, projector=search,
+    )
+    assert not refused.certified
+    assert refused.status in {
+        "projection_can_leave_master_patch", "another_master_feature_can_compete",
+    }
+
+    admitted = certify_initial_reviewed_planar_branch_gap(
+        crossing, surface, projector=search, penetration_limit=0.03,
+    )
+    assert admitted.maximum_penetration_bound == pytest.approx(0.02, abs=1e-12)
+    with pytest.raises(ValueError, match="AFM-CONTACT-INITIAL-OVERLAP"):
+        certify_initial_reviewed_planar_branch_gap(
+            crossing, surface, projector=search, penetration_limit=0.01,
+        )
+    with pytest.raises(NotImplementedError, match="AFM-CONTACT-INITIAL-UNCERTIFIED"):
+        certify_initial_reviewed_planar_branch_gap(
+            beyond, surface, projector=search, penetration_limit=0.03,
+        )
+
+
+def test_reviewed_open_sheet_quadratic_bound_proves_only_the_same_nearest_plane():
+    surface = boundary_models.triangulated_rigid_surface(
+        vertices=(
+            (1., 0., 0.), (1., 0., 2.), (1., 2., 2.), (1., 2., 0.),
+            (0.7, 1.9, 0.8), (0.8, 1.9, 0.8), (0.7, 1.9, 0.9),
+        ),
+        triangles=((0, 1, 2), (0, 2, 3), (4, 5, 6)),
+        name="open_patch_with_nonplanar_competitor",
+    )
+    search = boundary_models.triangle_surface_bvh(surface)
+    broad = np.asarray((((0.95, 0.4, 0.8), (0.95, 1.4, 0.8),
+                         (0.95, 0.4, 1.1)),))
+    coarse = certify_reviewed_planar_branch(
+        broad, surface, projector=search, maximum_refinement_levels=0,
+    )
+    refined = certify_reviewed_planar_branch(
+        broad, surface, projector=search,
+    )
+    # The old center-minus-2r test needed subdivision here. The exact
+    # squared-plane quadratic now proves the competing finite triangle is
+    # farther over the *whole* P1 face without that refinement.
+    assert coarse.certified, coarse.status
+    assert refined.certified, refined.status
+    assert coarse.minimum_competitor_clearance > 0
+    assert refined.minimum_competitor_clearance > 0
+    samples = np.asarray((
+        broad[0, 0], broad[0, 1], broad[0, 2],
+        broad[0].mean(axis=0), 0.2 * broad[0, 0] + 0.3 * broad[0, 1]
+        + 0.5 * broad[0, 2],
+    ))
+    np.testing.assert_allclose(
+        search.project(samples).signed_gaps,
+        (samples - refined.plane_points[0]) @ refined.plane_normals[0],
+        atol=1e-12,
+    )
+    closer_but_still_smooth = broad.copy()
+    closer_but_still_smooth[:, :, 1] += 0.3
+    admitted = certify_reviewed_planar_branch(
+        closer_but_still_smooth, surface, projector=search,
+    )
+    assert admitted.certified, admitted.status
+    actually_competing = boundary_models.triangulated_rigid_surface(
+        vertices=(
+            (1., 0., 0.), (1., 0., 2.), (1., 2., 2.), (1., 2., 0.),
+            (0.94, 1.9, 0.8), (0.96, 1.9, 0.8), (0.94, 1.9, 0.9),
+        ),
+        triangles=((0, 1, 2), (0, 2, 3), (4, 5, 6)),
+        name="actual_nonplanar_competitor",
+    )
+    rejected = certify_reviewed_planar_branch(
+        broad + np.asarray((0., 0.5, 0.)), actually_competing,
+        projector=boundary_models.triangle_surface_bvh(actually_competing),
+    )
+    assert not rejected.certified
+    assert rejected.status == "another_master_feature_can_compete"
+
+
+def test_plane_distance_quadratic_refuses_a_hidden_interior_competitor():
+    triangle = np.asarray((((1., 2., 0.), (1., -2., 0.), (2., 3., 0.))))
+    candidate_normal = np.asarray((1., 0., 0.))
+    other_normal = np.asarray((0., 1., 0.))
+    corner_difference = triangle[:, 1] ** 2 - triangle[:, 0] ** 2
+    assert np.all(corner_difference > 0.0)
+    lower, _, _ = _quadratic_plane_distance_difference_lower_bound(
+        triangle, candidate_normal, 0.0, other_normal, 0.0,
+    )
+    midpoint = np.mean(triangle, axis=0)
+    assert lower < midpoint[1] ** 2 - midpoint[0] ** 2 < 0.0
+
+    safe = np.asarray((((1., 2., 0.), (1., 3., 0.), (1.2, 2.2, 0.))))
+    safe_lower, _, _ = _quadratic_plane_distance_difference_lower_bound(
+        safe, candidate_normal, 0.0, other_normal, 0.0,
+    )
+    assert safe_lower > 0.0
+
+
+@pytest.mark.parametrize("feature", ["edge", "vertex"])
+def test_fixed_finite_triangle_feature_has_whole_slave_face_distance_bound(feature):
+    cell = np.asarray(((0.95, 0.4, 0.8), (0.95, 1.4, 0.8),
+                       (0.95, 0.4, 1.1)))
+    triangle = np.asarray((
+        ((0.7, 1.6, 0.9), (1.2, 1.6, 0.9), (0.7, 2.0, 0.9))
+        if feature == "edge" else
+        ((0.7, 1.6, 0.9), (0.9, 1.6, 0.9), (0.7, 2.0, 0.9))
+    ))
+    plane_lower, _, _ = _quadratic_plane_distance_difference_lower_bound(
+        cell, np.asarray((1., 0., 0.)), 1.0,
+        np.asarray((0., 0., 1.)), 0.9,
+    )
+    assert plane_lower < 0.0  # Infinite master plane crosses the slave face.
+    bound = _quadratic_finite_feature_distance_difference_lower_bound(
+        cell, np.asarray((1., 0., 0.)), 1.0, triangle,
+        length_margin=1e-12,
+    )
+    assert bound is not None and bound[0] > 0.0
+    for a in np.linspace(0.0, 1.0, 15):
+        for b in np.linspace(0.0, 1.0 - a, 15):
+            point = cell[0] + a * (cell[1] - cell[0]) + b * (cell[2] - cell[0])
+            foot = _closest_point_on_triangle(point, *triangle)
+            exact_difference = np.sum((point - foot)**2) - (point[0] - 1.0)**2
+            assert exact_difference >= bound[0] - 1e-12
+
+
+def test_open_sheet_uses_fixed_vertex_bound_only_for_a_distant_finite_facet():
+    surface = boundary_models.triangulated_rigid_surface(
+        vertices=(
+            (1., 0., 0.), (1., 0., 2.), (1., 2., 2.), (1., 2., 0.),
+            (0.7, 1.6, 0.9), (0.9, 1.6, 0.9), (0.7, 2., 0.9),
+        ),
+        triangles=((0, 1, 2), (0, 2, 3), (4, 5, 6)),
+    )
+    face = np.asarray((((0.95, 0.4, 0.8), (0.95, 1.4, 0.8),
+                        (0.95, 0.4, 1.1)),))
+    result = certify_reviewed_planar_branch(
+        face, surface, projector=boundary_models.triangle_surface_bvh(surface),
+        maximum_refinement_levels=0,
+    )
+    assert result.certified, result.status
+    assert result.minimum_competitor_clearance > 0.0
+
+
+def test_finite_feature_bound_refuses_a_whole_face_voronoi_switch():
+    triangle = np.asarray(((0.7, 1.6, 0.9), (1.2, 1.6, 0.9),
+                           (0.7, 2.0, 0.9)))
+    crossing = np.asarray(((0.6, 1.4, 0.8), (1.3, 1.4, 0.8),
+                           (0.95, 1.4, 1.1)))
+    assert _quadratic_finite_feature_distance_difference_lower_bound(
+        crossing, np.asarray((1., 0., 0.)), 1.0, triangle,
+        length_margin=1e-12,
+    ) is None
+
+
+def test_finite_feature_quadratic_bound_survives_rigid_frame_changes():
+    rng = np.random.default_rng(81349)
+    cell = np.asarray(((0.95, 0.4, 0.8), (0.95, 1.4, 0.8),
+                       (0.95, 0.4, 1.1)))
+    triangle = np.asarray(((0.7, 1.6, 0.9), (1.2, 1.6, 0.9),
+                           (0.7, 2.0, 0.9)))
+    for scale in (0.01, 1.0, 100.0):
+        for _ in range(6):
+            matrix, _ = np.linalg.qr(rng.normal(size=(3, 3)))
+            if np.linalg.det(matrix) < 0.0:
+                matrix[:, 0] *= -1.0
+            shift = rng.uniform(-2, 2, 3) * scale
+            moved_cell = scale * cell @ matrix + shift
+            moved_triangle = scale * triangle @ matrix + shift
+            normal = np.asarray((1., 0., 0.)) @ matrix
+            offset = float((scale * np.asarray((1., 0., 0.)) @ matrix + shift) @ normal)
+            bound = _quadratic_finite_feature_distance_difference_lower_bound(
+                moved_cell, normal, offset, moved_triangle,
+                length_margin=1e-12 * scale,
+            )
+            assert bound is not None and bound[0] > 0.0
+            for weights in rng.dirichlet(np.ones(3), size=50):
+                point = weights @ moved_cell
+                foot = _closest_point_on_triangle(point, *moved_triangle)
+                difference = np.sum((point - foot)**2) - (point @ normal - offset)**2
+                assert difference >= bound[0] - 1e-9 * scale**2
+
+
+def test_current_face_separation_refuses_hidden_and_budget_limited_contact():
+    tool = _concave_tool()
+    # All three standard degree-two points are in the free reentrant notch;
+    # the corner of this affine face nevertheless penetrates the L-solid.
+    crossing = np.asarray((((0.9, 0.9, 0.5), (3., 0.9, 0.5),
+                             (0.9, 3., 0.5)),))
+    barycentric = np.asarray(((2 / 3, 1 / 6, 1 / 6),
+                              (1 / 6, 2 / 3, 1 / 6),
+                              (1 / 6, 1 / 6, 2 / 3)))
+    sampled = barycentric @ crossing[0]
+    assert np.all(tool.project(sampled).signed_gaps > 0)
+    assert tool.project(crossing[0, :1]).signed_gaps[0] < 0
+    result = certify_current_triangle_separation(crossing, tool)
+    assert not result.certified
+    assert result.minimum_gap_lower_bound is None
+    budget = certify_current_triangle_separation(
+        np.asarray((((1.2, 1.2, 0.5), (1.7, 1.2, 0.5),
+                     (1.2, 1.6, 0.5)),)),
+        tool, maximum_samples=1,
+    )
+    assert not budget.certified
+    assert budget.status in {"sample_budget_exhausted", "depth_budget_exhausted"}
+
+
+def test_closed_smooth_face_uses_facet_normal_without_near_gap_cancellation():
+    tool = _concave_tool()
+    points = np.asarray(((1.0 - 1.0e-6, 1.3, 0.5),
+                         (1.0 + 1.0e-6, 1.3, 0.5)))
+    projection = tool.project(points)
+    assert projection.all_valid
+    np.testing.assert_allclose(projection.signed_gaps, (-1e-6, 1e-6), atol=1e-14)
+    np.testing.assert_array_equal(
+        projection.normals, np.asarray(((1., 0., 0.), (1., 0., 0.))),
+    )
+
+
+def test_closed_solid_planar_branch_needs_full_face_and_competitor_clearance():
+    tool = _concave_tool()
+    cell = np.asarray((((0.95, 1.25, 0.45), (0.95, 1.35, 0.45),
+                        (0.95, 1.25, 0.55)),))
+    bound = certify_closed_planar_branch(cell, tool)
+    assert bound.certified, bound.status
+    np.testing.assert_allclose(bound.plane_normals[0], (1., 0., 0.))
+    assert bound.minimum_competitor_clearance > 0
+    projection = tool.project(cell[0])
+    assert projection.all_valid
+    assert np.all(projection.signed_gaps < 0)
+    np.testing.assert_allclose(
+        projection.signed_gaps,
+        (cell[0] - bound.plane_points[0]) @ bound.plane_normals[0],
+    )
+    shifted = boundary_models.prescribed_rigid_motion(translation=(0.2, 0, 0))
+    moved = certify_closed_planar_branch(
+        cell + np.asarray((0.2, 0., 0.)), tool,
+        motion=shifted, factor=1.0,
+    )
+    assert moved.certified, moved.status
+    np.testing.assert_allclose(moved.plane_normals, bound.plane_normals)
+    np.testing.assert_allclose(moved.plane_points, bound.plane_points + (0.2, 0., 0.))
+    spin = boundary_models.prescribed_rigid_motion(
+        translation=(0., 0., 0.), rotation=(0.0, 0.0, 0.2),
+        reference_point=(0., 0., 0.),
+    )
+    rotation = spin.state(1.0)["rotation_matrix"]
+    rotated = certify_closed_planar_branch(
+        cell @ rotation.T, tool, motion=spin, factor=1.0,
+    )
+    assert rotated.certified, rotated.status
+    np.testing.assert_allclose(rotated.plane_normals, bound.plane_normals @ rotation.T)
+    np.testing.assert_allclose(rotated.plane_points, bound.plane_points @ rotation.T)
+
+    # Disconnected slave patches may use different smooth master planes. The
+    # proof remains whole-face and does not admit a face crossing their edge.
+    lower_wall = np.asarray((((1.25, 0.05, 0.45), (1.35, 0.05, 0.45),
+                               (1.25, 0.05, 0.55)),))
+    two_patches = certify_closed_planar_branch(
+        np.concatenate((cell, lower_wall)), tool,
+    )
+    assert two_patches.certified, two_patches.status
+    np.testing.assert_allclose(two_patches.plane_normals[0], (1., 0., 0.))
+    np.testing.assert_allclose(two_patches.plane_normals[1], (0., -1., 0.))
+
+    # The slave face crosses the diagonal triangulation seam of one flat L
+    # wall. This is not a physical feature switch; the coplanar union covers it.
+    across_flat_seam = np.asarray((((0.95, 1.45, 0.50),
+                                    (0.95, 1.55, 0.50),
+                                    (0.95, 1.50, 0.60)),))
+    seam = certify_closed_planar_branch(across_flat_seam, tool)
+    assert seam.certified, seam.status
+    np.testing.assert_allclose(seam.plane_normals[0], (1., 0., 0.))
+
+    broad_face = np.asarray((((0.95, 1.25, 0.45), (0.95, 1.45, 0.45),
+                              (0.95, 1.25, 0.55)),))
+    coarse_only = certify_closed_planar_branch(
+        broad_face, tool, maximum_refinement_levels=0,
+    )
+    assert coarse_only.certified, coarse_only.status
+    broad = certify_closed_planar_branch(broad_face, tool)
+    assert broad.certified, broad.status
+    assert broad.minimum_competitor_clearance > 0
+    np.testing.assert_allclose(broad.plane_normals[0], (1., 0., 0.))
+    rotated_broad = certify_closed_planar_branch(
+        broad_face @ rotation.T, tool, motion=spin, factor=1.0,
+    )
+    assert rotated_broad.certified, rotated_broad.status
+    np.testing.assert_allclose(
+        rotated_broad.plane_normals, broad.plane_normals @ rotation.T,
+    )
+    barycentric = np.asarray([
+        (1 - r - s, r, s)
+        for r in np.linspace(0.0, 1.0, 17)
+        for s in np.linspace(0.0, 1.0 - r, 9)
+    ])
+    sampled = barycentric @ broad_face[0]
+    np.testing.assert_allclose(
+        tool.project(sampled).signed_gaps,
+        (sampled - broad.plane_points[0]) @ broad.plane_normals[0],
+        atol=1e-12,
+    )
+    for invalid_depth in (-1, 4, True):
+        with pytest.raises(ValueError, match="refinement depth"):
+            certify_closed_planar_branch(
+                broad_face, tool, maximum_refinement_levels=invalid_depth,
+            )
+
+    # Near the reentrant edge but strictly on one side, the finite-feature
+    # Voronoi bound now proves that the *whole* face still sees one wall.
+    near_edge = np.asarray((((0.95, 1.01, 0.10), (0.95, 1.35, 0.10),
+                            (0.95, 1.01, 0.40)),))
+    assert certify_closed_planar_branch(
+        near_edge, tool, maximum_refinement_levels=0,
+    ).certified
+
+    # This face actually crosses into a second closest-feature region.
+    crossing = np.asarray((((0.95, 0.90, 0.10), (0.95, 1.35, 0.10),
+                             (0.95, 0.90, 0.40)),))
+    hazard = certify_closed_planar_branch(crossing, tool)
+    assert not hazard.certified
+    assert hazard.status in {
+        "another_master_feature_can_compete",
+        "projection_can_leave_master_patch",
+        "ambiguous_center_projection",
+    }
+    # Extremely close to the edge, the positive quadratic difference is
+    # below the numerical safety margin. A zero subdivision budget cannot
+    # silently reinterpret uncertainty as an accepted smooth branch.
+    unresolved = np.asarray((((0.95, 1.0000001, 0.10),
+                              (0.95, 1.35, 0.10),
+                              (0.95, 1.0000001, 0.40)),))
+    exhausted = certify_closed_planar_branch(unresolved, tool, _refinement_budget=[0])
+    assert not exhausted.certified
+    assert exhausted.status == "geometry_budget_exceeded"
+    assert not certify_closed_planar_branch(
+        cell, tool, maximum_master_facets=1,
+    ).certified
+
+
+def test_coplanar_patch_coverage_uses_union_not_sum_of_facet_areas():
+    face = np.asarray(((0., 0., 0.), (1., 0., 0.), (0., 1., 0.)))
+    left = np.asarray(((0., 0., 0.), (0.5, 0., 0.), (0., 1., 0.)))
+    right = np.asarray(((0.5, 0., 0.), (1., 0., 0.), (0., 1., 0.)))
+    assert _coplanar_patch_covers_face(
+        face, np.asarray((left, right)), (0, 1), np.asarray((0., 0., 1.)),
+    )
+    # The two masters still have the same *sum* of area as the slave, but
+    # overlap on the left and leave an uncovered strip on the right.
+    shifted = np.asarray(((0.4, 0., 0.), (0.9, 0., 0.), (0., 1., 0.)))
+    assert not _coplanar_patch_covers_face(
+        face, np.asarray((left, shifted)), (0, 1), np.asarray((0., 0., 1.)),
+    )
+
+    # A flat tool can be triangulated much more finely than a slave face.
+    # Coverage does not depend on master-facet ordering or only one seam.
+    tiled = []
+    for i in range(4):
+        for j in range(4):
+            x, y = i / 4, j / 4
+            a = (x, y, 0.)
+            b = (x + 0.25, y, 0.)
+            c = (x + 0.25, y + 0.25, 0.)
+            d = (x, y + 0.25, 0.)
+            tiled.extend(((a, b, c), (a, c, d)))
+    tiled = np.asarray(tiled)
+    broad = np.asarray(((0.1, 0.1, 0.), (0.9, 0.1, 0.), (0.1, 0.9, 0.)))
+    normal = np.asarray((0., 0., 1.))
+    shuffled = tiled[np.random.default_rng(73).permutation(len(tiled))]
+    assert _coplanar_patch_covers_face(
+        broad, shuffled, range(len(shuffled)), normal,
+    )
+    assert not _coplanar_patch_covers_face(
+        broad, tiled, tuple(index for index in range(len(tiled)) if index != 10),
+        normal,
+    )
+
+
+def test_closed_smooth_branch_budget_admits_a_modest_refined_trace():
+    triangles = []
+    for i in range(16):
+        for j in range(16):
+            y = 1.25 + 0.1 * i / 16
+            z = 0.45 + 0.1 * j / 16
+            dy = dz = 0.1 / 16
+            a = (0.95, y, z)
+            b = (0.95, y + dy, z)
+            c = (0.95, y + dy, z + dz)
+            d = (0.95, y, z + dz)
+            triangles.extend(((a, b, c), (a, c, d)))
+    trace = np.asarray(triangles)
+    assert len(trace) == 512
+    assert certify_closed_planar_branch(trace, _concave_tool()).certified
+    limited = certify_closed_planar_branch(
+        trace, _concave_tool(), maximum_slave_faces=256,
+    )
+    assert not limited.certified
+    assert limited.status == "geometry_budget_exceeded"
 
 
 def _reentrant_vertex_tool():
@@ -99,6 +611,45 @@ def _contribution(surface, query):
         evaluation, record, response,
         surface.gap_differential(projection).hessian,
     )
+
+
+def test_sampled_feature_transition_diagnostic_distinguishes_reentrant_edge():
+    surface = _concave_tool()
+    trace = ContactTrace(
+        point_ids=(11, 12, 13), node_ids=((0, 1, 2),) * 3,
+        shape_values=((1, 0, 0), (0, 1, 0), (0, 0, 1)),
+        weights=(1 / 3, 1 / 3, 1 / 3),
+    )
+
+    def count(points, *, motion=None, factor=0.0):
+        reference_points = np.asarray(points, dtype=float)
+        current_points = reference_points
+        if motion is not None:
+            pose = motion.state(factor)
+            current_points = (
+                np.asarray(pose["reference_point"])
+                + (reference_points - np.asarray(motion.reference_point))
+                @ np.asarray(pose["rotation_matrix"]).T
+            )
+        evaluation = trace.evaluate(current_points)
+        record = ContactProjectionRecord(
+            trace.point_ids,
+            surface.project(evaluation.query_points, motion=motion, factor=factor),
+        )
+        response = frictionless_penalty_contact_law(10.0).evaluate(record.projection)
+        assert np.all(response.active)
+        return sampled_mixed_feature_slave_faces(
+            evaluation, record, response, surface, motion=motion, factor=factor,
+        )
+
+    assert count(((0.95, 1.2, 0.5), (0.95, 1.5, 0.5), (0.95, 1.8, 0.5))) == 0
+    mixed = ((0.9, 0.9, 0.5), (0.95, 1.5, 0.5), (0.95, 1.8, 0.5))
+    assert count(mixed) == 1
+    motion = boundary_models.prescribed_rigid_motion(
+        translation=(0.2, -0.1, 0), rotation=(0, 0, 0.3),
+        reference_point=(0, 0, 0),
+    )
+    assert count(mixed, motion=motion, factor=0.5) == 1
 
 
 def test_closed_concave_surface_classifies_inside_notch_and_reentrant_edge():
@@ -388,6 +939,45 @@ def test_point_touching_closed_shells_fail_vertex_manifold_review():
         )
 
 
+def test_dolfinx_closed_tool_separation_is_certified_only_at_the_current_state():
+    domain = dolfinx_mesh.create_unit_cube(
+        MPI.COMM_SELF, 1, 1, 1, cell_type=dolfinx_mesh.CellType.tetrahedron,
+    )
+    space = fem.functionspace(
+        domain, basix.ufl.element("Lagrange", domain.basix_cell(), 1, shape=(3,)),
+    )
+    displacement = fem.Function(space)
+    original = _concave_tool()
+    tool = closed_triangulated_rigid_solid(
+        vertices=original.facets.vertices + np.asarray((5., 0., 0.)),
+        triangles=original.facets.triangles,
+        reviewed_embedded=True,
+        name="translated_reentrant_tool",
+    )
+    boundary = agent_mesh.boundary(
+        domain, lambda x: np.isclose(x[0], 0.0), name="loaded_face",
+    )
+    pair = boundary_models.rigid_contact_pair(
+        boundary, boundary_models.rigid_body(tool), penalty=125.0,
+    )
+    operator = dolfinx_implicit_rigid_contact(pair, displacement)
+    far = operator.current_point_diagnostics()
+    assert far["active_point_count"] == 0
+    assert far["whole_face_separation"]["certified"] is True
+    assert far["whole_face_separation"]["minimum_gap_lower_bound"] > 0
+    assert far["feature_transition_integral_certified"] is True
+    path = AcceptedContactFeaturePath((operator,))
+    path.reset(SimpleNamespace(index=0, load_factor=0.0))
+    path.accept(SimpleNamespace(index=1, load_factor=0.5))
+    assert next(iter(path.pairs.values()))["all_observed_integrals_certified"] is True
+    displacement.x.array.reshape((-1, 3))[:, 0] = 5.1
+    near = operator.current_point_diagnostics()
+    assert near["feature_transition_integral_certified"] is False
+    assert near["active_point_count"] > 0
+    path.accept(SimpleNamespace(index=2, load_factor=1.0))
+    assert next(iter(path.pairs.values()))["all_observed_integrals_certified"] is False
+
+
 def test_dolfinx_reentrant_edge_assembles_current_residual_and_tangent():
     domain = dolfinx_mesh.create_unit_cube(
         MPI.COMM_SELF, 1, 1, 1, cell_type=dolfinx_mesh.CellType.tetrahedron,
@@ -422,6 +1012,9 @@ def test_dolfinx_reentrant_edge_assembles_current_residual_and_tangent():
     selected = operator.evaluate()
     assert selected.active_points == operator.adapter.trace.point_count
     assert selected.potential_energy > 0.0
+    point_evidence = operator.current_point_diagnostics()
+    assert point_evidence["sampled_mixed_feature_slave_faces"] >= 0
+    assert point_evidence["feature_transition_integral_certified"] is False
     base = displacement.x.array.copy()
     direction = np.random.default_rng(84).normal(size=base.shape)
     h = 1.0e-7

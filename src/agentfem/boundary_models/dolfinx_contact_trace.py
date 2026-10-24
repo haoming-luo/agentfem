@@ -278,7 +278,9 @@ def _linear_trace_arrays(domain, function_space, owned, facet_geometry,
     Coordinate matching is restricted to each facet's adjacent cell. Distinct
     bodies with coincident vertices therefore remain distinct. The optional
     positive face rule is explicit; batching itself changes no rule and only
-    bounds temporary storage.
+    bounds temporary storage. After the unique vertex-to-block match, the
+    caller-owned coordinate buffer uses the original mesh vertex coordinates,
+    not their roundoff-perturbed tabulation through the coordinate element.
     """
     n = len(owned)
     node_width = 3 if topology == "triangle" else 4
@@ -349,6 +351,11 @@ def _linear_trace_arrays(domain, function_space, owned, facet_geometry,
             raise ValueError("each contact vertex must match exactly one CG1 displacement block; "
                              f"found {count} matches")
         blocks[start:stop] = np.take_along_axis(owners, matches.argmax(axis=2), axis=1)
+        # CG1 and linear geometry share these vertex identities. Preserve the
+        # authoritative mesh coordinates: a tabulated image of x=1 can be
+        # 1+epsilon, falsely rejecting a genuinely zero-gap initial contact.
+        # This does not snap to a tool or change the mesh/penetration limit.
+        dof_coordinates[blocks[start:stop]] = points
         if topology == "triangle":
             area = .5*np.linalg.norm(np.cross(points[:, 1]-points[:, 0], points[:, 2]-points[:, 0]), axis=1)
             weights[start:stop] = (
@@ -385,6 +392,7 @@ class DolfinxContactTraceAdapter:
     quadrature_rule: str = "triangle_degree_two_three_point"
     interpolation_degree: int = 1
     geometry_degree: int = 1
+    reference_facet_vertices: object | None = None
 
     def __post_init__(self) -> None:
         if not isinstance(self.trace, ContactTrace):
@@ -414,6 +422,16 @@ class DolfinxContactTraceAdapter:
             raise ValueError("DOLFINx contact interpolation degree must be one or two.")
         if int(self.geometry_degree) not in {1, 2}:
             raise ValueError("DOLFINx contact geometry degree must be one or two.")
+        if self.reference_facet_vertices is not None:
+            raw_vertices = np.asarray(self.reference_facet_vertices)
+            if np.iscomplexobj(raw_vertices):
+                raise ValueError("Reference facet vertices must be real coordinates.")
+            vertices = _readonly_array(np.asarray(raw_vertices, dtype=float))
+            if (self.geometry_degree != 1 or vertices.ndim != 2 or vertices.shape[1] != 3
+                    or not np.isfinite(vertices).all()
+                    or (len(vertices) == 0 and self.trace.point_count > 0)):
+                raise ValueError("Reference facet vertices require finite first-order geometry.")
+            object.__setattr__(self, "reference_facet_vertices", vertices)
         object.__setattr__(
             self,
             "reference_nodal_positions",
@@ -499,10 +517,10 @@ def dolfinx_boundary_region_contact_trace(
         if (
             isinstance(contact_quadrature_degree, (bool, np.bool_))
             or not isinstance(contact_quadrature_degree, (int, np.integer))
-            or int(contact_quadrature_degree) not in (5, 7)
+            or int(contact_quadrature_degree) not in (5, 7, 9, 11)
         ):
             raise ValueError(
-                "Contact quadrature degree must be 5 or 7."
+                "Contact quadrature degree must be 5, 7, 9 or 11."
             )
         if integration != "gauss" or cell_type not in {
             "CellType.tetrahedron", "CellType.hexahedron",
@@ -693,9 +711,9 @@ def dolfinx_boundary_region_contact_trace(
             domain.geometry.input_global_indices,
             dtype=np.int64,
         )
-        dof_coordinates = np.asarray(
+        dof_coordinates = np.array(
             function_space.tabulate_dof_coordinates(),
-            dtype=float,
+            dtype=float, copy=True,
         )[:, :3]
         tolerance = max(
             float(global_scale) * 1.0e-12,
@@ -829,6 +847,11 @@ def dolfinx_boundary_region_contact_trace(
             quadrature_rule=quadrature_rule,
             interpolation_degree=interpolation_degree,
             geometry_degree=geometry_degree,
+            # High-order displacement traces carry whole-cell field DOFs,
+            # including off-face nodes. Use authoritative face geometry for
+            # the reference overlap bound, never all those field coordinates.
+            reference_facet_vertices=(coordinates[np.unique(facet_geometry.reshape(-1))]
+                                      if high_order and geometry_degree == 1 else None),
         )
     except Exception as exc:
         local_error = f"{type(exc).__name__}: {exc}"

@@ -25,6 +25,8 @@ class ExplicitHexGeometry:
     coordinates: np.ndarray | None = None
     reference_perturbation_radius: np.ndarray | None = None
     lumped_mass: np.ndarray | None = None
+    cell_nodes: np.ndarray | None = None
+    _maximum_cell_node: int = field(default=-1, init=False, repr=False)
 
     def __post_init__(self):
         n = len(self.volume)
@@ -46,6 +48,14 @@ class ExplicitHexGeometry:
             object.__setattr__(self, 'lumped_mass', _array(self.lumped_mass, (n,8), 'lumped_mass'))
             if np.any(self.lumped_mass <= 0):
                 raise ValueError("Positive physical lumped masses required")
+        if self.cell_nodes is not None:
+            from .._resident_field_records import _freeze
+            nodes = np.asarray(self.cell_nodes)
+            if (nodes.shape != (n, 8) or nodes.dtype.kind not in 'iu'
+                    or np.any(nodes < 0) or np.any(nodes > np.iinfo(np.int32).max)):
+                raise ValueError("Explicit Hex8 node map requires nonnegative int32-sized indices")
+            object.__setattr__(self, 'cell_nodes', _freeze(nodes.astype(np.int32, copy=False)))
+            object.__setattr__(self, '_maximum_cell_node', int(self.cell_nodes.max(initial=-1)))
 
 
 @dataclass(frozen=True)
@@ -119,6 +129,8 @@ class ExplicitHexBodyKernel:
     callback must preserve the material's declared law and exact fallback rules.
     Identify its pinned implementation in ``identity``. Core checks transport
     and acceptance; scientific equivalence needs separate reference tests.
+    Optional ``restart_identity`` declares invariant scientific/state semantics
+    across operational configurations; omitting it retains exact identity.
     """
     evaluate: Callable
     identity: Mapping
@@ -126,7 +138,10 @@ class ExplicitHexBodyKernel:
     evaluate_viscosity: Callable | None = None
     gather_cell_vectors: Callable | None = None
     release_resources: Callable | None = field(default=None, repr=False, compare=False)
+    restart_identity: Mapping | None = None
+    evaluate_damped: Callable | None = None
     _identity_json: str = field(init=False, repr=False)
+    _restart_identity_json: str | None = field(init=False, repr=False)
 
     def __post_init__(self):
         if not callable(self.evaluate) or not isinstance(self.identity, Mapping):
@@ -135,6 +150,12 @@ class ExplicitHexBodyKernel:
         if not self.identity:
             raise ValueError("Kernel requires a nonempty pinned identity")
         object.__setattr__(self, "_identity_json", encoded)
+        if self.restart_identity is not None and (
+            not isinstance(self.restart_identity, Mapping) or not self.restart_identity
+        ):
+            raise TypeError("restart_identity must be a nonempty compatibility mapping or None")
+        object.__setattr__(self, "_restart_identity_json", None if self.restart_identity is None
+                           else json.dumps(dict(self.restart_identity), sort_keys=True, allow_nan=False))
         if self.prepare_kinematics is not None and not callable(self.prepare_kinematics):
             raise TypeError("prepare_kinematics must be callable or None")
         if self.evaluate_viscosity is not None and not callable(self.evaluate_viscosity):
@@ -143,6 +164,8 @@ class ExplicitHexBodyKernel:
             raise TypeError("gather_cell_vectors must be callable or None")
         if self.release_resources is not None and not callable(self.release_resources):
             raise TypeError("release_resources must be callable or None")
+        if self.evaluate_damped is not None and not callable(self.evaluate_damped):
+            raise TypeError("evaluate_damped must be callable or None")
 
     def close(self):
         """Release instance execution resources, never solver state."""
@@ -162,11 +185,22 @@ class ExplicitHexBodyKernel:
                 "bulk_viscosity": self.evaluate_viscosity is not None,
                 "cell_gather": self.gather_cell_vectors is not None}
 
+    def checkpoint_summary(self):
+        """Explicit provider compatibility, never inferred from a backend name.
 
-def prepare_kernel_viscosity(kernel, geometry, gradient, velocity, options, reference):
+        A declaration may omit operational settings only when those settings
+        preserve the law, discrete update and state encoding. The original
+        summary retains actual execution provenance. Without a declaration,
+        legacy exact-identity behavior remains unchanged.
+        """
+        if self._restart_identity_json is None:
+            return None
+        return {**self.summary(), "identity": json.loads(self._restart_identity_json),
+                "restart_contract": "agentfem.hex-kernel-restart.v1"}
+
+
+def _viscosity_coefficients(options, n):
     from types import MappingProxyType
-    from ._bulk_viscosity import BulkViscosityResponse
-    n = len(geometry.volume)
     coefficients = {}
     for name in ('density', 'wave_speed', 'characteristic_length', 'linear', 'quadratic'):
         raw = np.asarray(options[name])
@@ -176,9 +210,11 @@ def prepare_kernel_viscosity(kernel, geometry, gradient, velocity, options, refe
         if np.any(values < 0 if name in ('linear', 'quadratic') else values <= 0):
             raise ValueError("Invalid bulk viscosity coefficient sign")
         coefficients[name] = values
-    f = _array(gradient, (n,3,3), 'admitted_gradient')
-    v = _array(velocity, (n,8,3), 'cell_velocity')
-    response = kernel.evaluate_viscosity(geometry, f, v, MappingProxyType(coefficients), reference)
+    return MappingProxyType(coefficients)
+
+
+def _validated_kernel_viscosity(response, n):
+    from ._bulk_viscosity import BulkViscosityResponse
     if not isinstance(response, BulkViscosityResponse) or response.damping_row_majorant is not None:
         raise TypeError("Bulk kernel requires the bounded BulkViscosityResponse contract")
     result = BulkViscosityResponse(*(_array(getattr(response, name), shape, name)
@@ -188,6 +224,47 @@ def prepare_kernel_viscosity(kernel, geometry, gradient, velocity, options, refe
     if np.any(result.artificial_power < 0) or np.any(result.mass_scaled_damping_bound < 0):
         raise ValueError("Artificial damping power and bound must be nonnegative")
     return result
+
+
+def prepare_kernel_viscosity(kernel, geometry, gradient, velocity, options, reference):
+    n = len(geometry.volume)
+    coefficients = _viscosity_coefficients(options, n)
+    f = _array(gradient, (n,3,3), 'admitted_gradient')
+    v = _array(velocity, (n,8,3), 'cell_velocity')
+    response = kernel.evaluate_viscosity(geometry, f, v, coefficients, reference)
+    return _validated_kernel_viscosity(response, n)
+
+
+def prepare_kernel_damped_response(kernel, geometry, owner, material, displacement, gradient,
+                                   *, nodal_velocity, options, deformation_gradient_old,
+                                   time, time_increment):
+    """One detached execution, two physical contributions, one state transaction.
+
+    The optional callback receives immutable nodal velocity and named damping
+    coefficients. No solver fields, state owner or automatic step policy cross
+    the boundary. The material contract and damping checks remain unchanged.
+    """
+    n = len(geometry.volume)
+    raw = np.asarray(nodal_velocity)
+    if (raw.ndim != 2 or raw.shape[1:] != (3,) or geometry.cell_nodes is None
+            or geometry.lumped_mass is None or geometry._maximum_cell_node >= len(raw)):
+        raise ValueError("Damped execution requires a complete nodal velocity and prepared Hex8 layout")
+    velocity = _array(raw, raw.shape, 'nodal_velocity')
+    coefficients = _viscosity_coefficients(options, n)
+    damping = []
+
+    def evaluate(selected, checked, layout, u):
+        result = kernel.evaluate_damped(selected, checked, layout, u, velocity, coefficients)
+        if not isinstance(result, tuple) or len(result) != 2:
+            raise TypeError("Damped kernel must return body and viscosity responses separately")
+        body, viscous = result
+        damping.append(_validated_kernel_viscosity(viscous, n))
+        return body
+
+    prepared, element = prepare_kernel_response(kernel, geometry, owner, material, displacement, gradient,
+        deformation_gradient_old=deformation_gradient_old, time=time, time_increment=time_increment,
+        _evaluate=evaluate)
+    return prepared, element, damping[0]
 
 
 def prepare_kernel_kinematics(kernel, geometry, displacement):
@@ -225,7 +302,7 @@ retain affine/Bernstein checks; every mean F still needs positive determinant.
 
 
 def prepare_kernel_response(kernel, geometry, owner, material, displacement, gradient,
-                            *, deformation_gradient_old, time, time_increment):
+                            *, deformation_gradient_old, time, time_increment, _evaluate=None):
     from ..constitutive.material_array_batch import MaterialPointArrayBatchInput
     from ..constitutive._explicit_material import validated_explicit_material_update
     from ..constitutive._explicit_material_driver import ExplicitQuadratureTrial
@@ -237,7 +314,7 @@ def prepare_kernel_response(kernel, geometry, owner, material, displacement, gra
     outputs = []
 
     def evaluate(checked):
-        output = kernel.evaluate(material, checked, geometry, u)
+        output = (kernel.evaluate if _evaluate is None else _evaluate)(material, checked, geometry, u)
         if not isinstance(output, ExplicitHexBodyOutput):
             raise TypeError("Body kernel must return ExplicitHexBodyOutput")
         outputs.append(output)

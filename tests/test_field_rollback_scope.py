@@ -28,6 +28,42 @@ def test_existing_snapshot_is_borrowed_not_recopied():
     np.testing.assert_array_equal(snapshots["f"], 1)
 
 
+def test_copied_context_cannot_revive_an_ended_increment_snapshot():
+    from contextvars import copy_context
+
+    f, snapshots = fixture()
+    with _accepted_field_scope({"f": f}, snapshots):
+        inherited = copy_context()
+        f.x.array[:] = 2
+
+    def later_transaction():
+        assert _borrowed_field_snapshot(f) is None
+        with pytest.raises(ValueError, match="later rejected"):
+            with field_transaction(f=f):
+                f.x.array[:] = 3
+                raise ValueError("later rejected")
+        np.testing.assert_array_equal(f.x.array, 2)
+        with _accepted_field_scope({"f": f}, {"f": f.x.array.copy()}):
+            assert _borrowed_field_snapshot(f) is not None
+
+    inherited.run(later_transaction)
+
+
+def test_ended_scope_releases_snapshot_even_when_context_is_retained():
+    from contextvars import copy_context
+    import weakref
+
+    f, snapshots = fixture()
+    observed = weakref.ref(snapshots["f"])
+    with pytest.raises(ValueError, match="owner rejected"):
+        with _accepted_field_scope({"f": f}, snapshots):
+            inherited = copy_context()
+            raise ValueError("owner rejected")
+    del snapshots
+    assert observed() is None
+    assert inherited.run(_borrowed_field_snapshot, f) is None
+
+
 def test_caught_child_failure_poison_rejects_scope():
     f, snapshots = fixture()
     with pytest.raises(RuntimeError, match="joined field transaction failed"):

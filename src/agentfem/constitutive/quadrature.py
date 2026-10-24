@@ -904,11 +904,13 @@ class QuadratureField:
         return indices
 
     def cell_average(self, *, name: str | None = None):
-        """Recover quadrature values as weighted DG0 cell averages.
+        """Recover quadrature values as physical-measure DG0 cell averages.
 
         This is a discontinuous scientific field, not nodal extrapolation or
-        contour smoothing. The reference-cell quadrature weights are retained
-        explicitly instead of assuming that every rule has equal weights.
+        contour smoothing. Reference-rule weights include the mesh Jacobian;
+        on non-affine cells their normalized reference weights alone are not
+        physical averages. The measure belongs to the mesh coordinates, with
+        no deformation-gradient or axisymmetric factor inferred from a field.
         """
 
         domain = self.function.function_space.mesh
@@ -921,18 +923,32 @@ class QuadratureField:
             fem.functionspace(domain, element),
             name=name or self.function.name,
         )
-        point_values = self.values.reshape(
-            (self._cell_count(), len(self.points), self.component_count)
-        )
-        normalized_weights = self.weights / np.sum(self.weights)
-        averages = np.einsum("p,cpi->ci", normalized_weights, point_values)
-        block_size = int(output.function_space.dofmap.bs)
-        for cell in range(self._cell_count()):
-            dofs = output.function_space.dofmap.cell_dofs(cell)
-            if len(dofs) != 1:
-                raise RuntimeError("DG0 output requires one block dof per cell.")
-            start = int(dofs[0]) * block_size
-            output.x.array[start : start + block_size] = averages[cell]
+        owned = int(domain.topology.index_map(domain.topology.dim).size_local)
+        local_problem = None
+        try:
+            point_values = self.owned_values.reshape((owned, len(self.points), self.component_count))
+            weights = self.owned_physical_weights().reshape((owned, len(self.points)))
+            measures = weights.sum(axis=1)
+            if (not np.isfinite(weights).all() or not np.isfinite(measures).all()
+                    or np.any(measures <= 0) or not np.isfinite(point_values).all()):
+                raise ValueError("Cell recovery requires finite values and positive physical cell measures.")
+            averages = np.einsum("cp,cpi->ci", weights / measures[:, None], point_values)
+            if not np.isfinite(averages).all():
+                raise ValueError("Physical cell-average calculation overflowed.")
+            block_size = int(output.function_space.dofmap.bs)
+            dofs = np.asarray(output.function_space.dofmap.list[:owned], dtype=np.int64)
+            if dofs.shape != (owned, 1) or block_size != self.component_count:
+                raise RuntimeError("DG0 output requires one matching block dof per cell.")
+            indices = (dofs[..., None] * block_size + np.arange(block_size)).reshape(-1)
+        except Exception as exc:
+            local_problem = f"{type(exc).__name__}: {exc}"
+        # Reject on every rank before the forward scatter. A bad local measure
+        # must not strand other ranks waiting for an output that cannot publish.
+        problems = domain.comm.allgather(local_problem)
+        if any(problem is not None for problem in problems):
+            rank = next(index for index, problem in enumerate(problems) if problem is not None)
+            raise ValueError(f"AFM-RECOVERY-MEASURE: rank {rank}: {problems[rank]}")
+        output.x.array[indices] = averages.reshape(-1)
         output.x.scatter_forward()
         return output
 

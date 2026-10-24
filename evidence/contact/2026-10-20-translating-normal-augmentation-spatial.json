@@ -1,0 +1,57 @@
+{
+  "scope": "nonuniform_finite_Hencky_elastic_limit_constant_normal_plane_MMS_not_plastic_or_general_mortar",
+  "amplitude": 0.02,
+  "tool_travel": 0.01,
+  "young": 1000.0,
+  "poisson": 0.0,
+  "penalty": 5000.0,
+  "records": [
+    {
+      "cells": 2,
+      "l2_error": 0.0009132093535485601,
+      "h1_seminorm_error": 0.005774867941803488,
+      "force_x": -31.349387359422504,
+      "exact_force_x": -31.401244829596468,
+      "force_error": 0.051857470173963804,
+      "maximum_pressure_error": 5.221106445733675,
+      "peeq": 0.0,
+      "maximum_penetration": 1.655355852392404e-10,
+      "solve_and_measure_seconds": 2.0846781660802662,
+      "augmentations": 63,
+      "status": "completed"
+    },
+    {
+      "cells": 4,
+      "l2_error": 0.00022897296081534734,
+      "h1_seminorm_error": 0.0028873491230367843,
+      "force_x": -31.38828089816679,
+      "exact_force_x": -31.401244829596468,
+      "force_error": 0.012963931429677444,
+      "maximum_pressure_error": 2.6095602743931465,
+      "peeq": 0.0,
+      "maximum_penetration": 1.4106682488801425e-10,
+      "solve_and_measure_seconds": 2.603594457730651,
+      "augmentations": 97,
+      "status": "completed"
+    },
+    {
+      "cells": 8,
+      "l2_error": 5.7435463810184e-05,
+      "h1_seminorm_error": 0.0014435065982399476,
+      "force_x": -31.398003777704538,
+      "exact_force_x": -31.401244829596468,
+      "force_error": 0.0032410518919299136,
+      "maximum_pressure_error": 1.319815039014884,
+      "peeq": 0.0,
+      "maximum_penetration": 1.6632573096586611e-10,
+      "solve_and_measure_seconds": 30.034116957802325,
+      "augmentations": 152,
+      "status": "completed"
+    }
+  ],
+  "l2_orders": [1.9957683944581808, 1.995163525682905],
+  "h1_orders": [1.0000423945253094, 1.000167859081733],
+  "script_sha256": "5cb1e71d42822e3d8bedeb220d54d0dc66d64d7b729dc70d7d6261289da124ad",
+  "contact_adapter_sha256": "2cf178784d7556c84c685328f710a038820111bea04a8fa5a76bf817ef474b1d",
+  "verification_passed": true
+}

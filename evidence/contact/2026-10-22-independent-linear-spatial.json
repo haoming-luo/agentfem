@@ -1,0 +1,63 @@
+{
+  "scope": "independent linear-elastic sparse exact-active-patch diagnostic",
+  "exclusions": "Not finite-Hencky, plastic history, arbitrary active-set search or external-code validation",
+  "source_sha256": "47f6f76f3fb7a178cf590d1723d14b3181fbd1da9174247e3c858c88cfcc3841",
+  "records": [
+    {
+      "cells_per_edge": 4,
+      "full_dofs": 375,
+      "contact_nodes": 9,
+      "amplitude": 1.0,
+      "reaction_magnitude": 32.52757963471352,
+      "amplitude_normalized_reaction": 32.52757963471352,
+      "edge_nodal_force_fraction": 0.9529108285724818,
+      "minimum_nodal_force": 1.53169677354128,
+      "free_residual_norm": 1.7918478375846146e-14,
+      "maximum_absolute_gap": 1.0668549377257364e-16,
+      "elastic_energy": 0.47249804940760687,
+      "assembly_and_solve_seconds": 0.002623541746288538
+    },
+    {
+      "cells_per_edge": 8,
+      "full_dofs": 2187,
+      "contact_nodes": 25,
+      "amplitude": 1.0,
+      "reaction_magnitude": 27.734413707258188,
+      "amplitude_normalized_reaction": 27.734413707258188,
+      "edge_nodal_force_fraction": 0.8137697931556576,
+      "minimum_nodal_force": 0.47980404484879746,
+      "free_residual_norm": 3.823087395103717e-14,
+      "maximum_absolute_gap": 1.0668549377257364e-16,
+      "elastic_energy": 0.43654930495169225,
+      "assembly_and_solve_seconds": 0.022115707863122225
+    },
+    {
+      "cells_per_edge": 12,
+      "full_dofs": 6591,
+      "contact_nodes": 49,
+      "amplitude": 1.0,
+      "reaction_magnitude": 26.055037756523156,
+      "amplitude_normalized_reaction": 26.055037756523156,
+      "edge_nodal_force_fraction": 0.7115560436215157,
+      "minimum_nodal_force": 0.23240538071254982,
+      "free_residual_norm": 5.136316178431589e-14,
+      "maximum_absolute_gap": 1.0668549377257364e-16,
+      "elastic_energy": 0.423953985321177,
+      "assembly_and_solve_seconds": 0.23114933306351304
+    },
+    {
+      "cells_per_edge": 16,
+      "full_dofs": 14739,
+      "contact_nodes": 81,
+      "amplitude": 1.0,
+      "reaction_magnitude": 25.21188874201795,
+      "amplitude_normalized_reaction": 25.21188874201795,
+      "edge_nodal_force_fraction": 0.6384428848322852,
+      "minimum_nodal_force": 0.13675451120364568,
+      "free_residual_norm": 5.566217341300917e-14,
+      "maximum_absolute_gap": 1.0668549377257364e-16,
+      "elastic_energy": 0.41763036771239187,
+      "assembly_and_solve_seconds": 0.5480138747952878
+    }
+  ]
+}

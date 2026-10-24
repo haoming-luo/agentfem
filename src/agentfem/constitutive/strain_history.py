@@ -176,12 +176,16 @@ class StrainHistoryRuntime:
     Source review must establish independence of the declared unused channels,
     complete history in STATEV, and additive internal work per current mass.
     The chosen polar path is not a claim of arbitrary VUMAT equivalence.
+    fuse_viscosity is an opt-in core execution policy, not a material parameter;
+    it retains separate damping evidence and the ordinary accepted-state owner.
     """
     def __init__(self, manifest, *, parameters, density, cache_directory,
                  trusted=False, workers=1, cell_workers=1, compiler="gfortran",
-                 tile_size=None):
+                 tile_size=None, fuse_viscosity=False):
         if trusted is not True:
             raise ValueError("AFM-HISTORY-TRUST: source and channel review required")
+        if type(fuse_viscosity) is not bool:
+            raise TypeError("AFM-HISTORY-EXECUTION: fuse_viscosity must be boolean")
         path, spec = _read_spec(manifest)
         if type(workers) is not int or not 1 <= workers <= 16:
             raise ValueError("AFM-HISTORY-WORKERS: require integer in [1,16]")
@@ -233,7 +237,8 @@ class StrainHistoryRuntime:
         self.kernel = native_explicit_hex_kernel(self.material, function,
             properties=self._properties, density=self._density, identity=self._identity,
             fallback=self.update, validate=lambda response: self._check_state(response.state_new),
-            workers=workers, cell_workers=cell_workers, tile_size=tile_size)
+            workers=workers, cell_workers=cell_workers, tile_size=tile_size,
+            fuse_viscosity=fuse_viscosity)
 
     def summary(self):
         return json.loads(json.dumps(self._identity))

@@ -1,0 +1,82 @@
+{
+  "scope": "independent linear-elastic sparse exact-active-patch diagnostic",
+  "exclusions": "Not finite-Hencky, plastic history, arbitrary active-set search or external-code validation",
+  "source_sha256": "eee3d861c23ed63e099a37642b7e96f7c9dfe7c1b4bb4355ce1a9e187601bccf",
+  "records": [
+    {
+      "cells_per_edge": 8,
+      "full_dofs": 2187,
+      "contact_nodes": 25,
+      "amplitude": 1.0,
+      "reaction_magnitude": 27.703560416520016,
+      "mesh_family": "edge_graded_cosine",
+      "amplitude_normalized_reaction": 27.703560416520016,
+      "edge_nodal_force_fraction": 0.8122381036127043,
+      "minimum_nodal_force": 0.4894158196987445,
+      "free_residual_norm": 5.1206520203796155e-14,
+      "maximum_absolute_gap": 1.0668549377257364e-16,
+      "elastic_energy": 0.43631790527115677,
+      "assembly_and_solve_seconds": 0.02270237496122718
+    },
+    {
+      "cells_per_edge": 12,
+      "full_dofs": 6591,
+      "contact_nodes": 49,
+      "amplitude": 1.0,
+      "reaction_magnitude": 25.57053709454365,
+      "mesh_family": "edge_graded_cosine",
+      "amplitude_normalized_reaction": 25.57053709454365,
+      "edge_nodal_force_fraction": 0.6365242853294262,
+      "minimum_nodal_force": 0.13828225829535734,
+      "free_residual_norm": 9.954498409177079e-14,
+      "maximum_absolute_gap": 1.0668549377257364e-16,
+      "elastic_energy": 0.42032023035633054,
+      "assembly_and_solve_seconds": 0.2293347497470677
+    },
+    {
+      "cells_per_edge": 16,
+      "full_dofs": 14739,
+      "contact_nodes": 81,
+      "amplitude": 1.0,
+      "reaction_magnitude": 24.603853575928163,
+      "mesh_family": "edge_graded_cosine",
+      "amplitude_normalized_reaction": 24.603853575928163,
+      "edge_nodal_force_fraction": 0.5105452586596072,
+      "minimum_nodal_force": 0.04946509308513874,
+      "free_residual_norm": 1.1357863687474997e-13,
+      "maximum_absolute_gap": 1.0668549377257364e-16,
+      "elastic_energy": 0.41307010396671706,
+      "assembly_and_solve_seconds": 0.566665125079453
+    },
+    {
+      "cells_per_edge": 24,
+      "full_dofs": 46875,
+      "contact_nodes": 169,
+      "amplitude": 1.0,
+      "reaction_magnitude": 23.75296985466253,
+      "mesh_family": "edge_graded_cosine",
+      "amplitude_normalized_reaction": 23.75296985466253,
+      "edge_nodal_force_fraction": 0.3591971971362705,
+      "minimum_nodal_force": 0.010668561987016855,
+      "free_residual_norm": 1.8487554806951925e-13,
+      "maximum_absolute_gap": 1.0668549377257364e-16,
+      "elastic_energy": 0.40668847605722097,
+      "assembly_and_solve_seconds": 5.6618407079949975
+    },
+    {
+      "cells_per_edge": 32,
+      "full_dofs": 107811,
+      "contact_nodes": 289,
+      "amplitude": 1.0,
+      "reaction_magnitude": 23.38880457226489,
+      "mesh_family": "edge_graded_cosine",
+      "amplitude_normalized_reaction": 23.38880457226489,
+      "edge_nodal_force_fraction": 0.27510026585841874,
+      "minimum_nodal_force": 0.0034843459759518513,
+      "free_residual_norm": 2.5959655833969936e-13,
+      "maximum_absolute_gap": 1.0668549377257364e-16,
+      "elastic_energy": 0.4039572364392346,
+      "assembly_and_solve_seconds": 32.826964708045125
+    }
+  ]
+}

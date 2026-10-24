@@ -1,0 +1,210 @@
+{
+  "scope": "isolated solve and observe ABBA; excludes construction and output",
+  "order": "ABBA",
+  "platform": "macOS-26.6.2-arm64-arm-64bit",
+  "environment": {
+    "OMP_NUM_THREADS": "1",
+    "OPENBLAS_NUM_THREADS": "1",
+    "VECLIB_MAXIMUM_THREADS": "1"
+  },
+  "source_sha256": {
+    "src/agentfem/_affine_equilibrium.py": "2209b4fbbcf674c7e0c6b5394f003cdc68c1beaed3a005ffec968eebebcf3c8c",
+    "src/agentfem/mechanics/_affine_normal_augmentation.py": "b146a630f7826759a4aecc9877182f81ab6d3bce3a156d4a85209d3ac0cbbd88",
+    "src/agentfem/mechanics/_retained_trial_response.py": "37796e45af7438cd3ae3724d520f8c24ce852da717f4e598aaa9c61c15512cd1",
+    "src/agentfem/solvers.py": "bb7ac046618916cfc4c706a4fc87397971c99a7edd978098c6357b2d713835df",
+    "examples/finite_j2_periodic_augmented_plane.py": "26774066f1c6efe24b8b588ed63b141e6f09cef8d5f103c9801004c38179a389"
+  },
+  "harness_sha256": "207b6db9a4501498c730e7355ba5a18bda59119e792878227fbbbc6bafcc4444",
+  "parity_tolerances": {
+    "rtol": 1e-7,
+    "atol": 1e-9
+  },
+  "current_jacobian": true,
+  "lagged_factor_preconditioner_only": true,
+  "cells": 12,
+  "increments": 32,
+  "runs": [
+    {
+      "reused_preconditioner": false,
+      "status": "passed",
+      "station_max_absolute_differences": [
+        [
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ]
+      ],
+      "accepted": 32,
+      "newton_iterations": 355,
+      "observational_seconds": 149.99527620803565,
+      "linear_summary": null
+    },
+    {
+      "reused_preconditioner": true,
+      "status": "passed",
+      "station_max_absolute_differences": [
+        [
+          1.1900203045200897e-15,
+          1.8242352073372103e-14,
+          1.3142986698966297e-11,
+          9.488303476246074e-10,
+          2.6787461138155777e-11,
+          1.1484813641513101e-15
+        ],
+        [
+          7.853960537484994e-16,
+          2.8879676428061885e-14,
+          2.123656805963492e-11,
+          2.84421730611939e-9,
+          0,
+          1.1484813641513101e-15
+        ],
+        [
+          1.0045133128078199e-15,
+          2.9781732635569824e-14,
+          2.4694912781342282e-11,
+          3.1516833587375004e-9,
+          0,
+          1.1484813641513101e-15
+        ],
+        [
+          1.186550857568136e-15,
+          3.287647931671245e-14,
+          2.9177105176358964e-11,
+          8.062670531217009e-10,
+          1.006981165119214e-10,
+          1.1484813641513101e-15
+        ]
+      ],
+      "accepted": 32,
+      "newton_iterations": 355,
+      "observational_seconds": 129.92146945837885,
+      "linear_summary": {
+        "calls": 355,
+        "reused": 287,
+        "rebuilds": 0,
+        "max_iterations": 31,
+        "max_true_residual_ratio": 0.989981444436576
+      }
+    },
+    {
+      "reused_preconditioner": true,
+      "status": "passed",
+      "station_max_absolute_differences": [
+        [
+          1.1900203045200897e-15,
+          1.8242352073372103e-14,
+          1.3142986698966297e-11,
+          9.488303476246074e-10,
+          2.6787461138155777e-11,
+          1.1484813641513101e-15
+        ],
+        [
+          7.853960537484994e-16,
+          2.8879676428061885e-14,
+          2.123656805963492e-11,
+          2.84421730611939e-9,
+          0,
+          1.1484813641513101e-15
+        ],
+        [
+          1.0045133128078199e-15,
+          2.9781732635569824e-14,
+          2.4694912781342282e-11,
+          3.1516833587375004e-9,
+          0,
+          1.1484813641513101e-15
+        ],
+        [
+          1.186550857568136e-15,
+          3.287647931671245e-14,
+          2.9177105176358964e-11,
+          8.062670531217009e-10,
+          1.006981165119214e-10,
+          1.1484813641513101e-15
+        ]
+      ],
+      "accepted": 32,
+      "newton_iterations": 355,
+      "observational_seconds": 130.07327987486497,
+      "linear_summary": {
+        "calls": 355,
+        "reused": 287,
+        "rebuilds": 0,
+        "max_iterations": 31,
+        "max_true_residual_ratio": 0.989981444436576
+      }
+    },
+    {
+      "reused_preconditioner": false,
+      "status": "passed",
+      "station_max_absolute_differences": [
+        [
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ]
+      ],
+      "accepted": 32,
+      "newton_iterations": 355,
+      "observational_seconds": 150.1934005827643,
+      "linear_summary": null
+    }
+  ],
+  "observed_elapsed_reduction": 0.13389554825069927,
+  "decision": "Select bounded explicit policy for source integration and lifecycle validation; not explicit composite or complete-run speedup"
+}

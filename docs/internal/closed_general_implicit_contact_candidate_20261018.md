@@ -890,12 +890,15 @@ MPI rank. At each current trial the tool's distinct support-plane gaps are
 evaluated at the three slave vertices. Each positive-area dominant plane
 receives a polygonal active subcell and positive degree-two quadrature; the
 sum of those areas is checked against an independently clipped convex active
-region. A face with more than three positive-area dominant planes rejects
+region. A face with more than four positive-area dominant planes rejects
 instead of guessing a subset. Each pair of active planes switching across a
 compressed dominant line contributes the affine feature term to the same
 contact Newton matrix. An independent symmetric convex-corner fixture checks
 exact potential and total force as well as five directional tangent differences
-with three positive-area dominant planes. Five perturbed corner states also
+with three positive-area dominant planes. A four-feature rectangular window
+additionally matches exact energy and real FEniCSx tangent differences; a
+five-feature prism rejects instead of selecting an arbitrary subset. Five
+perturbed corner states also
 pass directional tangent differences. A real DOLFINx tetrahedral boundary
 Operator with three crossing features passes the assembled contact tangent
 difference; the manufactured geometry offsets its switches from the slave

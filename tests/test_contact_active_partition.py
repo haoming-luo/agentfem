@@ -16,7 +16,9 @@ from agentfem import (
 )
 from agentfem.boundary_models.contact_active_partition import (
     affine_active_triangle_quadrature,
+    partition_planar_p1_trace,
 )
+from agentfem.boundary_models.contact_trace import ContactTrace
 from agentfem.boundary_models.dolfinx_implicit_facet_contact import (
     dolfinx_implicit_rigid_contact,
 )
@@ -60,6 +62,36 @@ def test_affine_partition_matches_independent_narrow_strip_formula(width):
     assert energy == pytest.approx(
         width**3 / 6 - width**4 / 24, rel=1e-10, abs=0.0,
     )
+
+
+def test_each_slave_face_can_use_its_own_certified_smooth_plane():
+    positions = np.asarray((
+        (-0.1, 0., 0.), (0.2, 0., 0.), (-0.1, 1., 0.),
+        (0., -0.2, 1.), (1., 0.1, 1.), (0., -0.2, 2.),
+    ))
+    shapes = np.asarray(((2 / 3, 1 / 6, 1 / 6),
+                         (1 / 6, 2 / 3, 1 / 6),
+                         (1 / 6, 1 / 6, 2 / 3)))
+    trace = ContactTrace(
+        point_ids=np.arange(6),
+        node_ids=np.repeat(((0, 1, 2), (3, 4, 5)), 3, axis=0),
+        shape_values=np.tile(shapes, (2, 1)),
+        weights=np.full(6, 1 / 6),
+    )
+    trial = partition_planar_p1_trace(
+        trace, positions,
+        plane_point=np.zeros((2, 3)),
+        plane_normal=np.asarray(((1., 0., 0.), (0., 1., 0.))),
+    )
+    for index, active_width in enumerate((1 / 3, 2 / 3)):
+        points = trial.point_ids // 16 == index
+        assert np.any(points)
+        assert np.sum(trial.weights[points]) == pytest.approx(
+            active_width - active_width**2 / 2,
+        )
+        query = trial.evaluate(positions).query_points[points]
+        gaps = query[:, index]
+        assert np.all(gaps < 0.0)
 
 
 def _narrow_contact(*, integration="gauss", moving=False):

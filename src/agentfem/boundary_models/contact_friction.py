@@ -247,6 +247,34 @@ def relative_contact_displacement_increment(
     return _readonly_array(slave_increment - master_increment)
 
 
+def rigid_tangential_history_rotation(
+    motion: PrescribedRigidMotion | None,
+    *,
+    accepted_motion_factor: float,
+    current_motion_factor: float,
+) -> np.ndarray | None:
+    """Rotate accepted tangential history with the rigid master material frame.
+
+    Normal-only transport cannot see spin about an unchanged contact normal.
+    The old history is first rotated by the master increment; subsequent
+    minimal normal transport accounts for sliding onto a different feature.
+    """
+
+    if motion is None:
+        return None
+    if not isinstance(motion, PrescribedRigidMotion):
+        raise TypeError("Tangential history rotation requires PrescribedRigidMotion.")
+    old = np.asarray(
+        motion.state(float(accepted_motion_factor))["rotation_matrix"],
+        dtype=float,
+    )
+    new = np.asarray(
+        motion.state(float(current_motion_factor))["rotation_matrix"],
+        dtype=float,
+    )
+    return _readonly_array(new @ old.T)
+
+
 def _canonical_point_order(point_ids, point_count: int) -> tuple[np.ndarray, np.ndarray]:
     raw = np.asarray(point_ids)
     if raw.ndim != 1 or raw.shape != (point_count,):
@@ -566,6 +594,7 @@ class PenaltyCoulombFrictionLaw:
         normal_response: FrictionlessPenaltyContactResponse,
         relative_displacement_increment,
         accepted: TangentialContactRecord | None = None,
+        history_rotation=None,
     ) -> PenaltyCoulombFrictionResponse:
         """Return one trial update while leaving accepted history untouched."""
 
@@ -584,6 +613,21 @@ class PenaltyCoulombFrictionLaw:
         active = np.asarray(normal_response.active, dtype=bool)[order]
         pressures = np.asarray(normal_response.pressures, dtype=float)[order]
         penalties = _penalty_values(self.tangential_penalty, count)[order]
+        rotation = None
+        if history_rotation is not None:
+            rotation = np.asarray(history_rotation, dtype=float)
+            if (
+                rotation.shape != (dimension, dimension)
+                or not np.all(np.isfinite(rotation))
+                or not np.allclose(
+                    rotation.T @ rotation, np.eye(dimension),
+                    rtol=0.0, atol=1.0e-10,
+                )
+                or not np.isclose(np.linalg.det(rotation), 1.0, rtol=0.0, atol=1.0e-10)
+            ):
+                raise ValueError(
+                    "Tangential history rotation must be a proper orthogonal matrix."
+                )
 
         tangential_increments = increments - np.einsum(
             "ij,ij->i",
@@ -601,9 +645,14 @@ class PenaltyCoulombFrictionLaw:
                 raise ValueError("Accepted friction point identity differs.")
             if accepted.dimension != dimension:
                 raise ValueError("Accepted friction state dimension differs.")
+            old_slips = np.asarray(accepted.elastic_slips)
+            old_normals = np.asarray(accepted.normals)
+            if rotation is not None:
+                old_slips = old_slips @ rotation.T
+                old_normals = old_normals @ rotation.T
             old_slips = _transport_tangent_vectors(
-                np.asarray(accepted.elastic_slips),
-                np.asarray(accepted.normals),
+                old_slips,
+                old_normals,
                 normals,
             )
             cumulative = np.asarray(
@@ -796,5 +845,6 @@ __all__ = [
     "TangentialKinematicState",
     "penalty_coulomb_friction_law",
     "relative_contact_displacement_increment",
+    "rigid_tangential_history_rotation",
     "tangential_contact_state",
 ]

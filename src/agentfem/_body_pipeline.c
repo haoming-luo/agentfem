@@ -26,6 +26,9 @@ typedef void (*material_fn)(int,const double*,const double*,const double*,const 
 typedef struct {
     material_fn material;
     int n, repair, has_rejected, checked, invalid; Py_ssize_t state_width; const double *in[9]; double *out[6]; int *status; double dt,rho;
+    int damped; Py_ssize_t velocity_nodes;
+    const double *velocity, *viscosity[6]; const int32_t *cell_nodes;
+    double *viscous_out[5]; int *viscous_status;
 } body_job;
 typedef struct {
     pthread_mutex_t mutex;
@@ -44,6 +47,12 @@ static body_job body_slice(const body_job *base,int start,int count) {
     part.status=base->status+start;
     for(int k=0;k<9;k++)part.in[k]=base->in[k]+iw[k]*start;
     for(int k=0;k<6;k++)part.out[k]=base->out[k]+ow[k]*start;
+    if(base->damped) {
+        part.cell_nodes=base->cell_nodes+8*(Py_ssize_t)start;
+        for(int k=0;k<6;k++)part.viscosity[k]=base->viscosity[k]+(k?1:8)*(Py_ssize_t)start;
+        for(int k=0;k<5;k++)part.viscous_out[k]=base->viscous_out[k]+(k?1:24)*(Py_ssize_t)start;
+        part.viscous_status=base->viscous_status+start;
+    }
     return part;
 }
 static int checked_body_point(body_job *j,int k) {
@@ -85,6 +94,30 @@ static void *execute_body(void *raw) {
          * local to its worker. Rejected material points are checked only
          * after exact repair. Publication still waits for every worker. */
         if(j->checked && !checked_body_point(j,k))j->invalid=1;
+        if(j->damped) {
+            double velocity[24]; int valid=1;
+            for(int a=0;a<8;a++) {
+                int32_t node=j->cell_nodes[8*(Py_ssize_t)k+a];
+                if(node<0 || node>=j->velocity_nodes) { valid=0;break; }
+                memcpy(velocity+3*a,j->velocity+3*(Py_ssize_t)node,3*sizeof(double));
+            }
+            if(!valid) { j->invalid=1;continue; }
+            /* Same cell formula and summation order as the separate pass.
+             * Nodal gather is local scratch, never a full n*8*3 array. */
+            hex_bulk_response(1,j->in[1]+9*k,j->in[5]+24*k,velocity,j->viscosity[0]+8*k,
+                j->in[7]+k,j->viscosity[1]+k,j->viscosity[2]+k,j->viscosity[3]+k,
+                j->viscosity[4]+k,j->viscosity[5]+k,j->viscous_out[0]+24*k,
+                j->viscous_out[1]+k,j->viscous_out[2]+k,j->viscous_out[3]+k,
+                j->viscous_out[4]+k,j->viscous_status+k);
+            if(j->viscous_status[k]) {
+                for(int a=0;a<24;a++)j->viscous_out[0][24*k+a]=NAN;
+                for(int a=1;a<5;a++)j->viscous_out[a][k]=NAN;
+            } else if(j->checked) {
+                for(int a=0;a<5;a++)for(int q=0;q<(a?1:24);q++)
+                    if(!isfinite(j->viscous_out[a][(a?1:24)*(Py_ssize_t)k+q]))j->invalid=1;
+                if(j->viscous_out[1][k]<0. || j->viscous_out[4][k]<0.)j->invalid=1;
+            }
+        }
     }
     return NULL;
 }
@@ -141,10 +174,11 @@ static int execute_tiled(body_job *base,int workers,int tile,NativePool *pool,in
 }
 static PyObject *run_impl(PyObject *self,PyObject *args,int checked) {
     unsigned long long ma; Py_ssize_t state_width,property_count; PyObject *inputs,*callback;
-    Py_buffer buffers[9]={{0}}; PyObject *out[6]={NULL}; PyObject *result=NULL;
+    Py_buffer buffers[9]={{0}}, viscous_buffers[8]={{0}};
+    PyObject *out[6]={NULL}, *viscous_out[6]={NULL}; PyObject *result=NULL;
     int workers,*status=NULL,acquired=0,tile=0; double dt,rho;
-    PyObject *executor=Py_None;NativePool *pool=NULL;
-    if(!PyArg_ParseTuple(args,"KOddinnO|Oi",&ma,&inputs,&dt,&rho,&workers,&state_width,&property_count,&callback,&executor,&tile)) return NULL;
+    PyObject *executor=Py_None, *viscous=Py_None;NativePool *pool=NULL;
+    if(!PyArg_ParseTuple(args,"KOddinnO|OiO",&ma,&inputs,&dt,&rho,&workers,&state_width,&property_count,&callback,&executor,&tile,&viscous)) return NULL;
     if(!PyCallable_Check(callback)||!ma||state_width<1||property_count<0||!PyTuple_Check(inputs)||PyTuple_GET_SIZE(inputs)!=9||workers<1||workers>16||tile<0||!isfinite(dt)||dt<=0||!isfinite(rho)||rho<=0) {
         PyErr_SetString(PyExc_ValueError,"Invalid native material/body configuration"); return NULL;
     }
@@ -172,10 +206,30 @@ static PyObject *run_impl(PyObject *self,PyObject *args,int checked) {
         out[i]=PyBytes_FromStringAndSize(NULL,n*ow[i]*8);
         if(!out[i]) goto cleanup;
     }
+    if(viscous!=Py_None) {
+        if(!PyTuple_Check(viscous)||PyTuple_GET_SIZE(viscous)!=8) {
+            PyErr_SetString(PyExc_ValueError,"Damped body requires velocity, connectivity, mass and five coefficients");goto cleanup;
+        }
+        for(int i=0;i<8;i++) {
+            if(PyObject_GetBuffer(PyTuple_GET_ITEM(viscous,i),&viscous_buffers[i],PyBUF_C_CONTIGUOUS|PyBUF_FORMAT))goto cleanup;
+            Py_buffer *v=viscous_buffers+i;int bytes=i==1?4:8;
+            if(v->itemsize!=bytes||!v->format||strcmp(v->format,i==1?"i":"d")||(uintptr_t)v->buf%bytes) {
+                PyErr_SetString(PyExc_ValueError,"Damped body requires aligned float64/int32 buffers");goto cleanup;
+            }
+            if((i==0 && (v->ndim!=2||v->shape[1]!=3)) ||
+               (i>0 && v->len!=n*(i<3?8:1)*bytes)) {
+                PyErr_SetString(PyExc_ValueError,"Damped body buffer layout differs");goto cleanup;
+            }
+        }
+        for(int i=0;i<6;i++) {
+            viscous_out[i]=PyBytes_FromStringAndSize(NULL,n*(i==5?sizeof(int):(i?1:24)*sizeof(double)));
+            if(!viscous_out[i])goto cleanup;
+        }
+    }
     status=PyMem_Calloc((size_t)n,sizeof(int));
     if(!status) { PyErr_NoMemory(); goto cleanup; }
     if(workers>n) workers=(int)n;
-    body_job jobs[16]; int failed=0,tiled_invalid=0;
+    body_job jobs[16]={{0}}; int failed=0,tiled_invalid=0;
     for(int i=0;i<workers;i++) {
         Py_ssize_t start=n*i/workers,end=n*(i+1)/workers;
         jobs[i].repair=0; jobs[i].has_rejected=0; jobs[i].checked=checked; jobs[i].invalid=0;
@@ -184,6 +238,14 @@ static PyObject *run_impl(PyObject *self,PyObject *args,int checked) {
         jobs[i].status=status+start;
         for(int k=0;k<9;k++) jobs[i].in[k]=(const double*)buffers[k].buf+iw[k]*start;
         for(int k=0;k<6;k++) jobs[i].out[k]=(double*)PyBytes_AS_STRING(out[k])+ow[k]*start;
+        if(viscous!=Py_None) {
+            jobs[i].damped=1;jobs[i].velocity=viscous_buffers[0].buf;
+            jobs[i].velocity_nodes=viscous_buffers[0].shape[0];
+            jobs[i].cell_nodes=(const int32_t*)viscous_buffers[1].buf+8*start;
+            for(int k=0;k<6;k++)jobs[i].viscosity[k]=(const double*)viscous_buffers[k+2].buf+(k?1:8)*start;
+            for(int k=0;k<5;k++)jobs[i].viscous_out[k]=(double*)PyBytes_AS_STRING(viscous_out[k])+(k?1:24)*start;
+            jobs[i].viscous_status=(int*)PyBytes_AS_STRING(viscous_out[5])+start;
+        }
     }
     body_job base=jobs[0];base.n=(int)n;
     Py_BEGIN_ALLOW_THREADS
@@ -239,13 +301,18 @@ static PyObject *run_impl(PyObject *self,PyObject *args,int checked) {
     }
     /* The Python material/body constructors validate all immutable buffers
      * before they can enter a trial. Avoid an identical full-array scan here. */
-    result=PyTuple_New(6);
-    if(result) for(int i=0;i<6;i++) PyTuple_SET_ITEM(result,i,Py_NewRef(out[i]));
+    result=PyTuple_New(viscous==Py_None?6:12);
+    if(result) for(int i=0;i<6;i++) {
+        PyTuple_SET_ITEM(result,i,Py_NewRef(out[i]));
+        if(viscous!=Py_None)PyTuple_SET_ITEM(result,i+6,Py_NewRef(viscous_out[i]));
+    }
 cleanup:
     if(acquired)pool->busy=0;
     PyMem_Free(status);
     for(int i=0;i<6;i++) Py_XDECREF(out[i]);
+    for(int i=0;i<6;i++) Py_XDECREF(viscous_out[i]);
     for(int i=0;i<9;i++) if(buffers[i].obj) PyBuffer_Release(&buffers[i]);
+    for(int i=0;i<8;i++) if(viscous_buffers[i].obj) PyBuffer_Release(&viscous_buffers[i]);
     return result;
 }
 static PyObject *run(PyObject *self,PyObject *args) {return run_impl(self,args,0);}
@@ -256,6 +323,7 @@ static PyMethodDef methods[]={
     {"run",run,METH_VARARGS,"Trusted C material ABI with core-owned immutable body output"},
     {"run_checked",run_checked,METH_VARARGS,"Worker-validated immutable material and body output"},
     {"run_tiled_checked",run_checked,METH_VARARGS,"Opt-in dynamically tiled, worker-validated body execution"},
+    {"run_damped_checked",run_checked,METH_VARARGS,"Joined material, body and locally gathered bulk-viscosity response"},
     {"auxiliary",auxiliary,METH_VARARGS,"Joined disjoint-cell arithmetic with immutable output"},
     {NULL,NULL,0,NULL}};
 static struct PyModuleDef module={PyModuleDef_HEAD_INIT,"_body_pipeline",NULL,-1,methods};

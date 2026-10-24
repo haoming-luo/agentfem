@@ -15,6 +15,7 @@ from dataclasses import dataclass, field, replace
 import numpy as np
 
 from .contact_pair import RigidContactPair
+from .contact_integration_modes import resolve_contact_integration_modes
 from .contact_active_partition import partition_planar_p1_trace
 from .contact_convex_partition import (
     _unique_support_planes, partition_convex_p1_trace,
@@ -22,6 +23,7 @@ from .contact_convex_partition import (
 from .contact_friction import (
     TangentialContactRecord, TangentialContactState, TangentialKinematicRecord,
     TangentialKinematicState, relative_contact_displacement_increment,
+    rigid_tangential_history_rotation,
 )
 from .contact_state import ContactProjectionRecord
 from .closed_polyhedron import ClosedTriangulatedRigidSolid
@@ -35,10 +37,32 @@ from .implicit_facet_contact import (
 )
 from .implicit_contact import ImplicitRigidContactContribution
 from .implicit_contact import CombinedImplicitRigidContactContribution
-from .implicit_closed_contact import linearize_closed_rigid_solid_contact
+from .implicit_closed_contact import (
+    linearize_closed_rigid_solid_contact,
+    sampled_mixed_feature_slave_faces,
+)
 from .implicit_friction import linearize_piecewise_planar_penalty_friction
 from .implicit_smooth_contact import linearize_smooth_rigid_contact
-from .rigid import RigidPlaneSurface, SmoothRigidSurface, TriangulatedRigidSurface
+from ._petsc_contact_rows import (
+    add_contact_coo_tangent,
+    add_contact_nodal_residual,
+)
+from .initial_gap_bound import (
+    certify_initial_convex_triangle_gap, certify_initial_triangle_gap,
+    certify_initial_radial_triangle_gap,
+    certify_initial_reviewed_planar_branch_gap, initial_gap_bound_method,
+)
+from .contact_separation_bound import certify_current_triangle_separation
+from .contact_planar_branch_bound import certify_reviewed_planar_branch
+from .contact_reference_refinement import refine_p1_triangle_reference_trace
+from .contact_radial_partition import (
+    partition_radial_p1_trace, radial_partition_policy_summary,
+)
+from .contact_integration_modes import CONTACT_INTEGRATION_MODES
+from .rigid import (
+    RigidCylinderSurface, RigidPlaneSurface, RigidSphereSurface,
+    SmoothRigidSurface, TriangulatedRigidSurface,
+)
 from .search import TriangleSurfaceBVH, triangle_surface_bvh
 
 
@@ -57,6 +81,9 @@ class DolfinxImplicitRigidContact:
     _support_planes: tuple[np.ndarray, np.ndarray] | None = field(
         default=None, init=False, repr=False,
     )
+    _initial_contact_diagnostics: dict[str, object] = field(
+        default_factory=dict, init=False, repr=False,
+    )
 
     def __post_init__(self) -> None:
         if not isinstance(self.pair, RigidContactPair):
@@ -64,10 +91,13 @@ class DolfinxImplicitRigidContact:
         if not isinstance(self.adapter, DolfinxContactTraceAdapter):
             raise TypeError("Implicit rigid contact requires a DOLFINx trace adapter.")
         surface = self.pair.rigid_body.surface
-        if self.contact_integration not in {
-            "gauss", "planar_active_partition", "convex_feature_partition",
-        }:
+        if self.contact_integration not in CONTACT_INTEGRATION_MODES:
             raise ValueError("Unsupported implicit contact integration method.")
+        if self.contact_integration == "certified_closed_two_feature_research":
+            raise NotImplementedError(
+                "Certified face integration requires its face-level provider; "
+                "the point-sampled contact adapter cannot lower this mode."
+            )
         if self.contact_integration == "planar_active_partition" and (
             not isinstance(surface, RigidPlaneSurface)
             or self.pair.friction is not None
@@ -95,6 +125,48 @@ class DolfinxImplicitRigidContact:
                 "AFM-CONTACT-FEATURE-PARTITION: requires frictionless certified "
                 "convex rigid geometry, scalar penalty, affine P1 tetrahedral "
                 "slave triangles and the default positive reference-area rule."
+            )
+        if self.contact_integration == "radial_active_partition" and (
+            not isinstance(surface, (RigidSphereSurface, RigidCylinderSurface))
+            or surface.dimension != 3
+            or self.pair.friction is not None
+            or np.asarray(self.pair.law.penalty).ndim != 0
+            or self.adapter.facet_topology != "triangle"
+            or self.adapter.interpolation_degree != 1
+            or self.adapter.geometry_degree != 1
+            or self.adapter.quadrature_rule != "triangle_degree_two_three_point"
+        ):
+            raise NotImplementedError(
+                "AFM-CONTACT-RADIAL-PARTITION: requires a frictionless analytical "
+                "3D sphere or cylinder, scalar penalty, affine P1 slave triangles "
+                "and the default positive reference-area rule."
+            )
+        planar_branch_mode = self.contact_integration in {
+            "closed_planar_branch_partition", "reviewed_planar_branch_partition",
+        }
+        planar_branch_surfaces = (
+            (ClosedTriangulatedRigidSolid,)
+            if self.contact_integration == "closed_planar_branch_partition"
+            else (ClosedTriangulatedRigidSolid, TriangulatedRigidSurface)
+        )
+        if planar_branch_mode and (
+            not isinstance(surface, planar_branch_surfaces)
+            or self.pair.friction is not None
+            or np.asarray(self.pair.law.penalty).ndim != 0
+            or self.adapter.facet_topology != "triangle"
+            or self.adapter.interpolation_degree != 1
+            or self.adapter.geometry_degree != 1
+            or self.adapter.quadrature_rule != "triangle_degree_two_three_point"
+        ):
+            code = (
+                "AFM-CONTACT-CLOSED-PLANAR-BRANCH"
+                if self.contact_integration == "closed_planar_branch_partition"
+                else "AFM-CONTACT-REVIEWED-PLANAR-BRANCH"
+            )
+            raise NotImplementedError(
+                f"{code}: requires a frictionless "
+                "reviewed triangle tool, scalar penalty, affine P1 triangular "
+                "slave faces and the default positive reference-area rule."
             )
         if self.contact_integration == "convex_feature_partition":
             self._support_planes = _unique_support_planes(surface)
@@ -164,6 +236,147 @@ class DolfinxImplicitRigidContact:
             raise ValueError("Contact slave and displacement must share one mesh.")
         if self.adapter.function_space is not self.displacement.function_space:
             raise ValueError("Contact trace and displacement must share one function space.")
+        self._audit_initial_contact()
+
+    def _audit_initial_contact(self) -> None:
+        """Sample reference geometry before Newton without moving the mesh.
+
+        A prescribed initial overclosure is a modeling choice, not a hidden
+        geometry adjustment. First-order reference geometry against an
+        analytical plane has an exact vertex extrema bound even with a
+        quadratic displacement field. This does not bound deformed P2 faces.
+        For other geometry
+        the sampled evidence is *not* a bound, so it cannot enforce a limit.
+        """
+
+        evaluation = self.adapter.trace.evaluate(
+            self.adapter.reference_nodal_positions,
+        )
+        projector = self.surface if self.projector is None else self.projector
+        projection = projector.project(evaluation.query_points, factor=0.0)
+        valid = np.asarray(projection.valid, dtype=bool)
+        gaps = np.asarray(projection.signed_gaps, dtype=float)
+        penetrations = np.maximum(0.0, -gaps[valid])
+        maximum = float(np.max(penetrations, initial=0.0))
+        limit = self.pair.initial_penetration_limit
+        method = initial_gap_bound_method(
+            self.surface,
+            interpolation_degree=self.adapter.interpolation_degree,
+            geometry_degree=self.adapter.geometry_degree,
+            facet_topology=self.adapter.facet_topology,
+            contact_integration=self.contact_integration,
+        )
+        if method == "exact_plane_geometry_vertices" and self.adapter.reference_facet_vertices is None:
+            # Expert-created adapters without authoritative face geometry may
+            # still report samples, but cannot claim a reference-face bound.
+            method = None
+        certified = method is not None and limit is not None
+        maximum_bound = None
+        certificate_samples = 0
+        certificate_depth = 0
+        if method in {"exact_plane_nodal", "exact_plane_geometry_vertices"}:
+            certified = True
+            if method == "exact_plane_geometry_vertices":
+                points = self.adapter.reference_facet_vertices
+                if points is None:
+                    raise NotImplementedError(
+                        "AFM-CONTACT-INITIAL-BOUND: authoritative reference facet vertices are required.")
+            else:
+                boundary_nodes = np.unique(evaluation.trace.node_ids.reshape(-1))
+                points = self.adapter.reference_nodal_positions[boundary_nodes]
+            nodal = projector.project(points, factor=0.0)
+            if not nodal.all_valid:
+                raise ValueError(
+                    "AFM-CONTACT-INITIAL-PROJECTION: analytical-plane "
+                    "reference-node projection is invalid."
+                )
+            maximum_bound = float(np.max(
+                np.maximum(0.0, -np.asarray(nodal.signed_gaps)), initial=0.0,
+            ))
+            certificate_samples = len(points)
+        elif method in {
+            "adaptive_closed_signed_distance_lipschitz",
+            "convex_support_plane_or_adaptive_lipschitz",
+        } and limit is not None:
+            face_nodes = np.unique(evaluation.trace.node_ids, axis=0)
+            certify = (
+                certify_initial_convex_triangle_gap
+                if method == "convex_support_plane_or_adaptive_lipschitz"
+                else certify_initial_triangle_gap
+            )
+            certificate = certify(
+                self.adapter.reference_nodal_positions[face_nodes],
+                projector,
+                penetration_limit=limit,
+            )
+            maximum_bound = certificate.maximum_penetration_bound
+            certificate_samples = certificate.sampled_point_count
+            certificate_depth = certificate.maximum_refinement_depth
+        elif method == "certified_reviewed_planar_branch_nodal" and limit is not None:
+            face_nodes = np.unique(evaluation.trace.node_ids, axis=0)
+            certificate = certify_initial_reviewed_planar_branch_gap(
+                self.adapter.reference_nodal_positions[face_nodes],
+                self.surface,
+                projector=self.projector,
+                penetration_limit=limit,
+            )
+            maximum_bound = certificate.maximum_penetration_bound
+            certificate_samples = certificate.sampled_point_count
+            certificate_depth = certificate.maximum_refinement_depth
+        elif method == "exact_radial_face_extrema" and limit is not None:
+            face_nodes = np.unique(evaluation.trace.node_ids, axis=0)
+            certificate = certify_initial_radial_triangle_gap(
+                self.adapter.reference_nodal_positions[face_nodes],
+                self.surface, penetration_limit=limit,
+            )
+            maximum_bound = certificate.maximum_penetration_bound
+            certificate_samples = certificate.sampled_point_count
+        self._initial_contact_diagnostics = {
+            "sampling": "reference_boundary_quadrature_at_reference_rigid_pose",
+            "sampled_point_count": int(valid.size),
+            "invalid_projection_count": int(np.count_nonzero(~valid)),
+            "penetrating_point_count": int(np.count_nonzero(penetrations > 0.0)),
+            "maximum_penetration": maximum,
+            "maximum_penetration_bound": maximum_bound,
+            "face_wise_bound_certified": certified,
+            "bound_method": method if certified else None,
+            "bound_sampled_point_count": certificate_samples,
+            "bound_refinement_depth": certificate_depth,
+            "minimum_valid_signed_gap": (
+                None if not np.any(valid) else float(np.min(gaps[valid]))
+            ),
+            "penetrating_reference_area": float(np.sum(
+                evaluation.trace.weights[valid][penetrations > 0.0]
+            )),
+            "admission_limit": limit,
+            "policy": "report" if limit is None else "reject_certified_above_limit",
+        }
+        if limit is None:
+            return
+        if not certified:
+            raise NotImplementedError(
+                "AFM-CONTACT-INITIAL-BOUND: an initial_penetration_limit "
+                "requires first-order reference geometry with authoritative "
+                "facet vertices for an analytical plane (CG1/CG2 displacement), "
+                "or first-order slave interpolation and geometry with reviewed closed-solid "
+                "signed distance, a bounded analytical radial partition, or "
+                "an open sheet with a certified complete planar branch on "
+                "triangular faces; sampled gaps are not a bound."
+            )
+        if not np.all(valid):
+            first = int(np.flatnonzero(~valid)[0])
+            raise ValueError(
+                "AFM-CONTACT-INITIAL-PROJECTION: cannot certify the initial "
+                "penetration limit because reference projection is invalid at "
+                f"contact_point_id={int(evaluation.trace.point_ids[first])}, "
+                f"surface={self.surface.name}."
+            )
+        if maximum_bound > limit:
+            raise ValueError(
+                "AFM-CONTACT-INITIAL-OVERLAP: reference-configuration "
+                f"penetration bound {maximum_bound:.6g} exceeds the declared limit "
+                f"{limit:.6g} on pair {self.name}; no mesh or tool is moved."
+            )
 
     @property
     def surface(
@@ -177,6 +390,16 @@ class DolfinxImplicitRigidContact:
     @property
     def name(self) -> str:
         return self.pair.name
+
+    def _tangential_history_rotation(self, factor: float) -> np.ndarray | None:
+        if self.friction_kinematics is None or self.friction_kinematics.accepted is None:
+            raise RuntimeError("Implicit friction requires accepted kinematic State.")
+        schedule = self.pair.rigid_body.motion_schedule
+        return rigid_tangential_history_rotation(
+            None if schedule is None else schedule.motion,
+            accepted_motion_factor=self.friction_kinematics.accepted.motion_factor,
+            current_motion_factor=factor,
+        )
 
     @property
     def has_prescribed_motion(self) -> bool:
@@ -345,6 +568,7 @@ class DolfinxImplicitRigidContact:
             normal_response=response,
             relative_displacement_increment=relative,
             accepted=self.friction_state.accepted,
+            history_rotation=self._tangential_history_rotation(factor),
         )
         # Validate integrated energy channels before any State mutation.
         evaluation.assemble_friction(record, candidate)
@@ -395,6 +619,7 @@ class DolfinxImplicitRigidContact:
             else float(np.asarray(self.motion_factor.value).reshape(-1)[0])
         )
         partition = None
+        planar_bound = None
         if self.contact_integration == "planar_active_partition":
             current = self.adapter.current_nodal_positions(self.displacement)
             pose = self.surface.transformed(
@@ -415,6 +640,46 @@ class DolfinxImplicitRigidContact:
                 _support_planes=self._support_planes,
             )
             evaluation = partition.trace.evaluate(current)
+        elif self.contact_integration == "radial_active_partition":
+            current = self.adapter.current_nodal_positions(self.displacement)
+            trial_trace = partition_radial_p1_trace(
+                self.adapter.trace, current, self.surface,
+                penalty=float(np.asarray(self.pair.law.penalty)),
+                motion=None if schedule is None else schedule.motion,
+                factor=factor,
+            )
+            evaluation = trial_trace.evaluate(current)
+        elif self.contact_integration in {
+            "closed_planar_branch_partition", "reviewed_planar_branch_partition",
+        }:
+            current = self.adapter.current_nodal_positions(self.displacement)
+            face_nodes = self.adapter.trace.node_ids.reshape(-1, 3, 3)[:, 0, :]
+            planar_bound = certify_reviewed_planar_branch(
+                current[face_nodes], self.surface,
+                projector=(
+                    self.projector
+                    if isinstance(self.surface, TriangulatedRigidSurface) else None
+                ),
+                motion=None if schedule is None else schedule.motion,
+                factor=factor,
+            )
+            if not planar_bound.certified:
+                code = (
+                    "AFM-CONTACT-CLOSED-PLANAR-BRANCH"
+                    if self.contact_integration == "closed_planar_branch_partition"
+                    else "AFM-CONTACT-REVIEWED-PLANAR-BRANCH"
+                )
+                raise NotImplementedError(
+                    f"{code}: the current complete "
+                    "slave trace cannot be proved to lie on a smooth master "
+                    f"plane per face ({planar_bound.status}); no trial was accepted."
+                )
+            trial_trace = partition_planar_p1_trace(
+                self.adapter.trace, current,
+                plane_point=planar_bound.plane_points,
+                plane_normal=planar_bound.plane_normals,
+            )
+            evaluation = trial_trace.evaluate(current)
         else:
             evaluation = self.adapter.evaluate(self.displacement)
         projector = self.surface if self.projector is None else self.projector
@@ -447,23 +712,79 @@ class DolfinxImplicitRigidContact:
                 projection.normals[sampled] - partition.selected_normals[sampled],
                 axis=1,
             )
-            if (np.any(gap_error > 64 * np.finfo(float).eps * scale)
-                    or np.any(normal_error > 1e-10)):
+            mismatch = (
+                (gap_error > 64 * np.finfo(float).eps * scale)
+                | (normal_error > 1e-10)
+            )
+            if np.any(mismatch):
+                sampled_indices = np.flatnonzero(sampled)
+                first = int(sampled_indices[np.flatnonzero(mismatch)[0]])
                 raise ValueError(
                     "AFM-CONTACT-FEATURE-PARTITION: geometry projection "
-                    "disagrees with the selected support-plane branch; "
+                    "disagrees with the selected support-plane branch at "
+                    f"contact_point_id={int(evaluation.trace.point_ids[first])}, "
+                    f"query_point={evaluation.query_points[first].tolist()}, "
+                    f"projection_gap={projection.signed_gaps[first]:.6g}, "
+                    f"partition_gap={partition.selected_gaps[first]:.6g}, "
+                    f"projection_normal={projection.normals[first].tolist()}, "
+                    f"partition_normal={partition.selected_normals[first].tolist()}; "
                     "the current trial is rejected."
+                )
+        if planar_bound is not None:
+            original_ids = self.adapter.trace.point_ids.reshape(-1, 3)[:, 0] // 3
+            face_slots = {int(identity): slot for slot, identity in enumerate(original_ids)}
+            if len(face_slots) != len(original_ids):
+                raise ValueError(
+                    "AFM-CONTACT-REVIEWED-PLANAR-BRANCH: duplicate slave face identity."
+                )
+            identity_divisor = 3 if evaluation.trace is self.adapter.trace else 16
+            try:
+                point_slots = np.asarray([
+                    face_slots[int(identity)]
+                    for identity in evaluation.trace.point_ids // identity_divisor
+                ], dtype=np.int64)
+            except KeyError as exc:
+                raise ValueError(
+                    "AFM-CONTACT-REVIEWED-PLANAR-BRANCH: trial point has no "
+                    "certified parent slave face."
+                ) from exc
+            point_normals = planar_bound.plane_normals[point_slots]
+            expected_gaps = np.einsum(
+                "ij,ij->i",
+                evaluation.query_points - planar_bound.plane_points[point_slots],
+                point_normals,
+            )
+            scale = max(1.0, float(np.max(
+                np.abs(evaluation.query_points), initial=0.0,
+            )))
+            gap_errors = np.abs(projection.signed_gaps - expected_gaps)
+            normal_errors = np.linalg.norm(
+                projection.normals - point_normals, axis=1,
+            )
+            mismatch = (
+                (gap_errors > 128 * np.finfo(float).eps * scale)
+                | (normal_errors > 512 * np.finfo(float).eps)
+            )
+            if np.any(mismatch):
+                first = int(np.flatnonzero(mismatch)[0])
+                raise ValueError(
+                    "AFM-CONTACT-REVIEWED-PLANAR-BRANCH: current projection "
+                    "disagrees with the certified exact plane at "
+                    f"contact_point_id={int(evaluation.trace.point_ids[first])}, "
+                    f"gap_error={gap_errors[first]:.6g}, "
+                    f"normal_error={normal_errors[first]:.6g}; "
+                    "the trial is rejected."
                 )
         record = ContactProjectionRecord(evaluation.trace.point_ids, projection)
         response = self.pair.law.evaluate(record.projection)
         if _include_partition:
-            return evaluation, record, response, factor, partition
+            return evaluation, record, response, factor, partition, planar_bound
         return evaluation, record, response, factor
 
     def current_point_diagnostics(self) -> dict[str, object]:
         """Unsmoothed reference-trace diagnostics at the current trial pose."""
 
-        evaluation, record, response, _factor, partition = self._current_point_response(
+        evaluation, record, response, factor, partition, planar_bound = self._current_point_response(
             _include_partition=True,
         )
         active = np.asarray(response.active, dtype=bool)
@@ -474,10 +795,46 @@ class DolfinxImplicitRigidContact:
             "active_reference_area": float(np.sum(evaluation.trace.weights[active])),
             "maximum_pressure": float(np.max(response.pressures, initial=0.0)),
             "maximum_penetration": float(np.max(response.penetration, initial=0.0)),
+            "initial_contact": dict(self._initial_contact_diagnostics),
         }
         if partition is not None:
             evidence["split_slave_faces"] = partition.split_faces
             evidence["active_feature_lines"] = partition.active_feature_lines
+        if isinstance(self.surface, ConvexPolyhedralRigidSurface):
+            # An active (negative-gap) point inside a convex solid selects a
+            # support plane. Coplanar triangulation seams share its normal
+            # and offset; distinct planes on one slave face signal a sampled
+            # feature transition. Absence of such samples is not a proof.
+            projection = record.projection
+            offsets = np.einsum(
+                "ij,ij->i", projection.normals, projection.closest_points,
+            )
+            scale = max(1.0, float(np.max(
+                np.abs(projection.closest_points), initial=0.0,
+            )))
+            faces: dict[tuple[int, ...], tuple[np.ndarray, float] | None] = {}
+            mixed = set()
+            for nodes, active_point, normal, offset in zip(
+                evaluation.trace.node_ids, active, projection.normals, offsets,
+                strict=True,
+            ):
+                if not active_point:
+                    continue
+                key = tuple(int(node) for node in nodes)
+                if key in mixed:
+                    continue
+                first = faces.get(key)
+                if first is None:
+                    faces[key] = (normal, float(offset))
+                elif (
+                    np.linalg.norm(first[0] - normal) > 1e-10
+                    or abs(first[1] - offset) > 1e-10 * scale
+                ):
+                    mixed.add(key)
+            evidence["sampled_mixed_feature_slave_faces"] = len(mixed)
+            evidence["feature_transition_integral_certified"] = (
+                self.contact_integration == "convex_feature_partition"
+            )
         if isinstance(self.surface, ClosedTriangulatedRigidSolid):
             # Do not infer this from nominal triangle IDs: a coplanar seam is
             # physically a face, while a subdivided straight edge remains an
@@ -491,7 +848,313 @@ class DolfinxImplicitRigidContact:
                 )
                 counts[feature] += 1
             evidence["active_feature_counts"] = counts
+            evidence["sampled_mixed_feature_slave_faces"] = (
+                sampled_mixed_feature_slave_faces(
+                    evaluation, record, response, self.surface,
+                    motion=(
+                        None if self.pair.rigid_body.motion_schedule is None
+                        else self.pair.rigid_body.motion_schedule.motion
+                    ),
+                    factor=factor,
+                )
+            )
+            # A sampled zero is not a face-wise zero. Only a conservative
+            # signed-distance bound over every current affine slave triangle
+            # may certify that this accepted configuration has no contact.
+            # This does not admit any active nonconvex feature integral.
+            if planar_bound is not None:
+                evidence["whole_face_planar_branch"] = {
+                    "certified": True,
+                    "status": planar_bound.status,
+                    "slave_face_count": planar_bound.slave_face_count,
+                    "examined_master_facet_count": planar_bound.examined_master_facet_count,
+                    "minimum_competitor_clearance": (
+                        planar_bound.minimum_competitor_clearance
+                    ),
+                    "scope": "current_affine_slave_faces_one_master_plane_per_face",
+                }
+                evidence["feature_transition_integral_certified"] = True
+            elif (
+                not np.any(active)
+                and self.adapter.interpolation_degree == 1
+                and self.adapter.geometry_degree == 1
+                and self.adapter.facet_topology == "triangle"
+            ):
+                face_nodes = np.unique(evaluation.trace.node_ids, axis=0)
+                current = self.adapter.current_nodal_positions(self.displacement)
+                separation = certify_current_triangle_separation(
+                    current[face_nodes], self.surface,
+                    motion=None if self.pair.rigid_body.motion_schedule is None
+                    else self.pair.rigid_body.motion_schedule.motion,
+                    factor=factor,
+                )
+                evidence["whole_face_separation"] = {
+                    "certified": separation.certified,
+                    "minimum_gap_lower_bound": separation.minimum_gap_lower_bound,
+                    "sampled_point_count": separation.sampled_point_count,
+                    "maximum_refinement_depth": separation.maximum_refinement_depth,
+                    "status": separation.status,
+                    "scope": "current_affine_slave_faces_only",
+                }
+                evidence["feature_transition_integral_certified"] = separation.certified
+            else:
+                evidence["feature_transition_integral_certified"] = False
+        elif isinstance(self.surface, TriangulatedRigidSurface) and planar_bound is not None:
+            evidence["active_feature_counts"] = {
+                "face": int(np.count_nonzero(active)), "edge": 0, "vertex": 0,
+            }
+            evidence["sampled_mixed_feature_slave_faces"] = 0
+            evidence["whole_face_planar_branch"] = {
+                "certified": True,
+                "status": planar_bound.status,
+                "slave_face_count": planar_bound.slave_face_count,
+                "examined_master_facet_count": planar_bound.examined_master_facet_count,
+                "minimum_competitor_clearance": planar_bound.minimum_competitor_clearance,
+                "scope": "current_affine_slave_faces_one_oriented_master_plane_per_face",
+            }
+            evidence["feature_transition_integral_certified"] = True
         return evidence
+
+    def quadrature_sensitivity(
+        self, degrees=(None, 5, 7, 9, 11),
+    ) -> dict[str, object]:
+        """Compare positive face rules on one *fixed* current configuration.
+
+        This diagnostic changes neither the displacement nor contact State.
+        It isolates integration-rule sensitivity from the feedback of
+        independently re-solving the nonlinear problem. Agreement between
+        sampled rules is not a continuous feature-boundary certificate.
+        """
+
+        try:
+            selected = tuple(degrees)
+        except TypeError as exc:
+            raise ValueError(
+                "Contact quadrature audit requires a sequence of supported rules."
+            ) from exc
+        if (not selected or any(
+            value is not None and (
+                isinstance(value, (bool, np.bool_))
+                or not isinstance(value, (int, np.integer))
+                or int(value) not in (5, 7, 9, 11)
+            ) for value in selected
+        )):
+            raise ValueError("Contact quadrature audit requires unique supported rules.")
+        selected = tuple(None if value is None else int(value) for value in selected)
+        if len(set(selected)) != len(selected):
+            raise ValueError("Contact quadrature audit requires unique supported rules.")
+        if (self.contact_integration != "gauss" or self.pair.friction is not None
+                or np.asarray(self.pair.law.penalty).ndim != 0):
+            raise NotImplementedError(
+                "AFM-CONTACT-QUADRATURE-AUDIT: requires a frictionless scalar-"
+                "penalty pair with fixed Gaussian reference integration."
+            )
+        schedule = self.pair.rigid_body.motion_schedule
+        factor = (
+            0.0 if self.motion_factor is None
+            else float(np.asarray(self.motion_factor.value).reshape(-1)[0])
+        )
+        reference_point = self.pair.rigid_body.reference_point
+        if schedule is not None:
+            reference_point = schedule.motion.state(factor)["reference_point"]
+        evaluations = []
+        for degree in selected:
+            alternative = dolfinx_implicit_rigid_contact(
+                self.pair, self.displacement,
+                contact_quadrature_degree=degree,
+            )
+            alternative.update_motion(factor)
+            evaluation, record, response, _ = alternative._current_point_response()
+            assembly = evaluation.assemble(
+                record, response, surface_reference_point=reference_point,
+            )
+            active = np.asarray(response.active, dtype=bool)
+            evaluations.append({
+                "degree": degree,
+                "quadrature_rule": alternative.adapter.quadrature_rule,
+                "sample_count": evaluation.trace.point_count,
+                "active_point_count": int(np.count_nonzero(active)),
+                "active_reference_area": float(np.sum(evaluation.trace.weights[active])),
+                "maximum_sampled_penetration": float(np.max(
+                    response.penetration, initial=0.0,
+                )),
+                "contact_force_on_structure": assembly.contact_force_on_structure.tolist(),
+                "contact_potential_energy": assembly.potential_energy,
+            })
+        return {
+            "method": "fixed_configuration_positive_rule_sensitivity",
+            "load_factor": factor,
+            "measure": "reference_area",
+            "certifies_feature_transition_integral": False,
+            "evaluations": evaluations,
+        }
+
+    def closed_penalty_energy_enclosure(
+        self, *, absolute_tolerance=0.0, relative_tolerance=0.01,
+        maximum_depth=8, maximum_cells_per_face=4096, maximum_faces=32,
+    ) -> dict[str, object]:
+        """Bound the current closed-tool penalty energy without changing State.
+
+        Unlike quadrature comparisons, a positive lower bound can establish
+        that the *fixed* configuration has a missed active-area contribution.
+        This does not return forces, a Newton tangent or a corrected Step.
+        Its finite bounds carry conservative floating-point margins, not a
+        formal interval-arithmetic guarantee.
+        """
+
+        from .contact_energy_enclosure import bound_closed_contact_penalty_energy
+        from .contact_face_operator_research import extract_complete_p1_face_layout
+
+        if (
+            not isinstance(self.surface, ClosedTriangulatedRigidSolid)
+            or self.pair.friction is not None
+            or np.asarray(self.pair.law.penalty).ndim != 0
+            or self.adapter.communicator.size != 1
+            or self.adapter.facet_topology != "triangle"
+            or self.adapter.interpolation_degree != 1
+            or self.adapter.geometry_degree != 1
+            or self.adapter.quadrature_rule != "triangle_degree_two_three_point"
+            or type(maximum_faces) is not int
+            or maximum_faces < 1
+        ):
+            raise NotImplementedError(
+                "AFM-CONTACT-ENERGY-ENCLOSURE: requires serial, frictionless, "
+                "scalar-penalty contact on a reviewed closed rigid solid with "
+                "the complete default reference P1 triangular trace."
+            )
+        reference = self.adapter.reference_nodal_positions
+        layout = extract_complete_p1_face_layout(self.adapter.trace, reference)
+        if len(layout.face_ids) > maximum_faces:
+            raise NotImplementedError(
+                "AFM-CONTACT-ENERGY-ENCLOSURE: complete slave face count "
+                "exceeds the declared diagnostic budget."
+            )
+        current = self.adapter.current_nodal_positions(self.displacement)
+        schedule = self.pair.rigid_body.motion_schedule
+        factor = 0.0 if self.motion_factor is None else self.snapshot_motion()
+        faces = []
+        for face_id, nodes in zip(layout.face_ids, layout.face_node_ids, strict=True):
+            bound = bound_closed_contact_penalty_energy(
+                reference[nodes], current[nodes], self.surface,
+                penalty=float(np.asarray(self.pair.law.penalty)),
+                motion=None if schedule is None else schedule.motion,
+                factor=factor,
+                absolute_tolerance=absolute_tolerance,
+                relative_tolerance=relative_tolerance,
+                maximum_depth=maximum_depth,
+                maximum_cells=maximum_cells_per_face,
+            )
+            faces.append({
+                "face_id": int(face_id),
+                "lower_bound": bound.lower_bound,
+                "upper_bound": bound.upper_bound,
+                "status": bound.status,
+                "within_requested_tolerance": bound.within_requested_tolerance,
+                "evaluated_points": bound.evaluated_points,
+                "nonunique_nearest_points": bound.nonunique_nearest_points,
+                "unresolved_signed_distance_points": (
+                    bound.unresolved_signed_distance_points
+                ),
+                "leaf_count": bound.leaf_count,
+            })
+        return {
+            "method": "fixed_configuration_closed_penalty_energy_enclosure",
+            "load_factor": factor,
+            "measure": "reference_area",
+            "arithmetic": "floating_point_conservative_margin_not_formal_interval",
+            "certifies_feature_transition_integral": False,
+            "returns_contact_residual_or_tangent": False,
+            "lower_bound": float(sum(item["lower_bound"] for item in faces)),
+            "upper_bound": float(sum(item["upper_bound"] for item in faces)),
+            "faces": faces,
+        }
+
+    def reference_subdivision_sensitivity(
+        self, levels=(0, 1, 2, 3), *, maximum_points=50_000,
+    ) -> dict[str, object]:
+        """Screen a fixed P1 triangle rule under positive reference subdivision.
+
+        This changes no global solve and adds no feature-switch line tangent.
+        It is an accuracy diagnostic, not an admissible default contact law.
+        """
+
+        selected = tuple(levels)
+        if (not selected or any(
+            isinstance(value, (bool, np.bool_))
+            or not isinstance(value, (int, np.integer))
+            or not 0 <= int(value) <= 5
+            for value in selected
+        )):
+            raise ValueError("Contact reference subdivision requires levels 0 to 5.")
+        selected = tuple(int(value) for value in selected)
+        if len(set(selected)) != len(selected):
+            raise ValueError("Contact reference subdivision levels must be unique.")
+        if (self.contact_integration != "gauss" or self.pair.friction is not None
+                or np.asarray(self.pair.law.penalty).ndim != 0
+                or self.adapter.facet_topology != "triangle"
+                or self.adapter.interpolation_degree != 1
+                or self.adapter.geometry_degree != 1):
+            raise NotImplementedError(
+                "AFM-CONTACT-REFERENCE-REFINEMENT: requires frictionless scalar-"
+                "penalty Gauss contact on an affine P1 triangular trace."
+            )
+        schedule = self.pair.rigid_body.motion_schedule
+        factor = (
+            0.0 if self.motion_factor is None
+            else float(np.asarray(self.motion_factor.value).reshape(-1)[0])
+        )
+        reference_point = self.pair.rigid_body.reference_point
+        if schedule is not None:
+            reference_point = schedule.motion.state(factor)["reference_point"]
+        positions = self.adapter.current_nodal_positions(self.displacement)
+        projector = self.surface if self.projector is None else self.projector
+        base_trace = (
+            self.adapter.trace
+            if self.adapter.quadrature_rule == "triangle_degree_two_three_point"
+            else dolfinx_boundary_region_contact_trace(
+                self.pair.slave_boundary, self.displacement.function_space,
+            ).trace
+        )
+        evaluations = []
+        for level in selected:
+            trace = refine_p1_triangle_reference_trace(
+                base_trace, level, maximum_points=maximum_points,
+            )
+            evaluation = trace.evaluate(positions)
+            projection = projector.project(
+                evaluation.query_points,
+                motion=None if schedule is None else schedule.motion,
+                factor=factor,
+            )
+            if not projection.all_valid:
+                raise ValueError(
+                    "AFM-CONTACT-REFERENCE-REFINEMENT: a diagnostic point "
+                    "has an invalid or ambiguous rigid projection."
+                )
+            record = ContactProjectionRecord(trace.point_ids, projection)
+            response = self.pair.law.evaluate(projection)
+            assembly = evaluation.assemble(
+                record, response, surface_reference_point=reference_point,
+            )
+            active = np.asarray(response.active, dtype=bool)
+            evaluations.append({
+                "subdivision_level": level,
+                "sample_count": trace.point_count,
+                "active_point_count": int(np.count_nonzero(active)),
+                "active_reference_area": float(np.sum(trace.weights[active])),
+                "maximum_sampled_penetration": float(np.max(
+                    response.penetration, initial=0.0,
+                )),
+                "contact_force_on_structure": assembly.contact_force_on_structure.tolist(),
+                "contact_potential_energy": assembly.potential_energy,
+            })
+        return {
+            "method": "fixed_configuration_uniform_reference_subdivision",
+            "load_factor": factor,
+            "measure": "reference_area",
+            "certifies_feature_transition_integral": False,
+            "evaluations": evaluations,
+        }
 
     def accepted_point_samples(self) -> dict[str, object]:
         """Return unsmoothed point arrays without changing accepted State.
@@ -521,6 +1184,7 @@ class DolfinxImplicitRigidContact:
             response = self.pair.friction.evaluate(
                 point_ids=record.point_ids, normal_response=normal,
                 relative_displacement_increment=relative, accepted=accepted,
+                history_rotation=self._tangential_history_rotation(factor),
             )
             friction_traction = np.asarray(response.surface_generalized_tractions)
             if accepted is not None:
@@ -536,11 +1200,15 @@ class DolfinxImplicitRigidContact:
             "trace_source": evaluation.trace.source,
             "load_factor": factor,
             "point_ids": record.point_ids.copy(),
+            "reference_positions": evaluation.trace.evaluate(
+                self.adapter.reference_nodal_positions
+            ).query_points.copy(),
             "slave_positions": projection.query_points.copy(),
             "master_closest_points": projection.closest_points.copy(),
             "surface_normals": projection.normals.copy(),
             "signed_gaps": projection.signed_gaps.copy(),
             "reference_weights": evaluation.trace.weights.copy(),
+            "measure_configuration": evaluation.trace.measure_configuration,
             "normal_pressures": normal.pressures.copy(),
             "penetrations": normal.penetration.copy(),
             "active": normal.active.copy(),
@@ -556,7 +1224,7 @@ class DolfinxImplicitRigidContact:
     def evaluate(self) -> ImplicitRigidContactContribution:
         """Reproject the current displacement and assemble a fresh trial Operator."""
 
-        evaluation, record, response, factor, partition = self._current_point_response(
+        evaluation, record, response, factor, partition, _ = self._current_point_response(
             _include_partition=True,
         )
         schedule = self.pair.rigid_body.motion_schedule
@@ -605,6 +1273,7 @@ class DolfinxImplicitRigidContact:
             normal_response=response,
             relative_displacement_increment=relative,
             accepted=self.friction_state.accepted,
+            history_rotation=self._tangential_history_rotation(factor),
         )
         friction_assembly = evaluation.assemble_friction(
             record, friction_response,
@@ -632,10 +1301,7 @@ class DolfinxImplicitRigidContact:
     def add_residual(self, vector, contribution: ImplicitRigidContactContribution) -> None:
         """Add local scalar rows before the owning solver performs BC lifting."""
 
-        values = contribution.nodal_structural_residual.reshape(-1)
-        if vector.array.shape != values.shape:
-            raise ValueError("Implicit contact residual does not match PETSc local rows.")
-        vector.array[:] += values
+        add_contact_nodal_residual(vector, contribution.nodal_structural_residual)
 
     def add_tangent(
         self, matrix, contribution: ImplicitRigidContactContribution,
@@ -649,45 +1315,13 @@ class DolfinxImplicitRigidContact:
         those strong rows and silently change the boundary condition.
         """
 
-        from petsc4py import PETSc
-
-        if contribution.tangent_values.size == 0:
-            return
-        # DOLFINx inserts the UFL matrix entries. PETSc requires a flush
-        # before switching this same matrix to additive contact entries.
-        matrix.assemble(PETSc.Mat.AssemblyType.FLUSH)
-        selected = np.asarray(constrained_dofs, dtype=np.int64).reshape(-1)
-        if selected.size:
-            if np.any(selected < 0) or np.any(selected >= matrix.getSize()[0]):
-                raise ValueError("Constrained contact DOFs must address the tangent matrix.")
-            free = ~np.isin(contribution.tangent_rows, selected) & ~np.isin(
-                contribution.tangent_columns, selected
-            )
-            rows = contribution.tangent_rows[free]
-            columns = contribution.tangent_columns[free]
-            values = contribution.tangent_values[free]
-        else:
-            rows = contribution.tangent_rows
-            columns = contribution.tangent_columns
-            values = contribution.tangent_values
-        if not len(rows):
-            return
-        order = np.lexsort((columns, rows))
-        rows = rows[order]
-        columns = columns[order]
-        values = values[order]
-        stops = np.r_[np.flatnonzero(np.diff(rows)) + 1, len(rows)]
-        start = 0
-        for stop in stops:
-            unique_columns, inverse = np.unique(columns[start:stop], return_inverse=True)
-            row_values = np.bincount(inverse, weights=values[start:stop])
-            matrix.setValues(
-                [int(rows[start])],
-                unique_columns.astype(np.int32),
-                row_values,
-                addv=PETSc.InsertMode.ADD_VALUES,
-            )
-            start = stop
+        add_contact_coo_tangent(
+            matrix,
+            contribution.tangent_rows,
+            contribution.tangent_columns,
+            contribution.tangent_values,
+            constrained_dofs=constrained_dofs,
+        )
 
     def dual_evidence(self, problem):
         """Observe one converged/accepted trial without changing contact state."""
@@ -757,9 +1391,12 @@ class DolfinxImplicitRigidContact:
             "closed_concave" if isinstance(self.surface, ClosedTriangulatedRigidSolid)
             else "closed_convex" if isinstance(self.surface, ConvexPolyhedralRigidSurface)
             else "triangulated_face_branch"
-            if isinstance(self.surface, TriangulatedRigidSurface) else "plane"
+            if isinstance(self.surface, TriangulatedRigidSurface)
+            else "analytical_radial"
+            if isinstance(self.surface, (RigidSphereSurface, RigidCylinderSurface))
+            else "plane"
         )
-        return {
+        summary = {
             "kind": "dolfinx_implicit_rigid_contact",
             "pair": self.pair.summary(),
             "trace": self.adapter.summary(),
@@ -777,6 +1414,9 @@ class DolfinxImplicitRigidContact:
                 else "serial_frictionless_reference_area"
             ),
         }
+        if self.contact_integration == "radial_active_partition":
+            summary["integration_policy"] = radial_partition_policy_summary()
+        return summary
 
     def _linearization_name(self) -> str:
         if self.friction_state is not None:
@@ -921,10 +1561,7 @@ class DolfinxImplicitRigidContacts:
         ))
 
     def add_residual(self, vector, contribution: CombinedImplicitRigidContactContribution) -> None:
-        values = contribution.nodal_structural_residual.reshape(-1)
-        if vector.array.shape != values.shape:
-            raise ValueError("Combined implicit contact residual does not match PETSc local rows.")
-        vector.array[:] += values
+        add_contact_nodal_residual(vector, contribution.nodal_structural_residual)
 
     def add_tangent(self, matrix, contribution, *, constrained_dofs=()) -> None:
         for item, (name, selected) in zip(
@@ -974,6 +1611,18 @@ def dolfinx_implicit_rigid_contact(
         pair.slave_boundary, displacement.function_space,
         contact_quadrature_degree=contact_quadrature_degree,
     )
+    if contact_integration == "certified_closed_two_feature_research":
+        if contact_quadrature_degree is not None:
+            raise ValueError(
+                "Certified research faces require the complete default P1 trace."
+            )
+        from ._certified_face_trial_provider import (
+            DolfinxCertifiedFaceContactTrialProvider,
+        )
+
+        return DolfinxCertifiedFaceContactTrialProvider(
+            pair=pair, adapter=adapter, displacement=displacement,
+        )
     from dolfinx import fem
 
     return DolfinxImplicitRigidContact(
@@ -998,8 +1647,8 @@ def dolfinx_implicit_rigid_contacts(
     displacement,
     *,
     contact_quadrature_degree: int | None = None,
-    contact_integration: str = "gauss",
-) -> DolfinxImplicitRigidContacts:
+    contact_integration="gauss",
+) -> object:
     """Lower independently named rigid pairs on one serial displacement field."""
 
     selected = tuple(pairs)
@@ -1007,12 +1656,37 @@ def dolfinx_implicit_rigid_contacts(
         raise ValueError("Multiple rigid contact requires at least two pairs.")
     if len({item.name for item in selected}) != len(selected):
         raise ValueError("Multiple rigid contact pair names must be unique.")
+    modes = resolve_contact_integration_modes(selected, contact_integration)
+    if "certified_closed_two_feature_research" in modes:
+        if any(mode != "certified_closed_two_feature_research" for mode in modes):
+            from ._mixed_face_point_trial_provider import (
+                DolfinxMixedFacePointContactTrialProvider,
+            )
+
+            return DolfinxMixedFacePointContactTrialProvider(tuple(
+                dolfinx_implicit_rigid_contact(
+                    item, displacement,
+                    contact_quadrature_degree=contact_quadrature_degree,
+                    contact_integration=mode,
+                ) for item, mode in zip(selected, modes, strict=True)
+            ))
+        from ._certified_face_trial_provider import (
+            DolfinxCombinedCertifiedFaceContactTrialProvider,
+        )
+
+        return DolfinxCombinedCertifiedFaceContactTrialProvider(tuple(
+            dolfinx_implicit_rigid_contact(
+                item, displacement,
+                contact_quadrature_degree=contact_quadrature_degree,
+                contact_integration=mode,
+            ) for item, mode in zip(selected, modes, strict=True)
+        ))
     return DolfinxImplicitRigidContacts(tuple(
         dolfinx_implicit_rigid_contact(
             item, displacement,
             contact_quadrature_degree=contact_quadrature_degree,
-            contact_integration=contact_integration,
-        ) for item in selected
+            contact_integration=mode,
+        ) for item, mode in zip(selected, modes, strict=True)
     ))
 
 

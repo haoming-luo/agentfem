@@ -6,6 +6,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from contextlib import contextmanager
 import os
 from pathlib import Path
 from time import monotonic
@@ -39,6 +40,23 @@ class PerformanceLedger:
     def reset(self) -> None:
         self.seconds.clear()
         self.counts.clear()
+
+    @contextmanager
+    def measure(self, name: str):
+        """Record attempted work, including a failed phase, on the owner thread.
+
+        Nested phases are inclusive, not additive. Worker threads should return
+        elapsed durations for owner-thread publication rather than mutate this
+        rank-local ledger concurrently.
+        """
+        selected = str(name).strip()
+        if not selected:
+            raise ValueError("Performance timing name cannot be empty.")
+        started = monotonic()
+        try:
+            yield
+        finally:
+            self.add(selected, monotonic() - started)
 
     def summary(self) -> dict[str, object]:
         wall = float(self.seconds.get("run_wall", 0.0))

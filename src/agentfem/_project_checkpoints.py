@@ -44,23 +44,30 @@ def final_checkpoint(step, output):
     return step.save_checkpoint(Path(output) / 'accepted-final')
 
 
-def retain_completed(step, output, final, keep, comm):
-    """Explicit opt-in; never traverse directories or remove restart sources.
-
-    Called only after final export succeeds. Revalidate final payload checksums
-    before touching any old manifest. Deletion is not a claim of restart parity.
-    """
-    from . import checkpointing as cp
+def completed_retention_paths(step, output, final, keep):
+    """Plan owned removals without deleting data or mutating Step state."""
     _verify(final, increment=step.completed_steps)
     selected = [r for r in getattr(step, 'checkpoints', ()) if _owned(r, output)]
     paths = list(dict.fromkeys(Path(r.path).resolve() for r in selected))
     final = Path(final).resolve()
     paths = [p for p in paths if p != final] + [final]
+    return paths[:-keep]
+
+
+def retain_completed(step, output, final, keep, comm):
+    """Explicit opt-in; never traverse directories or remove restart sources.
+
+    Called only after final export and result publication succeed. Revalidate
+    final payload checksums before touching any old manifest. Deletion is not
+    a claim of restart parity.
+    """
+    from . import checkpointing as cp
+    paths = completed_retention_paths(step, output, final, keep)
     removed = []
-    for path in paths[:-keep]:
+    for path in paths:
         cp._remove_transient_checkpoint(path, comm=comm)
         removed.append(str(path))
     if removed:
         step.checkpoints[:] = [r for r in step.checkpoints if str(Path(r.path).resolve()) not in removed]
-    return {"keep": keep, "removed_manifests": removed, "final": str(final),
+    return {"keep": keep, "removed_manifests": removed, "final": str(Path(final).resolve()),
             "scope": "current_run_owned_transient_checkpoints", "recoverable": False}

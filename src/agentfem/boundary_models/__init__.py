@@ -254,7 +254,8 @@ __all__ = [
 
 
 def q1_contact_runtime(*, backend="auto", geometry_workers=0, projection_workers=1,
-                       separation_reuse="incremental", geometry_timeout=300.0):
+                       separation_reuse="incremental", geometry_timeout=300.0,
+                       sign_policy="two_rays"):
     """Instance-owned Q1 arithmetic; use as a context around the Step lifetime.
 
     Pass runtime.execution to the ordinary deformable-contact pair. Native
@@ -262,9 +263,13 @@ def q1_contact_runtime(*, backend="auto", geometry_workers=0, projection_workers
     laws, ambiguity rules and state ownership; it is not a second solver.
     geometry_timeout bounds a reference-worker batch in wall-clock seconds;
     None disables that operational deadline. It does not alter physical time.
+    sign_policy="interior_normal" optionally classifies strict smooth interiors
+    of reviewed connected outward closed Q1 solids from current geometry.
+    Edges, vertices and unresolved signs retain the two-ray reference policy.
     """
     from .native_execution import Q1ContactRuntime
     return Q1ContactRuntime(backend=backend, geometry_workers=geometry_workers,
                             projection_workers=projection_workers,
                             separation_reuse=separation_reuse,
-                            geometry_timeout=geometry_timeout)
+                            geometry_timeout=geometry_timeout,
+                            sign_policy=sign_policy)

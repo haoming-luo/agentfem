@@ -287,11 +287,11 @@ class ClosedTriangulatedRigidSolid(RigidSurface):
             foot = candidates.closest_points[index]
             radius = float(np.sqrt(candidates.squared_distances[index]))
             barycentric = candidates.local_coordinates[index]
+            _, feature = self._geometric_feature_projector(
+                self._facet_slots[int(candidates.entity_ids[index])],
+                barycentric,
+            )
             if radius <= tolerance:
-                _, feature = self._geometric_feature_projector(
-                    self._facet_slots[int(candidates.entity_ids[index])],
-                    barycentric,
-                )
                 if feature != "face":
                     status[index] = "nonsmooth_on_surface"
                     continue
@@ -321,7 +321,13 @@ class ClosedTriangulatedRigidSolid(RigidSurface):
                         status[index] = "ambiguous_solid_winding"
                         continue
                 gap = sign * radius
-                normal = sign * (point - foot) / radius
+                # On a planar face the signed-distance gradient is the
+                # outward facet normal on *both* sides. Reconstructing it
+                # from point-foot magnifies tangential roundoff near contact.
+                normal = (
+                    candidates.normals[index] if feature == "face"
+                    else sign * (point - foot) / radius
+                )
             closest[index] = foot
             normals[index] = normal
             gaps[index] = gap

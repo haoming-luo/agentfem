@@ -391,12 +391,53 @@ def _add_affine_constraint_evidence(step, result) -> None:
         ))
     if contacts:
         contact_potential = 0.0
+        contact_potential_available = True
         friction_dissipation = 0.0
         friction_release = 0.0
         has_friction = False
         point_records = []
+        face_records = []
         for contact in contacts:
             contact_contribution = contact.evaluate()
+            if not getattr(contact, "physical_contact_potential_available", True):
+                contact_potential_available = False
+                point_evidence = contact.current_point_diagnostics()
+                point_records.append({"constraint": contact.name, **point_evidence})
+                for name in (
+                    "active_point_count", "active_reference_area",
+                    "maximum_pressure", "maximum_penetration",
+                ):
+                    result.add_quantity(
+                        f"{contact.name}_{name}", point_evidence[name], kind="diagnostic",
+                    )
+                if not contact.has_prescribed_motion:
+                    work_evidence = (*work_evidence, constraint_api.constraint_work(
+                        contact, value=0., integration="fixed_rigid_surface_zero_coordinate",
+                        sample_count=len(step.accepted_increments) + 1,
+                        role="contact_constraint", source="fixed_normal_contact_constraint",
+                    ))
+                _add_affine_normal_work(step, contact, result)
+                continue
+            if hasattr(contact, "current_face_diagnostics"):
+                contact_potential += contact_contribution.potential_energy
+                evidence = contact.current_face_diagnostics()
+                face_records.append({"constraint": contact.name, **evidence})
+                result.add_quantity(
+                    f"{contact.name}_active_reference_area",
+                    sum(evidence["active_reference_areas"]),
+                    kind="diagnostic",
+                    description="Certified active P1 boundary-face reference area.",
+                )
+                if not contact.has_prescribed_motion:
+                    work_evidence = (*work_evidence, constraint_api.constraint_work(
+                        contact,
+                        value=0.0,
+                        integration="fixed_rigid_surface_zero_coordinate",
+                        sample_count=len(step.accepted_increments) + 1,
+                        role="contact_constraint",
+                        source="rigid_penalty_potential",
+                    ))
+                continue
             contact_potential += contact_contribution.assembly.potential_energy
             point_evidence = contact.current_point_diagnostics()
             point_records.append({
@@ -409,6 +450,37 @@ def _add_affine_constraint_evidence(step, result) -> None:
                 result.add_quantity(
                     f"{contact.name}_{name}", point_evidence[name],
                     kind="diagnostic",
+                )
+            initial = point_evidence["initial_contact"]
+            result.add_quantity(
+                f"{contact.name}_initial_maximum_penetration",
+                initial["maximum_penetration"],
+                kind="diagnostic",
+                description=(
+                    "Reference-trace sampled initial overlap; no mesh or "
+                    "rigid tool adjustment was applied."
+                ),
+            )
+            if initial["face_wise_bound_certified"]:
+                result.add_quantity(
+                    f"{contact.name}_initial_maximum_penetration_bound",
+                    initial["maximum_penetration_bound"],
+                    kind="diagnostic",
+                    description=(
+                        "Certified face-wise initial penetration bound for an "
+                        "admitted first-order rigid geometry; see the recorded "
+                        "bound method."
+                    ),
+                )
+            if "sampled_mixed_feature_slave_faces" in point_evidence:
+                result.add_quantity(
+                    f"{contact.name}_sampled_mixed_feature_slave_faces",
+                    point_evidence["sampled_mixed_feature_slave_faces"],
+                    kind="diagnostic",
+                    description=(
+                        "Observed mixed-feature slave faces at accepted "
+                        "quadrature; not a certified transition integral."
+                    ),
                 )
             if contact_contribution.friction_assembly is not None:
                 has_friction = True
@@ -427,15 +499,65 @@ def _add_affine_constraint_evidence(step, result) -> None:
                     role="contact_constraint",
                     source="rigid_penalty_potential",
                 ))
-        result.add_quantity(
-            "contact_potential", contact_potential,
-            kind="diagnostic",
-            description="Recoverable rigid penalty contact potential.",
+        if contact_potential_available:
+            result.add_quantity(
+                "contact_potential", contact_potential,
+                kind="diagnostic",
+                description="Recoverable rigid penalty contact potential.",
+            )
+        if point_records:
+            result.metadata["rigid_contact_point_diagnostics"] = (
+                point_records[0] if len(point_records) == 1
+                else tuple(point_records)
+            )
+        if face_records:
+            result.metadata["rigid_contact_face_diagnostics"] = (
+                face_records[0] if len(face_records) == 1
+                else tuple(face_records)
+            )
+            recorder = step.accepted_history_recorders.get("contact_faces")
+            if recorder is not None:
+                result.metadata["rigid_contact_face_path"] = recorder.evidence()
+            else:
+                result.metadata["rigid_contact_face_path"] = {
+                    "schema": "agentfem.contact-face-path.v1",
+                    "complete": False,
+                    "accepted_station_count": len(step.accepted_increments) + 1,
+                    "pairs": (),
+                }
+        # The accepted observer shares the affine material/Operator rollback
+        # and checkpoint boundary. A manually composed older problem without
+        # it retains an explicitly incomplete final-sample fallback.
+        polyhedral_records = tuple(
+            record for record in point_records
+            if "sampled_mixed_feature_slave_faces" in record
         )
-        result.metadata["rigid_contact_point_diagnostics"] = (
-            point_records[0] if len(point_records) == 1
-            else tuple(point_records)
-        )
+        if polyhedral_records:
+            recorder = step.accepted_history_recorders.get("contact_features")
+            if recorder is not None:
+                result.metadata["rigid_contact_feature_path"] = recorder.evidence()
+            else:
+                result.metadata["rigid_contact_feature_path"] = {
+                    "schema": "agentfem.contact-feature-path.v1",
+                    "complete": False,
+                    "accepted_station_count": len(step.accepted_increments) + 1,
+                    "pairs": tuple({
+                        "constraint": record["constraint"],
+                        "accepted_station_count": 1,
+                        "maximum_sampled_mixed_feature_slave_faces": int(
+                            record["sampled_mixed_feature_slave_faces"]
+                        ),
+                        "maximum_active_edge_points": int(
+                            record.get("active_feature_counts", {}).get("edge", 0)
+                        ),
+                        "maximum_active_vertex_points": int(
+                            record.get("active_feature_counts", {}).get("vertex", 0)
+                        ),
+                        "all_observed_integrals_certified": bool(
+                            record["feature_transition_integral_certified"]
+                        ),
+                    } for record in polyhedral_records),
+                }
         if has_friction:
             result.add_quantity(
                 "friction_dissipation", friction_dissipation,
@@ -482,6 +604,36 @@ def _add_affine_constraint_evidence(step, result) -> None:
                     "residual owned by the affine constraint provider."
                 ),
             },
+        )
+
+
+def _add_affine_normal_work(step, contact, result):
+    """Publish signed normal work without inventing a contact spring energy."""
+
+    key = f"normal_contact_work:{contact.name}"
+    recorder = step.accepted_history_recorders.get(key)
+    if recorder is None:
+        result.metadata[key] = {
+            "status": "unavailable", "reason": "No accepted fixed-normal work history.",
+            "automatic_energy_verification": False,
+        }
+        return
+    result.metadata[key] = {
+        **recorder.summary(), "status": "complete" if recorder.complete else "incomplete",
+        "scope": "signed_relative_work_not_stored_energy_or_dissipation",
+    }
+    if not recorder.complete:
+        return
+    rows = recorder.records
+    for field, suffix, description in (
+        ("work", "relative_work", "Signed accepted normal contact work relative to the tool."),
+        ("absolute_bound", "absolute_work_bound", "Absolute bound on discrete endpoint work, not time error."),
+        ("open_gap_work", "open_gap_work", "Signed accepted normal work associated with open-gap change."),
+    ):
+        result.add_history(
+            f"{contact.name}_normal_{suffix}",
+            [row["factor"] for row in rows], [row[field] for row in rows],
+            abscissa_name="load_factor", abscissa_unit=None, description=description,
         )
 
 

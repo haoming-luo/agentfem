@@ -16,6 +16,10 @@ quality policy, verification, and failure state under one contract.
 4. **Structured result metadata** records status, trust, quality acceptance,
    files, provenance, and restart identity.
 
+For long runs, [binary history storage](history_storage.md) keeps complete
+binary64 curves in a companion archive rather than expanding every sample
+into JSON. It is opt-in and does not change the field-frame schedule.
+
 Accepted-frame histories use one reusable request rather than one function per
 analysis type:
 

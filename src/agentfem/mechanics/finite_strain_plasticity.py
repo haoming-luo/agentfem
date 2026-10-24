@@ -5,6 +5,8 @@
 
 from __future__ import annotations
 
+from collections.abc import Mapping
+from contextlib import contextmanager
 from dataclasses import dataclass, field, replace
 import json
 from pathlib import Path
@@ -23,6 +25,10 @@ from .. import steps as step_controls
 from ..constitutive import FiniteStrainJ2Logarithmic
 from ..constitutive import MaterialQuadratureResponse
 from ..constitutive.quadrature import QuadratureField, QuadratureMaterialMap
+from ..boundary_models.contact_face_path import (
+    accepted_face_record,
+    validate_contact_face_path as _validate_contact_face_path,
+)
 from ..events import SolveEvent
 from ..solvers import (
     NewtonSolverOptions,
@@ -34,6 +40,50 @@ from ..solvers import (
 
 
 _MIXED_J2_MAXIMUM_BULK_TO_SHEAR_RATIO = 1.0e4
+
+
+def _validate_contact_feature_path(
+    path: object, *, accepted_factor: float, accepted_count: int,
+    complete: bool,
+) -> dict[str, dict[str, object]]:
+    """Reject malformed or falsely complete accepted-path feature evidence."""
+
+    expected = {
+        "constraint", "accepted_station_count", "last_factor",
+        "maximum_sampled_mixed_feature_slave_faces",
+        "maximum_active_edge_points", "maximum_active_vertex_points",
+        "all_observed_integrals_certified",
+    }
+    if not isinstance(path, dict):
+        raise ValueError("Contact feature path must be a pair-keyed mapping.")
+    validated = {}
+    for name, record in path.items():
+        if (
+            not isinstance(name, str) or not name
+            or not isinstance(record, dict) or set(record) != expected
+            or record["constraint"] != name
+        ):
+            raise ValueError("Contact feature path pair identity or schema differs.")
+        for key in (
+            "accepted_station_count", "maximum_sampled_mixed_feature_slave_faces",
+            "maximum_active_edge_points", "maximum_active_vertex_points",
+        ):
+            value = record[key]
+            if type(value) is not int or value < (1 if key == "accepted_station_count" else 0):
+                raise ValueError("Contact feature path contains an invalid count.")
+        if (
+            type(record["all_observed_integrals_certified"]) is not bool
+            or type(record["last_factor"]) not in (int, float)
+            or not np.isfinite(record["last_factor"])
+            or abs(float(record["last_factor"]) - accepted_factor) > 1e-12
+            or (
+                complete
+                and record["accepted_station_count"] != accepted_count + 1
+            )
+        ):
+            raise ValueError("Contact feature path and accepted station disagree.")
+        validated[name] = dict(record)
+    return validated
 
 
 def _mixed_j2_conditioning(material) -> dict[str, float]:
@@ -296,6 +346,18 @@ class FiniteStrainPlasticityIncrementInfo:
     linear_solve_calls: int = 0
     linear_iterations: int = 0
     linear_converged_reasons: tuple[int, ...] = ()
+    normal_augmentations: int = 0
+    maximum_inner_newton_iterations: int | None = None
+    line_search_evaluations: int = 0
+    normal_relaxation_factors: tuple[float, ...] = ()
+    normal_acceleration_resets: int = 0
+
+    @property
+    def adaptation_iterations(self) -> int:
+        """Newton difficulty, distinct from summed nested-procedure work."""
+
+        return (self.iterations if self.maximum_inner_newton_iterations is None
+                else self.maximum_inner_newton_iterations)
 
     def as_dict(self) -> dict[str, object]:
         return {name: getattr(self, name) for name in self.__dataclass_fields__}
@@ -330,6 +392,16 @@ class FiniteStrainPlasticityIncrementInfo:
             linear_iterations=int(record.get("linear_iterations", 0)),
             linear_converged_reasons=tuple(
                 int(value) for value in record.get("linear_converged_reasons", ())
+            ),
+            normal_augmentations=int(record.get("normal_augmentations", 0)),
+            normal_relaxation_factors=tuple(
+                float(value) for value in record.get("normal_relaxation_factors", ())
+            ),
+            normal_acceleration_resets=int(record.get("normal_acceleration_resets", 0)),
+            line_search_evaluations=int(record.get("line_search_evaluations", 0)),
+            maximum_inner_newton_iterations=(
+                None if record.get("maximum_inner_newton_iterations") is None
+                else int(record["maximum_inner_newton_iterations"])
             ),
         )
 
@@ -380,8 +452,21 @@ class FiniteStrainJ2EnergyFrame:
     pair_tool_work: tuple[tuple[str, float], ...] = ()
     friction_dissipation: float = 0.0
     friction_separation_release: float = 0.0
+    normal_contact_work: float | None = None
+    normal_contact_work_bound: float | None = None
+    normal_contact_open_gap_work: float | None = None
 
     def __post_init__(self) -> None:
+        normal = (self.normal_contact_work, self.normal_contact_work_bound,
+                  self.normal_contact_open_gap_work)
+        if any(value is not None for value in normal):
+            if (any(value is None for value in normal) or not np.isfinite(normal).all()
+                    or self.normal_contact_work_bound < 0
+                    or max(abs(self.normal_contact_work), abs(self.normal_contact_open_gap_work),
+                           abs(self.normal_contact_work - self.normal_contact_open_gap_work))
+                    > self.normal_contact_work_bound
+                    + 32*np.finfo(float).eps*max(self.normal_contact_work_bound, 1e-30)):
+                raise ValueError("Invalid accepted normal-contact work/bound channels.")
         selected = tuple(self.pair_tool_work)
         names = tuple(str(name) for name, _ in selected)
         if len(set(names)) != len(names) or any(not name for name in names):
@@ -402,7 +487,7 @@ class FiniteStrainJ2EnergyFrame:
 
     def as_dict(self) -> dict[str, object]:
         values = {
-            name: float(getattr(self, name))
+            name: None if getattr(self, name) is None else float(getattr(self, name))
             for name in self.__dataclass_fields__
             if name != "pair_tool_work"
         }
@@ -417,6 +502,7 @@ class FiniteStrainJ2EnergyFrame:
             if name not in {
                 "contact_potential", "tool_work", "pair_tool_work",
                 "friction_dissipation", "friction_separation_release",
+                "normal_contact_work", "normal_contact_work_bound", "normal_contact_open_gap_work",
             }
         }
         pair_work = record.get("pair_tool_work", {})
@@ -433,6 +519,9 @@ class FiniteStrainJ2EnergyFrame:
             friction_separation_release=float(
                 record.get("friction_separation_release", 0.0)
             ),
+            **{name: None if record.get(name) is None else float(record[name])
+               for name in ("normal_contact_work", "normal_contact_work_bound",
+                            "normal_contact_open_gap_work")},
         )
 
 
@@ -486,6 +575,54 @@ class FiniteStrainJ2StateTransaction:
         init=False,
         repr=False,
     )
+    _retain_trial_response: bool = field(default=False, init=False, repr=False)
+    _retained_trial_digest: bytes | None = field(default=None, init=False, repr=False)
+
+    @contextmanager
+    def _trial_response_reuse_scope(self):
+        """Permit one-shot material reuse within one serial outer equilibrium.
+
+        Only the built-in, displacement-only J2 transaction is admitted. MPI,
+        regional/user laws and mixed pressure keep the ordinary refresh route.
+        No retained evidence crosses an increment, failure, or restart.
+        """
+        enabled = (
+            type(self) is FiniteStrainJ2StateTransaction
+            and type(self.material) is FiniteStrainJ2Logarithmic
+            and self.pressure_evaluator is None
+            and self.response.domain.comm.size == 1
+            and not self._retain_trial_response
+        )
+        if not enabled:
+            yield
+            return
+        self._retain_trial_response = True
+        self._retained_trial_digest = None
+        try:
+            yield
+        finally:
+            self._retain_trial_response = False
+            self._retained_trial_digest = None
+
+    def _reuse_trial_response(self, *, start_factor, target_factor) -> bool:
+        """Consume retained evidence, or request the ordinary material update."""
+        retained, self._retained_trial_digest = self._retained_trial_digest, None
+        if (not self._retain_trial_response or retained is None
+                or type(self.material) is not FiniteStrainJ2Logarithmic
+                or self.pressure_evaluator is not None
+                or self.response.domain.comm.size != 1):
+            return False
+        from ._retained_trial_response import retained_trial_digest
+
+        try:
+            gradients = self._evaluate_gradients()
+            current = retained_trial_digest(
+                self, *gradients, start_factor=start_factor, target_factor=target_factor,
+            )
+        except Exception:
+            # The regular refresh owns structured constitutive failure/cutback.
+            return False
+        return current == retained
 
     def algorithmic_linearization_evidence(
         self,
@@ -543,6 +680,7 @@ class FiniteStrainJ2StateTransaction:
         self.accepted_solution.x.scatter_forward()
         self.response.rollback()
         self.refresh_trial(start_factor=0.0, target_factor=0.0)
+        self._retained_trial_digest = None
 
     def prepare_resume(self) -> None:
         """Rebuild trial response fields from one restored accepted boundary."""
@@ -554,6 +692,7 @@ class FiniteStrainJ2StateTransaction:
             start_factor=self.accepted_factor,
             target_factor=self.accepted_factor,
         )
+        self._retained_trial_digest = None
 
     def _evaluate_gradients(self) -> tuple[np.ndarray, np.ndarray]:
         return (
@@ -573,6 +712,7 @@ class FiniteStrainJ2StateTransaction:
         start_factor: float,
         target_factor: float,
     ):
+        self._retained_trial_digest = None
         comm = self.response.domain.comm
         old_gradient = None
         new_gradient = None
@@ -713,6 +853,17 @@ class FiniteStrainJ2StateTransaction:
             float(start_factor),
             float(target_factor),
         )
+        if self._retain_trial_response and type(self.material) is FiniteStrainJ2Logarithmic:
+            from ._retained_trial_response import retained_trial_digest
+
+            try:
+                self._retained_trial_digest = retained_trial_digest(
+                    self, old_gradient, new_gradient,
+                    start_factor=start_factor, target_factor=target_factor,
+                )
+            except Exception:
+                # Optional reuse evidence must not change refresh semantics.
+                self._retained_trial_digest = None
         return result
 
     def commit_increment(
@@ -721,6 +872,7 @@ class FiniteStrainJ2StateTransaction:
         start_factor: float,
         target_factor: float,
     ) -> None:
+        self._retained_trial_digest = None
         expected_origin = (
             float(self.accepted_factor),
             float(start_factor),
@@ -747,6 +899,7 @@ class FiniteStrainJ2StateTransaction:
             start_factor=self.accepted_factor,
             target_factor=self.accepted_factor,
         )
+        self._retained_trial_digest = None
 
     def snapshot_accepted_boundary(self) -> dict[str, object]:
         """Capture the compact state needed to undo a provisional commit.
@@ -845,6 +998,7 @@ class FiniteStrainJ2StateTransaction:
     def restore_runtime_state(self, snapshot: dict[str, object]) -> None:
         """Restore state and derived response fields after a failed operation."""
 
+        self._retained_trial_digest = None
         self.response.restore(snapshot["committed_state"])
         for name, selected in self.response.state.trial.items():
             selected.assign(snapshot["trial_state"][name])
@@ -1151,6 +1305,7 @@ class FiniteStrainJ2StandardProblem:
     state_transaction: FiniteStrainJ2StateTransaction
     output_every: int | None = 1
     output_factors: tuple[float, ...] = ()
+    required_load_factors: tuple[float, ...] = ()
     progress: object = True
     status_file: object | None = None
     checkpoint_policy: object | None = None
@@ -1175,6 +1330,14 @@ class FiniteStrainJ2StandardProblem:
         init=False,
     )
     energy_history_complete: bool = field(default=True, init=False)
+    contact_feature_path: dict[str, dict[str, object]] = field(
+        default_factory=dict, init=False,
+    )
+    contact_feature_path_complete: bool = field(default=True, init=False)
+    contact_face_path: dict[str, dict[str, object]] = field(
+        default_factory=dict, init=False,
+    )
+    contact_face_path_complete: bool = field(default=True, init=False)
     last_solve_info: FiniteStrainPlasticityPathInfo | None = field(
         default=None,
         init=False,
@@ -1182,6 +1345,7 @@ class FiniteStrainJ2StandardProblem:
     _tangent_matrix: object | None = field(default=None, init=False, repr=False)
     _linear_ksp: object | None = field(default=None, init=False, repr=False)
     _rigid_near_nullspace: object | None = field(default=None, init=False, repr=False)
+    _line_search_trial_count: int = field(default=0, init=False, repr=False)
     external_force: object | None = field(default=None, repr=False)
     follower_loads: bool = False
     contact_provider: object | None = None
@@ -1198,6 +1362,95 @@ class FiniteStrainJ2StandardProblem:
             return ()
         return tuple(getattr(self.contact_provider, "providers", (self.contact_provider,)))
 
+    def _feature_path_pair_names(self) -> tuple[str, ...]:
+        from ..boundary_models.closed_polyhedron import ClosedTriangulatedRigidSolid
+        from ..boundary_models.convex_polyhedron import ConvexPolyhedralRigidSurface
+        from ..boundary_models.rigid import TriangulatedRigidSurface
+
+        return tuple(
+            str(provider.name) for provider in self._contact_providers()
+            if not hasattr(provider, "current_face_diagnostics") and (
+                isinstance(
+                    getattr(provider, "surface", None),
+                    (ClosedTriangulatedRigidSolid, ConvexPolyhedralRigidSurface),
+                ) or (
+                    isinstance(getattr(provider, "surface", None), TriangulatedRigidSurface)
+                    and getattr(provider, "contact_integration", None)
+                    == "reviewed_planar_branch_partition"
+                )
+            )
+        )
+
+    def _face_path_pair_names(self) -> tuple[str, ...]:
+        return tuple(
+            str(provider.name) for provider in self._contact_providers()
+            if hasattr(provider, "current_face_diagnostics")
+        )
+
+    def _record_accepted_contact_faces(self, factor: float) -> None:
+        """Summarize only fully certified faces at an accepted configuration."""
+
+        names = set(self._face_path_pair_names())
+        for provider in self._contact_providers():
+            name = str(provider.name)
+            if name not in names:
+                continue
+            old = self.contact_face_path.get(name)
+            if old is not None and abs(float(old["last_factor"]) - factor) <= 1e-12:
+                continue
+            self.contact_face_path[name] = accepted_face_record(
+                provider, factor=factor, previous=old
+            )
+
+    def _record_accepted_contact_features(self, factor: float) -> None:
+        """Keep bounded, accepted-path feature evidence independent of output frames.
+
+        This records observations, not a whole-face integration certificate.
+        Every update replaces its immutable-by-convention summary so the
+        increment rollback snapshot can retain the previous mapping cheaply.
+        """
+
+        from ..boundary_models.contact_feature_path import sampled_feature_observation
+
+        names = set(self._feature_path_pair_names())
+        for provider in self._contact_providers():
+            if provider.name not in names:
+                continue
+            name = str(provider.name)
+            old = self.contact_feature_path.get(name)
+            if old is not None and abs(float(old["last_factor"]) - factor) <= 1e-12:
+                continue
+            observation = sampled_feature_observation(provider)
+            mixed = observation["mixed"]
+            edge = observation["edge"]
+            vertex = observation["vertex"]
+            certified = observation["certified"]
+            self.contact_feature_path[name] = {
+                "constraint": name,
+                "accepted_station_count": (
+                    1 if old is None else int(old["accepted_station_count"]) + 1
+                ),
+                "last_factor": float(factor),
+                "maximum_sampled_mixed_feature_slave_faces": max(
+                    mixed,
+                    0 if old is None else int(
+                        old["maximum_sampled_mixed_feature_slave_faces"]
+                    ),
+                ),
+                "maximum_active_edge_points": max(
+                    edge,
+                    0 if old is None else int(old["maximum_active_edge_points"]),
+                ),
+                "maximum_active_vertex_points": max(
+                    vertex,
+                    0 if old is None else int(old["maximum_active_vertex_points"]),
+                ),
+                "all_observed_integrals_certified": (
+                    certified if old is None else
+                    bool(old["all_observed_integrals_certified"]) and certified
+                ),
+            }
+
     def _snapshot_contact_runtime(self):
         provider = self.contact_provider
         if provider is None or not hasattr(provider, "snapshot_runtime_state"):
@@ -1210,6 +1463,12 @@ class FiniteStrainJ2StandardProblem:
             provider.restore_runtime_state(saved)
 
     def checkpoint_capabilities(self) -> checkpointing.CheckpointCapabilities:
+        # Capability discovery also inspects a procedure before its numerical
+        # state is constructed. Optional controls must not require assembly just
+        # to describe the ordinary checkpoint contract.
+        prediction = getattr(
+            getattr(self, "incrementation", None), "inelastic_prediction_safety", None
+        ) is not None
         return checkpointing.CheckpointCapabilities(
             schemas=(
                 "agentfem.finite-strain-j2-standard-checkpoint.v2",
@@ -1227,7 +1486,7 @@ class FiniteStrainJ2StandardProblem:
             atomic_publication=True,
             rank_count_portability=(
                 "unsupported"
-                if self.contact_provider is not None
+                if self.contact_provider is not None or prediction
                 else "requires_portable_policy"
             ),
             identity_scope=(
@@ -1235,24 +1494,26 @@ class FiniteStrainJ2StandardProblem:
                 "material and quadrature schema",
                 "constraints, loads, and solver controls",
             ),
-            limitations=(
+            limitations=(("accepted inelastic prediction is serial only",) if prediction else ()) + (
                 "serial layout checkpoints are not portable",
                 "distributed writes require the portable format",
             ),
-            evidence=(
+            evidence=(("serial accepted-increment prediction restart",) if prediction else (
                 ("serial finite-J2/rigid-contact accepted restart",)
                 if self.contact_provider is not None
                 else ("MPI cross-rank-count portable restart",)
-            ),
+            )),
         )
 
     def _apply_loading(self, coordinate: float) -> None:
         factor = self.amplitude(coordinate)
         self.load_factor.value = PETSc.ScalarType(factor)
         self.value_path.update(factor)
-        if self.contact_provider is not None:
+        if self.contact_provider is not None and self.contact_provider.has_prescribed_motion:
             # Prescribed tool pose follows the same resolved Step amplitude
             # as strong values and natural loads, not the raw path coordinate.
+            # A fixed tool has no motion coordinate. In particular, a signed
+            # cyclic loading amplitude must not be rejected as an invalid pose.
             self.contact_provider.update_motion(factor)
 
     def _snapshot_loading_state(self) -> dict[str, object]:
@@ -1399,6 +1660,13 @@ class FiniteStrainJ2StandardProblem:
         return self._tangent_matrix
 
     def _uses_implicit_rigid_contact(self) -> bool:
+        from ..boundary_models._certified_face_trial_provider import (
+            DolfinxCombinedCertifiedFaceContactTrialProvider,
+            DolfinxCertifiedFaceContactTrialProvider,
+        )
+        from ..boundary_models._mixed_face_point_trial_provider import (
+            DolfinxMixedFacePointContactTrialProvider,
+        )
         from ..boundary_models.dolfinx_implicit_facet_contact import (
             DolfinxImplicitRigidContact,
         )
@@ -1409,7 +1677,13 @@ class FiniteStrainJ2StandardProblem:
 
         return isinstance(
             self.contact_provider,
-            (DolfinxImplicitRigidContact, DolfinxImplicitRigidContacts),
+            (
+                DolfinxImplicitRigidContact,
+                DolfinxImplicitRigidContacts,
+                DolfinxCertifiedFaceContactTrialProvider,
+                DolfinxCombinedCertifiedFaceContactTrialProvider,
+                DolfinxMixedFacePointContactTrialProvider,
+            ),
         )
 
     def _assign_trial(self, base, direction, alpha: float) -> None:
@@ -1425,29 +1699,58 @@ class FiniteStrainJ2StandardProblem:
         *,
         start_factor: float,
         target_factor: float,
-    ) -> float:
+    ) -> tuple[float, PETSc.Vec | None, float | None]:
+        """Return damping and an accepted total residual owned by the caller.
+
+        Basic search does not evaluate a trial residual. Backtracking returns
+        its already-evaluated PETSc Vec only for an accepted trial; rejected
+        vectors are destroyed here, and the next Newton iteration destroys
+        the accepted vector after using it.
+        """
+
         options = self.solver_options
         alpha = 1.0
+        self._line_search_trial_count = 0
         if options.line_search in {None, "basic"}:
             self._assign_trial(base, direction, alpha)
-            return alpha
+            return alpha, None, None
         while alpha + 1.0e-15 >= options.minimum_step_length:
+            self._line_search_trial_count += 1
             self._assign_trial(base, direction, alpha)
             self._update_response(
                 start_factor=start_factor,
                 target_factor=target_factor,
             )
             rhs, trial_norm = self._correction_rhs()
-            rhs.destroy()
             if np.isfinite(trial_norm) and trial_norm < base_norm:
-                return alpha
+                # This is already the next Newton state. Retain its material
+                # trial and total residual instead of evaluating both again.
+                return alpha, rhs, trial_norm
+            rhs.destroy()
             alpha *= options.line_search_reduction
         self.solution.x.array[:] = base
         self.solution.x.scatter_forward()
         self.response.rollback()
-        return 0.0
+        return 0.0, None, None
 
     def _solve_increment(
+        self, *, increment: int, attempt: int, start_factor: float, target_factor: float,
+    ) -> FiniteStrainPlasticityIncrementInfo:
+        from ..boundary_models._augmented_plane_trial_provider import (
+            DolfinxAugmentedPlaneTrialProvider,
+        )
+
+        coordinates = dict(
+            increment=increment, attempt=attempt,
+            start_factor=start_factor, target_factor=target_factor,
+        )
+        if isinstance(self.contact_provider, DolfinxAugmentedPlaneTrialProvider):
+            from ._normal_augmentation_procedure import solve_augmented_plane_increment
+
+            return solve_augmented_plane_increment(self, self.contact_provider, **coordinates)
+        return self._solve_frozen_increment(**coordinates)
+
+    def _solve_frozen_increment(
         self,
         *,
         increment: int,
@@ -1456,11 +1759,20 @@ class FiniteStrainJ2StandardProblem:
         target_factor: float,
     ) -> FiniteStrainPlasticityIncrementInfo:
         started = time.perf_counter()
+        # Newton and residual backtracking operate on the current affine
+        # Dirichlet space. Scaling a nonzero boundary correction inside line
+        # search otherwise compares residuals for different boundary data.
+        # This changes only the provisional iterate; the enclosing increment
+        # snapshot still owns rollback and the accepted material configuration.
+        for bc in self.bcs:
+            bc.set(self.solution.x.array)
+        self.solution.x.scatter_forward()
         material_update_seconds = 0.0
         residual_assembly_seconds = 0.0
         tangent_assembly_seconds = 0.0
         linear_solve_seconds = 0.0
         line_search_seconds = 0.0
+        line_search_evaluations = 0
         linear_solve_calls = 0
         linear_iterations = 0
         linear_reasons: list[int] = []
@@ -1471,19 +1783,24 @@ class FiniteStrainJ2StandardProblem:
         converged = False
         rejection_reason = None
         iteration = 0
+        accepted_line_trial: tuple[PETSc.Vec, float] | None = None
         for iteration in range(self.solver_options.maximum_iterations + 1):
-            stage_started = time.perf_counter()
-            result, maximum_increment = self._update_response(
-                start_factor=start_factor,
-                target_factor=target_factor,
-            )
-            material_update_seconds += time.perf_counter() - stage_started
-            del result
+            if accepted_line_trial is None:
+                stage_started = time.perf_counter()
+                result, maximum_increment = self._update_response(
+                    start_factor=start_factor,
+                    target_factor=target_factor,
+                )
+                material_update_seconds += time.perf_counter() - stage_started
+                del result
+                stage_started = time.perf_counter()
+                rhs, norm = self._correction_rhs()
+                residual_assembly_seconds += time.perf_counter() - stage_started
+            else:
+                rhs, norm = accepted_line_trial
+                accepted_line_trial = None
             plastic_points = self.state_transaction.last_plastic_points
             maximum_increment = self.state_transaction.last_maximum_plastic_increment
-            stage_started = time.perf_counter()
-            rhs, norm = self._correction_rhs()
-            residual_assembly_seconds += time.perf_counter() - stage_started
             if initial_norm is None:
                 initial_norm = norm
             threshold = (
@@ -1536,7 +1853,7 @@ class FiniteStrainJ2StandardProblem:
             direction = correction.array_r.copy()
             correction.destroy()
             stage_started = time.perf_counter()
-            alpha = self._line_search(
+            alpha, trial_rhs, trial_norm = self._line_search(
                 base,
                 direction,
                 norm,
@@ -1544,12 +1861,18 @@ class FiniteStrainJ2StandardProblem:
                 target_factor=target_factor,
             )
             line_search_seconds += time.perf_counter() - stage_started
+            line_search_evaluations += self._line_search_trial_count
             if alpha == 0.0:
                 rejection_reason = (
                     "line search found no acceptable trial step "
-                    f"at residual {norm:.6g}"
+                    f"at residual {norm:.6g} within declared minimum_step_length="
+                    f"{self.solver_options.minimum_step_length:.6g} "
+                    f"({self._line_search_trial_count} trial evaluations)"
                 )
                 break
+            if trial_rhs is not None:
+                assert trial_norm is not None
+                accepted_line_trial = trial_rhs, trial_norm
         comm = self.solution.function_space.mesh.comm
 
         def collective_max(value: float) -> float:
@@ -1573,6 +1896,7 @@ class FiniteStrainJ2StandardProblem:
             tangent_assembly_seconds=collective_max(tangent_assembly_seconds),
             linear_solve_seconds=collective_max(linear_solve_seconds),
             line_search_seconds=collective_max(line_search_seconds),
+            line_search_evaluations=int(comm.allreduce(line_search_evaluations, op=MPI.MAX)),
             linear_solve_calls=int(comm.allreduce(linear_solve_calls, op=MPI.MAX)),
             linear_iterations=int(comm.allreduce(linear_iterations, op=MPI.MAX)),
             linear_converged_reasons=tuple(linear_reasons),
@@ -1702,6 +2026,12 @@ class FiniteStrainJ2StandardProblem:
     ) -> None:
         """Commit one path-consistent work/energy frame after material commit."""
 
+        providers = self._contact_providers()
+        has_normal_work = any(hasattr(item, "normal_work_increment") for item in providers)
+        if not all(getattr(item, "physical_contact_potential_available", True)
+                   or hasattr(item, "normal_work_increment") for item in providers):
+            self.energy_history_complete = False
+            return
         if not self.energy_history_complete:
             return
         stored = self._integrate_quadrature_scalar(
@@ -1712,7 +2042,10 @@ class FiniteStrainJ2StandardProblem:
         )
         if self._uses_implicit_rigid_contact():
             contact_contribution = self.contact_provider.evaluate()
-            contact_potential = contact_contribution.potential_energy
+            # An augmented functional is not recoverable contact energy.
+            # The bounded hard-normal route has no physical contact spring;
+            # its signed numerical work is accounted separately below.
+            contact_potential = 0.0 if has_normal_work else contact_contribution.potential_energy
             contact_parts = (
                 tuple(item for _, item in contact_contribution.pairs)
                 if hasattr(contact_contribution, "pairs")
@@ -1733,6 +2066,8 @@ class FiniteStrainJ2StandardProblem:
                 and contribution.friction_assembly is None
             ):
                 raise RuntimeError("Frictional rigid pair omitted its energy assembly.")
+            if not getattr(provider, "physical_contact_potential_available", True):
+                continue
             if contribution.friction_assembly is None:
                 continue
             friction_dissipation += contribution.friction_assembly.cumulative_dissipation
@@ -1801,6 +2136,20 @@ class FiniteStrainJ2StandardProblem:
             stored + dissipation + contact_potential
             + friction_dissipation + friction_release
         )
+        normal_work = normal_bound = normal_open_work = None
+        if has_normal_work:
+            previous = self.energy_history[-1] if self.energy_history else None
+            normal_work = previous.normal_contact_work if previous else 0.0
+            normal_bound = previous.normal_contact_work_bound if previous else 0.0
+            normal_open_work = previous.normal_contact_open_gap_work if previous else 0.0
+            if any(value is None for value in (normal_work, normal_bound, normal_open_work)):
+                raise RuntimeError("Normal-contact work history is incomplete; missing work cannot be reconstructed.")
+            for provider in providers:
+                if hasattr(provider, "normal_work_increment"):
+                    work = provider.normal_work_increment()
+                    normal_work += work.relative_work
+                    normal_bound += work.absolute_work_bound
+                    normal_open_work += work.open_gap_work
         self.energy_history.append(
             FiniteStrainJ2EnergyFrame(
                 load_factor=float(load_factor),
@@ -1817,8 +2166,37 @@ class FiniteStrainJ2StandardProblem:
                 pair_tool_work=tuple(sorted(pair_work.items())),
                 friction_dissipation=friction_dissipation,
                 friction_separation_release=friction_release,
+                normal_contact_work=normal_work,
+                normal_contact_work_bound=normal_bound,
+                normal_contact_open_gap_work=normal_open_work,
             )
         )
+
+    def _validate_normal_work_history(self, history, accepted, complete):
+        """A legacy incomplete ledger stays unavailable; never infer missing work."""
+
+        if not complete or not any(hasattr(item, "normal_work_increment")
+                                   for item in self._contact_providers()):
+            return
+        if len(history) != len(accepted):
+            raise ValueError("Normal-contact work history does not cover every accepted increment.")
+        previous_bound = previous_work = previous_open_work = 0.0
+        for frame, increment in zip(history, accepted, strict=True):
+            if (frame.normal_contact_work is None
+                    or not np.isfinite(frame.load_factor)
+                    or abs(frame.load_factor - increment.load_factor) > 1e-12
+                    or frame.normal_contact_work_bound < previous_bound):
+                raise ValueError("Normal-contact work history is incomplete or inconsistent.")
+            increment_bound = frame.normal_contact_work_bound - previous_bound
+            increment_work = frame.normal_contact_work - previous_work
+            increment_open_work = frame.normal_contact_open_gap_work - previous_open_work
+            tolerance = 64*np.finfo(float).eps*max(frame.normal_contact_work_bound, 1e-30)
+            if max(abs(increment_work), abs(increment_open_work),
+                   abs(increment_work-increment_open_work)) > increment_bound + tolerance:
+                raise ValueError("Normal-contact work increment exceeds its recorded bound.")
+            previous_bound = frame.normal_contact_work_bound
+            previous_work = frame.normal_contact_work
+            previous_open_work = frame.normal_contact_open_gap_work
 
     def _snapshot_increment_boundary(self) -> dict[str, object]:
         """Capture the accepted boundary before one provisional attempt."""
@@ -1834,6 +2212,10 @@ class FiniteStrainJ2StandardProblem:
             "execution_events": list(self.execution_events),
             "energy_history": list(self.energy_history),
             "energy_history_complete": bool(self.energy_history_complete),
+            "contact_feature_path": dict(self.contact_feature_path),
+            "contact_feature_path_complete": bool(self.contact_feature_path_complete),
+            "contact_face_path": dict(self.contact_face_path),
+            "contact_face_path_complete": bool(self.contact_face_path_complete),
             "next_increment_size": self.next_increment_size,
             "loading": self._snapshot_loading_state(),
             "contact_runtime_state": self._snapshot_contact_runtime(),
@@ -1853,6 +2235,12 @@ class FiniteStrainJ2StandardProblem:
         self.execution_events[:] = boundary["execution_events"]
         self.energy_history[:] = boundary["energy_history"]
         self.energy_history_complete = bool(boundary["energy_history_complete"])
+        self.contact_feature_path = dict(boundary["contact_feature_path"])
+        self.contact_feature_path_complete = bool(
+            boundary["contact_feature_path_complete"]
+        )
+        self.contact_face_path = dict(boundary["contact_face_path"])
+        self.contact_face_path_complete = bool(boundary["contact_face_path_complete"])
         self.next_increment_size = boundary["next_increment_size"]
         self._restore_loading_state(boundary["loading"])
         self._restore_contact_runtime(boundary["contact_runtime_state"])
@@ -1945,6 +2333,10 @@ class FiniteStrainJ2StandardProblem:
         entry_snapshots = list(self.snapshots)
         entry_energy_history = list(self.energy_history)
         entry_energy_history_complete = bool(self.energy_history_complete)
+        entry_contact_feature_path = dict(self.contact_feature_path)
+        entry_contact_feature_path_complete = bool(self.contact_feature_path_complete)
+        entry_contact_face_path = dict(self.contact_face_path)
+        entry_contact_face_path_complete = bool(self.contact_face_path_complete)
         entry_loading = self._snapshot_loading_state()
         entry_contact_state = self._snapshot_contact_runtime()
         try:
@@ -1960,6 +2352,8 @@ class FiniteStrainJ2StandardProblem:
                         "checkpoint lifecycle before resuming."
                     )
                 self.state_transaction.prepare_resume()
+            self._record_accepted_contact_features(accepted)
+            self._record_accepted_contact_faces(accepted)
             self.snapshots.clear()
             self.snapshots.append(
                 _load_snapshot(
@@ -1982,6 +2376,10 @@ class FiniteStrainJ2StandardProblem:
             self.snapshots[:] = entry_snapshots
             self.energy_history[:] = entry_energy_history
             self.energy_history_complete = entry_energy_history_complete
+            self.contact_feature_path = entry_contact_feature_path
+            self.contact_feature_path_complete = entry_contact_feature_path_complete
+            self.contact_face_path = entry_contact_face_path
+            self.contact_face_path_complete = entry_contact_face_path_complete
             self._restore_loading_state(entry_loading)
             self._restore_contact_runtime(entry_contact_state)
             self._record_failure(
@@ -1998,6 +2396,10 @@ class FiniteStrainJ2StandardProblem:
             entry_snapshots,
             entry_energy_history,
             entry_energy_history_complete,
+            entry_contact_feature_path,
+            entry_contact_feature_path_complete,
+            entry_contact_face_path,
+            entry_contact_face_path_complete,
             entry_loading,
             entry_contact_state,
         )
@@ -2032,6 +2434,12 @@ class FiniteStrainJ2StandardProblem:
                 )
                 if later_output:
                     target = min(target, min(later_output))
+                later_knots = tuple(
+                    value for value in self.required_load_factors
+                    if value > accepted + 1.0e-12
+                )
+                if later_knots:
+                    target = min(target, min(later_knots))
             else:
                 remaining = [
                     value
@@ -2144,6 +2552,8 @@ class FiniteStrainJ2StandardProblem:
                         self.contact_provider, "commit_accepted"
                     ):
                         self.contact_provider.commit_accepted()
+                    self._record_accepted_contact_features(target)
+                    self._record_accepted_contact_faces(target)
                     self.accepted_increments.append(info)
                     size = target - accepted
                     accepted = target
@@ -2152,8 +2562,9 @@ class FiniteStrainJ2StandardProblem:
                     if isinstance(
                         self.incrementation, step_controls.AutomaticIncrementation
                     ):
-                        proposed = self.incrementation.after_convergence(
-                            size, info.iterations
+                        proposed = step_controls._after_convergence(
+                            self.incrementation, size, info.adaptation_iterations,
+                            inelastic_increment=info.maximum_plastic_increment,
                         )
                         self.next_increment_size = proposed
                     save_by_increment = (
@@ -2204,10 +2615,23 @@ class FiniteStrainJ2StandardProblem:
                                 ),
                                 "linear_solve_seconds": info.linear_solve_seconds,
                                 "line_search_seconds": info.line_search_seconds,
+                                "line_search_evaluations": float(info.line_search_evaluations),
                                 "linear_solve_calls": float(
                                     info.linear_solve_calls
                                 ),
                                 "linear_iterations": float(info.linear_iterations),
+                                **({
+                                    "normal_augmentations": float(info.normal_augmentations),
+                                    "maximum_inner_newton_iterations": float(
+                                        info.maximum_inner_newton_iterations
+                                    ),
+                                    "normal_acceleration_resets": float(
+                                        info.normal_acceleration_resets
+                                    ),
+                                    "normal_accelerated_updates": float(sum(
+                                        value != 1. for value in info.normal_relaxation_factors
+                                    )),
+                                } if info.maximum_inner_newton_iterations is not None else {}),
                             },
                         )
                     )
@@ -2392,6 +2816,10 @@ class FiniteStrainJ2StandardProblem:
             "execution_events": list(self.execution_events),
             "energy_history": list(self.energy_history),
             "energy_history_complete": bool(self.energy_history_complete),
+            "contact_feature_path": dict(self.contact_feature_path),
+            "contact_feature_path_complete": bool(self.contact_feature_path_complete),
+            "contact_face_path": dict(self.contact_face_path),
+            "contact_face_path_complete": bool(self.contact_face_path_complete),
             "last_solve_info": self.last_solve_info,
             "snapshots": list(self.snapshots),
             "checkpoints": list(self.checkpoints),
@@ -2417,6 +2845,12 @@ class FiniteStrainJ2StandardProblem:
         self.execution_events[:] = boundary["execution_events"]
         self.energy_history[:] = boundary["energy_history"]
         self.energy_history_complete = bool(boundary["energy_history_complete"])
+        self.contact_feature_path = dict(boundary["contact_feature_path"])
+        self.contact_feature_path_complete = bool(
+            boundary["contact_feature_path_complete"]
+        )
+        self.contact_face_path = dict(boundary["contact_face_path"])
+        self.contact_face_path_complete = bool(boundary["contact_face_path_complete"])
         self.last_solve_info = boundary["last_solve_info"]
         self.snapshots[:] = boundary["snapshots"]
         self.checkpoints[:] = boundary["checkpoints"]
@@ -2454,6 +2888,26 @@ class FiniteStrainJ2StandardProblem:
             self.contact_provider, "validate_accepted_configuration"
         ):
             self.contact_provider.validate_accepted_configuration()
+        feature_path = _validate_contact_feature_path(
+            self.contact_feature_path,
+            accepted_factor=self.accepted_load_factor,
+            accepted_count=len(self.accepted_increments),
+            complete=self.contact_feature_path_complete,
+        )
+        if self.contact_feature_path_complete and set(feature_path) != set(
+            self._feature_path_pair_names()
+        ):
+            raise ValueError("Contact feature path pair coverage differs.")
+        face_path = _validate_contact_face_path(
+            self.contact_face_path,
+            accepted_factor=self.accepted_load_factor,
+            accepted_count=len(self.accepted_increments),
+            complete=self.contact_face_path_complete,
+        )
+        if self.contact_face_path_complete and set(face_path) != set(
+            self._face_path_pair_names()
+        ):
+            raise ValueError("Contact face path pair coverage differs.")
         selected_portable = comm.size != 1 if portable is None else bool(portable)
         if selected_portable:
             if self.contact_provider is not None:
@@ -2470,6 +2924,9 @@ class FiniteStrainJ2StandardProblem:
         if selected.suffix != ".npz":
             selected = selected.with_suffix(".npz")
         snapshot = self.response.snapshot()
+        self._validate_normal_work_history(
+            self.energy_history, self.accepted_increments, self.energy_history_complete,
+        )
         contact_state = (
             self.contact_provider.snapshot_accepted_state()
             if self.contact_provider is not None
@@ -2498,6 +2955,10 @@ class FiniteStrainJ2StandardProblem:
                 [item.as_dict() for item in self.energy_history]
             ),
             energy_history_complete=bool(self.energy_history_complete),
+            contact_feature_path=json.dumps(feature_path, sort_keys=True),
+            contact_feature_path_complete=bool(self.contact_feature_path_complete),
+            contact_face_path=json.dumps(face_path, sort_keys=True),
+            contact_face_path_complete=bool(self.contact_face_path_complete),
             next_increment_size=(
                 np.nan if self.next_increment_size is None else self.next_increment_size
             ),
@@ -2613,14 +3074,48 @@ class FiniteStrainJ2StandardProblem:
                 json.loads(str(data["contact_state"]))
                 if "contact_state" in data else None
             )
+            has_feature_path = "contact_feature_path" in data
+            feature_path_complete = (
+                bool(data["contact_feature_path_complete"])
+                if has_feature_path else False
+            )
+            feature_path = _validate_contact_feature_path(
+                json.loads(str(data["contact_feature_path"]))
+                if has_feature_path else {},
+                accepted_factor=coordinate,
+                accepted_count=len(accepted),
+                complete=feature_path_complete,
+            )
+            has_face_path = "contact_face_path" in data
+            face_path_complete = (
+                bool(data["contact_face_path_complete"])
+                if has_face_path else False
+            )
+            face_path = _validate_contact_face_path(
+                json.loads(str(data["contact_face_path"]))
+                if has_face_path else {},
+                accepted_factor=coordinate,
+                accepted_count=len(accepted),
+                complete=face_path_complete,
+            )
+        if feature_path_complete and set(feature_path) != set(
+            self._feature_path_pair_names()
+        ):
+            raise ValueError("Contact feature path checkpoint pair coverage differs.")
+        if face_path_complete and set(face_path) != set(
+            self._face_path_pair_names()
+        ):
+            raise ValueError("Contact face path checkpoint pair coverage differs.")
         needs_contact_state = any(
             getattr(provider, "friction_state", None) is not None
+            or getattr(provider, "requires_accepted_state", False)
             for provider in self._contact_providers()
         )
         if needs_contact_state != (contact_state is not None):
             raise ValueError(
-                "Finite-strain J2 checkpoint friction State presence differs."
+                "Finite-strain J2 checkpoint contact State presence differs."
             )
+        self._validate_normal_work_history(energy_history, accepted, energy_history_complete)
         if not np.allclose(solution, accepted_solution, rtol=0.0, atol=1.0e-12):
             raise ValueError("Finite-strain J2 checkpoint U and U_ACCEPTED differ.")
         if accepted:
@@ -2648,6 +3143,10 @@ class FiniteStrainJ2StandardProblem:
             self.execution_events[:] = events
             self.energy_history[:] = energy_history
             self.energy_history_complete = energy_history_complete
+            self.contact_feature_path = feature_path
+            self.contact_feature_path_complete = feature_path_complete
+            self.contact_face_path = face_path
+            self.contact_face_path_complete = face_path_complete
             self.last_solve_info = FiniteStrainPlasticityPathInfo(
                 tuple(accepted),
                 tuple(attempted),
@@ -3002,7 +3501,11 @@ class FiniteStrainJ2StandardProblem:
                     ),
                     sample_count=len(self.accepted_increments) + 1,
                     role="contact_constraint",
-                    source="rigid_obstacle_penalty_potential",
+                    source=(
+                        "rigid_obstacle_penalty_potential"
+                        if getattr(item, "physical_contact_potential_available", True)
+                        else "constant_normal_plane_augmentation"
+                    ),
                 )
                 for item in providers
             )
@@ -3020,6 +3523,7 @@ class FiniteStrainJ2StandardProblem:
                 )
             )
             point_records = []
+            face_records = []
             for provider, dual in zip(providers, duals, strict=True):
                 if dual.distribution is not None:
                     result.add_field(
@@ -3033,21 +3537,48 @@ class FiniteStrainJ2StandardProblem:
                             "method": "provider_dual_reaction_distribution",
                         },
                     )
-                result.add_quantity(
-                    f"{dual.constraint_name}_contact_energy",
-                    (
-                        provider.evaluate().potential_energy
-                        if self._uses_implicit_rigid_contact()
-                        else self._contact_potential()
-                    ),
-                    kind="diagnostic",
-                )
+                if getattr(provider, "physical_contact_potential_available", True):
+                    result.add_quantity(
+                        f"{dual.constraint_name}_contact_energy",
+                        (
+                            provider.evaluate().potential_energy
+                            if self._uses_implicit_rigid_contact()
+                            else self._contact_potential()
+                        ),
+                        kind="diagnostic",
+                    )
                 result.add_quantity(
                     f"{dual.constraint_name}_reaction_resultant",
                     dual.resultant,
                     kind="diagnostic",
                 )
                 if self._uses_implicit_rigid_contact():
+                    if hasattr(provider, "current_face_diagnostics"):
+                        face_evidence = provider.current_face_diagnostics()
+                        face_records.append({
+                            "constraint": dual.constraint_name, **face_evidence,
+                        })
+                        result.add_quantity(
+                            f"{dual.constraint_name}_active_reference_area",
+                            sum(face_evidence["active_reference_areas"]),
+                            kind="diagnostic",
+                            description=(
+                                "Certified active P1 boundary-face reference area; "
+                                "not a sampled point count or pressure field."
+                            ),
+                        )
+                        initial = face_evidence["initial_contact"]
+                        if initial is not None:
+                            result.add_quantity(
+                                f"{dual.constraint_name}_initial_maximum_penetration_bound",
+                                initial["maximum_penetration_bound"],
+                                kind="diagnostic",
+                                description=(
+                                    "Certified closed-solid reference-face initial "
+                                    "penetration bound."
+                                ),
+                            )
+                        continue
                     point_evidence = provider.current_point_diagnostics()
                     point_records.append({
                         "constraint": dual.constraint_name, **point_evidence,
@@ -3061,11 +3592,81 @@ class FiniteStrainJ2StandardProblem:
                             point_evidence[name],
                             kind="diagnostic",
                         )
+                    initial = point_evidence["initial_contact"]
+                    result.add_quantity(
+                        f"{dual.constraint_name}_initial_maximum_penetration",
+                        initial["maximum_penetration"],
+                        kind="diagnostic",
+                        description=(
+                            "Reference-trace sampled initial overlap; no mesh "
+                            "or rigid tool adjustment was applied."
+                        ),
+                    )
+                    if initial["face_wise_bound_certified"]:
+                        result.add_quantity(
+                            f"{dual.constraint_name}_initial_maximum_penetration_bound",
+                            initial["maximum_penetration_bound"],
+                            kind="diagnostic",
+                            description=(
+                                "Certified face-wise initial penetration bound "
+                                "for an admitted first-order rigid geometry; "
+                                "see the recorded bound method."
+                            ),
+                        )
+                    if "sampled_mixed_feature_slave_faces" in point_evidence:
+                        result.add_quantity(
+                            f"{dual.constraint_name}_sampled_mixed_feature_slave_faces",
+                            point_evidence["sampled_mixed_feature_slave_faces"],
+                            kind="diagnostic",
+                            description=(
+                                "Observed mixed-feature slave faces at accepted "
+                                "quadrature; not a certified transition integral."
+                            ),
+                        )
+                    if "active_feature_counts" in point_evidence:
+                        for feature in ("face", "edge", "vertex"):
+                            result.add_quantity(
+                                f"{dual.constraint_name}_active_{feature}_points",
+                                point_evidence["active_feature_counts"][feature],
+                                kind="diagnostic",
+                                description=(
+                                    "Sampled active contact points at the final "
+                                    f"accepted configuration on a physical {feature} "
+                                    "of the rigid tool; not a whole-face or "
+                                    "whole-path coverage certificate."
+                                ),
+                            )
             if point_records:
                 result.metadata["rigid_contact_point_diagnostics"] = (
                     point_records[0] if len(point_records) == 1
                     else tuple(point_records)
                 )
+                if self._feature_path_pair_names():
+                    result.metadata["rigid_contact_feature_path"] = {
+                        "schema": "agentfem.contact-feature-path.v1",
+                        "complete": bool(self.contact_feature_path_complete),
+                        "accepted_station_count": len(self.accepted_increments) + 1,
+                        "pairs": tuple(
+                            self.contact_feature_path[name].copy()
+                            for name in self._feature_path_pair_names()
+                            if name in self.contact_feature_path
+                        ),
+                    }
+            if face_records:
+                result.metadata["rigid_contact_face_diagnostics"] = (
+                    face_records[0] if len(face_records) == 1
+                    else tuple(face_records)
+                )
+                result.metadata["rigid_contact_face_path"] = {
+                    "schema": "agentfem.contact-face-path.v1",
+                    "complete": bool(self.contact_face_path_complete),
+                    "accepted_station_count": len(self.accepted_increments) + 1,
+                    "pairs": tuple(
+                        self.contact_face_path[name].copy()
+                        for name in self._face_path_pair_names()
+                        if name in self.contact_face_path
+                    ),
+                }
         has_friction = any(
             getattr(provider, "friction_state", None) is not None
             for provider in self._contact_providers()
@@ -3127,6 +3728,8 @@ class FiniteStrainJ2StandardProblem:
             abscissa_unit=None,
             description="Accepted normalized load increment size.",
         )
+        has_normal_work = any(hasattr(item, "normal_work_increment")
+                              for item in self._contact_providers())
         if self.energy_history_complete and self.energy_history:
             energy_factors = np.asarray(
                 [item.load_factor for item in self.energy_history],
@@ -3142,7 +3745,7 @@ class FiniteStrainJ2StandardProblem:
                         {"contact_potential": [
                             item.contact_potential for item in self.energy_history
                         ]}
-                        if self.contact_provider is not None
+                        if self.contact_provider is not None and not has_normal_work
                         else {}
                     ),
                     **(
@@ -3196,7 +3799,7 @@ class FiniteStrainJ2StandardProblem:
                             "Accepted recoverable normal and, when declared, "
                             "tangential contact penalty potential."
                         )}
-                        if self.contact_provider is not None
+                        if self.contact_provider is not None and not has_normal_work
                         else {}
                     ),
                     **(
@@ -3264,6 +3867,41 @@ class FiniteStrainJ2StandardProblem:
                 },
                 kind="verification",
             )
+            if has_normal_work:
+                normal_channels = {
+                    "normal_contact_work": (
+                        "Signed numerical relative normal work from accepted pressure/gap endpoints; "
+                        "tool work is accounted in external_work separately. Not stored energy or dissipation."
+                    ),
+                    "normal_contact_work_bound": (
+                        "Cumulative sum of absolute pointwise endpoint work; bounds the magnitude "
+                        "of recorded normal work without cancellation, not the unobserved continuous path."
+                    ),
+                    "normal_contact_open_gap_work": (
+                        "Signed endpoint contact work against change of positive gap; exposes "
+                        "opening/closure quadrature defects even with exact endpoint complementarity."
+                    ),
+                }
+                values = {key: [getattr(frame, key) for frame in self.energy_history]
+                          for key in normal_channels}
+                values["normal_contact_corrected_energy_residual"] = [
+                    frame.mechanical_energy_residual + frame.normal_contact_work
+                    for frame in self.energy_history
+                ]
+                result.add_histories(
+                    energy_factors, values, abscissa_name="load_factor", abscissa_unit=None,
+                    descriptions={**normal_channels, "normal_contact_corrected_energy_residual": (
+                        "External work plus signed numerical normal-contact work minus recorded "
+                        "internal energy. Retains bulk/path discretization error; not an enforced identity."
+                    )},
+                )
+                corrected = last_energy.mechanical_energy_residual + last_energy.normal_contact_work
+                result.add_quantities({
+                    **{key: getattr(last_energy, key) for key in normal_channels},
+                    "normal_contact_corrected_energy_residual": corrected,
+                    "relative_normal_contact_corrected_energy_residual": abs(corrected) / scale,
+                    "relative_normal_contact_work_bound": last_energy.normal_contact_work_bound / scale,
+                }, kind="verification")
         result.metadata["mechanical_energy_ledger"] = {
             "status": (
                 "complete_accepted_path"
@@ -3296,6 +3934,21 @@ class FiniteStrainJ2StandardProblem:
                 else "not_present"
             ),
         }
+        if not all(getattr(item, "physical_contact_potential_available", True)
+                   for item in self._contact_providers()):
+            result.metadata["mechanical_energy_ledger"].update(
+                status=("complete_accepted_path_with_normal_contact_work"
+                        if has_normal_work and self.energy_history_complete else
+                        "unavailable_legacy_checkpoint_without_work_history" if has_normal_work else
+                        "unavailable_contact_enforcement_work_not_recorded"),
+                internal_energy="stored_energy + plastic_dissipation" if has_normal_work else None,
+                algorithmic_functional_is_physical_energy=False,
+                normal_contact_work=("signed_numerical_relative_gap_work" if has_normal_work else None),
+                balance="external_work + normal_contact_work - internal_energy" if has_normal_work else None,
+                bound_scope="discrete_endpoint_work_only_not_continuous_path_error" if has_normal_work else None,
+                requires_increment_refinement=True,
+                automatic_energy_verification=False,
+            )
         for checkpoint in self.checkpoints:
             result.add_checkpoint(checkpoint)
         add_execution_trace(result, self.execution_events)
@@ -3316,7 +3969,7 @@ class FiniteStrainJ2StandardProblem:
             "kind": "finite_strain_j2_standard_problem",
             "name": self.name,
             "maturity": (
-                "experimental_analytical_plane_contact_serial"
+                "experimental_bounded_rigid_contact_serial"
                 if self.contact_provider is not None
                 else "experimental_global_mpi_restart"
             ),
@@ -3342,6 +3995,7 @@ class FiniteStrainJ2StandardProblem:
             ),
             "output_every": self.output_every,
             "output_factors": self.output_factors,
+            "required_load_factors": self.required_load_factors,
             "snapshot_count": len(self.snapshots),
             "checkpoint_policy": (
                 None
@@ -3557,6 +4211,24 @@ def _finite_strain_j2_transaction(
     )
 
 
+def _tabular_amplitude_load_knots(asset: amplitudes.Amplitude) -> tuple[float, ...]:
+    """Return interior normalized table knots that a stateful Step must accept.
+
+    A tabular amplitude is piecewise affine in the normalized load coordinate.
+    Skipping a knot changes its prescribed path, even if Newton converges at
+    the endpoint. Smooth/custom amplitudes make no breakpoint declaration.
+    """
+
+    if asset.kind != "tabular":
+        return ()
+    raw = np.asarray(asset.summary()["metadata"].get("times"), dtype=float)
+    if raw.ndim != 1 or not len(raw) or not np.all(np.isfinite(raw)) or (
+        len(raw) > 1 and not np.all(np.diff(raw) > 0.0)
+    ):
+        raise ValueError("Tabular load amplitude has invalid knot metadata.")
+    return tuple(float(value) for value in raw if 0.0 < value < 1.0)
+
+
 def finite_strain_j2_standard_problem(
     *,
     displacement,
@@ -3570,7 +4242,8 @@ def finite_strain_j2_standard_problem(
     solver_options=None,
     quadrature_degree: int = 2,
     contact_quadrature_degree: int | None = None,
-    contact_integration: str = "gauss",
+    contact_integration: str | Mapping[str, str] = "gauss",
+    normal_augmentation=None,
     amplitude=None,
     output_every: int | None = 1,
     output_factors=(),
@@ -3581,6 +4254,13 @@ def finite_strain_j2_standard_problem(
 ) -> FiniteStrainJ2StandardProblem:
     """Build stateful finite-strain J2 under ordinary strong boundaries."""
 
+    selected_incrementation = step_controls.normalize(
+        incrementation,
+        inelastic_feedback=(
+            displacement.value.function_space.mesh.comm.size == 1
+            and isinstance(material, FiniteStrainJ2Logarithmic)
+        ),
+    )
     transaction = _finite_strain_j2_transaction(
         displacement,
         material,
@@ -3611,7 +4291,7 @@ def finite_strain_j2_standard_problem(
     contact_provider = contact
     if contact_quadrature_degree is not None and contact is None:
         raise ValueError("contact_quadrature_degree requires rigid contact.")
-    if contact_integration != "gauss" and contact is None:
+    if not (isinstance(contact_integration, str) and contact_integration == "gauss") and contact is None:
         raise ValueError("contact_integration requires rigid contact.")
     if contact is not None:
         from ..boundary_models import RigidContactPair, RigidObstaclePenaltyContact
@@ -3638,7 +4318,7 @@ def finite_strain_j2_standard_problem(
                 raise NotImplementedError(
                     "Explicit contact quadrature degree requires RigidContactPair."
                 )
-            if contact_integration != "gauss":
+            if not (isinstance(contact_integration, str) and contact_integration == "gauss"):
                 raise NotImplementedError(
                     "Trial active contact partition requires RigidContactPair."
                 )
@@ -3657,12 +4337,19 @@ def finite_strain_j2_standard_problem(
                 dolfinx_implicit_rigid_contact,
                 dolfinx_implicit_rigid_contacts,
             )
+            from ..boundary_models.contact_integration_modes import (
+                resolve_contact_integration_modes,
+            )
+
+            contact_modes = resolve_contact_integration_modes(
+                contact_items, contact_integration,
+            )
 
             contact_provider = (
                 dolfinx_implicit_rigid_contact(
                     contact_items[0], solution,
                     contact_quadrature_degree=contact_quadrature_degree,
-                    contact_integration=contact_integration,
+                    contact_integration=contact_modes[0],
                 )
                 if len(contact_items) == 1 else
                 dolfinx_implicit_rigid_contacts(
@@ -3671,6 +4358,17 @@ def finite_strain_j2_standard_problem(
                     contact_integration=contact_integration,
                 )
             )
+
+    if normal_augmentation is not None:
+        from ..boundary_models._augmented_plane_trial_provider import (
+            DolfinxAugmentedPlaneTrialProvider,
+        )
+
+        if contact_quadrature_degree is not None:
+            raise NotImplementedError("AFM-CONTACT-AL-SCOPE: AL owns a fixed coalesced nodal trace.")
+        contact_provider = DolfinxAugmentedPlaneTrialProvider(
+            contact_provider, policy=normal_augmentation,
+        )
 
     from .. import constraints as constraint_api
 
@@ -3716,6 +4414,13 @@ def finite_strain_j2_standard_problem(
         contact_constrained_dofs = tuple(
             np.intersect1d(contact_dofs, constrained_dofs).tolist()
         )
+    if normal_augmentation is not None:
+        from ..boundary_models._augmented_plane_trial_provider import validate_free_plane_normal_rows
+
+        validate_free_plane_normal_rows(
+            contact_provider.adapter.trace, contact_provider.surface.normal,
+            contact_constrained_dofs,
+        )
     value_path = constraint_api.prescribed_value_path(concrete_constraints)
     selected_amplitude = (
         amplitudes.ramp()
@@ -3725,6 +4430,7 @@ def finite_strain_j2_standard_problem(
     if not np.isclose(selected_amplitude(0.0), 0.0):
         raise ValueError("Finite-strain J2 amplitude must start at zero.")
     selected_options = newton() if solver_options is None else solver_options
+    selected_options.linear_solver._require_unmanaged_preconditioner()
     if not bool(getattr(selected_options, "error_if_not_converged", True)):
         raise ValueError(
             "Public stateful finite-strain J2 requires error_if_not_converged=True."
@@ -3744,8 +4450,8 @@ def finite_strain_j2_standard_problem(
             )
     from .. import procedures
 
-    selected_incrementation = step_controls.normalize(incrementation)
     selected_output_factors = tuple(float(value) for value in output_factors)
+    required_load_factors = _tabular_amplitude_load_knots(selected_amplitude)
     if isinstance(selected_incrementation, step_controls.FixedIncrementation):
         missing = tuple(
             value
@@ -3759,6 +4465,19 @@ def finite_strain_j2_standard_problem(
             raise ValueError(
                 "Fixed finite-strain J2 incrementation must include every "
                 f"requested output factor; missing {missing}."
+            )
+        missing_knots = tuple(
+            value
+            for value in required_load_factors
+            if not any(
+                abs(value - declared) <= 1.0e-12
+                for declared in selected_incrementation.load_factors
+            )
+        )
+        if missing_knots:
+            raise ValueError(
+                "Fixed finite-strain J2 incrementation must include every "
+                f"tabular amplitude knot; missing {missing_knots}."
             )
 
     return FiniteStrainJ2StandardProblem(
@@ -3786,6 +4505,7 @@ def finite_strain_j2_standard_problem(
         strong_constraint_assets=tuple(concrete_constraints),
         output_every=None if output_every is None else int(output_every),
         output_factors=selected_output_factors,
+        required_load_factors=required_load_factors,
         progress=progress,
         status_file=status_file,
         checkpoint_policy=checkpoint_policy,
@@ -3847,7 +4567,9 @@ def finite_strain_j2_affine_problem(
     material: FiniteStrainJ2Logarithmic | QuadratureMaterialMap,
     constraint,
     contact=None,
-    contact_integration: str = "gauss",
+    contact_quadrature_degree: int | None = None,
+    contact_integration: str | Mapping[str, str] = "gauss",
+    normal_augmentation=None,
     external_force=None,
     incrementation=None,
     solver_options=None,
@@ -3868,6 +4590,13 @@ def finite_strain_j2_affine_problem(
 
     from .. import problems
 
+    control = step_controls.normalize(
+        incrementation,
+        inelastic_feedback=(
+            displacement.value.function_space.mesh.comm.size == 1
+            and isinstance(material, FiniteStrainJ2Logarithmic)
+        ),
+    )
     if external_force is not None:
         raise NotImplementedError(
             "The first stateful affine J2 route accepts prescribed macroscopic "
@@ -3876,6 +4605,8 @@ def finite_strain_j2_affine_problem(
         )
     if getattr(constraint, "target", None) is not displacement:
         raise ValueError("Affine finite-strain J2 constraint must target displacement.")
+    if normal_augmentation is not None and contact_quadrature_degree is not None:
+        raise ValueError("AFM-CONTACT-AL-SCOPE: nodal augmentation has no Gauss quadrature override.")
     contact_items = (
         () if contact is None else
         tuple(contact) if isinstance(contact, (tuple, list)) else (contact,)
@@ -3888,6 +4619,9 @@ def finite_strain_j2_affine_problem(
         )
         from ..boundary_models.dolfinx_implicit_facet_contact import (
             dolfinx_implicit_rigid_contact,
+        )
+        from ..boundary_models.contact_integration_modes import (
+            resolve_contact_integration_modes,
         )
 
         if not all(isinstance(item, RigidContactPair) for item in contact_items):
@@ -3903,13 +4637,43 @@ def finite_strain_j2_affine_problem(
                 "rigid pairs with supported geometry and "
                 "normalized prescribed motion."
             )
+        contact_modes = resolve_contact_integration_modes(
+            contact_items, contact_integration,
+        )
+        if any(
+            mode == "certified_closed_two_feature_research"
+            and item.friction is not None
+            for item, mode in zip(contact_items, contact_modes, strict=True)
+        ):
+            raise NotImplementedError(
+                "AFM-CONTACT-RESEARCH: affine/MPC certified faces have no "
+                "tangential friction law."
+            )
         contact_providers = tuple(
             dolfinx_implicit_rigid_contact(
                 item, displacement.value,
-                contact_integration=contact_integration,
+                contact_quadrature_degree=contact_quadrature_degree,
+                contact_integration=mode,
             )
-            for item in contact_items
+            for item, mode in zip(contact_items, contact_modes, strict=True)
         )
+    elif contact_integration != "gauss":
+        raise ValueError("contact_integration requires a rigid contact pair.")
+    if contact_quadrature_degree is not None and not contact_items:
+        raise ValueError("contact_quadrature_degree requires a rigid contact pair.")
+    if normal_augmentation is not None:
+        from ..boundary_models._augmented_plane_trial_provider import (
+            DolfinxAugmentedPlaneTrialProvider, validate_affine_plane_normal_rows,
+        )
+        if len(contact_providers) != 1:
+            raise NotImplementedError("AFM-CONTACT-AL-SCOPE: affine augmentation needs exactly one plane.")
+        augmented = DolfinxAugmentedPlaneTrialProvider(
+            contact_providers[0], policy=normal_augmentation,
+        )
+        validate_affine_plane_normal_rows(
+            augmented.adapter.trace, augmented.surface.normal, constraint.reduction(0.),
+        )
+        contact_providers = (augmented,)
     transaction = _finite_strain_j2_transaction(
         displacement,
         material,
@@ -3931,7 +4695,7 @@ def finite_strain_j2_affine_problem(
 
     def acceptance():
         limit = getattr(
-            step_controls.normalize(incrementation),
+            control,
             "maximum_inelastic_increment",
             None,
         )
@@ -3976,7 +4740,7 @@ def finite_strain_j2_affine_problem(
         solution,
         jacobian=jacobian,
         constraint=constraint,
-        incrementation=step_controls.normalize(incrementation),
+        incrementation=control,
         solver_options=selected_solver_options,
         output_every=output_every,
         output_factors=output_factors,
@@ -3984,10 +4748,55 @@ def finite_strain_j2_affine_problem(
         full_space_operators=contact_providers,
         checkpoint_policy=checkpoint_policy,
         acceptance_check=acceptance,
+        inelastic_increment_measure="maximum_plastic_increment",
         progress=progress,
         status_file=status_file,
         name=name,
     )
+    if normal_augmentation is not None:
+        from ._affine_normal_augmentation import AffinePlaneNormalAugmentation
+        from ..boundary_models._normal_work_path import AcceptedNormalContactWork
+        problem._equilibrium_procedure = AffinePlaneNormalAugmentation(contact_providers[0])
+        work = AcceptedNormalContactWork(contact_providers[0])
+        problem.accepted_observers = (*problem.accepted_observers, work)
+        problem.accepted_history_recorders[f"normal_contact_work:{contact_providers[0].name}"] = work
+
+    # Keep reviewed faceted-feature observations on the same accepted-boundary
+    # transaction as material, tool State and MPC work. Older checkpoints may
+    # resume with explicitly incomplete historical evidence; they must never
+    # acquire a fabricated clean path.
+    from ..boundary_models.closed_polyhedron import ClosedTriangulatedRigidSolid
+    from ..boundary_models.contact_feature_path import AcceptedContactFeaturePath
+    from ..boundary_models.convex_polyhedron import ConvexPolyhedralRigidSurface
+    from ..boundary_models.rigid import TriangulatedRigidSurface
+
+    polyhedral_providers = tuple(
+        provider for provider in contact_providers
+        if not hasattr(provider, "current_face_diagnostics") and (
+            isinstance(
+                provider.surface,
+                (ClosedTriangulatedRigidSolid, ConvexPolyhedralRigidSurface),
+            ) or (
+                isinstance(provider.surface, TriangulatedRigidSurface)
+                and provider.contact_integration == "reviewed_planar_branch_partition"
+            )
+        )
+    )
+    if polyhedral_providers:
+        feature_path = AcceptedContactFeaturePath(polyhedral_providers)
+        problem.accepted_observers = (*problem.accepted_observers, feature_path)
+        problem.accepted_history_recorders["contact_features"] = feature_path
+
+    face_providers = tuple(
+        provider for provider in contact_providers
+        if hasattr(provider, "current_face_diagnostics")
+    )
+    if face_providers:
+        from ..boundary_models.contact_face_path import AcceptedContactFacePath
+
+        face_path = AcceptedContactFacePath(face_providers)
+        problem.accepted_observers = (*problem.accepted_observers, face_path)
+        problem.accepted_history_recorders["contact_faces"] = face_path
 
     def snapshot_fields():
         return solution, transaction.snapshot_fields()

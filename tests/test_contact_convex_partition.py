@@ -6,6 +6,7 @@ import json
 from itertools import permutations
 import runpy
 from pathlib import Path
+from types import SimpleNamespace
 
 import numpy as np
 import pytest
@@ -15,6 +16,7 @@ from agentfem.boundary_models.contact_convex_partition import (
     _unique_support_planes,
     partition_convex_p1_trace,
 )
+from agentfem.boundary_models.contact_feature_path import sampled_feature_observation
 from agentfem.boundary_models.implicit_facet_contact import (
     linearize_piecewise_planar_contact,
 )
@@ -27,8 +29,8 @@ _SCRIPT = Path(__file__).resolve().parents[1] / "tools/verify_two_plane_contact_
 _oracle = runpy.run_path(str(_SCRIPT))["two_plane_triangle_contact"]
 
 
-def _box(*, xmin=0.25, xmax=0.65, ymin=-10.0, ymax=10.0):
-    zmin, zmax = -10.0, 10.0
+def _box(*, xmin=0.25, xmax=0.65, ymin=-10.0, ymax=10.0,
+         zmin=-10.0, zmax=10.0):
     vertices = (
         (xmin, ymin, zmin), (xmax, ymin, zmin),
         (xmax, ymax, zmin), (xmin, ymax, zmin),
@@ -54,6 +56,82 @@ def _trace():
                       (1 / 6, 1 / 6, 2 / 3)),
         weights=(1 / 6, 1 / 6, 1 / 6),
     )
+
+
+@pytest.mark.parametrize(
+    "point_ids, shape_values",
+    (
+        (
+            (0, 1, 2),
+            ((1 / 3, 1 / 3, 1 / 3),) * 3,
+        ),
+        (
+            (0, 1, 3),
+            ((2 / 3, 1 / 6, 1 / 6),
+             (1 / 6, 2 / 3, 1 / 6),
+             (1 / 6, 1 / 6, 2 / 3)),
+        ),
+    ),
+)
+def test_convex_partition_rejects_nondefault_three_point_trace(point_ids, shape_values):
+    trace = boundary_models.ContactTrace(
+        point_ids=point_ids,
+        node_ids=((0, 1, 2),) * 3,
+        shape_values=shape_values,
+        weights=(1 / 6, 1 / 6, 1 / 6),
+    )
+    positions = np.asarray(((0, 0, 0), (1, 0, 0), (0, 1, 0)), dtype=float)
+    with pytest.raises(NotImplementedError, match="default three-point P1"):
+        partition_convex_p1_trace(trace, positions, _box(), penalty=7)
+
+
+def test_convex_partition_accepts_reordered_default_rule():
+    trace = boundary_models.ContactTrace(
+        point_ids=(3, 4, 5),
+        node_ids=((0, 1, 2),) * 3,
+        shape_values=((1 / 6, 1 / 6, 2 / 3),
+                      (2 / 3, 1 / 6, 1 / 6),
+                      (1 / 6, 2 / 3, 1 / 6)),
+        weights=(1 / 6, 1 / 6, 1 / 6),
+    )
+    positions = np.asarray(((0, 0, 0), (1, 0, 0), (0, 1, 0)), dtype=float)
+    selected = partition_convex_p1_trace(trace, positions, _box(), penalty=7)
+    assert selected.trace.point_count >= 3
+
+
+def test_polyhedral_accepted_observation_rejects_missing_or_corrupt_evidence():
+    sample = {
+        "active_point_count": 2,
+        "sampled_mixed_feature_slave_faces": 0,
+        "feature_transition_integral_certified": False,
+    }
+    provider = SimpleNamespace(
+        surface=_box(), current_point_diagnostics=lambda: sample,
+    )
+    assert sampled_feature_observation(provider) == {
+        "mixed": 0, "edge": 0, "vertex": 0, "certified": False,
+    }
+    for corrupt in (
+        {key: value for key, value in sample.items()
+         if key != "sampled_mixed_feature_slave_faces"},
+        sample | {"active_point_count": 2.0},
+        sample | {"feature_transition_integral_certified": 0},
+        sample | {"active_feature_counts": {"face": 1, "edge": 0, "vertex": 0}},
+    ):
+        provider.current_point_diagnostics = lambda corrupt=corrupt: corrupt
+        with pytest.raises(ValueError, match="feature diagnostics|active-feature counts"):
+            sampled_feature_observation(provider)
+
+    convex = _box()
+    closed = boundary_models.closed_triangulated_rigid_solid(
+        vertices=convex.facets.vertices,
+        triangles=convex.facets.triangles,
+        reviewed_embedded=True,
+    )
+    provider.surface = closed
+    provider.current_point_diagnostics = lambda: sample
+    with pytest.raises(ValueError, match="active-feature counts are missing"):
+        sampled_feature_observation(provider)
 
 
 def _evaluate(surface, positions, *, penalty=7.0, motion=None, factor=0.0):
@@ -141,10 +219,74 @@ def test_convex_corner_three_features_matches_exact_energy_and_full_tangent():
         )
 
 
-def test_convex_partition_still_rejects_four_dominant_features():
+def test_convex_partition_four_dominant_features_matches_exact_energy_and_tangent():
     surface = _box(xmin=0.1, xmax=0.9, ymin=0.1, ymax=0.9)
     positions = np.asarray(((0, 0, 0), (2, 0, 0), (0, 2, 0)), dtype=float)
-    with pytest.raises(NotImplementedError, match="more than three dominant"):
+    selected, contribution, tangent = _evaluate(surface, positions)
+    assert selected.split_faces == 1
+    assert selected.active_feature_lines == 4
+    # The compressed square is [0.1, 0.9]^2. Its pointwise penetration is
+    # the minimum distance to one of the four sides. Layer-cake integration
+    # gives integral_xy(penetration**2) = side**4 / 24, independently of the
+    # partition implementation. This synthetic reference trace has area 1/2,
+    # whereas its XY triangle has area 2, so its measure is one quarter of XY.
+    assert contribution.potential_energy == pytest.approx(
+        7.0 * 0.8**4 / 192.0, rel=1e-12,
+    )
+    np.testing.assert_allclose(
+        contribution.nodal_structural_residual.sum(axis=0), 0.0, atol=1e-12,
+    )
+    rng = np.random.default_rng(116)
+    for _ in range(5):
+        direction = rng.normal(size=positions.shape)
+        direction /= np.linalg.norm(direction)
+        step = 1e-7
+        plus = _evaluate(surface, positions + step * direction)[1]
+        minus = _evaluate(surface, positions - step * direction)[1]
+        finite_difference = (
+            plus.nodal_structural_residual - minus.nodal_structural_residual
+        ) / (2 * step)
+        np.testing.assert_allclose(
+            tangent @ direction.ravel(), finite_difference.ravel(),
+            rtol=2e-7, atol=2e-8,
+        )
+    for _ in range(4):
+        shifted = positions + 0.005 * rng.normal(size=positions.shape)
+        selected, contribution, tangent = _evaluate(surface, shifted)
+        # A generic perturbation resolves the symmetric four-way point into
+        # two three-way points and may add a fifth pairwise switching line.
+        assert 4 <= selected.active_feature_lines <= 5
+        direction = rng.normal(size=positions.shape)
+        direction /= np.linalg.norm(direction)
+        plus = _evaluate(surface, shifted + 1e-7 * direction)[1]
+        minus = _evaluate(surface, shifted - 1e-7 * direction)[1]
+        np.testing.assert_allclose(
+            tangent @ direction.ravel(),
+            ((plus.nodal_structural_residual - minus.nodal_structural_residual)
+             / 2e-7).ravel(),
+            rtol=2e-7, atol=2e-8,
+        )
+
+
+def test_convex_partition_fails_closed_above_reviewed_feature_count():
+    angles = 2 * np.pi * np.arange(5) / 5
+    xy = np.column_stack((0.3 + 0.2 * np.cos(angles),
+                          0.3 + 0.2 * np.sin(angles)))
+    vertices = [(*point, -10.0) for point in xy]
+    vertices += [(*point, 10.0) for point in xy]
+    triangles = []
+    for index in range(1, 4):
+        triangles.extend(((0, index + 1, index),
+                          (5, 5 + index, 5 + index + 1)))
+    for index in range(5):
+        next_index = (index + 1) % 5
+        triangles.extend(((index, next_index, next_index + 5),
+                          (index, next_index + 5, index + 5)))
+    surface = boundary_models.convex_polyhedral_rigid_surface(
+        vertices=vertices, triangles=triangles, name="five_feature_prism",
+    )
+    positions = np.asarray(((-1, -1, 0), (2, -1, 0), (-1, 2, 0)), dtype=float)
+    with pytest.raises(NotImplementedError, match="more than four dominant"):
         partition_convex_p1_trace(_trace(), positions, surface, penalty=7)
 
 
@@ -358,6 +500,54 @@ def test_real_dolfinx_convex_corner_three_feature_operator_tangent():
     )
 
 
+def test_real_dolfinx_convex_four_feature_operator_tangent():
+    basix_ufl = pytest.importorskip("basix.ufl")
+    fem = pytest.importorskip("dolfinx.fem")
+    mesh = pytest.importorskip("dolfinx.mesh")
+    mpi = pytest.importorskip("mpi4py.MPI")
+    agent_mesh = pytest.importorskip("agentfem.mesh")
+    domain = mesh.create_unit_cube(
+        mpi.COMM_SELF, 1, 1, 1, cell_type=mesh.CellType.tetrahedron,
+    )
+    space = fem.functionspace(
+        domain, basix_ufl.element("Lagrange", domain.basix_cell(), 1, shape=(3,)),
+    )
+    displacement = fem.Function(space)
+    facets = mesh.locate_entities_boundary(domain, 2, lambda x: np.isclose(x[0], 0))
+    tags = mesh.meshtags(domain, 2, facets, np.full(len(facets), 7, dtype=np.int32))
+    slave = agent_mesh.tagged_boundary_region(domain, tags, tag=7, name="slave")
+    width, height = 0.15, 0.17
+    surface = _box(
+        xmin=-10, xmax=10, ymin=0.1, ymax=0.1 + width,
+        zmin=0.41, zmax=0.41 + height,
+    )
+    pair = boundary_models.rigid_contact_pair(
+        slave, boundary_models.rigid_body(surface), penalty=7.0,
+    )
+    contact = dolfinx_implicit_rigid_contact(
+        pair, displacement, contact_integration="convex_feature_partition",
+    )
+    value = contact.evaluate()
+    assert value.potential_energy == pytest.approx(
+        7.0 * width**3 * (2 * height - width) / 48.0, rel=1e-12,
+    )
+    assert contact.current_point_diagnostics()["active_feature_lines"] >= 4
+    np.testing.assert_allclose(value.contact_force_on_structure, 0.0, atol=1e-12)
+    base = displacement.x.array.copy()
+    direction = np.random.default_rng(541).normal(size=base.shape)
+    h = 1e-7
+    displacement.x.array[:] = base + h * direction
+    plus = contact.evaluate()
+    displacement.x.array[:] = base - h * direction
+    minus = contact.evaluate()
+    displacement.x.array[:] = base
+    np.testing.assert_allclose(
+        value.tangent_action(direction.reshape(-1, 3)),
+        (plus.nodal_structural_residual - minus.nodal_structural_residual) / (2 * h),
+        rtol=2e-7, atol=2e-8,
+    )
+
+
 def test_convex_partition_rejects_projection_from_a_different_feature(monkeypatch):
     from dataclasses import replace
 
@@ -405,6 +595,7 @@ def test_convex_partition_rejects_projection_from_a_different_feature(monkeypatc
 
 def _ordinary_convex_step(
     integration="convex_feature_partition", *, three_feature_corner=False,
+    four_feature_window=False,
 ):
     mesh = pytest.importorskip("dolfinx.mesh")
     mpi = pytest.importorskip("mpi4py.MPI")
@@ -436,6 +627,11 @@ def _ordinary_convex_step(
                       (0.8, 2.96, 0.03), (0.8, -0.04, 3.03)),
             triangles=((0, 2, 1), (0, 1, 3), (0, 3, 2), (1, 2, 3)),
         )
+    if four_feature_window:
+        surface = _box(
+            xmin=-10, xmax=10, ymin=0.1, ymax=0.25,
+            zmin=0.41, zmax=0.58,
+        )
     pair = boundary_models.rigid_contact_pair(
         right, boundary_models.rigid_body(surface, motion_schedule=motion),
         penalty=200,
@@ -455,12 +651,20 @@ def _ordinary_convex_step(
 
 def test_ordinary_j2_step_admits_convex_feature_partition_and_restart(tmp_path):
     continuous = _ordinary_convex_step()
-    assert continuous.solve_result().status == "completed"
+    result = continuous.solve_result()
+    assert result.status == "completed"
+    assert next(
+        item for item in result.verify("release").claims
+        if item.name == "polyhedral_contact_integral_certified"
+    ).status == "passed"
     assert continuous.contact_provider.summary()["contact_integration"] == (
         "convex_feature_partition"
     )
     assert continuous.contact_provider.evaluate().potential_energy > 0
-    assert continuous.contact_provider.current_point_diagnostics()["active_feature_lines"] > 0
+    diagnostics = continuous.contact_provider.current_point_diagnostics()
+    assert diagnostics["active_feature_lines"] > 0
+    assert diagnostics["sampled_mixed_feature_slave_faces"] > 0
+    assert diagnostics["feature_transition_integral_certified"] is True
     from agentfem import results
 
     outputs = results.export_accepted_contact_points(continuous, tmp_path / "contact")
@@ -480,6 +684,9 @@ def test_ordinary_j2_step_admits_convex_feature_partition_and_restart(tmp_path):
         continuous.energy_history[-1].tool_work,
     )
     mismatched = _ordinary_convex_step("gauss")
+    assert mismatched.contact_provider.current_point_diagnostics()[
+        "feature_transition_integral_certified"
+    ] is False
     with pytest.raises(ValueError, match="identity"):
         mismatched.load_checkpoint(checkpoint)
     assert mismatched.accepted_load_factor == 0.0
@@ -495,6 +702,27 @@ def test_ordinary_j2_step_accepts_three_feature_corner_and_checkpoint(tmp_path):
     partial.solve(until=0.5)
     checkpoint = partial.save_checkpoint(tmp_path / "three_feature_corner")
     resumed = _ordinary_convex_step(three_feature_corner=True)
+    resumed.load_checkpoint(checkpoint)
+    assert resumed.solve_result().status == "completed"
+    np.testing.assert_allclose(
+        resumed.solution.x.array, continuous.solution.x.array,
+        rtol=1e-12, atol=1e-12,
+    )
+    assert resumed.energy_history[-1].tool_work == pytest.approx(
+        continuous.energy_history[-1].tool_work,
+    )
+
+
+def test_ordinary_j2_step_accepts_four_feature_window_and_checkpoint(tmp_path):
+    continuous = _ordinary_convex_step(four_feature_window=True)
+    assert continuous.solve_result().status == "completed"
+    diagnostics = continuous.contact_provider.current_point_diagnostics()
+    assert diagnostics["active_feature_lines"] >= 4
+    assert continuous.contact_provider.evaluate().potential_energy > 0
+    partial = _ordinary_convex_step(four_feature_window=True)
+    partial.solve(until=0.5)
+    checkpoint = partial.save_checkpoint(tmp_path / "four_feature_window")
+    resumed = _ordinary_convex_step(four_feature_window=True)
     resumed.load_checkpoint(checkpoint)
     assert resumed.solve_result().status == "completed"
     np.testing.assert_allclose(

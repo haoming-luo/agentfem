@@ -1,0 +1,269 @@
+{
+  "scope": "serial built-in J2, affine periodic fixed-plane augmentation",
+  "package_name": "agentfem",
+  "platform": "macOS-26.6.2-arm64-arm-64bit",
+  "python": "3.11.15",
+  "threads": {
+    "OMP_NUM_THREADS": "1",
+    "OPENBLAS_NUM_THREADS": "1",
+    "VECLIB_MAXIMUM_THREADS": "1"
+  },
+  "source_sha256": {
+    "src/agentfem/mechanics/_retained_trial_response.py": "37796e45af7438cd3ae3724d520f8c24ce852da717f4e598aaa9c61c15512cd1",
+    "src/agentfem/mechanics/finite_strain_plasticity.py": "a3dff95248534d5b05a19a91dd8424d018553b2ded1d0294416d9a2f20cef3bb",
+    "src/agentfem/mechanics/_affine_normal_augmentation.py": "b2f86c2d4692eae50a4797f3fad284f6415835b35581ed5e80b0b0977e874179",
+    "src/agentfem/_affine_equilibrium.py": "9f3bc9d4825597892f67db3ebb96fe941363a5dcc6307e0cdef7d4e93cc4ff6f",
+    "src/agentfem/solvers.py": "64c4093ac62cf7f859badcf756f269e0d027d7af30501c84db37a0c4086a96a1",
+    "src/agentfem/_adaptive_linear_correction.py": "802b28aaaa970b3f94fe85f017e42757904fc2e2302980cfc04ccafcb849d361",
+    "examples/finite_j2_periodic_augmented_plane.py": "26774066f1c6efe24b8b588ed63b141e6f09cef8d5f103c9801004c38179a389"
+  },
+  "cells": 12,
+  "increments": 48,
+  "mechanism": "preconditioner",
+  "order": "ABBA",
+  "runs": [
+    {
+      "reuse_enabled": false,
+      "solve_and_observe_seconds": 226.63485999964178,
+      "material_response_reuses": 172,
+      "all_station_arrays_equal": true,
+      "accepted_by_declared_comparison": true,
+      "station_max_absolute_differences": [
+        [
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ]
+      ],
+      "accepted_increments": 48,
+      "newton_iterations": 533,
+      "linear_policy": {
+        "kind": "linear_solver_options",
+        "mpc_assembly": "native",
+        "ksp_type": "preonly",
+        "pc_type": "lu",
+        "rtol": null,
+        "atol": null,
+        "max_it": null,
+        "factor_solver_type": "mumps",
+        "error_if_not_converged": true
+      },
+      "preconditioner_reuses": 0,
+      "preconditioner_builds": 0,
+      "rebuild_retries": 0,
+      "maximum_true_linear_residual_ratio": 0
+    },
+    {
+      "reuse_enabled": true,
+      "solve_and_observe_seconds": 195.01109874993563,
+      "material_response_reuses": 172,
+      "all_station_arrays_equal": false,
+      "accepted_by_declared_comparison": true,
+      "station_max_absolute_differences": [
+        [
+          1.3287981825982342e-15,
+          2.8456403899923544e-14,
+          2.0465296124427823e-11,
+          1.0547864803811535e-9,
+          2.6858515411731787e-11,
+          1.1775852340582874e-15
+        ],
+        [
+          8.947920529522868e-16,
+          3.3813229993739924e-14,
+          2.492472894743969e-11,
+          2.645492713782005e-9,
+          0,
+          1.1775852340582874e-15
+        ],
+        [
+          1.02581788549716e-15,
+          4.1092129698938606e-14,
+          3.124189795755683e-11,
+          4.389164587337291e-9,
+          0,
+          1.1775852340582874e-15
+        ],
+        [
+          1.1906437207692688e-15,
+          4.664324482206439e-14,
+          3.679367921449739e-11,
+          1.1402789823478088e-9,
+          5.240963218966499e-11,
+          1.1775852340582874e-15
+        ]
+      ],
+      "accepted_increments": 48,
+      "newton_iterations": 533,
+      "linear_policy": {
+        "kind": "linear_solver_options",
+        "mpc_assembly": "native",
+        "ksp_type": "gmres",
+        "pc_type": "lu",
+        "rtol": 1e-12,
+        "atol": 1e-14,
+        "max_it": 50,
+        "factor_solver_type": "mumps",
+        "error_if_not_converged": true,
+        "preconditioner_reuse": "adaptive"
+      },
+      "preconditioner_reuses": 435,
+      "preconditioner_builds": 98,
+      "rebuild_retries": 0,
+      "maximum_true_linear_residual_ratio": 0.9984617060008323
+    },
+    {
+      "reuse_enabled": true,
+      "solve_and_observe_seconds": 195.84161695791408,
+      "material_response_reuses": 172,
+      "all_station_arrays_equal": false,
+      "accepted_by_declared_comparison": true,
+      "station_max_absolute_differences": [
+        [
+          1.3287981825982342e-15,
+          2.8456403899923544e-14,
+          2.0465296124427823e-11,
+          1.0547864803811535e-9,
+          2.6858515411731787e-11,
+          1.1775852340582874e-15
+        ],
+        [
+          8.947920529522868e-16,
+          3.3813229993739924e-14,
+          2.492472894743969e-11,
+          2.645492713782005e-9,
+          0,
+          1.1775852340582874e-15
+        ],
+        [
+          1.02581788549716e-15,
+          4.1092129698938606e-14,
+          3.124189795755683e-11,
+          4.389164587337291e-9,
+          0,
+          1.1775852340582874e-15
+        ],
+        [
+          1.1906437207692688e-15,
+          4.664324482206439e-14,
+          3.679367921449739e-11,
+          1.1402789823478088e-9,
+          5.240963218966499e-11,
+          1.1775852340582874e-15
+        ]
+      ],
+      "accepted_increments": 48,
+      "newton_iterations": 533,
+      "linear_policy": {
+        "kind": "linear_solver_options",
+        "mpc_assembly": "native",
+        "ksp_type": "gmres",
+        "pc_type": "lu",
+        "rtol": 1e-12,
+        "atol": 1e-14,
+        "max_it": 50,
+        "factor_solver_type": "mumps",
+        "error_if_not_converged": true,
+        "preconditioner_reuse": "adaptive"
+      },
+      "preconditioner_reuses": 435,
+      "preconditioner_builds": 98,
+      "rebuild_retries": 0,
+      "maximum_true_linear_residual_ratio": 0.9984617060008323
+    },
+    {
+      "reuse_enabled": false,
+      "solve_and_observe_seconds": 226.40156779205427,
+      "material_response_reuses": 172,
+      "all_station_arrays_equal": true,
+      "accepted_by_declared_comparison": true,
+      "station_max_absolute_differences": [
+        [
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ]
+      ],
+      "accepted_increments": 48,
+      "newton_iterations": 533,
+      "linear_policy": {
+        "kind": "linear_solver_options",
+        "mpc_assembly": "native",
+        "ksp_type": "preonly",
+        "pc_type": "lu",
+        "rtol": null,
+        "atol": null,
+        "max_it": null,
+        "factor_solver_type": "mumps",
+        "error_if_not_converged": true
+      },
+      "preconditioner_reuses": 0,
+      "preconditioner_builds": 0,
+      "rebuild_retries": 0,
+      "maximum_true_linear_residual_ratio": 0
+    }
+  ],
+  "comparison": "U, committed state, first Piola, tangent, pressures and normal work at four stations",
+  "comparison_tolerance": {
+    "rtol": 1e-7,
+    "atol": 1e-9
+  },
+  "exclusions": "Not explicit performance, MPI, mixed pressure, external material, or continuum validation",
+  "observed_elapsed_reduction": 0.1372598499130805,
+  "decision": "Selected opt-in serial affine current-operator GMRES policy; default direct solver unchanged.",
+  "timing_scope": "Isolated solve and four-station observation, excludes construction and export; not a full explicit run."
+}

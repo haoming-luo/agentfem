@@ -122,6 +122,9 @@ def test_release_contract_is_complete_and_references_real_workflows():
     } <= workflow_ids
     assert workflow_maturity["structural-direct-harmonic"] == "engineering"
     assert workflow_maturity["generalized-maxwell-harmonic"] == "experimental"
+    if contract["target_version"].startswith("0.4.4"):
+        assert workflow_maturity["bounded-serial-periodic-j2-contact"] == "experimental"
+        assert "mesh-independent nonuniform periodic plastic-contact response without spatial and path convergence" in contract["not_release_claims"]
     assert {
         "partitioned-finite-strain-explicit",
         "multi-material-thermoelastic-static",

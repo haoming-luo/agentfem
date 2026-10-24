@@ -5,6 +5,8 @@
 
 from __future__ import annotations
 
+from collections.abc import Mapping
+
 import numpy as np
 
 from . import constraints as constraint_api
@@ -201,7 +203,8 @@ def finite_strain_j2(
     solver_options=None,
     quadrature_degree: int | None = None,
     contact_quadrature_degree: int | None = None,
-    contact_integration: str = "gauss",
+    contact_integration: str | Mapping[str, str] = "gauss",
+    normal_augmentation=None,
     output=None,
     output_every: int | None = None,
     checkpoint=None,
@@ -216,7 +219,26 @@ def finite_strain_j2(
     from .constitutive import FiniteStrainJ2Logarithmic
     from .constitutive import QuadratureMaterialMap
 
-    model.check(target=target, step_options={"material": material})
+    # Admission must see the same integration policy that the actual Step
+    # lowers. A bounded open-sheet initial-gap proof is conditional on this
+    # policy, so checking the default Gauss path here would reject a valid
+    # explicit request (or advertise a different capability).
+    model.check(
+        target=target,
+        step_options={
+            "material": material,
+            "incrementation": incrementation,
+            # A builder default is not an explicit contact request. Do not
+            # inject it into mixed/no-contact providers that correctly reject
+            # contact options in their public Step contract.
+            **({"contact_integration": contact_integration}
+               if getattr(model, "boundary_models", ()) or contact_integration != "gauss"
+               else {}),
+            **({"constraints": constraints} if constraints is not None else {}),
+            **({"normal_augmentation": normal_augmentation}
+               if normal_augmentation is not None else {}),
+        },
+    )
     if hasattr(model.study, "require"):
         model.study.require(analysis="nonlinear_static", physics="solid_mechanics")
     dimension = int(getattr(model.study, "dimension", -1))
@@ -317,15 +339,17 @@ def finite_strain_j2(
         else ()
     )
     if affine:
-        if contact_integration not in {"gauss", "convex_feature_partition"}:
-            raise NotImplementedError(
-                "The selected trial contact partition is not available for "
-                "the affine-periodic J2 route."
+        from .boundary_models.contact_integration_modes import (
+            resolve_contact_integration_modes,
+        )
+
+        if model.boundary_models:
+            resolve_contact_integration_modes(
+                model.boundary_models, contact_integration,
             )
-        if contact_quadrature_degree is not None:
-            raise NotImplementedError(
-                "Explicit contact quadrature degree is currently limited to "
-                "the strong-boundary J2 route."
+        elif contact_integration != "gauss":
+            raise ValueError(
+                "contact_integration requires a registered rigid contact pair."
             )
         from .boundary_models.implicit_admission import affine_rigid_contact_supported
 
@@ -375,7 +399,9 @@ def finite_strain_j2(
                 material=properties,
                 constraint=affine[0],
                 contact=affine_contact,
+                contact_quadrature_degree=contact_quadrature_degree,
                 contact_integration=contact_integration,
+                normal_augmentation=normal_augmentation,
                 incrementation=incrementation,
                 solver_options=solver_options,
                 quadrature_degree=selected_quadrature_degree,
@@ -432,7 +458,8 @@ def finite_strain_j2(
             raise ValueError(
                 "contact_quadrature_degree requires a registered rigid contact pair."
             )
-        if contact_integration != "gauss" and not boundary_models:
+        if (not isinstance(contact_integration, str)
+                or contact_integration != "gauss") and not boundary_models:
             raise ValueError("contact_integration requires a registered rigid contact pair.")
         if contact_quadrature_degree is not None and any(
             isinstance(item, RigidObstaclePenaltyContact) for item in boundary_models
@@ -501,6 +528,7 @@ def finite_strain_j2(
             quadrature_degree=selected_quadrature_degree,
             contact_quadrature_degree=contact_quadrature_degree,
             contact_integration=contact_integration,
+            normal_augmentation=normal_augmentation,
             amplitude=selected_amplitude,
             output_every=selected_output_every,
             output_factors=output_factors,

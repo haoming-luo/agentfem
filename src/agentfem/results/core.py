@@ -27,6 +27,8 @@ def _name(value: str, *, label: str = "name") -> str:
 
 
 def _finite_array(value, *, label: str) -> np.ndarray:
+    if np.iscomplexobj(value):
+        raise ValueError(f"{label} requires real values; declare real/imaginary or amplitude/phase separately.")
     array = np.asarray(value, dtype=float)
     if not np.all(np.isfinite(array)):
         raise ValueError(f"{label} must contain only finite values.")
@@ -749,7 +751,15 @@ class SimulationResult:
         include_histories: bool = False,
         relative_artifacts: bool = True,
         comm=None,
+        history_storage: str = "inline",
     ) -> Path:
+        """Publish a sealed result; optionally store complete histories in NPZ.
+
+        ``history_storage='npz'`` requires ``include_histories=True``. It stores
+        binary64 curves and shared axes without resampling, then atomically
+        publishes their JSON references. Existing inline defaults are unchanged.
+        All MPI ranks must supply the same complete scientific histories.
+        """
         output = Path(path)
         if comm is not None:
             publication_contracts = tuple(
@@ -758,6 +768,7 @@ class SimulationResult:
                         str(output.expanduser().resolve()),
                         bool(include_histories),
                         bool(relative_artifacts),
+                        str(history_storage),
                     )
                 )
             )
@@ -769,16 +780,41 @@ class SimulationResult:
                     "SimulationResult manifest publication contract differs "
                     f"across MPI ranks: {publication_contracts}."
                 )
+        if history_storage not in ("inline", "npz"):
+            raise ValueError("history_storage must be 'inline' or 'npz'.")
+        if history_storage == "npz" and not include_histories:
+            raise ValueError("NPZ history storage requires include_histories=True.")
+        archive_records = archive_arrays = None
+        if history_storage == "npz":
+            from .history_archive import _prepare
+            from ..provenance import collective_call, collective_canonical_record
+
+            def prepare_histories():
+                if "history_archive" in self.artifacts:
+                    raise ValueError("Artifact name 'history_archive' is reserved for NPZ histories.")
+                return _prepare(self.histories.values())
+
+            if comm is None:
+                archive_records, archive_arrays = prepare_histories()
+            else:
+                archive_records, archive_arrays = collective_call(
+                    prepare_histories, comm=comm, label="History archive preparation",
+                )
+                # Array keys bind shape and every binary64 bit. Metadata-only
+                # agreement is insufficient: different rank values must fail.
+                collective_canonical_record(
+                    archive_records, comm=comm, label="History archive data",
+                )
         artifact_base = output.parent if relative_artifacts else None
         if comm is None:
             record = self.manifest(
-                include_histories=include_histories,
+                include_histories=include_histories and history_storage == "inline",
                 artifact_base=artifact_base,
             )
         else:
             record = self.collective_manifest(
                 comm,
-                include_histories=include_histories,
+                include_histories=include_histories and history_storage == "inline",
                 artifact_base=artifact_base,
             )
         from .. import __version__
@@ -788,6 +824,15 @@ class SimulationResult:
         if comm is None or comm.rank == 0:
             try:
                 output.parent.mkdir(parents=True, exist_ok=True)
+                if archive_records is not None:
+                    from .history_archive import _publish
+
+                    record["history_archive"] = _publish(output, archive_records, archive_arrays)
+                    record["history_records"] = archive_records
+                    archive_path = output.parent / record["history_archive"]["artifact"]
+                    record["artifacts"]["history_archive"] = (
+                        archive_path.name if relative_artifacts else str(archive_path.resolve())
+                    )
                 # The manifest is protected by manifest_sha256, not by a
                 # recursive hash of its own missing/previous file bytes.
                 # Preserve the live result's output locator; omit only paths

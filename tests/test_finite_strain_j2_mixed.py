@@ -320,7 +320,7 @@ def _periodic_p2_constraint(target, deformation_gradient):
     )
 
 
-def _mixed_cube_step(*, deformation_gradient=None, poisson: float = 0.45):
+def _mixed_cube_step(*, deformation_gradient=None, poisson: float = 0.45, linear_solver=None):
     domain = mesh.cuboid(
         (0.0, 0.0, 0.0),
         (1.0, 1.0, 1.0),
@@ -362,6 +362,7 @@ def _mixed_cube_step(*, deformation_gradient=None, poisson: float = 0.45):
             absolute_tolerance=1.0e-10,
             maximum_iterations=20,
             line_search="backtracking",
+            linear_solver=linear_solver,
         ),
         progress=False,
     )

@@ -847,6 +847,24 @@ def test_global_j2_real_state_limit_forces_cutback_and_restart_equivalence(tmp_p
     )
 
 
+def test_tabular_amplitude_freezes_caller_arrays_and_rejects_nonfinite_inputs():
+    times = np.asarray((0.0, 0.5, 1.0))
+    values = np.asarray((0.0, 1.0, 0.0))
+    history = amplitudes.tabular(times, values)
+    original_fingerprint = history.fingerprint
+    times[1] = 0.25
+    values[1] = 3.0
+    history.metadata["times"][1] = 0.25
+    history.metadata["values"][1] = 3.0
+    assert history(0.5) == pytest.approx(1.0)
+    assert history.summary()["metadata"]["times"] == [0.0, 0.5, 1.0]
+    assert history.fingerprint == original_fingerprint
+    with pytest.raises(ValueError, match="finite"):
+        amplitudes.tabular((0, 1), (0, float("nan")))
+    with pytest.raises(ValueError, match="finite"):
+        amplitudes.tabular((0, 1), (0, 1), right=float("inf"))
+
+
 def test_global_j2_consumes_a_nonmonotone_cyclic_amplitude():
     history = amplitudes.tabular(
         (0.0, 0.25, 0.5, 0.75, 1.0),

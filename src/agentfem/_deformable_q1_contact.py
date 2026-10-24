@@ -195,8 +195,7 @@ class DeformableQ1Penalty:
         self.weights = _readonly_array(secondary.nodal_measures[self.nodes])
         self.search_radius = float(search_radius)
         self.law = FrictionlessPenaltyContactLaw(penalty)
-        self.identity = content_fingerprint(
-            {
+        identity_record = {
                 "secondary": secondary.geometry_fingerprint,
                 "primary": primary.geometry_fingerprint,
                 "candidate_nodes": self.nodes.tolist(),
@@ -205,9 +204,13 @@ class DeformableQ1Penalty:
                 "measure": "reference_nodal",
                 "normal": "primary_connectivity_outward",
                 "geometry_policy": self.geometry_policy,
-                **({"execution": execution.summary()} if execution is not None else {}),
+                **({"execution": execution.checkpoint_summary()}
+                   if execution is not None else {}),
             }
-        )
+        self.identity = content_fingerprint(identity_record)
+        self.restart_identity = content_fingerprint({**identity_record,
+            **({"execution": execution.compatible_checkpoint_summary()}
+               if execution is not None else {})})
 
     def evaluate(self, secondary_displacement, primary_displacement, *,
                  _path_lower_bounds=None):
@@ -413,6 +416,8 @@ class DeformableQ1Penalty:
             "implicit_tangent": False,
             "mpi": False,
             "geometry_policy": self.geometry_policy,
+            **({"execution": self.execution.summary()}
+               if self.execution is not None else {}),
             "far_candidate_policy": ("positive_closed_solid_distance_bound"
                                      if self.geometry_policy == "reviewed_closed_solid"
                                      else "reject_search_escape"),
