@@ -91,6 +91,11 @@ accepted-plastic limit, bulk degree 6 and contact degree 11. They accept
 Unlike the elastic control, the sampled active reference areas differ:
 0.22584707 / 0.25. These are quadrature-sampled indicators, not exact areas of
 an independently reconstructed active-set boundary.
+The common plastic-increment cap is an accuracy control, not an identical
+accepted time grid: the two meshes take different adaptive paths. Consequently
+the measured force difference is a controlled spatial comparison with residual
+path error, not a pure spatial-error estimate. Tightening the cap is a separate
+check; a third mesh alone cannot establish path independence or continuum accuracy.
 
 On the unchanged four-cell controlled path, contact degree 7 -> 11 changes
 reaction by only 0.00557%, with 186 accepted increments in both paths; the
@@ -144,6 +149,12 @@ and linear-contact analysis do not prove our finite-plastic convergence.
 [COMSOL's contact guidelines](https://www.comsol.com/support/learning-center/article/structural-contact-modeling-guidelines-83831)
 also distinguish accurate pressure fields from global structural response. These
 support the diagnostic separation, not an automatic parameter recipe.
+Its [contact-node discretization notes](https://doc.comsol.com/6.4/doc/com.comsol.help.sme/sme_ug_modeling.05.147.html)
+separately describe pressure interpolation, quadrature and the update solver;
+raising the displacement order does not justify reusing a lumped nodal pressure
+update without a compatibility argument. This supports keeping the current P1
+nodal augmentation and P2 Gaussian diagnostic distinct. It is not evidence that
+AgentFEM's particular spatial discrepancy is pressure locking.
 
 **Installed candidate acceptance.** Native wheel source `51c4a911` imports from
 its fresh venv, not the working checkout; all three optional native modules

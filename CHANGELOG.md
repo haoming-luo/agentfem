@@ -6,6 +6,20 @@ experimental formulation to a validated one.
 
 ## [Unreleased]
 
+- Reuse the trial elastic spectrum in batched finite-J2 plastic-gradient
+  reconstruction instead of factoring the reconstructed elastic gradient again.
+  Preserve the scalar reference, constitutive law, tangent and state contract.
+  Independent cyclic/rotation/conditioning checks and an alternating global
+  periodic-contact comparison accompany this execution optimization; its bounded
+  timing result is not an explicit-composite or universal speedup claim.
+
+- Include reference positions and integration-measure metadata in accepted
+  implicit contact-point output. Keep current slave positions, tool projections
+  and raw nominal pressure distinct. Older external providers remain compatible;
+  mixed providers never produce a fabricated or partial reference-coordinate
+  array. Independent P2/Q2 polynomial force, moment, virtual-work and tangent
+  checks accompany spatial diagnostics, not a mesh-independence claim.
+
 - Reject fractional/boolean increment counts and nonfinite or nonnumeric
   automatic-incrementation controls before solving, instead of truncating a
   requested fixed path or admitting invalid stopping/growth conditions.

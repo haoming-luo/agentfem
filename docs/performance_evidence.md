@@ -1,5 +1,31 @@
 # Performance evidence
 
+## Equivalent finite-J2 return-map execution (2026-10-25)
+
+The batched finite-J2 update reuses its existing elastic trial SVD to recover
+the new plastic gradient. It no longer reconstructs and then solves against
+the same elastic gradient. The scalar implementation remains an independent
+arithmetic reference; the material law, state schema, tangent and acceptance
+criteria are unchanged. Cyclic loading, unloading, reversal, rotations and
+isochoric prehistory with condition numbers up to 10^4 are checked, including
+batch/chunk boundaries.
+
+A fresh 64-increment serial periodic-J2/plane-contact confirmation alternates
+baseline/candidate/candidate/baseline after warm-up. Solve-and-observe means
+are **28.36284 -> 27.46857 s (3.15% less)**; all four runs retain 64 accepted
+increments and 208 Newton corrections, with identical line-search and linear
+reason histories. Maximum displacement/state/stress difference is 5.042e-11;
+maximum per-point relative tangent error is 5.355e-12. Individual timings,
+source hashes, comparisons and the fixed baseline are retained in
+`evidence/performance/2026-10-25-j2-svd-return-confirmation.json`.
+
+This is a bounded implicit solve measurement, excluding setup and publication.
+It is not the complete explicit composite run below, which uses another material
+route. Do not add this percentage to earlier tangent, preconditioner or predictor
+measurements, or use it as evidence of contact mesh independence. Ordinary
+installed partial/restart/continuous paths are verified separately in
+`evidence/contact/2026-10-25-installed-periodic-contact.json`.
+
 ## Complete installed trajectory (2026-10-22)
 
 The frozen native wheel at `1ed3c1e1` completed the unchanged 255,041-Hex8,
