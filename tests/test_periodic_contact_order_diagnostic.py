@@ -149,6 +149,56 @@ def test_diagnostic_refuses_existing_checkpoint_directory(tmp_path, monkeypatch)
     assert not output.exists()
 
 
+@pytest.mark.parametrize("selection", [[], ["--cells", "4", "--degrees", "2"]])
+def test_diagnostic_restart_rejects_ambiguous_or_missing_source(tmp_path, monkeypatch, selection):
+    import sys
+    output = tmp_path / "evidence.json"
+    monkeypatch.setattr(sys, "argv", ["diagnostic", *selection,
+        "--restart", str(tmp_path / "missing.npz"), "--output", str(output)])
+    with pytest.raises(SystemExit) as error:
+        functions()["main"]()
+    assert error.value.code == 2
+    assert not output.exists()
+
+
+def test_diagnostic_cli_restart_uses_public_state_and_preserves_original(tmp_path, monkeypatch):
+    from hashlib import sha256
+    import json
+    import sys
+    diagnostic = functions()
+    partial = diagnostic["make_step"](degree=2, increments=4, yield_stress=1e6)
+    partial.solve(until=.25)
+    checkpoint = partial.save_checkpoint(tmp_path / "partial.npz")
+    original = checkpoint.read_bytes()
+    output = tmp_path / "resumed.json"
+    monkeypatch.setattr(sys, "argv", ["diagnostic", "--cells", "4", "--degrees", "2",
+        "--increments", "4", "--yield-stress", "1000000", "--until", ".5",
+        "--restart", str(checkpoint), "--patch-partition", "--output", str(output)])
+    diagnostic["main"]()
+    report = json.loads(output.read_text())
+    row = report["records"][0]
+    assert report["restart_source_sha256"] == sha256(original).hexdigest()
+    assert checkpoint.read_bytes() == original
+    assert row["status"] == "completed" and row["resumed_from"] == .25
+    assert row["accepted_through"] == .5 and not row["complete_cycle"]
+    assert row["accepted_increments"] == 2 and len(row["stations"]) == 1
+    continuous = diagnostic["make_step"](degree=2, increments=4, yield_stress=1e6)
+    continuous.solve(until=.5)
+    expected = diagnostic["observe_penalty"](continuous, .5)
+    np.testing.assert_allclose(row["stations"][0]["force_on_structure"],
+                               expected["force_on_structure"], atol=1e-11)
+    # Changed physical input remains a failed diagnostic, not a forced restore.
+    output_wrong = tmp_path / "wrong.json"
+    monkeypatch.setattr(sys, "argv", ["diagnostic", "--cells", "4", "--degrees", "2",
+        "--increments", "4", "--yield-stress", "1000000", "--penalty", "20000",
+        "--until", ".5", "--restart", str(checkpoint), "--output", str(output_wrong)])
+    with pytest.raises(RuntimeError, match="failed; evidence preserved"):
+        diagnostic["main"]()
+    failed = json.loads(output_wrong.read_text())["records"][0]
+    assert failed["status"] == "failed" and "identity" in failed["error"]
+    assert checkpoint.read_bytes() == original
+
+
 @pytest.mark.parametrize("limit,measured", [(None, .001), (.000375, .0003), (.000375, .0004)])
 @pytest.mark.parametrize("until", [.25, 1.])
 def test_diagnostic_records_and_enforces_selected_path_policy(tmp_path, monkeypatch, limit, measured, until):

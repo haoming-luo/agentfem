@@ -177,11 +177,18 @@ def main():
                         help="Record fixed reference edge/interior pressure integrals.")
     parser.add_argument("--checkpoint-directory", default=None,
                         help="Optional existing Step checkpoint policy: every 50 accepted increments, retain two.")
+    parser.add_argument("--restart", type=Path, default=None,
+                        help="Resume one mesh/degree from an ordinary compatible Step checkpoint; no identity override.")
     args = parser.parse_args()
     if args.output.exists():
         parser.error("Choose a fresh evidence path.")
     if args.checkpoint_directory is not None and Path(args.checkpoint_directory).exists():
         parser.error("Choose a fresh checkpoint directory; existing diagnostics are not overwritten.")
+    if args.restart is not None:
+        if len(args.cells) != 1 or len(args.degrees) != 1:
+            parser.error("Restart requires exactly one mesh and displacement degree.")
+        if not args.restart.is_file():
+            parser.error("Restart requires an existing checkpoint file.")
     if args.increments is not None and (args.increments < 4 or args.increments % 4):
         parser.error("Fixed increments must be positive multiples of four for the common stations.")
     control = (steps.fixed(32 if args.increments is None else args.increments)
@@ -204,7 +211,15 @@ def main():
                                              "boundary_models/dolfinx_implicit_facet_contact.py",
                                              "boundary_models/dolfinx_contact_trace.py")},
               "units": {"length": "m", "stress": "Pa", "force": "N", "work": "J"},
-              "options": {k: v for k, v in vars(args).items() if k != "output"}, "records": []}
+              "options": {k: str(v) if isinstance(v, Path) else v
+                          for k, v in vars(args).items() if k != "output"}, "records": []}
+    if args.restart is not None:
+        with args.restart.open("rb") as stream:
+            digest = sha256()
+            while block := stream.read(1024 * 1024):
+                digest.update(block)
+        report["restart_source_sha256"] = digest.hexdigest()
+        report["restart_scope"] = "Checkpoint identity is enforced by the Step; elapsed time covers only this segment."
     report["incrementation"] = control.summary()
     report["accuracy_claim"] = "none: limit refinement and spatial refinement are independent diagnostics"
     args.output.parent.mkdir(parents=True, exist_ok=True)
@@ -228,9 +243,18 @@ def main():
                                  status_file=(None if checkpoint_directory is None else
                                      checkpoint_directory / "progress.sta"))
                 row["full_dofs"] = len(step.solution.x.array)
+                start_factor = 0.
+                if args.restart is not None:
+                    step.load_checkpoint(args.restart)
+                    start_factor = step.accepted_load_factor
+                    row["resumed_from"] = start_factor
+                    if start_factor >= args.until:
+                        raise ValueError("Restart station must precede the requested final station.")
                 for factor in (.25, .5, .75, 1.):
                     if factor > args.until:
                         break
+                    if factor <= start_factor:
+                        continue
                     step.solve(until=factor)
                     if checkpoint_directory is not None:
                         row["accepted_station_checkpoint"] = str(step.save_checkpoint(

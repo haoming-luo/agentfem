@@ -135,6 +135,15 @@ accepted checkpoint policy (every 50 increments, retain two) and a progress
 status file. No new solver or restart implementation is introduced by the
 diagnostic. A timeout must retain accepted checkpoints and remain a partial
 result. Full-cycle accuracy and independent same-input comparison remain open.
+The diagnostic's `--restart` option selects exactly one mesh/degree and calls
+the public Step checkpoint loader without changing identity checks. It skips
+already-passed reporting stations, preserves the source checkpoint and records
+its SHA-256; elapsed time denotes only the new segment. Installed tests check a
+resumed station against a continuous path and reject a changed penalty before
+advancement. This is diagnostic convenience around the existing State lifecycle,
+not a new core restart mechanism. The tool can evolve while a running segment
+continues from its already-recorded source revision; numerical runtime sources
+remain frozen.
 
 Methodological sources: [Simo's multiplicative return mapping](https://doi.org/10.1016/0045-7825(92)90123-2)
 and [COMSOL's multiplicative-plasticity integration description](https://doc.comsol.com/6.4/doc/com.comsol.help.sme/sme_ug_theory.06.033.html)
