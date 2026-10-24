@@ -26,6 +26,17 @@ being silently approximated by the bounded route.
 
 ### Integration boundary and focused diagnostic sprint (2026-10-25)
 
+**Sprint integration outcome.** PR #118 merged on 2026-10-24 19:12 UTC at
+`897f1f744828ddb6680826d2b20ac4676cdb003b`, after exact head
+`d8392e9826e30e59a39e23b930b7928000a2fc1f` passed all applicable checks in
+[CI run 40121006505](https://github.com/haoming-luo/agentfem/actions/runs/40121006505).
+The Linux serial suite reports **4988 passed, 428 skipped in 1681.91 s**.
+Native installed-kernel, distributed lifecycle/restart, release smoke, Linux
+native distribution and macOS installed-wheel acceptance also pass as distinct
+gates. Do not add their overlapping counts or claim skipped native tests ran.
+No release tag or contact-maturity promotion is made. The historical attempts
+below remain part of the evidence, not outstanding copies of a resolved CI gate.
+
 **Release-scope audit finding.** The material guide had placed finite-strain
 contact claims inside the small-strain J2/Chaboche description and retained
 outdated one-tool/affine-friction exclusions. Checking the actual dispatch
@@ -164,7 +175,8 @@ data. Both routes also satisfy `P F^T = J sigma` with a normwise matrix-product
 roundoff allowance. Cauchy, state, energy, det(Fp), monotonicity, independent
 finite differences and global timing-comparison gates are unchanged; no runtime
 code or tolerance changed. All 49 installed material/spectral/protocol checks
-pass locally. A fresh Linux head must still pass before integration.
+pass locally. The final Linux-head confirmation recorded above satisfies this
+integration gate without changing production numerical tolerances.
 
 **Spatial discrimination.** Accepted implicit-contact samples expose reference
 positions and the integration measure alongside current positions, weights and
@@ -254,10 +266,10 @@ hexahedral Q2, one/two cells per edge and contact degrees 5/11 pass all eight
 installed-core cases. This checks nonuniform trace force, moment, work and
 tangent independently, not full elastoplastic spatial convergence.
 
-The next bounded spatial comparison is therefore one 12-cell P2 first-station
-run, holding the physical model, plastic limit and integration rules fixed.
-Its purpose is to test whether the eight-cell active pattern and integrated
-moments persist; it is not another general mesh sweep. It uses the existing
+The bounded spatial comparison adds one 12-cell P2 first-station run, holding
+the physical model, plastic limit and integration rules fixed. Its purpose is
+to test whether the eight-cell active pattern and integrated moments persist;
+it is not another general mesh sweep. It uses the existing
 accepted checkpoint policy (every 50 increments, retain two) and a progress
 status file. No new solver or restart implementation is introduced by the
 diagnostic. A timeout must retain accepted checkpoints and remain a partial
@@ -271,6 +283,46 @@ advancement. This is diagnostic convenience around the existing State lifecycle,
 not a new core restart mechanism. The tool can evolve while a running segment
 continues from its already-recorded source revision; numerical runtime sources
 remain frozen.
+
+**Completed third spatial station.** The 12-cell continuation reaches 0.25
+with 305 accepted increments, eight rejected attempts and 956 Newton corrections
+including restored history. Maximum accepted plastic increment is 0.000321846,
+below the declared 0.000375 cap. The original segment was deliberately
+interrupted after increment 101; continuation starts from preserved checkpoint
+100 (factor 0.11176629), repeating increment 101 rather than splicing trial state.
+Its nine recorded scientific runtime hashes exactly match the original segment.
+The original unfinalized report still says `running`; it is explicitly classified
+as interrupted, not counted as a success. The new segment completes within its
+7200-second cap, saves a station checkpoint and records **5588.66 s for the
+continuation only**. That is neither total elapsed from zero nor a performance
+comparison; bounded correctness work overlapped.
+
+| Cells per edge | Reaction magnitude (N) | Sampled active area | Smooth edge force (N) | Smooth center force (N) |
+| --- | --- | --- | --- | --- |
+| 4 | 4.48528146 | 0.22584707 | 3.51572801 | 0.96955344 |
+| 8 | 4.19262706 | 0.25000000 | 3.13241176 | 1.06021530 |
+| 12 | 4.10251562 | 0.25000000 | 3.00099137 | 1.10152425 |
+
+Successive coarse-relative reaction changes decrease from 6.52477% to 2.14928%.
+The 8/12 sampled active areas agree and MPC mismatch is 3.47e-18 on the fine
+mesh. Edge-weighted redistribution remains larger than the total force change,
+partly offset by the center. Maximum sampled pressure still grows from 111.92
+to 129.62 to 139.99 Pa. These observations support continued edge-resolution
+investigation; they do not certify a mesh-independent peak, an observed order,
+GCI, general energy closure or a complete loading/reversal cycle. The unequal
+mesh ratios and differing accepted grids must not be hidden by fitting an order.
+Raw continuation results, source/checkpoint hashes, interrupted-segment status
+and derived comparison are retained in
+`evidence/contact/2026-10-25-periodic-plastic-pressure-moments12.json`.
+
+**Stop/next decision.** End the uniform-mesh sweep at this station. Engineering
+integration is already complete and should not wait on more open-ended science.
+The next bounded scientific study should isolate contact-edge spatial resolution
+on the unchanged patch, then compare to an independent same-input reference.
+Integrated reactions and smooth moments are primary; pressure maxima remain
+diagnostic. A successful local-resolution result still needs a separate fine-path
+sensitivity check before promotion. Do not open another penalty/integration-order
+sweep, new contact law or full-cycle expansion in this closeout.
 
 Methodological sources: [Simo's multiplicative return mapping](https://doi.org/10.1016/0045-7825(92)90123-2)
 and [COMSOL's multiplicative-plasticity integration description](https://doc.comsol.com/6.4/doc/com.comsol.help.sme/sme_ug_theory.06.033.html)
