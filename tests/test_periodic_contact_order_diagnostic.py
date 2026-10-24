@@ -87,6 +87,25 @@ def test_duplicate_field_coordinates_rejected():
         functions()["periodic_field_equations"](np.zeros((2, 3)))
 
 
+def test_diagnostic_uses_existing_accepted_checkpoint_and_status_contract(tmp_path):
+    from agentfem import checkpointing
+    diagnostic = functions()
+    step = diagnostic["make_step"](degree=2, increments=4, yield_stress=1e6,
+        checkpoint=checkpointing.every(1, directory=tmp_path / "checkpoints", keep_last=2),
+        status_file=tmp_path / "progress.sta")
+    step.solve(until=.25)
+    assert "PAUSED" in (tmp_path / "progress.sta").read_text()
+    assert len(step.checkpoints) == 1
+    restored = diagnostic["make_step"](degree=2, increments=4, yield_stress=1e6)
+    restored.load_checkpoint(step.checkpoints[-1].path)
+    assert restored.accepted_load_factor == .25
+    np.testing.assert_array_equal(restored.solution.x.array, step.solution.x.array)
+    np.testing.assert_array_equal(restored.response.state.committed_state_vectors(),
+                                  step.response.state.committed_state_vectors())
+    np.testing.assert_array_equal(restored.contact_provider.accepted_point_samples()["normal_pressures"],
+                                  step.contact_provider.accepted_point_samples()["normal_pressures"])
+
+
 def test_patch_partition_preserves_force_and_rejects_wrong_measure():
     partition = functions()["patch_pressure_partition"]
     samples = {"reference_positions": np.array([[1., .26, .5], [1., .5, .5]]),
@@ -111,6 +130,22 @@ def test_fixed_diagnostic_rejects_invalid_station_partition(tmp_path, monkeypatc
     with pytest.raises(SystemExit) as error:
         functions()["main"]()
     assert error.value.code == 2
+    assert not output.exists()
+
+
+def test_diagnostic_refuses_existing_checkpoint_directory(tmp_path, monkeypatch):
+    import sys
+    output = tmp_path / "evidence.json"
+    checkpoint = tmp_path / "previous"
+    checkpoint.mkdir()
+    retained = checkpoint / "keep.txt"
+    retained.write_text("previous accepted state")
+    monkeypatch.setattr(sys, "argv", ["diagnostic", "--checkpoint-directory", str(checkpoint),
+                                     "--output", str(output)])
+    with pytest.raises(SystemExit) as error:
+        functions()["main"]()
+    assert error.value.code == 2
+    assert retained.read_text() == "previous accepted state"
     assert not output.exists()
 
 

@@ -22,7 +22,7 @@ from dolfinx import mesh as dm
 from mpi4py import MPI
 
 import agentfem
-from agentfem import boundary_models, constitutive, constraints, fields, mesh, models, solvers, steps, studies
+from agentfem import boundary_models, checkpointing, constitutive, constraints, fields, mesh, models, solvers, steps, studies
 from agentfem.checkpointing import atomic_write_text
 from agentfem.mesh import abaqus
 
@@ -67,7 +67,7 @@ def periodic_field_equations(coordinates):
 
 
 def make_step(*, cells=4, degree=1, increments=16, penalty=40000., contact_degree=7,
-              yield_stress=2., bulk_degree=4, incrementation=None):
+              yield_stress=2., bulk_degree=4, incrementation=None, checkpoint=None, status_file=None):
     if MPI.COMM_WORLD.size != 1:
         raise ValueError("This diagnostic is serial only.")
     if cells < 4 or cells % 4 or increments < 4 or increments % 4 or degree not in (1, 2):
@@ -94,7 +94,8 @@ def make_step(*, cells=4, degree=1, increments=16, penalty=40000., contact_degre
         target=u, material=material, constraints=periodicity,
         quadrature_degree=bulk_degree, contact_quadrature_degree=contact_degree,
         incrementation=steps.fixed(increments) if incrementation is None else incrementation,
-        progress=False, output_every=None,
+        progress=status_file is not None, output_every=None,
+        checkpoint=checkpoint, status_file=status_file,
         solver_options=solvers.newton(relative_tolerance=1e-9, absolute_tolerance=1e-10,
                                       maximum_iterations=60, line_search="backtracking",
                                       linear_solver=solvers.direct_solver(package="mumps")),
@@ -174,9 +175,13 @@ def main():
                         help="Stop at a declared common station, without claiming a complete cycle.")
     parser.add_argument("--patch-partition", action="store_true",
                         help="Record fixed reference edge/interior pressure integrals.")
+    parser.add_argument("--checkpoint-directory", default=None,
+                        help="Optional existing Step checkpoint policy: every 50 accepted increments, retain two.")
     args = parser.parse_args()
     if args.output.exists():
         parser.error("Choose a fresh evidence path.")
+    if args.checkpoint_directory is not None and Path(args.checkpoint_directory).exists():
+        parser.error("Choose a fresh checkpoint directory; existing diagnostics are not overwritten.")
     if args.increments is not None and (args.increments < 4 or args.increments % 4):
         parser.error("Fixed increments must be positive multiples of four for the common stations.")
     control = (steps.fixed(32 if args.increments is None else args.increments)
@@ -212,14 +217,24 @@ def main():
             save()
             started = perf_counter()
             try:
+                checkpoint_directory = (None if args.checkpoint_directory is None else
+                    Path(args.checkpoint_directory) / f"cells-{cells}-degree-{degree}")
+                checkpoint = (None if checkpoint_directory is None else
+                    checkpointing.every(50, directory=checkpoint_directory, keep_last=2))
                 step = make_step(cells=cells, degree=degree, penalty=args.penalty,
                                  contact_degree=args.contact_degree, bulk_degree=args.bulk_degree,
-                                 yield_stress=args.yield_stress, incrementation=control)
+                                 yield_stress=args.yield_stress, incrementation=control,
+                                 checkpoint=checkpoint,
+                                 status_file=(None if checkpoint_directory is None else
+                                     checkpoint_directory / "progress.sta"))
                 row["full_dofs"] = len(step.solution.x.array)
                 for factor in (.25, .5, .75, 1.):
                     if factor > args.until:
                         break
                     step.solve(until=factor)
+                    if checkpoint_directory is not None:
+                        row["accepted_station_checkpoint"] = str(step.save_checkpoint(
+                            checkpoint_directory / f"station-{factor:.2f}.npz"))
                     observation = observe_penalty(step, factor)
                     if args.patch_partition:
                         partition = patch_pressure_partition(step.contact_provider.accepted_point_samples())

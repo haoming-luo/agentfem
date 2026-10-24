@@ -54,6 +54,14 @@ clean Windows installation or new full-composite performance proof. Details and
 the reconstruction protocol are in
 `evidence/contact/2026-10-25-installed-periodic-contact.json`.
 
+The spatial gate is narrower, not closed: the controlled 4/8-cell plastic
+first-station force gap is 6.52%, with different sampled contact activity.
+On the same coarse mesh, supported contact quadrature 7 -> 11 changes force by
+only 0.00557%. Independent polynomial P2/Q2 trace tests pass force, moment,
+virtual-work and tangent integrals. The next bounded check is one 12-cell
+first-station comparison with the same physical/path/integration inputs and
+recoverable accepted checkpoints, not more penalty tuning or a full-cycle sweep.
+
 The existing J2 tangent backend now packs its nine derivative directions into
 small rectangular products and reuses their common transform, without another
 public tuning switch. Fresh serial cyclic P2/J2/plane-penalty/MPC ABBA evidence

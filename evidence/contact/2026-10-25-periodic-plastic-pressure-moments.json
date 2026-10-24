@@ -1,0 +1,184 @@
+{
+  "scope": "P1/P2 Gaussian penalty diagnostic, not nodal AL or independent continuum reference",
+  "agentfem_version": "0.4.4.dev0",
+  "git_commit": "d5347eebb261b613027a33d2eec1ad118ca94bc5",
+  "tool_sha256": "8226ee3a3b2f0e580f7a7125c3651d05b004a1719fea79b3010da8bd6bfea776",
+  "source_sha256": {
+    "solvers.py": "90b24a54ce4dae8d234e572a30998af008f123da781471dbca26623d6fa818af",
+    "_affine_equilibrium.py": "9f3bc9d4825597892f67db3ebb96fe941363a5dcc6307e0cdef7d4e93cc4ff6f",
+    "mechanics/finite_strain_plasticity.py": "e851c96dec369d1e4d683978393f843b6b1825cedc9fa4ceff00aabac9ce1914",
+    "constitutive/quadrature.py": "c48fdef1fffdc1eb5657e1cf1b00e32483ef8b1ac2cc8461a00ab94ee10cc0e3",
+    "steps.py": "43707905b97ea1b01edb43f1ef110c7f8a94be49e6fc384c8655f557fe767a1c",
+    "_nonlinear_problems.py": "0aabb0ba0f9d40d54a181ed10020fed3324df73d406723c0f23832d84095382a",
+    "boundary_models/dolfinx_contact_trace.py": "7e696da048967bfbf3a9847973f57e0ffd840e5c98db5ab7bcca268ff8119982"
+  },
+  "units": {
+    "length": "m",
+    "stress": "Pa",
+    "force": "N",
+    "work": "J"
+  },
+  "options": {
+    "cells": [
+      4,
+      8
+    ],
+    "degrees": [
+      2
+    ],
+    "increments": null,
+    "plastic_increment_limit": 0.000375,
+    "penalty": 40000.0,
+    "contact_degree": 11,
+    "bulk_degree": 6,
+    "yield_stress": 2.0,
+    "until": 0.25,
+    "patch_partition": true
+  },
+  "records": [
+    {
+      "cells": 4,
+      "degree": 2,
+      "status": "completed",
+      "stations": [
+        {
+          "factor": 0.25,
+          "displacement_l2": 0.011027783572204002,
+          "force_on_structure": [
+            -4.485281458884285,
+            -0.0,
+            -0.0
+          ],
+          "pressure_area_mean": 17.94112583553713,
+          "maximum_pressure": 111.91952010897843,
+          "active_reference_area": 0.22584706853648912,
+          "maximum_penetration": 0.002797988002724461,
+          "peeq_reference_volume_mean": 0.02311188955094701,
+          "maximum_peeq": 0.054580202101615884,
+          "mpc_equation_mismatch": 3.469446951953614e-18,
+          "normal_relative_work_status": "unavailable_on_this_diagnostic_route",
+          "patch_partition": {
+            "edge_width": 0.0625,
+            "classification": "reference_square_distance",
+            "partition_quadrature": "sampled_indicator_not_exact_subcell_integration",
+            "total_reference_area": 0.2500000000000001,
+            "normal_force_magnitude": 4.485281458884284,
+            "regions": {
+              "edge": {
+                "reference_area": 0.1147340046035495,
+                "active_reference_area": 0.1147340046035495,
+                "normal_force_magnitude": 3.695254225668469,
+                "maximum_pressure": 111.91952010897843
+              },
+              "interior": {
+                "reference_area": 0.1352659953964506,
+                "active_reference_area": 0.11111306393293963,
+                "normal_force_magnitude": 0.790027233215814,
+                "maximum_pressure": 22.415775602677712
+              }
+            },
+            "smooth_partition": {
+              "edge": {
+                "weighted_reference_area": 0.13888888888888898,
+                "weighted_normal_force": 3.5157280139867955
+              },
+              "center": {
+                "weighted_reference_area": 0.11111111111111116,
+                "weighted_normal_force": 0.9695534448974885
+              }
+            }
+          }
+        }
+      ],
+      "full_dofs": 2187,
+      "complete_cycle": false,
+      "accepted_through": 0.25,
+      "accepted_increments": 186,
+      "rejected_attempts": 7,
+      "newton_iterations": 600,
+      "maximum_accepted_plastic_increment": 0.00032184600478101156,
+      "setup_solve_observe_seconds": 93.67908220900063
+    },
+    {
+      "cells": 8,
+      "degree": 2,
+      "status": "completed",
+      "stations": [
+        {
+          "factor": 0.25,
+          "displacement_l2": 0.011003166497928095,
+          "force_on_structure": [
+            -4.192627056333534,
+            -0.0,
+            -0.0
+          ],
+          "pressure_area_mean": 16.770508225334137,
+          "maximum_pressure": 129.61585508770133,
+          "active_reference_area": 0.2500000000000002,
+          "maximum_penetration": 0.0032403963771925337,
+          "peeq_reference_volume_mean": 0.022659198669477115,
+          "maximum_peeq": 0.0727635282329054,
+          "mpc_equation_mismatch": 3.469446951953614e-18,
+          "normal_relative_work_status": "unavailable_on_this_diagnostic_route",
+          "patch_partition": {
+            "edge_width": 0.0625,
+            "classification": "reference_square_distance",
+            "partition_quadrature": "sampled_indicator_not_exact_subcell_integration",
+            "total_reference_area": 0.2500000000000002,
+            "normal_force_magnitude": 4.192627056333538,
+            "regions": {
+              "edge": {
+                "reference_area": 0.10937500000000008,
+                "active_reference_area": 0.10937500000000008,
+                "normal_force_magnitude": 3.1434221597963554,
+                "maximum_pressure": 129.61585508770133
+              },
+              "interior": {
+                "reference_area": 0.1406250000000001,
+                "active_reference_area": 0.1406250000000001,
+                "normal_force_magnitude": 1.049204896537182,
+                "maximum_pressure": 16.266749587092733
+              }
+            },
+            "smooth_partition": {
+              "edge": {
+                "weighted_reference_area": 0.13888888888888906,
+                "weighted_normal_force": 3.1324117594833636
+              },
+              "center": {
+                "weighted_reference_area": 0.11111111111111119,
+                "weighted_normal_force": 1.0602152968501741
+              }
+            }
+          }
+        }
+      ],
+      "full_dofs": 14739,
+      "complete_cycle": false,
+      "accepted_through": 0.25,
+      "accepted_increments": 251,
+      "rejected_attempts": 8,
+      "newton_iterations": 761,
+      "maximum_accepted_plastic_increment": 0.00032184600478101156,
+      "setup_solve_observe_seconds": 1061.0569836249997
+    }
+  ],
+  "incrementation": {
+    "kind": "automatic_incrementation",
+    "initial": 0.03125,
+    "minimum": 0.000244140625,
+    "maximum": 0.0625,
+    "max_increments": 4096,
+    "max_cutbacks": 12,
+    "cutback_factor": 0.5,
+    "growth_factor": 1.5,
+    "fast_iterations": 4,
+    "slow_iterations": 10,
+    "maximum_inelastic_increment": 0.000375,
+    "inelastic_prediction": {
+      "algorithm": "accepted_increment_proportional_cap_v1",
+      "safety": 0.8
+    }
+  },
+  "accuracy_claim": "none: limit refinement and spatial refinement are independent diagnostics"
+}

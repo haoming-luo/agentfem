@@ -36,6 +36,55 @@ def _model(*, cell_type=mesh.CellType.tetrahedron):
     return displacement, operator
 
 
+@pytest.mark.parametrize("cell_type", [mesh.CellType.tetrahedron, mesh.CellType.hexahedron])
+@pytest.mark.parametrize("cells", [1, 2])
+@pytest.mark.parametrize("quadrature_degree", [5, 11])
+def test_quadratic_contact_trace_matches_polynomial_force_moment_and_work(
+    cell_type, cells, quadrature_degree,
+):
+    """Independent nonuniform trace oracle, not a global spatial-convergence proof.
+
+    On the reference square x=0, g=-.01*(1+y^2+z^2), k=200, so
+    p=2*(1+y^2+z^2). Reference-area integration gives F_x=10/3,
+    M_y=-M_z=11/6. For virtual u_x=yz, R.v=-1 and v.K.v=200/9.
+    These polynomial integrals do not use the contact assembly as an oracle.
+    """
+    domain = mesh.create_unit_cube(MPI.COMM_SELF, cells, cells, cells, cell_type=cell_type)
+    space = fem.functionspace(domain, basix.ufl.element("Lagrange", domain.basix_cell(), 2, shape=(3,)))
+    u = fem.Function(space)
+    left = agent_mesh.boundary(domain, lambda x: np.isclose(x[0], 0.), name="polynomial_patch")
+    pair = boundary_models.rigid_contact_pair(
+        left, boundary_models.rigid_body(boundary_models.rigid_plane(
+            point=(-.02, 0., 0.), normal=(1., 0., 0.))),
+        penalty=200., initial_penetration_limit=0.,
+    )
+    operator = dolfinx_implicit_rigid_contact(
+        pair, u, contact_quadrature_degree=quadrature_degree,
+    )
+    reference = space.tabulate_dof_coordinates()
+    nodal = u.x.array.reshape(-1, 3)
+    nodal[:, 0] = -.03 - .01 * (reference[:, 1]**2 + reference[:, 2]**2)
+    contribution = operator.evaluate()
+    np.testing.assert_allclose(contribution.contact_force_on_structure, (10./3., 0., 0.), atol=2e-12)
+    assert contribution.potential_energy == pytest.approx(
+        .01 * (1. + 4./3. + 2./5. + 2./9.), rel=2e-13, abs=2e-14,
+    )
+    nodal_force = -contribution.nodal_structural_residual
+    np.testing.assert_allclose(nodal_force.sum(axis=0), (10./3., 0., 0.), atol=2e-12)
+    np.testing.assert_allclose(np.cross(reference + nodal, nodal_force).sum(axis=0),
+                               (0., 11./6., -11./6.), atol=2e-12)
+    direction = np.zeros_like(nodal)
+    direction[:, 0] = reference[:, 1] * reference[:, 2]
+    assert np.sum(contribution.nodal_structural_residual * direction) == pytest.approx(-1., abs=2e-12)
+    assert np.sum(contribution.tangent_action(direction) * direction) == pytest.approx(200./9., abs=2e-11)
+    operator.commit_accepted()
+    samples = operator.accepted_point_samples()
+    points = samples["reference_positions"]
+    np.testing.assert_allclose(points[:, 0], 0., atol=1e-14)
+    np.testing.assert_allclose(samples["normal_pressures"],
+                               2. * (1. + points[:, 1]**2 + points[:, 2]**2), atol=2e-12)
+
+
 def test_dolfinx_implicit_facet_tangent_matches_current_residual_difference():
     displacement, operator = _model()
     base = displacement.x.array.copy()

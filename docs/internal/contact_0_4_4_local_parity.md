@@ -79,9 +79,57 @@ and is partly offset in the center. This narrows the diagnosis but proves
 neither a constitutive bug nor continuum accuracy. Evidence:
 `evidence/contact/2026-10-25-periodic-elastic-pressure-moments.json`.
 The diagnostic explicitly stops at 0.25 (`complete_cycle=false`); it does not
-claim reverse loading or recontact. Plastic controlled-path comparison is the
-remaining discriminating experiment; do not infer its answer from this elastic
-control or replace the nodal AL contract with Gaussian P2 silently.
+claim reverse loading or recontact. Do not replace the nodal AL contract with
+Gaussian P2 silently.
+
+**Controlled plastic discrimination.** The matching 4/8-cell P2 paths now
+both reach 0.25 within the 1200-second runner cap, using the same 0.000375
+accepted-plastic limit, bulk degree 6 and contact degree 11. They accept
+186/251 increments with 7/8 rejected attempts. Reactions are 4.48528146 /
+4.19262706 N (6.52% relative to the coarse value). Smooth edge moments change
+3.51572801 -> 3.13241176 N while center moments change 0.96955344 -> 1.06021530 N.
+Unlike the elastic control, the sampled active reference areas differ:
+0.22584707 / 0.25. These are quadrature-sampled indicators, not exact areas of
+an independently reconstructed active-set boundary.
+
+On the unchanged four-cell controlled path, contact degree 7 -> 11 changes
+reaction by only 0.00557%, with 186 accepted increments in both paths; the
+sampled active area still changes 0.22041742 -> 0.22584707 and the peak pressure
+98.3622 -> 111.9195 Pa. This separates stable integrated-force evidence from
+quadrature-sensitive area/peak sampling. It does not support blaming the 6.52%
+spatial force gap on contact quadrature, nor treating sampled peak pressure as
+a mesh-independent engineering quantity. Degree 21 was first rejected by the
+existing 5/7/9/11 admission contract; no guard was bypassed or core option
+expanded. That rejection is retained, not presented as a nonlinear failure.
+
+Evidence files:
+
+- `evidence/contact/2026-10-25-periodic-plastic-pressure-moments.json`
+- `evidence/contact/2026-10-25-periodic-plastic-quadrature7.json`
+- `evidence/contact/2026-10-25-unsupported-contact-quadrature21.json`
+
+The first report began on `d5347eeb` with the working source subsequently
+committed as `51c4a911`; its recorded tool/runtime hashes identify that snapshot.
+Later diagnostics explicitly hash the constitutive and contact implementations
+as well. Elapsed diagnostic times include concurrent correctness work and must
+not be used as acceleration measurements.
+
+An independent polynomial trace oracle checks the alternative explanation of
+incorrect P2/Q2 contact interpolation: on the unit reference square,
+`p=2(1+y^2+z^2)` gives force 10/3, moment components +/-11/6, virtual work -1
+for `delta_u_x=yz`, and quadratic tangent work 200/9. Tetrahedral P2 and
+hexahedral Q2, one/two cells per edge and contact degrees 5/11 pass all eight
+installed-core cases. This checks nonuniform trace force, moment, work and
+tangent independently, not full elastoplastic spatial convergence.
+
+The next bounded spatial comparison is therefore one 12-cell P2 first-station
+run, holding the physical model, plastic limit and integration rules fixed.
+Its purpose is to test whether the eight-cell active pattern and integrated
+moments persist; it is not another general mesh sweep. It uses the existing
+accepted checkpoint policy (every 50 increments, retain two) and a progress
+status file. No new solver or restart implementation is introduced by the
+diagnostic. A timeout must retain accepted checkpoints and remain a partial
+result. Full-cycle accuracy and independent same-input comparison remain open.
 
 Methodological sources: [Simo's multiplicative return mapping](https://doi.org/10.1016/0045-7825(92)90123-2)
 and [COMSOL's multiplicative-plasticity integration description](https://doc.comsol.com/6.4/doc/com.comsol.help.sme/sme_ug_theory.06.033.html)
@@ -90,6 +138,12 @@ provides our timing result. [Contact stability and patch-test analysis](https://
 motivates separating integral accuracy from approximation/stability. The
 publisher abstract was available, not the paywalled full text; the algebra and
 new pressure moments above are independently derived and tested here.
+The [penalty convergence analysis by Chouly and Hild](https://arxiv.org/abs/1204.4136)
+separates penalty regularization from FE discretization; its regularity assumptions
+and linear-contact analysis do not prove our finite-plastic convergence.
+[COMSOL's contact guidelines](https://www.comsol.com/support/learning-center/article/structural-contact-modeling-guidelines-83831)
+also distinguish accurate pressure fields from global structural response. These
+support the diagnostic separation, not an automatic parameter recipe.
 
 **Installed candidate acceptance.** Native wheel source `51c4a911` imports from
 its fresh venv, not the working checkout; all three optional native modules
