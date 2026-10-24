@@ -35,13 +35,15 @@ if [[ "$password_status" != P ]]; then
 fi
 usermod -aG sudo "$username"
 mkdir -p "/home/$username/.local/state/agentfem"
-chown -R "$username:$username" "/home/$username/.local"
+# Own only the directories we need. On resume .local may contain large user
+# environments; account setup must neither traverse nor rewrite their owners.
+chown "$username:$username" "/home/$username/.local" "/home/$username/.local/state" "/home/$username/.local/state/agentfem"
 
 if [[ -n "$preset_username" ]]; then
   # A replacement upgrade restores the previous home first; the installer
   # invokes the same workspace transaction afterwards.
   mkdir -p "/home/$username/AgentFEMProjects"
-  chown -R "$username:$username" "/home/$username/AgentFEMProjects"
+  chown "$username:$username" "/home/$username/AgentFEMProjects"
 else
   workspace_path=${AGENTFEM_PROJECTS_HOME:-}
   workspace_args=(workspace --protect)
@@ -53,11 +55,12 @@ else
     echo "Persistent Windows workspace setup did not complete."
     echo "No project data was removed. Run: agentfem workspace --protect"
     mkdir -p "/home/$username/AgentFEMProjects"
-    chown -R "$username:$username" "/home/$username/AgentFEMProjects"
+    chown "$username:$username" "/home/$username/AgentFEMProjects"
   fi
 fi
 
-su - "$username" -c "/opt/conda/bin/agentfem doctor > ~/.local/state/agentfem/first-doctor.log 2>&1" || true
+# The installer owns doctor and the fresh-cache solve after workspace setup.
+# Do not repeat a best-effort doctor here and then silently ignore its failure.
 echo
 echo "Linux account setup is complete. The installer will verify AgentFEM next."
 echo "This path is protected on the Windows drive when installed with the AgentFEM installer."

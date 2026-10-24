@@ -71,3 +71,30 @@ source "$OOBE"
     )
     assert result.returncode == 0, result.stderr
     assert not events.exists()
+
+
+def test_resume_does_not_traverse_user_data_or_repeat_doctor(tmp_path):
+    import os
+
+    events = tmp_path / "events"
+    script = r"""
+getent() { printf 'researcher:x:1000:1000::/home/researcher:/bin/bash\n'; }
+cat() { echo test; }
+passwd() { echo 'researcher P'; }
+adduser() { echo recreated >> "$EVENTS"; }
+usermod() { :; }; mkdir() { :; }
+chown() { printf 'chown'; printf ' <%s>' "$@"; printf '\n'; }
+su() { echo duplicate-doctor >> "$EVENTS"; }
+export AGENTFEM_UPGRADE_USER=researcher
+source "$OOBE"
+"""
+    result = subprocess.run(
+        ["bash", "-c", script], capture_output=True, text=True,
+        env={**os.environ, "EVENTS": str(events),
+             "OOBE": str(ROOT / "packaging/runtime/wsl/oobe.sh")},
+    )
+    assert result.returncode == 0, result.stderr
+    assert not events.exists()
+    assert "<-R>" not in result.stdout
+    assert "</home/researcher/.local/state/agentfem>" in result.stdout
+    assert "</home/researcher/AgentFEMProjects>" in result.stdout

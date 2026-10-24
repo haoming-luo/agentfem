@@ -8,20 +8,43 @@ param(
     [switch]$Upgrade,
     [string]$BackupDirectory = "",
     [switch]$RemoveBackupAfterSuccess,
+    [switch]$NonInteractive,
+    [switch]$PrepareWslOnly,
+    [ValidateRange(1, 120)][int]$ProbeTimeoutSeconds = 15,
     [ValidateSet("Auto", "Web", "Store", "None")]
     [string]$WslBootstrapSource = "Auto"
 )
 
 $ErrorActionPreference = "Stop"
 $RuntimeVersion = "@VERSION@"
+$ExpectedRuntimeRecordSha256 = "@RUNTIME_RECORD_SHA256@"
 . (Join-Path $PSScriptRoot "Installer-State.ps1")
+. (Join-Path $PSScriptRoot "Windows-HostProbe.ps1")
 Write-Host "AgentFEM Runtime for WSL2" -ForegroundColor Blue
 
+function Invoke-InstallerPlatformProbe {
+    param([ValidateSet('--version', '--status', '--list --quiet')][string]$Arguments)
+    $command = Get-Command wsl.exe -CommandType Application -ErrorAction SilentlyContinue |
+        Select-Object -First 1
+    if (-not $command) {
+        throw '[AFM-WIN-WSL-COMMAND-MISSING] wsl.exe is not visible to this session. Inspect the host permission/platform state; no alternate launcher attempted.'
+    }
+    return Invoke-WslHostProbe -Executable $command.Source -Arguments $Arguments -TimeoutSeconds $ProbeTimeoutSeconds
+}
+
 function Get-InstalledWslVersion {
-    $versionText = (& wsl.exe --version 2>&1 | Out-String)
-    $versionMatch = [regex]::Match($versionText, '(\d+\.\d+\.\d+)')
-    if ($LASTEXITCODE -ne 0 -or -not $versionMatch.Success) {
-        return $null
+    $probe = Invoke-InstallerPlatformProbe -Arguments '--version'
+    $versionText = ($probe.stdout + "`n" + $probe.stderr).Trim()
+    if (-not $probe.ok) {
+        if ($probe.code -eq 'AFM-WIN-COMPONENT-REQUIRED') { return $null }
+        $code = $probe.code
+        if ($code -eq 'AFM-WIN-PROBE-FAILED') { $code = 'AFM-WIN-WSL-PROBE-FAILED' }
+        throw "[$code] WSL version probe failed (exit $($probe.exit_code)): $versionText. Installation state is unknown; no automatic reinstallation or alternate launcher attempted."
+    }
+    $versionMatch = [regex]::Match(($versionText -replace "`0", ''),
+        '(?m)^\s*WSL[^\r\n\d]*(\d+\.\d+\.\d+(?:\.\d+)?)')
+    if (-not $versionMatch.Success) {
+        throw '[AFM-WIN-VERSION-UNRECOGNIZED] WSL returned success but its tooling version could not be identified. Do not substitute the kernel or Windows version; inspect the probe output before installing.'
     }
     return [version]$versionMatch.Groups[1].Value
 }
@@ -32,6 +55,14 @@ function Test-AdministratorSession {
     return $principal.IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)
 }
 
+function Test-WslPlatformStatus {
+    $probe = Invoke-InstallerPlatformProbe -Arguments '--status'
+    if ($probe.ok) { return $true }
+    if ($probe.code -eq 'AFM-WIN-COMPONENT-REQUIRED') { return $false }
+    $statusText = ($probe.stdout + "`n" + $probe.stderr).Trim()
+    throw "[$($probe.code)] WSL status probe did not confirm platform readiness: $statusText. No automatic repair or alternate launcher attempted."
+}
+
 function Invoke-ElevatedWslCommand {
     param(
         [Parameter(Mandatory = $true)][string[]]$Arguments,
@@ -39,6 +70,9 @@ function Invoke-ElevatedWslCommand {
     )
 
     Write-Host "$Action requires Windows administrator approval." -ForegroundColor Yellow
+    if ($NonInteractive -and -not (Test-AdministratorSession)) {
+        throw '[AFM-WIN-ELEVATION-REQUIRED] An administrator operation needs user approval. Open this same installer in a local terminal without -NonInteractive; do not bypass host policy.'
+    }
     Save-InstallState -Stage "requesting_elevation" -Message $Action
     try {
         if (Test-AdministratorSession) {
@@ -57,10 +91,13 @@ function Invoke-ElevatedWslCommand {
         }
         throw "[AFM-WIN-ELEVATION-BLOCKED] Cannot launch the approved administrator operation: $($_.Exception.Message). If WorkBuddy blocks it, request its supported approval or launch the official installer yourself; do not switch shells to bypass the policy."
     }
-    if ($commandExitCode -in @(3010, 1641)) {
-        throw "[AFM-WIN-RESTART-REQUIRED] Windows requires a restart. Save your work, restart when ready, then reopen Install-AgentFEM.cmd."
+    # WSL may return a Win32 code directly or wrapped in a signed HRESULT.
+    # Access denial must never be misclassified as a download-source failure.
+    $win32Code = ([int64]$commandExitCode -band 65535)
+    if ($win32Code -in @(3010, 1641)) {
+        throw "[AFM-WIN-RESTART-REQUIRED] Windows requires a restart. Save your work, restart when ready, then rerun this same installer command and options (recorded in status.json)."
     }
-    if ($commandExitCode -in @(5, 740, 1223)) {
+    if ($win32Code -in @(5, 740, 1223)) {
         throw "[AFM-WIN-ELEVATION-BLOCKED] Windows rejected or requires administrator approval (exit $commandExitCode). No alternate source will be attempted."
     }
     if ($commandExitCode -ne 0) {
@@ -125,7 +162,10 @@ function Update-WslPlatform {
 }
 
 function Require-WslPlatform {
-    param([Parameter(Mandatory = $true)][string]$Source)
+    param(
+        [Parameter(Mandatory = $true)][string]$Source,
+        [switch]$PlatformOnly
+    )
 
     $nativeArchitecture = $env:PROCESSOR_ARCHITEW6432
     if (-not $nativeArchitecture) {
@@ -142,9 +182,10 @@ function Require-WslPlatform {
     $wslCommand = Get-Command wsl.exe -ErrorAction SilentlyContinue
     if (-not $wslCommand) {
         throw (
-            "[AFM-WIN-WINDOWS-TOO-OLD] Windows does not provide wsl.exe. " +
-            "AgentFEM requires Windows 10 version 2004 (build 19041) or newer, " +
-            "or Windows 11. Update Windows, then run this installer again."
+            "[AFM-WIN-WSL-COMMAND-MISSING] This session cannot resolve wsl.exe. " +
+            "Check the Windows WSL component and the host's command permissions. " +
+            "Do not infer an unsupported Windows version from this alone. " +
+            "Use Microsoft's supported WSL installation route, then retry."
         )
     }
 
@@ -162,7 +203,10 @@ function Require-WslPlatform {
         }
     }
 
-    if ($installedVersion -lt [version]'2.4.4') {
+    # The 2.4.4 floor belongs to .wsl packaging, not Ubuntu + conda. A
+    # platform-only preparation must not impose an unrelated image requirement.
+    # Distro launch/WSL2 selection and scientific acceptance remain later gates.
+    if (-not $PlatformOnly -and $installedVersion -lt [version]'2.4.4') {
         Write-Host "WSL $installedVersion must be updated for .wsl packages." -ForegroundColor Yellow
         Update-WslPlatform -Source $Source
         $installedVersion = Get-InstalledWslVersion
@@ -173,7 +217,15 @@ function Require-WslPlatform {
             )
         }
     }
-    Write-Host "WSL $installedVersion is ready." -ForegroundColor Green
+    # Tooling can exist while Windows optional components remain disabled.
+    # Only a known missing-component code authorises the existing consent path.
+    if (-not (Test-WslPlatformStatus)) {
+        Install-WslPlatform -Source $Source
+        if (-not (Test-WslPlatformStatus)) {
+            throw '[AFM-WIN-COMPONENT-REQUIRED] Required Windows components remain unavailable after preparation. Inspect Windows status/restart requirements; no distribution was replaced.'
+        }
+    }
+    Write-Host "WSL $installedVersion tooling/status checks passed; distro launch remains to be verified." -ForegroundColor Green
     return $installedVersion
 }
 
@@ -190,13 +242,14 @@ function Invoke-WslChecked {
 }
 
 function Get-WslDistributions {
-    $reported = @(& wsl.exe --list --quiet)
-    if ($LASTEXITCODE -ne 0) {
-        throw "WSL could not list its installed distributions. Run 'wsl --status' and retry."
+    $probe = Invoke-InstallerPlatformProbe -Arguments '--list --quiet'
+    if (-not $probe.ok) {
+        $detail = ($probe.stdout + "`n" + $probe.stderr).Trim()
+        throw "[$($probe.code)] WSL distribution inventory could not be read: $detail. No distribution was selected, imported or replaced."
     }
     return @(
-        $reported |
-            ForEach-Object { ($_ -replace "`0", "").Trim() } |
+        $probe.stdout -split '\r?\n' |
+            ForEach-Object { $_.Trim() } |
             Where-Object { $_ }
     )
 }
@@ -209,13 +262,13 @@ function Install-AgentFEMDistribution {
 
     $arguments = @(
         "--install",
-        "--from-file", (Resolve-Path $Image).Path,
+        "--from-file", (Resolve-Path -LiteralPath $Image).Path,
         "--name", $Name,
         "--no-launch"
     )
     if ($Location) {
         $resolvedLocation = [System.IO.Path]::GetFullPath($Location)
-        if ((Test-Path $resolvedLocation) -and (Get-ChildItem -Force $resolvedLocation | Select-Object -First 1)) {
+        if ((Test-Path -LiteralPath $resolvedLocation) -and (Get-ChildItem -Force -LiteralPath $resolvedLocation | Select-Object -First 1)) {
             throw "InstallLocation must be empty: $resolvedLocation"
         }
         New-Item -ItemType Directory -Force -Path $resolvedLocation | Out-Null
@@ -231,28 +284,42 @@ function Test-AgentFEMDistribution {
     param([Parameter(Mandatory = $true)][string]$Name)
 
     Write-Host "Checking candidate runtime '$Name'..."
+    Test-AgentFEMBuildIdentity -Name $Name
     Invoke-WslChecked -Arguments @(
         "--distribution", $Name,
         "--user", "root",
         "--exec", "/opt/conda/bin/agentfem", "doctor", "--json"
     ) -FailureMessage "The candidate runtime failed 'agentfem doctor'."
-    $reportedVersion = (
+    $reportedVersion = ((
         & wsl.exe --distribution $Name --user root --exec `
             sh -c "cat /usr/lib/agentfem/runtime-version"
-    ).Trim()
+    ) | Out-String).Trim()
     if ($LASTEXITCODE -ne 0 -or $reportedVersion -ne $RuntimeVersion) {
         throw "Candidate identity mismatch. Expected AgentFEM $RuntimeVersion, received '$reportedVersion'."
     }
     Write-Host "Candidate AgentFEM $reportedVersion passed its health check." -ForegroundColor Green
 }
 
+function Test-AgentFEMBuildIdentity {
+    param([Parameter(Mandatory = $true)][string]$Name)
+    # This file is embedded before the image is hashed. Comparing its digest
+    # distinguishes same-version development builds without a circular image hash.
+    $output = (& wsl.exe --distribution $Name --user root --exec sha256sum `
+        /opt/conda/share/agentfem/runtime-release.json | Out-String).Trim()
+    $digest = ($output -split '\s+')[0]
+    if ($LASTEXITCODE -ne 0 -or $digest -notmatch '^[a-fA-F0-9]{64}$' -or
+        $digest -ne $ExpectedRuntimeRecordSha256) {
+        throw '[AFM-WIN-RESUME-IDENTITY] Installed build does not match this package. No account, workspace or distribution will be replaced.'
+    }
+}
+
 function Get-AgentFEMRuntimeVersion {
     param([Parameter(Mandatory = $true)][string]$Name)
 
-    $reportedVersion = (
+    $reportedVersion = ((
         & wsl.exe --distribution $Name --user root --exec `
             sh -c "cat /usr/lib/agentfem/runtime-version 2>/dev/null || true"
-    ).Trim()
+    ) | Out-String).Trim()
     if ($LASTEXITCODE -ne 0 -or -not $reportedVersion) {
         return "unknown"
     }
@@ -262,9 +329,9 @@ function Get-AgentFEMRuntimeVersion {
 function Get-DefaultLinuxUser {
     param([Parameter(Mandatory = $true)][string]$Name)
 
-    $username = (
+    $username = ((
         & wsl.exe --distribution $Name --exec sh -c "id -un"
-    ).Trim()
+    ) | Out-String).Trim()
     if ($LASTEXITCODE -ne 0 -or $username -notmatch '^[a-z_][a-z0-9_-]*$' -or $username -eq "root") {
         throw "Could not identify a non-root default user in '$Name'."
     }
@@ -277,9 +344,9 @@ function Convert-ToWslPath {
         [Parameter(Mandatory = $true)][string]$WindowsPath
     )
 
-    $linuxPath = (
+    $linuxPath = ((
         & wsl.exe --distribution $Name --exec wslpath -a -u $WindowsPath
-    ).Trim()
+    ) | Out-String).Trim()
     if ($LASTEXITCODE -ne 0 -or -not $linuxPath) {
         throw "Could not map the backup path into WSL: $WindowsPath"
     }
@@ -374,6 +441,7 @@ function Install-SideBySide {
         if ((Get-AgentFEMRuntimeVersion -Name $resumeName) -ne $RuntimeVersion) {
             throw "[AFM-WIN-RESUME-IDENTITY] Recorded distribution has a different runtime identity. Nothing was replaced."
         }
+        Test-AgentFEMBuildIdentity -Name $resumeName
         Complete-NewInstallation -Name $resumeName -Projects $Projects
         return
     }
@@ -393,6 +461,7 @@ function Install-SideBySide {
     Save-InstallState -Stage "importing"
     Write-Host "Installing the offline AgentFEM distribution as '$selectedName'..."
     Install-AgentFEMDistribution -Name $selectedName -Location $InstallLocation
+    Test-AgentFEMBuildIdentity -Name $selectedName
     Complete-NewInstallation -Name $selectedName -Projects $Projects
 }
 
@@ -445,7 +514,7 @@ function Upgrade-AgentFEMDistribution {
         created_at = (Get-Date).ToUniversalTime().ToString("o")
         full_backup = $fullBackup
         home_backup = $homeBackup
-    } | ConvertTo-Json | Set-Content -Encoding UTF8 $transactionRecord
+    } | ConvertTo-Json | Set-Content -Encoding UTF8 -LiteralPath $transactionRecord
 
     try {
         # The new scientific runtime must work before the old installation is touched.
@@ -482,7 +551,7 @@ function Upgrade-AgentFEMDistribution {
             Write-Host "Recreating Linux account '$oldUser'. Choose its sudo password when prompted..."
             Invoke-WslChecked -Arguments @(
                 "--distribution", $Name,
-                "--exec", "true"
+                "--user", "root", "--exec", "/usr/lib/agentfem/oobe.sh"
             ) -FailureMessage "The upgraded runtime could not complete first-use account setup."
         } finally {
             Restore-UpgradeUserEnvironment
@@ -528,7 +597,7 @@ function Upgrade-AgentFEMDistribution {
             doctor = "passed"
             projects_restored = $true
             persistent_projects = $Projects
-        } | ConvertTo-Json | Set-Content -Encoding UTF8 $transactionRecord
+        } | ConvertTo-Json | Set-Content -Encoding UTF8 -LiteralPath $transactionRecord
 
         Write-Host "AgentFEM was upgraded in place to $RuntimeVersion." -ForegroundColor Green
         Write-Host "Projects and user settings were restored for '$oldUser'." -ForegroundColor Green
@@ -539,7 +608,7 @@ function Upgrade-AgentFEMDistribution {
         }
         if ($RemoveBackupAfterSuccess) {
             try {
-                Remove-Item -Force $fullBackup, $homeBackup
+                Remove-Item -Force -LiteralPath $fullBackup, $homeBackup
                 Write-Host "Successful-upgrade backups were removed as requested."
             } catch {
                 Write-Warning "Upgrade succeeded, but recovery files could not be removed: $($_.Exception.Message)"
@@ -551,7 +620,7 @@ function Upgrade-AgentFEMDistribution {
     } catch {
         $failure = $_
         Write-Warning "Upgrade did not complete: $($failure.Exception.Message)"
-        if ($oldRemoved -and (Test-Path $fullBackup)) {
+        if ($oldRemoved -and (Test-Path -LiteralPath $fullBackup)) {
             Write-Warning "Restoring the previous AgentFEM distribution from its complete backup..."
             $registered = Get-WslDistributions
             if ($registered -contains $Name) {
@@ -575,7 +644,7 @@ function Upgrade-AgentFEMDistribution {
                 full_backup = $fullBackup
                 home_backup = $homeBackup
                 error = $failure.Exception.Message
-            } | ConvertTo-Json | Set-Content -Encoding UTF8 $transactionRecord
+            } | ConvertTo-Json | Set-Content -Encoding UTF8 -LiteralPath $transactionRecord
             Write-Warning "The previous AgentFEM runtime was restored. Backup retained at '$transactionDirectory'."
         }
         $registered = Get-WslDistributions
@@ -594,7 +663,7 @@ function Upgrade-AgentFEMDistribution {
                 full_backup = $fullBackup
                 home_backup = $homeBackup
                 error = $failure.Exception.Message
-            } | ConvertTo-Json | Set-Content -Encoding UTF8 $transactionRecord
+            } | ConvertTo-Json | Set-Content -Encoding UTF8 -LiteralPath $transactionRecord
         }
         throw $failure
     }
@@ -603,10 +672,21 @@ function Upgrade-AgentFEMDistribution {
 function Complete-NewInstallation {
     param([string]$Name, [string]$Projects)
     Save-InstallState -Stage "account_setup"
+    if ($NonInteractive) {
+        # Explicit root is limited to this read-only readiness probe, never used
+        # as the simulation account or to set a password on the user's behalf.
+        $account = (& wsl.exe --distribution $Name --user root --exec sh -c `
+            'u=$(getent passwd 1000 | cut -d: -f1); test -n "$u" && passwd -S "$u"' | Out-String).Trim()
+        if ($LASTEXITCODE -ne 0 -or $account -notmatch '^[a-z_][a-z0-9_-]*\s+P\s') {
+            throw '[AFM-WIN-ACCOUNT-INPUT-REQUIRED] A Linux username/password must be entered privately in a local terminal. Reopen this installer without -NonInteractive; never send the password in chat.'
+        }
+    }
     Set-ProjectWorkspaceEnvironment -WindowsPath $Projects
     try {
-        # Execute and return after OOBE instead of leaving an interactive shell open.
-        Invoke-WslChecked -Arguments @("--distribution", $Name, "--exec", "true") `
+        # WSL documents OOBE for the first interactive shell. An exec of `true`
+        # is not an account-setup contract: invoke our idempotent setup explicitly.
+        Invoke-WslChecked -Arguments @("--distribution", $Name, "--user", "root",
+            "--exec", "/usr/lib/agentfem/oobe.sh") `
             -FailureMessage "[AFM-WIN-ACCOUNT-SETUP] Linux account setup is incomplete. Reopen the installer to continue."
     } finally {
         Restore-ProjectWorkspaceEnvironment
@@ -642,35 +722,77 @@ function Complete-NewInstallation {
 
 $exitCode = 0
 try {
-    Initialize-InstallState -Identity @{
-        image_sha256 = $ExpectedSha256
-        version = $RuntimeVersion
-        distribution = $DistributionName
-        install_location = $InstallLocation
-        project_directory = $ProjectDirectory
-        upgrade = [bool]$Upgrade
+    Resolve-InstallPathParameters -Parameters $PSBoundParameters
+    foreach ($pathParameter in @('Image', 'InstallLocation', 'ProjectDirectory', 'BackupDirectory')) {
+        if ($PSBoundParameters.ContainsKey($pathParameter)) {
+            Set-Variable -Name $pathParameter -Value $PSBoundParameters[$pathParameter]
+        }
     }
-    Start-Transcript -Path (Join-Path $script:InstallStateDirectory "install.log") -Append | Out-Null
+    if ($PrepareWslOnly) {
+        # Also usable from a source checkout for Ubuntu + mirror users. No
+        # unpublished Complete Runtime image or scientific Python is required.
+        Initialize-InstallState -Identity @{operation='prepare_wsl_platform'; architecture='x86_64'}
+    } else {
+        Initialize-InstallState -Identity @{
+            image_sha256 = $ExpectedSha256
+            runtime_record_sha256 = $ExpectedRuntimeRecordSha256
+            version = $RuntimeVersion
+            distribution = $DistributionName
+            install_location = $InstallLocation
+            project_directory = $ProjectDirectory
+            upgrade = [bool]$Upgrade
+        }
+    }
+    Start-Transcript -LiteralPath (Join-Path $script:InstallStateDirectory "install.log") -Append | Out-Null
     $script:TranscriptStarted = $true
+    Set-InstallResumeInvocation -InstallerPath $PSCommandPath -Parameters $PSBoundParameters
+    $script:InstallState.bootstrap_source = $WslBootstrapSource
+    if ($PrepareWslOnly) {
+        $distributionOptions = @('Image', 'ExpectedSha256', 'DistributionName',
+            'InstallLocation', 'ProjectDirectory', 'Upgrade', 'BackupDirectory',
+            'RemoveBackupAfterSuccess')
+        $conflictingOptions = @()
+        foreach ($option in $distributionOptions) {
+            if ($PSBoundParameters.ContainsKey($option)) { $conflictingOptions += $option }
+        }
+        if ($conflictingOptions.Count) {
+            throw '[AFM-WIN-OPTION-CONFLICT] Platform-only preparation does not install or upgrade an AgentFEM distribution. Remove distribution-install options.'
+        }
+        Save-InstallState -Stage 'preparing_wsl'
+        $platformVersion = Require-WslPlatform -Source $WslBootstrapSource -PlatformOnly
+        $script:InstallState.wsl_version = $platformVersion.ToString()
+        Save-InstallState -Stage 'platform_ready'
+        Write-Host 'WSL platform prepared. AgentFEM is not installed by this operation.' -ForegroundColor Green
+        Write-Host 'Reuse an existing WSL2 Ubuntu or install the named Ubuntu distribution, then follow INSTALL.md for the mirror environment.'
+        exit 0
+    }
+    if ($NonInteractive -and $Upgrade) {
+        throw '[AFM-WIN-UPGRADE-INTERACTIVE] Replacement upgrades require an attended terminal. No distribution was changed.'
+    }
+    Save-InstallState -Stage 'checking_package'
 
     foreach ($requiredFile in @($Image, (Join-Path $PSScriptRoot "verify_installed_runtime.py"))) {
         if (-not (Test-Path -LiteralPath $requiredFile -PathType Leaf)) {
             throw "[AFM-WIN-PACKAGE-INCOMPLETE] Missing package file: $requiredFile. Extract the entire official ZIP before installing."
         }
     }
-    if ($ExpectedSha256 -notmatch '^[a-fA-F0-9]{64}$') {
+    if ($ExpectedSha256 -notmatch '^[a-fA-F0-9]{64}$' -or
+        $ExpectedRuntimeRecordSha256 -notmatch '^[a-fA-F0-9]{64}$') {
         throw "[AFM-WIN-PACKAGE-IDENTITY] A rendered release image checksum is required. Use the official complete package."
     }
 
 
     if ($ExpectedSha256) {
-        $actual = (Get-FileHash -Algorithm SHA256 $Image).Hash.ToLowerInvariant()
+        $actual = (Get-FileHash -Algorithm SHA256 -LiteralPath $Image).Hash.ToLowerInvariant()
         if ($actual -ne $ExpectedSha256.ToLowerInvariant()) {
-            throw "SHA-256 mismatch. Expected $ExpectedSha256, received $actual."
+            throw "[AFM-WIN-PACKAGE-CHECKSUM] SHA-256 mismatch. Expected $ExpectedSha256, received $actual."
         }
         Write-Host "Image integrity verified." -ForegroundColor Green
     }
 
+    # Persist the resolved default before a possible UAC/restart handoff. A
+    # later Windows Documents redirection must not silently relocate projects.
+    $persistentProjects = Resolve-InstallProjectDirectory -RequestedPath $ProjectDirectory
     Save-InstallState -Stage "preparing_wsl"
     $installedWslVersion = Require-WslPlatform -Source $WslBootstrapSource
 
@@ -678,14 +800,6 @@ try {
     if (-not $requestedName) {
         throw "DistributionName must not be empty."
     }
-    if (-not $ProjectDirectory) {
-        $documents = [Environment]::GetFolderPath("MyDocuments")
-        if (-not $documents) {
-            $documents = Join-Path $env:USERPROFILE "Documents"
-        }
-        $ProjectDirectory = Join-Path $documents "AgentFEMProjects"
-    }
-    $persistentProjects = [System.IO.Path]::GetFullPath($ProjectDirectory)
     New-Item -ItemType Directory -Force -Path $persistentProjects | Out-Null
     Write-Host "User projects will persist outside WSL at: $persistentProjects" -ForegroundColor Green
     if ($Upgrade) {
@@ -696,15 +810,28 @@ try {
     Save-InstallState -Stage "completed"
 } catch {
     $message = $_.Exception.Message
+    if ($message -notmatch '\[AFM-WIN-[A-Z-]+\]') { $message = "[AFM-WIN-INSTALL-FAILED] $message" }
     $stage = "failed"
     $exitCode = 1
     if ($message -match "AFM-WIN-RESTART") { $stage = "restart_required"; $exitCode = 3010 }
-    elseif ($message -match "AFM-WIN-ELEVATION") { $stage = "awaiting_authorization" }
-    if ($script:InstallStateOwned) { Save-InstallState -Stage $stage -Message $message }
+    elseif ($message -match "AFM-WIN-(ELEVATION|COMMAND-BLOCKED)") { $stage = "awaiting_authorization" }
+    elseif ($message -match "AFM-WIN-ACCOUNT-INPUT-REQUIRED") { $stage = "account_setup" }
+    if ($script:InstallStateOwned) {
+        try { Save-InstallState -Stage $stage -Message $message }
+        catch {
+            # Disk-full/permission failures must not replace the original WSL
+            # or package error with a second exception while recording it.
+            Write-Warning "[AFM-WIN-STATE-WRITE] Could not persist the failure record: $($_.Exception.Message). Keep this terminal/transcript; the saved status may be stale."
+        }
+    }
     Write-Host $message -ForegroundColor Red
     if ($script:InstallStateDirectory) { Write-Host "Installation records: $script:InstallStateDirectory" }
 } finally {
-    if ($script:TranscriptStarted) { Stop-Transcript | Out-Null }
-    if ($script:InstallLock) { $script:InstallLock.Dispose() }
+    try {
+        if ($script:TranscriptStarted) { Stop-Transcript | Out-Null }
+    } finally {
+        # Even a transcript/storage failure must release the process-owned lock.
+        if ($script:InstallLock) { $script:InstallLock.Dispose() }
+    }
 }
 exit $exitCode

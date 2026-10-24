@@ -152,6 +152,23 @@ familiar Linux path to the durable Windows Documents folder.
 For an AI agent
 ---------------
 
+Use Get-AgentFEMInstallStatus.ps1 for read-only JSON progress. It does not start
+WSL or change Windows. When running from a non-interactive agent tool, use:
+
+   powershell.exe -NoProfile -File .\Install-AgentFEM.ps1 -NonInteractive
+
+Required administrator approval or account credentials produce an explicit
+handoff, not a hidden prompt. Ask the user to open this same installer locally
+without -NonInteractive and enter credentials privately. Never ask for a
+password in chat. After reboot/interruption, reuse the same package/options.
+Do not start another installer when installer_busy is true. Recorded completion
+is prior evidence, not a fresh health check.
+
+An AgentFEM/conda mirror does not install the Windows WSL platform. The Web WSL
+source is not a domestic mirror. Select Store/Web/None explicitly as appropriate;
+do not disable TLS or global security settings. For Ubuntu + mirror installation
+instead of this offline runtime, follow INSTALL.md; do not combine both routes.
+
 Follow this file as the installation contract. Use the default side-by-side
 route unless the user explicitly asks for `-Upgrade`; that switch authorizes
 the installer-managed backup and replacement transaction only. Do not run

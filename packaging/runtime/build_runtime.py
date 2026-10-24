@@ -748,6 +748,7 @@ def build_wsl(args: argparse.Namespace) -> Path:
         render_wsl_installer(
             image_filename=artifact.name,
             image_sha256=sha256(artifact),
+            runtime_record_sha256=sha256(embedded_record),
         ),
         encoding="utf-8",
     )
@@ -762,7 +763,10 @@ def build_wsl(args: argparse.Namespace) -> Path:
         encoding="utf-8",
     )
     companion_files = []
-    for name in ("Installer-State.ps1", "Install-AgentFEM.cmd"):
+    for name in (
+        "Installer-State.ps1", "Install-AgentFEM.cmd", "Get-AgentFEMInstallStatus.ps1",
+        "Windows-HostProbe.ps1", "Test-AgentFEMWindowsHost.ps1",
+    ):
         destination = output / name
         shutil.copyfile(RUNTIME / "wsl" / name, destination)
         companion_files.append(destination)
@@ -812,7 +816,8 @@ def build_wsl(args: argparse.Namespace) -> Path:
 
 
 def render_wsl_installer(
-    *, image_filename: str, image_sha256: str, version: str | None = None
+    *, image_filename: str, image_sha256: str, runtime_record_sha256: str,
+    version: str | None = None
 ) -> str:
     """Render the Windows installer without building the large runtime image."""
 
@@ -822,6 +827,7 @@ def render_wsl_installer(
         .read_text(encoding="utf-8")
         .replace("@IMAGE_FILENAME@", str(image_filename))
         .replace("@IMAGE_SHA256@", str(image_sha256))
+        .replace("@RUNTIME_RECORD_SHA256@", str(runtime_record_sha256))
         .replace("@VERSION@", selected_version)
     )
 
