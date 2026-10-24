@@ -193,8 +193,10 @@ def main():
               "source_sha256": {name: sha256((Path(agentfem.__file__).parent / name).read_bytes()).hexdigest()
                                 for name in ("solvers.py", "_affine_equilibrium.py",
                                              "mechanics/finite_strain_plasticity.py",
+                                             "constitutive/finite_strain_plasticity.py",
                                              "constitutive/quadrature.py",
                                              "steps.py", "_nonlinear_problems.py",
+                                             "boundary_models/dolfinx_implicit_facet_contact.py",
                                              "boundary_models/dolfinx_contact_trace.py")},
               "units": {"length": "m", "stress": "Pa", "force": "N", "work": "J"},
               "options": {k: v for k, v in vars(args).items() if k != "output"}, "records": []}

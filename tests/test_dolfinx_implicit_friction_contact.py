@@ -729,7 +729,10 @@ def _frictional_j2_step(
     return step
 
 
-def test_mixed_convex_and_planar_friction_pairs_keep_separate_identity(tmp_path):
+@pytest.mark.parametrize("legacy_second_provider", [False, True])
+def test_mixed_convex_and_planar_friction_pairs_keep_separate_identity(
+    tmp_path, monkeypatch, legacy_second_provider,
+):
     reference = _frictional_j2_step(tangential_load=100.0)
     mixed = _frictional_j2_step(
         tangential_load=100.0, pair_count=2, first_convex=True,
@@ -747,15 +750,33 @@ def test_mixed_convex_and_planar_friction_pairs_keep_separate_identity(tmp_path)
     assert mixed.energy_history[-1].friction_dissipation == pytest.approx(
         reference.energy_history[-1].friction_dissipation, rel=1e-8,
     )
-    paths = results.export_accepted_contact_points(mixed, tmp_path / "mixed_points")
+    if legacy_second_provider:
+        provider = mixed.contact_provider.providers[1]
+        original = provider.accepted_point_samples
+        def legacy():
+            samples = original()
+            samples.pop("reference_positions")
+            samples.pop("measure_configuration")
+            return samples
+        monkeypatch.setattr(provider, "accepted_point_samples", legacy)
+    paths = results.export_accepted_contact_points(mixed, tmp_path / "mixed_points", vtk_view=True)
     with np.load(paths["contact_points"], allow_pickle=False) as archive:
         pair_index = archive["pair_index"]
         assert set(pair_index.tolist()) == {0, 1}
         assert len(archive["point_ids"]) == len(pair_index)
+        assert ("reference_positions" in archive.files) is not legacy_second_provider
+        if not legacy_second_provider:
+            assert archive["reference_positions"].shape == archive["slave_positions"].shape
     metadata = json.loads(paths["contact_point_metadata"].read_text())
     assert [item["constraint_name"] for item in metadata["pairs"]] == [
         item["constraint_name"] for item in mixed_result.metadata["constraint_duals"]
     ]
+    assert [item["reference_positions_available"] for item in metadata["pairs"]] == [
+        True, not legacy_second_provider,
+    ]
+    view = ET.parse(paths["contact_point_view"])
+    reference_array = view.find(".//PointData/DataArray[@Name='reference_positions']")
+    assert (reference_array is None) is legacy_second_provider
 
 
 def test_public_friction_rejects_symmetry_only_linear_solver():

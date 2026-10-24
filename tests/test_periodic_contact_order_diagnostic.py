@@ -144,6 +144,8 @@ def test_diagnostic_records_and_enforces_selected_path_policy(tmp_path, monkeypa
     else:
         main()
     report = json.loads(output.read_text())
+    assert "constitutive/finite_strain_plasticity.py" in report["source_sha256"]
+    assert "boundary_models/dolfinx_implicit_facet_contact.py" in report["source_sha256"]
     assert report["incrementation"] == json.loads(json.dumps(policies[0].summary()))
     row = report["records"][0]
     assert row["maximum_accepted_plastic_increment"] == measured

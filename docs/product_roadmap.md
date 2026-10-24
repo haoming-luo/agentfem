@@ -42,6 +42,18 @@ inventing an error estimator or changing the contact law.
 
 Historical entries below remain evidence, not a second current backlog.
 
+Current integration results: SVD reuse passed independent history/rotation/
+conditioning and global-path checks, with 3.15% less solve-and-observe time in
+the fresh 64-increment ABBA confirmation. It changes neither the material law
+nor the accepted path. A native wheel from `51c4a911` was installed into an
+isolated AgentFEM environment with shared numerical dependencies. Ordinary
+`agentfem run` partial/restart/continuous paths agree in displacement, material
+state, contact force and work history. Installed output, interrupted publication,
+history/retention and independent contact-reference suites pass. This is not a
+clean Windows installation or new full-composite performance proof. Details and
+the reconstruction protocol are in
+`evidence/contact/2026-10-25-installed-periodic-contact.json`.
+
 The existing J2 tangent backend now packs its nine derivative directions into
 small rectangular products and reuses their common transform, without another
 public tuning switch. Fresh serial cyclic P2/J2/plane-penalty/MPC ABBA evidence
@@ -52,8 +64,8 @@ The original near-zero-component comparison failure and its justified per-point
 tensor-scale follow-up are both retained; see
 `evidence/performance/2026-10-24-j2-tangent-block-confirmation.json` and the
 contact sprint ledger. Do not add this result to prior percentages or transfer
-it to the explicit-composite run. SVD reuse in plastic reconstruction remains
-an unpromoted candidate pending its own history/conditioning/global checks.
+it to the explicit-composite run. The subsequent SVD-reconstruction acceptance
+is recorded above and is a separate measured improvement, not an added percentage.
 
 The user's 2026-10-23 clarification keeps **solver capability and throughput
 first**. A separate contributor is handling WSL installation: inspect that

@@ -91,6 +91,30 @@ motivates separating integral accuracy from approximation/stability. The
 publisher abstract was available, not the paywalled full text; the algebra and
 new pressure moments above are independently derived and tested here.
 
+**Installed candidate acceptance.** Native wheel source `51c4a911` imports from
+its fresh venv, not the working checkout; all three optional native modules
+also resolve there. The environment shares the existing numerical dependency
+stack, so this does not claim a clean-machine installation. A project assembled
+from the existing public periodic-plane example uses ordinary `agentfem run`
+for a partial 0.25 path, a restart and a continuous eight-increment path.
+Displacement, committed material state, contact force, accepted coordinates and
+relative contact-work arrays have zero measured difference on this machine.
+Independent meshio reads show one 384-tetrahedron volume block per view and
+finite displacement arrays. The partial/resumed views intentionally share the
+restart station; the implicit example writes these views after its segment,
+not live during Newton iterations.
+
+Separate installed suites pass 52 output/connectivity/live-publication tests,
+66 execution/history/retention tests, and 18 physical-fixture/independent scalar
+plastic-contact tests. Two mixed-pair export checks additionally prove that an
+older provider lacking reference coordinates does not create a partial-looking
+global array. Live-view evidence comes from the live writer's independent
+reader and killed-next-frame tests, not from the post-solve implicit example.
+No tests were skipped. Timings here are not performance evidence because the
+bounded spatial diagnostic was also active. The wheel hash, exact project
+reconstruction driver, commands, tolerances and observed arrays are recorded in
+`evidence/contact/2026-10-25-installed-periodic-contact.json`.
+
 ### Batched J2 tangent contractions (2026-10-24)
 
 The existing logarithmic J2 derivative still evaluates the same nine dP/dF
