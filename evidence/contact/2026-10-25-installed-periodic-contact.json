@@ -116,6 +116,36 @@
       "passed": 2,
       "deselected": 30,
       "seconds": 1.38
+    },
+    {
+      "files": [
+        "tests/test_dolfinx_implicit_facet_contact.py"
+      ],
+      "test_source_commit": "221ddfc0",
+      "selection": "quadratic_contact_trace_matches_polynomial_force_moment_and_work",
+      "passed": 8,
+      "seconds": 0.32,
+      "notes": "Independent P2/Q2 force, moment, virtual-work and tangent integrals against the unchanged installed core."
+    },
+    {
+      "files": [
+        "tests/test_periodic_contact_order_diagnostic.py"
+      ],
+      "test_source_commit": "221ddfc0",
+      "passed": 17,
+      "seconds": 2.05,
+      "notes": "Checkout diagnostic uses installed core; verifies ordinary accepted checkpoint/status and complete quadratic periodic trace mapping."
+    },
+    {
+      "files": [
+        "tests/test_architecture_contract.py",
+        "tests/test_field_rollback_scope.py"
+      ],
+      "test_source_commit": "7f40fcf1",
+      "passed": 37,
+      "skipped": 1,
+      "seconds": 2.86,
+      "notes": "Installed imports plus checkout AST ownership audit. The skipped case requires two MPI ranks; no distributed acceptance is claimed from this serial invocation."
     }
   ],
   "execution_note": "Tests run with PYTHONPATH removed, -c /dev/null --noconftest, from outside the repository. Timings are correctness-suite observations while a separate diagnostic was active, not performance evidence.",
