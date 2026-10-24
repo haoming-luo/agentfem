@@ -59,7 +59,7 @@ Wheel identity, commands and the reused exact project source are recorded in
 `evidence/contact/2026-10-25-installed-boundary-admission.json`. The environment
 still shares numerical dependencies; this is not Windows or clean-machine proof.
 
-The final boundary-admission source `bc7520cc` additionally covers creep,
+The intermediate boundary-admission source `bc7520cc` additionally covers creep,
 Maxwell and compatibility entrypoints with one shared reason. Its independently
 installed native wheel passes 144 selected tests in 16.97 s, including ten
 contact/foundation counterexamples. The same ordinary continuous project again
@@ -75,6 +75,12 @@ five material families and six procedures, with twelve contact/foundation
 counterexamples; 107 selected source tests across the small-strain, Maxwell and
 harmonic modules pass in 15.30 s. No harmonic operator or numerical algorithm
 is changed.
+
+The same 107 tests pass from a fresh native `38ab7e8c` wheel in 17.69 s.
+An ordinary complete project again matches the previous installed candidate
+exactly in its five accepted arrays, and an independent reader opens all nine
+volume frames. The wheel hash, commands and evidence-reuse boundaries are in
+`evidence/contact/2026-10-25-installed-six-procedure-admission.json`.
 
 Representative explicit acceptance against the installed `bc7520cc` wheel
 passes 81 tests in 55.53 s across `test_strain_history_runtime`,
