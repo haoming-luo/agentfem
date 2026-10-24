@@ -1,0 +1,179 @@
+{
+  "schema": "agentfem.affine-plane-augmentation-sensitivity.v1",
+  "scope": "serial_disjoint_normal_rows_cyclic_finite_J2_not_general_mortar_or_external_reference",
+  "agentfem_version": "0.4.4.dev0",
+  "platform": "macOS-26.6.2-arm64-arm-64bit",
+  "git_commit": "8393b93b6e4ab0f1e962ce70bc525d2559027303",
+  "example_sha256": "26774066f1c6efe24b8b588ed63b141e6f09cef8d5f103c9801004c38179a389",
+  "tool_sha256": "4dc5f8813bdf8fae09c4d580cb824a4fbbe30e08b3f58adafe6aa9c3d4e4ea2c",
+  "runtime_identity": {
+    "platform": {
+      "system": "macOS",
+      "route": "native macOS with conda-forge/Homebrew-compatible FEniCSx stack"
+    },
+    "python": "3.11.15",
+    "machine": "arm64",
+    "operating_system": {
+      "system": "Darwin",
+      "release": "25.6.0",
+      "version": "Darwin Kernel Version 25.6.0: Fri Jul 31 19:16:20 PDT 2026; root:xnu-12377.161.14~5/RELEASE_ARM64_T8142"
+    },
+    "packages": {
+      "agentfem": "0.4.4.dev0",
+      "fenics-dolfinx": "0.11.0",
+      "fenics-ufl": "2026.1.0",
+      "fenics-basix": "0.11.0",
+      "fenics-ffcx": "0.11.0",
+      "numpy": "2.4.6",
+      "mpi4py": "4.1.2",
+      "petsc4py": "3.25.2",
+      "h5py": "3.16.0"
+    },
+    "mpi": {
+      "vendor": "MPICH 5.0.1",
+      "rank_count": 1
+    },
+    "numerics": {
+      "python_float_mantissa_bits": 53,
+      "numpy_default_float": "float64",
+      "petsc_scalar_type": "float64",
+      "petsc_real_type": "float64",
+      "petsc_complex": false
+    },
+    "execution": {
+      "mode": "source_checkout",
+      "source": {
+        "schema": "agentfem.source-identity.v2",
+        "commit": "8393b93b6e4ab0f1e962ce70bc525d2559027303",
+        "tracked_dirty": true,
+        "package_tree_sha256": "45884d3cec9c6d617c1b51bb31965e835837f68248bc18c416bff1ebe9db530b",
+        "scientific_runtime_sha256": "02feeb5b9704cbfa763923e8f9c0f5e44047293b62c7d26623c97cf5af241324",
+        "scientific_runtime_exclusions": [
+          "knowledge/benchmarks/**"
+        ]
+      },
+      "distribution": null
+    }
+  },
+  "mpi_transport_environment": {
+    "FI_PROVIDER": null
+  },
+  "material": {
+    "young": 1000.0,
+    "poisson": 0.3,
+    "yield_stress": 2.0,
+    "hardening_modulus": 100.0
+  },
+  "units": {
+    "length": "m",
+    "stress": "Pa",
+    "force": "N",
+    "work": "J"
+  },
+  "physical_path": "fixed plane x=1.005; periodic stretch 1/1.02/0.99/1.02 at 0/0.25/0.75/1",
+  "fixture": "affine_x_motion_on_z_end_faces",
+  "mesh_family": "edge_graded_cosine",
+  "area_interpretation": "active_reference_area counts strictly positive multipliers, including numerical remnants; not a thresholded physical contact-area certificate",
+  "numerical_tolerances": {
+    "penetration": 1e-08,
+    "complementarity": 1e-07
+  },
+  "linear_solver": {
+    "kind": "linear_solver_options",
+    "mpc_assembly": "native",
+    "ksp_type": "preonly",
+    "pc_type": "lu",
+    "rtol": null,
+    "atol": null,
+    "max_it": null,
+    "factor_solver_type": "mumps",
+    "error_if_not_converged": true
+  },
+  "records": [
+    {
+      "cells": 12,
+      "increments": 256,
+      "penalty": 40000.0,
+      "status": "completed",
+      "stations": [
+        {
+          "factor": 0.25,
+          "displacement_l2": 0.011001443465674545,
+          "force_on_structure": [
+            -4.704261639297915,
+            -0.0,
+            -0.0
+          ],
+          "pressure_area_mean": 18.817046557191656,
+          "maximum_pressure": 267.56757757786744,
+          "active_reference_area": 0.25,
+          "maximum_penetration": 2.7741209329690264e-10,
+          "peeq_reference_volume_mean": 0.023697858030501014,
+          "maximum_peeq": 0.07659436199552738,
+          "normal_relative_work": -1.329864328450758e-09,
+          "mpc_equation_mismatch": 0.0
+        },
+        {
+          "factor": 0.5,
+          "displacement_l2": 0.00617590740463925,
+          "force_on_structure": [
+            -0.0,
+            -0.0,
+            -0.0
+          ],
+          "pressure_area_mean": 0.0,
+          "maximum_pressure": 0.0,
+          "active_reference_area": 0.0,
+          "maximum_penetration": 0.0,
+          "peeq_reference_volume_mean": 0.0316471284150952,
+          "maximum_peeq": 0.09460726619089505,
+          "normal_relative_work": 4.716306611593297e-06,
+          "mpc_equation_mismatch": 0.0
+        },
+        {
+          "factor": 0.75,
+          "displacement_l2": 0.013166023153976946,
+          "force_on_structure": [
+            -0.0,
+            -0.0,
+            -0.0
+          ],
+          "pressure_area_mean": 0.0,
+          "maximum_pressure": 0.0,
+          "active_reference_area": 0.0,
+          "maximum_penetration": 0.0,
+          "peeq_reference_volume_mean": 0.04544129004787594,
+          "maximum_peeq": 0.10932264082307268,
+          "normal_relative_work": 4.716306611593297e-06,
+          "mpc_equation_mismatch": 1.734723475976807e-18
+        },
+        {
+          "factor": 1.0,
+          "displacement_l2": 0.011130851044794329,
+          "force_on_structure": [
+            -4.139324940818175,
+            -0.0,
+            -0.0
+          ],
+          "pressure_area_mean": 16.5572997632727,
+          "maximum_pressure": 292.79460985854433,
+          "active_reference_area": 0.24088541666666669,
+          "maximum_penetration": 9.09984088082183e-10,
+          "peeq_reference_volume_mean": 0.06307447146787859,
+          "maximum_peeq": 0.13562456118688337,
+          "normal_relative_work": -1.7674612120343132e-05,
+          "mpc_equation_mismatch": 0.0
+        }
+      ],
+      "setup_solve_observe_seconds": 1253.431897459086,
+      "accepted_increments": 256,
+      "outer_updates": 962,
+      "newton_iterations": 2634,
+      "maximum_penetration_all_stations": 4.7111139434008464e-09,
+      "maximum_complementarity_all_stations": 9.678181498007387e-08
+    }
+  ],
+  "comparisons": [],
+  "all_numerical_acceptance_passed": true,
+  "continuum_or_external_verification": false
+}

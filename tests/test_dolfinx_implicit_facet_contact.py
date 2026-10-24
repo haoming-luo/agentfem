@@ -14,8 +14,8 @@ from agentfem.boundary_models.dolfinx_implicit_facet_contact import (
 )
 
 
-def _model():
-    domain = mesh.create_unit_cube(MPI.COMM_SELF, 1, 1, 1, cell_type=mesh.CellType.tetrahedron)
+def _model(*, cell_type=mesh.CellType.tetrahedron):
+    domain = mesh.create_unit_cube(MPI.COMM_SELF, 1, 1, 1, cell_type=cell_type)
     space = fem.functionspace(domain, basix.ufl.element("Lagrange", domain.basix_cell(), 1, shape=(3,)))
     displacement = fem.Function(space, name="Displacement")
     facets = mesh.locate_entities_boundary(
@@ -34,6 +34,55 @@ def _model():
     )
     operator = dolfinx_implicit_facet_contact(pair, displacement)
     return displacement, operator
+
+
+@pytest.mark.parametrize("cell_type", [mesh.CellType.tetrahedron, mesh.CellType.hexahedron])
+@pytest.mark.parametrize("cells", [1, 2])
+@pytest.mark.parametrize("quadrature_degree", [5, 11])
+def test_quadratic_contact_trace_matches_polynomial_force_moment_and_work(
+    cell_type, cells, quadrature_degree,
+):
+    """Independent nonuniform trace oracle, not a global spatial-convergence proof.
+
+    On the reference square x=0, g=-.01*(1+y^2+z^2), k=200, so
+    p=2*(1+y^2+z^2). Reference-area integration gives F_x=10/3,
+    M_y=-M_z=11/6. For virtual u_x=yz, R.v=-1 and v.K.v=200/9.
+    These polynomial integrals do not use the contact assembly as an oracle.
+    """
+    domain = mesh.create_unit_cube(MPI.COMM_SELF, cells, cells, cells, cell_type=cell_type)
+    space = fem.functionspace(domain, basix.ufl.element("Lagrange", domain.basix_cell(), 2, shape=(3,)))
+    u = fem.Function(space)
+    left = agent_mesh.boundary(domain, lambda x: np.isclose(x[0], 0.), name="polynomial_patch")
+    pair = boundary_models.rigid_contact_pair(
+        left, boundary_models.rigid_body(boundary_models.rigid_plane(
+            point=(-.02, 0., 0.), normal=(1., 0., 0.))),
+        penalty=200., initial_penetration_limit=0.,
+    )
+    operator = dolfinx_implicit_rigid_contact(
+        pair, u, contact_quadrature_degree=quadrature_degree,
+    )
+    reference = space.tabulate_dof_coordinates()
+    nodal = u.x.array.reshape(-1, 3)
+    nodal[:, 0] = -.03 - .01 * (reference[:, 1]**2 + reference[:, 2]**2)
+    contribution = operator.evaluate()
+    np.testing.assert_allclose(contribution.contact_force_on_structure, (10./3., 0., 0.), atol=2e-12)
+    assert contribution.potential_energy == pytest.approx(
+        .01 * (1. + 4./3. + 2./5. + 2./9.), rel=2e-13, abs=2e-14,
+    )
+    nodal_force = -contribution.nodal_structural_residual
+    np.testing.assert_allclose(nodal_force.sum(axis=0), (10./3., 0., 0.), atol=2e-12)
+    np.testing.assert_allclose(np.cross(reference + nodal, nodal_force).sum(axis=0),
+                               (0., 11./6., -11./6.), atol=2e-12)
+    direction = np.zeros_like(nodal)
+    direction[:, 0] = reference[:, 1] * reference[:, 2]
+    assert np.sum(contribution.nodal_structural_residual * direction) == pytest.approx(-1., abs=2e-12)
+    assert np.sum(contribution.tangent_action(direction) * direction) == pytest.approx(200./9., abs=2e-11)
+    operator.commit_accepted()
+    samples = operator.accepted_point_samples()
+    points = samples["reference_positions"]
+    np.testing.assert_allclose(points[:, 0], 0., atol=1e-14)
+    np.testing.assert_allclose(samples["normal_pressures"],
+                               2. * (1. + points[:, 1]**2 + points[:, 2]**2), atol=2e-12)
 
 
 def test_dolfinx_implicit_facet_tangent_matches_current_residual_difference():
@@ -105,6 +154,124 @@ def test_implicit_facet_rejects_independent_physical_time_schedule():
     )
     with pytest.raises(NotImplementedError, match="AFM-IMPLICIT-CONTACT-MOTION"):
         dolfinx_implicit_facet_contact(pair, displacement)
+
+
+def test_implicit_facet_reports_and_bounds_initial_reference_penetration():
+    displacement, original = _model()
+    assert original.current_point_diagnostics()["initial_contact"]["policy"] == "report"
+    assert original.current_point_diagnostics()["initial_contact"][
+        "maximum_penetration"
+    ] == 0.0
+    tool = boundary_models.rigid_plane(
+        point=(-0.05, 0.0, 0.0), normal=(-1.0, 0.0, 0.0),
+    )
+
+    def make_pair(limit):
+        return boundary_models.rigid_contact_pair(
+            original.pair.slave_boundary,
+            boundary_models.rigid_body(tool),
+            penalty=200,
+            initial_penetration_limit=limit,
+        )
+
+    with pytest.raises(ValueError, match="AFM-CONTACT-INITIAL-OVERLAP"):
+        dolfinx_implicit_rigid_contact(make_pair(0.01), displacement)
+    accepted = dolfinx_implicit_rigid_contact(make_pair(0.06), displacement)
+    evidence = accepted.current_point_diagnostics()["initial_contact"]
+    assert evidence["maximum_penetration"] == pytest.approx(0.05)
+    assert evidence["penetrating_point_count"] == accepted.adapter.trace.point_count
+    assert evidence["admission_limit"] == 0.06
+    assert evidence["policy"] == "reject_certified_above_limit"
+    assert evidence["face_wise_bound_certified"] is True
+    assert evidence["maximum_penetration_bound"] == pytest.approx(0.05)
+    np.testing.assert_allclose(displacement.x.array, 0.0)
+    assert make_pair(0.01).scientific_identity != make_pair(0.06).scientific_identity
+    assert "initial_penetration_limit" not in original.pair.summary()
+    assert make_pair(0.06).summary()["initial_penetration_limit"] == 0.06
+
+
+def test_faceted_initial_overlap_limit_does_not_pretend_samples_bound_a_face():
+    displacement, operator = _model()
+    pair = boundary_models.rigid_contact_pair(
+        operator.pair.slave_boundary, operator.pair.rigid_body,
+        penalty=200, initial_penetration_limit=0.01,
+    )
+    with pytest.raises(NotImplementedError, match="AFM-CONTACT-INITIAL-BOUND"):
+        dolfinx_implicit_facet_contact(pair, displacement)
+
+
+@pytest.mark.parametrize("cell_type", [mesh.CellType.tetrahedron, mesh.CellType.hexahedron])
+def test_quadratic_field_initial_plane_bound_uses_face_geometry_not_cell_dofs(cell_type):
+    original, operator = _model(cell_type=cell_type)
+    domain = original.function_space.mesh
+    space = fem.functionspace(domain, basix.ufl.element("Lagrange", domain.basix_cell(), 2, shape=(3,)))
+    u = fem.Function(space)
+    left = operator.pair.slave_boundary
+
+    def create(point, normal):
+        pair = boundary_models.rigid_contact_pair(
+            left, boundary_models.rigid_body(boundary_models.rigid_plane(point=point, normal=normal)),
+            penalty=200., initial_penetration_limit=0.)
+        return dolfinx_implicit_rigid_contact(pair, u)
+
+    # Interior cell DOFs are behind this plane but the entire selected left
+    # boundary is separated. Taking all high-order trace cell nodes is wrong.
+    provider = create((.05, 0., 0.), (-1., 0., 0.))
+    evidence = provider.current_point_diagnostics()["initial_contact"]
+    assert evidence["bound_method"] == "exact_plane_geometry_vertices"
+    assert evidence["maximum_penetration_bound"] == 0.
+    np.testing.assert_array_equal(provider.adapter.reference_facet_vertices[:, 0], 0.)
+    assert not provider.adapter.reference_facet_vertices.flags.writeable
+    from dataclasses import replace
+    vertices = provider.adapter.reference_facet_vertices.copy()
+    adapter = replace(provider.adapter, reference_facet_vertices=vertices)
+    vertices[:] = 100.
+    np.testing.assert_array_equal(adapter.reference_facet_vertices[:, 0], 0.)
+    for invalid in (np.empty((0, 3)), np.ones((1, 3), dtype=complex),
+                    np.full((1, 3), np.nan), np.zeros((3,))):
+        with pytest.raises(ValueError, match="Reference facet vertices"):
+            replace(provider.adapter, reference_facet_vertices=invalid)
+    # Exact touching is admitted, while representable tiny reference overlap
+    # is rejected without replacing the user's zero limit by a tolerance.
+    assert create((0., 0., 0.), (1., 0., 0.))._initial_contact_diagnostics["maximum_penetration_bound"] == 0.
+    with pytest.raises(ValueError, match="AFM-CONTACT-INITIAL-OVERLAP"):
+        create((2**-45, 0., 0.), (1., 0., 0.))
+
+
+@pytest.mark.parametrize("cell_type", [
+    mesh.CellType.tetrahedron, mesh.CellType.hexahedron,
+])
+def test_analytical_plane_initial_bound_catches_unsampled_corner_penetration(cell_type):
+    displacement, operator = _model(cell_type=cell_type)
+    normal = np.asarray((-1.0, -0.1, 0.0), dtype=float)
+    normal /= np.linalg.norm(normal)
+    plane = boundary_models.rigid_plane(point=(0.09, 0.0, 0.0), normal=normal)
+
+    def pair(limit):
+        return boundary_models.rigid_contact_pair(
+            operator.pair.slave_boundary,
+            boundary_models.rigid_body(plane),
+            penalty=200, initial_penetration_limit=limit,
+        )
+
+    accepted = dolfinx_implicit_rigid_contact(pair(0.02), displacement)
+    evidence = accepted.current_point_diagnostics()["initial_contact"]
+    assert evidence["maximum_penetration"] == 0.0
+    assert evidence["maximum_penetration_bound"] == pytest.approx(
+        0.01 / np.sqrt(1.01),
+    )
+    with pytest.raises(ValueError, match="AFM-CONTACT-INITIAL-OVERLAP"):
+        dolfinx_implicit_rigid_contact(pair(0.001), displacement)
+
+
+@pytest.mark.parametrize("limit", [-1.0, float("nan"), float("inf")])
+def test_contact_pair_rejects_invalid_initial_penetration_limit(limit):
+    _, operator = _model()
+    with pytest.raises(ValueError, match="Initial contact penetration limit"):
+        boundary_models.rigid_contact_pair(
+            operator.pair.slave_boundary, operator.pair.rigid_body,
+            penalty=200, initial_penetration_limit=limit,
+        )
 
 
 def test_closed_convex_sharp_tool_lowers_to_current_trial_newton_operator():

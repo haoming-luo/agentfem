@@ -11,6 +11,7 @@ They are not finite-element fields and do not own spatial degrees of freedom.
 from __future__ import annotations
 
 from collections.abc import Callable
+from copy import deepcopy
 from dataclasses import dataclass, field
 from hashlib import sha256
 import json
@@ -30,6 +31,9 @@ class Amplitude:
     metadata: dict[str, object] = field(default_factory=dict)
     derivatives: tuple[Callable[[float], float], ...] = ()
     serializable: bool = True
+    _identity_metadata: dict[str, object] = field(
+        init=False, repr=False, compare=False,
+    )
 
     def __post_init__(self) -> None:
         name = str(self.name).strip()
@@ -42,7 +46,9 @@ class Amplitude:
             raise TypeError("Amplitude derivatives must be callable.")
         object.__setattr__(self, "name", name)
         object.__setattr__(self, "kind", str(self.kind).strip() or "custom")
-        object.__setattr__(self, "metadata", dict(self.metadata))
+        metadata = deepcopy(dict(self.metadata))
+        object.__setattr__(self, "metadata", metadata)
+        object.__setattr__(self, "_identity_metadata", deepcopy(metadata))
         object.__setattr__(self, "derivatives", selected_derivatives)
 
     def __call__(self, time: float) -> float:
@@ -57,7 +63,7 @@ class Amplitude:
             name=name,
             value=self.value,
             kind=self.kind,
-            metadata=self.metadata,
+            metadata=self._identity_metadata,
             derivatives=self.derivatives,
             serializable=self.serializable,
         )
@@ -257,7 +263,7 @@ class Amplitude:
         return {
             "name": self.name,
             "kind": self.kind,
-            "metadata": dict(self.metadata),
+            "metadata": deepcopy(self._identity_metadata),
             "serializable": bool(self.serializable),
         }
 
@@ -496,19 +502,27 @@ def tabular(
 ) -> Amplitude:
     """Create a linearly interpolated tabular amplitude."""
 
-    time_data = np.asarray(times, dtype=float)
-    value_data = np.asarray(values, dtype=float)
+    # The callable and its serialized fingerprint must keep the same path
+    # even if the caller later reuses or mutates the input NumPy arrays.
+    time_data = np.array(times, dtype=float, copy=True)
+    value_data = np.array(values, dtype=float, copy=True)
     if time_data.ndim != 1 or value_data.ndim != 1:
         raise ValueError("tabular requires one-dimensional times and values.")
     if len(time_data) != len(value_data):
         raise ValueError("tabular requires the same number of times and values.")
     if len(time_data) == 0:
         raise ValueError("tabular requires at least one point.")
+    if not np.all(np.isfinite(time_data)) or not np.all(np.isfinite(value_data)):
+        raise ValueError("tabular times and values must be finite.")
     if np.any(np.diff(time_data) <= 0.0):
         raise ValueError("tabular times must be strictly increasing.")
 
     left_value = value_data[0] if left is None else float(left)
     right_value = value_data[-1] if right is None else float(right)
+    if not np.isfinite(left_value) or not np.isfinite(right_value):
+        raise ValueError("tabular endpoint values must be finite.")
+    time_data.setflags(write=False)
+    value_data.setflags(write=False)
 
     def evaluate(time: float) -> float:
         return float(

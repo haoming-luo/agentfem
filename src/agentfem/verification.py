@@ -524,6 +524,8 @@ def assess(
         required_quantities=tuple(required_quantities),
         required_histories=tuple(required_histories),
         required_artifacts=tuple(required_artifacts),
+        require_contact_feature_integrity=policy.name != "exploratory",
+        require_contact_feature_certification=policy.name == "release",
     )
     selected_convergence = (
         _infer_converged(result)
@@ -556,6 +558,8 @@ def _runtime_checks(
     required_quantities: tuple[str, ...],
     required_histories: tuple[str, ...],
     required_artifacts: tuple[str, ...],
+    require_contact_feature_integrity: bool,
+    require_contact_feature_certification: bool,
 ) -> tuple[VerificationClaim, ...]:
     quantities = getattr(result, "quantities", {})
     fields = getattr(result, "fields", {})
@@ -668,6 +672,57 @@ def _runtime_checks(
             )
         )
 
+    feature_ok, feature_evidence = _contact_feature_evidence(result)
+    if require_contact_feature_integrity and feature_evidence["inspected"]:
+        claims.append(
+            _runtime_claim(
+                "no_observed_uncertified_contact_feature_transition",
+                feature_ok,
+                observable="accepted rigid-contact point diagnostics",
+                actual=feature_evidence,
+                expected=(
+                    "no sampled mixed-feature face without certified integration "
+                    "and no unsupported active edge/vertex contact"
+                ),
+                criterion=(
+                    "sampled active feature switches require a supported "
+                    "transition integral; active lower-dimensional contact "
+                    "requires its own law; no observed switch is not a "
+                    "whole-face or whole-path coverage certificate"
+                ),
+            )
+        )
+        if require_contact_feature_certification:
+            records = feature_evidence["records"]
+            accepted_path = feature_evidence.get("accepted_path")
+            path_certified = (
+                isinstance(accepted_path, Mapping)
+                and accepted_path.get("complete") is True
+                and isinstance(accepted_path.get("pairs"), (tuple, list))
+                and all(
+                    isinstance(item, Mapping)
+                    and item.get("all_observed_integrals_certified") is True
+                    for item in accepted_path["pairs"]
+                )
+            )
+            certified = not feature_evidence["issues"] and all(
+                item["feature_transition_integral_certified"]
+                for item in records
+            ) and path_certified
+            claims.append(
+                _runtime_claim(
+                    "polyhedral_contact_integral_certified",
+                    certified,
+                    observable="accepted reviewed faceted contact integration diagnostics",
+                    actual=feature_evidence,
+                    expected="every reviewed faceted pair has certified feature integration",
+                    criterion=(
+                        "zero sampled-switch or active-point counts cannot certify "
+                        "the integral or whole-face separation"
+                    ),
+                )
+            )
+
     execution = getattr(result, "metadata", {}).get("execution")
     if isinstance(execution, Mapping):
         events = execution.get("events", ())
@@ -696,6 +751,179 @@ def _runtime_checks(
             )
         )
     return tuple(claims)
+
+
+def _contact_feature_evidence(result) -> tuple[bool, dict[str, object]]:
+    """Expose a known contact-integration gap without inventing validation."""
+
+    metadata = getattr(result, "metadata", {})
+    raw = (
+        metadata.get("rigid_contact_point_diagnostics")
+        if isinstance(metadata, Mapping)
+        else None
+    )
+    if raw is None:
+        path = (
+            metadata.get("rigid_contact_feature_path")
+            if isinstance(metadata, Mapping) else None
+        )
+        if path is None:
+            return True, {"inspected": False}
+        return False, {
+            "inspected": True,
+            "records": (),
+            "accepted_path": path,
+            "issues": ("accepted contact feature path has no current pair diagnostics",),
+            "scope": "sampled_warning_not_complete_feature_coverage_proof",
+        }
+    records = (raw,) if isinstance(raw, Mapping) else raw
+    if not isinstance(records, (tuple, list)):
+        return False, {
+            "inspected": True,
+            "records": (),
+            "issues": ("invalid contact diagnostic layout",),
+        }
+    observed = []
+    issues = []
+    inspected = False
+    for index, item in enumerate(records):
+        if not isinstance(item, Mapping):
+            issues.append(f"contact diagnostic {index} is not a mapping")
+            inspected = True
+            continue
+        if "sampled_mixed_feature_slave_faces" not in item:
+            continue
+        inspected = True
+        count = item["sampled_mixed_feature_slave_faces"]
+        active_count = item.get("active_point_count")
+        certified = item.get("feature_transition_integral_certified")
+        feature_counts = item.get("active_feature_counts")
+        if (
+            isinstance(count, bool)
+            or not isinstance(count, (int, np.integer))
+            or count < 0
+            or not isinstance(certified, bool)
+            or (
+                active_count is not None
+                and (
+                    isinstance(active_count, bool)
+                    or not isinstance(active_count, (int, np.integer))
+                    or active_count < 0
+                )
+            )
+        ):
+            issues.append(f"contact diagnostic {index} has invalid feature evidence")
+            continue
+        if feature_counts is not None and (
+            not isinstance(feature_counts, Mapping)
+            or set(feature_counts) != {"face", "edge", "vertex"}
+            or any(
+                isinstance(value, bool)
+                or not isinstance(value, (int, np.integer))
+                or value < 0
+                for value in feature_counts.values()
+            )
+            or (
+                active_count is not None
+                and sum(feature_counts.values()) != active_count
+            )
+        ):
+            issues.append(f"contact diagnostic {index} has invalid active feature counts")
+            continue
+        record = {
+            "constraint": str(item.get("constraint", index)),
+            "sampled_mixed_feature_slave_faces": int(count),
+            "feature_transition_integral_certified": certified,
+            "active_point_count": (
+                None if active_count is None else int(active_count)
+            ),
+            "active_feature_counts": (
+                None if feature_counts is None
+                else {key: int(feature_counts[key]) for key in ("face", "edge", "vertex")}
+            ),
+        }
+        observed.append(record)
+        if count > 0 and not certified:
+            issues.append(
+                f"{record['constraint']} has {int(count)} sampled mixed-feature "
+                "slave faces without a certified transition integral"
+            )
+        if feature_counts is not None and (
+            feature_counts["edge"] or feature_counts["vertex"]
+        ):
+            issues.append(
+                f"{record['constraint']} has sampled active physical "
+                "edge/vertex contact without an admitted lower-dimensional law"
+            )
+    path = metadata.get("rigid_contact_feature_path")
+    if path is not None:
+        inspected = True
+        expected_pairs = {
+            item["constraint"] for item in observed
+            if item["active_feature_counts"] is not None
+            or "sampled_mixed_feature_slave_faces" in item
+        }
+        if not expected_pairs:
+            issues.append("accepted contact feature path has no reviewed faceted pair")
+        path_pairs = path.get("pairs") if isinstance(path, Mapping) else None
+        if (
+            not isinstance(path, Mapping)
+            or path.get("schema") != "agentfem.contact-feature-path.v1"
+            or type(path.get("complete")) is not bool
+            or type(path.get("accepted_station_count")) is not int
+            or path["accepted_station_count"] < 1
+            or not isinstance(path_pairs, (tuple, list))
+        ):
+            issues.append("accepted contact feature path has invalid schema")
+        else:
+            seen = set()
+            for item in path_pairs:
+                if not isinstance(item, Mapping):
+                    issues.append("accepted contact feature path has invalid pair")
+                    continue
+                name = item.get("constraint")
+                counts = (
+                    "accepted_station_count",
+                    "maximum_sampled_mixed_feature_slave_faces",
+                    "maximum_active_edge_points",
+                    "maximum_active_vertex_points",
+                )
+                if (
+                    not isinstance(name, str) or name in seen
+                    or any(type(item.get(key)) is not int or item[key] < 0 for key in counts)
+                    or type(item.get("all_observed_integrals_certified")) is not bool
+                    or item["accepted_station_count"] > path["accepted_station_count"]
+                ):
+                    issues.append("accepted contact feature path has invalid pair counts")
+                    continue
+                seen.add(name)
+                if item["accepted_station_count"] != path["accepted_station_count"]:
+                    issues.append(f"{name} contact feature path omits accepted stations")
+                if item["maximum_sampled_mixed_feature_slave_faces"] > 0 and not item[
+                    "all_observed_integrals_certified"
+                ]:
+                    issues.append(
+                        f"{name} had a sampled mixed-feature slave face at an "
+                        "earlier accepted station without certified integration"
+                    )
+                if item["maximum_active_edge_points"] or item[
+                    "maximum_active_vertex_points"
+                ]:
+                    issues.append(
+                        f"{name} had active physical edge/vertex contact at an "
+                        "earlier accepted station without an admitted law"
+                    )
+            if seen != expected_pairs:
+                issues.append("accepted contact feature path pair coverage differs")
+            if not path["complete"]:
+                issues.append("accepted contact feature path is incomplete")
+    return not issues, {
+        "inspected": inspected,
+        "records": tuple(observed),
+        "accepted_path": path,
+        "issues": tuple(issues),
+        "scope": "sampled_warning_not_complete_feature_coverage_proof",
+    }
 
 
 def _checkpoint_contract_evidence(result) -> tuple[bool, dict[str, object]]:

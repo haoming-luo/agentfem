@@ -38,33 +38,36 @@ class PeriodicCubeFixture:
         )
 
 
-def periodic_unit_cube(comm, *, stretch: float = 1.02) -> PeriodicCubeFixture:
-    """Return a 2 x 2 x 2 tetrahedral cell with isochoric macro tension."""
+def periodic_unit_cube(comm, *, stretch: float = 1.02, cells: int = 2) -> PeriodicCubeFixture:
+    """Return a structured periodic tetrahedral cell with isochoric macro tension."""
 
     if not np.isfinite(stretch) or stretch <= 0.0:
         raise ValueError("stretch must be finite and positive.")
-    domain = dolfinx_mesh.create_unit_cube(comm, 2, 2, 2)
+    if type(cells) is not int or cells < 1:
+        raise ValueError("cells must be a positive integer.")
+    side = cells + 1
+    domain = dolfinx_mesh.create_unit_cube(comm, cells, cells, cells)
     coordinates = []
     labels = []
     label_by_index = {}
-    for k in range(3):
-        for j in range(3):
-            for i in range(3):
-                label = 1 + i + 3 * j + 9 * k
+    for k in range(side):
+        for j in range(side):
+            for i in range(side):
+                label = 1 + i + side * j + side**2 * k
                 labels.append(label)
-                coordinates.append((0.5 * i, 0.5 * j, 0.5 * k))
+                coordinates.append((i / cells, j / cells, k / cells))
                 label_by_index[(i, j, k)] = label
 
     anchor = label_by_index[(0, 0, 0)]
     references = (
-        label_by_index[(2, 0, 0)],
-        label_by_index[(0, 2, 0)],
-        label_by_index[(0, 0, 2)],
+        label_by_index[(cells, 0, 0)],
+        label_by_index[(0, cells, 0)],
+        label_by_index[(0, 0, cells)],
     )
     control_nodes = {anchor, *references}
     equations = []
     for index, slave in label_by_index.items():
-        active_axes = tuple(axis for axis, value in enumerate(index) if value == 2)
+        active_axes = tuple(axis for axis, value in enumerate(index) if value == cells)
         if not active_axes or slave in control_nodes:
             continue
         base_index = list(index)
@@ -97,4 +100,3 @@ def periodic_unit_cube(comm, *, stretch: float = 1.02) -> PeriodicCubeFixture:
         anchor_node=anchor,
         reference_nodes=references,
     )
-

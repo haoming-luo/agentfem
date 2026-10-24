@@ -1,0 +1,17 @@
+{
+  "scope": "Preserved failed regression before changing the comparison geometry, not a passing performance report",
+  "source_commit": "5d73ecf361c39c5b3c3a2538f336d46a9cca3bc2",
+  "job_url": "https://github.com/haoming-luo/agentfem/actions/runs/40112491781/job/120926978267",
+  "test": "tests/test_finite_strain_plasticity.py::test_batch_spectral_return_preserves_cyclic_rotated_history[0.0]",
+  "field": "first_piola_stress",
+  "component_index": [1022, 1, 1],
+  "actual": -13.895567803817633,
+  "reference_scalar": -13.89556777046824,
+  "absolute_difference": 3.33493926e-8,
+  "relative_difference": 2.40000215e-9,
+  "original_componentwise_gate": {"rtol": 2e-9, "atol": 2e-9},
+  "failed_components": 1,
+  "components_compared": 9225,
+  "suite": {"failed": 1, "passed": 4961, "skipped": 428, "seconds": 1668.80},
+  "interpretation": "Requires precision/conditioning diagnosis. Scalar and batch histories are independent; neither binary64 route is an exact reference. No runtime threshold or material equation changed to address this gate."
+}

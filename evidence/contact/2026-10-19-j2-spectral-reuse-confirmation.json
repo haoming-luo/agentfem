@@ -1,0 +1,408 @@
+{
+  "schema": "agentfem.j2-call-local-spectrum-benchmark.v1",
+  "scope": "specific_material_batch_and_serial_implicit_plane_contact_not_general_speedup",
+  "reference_revision": "bd9b3118",
+  "reference_source_sha256": "7b591ccdc0eaf9efe9adb3824d46c87a55ed912075f5aff09130c180196914eb",
+  "current_source_sha256": "65dfd7810a5752d3c9a8a745deffe98634c25b4755a710d62455d94e2e6f9318",
+  "benchmark_sha256": "9ea8f82a4619fe1cf410cc7284453efe5cd9fd2fdd26c92d110e8185cf1fcf46",
+  "git_commit": "bd9b3118473886f8e3047b1deed2a248d389fda1",
+  "platform": "macOS-26.6.2-arm64-arm-64bit",
+  "numpy_version": "2.4.6",
+  "thread_environment": {
+    "OMP_NUM_THREADS": "1",
+    "OPENBLAS_NUM_THREADS": "1",
+    "VECLIB_MAXIMUM_THREADS": "1"
+  },
+  "excluded": "imports_setup_JIT_warmup_checkpoint_export",
+  "comparisons": {
+    "material_4096_points": {
+      "seconds": {
+        "reference": [
+          0.02674620831385255,
+          0.02660354133695364,
+          0.026775999926030636,
+          0.027054499834775925,
+          0.0270343329757452
+        ],
+        "reused": [
+          0.02134349988773465,
+          0.021624375134706497,
+          0.021310874726623297,
+          0.021889917086809874,
+          0.021771499887108803
+        ]
+      },
+      "median_seconds": {
+        "reference": 0.026775999926030636,
+        "reused": 0.021624375134706497
+      },
+      "execution_order": [
+        {
+          "repeat": -1,
+          "warmup": true,
+          "order": [
+            "reference",
+            "reused"
+          ]
+        },
+        {
+          "repeat": 0,
+          "warmup": false,
+          "order": [
+            "reference",
+            "reused"
+          ]
+        },
+        {
+          "repeat": 1,
+          "warmup": false,
+          "order": [
+            "reused",
+            "reference"
+          ]
+        },
+        {
+          "repeat": 2,
+          "warmup": false,
+          "order": [
+            "reference",
+            "reused"
+          ]
+        },
+        {
+          "repeat": 3,
+          "warmup": false,
+          "order": [
+            "reference",
+            "reused"
+          ]
+        },
+        {
+          "repeat": 4,
+          "warmup": false,
+          "order": [
+            "reference",
+            "reused"
+          ]
+        }
+      ],
+      "elapsed_reduction_fraction": 0.19239710208976812,
+      "maximum_absolute_difference": {
+        "stress": 0.0,
+        "tangent": 0.0,
+        "state": 0.0,
+        "energy": 0.0,
+        "dissipation": 0.0
+      }
+    },
+    "whole_step_3_cells_per_edge": {
+      "seconds": {
+        "reference": [
+          0.7737830416299403,
+          0.7554411669261754,
+          0.7473460831679404,
+          0.7447204580530524,
+          0.742342125158757
+        ],
+        "reused": [
+          0.6612462499178946,
+          0.6666485830210149,
+          0.6710127079859376,
+          0.6550437919795513,
+          0.6563203330151737
+        ]
+      },
+      "median_seconds": {
+        "reference": 0.7473460831679404,
+        "reused": 0.6612462499178946
+      },
+      "execution_order": [
+        {
+          "repeat": -1,
+          "warmup": true,
+          "order": [
+            "reference",
+            "reused"
+          ]
+        },
+        {
+          "repeat": 0,
+          "warmup": false,
+          "order": [
+            "reference",
+            "reused"
+          ]
+        },
+        {
+          "repeat": 1,
+          "warmup": false,
+          "order": [
+            "reused",
+            "reference"
+          ]
+        },
+        {
+          "repeat": 2,
+          "warmup": false,
+          "order": [
+            "reference",
+            "reused"
+          ]
+        },
+        {
+          "repeat": 3,
+          "warmup": false,
+          "order": [
+            "reused",
+            "reference"
+          ]
+        },
+        {
+          "repeat": 4,
+          "warmup": false,
+          "order": [
+            "reused",
+            "reference"
+          ]
+        }
+      ],
+      "elapsed_reduction_fraction": 0.1152074456389407,
+      "maximum_absolute_difference": {
+        "u": 0.0,
+        "state": 0.0,
+        "force": 0.0,
+        "iterations": 0.0,
+        "factor_0": 0.0,
+        "u_0": 0.0,
+        "field_0_F": 0.0,
+        "field_0_P": 0.0,
+        "field_0_S": 0.0,
+        "field_0_MISES": 0.0,
+        "field_0_SENER": 0.0,
+        "field_0_FP": 0.0,
+        "field_0_PEEQ": 0.0,
+        "field_0_PDENER": 0.0,
+        "field_0_ELENER": 0.0,
+        "field_0_HARDENER": 0.0,
+        "factor_1": 0.0,
+        "u_1": 0.0,
+        "field_1_F": 0.0,
+        "field_1_P": 0.0,
+        "field_1_S": 0.0,
+        "field_1_MISES": 0.0,
+        "field_1_SENER": 0.0,
+        "field_1_FP": 0.0,
+        "field_1_PEEQ": 0.0,
+        "field_1_PDENER": 0.0,
+        "field_1_ELENER": 0.0,
+        "field_1_HARDENER": 0.0
+      }
+    },
+    "whole_step_5_cells_per_edge": {
+      "seconds": {
+        "reference": [
+          2.498428165912628,
+          2.4861473753117025,
+          2.4833034588955343,
+          2.496827917173505,
+          2.468795041088015
+        ],
+        "reused": [
+          2.1494747498072684,
+          2.1597298751585186,
+          2.1329335407353938,
+          2.1726916669867933,
+          2.1581142502836883
+        ]
+      },
+      "median_seconds": {
+        "reference": 2.4861473753117025,
+        "reused": 2.1581142502836883
+      },
+      "execution_order": [
+        {
+          "repeat": -1,
+          "warmup": true,
+          "order": [
+            "reference",
+            "reused"
+          ]
+        },
+        {
+          "repeat": 0,
+          "warmup": false,
+          "order": [
+            "reused",
+            "reference"
+          ]
+        },
+        {
+          "repeat": 1,
+          "warmup": false,
+          "order": [
+            "reference",
+            "reused"
+          ]
+        },
+        {
+          "repeat": 2,
+          "warmup": false,
+          "order": [
+            "reused",
+            "reference"
+          ]
+        },
+        {
+          "repeat": 3,
+          "warmup": false,
+          "order": [
+            "reused",
+            "reference"
+          ]
+        },
+        {
+          "repeat": 4,
+          "warmup": false,
+          "order": [
+            "reused",
+            "reference"
+          ]
+        }
+      ],
+      "elapsed_reduction_fraction": 0.13194436029235268,
+      "maximum_absolute_difference": {
+        "u": 0.0,
+        "state": 0.0,
+        "force": 0.0,
+        "iterations": 0.0,
+        "factor_0": 0.0,
+        "u_0": 0.0,
+        "field_0_F": 0.0,
+        "field_0_P": 0.0,
+        "field_0_S": 0.0,
+        "field_0_MISES": 0.0,
+        "field_0_SENER": 0.0,
+        "field_0_FP": 0.0,
+        "field_0_PEEQ": 0.0,
+        "field_0_PDENER": 0.0,
+        "field_0_ELENER": 0.0,
+        "field_0_HARDENER": 0.0,
+        "factor_1": 0.0,
+        "u_1": 0.0,
+        "field_1_F": 0.0,
+        "field_1_P": 0.0,
+        "field_1_S": 0.0,
+        "field_1_MISES": 0.0,
+        "field_1_SENER": 0.0,
+        "field_1_FP": 0.0,
+        "field_1_PEEQ": 0.0,
+        "field_1_PDENER": 0.0,
+        "field_1_ELENER": 0.0,
+        "field_1_HARDENER": 0.0
+      }
+    },
+    "whole_step_8_cells_per_edge": {
+      "seconds": {
+        "reference": [
+          10.609362416900694,
+          10.618193124886602,
+          10.578246708028018,
+          10.581562875304371,
+          10.956504042260349
+        ],
+        "reused": [
+          9.189501500222832,
+          9.176880499813706,
+          9.381700791884214,
+          9.129627415910363,
+          9.655882999766618
+        ]
+      },
+      "median_seconds": {
+        "reference": 10.609362416900694,
+        "reused": 9.189501500222832
+      },
+      "execution_order": [
+        {
+          "repeat": -1,
+          "warmup": true,
+          "order": [
+            "reference",
+            "reused"
+          ]
+        },
+        {
+          "repeat": 0,
+          "warmup": false,
+          "order": [
+            "reference",
+            "reused"
+          ]
+        },
+        {
+          "repeat": 1,
+          "warmup": false,
+          "order": [
+            "reference",
+            "reused"
+          ]
+        },
+        {
+          "repeat": 2,
+          "warmup": false,
+          "order": [
+            "reused",
+            "reference"
+          ]
+        },
+        {
+          "repeat": 3,
+          "warmup": false,
+          "order": [
+            "reused",
+            "reference"
+          ]
+        },
+        {
+          "repeat": 4,
+          "warmup": false,
+          "order": [
+            "reference",
+            "reused"
+          ]
+        }
+      ],
+      "elapsed_reduction_fraction": 0.13383093732532192,
+      "maximum_absolute_difference": {
+        "u": 0.0,
+        "state": 0.0,
+        "force": 0.0,
+        "iterations": 0.0,
+        "factor_0": 0.0,
+        "u_0": 0.0,
+        "field_0_F": 0.0,
+        "field_0_P": 0.0,
+        "field_0_S": 0.0,
+        "field_0_MISES": 0.0,
+        "field_0_SENER": 0.0,
+        "field_0_FP": 0.0,
+        "field_0_PEEQ": 0.0,
+        "field_0_PDENER": 0.0,
+        "field_0_ELENER": 0.0,
+        "field_0_HARDENER": 0.0,
+        "factor_1": 0.0,
+        "u_1": 0.0,
+        "field_1_F": 0.0,
+        "field_1_P": 0.0,
+        "field_1_S": 0.0,
+        "field_1_MISES": 0.0,
+        "field_1_SENER": 0.0,
+        "field_1_FP": 0.0,
+        "field_1_PEEQ": 0.0,
+        "field_1_PDENER": 0.0,
+        "field_1_ELENER": 0.0,
+        "field_1_HARDENER": 0.0
+      }
+    }
+  }
+}

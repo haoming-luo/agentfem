@@ -201,6 +201,8 @@ jobs:
       - name: Build and install the wheel under test
         run: |
           python -m pip install --upgrade build
+          export AGENTFEM_GMP_PREFIX="${CONDA_PREFIX}"
+          test -f "${AGENTFEM_GMP_PREFIX}/include/gmp.h"
           python -m build --wheel
           python -m pip install meshio
           python -m pip install --no-deps --force-reinstall dist/*.whl
@@ -228,7 +230,10 @@ jobs:
       needs.change-scope.outputs.level == 'core' ||
       needs.change-scope.outputs.level == 'release'
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    # The release tier includes the full serial suite, MPI restart checks and
+    # installed demos. Successful tests previously exhausted 30 min before
+    # the demo gate finished; allow bounded runner variance without skipping it.
+    timeout-minutes: 45
     concurrency:
       group: test-core-${{ github.event.pull_request.number || github.ref }}
       cancel-in-progress: true
@@ -237,6 +242,9 @@ jobs:
     # and TCP transports, including the two-rank regression jobs below.
     env:
       UCX_TLS: tcp,sm,self
+      OMP_NUM_THREADS: "1"
+      OPENBLAS_NUM_THREADS: "1"
+      MKL_NUM_THREADS: "1"
       VALIDATION_LEVEL: ${{ needs.change-scope.outputs.level }}
       CHANGED_TESTS: ${{ needs.change-scope.outputs.tests }}
       CHANGED_MPI_TESTS: ${{ needs.change-scope.outputs.mpi_tests }}
@@ -261,6 +269,10 @@ jobs:
       - name: Build and install the wheel users receive
         run: |
           python -m pip install --upgrade build twine
+          # PEP 517 builds in a temporary Python environment. Keep the reviewed
+          # numerical environment's optional GMP headers/library discoverable.
+          export AGENTFEM_GMP_PREFIX="${CONDA_PREFIX}"
+          test -f "${AGENTFEM_GMP_PREFIX}/include/gmp.h"
           python -m build
           python -m twine check dist/*
           python release_gate.py --dist dist
@@ -302,10 +314,13 @@ jobs:
       - name: Verify the optional stateless native kernels from an installed wheel
         run: |
           native_root=$(mktemp -d)
+          export AGENTFEM_GMP_PREFIX="${CONDA_PREFIX}"
+          test -f "${AGENTFEM_GMP_PREFIX}/include/gmp.h"
           AGENTFEM_BUILD_NATIVE=1 python -m build --wheel --outdir "${native_root}/dist"
           python -m pip install --no-deps --target "${native_root}/site" "${native_root}"/dist/*.whl
           export PYTHONPATH="${native_root}/site"
           python -c "import agentfem._hex_native"
+          python -c "import agentfem._q1_native; from agentfem import _body_pipeline as b; assert hasattr(b, 'run_damped_checked')"
           python -m pytest -q -o pythonpath= \
             tests/test_hex_native.py tests/test_hex_validity_blocks.py \
             tests/test_hex_validity.py tests/test_orientation.py \
@@ -315,6 +330,8 @@ jobs:
             tests/test_builtin_hex_execution.py tests/test_native_material_execution.py \
             tests/test_native_hex_auxiliary.py \
             tests/test_builtin_q1_execution.py \
+            tests/test_q1_interior_sign.py tests/test_q1_worker_restart.py \
+            tests/test_native_damped_body.py \
             tests/test_response_substeps.py tests/test_response_deformable_step.py \
             tests/test_finite_uniform_hex_dolfinx.py
 
@@ -384,7 +401,7 @@ jobs:
       - name: Run distributed constraint and result tests
         if: needs.change-scope.outputs.level == 'release'
         run: >-
-          mpirun -n 2 python -m pytest
+          agentfem mpi-run -n 2 --timeout 180 -- python -m pytest
           tests/test_parallel_affine.py
           tests/test_parallel_cli.py
           tests/test_parallel_cohesive.py
@@ -393,6 +410,8 @@ jobs:
           tests/test_parallel_mixed.py
           tests/test_parallel_modal.py
           tests/test_parallel_results.py
+          tests/test_quadrature_physical_recovery.py
+          tests/test_inelastic_increment_prediction.py::test_distributed_prediction_is_rejected_before_material_allocation
           tests/test_parallel_transient.py
           tests/test_parallel_uniform_hex.py
           tests/test_parallel_viscoelasticity.py

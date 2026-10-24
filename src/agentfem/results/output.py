@@ -5,6 +5,7 @@
 
 from __future__ import annotations
 
+from copy import deepcopy
 from dataclasses import dataclass
 from pathlib import Path
 from types import SimpleNamespace
@@ -422,6 +423,8 @@ class UnifiedXDMFTimeSeries:
     ) -> None:
         self.path = Path(path)
         self.h5_path = self.path.with_suffix(".h5")
+        self.partial_path = self.path.with_name(f"{self.path.stem}.partial{self.path.suffix}")
+        self._partial_owned = False
         self.deformation_scale = float(deformation_scale)
         if not np.isfinite(self.deformation_scale):
             raise ValueError("Output deformation scale must be finite.")
@@ -436,12 +439,35 @@ class UnifiedXDMFTimeSeries:
         self._field_contract = None
         self._last_time = None
         self._write_failed = False
+        self._closed = False
+        self._close_error = None
+
+    def _require_open(self) -> None:
+        if self._closed:
+            raise RuntimeError("Output writer is closed; use a new writer and artifact.")
 
     def __enter__(self):
+        self._require_open()
         self.path.parent.mkdir(parents=True, exist_ok=True)
+        if self.partial_path.exists():
+            raise FileExistsError("A partial output index exists; use a fresh result path.")
         return self
 
     def __exit__(self, exc_type, exc, tb):
+        if self._closed:
+            if self._close_error is not None:
+                raise RuntimeError("Output writer close failed; artifact remains incomplete.") from self._close_error
+            return False
+        # A completed or interrupted writer cannot be revived. In particular,
+        # opening its HDF5 path again in write mode would truncate prior frames.
+        self._closed = True
+        try:
+            return self._close(exc_type)
+        except BaseException as error:
+            self._close_error = error
+            raise
+
+    def _close(self, exc_type):
         if self._h5 is not None:
             self._h5.close()
             self._h5 = None
@@ -450,10 +476,21 @@ class UnifiedXDMFTimeSeries:
         if exc_type is None:
             if self._frame_count == 0:
                 raise ValueError("UnifiedXDMFTimeSeries wrote no result frames.")
-            tree = ET.ElementTree(self._root)
-            ET.indent(tree, space="  ")
-            tree.write(self.path, encoding="utf-8", xml_declaration=True)
+            self._publish_index(self.path, partial=False)
+            if self._partial_owned:
+                self.partial_path.unlink(missing_ok=True)
+                self._partial_owned = False
         return False
+
+    def _publish_index(self, path: Path, *, partial: bool) -> None:
+        from ..checkpointing import atomic_write_text
+
+        root = deepcopy(self._root)
+        if partial:
+            ET.SubElement(root.find("Domain"), "Information",
+                          Name="agentfem_output_status", Value="incomplete")
+        ET.indent(root, space="  ")
+        atomic_write_text(path, ET.tostring(root, encoding="unicode", xml_declaration=True))
 
     def _initialize(self, primary) -> None:
         domain = primary.function_space.mesh
@@ -518,6 +555,8 @@ class UnifiedXDMFTimeSeries:
             CollectionType="Temporal",
         )
     def _open_storage(self) -> None:
+        if self.partial_path.exists():
+            raise FileExistsError("A partial output index exists; use a fresh result path.")
         self._h5 = h5py.File(self.h5_path, "w")
         self._h5.attrs["agentfem_schema"] = "agentfem.unified-xdmf"
         self._h5.attrs["schema_version"] = "0.1.0"
@@ -548,9 +587,43 @@ class UnifiedXDMFTimeSeries:
                 "ReferenceGeometry", data=self._reference_coordinates, **self._h5_options
             )
 
+    def _write_frame_attributes(self, group, attributes, component_metadata):
+        groups = {"Node": group.create_group("Point"), "Cell": group.create_group("Cell")}
+        for name, center, values in attributes:
+            dataset = groups[center].create_dataset(name, data=values, **self._h5_options)
+            if name in component_metadata:
+                physical, stored = component_metadata[name]
+                dataset.attrs["physical_components"] = physical
+                dataset.attrs["stored_components"] = stored
+            if name == self._primary_name and self._vector_primary:
+                dataset.attrs["semantic_name"] = self._primary_semantic_name
+
+    def _store_frame(self, frame_name, time, geometry, attributes, component_metadata):
+        if self._h5 is None:
+            self._open_storage()
+        group = self._h5.create_group(f"Frames/{frame_name}")
+        group.attrs["load_factor"] = time
+        group.attrs["coordinate"] = time
+        if self._effective_scale == 0 and self._frame_count:
+            group["Geometry"] = self._h5["Frames/0000/Geometry"]
+        elif self._effective_scale == 0 and self.store_reference_geometry:
+            group["Geometry"] = self._h5["Mesh/ReferenceGeometry"]
+        else:
+            group.create_dataset("Geometry", data=geometry, **self._h5_options)
+        self._write_frame_attributes(group, attributes, component_metadata)
+        # Bounded protection for exits between writes, not SWMR or checkpointing.
+        self._h5.flush()
+        return (self.h5_path.name, self.h5_path.name,
+                f"{self.h5_path.name}:/Frames/{frame_name}/Geometry")
+
+    def _publish_frame_index(self):
+        self._publish_index(self.partial_path, partial=True)
+        self._partial_owned = True
+
     def write_fields(self, time: float, *fields) -> None:
         """Append one time value with one primary and any auxiliary fields."""
 
+        self._require_open()
         if not fields:
             raise ValueError("UnifiedXDMFTimeSeries requires at least one field.")
         if self._write_failed:
@@ -646,27 +719,8 @@ class UnifiedXDMFTimeSeries:
         # time or field cannot poison the next valid frame or publish partial data.
         frame_name = f"{self._frame_count:04d}"
         try:
-            if self._h5 is None:
-                self._open_storage()
-            frame_group = self._h5.create_group(f"Frames/{frame_name}")
-            frame_group.attrs["load_factor"] = time
-            frame_group.attrs["coordinate"] = time
-            if self._effective_scale == 0 and self._frame_count:
-                frame_group["Geometry"] = self._h5["Frames/0000/Geometry"]
-            elif self._effective_scale == 0 and self.store_reference_geometry:
-                frame_group["Geometry"] = self._h5["Mesh/ReferenceGeometry"]
-            else:
-                frame_group.create_dataset("Geometry", data=geometry, **self._h5_options)
-            groups = {"Node": frame_group.create_group("Point"),
-                      "Cell": frame_group.create_group("Cell")}
-            for name, center, values in attributes:
-                dataset = groups[center].create_dataset(name, data=values, **self._h5_options)
-                if name in component_metadata:
-                    physical, stored = component_metadata[name]
-                    dataset.attrs["physical_components"] = physical
-                    dataset.attrs["stored_components"] = stored
-                if name == self._primary_name and self._vector_primary:
-                    dataset.attrs["semantic_name"] = self._primary_semantic_name
+            mesh_reference, frame_reference, geometry_reference = self._store_frame(
+                frame_name, time, geometry, attributes, component_metadata)
         except BaseException:
             self._write_failed = True
             raise
@@ -677,7 +731,9 @@ class UnifiedXDMFTimeSeries:
             Name=f"Frame_{frame_name}",
             GridType="Uniform",
         )
-        ET.SubElement(grid, "Time", Value=f"{float(time):.16g}")
+        # Presentation logs may round; a machine-readable time index must
+        # round-trip binary64 so distinct accepted stations cannot collapse.
+        ET.SubElement(grid, "Time", Value=f"{float(time):.17g}")
         topology_xml = ET.SubElement(
             grid,
             "Topology",
@@ -689,13 +745,13 @@ class UnifiedXDMFTimeSeries:
             topology_xml,
             dimensions=self._connectivity.shape,
             number_type="Int",
-            value=f"{self.h5_path.name}:/Mesh/Topology",
+            value=f"{mesh_reference}:/Mesh/Topology",
         )
         geometry_xml = ET.SubElement(grid, "Geometry", GeometryType="XYZ")
         _data_item(
             geometry_xml,
             dimensions=geometry.shape,
-            value=f"{self.h5_path.name}:/Frames/{frame_name}/Geometry",
+            value=geometry_reference,
         )
         for name, center, values in attributes:
             group_name = "Point" if center == "Node" else "Cell"
@@ -704,8 +760,16 @@ class UnifiedXDMFTimeSeries:
                 name,
                 center,
                 values,
-                f"{self.h5_path.name}:/Frames/{frame_name}/{group_name}/{name}",
+                f"{frame_reference}:/Frames/{frame_name}/{group_name}/{name}",
             )
+        try:
+            # Only reference a fully written/flushed frame. This small index
+            # is explicitly incomplete and must not be used for live reads
+            # while the non-SWMR heavy-data writer is active.
+            self._publish_frame_index()
+        except BaseException:
+            self._write_failed = True
+            raise
         self._frame_count += 1
         self._last_time = time
         self._field_contract = contract
@@ -1312,7 +1376,7 @@ def write_deformed_vtk_series(
         ET.SubElement(
             collection,
             "DataSet",
-            timestep=f"{snapshot.load_factor:.16g}",
+            timestep=f"{float(snapshot.load_factor):.17g}",
             group="",
             part="0",
             file=str(frame_path.relative_to(pvd.parent)),

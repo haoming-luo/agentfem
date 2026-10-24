@@ -1,0 +1,101 @@
+{
+  "scope": "P1/P2 Gaussian penalty diagnostic, not nodal AL or independent continuum reference",
+  "agentfem_version": "0.4.4.dev0",
+  "git_commit": "197ba2c89b2e624c931258fa3416550af846ac24",
+  "tool_sha256": "eaa6281ee6cb428f87b1c4b5e734e632eabb84348d404f789033fc3c389277d5",
+  "source_sha256": {
+    "solvers.py": "90b24a54ce4dae8d234e572a30998af008f123da781471dbca26623d6fa818af",
+    "_affine_equilibrium.py": "9f3bc9d4825597892f67db3ebb96fe941363a5dcc6307e0cdef7d4e93cc4ff6f",
+    "mechanics/finite_strain_plasticity.py": "e851c96dec369d1e4d683978393f843b6b1825cedc9fa4ceff00aabac9ce1914",
+    "constitutive/quadrature.py": "c48fdef1fffdc1eb5657e1cf1b00e32483ef8b1ac2cc8461a00ab94ee10cc0e3",
+    "steps.py": "43707905b97ea1b01edb43f1ef110c7f8a94be49e6fc384c8655f557fe767a1c",
+    "_nonlinear_problems.py": "0aabb0ba0f9d40d54a181ed10020fed3324df73d406723c0f23832d84095382a",
+    "boundary_models/dolfinx_contact_trace.py": "7e696da048967bfbf3a9847973f57e0ffd840e5c98db5ab7bcca268ff8119982"
+  },
+  "units": {
+    "length": "m",
+    "stress": "Pa",
+    "force": "N",
+    "work": "J"
+  },
+  "options": {
+    "cells": [
+      8
+    ],
+    "degrees": [
+      2
+    ],
+    "increments": null,
+    "plastic_increment_limit": 0.000375,
+    "penalty": 40000.0,
+    "contact_degree": 11,
+    "bulk_degree": 6,
+    "yield_stress": 2.0
+  },
+  "records": [
+    {
+      "cells": 8,
+      "degree": 2,
+      "status": "failed",
+      "error_type": "TimeoutExpired",
+      "error": "The external serial runner stopped this diagnostic at its 1800-second wall-time limit. Only the recorded common stations completed; the full cycle did not complete. This is not a numerical convergence failure diagnosis.",
+      "runner_wall_time_limit_seconds": 1800,
+      "termination_recorded_after_process_exit": true,
+      "stations": [
+        {
+          "factor": 0.25,
+          "displacement_l2": 0.011003166497927439,
+          "force_on_structure": [
+            -4.192627056336948,
+            -0.0,
+            -0.0
+          ],
+          "pressure_area_mean": 16.770508225347804,
+          "maximum_pressure": 129.61585508774576,
+          "active_reference_area": 0.2500000000000002,
+          "maximum_penetration": 0.003240396377193644,
+          "peeq_reference_volume_mean": 0.02265919866949753,
+          "maximum_peeq": 0.07276352823295605,
+          "mpc_equation_mismatch": 3.469446951953614e-18,
+          "normal_relative_work_status": "unavailable_on_this_diagnostic_route"
+        },
+        {
+          "factor": 0.5,
+          "displacement_l2": 0.005287838669217679,
+          "force_on_structure": [
+            -0.0,
+            -0.0,
+            -0.0
+          ],
+          "pressure_area_mean": 0.0,
+          "maximum_pressure": 0.0,
+          "active_reference_area": 0.0,
+          "maximum_penetration": 0.0,
+          "peeq_reference_volume_mean": 0.030718031430970332,
+          "maximum_peeq": 0.07971083990037514,
+          "mpc_equation_mismatch": 8.673617379884035e-19,
+          "normal_relative_work_status": "unavailable_on_this_diagnostic_route"
+        }
+      ],
+      "full_dofs": 14739
+    }
+  ],
+  "incrementation": {
+    "kind": "automatic_incrementation",
+    "initial": 0.03125,
+    "minimum": 0.000244140625,
+    "maximum": 0.0625,
+    "max_increments": 4096,
+    "max_cutbacks": 12,
+    "cutback_factor": 0.5,
+    "growth_factor": 1.5,
+    "fast_iterations": 4,
+    "slow_iterations": 10,
+    "maximum_inelastic_increment": 0.000375,
+    "inelastic_prediction": {
+      "algorithm": "accepted_increment_proportional_cap_v1",
+      "safety": 0.8
+    }
+  },
+  "accuracy_claim": "none: limit refinement and spatial refinement are independent diagnostics"
+}

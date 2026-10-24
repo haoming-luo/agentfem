@@ -33,6 +33,7 @@ from .contact_friction import (
     TangentialContactState,
     TangentialKinematicState,
     relative_contact_displacement_increment,
+    rigid_tangential_history_rotation,
 )
 from .contact_friction_checkpoint import (
     global_friction_state_snapshot,
@@ -396,6 +397,12 @@ class DolfinxExplicitContactResidual:
                     "Explicit contact reference point differs from its rigid body."
                 )
         if contact_pair is not None:
+            if contact_pair.initial_penetration_limit is not None:
+                raise NotImplementedError(
+                    "AFM-CONTACT-INITIAL-OVERLAP: the explicit residual does "
+                    "not yet certify initial penetration limits; use an "
+                    "implicit rigid-contact Step or omit this policy."
+                )
             if rigid_body is not contact_pair.rigid_body:
                 raise ValueError(
                     "Explicit contact rigid body differs from its contact pair."
@@ -557,6 +564,15 @@ class DolfinxExplicitContactResidual:
                 normal_response=response,
                 relative_displacement_increment=relative_increment,
                 accepted=self.friction_state.accepted,
+                history_rotation=rigid_tangential_history_rotation(
+                    None if self.motion_schedule is None
+                    else self.motion_schedule.motion,
+                    accepted_motion_factor=(
+                        0.0 if accepted_kinematics is None
+                        else accepted_kinematics.motion_factor
+                    ),
+                    current_motion_factor=self.current_motion_factor,
+                ),
             )
             friction_assembly = trace_evaluation.assemble_friction(
                 projection.record,

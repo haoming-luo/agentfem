@@ -40,6 +40,7 @@ def _standard_patch(
     checkpoint=None,
     progress=False,
     status_file=None,
+    solver_options=None,
 ):
     domain = dolfinx_mesh.create_unit_cube(MPI.COMM_SELF, 1, 1, 1)
     model = models.create(
@@ -78,7 +79,7 @@ def _standard_patch(
         target=displacement,
         material=material_record,
         incrementation=incrementation,
-        solver_options=solvers.newton(
+        solver_options=solver_options or solvers.newton(
             relative_tolerance=1.0e-8,
             absolute_tolerance=1.0e-9,
             maximum_iterations=20,
@@ -91,6 +92,38 @@ def _standard_patch(
         status_file=status_file,
     )
     return model, displacement, material, step
+
+
+def test_corrected_inner_linear_policy_rejects_legacy_transport_identity(tmp_path, monkeypatch):
+    policy = solvers.newton(linear_solver=solvers.LinearSolverOptions(
+        ksp_type="gmres", pc_type="ilu", rtol=1e-12, atol=1e-14, max_it=200,
+    ))
+    _, _, _, partial = _standard_patch(incrementation=steps.fixed(4), solver_options=policy)
+    partial.solve(until=.5)
+    correct = partial.save_checkpoint(tmp_path / "correct_linear_transport")
+    original = solvers.NewtonSolverOptions.summary
+    def legacy_summary(self):
+        record = original(self)
+        record.pop("linear_tolerance_transport", None)
+        return record
+    # Simulate only the old identity schema, not an old numerical solution.
+    with monkeypatch.context() as patch:
+        patch.setattr(solvers.NewtonSolverOptions, "summary", legacy_summary)
+        legacy = partial.save_checkpoint(tmp_path / "legacy_linear_transport")
+    _, _, _, resumed = _standard_patch(incrementation=steps.fixed(4), solver_options=policy)
+    initial = resumed.solution.x.array.copy()
+    with pytest.raises(ValueError, match="identity"):
+        resumed.load_checkpoint(legacy)
+    np.testing.assert_array_equal(resumed.solution.x.array, initial)
+    assert resumed.accepted_load_factor == 0.
+    resumed.load_checkpoint(correct)
+    resumed.solve()
+    partial.solve()
+    np.testing.assert_allclose(resumed.solution.x.array, partial.solution.x.array,
+                               atol=2e-10, rtol=2e-8)
+    np.testing.assert_allclose(resumed.response.state.committed_state_vectors(),
+                               partial.response.state.committed_state_vectors(),
+                               atol=2e-10, rtol=2e-8)
 
 
 def _j2_contact_patch(*, incrementation=None, penalty=500.0,
@@ -714,9 +747,16 @@ def test_standard_j2_real_cutback_and_manual_restart_are_equivalent(tmp_path):
     )
     assert len(restarted.energy_history) == len(reference.energy_history)
     for name in restarted.energy_history[0].__dataclass_fields__:
+        actual = [getattr(item, name) for item in restarted.energy_history]
+        expected = [getattr(item, name) for item in reference.energy_history]
+        if any(value is None for value in actual + expected):
+            # Unavailable evidence must remain unavailable after restart;
+            # it is not a numeric zero and must not enter a floating compare.
+            assert actual == expected
+            continue
         np.testing.assert_allclose(
-            [getattr(item, name) for item in restarted.energy_history],
-            [getattr(item, name) for item in reference.energy_history],
+            actual,
+            expected,
             rtol=2.0e-10,
             atol=2.0e-12,
         )

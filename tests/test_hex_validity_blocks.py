@@ -57,7 +57,9 @@ def test_native_screen_is_sufficient_and_fallback_is_retained(monkeypatch):
         return original(*args)
     monkeypatch.setattr(module,'_affine_reference',tracked)
     np.testing.assert_array_equal(module.admits_affine_perturbation(x,u,f,radius),reference)
-    assert sum(expected_fallback)==4  # Two identity cells certified, others examined.
+    # Identities and the positive affine stretch are certified; reflection,
+    # nonaffine distortion and nonfinite F still require the reference path.
+    assert sum(expected_fallback)==3
 
 
 def test_native_buffer_rejects_wrong_types():

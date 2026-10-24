@@ -41,6 +41,10 @@ failed delivery, with the accepted checkpoint retained; it does not erase the
 numerical state or silently publish a completed result. Timing in `report.json`
 covers Step execution and final export, not model construction or compilation.
 
+For long complete histories, `RunPolicy(history_storage="npz")` keeps a compact
+result JSON with a lossless binary companion. It changes only publication,
+not accepted samples or restart state. See [history storage](guide/history_storage.md).
+
 ## Accepted material output
 
 ```python
@@ -69,7 +73,7 @@ second visualization of it:
 
 ```python
 frames = results.AcceptedResponseSeries(
-    context.output_directory / "fields.xdmf",
+    context.output_directory / "results.xdmf", storage="frame_files",
     state_fields={"damage": ("history", 3)},
 )
 report = project.execute_step(
@@ -82,9 +86,16 @@ report = project.execute_step(
 )
 ```
 
-Open `fields.xdmf` in ParaView and select a time station; the last station is
-the final accepted state. `fields.h5` is its companion data file, not another
-visualization to open. `accepted_material.npz` preserves the full raw terminal
+Open `results.xdmf` in ParaView and select a time station; while a run is active,
+the last station is its latest published accepted frame, not necessarily the
+final state. The explicitly selected `frame_files` backend closes each immutable
+frame before atomically updating the index, so readers need not open a file
+currently being written. Keep `results-data/` beside its XDMF index; the directory
+holds one shared mesh and the frame arrays, not additional visualizations to open.
+The older `single_file` backend remains available and is still the API default.
+See [live output and restart segments](accepted_process_output.md).
+
+`accepted_material.npz` preserves the full raw terminal
 material state; it is not a restart checkpoint. The archive-only option creates
 no second XDMF/HDF5 pair. Existing endpoint-only callers retain their default.
 The series reuses a checked cell-identity mapping and DG0 spaces, never field
@@ -199,6 +210,11 @@ settings exceeding the CPU affinity. Run admission saves
 `execution-environment.json` beside the outputs. It records visible resources,
 mount detection and explicitly supplied thread settings, not a speed prediction
 or a claim that all available cores are used.
+The allowlisted `mpi_environment` records requested `FI_PROVIDER` and MPI
+asynchronous-progress settings when supplied. An absent variable is unknown,
+not an inferred default; a recorded request does not prove the active transport
+or actual CPU use. These operational observations are not checkpoint identity
+constraints. The snapshot never captures the entire process environment.
 
 For I/O-heavy runs, a WSL-native working copy can avoid Windows filesystem
 interop costs. Export or back up results to Windows afterward: a distribution's

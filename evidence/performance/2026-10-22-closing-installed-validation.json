@@ -1,0 +1,62 @@
+{
+  "scope": "targeted source and clean installed native-wheel acceptance; not a release or a second complete trajectory",
+  "source_commit": "0913ab9a78619b600cff38f3ad66fa4b31859999",
+  "platform": "macOS arm64, Python 3.11, fenicsx-env",
+  "build": "clean git archive; AGENTFEM_BUILD_NATIVE=1; build --wheel --no-isolation; isolated target install without replacing the active environment",
+  "wheel_sha256": "072563730983719c4483729804ea17200254d2ff0721b694963e5c666731f9f9",
+  "native_sha256": {
+    "_body_pipeline": "ff7c9720230a4e77fcbfc4b678bbc5845948d10aa56d551692808a0f2793b64f",
+    "_hex_native": "7f58a6b62d447dc52fd8fdff7391fdfec5200d513402ac1f16b593f5c81e5328",
+    "_q1_native": "bcb5ce15757256113c7df496f54ea45fe435eb3a1ffc10f23625c2fd855cd482"
+  },
+  "native_binaries_equal_complete_run_wheel": true,
+  "complete_run_core": "1ed3c1e1b94904aff8060ab4d4b47a4202bb6d15",
+  "complete_run_reuse_boundary": "The three native binaries are identical. Closing Python history-publication and prepared-operator failure changes have separate regressions; a complete trajectory was not rerun at the closing commit.",
+  "targeted_modules": [
+    "test_history_archive", "test_prepared_linear_problem", "test_prepared_boundary_reuse",
+    "test_project_execution", "test_results", "test_provenance", "test_sprint_interfaces",
+    "test_sprint_results_failures", "test_harmonic", "test_contact_plastic_coaxial_reference"
+  ],
+  "source": {
+    "passed": 237, "skipped": 1, "failed": 0,
+    "junit_sha256": "ac11aeba0b299fd82acd0747823d458c31e8552c01ac0574e3b6b376d106061e"
+  },
+  "installed": {
+    "passed": 237, "skipped": 1, "failed": 0,
+    "pytest_config": "-c /dev/null -p no:cacheprovider; PYTHONPATH points only to the clean installed target, not src",
+    "junit_sha256": "dbcc4c790786a52c53999457d2d439ec66f1f58d85d0beaae17f6644339f1ba4"
+  },
+  "skip_reason": "collective history mismatch test requires two MPI ranks",
+  "separate_mpi": {
+    "ranks": 2, "passed_per_rank": 14, "failed": 0,
+    "scope": "collective history mismatch and prepared linear/boundary reuse",
+    "launcher": "agentfem mpi-run, 180-second timeout, FI_PROVIDER=tcp, numerical thread limits of one"
+  },
+  "remote_ci": {
+    "source_commit": "0913ab9a78619b600cff38f3ad66fa4b31859999",
+    "run_url": "https://github.com/haoming-luo/agentfem/actions/runs/39680975166",
+    "conclusion": "success",
+    "successful_jobs": [
+      "Portable Linux native distribution", "Optional PyTorch bridge",
+      "Documentation and machine entrypoints", "fenicsx", "Python correctness lint",
+      "macOS installed-wheel foundation acceptance"
+    ],
+    "scope_note": "The targeted FEniCSx job was skipped because the full fenicsx job ran. Remote job success is not a claim of external-code physical parity."
+  },
+  "post_closing_source_followup": {
+    "source_commit": "867845247e8edd3d6940316ccf47971eef1f3c2a",
+    "scope": "Prepared MPC failure evidence/explicit nonconvergence policy and separate elastic-limit fixture controls; not another installed-wheel or full-trajectory run",
+    "previous_installed_candidate": "Both failure-retry regressions fail against the 0913ab9a installation because the previous successful LinearSolveInfo remains after a new exception.",
+    "source": {
+      "passed": 45, "failed": 0,
+      "modules": ["test_periodic_contact_fixture", "test_parallel_affine", "test_prepared_linear_problem", "test_prepared_boundary_reuse"],
+      "junit_sha256": "1b2daf61cc21fd0c908f9b970a944e8b259d4a01b00c1e520854fcc43ef00dd3"
+    },
+    "mpi": {
+      "ranks": 2, "passed_per_rank": 6, "failed": 0,
+      "scope": "MPC failure/retry, explicit diagnostic nonconvergence, load refresh and terminal ownership",
+      "launcher": "agentfem mpi-run with 180-second timeout, FI_PROVIDER=tcp and numerical thread limits of one"
+    }
+  },
+  "counts_policy": "These suites overlap. Their counts are not summed into an independent overall test total."
+}

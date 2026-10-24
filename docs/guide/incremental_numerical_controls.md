@@ -58,15 +58,490 @@ left-nullspace treatment, not the optional symmetric-RHS check.
 
 ## Nonlinear convergence and failure information
 
+In standard finite-strain J2, the normalized path coordinate remains in
+`[0, 1]`, while the resolved Step amplitude may reverse sign or exceed one.
+Ordinary strong reference values and natural loads use that amplitude. A
+fixed contact tool has no motion coordinate to update. Prescribed moving tools
+still enforce the admitted range of their motion definition; supporting a
+signed traction amplitude does not authorize extrapolating a tool schedule.
+`PrescribedValuePath` accepts finite signed scaling for constant/field values.
+When independent boundary histories are present, its input remains their
+normalized coordinate. Standard finite-J2 Steps continue to reject those
+independent histories, requiring one explicit Step amplitude.
+
 Affine Newton backtracking now requires the stated sufficient residual decrease
 (or meeting the absolute residual tolerance). A merely smaller residual no
 longer bypasses that condition. Existing load cutback, material trial/commit and
 restart paths remain in use.
 
+`solvers.newton(line_search="basic")` instead takes the full finite,
+material-admissible Newton update, even when the residual temporarily grows.
+`line_search=None` explicitly disables the search with the same meaning;
+it is not a request for PETSc's default backtracking. These choices now have
+the same meaning in serial/distributed affine reduction and the ordinary
+Newton backend. They do not waive final equilibrium, contact acceptance or
+constitutive validity, and are not a universal robustness or speed setting.
+Backtracking remains the default. An earlier affine implementation incorrectly
+treated basic Newton as a single Armijo trial; affected experimental basic/
+no-search checkpoint identities now reject rather than silently changing the
+algorithm on continuation. Default backtracking identities are unchanged.
+The full-step interpretation follows
+[PETSc's basic line-search implementation](https://petsc.org/release/src/snes/linesearch/impls/basic/linesearchbasic.c.html);
+it does not imply that full Newton is preferable on an arbitrary contact path.
+
 Linear nonconvergence raises `diagnostics.ComputationalFailure`, retaining
 RuntimeError compatibility. `exception.as_dict()` includes a stable code,
 solver stage, PETSc reason, iterations, residual and suggested next checks.
 These are diagnostics, not a claim that one root cause has been proven.
+
+`solvers.newton(linear_solver=solvers.LinearSolverOptions(...))` preserves
+explicit inner `rtol`, `atol` and `max_it` on both SNES and affine-reduced
+routes. These control the linear correction, not the nonlinear equilibrium or
+contact tolerance. Unspecified SNES inner tolerances retain PETSc defaults;
+the existing affine relative-tolerance/iteration defaults are unchanged.
+Earlier adapters dropped these settings on SNES and dropped `atol` on the
+affine route. Explicitly configured policies now have a corrected transport
+identity, so an old affected checkpoint is not silently resumed under changed
+behavior. Unspecified default policies retain their existing identity.
+
+Solver tolerances must be finite positive real values; iteration limits must
+be positive integers. Boolean values are not numerical controls. Invalid
+settings reject at policy construction rather than reaching the solver.
+The same early-validation principle applies to incrementation: `steps.fixed`
+requires a positive integer (not a truncated float or numeric string), automatic
+counts must be integers, and step sizes/growth/cutback controls must be finite
+real numbers in their declared ranges. `max_cutbacks=0` explicitly disables
+retries and remains valid. Existing valid Python policy summaries retain their
+checkpoint identity; non-Python numeric scalars are normalized for JSON output.
+For supported inelastic Steps, `maximum_inelastic_increment` limits the
+accepted internal-variable increment and can trigger a cutback. It is **not**
+an estimate of force, displacement or accumulated path error. Small Newton
+residuals and an accepted plastic-increment bound do not replace mesh/path
+refinement at common physical stations.
+
+### Accepted-material prediction (experimental, opt-in)
+
+Serial displacement-only finite-strain J2 Steps with one built-in material
+may cap the next automatic increment using the last accepted plastic increment:
+
+```python
+incrementation = steps.automatic(
+    initial=0.02, minimum=1e-5, maximum=0.1, max_increments=1000,
+    maximum_inelastic_increment=0.001,
+    inelastic_prediction_safety=0.8,
+)
+step = model.step(target=displacement, incrementation=incrementation)
+```
+
+Both ordinary strong boundaries and supported affine-periodic constraints use
+the same controller. If `h` is the accepted increment, `p` its maximum plastic
+increment, `L` the declared limit and `s` the safety fraction, the proposal is
+`max(minimum, min(Newton_proposal, h*s*L/p))`. For `p=0` it retains the ordinary
+Newton proposal. The cap never increases that proposal. The original hard
+acceptance check still applies to the next solve: prediction is lagged, does
+not foresee new contact or yielding, and cannot force acceptance at minimum.
+Loading knots, cutbacks, solver tolerances and the physical model are unchanged.
+
+The default is disabled, preserving existing policy summaries and checkpoint
+identities. Enabling prediction adds its versioned algorithm and safety to
+identity; affine restart also binds the named acceptance measure. Resume
+restores the saved next increment. Invalid/missing evidence is an error, and
+failed proposal finalization restores the joint accepted boundary. No accepted
+field or energy history may include that failed attempt. Existing custom
+two-argument iteration policies remain callable when prediction is disabled.
+
+Mixed displacement-pressure, regional materials, other material models and
+MPI are not admitted for this option yet. Capability inspection and execution
+reject unsupported requests; these restrictions do not apply to their existing
+non-predictive paths. Expert affine providers can explicitly name an
+`inelastic_increment_measure` in their `acceptance_check` record; its units and
+meaning must agree with the declared limit. That protocol is not automatic
+scientific validation of an external model.
+
+This reduces avoidable rejected work; it is not a force-error estimator or an
+explicit-dynamics stability bound. Compare reaction, plastic state, contact
+and work histories at common physical stations and refine the limit. A larger
+or smaller number of accepted increments is not itself an accuracy criterion.
+The design is informed by MOOSE's
+[lagged material timestep limit](https://mooseframework.inl.gov/source/postprocessors/MaterialTimeStepPostprocessor.html)
+and its combination with
+[iteration-based adaptation](https://mooseframework.inl.gov/source/timesteppers/IterationAdaptiveDT.html),
+not by a claim that another code's performance transfers to AgentFEM.
+
+The reproducible bounded comparison is
+`tools/benchmark_inelastic_prediction.py`; it retains failed records, a finite
+fixed-path reference, common stations, repeated fields, ABBA timing and source
+identity. It does not establish continuum convergence or energy closure of the
+Gaussian-contact diagnostic.
+
+A four-cell-edge cyclic P2/J2/plane-penalty/periodic-MPC comparison, with a
+maximum accepted plastic increment of `0.00075`, records ordinary/prediction/
+prediction/ordinary times of 186.897, 115.284, 114.090 and 185.903 s. The
+prediction reduces mean setup/solve/observe time by 38.47%, rejected attempts
+from 140 to 13 and total Newton corrections from 1300 to 806. Accepted
+increments change from 250 to 232: this is a different discretized path, not
+an equivalent-execution optimization. Across four common stations the largest
+reaction difference against the 512-increment reference is 0.204%, displacement
+vector relative difference 0.0235%, and reference-volume mean PEEQ difference
+0.00448%. The reference is finite, not exact; this does not establish spatial
+convergence or guarantee those errors on another problem. Repeated fields
+pass `rtol=2e-8`, `atol=2e-10`. The source-frozen report is
+`evidence/performance/2026-10-23-inelastic-increment-prediction.json`.
+Do not add this percentage to the separate unchanged-path execution gain.
+
+A prospective refinement at `33412d59` uses a 1024-increment reference and
+limits `0.00075` / `0.000375`. Maximum common-station differences to that
+reference decrease from 0.202% to 0.104% in reaction, 0.0384% to 0.0119% in
+displacement vector, and 0.0291% to 0.00166% in volume-mean PEEQ. Accepted
+increments increase from 232 to 449; stricter resolution costs more work.
+The 512 -> 1024 fixed-reference final reaction itself changes by 0.405%, so
+neither reference should be labelled exact and the earlier smaller PEEQ
+difference to 512 steps is not an accuracy certificate. See
+`evidence/performance/2026-10-23-inelastic-increment-refinement.json`; this
+single refinement comparison makes no additional repeated-timing claim.
+
+### Solver and assembly policies
+
+Custom `NewtonSolverOptions.line_search_reduction` and `minimum_step_length`
+apply to AgentFEM's native Newton loops. The SNES adapter now refuses custom
+backtracking values rather than silently dropping them. Default SNES behavior
+is unchanged: [PETSc BT](https://petsc.org/release/manualpages/SNES/SNESLINESEARCHBT/)
+uses its own polynomial/backtracking search, not the native fixed-ratio rule.
+Selecting a common `backtracking` name does not promise identical trial sequences.
+
+The serial affine frozen-equilibrium loop reuses its KSP object only while the
+constraint reduction is fixed. Each Newton solve still assembles and installs
+the current tangent. By default, no numerical preconditioner is deliberately
+frozen. The bounded normal-augmentation Procedure can retain this allocation
+across its outer iterations within one attempted increment; it never survives
+acceptance, cutback or restart. The object is released on success, failure or
+interruption. A supplied KSP remains
+caller-owned in `solve_matrix_system`; a one-shot KSP is always released by
+that helper, including exceptions during setup or solve.
+
+For an implicit problem, a direct factorization package can be selected without
+changing the model or implementing a new solver:
+
+```python
+solver_options = solvers.newton(
+    linear_solver=solvers.direct_solver(package="mumps"),
+)
+```
+
+This requires a PETSc build containing MUMPS. It is an explicit choice, not a
+portable speed guarantee or a new default. The default `direct_solver()` leaves
+the package selection to PETSc. Record the selected backend when comparing
+runtime: "LU" alone does not identify the factorization implementation.
+[PETSc documents MUMPS as an optional direct backend](
+https://petsc.org/release/manualpages/Mat/MATSOLVERMUMPS/).
+Iterative alternatives must also converge the total nonlinear problem at the
+declared accuracy; they do not justify loosening contact or material criteria.
+In particular, an ILU preconditioner is not generally symmetric, so a CG choice
+cannot be justified just by a symmetric-looking stiffness matrix; see
+[PETSc PCILU](https://petsc.org/release/manualpages/PC/PCILU/).
+
+### Optional adaptive preconditioning
+
+The serial affine Newton route also accepts an explicit managed linear policy:
+
+```python
+solver_options = solvers.newton(
+    linear_solver=solvers.LinearSolverOptions(
+        ksp_type="gmres", pc_type="lu", factor_solver_type="mumps",
+        rtol=1e-12, atol=1e-14, max_it=50,
+        preconditioner_reuse="adaptive",
+    ),
+)
+```
+
+Every correction still uses the current total tangent, including contact and
+MPC reduction. Only the earlier factorization may be used as a **right
+preconditioner**; it is never substituted for the current matrix. The owner
+checks `||A x - b|| <= max(atol, rtol * ||b||)` explicitly. An unsuccessful
+reused correction gets one fresh-preconditioner retry, after which ordinary
+nonconvergence/cutback rules apply. More than eight Krylov iterations causes
+the next correction to rebuild. These controls do not loosen nonlinear,
+contact or constitutive tolerances.
+
+This first policy requires GMRES, LU or ILU, explicit positive linear
+tolerances and an iteration limit. MPI, raw KSP/SNES adapters and other
+nonlinear routes reject it rather than silently discard its verification
+contract. Defaults and existing direct-solver checkpoint identities are
+unchanged. The selected policy is recorded; factors themselves are never
+checkpointed. Increment checks report preconditioner uses/builds, rebuild
+retries and the maximum true linear residual-to-tolerance ratio.
+
+A twelve-cell-edge, 32-increment cyclic finite-J2/plane-contact ABBA screen
+measured 13.39% less solve-and-observe time with this algorithm, retaining the
+same 355 Newton corrections and agreeing at four physical stations. Fresh
+48-increment confirmation through the integrated public policy measures
+13.73% less mean time (226.635, 195.011, 195.842, 226.402 s), with the same
+533 Newton corrections and passing all station comparisons. These are bounded
+implicit results, not composite explicit-run or hardware-independent speed
+guarantees. See `evidence/performance/2026-10-23-adaptive-preconditioner-screen.json`
+and `evidence/performance/2026-10-23-adaptive-preconditioner-confirmation.json`.
+An additional combined ABBA comparison disables retained material trials and
+the outer linear workspace in the direct reference, then enables those owners
+with the managed policy. Its four times are 261.223, 196.909, 195.732 and
+257.591 s: 24.32% less mean solve-and-observe time. All runs retain 48 accepted
+increments and 533 Newton corrections; U, committed state, first Piola stress,
+tangent, pressure and normal work pass the declared four-station comparison
+(`rtol=1e-7`, `atol=1e-9`). The two candidate paths each reuse 172 material
+responses and 435 preconditioners, with 98 preconditioner builds and no retry.
+This measures the combination, not a sum of separate percentage gains. The
+reference and candidate use the same material, load path, penalty and contact
+acceptance. See `evidence/performance/2026-10-23-combined-affine-execution.json`.
+The implementation follows PETSc's distinction between
+[reusing a preconditioner](https://petsc.org/main/manualpages/PC/PCSetReusePreconditioner/)
+and [choosing its side](https://petsc.org/main/manualpages/KSP/KSPSetPCSide/).
+
+### Experimental constant-normal plane augmentation
+
+Finite-strain J2 accepts an opt-in outer augmented-Lagrangian iteration through
+the ordinary Step. The default remains penalty contact:
+
+```python
+step = model.step(
+    target=displacement, material=material,
+    incrementation=steps.fixed(4),
+    normal_augmentation=steps.normal_augmentation(
+        penetration_tolerance=1e-7,
+        complementarity_tolerance=1e-6,
+        length_unit="m", pressure_unit="Pa",
+        maximum_augmentations=120,
+    ),
+)
+```
+
+Declare a named `rigid_contact_pair` with one fixed or translating analytical plane and a
+scalar penalty. The bounded implementation uses coalesced nodal reference-area
+weights on serial P1 tetrahedra and ordinary strong boundaries. A multiplier
+whose normal motion is already fixed by a strong boundary is rejected; the
+software does not arbitrarily divide reactions between redundant constraints.
+Rotating or curved tools, friction, general MPC, mixed fields, higher-order/hex cells, custom
+contact quadrature and changing contact partitions are not admitted here.
+This is not a mesh-independent mortar stability or general contact claim.
+
+One narrow affine/MPC route also uses the same `normal_augmentation` option.
+It requires one exact periodic constraint and **disjoint nonzero reduced normal
+row supports** after `u = T q + u_bar`. The sparse admission rejects contact
+nodes whose normal motion is prescribed, as well as overlapping reduced
+supports; it does not delete rows or arbitrarily distribute contact pressure.
+Overlap may be mathematically solvable, but is outside this sufficient bounded
+admission. The condition proves discrete row independence, not mesh-uniform
+inf-sup stability. A plane imposed against immovable periodic corners therefore
+does not become admissible just because a smaller increment is used.
+
+`examples/finite_j2_periodic_augmented_plane.py` gives an ordinary Step example
+with an interior contact patch, plastic loading/unloading/recontact, accepted
+displacement frames and restart. The same affine Procedure performs Newton,
+cutback, joint State acceptance and checkpointing. Its `checks` record outer
+updates and the largest inner Newton count separately. Signed relative normal
+work, its discrete absolute bound and open-gap contribution appear under
+`<pair>_normal_*` histories; they are not `contact_potential`, dissipation or
+automatic energy verification. Ordinary MPC/tool generalized work remains in
+the existing constraint histories.
+
+The example's default point-pinned periodic corner class carries the net
+one-sided tool force. It is a discrete lifecycle demonstration, not a suitable
+continuum mesh-accuracy reference. The optional `--affine-end-face-support`
+declares finite-area x-motion guides on the two z end faces while leaving the
+interior contact patch free in its normal direction. This is a different
+physical fixture, not numerical stabilization or a repair of the contact law;
+its checkpoint identity differs. The associated sensitivity tool records which
+fixture was used and compares observables at common physical path stations.
+
+A prescribed translation uses the existing `prescribed_rigid_motion_schedule`
+on the rigid body, with normalized endpoints 0 and 1 and no separate amplitude.
+For strong boundaries the ordinary Step amplitude owns the tool coordinate, including unloading and
+recontact. Multipliers stay on the same material-side reference nodes; every
+trial projects the current positions against the current tool pose. This does
+not require transferring history between tool facets, nor license such transfer.
+Motion along the plane is frictionless and contributes no work.
+The affine route instead uses its normalized macro-path coordinate for the
+tool schedule and the declared deformation-gradient path for the macro motion;
+it does not accept a second independent Step amplitude.
+
+For gap `g` (negative in penetration), the inner solve uses fixed multiplier
+`lambda` and pressure `p = max(0, lambda - penalty*g)`. Only after total Newton
+equilibrium may the outer iteration update `lambda`. Acceptance requires both
+penetration and complementarity: `max(abs(lambda*g), abs(p*g))`. The latter
+tolerance has pressure-times-length units (Pa m in the example), not force
+units. Unit strings declare the model's coherent units; they do not convert
+values. The penalty retains pressure-per-length units. A small penalty can
+require many outer iterations; a large one can worsen linear conditioning.
+Neither a faster solve nor universal penalty independence is promised.
+Do not confuse the load increment with Newton's `minimum_step_length`: the
+latter limits residual backtracking along one Newton correction. A very stiff
+contact onset can require a shorter correction even when the load step is
+adequate. The public `NewtonSolverOptions` exposes that floor explicitly; it
+is never reduced silently. A smaller floor permits more trial evaluations,
+not a weaker convergence or penetration tolerance.
+For automatic incrementation, Newton difficulty is the maximum inner Newton
+iteration count, not their sum over all augmentations. The latter remains in
+the total-work report. This prevents repeated easy inner solves from
+spuriously shrinking the load step. An exhausted outer budget still rejects
+the increment and follows the ordinary cutback policy.
+
+Materials always start their trial update from the same accepted state during
+the entire outer loop. One accepted increment jointly commits displacement,
+plastic history, multiplier and prescribed tool pose. Newton/outer failures restore that boundary;
+an inner Newton success cannot be checkpointed. The ordinary serial
+`save_checkpoint`/`load_checkpoint` stores the multiplier basis, policy and
+accepted configuration and rejects incompatible restoration.
+
+The October 19 candidate now uses the original mesh vertex coordinates for
+linear P1/Q1 contact traces, after identifying each vertex's displacement
+block. This removes coordinate-tabulation roundoff without moving the mesh,
+snapping to a tool or loosening an overlap limit. Experimental checkpoints
+created before this correction can have a different trace fingerprint and
+are intentionally rejected. Continue those runs with their original frozen
+candidate, or start a new run; there is no automatic multiplier transfer.
+
+Result reports the actual contact force and augmentation counts. Reference-area
+pressure is not Cauchy pressure. The signed AL functional is **not** physical
+contact stored energy. The accepted ledger now reports signed numerical
+`normal_contact_work` separately, together with a non-cancelling
+`normal_contact_work_bound` and the positive-gap component
+`normal_contact_open_gap_work`. For matched constant-normal plane samples these are
+`sum(w * (p_old+p_new)/2 * delta_gap)` and, for the bound, the same sum with
+`abs(delta_gap)`. For a fixed tool positive work enters the structure. For a
+translating tool this is **relative-gap work**: structural contact work equals
+tool work plus relative-gap work. Tool work is already part of external work,
+so it must not be added twice. Opening/closure can
+produce nonzero endpoint work even with exact complementarity at both ends.
+The bound applies only to this discrete work, **not** to the continuous-path
+integration error or general contact accuracy.
+
+The original `mechanical_energy_residual` remains external work minus stored
+material energy and plastic dissipation. The additional
+`normal_contact_corrected_energy_residual` includes signed normal work;
+neither residual is forced to zero. There is no AL `contact_potential`
+history. Fixed-tool coordinate work is zero, which alone does not prove energy
+closure. Compare both residuals, the absolute-work bound, and increment
+refinement; cancellation can make an inaccurate coarse path look balanced.
+These histories do not automatically promote the result to verified.
+
+Only jointly accepted endpoints enter this ledger. Failed attempts restore it
+with displacement, plastic state and multipliers. New checkpoints retain and
+check its complete accepted-path coverage; legacy checkpoints without prior
+work remain energy-unavailable after continuation. No missing history is
+reconstructed. Moving-plane checkpoints additionally validate the motion
+identity and resolved amplitude against the Step coordinate before publishing
+the restored state. Fixed-plane v1 snapshots retain their format. These
+semantics do not enable rotating/curved AL or MPI.
+`results.export_accepted_contact_points(...)` exports the same augmented pressure
+used in equilibrium, with its nodal reference-area location and enforcement
+recorded. It does not substitute the old `penalty*penetration` pressure.
+Increment records expose total Newton work, the maximum inner Newton count,
+outer augmentations and line-search residual evaluations. A rejected search
+reports its declared minimum step and trial count; it does not diagnose every
+such failure as a tangent error or automatically relax the search floor.
+In-memory rollback snapshots use immutable numerical arrays. JSON conversion
+belongs to the on-disk checkpoint boundary, not each attempted increment.
+
+Run `examples/finite_j2_augmented_plane.py` from the source checkout
+for loading, output and restart. Tests compare a homogeneous elastic limit to
+an independent nominal-stress formula, a plastic limit to a prescribed-motion
+solution, and interrupted to uninterrupted loading. These are bounded numerical
+checks, not validation of arbitrary industrial forming.
+
+`examples/finite_j2_translating_augmented_plane.py` adds prescribed compression,
+unloading and recontact through the same ordinary API. It exports accepted
+pressure, tool work, relative-gap work, raw/contact-aware residuals and a
+restart checkpoint. `tests/test_translating_normal_augmentation.py` compares
+this path with a scalar finite-J2 reference and 16/32/64/128 increments.
+Both pressure and plastic history are compared; balancing total force alone
+is insufficient. The independently checked moving-tool tangent freezes the
+old material state and multiplier, not the current geometry.
+
+The nonuniform Poisson-coupled plastic reference additionally compares normal
+pressure with independently imposed displacement reactions on each mesh.
+A displacement tolerance is not a pressure-error tolerance: pressure accuracy
+must be checked separately against contact-tolerance and mesh refinement.
+See `tests/test_translating_augmentation_plastic_reference.py`; its tighter
+benchmark tolerances do not change the software defaults.
+
+For this bounded plane route, `steps.normal_augmentation(...,
+acceleration="aitken")` optionally accelerates the outer multiplier updates.
+It uses reference-area-weighted dynamic relaxation, bounded to `[0.1, 10]`,
+with resets on active-set changes and at every attempted increment. Degenerate
+or invalid secants revert to the ordinary update. The inner Newton method,
+penalty, loading and equilibrium/penetration/complementarity tolerances do not
+change. Failure still invokes the ordinary rollback/cutback path; there is no
+universal convergence or speed guarantee.
+
+The default remains `acceleration="none"`. Accelerated checkpoints carry a
+distinct numerical-policy identity and do not silently load into a different
+policy. Secant history is not physical State and never persists across accepted
+boundaries. Increment diagnostics record the actual relaxation factors and
+reset count. The public translating-plane example accepts
+`--acceleration aitken`; use the same option when resuming its checkpoint.
+
+The partial-contact regression also exercises a tilted fixed plane under
+plastic loading, unloading and recontact. It compares every accepted
+displacement, material state, pressure, active set and energy record, restores
+a loaded checkpoint, and injects failure after pressure commit to check atomic
+rollback and retry. An independent equality-constrained elastic active-set
+reference checks both acceleration policies on two meshes. These tests cover
+a changing subset of fixed material-side nodes, not multiplier transfer to a
+new trace or curved-tool geometry.
+
+`tools/benchmark_multiplier_acceleration.py` compares the two policies on the
+32-increment cyclic example after warming both paths and alternating run order.
+The recorded serial Mac test reduced median solve time from 2.058 s to 1.404 s
+(31.8%), with outer updates 106 → 45 and Newton/linear solves 209 → 140.
+Accepted displacement history, final material/pressure and energy histories
+passed the declared comparison thresholds. This small implicit-plane result
+does not establish a speedup for explicit composite damage, general curved
+contact, MPI or other machines. The benchmark evidence is retained under
+`evidence/contact/2026-10-20-multiplier-acceleration.json`.
+
+Accepted contact-point exports preserve the normalized Step coordinate as
+`coordinate_value` and record `resolved_load_amplitude` separately, with
+`tool_motion_factor` for each moving pair. For a cyclic path, coordinate 0.5
+may mean tool factor 1 and coordinate 0.75 may mean factor 0. Comparing these
+different quantities would falsely reject valid intermediate frames.
+Stale or nonfinite tool factors still reject before output creation.
+
+The split outer-multiplier/inner-equilibrium design follows the established
+[segregated normal-contact formulation](https://doc.comsol.com/6.4/doc/com.comsol.help.sme/sme_ug_theory.06.087.html).
+This is methodological context, not an implementation equivalence claim.
+
+The independent cyclic finite-J2 stop reference additionally checks stored
+energy, plastic dissipation and accepted work at 16/32/64/128 increments.
+See `tests/test_normal_contact_energy.py`. Numerical contact discontinuity work
+is also distinguished from physical stored energy in the
+[Abaqus contact-energy example](https://docs.software.vt.edu/abaqusv2025/English/SIMACAEEXARefMap/simaexa-c-contactenergy.htm).
+This motivates separate reporting, not equivalence with Abaqus algorithms or
+its output variables.
+
+`tools/verify_normal_augmentation_spatial.py` adds a nonuniform manufactured
+finite-Hencky elastic-limit solution on three refined tetrahedral meshes.
+It measures displacement and gradient errors, contact force and nodal pressure
+errors separately. The observed displacement/gradient orders are approximately
+two/one; the pressure is not exact and requires its own refinement evidence.
+This benchmark does not establish general multiplier-space stability or
+plastic-contact spatial accuracy.
+
+`tools/benchmark_normal_augmentation.py` compares explicit penalty candidates
+on this example using warmups, shuffled repeats, the complete four-increment
+Step and all accepted material/field snapshots. Failed candidates remain in
+the report. It is a reproducible numerical-control experiment, not automatic
+tuning or a general acceleration benchmark. Both `--penalty` and
+`--minimum-step-length` are visible example options. Compare the complete
+accepted path, not only the final displacement, before adopting different
+controls for a history-dependent material.
+
+This distinction is also made in the
+[COMSOL contact settings](https://doc.comsol.com/6.4/doc/com.comsol.help.sme/sme_ug_modeling.05.147.html):
+AL penalty affects outer convergence and can compromise robustness when too
+large. The software does not infer a universal value from one successful run.
+
+The separation of nodal and integral multiplier spaces follows the caution in
+the [GetFEM contact documentation](https://getfem.org/userdoc/model_contact_friction.html):
+choosing a multiplier space requires stability analysis, not merely adding an
+outer loop.
 
 ## Point coverage
 

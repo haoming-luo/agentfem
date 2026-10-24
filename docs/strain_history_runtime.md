@@ -53,6 +53,18 @@ indices and do not clip values. The runtime stores zero-initialized source
 history followed by six old corotational stresses in the `history` state field.
 Its schema and full source/policy identity participate in ordinary restart.
 Non-virgin initialization is not provided by this convenience runtime.
+New native-body checkpoints separate worker/tile scheduling from that scientific
+identity; see [restart compatibility](native_explicit_execution.md#restart-compatibility-versus-execution-provenance).
+Legacy checkpoints still need the original execution configuration before they
+can be restored and saved in the new format. This does not admit a different
+material binary, numerical increment policy or state encoding.
+
+`fuse_viscosity=True` optionally joins core bulk-viscosity arithmetic to the
+native material/body cell pass. It does not change the source material or its
+state schema, and requires a dispatcher supporting that capability. The default
+is unchanged; choose this experimental execution option only after a relevant
+whole-step comparison. See [joined body execution](native_explicit_execution.md#optional-joined-body-and-bulk-viscosity-execution)
+for validation, fallback and restart boundaries.
 
 `unused_channels` is a substantive source-review assertion, not a convenience
 toggle. The source may use properties, density, strain increment, previous
@@ -63,6 +75,10 @@ or COMMON history is not admissible. Native fusion requires an explicit
 reentrancy declaration even with one worker, since independent runtimes may
 share a loaded library. Non-reentrant sources retain `compile_vumat` and a
 separately reviewed serialized driver. A declaration does not prove thread safety.
+The fused batch protocol also requires pointwise response: a point must not
+depend on the other points in its batch, the batch size or its partitioning.
+Thread safety alone does not establish that property. Cross-point/nonlocal
+material models need a different, explicitly declared execution contract.
 
 The selected finite-increment path integrates along linear right stretch and
 pushes corotational stress to spatial Cauchy stress. Tensor shear uses

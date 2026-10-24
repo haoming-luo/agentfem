@@ -64,6 +64,19 @@ def test_bad_policy(kwargs):
         project.RunPolicy(**kwargs)
 
 
+def test_run_policy_binary_history_publication(tmp_path):
+    from agentfem import results
+    run = context(tmp_path / "binary-history")
+    report = project.execute_step(heat_step(), context=run,
+        policy=project.RunPolicy(history_storage="npz", journal_every=1))
+    assert report["complete"]
+    record = json.loads(run.manifest_path.read_text())
+    assert record["history_archive"]["schema"] == "agentfem.history-arrays"
+    assert len(results.read_histories(run.manifest_path)) == len(record["history_records"])
+    with pytest.raises(ValueError, match="AFM-RUN-POLICY"):
+        project.RunPolicy(history_storage="lossy")
+
+
 def test_response_export_and_generic_run(tmp_path):
     from agentfem import results
     from test_response_material_step import make_step
@@ -202,6 +215,9 @@ def test_streaming_frames_and_completion_retention(tmp_path):
     assert all(value >= 0 for value in timing.values())
     assert timing['advance_inclusive'] >= timing['accepted_callbacks']
     assert len(list(run.output_directory.rglob('*.checkpoint.json'))) == 1
+    manifest = json.loads(run.manifest_path.read_text())
+    assert len(manifest['checkpoint_records']) == 1
+    assert (run.output_directory / manifest['checkpoint_records'][0]['path']).is_file()
     assert not (run.output_directory/'accepted-final.checkpoint.json').exists()
     final = report['artifacts']['checkpoint']
     restored = make_step(steps=7)
@@ -236,6 +252,130 @@ def test_series_with_raw_endpoint_has_one_visualization(tmp_path):
     assert 'open in ParaView: fields.xdmf' in presentation.format_result(manifest, run.manifest_path)
     with np.load(report['artifacts']['accepted_material']) as archive:
         np.testing.assert_array_equal(archive['state'], step.accepted_material_fields()['state'])
+
+
+def test_series_owns_mutable_field_selection(tmp_path):
+    from agentfem import results
+    from test_response_material_step import make_step
+    selected = {'clock': ['clock', None]}
+    series = results.AcceptedResponseSeries(tmp_path / 'owned.xdmf', state_fields=selected)
+    step = make_step(steps=3)
+    series.write(step)
+    # Configuration ownership must include nested list selectors, not only
+    # copying the outer mapping. A caller's later edits are not an output edit.
+    selected['clock'][0] = 'unknown_after_construction'
+    selected['added_later'] = ('clock', None)
+    step.run(until_step=1)
+    series.write(step)
+    series.close()
+    metadata = json.loads((tmp_path / 'owned.json').read_text())
+    assert metadata['state_fields'] == {'clock': ['clock', None]}
+    assert len(metadata['stations']) == 2
+
+
+def test_series_detects_in_place_provider_schema_change(tmp_path):
+    from agentfem import results
+    from test_response_material_step import make_step
+    from types import SimpleNamespace
+    step = make_step(steps=3)
+    record = dict(step.accepted_material_fields())
+    original_schema = json.loads(json.dumps(record['state_schema']))
+    provider = SimpleNamespace(
+        state=step.state, steps=step.steps, completed_steps=0,
+        accepted_material_fields=lambda: record,
+    )
+    series = results.AcceptedResponseSeries(tmp_path / 'schema.xdmf')
+    series.write(provider)
+    # A buggy provider can mutate one shared schema dictionary. The writer
+    # must compare against its owned previous descriptor, not the same object.
+    record['state_schema']['identity'] = 'changed-schema@2'
+    record['time'] = step.dt
+    provider.completed_steps = 1
+    with pytest.raises(ValueError, match='AFM-FRAMES-SCHEMA'):
+        series.write(provider)
+    series.close()
+    metadata = json.loads((tmp_path / 'schema.json').read_text())
+    assert metadata['state_schema'] == original_schema
+    assert [station['increment'] for station in metadata['stations']] == [0]
+
+
+def test_rejected_first_frame_does_not_bind_a_schema(tmp_path):
+    from agentfem import results
+    from test_response_material_step import make_step
+    from types import SimpleNamespace
+    step = make_step(steps=3)
+    record = dict(step.accepted_material_fields())
+    provider = SimpleNamespace(
+        state=step.state, steps=step.steps, completed_steps=0,
+        accepted_material_fields=lambda: record,
+    )
+    series = results.AcceptedResponseSeries(tmp_path / 'first-valid.xdmf')
+    step.state.u.value.x.array[:] = np.nan
+    with pytest.raises(ValueError, match='finite real'):
+        series.write(provider)
+    assert not series.stations
+    step.state.u.value.x.array[:] = 0.
+    record['state_schema']['identity'] = 'first-successful-schema@1'
+    series.write(provider)
+    series.close()
+    metadata = json.loads((tmp_path / 'first-valid.json').read_text())
+    assert metadata['state_schema']['identity'] == 'first-successful-schema@1'
+    assert [station['increment'] for station in metadata['stations']] == [0]
+
+
+@pytest.mark.parametrize('defect', ['scalar_stress', 'different_measure', 'missing_location'])
+def test_response_series_rejects_mislabelled_provider_data(tmp_path, defect):
+    from agentfem import results
+    from test_response_material_step import make_step
+    from types import SimpleNamespace
+    step = make_step()
+    record = dict(step.accepted_material_fields())
+    if defect == 'scalar_stress':
+        record['cauchy_stress'] = np.zeros(len(record['cell_keys']))
+    elif defect == 'different_measure':
+        record['stress_measure'] = 'first_piola'
+    else:
+        record['location'] = ''
+    provider = SimpleNamespace(
+        state=step.state, steps=step.steps, completed_steps=0,
+        accepted_material_fields=lambda: record,
+    )
+    path = tmp_path / 'mislabelled.xdmf'
+    series = results.AcceptedResponseSeries(path)
+    try:
+        with pytest.raises(ValueError, match='AFM-EXPORT-(ARRAY|SEMANTICS)'):
+            series.write(provider)
+    finally:
+        series.close()
+    assert not list(tmp_path.iterdir())
+
+
+def test_response_series_preserves_provider_location(tmp_path):
+    from agentfem import results
+    from test_response_material_step import make_step
+    from types import SimpleNamespace
+    step = make_step()
+    record = dict(step.accepted_material_fields())
+    location = record['location']
+    provider = SimpleNamespace(
+        state=step.state, steps=step.steps, completed_steps=0,
+        accepted_material_fields=lambda: record,
+    )
+    path = tmp_path / 'location.xdmf'
+    series = results.AcceptedResponseSeries(path)
+    series.write(provider)
+    record['location'] = 'different_cell_sampling'
+    record['time'] = step.dt
+    provider.completed_steps = 1
+    try:
+        with pytest.raises(ValueError, match='AFM-FRAMES-SCHEMA'):
+            series.write(provider)
+    finally:
+        series.close()
+    metadata = json.loads(path.with_suffix('.json').read_text())
+    assert metadata['location'] == location
+    assert metadata['stress_measure'] == 'cauchy'
+    assert [station['increment'] for station in metadata['stations']] == [0]
 
 
 def test_cell_transport_reuses_mapping_not_field_storage():
@@ -349,6 +489,28 @@ def test_export_failure_does_not_prune(tmp_path):
     assert len(list((run.output_directory/'checkpoints').glob('*.checkpoint.json'))) == 2
 
 
+@pytest.mark.parametrize('stage', ['solve_result', 'publish'])
+def test_publication_failure_does_not_prune(tmp_path, monkeypatch, stage):
+    from agentfem import checkpointing
+    from test_response_material_step import make_step
+    run = context(tmp_path / 'failed-publication')
+    step = make_step(checkpoint=checkpointing.every(
+        2, directory=run.output_directory / 'checkpoints', keep_last=2))
+
+    def fail(*args, **kwargs):
+        raise OSError('publication disk failure')
+
+    owner = type(step) if stage == 'solve_result' else type(run)
+    monkeypatch.setattr(owner, stage, fail)
+    with pytest.raises(OSError, match='publication disk failure'):
+        project.execute_step(step, context=run,
+            policy=project.RunPolicy(completed_checkpoint_keep=1))
+    assert len(list((run.output_directory / 'checkpoints').glob('*.checkpoint.json'))) == 2
+    report = json.loads((run.output_directory / 'report.json').read_text())
+    assert report['status'] == 'failed'
+    assert 'checkpoint_retention' not in report
+
+
 def test_series_refuses_existing_output(tmp_path):
     from agentfem import results
     from test_response_material_step import make_step
@@ -359,3 +521,100 @@ def test_series_refuses_existing_output(tmp_path):
         series.write(make_step())
     assert series.close() == {}
     assert path.read_text() == 'precious'
+
+
+@pytest.mark.parametrize("storage", ["single_file", "frame_files"])
+def test_series_retries_metadata_publication_without_rewriting_fields(tmp_path, monkeypatch, storage):
+    from agentfem import checkpointing, results
+    from test_response_material_step import make_step
+    from meshio.xdmf import TimeSeriesReader
+
+    path = tmp_path / "retry.xdmf"
+    series = results.AcceptedResponseSeries(path, storage=storage)
+    step = make_step(steps=3)
+    series.write(step)
+    step.run(until_step=1)
+    series.write(step)
+    write_text = checkpointing.atomic_write_text
+    attempted = []
+    def fail_metadata_once(target, content, **kwargs):
+        if target == path.with_suffix('.json'):
+            attempted.append(content)
+            if len(attempted) == 1:
+                raise OSError('injected metadata publication failure')
+        return write_text(target, content, **kwargs)
+    monkeypatch.setattr(checkpointing, 'atomic_write_text', fail_metadata_once)
+    with pytest.raises(OSError, match='metadata publication'):
+        series.close(complete=False)
+    assert series.artifacts() == {}
+    with TimeSeriesReader(path) as reader:
+        reader.read_points_cells()
+        assert reader.num_steps == 2
+        time, points, cells = reader.read_data(1)
+        assert np.isfinite(points[step.state.u.value.name]).all()
+    with pytest.raises(RuntimeError, match='AFM-FRAMES-CLOSED'):
+        series.write(step)
+    with pytest.raises(ValueError, match='AFM-FRAMES-COMPLETION'):
+        series.close(complete=True)
+    original_exit = series._writer.__exit__
+    def must_not_reclose(*args):
+        raise AssertionError('already-finalized heavy data was closed again')
+    monkeypatch.setattr(series._writer, '__exit__', must_not_reclose)
+    # Public metadata aliases cannot alter a pending close after an I/O failure.
+    series.stations.append({'increment': 9999, 'time': 9999.})
+    recovered = series.close(complete=False)
+    assert recovered['process_metadata'] == path.with_suffix('.json')
+    assert len(attempted) == 2 and attempted[0] == attempted[1]
+    metadata = json.loads(path.with_suffix('.json').read_text())
+    assert not metadata['complete'] and len(metadata['stations']) == 2
+    assert series.close(complete=False) == recovered
+    monkeypatch.setattr(series._writer, '__exit__', original_exit)
+
+
+def test_series_storage_close_failure_remains_explicit(tmp_path, monkeypatch):
+    from agentfem import results
+    from test_response_material_step import make_step
+    series = results.AcceptedResponseSeries(tmp_path / 'failed-close.xdmf')
+    series.write(make_step())
+    original_exit = series._writer.__exit__
+    def fail_storage(*args):
+        raise OSError('injected storage close failure')
+    monkeypatch.setattr(series._writer, '__exit__', fail_storage)
+    try:
+        with pytest.raises(OSError, match='storage close'):
+            series.close(complete=True)
+        with pytest.raises(RuntimeError, match='AFM-FRAMES-CLOSE-FAILED'):
+            series.close(complete=True)
+        assert series.artifacts() == {}
+        assert not series.path.with_suffix('.json').exists()
+    finally:
+        original_exit(RuntimeError, RuntimeError('failed storage'), None)
+
+
+@pytest.mark.parametrize("storage", ["single_file", "frame_files"])
+def test_series_invalid_metadata_still_closes_accepted_fields(tmp_path, monkeypatch, storage):
+    from agentfem import results
+    from test_response_material_step import make_step
+    from meshio.xdmf import TimeSeriesReader
+
+    series = results.AcceptedResponseSeries(tmp_path / 'invalid-metadata.xdmf', storage=storage)
+    series.write(make_step())
+    original_exit = series._writer.__exit__
+    closed = []
+    def close_once(*args):
+        closed.append(True)
+        return original_exit(*args)
+    monkeypatch.setattr(series._writer, '__exit__', close_once)
+    series.units['invalid'] = float('nan')
+    with pytest.raises(ValueError):
+        series.close()
+    assert closed == [True]
+    assert series.artifacts() == {}
+    assert not series.path.with_suffix('.json').exists()
+    with pytest.raises(RuntimeError, match='AFM-FRAMES-CLOSE-FAILED'):
+        series.close()
+    assert closed == [True]
+    with TimeSeriesReader(series.path) as reader:
+        reader.read_points_cells()
+        assert reader.num_steps == 1
+        reader.read_data(0)

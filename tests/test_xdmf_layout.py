@@ -55,6 +55,52 @@ def test_result_writer_single_grid_and_warp(tmp_path):
     check_warp(path)
 
 
+@pytest.mark.parametrize("storage", ["single_file", "frame_files"])
+@pytest.mark.parametrize("abort", [False, True])
+def test_closed_writer_cannot_reopen_or_republish_accepted_data(tmp_path, storage, abort):
+    domain, u, damage = fields()
+    path = tmp_path / "closed.xdmf"
+    writer = ResultWriter(path, domain, (u, damage), storage=storage)
+    writer.__enter__()
+    writer.write(0.)
+    error = RuntimeError("simulation interrupted") if abort else None
+    writer.__exit__(type(error) if error is not None else None, error, None)
+    before = {p: hashlib.sha256(p.read_bytes()).hexdigest()
+              for p in tmp_path.rglob("*") if p.is_file()}
+    with pytest.raises(RuntimeError, match="closed"):
+        writer.write(1.)
+    with pytest.raises(RuntimeError, match="closed"):
+        writer.__enter__()
+    # Cleanup may be repeated, but must never promote an interrupted series
+    # or reopen/truncate its heavy data on an accidental post-context write.
+    writer.__exit__(None, None, None)
+    after = {p: hashlib.sha256(p.read_bytes()).hexdigest()
+             for p in tmp_path.rglob("*") if p.is_file()}
+    assert after == before
+    if abort:
+        index = path if storage == "frame_files" else path.with_name("closed.partial.xdmf")
+        assert ET.parse(index).find("Domain/Information").get("Value") == "incomplete"
+
+
+@pytest.mark.parametrize("storage", ["single_file", "frame_files"])
+def test_writer_failed_close_cannot_be_reported_as_success(tmp_path, monkeypatch, storage):
+    from agentfem.results.output import UnifiedXDMFTimeSeries
+    domain, u, damage = fields()
+    writer = ResultWriter(tmp_path / 'failed-close.xdmf', domain, (u, damage), storage=storage)
+    writer.__enter__()
+    writer.write(0.)
+    def fail(*args, **kwargs):
+        raise OSError('index publication failure')
+    monkeypatch.setattr(UnifiedXDMFTimeSeries, '_publish_index', fail)
+    with pytest.raises(OSError, match='index publication failure'):
+        writer.__exit__(None, None, None)
+    with pytest.raises(RuntimeError, match='close failed') as caught:
+        writer.__exit__(None, None, None)
+    assert isinstance(caught.value.__cause__, OSError)
+    with pytest.raises(RuntimeError, match='closed'):
+        writer.write(1.)
+
+
 @pytest.mark.parametrize("fault", ["time_nan", "time_repeat", "time_backwards",
                                   "nonfinite", "duplicate", "reserved", "unsafe_name",
                                   "schema", "mesh_motion"])
@@ -130,6 +176,147 @@ def test_storage_failure_poisons_writer(tmp_path, monkeypatch):
                 writer.write(0.)
             with pytest.raises(RuntimeError, match="writer failed"):
                 writer.write(1.)
+    assert not path.exists()
+
+
+def test_completed_frame_storage_survives_exit_between_frames(tmp_path):
+    """An abrupt process exit must not strand completed HDF5 metadata in RAM.
+
+    This is deliberately not a checkpoint or a claim about interruption inside
+    a write, filesystem failure, or power loss. The final XDMF stays unpublished.
+    """
+    import os
+    import subprocess
+    import sys
+    import textwrap
+    import h5py
+
+    path = tmp_path / "interrupted.xdmf"
+    script = textwrap.dedent("""
+        import os
+        import sys
+        from dolfinx import fem, mesh
+        from mpi4py import MPI
+        from agentfem.results import UnifiedXDMFTimeSeries
+
+        domain = mesh.create_unit_cube(MPI.COMM_SELF, 1, 1, 1,
+                                      cell_type=mesh.CellType.hexahedron)
+        u = fem.Function(fem.functionspace(domain, ("Lagrange", 1, (3,))))
+        damage = fem.Function(fem.functionspace(domain, ("DG", 0)), name="damage")
+        with UnifiedXDMFTimeSeries(sys.argv[1]) as writer:
+            writer.write_fields(0., u, damage)
+            u.x.array[:] = .1
+            damage.x.array[:] = .25
+            writer.write_fields(1., u, damage)
+            os._exit(23)  # No context exit, destructor, or MPI finalization.
+    """)
+    child = subprocess.run(
+        [sys.executable, "-c", script, str(path)],
+        env={**os.environ, "OMP_NUM_THREADS": "1", "OPENBLAS_NUM_THREADS": "1"},
+        capture_output=True, text=True, timeout=45,
+    )
+    assert child.returncode == 23, child.stderr
+    assert not path.exists()  # Incomplete run is not presented as final output.
+    with h5py.File(path.with_suffix(".h5"), "r") as data:
+        assert list(data["Frames"]) == ["0000", "0001"]
+        np.testing.assert_array_equal(data["Frames/0000/Point/U"][:], 0.)
+        np.testing.assert_array_equal(data["Frames/0001/Point/U"][:], .1)
+        np.testing.assert_array_equal(data["Frames/0001/Cell/damage"][:], .25)
+        assert data["Frames/0000/Geometry"].id == data["Frames/0001/Geometry"].id
+    partial = tmp_path / "interrupted.partial.xdmf"
+    assert ET.parse(partial).find("Domain/Information").get("Value") == "incomplete"
+    meshio = pytest.importorskip("meshio")
+    with meshio.xdmf.TimeSeriesReader(partial) as reader:
+        points, cells = reader.read_points_cells()
+        assert cells[0].type == "hexahedron"
+        assert len(cells[0].data) == 1
+        assert reader.num_steps == 2
+        time, point, cell = reader.read_data(1)
+        assert time == 1.
+        assert point["U"].shape == points.shape
+        np.testing.assert_array_equal(point["U"], .1)
+        np.testing.assert_array_equal(cell["damage"][0], .25)
+
+
+def test_partial_index_removed_only_after_successful_publication(tmp_path):
+    from agentfem.results import UnifiedXDMFTimeSeries
+
+    _, u, damage = fields()
+    path = tmp_path / "frames.xdmf"
+    with UnifiedXDMFTimeSeries(path) as writer:
+        writer.write_fields(0., u, damage)
+        assert writer.partial_path.is_file()
+        assert not path.exists()
+    assert path.is_file()
+    assert not writer.partial_path.exists()
+
+
+def test_existing_partial_index_is_not_overwritten(tmp_path):
+    from agentfem.results import UnifiedXDMFTimeSeries
+
+    path = tmp_path / "frames.xdmf"
+    partial = tmp_path / "frames.partial.xdmf"
+    partial.write_text("prior output index")
+    with pytest.raises(FileExistsError, match="partial output"):
+        with UnifiedXDMFTimeSeries(path):
+            pass
+    assert partial.read_text() == "prior output index"
+    assert not path.with_suffix(".h5").exists()
+
+
+def test_failed_final_index_preserves_partial_index(tmp_path, monkeypatch):
+    from agentfem import checkpointing
+    from agentfem.results import UnifiedXDMFTimeSeries
+
+    _, u, damage = fields()
+    path = tmp_path / "frames.xdmf"
+    original = checkpointing.atomic_write_text
+    def fail_final(target, content):
+        if target == path:
+            raise OSError("injected final-index failure")
+        return original(target, content)
+    monkeypatch.setattr(checkpointing, "atomic_write_text", fail_final)
+    with pytest.raises(OSError, match="final-index failure"):
+        with UnifiedXDMFTimeSeries(path) as writer:
+            writer.write_fields(0., u, damage)
+    assert not path.exists()
+    assert writer.partial_path.is_file()
+
+
+def test_failed_partial_index_poisons_writer(tmp_path, monkeypatch):
+    from agentfem import checkpointing
+    from agentfem.results import UnifiedXDMFTimeSeries
+
+    _, u, damage = fields()
+    path = tmp_path / "frames.xdmf"
+    def fail_index(target, content):
+        raise OSError("injected partial-index failure")
+    with pytest.raises(RuntimeError, match="incomplete artifact"):
+        with UnifiedXDMFTimeSeries(path) as writer:
+            monkeypatch.setattr(checkpointing, "atomic_write_text", fail_index)
+            with pytest.raises(OSError, match="partial-index failure"):
+                writer.write_fields(0., u, damage)
+            with pytest.raises(RuntimeError, match="writer failed"):
+                writer.write_fields(1., u, damage)
+    assert not path.exists()
+
+
+def test_frame_flush_failure_does_not_publish_output(tmp_path, monkeypatch):
+    import h5py
+    from agentfem.results import UnifiedXDMFTimeSeries
+
+    _, u, damage = fields()
+    path = tmp_path / "flush-failed.xdmf"
+    with pytest.raises(RuntimeError, match="incomplete artifact"):
+        with UnifiedXDMFTimeSeries(path) as writer:
+            def fail_flush(store):
+                raise OSError("injected flush failure")
+            with monkeypatch.context() as patch:
+                patch.setattr(h5py.File, "flush", fail_flush)
+                with pytest.raises(OSError, match="flush failure"):
+                    writer.write_fields(0., u, damage)
+            with pytest.raises(RuntimeError, match="writer failed"):
+                writer.write_fields(1., u, damage)
     assert not path.exists()
 
 

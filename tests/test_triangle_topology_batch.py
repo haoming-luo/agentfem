@@ -79,3 +79,39 @@ def test_q1_refit_preserves_first_occurrence_topology_under_rotation():
     a, b = (s.project(points, maximum_distance=.5) for s in (after, fresh))
     for name in ("points", "normals", "signed_gaps", "weights"):
         np.testing.assert_array_equal(a[name], b[name])
+
+
+def test_cached_adjacency_has_independent_metadata_and_exact_order_key():
+    from agentfem.boundary_models._triangle_topology import (
+        reviewed_edge_neighbors, _cached_edge_neighbors,
+    )
+    _cached_edge_neighbors.cache_clear()
+    triangles = np.array([[0, 1, 2], [0, 2, 3]])
+    first = reviewed_edge_neighbors(triangles)
+    expected = first.copy()
+    second = reviewed_edge_neighbors(triangles.copy())
+    assert _cached_edge_neighbors.cache_info().hits == 1
+    first.shape = (6,)
+    np.testing.assert_array_equal(second, expected)
+    with pytest.raises(ValueError):
+        second.setflags(write=True)
+    reordered = reviewed_edge_neighbors(triangles[::-1])
+    # Slot identities must follow the new input order, not cached old facet IDs.
+    np.testing.assert_array_equal(reordered, [[-1, -1, 1], [-1, 0, -1]])
+    assert _cached_edge_neighbors.cache_info().misses == 2
+
+
+def test_refit_reuses_adjacency_but_revalidates_degenerate_geometry():
+    from agentfem.boundary_models._triangle_topology import _cached_edge_neighbors
+    _cached_edge_neighbors.cache_clear()
+    x = np.array([[0., 0, 0], [1., 0, 0], [1., 1, 0], [0., 1, 0]])
+    cells = np.array([[0, 1, 2], [0, 2, 3]])
+    before = TriangulatedRigidSurface(x, cells)
+    moved = x.copy(); moved[2, 2] = .2
+    after = TriangulatedRigidSurface(moved, cells)
+    assert _cached_edge_neighbors.cache_info().hits == 1
+    np.testing.assert_array_equal(before.edge_neighbors, after.edge_neighbors)
+    assert not np.array_equal(before.facet_normals, after.facet_normals)
+    broken = x.copy(); broken[2] = [2., 0, 0]
+    with pytest.raises(ValueError, match='degenerate'):
+        TriangulatedRigidSurface(broken, cells)

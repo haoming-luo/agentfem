@@ -1115,6 +1115,29 @@ def test_rigid_contact_pair_rejects_rank_local_pointwise_penalty():
         boundary_models.RigidContactPair(slave, body, law)
 
 
+def test_explicit_pair_rejects_unsupported_initial_overlap_limit():
+    domain = _cube(MPI.COMM_SELF)
+    function_space = _vector_space(domain)
+    displacement = fem.Function(function_space, name="Displacement")
+    slave = _left_region(domain)
+    body = boundary_models.rigid_body(boundary_models.rigid_plane(
+        point=(0.05, 0.0, 0.0), normal=(-1.0, 0.0, 0.0),
+    ))
+    pair = boundary_models.rigid_contact_pair(
+        slave, body, penalty=100.0, initial_penetration_limit=0.0,
+    )
+    with pytest.raises(NotImplementedError, match="AFM-CONTACT-INITIAL-OVERLAP"):
+        boundary_models.dolfinx_explicit_contact_residual(
+            _bulk_residual(domain, function_space, (0.0, 0.0, 0.0)),
+            adapter=boundary_models.dolfinx_boundary_region_contact_trace(
+                slave, function_space,
+            ),
+            displacement=displacement,
+            contact_pair=pair,
+            maximum_stable_time_increment=1.0e-3,
+        )
+
+
 def test_rigid_contact_pair_friction_enters_explicit_operator_and_commits_state():
     domain = _cube(MPI.COMM_SELF)
     function_space = _vector_space(domain)
@@ -1274,6 +1297,76 @@ def test_explicit_friction_removes_common_prescribed_tool_translation():
     assert residual.trial_evidence.friction_dissipation == pytest.approx(0.0)
     residual.commit()
     assert residual.work_state.path_work == pytest.approx(0.0, abs=1.0e-14)
+
+
+def test_explicit_co_rotating_plane_preserves_stick_history_without_slip():
+    domain = _cube(MPI.COMM_SELF)
+    function_space = _vector_space(domain)
+    displacement = fem.Function(function_space, name="Displacement")
+    nodal = displacement.x.array.reshape((-1, 3))
+    nodal[:, 0] = 0.1
+    slave = _left_region(domain)
+    motion = boundary_models.prescribed_rigid_motion(
+        translation=(0.0, 0.0, 0.0), rotation=(np.pi / 2, 0.0, 0.0),
+        reference_point=(0.05, 0.5, 0.5),
+    )
+    schedule = boundary_models.prescribed_rigid_motion_schedule(
+        motion, start_time=1.0e-4, end_time=1.0e-3,
+    )
+    pair = boundary_models.rigid_contact_pair(
+        slave,
+        boundary_models.rigid_body(boundary_models.rigid_plane(
+            point=(0.05, 0.0, 0.0), normal=(-1.0, 0.0, 0.0),
+        ), motion_schedule=schedule),
+        penalty=100.0, friction_coefficient=0.4, tangential_penalty=50.0,
+    )
+    residual = boundary_models.dolfinx_explicit_contact_residual(
+        _bulk_residual(domain, function_space, (0.0, 0.0, 0.0)),
+        adapter=boundary_models.dolfinx_boundary_region_contact_trace(
+            slave, function_space,
+        ),
+        displacement=displacement, contact_pair=pair,
+        maximum_stable_time_increment=1.0e-3,
+    )
+    residual.initialize_accepted_state(time=0.0)
+    residual.update_time(5.0e-5)
+    nodal[:, 1] = 0.02
+    displacement.x.scatter_forward()
+    vector = residual.assemble_vector()
+    vector.destroy()
+    residual.commit()
+    first_slip = residual.friction_state.accepted.elastic_slips.copy()
+    vector = residual.assemble_vector()
+    vector.destroy()
+    first_evidence = residual.trial_evidence
+    residual.rollback()
+
+    reference = np.asarray(motion.reference_point)
+    rotation = np.asarray(motion.state(1.0)["rotation_matrix"])
+    old_positions = residual.adapter.reference_nodal_positions + nodal.copy()
+    nodal[:] = (
+        reference + (old_positions - reference) @ rotation.T
+        - residual.adapter.reference_nodal_positions
+    )
+    displacement.x.scatter_forward()
+    residual.update_time(1.0e-3)
+    vector = residual.assemble_vector()
+    vector.destroy()
+    spun = residual.trial_evidence
+    np.testing.assert_allclose(
+        spun.contact_force_on_structure,
+        first_evidence.contact_force_on_structure @ rotation.T,
+        atol=1e-12,
+    )
+    assert spun.tangential_potential_energy == pytest.approx(
+        first_evidence.tangential_potential_energy,
+    )
+    assert spun.friction_dissipation == pytest.approx(0.0)
+    residual.commit()
+    np.testing.assert_allclose(
+        residual.friction_state.accepted.elastic_slips,
+        first_slip @ rotation.T, atol=1e-13,
+    )
 
 
 def test_explicit_contact_rejects_projector_from_another_rigid_body():

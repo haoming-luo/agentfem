@@ -165,11 +165,22 @@ constitutive expression. Explicit `*_CELL` products never
 overwrite a same-named raw quadrature field. J2 and implicit creep also expose
 separately named `*_CELL` fields through
 `results.recover_integration_point_field(...)`. These fields use the actual
-quadrature weights to form a DG0 cell average and record the source position,
+quadrature weights multiplied by the absolute mesh Jacobian determinant to
+form a DG0 cell average and record the source position,
 point count, target space, and explicit absence of extrapolation, smoothing,
 or material-boundary averaging. This is material-aware in the strict sense
 that values never cross an element or material interface; it is not yet a
 smooth nodal contour recovery.
+
+The averaging measure is the **mesh geometry**, not the parameter cell. On
+non-affine quadrilateral/hexahedral or curved meshes, normalized reference-rule
+weights alone give a different quantity. Recovery records
+`averaging_measure="mesh_geometry"` and
+`geometric_weighting="absolute_jacobian_determinant"`. No deformation-gradient
+factor is inferred: a fixed reference mesh therefore gives a reference-volume
+average, not an automatically current-volume-weighted stress. Raw integration
+points and history are unchanged. Nonfinite values or nonpositive numerical
+cell measures reject collectively before ghost synchronization.
 
 ```python
 cell_peeq = results.recover_integration_point_field(

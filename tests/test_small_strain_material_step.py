@@ -199,3 +199,79 @@ def test_public_model_step_dispatches_small_strain_material():
     assert isinstance(step, mechanics.SmallStrainMaterialStep)
     step.solve()
     assert step.last_solve_info.completed_step
+
+
+@pytest.mark.parametrize("kind", ["j2", "chaboche", "provider", "creep", "maxwell", "maxwell_harmonic"])
+@pytest.mark.parametrize("boundary_kind", ["rigid_contact", "foundation"])
+def test_small_strain_boundary_operator_is_never_silently_ignored(kind, boundary_kind):
+    from agentfem import boundary_models
+    from agentfem.step_providers import step_capability
+
+    domain = dolfinx_mesh.create_unit_cube(MPI.COMM_SELF, 1, 1, 1)
+    if kind == "creep":
+        study = studies.creep_solid(dimension=3)
+    elif kind == "maxwell":
+        study = studies.viscoelastic_solid(dimension=3)
+    elif kind == "maxwell_harmonic":
+        study = studies.harmonic_solid(dimension=3)
+    else:
+        study = studies.static_solid(dimension=3, nonlinear=True)
+    model = models.create(study=study, mesh=domain)
+    u = model.field(fields.displacement(domain))
+    if kind == "j2":
+        material = constitutive.J2LinearIsotropicHardening(
+            young=1000., poisson=.3, yield_stress=2.)
+    elif kind == "chaboche":
+        material = constitutive.chaboche(
+            young=1000., poisson=.3, yield_stress=2., backstresses=((100., 10.),))
+    elif kind == "creep":
+        material = constitutive.isotropic_power_law(
+            young=1000., poisson=.3, density=1., coefficient=1e-5,
+            stress_exponent=2., reference_stress=1.)
+    elif kind in {"maxwell", "maxwell_harmonic"}:
+        material = constitutive.IsotropicGeneralizedMaxwell.from_prony(
+            instantaneous_young_modulus=1000., instantaneous_poisson_ratio=.3,
+            shear_relaxation_ratios=[.2], bulk_relaxation_ratios=[.1], relaxation_times=[1.])
+    else:
+        material = LinearBatchMaterial()
+    model.material(material)
+    left = mesh.boundary(domain, lambda x: np.isclose(x[0], 0.), name="left")
+    right = mesh.boundary(domain, lambda x: np.isclose(x[0], 1.), name="right")
+    model.clamp(u, on=left)
+    options = ({"frequency": 1.} if kind == "maxwell_harmonic" else
+               {"duration": 1.} if kind in {"creep", "maxwell"} else {})
+    assert step_capability(model, target=u, options=options)["supported"]
+    if boundary_kind == "rigid_contact":
+        model.add_boundary_model(boundary_models.rigid_contact_pair(
+            right, boundary_models.rigid_body(boundary_models.rigid_plane(
+                point=(1.005, 0., 0.), normal=(-1., 0., 0.))), penalty=1000., name="tool"))
+    else:
+        model.elastic_foundation(on=right, stiffness=1000.)
+    before = u.value.x.array.copy()
+    capability = step_capability(model, target=u, options=options)
+    assert not capability["supported"]
+    assert len(capability["rejection_reasons"]) == 1
+    assert any(item["message"].startswith("AFM-SMALL-STRAIN-BOUNDARY")
+               for item in capability["rejection_reasons"])
+    with pytest.raises(NotImplementedError, match="AFM-SMALL-STRAIN-BOUNDARY"):
+        model.step(target=u, **options)
+    # Older public compatibility factories must not bypass the same boundary.
+    from agentfem import _step_builders
+
+    builder = {
+        "j2": model.j2_plasticity_step,
+        "chaboche": model.j2_plasticity_step,
+        "creep": model.creep_step,
+    }.get(kind)
+    with pytest.raises(NotImplementedError, match="AFM-SMALL-STRAIN-BOUNDARY"):
+        if builder is not None:
+            builder(target=u, progress=False, **options)
+        else:
+            lower = {
+                "maxwell": _step_builders.viscoelastic,
+                "maxwell_harmonic": _step_builders.harmonic_viscoelastic,
+                "provider": _step_builders.small_strain_material,
+            }[kind]
+            lower(model, target=u, **options)
+    assert model.steps == []
+    np.testing.assert_array_equal(u.value.x.array, before)

@@ -491,6 +491,10 @@ never changes solver access, results, verification, or update behavior.
   diagnostics: active reference area, peak nominal penalty pressure and peak
   penetration per named pair. Their location is reference-boundary quadrature, not nodes;
   neither a peak alone nor a visually smoothed field proves contact accuracy.
+  For spatial comparisons use the accepted trace's `reference_positions` and
+  declared measure, not current-coordinate bins that move with deformation.
+  `export_accepted_contact_points` preserves reference positions when all
+  providers supply them and explicitly reports absence for older providers.
 - For a large serial nonlinear contact model, inspect accepted increment phase
   timings before tuning. Direct LU can dominate at finer resolution; an
   explicitly chosen nonsymmetric Krylov/preconditioner policy may help, but

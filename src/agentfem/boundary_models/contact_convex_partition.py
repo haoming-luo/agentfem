@@ -7,8 +7,8 @@ For an interior point of a certified convex tool, its signed gap is the
 maximum of outward support-plane gaps. On an affine P1 slave triangle these
 gaps are affine. The positive-area subcells are therefore polygonal, while a
 compressed switch between two dominant planes contributes a *line* term to
-the derivative of the integrated penalty force. This module handles at most
-three positive-area dominant features per slave triangle. It deliberately does
+the derivative of the integrated penalty force. This module handles a bounded
+number of positive-area dominant features per slave triangle. It deliberately does
 not describe a nonconvex nearest-edge/vertex distance, friction State, or a
 current-area follower law.
 """
@@ -26,8 +26,14 @@ from .rigid import PrescribedRigidMotion
 
 
 _TRIANGLE = tuple(np.eye(3))
+_DEFAULT_SHAPES = np.asarray((
+    (2 / 3, 1 / 6, 1 / 6),
+    (1 / 6, 2 / 3, 1 / 6),
+    (1 / 6, 1 / 6, 2 / 3),
+))
 _GAUSS_TRIANGLE = ((1 / 6, 1 / 6), (2 / 3, 1 / 6), (1 / 6, 2 / 3))
 _GAUSS_LINE = (0.5 - 0.5 / np.sqrt(3), 0.5 + 0.5 / np.sqrt(3))
+_MAX_ACTIVE_FEATURES = 4
 
 
 def _clip_polygon(vertices, nodal_values):
@@ -172,13 +178,26 @@ def partition_convex_p1_trace(
     k = float(penalty)
     if not np.isfinite(k) or k <= 0.0:
         raise ValueError("Convex feature partition requires a scalar positive penalty.")
+    ids = np.asarray(trace.point_ids, dtype=np.int64)
     nodes = np.asarray(trace.node_ids, dtype=np.int64)
     shapes = np.asarray(trace.shape_values, dtype=float)
     weights = np.asarray(trace.weights, dtype=float)
     positions = np.asarray(nodal_positions, dtype=float)
+    default_rule = False
+    if trace.point_count % 3 == 0 and nodes.shape[1] == 3:
+        grouped_shapes = shapes.reshape(-1, 3, 3)
+        order = np.argsort(np.argmax(grouped_shapes, axis=2), axis=1)
+        canonical_shapes = np.take_along_axis(
+            grouped_shapes, order[:, :, None], axis=1,
+        )
+        default_rule = np.allclose(
+            canonical_shapes, _DEFAULT_SHAPES[None, :, :],
+            rtol=0.0, atol=1e-13,
+        )
     if (trace.point_count % 3 != 0 or nodes.shape[1] != 3
+            or not np.all(ids.reshape(-1, 3) % 3 == np.arange(3)[None, :])
             or not np.all(nodes.reshape(-1, 3, 3) == nodes.reshape(-1, 3, 3)[:, :1, :])
-            or not np.allclose(shapes.reshape(-1, 3, 3).sum(axis=1), 1.0)
+            or not default_rule
             or not np.allclose(weights.reshape(-1, 3).sum(axis=1),
                                3 * weights.reshape(-1, 3)[:, 0])
             or positions.ndim != 2 or positions.shape[1] != 3
@@ -228,9 +247,9 @@ def partition_convex_p1_trace(
             active = _clip_polygon(active, values)
         _, active_weights = _polygon_rule(active)
         total_area = sum(active_weights)
-        if len(regions) > 3:
+        if len(regions) > _MAX_ACTIVE_FEATURES:
             raise NotImplementedError(
-                "AFM-CONTACT-FEATURE-PARTITION: more than three dominant "
+                "AFM-CONTACT-FEATURE-PARTITION: more than four dominant "
                 "support planes cross one active slave triangle."
             )
         if not np.isclose(

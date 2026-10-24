@@ -22,7 +22,8 @@ def _increment_field_scope(residual, snapshot):
 
 @contextmanager
 def _accepted_field_scope(functions, snapshots):
-    if _active.get() is not None:
+    previous = _active.get()
+    if previous is not None and previous["active"]:
         raise RuntimeError("Accepted field rollback owners cannot be nested.")
     if set(functions) != set(snapshots):
         raise ValueError("Accepted rollback fields and snapshots differ.")
@@ -38,19 +39,23 @@ def _accepted_field_scope(functions, snapshots):
         if id(function) in entries:
             raise ValueError("Accepted rollback contains aliased field identities.")
         entries[id(function)] = (function, saved, current.ctypes.data, current.shape)
-    owner = {"entries": entries, "failed": False}
+    owner = {"entries": entries, "failed": False, "active": True}
     token = _active.set(owner)
     try:
         yield
         if owner["failed"]:
             raise RuntimeError("A joined field transaction failed; reject this increment.")
     finally:
+        # ContextVar.reset only updates this context. A copied context must
+        # neither revive the ended increment nor keep its large snapshots.
+        owner["active"] = False
+        entries.clear()
         _active.reset(token)
 
 
 def _borrowed_field_snapshot(function):
     owner = _active.get()
-    if owner is None:
+    if owner is None or not owner["active"]:
         return None
     # Cleanup/rollback may itself use field transactions. Keep lending the
     # accepted snapshot; scope exit rejects acceptance without masking the
@@ -67,5 +72,5 @@ def _borrowed_field_snapshot(function):
 
 def _reject_field_scope():
     owner = _active.get()
-    if owner is not None:
+    if owner is not None and owner["active"]:
         owner["failed"] = True

@@ -53,6 +53,8 @@ def run_case(
     contact_quadrature_degree: int | None = None,
     line_search: str = "backtracking",
     linear_policy: str = "direct",
+    audit_quadrature: bool = False,
+    audit_subdivision: bool = False,
 ):
     if MPI.COMM_WORLD.size != 1:
         raise RuntimeError("This bounded implicit closed-tool example is serial only.")
@@ -143,8 +145,14 @@ def run_case(
     ))
     dual = result.metadata["constraint_duals"][0]
     contact_diagnostics = result.metadata["rigid_contact_point_diagnostics"]
-    return {
+    feature_claim = next(
+        claim for claim in result.verify("engineering").claims
+        if claim.name == "no_observed_uncertified_contact_feature_transition"
+    )
+    summary = {
         "status": result.status,
+        "engineering_contact_feature_status": feature_claim.status,
+        "engineering_contact_feature_issues": feature_claim.actual["issues"],
         "cells_per_axis": cells,
         "accepted_increments": len(step.accepted_increments),
         "penalty": penalty,
@@ -168,6 +176,15 @@ def run_case(
         "output": str(output),
         "scope": "serial_manufactured_fixture_not_external_validation",
     }
+    if audit_quadrature:
+        summary["fixed_configuration_quadrature_audit"] = (
+            step.contact_provider.quadrature_sensitivity()
+        )
+    if audit_subdivision:
+        summary["fixed_configuration_subdivision_audit"] = (
+            step.contact_provider.reference_subdivision_sensitivity()
+        )
+    return summary
 
 
 def main() -> None:
@@ -185,8 +202,16 @@ def main() -> None:
         help="opt-in iterative solver for fixed-input timing and response checks",
     )
     parser.add_argument(
-        "--contact-quadrature-degree", type=int, choices=(5, 7),
+        "--contact-quadrature-degree", type=int, choices=(5, 7, 9, 11),
         help="opt-in positive tetrahedral face rule for sensitivity checks",
+    )
+    parser.add_argument(
+        "--audit-quadrature", action="store_true",
+        help="compare positive face rules at the same accepted end configuration",
+    )
+    parser.add_argument(
+        "--audit-subdivision", action="store_true",
+        help="compare fixed reference-face subdivisions without re-solving",
     )
     parser.add_argument(
         "--output", type=Path, default=Path("outputs/finite_j2_closed_concave"),
@@ -198,6 +223,8 @@ def main() -> None:
         contact_quadrature_degree=args.contact_quadrature_degree,
         line_search=args.line_search,
         linear_policy=args.linear_policy,
+        audit_quadrature=args.audit_quadrature,
+        audit_subdivision=args.audit_subdivision,
     ), indent=2, sort_keys=True))
 
 

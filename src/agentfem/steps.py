@@ -17,7 +17,90 @@ from contextlib import contextmanager
 from copy import deepcopy
 from dataclasses import dataclass, field
 from math import isfinite
+from numbers import Integral, Real
 from sys import float_info
+
+
+@dataclass(frozen=True)
+class NormalAugmentationOptions:
+    """Experimental normal-contact outer iteration, distinct from Newton.
+
+    Tolerances use the model's explicit units: length for penetration and
+    pressure-times-length for complementarity. They are not force tolerances.
+    Current admission is one fixed or translating frictionless plane on serial P1 tetrahedra
+    with ordinary strong boundaries or disjoint reduced normal MPC rows;
+    this is not general mortar/MPC contact.
+    """
+
+    penetration_tolerance: float
+    complementarity_tolerance: float
+    length_unit: str
+    pressure_unit: str
+    maximum_augmentations: int = 30
+    acceleration: str = "none"
+
+    def __post_init__(self):
+        for name in ("penetration_tolerance", "complementarity_tolerance"):
+            value = getattr(self, name)
+            if isinstance(value, bool) or not isinstance(value, Real) or not isfinite(value) or value < 0:
+                raise ValueError(f"{name} must be finite and nonnegative.")
+            object.__setattr__(self, name, float(value))
+        if type(self.maximum_augmentations) is not int or self.maximum_augmentations < 1:
+            raise ValueError("maximum_augmentations must be a positive integer.")
+        for name in ("length_unit", "pressure_unit"):
+            value = getattr(self, name)
+            if not isinstance(value, str) or not value.strip():
+                raise ValueError(f"{name} must be an explicit nonempty unit.")
+        if not isinstance(self.acceleration, str) or self.acceleration not in ("none", "aitken"):
+            raise ValueError("normal augmentation acceleration must be 'none' or 'aitken'.")
+
+    def summary(self):
+        values = dict(vars(self))
+        # Preserve the default numerical-policy identity of older checkpoints.
+        if self.acceleration == "none":
+            values.pop("acceleration")
+        else:
+            values["relaxation_bounds"] = [0.1, 10.0]
+        return {"kind": "normal_augmentation", "maturity": "experimental", **values}
+
+
+def normal_augmentation(
+    *, penetration_tolerance: float, complementarity_tolerance: float,
+    length_unit: str, pressure_unit: str, maximum_augmentations: int = 30,
+    acceleration: str = "none",
+) -> NormalAugmentationOptions:
+    """Declare bounded plane AL controls; penalty and acceptance are unchanged.
+
+    Optional ``acceleration="aitken"`` uses area-weighted, projected dynamic
+    relaxation bounded to [0.1, 10], resetting at active-set changes and every
+    increment/attempt. It changes only outer updates, not the inner Newton
+    method, loading, accepted-state tolerances or physical work accounting.
+    """
+
+    return NormalAugmentationOptions(
+        penetration_tolerance, complementarity_tolerance,
+        length_unit, pressure_unit, maximum_augmentations, acceleration,
+    )
+
+
+def _finite_increment_control(value, name):
+    if isinstance(value, bool) or not isinstance(value, Real):
+        raise ValueError(f"{name} must be a finite real number, not a boolean or string.")
+    try:
+        selected = float(value)
+    except (OverflowError, ValueError):
+        raise ValueError(f"{name} must be a finite real number.") from None
+    if not isfinite(selected):
+        raise ValueError(f"{name} must be a finite real number.")
+    # Preserve Python integer-vs-float spelling in existing automatic-policy
+    # summaries/checkpoint identities; normalize non-Python scalar wrappers.
+    return value if type(value) in (int, float) else selected
+
+
+def _integer_increment_control(value, name):
+    if isinstance(value, bool) or not isinstance(value, Integral):
+        raise ValueError(f"{name} must be an integer, not a boolean or a truncated real number.")
+    return int(value)
 
 
 @dataclass(frozen=True)
@@ -39,8 +122,19 @@ class AutomaticIncrementation:
     fast_iterations: int = 4
     slow_iterations: int = 10
     maximum_inelastic_increment: float | None = None
+    inelastic_prediction_safety: float | None = None
 
     def __post_init__(self) -> None:
+        # Validate the policy once, before it owns a numerical path. In
+        # particular, NaN counters must not disable stopping conditions and
+        # fractional counts must not silently change a user's requested path.
+        for name in ("initial", "minimum", "maximum", "cutback_factor", "growth_factor"):
+            object.__setattr__(self, name, _finite_increment_control(getattr(self, name), name))
+        for name in ("max_increments", "max_cutbacks", "fast_iterations", "slow_iterations"):
+            object.__setattr__(self, name, _integer_increment_control(getattr(self, name), name))
+        if self.maximum_inelastic_increment is not None:
+            object.__setattr__(self, "maximum_inelastic_increment", _finite_increment_control(
+                self.maximum_inelastic_increment, "maximum_inelastic_increment"))
         sizes = (self.initial, self.minimum, self.maximum)
         if any(not isfinite(value) or value <= 0.0 for value in sizes):
             raise ValueError("Automatic increment sizes must be finite and positive.")
@@ -71,20 +165,47 @@ class AutomaticIncrementation:
             raise ValueError(
                 "maximum_inelastic_increment must be finite and positive."
             )
+        if self.inelastic_prediction_safety is not None:
+            safety = _finite_increment_control(
+                self.inelastic_prediction_safety, "inelastic_prediction_safety")
+            if not 0.0 < safety < 1.0:
+                raise ValueError("inelastic_prediction_safety must lie strictly between zero and one.")
+            if self.maximum_inelastic_increment is None:
+                raise ValueError("inelastic_prediction_safety requires maximum_inelastic_increment.")
+            object.__setattr__(self, "inelastic_prediction_safety", safety)
 
     @property
     def automatic(self) -> bool:
         return True
 
-    def after_convergence(self, size: float, iterations: int) -> float:
-        """Return the proposed size of the next increment."""
+    def after_convergence(
+        self, size: float, iterations: int, *, inelastic_increment: float | None = None,
+    ) -> float:
+        """Propose the next size using Newton work and optional accepted evidence.
+
+        The lagged material prediction only caps the ordinary proposal. It is
+        not an error estimator and never relaxes the current-attempt acceptance
+        bound. A zero accepted measure leaves the Newton proposal unchanged.
+        """
 
         selected = float(size)
         if iterations <= self.fast_iterations:
             selected *= self.growth_factor
         elif iterations >= self.slow_iterations:
             selected *= 0.5
-        return min(self.maximum, max(self.minimum, selected))
+        selected = min(self.maximum, max(self.minimum, selected))
+        if self.inelastic_prediction_safety is not None:
+            measured = _finite_increment_control(inelastic_increment, "accepted inelastic_increment")
+            limit = self.maximum_inelastic_increment
+            if measured < 0.0 or measured > limit:
+                raise ValueError("Accepted inelastic_increment must lie between zero and its declared limit.")
+            if measured > 0.0:
+                # This branch can only lower the ordinary proposal. Avoid a
+                # division by a subnormal measured value when no cap is needed.
+                fraction = measured / limit
+                if fraction > float(size) * self.inelastic_prediction_safety / selected:
+                    selected = max(self.minimum, float(size) * self.inelastic_prediction_safety / fraction)
+        return selected
 
     def after_failure(self, size: float) -> float:
         """Return a cut-back size after a failed attempt."""
@@ -92,7 +213,7 @@ class AutomaticIncrementation:
         return float(size) * self.cutback_factor
 
     def summary(self) -> dict[str, object]:
-        return {
+        summary = {
             "kind": "automatic_incrementation",
             "initial": self.initial,
             "minimum": self.minimum,
@@ -105,6 +226,12 @@ class AutomaticIncrementation:
             "slow_iterations": self.slow_iterations,
             "maximum_inelastic_increment": self.maximum_inelastic_increment,
         }
+        if self.inelastic_prediction_safety is not None:
+            summary["inelastic_prediction"] = {
+                "algorithm": "accepted_increment_proportional_cap_v1",
+                "safety": self.inelastic_prediction_safety,
+            }
+        return summary
 
 
 @dataclass(frozen=True)
@@ -114,7 +241,8 @@ class FixedIncrementation:
     load_factors: tuple[float, ...]
 
     def __post_init__(self) -> None:
-        factors = tuple(float(value) for value in self.load_factors)
+        factors = tuple(float(_finite_increment_control(value, "Fixed load factors"))
+                        for value in self.load_factors)
         if not factors or any(not isfinite(value) or value <= 0.0 for value in factors):
             raise ValueError("Fixed load factors must be finite and positive.")
         if any(right <= left for left, right in zip(factors, factors[1:])):
@@ -151,6 +279,7 @@ def automatic(
     fast_iterations: int = 4,
     slow_iterations: int = 10,
     maximum_inelastic_increment: float | None = None,
+    inelastic_prediction_safety: float | None = None,
 ) -> AutomaticIncrementation:
     """Create inspectable Abaqus-style automatic incrementation."""
 
@@ -165,13 +294,14 @@ def automatic(
         fast_iterations=fast_iterations,
         slow_iterations=slow_iterations,
         maximum_inelastic_increment=maximum_inelastic_increment,
+        inelastic_prediction_safety=inelastic_prediction_safety,
     )
 
 
 def fixed(increments: int) -> FixedIncrementation:
     """Divide the normalized step interval into exactly ``increments`` parts."""
 
-    selected = int(increments)
+    selected = _integer_increment_control(increments, "Fixed increments")
     if selected <= 0:
         raise ValueError("Fixed increments must be positive.")
     return FixedIncrementation(
@@ -190,6 +320,7 @@ def normalize(
     *,
     increments: int | None = None,
     load_factors=None,
+    inelastic_feedback: bool = False,
 ):
     """Normalize public and compatibility incrementation inputs."""
 
@@ -210,7 +341,20 @@ def normalize(
         raise TypeError(
             "incrementation must be steps.automatic(...) or steps.fixed(...)."
         )
+    if getattr(value, "inelastic_prediction_safety", None) is not None and not inelastic_feedback:
+        raise NotImplementedError(
+            "AFM-INCREMENT-FEEDBACK: this Procedure does not supply supported "
+            "accepted inelastic-increment evidence; disable inelastic_prediction_safety."
+        )
     return value
+
+
+def _after_convergence(control, size, iterations, *, inelastic_increment=None):
+    """Preserve existing two-argument policies when prediction is disabled."""
+
+    if control.inelastic_prediction_safety is None:
+        return control.after_convergence(size, iterations)
+    return control.after_convergence(size, iterations, inelastic_increment=inelastic_increment)
 
 
 @dataclass(frozen=True)
@@ -560,6 +704,8 @@ def _asset_name(asset_or_name, explicit=None) -> str:
 
 
 __all__ = [
+    "NormalAugmentationOptions",
+    "normal_augmentation",
     "AutomaticIncrementation",
     "FixedIncrementation",
     "MonotonicTargetAdvance",

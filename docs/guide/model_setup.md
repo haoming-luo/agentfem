@@ -396,6 +396,15 @@ See the
 The bounded `examples/finite_j2_closed_concave_contact.py`
 uses ordinary `model.step()` and writes an accepted XDMF/manifest pair; its
 manufactured unit-cube response is not an external validation benchmark.
+For an explicitly requested initial-overlap guard, a `RigidContactPair` may
+set `initial_penetration_limit` in model length units. The first-order
+analytical-plane trace uses its exact nodal extrema. A first-order triangular
+trace against a reviewed closed solid uses an adaptive conservative bound from
+the signed distance; if projection is ambiguous or the bound cannot be proved
+within its declared computation budget, Step construction fails rather than
+silently adjusting geometry. Open triangle sheets, higher-order traces and
+explicit contact do not admit this guard. Without the option, initial
+quadrature-point overlap is reported but is not a whole-face certificate.
 It keeps the direct linear solver as the default and exposes
 `--linear-policy gmres_gamg` for an explicit, recorded performance trial.
 The option uses the existing `solvers.LinearSolverOptions` contract and

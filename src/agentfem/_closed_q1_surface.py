@@ -65,6 +65,18 @@ class ClosedQ1Surface:
         self.lower, self.upper = x.min(axis=0), x.max(axis=0)
         self.scale = float(np.linalg.norm(self.upper - self.lower))
         self._vertex_shape = x.shape
+        self._interior_sign = (
+            execution is not None and execution.sign_policy == "interior_normal"
+        )
+        self._connected_shell = False
+        self._interior_sign_eligible = False
+        if self._interior_sign:
+            from ._q1_interior_sign import connected_shell, outward_volume
+
+            self._connected_shell = connected_shell(edges, len(cells))
+            self._interior_sign_eligible = (
+                self._connected_shell and outward_volume(self.search.vertices)[1]
+            )
 
     def refitted(self, vertices):
         """Update geometry without rechecking unchanged closed-shell topology."""
@@ -81,6 +93,13 @@ class ClosedQ1Surface:
         result.lower, result.upper = x.min(axis=0), x.max(axis=0)
         result.scale = float(np.linalg.norm(result.upper - result.lower))
         result._vertex_shape = x.shape
+        result._interior_sign = self._interior_sign
+        result._connected_shell = self._connected_shell
+        result._interior_sign_eligible = False
+        if result._interior_sign and result._connected_shell:
+            from ._q1_interior_sign import outward_volume
+
+            result._interior_sign_eligible = outward_volume(result.search.vertices)[1]
         return result
 
     def _inside(self, point):
@@ -161,7 +180,16 @@ class ClosedQ1Surface:
         normal = found["normals"].copy()
         resolved = np.flatnonzero(distance > tolerance)
         if len(resolved):
-            inside = self._inside_batch(query[resolved])
+            if self._interior_sign_eligible:
+                from ._q1_interior_sign import interior_sign
+
+                use, inside = interior_sign(
+                    self.search.vertices, found, resolved, delta, distance, tolerance
+                )
+                if np.any(~use):
+                    inside[~use] = self._inside_batch(query[resolved[~use]])
+            else:
+                inside = self._inside_batch(query[resolved])
             gaps[resolved] = np.where(inside, -distance[resolved], distance[resolved])
             # Signed-distance gradients, not averaged facet normals: pair
             # forces remain central even at edges/corners. Zero-gap points
@@ -183,5 +211,8 @@ class ClosedQ1Surface:
             "normals": normal,
             "signed_gaps": gaps,
             "separation_lower_bounds": np.where(gaps > 0, lower, gaps),
-            "sign_method": "two_true_q1_oriented_rays",
+            "sign_method": (
+                "current_q1_interior_normal_with_two_ray_fallback"
+                if self._interior_sign else "two_true_q1_oriented_rays"
+            ),
         }

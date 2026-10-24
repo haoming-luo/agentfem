@@ -1,0 +1,372 @@
+{
+  "schema": "agentfem.affine-plane-augmentation-sensitivity.v1",
+  "scope": "serial_disjoint_normal_rows_cyclic_finite_J2_not_general_mortar_or_external_reference",
+  "agentfem_version": "0.4.4.dev0",
+  "platform": "macOS-26.6.2-arm64-arm-64bit",
+  "git_commit": "867845247e8edd3d6940316ccf47971eef1f3c2a",
+  "example_sha256": "18feac7b4bc85a923d47893587c329b7b7064b2b3a0a7cd8052fc53fb25ef0d4",
+  "tool_sha256": "e5de9988f1874e575242580f060a186b30454cfde8edd11c87214cfcce19aa75",
+  "runtime_identity": {
+    "platform": {
+      "system": "macOS",
+      "route": "native macOS with conda-forge/Homebrew-compatible FEniCSx stack"
+    },
+    "python": "3.11.15",
+    "machine": "arm64",
+    "operating_system": {
+      "system": "Darwin",
+      "release": "25.6.0",
+      "version": "Darwin Kernel Version 25.6.0: Fri Jul 31 19:16:20 PDT 2026; root:xnu-12377.161.14~5/RELEASE_ARM64_T8142"
+    },
+    "packages": {
+      "agentfem": "0.4.4.dev0",
+      "fenics-dolfinx": "0.11.0",
+      "fenics-ufl": "2026.1.0",
+      "fenics-basix": "0.11.0",
+      "fenics-ffcx": "0.11.0",
+      "numpy": "2.4.6",
+      "mpi4py": "4.1.2",
+      "petsc4py": "3.25.2",
+      "h5py": "3.16.0"
+    },
+    "mpi": {
+      "vendor": "MPICH 5.0.1",
+      "rank_count": 1
+    },
+    "numerics": {
+      "python_float_mantissa_bits": 53,
+      "numpy_default_float": "float64",
+      "petsc_scalar_type": "float64",
+      "petsc_real_type": "float64",
+      "petsc_complex": false
+    },
+    "execution": {
+      "mode": "source_checkout",
+      "source": {
+        "schema": "agentfem.source-identity.v2",
+        "commit": "867845247e8edd3d6940316ccf47971eef1f3c2a",
+        "tracked_dirty": true,
+        "package_tree_sha256": "9c97582c696257a70e0092714042afea3a5eb4d5c3e7aeed543c0f6e5693143e",
+        "scientific_runtime_sha256": "cb8187039651cbcc6a87c4e8fab2ca937306dee9ae05822d34b854d08c49f48d",
+        "scientific_runtime_exclusions": [
+          "knowledge/benchmarks/**"
+        ]
+      },
+      "distribution": null
+    }
+  },
+  "mpi_transport_environment": {
+    "FI_PROVIDER": "tcp"
+  },
+  "material": {
+    "young": 1000.0,
+    "poisson": 0.3,
+    "yield_stress": 1000000.0,
+    "hardening_modulus": 100.0
+  },
+  "units": {
+    "length": "m",
+    "stress": "Pa",
+    "force": "N",
+    "work": "J"
+  },
+  "physical_path": "fixed plane x=1.005; periodic stretch 1/1.02/0.99/1.02 at 0/0.25/0.75/1",
+  "fixture": "affine_x_motion_on_z_end_faces",
+  "area_interpretation": "active_reference_area counts strictly positive multipliers, including numerical remnants; not a thresholded physical contact-area certificate",
+  "numerical_tolerances": {
+    "penetration": 1e-08,
+    "complementarity": 1e-07
+  },
+  "linear_solver": {
+    "kind": "linear_solver_options",
+    "mpc_assembly": "native",
+    "ksp_type": "preonly",
+    "pc_type": "lu",
+    "rtol": null,
+    "atol": null,
+    "max_it": null,
+    "factor_solver_type": "mumps",
+    "error_if_not_converged": true
+  },
+  "records": [
+    {
+      "cells": 8,
+      "increments": 32,
+      "penalty": 40000.0,
+      "status": "completed",
+      "stations": [
+        {
+          "factor": 0.25,
+          "displacement_l2": 0.011015374128288697,
+          "force_on_structure": [
+            -27.18411329332644,
+            -0.0,
+            -0.0
+          ],
+          "pressure_area_mean": 108.73645317330578,
+          "maximum_pressure": 748.4084861941658,
+          "active_reference_area": 0.24999999999999994,
+          "maximum_penetration": 7.986966643613869e-11,
+          "peeq_reference_volume_mean": 0.0,
+          "maximum_peeq": 0.0,
+          "normal_relative_work": 1.3479267667787684e-09,
+          "mpc_equation_mismatch": 0.0
+        },
+        {
+          "factor": 0.5,
+          "displacement_l2": 0.0034923911076560976,
+          "force_on_structure": [
+            -1.9344501654000585e-07,
+            -0.0,
+            -0.0
+          ],
+          "pressure_area_mean": 7.737800661600236e-07,
+          "maximum_pressure": 7.428288635136227e-05,
+          "active_reference_area": 0.002604166666666666,
+          "maximum_penetration": 0.0,
+          "peeq_reference_volume_mean": 0.0,
+          "maximum_peeq": 0.0,
+          "normal_relative_work": 2.59017339690953e-09,
+          "mpc_equation_mismatch": 0.0
+        },
+        {
+          "factor": 0.75,
+          "displacement_l2": 0.0070889389232310475,
+          "force_on_structure": [
+            -0.0,
+            -0.0,
+            -0.0
+          ],
+          "pressure_area_mean": 0.0,
+          "maximum_pressure": 0.0,
+          "active_reference_area": 0.0,
+          "maximum_penetration": 0.0,
+          "peeq_reference_volume_mean": 0.0,
+          "maximum_peeq": 0.0,
+          "normal_relative_work": 2.7715280351430413e-09,
+          "mpc_equation_mismatch": 0.0
+        },
+        {
+          "factor": 1.0,
+          "displacement_l2": 0.011015374128498949,
+          "force_on_structure": [
+            -27.184113305477076,
+            -0.0,
+            -0.0
+          ],
+          "pressure_area_mean": 108.73645322190832,
+          "maximum_pressure": 748.4084799394068,
+          "active_reference_area": 0.24999999999999994,
+          "maximum_penetration": 1.195590293434634e-10,
+          "peeq_reference_volume_mean": 0.0,
+          "maximum_peeq": 0.0,
+          "normal_relative_work": 4.433858648317956e-09,
+          "mpc_equation_mismatch": 0.0
+        }
+      ],
+      "setup_solve_observe_seconds": 74.10640470823273,
+      "accepted_increments": 32,
+      "outer_updates": 296,
+      "newton_iterations": 552,
+      "maximum_penetration_all_stations": 5.34263966400772e-10,
+      "maximum_complementarity_all_stations": 9.886673440394475e-08
+    },
+    {
+      "cells": 12,
+      "increments": 32,
+      "penalty": 40000.0,
+      "status": "completed",
+      "stations": [
+        {
+          "factor": 0.25,
+          "displacement_l2": 0.011012127465527882,
+          "force_on_structure": [
+            -25.522074690321528,
+            -0.0,
+            -0.0
+          ],
+          "pressure_area_mean": 102.08829876128613,
+          "maximum_pressure": 996.32199710389,
+          "active_reference_area": 0.25,
+          "maximum_penetration": 8.40638669785676e-11,
+          "peeq_reference_volume_mean": 0.0,
+          "maximum_peeq": 0.0,
+          "normal_relative_work": -5.711443183308146e-10,
+          "mpc_equation_mismatch": 0.0
+        },
+        {
+          "factor": 0.5,
+          "displacement_l2": 0.0034923911284261075,
+          "force_on_structure": [
+            -7.524636440685656e-08,
+            -0.0,
+            -0.0
+          ],
+          "pressure_area_mean": 3.0098545762742624e-07,
+          "maximum_pressure": 6.501285884752406e-05,
+          "active_reference_area": 0.0011574074074074076,
+          "maximum_penetration": 0.0,
+          "peeq_reference_volume_mean": 0.0,
+          "maximum_peeq": 0.0,
+          "normal_relative_work": 1.7667333356293477e-11,
+          "mpc_equation_mismatch": 0.0
+        },
+        {
+          "factor": 0.75,
+          "displacement_l2": 0.007088938923231013,
+          "force_on_structure": [
+            -0.0,
+            -0.0,
+            -0.0
+          ],
+          "pressure_area_mean": 0.0,
+          "maximum_pressure": 0.0,
+          "active_reference_area": 0.0,
+          "maximum_penetration": 0.0,
+          "peeq_reference_volume_mean": 0.0,
+          "maximum_peeq": 0.0,
+          "normal_relative_work": 8.821078503096251e-11,
+          "mpc_equation_mismatch": 0.0
+        },
+        {
+          "factor": 1.0,
+          "displacement_l2": 0.01101212746439807,
+          "force_on_structure": [
+            -25.52207474342351,
+            -0.0,
+            -0.0
+          ],
+          "pressure_area_mean": 102.08829897369402,
+          "maximum_pressure": 996.3219956714847,
+          "active_reference_area": 0.25,
+          "maximum_penetration": 7.111422561933978e-11,
+          "peeq_reference_volume_mean": 0.0,
+          "maximum_peeq": 0.0,
+          "normal_relative_work": 1.782111161835004e-10,
+          "mpc_equation_mismatch": 0.0
+        }
+      ],
+      "setup_solve_observe_seconds": 289.24698075000197,
+      "accepted_increments": 32,
+      "outer_updates": 313,
+      "newton_iterations": 589,
+      "maximum_penetration_all_stations": 8.905971515815736e-10,
+      "maximum_complementarity_all_stations": 9.811602509490276e-08
+    }
+  ],
+  "comparisons": [
+    {
+      "varied": "cells",
+      "coarse": {
+        "cells": 8,
+        "increments": 32,
+        "penalty": 40000.0
+      },
+      "fine": {
+        "cells": 12,
+        "increments": 32,
+        "penalty": 40000.0
+      },
+      "station_differences": [
+        {
+          "factor": 0.25,
+          "displacement_l2": {
+            "absolute_difference": 3.2466627608151305e-06,
+            "relative_to_fine": 0.0002948261152060227
+          },
+          "pressure_area_mean": {
+            "absolute_difference": 6.64815441201965,
+            "relative_to_fine": 0.06512161033817482
+          },
+          "peeq_reference_volume_mean": {
+            "absolute_difference": 0.0,
+            "relative_to_fine": null
+          },
+          "maximum_peeq": {
+            "absolute_difference": 0.0,
+            "relative_to_fine": null
+          },
+          "normal_relative_work": {
+            "absolute_difference": 1.919071085109583e-09,
+            "relative_to_fine": 3.3600458299543665
+          },
+          "force_absolute_difference": 1.6620386030049126
+        },
+        {
+          "factor": 0.5,
+          "displacement_l2": {
+            "absolute_difference": 2.0770009843962267e-11,
+            "relative_to_fine": 5.947217559598644e-09
+          },
+          "pressure_area_mean": {
+            "absolute_difference": 4.7279460853259735e-07,
+            "relative_to_fine": 1.5708220997103601
+          },
+          "peeq_reference_volume_mean": {
+            "absolute_difference": 0.0,
+            "relative_to_fine": null
+          },
+          "maximum_peeq": {
+            "absolute_difference": 0.0,
+            "relative_to_fine": null
+          },
+          "normal_relative_work": {
+            "absolute_difference": 2.5725060635532367e-09,
+            "relative_to_fine": 145.60805593430746
+          },
+          "force_absolute_difference": 1.1819865213314928e-07
+        },
+        {
+          "factor": 0.75,
+          "displacement_l2": {
+            "absolute_difference": 3.469446951953614e-17,
+            "relative_to_fine": 4.894169620482922e-15
+          },
+          "pressure_area_mean": {
+            "absolute_difference": 0.0,
+            "relative_to_fine": null
+          },
+          "peeq_reference_volume_mean": {
+            "absolute_difference": 0.0,
+            "relative_to_fine": null
+          },
+          "maximum_peeq": {
+            "absolute_difference": 0.0,
+            "relative_to_fine": null
+          },
+          "normal_relative_work": {
+            "absolute_difference": 2.683317250112079e-09,
+            "relative_to_fine": 30.41937841467139
+          },
+          "force_absolute_difference": 0.0
+        },
+        {
+          "factor": 1.0,
+          "displacement_l2": {
+            "absolute_difference": 3.2466641008786074e-06,
+            "relative_to_fine": 0.00029482623692606084
+          },
+          "pressure_area_mean": {
+            "absolute_difference": 6.648154248214297,
+            "relative_to_fine": 0.06512160859813508
+          },
+          "peeq_reference_volume_mean": {
+            "absolute_difference": 0.0,
+            "relative_to_fine": null
+          },
+          "maximum_peeq": {
+            "absolute_difference": 0.0,
+            "relative_to_fine": null
+          },
+          "normal_relative_work": {
+            "absolute_difference": 4.255647532134456e-09,
+            "relative_to_fine": 23.879809650889012
+          },
+          "force_absolute_difference": 1.6620385620535671
+        }
+      ]
+    }
+  ],
+  "all_numerical_acceptance_passed": true,
+  "continuum_or_external_verification": false
+}

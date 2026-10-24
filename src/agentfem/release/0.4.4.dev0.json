@@ -175,6 +175,19 @@
       ]
     },
     {
+      "id": "bounded-serial-periodic-j2-contact",
+      "maturity": "experimental",
+      "example": "examples/finite_j2_periodic_augmented_plane.py",
+      "evidence": [
+        "total-bulk-contact-residual-and-tangent-before-affine-reduction",
+        "fixed-normal-disjoint-row-augmentation",
+        "accepted-tool-work-and-joint-rollback",
+        "serial-same-configuration-restart",
+        "independent-confined-j2-cyclic-reference",
+        "nonuniform-spatial-and-path-refinement-remain-open"
+      ]
+    },
+    {
       "id": "finite-strain-j2-rve",
       "maturity": "experimental",
       "example": "tests/periodic_void_fixture.py",
@@ -431,6 +444,10 @@
     "legacy-vumat-installed-real-compiler"
   ],
   "not_release_claims": [
+    "mesh-independent nonuniform periodic plastic-contact response without spatial and path convergence",
+    "general energy closure from the Gaussian-penalty diagnostic without a relative-work ledger",
+    "portable combined-contact restart or distributed implicit-contact prediction",
+    "transfer or addition of implicit-J2 speedups to the explicit composite workload",
     "Abaqus implicit-contact parity without a frozen same-input external result",
     "distributed implicit rigid contact or general sharp nonconvex feature laws",
     "universal finite-element coverage",

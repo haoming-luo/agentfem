@@ -1,0 +1,42 @@
+{
+  "schema": "agentfem.installed-acceptance-delta.v1",
+  "date": "2026-10-25",
+  "source_commit": "38ab7e8c",
+  "basis": "evidence/contact/2026-10-25-installed-material-boundary-final.json",
+  "scope": "Final adjacent harmonic-Maxwell admission correction; the numerical finite-J2 and explicit-composite kernels are unchanged by this delta.",
+  "installation": {
+    "kind": "Fresh venv sharing the numerical dependency environment; local native wheel, no-index/no-deps installation; not clean-machine or Windows acceptance",
+    "wheel": "agentfem-0.4.4.dev0-cp311-cp311-macosx_11_0_arm64.whl",
+    "wheel_sha256": "403d15c7f2cd96bf9f3adbe13ae569c377b497ac57561d170cf772c76760332d",
+    "development_pythonpath": false,
+    "verified_site_package_modules": ["agentfem._builtin_step_providers", "agentfem._step_builders_frequency"]
+  },
+  "regression": {
+    "files": ["tests/test_small_strain_material_step.py", "tests/test_viscoelasticity.py", "tests/test_harmonic.py"],
+    "command": "python -m pytest -q -c /dev/null --noconftest -p no:cacheprovider <absolute test paths>; outside source, PYTHONPATH unset",
+    "source_passed": 107,
+    "source_seconds": 15.30,
+    "installed_passed": 107,
+    "installed_seconds": 17.69,
+    "unsupported_boundary_counterexamples": 12,
+    "material_families": 5,
+    "procedures": 6,
+    "note": "Includes ordinary/compatibility admission and supported transient/harmonic/global material cases. The two harmonic counterexamples failed before the correction. Counts overlap earlier acceptance and are not additive."
+  },
+  "project": {
+    "reconstruction": "Unchanged project source recorded in evidence/contact/2026-10-25-installed-periodic-contact.json",
+    "case_sha256": "a7719bc982317d6a14fe0cb4a8e7255d1fee51ce6412ea9b6b2a5502ac98aff4",
+    "command": "agentfem run --name admission-38ab7e8c",
+    "comparison": "008-admission-38ab7e8c versus 007-final-admission-continuous from the basis report",
+    "maximum_absolute_difference": {"displacement": 0.0, "material": 0.0, "contact_force": 0.0, "load_factors": 0.0, "contact_work": 0.0},
+    "independent_reader": {"library": "meshio", "volume_blocks": 1, "topology": "tetra", "cells": 384, "all_fields_finite": true, "times": [0.0, 0.125, 0.25, 0.375, 0.5, 0.625, 0.75, 0.875, 1.0]}
+  },
+  "representative_explicit_acceptance": {
+    "installed_source_commit": "bc7520cc",
+    "files": ["tests/test_strain_history_runtime.py", "tests/test_native_damped_body.py", "tests/test_finite_hex_explicit.py", "tests/test_builtin_q1_execution.py"],
+    "passed": 81,
+    "seconds": 55.53,
+    "scope": "Generic installed history-material/native Hex8/damping/Q1 contact contracts; not the confidential Hashin-Puck model or a full trajectory. Subsequent changes only affect harmonic material admission."
+  },
+  "exclusions": ["No new full-composite timing or commercial-software comparison.", "Concurrent spatial work makes these timings unsuitable as performance evidence.", "Reuse separately recorded unchanged restart/live-output evidence; this delta does not rerun all output tests."]
+}

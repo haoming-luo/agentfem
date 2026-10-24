@@ -8,6 +8,261 @@ numerical-method comparison and hardware selection. The next major target is
 the accepted-increment execution path and the number of full-domain updates,
 not another isolated arithmetic kernel or output-format rewrite.
 
+## 2026-10-22: late-path audit and bounded execution changes
+
+An isolated 600-increment ABBA continuation at step 95,000 tested one native
+gather-and-kinematics pass, with unchanged fused viscosity in both routes.
+Baseline times were 72.042702 and 75.198250 s; candidate times were 72.993829
+and 73.740268 s. All accepted fields, the final physical snapshot and the
+per-increment history fingerprint matched exactly. The approximately 0.34%
+mean difference is smaller than the observed timing variation: **inconclusive,
+not a selected speedup**. The extra public flag and native operation were
+withdrawn; the local prototype and evidence remain recoverable. This finding
+does not reject larger fused execution designs that eliminate intermediate
+payloads, which this particular prototype still retained.
+
+An ownership audit found a correctness issue independent of timing: a copied
+Python execution context could retain a completed increment's borrowed field
+snapshot. Reusing that context could roll a later failed operation back to the
+wrong accepted state, while also retaining large arrays. Two new regressions
+reproduce this on the prior source. Scope exit now invalidates the shared lease
+and releases its entries, including on exceptions. The fix passes 45 focused
+serial tests (one MPI-only skip) and the single distributed rollback check on
+both ranks. It changes neither formulas nor checkpoint content; no speedup is
+claimed. Commit: `4c466726`.
+
+A bounded transport prototype scoped finite-value evidence to immutable byte
+ranges within one explicit trial. A 12-increment mechanism probe reduced scans
+from 744 to 540, but that count did not predict a useful runtime benefit.
+Isolated 600-increment late-path ABBA times were 73.022581, 73.203479,
+73.233830 and 75.157280 s. Fields, the final physical snapshot and every
+increment's history fingerprint matched exactly. The 1.18% mean difference is
+smaller than baseline drift: **inconclusive, withdrawn**. The context cache,
+weak witnesses and extra trial wrapper are not part of the selected runtime.
+The prototype remains recoverable privately; compact evidence is in
+`evidence/performance/2026-10-23-immutable-validation-screen.json`.
+
+Retain only the independently useful correctness fix: freeze mutable transport
+inputs before validating the detached snapshot that is actually published.
+Two mutation-injection regressions exercise this ordering. No acceleration is
+claimed for that change, and scan-count reduction is not a solver-speed metric.
+
+Worker-budget screening initially stopped at checkpoint admission: the Q1
+execution identity contained projection/exact-service worker counts. Preserve
+that failure as evidence, not a reason to patch a checkpoint. Contact snapshots
+now have a v2 compatibility digest, using the same explicit-provider-declaration
+pattern as the body kernel. Native ordered independent queries declare their
+partition invariance; all physical, arithmetic and search/reuse settings remain.
+The old v1 path still requires the original execution identity, then an ordinary
+save upgrades the record. 58 targeted geometry/contact/restart tests pass,
+including both worker directions, strict legacy migration, changed-provider and
+malformed-record rejection, and outer-commit rollback. This is operational
+portability, not a performance result by itself.
+
+The resumed 400-increment worker screen retains identical accepted fields and
+residual-state/work snapshots. Joined execution with material/projection budgets
+8/4, 6/2, 4/2 and 8/2 takes 47.682, 50.749, 53.872 and 48.615 s with the smooth
+sign policy. Bracketing two-ray 8/4 runs take 47.967 and 48.886 s. No worker
+change is selected; the sign-policy timing difference is inconclusive at this
+scale. These are not recommendations for another computer. The next private
+harness also fingerprints per-increment history records separately: the earlier
+"physical history" fingerprints referred to the final accepted residual snapshot
+and cumulative work, not every intermediate record. Public evidence now makes
+that scope explicit.
+
+Installed whole-path acceptance is now complete at `1ed3c1e1`: 12,295.686 s
+including preparation, output and shutdown; 25 frames, final material and
+checkpoint arrays, 10,000 energy records and 800 observations equal the frozen
+baseline. Independent VTK verifies every frame and zero Warp error. See the
+public performance evidence for timing-scope distinctions. Do not replace the
+controlled 12.11% late-window finding with the larger, confounded whole-run
+difference. Retain the prior complete run as reference.
+
+The closing source audit also adds explicit exception cleanup to prepared
+linear operators: constructor failures release already owned PETSc objects,
+RHS vectors release on failed solves, stale convergence evidence is cleared,
+and failed matrix refresh closes the unusable owner. Six fault-injection tests
+fail on the frozen old implementation and pass on the corrected source.
+This is a lifetime/failure-semantics correction, not an explicit-run speedup.
+
+The complete-history encoding is separately opt-in through
+`RunPolicy(history_storage="npz")` or result publication. It retains every
+binary64 sample, deduplicates identical axes and publishes immutable companion
+arrays before the manifest commit point. Data-only readers do not initialize
+FEniCSx; malformed files and rank-inconsistent histories reject explicitly.
+The combined source regressions pass 237 tests (one MPI-only skip), and the
+two-rank history/prepared-solver subset passes 14 tests per rank. The synthetic
+storage benchmark is recorded separately from solver timing.
+
+A clean native wheel built from `0913ab9a` also passes the same 237 targeted
+tests (one MPI-only skip), with repository pytest path injection disabled.
+All three native binary hashes match the earlier complete-run wheel exactly.
+The closing Python changes have separate regression coverage; this is not a
+claim that a second full trajectory ran at the closing revision. Source,
+wheel and local JUnit fingerprints are recorded in
+`evidence/performance/2026-10-22-closing-installed-validation.json`.
+
+The final source follow-up aligns the two prepared MPC paths with ordinary
+linear solves: clear previous convergence evidence at the start of a new
+attempt, clear old algebraic residual/periodicity diagnostics, and honor the
+explicit nonconvergence policy. Diagnostic return retains a failed reason and
+actual residual; it does not promote an unconverged field. The algebraic
+summary now exposes its solver policy and latest solve record. Both stale-state
+regressions fail on the preceding installed candidate; 45 source checks and
+six targeted checks per MPI rank pass after the fix. These are separate from
+the preceding installed-wheel and complete explicit-run evidence.
+
+The completed 25-frame trajectory at `743f10b4` recorded 14,932.091 s of
+process elapsed time (not an isolated benchmark); inclusive residual assembly
+was approximately 89% of solver wall time. Field output is not the dominant
+cost. Preserve that run rather than regenerate a delivery archive.
+
+A separate 95,000-to-95,120 continuation with detailed profiling recorded
+18.939 s of advancement, 14.853 s inclusive body time and 13.795 s inclusive
+deformable-contact time. The latter two **overlap** and cannot be summed.
+These profiled numbers locate work; they are not uninstrumented throughput.
+The contact-thread profile revealed repeated connectivity sorting during
+current-geometry refitting, in addition to projection and inside/outside work.
+
+### Invariants before implementation
+
+- Reuse only exact connectivity adjacency and verified coordinate-equivalence
+  maps. Adjacency cache keys are full ordered connectivity bytes, with at most
+  four inputs of at most 4 MiB. Returned metadata are independent over immutable
+  byte storage. No cached normal, gap, contact force or geometry-validity result
+  survives a new configuration.
+- For Q1 refitting, reuse the first-occurrence weld map only if every existing
+  class still has equal coordinates and distinct classes remain distinct.
+  Splitting/merging classes rebuilds through the original welding algorithm;
+  a shared physical node with inconsistent coordinates still rejects. Geometry,
+  normals, degenerate triangles, bounds and exact projection remain current.
+- Extend the native affine-remainder **sufficient** cell screen beyond the
+  near-identity ball. A normalized, cancellation-filtered determinant establishes
+  orientation independently of the Gram matrix. Gershgorin lower/upper bounds
+  on `F.T F`, with roundoff margins, bound singular values for the existing
+  remainder test. Uncertain orientation, nonpositive spectral lower bounds,
+  overflow or an excessive nonaffine remainder retain reference SVD/Bernstein
+  checks. Positive mean determinant alone never admits a cell. These floating
+  point guards are not a formal interval-arithmetic proof.
+- No material law, increment, numerical mass, contact tolerance, force summation
+  order or accepted-state/checkpoint payload is changed by these optimizations.
+
+The spectral bounds use the standard [Gershgorin inclusion theorem](
+https://www.cs.cornell.edu/courses/cs6210/2025fa/lec/2025-10-22.html).
+The full-cell fallback retains the Bernstein approach described by
+[Johnen, Weill and Remacle](https://hdl.handle.net/2078.5/258622).
+Neither reference is a performance result for AgentFEM.
+
+### Performance ownership
+
+The existing `PerformanceLedger` now records `body_residual_inclusive`,
+`body_cell_gather`, `body_kinematics_admission`, `body_material_and_force`,
+`body_bulk_viscosity`, `body_force_scatter`, `deformable_contact_inclusive`
+and `contact_owner_wait` when those paths execute. Body subphases are nested;
+contact may overlap the body. `contact_owner_wait` measures the owner's wait
+at the join, not total contact cost and not CPU utilization. Native-call elapsed
+time may include scheduler/interpreter contention. Attempted failed phases
+remain timing evidence; timing does not mean physical state acceptance.
+Workers return elapsed durations; only the owner thread mutates the shared
+ledger. Timings are operational evidence, not restart identity or physical state.
+
+Promotion requires an unprofiled alternating same-state continuation comparison,
+including displacement, velocity, acceleration, deformation gradient, material
+history and stress. The early profiled screens had equal numerical fields but
+are insufficient to claim a whole-run percentage. Full-run, other-machine and
+WSL throughput remain separate evidence obligations.
+
+### Same-state alternating continuation evidence
+
+The 95,000-to-95,600 continuation used the unchanged private review material
+and checkpoint, with material/cell workers 8/4 and geometry/projection workers
+2/4. Runs were sequential, with cProfile disabled. Setup, checkpoint loading and
+the final comparison archive are outside the measured advancement; five small
+elapsed-time wrappers are present in both routes. This is not a complete-run
+benchmark or a change to the recommended worker count on other computers.
+
+| Execution order | Route | Advancement seconds |
+| --- | --- | ---: |
+| A1 | Frozen installed `743f10b4` | 87.257603 |
+| B1 | Native affine screen + topology/weld reuse + shared timing ledger | 76.804792 |
+| B2 | Same candidate, including immutable node-identity storage | 75.001206 |
+| A2 | Frozen installed `743f10b4` | 85.470891 |
+
+Candidate mean is 75.902999 s versus 86.364247 s for the baseline: **12.11%
+less elapsed time in this late-path window**, or 1.138 times throughput. B1
+preceded the metadata-only node-identity immutability hardening; B2 includes it.
+All six compared full arrays (displacement, velocity, acceleration, deformation
+gradient, material history and Cauchy stress) are bitwise equal across all four
+runs. Body summaries, including accumulated material internal work and bulk
+viscosity work, are equal. This parity verifies unchanged execution for the
+tested path, not the physical validity of the mass scaling or material model.
+
+Mean inclusive contact time decreased from 64.391321 to 52.776002 s; mean
+inclusive body time decreased from 69.464271 to 58.818001 s, while the directly
+wrapped material/force call stayed near 30.3 s. The concurrent branches cannot
+be added. Reduced contact-side sorting/interpreter work can also shorten body
+waiting, so these are not independent speedup contributions.
+
+The affected geometry, response-material, deformable-contact, rollback/restart,
+viscosity and performance-ledger regressions passed **190 tests** in the real
+FEniCSx environment. Lint and whitespace checks passed. Subsequent early-state
+and installed whole-path checks close this execution-parity gate, not
+independent physical verification. Private full arrays remain in local evidence
+folders;
+no confidential material or model assets are copied into this repository.
+
+### Exact coordinate identity follow-up
+
+An internal shared coordinate-identity helper now uses stable columnar
+`numpy.lexsort` rather than structured-row `numpy.unique` for duplicate checks
+and first-occurrence Q1 welding. This is exact binary64 equality, not a new
+mesh-merging tolerance. Signed zero remains equal, adjacent representable
+coordinates remain distinct, and the first input point owns its stored bits.
+Nonfinite/complex/malformed inputs reject. The helper does not change imported
+mesh numbering or the STL importer's separate lexicographic storage convention.
+[NumPy documents the stable multikey ordering](
+https://numpy.org/doc/stable/reference/generated/numpy.lexsort.html).
+
+On one synthetic 50,000-point input, ten duplicate checks took 0.128–0.132 s
+with the former row sort and 0.083–0.085 s with column sorting. This is a
+microbenchmark only. A fresh full-mesh 95,000-to-95,600 continuation took
+76.183 s, within the earlier combined candidate range: **no distinct extra
+whole-step gain is established**. All six arrays and the complete body/work
+summary remain exactly equal to the frozen original baseline. The combined
+geometry, contact, solver-lifecycle and nonlinear restart subset passed 187
+tests. This inexpensive common helper is retained without inflating the
+earlier 12.11% window-scoped result.
+
+### Early-path confirmation
+
+A separate from-start 600-increment pair took 93.194532 s on the frozen
+`743f10b4` installation and 81.550461 s with the combined candidate through
+`f500e484`: 12.49% less advancement time in this single pair. Both executed
+614 residual attempts (including initial substeps), with bitwise-equal six
+state arrays and equal complete body/work summaries. This extends execution
+parity to the initial path; one pair does not establish a statistical speedup
+or replace the late alternating comparison. Setup and final comparison archive
+remain excluded. The later complete installed trajectory above supplies a
+whole-run runtime, with its separate load caveats explicitly retained.
+
+### Versioned operational restart and policy consistency
+
+The native body now records scientific restart compatibility separately from
+actual execution provenance. Only declared independent-point/cell scheduling
+may change: material/cell workers and material tile scheduling. Code/law,
+parameters, state encoding, numerical controls, mesh/mass and backend arithmetic
+remain checked. Legacy v4 body archives retain exact execution identity and
+must first be restored compatibly and saved to a new record; no identity is
+removed or rewritten. Custom kernels default to exact identity.
+
+The targeted material/response/contact/substep suite passed 194 tests. A
+subsequent 136-test subset covers bidirectional worker/tile restart, legacy
+resave, atomic mismatch/corruption rejection, built-in native worker changes,
+NumPy/backend refusal, and solver policy/lifecycle checks. Counts overlap;
+they are not added into one claimed independent suite. Both field-backed and
+owned-array material paths retain the tested accepted-state equivalence.
+This removes a portability restriction, not a measured runtime percentage.
+
 ## Completed baseline
 
 Frozen core `608c50bb` completed the 255,041-cell, 100,000-increment review path
@@ -30,7 +285,7 @@ Lightweight development and read-only diagnostics overlapped the full run.
 | Model and material equations | Common Model/Step workflow; law remains external | Scientific inputs, not hardware tuning |
 | Performance records | `results/performance.py` stores elapsed cost; no four-hour correctness gate | Result evidence, separately from accuracy |
 | Workers | Native pool and dispatchers use 16-entry arrays; Python rejects counts above 16 | Backend implementation limit, not FEM semantics; replace with checked allocation when extending tested capacity |
-| Restart | `_step_response_hex.py` embeds the whole execution-kernel summary in material identity | Split model/state compatibility, numerical implementation and operational provenance in a versioned migration; do not strip old checks |
+| Restart | Native-material body records now separate versioned restart compatibility from actual execution provenance; v4 retains its exact check | Worker/tile changes require a partition-invariant declaration; code/law/numerical settings stay checked. Restore old archives with their original configuration, then save a new compatible record; never strip checks |
 | Time grid | The private provider applies a uniform per-point increment ceiling | Case policy requiring scientific evidence; not a universal material or platform limit |
 | Fixed final counters | 100,000-step checks belong to this private delivery reviewer | Use declared termination criteria for other problems |
 | Scalar precision and order | Bitwise replay is useful for unchanged arithmetic | Algorithm/backend changes use justified observable errors and convergence instead |

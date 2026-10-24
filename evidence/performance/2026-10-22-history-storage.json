@@ -1,0 +1,58 @@
+{
+  "scope": "synthetic complete-history publication and reading, not solver throughput",
+  "environment": {
+    "platform": "macOS-26.6.2-arm64-arm-64bit",
+    "python": "3.11.15 | packaged by conda-forge | (main, Jun 11 2026, 03:29:05) [Clang 19.1.7 ]",
+    "numpy": "2.4.6",
+    "agentfem": "0.4.4.dev0"
+  },
+  "benchmark_sha256": "d2b40398405676090e267a3a9699c6a1fab90080f7b5fe30aeb07dec0095ed73",
+  "implementation_sha256": {
+    "results/history_archive.py": "e953561c65f711e956b6b885ac247a5ae6fe4639edd22fa3a03dcd331065fca0",
+    "results/core.py": "c4ec8599e5f9b7faef2ed81e2b44d1e6d60944c08d534528d41738d73f7551ec",
+    "results/__init__.py": "b4097336d522c8cbeca059e5ab4c4ab05696db05a7e2bc0c284d39e42d382a33",
+    "provenance.py": "cb342933f12c5d617d0b294167dc1ea5d44b25e42f7a287023399e51912b6904"
+  },
+  "samples_per_channel": 100001,
+  "channels": 20,
+  "records": [
+    {
+      "storage": "inline",
+      "write_seconds": 1.958573458250612,
+      "read_seconds": 1.0388649171218276,
+      "bytes": 99469125,
+      "complete_bitwise_roundtrip": true
+    },
+    {
+      "storage": "npz",
+      "write_seconds": 0.09330633282661438,
+      "read_seconds": 0.017846334259957075,
+      "bytes": 16828163,
+      "complete_bitwise_roundtrip": true
+    },
+    {
+      "storage": "npz",
+      "write_seconds": 0.09262704104185104,
+      "read_seconds": 0.017322542145848274,
+      "bytes": 16828163,
+      "complete_bitwise_roundtrip": true
+    },
+    {
+      "storage": "inline",
+      "write_seconds": 1.9775985833257437,
+      "read_seconds": 1.043806416913867,
+      "bytes": 99469125,
+      "complete_bitwise_roundtrip": true
+    }
+  ],
+  "warmup": "one two-sample publication/read per encoding, excluded",
+  "execution_order": [
+    "inline",
+    "npz",
+    "npz",
+    "inline"
+  ],
+  "compression": "none",
+  "sample_decimation": "none",
+  "data_precision": "binary64"
+}

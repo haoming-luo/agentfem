@@ -3,6 +3,25 @@
 
 # Windows first-install recovery development
 
+## Current integration status (2026-10-24)
+
+The historical entries below retain their tested scope and then-current PR
+status. PR #119 and dependent #120 have now merged into main at `d87f1c0e`
+and `a7f69a8a`; no runtime bundle or customer-ready installer was published.
+Final implementation `af36afde` additionally preserves the resolved default
+project directory across restart, including a later Documents redirection.
+Existing records without that field resolve it on the next invocation; the
+installer cannot reconstruct an unrecorded earlier default. Conflicting or
+noncanonical saved paths reject before creating directories.
+
+Both Windows shells passed [the exact-head contracts](
+https://github.com/haoming-luo/agentfem/actions/runs/39979084732), and the
+[full Test workflow](https://github.com/haoming-luo/agentfem/actions/runs/39979084728)
+and [documentation](https://github.com/haoming-luo/agentfem/actions/runs/39979084737)
+also passed. Real UAC, restart, distro import, WorkBuddy permissions and domestic
+network availability remain the clean-host acceptance gate. A source merge is
+not evidence that these physical-host operations succeeded.
+
 2026-10-23. Branch: feat/windows-install-recovery. Base: a87cc121 (rebased onto remote main).
 
 ## Implemented

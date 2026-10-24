@@ -96,15 +96,17 @@ record.
     optional endpoint creep-rate time-error tolerance as separate acceptance
     decisions. Declare a model unit system when time histories require a
     physical unit label.
-    An experimental serial finite-J2 Step can also consume one fixed or
-    normalized-prescribed frictionless triangulated tool through the ordinary
-    `RigidContactPair` asset. Its prescribed pose follows the shared Step
-    amplitude, and the accepted ledger records tool force--moment work. It
-    rejects active non-smooth/free tool edges and does not imply periodic MPC
-    or distributed implicit contact. The source candidate also admits strong
-    prescribed DOFs on the contact trace by lifting the contact tangent and
-    preserving constrained matrix rows; use the focused sphere-indentation
-    comparison before generalizing that numerical evidence.
+    Experimental serial finite-strain J2 Steps can consume named rigid contact
+    pairs through the ordinary `RigidContactPair` asset, with fixed or
+    normalized-prescribed tool motion. The strong-boundary and supported
+    affine-periodic routes assemble the same total material-plus-contact
+    residual and tangent; tool work, tangential history where admitted, and
+    rollback belong to their accepted lifecycle. Geometry, integration and
+    friction restrictions are combination-specific: consult the candidate
+    matrix in `docs/guide/model_setup.md`, not the material's name alone.
+    This does not extend contact to small-strain J2/Chaboche, mixed affine
+    fields or distributed implicit execution. Nonuniform spatial accuracy and
+    general energy closure remain separate verification gates.
     A modal result additionally retains relative eigenpair residuals,
     mass-orthogonality and stiffness-diagonalization errors. Mode fields use a
     deterministic largest-global-component-positive orientation so repeated
@@ -112,6 +114,22 @@ record.
     physical change. Their normalized amplitude is not a displacement unit.
 18. Evaluate physical QoIs, diagnostics, and histories. Keep coefficient
     statistics distinct from assembled physical integrals.
+    Expert implicit-contact observations may use `accepted_point_samples()`:
+    `reference_positions`, current `slave_positions`, point IDs and
+    `reference_weights` refer to the same unsmoothed trace. Check
+    `measure_configuration`; reference-area pressure is not automatically
+    current-area Cauchy traction. The owning Step must be at an accepted state.
+    For experimental constant-normal plane augmentation, inspect both the raw
+    mechanical-energy residual and the contact-aware residual, signed numerical
+    normal work and its discrete absolute-work bound. Refine accepted increments
+    before making an energy claim. An AL functional is not stored energy, and
+    endpoint complementarity alone does not eliminate contact-onset work.
+    With prescribed translation, tool work is external input and numerical
+    relative-gap work is separate; never count the tool work twice.
+    Optional multiplier acceleration belongs in Step numerical controls.
+    Compare the complete accepted path, including partial contact, unloading,
+    pressure and restart, before adopting it; retain the default when evidence
+    for the intended contact regime is missing.
 19. Write visualization/output artifacts and attach them to the result. The
     standard transient lifecycle performs this automatically; low-level
     `run(output=...)` remains available for expert loops.

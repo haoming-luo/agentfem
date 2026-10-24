@@ -70,6 +70,28 @@ def test_payload_scope_is_independent_of_rank_count_portability():
     assert transient.summary()["effective_rank_count_portable"] is None
 
 
+@pytest.mark.parametrize("prediction", [None, 0.8])
+@pytest.mark.parametrize("contact", [False, True])
+def test_finite_j2_checkpoint_discovery_respects_optional_controls(
+    tmp_path, prediction, contact
+):
+    step = object.__new__(FiniteStrainJ2StandardProblem)
+    step.incrementation = SimpleNamespace(inelastic_prediction_safety=prediction)
+    step.contact_provider = object() if contact else None
+    capabilities = step.checkpoint_capabilities()
+    portable = checkpointing.every(1, directory=tmp_path, portable=True)
+    if prediction is not None or contact:
+        assert capabilities.rank_count_portability == "unsupported"
+        with pytest.raises(ValueError, match="original MPI rank count and partition"):
+            capabilities.validate_policy(portable)
+    else:
+        capabilities.validate_policy(portable)
+        assert capabilities.rank_count_portability == "requires_portable_policy"
+    assert ("accepted inelastic prediction is serial only" in capabilities.limitations) == (
+        prediction is not None
+    )
+
+
 def test_explicit_auxiliary_contract_cannot_upgrade_nodal_capabilities(tmp_path):
     step = object.__new__(ExplicitDynamicsStep)
     base = step.checkpoint_capabilities()

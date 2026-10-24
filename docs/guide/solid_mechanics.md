@@ -104,6 +104,17 @@ step = model.step(
 result = step.solve_result()
 ```
 
+For a nonmonotone `amplitudes.tabular(...)` load path, its interior table
+times are mandatory accepted stations in the normalized Step coordinate.
+`steps.fixed(...)` must include each station (use `steps.at(...)` for a
+nonuniform path); `steps.automatic(...)` lands on them before continuing.
+The shared Step amplitude also drives a prescribed rigid tool. Output-frame
+selection remains separate from these material-history stations. A custom
+amplitude without declared table knots requires the user to resolve its
+reversals in the increment path explicitly. A tabular asset copies its input
+arrays and fingerprints its creation-time metadata, so mutating caller arrays
+later cannot silently change a checkpointed path.
+
 The ordinary finite-J2 Step also has a bounded experimental serial route for
 registered, prescribed rigid contact pairs: analytical planes or spheres,
 reviewed triangular surfaces, certified closed-convex triangular solids, and
@@ -126,8 +137,9 @@ do not infer general industrial-contact support from this route. See
 remaining independent accuracy gap.
 
 For a first- or second-order tetrahedral or hexahedral contact boundary, the
-optional `contact_quadrature_degree=5` or `7` selects a positive Basix face
-rule: 7 or 15 points per triangle, or 3×3 or 4×4 points per quadrilateral.
+optional `contact_quadrature_degree=5`, `7`, `9` or `11` selects a positive
+Basix face rule: 7, 15, 19 or 28 points per triangle, or 3×3, 4×4, 5×5 or
+6×6 points per quadrilateral.
 The CG1 defaults remain three-point triangles and 2×2 quadrilaterals; a CG2
 trace retains its degree-four default. It is a convergence-study control, not an accuracy
 preset: higher contact integration did not monotonically improve a finite-
@@ -136,9 +148,30 @@ sampled on the actual trace and a nominal pressure difference, because a
 close total force can hide an inaccurate pressure distribution. The chosen
 rule likewise changes sampled physical-edge contact on a reviewed reentrant
 tool; mesh and penalty sensitivity remain mandatory before engineering use.
-The rule is part of the checkpoint identity and
-is rejected for legacy plane contact and affine-periodic J2; no
-unsupported combination silently falls back. Other weak boundary models and
+For such a tool, the result records sampled slave faces spanning multiple
+nearest features. If any are observed without a certified feature-transition
+integral, `result.verify("engineering")` and `result.verify("release")` fail
+the corresponding runtime claim. `"exploratory"` still permits inspection;
+zero observed mixed faces is not proof that the full contact boundary was
+integrated accurately. Release verification therefore requires a certified
+feature integral for every polyhedral pair, even when sampled mixed-face and
+active-point counts are both zero: no sampled contact does not prove whole-face
+separation. A passed runtime check still needs an
+independent scientific reference before the result can be called verified.
+Serial standard and periodic/MPC finite-J2 paths retain those sampled
+feature observations across every accepted station and checkpoint, rather
+than only the final output frame. A checkpoint written before this ledger
+existed may resume, but its earlier feature history is explicitly incomplete;
+it cannot acquire a clean engineering claim by replaying only the last part.
+This path record is observational evidence, **not** a proof that a changing
+nonconvex contact boundary was integrated consistently.
+The rule is part of the checkpoint identity. Both the strong-boundary and
+affine-periodic/MPC finite-J2 penalty-contact paths accept this explicit
+control; restoring a checkpoint with a different rule is rejected before
+changing the accepted state. Nodal normal augmentation and partitioned-face
+integration use their own integration definitions and reject this Gauss-rule
+override. Legacy plane contact also rejects it; no unsupported combination
+silently falls back. Other weak boundary models and
 formulations need their own reviewed lowering.
 
 For the narrower experimental case of a frictionless, scalar-penalty analytical plane
@@ -156,13 +189,13 @@ local contact pressure or plasticity as engineering results.
 
 The separate experimental `contact_integration="convex_feature_partition"`
 option addresses a **certified closed-convex** rigid tool when an affine CG1
-tetrahedral slave triangle has at most three positive-area dominant support
+tetrahedral slave triangle has at most four positive-area dominant support
 planes. It partitions both the active area and the compressed feature switch;
 the latter contributes a line term to the Newton tangent. A moving/rotating
 tool, force--moment work, total J2-plus-contact Jacobian, affine-periodic MPC
 reduction, and interrupted restart have bounded regressions. The option
 requires frictionless scalar-penalty contact, the default three-point
-reference triangle rule, and a single MPI rank. More than three dominant planes
+reference triangle rule, and a single MPI rank. More than four dominant planes
 or an undefined boundary-aligned feature switch rejects the trial; no normal is
 smoothed or third feature discarded. Accepted contact-point IDs are local to
 that snapshot. This does **not** apply to concave STL geometry, nonlinear
@@ -170,10 +203,83 @@ nearest-edge/vertex distance branches, frictional edge transitions, or
 general hard contact. Its successful small tests are not a penalty- or
 mesh-convergence certificate.
 
+For a still narrower experimental subset of a **reviewed closed, possibly
+concave** rigid solid, the ordinary serial finite-J2 Step can use
+`contact_integration="closed_planar_branch_partition"`. At every Newton trial,
+it proves that every current affine P1 slave triangle projects wholly inside
+one coplanar smooth master patch and that no other noncoplanar master feature can
+become nearer anywhere on that face. Different slave faces may have different
+certified planes; one face may not cross a master feature. Only then does it
+reuse the exact active-plane reference-area partition on each face.
+It can cross an internal coplanar triangulation seam, provided bounded
+polygon subtraction proves complete patch coverage. It refuses a physical
+sharp edge, competing vertex, uncovered patch, friction, higher-order
+trace, unsupported quadrature, or geometry above its explicit proof budget;
+it never substitutes a sampled normal. The bound is checked again after a
+rigid translation or rotation and is checkpoint-identified. It is useful for
+a small smooth patch of a larger complex tool, **not** general nonconvex
+contact or an edge/point law. A separate whole-face signed-distance check can
+certify zero contact at an accepted configuration; neither certificate proves
+nonintersection between accepted stations. See the runnable
+[closed-tool smooth-face example](https://github.com/haoming-luo/agentfem/blob/main/examples/finite_j2_closed_planar_branch.py).
+When an ordinary serial finite-J2 Step has several named rigid pairs, supply
+`contact_integration={"closed_tool": "closed_planar_branch_partition",
+"flat_tool": "planar_active_partition"}` to select their already supported
+rules independently. The mapping must name **every** pair exactly; adding a
+tool cannot silently give it the default sampled rule. Its selected mode is
+part of each pair's checkpoint identity. The affine-periodic J2 route does
+also admit exact-name per-pair mode mappings for its otherwise supported
+serial P1 rigid pairs. The total contact residual and tangent are reduced
+through the same MPC transformation. A verified smooth branch on a reviewed
+closed tool is still required at every trial; assigning that mode does not
+turn a sharp edge into an admitted contact law.
+
+The same whole-face proof can also be requested for a consistently oriented,
+reviewed **open triangulated tool** with
+`contact_integration="reviewed_planar_branch_partition"`. This is a
+one-sided oriented sheet, not a closed solid with inside/outside semantics.
+The matching triangle BVH finds the current nearest facet; a complete
+coplanar patch must cover each projected affine slave face, and every
+noncoplanar facet must be proven farther over that entire face. A moving or
+rotating sheet, a coplanar triangulation seam, total J2-plus-contact residual,
+periodic MPC reduction and interrupted restart have serial regressions.
+An uncovered rim or true master feature switch rejects the Newton trial;
+the option does not provide edge/point contact, arbitrary STL admission,
+friction or parallel implicit assembly. The earlier
+`closed_planar_branch_partition` spelling remains available specifically
+for reviewed closed solids. The same small example supports
+`--tool-kind open_sheet`; its result and contact samples are exported to a
+single named output directory unless `--output` is supplied.
+
+For an analytical plane and first-order tetrahedral/hexahedral reference
+geometry, `initial_penetration_limit` is checked at authoritative face
+vertices, including when displacement uses CG2. A quadratic field does not
+make the reference geometry quadratic. The check does **not** bound a later
+deformed CG2 face, and curved reference geometry remains unsupported for
+this vertex certificate. Whole-cell interpolation nodes and sampled Gauss
+gaps are not substitutes for the selected face's geometry vertices.
+
+For an affine P1 triangular slave against a reviewed closed convex tool,
+`initial_penetration_limit` also uses a face-wise certificate. If one rigid
+support plane dominates at every triangle vertex, its affine nodal minimum
+bounds the whole face; mixed-feature faces retain the adaptive signed-distance
+check. This admits near-touching planar patches without treating three
+ordinary Gauss samples as a whole-face proof. That closed-solid signed-distance
+argument does not apply to open sheets, higher-order geometry or the later
+sliding path; the separate open-sheet bound below needs its own oriented
+whole-face planar-branch proof.
+
 The runnable, dimensionless
 [feature-partition example](https://github.com/haoming-luo/agentfem/blob/main/examples/finite_j2_convex_feature_partition.py)
 exercises the ordinary installed-package workflow; it is a regression fixture,
 not an external forming benchmark.
+
+An open reviewed sheet may also declare `initial_penetration_limit` **only**
+with `reviewed_planar_branch_partition` on affine P1 triangular faces. The
+same complete-coverage/nearest-branch proof is repeated at the reference
+pose; its oriented plane gap is affine, so the worst penetration is bounded
+at face vertices. A rim, competing feature or exhausted proof budget rejects
+the model. Ordinary sampled `gauss` contact does not inherit this guarantee.
 
 Bulk and contact integration are separate choices. For an ordinary CG2
 hexahedral finite-J2 displacement field, `model.step(...)` selects bulk

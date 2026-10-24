@@ -423,6 +423,14 @@ to a deformable field. These are separate assets so changing a tool path does
 not redefine contact enforcement, and changing a contact law does not redefine
 geometry.
 
+Accepted contact samples distinguish reference material positions from current
+slave positions and projected master positions. Their point IDs, pressure and
+integration weights share one trace and a declared measure configuration.
+Reference-area nominal pressure must not be relabeled as current-area Cauchy
+traction. Reference coordinates are optional for legacy external providers;
+exports report their absence instead of reconstructing them from current
+positions. Contact sample archives are observations, not restart state.
+
 Every rigid surface exposes one solver-neutral projection contract: query
 points, closest points, admissible-side unit normals, signed gaps, validity flags, the
 projection method, geometry fingerprint, and optional stable entity identities.
@@ -759,6 +767,25 @@ continuous monitored response, not an exact event solve for discontinuous
 damage, contact, or active-set changes.
 
 ## Verification Claim and Trust Level
+
+Numerical constraint work is distinct from stored energy and irreversible
+dissipation. In bounded constant-normal plane augmented contact, accepted pressure/gap
+endpoints define signed normal work and a non-cancelling discrete work bound.
+That bound does not bound the unknown continuous path or prove integration
+accuracy. Results retain raw and contact-aware energy residuals; increment
+refinement and explicit verification remain necessary. Only accepted states
+enter the work history, and missing checkpoint history is not reconstructed.
+For prescribed plane translation, structural contact work is tool work plus
+relative-gap work. The tool follows the Step's resolved amplitude, while the
+multiplier basis follows fixed material-side reference nodes. Checkpoint
+restoration must agree on both identities; this is not a general history
+transfer rule for rotating normals or changing contact partitions.
+
+Multiplier acceleration is a numerical Procedure policy, not a material law.
+Its secant history belongs to one attempted increment and is discarded on
+retry or restart. Changing the policy must not change contact acceptance or
+permit a failed trial to enter State. A partial-contact patch needs its own
+opening/recontact checks; a uniformly compressed patch alone is insufficient.
 
 A verification claim binds an observable to a reference, criterion,
 applicability domain, evidence record, and passed/failed/inconclusive decision.

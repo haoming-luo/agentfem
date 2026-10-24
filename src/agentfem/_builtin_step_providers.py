@@ -283,7 +283,7 @@ def _accept_mixed_neo_hookean(model, request: StepRequest) -> bool:
     )
 
 
-def _accept_j2(model, request: StepRequest) -> bool:
+def _j2_preconditions(model, request: StepRequest) -> bool:
     from .constitutive.plasticity import (
         ChabocheCombinedHardening,
         J2LinearIsotropicHardening,
@@ -311,7 +311,11 @@ def _accept_j2(model, request: StepRequest) -> bool:
     )
 
 
-def _accept_small_strain_material(model, request: StepRequest) -> bool:
+def _accept_j2(model, request: StepRequest) -> bool:
+    return _j2_preconditions(model, request) and not getattr(model, "boundary_models", ())
+
+
+def _small_strain_material_preconditions(model, request: StepRequest) -> bool:
     from .constitutive.small_strain_user_material import SmallStrainUserMaterial
 
     study = getattr(model, "study", None)
@@ -323,6 +327,45 @@ def _accept_small_strain_material(model, request: StepRequest) -> bool:
         and _is_vector_target(request.target)
         and isinstance(material, SmallStrainUserMaterial)
     )
+
+
+def _accept_small_strain_material(model, request: StepRequest) -> bool:
+    return (
+        _small_strain_material_preconditions(model, request)
+        and not getattr(model, "boundary_models", ())
+    )
+
+
+def _unsupported_small_strain_boundary(model) -> str | None:
+    from ._step_builders_inelastic import small_strain_boundary_rejection
+
+    return small_strain_boundary_rejection(model)
+
+
+def _j2_boundary_rejection(model, request: StepRequest) -> str | None:
+    return _unsupported_small_strain_boundary(model) if _j2_preconditions(model, request) else None
+
+
+def _small_strain_boundary_rejection(model, request: StepRequest) -> str | None:
+    return (
+        _unsupported_small_strain_boundary(model)
+        if _small_strain_material_preconditions(model, request) else None
+    )
+
+
+def _linear_reuse_rejection_reason(request: StepRequest, *, affine=False) -> str | None:
+    policy = request.option("solver_options")
+    linear = getattr(policy, "linear_solver", policy)
+    if getattr(linear, "preconditioner_reuse", "none") == "none":
+        return None
+    domain = getattr(getattr(getattr(request.target, "value", None), "function_space", None), "mesh", None)
+    if not affine or domain is None or domain.comm.size != 1:
+        return (
+            "AFM-LINEAR-REUSE: adaptive preconditioning requires the serial "
+            "affine Newton correction owner; this path does not enforce its "
+            "true-residual and rebuild contract."
+        )
+    return None
 
 
 def _accept_finite_strain_j2_affine(model, request: StepRequest) -> bool:
@@ -354,8 +397,12 @@ def _accept_finite_strain_j2_affine(model, request: StepRequest) -> bool:
         and isinstance(selected_constraints[0], AbaqusPeriodicConstraint)
         and not physical_loads
         and affine_rigid_contact_supported(model)
+        and _linear_reuse_rejection_reason(request, affine=True) is None
+        and _inelastic_prediction_rejection_reason(model, request) is None
         and _finite_j2_bulk_quadrature_rejection_reason(request) is None
+        and _contact_quadrature_rejection_reason(model, request) is None
         and _contact_integration_rejection_reason(model, request) is None
+        and _initial_contact_bound_rejection_reason(model, request) is None
     )
 
 
@@ -398,6 +445,7 @@ def _accept_finite_strain_j2_mixed_affine(
         getattr(study, "physics", None) == "solid_mechanics"
         and interpolation_supported
         and domain is not None
+        and _linear_reuse_rejection_reason(request, affine=True) is None
         and getattr(request.target, "kind", None) == "displacement_pressure"
         and _all_materials_support(
             model,
@@ -432,12 +480,24 @@ def _finite_strain_j2_affine_boundary_rejection(model, request: StepRequest) -> 
         )
     ):
         return None
+    prediction_problem = _inelastic_prediction_rejection_reason(model, request)
+    if prediction_problem is not None:
+        return prediction_problem
+    solver_problem = _linear_reuse_rejection_reason(request, affine=True)
+    if solver_problem is not None:
+        return solver_problem
     quadrature_problem = _finite_j2_bulk_quadrature_rejection_reason(request)
     if quadrature_problem is not None:
         return quadrature_problem
+    contact_quadrature_problem = _contact_quadrature_rejection_reason(model, request)
+    if contact_quadrature_problem is not None:
+        return contact_quadrature_problem
     integration_problem = _contact_integration_rejection_reason(model, request)
     if integration_problem is not None:
         return integration_problem
+    initial_bound_problem = _initial_contact_bound_rejection_reason(model, request)
+    if initial_bound_problem is not None:
+        return initial_bound_problem
     if not getattr(model, "boundary_models", ()) or affine_rigid_contact_supported(model):
         return None
     return (
@@ -509,11 +569,17 @@ def _accept_finite_strain_j2_strong(model, request: StepRequest) -> bool:
 
     if not _finite_strain_j2_strong_preconditions(model, request):
         return False
+    if _inelastic_prediction_rejection_reason(model, request) is not None:
+        return False
+    if _linear_reuse_rejection_reason(request) is not None:
+        return False
     if _finite_j2_bulk_quadrature_rejection_reason(request) is not None:
         return False
     if _contact_quadrature_rejection_reason(model, request) is not None:
         return False
     if _contact_integration_rejection_reason(model, request) is not None:
+        return False
+    if _initial_contact_bound_rejection_reason(model, request) is not None:
         return False
     boundary_models = tuple(getattr(model, "boundary_models", ()))
     if not boundary_models:
@@ -562,9 +628,9 @@ def _contact_quadrature_rejection_reason(model, request: StepRequest) -> str | N
     if (
         isinstance(selected, (bool, np.bool_))
         or not isinstance(selected, (int, np.integer))
-        or int(selected) not in (5, 7)
+        or int(selected) not in (5, 7, 9, 11)
     ):
-        return "AFM-CONTACT-QUADRATURE: degree must be 5 or 7."
+        return "AFM-CONTACT-QUADRATURE: degree must be 5, 7, 9 or 11."
     pairs = tuple(getattr(model, "boundary_models", ()))
     if not pairs or not all(isinstance(item, RigidContactPair) for item in pairs):
         return (
@@ -588,36 +654,148 @@ def _contact_quadrature_rejection_reason(model, request: StepRequest) -> str | N
     return None
 
 
+def _initial_contact_bound_rejection_reason(model, request: StepRequest) -> str | None:
+    """Keep a requested *certified* reference overlap bound out of sampled paths.
+
+    The lower-level contact provider checks the actual nodal extrema. This
+    inexpensive admission check mirrors its geometric proof prerequisites,
+    without projecting or assembling during a capability probe.
+    """
+
+    from .boundary_models import RigidContactPair
+    from .boundary_models.contact_integration_modes import (
+        resolve_contact_integration_modes,
+    )
+    from .boundary_models.initial_gap_bound import initial_gap_bound_method
+
+    bounded = tuple(
+        pair for pair in getattr(model, "boundary_models", ())
+        if isinstance(pair, RigidContactPair)
+        and pair.initial_penetration_limit is not None
+    )
+    if not bounded:
+        return None
+    pairs = tuple(
+        pair for pair in getattr(model, "boundary_models", ())
+        if isinstance(pair, RigidContactPair)
+    )
+    try:
+        modes = dict(zip(
+            (pair.name for pair in pairs),
+            resolve_contact_integration_modes(
+                pairs, request.options.get("contact_integration", "gauss"),
+            ),
+            strict=True,
+        ))
+    except ValueError as exc:
+        return str(exc)
+    value = getattr(request.target, "value", None)
+    space = getattr(value, "function_space", None)
+    domain = getattr(space, "mesh", None)
+    degree = getattr(getattr(space, "element", None), "basix_element", None)
+    cell_name = None if domain is None else str(domain.topology.cell_name())
+    facet_topology = {
+        "tetrahedron": "triangle",
+        "hexahedron": "quadrilateral",
+    }.get(cell_name, "unsupported")
+    if (
+        domain is None
+        or degree is None
+        or any(
+            initial_gap_bound_method(
+                pair.rigid_body.surface,
+                interpolation_degree=int(degree.degree),
+                geometry_degree=int(domain.geometry.cmaps[0].degree),
+                facet_topology=facet_topology,
+                contact_integration=modes[pair.name],
+            ) is None
+            for pair in bounded
+        )
+    ):
+        return (
+            "AFM-CONTACT-INITIAL-BOUND: initial_penetration_limit requires "
+            "first-order reference geometry with an analytical plane "
+            "(CG1 or CG2 displacement), or first-order slave interpolation "
+            "and geometry with an analytical radial partition, reviewed closed-solid "
+            "triangular signed distance, or an open sheet admitted by "
+            "reviewed_planar_branch_partition; "
+            "other sampled gaps are not a certified face-wise bound."
+        )
+    return None
+
+
 def _contact_integration_rejection_reason(model, request: StepRequest) -> str | None:
     """Admit the changing trial partition only where its affine proof applies."""
 
+    augmentation_problem = _normal_augmentation_rejection_reason(model, request)
+    if augmentation_problem is not None:
+        return augmentation_problem
     selected = request.options.get("contact_integration", "gauss")
-    if selected == "gauss":
+    from .boundary_models.contact_integration_modes import (
+        CONTACT_INTEGRATION_MODES, resolve_contact_integration_modes,
+    )
+
+    if isinstance(selected, str) and selected == "gauss":
         return None
-    if selected not in {"planar_active_partition", "convex_feature_partition"}:
+    if isinstance(selected, str) and selected not in CONTACT_INTEGRATION_MODES:
         return "AFM-CONTACT-PARTITION: unknown contact_integration option."
     from .boundary_models import (
-        ConvexPolyhedralRigidSurface, RigidContactPair, RigidPlaneSurface,
+        ClosedTriangulatedRigidSolid, ConvexPolyhedralRigidSurface,
+        RigidContactPair, RigidCylinderSurface, RigidPlaneSurface,
+        RigidSphereSurface, TriangulatedRigidSurface,
     )
 
     pairs = tuple(getattr(model, "boundary_models", ()))
-    if (not pairs or not all(
-        isinstance(item, RigidContactPair)
-        and isinstance(
-            item.rigid_body.surface,
-            RigidPlaneSurface if selected == "planar_active_partition"
-            else ConvexPolyhedralRigidSurface,
+    if not pairs or not all(isinstance(item, RigidContactPair) for item in pairs):
+        return (
+            "AFM-CONTACT-PARTITION: named rigid contact pairs are required "
+            "for trial active integration."
         )
-        and item.friction is None
-        and np.asarray(item.law.penalty).ndim == 0
-        for item in pairs
-    ) or request.options.get("contact_quadrature_degree") is not None):
+    try:
+        modes = resolve_contact_integration_modes(pairs, selected)
+    except ValueError as exc:
+        return str(exc)
+    required_surface = {
+        "planar_active_partition": RigidPlaneSurface,
+        "convex_feature_partition": ConvexPolyhedralRigidSurface,
+        "closed_planar_branch_partition": ClosedTriangulatedRigidSolid,
+        "reviewed_planar_branch_partition": (
+            ClosedTriangulatedRigidSolid, TriangulatedRigidSurface,
+        ),
+        "radial_active_partition": (RigidSphereSurface, RigidCylinderSurface),
+        "certified_closed_two_feature_research": ClosedTriangulatedRigidSolid,
+    }
+
+    if any(
+        mode == "certified_closed_two_feature_research"
+        and item.friction is not None
+        for item, mode in zip(pairs, modes, strict=True)
+    ):
+        return (
+            "AFM-CONTACT-RESEARCH: certified faces have no tangential friction "
+            "law; a separately reviewed point pair may still use one."
+        )
+
+    if (any(
+        mode != "gauss" and (
+            not isinstance(item.rigid_body.surface, required_surface[mode])
+            or (mode == "radial_active_partition"
+                and item.rigid_body.surface.dimension != 3)
+            or item.friction is not None
+            or np.asarray(item.law.penalty).ndim != 0
+        ) for item, mode in zip(pairs, modes, strict=True)
+    ) or (any(mode != "gauss" for mode in modes)
+          and request.options.get("contact_quadrature_degree") is not None)):
         return (
             "AFM-CONTACT-PARTITION: trial active partition requires "
-            "frictionless analytical-plane or certified convex rigid pairs "
+            "frictionless analytical-plane, analytical radial, certified "
+            "convex, reviewed per-face planar-branch, or opt-in certified "
+            "closed two-feature research rigid pairs "
             "(matching the selected mode), scalar penalty and the "
             "default contact quadrature rule."
         )
+    if all(mode == "gauss" for mode in modes):
+        return None
     value = getattr(request.target, "value", None)
     space = getattr(value, "function_space", None)
     domain = getattr(space, "mesh", None)
@@ -626,8 +804,84 @@ def _contact_integration_rejection_reason(model, request: StepRequest) -> str | 
             or int(domain.geometry.cmaps[0].degree) != 1):
         return (
             "AFM-CONTACT-PARTITION: only CG1, first-order tetrahedral "
-            "slave triangles have the reviewed affine-gap partition."
+            "slave triangles have the bounded active partition."
         )
+    return None
+
+
+def _normal_augmentation_rejection_reason(model, request: StepRequest) -> str | None:
+    selected = request.options.get("normal_augmentation")
+    if selected is None:
+        return None
+    from .steps import NormalAugmentationOptions
+    from .boundary_models import RigidContactPair, RigidPlaneSurface
+    from .constraints import AbaqusPeriodicConstraint, constraint_assets
+
+    reason = (
+        "AFM-CONTACT-AL-SCOPE: normal augmentation requires one fixed or translating frictionless "
+        "analytical plane, scalar penalty, serial CG1 tetrahedra and ordinary "
+        "strong boundaries or disjoint reduced normal MPC rows; "
+        "no mixed fields, rotating tools or changing trace."
+    )
+    if not isinstance(selected, NormalAugmentationOptions):
+        return "AFM-CONTACT-AL-OPTIONS: use steps.normal_augmentation(...)."
+    pairs = tuple(getattr(model, "boundary_models", ()))
+    constraints = request.options.get("constraints")
+    if constraints is None:
+        constraints = getattr(model, "constraints", ())
+    if (
+        len(pairs) != 1 or not isinstance(pairs[0], RigidContactPair)
+        or not isinstance(pairs[0].rigid_body.surface, RigidPlaneSurface)
+        or pairs[0].rigid_body.surface.dimension != 3
+        or pairs[0].friction is not None
+        or (pairs[0].rigid_body.motion_schedule is not None
+            and np.any(np.asarray(pairs[0].rigid_body.motion_schedule.motion.rotation) != 0.))
+        or np.asarray(pairs[0].law.penalty).ndim != 0
+        or request.options.get("contact_integration", "gauss") != "gauss"
+        or request.options.get("contact_quadrature_degree") is not None
+        or getattr(request.target, "kind", None) == "displacement_pressure"
+    ):
+        return reason
+    space = getattr(getattr(request.target, "value", None), "function_space", None)
+    domain = getattr(space, "mesh", None)
+    if (
+        domain is None or domain.comm.size != 1
+        or str(domain.topology.cell_name()) != "tetrahedron"
+        or int(space.element.basix_element.degree) != 1
+        or int(domain.geometry.cmaps[0].degree) != 1
+    ):
+        return reason
+    from .boundary_models._augmented_plane_trial_provider import (
+        validate_free_plane_normal_rows, validate_affine_plane_normal_rows,
+    )
+    from .boundary_models.dolfinx_contact_trace import dolfinx_boundary_region_contact_trace
+    from .boundary_models.trace_policy import RigidContactTracePolicy
+
+    try:
+        adapter = dolfinx_boundary_region_contact_trace(
+            pairs[0].slave_boundary, space, integration="nodal_lumped",
+        )
+        adapter = RigidContactTracePolicy(
+            "nodal_lumped", coalesce_nodes=True,
+        ).apply(adapter, pairs[0])
+        assets = constraint_assets(constraints)
+        affine = tuple(item for item in assets if isinstance(item, AbaqusPeriodicConstraint))
+        if affine:
+            if len(assets) != 1:
+                return reason
+            validate_affine_plane_normal_rows(
+                adapter.trace, pairs[0].rigid_body.surface.normal, affine[0].reduction(0.),
+            )
+            return None
+        bcs = tuple(getattr(item, "bc", item) for item in assets)
+        dof_arrays = [
+            np.asarray(bc.dof_indices()[0], dtype=np.int64) for bc in bcs
+            if callable(getattr(bc, "dof_indices", None))
+        ]
+        constrained = np.unique(np.concatenate(dof_arrays)) if dof_arrays else ()
+        validate_free_plane_normal_rows(adapter.trace, pairs[0].rigid_body.surface.normal, constrained)
+    except (ValueError, TypeError, NotImplementedError) as exc:
+        return str(exc)
     return None
 
 
@@ -659,6 +913,31 @@ def _finite_j2_bulk_quadrature_rejection_reason(request: StepRequest) -> str | N
     return None
 
 
+def _inelastic_prediction_rejection_reason(model, request: StepRequest) -> str | None:
+    """Bounded admission shared by capability inspection and lowering."""
+
+    if getattr(request.option("incrementation"), "inelastic_prediction_safety", None) is None:
+        return None
+    from .constitutive import FiniteStrainJ2Logarithmic
+
+    domain = getattr(getattr(request.target, "space", None), "mesh", None)
+    materials = _registered_materials(model, request)
+    # Match _quadrature_material: one regional assignment still lowers to
+    # a material map, whereas an explicitly selected material is global.
+    regional_dispatch = request.material is None and any(
+        record.region is not None for record in model.materials
+    )
+    if (domain is None or domain.comm.size != 1
+            or getattr(request.target, "kind", None) == "displacement_pressure"
+            or regional_dispatch
+            or len(materials) != 1 or not isinstance(materials[0], FiniteStrainJ2Logarithmic)):
+        return (
+            "AFM-INCREMENT-FEEDBACK: inelastic prediction currently requires a serial "
+            "displacement-only Step with one global built-in finite-strain J2 material."
+        )
+    return None
+
+
 def _finite_strain_j2_strong_rejection_reason(model, request: StepRequest) -> str | None:
     """Explain the bounded contact/MPI near-match without claiming support."""
 
@@ -669,6 +948,12 @@ def _finite_strain_j2_strong_rejection_reason(model, request: StepRequest) -> st
 
     if not _finite_strain_j2_strong_preconditions(model, request):
         return None
+    prediction_problem = _inelastic_prediction_rejection_reason(model, request)
+    if prediction_problem is not None:
+        return prediction_problem
+    solver_problem = _linear_reuse_rejection_reason(request)
+    if solver_problem is not None:
+        return solver_problem
     bulk_quadrature_problem = _finite_j2_bulk_quadrature_rejection_reason(request)
     if bulk_quadrature_problem is not None:
         return bulk_quadrature_problem
@@ -678,6 +963,9 @@ def _finite_strain_j2_strong_rejection_reason(model, request: StepRequest) -> st
     integration_problem = _contact_integration_rejection_reason(model, request)
     if integration_problem is not None:
         return integration_problem
+    initial_bound_problem = _initial_contact_bound_rejection_reason(model, request)
+    if initial_bound_problem is not None:
+        return initial_bound_problem
     boundary_models = tuple(getattr(model, "boundary_models", ()))
     if (
         len(boundary_models) > 1
@@ -815,7 +1103,7 @@ def _lower_small_strain_material(model, request: StepRequest):
     )
 
 
-def _accept_implicit_creep(model, request: StepRequest) -> bool:
+def _implicit_creep_preconditions(model, request: StepRequest) -> bool:
     from .constitutive.creep import IsotropicPowerLawCreepMaterial
 
     study = getattr(model, "study", None)
@@ -841,6 +1129,14 @@ def _accept_implicit_creep(model, request: StepRequest) -> bool:
     )
 
 
+def _accept_implicit_creep(model, request: StepRequest) -> bool:
+    return _implicit_creep_preconditions(model, request) and not getattr(model, "boundary_models", ())
+
+
+def _implicit_creep_boundary_rejection(model, request: StepRequest) -> str | None:
+    return _unsupported_small_strain_boundary(model) if _implicit_creep_preconditions(model, request) else None
+
+
 def _lower_implicit_creep(model, request: StepRequest):
     from . import _step_builders
 
@@ -861,7 +1157,7 @@ def _lower_implicit_creep(model, request: StepRequest):
     )
 
 
-def _accept_quasistatic_viscoelasticity(model, request: StepRequest) -> bool:
+def _quasistatic_viscoelasticity_preconditions(model, request: StepRequest) -> bool:
     from .constitutive.viscoelasticity import IsotropicGeneralizedMaxwell
 
     study = getattr(model, "study", None)
@@ -885,7 +1181,21 @@ def _accept_quasistatic_viscoelasticity(model, request: StepRequest) -> bool:
     )
 
 
-def _accept_harmonic_viscoelasticity(model, request: StepRequest) -> bool:
+def _accept_quasistatic_viscoelasticity(model, request: StepRequest) -> bool:
+    return (
+        _quasistatic_viscoelasticity_preconditions(model, request)
+        and not getattr(model, "boundary_models", ())
+    )
+
+
+def _quasistatic_viscoelasticity_boundary_rejection(model, request: StepRequest) -> str | None:
+    return (
+        _unsupported_small_strain_boundary(model)
+        if _quasistatic_viscoelasticity_preconditions(model, request) else None
+    )
+
+
+def _harmonic_viscoelasticity_preconditions(model, request: StepRequest) -> bool:
     from .constitutive.viscoelasticity import IsotropicGeneralizedMaxwell
 
     study = getattr(model, "study", None)
@@ -903,6 +1213,20 @@ def _accept_harmonic_viscoelasticity(model, request: StepRequest) -> bool:
         # the request explicitly selects the one material to lower.
         and len(materials) == 1
         and isinstance(materials[0], IsotropicGeneralizedMaxwell)
+    )
+
+
+def _accept_harmonic_viscoelasticity(model, request: StepRequest) -> bool:
+    return (
+        _harmonic_viscoelasticity_preconditions(model, request)
+        and not getattr(model, "boundary_models", ())
+    )
+
+
+def _harmonic_viscoelasticity_boundary_rejection(model, request: StepRequest) -> str | None:
+    return (
+        _unsupported_small_strain_boundary(model)
+        if _harmonic_viscoelasticity_preconditions(model, request) else None
     )
 
 
@@ -1252,6 +1576,7 @@ def _option_contract(
     *extra: str,
     required=(),
     exactly_one_of=(),
+    inelastic_increment_feedback=False,
 ) -> StepOptionContract:
     """Build a deterministic built-in contract without repeated core names."""
 
@@ -1259,6 +1584,7 @@ def _option_contract(
         accepted=tuple(dict.fromkeys((*_COMMON_STEP_OPTIONS, *extra))),
         required=tuple(required),
         exactly_one_of=tuple(tuple(group) for group in exactly_one_of),
+        inelastic_increment_feedback=inelastic_increment_feedback,
     )
 
 
@@ -1391,6 +1717,7 @@ register_step_provider(
         name="small_strain_user_material_static",
         analyses=("nonlinear_static",),
         accepts=_accept_small_strain_material,
+        rejection_reason=_small_strain_boundary_rejection,
         lower=_lower_small_strain_material,
         priority=115,
         description=(
@@ -1480,6 +1807,7 @@ register_step_provider(
         name="implicit_power_law_creep",
         analyses=("nonlinear_transient",),
         accepts=_accept_implicit_creep,
+        rejection_reason=_implicit_creep_boundary_rejection,
         lower=_lower_implicit_creep,
         priority=120,
         description=(
@@ -1547,6 +1875,7 @@ register_step_provider(
         name="harmonic_generalized_maxwell",
         analyses=("frequency_domain",),
         accepts=_accept_harmonic_viscoelasticity,
+        rejection_reason=_harmonic_viscoelasticity_boundary_rejection,
         lower=_lower_harmonic_viscoelasticity,
         priority=120,
         description=(
@@ -1572,6 +1901,7 @@ register_step_provider(
         name="quasistatic_generalized_maxwell",
         analyses=("first_order_transient",),
         accepts=_accept_quasistatic_viscoelasticity,
+        rejection_reason=_quasistatic_viscoelasticity_boundary_rejection,
         lower=_lower_quasistatic_viscoelasticity,
         priority=120,
         description=(
@@ -1690,11 +2020,14 @@ register_step_provider(
         option_contract=_option_contract(
             "incrementation",
             "quadrature_degree",
+            "contact_quadrature_degree",
             "contact_integration",
+            "normal_augmentation",
             "output_every",
             "progress",
             "status_file",
             "checkpoint",
+            inelastic_increment_feedback=True,
         ),
     )
 )
@@ -1719,11 +2052,13 @@ register_step_provider(
             "quadrature_degree",
             "contact_quadrature_degree",
             "contact_integration",
+            "normal_augmentation",
             "amplitude",
             "output_every",
             "progress",
             "status_file",
             "checkpoint",
+            inelastic_increment_feedback=True,
         ),
     )
 )
@@ -1732,6 +2067,7 @@ register_step_provider(
         name="j2_small_strain_static",
         analyses=("nonlinear_static",),
         accepts=_accept_j2,
+        rejection_reason=_j2_boundary_rejection,
         lower=_lower_j2,
         priority=110,
         description=(

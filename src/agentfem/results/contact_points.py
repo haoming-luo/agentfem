@@ -20,7 +20,7 @@ _ARRAY_FIELDS = (
     "cumulative_friction_dissipation_densities",
 )
 _VECTOR_FIELDS = {
-    "slave_positions", "master_closest_points", "surface_normals",
+    "slave_positions", "reference_positions", "master_closest_points", "surface_normals",
     "surface_friction_tractions", "accepted_elastic_tangential_slips",
 }
 _INTEGER_FIELDS = {"point_ids", "entity_ids"}
@@ -90,6 +90,8 @@ def export_accepted_contact_points(
     """Archive accepted quadrature samples without smoothing or advancing State.
 
     The coordinate is the Step's normalized load factor, not physical time.
+    Resolved loading amplitude and each prescribed tool factor are recorded
+    separately; a cyclic amplitude need not equal the Step coordinate.
     Fixed-rule point IDs are stable only together with the named contact pair
     and geometry fingerprint. Trial-partition IDs address this accepted snapshot
     only: the same ID can move within its reference face after another trial.
@@ -101,6 +103,9 @@ def export_accepted_contact_points(
 
     from ..checkpointing import atomic_savez, atomic_write_text
     from .. import __version__
+    from ..boundary_models.contact_integration_modes import (
+        TRIAL_PARTITION_INTEGRATION_MODES,
+    )
     from .core import SimulationResult
 
     if result is not None and not isinstance(result, SimulationResult):
@@ -123,8 +128,13 @@ def export_accepted_contact_points(
     if domain.comm.size != 1:
         raise NotImplementedError("AFM-CONTACT-EXPORT-MPI: point export is serial only.")
     factor = float(step.accepted_load_factor)
+    amplitude = getattr(step, "amplitude", None)
+    resolved_amplitude = factor if amplitude is None else float(amplitude(factor))
+    material_factor = float(step.state_transaction.accepted_factor)
     if (
-        abs(float(step.state_transaction.accepted_factor) - factor) > 1.0e-12
+        not np.isfinite(factor) or not np.isfinite(resolved_amplitude)
+        or not np.isfinite(material_factor)
+        or abs(material_factor - factor) > 1.0e-12
         or not np.allclose(
             step.solution.x.array, step.accepted_solution.x.array,
             rtol=0.0, atol=1.0e-12,
@@ -135,26 +145,38 @@ def export_accepted_contact_points(
             "and material State."
         )
     providers = tuple(getattr(provider, "providers", (provider,)))
+    if any(hasattr(item, "current_face_diagnostics") for item in providers):
+        raise NotImplementedError(
+            "AFM-CONTACT-EXPORT-FACE: this contact law integrates physical "
+            "boundary faces; it has no accepted quadrature-point pressure "
+            "samples. Read rigid_contact_face_diagnostics in the result."
+        )
     if not providers or any(not hasattr(item, "accepted_point_samples") for item in providers):
         raise TypeError("AFM-CONTACT-EXPORT: unsupported contact provider.")
     if len({item.name for item in providers}) != len(providers):
         raise ValueError("AFM-CONTACT-EXPORT-IDENTITY: pair names must be unique.")
 
     samples = [item.accepted_point_samples() for item in providers]
+    # Optional for older external providers; never invent reference coordinates
+    # from current positions or silently export a partial mixed-pair array.
+    has_reference = ["reference_positions" in item for item in samples]
+    array_fields = (*_ARRAY_FIELDS, *(("reference_positions",) if all(has_reference) else ()))
     identity_scopes = [
         "accepted_snapshot_only"
-        if getattr(item, "contact_integration", "gauss") in {
-            "planar_active_partition", "convex_feature_partition",
-        }
+        if (
+            getattr(item, "contact_integration", "gauss")
+            in TRIAL_PARTITION_INTEGRATION_MODES
+        )
         else "fixed_reference_quadrature"
         for item in providers
     ]
     for provider_item, item in zip(providers, samples, strict=True):
-        expected_factor = factor if provider_item.has_prescribed_motion else 0.0
-        if abs(float(item["load_factor"]) - expected_factor) > 1.0e-12:
+        expected_factor = resolved_amplitude if provider_item.has_prescribed_motion else 0.0
+        actual_factor = float(item["load_factor"])
+        if not np.isfinite(actual_factor) or abs(actual_factor - expected_factor) > 1.0e-12:
             raise RuntimeError("AFM-CONTACT-EXPORT-POSE: tool pose is not accepted.")
         count = len(item["point_ids"])
-        for field in _ARRAY_FIELDS:
+        for field in (*_ARRAY_FIELDS, *(("reference_positions",) if "reference_positions" in item else ())):
             array = np.asarray(item[field])
             expected_shape = (count, 3) if field in _VECTOR_FIELDS else (count,)
             expected_kind = (
@@ -172,16 +194,23 @@ def export_accepted_contact_points(
 
     selected_units = {} if units is None else dict(units)
     encoded_units = json.loads(json.dumps(selected_units, allow_nan=False))
+    locations = [item.get("location", "reference_boundary_quadrature") for item in samples]
+    measures = [item.get("pressure_measure", "penalty_force_per_reference_area_not_cauchy_pressure")
+                for item in samples]
+    location = locations[0] if len(set(locations)) == 1 else "per_pair_reference_boundary_samples"
+    pressure_measure = measures[0] if len(set(measures)) == 1 else "per_pair_force_per_reference_area"
     metadata = {
         "schema": "agentfem.accepted-contact-points.v1",
         "agentfem_version": __version__,
         "step_name": step.name,
         "coordinate_name": "load_factor",
         "coordinate_value": factor,
+        "resolved_load_amplitude": resolved_amplitude,
         "complete": factor >= 1.0 - 1.0e-12,
-        "location": "reference_boundary_quadrature",
-        "pressure_measure": "penalty_force_per_reference_area_not_cauchy_pressure",
+        "location": location,
+        "pressure_measure": pressure_measure,
         "smoothing": "none",
+        "reference_positions_status": "available" if all(has_reference) else "unavailable_for_some_pairs",
         "gap_sign": "positive_admissible_negative_penetration",
         "friction_traction_sign": "force_on_rigid_surface_per_reference_area",
         "units": encoded_units,
@@ -195,8 +224,16 @@ def export_accepted_contact_points(
                 "surface_name": item["surface_name"],
                 "geometry_fingerprint": item["geometry_fingerprint"],
                 "trace_source": item["trace_source"],
+                "location": locations[index],
+                "pressure_measure": measures[index],
+                "measure_configuration": item.get("measure_configuration", "unspecified"),
+                "reference_positions_available": has_reference[index],
+                "enforcement": item.get("enforcement", "one_sided_rigid_surface_penalty"),
                 "point_identity_scope": identity_scopes[index],
                 "point_count": len(item["point_ids"]),
+                "tool_motion_factor": (
+                    float(item["load_factor"]) if providers[index].has_prescribed_motion else None
+                ),
             }
             for index, item in enumerate(samples)
         ],
@@ -213,7 +250,7 @@ def export_accepted_contact_points(
         raise FileExistsError("AFM-CONTACT-EXPORT-EXISTS: use a fresh output directory.")
     arrays = {
         field: np.concatenate([np.asarray(item[field]) for item in samples], axis=0)
-        for field in _ARRAY_FIELDS
+        for field in array_fields
     }
     arrays["pair_index"] = np.concatenate([
         np.full(len(item["point_ids"]), index, dtype=np.int32)
@@ -236,7 +273,7 @@ def export_accepted_contact_points(
         for name, key, description in (
             (
                 "rigid_contact_normal_pressure_raw", "normal_pressures",
-                "Positive penalty force per reference boundary area; no smoothing.",
+                "Positive normal contact force per reference boundary area; no smoothing.",
             ),
             (
                 "rigid_contact_friction_traction_raw", "surface_friction_tractions",
@@ -245,7 +282,7 @@ def export_accepted_contact_points(
         ):
             result.add_field(
                 name, artifact=paths["contact_points"],
-                location="reference_boundary_quadrature", description=description,
+                location=location, description=description,
                 processing={
                     "method": "accepted_raw_contact_point_export",
                     "npz_key": key,
@@ -253,6 +290,7 @@ def export_accepted_contact_points(
                     "point_id_key": "point_ids",
                     "point_identity_scope_by_pair": identity_scopes,
                     "smoothing": "none",
+                    "pressure_measure_by_pair": measures,
                 },
             )
     return paths

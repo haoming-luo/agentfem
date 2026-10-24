@@ -114,7 +114,7 @@ class ResultWriter:
     Legacy append mode retains the low-level DOLFINx archive layout.
     """
 
-    def __init__(self, path: Path, domain, fields=(), mode: str = "w") -> None:
+    def __init__(self, path: Path, domain, fields=(), mode: str = "w", *, storage="single_file") -> None:
         self.path = Path(path)
         if self.path.suffix.lower() not in {".xdmf", ".xmf", ".pvd"}:
             raise ValueError("ResultWriter requires .xdmf/.xmf or .pvd, not a hand-written raw topology format.")
@@ -123,12 +123,21 @@ class ResultWriter:
         self.domain = domain
         self.fields = tuple(fields)
         self.mode = mode
+        if storage not in {"single_file", "frame_files"}:
+            raise ValueError("ResultWriter storage must be 'single_file' or 'frame_files'.")
+        if storage == "frame_files" and (mode != "w" or domain.comm.size != 1
+                                         or self.path.suffix.lower() == ".pvd"):
+            raise ValueError("Frame-file output requires a fresh serial XDMF series.")
         self._unified = False
         if self.path.suffix.lower() == ".pvd":
             self._series = ParaViewTimeSeries(self.path, self.domain, self.mode)
         elif mode == "w" and domain.comm.size == 1:
             from .results.output import UnifiedXDMFTimeSeries
-            self._series = UnifiedXDMFTimeSeries(self.path, deformation_scale=0.0)
+            if storage == "frame_files":
+                from .results._live_xdmf import LiveXDMFTimeSeries
+                self._series = LiveXDMFTimeSeries(self.path, deformation_scale=0.0)
+            else:
+                self._series = UnifiedXDMFTimeSeries(self.path, deformation_scale=0.0)
             self._unified = True
         else:
             self._series = XDMFTimeSeries(self.path, self.domain, self.mode)

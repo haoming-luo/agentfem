@@ -1,0 +1,136 @@
+{
+  "scope": "P1/P2 Gaussian penalty diagnostic, not nodal AL or independent continuum reference",
+  "agentfem_version": "0.4.4.dev0",
+  "git_commit": "e4207c5611e186afd4a9f46e76daed22269b9a78",
+  "tool_sha256": "a982d064607aac51fdbde73f01b082600f8c44d57b4f44fd155dbcc3b15a3612",
+  "source_sha256": {
+    "solvers.py": "90b24a54ce4dae8d234e572a30998af008f123da781471dbca26623d6fa818af",
+    "_affine_equilibrium.py": "9f3bc9d4825597892f67db3ebb96fe941363a5dcc6307e0cdef7d4e93cc4ff6f",
+    "mechanics/finite_strain_plasticity.py": "e851c96dec369d1e4d683978393f843b6b1825cedc9fa4ceff00aabac9ce1914",
+    "constitutive/finite_strain_plasticity.py": "e8f9bcc3c6a7d8a5971d03ef68cfd8b82850e9f4322765efca926198b6a1eeea",
+    "constitutive/quadrature.py": "c48fdef1fffdc1eb5657e1cf1b00e32483ef8b1ac2cc8461a00ab94ee10cc0e3",
+    "steps.py": "43707905b97ea1b01edb43f1ef110c7f8a94be49e6fc384c8655f557fe767a1c",
+    "_nonlinear_problems.py": "0aabb0ba0f9d40d54a181ed10020fed3324df73d406723c0f23832d84095382a",
+    "boundary_models/dolfinx_implicit_facet_contact.py": "944569bbaadc8fadff1da55bdedf043ab52b97bde880dd3df514f301a5b399df",
+    "boundary_models/dolfinx_contact_trace.py": "7e696da048967bfbf3a9847973f57e0ffd840e5c98db5ab7bcca268ff8119982"
+  },
+  "units": {
+    "length": "m",
+    "stress": "Pa",
+    "force": "N",
+    "work": "J"
+  },
+  "options": {
+    "cells": [
+      4
+    ],
+    "degrees": [
+      2
+    ],
+    "increments": null,
+    "plastic_increment_limit": 0.0001875,
+    "penalty": 40000,
+    "contact_degree": 11,
+    "bulk_degree": 6,
+    "yield_stress": 2,
+    "until": 0.25,
+    "patch_partition": true,
+    "checkpoint_directory": null,
+    "restart": null
+  },
+  "records": [
+    {
+      "cells": 4,
+      "degree": 2,
+      "status": "completed",
+      "stations": [
+        {
+          "factor": 0.25,
+          "displacement_l2": 0.011027803207098714,
+          "force_on_structure": [
+            -4.486189518470557,
+            0,
+            0
+          ],
+          "pressure_area_mean": 17.944758073882227,
+          "maximum_pressure": 111.95307503800933,
+          "active_reference_area": 0.22584706853648912,
+          "maximum_penetration": 0.0027988268759502333,
+          "peeq_reference_volume_mean": 0.023114998349578166,
+          "maximum_peeq": 0.05459592504944094,
+          "mpc_equation_mismatch": 3.469446951953614e-18,
+          "normal_relative_work_status": "unavailable_on_this_diagnostic_route",
+          "patch_partition": {
+            "edge_width": 0.0625,
+            "classification": "reference_square_distance",
+            "partition_quadrature": "sampled_indicator_not_exact_subcell_integration",
+            "total_reference_area": 0.2500000000000001,
+            "normal_force_magnitude": 4.4861895184705585,
+            "regions": {
+              "edge": {
+                "reference_area": 0.1147340046035495,
+                "active_reference_area": 0.1147340046035495,
+                "normal_force_magnitude": 3.696103363988846,
+                "maximum_pressure": 111.95307503800933
+              },
+              "interior": {
+                "reference_area": 0.1352659953964506,
+                "active_reference_area": 0.11111306393293963,
+                "normal_force_magnitude": 0.7900861544817126,
+                "maximum_pressure": 22.42192397027054
+              }
+            },
+            "smooth_partition": {
+              "edge": {
+                "weighted_reference_area": 0.13888888888888898,
+                "weighted_normal_force": 3.516498438178312
+              },
+              "center": {
+                "weighted_reference_area": 0.11111111111111116,
+                "weighted_normal_force": 0.969691080292246
+              }
+            }
+          }
+        }
+      ],
+      "full_dofs": 2187,
+      "complete_cycle": false,
+      "accepted_through": 0.25,
+      "accepted_increments": 369,
+      "rejected_attempts": 8,
+      "newton_iterations": 1103,
+      "maximum_accepted_plastic_increment": 0.0001736110244688925,
+      "setup_solve_observe_seconds": 171.81170987500082
+    }
+  ],
+  "incrementation": {
+    "kind": "automatic_incrementation",
+    "initial": 0.03125,
+    "minimum": 0.000244140625,
+    "maximum": 0.0625,
+    "max_increments": 4096,
+    "max_cutbacks": 12,
+    "cutback_factor": 0.5,
+    "growth_factor": 1.5,
+    "fast_iterations": 4,
+    "slow_iterations": 10,
+    "maximum_inelastic_increment": 0.0001875,
+    "inelastic_prediction": {
+      "algorithm": "accepted_increment_proportional_cap_v1",
+      "safety": 0.8
+    }
+  },
+  "accuracy_claim": "none: limit refinement and spatial refinement are independent diagnostics",
+  "comparison_to_coarse_control": {
+    "reference": "evidence/contact/2026-10-25-periodic-plastic-pressure-moments.json",
+    "cells": 4,
+    "station": 0.25,
+    "coarse_plastic_limit": 0.000375,
+    "fine_plastic_limit": 0.0001875,
+    "relative_force_change_using_coarse": 0.00020245320045036942,
+    "relative_mean_peeq_change_using_coarse": 0.0001345107947276663,
+    "active_reference_area_change": 0,
+    "claim": "A local path-control check, not temporal independence on every mesh or a continuum-error bound."
+  },
+  "execution_context": "Short correctness/build acceptance work overlapped; elapsed time is not performance evidence. Scientific runtime hashes identify the unchanged finite-J2/contact route. Small-strain dispatch rejection was being committed separately and does not change this route."
+}

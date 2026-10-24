@@ -6,6 +6,9 @@ import numpy as np
 import pytest
 
 from agentfem import boundary_models
+from agentfem.boundary_models.contact_friction import (
+    rigid_tangential_history_rotation,
+)
 
 
 def _normal_response(points, *, penalty=100.0, normal=(0.0, 1.0)):
@@ -147,6 +150,39 @@ def test_three_dimensional_history_uses_minimal_normal_rotation():
     assert np.linalg.norm(rotated.record.elastic_slips[0]) == pytest.approx(
         np.sqrt(0.13)
     )
+
+
+def test_rigid_master_spin_transports_sticking_history_with_zero_relative_slip():
+    normal = _normal_response(((0.0, 0.0, -0.1),), normal=(0.0, 0.0, 1.0))
+    law = boundary_models.penalty_coulomb_friction_law(1.0, 10.0)
+    first = law.evaluate(
+        point_ids=(1,), normal_response=normal,
+        relative_displacement_increment=((0.1, 0.0, 0.0),),
+    )
+    motion = boundary_models.prescribed_rigid_motion(
+        translation=(0.0, 0.0, 0.0), rotation=(0.0, 0.0, np.pi / 2),
+    )
+    rotation = rigid_tangential_history_rotation(
+        motion, accepted_motion_factor=0.0, current_motion_factor=1.0,
+    )
+    spun = law.evaluate(
+        point_ids=(1,), normal_response=normal,
+        relative_displacement_increment=((0.0, 0.0, 0.0),),
+        accepted=first.record, history_rotation=rotation,
+    )
+    np.testing.assert_allclose(
+        spun.record.elastic_slips, ((0.0, 0.1, 0.0),), atol=1e-14,
+    )
+    assert spun.dissipation_increment_densities[0] == 0.0
+    assert spun.recoverable_penalty_energy_densities[0] == pytest.approx(
+        first.recoverable_penalty_energy_densities[0],
+    )
+    with pytest.raises(ValueError, match="proper orthogonal"):
+        law.evaluate(
+            point_ids=(1,), normal_response=normal,
+            relative_displacement_increment=((0.0, 0.0, 0.0),),
+            accepted=first.record, history_rotation=np.diag((-1.0, 1.0, 1.0)),
+        )
 
 
 def test_contact_opening_reports_penalty_release_without_false_dissipation():

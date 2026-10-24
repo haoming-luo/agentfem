@@ -1,0 +1,27 @@
+{
+  "schema": "agentfem.affine-linear-reuse-screen.v1",
+  "scope": "serial_supported_periodic_J2_plane_not_explicit_composite_or_external_validation",
+  "platform": "macOS-26.6.2-arm64-arm-64bit",
+  "cells": 8,
+  "increments": 16,
+  "penalty": 40000.0,
+  "affine_end_face_support": true,
+  "timing_scope": "solve_only_excludes_model_construction_and_array_comparison",
+  "source_sha256": {
+    "src/agentfem/_affine_equilibrium.py": "65689674f747be8cd983890d12758fcd770c708add0f0e55c8977fbdc9d846f0",
+    "src/agentfem/solvers.py": "4e4d1d46eaab3d223cc949fcdc9585b0fd821aecf0ca007f328774d1a86e2496",
+    "examples/finite_j2_periodic_augmented_plane.py": "a01843070d17f3aed13da71472f834f4a830b7abf9db995cfb995706c683db69",
+    "tools/benchmark_affine_linear_reuse.py": "7364ccafe831979384f47a518afa4e0a7114b6b0d76eead4f6616ea485f2c31a"
+  },
+  "records": [
+    {
+      "mode": "scoped",
+      "repeat": -1,
+      "warmup": true,
+      "status": "failed",
+      "solve_seconds": 24.476640291977674,
+      "error": "AttributeError: 'AugmentedNormalContribution' object has no attribute 'assembly'"
+    }
+  ],
+  "complete": false
+}

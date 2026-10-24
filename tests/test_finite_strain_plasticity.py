@@ -685,6 +685,90 @@ def test_finite_strain_j2_vectorized_batch_matches_scalar_updates():
         )
 
 
+def _assert_first_piola_tensors_close(actual, expected):
+    """Compare each tensor on its own scale, not small rotated components.
+
+    Keep the original 2e-9 relative/absolute budget. Under ill-conditioned F,
+    P=tau F^-T magnifies roundoff and a single coordinate component is not a
+    frame-invariant stress scale. Cauchy stress, state and energy keep their
+    independent componentwise checks below. A stiff point cannot mask a soft
+    point because this norm is evaluated separately at every material point.
+    """
+    actual, expected = np.asarray(actual), np.asarray(expected)
+    assert actual.shape == expected.shape and actual.ndim == 3
+    assert actual.shape[1:] == (3, 3)
+    assert np.isfinite(actual).all() and np.isfinite(expected).all()
+    delta = np.linalg.norm(actual - expected, axis=(1, 2))
+    scale = np.linalg.norm(expected, axis=(1, 2))
+    np.testing.assert_array_less(delta, 2e-9 * scale + 2e-9)
+
+
+def test_first_piola_history_comparison_is_pointwise_and_frame_invariant():
+    expected = np.array([np.diag([1e5, 1e-3, 0.]), np.eye(3) * 1e-6, np.zeros((3, 3))])
+    actual = expected.copy()
+    actual[0, 1, 1] += 1e-6
+    _assert_first_piola_tensors_close(actual, expected)
+    left, right = _rotation(.31), _rotation(-.27)
+    _assert_first_piola_tensors_close(left @ actual @ right, left @ expected @ right)
+    for point, error in ((0, 1e-2), (1, 1e-8), (2, 1e-8), (2, np.nan)):
+        wrong = expected.copy()
+        wrong[point, 0, 0] += error
+        with pytest.raises(AssertionError):
+            _assert_first_piola_tensors_close(wrong, expected)
+
+
+@pytest.mark.parametrize("hardening", [0., 100.])
+def test_batch_spectral_return_preserves_cyclic_rotated_history(hardening):
+    """Independent scalar reconstruction vs batched inverse-SVD application.
+
+    Include elastic points, repeated stretches, unloading/reversal, a distorted
+    isochoric old state and both sides of the tangent chunk boundary. Each
+    route advances its own history so small state errors cannot be reset away.
+    """
+    material = constitutive.finite_strain_j2_logarithmic(
+        young=1000., poisson=.3, yield_stress=2., hardening_modulus=hardening,
+    )
+    count = 1025
+    scalar = np.tile(material.state_schema.initial_state(), (count, 1))
+    # Rotated isochoric prehistory; cond(Fp) ranges from 1 to 10^4.
+    stretches = np.geomspace(1., 100., count)
+    plastic = np.asarray([_rotation(.37) @ np.diag((s, 1./s, 1.))
+                          @ _rotation(-.19) for s in stretches])
+    scalar[:, :9] = plastic.reshape(count, 9)
+    scalar[:, 9] = 2. * np.log(stretches)
+    scalar[:, 10] = material.yield_stress * scalar[:, 9]
+    batched = scalar.copy()
+    for index, shear in enumerate((0., .08, .02, -.10, -.02, .12)):
+        elastic = np.eye(3) + np.asarray(((0., shear, 0.), (0., 0., 0.), (0., 0., 0.)))
+        gradients = (_rotation(.23 * index) @ elastic) @ plastic
+        before = batched.copy()
+        result = material._integrate_batch(gradients, batched)
+        np.testing.assert_array_equal(batched, before)
+        expected = [material._integrate(f, old) for f, old in zip(gradients, scalar, strict=True)]
+        for name in ("state", "cauchy_stress",
+                     "elastic_energy_density", "hardening_energy_density",
+                     "plastic_dissipation_density"):
+            np.testing.assert_allclose(result[name], [getattr(r, name) for r in expected],
+                                       rtol=2e-9, atol=2e-9)
+        _assert_first_piola_tensors_close(result["first_piola_stress"],
+                                          [r.first_piola_stress for r in expected])
+        # The same tensors must still satisfy P F^T = J sigma, with only a
+        # matrix-product roundoff allowance, not a relaxed constitutive check.
+        for piola, cauchy in ((result["first_piola_stress"], result["cauchy_stress"]),
+                              (np.asarray([r.first_piola_stress for r in expected]),
+                               np.asarray([r.cauchy_stress for r in expected]))):
+            kirchhoff = np.linalg.det(gradients)[:, None, None] * cauchy
+            error = np.linalg.norm(piola @ gradients.swapaxes(1, 2) - kirchhoff, axis=(1, 2))
+            scale = (np.linalg.norm(piola, axis=(1, 2)) * np.linalg.norm(gradients, axis=(1, 2))
+                     + np.linalg.norm(kirchhoff, axis=(1, 2)))
+            assert np.all(error <= 64 * np.finfo(float).eps * scale)
+        np.testing.assert_allclose(np.linalg.det(result["state"][:, :9].reshape(-1, 3, 3)),
+                                   1., rtol=0., atol=2e-10)
+        assert np.all(result["state"][:, 9] >= before[:, 9])
+        scalar = np.asarray([r.state for r in expected])
+        batched = result["state"]
+
+
 def test_finite_strain_j2_batch_uses_nineteen_vectorized_integrations(monkeypatch):
     material = constitutive.finite_strain_j2_logarithmic(
         young=210_000.0,
@@ -715,6 +799,44 @@ def test_finite_strain_j2_batch_uses_nineteen_vectorized_integrations(monkeypatc
     # The work count is independent of the number of points: one vectorized
     # baseline plus two vectorized perturbations for each F component.
     assert call_count == 19
+
+
+@pytest.mark.parametrize("cached_spectrum", [False, True])
+def test_finite_strain_j2_tangent_chunk_boundary_and_history(cached_spectrum):
+    """Direction batching must preserve tensor order and keep old state fixed."""
+    material = constitutive.finite_strain_j2_logarithmic(
+        young=1000., poisson=.3, yield_stress=2., hardening_modulus=100.,
+    )
+    # One extra point crosses the internal 1024-point working-set boundary.
+    count = 1025
+    rng = np.random.default_rng(241024)
+    initial = np.tile(material.state_schema.initial_state(), (count, 1))
+    preload = np.eye(3) + rng.uniform(-.03, .03, (count, 3, 3))
+    states = material._integrate_batch(preload, initial)["state"]
+    gradients = preload + rng.uniform(-.004, .004, (count, 3, 3))
+    # Repeated principal stretches and rigid rotation, with elastic old state.
+    for index, gradient in ((0, np.eye(3)), (511, _rotation(.51)),
+                            (1023, _isochoric_extension(1.08))):
+        states[index] = initial[index]
+        gradients[index] = gradient
+    before = states.copy()
+    baseline = material._integrate_batch(gradients, states)
+    if not cached_spectrum:
+        baseline.pop("_trial_spectrum")
+    tangent = material._analytic_algorithmic_tangent_batch(
+        gradients, states, baseline=baseline,
+    )
+    indices = [0, 1, 511, 1023, 1024]
+    selected = gradients[indices]
+    old = states[indices]
+    numerical = material._numerical_algorithmic_tangent_batch(
+        selected, old, baseline=material._integrate_batch(selected, old),
+    )
+    errors = np.linalg.norm(tangent[indices] - numerical, axis=(1, 2))
+    scales = np.linalg.norm(numerical, axis=(1, 2))
+    assert np.all(errors / scales < 2e-5)
+    np.testing.assert_array_equal(states, before)
+    assert np.isfinite(tangent).all()
 
 
 def test_finite_strain_j2_rejects_nonisochoric_committed_plastic_state():
@@ -1095,7 +1217,7 @@ def test_fixed_finite_j2_failure_reports_underlying_rejection_and_rolls_back(
 
 def test_fixed_finite_j2_real_line_search_rejection_names_cause(monkeypatch):
     step = _global_finite_strain_j2_patch(incrementation=steps.fixed(2))
-    monkeypatch.setattr(step, "_line_search", lambda *args, **kwargs: 0.0)
+    monkeypatch.setattr(step, "_line_search", lambda *args, **kwargs: (0.0, None, None))
 
     with pytest.raises(
         RuntimeError,
@@ -1208,11 +1330,17 @@ def test_global_finite_strain_j2_checkpoint_restart_matches_continuous_path(
 
 def test_global_finite_strain_j2_multielement_patch_preserves_uniform_path():
     reference = _global_finite_strain_j2_patch(incrementation=steps.fixed(4))
+    # This test asserts an absolute residual, so request sufficient accuracy
+    # explicitly instead of relying on a mesh-dependent initial relative norm.
+    reference.solver_options = replace(reference.solver_options,
+                                       relative_tolerance=1e-12, absolute_tolerance=1e-10)
     reference.solve()
     refined = _global_finite_strain_j2_patch(
         incrementation=steps.fixed(4),
         cells=(2, 2, 2),
     )
+    refined.solver_options = replace(refined.solver_options,
+                                     relative_tolerance=1e-12, absolute_tolerance=1e-10)
     refined.solve()
     reference_peeq = reference.response.state.committed_state_vectors()[:, -2]
     refined_peeq = refined.response.state.committed_state_vectors()[:, -2]

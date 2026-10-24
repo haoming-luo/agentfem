@@ -61,8 +61,16 @@ def execution_environment(*, project, output):
                 if len(parts) == 2 and parts[0].isdigit() and parts[1] == 'kB':
                     memory[key] = int(parts[0]) * 1024
     threads = {name: os.environ[name] for name in
-               ('OMP_NUM_THREADS', 'OPENBLAS_NUM_THREADS', 'MKL_NUM_THREADS', 'BLIS_NUM_THREADS')
+               ('OMP_NUM_THREADS', 'OPENBLAS_NUM_THREADS', 'MKL_NUM_THREADS',
+                'BLIS_NUM_THREADS', 'VECLIB_MAXIMUM_THREADS', 'NUMEXPR_NUM_THREADS')
                if name in os.environ}
+    # Requested operational settings, not evidence that a provider was selected
+    # or that an MPI progress thread is actually active. Keep a fixed allowlist:
+    # environment snapshots must not capture unrelated credentials.
+    mpi_environment = {name: os.environ[name] for name in (
+        'FI_PROVIDER', 'MPICH_ASYNC_PROGRESS', 'MPIR_CVAR_ASYNC_PROGRESS',
+        'I_MPI_ASYNC_PROGRESS',
+    ) if name in os.environ}
     findings = []
     if any(item['windows_mount'] for item in storage.values()):
         findings.append({"code": "AFM-PERF-WSL-STORAGE", "severity": "advisory",
@@ -79,5 +87,6 @@ def execution_environment(*, project, output):
                        "Review it together with material/contact workers; settings were not changed."})
     return {"schema": "agentfem.execution-environment.v1", "under_wsl": wsl,
             "visible_cpus": cpus, "memory_bytes": memory, "thread_environment": threads,
+            "mpi_environment": mpi_environment,
             "storage": storage, "findings": findings, "settings_modified": False,
             "scope": "startup_snapshot_not_execution_route_or_speed_prediction"}

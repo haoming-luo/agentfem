@@ -1,0 +1,160 @@
+{
+  "schema": "agentfem.installed-acceptance.v1",
+  "date": "2026-10-25",
+  "source_commit": "51c4a9112a117fc0530cd2bf570586e1ec5dc91e",
+  "scope": "Bounded serial finite-J2/periodic-MPC/normal-augmentation installed workflow; output/archive regressions.",
+  "platform": "macOS-26.6.2-arm64-arm-64bit",
+  "python": "3.11.15 (conda-forge)",
+  "installation": {
+    "kind": "fresh venv with system-site-packages numerical dependencies; locally built native wheel; no-index/no-deps install",
+    "development_pythonpath": false,
+    "wheel": "agentfem-0.4.4.dev0-cp311-cp311-macosx_11_0_arm64.whl",
+    "wheel_sha256": "a3bb89eedcd43bda703f92472c1dab977541604e143b24d3783ed39f4f93aaa2",
+    "modules_verified_in_venv": [
+      "agentfem",
+      "agentfem._hex_native",
+      "agentfem._body_pipeline",
+      "agentfem._q1_native"
+    ]
+  },
+  "project": {
+    "factory": "examples/finite_j2_periodic_augmented_plane.py",
+    "factory_source_commit": "51c4a9112a117fc0530cd2bf570586e1ec5dc91e",
+    "factory_file_sha256": "26774066f1c6efe24b8b588ed63b141e6f09cef8d5f103c9801004c38179a389",
+    "case_sha256": "a7719bc982317d6a14fe0cb4a8e7255d1fee51ce6412ea9b6b2a5502ac98aff4",
+    "reconstruction": "Keep the example up to (but not including) def main(); append this acceptance driver. No numerical algorithm is implemented by the driver.",
+    "driver_source": "\ndef main():\n    import json\n    from agentfem import project\n    parser = argparse.ArgumentParser()\n    parser.add_argument(\"--until\", type=float, default=1.)\n    parser.add_argument(\"--restart\", type=Path)\n    args = parser.parse_args()\n    run = project.current_run(project_root=Path(__file__).resolve().parent)\n    step = make_step(cells=4, increments=8, penalty=40000., affine_end_face_support=True)\n    if args.restart:\n        step.load_checkpoint(args.restart)\n    if args.until == 1.:\n        result = step.solve_result()\n    else:\n        solution = step.solve(until=args.until)\n        result = results.from_solution(solution, name=\"accepted_partial\")\n        result.status = \"partial\"\n    step.save_checkpoint(run.artifact(\"checkpoint.npz\"))\n    with results.UnifiedXDMFTimeSeries(run.artifact(\"results.xdmf\")) as writer:\n        for snapshot in step.snapshots:\n            writer.write_fields(snapshot.load_factor, snapshot.solution)\n    results.export_accepted_contact_points(\n        step, run.artifact(\"contact\"), result=result, vtk_view=True,\n        units={\"length\": \"m\", \"pressure\": \"Pa\", \"force\": \"N\"},\n    )\n    work = step.accepted_history_recorders[\"normal_contact_work:interior_plane\"]\n    np.savez(run.artifact(\"accepted-state.npz\"),\n             displacement=step.solution.x.array,\n             material=step.response.state.committed_state_vectors(),\n             contact_force=step.contact_provider.evaluate().contact_force_on_structure,\n             load_factors=np.array([i.load_factor for i in step.accepted_increments]),\n             contact_work=np.array([r[\"work\"] for r in work.records]))\n    run.artifact(\"acceptance.json\").write_text(json.dumps({\n        \"accepted_through\": step.accepted_load_factor,\n        \"snapshot_coordinates\": [s.load_factor for s in step.snapshots],\n        \"periodic_mismatch\": step.constraint.mismatch(step.accepted_load_factor),\n        \"restart\": None if args.restart is None else str(args.restart),\n        \"claim\": \"bounded serial installed workflow; no spatial accuracy or full energy claim\",\n    }, indent=2))\n    run.publish(result)\n\nif __name__ == \"__main__\":\n    main()\n\n",
+    "parameters": {
+      "cells": 4,
+      "increments": 8,
+      "penalty": 40000,
+      "affine_end_face_support": true
+    },
+    "commands": [
+      "agentfem run --name partial -- --until 0.25",
+      "agentfem run --name resumed -- --restart outputs/001-partial/checkpoint.npz",
+      "agentfem run --name continuous"
+    ]
+  },
+  "comparison": {
+    "rtol": 2e-10,
+    "atol": 2e-11,
+    "maximum_absolute_differences": {
+      "displacement": 0,
+      "material": 0,
+      "contact_force": 0,
+      "load_factors": 0,
+      "contact_work": 0
+    },
+    "periodic_mismatch": 0,
+    "maximum_penetration_m": 1.45602e-9
+  },
+  "reader": {
+    "implementation": "meshio.xdmf.TimeSeriesReader",
+    "single_tetra_block_cells": 384,
+    "all_fields_finite": true,
+    "partial_coordinates": [
+      0,
+      0.125,
+      0.25
+    ],
+    "resumed_coordinates": [
+      0.25,
+      0.375,
+      0.5,
+      0.625,
+      0.75,
+      0.875,
+      1
+    ],
+    "continuous_coordinates": [
+      0,
+      0.125,
+      0.25,
+      0.375,
+      0.5,
+      0.625,
+      0.75,
+      0.875,
+      1
+    ],
+    "note": "Separate segment views intentionally repeat the accepted restart station. This manual implicit example exports after segment solve; it is not the live-output proof."
+  },
+  "installed_regressions": [
+    {
+      "files": [
+        "tests/test_live_xdmf.py",
+        "tests/test_xdmf_cell_ordering.py",
+        "tests/test_xdmf_layout.py"
+      ],
+      "passed": 52,
+      "seconds": 3.96,
+      "notes": "Includes independent-reader live frames, killed-next-frame preservation, connectivity and Warp. One harmless pytest-cache permission warning; no skipped tests."
+    },
+    {
+      "files": [
+        "tests/test_project_execution.py",
+        "tests/test_accepted_history_journal.py",
+        "tests/test_checkpoint_retention_safety.py"
+      ],
+      "passed": 66,
+      "seconds": 2.26
+    },
+    {
+      "files": [
+        "tests/test_periodic_contact_fixture.py",
+        "tests/test_normal_augmentation_coaxial_reference.py"
+      ],
+      "passed": 18,
+      "seconds": 26.37
+    },
+    {
+      "files": [
+        "tests/test_dolfinx_implicit_friction_contact.py"
+      ],
+      "selection": "mixed_convex_and_planar_friction_pairs_keep_separate_identity",
+      "passed": 2,
+      "deselected": 30,
+      "seconds": 1.38
+    },
+    {
+      "files": [
+        "tests/test_dolfinx_implicit_facet_contact.py"
+      ],
+      "test_source_commit": "221ddfc0",
+      "selection": "quadratic_contact_trace_matches_polynomial_force_moment_and_work",
+      "passed": 8,
+      "seconds": 0.32,
+      "notes": "Independent P2/Q2 force, moment, virtual-work and tangent integrals against the unchanged installed core."
+    },
+    {
+      "files": [
+        "tests/test_periodic_contact_order_diagnostic.py"
+      ],
+      "test_source_commit": "221ddfc0",
+      "passed": 17,
+      "seconds": 2.05,
+      "notes": "Checkout diagnostic uses installed core; verifies ordinary accepted checkpoint/status and complete quadratic periodic trace mapping."
+    },
+    {
+      "files": [
+        "tests/test_architecture_contract.py",
+        "tests/test_field_rollback_scope.py"
+      ],
+      "test_source_commit": "7f40fcf1",
+      "passed": 37,
+      "skipped": 1,
+      "seconds": 2.86,
+      "notes": "Installed imports plus checkout AST ownership audit. The skipped case requires two MPI ranks; no distributed acceptance is claimed from this serial invocation."
+    }
+  ],
+  "execution_note": "Tests run with PYTHONPATH removed, -c /dev/null --noconftest, from outside the repository. Timings are correctness-suite observations while a separate diagnostic was active, not performance evidence.",
+  "exclusions": [
+    "No clean Windows/WSL installation proof",
+    "No new MPI combined-contact capability",
+    "No nonuniform continuum-accuracy claim",
+    "No implicit live-output claim from the post-solve example",
+    "No new full composite run or composite speed claim",
+    "No tagged release"
+  ]
+}

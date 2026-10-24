@@ -24,6 +24,9 @@ from agentfem.step_providers import step_capability
 
 from periodic_cube_fixture import periodic_unit_cube
 
+_INHERIT_PAIR_FRICTION = object()
+_INHERIT_PAIR_MOTION = object()
+
 
 def test_periodic_j2_rejects_registered_contact_in_capability_and_step():
     fixture = periodic_unit_cube(MPI.COMM_SELF)
@@ -71,7 +74,11 @@ def test_periodic_j2_rejects_registered_contact_in_capability_and_step():
 def _periodic_j2_contact_step(
     *, surface=None, motion=None, pair_count=1, opposed_pair=False,
     friction_coefficient=None, tangential_penalty=None, checkpoint=None,
-    linear_solver=None, contact_integration="gauss",
+    linear_solver=None, contact_integration="gauss", second_surface=None,
+    second_friction_coefficient=_INHERIT_PAIR_FRICTION,
+    second_tangential_penalty=_INHERIT_PAIR_FRICTION,
+    second_motion=_INHERIT_PAIR_MOTION,
+    contact_quadrature_degree=None,
 ):
     fixture = periodic_unit_cube(MPI.COMM_SELF)
     model = models.create(
@@ -93,21 +100,38 @@ def _periodic_j2_contact_step(
             center=(1.6, 0.5, 0.5), radius=0.75,
         )
     for index in range(pair_count):
+        selected_surface = (
+            second_surface if index == 1 and second_surface is not None
+            else surface
+        )
+        selected_motion = (
+            second_motion
+            if index == 1 and second_motion is not _INHERIT_PAIR_MOTION
+            else motion
+        )
         pair = boundary_models.rigid_contact_pair(
             right,
             boundary_models.rigid_body(
-                surface,
+                selected_surface,
                 reference_point=(1.6, 0.5, 0.5),
                 motion_schedule=(
-                    None if motion is None else
+                    None if selected_motion is None else
                     boundary_models.prescribed_rigid_motion_schedule(
-                        motion, start_time=0.0, end_time=1.0,
+                        selected_motion, start_time=0.0, end_time=1.0,
                     )
                 ),
             ),
             penalty=5_000.0 / pair_count,
-            friction_coefficient=friction_coefficient,
-            tangential_penalty=tangential_penalty,
+            friction_coefficient=(
+                second_friction_coefficient
+                if index == 1 and second_friction_coefficient is not _INHERIT_PAIR_FRICTION
+                else friction_coefficient
+            ),
+            tangential_penalty=(
+                second_tangential_penalty
+                if index == 1 and second_tangential_penalty is not _INHERIT_PAIR_FRICTION
+                else tangential_penalty
+            ),
             name=("rigid_contact_pair" if pair_count == 1 else f"periodic_tool_{index}"),
         )
         model.add_boundary_model(pair)
@@ -128,12 +152,14 @@ def _periodic_j2_contact_step(
         options={
             "material": material, "constraints": periodicity,
             "contact_integration": contact_integration,
+            "contact_quadrature_degree": contact_quadrature_degree,
         },
     )
-    assert capability["supported"]
+    assert capability["supported"], capability
     step = model.step(
         target=displacement, material=material, constraints=periodicity,
         contact_integration=contact_integration,
+        contact_quadrature_degree=contact_quadrature_degree,
         incrementation=steps.fixed(3), progress=False,
         solver_options=solvers.newton(
             relative_tolerance=1e-8, absolute_tolerance=1e-9,
@@ -216,6 +242,29 @@ def test_periodic_j2_convex_flat_face_matches_plane_total_mpc_operator():
     convex_result = convex_step.solve_result()
     planar_result = planar_step.solve_result()
     assert convex_result.status == planar_result.status == "completed"
+    feature_path = convex_result.metadata["rigid_contact_feature_path"]
+    # All accepted stations were observed, but the Gauss contact integral is
+    # still *not* certified. The release claim must remain failed.
+    assert feature_path["complete"]
+    assert feature_path["accepted_station_count"] == (
+        len(convex_step.accepted_increments) + 1
+    )
+    assert feature_path["pairs"][0]["accepted_station_count"] == (
+        len(convex_step.accepted_increments) + 1
+    )
+    assert not feature_path["pairs"][0]["all_observed_integrals_certified"]
+    feature_claim = next(
+        item for item in convex_result.verify("engineering").claims
+        if item.name == "no_observed_uncertified_contact_feature_transition"
+    )
+    assert feature_claim.status == "passed"
+    assert not feature_claim.actual["issues"]
+    release_claim = next(
+        item for item in convex_result.verify("release").claims
+        if item.name == "polyhedral_contact_integral_certified"
+    )
+    assert release_claim.status == "failed"
+    assert "rigid_contact_feature_path" not in planar_result.metadata
     np.testing.assert_allclose(
         convex_step.solution.x.array, planar_step.solution.x.array,
         rtol=1.0e-8, atol=1.0e-9,
@@ -459,11 +508,15 @@ def test_periodic_j2_convex_feature_partition_reduces_total_residual():
         total.destroy()
 
 
-def _periodic_concave_face_tool():
-    x0, x1 = 0.95, 1.25
-    polygon = 1.75 * np.asarray((
+def _periodic_concave_face_tool(*, wide_smooth_patch=False):
+    x0, x1 = (0.95, 3.0) if wide_smooth_patch else (0.95, 1.25)
+    polygon = np.asarray((
         (0, 0), (2, 0), (2, 1), (1, 1), (1, 2), (0, 2),
-    ), dtype=float) - 0.5
+    ), dtype=float)
+    polygon = (
+        4.0 * polygon - 2.0 if wide_smooth_patch
+        else 1.75 * polygon - 0.5
+    )
     front = np.column_stack((np.full(6, x0), polygon))
     back = np.column_stack((np.full(6, x1), polygon))
     top = ((0, 1, 3), (1, 2, 3), (0, 3, 5), (3, 4, 5))
@@ -479,11 +532,256 @@ def _periodic_concave_face_tool():
     )
 
 
+def _periodic_wide_triangular_prism_tool():
+    polygon = np.asarray(((-2.0, -2.0), (6.0, -2.0), (-2.0, 6.0)))
+    front = np.column_stack((np.full(3, 0.95), polygon))
+    back = np.column_stack((np.full(3, 3.0), polygon))
+    triangles = [(0, 2, 1), (3, 4, 5)]
+    for first in range(3):
+        second = (first + 1) % 3
+        triangles.extend(((first, second, second + 3),
+                          (first, second + 3, first + 3)))
+    return boundary_models.closed_triangulated_rigid_solid(
+        vertices=np.vstack((front, back)), triangles=triangles,
+        reviewed_embedded=True,
+    )
+
+
+def test_periodic_j2_certified_face_research_uses_total_mpc_residual(tmp_path):
+    fixture, periodicity, step = _periodic_j2_contact_step(
+        surface=_periodic_wide_triangular_prism_tool(),
+        contact_integration="certified_closed_two_feature_research",
+    )
+    result = step.solve_result()
+    assert result.status == "completed"
+    face_path = result.metadata["rigid_contact_face_path"]
+    assert face_path["complete"] is True
+    assert face_path["accepted_station_count"] == 4
+    assert face_path["pairs"][0]["all_observed_faces_certified"] is True
+    assert step.contact_provider.current_face_diagnostics()[
+        "all_faces_certified_at_current_trial"
+    ] is True
+    total = step.assemble_full_residual()
+    reduction = periodicity.reduction(1.0).matrix(fixture.domain.comm)
+    reduced = reduction.createVecRight()
+    try:
+        reduction.multTranspose(total, reduced)
+        assert reduced.norm() < 1e-5
+    finally:
+        reduced.destroy()
+        reduction.destroy()
+        total.destroy()
+    plane = boundary_models.rigid_plane(
+        point=(0.95, 0.0, 0.0), normal=(-1.0, 0.0, 0.0),
+    )
+    _, _, planar = _periodic_j2_contact_step(surface=plane)
+    assert planar.solve_result().status == "completed"
+    np.testing.assert_allclose(
+        step.solution.x.array, planar.solution.x.array, rtol=2e-6, atol=2e-7
+    )
+    _, _, partial = _periodic_j2_contact_step(
+        surface=_periodic_wide_triangular_prism_tool(),
+        contact_integration="certified_closed_two_feature_research",
+    )
+    partial.solve(until=1 / 3)
+    saved = partial.save_checkpoint(tmp_path / "certified_face_mpc")
+    _, _, resumed = _periodic_j2_contact_step(
+        surface=_periodic_wide_triangular_prism_tool(),
+        contact_integration="certified_closed_two_feature_research",
+    )
+    resumed.load_checkpoint(saved)
+    resumed_result = resumed.solve_result()
+    assert resumed_result.status == "completed"
+    assert resumed_result.metadata["rigid_contact_face_path"] == face_path
+    np.testing.assert_allclose(
+        resumed.solution.x.array, step.solution.x.array, rtol=1e-9, atol=1e-10
+    )
+
+
+def test_periodic_j2_moving_smooth_certified_face_matches_plane_and_restarts(tmp_path):
+    motion = boundary_models.prescribed_rigid_motion(
+        translation=(-0.01, 0.0, 0.0),
+        reference_point=(1.6, 0.5, 0.5),
+    )
+    settings = dict(
+        surface=_periodic_wide_triangular_prism_tool(), motion=motion,
+        contact_integration="certified_closed_two_feature_research",
+    )
+    fixture, periodicity, face = _periodic_j2_contact_step(**settings)
+    result = face.solve_result()
+    assert result.status == "completed"
+    assert face.contact_provider.snapshot_motion() == pytest.approx(1.0)
+    assert result.metadata["rigid_contact_face_path"]["complete"] is True
+    assert result.quantity("maximum_equivalent_plastic_strain") > 0.0
+    assert result.quantity("rigid_contact_pair_path_work") != 0.0
+    total = face.assemble_full_residual()
+    reduction = periodicity.reduction(1.0).matrix(fixture.domain.comm)
+    reduced = reduction.createVecRight()
+    try:
+        reduction.multTranspose(total, reduced)
+        assert reduced.norm() < 1.0e-5
+    finally:
+        reduced.destroy()
+        reduction.destroy()
+        total.destroy()
+
+    plane = boundary_models.rigid_plane(
+        point=(0.95, 0.0, 0.0), normal=(-1.0, 0.0, 0.0),
+    )
+    _, _, reference = _periodic_j2_contact_step(
+        surface=plane, motion=motion,
+        contact_integration="planar_active_partition",
+    )
+    reference_result = reference.solve_result()
+    assert reference_result.status == "completed"
+    np.testing.assert_allclose(
+        face.solution.x.array, reference.solution.x.array,
+        rtol=1e-7, atol=1e-8,
+    )
+    assert result.quantity("rigid_contact_pair_path_work") == pytest.approx(
+        reference_result.quantity("rigid_contact_pair_path_work"),
+        rel=2e-6, abs=1e-8,
+    )
+
+    _, _, partial = _periodic_j2_contact_step(**settings)
+    partial.solve(until=1.0 / 3.0)
+    saved = partial.save_checkpoint(tmp_path / "moving_smooth_face_mpc")
+    _, _, resumed = _periodic_j2_contact_step(**settings)
+    resumed.load_checkpoint(saved)
+    resumed_result = resumed.solve_result()
+    assert resumed_result.status == "completed"
+    np.testing.assert_allclose(
+        resumed.solution.x.array, face.solution.x.array,
+        rtol=1e-9, atol=1e-10,
+    )
+    assert resumed_result.quantity("rigid_contact_pair_path_work") == pytest.approx(
+        result.quantity("rigid_contact_pair_path_work"), rel=1e-9, abs=1e-12,
+    )
+
+
+def test_periodic_j2_two_moving_certified_faces_sum_work_and_restart(tmp_path):
+    motion = boundary_models.prescribed_rigid_motion(
+        translation=(-0.01, 0.0, 0.0),
+        reference_point=(1.6, 0.5, 0.5),
+    )
+    surface = _periodic_wide_triangular_prism_tool()
+    _, _, single = _periodic_j2_contact_step(
+        surface=surface, motion=motion,
+        contact_integration="certified_closed_two_feature_research",
+    )
+    single_result = single.solve_result()
+    settings = dict(
+        surface=surface, motion=motion, pair_count=2,
+        contact_integration={
+            "periodic_tool_0": "certified_closed_two_feature_research",
+            "periodic_tool_1": "certified_closed_two_feature_research",
+        },
+    )
+    _, _, double = _periodic_j2_contact_step(**settings)
+    result = double.solve_result()
+    assert result.status == single_result.status == "completed"
+    np.testing.assert_allclose(
+        double.solution.x.array, single.solution.x.array,
+        rtol=1e-7, atol=1e-8,
+    )
+    assert sum(
+        result.quantity(f"{name}_path_work")
+        for name in ("periodic_tool_0", "periodic_tool_1")
+    ) == pytest.approx(
+        single_result.quantity("rigid_contact_pair_path_work"),
+        rel=2e-6, abs=1e-8,
+    )
+    _, _, partial = _periodic_j2_contact_step(**settings)
+    partial.solve(until=1.0 / 3.0)
+    saved = partial.save_checkpoint(tmp_path / "two_moving_faces_mpc")
+    _, _, resumed = _periodic_j2_contact_step(**settings)
+    resumed.load_checkpoint(saved)
+    assert resumed.solve_result().status == "completed"
+    np.testing.assert_allclose(
+        resumed.solution.x.array, double.solution.x.array,
+        rtol=1e-9, atol=1e-10,
+    )
+
+
+def test_periodic_j2_certified_face_corrupt_path_restore_is_atomic(tmp_path):
+    source = _periodic_j2_contact_step(
+        surface=_periodic_wide_triangular_prism_tool(),
+        contact_integration="certified_closed_two_feature_research",
+    )[2]
+    source.solve(until=1 / 3)
+    checkpoint = source.save_checkpoint(tmp_path / "certified_face_bad_path")
+    payload = json.loads(checkpoint.read_text(encoding="utf-8"))
+    payload["accepted_observer_state"]["contact_faces"]["pairs"][0][
+        "accepted_station_count"
+    ] = 123
+    checkpoint.write_text(
+        json.dumps(payload, indent=2, sort_keys=True) + "\n", encoding="utf-8"
+    )
+    target = _periodic_j2_contact_step(
+        surface=_periodic_wide_triangular_prism_tool(),
+        contact_integration="certified_closed_two_feature_research",
+    )[2]
+    before = target.solution.x.array.copy()
+    with pytest.raises(ValueError, match="Contact face path"):
+        target.load_checkpoint(checkpoint)
+    assert target.accepted_load_factor == 0.0
+    assert target.accepted_history_recorders["contact_faces"].pairs == {}
+    np.testing.assert_array_equal(target.solution.x.array, before)
+
+
+def test_periodic_j2_certified_face_reduced_tangent_matches_difference():
+    fixture, periodicity, step = _periodic_j2_contact_step(
+        surface=_periodic_wide_triangular_prism_tool(),
+        contact_integration="certified_closed_two_feature_research",
+    )
+    step.solve(until=1 / 3)
+    reduction = periodicity.reduction(1 / 3).matrix(fixture.domain.comm)
+    direction = reduction.createVecRight()
+    full_direction = reduction.createVecLeft()
+    projected = reduction.createVecRight()
+    full_residual = reduction.createVecLeft()
+    reference = step.solution.x.array.copy()
+    try:
+        direction.array[:] = np.linspace(0.1, 0.3, direction.array.size)
+        reduction.mult(direction, full_direction)
+        trial = step.contact_provider.evaluate()
+        full_residual.array[:] = trial.tangent_action(
+            full_direction.array.reshape(-1, 3)
+        ).reshape(-1)
+        reduction.multTranspose(full_residual, projected)
+        expected = projected.array.copy()
+        samples = []
+        size = 1e-6
+        for sign in (1.0, -1.0):
+            step.solution.x.array[:] = reference + sign * size * full_direction.array
+            step.solution.x.scatter_forward()
+            full_residual.array[:] = (
+                step.contact_provider.evaluate().nodal_structural_residual.reshape(-1)
+            )
+            reduction.multTranspose(full_residual, projected)
+            samples.append(projected.array.copy())
+        np.testing.assert_allclose(
+            (samples[0] - samples[1]) / (2 * size), expected,
+            rtol=2e-6, atol=2e-6,
+        )
+    finally:
+        step.solution.x.array[:] = reference
+        step.solution.x.scatter_forward()
+        full_residual.destroy()
+        projected.destroy()
+        full_direction.destroy()
+        direction.destroy()
+        reduction.destroy()
+
+
 def test_periodic_j2_reviewed_concave_tool_reduces_total_contact_residual():
     surface = _periodic_concave_face_tool()
     fixture, periodicity, step = _periodic_j2_contact_step(surface=surface)
     result = step.solve_result()
     assert result.status == "completed"
+    assert result.quantity(
+        f"{step.contact_provider.name}_sampled_mixed_feature_slave_faces"
+    ) >= 0
     assert step.contact_provider.evaluate().active_points > 0
     total = step.assemble_full_residual()
     reduction = periodicity.reduction(1.0).matrix(fixture.domain.comm)
@@ -503,6 +801,262 @@ def test_periodic_j2_reviewed_concave_tool_reduces_total_contact_residual():
     np.testing.assert_allclose(
         step.solution.x.array, planar.solution.x.array,
         rtol=1e-7, atol=1e-8,
+    )
+
+
+def test_periodic_j2_certified_closed_smooth_branch_reduces_total_residual(tmp_path):
+    fixture, periodicity, step = _periodic_j2_contact_step(
+        surface=_periodic_concave_face_tool(wide_smooth_patch=True),
+        contact_integration="closed_planar_branch_partition",
+    )
+    result = step.solve_result()
+    assert result.status == "completed"
+    evidence = step.contact_provider.current_point_diagnostics()
+    assert evidence["feature_transition_integral_certified"] is True
+    assert evidence["active_point_count"] > 0
+    total = step.assemble_full_residual()
+    reduction = periodicity.reduction(1.0).matrix(fixture.domain.comm)
+    reduced = reduction.createVecRight()
+    try:
+        reduction.multTranspose(total, reduced)
+        assert reduced.norm() < 1.0e-5
+    finally:
+        reduced.destroy()
+        reduction.destroy()
+        total.destroy()
+
+    plane = boundary_models.rigid_plane(
+        point=(0.95, 0.0, 0.0), normal=(-1.0, 0.0, 0.0),
+    )
+    _, _, planar = _periodic_j2_contact_step(surface=plane)
+    assert planar.solve_result().status == "completed"
+    np.testing.assert_allclose(
+        step.solution.x.array, planar.solution.x.array,
+        rtol=1e-7, atol=1e-8,
+    )
+
+    _, _, partial = _periodic_j2_contact_step(
+        surface=_periodic_concave_face_tool(wide_smooth_patch=True),
+        contact_integration="closed_planar_branch_partition",
+    )
+    partial.solve(until=1.0 / 3.0)
+    saved = partial.save_checkpoint(tmp_path / "periodic_closed_smooth_branch")
+    _, _, resumed = _periodic_j2_contact_step(
+        surface=_periodic_concave_face_tool(wide_smooth_patch=True),
+        contact_integration="closed_planar_branch_partition",
+    )
+    resumed.load_checkpoint(saved)
+    assert resumed.solve_result().status == "completed"
+    np.testing.assert_allclose(
+        resumed.solution.x.array, step.solution.x.array,
+        rtol=1e-9, atol=1e-10,
+    )
+
+
+def test_periodic_j2_reviewed_open_facet_patch_reduces_total_residual():
+    surface = boundary_models.triangulated_rigid_surface(
+        vertices=((0.95, -2., -2.), (0.95, -2., 2.),
+                  (0.95, 2., 2.), (0.95, 2., -2.)),
+        triangles=((0, 1, 2), (0, 2, 3)),
+        name="periodic_open_rigid_patch",
+    )
+    fixture, periodicity, step = _periodic_j2_contact_step(
+        surface=surface, contact_integration="reviewed_planar_branch_partition",
+    )
+    assert step.solve_result().status == "completed"
+    evidence = step.contact_provider.current_point_diagnostics()
+    assert evidence["feature_transition_integral_certified"] is True
+    assert evidence["active_point_count"] > 0
+    total = step.assemble_full_residual()
+    reduction = periodicity.reduction(1.0).matrix(fixture.domain.comm)
+    reduced = reduction.createVecRight()
+    try:
+        reduction.multTranspose(total, reduced)
+        assert reduced.norm() < 1e-5
+    finally:
+        reduced.destroy()
+        reduction.destroy()
+        total.destroy()
+    plane = boundary_models.rigid_plane(
+        point=(0.95, 0.0, 0.0), normal=(-1.0, 0.0, 0.0),
+    )
+    _, _, planar = _periodic_j2_contact_step(surface=plane)
+    assert planar.solve_result().status == "completed"
+    np.testing.assert_allclose(
+        step.solution.x.array, planar.solution.x.array, rtol=1e-7, atol=1e-8,
+    )
+
+
+def test_periodic_j2_closed_smooth_branch_rejects_reentrant_edge():
+    _, _, step = _periodic_j2_contact_step(
+        surface=_active_reentrant_periodic_surface(),
+        contact_integration="closed_planar_branch_partition",
+    )
+    with pytest.raises(NotImplementedError, match="AFM-CONTACT-CLOSED-PLANAR-BRANCH"):
+        step.solve_result()
+    assert step.accepted_load_factor == 0.0
+
+
+def test_periodic_j2_named_mixed_integration_modes_share_total_mpc_system(tmp_path):
+    closed = _periodic_concave_face_tool(wide_smooth_patch=True)
+    plane = boundary_models.rigid_plane(
+        point=(0.95, 0.0, 0.0), normal=(-1.0, 0.0, 0.0),
+    )
+    modes = {
+        "periodic_tool_0": "closed_planar_branch_partition",
+        "periodic_tool_1": "planar_active_partition",
+    }
+
+    def build(selected_modes):
+        return _periodic_j2_contact_step(
+            surface=closed, second_surface=plane, pair_count=2,
+            contact_integration=selected_modes,
+        )
+
+    fixture, periodicity, step = build(modes)
+    result = step.solve_result()
+    assert result.status == "completed"
+    assert tuple(
+        provider.contact_integration for provider in step.contact_providers
+    ) == tuple(modes.values())
+    assert all(
+        provider.current_point_diagnostics()["active_point_count"] > 0
+        for provider in step.contact_providers
+    )
+    assert step.contact_providers[0].current_point_diagnostics()[
+        "feature_transition_integral_certified"
+    ] is True
+    total = step.assemble_full_residual()
+    reduction = periodicity.reduction(1.0).matrix(fixture.domain.comm)
+    reduced = reduction.createVecRight()
+    try:
+        reduction.multTranspose(total, reduced)
+        assert reduced.norm() < 1.0e-5
+    finally:
+        reduced.destroy()
+        reduction.destroy()
+        total.destroy()
+
+    _, _, partial = build(modes)
+    partial.solve(until=1.0 / 3.0)
+    saved = partial.save_checkpoint(tmp_path / "periodic_mixed_modes")
+    _, _, resumed = build(modes)
+    resumed.load_checkpoint(saved)
+    assert resumed.solve_result().status == "completed"
+    np.testing.assert_allclose(
+        resumed.solution.x.array, step.solution.x.array,
+        rtol=1e-9, atol=1e-10,
+    )
+    _, _, changed = build({
+        "periodic_tool_0": "gauss",
+        "periodic_tool_1": "planar_active_partition",
+    })
+    with pytest.raises(ValueError, match="identity|contact|operator"):
+        changed.load_checkpoint(saved)
+
+
+def test_periodic_j2_certified_face_and_point_tool_share_mpc_system(tmp_path):
+    face = _periodic_wide_triangular_prism_tool()
+    plane = boundary_models.rigid_plane(
+        point=(0.95, 0.0, 0.0), normal=(-1.0, 0.0, 0.0),
+    )
+    modes = {
+        "periodic_tool_0": "certified_closed_two_feature_research",
+        "periodic_tool_1": "planar_active_partition",
+    }
+
+    def build():
+        return _periodic_j2_contact_step(
+            surface=face, second_surface=plane, pair_count=2,
+            contact_integration=modes,
+        )
+
+    fixture, periodicity, step = build()
+    result = step.solve_result()
+    assert result.status == "completed"
+    assert step.contact_providers[0].contact_integration == "certified_closed_two_feature"
+    assert step.contact_providers[1].contact_integration == "planar_active_partition"
+    assert result.metadata["rigid_contact_face_path"]["complete"] is True
+    assert step.contact_providers[0].current_face_diagnostics()[
+        "all_faces_certified_at_current_trial"
+    ]
+    assert step.contact_providers[1].current_point_diagnostics()[
+        "active_point_count"
+    ] > 0
+    _, _, analytical = _periodic_j2_contact_step(
+        surface=plane, second_surface=plane, pair_count=2,
+        contact_integration={
+            "periodic_tool_0": "planar_active_partition",
+            "periodic_tool_1": "planar_active_partition",
+        },
+    )
+    assert analytical.solve_result().status == "completed"
+    np.testing.assert_allclose(
+        step.solution.x.array, analytical.solution.x.array,
+        rtol=1e-7, atol=1e-8,
+    )
+    total = step.assemble_full_residual()
+    reduction = periodicity.reduction(1.0).matrix(fixture.domain.comm)
+    reduced = reduction.createVecRight()
+    try:
+        reduction.multTranspose(total, reduced)
+        assert reduced.norm() < 1.0e-5
+    finally:
+        reduced.destroy()
+        reduction.destroy()
+        total.destroy()
+
+    _, _, partial = build()
+    partial.solve(until=1.0 / 3.0)
+    saved = partial.save_checkpoint(tmp_path / "periodic_face_point")
+    _, _, resumed = build()
+    resumed.load_checkpoint(saved)
+    assert resumed.solve_result().status == "completed"
+    np.testing.assert_allclose(
+        resumed.solution.x.array, step.solution.x.array,
+        rtol=1e-9, atol=1e-10,
+    )
+
+
+def test_periodic_j2_certified_face_and_separate_plane_friction_restart(tmp_path):
+    face = _periodic_wide_triangular_prism_tool()
+    plane = boundary_models.rigid_plane(
+        point=(0.95, 0.0, 0.0), normal=(-1.0, 0.0, 0.0),
+    )
+    motion = boundary_models.prescribed_rigid_motion(
+        translation=(0.0, 0.02, 0.0),
+        reference_point=(1.6, 0.5, 0.5),
+    )
+    settings = dict(
+        surface=face, second_surface=plane, pair_count=2,
+        second_motion=motion,
+        second_friction_coefficient=0.001,
+        second_tangential_penalty=1000.0,
+        contact_integration={
+            "periodic_tool_0": "certified_closed_two_feature_research",
+            "periodic_tool_1": "gauss",
+        },
+    )
+    _, _, step = _periodic_j2_contact_step(**settings)
+    result = step.solve_result()
+    assert result.status == "completed"
+    assert result.quantity("friction_dissipation") > 0.0
+    assert result.metadata["rigid_contact_face_path"]["complete"] is True
+    assert step.contact_providers[0].snapshot_accepted_state() is None
+    assert step.contact_providers[1].friction_state.accepted is not None
+    _, _, partial = _periodic_j2_contact_step(**settings)
+    partial.solve(until=1.0 / 3.0)
+    saved = partial.save_checkpoint(tmp_path / "periodic_face_with_point_friction")
+    _, _, resumed = _periodic_j2_contact_step(**settings)
+    resumed.load_checkpoint(saved)
+    resumed_result = resumed.solve_result()
+    assert resumed_result.status == "completed"
+    np.testing.assert_allclose(
+        resumed.solution.x.array, step.solution.x.array,
+        rtol=1e-9, atol=1e-10,
+    )
+    assert resumed_result.quantity("friction_dissipation") == pytest.approx(
+        result.quantity("friction_dissipation"), rel=1e-9, abs=1e-12,
     )
 
 
@@ -605,6 +1159,16 @@ def test_periodic_j2_opposed_active_tools_include_reentrant_edge_and_restart(
     )
     result = continuous.solve_result()
     assert result.status == "completed"
+    feature_path = result.metadata["rigid_contact_feature_path"]
+    assert feature_path["complete"]
+    assert feature_path["accepted_station_count"] == (
+        len(continuous.accepted_increments) + 1
+    )
+    assert feature_path["pairs"][0]["maximum_active_edge_points"] > 0
+    assert next(
+        item for item in result.verify("engineering").claims
+        if item.name == "no_observed_uncertified_contact_feature_transition"
+    ).status == "failed"
     assert len(continuous.contact_providers) == 2
     assert all(provider.evaluate().active_points > 0
                for provider in continuous.contact_providers)
@@ -647,7 +1211,9 @@ def test_periodic_j2_opposed_active_tools_include_reentrant_edge_and_restart(
         surface=surface, opposed_pair=True,
     )
     resumed.load_checkpoint(saved)
-    assert resumed.solve_result().status == "completed"
+    resumed_result = resumed.solve_result()
+    assert resumed_result.status == "completed"
+    assert resumed_result.metadata["rigid_contact_feature_path"] == feature_path
     np.testing.assert_allclose(
         resumed.solution.x.array, continuous.solution.x.array,
         rtol=1.0e-9, atol=1.0e-10,
@@ -657,6 +1223,87 @@ def test_periodic_j2_opposed_active_tools_include_reentrant_edge_and_restart(
         continuous.state_transaction.response.state.committed_state_vectors(),
         rtol=1.0e-9, atol=1.0e-10,
     )
+
+
+def test_periodic_polyhedral_feature_path_legacy_and_corrupt_restart(tmp_path):
+    surface = _active_reentrant_periodic_surface()
+    _, _, partial = _periodic_j2_contact_step(surface=surface)
+    partial.solve(until=2.0 / 3.0)
+    saved = partial.save_checkpoint(tmp_path / "polyhedral_feature_path")
+    payload = json.loads(saved.read_text(encoding="utf-8"))
+    assert payload["accepted_observer_state"]["contact_features"]["complete"]
+
+    damaged = json.loads(json.dumps(payload))
+    damaged["accepted_observer_state"]["contact_features"]["pairs"][0][
+        "constraint"
+    ] = "wrong_pair"
+    damaged_path = tmp_path / "damaged_feature_path.checkpoint.json"
+    damaged_path.write_text(json.dumps(damaged), encoding="utf-8")
+    _, _, rejected = _periodic_j2_contact_step(surface=surface)
+    before = rejected.solution.x.array.copy()
+    with pytest.raises(ValueError, match="pair coverage"):
+        rejected.load_checkpoint(damaged_path)
+    np.testing.assert_array_equal(rejected.solution.x.array, before)
+    assert rejected.accepted_history_recorders["contact_features"].pairs == {}
+
+    # Simulate a real older penalty checkpoint: its scientific identity and
+    # observer state lacked this new ledger. It may resume, but its unobserved
+    # earlier stations can never be reported as a complete contact path.
+    legacy = json.loads(json.dumps(payload))
+    legacy["identity"]["accepted_history_recorders"].pop("contact_features")
+    legacy["accepted_observer_state"].pop("contact_features")
+    legacy_path = tmp_path / "legacy_feature_path.checkpoint.json"
+    legacy_path.write_text(json.dumps(legacy), encoding="utf-8")
+    changed_identity = json.loads(json.dumps(legacy))
+    changed_identity["identity"]["step_name"] = "different_scientific_step"
+    changed_path = tmp_path / "legacy_wrong_step.checkpoint.json"
+    changed_path.write_text(json.dumps(changed_identity), encoding="utf-8")
+    _, _, incompatible = _periodic_j2_contact_step(surface=surface)
+    with pytest.raises(ValueError, match="material, state, mesh"):
+        incompatible.load_checkpoint(changed_path)
+    assert incompatible.accepted_history_recorders["contact_features"].pairs == {}
+    _, _, resumed = _periodic_j2_contact_step(surface=surface)
+    resumed.load_checkpoint(legacy_path)
+    recorder = resumed.accepted_history_recorders["contact_features"]
+    assert not recorder.complete
+    assert recorder.accepted_station_count == len(resumed.accepted_increments) + 1
+    result = resumed.solve_result()
+    assert result.status == "completed"
+    assert not result.metadata["rigid_contact_feature_path"]["complete"]
+    claim = next(
+        item for item in result.verify("engineering").claims
+        if item.name == "no_observed_uncertified_contact_feature_transition"
+    )
+    assert claim.status == "failed"
+    assert "accepted contact feature path is incomplete" in claim.actual["issues"]
+    resaved = resumed.save_checkpoint(tmp_path / "resaved_incomplete_path")
+    _, _, reloaded = _periodic_j2_contact_step(surface=surface)
+    reloaded.load_checkpoint(resaved)
+    assert not reloaded.accepted_history_recorders["contact_features"].complete
+
+
+def test_periodic_polyhedral_feature_path_rolls_back_after_late_accept_failure(
+    monkeypatch,
+):
+    _, _, step = _periodic_j2_contact_step(
+        surface=_active_reentrant_periodic_surface(),
+    )
+    recorder = step.accepted_history_recorders["contact_features"]
+    before = recorder.snapshot_runtime_state()
+    initial_solution = step.solution.x.array.copy()
+    original = step._capture_operator_duals
+
+    def fail_after_feature_capture(factor):
+        if factor > 0:
+            raise RuntimeError("injected post-observer dual failure")
+        return original(factor)
+
+    monkeypatch.setattr(step, "_capture_operator_duals", fail_after_feature_capture)
+    with pytest.raises(RuntimeError, match="post-observer dual failure"):
+        step.solve()
+    assert recorder.snapshot_runtime_state() == before
+    assert step.accepted_load_factor == 0.0
+    np.testing.assert_array_equal(step.solution.x.array, initial_solution)
 
 
 @pytest.mark.parametrize(

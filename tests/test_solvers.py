@@ -87,6 +87,122 @@ def test_public_newton_policy_adapts_to_snes_and_affine_reduction():
     assert affine.factor_solver_type == "mumps"
 
 
+def test_newton_preserves_explicit_inner_linear_tolerances_on_both_routes():
+    linear = LinearSolverOptions(ksp_type="gmres", pc_type="ilu",
+                                 rtol=3e-12, atol=7e-14, max_it=321)
+    policy = newton(linear_solver=linear)
+    snes = policy.for_snes()
+    options = snes.petsc_options()
+    assert options["ksp_rtol"] == linear.rtol
+    assert options["ksp_atol"] == linear.atol
+    assert options["ksp_max_it"] == linear.max_it
+    assert policy.for_affine_reduction().linear_options == linear
+    assert snes.summary()["ksp_rtol"] == linear.rtol
+    # Checkpoint identity must distinguish this corrected policy from an old
+    # execution which silently dropped explicitly requested inner tolerances.
+    assert policy.summary()["linear_tolerance_transport"] == "explicit.v1"
+
+
+def test_default_newton_keeps_unspecified_inner_backend_defaults_and_identity():
+    policy = newton()
+    assert "linear_tolerance_transport" not in policy.summary()
+    for key in ("ksp_rtol", "ksp_atol", "ksp_max_it"):
+        assert key not in policy.for_snes().petsc_options()
+        assert key not in policy.for_snes().summary()
+
+
+@pytest.mark.parametrize("kwargs", [{"rtol": float("nan")}, {"atol": float("inf")},
+                                   {"max_it": 1.5}, {"max_it": True}])
+def test_inner_linear_options_reject_nonfinite_or_nonintegral_controls(kwargs):
+    with pytest.raises(ValueError):
+        LinearSolverOptions(**kwargs)
+
+
+@pytest.mark.parametrize("policy,field", [
+    ("LinearSolverOptions", "rtol"), ("LinearSolverOptions", "atol"),
+    ("NonlinearSolverOptions", "rtol"), ("NonlinearSolverOptions", "atol"),
+    ("NonlinearSolverOptions", "ksp_rtol"), ("NonlinearSolverOptions", "ksp_atol"),
+    ("NewtonSolverOptions", "relative_tolerance"),
+    ("NewtonSolverOptions", "absolute_tolerance"),
+    ("NewtonSolverOptions", "minimum_step_length"),
+    ("AffineNewtonOptions", "rtol"), ("AffineNewtonOptions", "atol"),
+    ("AffineNewtonOptions", "ksp_rtol"), ("AffineNewtonOptions", "ksp_atol"),
+    ("AffineNewtonOptions", "line_search_minimum"),
+])
+@pytest.mark.parametrize("invalid", [float("nan"), float("inf"), True])
+def test_solver_families_reject_nonfinite_or_boolean_real_controls(policy, field, invalid):
+    from agentfem import solvers
+    with pytest.raises(ValueError):
+        getattr(solvers, policy)(**{field: invalid})
+
+
+@pytest.mark.parametrize("policy,field", [
+    ("LinearSolverOptions", "max_it"), ("NonlinearSolverOptions", "max_it"),
+    ("NonlinearSolverOptions", "ksp_max_it"),
+    ("NewtonSolverOptions", "maximum_iterations"),
+    ("AffineNewtonOptions", "max_it"), ("AffineNewtonOptions", "ksp_max_it"),
+])
+@pytest.mark.parametrize("invalid", [1.5, True, float("inf")])
+def test_solver_families_require_integer_iteration_limits(policy, field, invalid):
+    from agentfem import solvers
+    with pytest.raises(ValueError):
+        getattr(solvers, policy)(**{field: invalid})
+
+
+def test_solver_controls_accept_numpy_real_scalars_and_reject_wrong_linear_policy():
+    import numpy as np
+    from agentfem import solvers
+    assert solvers.AffineNewtonOptions(rtol=np.float64(1e-8), max_it=np.int64(30)).max_it == 30
+    with pytest.raises(TypeError, match="linear_solver"):
+        newton(linear_solver={"ksp_type": "gmres"})
+
+
+@pytest.mark.parametrize("setting", [{"line_search_reduction": .25},
+                                     {"minimum_step_length": 1/8192}])
+def test_snes_refuses_to_discard_custom_native_search_controls(setting):
+    policy = NewtonSolverOptions(**setting)
+    with pytest.raises(NotImplementedError, match="AFM-SOLVER-SNES-SEARCH"):
+        policy.for_snes()
+    native = policy.for_affine_reduction()
+    assert native.line_search_reduction == policy.line_search_reduction
+    assert native.line_search_minimum == policy.minimum_step_length
+    # These controls do not apply to a deliberately disabled search.
+    assert NewtonSolverOptions(line_search="basic", **setting).for_snes().line_search_type == "basic"
+
+
+def test_snes_backend_receives_declared_inner_tolerances(monkeypatch):
+    import numpy as np
+    import ufl
+    from dolfinx import fem, mesh
+    import dolfinx.fem.petsc as fem_petsc
+    from mpi4py import MPI
+    from agentfem import solvers
+
+    domain = mesh.create_unit_interval(MPI.COMM_SELF, 3)
+    space = fem.functionspace(domain, ("Lagrange", 1))
+    u = fem.Function(space)
+    u.x.array[:] = .8
+    v = ufl.TestFunction(space)
+    residual = (u**3 + u - 2.) * v * ufl.dx
+    original = fem_petsc.NonlinearProblem
+    captured = []
+    def build(*args, **kwargs):
+        problem = original(*args, **kwargs)
+        captured.append(problem)
+        return problem
+    monkeypatch.setattr(fem_petsc, "NonlinearProblem", build)
+    linear = LinearSolverOptions(ksp_type="gmres", pc_type="ilu",
+                                 rtol=3e-12, atol=7e-14, max_it=321)
+    _, info = solvers.solve_nonlinear_problem(
+        residual, u, options=newton(linear_solver=linear),
+        petsc_options_prefix="test_inner_tolerance_transport_",
+    )
+    assert info.converged
+    np.testing.assert_allclose(u.x.array, 1., atol=1e-9, rtol=0.)
+    rtol, atol, _, maximum = captured[0].solver.getKSP().getTolerances()
+    assert (rtol, atol, maximum) == (linear.rtol, linear.atol, linear.max_it)
+
+
 @pytest.mark.parametrize("line_search", ("invalid", "cubic"))
 def test_public_newton_policy_rejects_unknown_line_search(line_search):
     with pytest.raises(ValueError):

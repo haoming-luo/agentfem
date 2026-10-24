@@ -1,0 +1,104 @@
+{
+  "schema": "agentfem.installed-acceptance-delta.v1",
+  "date": "2026-10-25",
+  "source_commit": "535e1eac",
+  "basis": "evidence/contact/2026-10-25-installed-periodic-contact.json",
+  "scope": "Re-freeze after small-strain boundary-admission safety fix; unchanged finite-J2/contact numerical implementation.",
+  "installation": {
+    "kind": "fresh venv with shared system numerical dependencies, local native wheel, no-index/no-deps install; not a clean-machine or Windows test",
+    "wheel": "agentfem-0.4.4.dev0-cp311-cp311-macosx_11_0_arm64.whl",
+    "wheel_sha256": "95ea29ed9e45596aeb69b4469c8f1d7342a4b1b8be879bc15df7a61dee414761",
+    "development_pythonpath": false,
+    "verified_modules": [
+      "agentfem",
+      "agentfem._builtin_step_providers",
+      "agentfem._hex_native",
+      "agentfem._body_pipeline",
+      "agentfem._q1_native"
+    ]
+  },
+  "regression": {
+    "files": [
+      "tests/test_constitutive_models.py",
+      "tests/test_small_strain_material_step.py",
+      "tests/test_finite_strain_plasticity.py",
+      "tests/test_j2_spectral_reuse.py",
+      "tests/test_j2_tangent_benchmark_protocol.py"
+    ],
+    "passed": 99,
+    "seconds": 4.75,
+    "command": "python -m pytest -q -c /dev/null --noconftest -p no:cacheprovider <absolute test paths>; run outside source with PYTHONPATH unset",
+    "note": "Includes six pre-fix capability counterexamples, existing ordinary small-strain global solve/restart, finite-J2 history/conditioning and tangent protocols. Not a performance test."
+  },
+  "project": {
+    "reconstruction": "Use the exact case and metadata documented in the basis report, without edits.",
+    "case_sha256": "a7719bc982317d6a14fe0cb4a8e7255d1fee51ce6412ea9b6b2a5502ac98aff4",
+    "commands": [
+      "agentfem run --name final-candidate-partial -- --until 0.25",
+      "agentfem run --name final-candidate-resumed -- --restart outputs/004-final-candidate-partial/checkpoint.npz",
+      "agentfem run --name final-candidate-continuous"
+    ],
+    "restart_manifest": "outputs/004-final-candidate-partial/checkpoint.checkpoint.json",
+    "rtol": 2e-10,
+    "atol": 2e-11,
+    "comparisons": {
+      "resumed_vs_continuous": {
+        "displacement": 0,
+        "material": 0,
+        "contact_force": 0,
+        "load_factors": 0,
+        "contact_work": 0
+      },
+      "continuous_vs_old": {
+        "displacement": 0,
+        "material": 0,
+        "contact_force": 0,
+        "load_factors": 0,
+        "contact_work": 0
+      }
+    },
+    "reader": {
+      "partial": {
+        "times": [
+          0,
+          0.125,
+          0.25
+        ],
+        "tetrahedra": 384,
+        "all_fields_finite": true
+      },
+      "resumed": {
+        "times": [
+          0.25,
+          0.375,
+          0.5,
+          0.625,
+          0.75,
+          0.875,
+          1
+        ],
+        "tetrahedra": 384,
+        "all_fields_finite": true
+      },
+      "continuous": {
+        "times": [
+          0,
+          0.125,
+          0.25,
+          0.375,
+          0.5,
+          0.625,
+          0.75,
+          0.875,
+          1
+        ],
+        "tetrahedra": 384,
+        "all_fields_finite": true
+      }
+    }
+  },
+  "exclusions": [
+    "This manual implicit case exports after each solve segment; live/interrupted-output evidence is reused from unchanged writer tests in the basis report.",
+    "No new composite full-run timing, independent contact continuum validation, MPI acceptance or Windows acceptance."
+  ]
+}

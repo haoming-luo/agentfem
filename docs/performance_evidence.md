@@ -1,5 +1,105 @@
 # Performance evidence
 
+## Equivalent finite-J2 return-map execution (2026-10-25)
+
+The batched finite-J2 update reuses its existing elastic trial SVD to recover
+the new plastic gradient. It no longer reconstructs and then solves against
+the same elastic gradient. The scalar implementation remains an independent
+arithmetic reference; the material law, state schema, tangent and acceptance
+criteria are unchanged. Cyclic loading, unloading, reversal, rotations and
+isochoric prehistory with condition numbers up to 10^4 are checked, including
+batch/chunk boundaries.
+
+A fresh 64-increment serial periodic-J2/plane-contact confirmation alternates
+baseline/candidate/candidate/baseline after warm-up. Solve-and-observe means
+are **28.36284 -> 27.46857 s (3.15% less)**; all four runs retain 64 accepted
+increments and 208 Newton corrections, with identical line-search and linear
+reason histories. Maximum displacement/state/stress difference is 5.042e-11;
+maximum per-point relative tangent error is 5.355e-12. Individual timings,
+source hashes, comparisons and the fixed baseline are retained in
+`evidence/performance/2026-10-25-j2-svd-return-confirmation.json`.
+
+This is a bounded implicit solve measurement, excluding setup and publication.
+It is not the complete explicit composite run below, which uses another material
+route. Do not add this percentage to earlier tangent, preconditioner or predictor
+measurements, or use it as evidence of contact mesh independence. Ordinary
+installed partial/restart/continuous paths are verified separately in
+`evidence/contact/2026-10-25-installed-periodic-contact.json`.
+
+## Complete installed trajectory (2026-10-22)
+
+The frozen native wheel at `1ed3c1e1` completed the unchanged 255,041-Hex8,
+100,000-increment review model with 25 field frames in **12,295.686 s
+(3 h 24 min 56 s)**, measured from process launch through preparation,
+calculation, publication and shutdown. No competing numerical job or local
+build was launched during this run; light source review and metadata work
+continued. This is an observed local runtime, not a promise for another machine.
+
+The project's own comparable timer was 12,293.966 s versus 14,932.091 s for
+the previous frozen `743f10b4` run (17.67% less). The older run had competing
+load and a sleep interval, so **this difference is not an isolated causal
+speedup**. Its UTC elapsed duration was 15,322.966 s; do not mix that clock
+with the project timer. The controlled alternating late-path screen supports
+12.11% less advancement time for the selected combined optimization.
+
+All 25 frames (177 numeric visualization datasets), five final material
+arrays, 60 checkpoint arrays, 100,000 accepted times, 10,000 accepted-history
+records and 800 observation records compare equal to the frozen baseline.
+Numeric arrays are finite and both history hash chains verify. The XDMF view
+now retains 17-digit coordinates rather than the old 16-digit text rounding.
+Independent VTK 9.6 reads all 25 frames as one Hex8 volume, matches every field
+to its HDF5 data and gives zero Warp coordinate error. The field companions
+occupy approximately 544 MiB; mesh data are shared between frames.
+
+The sufficient cell screen, topology/coordinate identity reuse and operational
+restart compatibility are reusable core changes. Material law, mass, time
+grid, geometry, contact settings and worker budgets are unchanged. Execution
+parity and visualization checks do **not** establish vendor equivalence,
+mass-scaling accuracy or a general thermodynamic first law. Confidential model
+assets and full numerical archives remain local.
+
+## Portable decisions, not machine-specific requirements
+
+Performance settings are choices to measure, not physical properties of a
+model. Do not turn this page's worker counts, backend, mesh or time step into
+requirements for unrelated problems or another computer. Separate three
+questions:
+
+- **Equivalent execution:** can caching, batching or scheduling remove work
+  while preserving accepted fields, internal variables and work histories?
+- **Numerical method:** does a different time step, mass, penalty or spatial
+  approximation retain the required physical accuracy? This needs convergence
+  evidence, not just an execution-parity check.
+- **Platform policy:** which available solver/backend and worker budget suits
+  the new machine? Record the selected policy and actual measured runtime.
+
+For an implicit problem, explicitly selecting a supported linear backend can
+matter more than changing Python code. For example, where the PETSc installation
+provides MUMPS:
+
+```python
+from agentfem import solvers
+
+solver_options = solvers.newton(
+    linear_solver=solvers.direct_solver(package="mumps"),
+)
+```
+
+Pass the policy through the ordinary `model.step(..., solver_options=...)`
+route. This is an option, not a universal default; an unavailable requested
+backend must fail, not silently select another algorithm. Check the actual
+solver summary, convergence and representative accepted states. Reusing a KSP
+owner does not mean reusing an obsolete numerical factorization after its
+matrix changes. An implicit linear-solver improvement does not accelerate an
+explicit central-difference problem that has no such solve.
+
+For native explicit execution, body and contact may overlap. Inclusive body
+and contact times therefore cannot be added, and a short owner wait does not
+mean contact is cheap. Use the phase ledger to locate the critical path, then
+compare unprofiled advancement and, when claiming full-run performance, the
+complete installed process. History encoding and visualization cadence are
+separate output choices; retain scientific samples and accepted-state semantics.
+
 ## Completed core migration and next installed candidate (2026-10-14)
 
 The frozen `b962a777` generic-core run has now completed the same 255,041-cell,

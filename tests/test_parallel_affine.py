@@ -100,6 +100,82 @@ def test_prepared_mpc_linear_problem_reuses_lifecycle_and_updates_load():
     assert problem.summary() == summary
 
 
+@pytest.mark.parametrize("assembly", ["native", "algebraic"])
+def test_failed_mpc_retry_clears_previous_convergence_evidence(monkeypatch, assembly):
+    domain = dolfinx_mesh.create_unit_square(MPI.COMM_WORLD, 3, 2)
+    space = fem.functionspace(domain, ("Lagrange", 1))
+    solution = fem.Function(space)
+    trial, test = ufl.TrialFunction(space), ufl.TestFunction(space)
+    source = fem.Constant(domain, 1.)
+    periodicity = constraints.rectangular_periodic_mpc(space)
+    with solvers.prepare_mpc_linear_problem(
+        (ufl.inner(ufl.grad(trial), ufl.grad(test)) + trial * test) * ufl.dx,
+        source * test * ufl.dx, solution, periodicity,
+        options=solvers.LinearSolverOptions(factor_solver_type="mumps", mpc_assembly=assembly),
+        petsc_options_prefix=f"agentfem_test_failed_{assembly}_",
+    ) as problem:
+        problem.solve()
+        assert problem.last_solve_info.converged and problem.solve_count == 1
+        before = solution.x.array.copy()
+        source.value = 2.
+
+        def fail(*args, **kwargs):
+            raise RuntimeError("injected MPC retry failure")
+
+        with monkeypatch.context() as patch:
+            if assembly == "native":
+                patch.setattr(problem.problem, "solve", fail)
+            else:
+                from agentfem.backends import _mpc_algebraic
+                patch.setattr(_mpc_algebraic.fem_petsc, "assemble_matrix", fail)
+            with pytest.raises(RuntimeError, match="injected MPC retry failure"):
+                problem.solve()
+        assert problem.last_solve_info is None
+        assert problem.solve_count == 1 and not problem.closed
+        np.testing.assert_array_equal(solution.x.array, before)
+        if assembly == "algebraic":
+            assert problem.relative_residual is None and problem.periodic_error is None
+        assert problem.summary()["last_solve"] is None
+        problem.solve()
+        assert problem.last_solve_info.converged and problem.solve_count == 2
+        np.testing.assert_allclose(solution.x.array, 2., atol=1e-10)
+
+
+@pytest.mark.parametrize("error_if_not_converged", [True, False])
+def test_algebraic_mpc_honors_explicit_nonconvergence_policy(error_if_not_converged):
+    domain = dolfinx_mesh.create_unit_square(MPI.COMM_WORLD, 4, 4)
+    space = fem.functionspace(domain, ("Lagrange", 1))
+    solution = fem.Function(space)
+    trial, test = ufl.TrialFunction(space), ufl.TestFunction(space)
+    x = ufl.SpatialCoordinate(domain)
+    periodicity = constraints.rectangular_periodic_mpc(space)
+    with solvers.prepare_mpc_linear_problem(
+        (ufl.inner(ufl.grad(trial), ufl.grad(test)) + trial * test) * ufl.dx,
+        (x[0] - .2)**2 * test * ufl.dx, solution, periodicity,
+        options=solvers.LinearSolverOptions(
+            ksp_type="cg", pc_type="jacobi", rtol=1e-14, atol=1e-16,
+            max_it=1, mpc_assembly="algebraic",
+            error_if_not_converged=error_if_not_converged,
+        ),
+        petsc_options_prefix="agentfem_test_algebraic_nonconvergence_",
+    ) as problem:
+        if error_if_not_converged:
+            with pytest.raises(RuntimeError, match="AFM-RVE-009"):
+                problem.solve()
+            assert problem.solve_count == 0
+        else:
+            assert problem.solve() is solution
+            assert problem.solve_count == 1
+            assert problem.periodic_error < 1e-12
+        # Explicit diagnostic return never turns a failed correction into a
+        # converged result. The caller can inspect the actual residual/reason.
+        assert not problem.last_solve_info.converged
+        assert problem.summary()["last_solve"]["converged"] is False
+        assert problem.summary()["solver"]["error_if_not_converged"] is error_if_not_converged
+        assert problem.last_solve_info.iterations == 1
+        assert problem.relative_residual > 1e-10
+
+
 def test_prepared_mpc_linear_problem_transfers_vector_field_layout():
     domain = dolfinx_mesh.create_unit_square(MPI.COMM_WORLD, 4, 3)
     space = fem.functionspace(domain, ("Lagrange", 1, (2,)))

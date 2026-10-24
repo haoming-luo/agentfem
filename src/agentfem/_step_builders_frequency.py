@@ -124,7 +124,9 @@ def harmonic_viscoelastic(
 
     from . import mechanics
     from .constitutive.viscoelasticity import IsotropicGeneralizedMaxwell
+    from ._step_builders_inelastic import _require_small_strain_boundary_support
 
+    _require_small_strain_boundary_support(model)
     model.check(
         target=target,
         step_options={

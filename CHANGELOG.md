@@ -6,6 +6,77 @@ experimental formulation to a validated one.
 
 ## [Unreleased]
 
+- Reject unassembled weak/contact boundary models for small-strain J2,
+  Chaboche, power-law creep, quasistatic/harmonic Maxwell and provider-neutral
+  small-strain Steps during both capability inspection and execution,
+  including compatibility builders. Previously native material routes could omit these
+  registered contributions, while the provider-neutral route advertised
+  support before rejecting construction. Keep the finite-strain contact
+  capability separate; do not silently substitute materials or kinematics.
+
+- Reuse the trial elastic spectrum in batched finite-J2 plastic-gradient
+  reconstruction instead of factoring the reconstructed elastic gradient again.
+  Preserve the scalar reference, constitutive law, tangent and state contract.
+  Independent cyclic/rotation/conditioning checks and an alternating global
+  periodic-contact comparison accompany this execution optimization; its bounded
+  timing result is not an explicit-composite or universal speedup claim.
+
+- Include reference positions and integration-measure metadata in accepted
+  implicit contact-point output. Keep current slave positions, tool projections
+  and raw nominal pressure distinct. Older external providers remain compatible;
+  mixed providers never produce a fabricated or partial reference-coordinate
+  array. Independent P2/Q2 polynomial force, moment, virtual-work and tangent
+  checks accompany spatial diagnostics, not a mesh-independence claim.
+
+- Reject fractional/boolean increment counts and nonfinite or nonnumeric
+  automatic-incrementation controls before solving, instead of truncating a
+  requested fixed path or admitting invalid stopping/growth conditions.
+  Preserve valid Python policy summaries and default checkpoint identity;
+  accept NumPy numeric scalars with JSON-safe normalization.
+
+- Correct quadrature-to-DG0 recovery on non-affine and curved meshes: include
+  the mesh Jacobian in physical cell averages, retain discontinuities and raw
+  integration-point state, and identify the averaging measure in result
+  metadata. Check owned cells before MPI publication; invalid local measures
+  reject collectively. Analytical quadrilateral, Hex8 and curved-triangle
+  checks and empty-rank MPI checks accompany the correction.
+
+- Add opt-in managed preconditioner reuse for serial affine Newton: retain the
+  current tangent, use an earlier LU/ILU only as a GMRES preconditioner, verify
+  the true linear residual, and retry once with a fresh preconditioner if
+  needed. Preserve default solver/checkpoint behavior and reject unsupported
+  adapters. Retained material response and attempt-owned linear workspace
+  reduce repeated work without introducing another state owner.
+
+- Add opt-in, safeguarded `acceleration="aitken"` to experimental plane normal
+  augmentation. Reduce repeated converged Newton solves without changing
+  contact acceptance, penalty, loading or work semantics. Keep the default
+  update unchanged, identify accelerated checkpoints, and record outer-update
+  diagnostics. Independent plastic pressure, cyclic work, rollback and restart
+  tests accompany a bounded repeated-timing benchmark, not a general speed claim.
+
+- Fix accepted contact-point output for cyclic prescribed motion: validate tool
+  pose against the resolved Step amplitude, not the normalized Step coordinate.
+  Record both independently and reject stale/nonfinite pose samples before
+  writing. This applies to ordinary penalty contact as well as augmentation.
+
+- Extend experimental serial P1 finite-J2 normal augmentation to prescribed
+  translation of one analytical plane. Preserve material-side multiplier
+  identity, distinguish tool work from numerical relative-gap work, and
+  jointly restore tool pose, plastic history, pressure and the accepted
+  ledger. Add a public compression/unloading/recontact example and independent
+  scalar, tangent, refinement and restart checks. One bounded periodic-MPC
+  route is also admitted when reduced normal rows have disjoint nonzero
+  supports. Rotating/curved tools, friction, general MPC and MPI augmentation
+  remain unsupported.
+
+- Record accepted signed normal-contact work for the experimental serial
+  fixed-plane finite-J2 augmentation route. Keep its discrete absolute-work
+  bound, open-gap contribution and raw/contact-aware energy residuals separate
+  from stored energy. Joint restart/rollback and cyclic increment refinement
+  are checked; absent legacy work history stays unavailable. This does not
+  promote curved augmentation, MPI or automatic energy verification.
+
 - Develop a bounded serial implicit rigid-contact candidate for finite-strain
   J2: shared Newton residual/tangent, prescribed-tool force and work, reviewed
   faceted and convex geometry branches, friction State, atomic restart, raw

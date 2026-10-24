@@ -12,6 +12,27 @@ from ci_validation_scope import (
 )
 
 
+def test_core_release_job_has_bounded_runtime_and_no_nested_blas_oversubscription():
+    import re
+
+    # This is a source-format contract, not a YAML interpreter. The minimal
+    # numerical environment deliberately does not install documentation's
+    # PyYAML dependency merely to inspect this checked-in workflow.
+    workflow = Path(__file__).resolve().parents[1] / ".github/workflows/test.yml"
+    text = workflow.read_text(encoding="utf-8")
+    match = re.search(r"(?ms)^  fenicsx:\n(.*?)(?=^  [\w-]+:\s*$|\Z)", text)
+    assert match is not None
+    job = match.group(1)
+    assert re.search(r"(?m)^    timeout-minutes: 45$", job)
+    environment = re.search(r"(?m)^    env:\n((?:      .*\n)+)", job)
+    assert environment is not None
+    for name in ("OMP_NUM_THREADS", "OPENBLAS_NUM_THREADS", "MKL_NUM_THREADS"):
+        assert f'      {name}: "1"\n' in environment.group(1)
+    names = set(re.findall(r"(?m)^      - name: (.+)$", job))
+    assert {"Run unit and interface tests", "Run release demo smoke suite",
+            "Record the candidate-bound 0.4 foundation acceptance"} <= names
+
+
 @pytest.mark.parametrize(
     ("paths", "expected"),
     (

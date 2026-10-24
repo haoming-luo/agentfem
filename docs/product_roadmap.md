@@ -19,6 +19,329 @@ or a successful run is not by itself a validated engineering capability.
 
 ## Current product phase: the 0.4 foundation
 
+### Active sprint decision board (2026-10-25)
+
+The current seven-hour budget prioritizes bounded delivery over expanding the
+capability surface. At entry, PR #118 head `d5347eeb` is mergeable and all
+applicable remote checks pass, but it is still draft. CI establishes source/
+installation regressions, not nonuniform spatial accuracy or commercial parity.
+
+| Order | Work | Decision gate |
+| --- | --- | --- |
+| P0 | Keep engineering integration separate from scientific maturity | The release contract names periodic J2/contact as experimental; no general contact or mesh-independence promotion |
+| P0 | Locate the nonuniform spatial discrepancy | Fixed physical patch, common accepted station, reference-area pressure moments, and unchanged MPC equations; no blind larger-mesh sweep |
+| P1 | Reuse the existing SVD in plastic-gradient reconstruction | Independent scalar/history/rotation/conditioning checks, then fresh whole-path timing; never transfer the gain to explicit composites |
+| P1 | Freeze and test installed ordinary use | Same installed identity, interruption/restart, valid incremental output; no AI-provided executable glue |
+| Exit | Commit tested improvements and retain open science gates | No release tag or commercial-parity claim on partial validation; reuse unaffected full composite evidence |
+
+The fixed-width edge-belt diagnostic must also record its sampled area: a
+discontinuous indicator has mesh-dependent quadrature error. Complement it
+with a continuous polynomial edge/center partition of unity whose reference
+areas are known analytically. This diagnoses pressure redistribution without
+inventing an error estimator or changing the contact law.
+
+Historical entries below remain evidence, not a second current backlog.
+
+Current integration results: SVD reuse passed independent history/rotation/
+conditioning and global-path checks, with 3.15% less solve-and-observe time in
+the fresh 64-increment ABBA confirmation. It changes neither the material law
+nor the accepted path. A native wheel from `51c4a911` was installed into an
+isolated AgentFEM environment with shared numerical dependencies. Ordinary
+`agentfem run` partial/restart/continuous paths agree in displacement, material
+state, contact force and work history. Installed output, interrupted publication,
+history/retention and independent contact-reference suites pass. This is not a
+clean Windows installation or new full-composite performance proof. Details and
+the reconstruction protocol are in
+`evidence/contact/2026-10-25-installed-periodic-contact.json`.
+
+Integration still requires current-head CI. An intermediate Linux run exposed
+one ill-conditioned first-Piola component comparison failure (4961 other tests
+passed). The failure is preserved; an independent high-precision diagnosis and
+per-point objective tensor comparison replace that componentwise test, without
+changing the runtime or its tolerances. Fresh Linux confirmation at `e4207c56`
+passes 4976 serial tests (428 skipped, including absent optional native modules
+and tests requiring multiple ranks), subsequent distributed
+and release-smoke checks; all applicable Linux/macOS checks pass in run
+40115587874. The later boundary-admission safety delta still requires its own
+current-head CI. See the precision follow-up in the sprint ledger. The workflow and
+material guide also separate finite-strain contact from small-strain
+J2/Chaboche and defer geometry/friction/MPC combinations to one current
+capability matrix rather than stale one-tool restrictions.
+
+The release-scope audit also found a correctness hazard: several small-strain
+material providers advertised boundary Operators they did not assemble. Native
+J2/Chaboche, power-law creep, quasistatic/harmonic Maxwell and neutral small-strain
+providers now reject these combinations before Step construction, with one
+addressable reason shared by capability inspection and compatibility builders.
+This is a necessary safety correction, not a new contact capability.
+
+The spatial gate is narrower, not closed: the controlled 4/8-cell plastic
+first-station force gap is 6.52%, with different sampled contact activity.
+On the same coarse mesh, supported contact quadrature 7 -> 11 changes force by
+only 0.00557%; halving the coarse plastic increment cap changes force by 0.02025%.
+Neither explains the spatial gap on its own. Independent polynomial P2/Q2 trace tests pass force, moment,
+virtual-work and tangent integrals. The next bounded check is one 12-cell
+first-station comparison with the same physical/path/integration inputs and
+recoverable accepted checkpoints, not more penalty tuning or a full-cycle sweep.
+
+The existing J2 tangent backend now packs its nine derivative directions into
+small rectangular products and reuses their common transform, without another
+public tuning switch. Fresh serial cyclic P2/J2/plane-penalty/MPC ABBA evidence
+measures 8.32% less solve-and-observe time with the same 32 accepted increments,
+113 Newton corrections and four-station field/state/contact comparisons.
+The 4096-point tangent kernel improves by about 35.78%, not the whole solver.
+The original near-zero-component comparison failure and its justified per-point
+tensor-scale follow-up are both retained; see
+`evidence/performance/2026-10-24-j2-tangent-block-confirmation.json` and the
+contact sprint ledger. Do not add this result to prior percentages or transfer
+it to the explicit-composite run. The subsequent SVD-reconstruction acceptance
+is recorded above and is a separate measured improvement, not an added percentage.
+
+The user's 2026-10-23 clarification keeps **solver capability and throughput
+first**. A separate contributor is handling WSL installation: inspect that
+work for later integration instead of starting a competing installation sprint.
+PR #119 and its dependent #120 are now merged into main at `d87f1c0e` and
+`a7f69a8a`. Same-version build identity, installation identity, cross-package
+locking, bounded host probes and preserved restart paths have source-level
+regressions. The final onboarding head `af36afde` passed Windows PowerShell
+5.1/7, numerical and installed-wheel CI. WSL/elevation remain mocked in those
+Windows tests: real clean Windows/WorkBuddy acceptance is still explicitly
+pending, and no new installer bundle is released. This closes source integration,
+not the customer-acceptance gate or solver sprint.
+The joined body/viscosity policy now has a complete late-state ABBA comparison
+(5.69% less mean advancement time, identical accepted fields and physical
+history). This is not a full-run gain. Current smooth-interior Q1 sign evaluation
+with two-ray fallback also preserves the complete late accepted state. Combined
+ABBA screening shows 4.83% less mean advancement time, not the sum of component
+improvements. Process-local worker screening did not select a faster budget;
+a versioned contact
+restart contract separates explicitly partition-invariant execution budgets
+from physical identity. Legacy checkpoints remain strict until resaved through
+their original runtime. No silent identity bypass is permitted.
+Keep the graded finite-J2 spatial study separate from both timing experiments.
+The immutable-array validation cache has been withdrawn: its isolated late-path
+comparison cannot distinguish the small mean difference from timing drift.
+Keep the snapshot-before-validation correctness fix without the cache.
+A Procedure-owned linear workspace now keeps current PtAP/tangents across
+frozen normal-augmentation equilibria and releases resources at attempt exit.
+Its small allocation-only gain enables a separate opt-in adaptive GMRES
+preconditioner policy. The isolated 12-cell/32-increment screen reduces mean
+time by 13.39%, with accepted station arrays within declared tolerances; fresh
+48-increment confirmation of the integrated public route measures 13.73%,
+with 48 accepted increments and 533 Newton corrections in every run. This is
+an implicit-solver result, not an explicit-composite or full-run speed claim.
+The graded 16/256 study is now complete: contact tolerances pass, but final
+reaction changes 7.2893% from graded 12/256. Grading alone has not closed the
+spatial gate. Stop blind refinement/penalty tuning; the next discretization
+study must address compatible volume, contact-trace and periodic spaces.
+Do not silently use P2 volume interpolation with the current P1 nodal AL
+contract. The commercial-parity and independent-reference gates stay open.
+
+The combined serial implicit execution route has also completed an isolated
+12-cell/48-increment ABBA comparison: 24.32% less mean solve-and-observe time
+relative to fresh material trials, separate outer workspaces and direct solves.
+All four paths retain 48 accepted increments and 533 Newton corrections, and
+all four-station field/state/contact/work comparisons pass. This evidence
+supports the composition, not addition of its individual percentages, and
+does not change the explicit-composite timing claim. See
+`evidence/performance/2026-10-23-combined-affine-execution.json`.
+
+The eight-cell P2 diagnostic now separates contact and bulk integration:
+contact quadrature 7 -> 11 changes final reaction by 0.0351%, then bulk
+quadrature 4 -> 6 by 0.00887%. These do not explain the much larger spatial
+gap, and defaults remain unchanged. A separate native worker-local nodal-gather
+prototype preserves the late accepted path but its 1.41% mean timing change
+is smaller than the 2.17% baseline drift; it is withdrawn rather than added as
+another public performance switch.
+
+Further diagnostics distinguish two remaining errors rather than attributing
+everything to contact: at fixed eight-cell P2 discretization, 32 -> 64 -> 128
+increments change the final plastic reaction by 6.41% then 3.16%. With plasticity
+disabled by a high yield stress, common Gaussian-penalty 8 -> 12-cell controls
+change reaction by 4.46% for P1 and 1.02% for P2. This supports investigating
+compatible volume/trace approximation and path refinement separately; it does
+not certify continuum accuracy, prove locking or authorize P2 nodal AL.
+
+An output audit found a separate correctness issue: integration-point cell
+recovery normalized reference-rule weights without the geometric Jacobian.
+The physical-measure correction now passes analytical distorted Q1/Hex8 and
+curved-triangle tests, scalar/vector/tensor recovery, and two-rank checks for
+owned/ghost publication, an empty rank and collective invalid-measure rejection.
+Raw constitutive states and solver updates are unchanged; metadata distinguishes
+mesh-geometry weighting from any inferred deformation-volume weighting.
+
+The next work-reduction mechanism is now an opt-in core increment policy,
+`steps.automatic(inelastic_prediction_safety=...)`, using the last accepted
+plastic increment to cap the ordinary Newton-based next proposal. It does not
+relax the declared plastic-increment limit or change mandatory load knots.
+The bounded serial global-J2 strong/affine routes share explicit admission,
+accepted-state rollback and versioned restart identity. Regional/mixed/MPI
+prediction remains rejected, without restricting their existing policies.
+On a cyclic P2/J2/plane-penalty/MPC fixture, source-frozen ABBA means are
+186.400 s ordinary and 114.687 s predictive (38.47% less), with rejected
+attempts 140 -> 13 and Newton corrections 1300 -> 806. Common-station reaction
+differs by at most 0.204% from a finite 512-increment reference; that reference
+does not establish continuum accuracy. This is a new increment algorithm,
+not another unchanged-path execution gain, and cannot be added to 24.32% or
+applied to the explicit composite runtime. Compact evidence is in
+`evidence/performance/2026-10-23-inelastic-increment-prediction.json`.
+Prospective 1024-step-reference confirmation retains the same predictive
+232-increment path. Halving the plastic limit gives 449 accepted increments
+and reduces maximum reaction/displacement/mean-PEEQ differences to that
+reference from 0.202%/0.0384%/0.0291% to 0.104%/0.0119%/0.00166%.
+Fixed-reference 512 -> 1024 final reaction still changes by 0.405%: preserve
+the remaining path-accuracy uncertainty rather than selecting the more
+flattering reference. The next scientific gate remains compatible spatial
+approximation at controlled path resolution, not another controller knob.
+
+The eight-cell P2 controlled-path follow-up reached common factors 0.25 and
+0.5, then stopped at its 1800-second runner limit. At the first station,
+path refinement changes reaction by about 0.27% from fixed 128 increments,
+while the four/eight-cell controlled paths still differ by about 6.52%.
+Unloading opens contact correctly at 0.5. Preserve these partial observations
+and the timeout; they do not close full-cycle accuracy or spatial convergence.
+See `evidence/contact/2026-10-24-periodic-p2-controlled-path8.json`. No larger
+blind mesh/parameter sweep follows from this result.
+
+| Order | Work | Current decision / acceptance boundary |
+| --- | --- | --- |
+| 1 | Retain unchanged material trials and scoped linear work | Implemented for bounded serial J2/AL; combined 24.32% timing reduction with station parity and mutation/rollback/restart guards. Unsupported materials/mixed/MPI use ordinary refresh; no scope expansion inferred. |
+| 2 | Isolate spatial/path error and reduce rejected work | Spatial gate remains open. Accepted-plastic prediction now reduces rejected work on a bounded cyclic fixture; it is not an error estimator. Hold the physical patch fixed and keep volume/trace approximation and path-refinement evidence separate. |
+| 3 | Explicit body/contact critical-path reduction | Selected joined-viscosity/interior-sign route remains a late-path result, not a new full-run claim. Reuse the 25-frame baseline; the new nodal-gather prototype is withdrawn rather than added as an unproven switch. |
+| 4 | Bounded release integration | Solver/output and main-integration head `197ba2c8` passes its full remote CI, including numerical and installed-wheel gates. Subsequent tangent changes require their own remote checks. Scientific claims remain limited to passed geometry/law combinations; PR #118 remains a development candidate while spatial/reference gates are open. |
+
+The output/recovery review reproduced and fixed two additional failure paths:
+a closed serial writer could reopen and truncate its previous HDF5 file, and
+completion cleanup could prune earlier checkpoints before result publication
+succeeded. Closed writers now reject re-entry and writes; failed closes remain
+explicit, and repeated cleanup cannot promote an interrupted index. Completion
+retention publishes only surviving checkpoint references before deleting owned
+older files. Result-construction/publication failures preserve those files.
+The affected output/archive/project set passes 124 tests (one MPI-only skip).
+After interruption, the focused material reuse, linear workspace, increment
+prediction and checkpoint review passes 116 tests (one MPI-only skip). These
+are overlapping risk-based regressions, not new timing or scientific-validation
+claims. Existing generated `site/` changes remain untouched.
+
+The first retained-material source candidate is scoped to a single equilibrium
+attempt and compares evaluated old/new gradients, committed/trial state, current
+stress/tangent/energy buffers, material parameters and time. State retains no
+second response array, and the transient guard is never checkpointed. The
+contact residual and global Jacobian remain current; this is not Jacobian
+lagging. See `tests/test_retained_material_trial.py` and
+`tools/benchmark_retained_material_trial.py` for mutation and ABBA checks.
+
+### 2026-10-22 implementation priorities
+
+Keep the implicit-contact scientific gate and the explicit-composite throughput
+gate separate. A faster explicit implementation does not close implicit contact
+convergence; a completed composite run does not establish external-code parity.
+
+Sprint evidence now includes a complete frozen 100,000-increment run in
+3 h 24 min 56 s, with all 25 frames, accepted histories and checkpoint arrays
+equal to the preceding baseline. Independent VTK reads every frame correctly.
+The controlled late-path comparison supports 12.11% less advancement time;
+do not attribute the entire larger whole-run difference to code changes.
+Reusable changes cover sufficient cell admission, exact topology/coordinate
+reuse, operational restart identity, linear-option transport, prepared-operator
+failure cleanup and opt-in lossless history archives with a data-only reader.
+The new independent confined cyclic plastic/contact reference passes, while
+the inhomogeneous spatial convergence and external-comparator gates stay open.
+The complete 16-cell/256-increment contact path meets the original nonlinear
+acceptance bounds, but the 12→16 final reaction difference is still 5.2481%.
+Mean PEEQ and displacement L2 change much less (0.3729% / 0.2490%); neither
+is a substitute for reaction convergence. Preserve this unresolved distinction
+when choosing the next discretization/contact study.
+An explicitly separate elastic-limit cycle also retains a 6.5122% 8→12
+reaction gap with zero plastic strain. Prioritize spatial discretization and
+the contact constraint representation; do not assume the J2 update is its cause.
+Exact active-normal elimination on those same elastic meshes agrees with
+augmentation to below 3e-8 N in total reaction, while preserving the spatial
+gap. Further penalty tuning is not the priority for that observed difference.
+
+1. **Measure and remove redundant execution.** The completed 100,000-increment
+   composite run still attributes approximately 89% of solver wall time to
+   residual assembly. Profile the late damaged configuration, including the
+   overlapping body/contact branches, before changing algorithms. First test
+   whether a coherent body/contact execution change removes remaining work.
+   The sufficient native whole-cell screen is now installed and verified;
+   retain uncertain-cell fallback, the material law, increment, numerical mass
+   and accepted-state contracts rather than repeatedly retesting this same gain.
+2. **Make execution evidence explainable.** Distinguish inclusive body cost,
+   geometry cost, owner-thread waiting and publication cost. These are concurrent
+   or nested quantities, not additive percentages. Use the existing performance
+   ledger; do not create a second authoritative solver/state or benchmark policy.
+3. **Close the actual implicit-contact accuracy gap.** Continue the bounded
+   finite-area-supported J2/plane fixture with common accepted load stations and
+   independent spatial/increment refinement. Diagnose contact integration and
+   material path errors separately before extending geometry or enforcement.
+   Keep the independent comparator and unsupported sharp-feature boundaries
+   explicit; do not promote the 0.4.4 parity target by test count.
+4. **Preserve recovery and usable output.** Keep the verified 25-frame run and
+   its final checkpoint unchanged. New profiling runs write to separate locations.
+   A restart identity mismatch must be investigated, never bypassed to make a
+   timing experiment work. The selected combined change has now passed frozen
+   installed whole-path acceptance; another full run is deferred until a new
+   measured change merits it. History encoding is an output choice, not a
+   solver/physical policy or a substitute for saved field frames.
+
+The execution decomposition follows the distinction between element restriction,
+quadrature work and global reduction in [libCEED's interface concepts](
+https://libceed.org/en/latest/libCEEDapi/). Displacement-bounded candidate reuse
+is informed by [LAMMPS neighbor-list maintenance](
+https://docs.lammps.org/Developer_par_neigh.html), but any Q1 contact reuse requires
+its own complete-coverage and moving-geometry tests. Neither source supplies an
+AgentFEM speedup number.
+
+### 0.4.4 bounded contact-parity sprint (target, not a capability claim)
+
+The next release target is **local, explicitly bounded parity** for serial
+three-dimensional solid-versus-prescribed-rigid, quasistatic implicit contact
+with finite-strain J2. This means a user can state and independently verify
+the same supported physical problem through the ordinary Model/Step/Result
+workflow; it does not mean all Abaqus/Standard general contact, identical
+floating-point fields, or automatic admission of every triangulated tool.
+
+The ordered nine-gate task and technical bibliography are maintained in
+[the 0.4.4 contact sprint record](internal/contact_0_4_4_local_parity.md).
+Promote only combinations that pass independent same-input comparison,
+mesh/increment/enforcement convergence, residual--tangent and lifecycle
+checks. A failed nonconvex sharp-feature gate narrows the release statement;
+it must not be hidden by a visually plausible contour or another penalty
+choice. A moving feature boundary in a surface integral and actual physical
+edge/vertex contact are separate numerical questions: passing one does not
+license the other. Distributed implicit contact, deformable--deformable/self
+contact, shell-thickness contact and arbitrary CAD remain outside this bounded
+target.
+
+The current serial affine Newton implementation reuses the total residual and
+Operator responses only within an unchanged trial, avoiding a second contact
+evaluation before the tangent solve. Small frozen-old-Procedure comparisons
+cover fixed/moving sphere contact, friction and automatic plastic cutback;
+this is not an explicit-composite speed claim. A separate bounded analytical
+plane diagnostic now includes the actual MPC affine offset, distinguishing
+immovable penetration from mere multiplier redundancy. Neither improvement
+admits AL under arbitrary MPC; compatible multiplier spaces and their
+independent pressure/convergence evidence remain required.
+An option-contract audit also corrected explicit basic/no-search Newton:
+finite valid full steps may temporarily increase the residual, while invalid
+material trials still reject. Backtracking remains the default; serial and
+distributed affine paths share the meaning with PETSc, and affected legacy
+basic-mode checkpoints cannot silently change algorithm.
+The bounded periodic-plane route now has joint work/restart and explicit
+mesh/increment/penalty sensitivity records. A reaction audit distinguishes its
+point-pinned one-sided-load demonstration from a separately declared,
+finite-area supported fixture; changing the fixture is not credited as a
+solver improvement. Neither numerical acceptance nor penalty insensitivity
+closes the independent spatial-accuracy gate.
+
+An interrupted long output exposed buffered HDF5 metadata loss between saved
+stations. The serial unified writer now flushes complete frames and atomically
+maintains an explicitly incomplete index, removed after clean final publication.
+Abrupt-process-exit and independent-reader checks cover that bounded recovery
+case; they do not establish SWMR, mid-write/power-loss recovery, or repair of
+older damaged files. Checkpoints remain the only restart contract.
+
 ### 0.4.3 released composition and next gate (2026-10-17)
 
 Version 0.4.3 was promoted by one composed scientific workflow, not
@@ -740,7 +1063,7 @@ L-tool gate needs its nonlinear nearest-feature transition law and convergence
 evidence before any such Step promotion.
 The bounded convex-support-plane subset is now an opt-in ordinary-Step and
 serial affine-periodic J2
-implementation: it partitions at most three dominant planes per affine slave
+implementation: it partitions at most four dominant planes per affine slave
 triangle and includes the compressed feature-line Newton term. A real
 finite-J2 Step, full Jacobian including MPC reduction, moving-tool work and
 serial restart pass. Fixed support planes are prepared once; every current
@@ -748,7 +1071,10 @@ trial still recomputes its gap, active subcells and projection, and a projection
 feature disagreement rejects the trial.
 An independent symmetric convex-corner fixture now checks exact potential,
 integrated force and five directional total tangents with three dominant
-planes; four positive-area features still reject. This expands a bounded
+planes. A four-feature rectangular window now additionally passes an
+independent exact-energy oracle, perturbed directional tangents, assembled
+FEniCSx tangent and an interrupted finite-J2 restart; five positive-area
+features still reject. This expands a bounded
 convex subset, not the nonconvex reentrant-tool convergence claim.
 This does not close the nonconvex L-tool's nonlinear nearest-feature
 transition or the independent mesh/penalty benchmark.
@@ -771,6 +1097,84 @@ converge or that a higher penalty is universally unusable. First prove the
 multiplier update and penetration tolerance on a fixed-point planar trace;
 the trial-partition route has changing quadrature points and needs an explicit
 State transfer/identity rule before any multiplier history can follow it.
+The next bounded slice is now implemented: explicit
+`steps.normal_augmentation(...)` lowers through ordinary standard J2 with one
+fixed or prescribed-translating analytical plane, serial P1 tetrahedra and coalesced nodal multipliers.
+It reuses the existing Newton, material trial state and joint accepted
+checkpoint. Independent homogeneous limits, plastic loading/unloading,
+failure rollback and restart have targeted evidence. Redundant strong/contact
+normal rows reject early. This is still experimental: general multiplier
+stability, general MPC, rotating/curved tools and partition transfer remain separate
+gates. The fixed-plane accepted-work gate now records signed numerical contact
+work, a non-cancelling discrete work bound and opening/closure contributions.
+The AL functional is never stored energy. Original and contact-aware energy
+residuals remain visible, with independent cyclic-reference and increment
+refinement evidence; no automatic energy-verification claim follows. Legacy
+checkpoints without work history remain unavailable rather than fabricated.
+The fixed-plane route additionally has a scalar, non-FE coaxial plastic-stop
+reference through loading, unloading, reverse flow and recontact on two
+meshes, including restart after reverse plasticity. That check exposed a
+resolved-amplitude/normalized-coordinate confusion: signed load amplitudes
+must scale ordinary strong values, and fixed tools must not validate them as
+motion coordinates. Time-dependent boundary histories and moving-tool ranges
+keep their own domain checks. This does not enlarge the AL geometry scope.
+The subsequent translation-only gate retains the same material-side nodal
+multiplier basis while recomputing gaps against the current tool pose.
+Tool work is recorded once as external input; numerical relative-gap work
+is separate. Scalar plastic compression/recontact, increment refinement,
+frozen-state tangent, joint failure rollback and serial checkpoint checks
+cover this bounded path. The new public translating-plane example uses the
+ordinary Step, not a case-owned solver. Rotation, changing normals, MPI and
+general MPC augmentation remain closed until independently established.
+The subsequent bounded affine gate admits one serial P1 planar pair only
+when every reduced normal row has nonzero, disjoint support. It reuses the
+ordinary affine path with a pre-trial Operator snapshot and a nested outer
+Procedure; it never commits plastic history during augmentation. A separate
+hard-obstacle elimination reference on two meshes/two penalties, cyclic
+open/recontact, successive restart and injected rollback tests establish this
+discrete slice. Signed normal work is retained at every accepted station
+independently of cloud-output cadence. Overlapping support, prescribed normal
+rows, rotating/curved tools, mixed and MPI augmentation still reject; this does
+not close general multiplier stability or the independent external reference.
+The optional safeguarded multiplier accelerator is now implemented on that
+same bounded route. Its reference-area-weighted secant history is owned by
+the attempted-increment Procedure, never the material or checkpoint State.
+Default controls are unchanged. Independent pressure, cyclic energy and
+restart/rollback checks accompany a 32-increment serial example whose repeated
+median solve time fell 31.8%; this is not evidence for the explicit composite
+case, curved/MPC augmentation or general commercial-software speed parity.
+The follow-up acceptance adds a spatially partial plastic contact patch through
+unloading/recontact, all-station pressure/state/work comparisons, restart and
+post-commit failure recovery. Both policies also match a separate
+equality-constrained elastic active-set reference on two meshes. This narrows
+the acceleration validation gap without admitting new geometry or constraint
+families. The `a62cef23` candidate passed remote Linux tests and macOS
+installed-wheel foundation acceptance; scientific parity gates remain open.
+The moving-plane slice now also has a nonuniform Poisson-coupled plastic
+compression comparison against independently enforced prescribed displacement
+on three meshes and two penalties. Point-pressure accuracy is checked
+separately from displacement. Cyclic accepted-point export records Step
+coordinate and resolved tool amplitude separately; intermediate output and
+two successive restarts are exercised from an isolated installed wheel.
+Before any default penalty/globalization tuning, retain full accepted-path
+field comparisons and the measured failure boundary. Outer augmentation and
+inner Newton/search work are now separately inspectable; local rollback uses
+numeric arrays rather than serializing a disk checkpoint every increment.
+The material-side follow-up shares one call's elastic-trial spectral factors
+between the J2 return and its consistent tangent, without persistent caches or
+new State ownership. Fresh paired tests at three mesh sizes reduce the bounded
+implicit example's solve/result time by 11.5--13.4% while retaining every
+accepted field and iteration count. This is measured software reuse, separate
+from numerical-penalty tuning, and is not an explicit-composite full-run claim.
+Keep the public scalar contract and independent numerical tangent oracle.
+The fixed-plane route now also has nonuniform manufactured-solution spatial
+evidence: P1 displacement and gradient errors converge at approximately second
+and first order, while contact force and nodal pressure errors decrease.
+This check exposed and fixed a linear-trace coordinate-tabulation roundoff
+that falsely reported initial overlap on a zero-gap mesh. Original mesh
+vertices are authoritative; real overlap still rejects at the declared limit.
+Pre-correction experimental checkpoints with changed trace identities must
+continue under their original candidate, not bypass the restore guard.
 The same manufactured implicit-J2 contact screen also found a distinct
 scaling opportunity in the *linear solver*, not the contact law: explicit
 GMRES/GAMG with a recorded rigid-body near-nullspace preserves the tested

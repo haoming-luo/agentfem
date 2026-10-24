@@ -35,10 +35,6 @@ def _array(value, shape, label):
     selected = np.asarray(value, dtype=float)
     if selected.shape != shape:
         raise ValueError(f"{label} must be finite with shape {shape}.")
-    finite = (_native_all_finite(selected) if _native_all_finite is not None
-              and selected.flags.c_contiguous else np.isfinite(selected).all())
-    if not finite:
-        raise ValueError(f"{label} must be finite with shape {shape}.")
     if selected.size == 0:
         # NumPy may use a different sentinel address for an empty bytes view
         # and its zero-width slice. No data are addressed: pointer subtraction
@@ -59,8 +55,15 @@ def _array(value, shape, label):
             raise ValueError(f"{label} has invalid immutable storage bounds.")
     else:
         owner = selected.tobytes(order="C")
-    # A fresh view protects shape/dtype metadata without copying immutable data.
-    return np.frombuffer(owner, dtype=float, count=selected.size, offset=offset).reshape(shape)
+    # Freeze mutable inputs before checking: validation describes the detached
+    # snapshot, not a live buffer another callback might concurrently change.
+    result = np.frombuffer(owner, dtype=float, count=selected.size, offset=offset).reshape(shape)
+    finite = (_native_all_finite(result) if _native_all_finite is not None
+              else np.isfinite(result).all())
+    if not finite:
+        raise ValueError(f"{label} must be finite with shape {shape}.")
+    # Fresh metadata prevents caller-side shape/dtype edits from propagating.
+    return result
 
 
 @dataclass(frozen=True)

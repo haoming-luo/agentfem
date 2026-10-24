@@ -1,0 +1,53 @@
+{
+  "schema": "agentfem.installed-acceptance-delta.v1",
+  "date": "2026-10-25",
+  "source_commit": "bc7520cc",
+  "basis": "evidence/contact/2026-10-25-installed-boundary-admission.json",
+  "scope": "Extend fail-closed boundary admission to creep/Maxwell and compatibility builders; unchanged finite-J2 numerical runtime.",
+  "installation": {
+    "kind": "Fresh venv with shared system numerical dependencies; local native wheel installed with --no-index --no-deps --ignore-installed. Not clean-machine or Windows evidence.",
+    "wheel": "agentfem-0.4.4.dev0-cp311-cp311-macosx_11_0_arm64.whl",
+    "wheel_sha256": "072d2b45449b8c0e6368cfe4e2b15be7b1088c00eb83aa7ecef3cf551a1bb0c5",
+    "development_pythonpath": false,
+    "verified_site_package_modules": ["agentfem", "agentfem._builtin_step_providers", "agentfem._step_builders_inelastic"]
+  },
+  "regression": {
+    "command": "python -m pytest -q -c /dev/null --noconftest -p no:cacheprovider <absolute test paths>; outside repository with PYTHONPATH unset",
+    "files": [
+      "tests/test_constitutive_models.py",
+      "tests/test_small_strain_material_step.py",
+      "tests/test_finite_strain_plasticity.py",
+      "tests/test_j2_spectral_reuse.py",
+      "tests/test_j2_tangent_benchmark_protocol.py",
+      "tests/test_viscoelasticity.py"
+    ],
+    "passed": 144,
+    "seconds": 16.97,
+    "note": "Ten contact/foundation counterexamples across five material families check ordinary and compatibility entrypoints. Includes supported solve/restart/material/tangent tests. Concurrent spatial work makes this unsuitable as timing evidence."
+  },
+  "project": {
+    "reconstruction": "Unchanged exact project documented in evidence/contact/2026-10-25-installed-periodic-contact.json",
+    "case_sha256": "a7719bc982317d6a14fe0cb4a8e7255d1fee51ce6412ea9b6b2a5502ac98aff4",
+    "command": "agentfem run --name final-admission-continuous",
+    "comparison": "007-final-admission-continuous versus 006-final-candidate-continuous from the basis report",
+    "maximum_absolute_difference": {
+      "displacement": 0.0,
+      "material": 0.0,
+      "contact_force": 0.0,
+      "load_factors": 0.0,
+      "contact_work": 0.0
+    },
+    "independent_reader": {
+      "library": "meshio",
+      "volume_blocks": 1,
+      "topology": "tetra",
+      "cells": 384,
+      "times": [0.0, 0.125, 0.25, 0.375, 0.5, 0.625, 0.75, 0.875, 1.0],
+      "all_fields_finite": true
+    }
+  },
+  "exclusions": [
+    "Reuse unchanged partial/restart and live-writer evidence from the two basis reports; this delta runs the ordinary complete project only.",
+    "No new explicit-composite, MPI, Windows, continuum-accuracy or full-run speedup claim."
+  ]
+}

@@ -206,47 +206,8 @@ independent material point while global Newton equilibrium closes.
 For a three-dimensional `nonlinear_static` study, `model.step(...)` now lowers
 this material to a global DOLFINx path. `PE` and `PEEQ` are committed at Basix
 quadrature points; `S` and `DDSDDE` are trial fields updated during Newton.
-The ordinary strong-boundary provider also accepts serial analytical rigid
-contact, fixed or with prescribed rigid motion. Tool pose
-uses the same resolved Step amplitude as the other prescribed inputs. Its weak
-residual and semismooth tangent enter the same Newton assembly as J2; the
-accepted ledger records contact penalty potential and tool force--coordinate
-work separately from material stored energy and plastic dissipation. A separate
-bounded path accepts one fixed or normalized-prescribed triangulated rigid tool
-with reference-area quadrature. It recomputes projection at each Newton trial,
-admits planar facet interiors and coplanar seams, and rejects active free or
-noncoplanar edges. It records accepted tool force--moment work for the
-prescribed path. Multiple named rigid pairs can share this
-ordinary Step within the bounds below; each retains its own resultant, prescribed work and checkpoint
-identity. Fixed or prescribed moving analytical planes additionally admit
-penalty Coulomb
-friction with per-pair accepted stick/slip state, a nonsymmetric tangent, separate
-sliding dissipation and numerical separation release, and serial restart.
-The [fixed-plane friction example](https://github.com/haoming-luo/agentfem/blob/main/examples/finite_j2_fixed_plane_friction.py)
-is a bounded active-contact demonstration, not general friction validation.
-The affine-periodic J2 route also admits multiple named frictionless rigid
-pairs, reducing their summed residual and tangent before Newton; it keeps
-separate accepted moving-tool work and serial restart. These compositions
-remain serial and experimental. Prescribed moving analytical planes, selected
-face-interior triangle branches and certified closed-convex tools now have
-separate bounded Coulomb tests; see the
-[contact capability matrix](guide/model_setup.md). Curved-tool friction,
-active free/noncoplanar features of an open patch, affine MPC with friction,
-general nonconvex dies and portable cross-rank restart remain unsupported.
-For a distributed mesh, `model.step(...)` reports `AFM-J2-CONTACT-MPI`
-before solving; `step_capability` reports the same reason while keeping
-`supported=false`.
-The runnable [finite-J2 moving-plane example](https://github.com/haoming-luo/agentfem/blob/main/examples/finite_j2_plane_contact.py)
-uses `model.step(...)` and can stop at a committed intermediate factor with
-`--until 0.5`, then resume from its `checkpoint.npz` in a fresh output
-directory. The single-grid XDMF contains nodal displacement; a separate HDF5
-file preserves the unsmoothed integration-point fields and is linked from the
-result manifest. The checkpoint retains the accepted material state. XDMF is
-not a representation of the unsmoothed quadrature history, so the example does
-not relabel an interpolated stress field as the original constitutive response.
-The [fixed-facet example](https://github.com/haoming-luo/agentfem/blob/main/examples/finite_j2_faceted_contact.py)
-uses the same public `model.step(...)` workflow; its coplanar tool is a bounded
-integration test, not a validation of general forming dies.
+This small-strain J2/Chaboche route does not inherit the finite-strain rigid
+contact capability described separately below.
 `DDSDDE` is the analytical consistent linearization of the accepted discrete
 backward-Euler return map, including isotropic hardening and dynamic recovery;
 mixed stress control globalizes that tangent with residual-reducing line
@@ -305,6 +266,47 @@ fixed `0.5%` contract, so structure promotion stays fail-closed. Mixed-locking
 convergence remains open. The complete local return now supplies the production
 spectral analytical `dP/dF`; an independent central-difference tangent remains
 available as a verification oracle rather than the default solver path.
+
+### Bounded finite-strain J2 rigid contact
+
+Contact composition uses `constitutive.finite_strain_j2_logarithmic`, not
+small-strain J2, Chaboche or an arbitrary user material. The ordinary
+`model.step(...)` route accepts independently named rigid pairs in serial,
+with fixed or normalized-prescribed tool motion. Each Newton trial evaluates
+the current geometry. The total material-plus-contact residual and tangent
+enter the same solve; a supported affine-periodic constraint reduces that
+total, rather than adding contact after MPC reduction. Strong prescribed
+displacement on the trace uses consistent tangent lifting.
+
+Each pair retains its own resultant, accepted tool force--moment work and
+checkpoint identity. Admitted Coulomb branches additionally own accepted
+stick/slip history, sliding dissipation and numerical separation release; their
+generally nonsymmetric tangent requires a compatible linear solver. Tested
+locally planar Coulomb combinations include affine-periodic J2, but admission
+is not independent industrial validation. The
+[contact capability matrix](guide/model_setup.md) is the current source
+candidate's geometry/friction/constraint boundary. Reviewed closed solids and
+open triangle patches have different sharp-feature laws; one combination's
+test must not promote another. Unsupported active features reject the trial
+and restore accepted State, not silently remove friction or substitute a plane.
+
+These compositions remain experimental and serial. Mixed affine fields,
+distributed implicit contact, general curved-tool friction and portable
+combined-contact restart are not admitted. Nonuniform spatial/path accuracy
+and energy closure need their own evidence. Penalty potential, signed numerical
+normal work and plastic dissipation are different quantities; none can be
+renamed to manufacture a balance.
+
+The [moving-plane example](https://github.com/haoming-luo/agentfem/blob/main/examples/finite_j2_plane_contact.py)
+uses ordinary `model.step(...)`, can stop at a committed intermediate factor
+with `--until 0.5`, and can resume from its saved checkpoint in a fresh output
+directory. The [fixed-plane friction example](https://github.com/haoming-luo/agentfem/blob/main/examples/finite_j2_fixed_plane_friction.py)
+and [fixed-facet example](https://github.com/haoming-luo/agentfem/blob/main/examples/finite_j2_faceted_contact.py)
+are bounded demonstrations, not general forming validation. Single-grid XDMF
+displacement and recovered cell fields are visualization views; raw quadrature
+state remains separately identified. `export_accepted_contact_points` supplies
+unsmoothed reference-area samples and is not a restart archive or nodal Cauchy
+pressure field.
 
 ## Provider-neutral small-strain materials
 

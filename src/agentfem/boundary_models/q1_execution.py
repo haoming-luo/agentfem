@@ -20,15 +20,27 @@ class Q1ContactExecution:
     separated_paths: object = None
     project_batch: object = None
     separation_reuse: str = "incremental"
+    sign_policy: str = "two_rays"
+    restart_identity: dict | None = None
     _identity_json: str = field(init=False, repr=False)
+    _restart_identity_json: str | None = field(init=False, repr=False)
 
     def __post_init__(self):
+        if self.sign_policy not in ("two_rays", "interior_normal"):
+            raise ValueError("Q1 sign_policy must be two_rays or interior_normal")
         if self.separation_reuse not in ("incremental", "anchored"):
             raise ValueError("Q1 separation_reuse must be incremental or anchored")
         if not isinstance(self.identity, dict) or not self.identity:
             raise ValueError("Q1 execution requires a nonempty JSON identity")
         encoded = json.dumps(self.identity, sort_keys=True, allow_nan=False)
         object.__setattr__(self, "_identity_json", encoded)
+        if self.restart_identity is not None and (
+            not isinstance(self.restart_identity, dict) or not self.restart_identity
+        ):
+            raise TypeError("restart_identity requires a nonempty JSON mapping or None")
+        object.__setattr__(self, "_restart_identity_json",
+            None if self.restart_identity is None else
+            json.dumps(self.restart_identity, sort_keys=True, allow_nan=False))
         for name in ("closest_point", "classify_inside", "distance_bounds", "separated_paths", "project_batch"):
             if getattr(self, name) is not None and not callable(getattr(self, name)):
                 raise TypeError(f"{name} must be callable or None")
@@ -40,7 +52,35 @@ class Q1ContactExecution:
                 "distance_bounds": self.distance_bounds is not None,
                 "separated_paths": self.separated_paths is not None,
                 "project_batch": self.project_batch is not None,
+                **({"sign_policy": "interior_normal-v1"}
+                   if self.sign_policy == "interior_normal" else {}),
                 **({"separation_reuse": "anchored-v1"} if self.separation_reuse == "anchored" else {})}
+
+    def checkpoint_summary(self):
+        """Retain the same accepted-coordinate contract across core sign policies.
+
+        No sign cache is serialized: restore recomputes geometry from accepted
+        coordinates. Both policies solve the same globally closest Q1 signed
+        distance problem. Only this core-owned arithmetic choice is omitted;
+        callback identities, search/reuse policies and other settings remain.
+        ``summary`` always retains the actual execution provenance.
+        """
+        value = self.summary()
+        value.pop("sign_policy", None)
+        return value
+
+    def compatible_checkpoint_summary(self):
+        """Explicit partition-invariant provider declaration, not inferred by name.
+
+        Worker counts may be absent only if the provider preserves per-query
+        arithmetic, ordering, fallback and state semantics. Legacy checkpoints
+        continue to use ``checkpoint_summary`` without this declaration.
+        """
+        if self._restart_identity_json is None:
+            return self.checkpoint_summary()
+        return {**self.checkpoint_summary(),
+                "identity": json.loads(self._restart_identity_json),
+                "restart_contract": "agentfem.q1-execution-restart.v1"}
 
     def project(self, surface, points, reference, **options):
         """Validate transport, not the plugin's global-minimum certificate."""

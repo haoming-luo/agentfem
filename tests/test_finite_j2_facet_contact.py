@@ -12,11 +12,13 @@ import numpy as np
 import pytest
 
 from agentfem import (
+    amplitudes,
     boundary_models,
     constitutive,
     fields,
     mesh,
     models,
+    results,
     solvers,
     steps,
     studies,
@@ -36,7 +38,10 @@ def _patch(*, triangulated: bool, gap: float = 0.005, penalty=500.0,
            friction_coefficient=None, tangential_penalty=None,
            regional_material=False, contact_quadrature_degree=None,
            hexahedral=False, displacement_degree=1, linear_solver=None,
-           clamp_left=True, left_traction=0.0):
+           clamp_left=True, left_traction=0.0,
+           initial_penetration_limit=None,
+           transverse_boundary_fixed=False, load_amplitude=None,
+           increment_control=None, normal_augmentation=None):
     domain = dolfinx_mesh.create_unit_cube(
         MPI.COMM_SELF, cells, cells, cells,
         cell_type=(
@@ -53,7 +58,15 @@ def _patch(*, triangulated: bool, gap: float = 0.005, penalty=500.0,
     ))
     left = mesh.boundary(domain, lambda x: np.isclose(x[0], 0.0), name="left")
     right = mesh.boundary(domain, lambda x: np.isclose(x[0], 1.0), name="right")
-    if clamp_left:
+    if transverse_boundary_fixed:
+        model.fix(displacement, on=left, component=0, value=0.0)
+        exterior = mesh.boundary(
+            domain, lambda x: np.ones(x.shape[1], dtype=bool),
+            name="transverse_fixed_exterior",
+        )
+        model.fix(displacement, on=exterior, component=1, value=0.0)
+        model.fix(displacement, on=exterior, component=2, value=0.0)
+    elif clamp_left:
         model.clamp(displacement, on=left)
     else:
         model.fix(displacement, on=left, component=1, value=0.0)
@@ -173,6 +186,7 @@ def _patch(*, triangulated: bool, gap: float = 0.005, penalty=500.0,
             penalty=penalty,
             friction_coefficient=friction_coefficient,
             tangential_penalty=tangential_penalty,
+            initial_penetration_limit=initial_penetration_limit,
         )
         model.add_boundary_model(pair)
     else:
@@ -180,9 +194,24 @@ def _patch(*, triangulated: bool, gap: float = 0.005, penalty=500.0,
             point=(1.0 + gap, 0, 0),
             normal=np.asarray((-1, tilt, 0)) / np.sqrt(1.0 + tilt * tilt),
         )
-        model.rigid_obstacle_contact(
-            on=right, penalty=penalty, surface=surface, motion=tool_motion,
-        )
+        if initial_penetration_limit is None:
+            model.rigid_obstacle_contact(
+                on=right, penalty=penalty, surface=surface, motion=tool_motion,
+            )
+        else:
+            model.add_boundary_model(boundary_models.rigid_contact_pair(
+                right, boundary_models.rigid_body(
+                    surface,
+                    motion_schedule=(
+                        None if tool_motion is None
+                        else boundary_models.prescribed_rigid_motion_schedule(
+                            tool_motion, start_time=0, end_time=schedule_end,
+                        )
+                    ),
+                ),
+                penalty=penalty,
+                initial_penetration_limit=initial_penetration_limit,
+            ))
     if constrain_contact:
         model.fix(displacement, on=right, component=0, value=contact_value)
     if applied_traction != 0.0:
@@ -190,12 +219,19 @@ def _patch(*, triangulated: bool, gap: float = 0.005, penalty=500.0,
     if not make_step:
         return model, displacement, material, None
     step_options = {} if material is None else {"material": material}
+    if load_amplitude is not None:
+        step_options["amplitude"] = load_amplitude
     if contact_quadrature_degree is not None:
         step_options["contact_quadrature_degree"] = contact_quadrature_degree
+    if normal_augmentation is not None:
+        step_options["normal_augmentation"] = normal_augmentation
     step = model.step(
         target=displacement,
         **step_options,
-        incrementation=steps.fixed(increments),
+        incrementation=(
+            steps.fixed(increments)
+            if increment_control is None else increment_control
+        ),
         solver_options=solvers.newton(
             relative_tolerance=1e-8,
             absolute_tolerance=1e-9,
@@ -206,6 +242,785 @@ def _patch(*, triangulated: bool, gap: float = 0.005, penalty=500.0,
         progress=False,
     )
     return model, displacement, material, step
+
+
+def _small_single_branch_j2_step(
+    *, closed: bool, flat_seam: bool = False, second_plane: bool = False,
+    active_second_plane: bool = False, tool_rotation=(0.0, 0.0, 0.0),
+    open_sheet: bool = False, integration_override: str | None = None,
+    initial_penetration_limit: float | None = None,
+    open_sheet_x: float = 1.10,
+    open_sheet_competitor: bool = False,
+    open_sheet_competitor_kind: str = "old_refinement",
+    radial_sphere: bool = False,
+    radial_cylinder: bool = False,
+    radial_integration: str | None = None,
+    radial_motion: tuple[float, float, float] | None = None,
+    radial_mesh_divisions: int = 1,
+):
+    if sum((closed, open_sheet, radial_sphere, radial_cylinder)) > 1:
+        raise ValueError("Choose one reviewed rigid geometry.")
+    domain = dolfinx_mesh.create_unit_cube(
+        MPI.COMM_SELF,
+        radial_mesh_divisions, radial_mesh_divisions, radial_mesh_divisions,
+        cell_type=dolfinx_mesh.CellType.tetrahedron,
+    )
+    coordinates = domain.geometry.x
+    coordinates[:, 0] = 1.05 + 0.10 * coordinates[:, 0]
+    coordinates[:, 1] = (1.45 if flat_seam else 1.25) + 0.10 * coordinates[:, 1]
+    coordinates[:, 2] = 0.45 + 0.10 * coordinates[:, 2]
+    model = models.create(
+        study=studies.static_solid(dimension=3, nonlinear=True), mesh=domain,
+    )
+    displacement = model.field(fields.displacement(domain))
+    contact = mesh.boundary(
+        domain, lambda x: np.isclose(x[0], 1.05), name="contact",
+    )
+    support = mesh.boundary(
+        domain, lambda x: np.isclose(x[0], 1.15), name="support",
+    )
+    model.clamp(displacement, on=support)
+    material = model.material(constitutive.finite_strain_j2_logarithmic(
+        young=1000.0, poisson=0.0,
+        yield_stress=2.0, hardening_modulus=100.0,
+    ))
+    if closed:
+        polygon = np.asarray(
+            ((0, 0), (2, 0), (2, 1), (1, 1), (1, 2), (0, 2)), dtype=float,
+        )
+        front = np.column_stack((np.full(6, 1.10), polygon))
+        back = front.copy()
+        back[:, 0] += 0.5
+        top = ((0, 1, 3), (1, 2, 3), (0, 3, 5), (3, 4, 5))
+        triangles = [tuple(reversed(face)) for face in top]
+        triangles += [tuple(6 + index for index in face) for face in top]
+        for first in range(6):
+            second = (first + 1) % 6
+            triangles.extend(((first, second, second + 6),
+                              (first, second + 6, first + 6)))
+        surface = boundary_models.closed_triangulated_rigid_solid(
+            vertices=np.vstack((front, back)), triangles=triangles,
+            reviewed_embedded=True, name="reviewed_L_tool",
+        )
+        mode = "closed_planar_branch_partition"
+    elif radial_sphere:
+        surface = boundary_models.rigid_sphere(
+            center=(1.149, 1.30, 0.50), radius=0.1,
+            name="small_circular_patch_tool",
+        )
+        mode = "radial_active_partition" if radial_integration is None else radial_integration
+    elif radial_cylinder:
+        surface = boundary_models.rigid_cylinder(
+            axis_point=(1.149, 1.30, 0.50),
+            axis_direction=(0., 1., 0.), radius=0.1,
+            axial_interval=(-0.1, 0.1),
+            name="small_cylindrical_patch_tool",
+        )
+        mode = "radial_active_partition" if radial_integration is None else radial_integration
+    elif open_sheet:
+        vertices = (
+            (open_sheet_x, 0., -1.), (open_sheet_x, 0., 1.),
+            (open_sheet_x, 2., 1.), (open_sheet_x, 2., -1.),
+        )
+        triangles = ((0, 1, 2), (0, 2, 3))
+        if open_sheet_competitor:
+            if open_sheet_competitor_kind == "finite_vertex":
+                competitor_vertices = (
+                    (open_sheet_x - 0.3, 1.42, 0.5),
+                    (open_sheet_x - 0.1, 1.42, 0.5),
+                    (open_sheet_x - 0.3, 1.90, 0.5),
+                )
+            else:
+                competitor_vertices = (
+                    (open_sheet_x - 0.1, 1.45, 0.45),
+                    (open_sheet_x - 0.1, 1.45, 0.55),
+                    (open_sheet_x - 0.1, 1.50, 0.45),
+                )
+            vertices += competitor_vertices
+            triangles += ((4, 5, 6),)
+        surface = boundary_models.triangulated_rigid_surface(
+            vertices=vertices,
+            triangles=triangles,
+            name="reviewed_open_sheet_tool",
+        )
+        mode = "reviewed_planar_branch_partition"
+    else:
+        surface = boundary_models.rigid_plane(
+            point=(1.10, 1.3, 0.5), normal=(-1.0, 0.0, 0.0),
+        )
+        mode = "planar_active_partition"
+    if radial_sphere or radial_cylinder:
+        motion = None if radial_motion is None else boundary_models.prescribed_rigid_motion(
+            translation=radial_motion, reference_point=(1.149, 1.30, 0.50),
+        )
+    else:
+        motion = boundary_models.prescribed_rigid_motion(
+            translation=(-0.08, 0.0, 0.0), rotation=tool_rotation,
+            reference_point=(1.10, 1.3, 0.5),
+        )
+    primary = boundary_models.rigid_contact_pair(
+        contact,
+        boundary_models.rigid_body(
+            surface, motion_schedule=(
+                None if motion is None else boundary_models.prescribed_rigid_motion_schedule(
+                    motion, start_time=0.0, end_time=1.0,
+                )
+            ),
+        ),
+        penalty=5000.0,
+        initial_penetration_limit=initial_penetration_limit,
+    )
+    model.add_boundary_model(primary)
+    integration = mode if integration_override is None else integration_override
+    if second_plane or active_second_plane:
+        if active_second_plane:
+            second_boundary = mesh.boundary(
+                domain, lambda x: np.isclose(x[1], 1.35),
+                name="transverse_contact",
+            )
+            second_surface = boundary_models.rigid_plane(
+                point=(1.10, 1.37, 0.5), normal=(0., -1., 0.),
+            )
+            second_motion = boundary_models.prescribed_rigid_motion_schedule(
+                boundary_models.prescribed_rigid_motion(
+                    translation=(0., -0.04, 0.),
+                    reference_point=(1.10, 1.37, 0.5),
+                ),
+                start_time=0.0, end_time=1.0,
+            )
+            second_name = "transverse_plane"
+        else:
+            second_boundary = contact
+            second_surface = boundary_models.rigid_plane(
+                point=(0., 0., 0.), normal=(1., 0., 0.),
+            )
+            second_motion = None
+            second_name = "far_plane"
+        model.add_boundary_model(boundary_models.rigid_contact_pair(
+            second_boundary,
+            boundary_models.rigid_body(
+                second_surface, motion_schedule=second_motion,
+            ),
+            penalty=5000.0, name=second_name,
+        ))
+        integration = {
+            primary.name: mode,
+            second_name: "planar_active_partition",
+        }
+    assert step_capability(
+        model, target=displacement,
+        options={"material": material, "contact_integration": integration},
+    )["supported"]
+    step = model.step(
+        target=displacement, material=material,
+        incrementation=steps.fixed(6), contact_integration=integration,
+        solver_options=solvers.newton(
+            relative_tolerance=1e-8, absolute_tolerance=1e-9,
+            maximum_iterations=25, line_search="backtracking",
+        ),
+        progress=False,
+    )
+    return step, displacement
+
+
+def test_reviewed_open_sheet_initial_overlap_is_certified_in_ordinary_step():
+    step, _ = _small_single_branch_j2_step(
+        closed=False, open_sheet=True, flat_seam=True,
+        initial_penetration_limit=0.01,
+    )
+    initial = step.contact_provider.current_point_diagnostics()["initial_contact"]
+    assert initial["face_wise_bound_certified"] is True
+    assert initial["bound_method"] == "certified_reviewed_planar_branch_nodal"
+    assert initial["maximum_penetration_bound"] == 0.0
+    assert initial["bound_sampled_point_count"] > 0
+    assert step.solve_result().status == "completed"
+
+    with pytest.raises(ValueError, match="AFM-CONTACT-INITIAL-OVERLAP"):
+        _small_single_branch_j2_step(
+            closed=False, open_sheet=True, flat_seam=True,
+            open_sheet_x=1.04, initial_penetration_limit=0.005,
+        )
+
+
+def test_reviewed_open_sheet_planar_branch_matches_analytical_plane_global_j2(tmp_path):
+    sheet, sheet_displacement = _small_single_branch_j2_step(
+        closed=False, open_sheet=True, flat_seam=True,
+    )
+    plane, plane_displacement = _small_single_branch_j2_step(
+        closed=False, flat_seam=True,
+    )
+    sheet_result = sheet.solve_result()
+    assert sheet_result.status == "completed"
+    assert plane.solve_result().status == "completed"
+    np.testing.assert_allclose(
+        sheet_displacement.value.x.array, plane_displacement.value.x.array,
+        rtol=1e-8, atol=1e-9,
+    )
+    assert sheet.energy_history[-1].tool_work == pytest.approx(
+        plane.energy_history[-1].tool_work, rel=1e-8,
+    )
+    evidence = sheet.contact_provider.current_point_diagnostics()
+    assert evidence["feature_transition_integral_certified"] is True
+    assert evidence["whole_face_planar_branch"]["certified"] is True
+    assert evidence["active_point_count"] > 0
+    feature_path = sheet_result.metadata["rigid_contact_feature_path"]
+    assert feature_path["complete"] is True
+    assert feature_path["pairs"][0]["all_observed_integrals_certified"] is True
+
+    interrupted, _ = _small_single_branch_j2_step(
+        closed=False, open_sheet=True, flat_seam=True,
+    )
+    interrupted.solve(until=0.5)
+    saved = interrupted.save_checkpoint(tmp_path / "open_sheet")
+    restored, _ = _small_single_branch_j2_step(
+        closed=False, open_sheet=True, flat_seam=True,
+    )
+    restored.load_checkpoint(saved)
+    assert restored.solve_result().status == "completed"
+    np.testing.assert_allclose(
+        restored.solution.x.array, sheet.solution.x.array, rtol=1e-9, atol=1e-10,
+    )
+    wrong_mode, _ = _small_single_branch_j2_step(
+        closed=False, open_sheet=True, flat_seam=True,
+        integration_override="gauss",
+    )
+    with pytest.raises(ValueError, match="identity|contact|constraint"):
+        wrong_mode.load_checkpoint(saved)
+
+
+def test_bounded_open_sheet_proof_refinement_matches_plane_in_global_j2():
+    sheet, sheet_displacement = _small_single_branch_j2_step(
+        closed=False, open_sheet=True, open_sheet_competitor=True,
+    )
+    plane, plane_displacement = _small_single_branch_j2_step(closed=False)
+    provider = sheet.contact_provider
+    current = provider.adapter.current_nodal_positions(sheet_displacement.value)
+    face_nodes = provider.adapter.trace.node_ids.reshape(-1, 3, 3)[:, 0, :]
+    from agentfem.boundary_models.contact_planar_branch_bound import (
+        certify_reviewed_planar_branch,
+    )
+
+    coarse = certify_reviewed_planar_branch(
+        current[face_nodes], provider.surface, projector=provider.projector,
+        maximum_refinement_levels=0,
+    )
+    assert not coarse.certified
+    assert coarse.status == "another_master_feature_can_compete"
+    assert sheet.solve_result().status == "completed"
+    assert plane.solve_result().status == "completed"
+    np.testing.assert_allclose(
+        sheet_displacement.value.x.array, plane_displacement.value.x.array,
+        rtol=1e-8, atol=1e-9,
+    )
+    assert sheet.energy_history[-1].tool_work == pytest.approx(
+        plane.energy_history[-1].tool_work, rel=1e-8,
+    )
+    assert sheet.contact_provider.current_point_diagnostics()[
+        "whole_face_planar_branch"
+    ]["certified"] is True
+
+
+def test_finite_vertex_competitor_certificate_matches_plane_in_global_j2(monkeypatch):
+    sheet, sheet_displacement = _small_single_branch_j2_step(
+        closed=False, open_sheet=True, open_sheet_competitor=True,
+        open_sheet_competitor_kind="finite_vertex",
+    )
+    provider = sheet.contact_provider
+    current = provider.adapter.current_nodal_positions(sheet_displacement.value)
+    face_nodes = provider.adapter.trace.node_ids.reshape(-1, 3, 3)[:, 0, :]
+    from agentfem.boundary_models import contact_planar_branch_bound as branch_bound
+
+    coarse = branch_bound.certify_reviewed_planar_branch(
+        current[face_nodes], provider.surface, projector=provider.projector,
+        maximum_refinement_levels=0,
+    )
+    assert coarse.certified
+    with monkeypatch.context() as disabled:
+        disabled.setattr(
+            branch_bound,
+            "_quadratic_finite_feature_distance_difference_lower_bound",
+            lambda *_args, **_kwargs: None,
+        )
+        old_coarse = branch_bound.certify_reviewed_planar_branch(
+            current[face_nodes], provider.surface, projector=provider.projector,
+            maximum_refinement_levels=0,
+        )
+    assert not old_coarse.certified
+    assert old_coarse.status == "another_master_feature_can_compete"
+
+    plane, plane_displacement = _small_single_branch_j2_step(closed=False)
+    assert sheet.solve_result().status == "completed"
+    assert plane.solve_result().status == "completed"
+    np.testing.assert_allclose(
+        sheet_displacement.value.x.array, plane_displacement.value.x.array,
+        rtol=1e-8, atol=1e-9,
+    )
+    assert sheet.energy_history[-1].tool_work == pytest.approx(
+        plane.energy_history[-1].tool_work, rel=1e-8,
+    )
+    assert provider.current_point_diagnostics()[
+        "whole_face_planar_branch"
+    ]["certified"] is True
+
+
+def test_small_sphere_patch_missed_by_default_gauss_enters_global_j2(tmp_path):
+    radial, radial_displacement = _small_single_branch_j2_step(
+        closed=False, radial_sphere=True, initial_penetration_limit=0.0011,
+    )
+    sampled, sampled_displacement = _small_single_branch_j2_step(
+        closed=False, radial_sphere=True, radial_integration="gauss",
+    )
+    assert radial.contact_provider.current_point_diagnostics()["active_point_count"] > 0
+    initial = radial.contact_provider.current_point_diagnostics()["initial_contact"]
+    assert initial["face_wise_bound_certified"] is True
+    assert initial["bound_method"] == "exact_radial_face_extrema"
+    assert initial["maximum_penetration_bound"] == pytest.approx(0.001, abs=1e-12)
+    integration_policy = radial.contact_provider.summary()["integration_policy"]
+    assert integration_policy["quadrature_orders"] == (12, 24)
+    assert integration_policy["error_status"] == "paired_order_screen_not_rigorous_error_bound"
+    assert sampled.contact_provider.current_point_diagnostics()["active_point_count"] == 0
+    radial_result = radial.solve_result()
+    assert radial_result.status == "completed"
+    assert sampled.solve_result().status == "completed"
+    assert np.max(np.abs(radial_displacement.value.x.array)) > 1.0e-8
+    np.testing.assert_allclose(sampled_displacement.value.x.array, 0.0, atol=1.0e-11)
+    assert radial.energy_history[-1].contact_potential > 0.0
+    assert radial_result.metadata["constraint_balance_contract"]["force_balance_available"]
+    assert radial_result.metadata["constraint_balance_contract"]["work_balance_available"]
+    exported = results.export_accepted_contact_points(
+        radial, tmp_path / "radial_samples", result=radial_result, vtk_view=True,
+    )
+    metadata = json.loads(exported["contact_point_metadata"].read_text())
+    assert metadata["pairs"][0]["point_identity_scope"] == "accepted_snapshot_only"
+    assert metadata["pressure_measure"] == (
+        "penalty_force_per_reference_area_not_cauchy_pressure"
+    )
+    assert exported["contact_point_view"].is_file()
+    with pytest.raises(ValueError, match="AFM-CONTACT-INITIAL-OVERLAP"):
+        _small_single_branch_j2_step(
+            closed=False, radial_sphere=True, initial_penetration_limit=0.0009,
+        )
+
+
+def test_radial_sphere_contact_tangent_matches_current_directional_difference():
+    step, _ = _small_single_branch_j2_step(closed=False, radial_sphere=True)
+    assert step.solve_result().status == "completed"
+    provider = step.contact_provider
+    selected = provider.evaluate()
+    base = step.solution.x.array.copy()
+    direction = np.random.default_rng(20261019).normal(size=base.shape)
+    h = 1.0e-7
+    try:
+        step.solution.x.array[:] = base + h * direction
+        plus = provider.evaluate()
+        step.solution.x.array[:] = base - h * direction
+        minus = provider.evaluate()
+    finally:
+        step.solution.x.array[:] = base
+    np.testing.assert_allclose(
+        selected.tangent_action(direction.reshape((-1, 3))),
+        (plus.nodal_structural_residual - minus.nodal_structural_residual) / (2 * h),
+        rtol=2e-4, atol=2e-6,
+    )
+
+
+def test_moving_sphere_partition_restarts_with_the_same_accepted_j2_state(tmp_path):
+    motion = (0.0, 0.015, 0.0)
+    continuous, _ = _small_single_branch_j2_step(
+        closed=False, radial_sphere=True, radial_motion=motion,
+    )
+    assert continuous.solve_result().status == "completed"
+    interrupted, _ = _small_single_branch_j2_step(
+        closed=False, radial_sphere=True, radial_motion=motion,
+    )
+    interrupted.solve(until=0.5)
+    checkpoint = interrupted.save_checkpoint(tmp_path / "moving_sphere")
+    restored, _ = _small_single_branch_j2_step(
+        closed=False, radial_sphere=True, radial_motion=motion,
+    )
+    restored.load_checkpoint(checkpoint)
+    assert restored.solve_result().status == "completed"
+    np.testing.assert_allclose(
+        restored.solution.x.array, continuous.solution.x.array,
+        rtol=1e-9, atol=1e-10,
+    )
+    assert restored.energy_history[-1].contact_potential == pytest.approx(
+        continuous.energy_history[-1].contact_potential, rel=1e-9,
+    )
+    assert restored.energy_history[-1].tool_work == pytest.approx(
+        continuous.energy_history[-1].tool_work, rel=1e-9, abs=1e-12,
+    )
+    wrong_mode, _ = _small_single_branch_j2_step(
+        closed=False, radial_sphere=True, radial_motion=motion,
+        radial_integration="gauss",
+    )
+    with pytest.raises(ValueError, match="identity|contact|constraint"):
+        wrong_mode.load_checkpoint(checkpoint)
+
+
+def test_small_cylinder_patch_enters_global_j2_without_sampled_false_open():
+    radial, radial_displacement = _small_single_branch_j2_step(
+        closed=False, radial_cylinder=True,
+    )
+    sampled, _ = _small_single_branch_j2_step(
+        closed=False, radial_cylinder=True, radial_integration="gauss",
+    )
+    assert radial.contact_provider.current_point_diagnostics()["active_point_count"] > 0
+    assert sampled.contact_provider.current_point_diagnostics()["active_point_count"] == 0
+    assert radial.solve_result().status == "completed"
+    assert np.max(np.abs(radial_displacement.value.x.array)) > 1.0e-8
+    assert radial.energy_history[-1].contact_potential > 0.0
+
+
+@pytest.mark.parametrize("divisions", [2, 4])
+def test_radial_sphere_partition_on_refined_real_tetrahedral_mesh(divisions):
+    step, displacement = _small_single_branch_j2_step(
+        closed=False, radial_sphere=True, radial_mesh_divisions=divisions,
+    )
+    result = step.solve_result()
+    assert result.status == "completed"
+    assert np.all(np.isfinite(displacement.value.x.array))
+    assert np.max(np.abs(displacement.value.x.array)) > 0.0
+    assert step.energy_history[-1].contact_potential > 0.0
+    assert result.metadata["constraint_balance_contract"]["force_balance_available"]
+
+
+def test_radial_sphere_and_moving_plane_share_one_total_j2_step(tmp_path):
+    options = dict(
+        closed=False, radial_sphere=True, active_second_plane=True,
+        radial_motion=(-0.015, 0.0, 0.0),
+    )
+    step, displacement = _small_single_branch_j2_step(**options)
+    result = step.solve_result()
+    assert result.status == "completed"
+    assert np.all(np.isfinite(displacement.value.x.array))
+    assert all(
+        item.current_point_diagnostics()["active_point_count"] > 0
+        for item in step.contact_provider.providers
+    )
+    work = dict(step.energy_history[-1].pair_tool_work)
+    assert set(work) == {"rigid_contact_pair", "transverse_plane"}
+    assert all(value > 0.0 for value in work.values())
+    assert step.energy_history[-1].tool_work == pytest.approx(sum(work.values()))
+    interrupted, _ = _small_single_branch_j2_step(**options)
+    interrupted.solve(until=0.5)
+    saved = interrupted.save_checkpoint(tmp_path / "two_moving_tools")
+    restored, _ = _small_single_branch_j2_step(**options)
+    restored.load_checkpoint(saved)
+    assert restored.solve_result().status == "completed"
+    np.testing.assert_allclose(
+        restored.solution.x.array, step.solution.x.array, rtol=1e-9, atol=1e-10,
+    )
+    np.testing.assert_allclose(
+        restored.response.state.committed_state_vectors(),
+        step.response.state.committed_state_vectors(),
+        rtol=1e-9, atol=1e-10,
+    )
+    assert dict(restored.energy_history[-1].pair_tool_work) == pytest.approx(work)
+
+
+def test_reviewed_open_sheet_branch_refuses_positive_area_beyond_master_edge():
+    step, displacement = _small_single_branch_j2_step(
+        closed=False, open_sheet=True,
+    )
+    displacement.value.x.array.reshape((-1, 3))[:, 1] += 2.0
+    with pytest.raises(NotImplementedError, match="AFM-CONTACT-REVIEWED-PLANAR-BRANCH"):
+        step.contact_provider.evaluate()
+    assert step.accepted_load_factor == 0.0
+
+
+def test_reviewed_open_sheet_rotation_and_two_active_tools_match_plane_limit():
+    rotation = (0.0, 0.0, 0.01)
+    sheet, sheet_displacement = _small_single_branch_j2_step(
+        closed=False, open_sheet=True, tool_rotation=rotation,
+        active_second_plane=True,
+    )
+    plane, plane_displacement = _small_single_branch_j2_step(
+        closed=False, tool_rotation=rotation, active_second_plane=True,
+    )
+    assert sheet.solve_result().status == "completed"
+    assert plane.solve_result().status == "completed"
+    np.testing.assert_allclose(
+        sheet_displacement.value.x.array, plane_displacement.value.x.array,
+        rtol=1e-8, atol=1e-9,
+    )
+    sheet_work = dict(sheet.energy_history[-1].pair_tool_work)
+    plane_work = dict(plane.energy_history[-1].pair_tool_work)
+    assert set(sheet_work) == {"rigid_contact_pair", "transverse_plane"}
+    assert all(value > 0.0 for value in sheet_work.values())
+    assert sheet_work == pytest.approx(plane_work, rel=1e-8, abs=1e-10)
+
+
+def test_reviewed_open_sheet_contact_tangent_matches_current_directional_difference():
+    step, _ = _small_single_branch_j2_step(closed=False, open_sheet=True)
+    assert step.solve_result().status == "completed"
+    provider = step.contact_provider
+    selected = provider.evaluate()
+    base = step.solution.x.array.copy()
+    direction = np.random.default_rng(746).normal(size=base.shape)
+    h = 1.0e-7
+    try:
+        step.solution.x.array[:] = base + h * direction
+        plus = provider.evaluate()
+        step.solution.x.array[:] = base - h * direction
+        minus = provider.evaluate()
+    finally:
+        step.solution.x.array[:] = base
+    np.testing.assert_allclose(
+        selected.tangent_action(direction.reshape((-1, 3))),
+        (plus.nodal_structural_residual - minus.nodal_structural_residual) / (2 * h),
+        rtol=1e-5, atol=1e-6,
+    )
+
+
+def test_certified_closed_planar_branch_matches_analytical_plane_global_j2(tmp_path):
+    closed_step, closed_displacement = _small_single_branch_j2_step(closed=True)
+    plane_step, plane_displacement = _small_single_branch_j2_step(closed=False)
+    closed_result = closed_step.solve_result()
+    plane_result = plane_step.solve_result()
+    assert closed_result.status == plane_result.status
+    assert closed_result.quantity("maximum_equivalent_plastic_strain") > 0
+    assert closed_result.quantity("maximum_equivalent_plastic_strain") == pytest.approx(
+        plane_result.quantity("maximum_equivalent_plastic_strain"), rel=1e-8,
+    )
+    np.testing.assert_allclose(
+        closed_displacement.value.x.array, plane_displacement.value.x.array,
+        rtol=1e-8, atol=1e-9,
+    )
+    assert closed_step.energy_history[-1].tool_work > 0
+    np.testing.assert_allclose(
+        closed_step.energy_history[-1].tool_work,
+        plane_step.energy_history[-1].tool_work,
+        rtol=1e-8, atol=1e-9,
+    )
+    evidence = closed_step.contact_provider.current_point_diagnostics()
+    assert evidence["feature_transition_integral_certified"] is True
+    assert evidence["whole_face_planar_branch"]["certified"] is True
+    assert evidence["active_point_count"] > 0
+    exported = results.export_accepted_contact_points(
+        closed_step, tmp_path / "raw_contact", result=closed_result,
+        vtk_view=True,
+    )
+    metadata = json.loads(exported["contact_point_metadata"].read_text())
+    assert metadata["pairs"][0]["point_identity_scope"] == "accepted_snapshot_only"
+    assert exported["contact_point_view"].exists()
+
+
+def test_closed_planar_branch_global_j2_crosses_only_flat_tool_triangulation_seam():
+    closed_step, closed_displacement = _small_single_branch_j2_step(
+        closed=True, flat_seam=True,
+    )
+    plane_step, plane_displacement = _small_single_branch_j2_step(
+        closed=False, flat_seam=True,
+    )
+    closed_result = closed_step.solve_result()
+    plane_result = plane_step.solve_result()
+    assert closed_result.status == "completed"
+    assert plane_result.status == "completed"
+    np.testing.assert_allclose(
+        closed_displacement.value.x.array, plane_displacement.value.x.array,
+        rtol=1e-8, atol=1e-9,
+    )
+    assert closed_result.quantity("maximum_equivalent_plastic_strain") == pytest.approx(
+        plane_result.quantity("maximum_equivalent_plastic_strain"), rel=1e-8,
+    )
+    evidence = closed_step.contact_provider.current_point_diagnostics()
+    assert evidence["feature_transition_integral_certified"] is True
+
+
+def test_closed_planar_branch_rotating_tool_matches_analytical_plane_global_j2():
+    rotation = (0.0, 0.0, 0.01)
+    closed_step, closed_displacement = _small_single_branch_j2_step(
+        closed=True, tool_rotation=rotation,
+    )
+    plane_step, plane_displacement = _small_single_branch_j2_step(
+        closed=False, tool_rotation=rotation,
+    )
+    assert closed_step.solve_result().status == "completed"
+    assert plane_step.solve_result().status == "completed"
+    np.testing.assert_allclose(
+        closed_displacement.value.x.array, plane_displacement.value.x.array,
+        rtol=1e-8, atol=1e-9,
+    )
+    assert closed_step.energy_history[-1].tool_work == pytest.approx(
+        plane_step.energy_history[-1].tool_work, rel=1e-8, abs=1e-10,
+    )
+    assert closed_step.contact_provider.current_point_diagnostics()[
+        "feature_transition_integral_certified"
+    ] is True
+
+
+def test_named_mixed_contact_integration_modes_keep_independent_pair_identity():
+    single, single_displacement = _small_single_branch_j2_step(closed=True)
+    mixed, mixed_displacement = _small_single_branch_j2_step(
+        closed=True, second_plane=True,
+    )
+    assert single.solve_result().status == "completed"
+    mixed_result = mixed.solve_result()
+    assert mixed_result.status == "completed"
+    np.testing.assert_allclose(
+        mixed_displacement.value.x.array, single_displacement.value.x.array,
+        rtol=1e-8, atol=1e-9,
+    )
+    modes = {
+        item.name: item.contact_integration
+        for item in mixed.contact_provider.providers
+    }
+    assert modes == {
+        single.contact_provider.name: "closed_planar_branch_partition",
+        "far_plane": "planar_active_partition",
+    }
+    assert tuple(
+        item["constraint_name"] for item in mixed_result.metadata["constraint_duals"]
+    ) == tuple(modes)
+
+
+def test_named_mixed_contact_modes_are_checkpointed_as_one_accepted_path(tmp_path):
+    full, _ = _small_single_branch_j2_step(closed=True, second_plane=True)
+    assert full.solve_result().status == "completed"
+    partial, _ = _small_single_branch_j2_step(closed=True, second_plane=True)
+    partial.solve(until=0.5)
+    saved = partial.save_checkpoint(tmp_path / "mixed_modes")
+    resumed, _ = _small_single_branch_j2_step(closed=True, second_plane=True)
+    resumed.load_checkpoint(saved)
+    assert resumed.solve_result().status == "completed"
+    np.testing.assert_allclose(
+        resumed.solution.x.array, full.solution.x.array, rtol=1e-9, atol=1e-10,
+    )
+    assert resumed.energy_history[-1].tool_work == pytest.approx(
+        full.energy_history[-1].tool_work, rel=1e-9,
+    )
+    wrong_pairs, _ = _small_single_branch_j2_step(closed=True)
+    with pytest.raises(ValueError, match="identity|contact|constraint"):
+        wrong_pairs.load_checkpoint(saved)
+
+
+def test_named_mixed_contact_modes_can_both_work_and_restart(tmp_path):
+    def build():
+        return _small_single_branch_j2_step(
+            closed=True, active_second_plane=True,
+        )[0]
+
+    full = build()
+    result = full.solve_result()
+    assert result.status == "completed"
+    providers = full.contact_provider.providers
+    assert tuple(item.name for item in providers) == (
+        "rigid_contact_pair", "transverse_plane",
+    )
+    assert all(
+        item.current_point_diagnostics()["active_point_count"] > 0
+        for item in providers
+    )
+    work = dict(full.energy_history[-1].pair_tool_work)
+    assert set(work) == {item.name for item in providers}
+    assert all(value > 0.0 for value in work.values())
+    assert sum(work.values()) == pytest.approx(full.energy_history[-1].tool_work)
+    assert tuple(
+        item["constraint_name"] for item in result.metadata["constraint_duals"]
+    ) == tuple(work)
+    for provider, dual in zip(
+        providers, result.metadata["constraint_duals"], strict=True,
+    ):
+        samples = provider.accepted_point_samples()
+        independent_force = np.sum(
+            samples["reference_weights"][:, None]
+            * samples["normal_pressures"][:, None]
+            * samples["surface_normals"],
+            axis=0,
+        )
+        np.testing.assert_allclose(
+            dual["resultant"], independent_force, rtol=1e-9, atol=1e-10,
+        )
+    assert providers[0].current_point_diagnostics()[
+        "feature_transition_integral_certified"
+    ] is True
+
+    partial = build()
+    partial.solve(until=0.5)
+    saved = partial.save_checkpoint(tmp_path / "two_active_mixed_modes")
+    resumed = build()
+    resumed.load_checkpoint(saved)
+    assert resumed.solve_result().status == "completed"
+    np.testing.assert_allclose(
+        resumed.solution.x.array, full.solution.x.array, rtol=1e-9, atol=1e-10,
+    )
+    assert dict(resumed.energy_history[-1].pair_tool_work) == pytest.approx(work)
+
+
+def test_closed_planar_branch_mode_rejects_current_edge_transition():
+    step, displacement = _small_single_branch_j2_step(closed=True)
+    displacement.value.x.array.reshape((-1, 3))[:, 1] = -0.30
+    displacement.value.x.array.reshape((-1, 3))[:, 2] = 0.55
+    with pytest.raises(NotImplementedError, match="AFM-CONTACT-CLOSED-PLANAR-BRANCH"):
+        step.contact_provider.evaluate()
+    assert step.accepted_load_factor == 0.0
+
+
+def test_closed_planar_branch_mode_rejects_friction_before_step_construction():
+    model, displacement, material, _ = _patch(
+        triangulated=True, closed_concave_tool=True,
+        friction_coefficient=0.2, tangential_penalty=100.0,
+        make_step=False,
+    )
+    capability = step_capability(
+        model, target=displacement,
+        options={
+            "material": material,
+            "contact_integration": "closed_planar_branch_partition",
+        },
+    )
+    assert not capability["supported"]
+    assert any(
+        item["message"].startswith("AFM-CONTACT-PARTITION")
+        for item in capability["rejection_reasons"]
+    )
+    with pytest.raises(NotImplementedError, match="AFM-CONTACT-PARTITION"):
+        model.step(
+            target=displacement, material=material,
+            contact_integration="closed_planar_branch_partition",
+        )
+
+
+def test_closed_planar_branch_contact_tangent_matches_current_directional_difference():
+    step, _ = _small_single_branch_j2_step(closed=True)
+    assert step.solve_result().status == "completed"
+    provider = step.contact_provider
+    selected = provider.evaluate()
+    base = step.solution.x.array.copy()
+    direction = np.random.default_rng(744).normal(size=base.shape)
+    h = 1.0e-7
+    try:
+        step.solution.x.array[:] = base + h * direction
+        plus = provider.evaluate()
+        step.solution.x.array[:] = base - h * direction
+        minus = provider.evaluate()
+    finally:
+        step.solution.x.array[:] = base
+    np.testing.assert_allclose(
+        selected.tangent_action(direction.reshape((-1, 3))),
+        (plus.nodal_structural_residual - minus.nodal_structural_residual) / (2 * h),
+        rtol=1e-5, atol=1e-6,
+    )
+
+
+def test_closed_planar_branch_restart_preserves_plastic_contact_path(tmp_path):
+    full, _ = _small_single_branch_j2_step(closed=True)
+    assert full.solve_result().status == "completed"
+    partial, _ = _small_single_branch_j2_step(closed=True)
+    partial.solve(until=0.5)
+    saved = partial.save_checkpoint(tmp_path / "closed_planar_branch")
+    resumed, _ = _small_single_branch_j2_step(closed=True)
+    resumed.load_checkpoint(saved)
+    assert resumed.solve_result().status == "completed"
+    np.testing.assert_allclose(
+        resumed.solution.x.array, full.solution.x.array,
+        rtol=1e-9, atol=1e-10,
+    )
+    assert resumed.energy_history[-1].tool_work == pytest.approx(
+        full.energy_history[-1].tool_work, rel=1e-9, abs=1e-10,
+    )
+    assert resumed.contact_feature_path == full.contact_feature_path
 
 
 def test_non_normalized_tool_schedule_is_rejected_by_capability_and_step():
@@ -249,6 +1064,132 @@ def test_closed_convex_tool_uses_ordinary_j2_step_and_matches_planar_limit():
     assert sharp.energy_history[-1].tool_work == pytest.approx(
         planar.energy_history[-1].tool_work, rel=1e-7, abs=1e-9,
     )
+    assert sharp_result.quantity(
+        f"{sharp.contact_provider.name}_initial_maximum_penetration"
+    ) == 0.0
+    assert sharp_result.metadata["rigid_contact_point_diagnostics"][
+        "initial_contact"
+    ]["policy"] == "report"
+
+
+def test_faceted_initial_overlap_limit_rejects_before_finite_j2_newton():
+    model, displacement, material, _ = _patch(
+        triangulated=True, gap=-0.05,
+        initial_penetration_limit=0.01,
+        applied_traction=0.0, make_step=False,
+    )
+    capability = step_capability(
+        model, target=displacement, options={"material": material},
+    )
+    assert not capability["supported"]
+    assert any(
+        item["message"].startswith("AFM-CONTACT-INITIAL-BOUND")
+        for item in capability["rejection_reasons"]
+    )
+    with pytest.raises(NotImplementedError, match="AFM-CONTACT-INITIAL-BOUND"):
+        _patch(
+            triangulated=True, gap=-0.05,
+            initial_penetration_limit=0.01,
+            applied_traction=0.0,
+        )
+
+
+def test_certified_plane_initial_overlap_limit_reaches_ordinary_j2_result():
+    model, displacement, material, _ = _patch(
+        triangulated=False, gap=0.005,
+        initial_penetration_limit=0.01,
+        applied_traction=0.0, make_step=False,
+    )
+    capability = step_capability(
+        model, target=displacement, options={"material": material},
+    )
+    assert capability["supported"], capability["rejection_reasons"]
+    with pytest.raises(ValueError, match="AFM-CONTACT-INITIAL-OVERLAP"):
+        _patch(
+            triangulated=False, gap=-0.05,
+            initial_penetration_limit=0.01,
+            applied_traction=0.0,
+        )
+    _, _, _, step = _patch(
+        triangulated=False, gap=0.005,
+        initial_penetration_limit=0.01,
+        applied_traction=0.0, yield_stress=1.0e9,
+    )
+    result = step.solve_result()
+    assert result.status == "completed"
+    name = step.contact_provider.name
+    assert result.quantity(f"{name}_initial_maximum_penetration_bound") == 0.0
+    assert result.metadata["rigid_contact_point_diagnostics"][
+        "initial_contact"
+    ]["face_wise_bound_certified"] is True
+
+
+def test_quadratic_displacement_plane_reference_overlap_bound_reaches_step():
+    model, displacement, material, _ = _patch(
+        triangulated=False, initial_penetration_limit=0.01,
+        displacement_degree=2, make_step=False,
+    )
+    capability = step_capability(
+        model, target=displacement, options={"material": material},
+    )
+    assert capability["supported"]
+    step = model.step(target=displacement, material=material)
+    evidence = step.contact_provider.current_point_diagnostics()["initial_contact"]
+    assert evidence["face_wise_bound_certified"]
+    assert evidence["bound_method"] == "exact_plane_geometry_vertices"
+    assert evidence["maximum_penetration_bound"] == 0.
+
+
+@pytest.mark.parametrize("closed_concave_tool", [False, True])
+def test_closed_tool_signed_distance_initial_bound_reaches_ordinary_step(
+    closed_concave_tool,
+):
+    options = dict(
+        triangulated=True,
+        convex_tool=not closed_concave_tool,
+        closed_concave_tool=closed_concave_tool,
+        initial_penetration_limit=0.1,
+        applied_traction=0.0,
+    )
+    model, displacement, material, _ = _patch(**options, make_step=False)
+    capability = step_capability(
+        model, target=displacement, options={"material": material},
+    )
+    assert capability["supported"], capability["rejection_reasons"]
+    step = _patch(**options)[3]
+    initial = step.contact_provider.current_point_diagnostics()["initial_contact"]
+    assert initial["face_wise_bound_certified"] is True
+    assert initial["bound_method"] == (
+        "adaptive_closed_signed_distance_lipschitz"
+        if closed_concave_tool
+        else "convex_support_plane_or_adaptive_lipschitz"
+    )
+    assert initial["maximum_penetration_bound"] <= 0.1
+    assert initial["bound_sampled_point_count"] > 0
+
+
+def test_closed_tool_excess_initial_overlap_rejects_before_newton():
+    with pytest.raises(ValueError, match="AFM-CONTACT-INITIAL-OVERLAP"):
+        _patch(
+            triangulated=True, convex_tool=True, gap=-0.05,
+            initial_penetration_limit=0.01,
+            applied_traction=0.0,
+        )
+
+
+def test_near_touching_convex_tool_uses_exact_initial_support_bound():
+    _, _, _, step = _patch(
+        triangulated=True, convex_tool=True, gap=0.0,
+        initial_penetration_limit=1.0e-9,
+        tool_translation=(-0.008, 0.0, 0.0),
+        applied_traction=0.0, yield_stress=1.0e9,
+    )
+    initial = step.contact_provider.current_point_diagnostics()["initial_contact"]
+    assert initial["face_wise_bound_certified"] is True
+    assert initial["bound_method"] == "convex_support_plane_or_adaptive_lipschitz"
+    assert initial["bound_refinement_depth"] == 0
+    assert initial["maximum_penetration_bound"] <= 1.0e-9
+    assert step.solve_result().status == "completed"
 
 
 def test_reviewed_closed_concave_tool_uses_ordinary_j2_step_and_restart(tmp_path):
@@ -284,6 +1225,28 @@ def test_reviewed_closed_concave_tool_uses_ordinary_j2_step_and_restart(tmp_path
     same.load_checkpoint(saved)
     np.testing.assert_allclose(same.solution.x.array, step.solution.x.array)
     assert same.accepted_load_factor == pytest.approx(1.0)
+    assert same.contact_feature_path == step.contact_feature_path
+    with np.load(saved, allow_pickle=False) as archive:
+        damaged = {name: archive[name].copy() for name in archive.files}
+    feature_path = json.loads(str(damaged["contact_feature_path"]))
+    feature_path[next(iter(feature_path))]["accepted_station_count"] += 1
+    damaged["contact_feature_path"] = json.dumps(feature_path)
+    damaged_path = tmp_path / "damaged_contact_path.npz"
+    np.savez(damaged_path, **damaged)
+    with pytest.raises(ValueError, match="accepted station disagree"):
+        same.load_checkpoint(damaged_path)
+    assert same.contact_feature_path == step.contact_feature_path
+    np.testing.assert_allclose(same.solution.x.array, step.solution.x.array)
+    legacy = {
+        name: value for name, value in damaged.items()
+        if name not in {"contact_feature_path", "contact_feature_path_complete"}
+    }
+    legacy_path = tmp_path / "older_contact_checkpoint.npz"
+    np.savez(legacy_path, **legacy)
+    older = _patch(**options)[3]
+    older.load_checkpoint(legacy_path)
+    assert not older.contact_feature_path_complete
+    assert older.contact_feature_path == {}
     different_geometry = _patch(
         **{**options, "closed_concave_extent": 1.7},
     )[3]
@@ -327,8 +1290,31 @@ def test_reviewed_concave_edge_is_active_in_global_plastic_step_and_restart(
     feature_counts = result.metadata[
         "rigid_contact_point_diagnostics"
     ]["active_feature_counts"]
+    sampled = result.quantity(
+        f"{provider.name}_sampled_mixed_feature_slave_faces"
+    )
+    assert sampled >= 0
+    assert result.metadata["rigid_contact_point_diagnostics"][
+        "feature_transition_integral_certified"
+    ] is False
     assert feature_counts["edge"] >= 1
     assert sum(feature_counts.values()) == int(np.count_nonzero(response.active))
+    for feature in ("face", "edge", "vertex"):
+        assert result.quantity(
+            f"{provider.name}_active_{feature}_points"
+        ) == feature_counts[feature]
+    quality = result.verify("engineering")
+    feature_claim = next(
+        claim for claim in quality.claims
+        if claim.name == "no_observed_uncertified_contact_feature_transition"
+    )
+    assert feature_claim.status == "failed"
+    assert any("edge/vertex contact" in issue for issue in feature_claim.actual["issues"])
+    path = result.metadata["rigid_contact_feature_path"]
+    assert path["complete"]
+    assert path["accepted_station_count"] == 7
+    assert path["pairs"][0]["maximum_active_edge_points"] >= feature_counts["edge"]
+    assert not quality.acceptable
     assert np.max(reference.response.state.committed[
         "equivalent_plastic_strain"
     ].function.x.array) > 0.0
@@ -401,6 +1387,7 @@ def test_reviewed_concave_edge_is_active_in_global_plastic_step_and_restart(
     accepted_u = partial.solution.x.array.copy()
     accepted_state = partial.response.state.committed_state_vectors().copy()
     accepted_work = partial.energy_history[-1].tool_work
+    accepted_feature_path = dict(partial.contact_feature_path)
     record_energy = partial._record_energy
 
     def reject_after_recording(*args, **kwargs):
@@ -416,11 +1403,32 @@ def test_reviewed_concave_edge_is_active_in_global_plastic_step_and_restart(
         partial.response.state.committed_state_vectors(), accepted_state,
     )
     assert partial.energy_history[-1].tool_work == accepted_work
+    assert partial.contact_feature_path == accepted_feature_path
     assert partial.contact_provider.snapshot_motion() == pytest.approx(0.5)
+
+    monkeypatch.setattr(partial, "_record_energy", record_energy)
+    record_features = partial._record_accepted_contact_features
+
+    def reject_after_feature_observation(factor):
+        record_features(factor)
+        if factor > 0.5 + 1e-12:
+            raise ValueError("intentional feature-ledger acceptance rejection")
+
+    monkeypatch.setattr(
+        partial, "_record_accepted_contact_features",
+        reject_after_feature_observation,
+    )
+    with pytest.raises(RuntimeError, match="feature-ledger acceptance rejection"):
+        partial.solve(until=2.0 / 3.0)
+    assert partial.accepted_load_factor == pytest.approx(0.5)
+    assert partial.contact_feature_path == accepted_feature_path
+    np.testing.assert_array_equal(partial.solution.x.array, accepted_u)
 
     resumed = _patch(**options)[3]
     resumed.load_checkpoint(saved)
+    assert resumed.contact_feature_path == accepted_feature_path
     assert resumed.solve_result().status == "completed"
+    assert resumed.contact_feature_path == reference.contact_feature_path
     np.testing.assert_allclose(
         resumed.solution.x.array, reference.solution.x.array,
         rtol=1.0e-8, atol=1.0e-10,
@@ -433,6 +1441,123 @@ def test_reviewed_concave_edge_is_active_in_global_plastic_step_and_restart(
     assert resumed.energy_history[-1].tool_work == pytest.approx(
         reference.energy_history[-1].tool_work,
     )
+    with np.load(saved, allow_pickle=False) as archive:
+        older_payload = {
+            name: archive[name].copy() for name in archive.files
+            if name not in {"contact_feature_path", "contact_feature_path_complete"}
+        }
+    older_checkpoint = tmp_path / "older_partial_contact_path.npz"
+    np.savez(older_checkpoint, **older_payload)
+    older = _patch(**options)[3]
+    older.load_checkpoint(older_checkpoint)
+    older_result = older.solve_result()
+    assert not older_result.metadata["rigid_contact_feature_path"]["complete"]
+    older_claim = next(
+        claim for claim in older_result.verify("engineering").claims
+        if claim.name == "no_observed_uncertified_contact_feature_transition"
+    )
+    assert "accepted contact feature path is incomplete" in older_claim.actual["issues"]
+
+
+def test_standard_polyhedral_feature_diagnostic_failure_rolls_back(monkeypatch):
+    step = _patch(
+        triangulated=True, convex_tool=True, increments=3,
+        tool_translation=(-0.008, 0.0, 0.0), applied_traction=0.0,
+        yield_stress=1.0e9,
+    )[3]
+    step.solve(until=1.0 / 3.0)
+    accepted_u = step.solution.x.array.copy()
+    accepted_state = step.response.state.committed_state_vectors().copy()
+    accepted_path = dict(step.contact_feature_path)
+    accepted_energy = tuple(step.energy_history)
+
+    original = step.contact_provider.current_point_diagnostics
+
+    def missing_feature_count():
+        sample = original()
+        sample.pop("sampled_mixed_feature_slave_faces")
+        return sample
+
+    monkeypatch.setattr(
+        step.contact_provider, "current_point_diagnostics", missing_feature_count,
+    )
+    with pytest.raises(RuntimeError, match="feature diagnostics are incomplete"):
+        step.solve(until=2.0 / 3.0)
+    assert step.accepted_load_factor == pytest.approx(1.0 / 3.0)
+    np.testing.assert_array_equal(step.solution.x.array, accepted_u)
+    np.testing.assert_array_equal(
+        step.response.state.committed_state_vectors(), accepted_state,
+    )
+    assert step.contact_feature_path == accepted_path
+    assert tuple(step.energy_history) == accepted_energy
+
+
+def test_standard_backtracking_does_not_recompute_accepted_trial(monkeypatch):
+    step = _patch(
+        triangulated=True, convex_tool=True, increments=3,
+        tool_translation=(-0.008, 0.0, 0.0), applied_traction=0.0,
+        yield_stress=1.0e9,
+    )[3]
+    original_increment = step._solve_increment
+    original_update = step._update_response
+    original_residual = step._correction_rhs
+    inside_increment = False
+    last_evaluation = None
+    last_residual = None
+    line_trials = 0
+    original_search = step._line_search
+
+    def audited_update(*, start_factor, target_factor):
+        nonlocal last_evaluation
+        if inside_increment:
+            current = (
+                start_factor, target_factor, step.solution.x.array.copy(),
+            )
+            if last_evaluation is not None:
+                assert not (
+                    current[:2] == last_evaluation[:2]
+                    and np.array_equal(current[2], last_evaluation[2])
+                ), "accepted Newton trial was evaluated twice"
+            last_evaluation = current
+        return original_update(
+            start_factor=start_factor, target_factor=target_factor,
+        )
+
+    def audited_search(*args, **kwargs):
+        nonlocal line_trials
+        result = original_search(*args, **kwargs)
+        if result[1] is not None:
+            line_trials += 1
+        return result
+
+    def audited_residual():
+        nonlocal last_residual
+        if inside_increment:
+            current = step.solution.x.array.copy()
+            if last_residual is not None:
+                assert not np.array_equal(
+                    current, last_residual,
+                ), "accepted Newton residual was assembled twice"
+            last_residual = current
+        return original_residual()
+
+    def audited_increment(**kwargs):
+        nonlocal inside_increment, last_evaluation, last_residual
+        inside_increment = True
+        last_evaluation = None
+        last_residual = None
+        try:
+            return original_increment(**kwargs)
+        finally:
+            inside_increment = False
+
+    monkeypatch.setattr(step, "_solve_increment", audited_increment)
+    monkeypatch.setattr(step, "_update_response", audited_update)
+    monkeypatch.setattr(step, "_correction_rhs", audited_residual)
+    monkeypatch.setattr(step, "_line_search", audited_search)
+    step.solve()
+    assert line_trials > 0
+    assert step.accepted_load_factor == pytest.approx(1.0)
 
 
 def test_fast_closed_sign_preserves_active_edge_plastic_step_result(tmp_path):
@@ -607,6 +1732,11 @@ def test_closed_concave_example_exports_accepted_public_result(tmp_path):
     run_case = runpy.run_path(str(script))["run_case"]
     summary = run_case(cells=1, increments=6, penalty=20.0, output=tmp_path)
     assert summary["status"] == "completed"
+    assert summary["engineering_contact_feature_status"] == "failed"
+    assert any(
+        "edge/vertex contact" in issue
+        for issue in summary["engineering_contact_feature_issues"]
+    )
     assert summary["contact_quadrature_degree"] == 2
     assert summary["line_search"] == "backtracking"
     assert summary["active_reentrant_edge_points"] == 1
@@ -630,11 +1760,18 @@ def test_closed_concave_example_exports_accepted_public_result(tmp_path):
     refined_output = tmp_path / "refined_face_rule"
     refined = run_case(
         cells=1, increments=6, penalty=20.0, output=refined_output,
-        contact_quadrature_degree=7,
+        contact_quadrature_degree=7, audit_quadrature=True,
+        audit_subdivision=True,
     )
     assert refined["status"] == "completed"
     assert refined["contact_quadrature_degree"] == 7
     assert refined["maximum_penetration"] > 0.0
+    assert refined["fixed_configuration_quadrature_audit"]["method"] == (
+        "fixed_configuration_positive_rule_sensitivity"
+    )
+    assert refined["fixed_configuration_subdivision_audit"]["method"] == (
+        "fixed_configuration_uniform_reference_subdivision"
+    )
     assert (refined_output / "fields.xdmf").is_file()
     assert (refined_output / "result.json").is_file()
     refined_inputs = json.loads((refined_output / "result.json").read_text())[
@@ -649,6 +1786,318 @@ def test_closed_concave_example_exports_accepted_public_result(tmp_path):
     )
     assert full_newton["status"] == "completed"
     assert full_newton["line_search"] == "basic"
+
+
+def test_fixed_configuration_contact_quadrature_audit_is_read_only():
+    _, displacement, _, step = _patch(
+        triangulated=True, closed_concave_tool=True,
+        closed_concave_extent=0.7, closed_concave_thickness=0.5,
+        closed_concave_corner=(0.35, 0.19), gap=0.005,
+        tool_translation=(-0.055, 0.0, 0.0),
+        penalty=20.0, increments=3, applied_traction=0.0,
+    )
+    result = step.solve_result()
+    provider = step.contact_provider
+    assert result.metadata["rigid_contact_point_diagnostics"][
+        "sampled_mixed_feature_slave_faces"
+    ] > 0
+    quality = result.verify("engineering")
+    assert next(
+        item for item in quality.claims
+        if item.name == "no_observed_uncertified_contact_feature_transition"
+    ).status == "failed"
+    original_displacement = displacement.value.x.array.copy()
+    original_factor = float(provider.motion_factor.value)
+    original_force = provider.evaluate().contact_force_on_structure.copy()
+    audit = provider.quadrature_sensitivity((None, 9, 11))
+    assert audit["method"] == "fixed_configuration_positive_rule_sensitivity"
+    assert audit["certifies_feature_transition_integral"] is False
+    assert [item["degree"] for item in audit["evaluations"]] == [None, 9, 11]
+    assert [item["sample_count"] for item in audit["evaluations"]] == [
+        6, 38, 56,
+    ]
+    np.testing.assert_allclose(
+        audit["evaluations"][0]["contact_force_on_structure"],
+        original_force,
+    )
+    np.testing.assert_array_equal(displacement.value.x.array, original_displacement)
+    assert float(provider.motion_factor.value) == original_factor
+    np.testing.assert_array_equal(
+        provider.evaluate().contact_force_on_structure, original_force,
+    )
+    subdivision = provider.reference_subdivision_sensitivity((0, 1, 2))
+    assert subdivision["certifies_feature_transition_integral"] is False
+    assert [item["sample_count"] for item in subdivision["evaluations"]] == [
+        6, 24, 96,
+    ]
+    np.testing.assert_allclose(
+        subdivision["evaluations"][0]["contact_force_on_structure"],
+        original_force,
+    )
+    np.testing.assert_array_equal(displacement.value.x.array, original_displacement)
+    enclosure = provider.closed_penalty_energy_enclosure(
+        maximum_depth=2, maximum_cells_per_face=16,
+    )
+    assert enclosure["method"] == (
+        "fixed_configuration_closed_penalty_energy_enclosure"
+    )
+    assert enclosure["returns_contact_residual_or_tangent"] is False
+    assert enclosure["certifies_feature_transition_integral"] is False
+    assert 0.0 <= enclosure["lower_bound"] <= enclosure["upper_bound"]
+    assert len(enclosure["faces"]) == 2
+    np.testing.assert_array_equal(displacement.value.x.array, original_displacement)
+    assert float(provider.motion_factor.value) == original_factor
+    with pytest.raises(ValueError, match="supported rules"):
+        provider.quadrature_sensitivity((9, True))
+    with pytest.raises(ValueError, match="unique"):
+        provider.quadrature_sensitivity((9, 9))
+
+
+def test_contact_quadrature_audit_refuses_frictional_state():
+    _, _, _, step = _patch(
+        triangulated=True, friction_coefficient=0.2, tangential_penalty=100.0,
+    )
+    with pytest.raises(NotImplementedError, match="AFM-CONTACT-QUADRATURE-AUDIT"):
+        step.contact_provider.quadrature_sensitivity()
+
+
+def test_closed_energy_enclosure_refuses_nondefault_face_trace():
+    _, _, _, step = _patch(
+        triangulated=True, closed_concave_tool=True,
+        closed_concave_extent=0.7, closed_concave_thickness=0.5,
+        closed_concave_corner=(0.35, 0.19),
+        contact_quadrature_degree=7, applied_traction=0.0,
+    )
+    with pytest.raises(NotImplementedError, match="AFM-CONTACT-ENERGY-ENCLOSURE"):
+        step.contact_provider.closed_penalty_energy_enclosure()
+
+
+@pytest.mark.parametrize("cells", [1, 2])
+@pytest.mark.parametrize("penalty", [1_000.0, 10_000.0])
+def test_elastic_regime_plane_contact_approaches_independent_series_spring(
+    cells, penalty,
+):
+    # A 1 x 1 x 1 bar with nu=0 and an elastic tangent E is in series with
+    # the rigid-plane penalty compliance 1/k. The small-indentation limit is
+    # F=delta/(1/E+1/k). This is a physical oracle, not a second AgentFEM
+    # contact implementation; use a small but nonzero finite-strain path.
+    indentation = 1.0e-4
+    young = 1000.0
+    _, _, _, step = _patch(
+        triangulated=True, gap=0.0,
+        tool_translation=(-indentation, 0.0, 0.0),
+        penalty=penalty, yield_stress=1.0e9,
+        applied_traction=0.0, increments=4, cells=cells,
+    )
+    result = step.solve_result()
+    force = -step.contact_provider.evaluate().contact_force_on_structure[0]
+    expected = indentation / (1.0 / young + 1.0 / penalty)
+    assert result.status == "completed"
+    assert force == pytest.approx(expected, rel=5.0e-4)
+    assert result.quantity("maximum_equivalent_plastic_strain") == pytest.approx(0.0)
+
+
+@pytest.mark.parametrize("cells", [1, 2])
+def test_plastic_contact_matches_independent_hencky_return_and_penalty(cells):
+    # Fixed transverse displacement gives the exact homogeneous deformation
+    # F=diag(lambda, 1, 1). For nu=0, the trial Kirchhoff stress has
+    # q_trial=E*abs(log(lambda)); linear J2 return uses
+    # dgamma=(q_trial-Y)/(3*mu+H). The axial first Piola stress is
+    # [E*log(lambda)+E*dgamma]/lambda in compression. Equilibrium with a
+    # reference-area plane penalty supplies an independent scalar oracle.
+    young, yield_stress, hardening = 1000.0, 0.1, 100.0
+    penalty, indentation = 1000.0, 0.002
+    _, _, _, step = _patch(
+        triangulated=True, gap=0.0,
+        tool_translation=(-indentation, 0.0, 0.0),
+        penalty=penalty, yield_stress=yield_stress,
+        applied_traction=0.0, increments=8, cells=cells,
+        transverse_boundary_fixed=True,
+    )
+    result = step.solve_result()
+    assert result.status == "completed"
+
+    tool_x = 1.0 - indentation
+    lower, upper = tool_x, 1.0
+    for _ in range(70):
+        stretch = 0.5 * (lower + upper)
+        logarithmic_strain = np.log(stretch)
+        q_trial = -young * logarithmic_strain
+        plastic_increment = max(
+            0.0, (q_trial - yield_stress) / (1.5 * young + hardening),
+        )
+        piola = young * (logarithmic_strain + plastic_increment) / stretch
+        residual = piola + penalty * (stretch - tool_x)
+        if residual < 0.0:
+            lower = stretch
+        else:
+            upper = stretch
+    expected_stretch = 0.5 * (lower + upper)
+    expected_plastic_increment = max(
+        0.0,
+        (-young * np.log(expected_stretch) - yield_stress)
+        / (1.5 * young + hardening),
+    )
+    coordinates = step.solution.function_space.tabulate_dof_coordinates()
+    right = np.isclose(coordinates[:, 0], 1.0)
+    right_ux = step.solution.x.array.reshape((-1, 3))[right, 0]
+    np.testing.assert_allclose(
+        right_ux, expected_stretch - 1.0, rtol=1e-5, atol=1e-8,
+    )
+    force = -step.contact_provider.evaluate().contact_force_on_structure[0]
+    assert force == pytest.approx(
+        penalty * (expected_stretch - tool_x), rel=1e-5,
+    )
+    assert result.quantity("maximum_equivalent_plastic_strain") == pytest.approx(
+        expected_plastic_increment, rel=1e-5,
+    )
+
+
+def test_plastic_contact_unloads_and_reloads_without_losing_history(tmp_path):
+    indentation = 0.002
+    young, yield_stress, hardening, penalty = 1000.0, 0.1, 100.0, 1000.0
+    path = amplitudes.tabular(
+        (0.0, 0.5, 0.75, 1.0), (0.0, 1.0, 0.0, 1.0),
+        name="indent_release_reindent",
+    )
+
+    # Independent one-dimensional plane-strain Hencky/J2 return map. The
+    # signed axial plastic log strain a gives Fp=diag(exp(a),exp(-a/2),
+    # exp(-a/2)). With nu=0: q_trial=E*abs(log(lambda)-3*a/2),
+    # da=sign(trial)*dp, and Pxx=E*(log(lambda)-a_new)/lambda.
+    # A fresh scalar equilibrium solve follows each accepted tool station;
+    # old a and PEEQ stay fixed during its trial iterations.
+    axial_plastic, peeq = 0.0, 0.0
+    reference = {}
+    for index in range(1, 9):
+        station = index / 8
+        tool_x = 1.0 - indentation * path(station)
+
+        def response(
+            stretch, *, old_axial=axial_plastic, old_peeq=peeq,
+            tool_position=tool_x,
+        ):
+            log_strain = np.log(stretch)
+            trial = young * (log_strain - 1.5 * old_axial)
+            increment = max(
+                0.0,
+                (abs(trial) - yield_stress - hardening * old_peeq)
+                / (1.5 * young + hardening),
+            )
+            new_axial = old_axial + np.sign(trial) * increment
+            new_peeq = old_peeq + increment
+            piola = young * (log_strain - new_axial) / stretch
+            contact_force = penalty * max(0.0, stretch - tool_position)
+            return piola + contact_force, new_axial, new_peeq, contact_force
+
+        lower, upper = 0.99, 1.01
+        for _ in range(70):
+            middle = 0.5 * (lower + upper)
+            if response(middle)[0] < 0.0:
+                lower = middle
+            else:
+                upper = middle
+        stretch = 0.5 * (lower + upper)
+        _, axial_plastic, peeq, force = response(stretch)
+        reference[station] = (stretch - 1.0, peeq, force)
+
+    options = dict(
+        triangulated=True, gap=0.0,
+        tool_translation=(-indentation, 0.0, 0.0),
+        penalty=penalty, yield_stress=yield_stress,
+        applied_traction=0.0, increments=8,
+        transverse_boundary_fixed=True, load_amplitude=path,
+    )
+    _, _, _, step = _patch(**options)
+    coordinates = step.solution.function_space.tabulate_dof_coordinates()
+    right = np.isclose(coordinates[:, 0], 1.0)
+
+    step.solve(until=0.5)
+    first_displacement = float(np.mean(
+        step.solution.x.array.reshape((-1, 3))[right, 0],
+    ))
+    first_force = -step.contact_provider.evaluate().contact_force_on_structure[0]
+    first_peeq = float(np.max(
+        step.response.state.committed["equivalent_plastic_strain"].function.x.array,
+    ))
+    assert first_force > 0.0 and first_peeq > 0.0
+    first_expected = reference[0.5]
+    assert first_displacement == pytest.approx(first_expected[0], rel=1e-5)
+    assert first_peeq == pytest.approx(first_expected[1], rel=1e-5)
+    assert first_force == pytest.approx(first_expected[2], rel=1e-5)
+    checkpoint = step.save_checkpoint(tmp_path / "accepted_before_release")
+
+    step.solve(until=0.75)
+    released_displacement = float(np.mean(
+        step.solution.x.array.reshape((-1, 3))[right, 0],
+    ))
+    released_force = -step.contact_provider.evaluate().contact_force_on_structure[0]
+    assert released_force == pytest.approx(0.0, abs=1e-9)
+    assert released_displacement == pytest.approx(
+        reference[0.75][0], rel=1e-5, abs=1e-8,
+    )
+    assert np.max(step.response.state.committed[
+        "equivalent_plastic_strain"
+    ].function.x.array) == pytest.approx(reference[0.75][1], rel=1e-5)
+
+    step.solve()
+    final_force = -step.contact_provider.evaluate().contact_force_on_structure[0]
+    final_displacement = float(np.mean(
+        step.solution.x.array.reshape((-1, 3))[right, 0],
+    ))
+    assert final_force == pytest.approx(reference[1.0][2], rel=1e-5)
+    assert final_displacement == pytest.approx(reference[1.0][0], rel=1e-5)
+    assert np.max(step.response.state.committed[
+        "equivalent_plastic_strain"
+    ].function.x.array) == pytest.approx(reference[1.0][1], rel=1e-5)
+
+    resumed = _patch(**options)[3]
+    resumed.load_checkpoint(checkpoint)
+    resumed.solve(until=0.75)
+    resumed.solve()
+    np.testing.assert_allclose(
+        resumed.solution.x.array, step.solution.x.array,
+        rtol=1e-9, atol=1e-10,
+    )
+    np.testing.assert_allclose(
+        resumed.response.state.committed[
+            "equivalent_plastic_strain"
+        ].function.x.array,
+        step.response.state.committed[
+            "equivalent_plastic_strain"
+        ].function.x.array,
+        rtol=1e-9, atol=1e-10,
+    )
+    assert resumed.energy_history[-1].tool_work == pytest.approx(
+        step.energy_history[-1].tool_work, rel=1e-9, abs=1e-10,
+    )
+
+
+def test_tabular_contact_amplitude_knots_are_mandatory_accepted_stations():
+    path = amplitudes.tabular(
+        (0.0, 0.5, 0.75, 1.0), (0.0, 1.0, 0.0, 1.0),
+        name="contact_reversal",
+    )
+    options = dict(
+        triangulated=True, gap=0.0,
+        tool_translation=(-0.002, 0.0, 0.0),
+        penalty=1000.0, yield_stress=0.1,
+        applied_traction=0.0, transverse_boundary_fixed=True,
+        load_amplitude=path,
+    )
+    with pytest.raises(ValueError, match="tabular amplitude knot"):
+        _patch(**options, increments=3)
+    _, _, _, step = _patch(
+        **options,
+        increment_control=steps.automatic(
+            initial=0.7, maximum=0.7, minimum=0.01,
+        ),
+    )
+    assert step.required_load_factors == (0.5, 0.75)
+    step.solve()
+    accepted = tuple(item.load_factor for item in step.accepted_increments)
+    assert any(abs(value - 0.5) <= 1e-12 for value in accepted)
+    assert any(abs(value - 0.75) <= 1e-12 for value in accepted)
 
 
 def test_closed_concave_example_iterative_linear_policy_matches_direct(tmp_path):
@@ -1293,6 +2742,33 @@ def test_two_implicit_tools_add_residual_tangent_and_keep_separate_evidence():
             penalty=500.0,
             name="second_tool",
         )
+    )
+    incomplete = step_capability(
+        model, target=displacement,
+        options={
+            "material": material,
+            "contact_integration": {first.name: "gauss"},
+        },
+    )
+    assert not incomplete["supported"]
+    assert any(
+        item["message"].startswith("AFM-CONTACT-INTEGRATION")
+        for item in incomplete["rejection_reasons"]
+    )
+    wrong_geometry = step_capability(
+        model, target=displacement,
+        options={
+            "material": material,
+            "contact_integration": {
+                first.name: "planar_active_partition",
+                "second_tool": "gauss",
+            },
+        },
+    )
+    assert not wrong_geometry["supported"]
+    assert any(
+        item["message"].startswith("AFM-CONTACT-PARTITION")
+        for item in wrong_geometry["rejection_reasons"]
     )
     capability = step_capability(
         model, target=displacement, options={"material": material},
