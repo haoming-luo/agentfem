@@ -337,15 +337,9 @@ def _accept_small_strain_material(model, request: StepRequest) -> bool:
 
 
 def _unsupported_small_strain_boundary(model) -> str | None:
-    if getattr(model, "boundary_models", ()):
-        return (
-            "AFM-SMALL-STRAIN-BOUNDARY: this small-strain material Step does not "
-            "assemble registered weak/contact boundary Operators. They cannot "
-            "be ignored or replaced with external loads. Choose a verified "
-            "material/Operator combination; do not change kinematics merely "
-            "to bypass this restriction."
-        )
-    return None
+    from ._step_builders_inelastic import small_strain_boundary_rejection
+
+    return small_strain_boundary_rejection(model)
 
 
 def _j2_boundary_rejection(model, request: StepRequest) -> str | None:
@@ -1109,7 +1103,7 @@ def _lower_small_strain_material(model, request: StepRequest):
     )
 
 
-def _accept_implicit_creep(model, request: StepRequest) -> bool:
+def _implicit_creep_preconditions(model, request: StepRequest) -> bool:
     from .constitutive.creep import IsotropicPowerLawCreepMaterial
 
     study = getattr(model, "study", None)
@@ -1135,6 +1129,14 @@ def _accept_implicit_creep(model, request: StepRequest) -> bool:
     )
 
 
+def _accept_implicit_creep(model, request: StepRequest) -> bool:
+    return _implicit_creep_preconditions(model, request) and not getattr(model, "boundary_models", ())
+
+
+def _implicit_creep_boundary_rejection(model, request: StepRequest) -> str | None:
+    return _unsupported_small_strain_boundary(model) if _implicit_creep_preconditions(model, request) else None
+
+
 def _lower_implicit_creep(model, request: StepRequest):
     from . import _step_builders
 
@@ -1155,7 +1157,7 @@ def _lower_implicit_creep(model, request: StepRequest):
     )
 
 
-def _accept_quasistatic_viscoelasticity(model, request: StepRequest) -> bool:
+def _quasistatic_viscoelasticity_preconditions(model, request: StepRequest) -> bool:
     from .constitutive.viscoelasticity import IsotropicGeneralizedMaxwell
 
     study = getattr(model, "study", None)
@@ -1176,6 +1178,20 @@ def _accept_quasistatic_viscoelasticity(model, request: StepRequest) -> bool:
             request,
             lambda item: isinstance(item, IsotropicGeneralizedMaxwell),
         )
+    )
+
+
+def _accept_quasistatic_viscoelasticity(model, request: StepRequest) -> bool:
+    return (
+        _quasistatic_viscoelasticity_preconditions(model, request)
+        and not getattr(model, "boundary_models", ())
+    )
+
+
+def _quasistatic_viscoelasticity_boundary_rejection(model, request: StepRequest) -> str | None:
+    return (
+        _unsupported_small_strain_boundary(model)
+        if _quasistatic_viscoelasticity_preconditions(model, request) else None
     )
 
 
@@ -1777,6 +1793,7 @@ register_step_provider(
         name="implicit_power_law_creep",
         analyses=("nonlinear_transient",),
         accepts=_accept_implicit_creep,
+        rejection_reason=_implicit_creep_boundary_rejection,
         lower=_lower_implicit_creep,
         priority=120,
         description=(
@@ -1869,6 +1886,7 @@ register_step_provider(
         name="quasistatic_generalized_maxwell",
         analyses=("first_order_transient",),
         accepts=_accept_quasistatic_viscoelasticity,
+        rejection_reason=_quasistatic_viscoelasticity_boundary_rejection,
         lower=_lower_quasistatic_viscoelasticity,
         priority=120,
         description=(

@@ -64,10 +64,18 @@ material guide also separate finite-strain contact from small-strain
 J2/Chaboche and defer geometry/friction/MPC combinations to one current
 capability matrix rather than stale one-tool restrictions.
 
+The release-scope audit also found a correctness hazard: several small-strain
+material providers advertised boundary Operators they did not assemble. Native
+J2/Chaboche, power-law creep, quasistatic Maxwell and neutral small-strain
+providers now reject these combinations before Step construction, with one
+addressable reason shared by capability inspection and compatibility builders.
+This is a necessary safety correction, not a new contact capability.
+
 The spatial gate is narrower, not closed: the controlled 4/8-cell plastic
 first-station force gap is 6.52%, with different sampled contact activity.
 On the same coarse mesh, supported contact quadrature 7 -> 11 changes force by
-only 0.00557%. Independent polynomial P2/Q2 trace tests pass force, moment,
+only 0.00557%; halving the coarse plastic increment cap changes force by 0.02025%.
+Neither explains the spatial gap on its own. Independent polynomial P2/Q2 trace tests pass force, moment,
 virtual-work and tangent integrals. The next bounded check is one 12-cell
 first-station comparison with the same physical/path/integration inputs and
 recoverable accepted checkpoints, not more penalty tuning or a full-cycle sweep.

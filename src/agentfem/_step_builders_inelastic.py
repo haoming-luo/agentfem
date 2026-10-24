@@ -13,6 +13,25 @@ from . import constraints as constraint_api
 from . import loads as load_api
 
 
+def small_strain_boundary_rejection(model) -> str | None:
+    """One admission reason shared by dispatch and compatibility builders."""
+    if getattr(model, "boundary_models", ()):
+        return (
+            "AFM-SMALL-STRAIN-BOUNDARY: this small-strain material Step does not "
+            "assemble registered weak/contact boundary Operators. They cannot "
+            "be ignored or replaced with external loads. Choose a verified "
+            "material/Operator combination; do not change kinematics merely "
+            "to bypass this restriction."
+        )
+    return None
+
+
+def _require_small_strain_boundary_support(model) -> None:
+    reason = small_strain_boundary_rejection(model)
+    if reason is not None:
+        raise NotImplementedError(reason)
+
+
 def small_strain_material(
     model,
     *,
@@ -32,6 +51,7 @@ def small_strain_material(
     from . import mechanics
     from .constitutive.small_strain_user_material import SmallStrainUserMaterial
 
+    _require_small_strain_boundary_support(model)
     model.check(target=target, step_options={"material": material})
     if hasattr(model.study, "require"):
         model.study.require(analysis="nonlinear_static", physics="solid_mechanics")
@@ -69,11 +89,6 @@ def small_strain_material(
             "The first provider-neutral small-strain material Step accepts "
             "ordinary strong displacement constraints; unsupported="
             f"{tuple(type(item).__name__ for item in unsupported_constraints)!r}."
-        )
-    if tuple(getattr(model, "boundary_models", ())):
-        raise NotImplementedError(
-            "Weak/contact boundary models require their residual, tangent and "
-            "dual work to be lowered with the material Step."
         )
     time_dependent_constraints = tuple(
         item
@@ -136,6 +151,7 @@ def j2_plasticity(
     )
     from .constitutive.quadrature import QuadratureMaterialMap
 
+    _require_small_strain_boundary_support(model)
     model.check(target=target, step_options={"material": material})
     if hasattr(model.study, "require"):
         model.study.require(analysis="nonlinear_static", physics="solid_mechanics")
@@ -570,6 +586,7 @@ def creep(
     from .constitutive.creep import IsotropicPowerLawCreepMaterial
     from .constitutive.quadrature import QuadratureMaterialMap
 
+    _require_small_strain_boundary_support(model)
     model.check(target=target, step_options={"material": material})
     if hasattr(model.study, "require"):
         model.study.require(
@@ -646,6 +663,7 @@ def viscoelastic(
     from .constitutive.quadrature import QuadratureMaterialMap
     from .constitutive.viscoelasticity import IsotropicGeneralizedMaxwell
 
+    _require_small_strain_boundary_support(model)
     model.check(target=target, step_options={"material": material})
     if hasattr(model.study, "require"):
         model.study.require(

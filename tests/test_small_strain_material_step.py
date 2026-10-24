@@ -201,21 +201,37 @@ def test_public_model_step_dispatches_small_strain_material():
     assert step.last_solve_info.completed_step
 
 
-@pytest.mark.parametrize("kind", ["j2", "chaboche", "provider"])
+@pytest.mark.parametrize("kind", ["j2", "chaboche", "provider", "creep", "maxwell"])
 @pytest.mark.parametrize("boundary_kind", ["rigid_contact", "foundation"])
 def test_small_strain_boundary_operator_is_never_silently_ignored(kind, boundary_kind):
     from agentfem import boundary_models
     from agentfem.step_providers import step_capability
 
     domain = dolfinx_mesh.create_unit_cube(MPI.COMM_SELF, 1, 1, 1)
-    model = models.create(study=studies.static_solid(dimension=3, nonlinear=True), mesh=domain)
+    if kind == "creep":
+        study = studies.creep_solid(dimension=3)
+    elif kind == "maxwell":
+        study = studies.viscoelastic_solid(dimension=3)
+    else:
+        study = studies.static_solid(dimension=3, nonlinear=True)
+    model = models.create(study=study, mesh=domain)
     u = model.field(fields.displacement(domain))
-    material = (
-        constitutive.J2LinearIsotropicHardening(young=1000., poisson=.3, yield_stress=2.)
-        if kind == "j2" else constitutive.chaboche(
+    if kind == "j2":
+        material = constitutive.J2LinearIsotropicHardening(
+            young=1000., poisson=.3, yield_stress=2.)
+    elif kind == "chaboche":
+        material = constitutive.chaboche(
             young=1000., poisson=.3, yield_stress=2., backstresses=((100., 10.),))
-        if kind == "chaboche" else LinearBatchMaterial()
-    )
+    elif kind == "creep":
+        material = constitutive.isotropic_power_law(
+            young=1000., poisson=.3, density=1., coefficient=1e-5,
+            stress_exponent=2., reference_stress=1.)
+    elif kind == "maxwell":
+        material = constitutive.IsotropicGeneralizedMaxwell.from_prony(
+            instantaneous_young_modulus=1000., instantaneous_poisson_ratio=.3,
+            shear_relaxation_ratios=[.2], bulk_relaxation_ratios=[.1], relaxation_times=[1.])
+    else:
+        material = LinearBatchMaterial()
     model.material(material)
     left = mesh.boundary(domain, lambda x: np.isclose(x[0], 0.), name="left")
     right = mesh.boundary(domain, lambda x: np.isclose(x[0], 1.), name="right")
@@ -234,6 +250,22 @@ def test_small_strain_boundary_operator_is_never_silently_ignored(kind, boundary
     assert any(item["message"].startswith("AFM-SMALL-STRAIN-BOUNDARY")
                for item in capability["rejection_reasons"])
     with pytest.raises(NotImplementedError, match="AFM-SMALL-STRAIN-BOUNDARY"):
-        model.step(target=u, incrementation=steps.fixed(1), progress=False)
+        options = {"duration": 1.} if kind in {"creep", "maxwell"} else {}
+        model.step(target=u, incrementation=steps.fixed(1), progress=False, **options)
+    # Older public compatibility factories must not bypass the same boundary.
+    from agentfem import _step_builders
+
+    builder = {
+        "j2": model.j2_plasticity_step,
+        "chaboche": model.j2_plasticity_step,
+        "creep": model.creep_step,
+    }.get(kind)
+    with pytest.raises(NotImplementedError, match="AFM-SMALL-STRAIN-BOUNDARY"):
+        if builder is not None:
+            builder(target=u, progress=False, **options)
+        else:
+            lower = (_step_builders.viscoelastic if kind == "maxwell"
+                     else _step_builders.small_strain_material)
+            lower(model, target=u, progress=False, **options)
     assert model.steps == []
     np.testing.assert_array_equal(u.value.x.array, before)

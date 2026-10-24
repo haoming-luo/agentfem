@@ -42,6 +42,23 @@ introduced. The combined constitutive/global-material subset passes 50 tests
 in 2.54 s, including all six counterexamples. The finite-strain numerical
 implementation used by the ongoing spatial diagnostic is unchanged.
 
+An adjacent audit finds the same missing-assembly risk in power-law creep and
+quasistatic Maxwell. Four additional boundary counterexamples fail before their
+admission fix. All five families now share the same reason across capability,
+ordinary execution and compatibility builders. The initial expanded subset
+passes 95 tests in 13.76 s; 17 existing platform creep tests pass in 6.04 s.
+This rejects unsupported compositions; it does not implement new contact laws.
+
+A fresh native wheel from `535e1eac` repeats the ordinary installed partial,
+restart and continuous project after this safety fix. Its 99 selected tests
+pass in 4.75 s. Displacement, material vectors, contact force, accepted factors
+and contact work match both the same-wheel continuous run and the preceding
+`51c4a911` frozen candidate exactly on this fixture. An independent meshio reader
+finds one 384-tetrahedron block and finite fields at every exported station.
+Wheel identity, commands and the reused exact project source are recorded in
+`evidence/contact/2026-10-25-installed-boundary-admission.json`. The environment
+still shares numerical dependencies; this is not Windows or clean-machine proof.
+
 At entry, PR #118 head `d5347eeb` passes all applicable remote checks, including
 Linux native distribution, FEniCSx and macOS installed-wheel acceptance. It
 remains draft. The candidate release contract now names bounded serial periodic
@@ -151,6 +168,14 @@ spatial force gap on contact quadrature, nor treating sampled peak pressure as
 a mesh-independent engineering quantity. Degree 21 was first rejected by the
 existing 5/7/9/11 admission contract; no guard was bypassed or core option
 expanded. That rejection is retained, not presented as a nonlinear failure.
+
+One independent path-control check on the four-cell mesh halves the accepted
+plastic limit to 0.0001875. At the same first station the force changes
+4.48528146 -> 4.48618952 N (0.02025%), mean PEEQ changes by 0.01345%, and the
+sampled active area is unchanged. It accepts 369 increments instead of 186.
+This makes the coarse path error an unlikely explanation for the 6.52% spatial
+force difference, but does not bound path error on the finer meshes or later
+reversal. See `evidence/contact/2026-10-25-periodic-plastic-half-limit.json`.
 
 Evidence files:
 

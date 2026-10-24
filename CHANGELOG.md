@@ -7,8 +7,9 @@ experimental formulation to a validated one.
 ## [Unreleased]
 
 - Reject unassembled weak/contact boundary models for small-strain J2,
-  Chaboche and provider-neutral small-strain Steps during both capability
-  inspection and execution. Previously the native J2 route could omit these
+  Chaboche, power-law creep, quasistatic Maxwell and provider-neutral
+  small-strain Steps during both capability inspection and execution,
+  including compatibility builders. Previously native material routes could omit these
   registered contributions, while the provider-neutral route advertised
   support before rejecting construction. Keep the finite-strain contact
   capability separate; do not silently substitute materials or kinematics.
