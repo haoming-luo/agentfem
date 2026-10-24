@@ -59,6 +59,24 @@ Wheel identity, commands and the reused exact project source are recorded in
 `evidence/contact/2026-10-25-installed-boundary-admission.json`. The environment
 still shares numerical dependencies; this is not Windows or clean-machine proof.
 
+The final boundary-admission source `bc7520cc` additionally covers creep,
+Maxwell and compatibility entrypoints with one shared reason. Its independently
+installed native wheel passes 144 selected tests in 16.97 s, including ten
+contact/foundation counterexamples. The same ordinary continuous project again
+has zero measured difference in displacement, material, force, factors and work
+against `535e1eac`; meshio reads all nine stations as one finite volume block.
+See `evidence/contact/2026-10-25-installed-material-boundary-final.json`.
+These concurrent acceptance runs are not performance measurements.
+
+Fresh remote confirmation of `e4207c56` completes in
+[CI run 40115587874](https://github.com/haoming-luo/agentfem/actions/runs/40115587874):
+4976 serial tests pass, 428 are skipped by suite/platform selection, and the
+subsequent distributed inelastic, finite-J2 invariants and installed release
+smokes pass. All applicable checks, including Linux native distribution and
+macOS installed-wheel acceptance, pass. This resolves the earlier Linux
+precision-test failure for that head; it does not certify later safety commits
+without their own CI, nor establish distributed implicit-contact support.
+
 At entry, PR #118 head `d5347eeb` passes all applicable remote checks, including
 Linux native distribution, FEniCSx and macOS installed-wheel acceptance. It
 remains draft. The candidate release contract now names bounded serial periodic
@@ -234,6 +252,16 @@ raising the displacement order does not justify reusing a lumped nodal pressure
 update without a compatibility argument. This supports keeping the current P1
 nodal augmentation and P2 Gaussian diagnostic distinct. It is not evidence that
 AgentFEM's particular spatial discrepancy is pressure locking.
+
+The [deal.II step-42 tutorial](https://dealii.org/9.8.0/doxygen/deal.II/step_42.html)
+is useful for separating active-set updates, plastic Newton linearization and
+local mesh refinement. Its small-strain formulation and refinement/state
+assumptions are not a drop-in replacement for the current finite-history Step.
+[COMSOL's meshing guidance](https://doc.comsol.com/6.4/doc/com.comsol.help.sme/sme_ug_modeling.05.146.html)
+also explicitly distinguishes rigid from deformable source surfaces: the usual
+source/destination mesh ratio is not a remedy for this analytical flat rigid
+tool. The next spatial decision must follow the measured pressure distribution,
+not a copied commercial-software parameter recipe.
 
 **Installed candidate acceptance.** Native wheel source `51c4a911` imports from
 its fresh venv, not the working checkout; all three optional native modules

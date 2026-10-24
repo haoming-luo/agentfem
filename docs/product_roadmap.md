@@ -58,8 +58,11 @@ Integration still requires current-head CI. An intermediate Linux run exposed
 one ill-conditioned first-Piola component comparison failure (4961 other tests
 passed). The failure is preserved; an independent high-precision diagnosis and
 per-point objective tensor comparison replace that componentwise test, without
-changing the runtime or its tolerances. Local checks pass; Linux confirmation
-is pending. See the precision follow-up in the sprint ledger. The workflow and
+changing the runtime or its tolerances. Fresh Linux confirmation at `e4207c56`
+passes 4976 serial tests (428 intentionally skipped), subsequent distributed
+and release-smoke checks; all applicable Linux/macOS checks pass in run
+40115587874. The later boundary-admission safety delta still requires its own
+current-head CI. See the precision follow-up in the sprint ledger. The workflow and
 material guide also separate finite-strain contact from small-strain
 J2/Chaboche and defer geometry/friction/MPC combinations to one current
 capability matrix rather than stale one-tool restrictions.
