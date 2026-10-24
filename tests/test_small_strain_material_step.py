@@ -201,7 +201,7 @@ def test_public_model_step_dispatches_small_strain_material():
     assert step.last_solve_info.completed_step
 
 
-@pytest.mark.parametrize("kind", ["j2", "chaboche", "provider", "creep", "maxwell"])
+@pytest.mark.parametrize("kind", ["j2", "chaboche", "provider", "creep", "maxwell", "maxwell_harmonic"])
 @pytest.mark.parametrize("boundary_kind", ["rigid_contact", "foundation"])
 def test_small_strain_boundary_operator_is_never_silently_ignored(kind, boundary_kind):
     from agentfem import boundary_models
@@ -212,6 +212,8 @@ def test_small_strain_boundary_operator_is_never_silently_ignored(kind, boundary
         study = studies.creep_solid(dimension=3)
     elif kind == "maxwell":
         study = studies.viscoelastic_solid(dimension=3)
+    elif kind == "maxwell_harmonic":
+        study = studies.harmonic_solid(dimension=3)
     else:
         study = studies.static_solid(dimension=3, nonlinear=True)
     model = models.create(study=study, mesh=domain)
@@ -226,7 +228,7 @@ def test_small_strain_boundary_operator_is_never_silently_ignored(kind, boundary
         material = constitutive.isotropic_power_law(
             young=1000., poisson=.3, density=1., coefficient=1e-5,
             stress_exponent=2., reference_stress=1.)
-    elif kind == "maxwell":
+    elif kind in {"maxwell", "maxwell_harmonic"}:
         material = constitutive.IsotropicGeneralizedMaxwell.from_prony(
             instantaneous_young_modulus=1000., instantaneous_poisson_ratio=.3,
             shear_relaxation_ratios=[.2], bulk_relaxation_ratios=[.1], relaxation_times=[1.])
@@ -236,7 +238,9 @@ def test_small_strain_boundary_operator_is_never_silently_ignored(kind, boundary
     left = mesh.boundary(domain, lambda x: np.isclose(x[0], 0.), name="left")
     right = mesh.boundary(domain, lambda x: np.isclose(x[0], 1.), name="right")
     model.clamp(u, on=left)
-    assert step_capability(model, target=u)["supported"]
+    options = ({"frequency": 1.} if kind == "maxwell_harmonic" else
+               {"duration": 1.} if kind in {"creep", "maxwell"} else {})
+    assert step_capability(model, target=u, options=options)["supported"]
     if boundary_kind == "rigid_contact":
         model.add_boundary_model(boundary_models.rigid_contact_pair(
             right, boundary_models.rigid_body(boundary_models.rigid_plane(
@@ -244,14 +248,13 @@ def test_small_strain_boundary_operator_is_never_silently_ignored(kind, boundary
     else:
         model.elastic_foundation(on=right, stiffness=1000.)
     before = u.value.x.array.copy()
-    capability = step_capability(model, target=u)
+    capability = step_capability(model, target=u, options=options)
     assert not capability["supported"]
     assert len(capability["rejection_reasons"]) == 1
     assert any(item["message"].startswith("AFM-SMALL-STRAIN-BOUNDARY")
                for item in capability["rejection_reasons"])
     with pytest.raises(NotImplementedError, match="AFM-SMALL-STRAIN-BOUNDARY"):
-        options = {"duration": 1.} if kind in {"creep", "maxwell"} else {}
-        model.step(target=u, incrementation=steps.fixed(1), progress=False, **options)
+        model.step(target=u, **options)
     # Older public compatibility factories must not bypass the same boundary.
     from agentfem import _step_builders
 
@@ -264,8 +267,11 @@ def test_small_strain_boundary_operator_is_never_silently_ignored(kind, boundary
         if builder is not None:
             builder(target=u, progress=False, **options)
         else:
-            lower = (_step_builders.viscoelastic if kind == "maxwell"
-                     else _step_builders.small_strain_material)
-            lower(model, target=u, progress=False, **options)
+            lower = {
+                "maxwell": _step_builders.viscoelastic,
+                "maxwell_harmonic": _step_builders.harmonic_viscoelastic,
+                "provider": _step_builders.small_strain_material,
+            }[kind]
+            lower(model, target=u, **options)
     assert model.steps == []
     np.testing.assert_array_equal(u.value.x.array, before)

@@ -69,7 +69,7 @@ capability matrix rather than stale one-tool restrictions.
 
 The release-scope audit also found a correctness hazard: several small-strain
 material providers advertised boundary Operators they did not assemble. Native
-J2/Chaboche, power-law creep, quasistatic Maxwell and neutral small-strain
+J2/Chaboche, power-law creep, quasistatic/harmonic Maxwell and neutral small-strain
 providers now reject these combinations before Step construction, with one
 addressable reason shared by capability inspection and compatibility builders.
 This is a necessary safety correction, not a new contact capability.

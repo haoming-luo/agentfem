@@ -68,6 +68,25 @@ against `535e1eac`; meshio reads all nine stations as one finite volume block.
 See `evidence/contact/2026-10-25-installed-material-boundary-final.json`.
 These concurrent acceptance runs are not performance measurements.
 
+The adjacent harmonic Maxwell builder has the same omission (two additional
+pre-fix failing counterexamples). Its ordinary and direct-builder admission now
+uses that shared small-strain boundary reason as well. The final matrix covers
+five material families and six procedures, with twelve contact/foundation
+counterexamples; 107 selected source tests across the small-strain, Maxwell and
+harmonic modules pass in 15.30 s. No harmonic operator or numerical algorithm
+is changed.
+
+Representative explicit acceptance against the installed `bc7520cc` wheel
+passes 81 tests in 55.53 s across `test_strain_history_runtime`,
+`test_native_damped_body`, `test_finite_hex_explicit` and
+`test_builtin_q1_execution`. They exercise native material transactions, body,
+damping and contact without confidential assets. The source changes since
+`d5347eeb` affect implicit J2/contact samples and small-strain admission, not the
+explicit Hashin-Puck execution kernel or accepted-series writer. This supports
+reusing the earlier complete 25-frame trajectory as historical evidence; it
+does not assign that trajectory's time to this newer package or claim a fresh
+full-model comparison. The test timing includes concurrent spatial work.
+
 Fresh remote confirmation of `e4207c56` completes in
 [CI run 40115587874](https://github.com/haoming-luo/agentfem/actions/runs/40115587874):
 4976 serial tests pass, 428 are skipped by suite/platform selection, and the
@@ -194,6 +213,17 @@ sampled active area is unchanged. It accepts 369 increments instead of 186.
 This makes the coarse path error an unlikely explanation for the 6.52% spatial
 force difference, but does not bound path error on the finer meshes or later
 reversal. See `evidence/contact/2026-10-25-periodic-plastic-half-limit.json`.
+
+A separate four-cell volume-integration check raises bulk degree 6 -> 8 with
+contact degree 11 and the original plastic cap. The first-station force changes
+4.48528146 -> 4.48532134 N (0.0008892%), mean PEEQ changes by 0.0004557%,
+and sampled activity is unchanged. It accepts 189 rather than 186 increments.
+The adaptive paths therefore are not identical, but this joint sensitivity is
+far below the 6.52% spatial force gap. Alongside the contact-quadrature and
+halved-cap probes, it directs the next investigation toward approximation of
+pressure and activity, not another integration-order sweep. It does not prove
+finer-grid integration independence or finite-plastic continuum convergence.
+Evidence: `evidence/contact/2026-10-25-periodic-plastic-bulk8.json`.
 
 Evidence files:
 

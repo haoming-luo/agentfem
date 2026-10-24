@@ -1195,7 +1195,7 @@ def _quasistatic_viscoelasticity_boundary_rejection(model, request: StepRequest)
     )
 
 
-def _accept_harmonic_viscoelasticity(model, request: StepRequest) -> bool:
+def _harmonic_viscoelasticity_preconditions(model, request: StepRequest) -> bool:
     from .constitutive.viscoelasticity import IsotropicGeneralizedMaxwell
 
     study = getattr(model, "study", None)
@@ -1213,6 +1213,20 @@ def _accept_harmonic_viscoelasticity(model, request: StepRequest) -> bool:
         # the request explicitly selects the one material to lower.
         and len(materials) == 1
         and isinstance(materials[0], IsotropicGeneralizedMaxwell)
+    )
+
+
+def _accept_harmonic_viscoelasticity(model, request: StepRequest) -> bool:
+    return (
+        _harmonic_viscoelasticity_preconditions(model, request)
+        and not getattr(model, "boundary_models", ())
+    )
+
+
+def _harmonic_viscoelasticity_boundary_rejection(model, request: StepRequest) -> str | None:
+    return (
+        _unsupported_small_strain_boundary(model)
+        if _harmonic_viscoelasticity_preconditions(model, request) else None
     )
 
 
@@ -1861,6 +1875,7 @@ register_step_provider(
         name="harmonic_generalized_maxwell",
         analyses=("frequency_domain",),
         accepts=_accept_harmonic_viscoelasticity,
+        rejection_reason=_harmonic_viscoelasticity_boundary_rejection,
         lower=_lower_harmonic_viscoelasticity,
         priority=120,
         description=(

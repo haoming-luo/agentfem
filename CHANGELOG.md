@@ -7,7 +7,7 @@ experimental formulation to a validated one.
 ## [Unreleased]
 
 - Reject unassembled weak/contact boundary models for small-strain J2,
-  Chaboche, power-law creep, quasistatic Maxwell and provider-neutral
+  Chaboche, power-law creep, quasistatic/harmonic Maxwell and provider-neutral
   small-strain Steps during both capability inspection and execution,
   including compatibility builders. Previously native material routes could omit these
   registered contributions, while the provider-neutral route advertised
