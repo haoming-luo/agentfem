@@ -1,0 +1,30 @@
+name: Windows installer contract
+on:
+  pull_request:
+    paths: ['packaging/runtime/**', 'tests/windows/**', '.github/workflows/windows-installer-contract.yml']
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  windows-powershell:
+    name: Installer on Windows PowerShell 5.1
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v6
+      - name: Exercise installer state and failure handling
+        shell: powershell
+        run: |
+          ./tests/windows/installer_contract.ps1
+          ./tests/windows/platform_entrypoint_contract.ps1
+          ./tests/windows/host_probe_contract.ps1
+  powershell-core:
+    name: Installer on PowerShell 7
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v6
+      - name: Exercise installer state and failure handling
+        shell: pwsh
+        run: |
+          ./tests/windows/installer_contract.ps1
+          ./tests/windows/platform_entrypoint_contract.ps1
+          ./tests/windows/host_probe_contract.ps1

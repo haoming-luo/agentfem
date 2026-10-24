@@ -90,7 +90,7 @@ def test_windows_installer_defaults_to_side_by_side_without_overwrite():
     assert '"--install", "--no-distribution"' in installer
     assert "Invoke-ElevatedWslCommand" in installer
     assert "AFM-WIN-RESTART-REQUIRED" in installer
-    assert "AFM-WIN-WINDOWS-TOO-OLD" in installer
+    assert "AFM-WIN-WSL-COMMAND-MISSING" in installer
     assert "AFM-WIN-ARCH-UNSUPPORTED" in installer
     assert 'nativeArchitecture -ne "AMD64"' in installer
     assert "@IMAGE_FILENAME@" in installer
@@ -175,12 +175,15 @@ def test_windows_installer_and_guide_render_without_placeholders():
     installer = RUNTIME_BUILDER["render_wsl_installer"](
         image_filename="AgentFEM-Complete-9.8.7-WSL2-x86_64.wsl",
         image_sha256="a" * 64,
+        runtime_record_sha256="b" * 64,
         version="9.8.7",
     )
     guide = RUNTIME_BUILDER["render_wsl_start_here"](version="9.8.7")
 
     assert "@IMAGE_FILENAME@" not in installer
     assert "@IMAGE_SHA256@" not in installer
+    assert "@RUNTIME_RECORD_SHA256@" not in installer
+    assert '$ExpectedRuntimeRecordSha256 = "' + "b" * 64 + '"' in installer
     assert "@VERSION@" not in installer
     assert '$RuntimeVersion = "9.8.7"' in installer
     assert '"AgentFEM-$RuntimeVersion"' in installer
@@ -484,3 +487,15 @@ def test_runtime_release_publishes_one_identity_to_optional_china_mirror():
     assert workflow.index("Publish byte-identical mainland mirror") < workflow.index(
         "Publish accepted assets and download routes"
     )
+
+
+def test_windows_bundle_includes_recovery_and_real_solve_verifier():
+    builder = (RUNTIME / "build_runtime.py").read_text(encoding="utf-8")
+    installer = (RUNTIME / "wsl" / "Install-AgentFEM.ps1").read_text(encoding="utf-8")
+    assert '"Installer-State.ps1", "Install-AgentFEM.cmd"' in builder
+    assert '"Windows-HostProbe.ps1", "Test-AgentFEMWindowsHost.ps1"' in builder
+    assert '*companion_files' in builder
+    assert 'RUNTIME / "verify_installed_runtime.py"' in builder
+    assert '"--skip-mpi", "--output", $report' in installer
+    assert installer.index('SHA-256 mismatch') < installer.index('$installedWslVersion = Require-WslPlatform')
+    assert '"--exec", "/usr/lib/agentfem/oobe.sh"' in installer

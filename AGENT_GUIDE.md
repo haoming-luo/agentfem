@@ -17,10 +17,21 @@ finite-element simulation with AgentFEM.
    is Python 3.11 with DOLFINx 0.11. If the user says "走镜像通道 / use the
    mirror channel" or the canonical source is unreachable, use the documented
    single-mirror command; do not infer location from an IP address or VPN, and
-   do not combine conda channels for PETSc/MPI/DOLFINx. On a new Windows
-   machine, prefer the Complete Runtime installer: it owns WSL preparation and
-   deliberately avoids bare `wsl --install`, which downloads an unrelated
-   default distribution.
+   do not combine conda channels for PETSc/MPI/DOLFINx. Reuse healthy existing
+   WSL environments. Honour an explicitly requested Ubuntu + mirror route;
+   do not require an unpublished offline bundle. A compatible published Complete
+   Runtime is another new-user route: its installer owns WSL preparation and
+   avoids downloading a separate Ubuntu because that route supplies its own
+   distribution. This is not a prohibition on Ubuntu for the mirror route.
+   For Windows/WorkBuddy installation, follow
+   `docs/windows_agent_installation.md`. A non-admin shell alone is not a blocker;
+   use only approved user-confirmed elevation. Explicit host-policy refusal is
+   not a network failure and must not trigger alternate-shell attempts.
+   The source installer supports `-PrepareWslOnly` without a runtime image, and
+   `-NonInteractive` returns explicit approval/account handoffs for agent tools.
+   Use `Get-AgentFEMInstallStatus.ps1` for read-only JSON progress. Never report
+   `platform_ready` as AgentFEM installed, or an old completion record as a new
+   health check. Keep the same package/options after a requested restart.
 2. For an installed case, run `agentfem doctor --json`. On WSL, also run
    `agentfem workspace --json`; before any runtime replacement or removal it
    must report `protected_from_distribution_removal: true`. If it does not,
