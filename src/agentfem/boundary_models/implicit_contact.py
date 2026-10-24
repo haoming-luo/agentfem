@@ -24,6 +24,20 @@ from .implicit_friction import ImplicitPlanarFrictionTangent
 from .rigid import _readonly_array
 
 
+def _coalesce_trace_tangent(node_ids, local_tangent):
+    """Sum quadrature matrices sharing one ordered nodal stencil.
+
+    Only adjacent equal stencils are combined. Unordered, interleaved or
+    pointwise traces remain valid without a global sort or cached geometry.
+    This is finite-element integration before COO expansion, not reduced
+    quadrature: every active point's current curvature and weight is retained.
+    """
+    starts = np.r_[0, np.flatnonzero(np.any(np.diff(node_ids, axis=0), axis=1)) + 1]
+    if len(starts) == len(node_ids):
+        return node_ids, local_tangent
+    return node_ids[starts], np.add.reduceat(local_tangent, starts, axis=0)
+
+
 @dataclass(frozen=True, eq=False)
 class ImplicitRigidContactContribution:
     """Integrated residual/evidence and scalar-DOF COO Newton contribution."""
@@ -279,6 +293,10 @@ def integrate_implicit_rigid_contact(
         shape,
         point_tangent,
     )
+    # Keep pointwise projection, law and evidence above. Integrate repeated
+    # facet stencils before allocating, copying and sorting scalar COO indices.
+    active_points = len(selected_nodes)
+    selected_nodes, local_tangent = _coalesce_trace_tangent(selected_nodes, local_tangent)
     dofs = (dimension * selected_nodes[:, :, None] + np.arange(dimension)).reshape(
         (len(selected_nodes), -1)
     )
@@ -290,7 +308,7 @@ def integrate_implicit_rigid_contact(
         rows,
         columns,
         local_tangent.reshape(-1),
-        len(selected_nodes),
+        active_points,
     )
 
 

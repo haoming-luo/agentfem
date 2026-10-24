@@ -1,0 +1,79 @@
+{
+  "schema": "agentfem.performance.rejected-experiment.v1",
+  "decision": "withdraw_runtime_candidate",
+  "scope": "serial_cyclic_P2_finite_J2_plane_penalty_MPC_not_explicit_composite",
+  "baseline_commit": "bf0033c49d7f4bc454b9cd6f365a81db7bb88662",
+  "experimental_runtime_source_sha256": "4e168c94c78d181f751fb2ee02075c3be90f8c6c7085eb6026db860f16ec8e0f",
+  "mechanism": "Reuse one full PETSc tangent allocation within a frozen equilibrium, zero and reassemble every correction; old route allocates every correction. No stale tangent reuse.",
+  "timing_boundary": "solve and observation, excludes setup; two complete warmups then ABBA",
+  "platform": "macOS-26.6.2-arm64-arm-64bit",
+  "thread_environment": {
+    "OMP_NUM_THREADS": "1",
+    "OPENBLAS_NUM_THREADS": "1",
+    "VECLIB_MAXIMUM_THREADS": "1",
+    "FI_PROVIDER": "tcp"
+  },
+  "records": [
+    {
+      "mode": "fresh_warmup",
+      "status": "completed",
+      "solve_observe_seconds": 4.216527374999714,
+      "accepted": 8,
+      "newton_iterations": 33,
+      "maximum_field_state_stress_difference": 0,
+      "maximum_relative_tangent_tensor_error": 0
+    },
+    {
+      "mode": "reused_warmup",
+      "status": "completed",
+      "solve_observe_seconds": 4.1826124580038595,
+      "accepted": 8,
+      "newton_iterations": 33,
+      "maximum_field_state_stress_difference": 0,
+      "maximum_relative_tangent_tensor_error": 0
+    },
+    {
+      "mode": "fresh",
+      "status": "completed",
+      "solve_observe_seconds": 4.165280749999511,
+      "accepted": 8,
+      "newton_iterations": 33,
+      "maximum_field_state_stress_difference": 0,
+      "maximum_relative_tangent_tensor_error": 0
+    },
+    {
+      "mode": "reused",
+      "status": "completed",
+      "solve_observe_seconds": 4.185291082998447,
+      "accepted": 8,
+      "newton_iterations": 33,
+      "maximum_field_state_stress_difference": 0,
+      "maximum_relative_tangent_tensor_error": 0
+    },
+    {
+      "mode": "reused",
+      "status": "completed",
+      "solve_observe_seconds": 4.182510083002853,
+      "accepted": 8,
+      "newton_iterations": 33,
+      "maximum_field_state_stress_difference": 0,
+      "maximum_relative_tangent_tensor_error": 0
+    },
+    {
+      "mode": "fresh",
+      "status": "completed",
+      "solve_observe_seconds": 4.205196584000078,
+      "accepted": 8,
+      "newton_iterations": 33,
+      "maximum_field_state_stress_difference": 0,
+      "maximum_relative_tangent_tensor_error": 0
+    }
+  ],
+  "mean_seconds": {
+    "fresh": 4.185238666999794,
+    "reused": 4.18390058300065
+  },
+  "elapsed_reduction_fraction": 0.0003197151000479126,
+  "conclusion": "About 0.032% mean difference is not a meaningful speed gain. Candidate and its private toggle withdrawn; no claim that reuse cannot help other workloads.",
+  "reconsider_when": "Allocation demonstrably dominates a different representative path, or reuse enables a separately validated combined architecture."
+}
