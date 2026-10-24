@@ -48,6 +48,24 @@ def reference_tangent():
     return namespace[method.name], sha256(source.encode()).hexdigest()
 
 
+def compare_tangent_tensors(actual, reference):
+    """Per-point Frobenius error; near-zero components have no independent scale.
+
+    2e-10 matches the existing scalar/batch analytic tangent relative gate and
+    is five orders stricter than the independent 2e-5 finite-difference gate.
+    Displacement, state and stress retain their separate componentwise gates.
+    """
+    actual, reference = np.asarray(actual), np.asarray(reference)
+    if actual.shape != reference.shape or not np.isfinite(actual).all() or not np.isfinite(reference).all():
+        raise AssertionError("Invalid tangent comparison arrays.")
+    delta = np.linalg.norm((actual-reference).reshape(len(actual), -1), axis=1)
+    scale = np.linalg.norm(reference.reshape(len(reference), -1), axis=1)
+    if not np.all(delta <= 2e-10 * scale):
+        raise AssertionError("Per-point tangent tensor error exceeded 2e-10 of reference stiffness.")
+    relative = np.divide(delta, scale, out=np.zeros_like(delta), where=scale > 0.)
+    return float(relative.max(initial=0.))
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--output", type=Path, required=True)
@@ -79,6 +97,10 @@ def main():
               "candidate_material_sha256": sha256((root / MATERIAL).read_bytes()).hexdigest(),
               "tool_sha256": sha256(Path(__file__).read_bytes()).hexdigest(),
               "platform": platform.platform(), "numpy": np.__version__,
+              "comparison_gates": {"displacement_state_stress_rtol": 2e-8,
+                  "displacement_state_stress_atol": 2e-10, "per_point_tangent_frobenius_rtol": 2e-10,
+                  "accepted_factors_newton_linesearch_linear_reasons": "identical"},
+              "timing_boundary": "solve and station observation; excludes setup; two complete warmups then ABBA",
               "thread_environment": {key: os.environ.get(key) for key in (
                   "OMP_NUM_THREADS", "OPENBLAS_NUM_THREADS", "VECLIB_MAXIMUM_THREADS", "FI_PROVIDER")},
               "kernels": [], "paths": []}
@@ -126,15 +148,23 @@ def main():
                     elapsed = perf_counter() - started
                 path = [(item.load_factor, item.iterations, item.accepted_step_lengths,
                          item.linear_converged_reasons) for item in step.accepted_increments]
+                row = {"route": name, "status": "checking", "solve_observe_seconds": elapsed,
+                       "accepted": len(path), "newton_iterations": sum(i[1] for i in path),
+                       "stations": observations}
+                report["paths"].append(row)
+                save()
                 if expected is None:
                     expected = snapshots, path, observations
                 if path != expected[1]:
                     raise AssertionError("Accepted increment/Newton paths changed.")
                 maximum_difference = 0.
+                maximum_tangent_error = 0.
                 for actual, previous in zip(snapshots, expected[0], strict=True):
-                    for a, b in zip(actual, previous, strict=True):
+                    for a, b in zip(actual[:3], previous[:3], strict=True):
                         np.testing.assert_allclose(a, b, rtol=2e-8, atol=2e-10)
                         maximum_difference = max(maximum_difference, float(np.max(abs(a-b))))
+                    maximum_tangent_error = max(maximum_tangent_error,
+                        compare_tangent_tensors(actual[3], previous[3]))
                 for actual, previous in zip(observations, expected[2], strict=True):
                     for key in ("force_on_structure", "pressure_area_mean", "maximum_pressure",
                                 "active_reference_area", "peeq_reference_volume_mean",
@@ -142,11 +172,8 @@ def main():
                         np.testing.assert_allclose(actual[key], previous[key], rtol=2e-8, atol=2e-10)
                     if actual["mpc_equation_mismatch"] >= 1e-10:
                         raise AssertionError("Periodic equations failed the original gate.")
-                row = {"route": name, "solve_observe_seconds": elapsed,
-                       "maximum_array_difference": maximum_difference,
-                       "accepted": len(path), "newton_iterations": sum(i[1] for i in path),
-                       "stations": observations}
-                report["paths"].append(row)
+                row.update(status="completed", maximum_displacement_state_stress_difference=maximum_difference,
+                           maximum_relative_tangent_tensor_error=maximum_tangent_error)
                 save()
                 print(json.dumps({k: v for k, v in row.items() if k != "stations"}), flush=True)
             means = {name: float(np.mean([row["solve_observe_seconds"] for row in report["paths"]
@@ -158,6 +185,8 @@ def main():
         report.update(status="completed", source_unchanged=True)
     except BaseException as exc:
         report.update(status="failed", error_type=type(exc).__name__, error=str(exc))
+        if report["paths"] and report["paths"][-1].get("status") == "checking":
+            report["paths"][-1]["status"] = "failed_comparison"
         save()
         raise
     save()

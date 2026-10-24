@@ -23,6 +23,19 @@ or a successful run is not by itself a validated engineering capability.
 
 Historical entries below remain evidence, not a second current backlog.
 
+The existing J2 tangent backend now packs its nine derivative directions into
+small rectangular products and reuses their common transform, without another
+public tuning switch. Fresh serial cyclic P2/J2/plane-penalty/MPC ABBA evidence
+measures 8.32% less solve-and-observe time with the same 32 accepted increments,
+113 Newton corrections and four-station field/state/contact comparisons.
+The 4096-point tangent kernel improves by about 35.78%, not the whole solver.
+The original near-zero-component comparison failure and its justified per-point
+tensor-scale follow-up are both retained; see
+`evidence/performance/2026-10-24-j2-tangent-block-confirmation.json` and the
+contact sprint ledger. Do not add this result to prior percentages or transfer
+it to the explicit-composite run. SVD reuse in plastic reconstruction remains
+an unpromoted candidate pending its own history/conditioning/global checks.
+
 The user's 2026-10-23 clarification keeps **solver capability and throughput
 first**. A separate contributor is handling WSL installation: inspect that
 work for later integration instead of starting a competing installation sprint.
@@ -120,12 +133,21 @@ the remaining path-accuracy uncertainty rather than selecting the more
 flattering reference. The next scientific gate remains compatible spatial
 approximation at controlled path resolution, not another controller knob.
 
+The eight-cell P2 controlled-path follow-up reached common factors 0.25 and
+0.5, then stopped at its 1800-second runner limit. At the first station,
+path refinement changes reaction by about 0.27% from fixed 128 increments,
+while the four/eight-cell controlled paths still differ by about 6.52%.
+Unloading opens contact correctly at 0.5. Preserve these partial observations
+and the timeout; they do not close full-cycle accuracy or spatial convergence.
+See `evidence/contact/2026-10-24-periodic-p2-controlled-path8.json`. No larger
+blind mesh/parameter sweep follows from this result.
+
 | Order | Work | Current decision / acceptance boundary |
 | --- | --- | --- |
 | 1 | Retain unchanged material trials and scoped linear work | Implemented for bounded serial J2/AL; combined 24.32% timing reduction with station parity and mutation/rollback/restart guards. Unsupported materials/mixed/MPI use ordinary refresh; no scope expansion inferred. |
 | 2 | Isolate spatial/path error and reduce rejected work | Spatial gate remains open. Accepted-plastic prediction now reduces rejected work on a bounded cyclic fixture; it is not an error estimator. Hold the physical patch fixed and keep volume/trace approximation and path-refinement evidence separate. |
 | 3 | Explicit body/contact critical-path reduction | Selected joined-viscosity/interior-sign route remains a late-path result, not a new full-run claim. Reuse the 25-frame baseline; the new nodal-gather prototype is withdrawn rather than added as an unproven switch. |
-| 4 | Bounded release integration | Solver/output head `0db7a413` passes its own full remote CI, including numerical and installed-wheel gates. The subsequent main integration requires its own checks. Scientific claims remain limited to passed geometry/law combinations; PR #118 remains a development candidate while spatial/reference gates are open. |
+| 4 | Bounded release integration | Solver/output and main-integration head `197ba2c8` passes its full remote CI, including numerical and installed-wheel gates. Subsequent tangent changes require their own remote checks. Scientific claims remain limited to passed geometry/law combinations; PR #118 remains a development candidate while spatial/reference gates are open. |
 
 The output/recovery review reproduced and fixed two additional failure paths:
 a closed serial writer could reopen and truncate its previous HDF5 file, and

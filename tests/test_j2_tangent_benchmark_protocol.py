@@ -6,6 +6,7 @@ from pathlib import Path
 import runpy
 import sys
 
+import numpy as np
 import pytest
 
 
@@ -43,3 +44,28 @@ def test_tangent_benchmark_never_overwrites_evidence(tmp_path, monkeypatch):
         main()
     assert error.value.code == 2
     assert output.read_text() == "keep previous evidence"
+
+
+def test_tangent_comparison_uses_each_points_stiffness_scale(monkeypatch):
+    compare = entry(monkeypatch).__globals__["compare_tangent_tensors"]
+    reference = np.full((2, 3, 3, 3, 3), 1000.)
+    reference[:, 0, 0, 1, 2] = 0.
+    actual = reference.copy()
+    actual[0, 0, 0, 1, 2] = 2.3e-9
+    assert compare(actual, reference) < 1e-12
+    # A real stiffness change is not hidden by a global norm dominated by
+    # another point, nor by a free absolute tolerance on zero reference data.
+    reference[1] *= 1e-8
+    actual = reference.copy()
+    actual[1, 0, 0, 0, 0] *= 1.00001
+    with pytest.raises(AssertionError, match="tensor error"):
+        compare(actual, reference)
+    with pytest.raises(AssertionError, match="tensor error"):
+        compare(np.ones((1, 9, 9)), np.zeros((1, 9, 9)))
+
+
+@pytest.mark.parametrize("value", [float("nan"), float("inf")])
+def test_tangent_comparison_rejects_nonfinite(monkeypatch, value):
+    compare = entry(monkeypatch).__globals__["compare_tangent_tensors"]
+    with pytest.raises(AssertionError, match="Invalid"):
+        compare(np.full((1, 9, 9), value), np.ones((1, 9, 9)))

@@ -1,0 +1,735 @@
+{
+  "schema": "agentfem.j2-tangent-algebra.v1",
+  "status": "completed",
+  "scope": "serial spectral finite-J2; not explicit composite or universal speedup",
+  "reference_revision": "197ba2c89b2e624c931258fa3416550af846ac24",
+  "reference_source_sha256": "65dfd7810a5752d3c9a8a745deffe98634c25b4755a710d62455d94e2e6f9318",
+  "runtime_source_sha256": "c137e7a37c2a47de121b907d0bbea7367eaa6d6fbffa64d6fe56392724d9c79d",
+  "candidate_material_sha256": "ac5a8b977e1eaa9da62857af347e0e7e52e15557e9cd7d997a82edf591fa68bb",
+  "tool_sha256": "c8083b1b8c10a4eb03477e5371b80765514dc2dfd465fb946863768b78e3e976",
+  "platform": "macOS-26.6.2-arm64-arm-64bit",
+  "numpy": "2.4.6",
+  "comparison_gates": {
+    "displacement_state_stress_rtol": 2e-08,
+    "displacement_state_stress_atol": 2e-10,
+    "per_point_tangent_frobenius_rtol": 2e-10,
+    "accepted_factors_newton_linesearch_linear_reasons": "identical"
+  },
+  "timing_boundary": "solve and station observation; excludes setup; two complete warmups then ABBA",
+  "thread_environment": {
+    "OMP_NUM_THREADS": "1",
+    "OPENBLAS_NUM_THREADS": "1",
+    "VECLIB_MAXIMUM_THREADS": "1",
+    "FI_PROVIDER": "tcp"
+  },
+  "kernels": [
+    {
+      "points": 1,
+      "seconds": {
+        "reference": [
+          0.00011287500001344597,
+          9.249999993699021e-05,
+          9.229099987351219e-05,
+          8.987499995782855e-05,
+          9.045799970408552e-05,
+          8.833399988361634e-05,
+          8.729199998924742e-05,
+          8.733300001040334e-05,
+          8.679099983055494e-05,
+          9.245799992640968e-05,
+          9.316699970440823e-05,
+          8.737500002098386e-05,
+          8.600000001024455e-05,
+          8.633299967186758e-05,
+          8.641700014777598e-05,
+          8.66250002218294e-05,
+          8.641599970360403e-05,
+          8.625000009487849e-05,
+          8.5834000401519e-05,
+          8.666700023240992e-05,
+          8.583299995734706e-05
+        ],
+        "optimized": [
+          9.97920001282182e-05,
+          9.904099988489179e-05,
+          9.87910002550052e-05,
+          9.083300028578378e-05,
+          8.966699988377513e-05,
+          8.845799993650871e-05,
+          8.650000017951243e-05,
+          8.658399974592612e-05,
+          8.716699994693045e-05,
+          8.658300021124887e-05,
+          8.658300021124887e-05,
+          8.704199990461348e-05,
+          8.516699972460628e-05,
+          8.533400023225113e-05,
+          8.570799991503009e-05,
+          8.55419998515572e-05,
+          8.654100020066835e-05,
+          8.558299987271312e-05,
+          8.583399994677166e-05,
+          8.629200010545901e-05,
+          8.59159999890835e-05
+        ]
+      },
+      "median_seconds": {
+        "reference": 8.729199998924742e-05,
+        "optimized": 8.658300021124887e-05
+      },
+      "median_speedup": 1.0081886718670952
+    },
+    {
+      "points": 64,
+      "seconds": {
+        "reference": [
+          0.00026562500033833203,
+          0.0003708750000441796,
+          0.00029729199968642206,
+          0.0002644999999574793,
+          0.00026008300028479425,
+          0.0002558749997660925,
+          0.00025649999997767736,
+          0.0002531669997551944,
+          0.0002559170002314204,
+          0.00025395800003025215,
+          0.00025162500014630496,
+          0.0002544579997447727,
+          0.00025645899995652144,
+          0.00025412500008314964,
+          0.00025391700000909623,
+          0.0002523749999454594,
+          0.0002557080001679424,
+          0.0002534999998715648,
+          0.00025391600001967163,
+          0.00035012499984077294,
+          0.00032245900001726113
+        ],
+        "optimized": [
+          0.0002029999996011611,
+          0.00020295800004532794,
+          0.00021925000010014628,
+          0.0002069580000352289,
+          0.0001984579998861591,
+          0.00019724999992831727,
+          0.00020095800027775113,
+          0.000195624999832944,
+          0.0001944169998751022,
+          0.0001938749996952538,
+          0.00019258299971625092,
+          0.00019420900025579613,
+          0.00019858399991790066,
+          0.0001934169999913138,
+          0.00019370800009710365,
+          0.0001937910001288401,
+          0.00019333299997015274,
+          0.00019279099979030434,
+          0.00019370800009710365,
+          0.00019645900010800688,
+          0.00022974999956204556
+        ]
+      },
+      "median_seconds": {
+        "reference": 0.0002558749997660925,
+        "optimized": 0.000195624999832944
+      },
+      "median_speedup": 1.3079872203685603
+    },
+    {
+      "points": 1025,
+      "seconds": {
+        "reference": [
+          0.0028668750001088483,
+          0.002914374999818392,
+          0.002879957999994076,
+          0.002942333999726543,
+          0.0029209999997874547,
+          0.0028876249998575076,
+          0.0028795830003218725,
+          0.002861709000171686,
+          0.002889500000037515,
+          0.0028936670000803133,
+          0.00285245799977929,
+          0.002860874999896623,
+          0.0028981249997741543,
+          0.0028642500001296867,
+          0.0028750829997079563,
+          0.0028574999996635597,
+          0.0028827500000261352,
+          0.0028672919997916324,
+          0.00291804200014667,
+          0.0028924169996571436,
+          0.003020250000190572
+        ],
+        "optimized": [
+          0.0018948749998344283,
+          0.0020340830001259746,
+          0.0019228340001973265,
+          0.002100209000218456,
+          0.0019019579999621783,
+          0.0018833330000234128,
+          0.0019169579995832464,
+          0.0018734579998636036,
+          0.001886207999632461,
+          0.0018501250001463632,
+          0.0018951249999190622,
+          0.0018955840000671742,
+          0.0019062920000578742,
+          0.0019490829999995185,
+          0.0019020830000044953,
+          0.0019440830001258291,
+          0.0019258329998592671,
+          0.001873333000276034,
+          0.0020200419999127917,
+          0.0019419160003053548,
+          0.002136042000074667
+        ]
+      },
+      "median_seconds": {
+        "reference": 0.0028827500000261352,
+        "optimized": 0.0019062920000578742
+      },
+      "median_speedup": 1.5122289764310064
+    },
+    {
+      "points": 4096,
+      "seconds": {
+        "reference": [
+          0.011330249999900843,
+          0.011086417000115034,
+          0.011275666000074125,
+          0.011304041000130383,
+          0.011325459000090632,
+          0.010974625000017113,
+          0.011092624999946565,
+          0.01109479199976704,
+          0.011170042000230751,
+          0.011183416999756446,
+          0.011162124999827938,
+          0.011463457999980164,
+          0.01136850000011691,
+          0.011157207999985985,
+          0.011238125000090804,
+          0.01133166700037691,
+          0.011196042000392481,
+          0.011202916000002006,
+          0.0110765409999658,
+          0.011175292000189074,
+          0.01125312500016662
+        ],
+        "optimized": [
+          0.007367624999915279,
+          0.007078082999669277,
+          0.007100874999650841,
+          0.007086665999850084,
+          0.00727237499995681,
+          0.007244249999985186,
+          0.007190249999894149,
+          0.007222084000204632,
+          0.007180375000189088,
+          0.0071619580003243755,
+          0.007189792000190209,
+          0.007197458000064216,
+          0.007185832999766717,
+          0.007236250000005384,
+          0.007341375000123662,
+          0.007358167000347748,
+          0.007177625000167609,
+          0.007186374999946565,
+          0.007318458000099781,
+          0.007234374999825377,
+          0.0070873750000828295
+        ]
+      },
+      "median_seconds": {
+        "reference": 0.011196042000392481,
+        "optimized": 0.007190249999894149
+      },
+      "median_speedup": 1.5571144258624252
+    }
+  ],
+  "paths": [
+    {
+      "route": "reference_warmup",
+      "status": "completed",
+      "solve_observe_seconds": 15.558638915999836,
+      "accepted": 32,
+      "newton_iterations": 113,
+      "stations": [
+        {
+          "factor": 0.25,
+          "displacement_l2": 0.011028525662171804,
+          "force_on_structure": [
+            -4.435633912983238,
+            -0.0,
+            -0.0
+          ],
+          "pressure_area_mean": 17.74253565193294,
+          "maximum_pressure": 110.33683690514273,
+          "active_reference_area": 0.22584706853648912,
+          "maximum_penetration": 0.0027584209226285683,
+          "peeq_reference_volume_mean": 0.022999396591005344,
+          "maximum_peeq": 0.05402732607897974,
+          "mpc_equation_mismatch": 3.469446951953614e-18,
+          "normal_relative_work_status": "unavailable_on_this_diagnostic_route"
+        },
+        {
+          "factor": 0.5,
+          "displacement_l2": 0.005872988483268424,
+          "force_on_structure": [
+            -0.0,
+            -0.0,
+            -0.0
+          ],
+          "pressure_area_mean": 0.0,
+          "maximum_pressure": 0.0,
+          "active_reference_area": 0.0,
+          "maximum_penetration": 0.0,
+          "peeq_reference_volume_mean": 0.030991888960922555,
+          "maximum_peeq": 0.061847537176845574,
+          "mpc_equation_mismatch": 4.336808689942018e-19,
+          "normal_relative_work_status": "unavailable_on_this_diagnostic_route"
+        },
+        {
+          "factor": 0.75,
+          "displacement_l2": 0.012744167095193623,
+          "force_on_structure": [
+            -0.0,
+            -0.0,
+            -0.0
+          ],
+          "pressure_area_mean": 0.0,
+          "maximum_pressure": 0.0,
+          "active_reference_area": 0.0,
+          "maximum_penetration": 0.0,
+          "peeq_reference_volume_mean": 0.044790373942705915,
+          "maximum_peeq": 0.07419609747966674,
+          "mpc_equation_mismatch": 1.7507301836846373e-18,
+          "normal_relative_work_status": "unavailable_on_this_diagnostic_route"
+        },
+        {
+          "factor": 1.0,
+          "displacement_l2": 0.011332550433170203,
+          "force_on_structure": [
+            -3.2924208288835684,
+            -0.0,
+            -0.0
+          ],
+          "pressure_area_mean": 13.16968331553427,
+          "maximum_pressure": 100.46003408886506,
+          "active_reference_area": 0.17823615565814843,
+          "maximum_penetration": 0.0025115008522216264,
+          "peeq_reference_volume_mean": 0.06238308450239109,
+          "maximum_peeq": 0.09270678012956289,
+          "mpc_equation_mismatch": 3.469446951953614e-18,
+          "normal_relative_work_status": "unavailable_on_this_diagnostic_route"
+        }
+      ],
+      "maximum_displacement_state_stress_difference": 0.0,
+      "maximum_relative_tangent_tensor_error": 0.0
+    },
+    {
+      "route": "candidate_warmup",
+      "status": "completed",
+      "solve_observe_seconds": 14.155857042000207,
+      "accepted": 32,
+      "newton_iterations": 113,
+      "stations": [
+        {
+          "factor": 0.25,
+          "displacement_l2": 0.0110285256621718,
+          "force_on_structure": [
+            -4.4356339129835725,
+            -0.0,
+            -0.0
+          ],
+          "pressure_area_mean": 17.742535651934283,
+          "maximum_pressure": 110.33683690514273,
+          "active_reference_area": 0.22584706853648912,
+          "maximum_penetration": 0.0027584209226285683,
+          "peeq_reference_volume_mean": 0.02299939659100533,
+          "maximum_peeq": 0.05402732607897968,
+          "mpc_equation_mismatch": 1.734723475976807e-18,
+          "normal_relative_work_status": "unavailable_on_this_diagnostic_route"
+        },
+        {
+          "factor": 0.5,
+          "displacement_l2": 0.005872988483268425,
+          "force_on_structure": [
+            -0.0,
+            -0.0,
+            -0.0
+          ],
+          "pressure_area_mean": 0.0,
+          "maximum_pressure": 0.0,
+          "active_reference_area": 0.0,
+          "maximum_penetration": 0.0,
+          "peeq_reference_volume_mean": 0.030991888960922562,
+          "maximum_peeq": 0.06184753717684544,
+          "mpc_equation_mismatch": 4.336808689942018e-19,
+          "normal_relative_work_status": "unavailable_on_this_diagnostic_route"
+        },
+        {
+          "factor": 0.75,
+          "displacement_l2": 0.012744167095193645,
+          "force_on_structure": [
+            -0.0,
+            -0.0,
+            -0.0
+          ],
+          "pressure_area_mean": 0.0,
+          "maximum_pressure": 0.0,
+          "active_reference_area": 0.0,
+          "maximum_penetration": 0.0,
+          "peeq_reference_volume_mean": 0.04479037394270596,
+          "maximum_peeq": 0.07419609747966747,
+          "mpc_equation_mismatch": 1.734723475976807e-18,
+          "normal_relative_work_status": "unavailable_on_this_diagnostic_route"
+        },
+        {
+          "factor": 1.0,
+          "displacement_l2": 0.011332550433170196,
+          "force_on_structure": [
+            -3.2924208288839814,
+            -0.0,
+            -0.0
+          ],
+          "pressure_area_mean": 13.169683315535924,
+          "maximum_pressure": 100.46003408886506,
+          "active_reference_area": 0.17823615565814843,
+          "maximum_penetration": 0.0025115008522216264,
+          "peeq_reference_volume_mean": 0.062383084502391044,
+          "maximum_peeq": 0.09270678012956021,
+          "mpc_equation_mismatch": 1.734723475976807e-18,
+          "normal_relative_work_status": "unavailable_on_this_diagnostic_route"
+        }
+      ],
+      "maximum_displacement_state_stress_difference": 3.707079088144383e-11,
+      "maximum_relative_tangent_tensor_error": 4.5422237789374974e-12
+    },
+    {
+      "route": "reference",
+      "status": "completed",
+      "solve_observe_seconds": 15.404448166000293,
+      "accepted": 32,
+      "newton_iterations": 113,
+      "stations": [
+        {
+          "factor": 0.25,
+          "displacement_l2": 0.011028525662171804,
+          "force_on_structure": [
+            -4.435633912983238,
+            -0.0,
+            -0.0
+          ],
+          "pressure_area_mean": 17.74253565193294,
+          "maximum_pressure": 110.33683690514273,
+          "active_reference_area": 0.22584706853648912,
+          "maximum_penetration": 0.0027584209226285683,
+          "peeq_reference_volume_mean": 0.022999396591005344,
+          "maximum_peeq": 0.05402732607897974,
+          "mpc_equation_mismatch": 3.469446951953614e-18,
+          "normal_relative_work_status": "unavailable_on_this_diagnostic_route"
+        },
+        {
+          "factor": 0.5,
+          "displacement_l2": 0.005872988483268424,
+          "force_on_structure": [
+            -0.0,
+            -0.0,
+            -0.0
+          ],
+          "pressure_area_mean": 0.0,
+          "maximum_pressure": 0.0,
+          "active_reference_area": 0.0,
+          "maximum_penetration": 0.0,
+          "peeq_reference_volume_mean": 0.030991888960922555,
+          "maximum_peeq": 0.061847537176845574,
+          "mpc_equation_mismatch": 4.336808689942018e-19,
+          "normal_relative_work_status": "unavailable_on_this_diagnostic_route"
+        },
+        {
+          "factor": 0.75,
+          "displacement_l2": 0.012744167095193623,
+          "force_on_structure": [
+            -0.0,
+            -0.0,
+            -0.0
+          ],
+          "pressure_area_mean": 0.0,
+          "maximum_pressure": 0.0,
+          "active_reference_area": 0.0,
+          "maximum_penetration": 0.0,
+          "peeq_reference_volume_mean": 0.044790373942705915,
+          "maximum_peeq": 0.07419609747966674,
+          "mpc_equation_mismatch": 1.7507301836846373e-18,
+          "normal_relative_work_status": "unavailable_on_this_diagnostic_route"
+        },
+        {
+          "factor": 1.0,
+          "displacement_l2": 0.011332550433170203,
+          "force_on_structure": [
+            -3.2924208288835684,
+            -0.0,
+            -0.0
+          ],
+          "pressure_area_mean": 13.16968331553427,
+          "maximum_pressure": 100.46003408886506,
+          "active_reference_area": 0.17823615565814843,
+          "maximum_penetration": 0.0025115008522216264,
+          "peeq_reference_volume_mean": 0.06238308450239109,
+          "maximum_peeq": 0.09270678012956289,
+          "mpc_equation_mismatch": 3.469446951953614e-18,
+          "normal_relative_work_status": "unavailable_on_this_diagnostic_route"
+        }
+      ],
+      "maximum_displacement_state_stress_difference": 0.0,
+      "maximum_relative_tangent_tensor_error": 0.0
+    },
+    {
+      "route": "candidate",
+      "status": "completed",
+      "solve_observe_seconds": 14.128687333000016,
+      "accepted": 32,
+      "newton_iterations": 113,
+      "stations": [
+        {
+          "factor": 0.25,
+          "displacement_l2": 0.0110285256621718,
+          "force_on_structure": [
+            -4.4356339129835725,
+            -0.0,
+            -0.0
+          ],
+          "pressure_area_mean": 17.742535651934283,
+          "maximum_pressure": 110.33683690514273,
+          "active_reference_area": 0.22584706853648912,
+          "maximum_penetration": 0.0027584209226285683,
+          "peeq_reference_volume_mean": 0.02299939659100533,
+          "maximum_peeq": 0.05402732607897968,
+          "mpc_equation_mismatch": 1.734723475976807e-18,
+          "normal_relative_work_status": "unavailable_on_this_diagnostic_route"
+        },
+        {
+          "factor": 0.5,
+          "displacement_l2": 0.005872988483268425,
+          "force_on_structure": [
+            -0.0,
+            -0.0,
+            -0.0
+          ],
+          "pressure_area_mean": 0.0,
+          "maximum_pressure": 0.0,
+          "active_reference_area": 0.0,
+          "maximum_penetration": 0.0,
+          "peeq_reference_volume_mean": 0.030991888960922562,
+          "maximum_peeq": 0.06184753717684544,
+          "mpc_equation_mismatch": 4.336808689942018e-19,
+          "normal_relative_work_status": "unavailable_on_this_diagnostic_route"
+        },
+        {
+          "factor": 0.75,
+          "displacement_l2": 0.012744167095193645,
+          "force_on_structure": [
+            -0.0,
+            -0.0,
+            -0.0
+          ],
+          "pressure_area_mean": 0.0,
+          "maximum_pressure": 0.0,
+          "active_reference_area": 0.0,
+          "maximum_penetration": 0.0,
+          "peeq_reference_volume_mean": 0.04479037394270596,
+          "maximum_peeq": 0.07419609747966747,
+          "mpc_equation_mismatch": 1.734723475976807e-18,
+          "normal_relative_work_status": "unavailable_on_this_diagnostic_route"
+        },
+        {
+          "factor": 1.0,
+          "displacement_l2": 0.011332550433170196,
+          "force_on_structure": [
+            -3.2924208288839814,
+            -0.0,
+            -0.0
+          ],
+          "pressure_area_mean": 13.169683315535924,
+          "maximum_pressure": 100.46003408886506,
+          "active_reference_area": 0.17823615565814843,
+          "maximum_penetration": 0.0025115008522216264,
+          "peeq_reference_volume_mean": 0.062383084502391044,
+          "maximum_peeq": 0.09270678012956021,
+          "mpc_equation_mismatch": 1.734723475976807e-18,
+          "normal_relative_work_status": "unavailable_on_this_diagnostic_route"
+        }
+      ],
+      "maximum_displacement_state_stress_difference": 3.707079088144383e-11,
+      "maximum_relative_tangent_tensor_error": 4.5422237789374974e-12
+    },
+    {
+      "route": "candidate",
+      "status": "completed",
+      "solve_observe_seconds": 14.098977041000126,
+      "accepted": 32,
+      "newton_iterations": 113,
+      "stations": [
+        {
+          "factor": 0.25,
+          "displacement_l2": 0.0110285256621718,
+          "force_on_structure": [
+            -4.4356339129835725,
+            -0.0,
+            -0.0
+          ],
+          "pressure_area_mean": 17.742535651934283,
+          "maximum_pressure": 110.33683690514273,
+          "active_reference_area": 0.22584706853648912,
+          "maximum_penetration": 0.0027584209226285683,
+          "peeq_reference_volume_mean": 0.02299939659100533,
+          "maximum_peeq": 0.05402732607897968,
+          "mpc_equation_mismatch": 1.734723475976807e-18,
+          "normal_relative_work_status": "unavailable_on_this_diagnostic_route"
+        },
+        {
+          "factor": 0.5,
+          "displacement_l2": 0.005872988483268425,
+          "force_on_structure": [
+            -0.0,
+            -0.0,
+            -0.0
+          ],
+          "pressure_area_mean": 0.0,
+          "maximum_pressure": 0.0,
+          "active_reference_area": 0.0,
+          "maximum_penetration": 0.0,
+          "peeq_reference_volume_mean": 0.030991888960922562,
+          "maximum_peeq": 0.06184753717684544,
+          "mpc_equation_mismatch": 4.336808689942018e-19,
+          "normal_relative_work_status": "unavailable_on_this_diagnostic_route"
+        },
+        {
+          "factor": 0.75,
+          "displacement_l2": 0.012744167095193645,
+          "force_on_structure": [
+            -0.0,
+            -0.0,
+            -0.0
+          ],
+          "pressure_area_mean": 0.0,
+          "maximum_pressure": 0.0,
+          "active_reference_area": 0.0,
+          "maximum_penetration": 0.0,
+          "peeq_reference_volume_mean": 0.04479037394270596,
+          "maximum_peeq": 0.07419609747966747,
+          "mpc_equation_mismatch": 1.734723475976807e-18,
+          "normal_relative_work_status": "unavailable_on_this_diagnostic_route"
+        },
+        {
+          "factor": 1.0,
+          "displacement_l2": 0.011332550433170196,
+          "force_on_structure": [
+            -3.2924208288839814,
+            -0.0,
+            -0.0
+          ],
+          "pressure_area_mean": 13.169683315535924,
+          "maximum_pressure": 100.46003408886506,
+          "active_reference_area": 0.17823615565814843,
+          "maximum_penetration": 0.0025115008522216264,
+          "peeq_reference_volume_mean": 0.062383084502391044,
+          "maximum_peeq": 0.09270678012956021,
+          "mpc_equation_mismatch": 1.734723475976807e-18,
+          "normal_relative_work_status": "unavailable_on_this_diagnostic_route"
+        }
+      ],
+      "maximum_displacement_state_stress_difference": 3.707079088144383e-11,
+      "maximum_relative_tangent_tensor_error": 4.5422237789374974e-12
+    },
+    {
+      "route": "reference",
+      "status": "completed",
+      "solve_observe_seconds": 15.386369249999916,
+      "accepted": 32,
+      "newton_iterations": 113,
+      "stations": [
+        {
+          "factor": 0.25,
+          "displacement_l2": 0.011028525662171804,
+          "force_on_structure": [
+            -4.435633912983238,
+            -0.0,
+            -0.0
+          ],
+          "pressure_area_mean": 17.74253565193294,
+          "maximum_pressure": 110.33683690514273,
+          "active_reference_area": 0.22584706853648912,
+          "maximum_penetration": 0.0027584209226285683,
+          "peeq_reference_volume_mean": 0.022999396591005344,
+          "maximum_peeq": 0.05402732607897974,
+          "mpc_equation_mismatch": 3.469446951953614e-18,
+          "normal_relative_work_status": "unavailable_on_this_diagnostic_route"
+        },
+        {
+          "factor": 0.5,
+          "displacement_l2": 0.005872988483268424,
+          "force_on_structure": [
+            -0.0,
+            -0.0,
+            -0.0
+          ],
+          "pressure_area_mean": 0.0,
+          "maximum_pressure": 0.0,
+          "active_reference_area": 0.0,
+          "maximum_penetration": 0.0,
+          "peeq_reference_volume_mean": 0.030991888960922555,
+          "maximum_peeq": 0.061847537176845574,
+          "mpc_equation_mismatch": 4.336808689942018e-19,
+          "normal_relative_work_status": "unavailable_on_this_diagnostic_route"
+        },
+        {
+          "factor": 0.75,
+          "displacement_l2": 0.012744167095193623,
+          "force_on_structure": [
+            -0.0,
+            -0.0,
+            -0.0
+          ],
+          "pressure_area_mean": 0.0,
+          "maximum_pressure": 0.0,
+          "active_reference_area": 0.0,
+          "maximum_penetration": 0.0,
+          "peeq_reference_volume_mean": 0.044790373942705915,
+          "maximum_peeq": 0.07419609747966674,
+          "mpc_equation_mismatch": 1.7507301836846373e-18,
+          "normal_relative_work_status": "unavailable_on_this_diagnostic_route"
+        },
+        {
+          "factor": 1.0,
+          "displacement_l2": 0.011332550433170203,
+          "force_on_structure": [
+            -3.2924208288835684,
+            -0.0,
+            -0.0
+          ],
+          "pressure_area_mean": 13.16968331553427,
+          "maximum_pressure": 100.46003408886506,
+          "active_reference_area": 0.17823615565814843,
+          "maximum_penetration": 0.0025115008522216264,
+          "peeq_reference_volume_mean": 0.06238308450239109,
+          "maximum_peeq": 0.09270678012956289,
+          "mpc_equation_mismatch": 3.469446951953614e-18,
+          "normal_relative_work_status": "unavailable_on_this_diagnostic_route"
+        }
+      ],
+      "maximum_displacement_state_stress_difference": 0.0,
+      "maximum_relative_tangent_tensor_error": 0.0
+    }
+  ],
+  "global_abba": {
+    "mean_seconds": {
+      "reference": 15.395408708000105,
+      "candidate": 14.113832187000071
+    },
+    "elapsed_reduction": 0.08324407265226241
+  },
+  "source_unchanged": true
+}

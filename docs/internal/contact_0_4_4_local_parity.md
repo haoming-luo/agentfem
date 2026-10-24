@@ -24,6 +24,73 @@ being silently approximated by the bounded route.
 
 ## Live gate status
 
+### Batched J2 tangent contractions (2026-10-24)
+
+The existing logarithmic J2 derivative still evaluates the same nine dP/dF
+directions. Its chunk-local push-forward now forms the common U^T F^-T once
+and packs directions into 3x27/27x3 products instead of 27 separate 3x3 products
+per point. No material law, iteration tolerance, state owner, cache lifetime or
+public option changes. The 1024-point scratch bound remains unchanged.
+
+The first global comparison failed a componentwise tangent gate: four of
+746496 entries differed by at most 2.295e-9, while displacement, state, stress
+and the accepted Newton path had already passed. Keep that failure in
+`evidence/performance/2026-10-24-j2-tangent-block-contractions.json`, with its
+source reconstructable at `a0c06894`. The revised comparison uses each point's
+Frobenius stiffness scale, relative tolerance 2e-10, rather than assigning
+small off-diagonal entries their own scale. This matches the existing
+scalar/batch analytic relative gate and is five orders tighter than the
+independent numerical-derivative gate, 2e-5. The original displacement/state/
+stress gates (rtol 2e-8, atol 2e-10), force checks and exact increment/Newton/
+line-search/linear-reason comparisons are unchanged. Added tests reject real
+changes at individually soft points, zero-reference changes and nonfinite data.
+
+Fresh isolated confirmation uses the public four-cell-edge cyclic P2/J2/plane
+penalty/MPC diagnostic, not the explicit composite model. After two full
+warmups, ABBA solve-and-observe times are 15.40445, 14.12869, 14.09898 and
+15.38637 s: means 15.39541 -> 14.11383 s, **8.32% less elapsed time**.
+All paths retain 32 accepted increments and 113 Newton corrections; maximum
+U/state/stress difference is 3.708e-11 and maximum per-point relative tangent
+error 4.543e-12. Four-station force, pressure, contact area, PEEQ and displacement
+comparisons pass. The same fresh report measures about 35.78% less analytic
+tangent time at 4096 material points; that kernel number is not a solver gain.
+Setup and file publication are excluded; station observations are included.
+Source hashes remain unchanged across the comparison. Evidence:
+`evidence/performance/2026-10-24-j2-tangent-block-confirmation.json`.
+
+Seventy-five focused material/periodic-contact/reuse/protocol tests passed
+before the comparison-rule follow-up; forty material/protocol tests then passed,
+including independent finite-difference derivatives and a 1025-point chunk
+boundary with plastic history, repeated stretches and rigid rotation. Counts
+overlap. Final expanded targeted acceptance passes 177 tests, adding standard
+boundary and periodic global-J2 paths. This does not close spatial accuracy, independent external comparison,
+MPI admission or explicit-composite performance. A separate SVD-based plastic
+gradient reconstruction remains exploratory; it is not included in this core
+change or its timing claim.
+
+### Controlled P2 spatial-path diagnostic (2026-10-24)
+
+The existing Gaussian-penalty diagnostic now accepts the existing automatic
+plastic-increment policy; it does not own a new solver. The eight-cell-edge P2
+run at source `197ba2c8`, bulk/contact quadrature 6/11 and plastic limit
+0.000375 reached common stations 0.25 and 0.5 before its external 1800-second
+budget expired. Its process exited and the partial scalar evidence is retained
+as failed/TimeoutExpired, not completed or a numerical-convergence diagnosis:
+`evidence/contact/2026-10-24-periodic-p2-controlled-path8.json`.
+
+At 0.25 its reaction is -4.192627056 N, compared with -4.181129794 N on the
+same mesh with 128 fixed increments (about 0.27% difference). The four-cell
+refined-prediction reaction is -4.485281459 N (about 6.52% spatial difference
+relative to that coarse value). The active reference areas also differ:
+0.25 versus 0.225847069 square metres. At 0.5 the fine diagnostic opens contact,
+with zero force/pressure/penetration and MPC mismatch below 1e-18. These are
+two accepted stations only: reverse loading, final recontact, full-cycle path
+accuracy and spatial convergence remain unverified. The Gaussian route still
+has no normal-relative-work ledger; no general energy-closure claim follows.
+Do not launch a larger blind sweep from this partial result. Fixed-increment
+CLI validation again rejects non-positive/non-quarter-compatible partitions
+before starting a model; four regressions cover that diagnostic guard.
+
 ### Accepted-plastic increment prediction (2026-10-23)
 
 The two-hour solver sprint promotes the private work-reduction experiment into
