@@ -1,0 +1,931 @@
+{
+  "scope": "Selected ill-conditioned cyclic history points; high-precision arithmetic reference, not performance or external physics validation",
+  "mpmath": "1.4.1",
+  "decimal_digits": 80,
+  "numpy": "2.4.6",
+  "points": [
+    {
+      "point_index": 0,
+      "hardening": 0.0,
+      "initial_plastic_condition": 1.0,
+      "stations": [
+        {
+          "station": 0,
+          "condition_gradient": 1.0,
+          "fields": {
+            "cauchy_stress": {
+              "reference_frobenius_norm": 0.0,
+              "scalar_frobenius_error": 0.0,
+              "batch_frobenius_error": 0.0,
+              "scalar_batch_frobenius_difference": 0.0
+            },
+            "first_piola_stress": {
+              "reference_frobenius_norm": 0.0,
+              "scalar_frobenius_error": 0.0,
+              "batch_frobenius_error": 0.0,
+              "scalar_batch_frobenius_difference": 0.0
+            }
+          }
+        },
+        {
+          "station": 1,
+          "condition_gradient": 1.0832639744204595,
+          "fields": {
+            "cauchy_stress": {
+              "reference_frobenius_norm": 1.6329931618554518,
+              "scalar_frobenius_error": 2.555104524935354e-13,
+              "batch_frobenius_error": 2.555104524935354e-13,
+              "scalar_batch_frobenius_difference": 0.0
+            },
+            "first_piola_stress": {
+              "reference_frobenius_norm": 1.6356038640208541,
+              "scalar_frobenius_error": 2.557076886985914e-13,
+              "batch_frobenius_error": 2.557076886985914e-13,
+              "scalar_batch_frobenius_difference": 0.0
+            }
+          }
+        },
+        {
+          "station": 2,
+          "condition_gradient": 1.0202009999750012,
+          "fields": {
+            "cauchy_stress": {
+              "reference_frobenius_norm": 1.6329931618554523,
+              "scalar_frobenius_error": 3.670538557806019e-12,
+              "batch_frobenius_error": 3.2081008397171873e-13,
+              "scalar_batch_frobenius_difference": 3.991288335020595e-12
+            },
+            "first_piola_stress": {
+              "reference_frobenius_norm": 1.6331564530074847,
+              "scalar_frobenius_error": 3.670806801700758e-12,
+              "batch_frobenius_error": 3.2074015432347206e-13,
+              "scalar_batch_frobenius_difference": 3.991485924856244e-12
+            }
+          }
+        },
+        {
+          "station": 3,
+          "condition_gradient": 1.105124921972504,
+          "fields": {
+            "cauchy_stress": {
+              "reference_frobenius_norm": 1.632993161855452,
+              "scalar_frobenius_error": 3.4229684014815186e-12,
+              "batch_frobenius_error": 3.8150435325280525e-14,
+              "scalar_batch_frobenius_difference": 3.3849675337819747e-12
+            },
+            "first_piola_stress": {
+              "reference_frobenius_norm": 1.6370705543744943,
+              "scalar_frobenius_error": 3.428747821207968e-12,
+              "batch_frobenius_error": 3.810968426725875e-14,
+              "scalar_batch_frobenius_difference": 3.3907777064566993e-12
+            }
+          }
+        },
+        {
+          "station": 4,
+          "condition_gradient": 1.0202009999750015,
+          "fields": {
+            "cauchy_stress": {
+              "reference_frobenius_norm": 1.632993161855452,
+              "scalar_frobenius_error": 4.09789247751626e-12,
+              "batch_frobenius_error": 5.62944979877897e-13,
+              "scalar_batch_frobenius_difference": 3.5349799306623404e-12
+            },
+            "first_piola_stress": {
+              "reference_frobenius_norm": 1.6331564530074865,
+              "scalar_frobenius_error": 4.098252500675509e-12,
+              "batch_frobenius_error": 5.629440328975062e-13,
+              "scalar_batch_frobenius_difference": 3.5353404283636104e-12
+            }
+          }
+        },
+        {
+          "station": 5,
+          "condition_gradient": 1.1274158059491346,
+          "fields": {
+            "cauchy_stress": {
+              "reference_frobenius_norm": 1.632993161855452,
+              "scalar_frobenius_error": 4.2526471828902235e-12,
+              "batch_frobenius_error": 7.079510366805595e-13,
+              "scalar_batch_frobenius_difference": 3.5447050525085675e-12
+            },
+            "first_piola_stress": {
+              "reference_frobenius_norm": 1.6388613933663447,
+              "scalar_frobenius_error": 4.262440364178926e-12,
+              "batch_frobenius_error": 7.098333600961519e-13,
+              "scalar_batch_frobenius_difference": 3.5526155125015955e-12
+            }
+          }
+        }
+      ]
+    },
+    {
+      "point_index": 512,
+      "hardening": 0.0,
+      "initial_plastic_condition": 99.99999999999993,
+      "stations": [
+        {
+          "station": 0,
+          "condition_gradient": 99.99999999999993,
+          "fields": {
+            "cauchy_stress": {
+              "reference_frobenius_norm": 0.0,
+              "scalar_frobenius_error": 4.887339739006406e-13,
+              "batch_frobenius_error": 4.887339739006406e-13,
+              "scalar_batch_frobenius_difference": 0.0
+            },
+            "first_piola_stress": {
+              "reference_frobenius_norm": 0.0,
+              "scalar_frobenius_error": 4.383860638498488e-12,
+              "batch_frobenius_error": 4.383860638498488e-12,
+              "scalar_batch_frobenius_difference": 0.0
+            }
+          }
+        },
+        {
+          "station": 1,
+          "condition_gradient": 105.4780289075011,
+          "fields": {
+            "cauchy_stress": {
+              "reference_frobenius_norm": 1.6329931618554472,
+              "scalar_frobenius_error": 1.3922968420151993e-12,
+              "batch_frobenius_error": 1.3922968420151993e-12,
+              "scalar_batch_frobenius_difference": 0.0
+            },
+            "first_piola_stress": {
+              "reference_frobenius_norm": 11.859595808444348,
+              "scalar_frobenius_error": 8.361193805437826e-12,
+              "batch_frobenius_error": 8.361193805437826e-12,
+              "scalar_batch_frobenius_difference": 0.0
+            }
+          }
+        },
+        {
+          "station": 2,
+          "condition_gradient": 101.35380864398415,
+          "fields": {
+            "cauchy_stress": {
+              "reference_frobenius_norm": 1.6329931618554474,
+              "scalar_frobenius_error": 2.4581160905091003e-12,
+              "batch_frobenius_error": 2.3632254756658477e-12,
+              "scalar_batch_frobenius_difference": 9.666577120744248e-14
+            },
+            "first_piola_stress": {
+              "reference_frobenius_norm": 11.62547060389794,
+              "scalar_frobenius_error": 1.4445005978690062e-11,
+              "batch_frobenius_error": 1.3989341612366563e-11,
+              "scalar_batch_frobenius_difference": 4.623009456684151e-13
+            }
+          }
+        },
+        {
+          "station": 3,
+          "condition_gradient": 93.38793979491244,
+          "fields": {
+            "cauchy_stress": {
+              "reference_frobenius_norm": 1.6329931618554538,
+              "scalar_frobenius_error": 6.6957255394568525e-12,
+              "batch_frobenius_error": 2.5899288688999495e-12,
+              "scalar_batch_frobenius_difference": 4.105989226057867e-12
+            },
+            "first_piola_stress": {
+              "reference_frobenius_norm": 11.159369624697973,
+              "scalar_frobenius_error": 3.7611668617884214e-11,
+              "batch_frobenius_error": 1.4685680143078507e-11,
+              "scalar_batch_frobenius_difference": 2.292617888247859e-11
+            }
+          }
+        },
+        {
+          "station": 4,
+          "condition_gradient": 98.65665697664417,
+          "fields": {
+            "cauchy_stress": {
+              "reference_frobenius_norm": 1.6329931618554512,
+              "scalar_frobenius_error": 6.811341642011027e-12,
+              "batch_frobenius_error": 1.0218060080775578e-12,
+              "scalar_batch_frobenius_difference": 5.789668008130179e-12
+            },
+            "first_piola_stress": {
+              "reference_frobenius_norm": 11.469774373845478,
+              "scalar_frobenius_error": 3.9365887993226134e-11,
+              "batch_frobenius_error": 5.85200681604387e-12,
+              "scalar_batch_frobenius_difference": 3.351445471240395e-11
+            }
+          }
+        },
+        {
+          "station": 5,
+          "condition_gradient": 108.27983827185254,
+          "fields": {
+            "cauchy_stress": {
+              "reference_frobenius_norm": 1.6329931618554496,
+              "scalar_frobenius_error": 9.41493435516656e-12,
+              "batch_frobenius_error": 2.7446146382652416e-12,
+              "scalar_batch_frobenius_difference": 6.670330123829634e-12
+            },
+            "first_piola_stress": {
+              "reference_frobenius_norm": 12.016048912545132,
+              "scalar_frobenius_error": 5.6913255073041346e-11,
+              "batch_frobenius_error": 1.656586118120307e-11,
+              "scalar_batch_frobenius_difference": 4.0347394119336297e-11
+            }
+          }
+        }
+      ]
+    },
+    {
+      "point_index": 1022,
+      "hardening": 0.0,
+      "initial_plastic_condition": 9821.718891883334,
+      "stations": [
+        {
+          "station": 0,
+          "condition_gradient": 9821.718891883334,
+          "fields": {
+            "cauchy_stress": {
+              "reference_frobenius_norm": 0.0,
+              "scalar_frobenius_error": 1.7245066927417677e-10,
+              "batch_frobenius_error": 1.7245066927417677e-10,
+              "scalar_batch_frobenius_difference": 0.0
+            },
+            "first_piola_stress": {
+              "reference_frobenius_norm": 0.0,
+              "scalar_frobenius_error": 9.497537558229717e-09,
+              "batch_frobenius_error": 9.497537558229717e-09,
+              "scalar_batch_frobenius_difference": 0.0
+            }
+          }
+        },
+        {
+          "station": 1,
+          "condition_gradient": 10359.752000414317,
+          "fields": {
+            "cauchy_stress": {
+              "reference_frobenius_norm": 1.6329931618557416,
+              "scalar_frobenius_error": 6.1603532212553024e-12,
+              "batch_frobenius_error": 6.1603532212553024e-12,
+              "scalar_batch_frobenius_difference": 0.0
+            },
+            "first_piola_stress": {
+              "reference_frobenius_norm": 117.52873178841966,
+              "scalar_frobenius_error": 3.662036208675427e-10,
+              "batch_frobenius_error": 3.662036208675427e-10,
+              "scalar_batch_frobenius_difference": 0.0
+            }
+          }
+        },
+        {
+          "station": 2,
+          "condition_gradient": 9954.685955969358,
+          "fields": {
+            "cauchy_stress": {
+              "reference_frobenius_norm": 1.6329931618560225,
+              "scalar_frobenius_error": 1.3869246362115186e-10,
+              "batch_frobenius_error": 3.606882398412749e-11,
+              "scalar_batch_frobenius_difference": 1.7460961417976488e-10
+            },
+            "first_piola_stress": {
+              "reference_frobenius_norm": 115.20813660444347,
+              "scalar_frobenius_error": 8.062475105831442e-09,
+              "batch_frobenius_error": 2.2819706792193403e-09,
+              "scalar_batch_frobenius_difference": 1.0339093679827546e-08
+            }
+          }
+        },
+        {
+          "station": 3,
+          "condition_gradient": 9172.295701887862,
+          "fields": {
+            "cauchy_stress": {
+              "reference_frobenius_norm": 1.6329931618556088,
+              "scalar_frobenius_error": 1.5449199646115008e-10,
+              "batch_frobenius_error": 1.1206517544599535e-10,
+              "scalar_batch_frobenius_difference": 4.24461532473567e-11
+            },
+            "first_piola_stress": {
+              "reference_frobenius_norm": 110.58809949054881,
+              "scalar_frobenius_error": 8.57751971183487e-09,
+              "batch_frobenius_error": 6.2939373919977545e-09,
+              "scalar_batch_frobenius_difference": 2.2839497821426898e-09
+            }
+          }
+        },
+        {
+          "station": 4,
+          "condition_gradient": 9689.77930315521,
+          "fields": {
+            "cauchy_stress": {
+              "reference_frobenius_norm": 1.6329931618556772,
+              "scalar_frobenius_error": 1.9329964078581284e-10,
+              "batch_frobenius_error": 1.563441993303015e-10,
+              "scalar_batch_frobenius_difference": 3.698274015424976e-11
+            },
+            "first_piola_stress": {
+              "reference_frobenius_norm": 113.66488408699928,
+              "scalar_frobenius_error": 1.104930083175813e-08,
+              "batch_frobenius_error": 9.00445464948493e-09,
+              "scalar_batch_frobenius_difference": 2.0460126664964787e-09
+            }
+          }
+        },
+        {
+          "station": 5,
+          "condition_gradient": 10634.933406870668,
+          "fields": {
+            "cauchy_stress": {
+              "reference_frobenius_norm": 1.6329931618557565,
+              "scalar_frobenius_error": 1.2124766512634035e-11,
+              "batch_frobenius_error": 1.983464617413966e-10,
+              "scalar_batch_frobenius_difference": 2.1032794895352678e-10
+            },
+            "first_piola_stress": {
+              "reference_frobenius_norm": 119.07943287796418,
+              "scalar_frobenius_error": 6.743832692138941e-10,
+              "batch_frobenius_error": 1.1867856064520428e-08,
+              "scalar_batch_frobenius_difference": 1.253698517281182e-08
+            }
+          }
+        }
+      ]
+    },
+    {
+      "point_index": 1024,
+      "hardening": 0.0,
+      "initial_plastic_condition": 9999.999999999722,
+      "stations": [
+        {
+          "station": 0,
+          "condition_gradient": 9999.999999999722,
+          "fields": {
+            "cauchy_stress": {
+              "reference_frobenius_norm": 0.0,
+              "scalar_frobenius_error": 4.6422343889089784e-11,
+              "batch_frobenius_error": 4.6422343889089784e-11,
+              "scalar_batch_frobenius_difference": 0.0
+            },
+            "first_piola_stress": {
+              "reference_frobenius_norm": 0.0,
+              "scalar_frobenius_error": 2.4024359986891257e-09,
+              "batch_frobenius_error": 2.4024359986891257e-09,
+              "scalar_batch_frobenius_difference": 0.0
+            }
+          }
+        },
+        {
+          "station": 1,
+          "condition_gradient": 10547.799335777478,
+          "fields": {
+            "cauchy_stress": {
+              "reference_frobenius_norm": 1.6329931618554572,
+              "scalar_frobenius_error": 1.0861834257971945e-10,
+              "batch_frobenius_error": 1.0861834257971945e-10,
+              "scalar_batch_frobenius_difference": 0.0
+            },
+            "first_piola_stress": {
+              "reference_frobenius_norm": 118.5906091363911,
+              "scalar_frobenius_error": 6.4259960398977825e-09,
+              "batch_frobenius_error": 6.4259960398977825e-09,
+              "scalar_batch_frobenius_difference": 0.0
+            }
+          }
+        },
+        {
+          "station": 2,
+          "condition_gradient": 10135.380645230605,
+          "fields": {
+            "cauchy_stress": {
+              "reference_frobenius_norm": 1.6329931618551656,
+              "scalar_frobenius_error": 2.7621059646156e-10,
+              "batch_frobenius_error": 3.358000887404112e-10,
+              "scalar_batch_frobenius_difference": 5.971808668577748e-11
+            },
+            "first_piola_stress": {
+              "reference_frobenius_norm": 116.24904727792948,
+              "scalar_frobenius_error": 1.6273725053091875e-08,
+              "batch_frobenius_error": 2.0026467567955755e-08,
+              "scalar_batch_frobenius_difference": 3.756968056495954e-09
+            }
+          }
+        },
+        {
+          "station": 3,
+          "condition_gradient": 9338.788660963623,
+          "fields": {
+            "cauchy_stress": {
+              "reference_frobenius_norm": 1.6329931618551503,
+              "scalar_frobenius_error": 2.458302285002089e-10,
+              "batch_frobenius_error": 6.02176178889372e-10,
+              "scalar_batch_frobenius_difference": 3.563624937231344e-10
+            },
+            "first_piola_stress": {
+              "reference_frobenius_norm": 111.5872679052821,
+              "scalar_frobenius_error": 1.3618480758678427e-08,
+              "batch_frobenius_error": 3.3702416675289116e-08,
+              "scalar_batch_frobenius_difference": 2.0084402127022436e-08
+            }
+          }
+        },
+        {
+          "station": 4,
+          "condition_gradient": 9865.665480582113,
+          "fields": {
+            "cauchy_stress": {
+              "reference_frobenius_norm": 1.6329931618554572,
+              "scalar_frobenius_error": 1.2860443486810583e-10,
+              "batch_frobenius_error": 4.771879080880812e-10,
+              "scalar_batch_frobenius_difference": 3.4864650127035824e-10
+            },
+            "first_piola_stress": {
+              "reference_frobenius_norm": 114.69185139803551,
+              "scalar_frobenius_error": 7.497684752750564e-09,
+              "batch_frobenius_error": 2.7306520707507186e-08,
+              "scalar_batch_frobenius_difference": 1.9811342337095966e-08
+            }
+          }
+        },
+        {
+          "station": 5,
+          "condition_gradient": 10827.97575853048,
+          "fields": {
+            "cauchy_stress": {
+              "reference_frobenius_norm": 1.6329931618554059,
+              "scalar_frobenius_error": 2.0106616662099574e-11,
+              "batch_frobenius_error": 5.921175983591498e-10,
+              "scalar_batch_frobenius_difference": 5.720627405290834e-10
+            },
+            "first_piola_stress": {
+              "reference_frobenius_norm": 120.15532087814537,
+              "scalar_frobenius_error": 1.2562182111332498e-09,
+              "batch_frobenius_error": 3.5705980531867124e-08,
+              "scalar_batch_frobenius_difference": 3.445172534046271e-08
+            }
+          }
+        }
+      ]
+    },
+    {
+      "point_index": 0,
+      "hardening": 100.0,
+      "initial_plastic_condition": 1.0,
+      "stations": [
+        {
+          "station": 0,
+          "condition_gradient": 1.0,
+          "fields": {
+            "cauchy_stress": {
+              "reference_frobenius_norm": 0.0,
+              "scalar_frobenius_error": 0.0,
+              "batch_frobenius_error": 0.0,
+              "scalar_batch_frobenius_difference": 0.0
+            },
+            "first_piola_stress": {
+              "reference_frobenius_norm": 0.0,
+              "scalar_frobenius_error": 0.0,
+              "batch_frobenius_error": 0.0,
+              "scalar_batch_frobenius_difference": 0.0
+            }
+          }
+        },
+        {
+          "station": 1,
+          "condition_gradient": 1.0832639744204595,
+          "fields": {
+            "cauchy_stress": {
+              "reference_frobenius_norm": 4.9722923821421885,
+              "scalar_frobenius_error": 2.5543630942753476e-13,
+              "batch_frobenius_error": 2.5543630942753476e-13,
+              "scalar_batch_frobenius_difference": 0.0
+            },
+            "first_piola_stress": {
+              "reference_frobenius_norm": 4.980241695582286,
+              "scalar_frobenius_error": 2.5664288126474173e-13,
+              "batch_frobenius_error": 2.5664288126474173e-13,
+              "scalar_batch_frobenius_difference": 0.0
+            }
+          }
+        },
+        {
+          "station": 2,
+          "condition_gradient": 1.0202009999750012,
+          "fields": {
+            "cauchy_stress": {
+              "reference_frobenius_norm": 6.781646107301682,
+              "scalar_frobenius_error": 3.2938242936870733e-12,
+              "batch_frobenius_error": 8.882836644159893e-13,
+              "scalar_batch_frobenius_difference": 4.182021163318162e-12
+            },
+            "first_piola_stress": {
+              "reference_frobenius_norm": 6.782324238007568,
+              "scalar_frobenius_error": 3.2937820671086365e-12,
+              "batch_frobenius_error": 8.882836644159893e-13,
+              "scalar_batch_frobenius_difference": 4.181978638489243e-12
+            }
+          }
+        },
+        {
+          "station": 3,
+          "condition_gradient": 1.105124921972504,
+          "fields": {
+            "cauchy_stress": {
+              "reference_frobenius_norm": 11.982163410579426,
+              "scalar_frobenius_error": 3.5950949407612583e-12,
+              "batch_frobenius_error": 1.4352625009037454e-12,
+              "scalar_batch_frobenius_difference": 5.030299269799761e-12
+            },
+            "first_piola_stress": {
+              "reference_frobenius_norm": 12.012081468164359,
+              "scalar_frobenius_error": 3.6040537210714053e-12,
+              "batch_frobenius_error": 1.4377966609452156e-12,
+              "scalar_batch_frobenius_difference": 5.041766725521752e-12
+            }
+          }
+        },
+        {
+          "station": 4,
+          "condition_gradient": 1.0202009999750015,
+          "fields": {
+            "cauchy_stress": {
+              "reference_frobenius_norm": 13.540973856087458,
+              "scalar_frobenius_error": 3.935501370319451e-12,
+              "batch_frobenius_error": 1.8939016147778542e-12,
+              "scalar_batch_frobenius_difference": 5.82902329898524e-12
+            },
+            "first_piola_stress": {
+              "reference_frobenius_norm": 13.542327885774965,
+              "scalar_frobenius_error": 3.933994619660772e-12,
+              "batch_frobenius_error": 1.8935295156006906e-12,
+              "scalar_batch_frobenius_difference": 5.827133367694961e-12
+            }
+          }
+        },
+        {
+          "station": 5,
+          "condition_gradient": 1.1274158059491346,
+          "fields": {
+            "cauchy_stress": {
+              "reference_frobenius_norm": 19.602668103001772,
+              "scalar_frobenius_error": 3.972148413543172e-12,
+              "batch_frobenius_error": 1.4387903841009165e-12,
+              "scalar_batch_frobenius_difference": 5.410095243540123e-12
+            },
+            "first_piola_stress": {
+              "reference_frobenius_norm": 19.67311113812682,
+              "scalar_frobenius_error": 3.987490373179935e-12,
+              "batch_frobenius_error": 1.444208162040583e-12,
+              "scalar_batch_frobenius_difference": 5.430834175931721e-12
+            }
+          }
+        }
+      ]
+    },
+    {
+      "point_index": 512,
+      "hardening": 100.0,
+      "initial_plastic_condition": 99.99999999999993,
+      "stations": [
+        {
+          "station": 0,
+          "condition_gradient": 99.99999999999993,
+          "fields": {
+            "cauchy_stress": {
+              "reference_frobenius_norm": 0.0,
+              "scalar_frobenius_error": 4.887339739006406e-13,
+              "batch_frobenius_error": 4.887339739006406e-13,
+              "scalar_batch_frobenius_difference": 0.0
+            },
+            "first_piola_stress": {
+              "reference_frobenius_norm": 0.0,
+              "scalar_frobenius_error": 4.383860638498488e-12,
+              "batch_frobenius_error": 4.383860638498488e-12,
+              "scalar_batch_frobenius_difference": 0.0
+            }
+          }
+        },
+        {
+          "station": 1,
+          "condition_gradient": 105.4780289075011,
+          "fields": {
+            "cauchy_stress": {
+              "reference_frobenius_norm": 43.50266800083373,
+              "scalar_frobenius_error": 1.6874793656868408e-12,
+              "batch_frobenius_error": 1.6874793656868408e-12,
+              "scalar_batch_frobenius_difference": 0.0
+            },
+            "first_piola_stress": {
+              "reference_frobenius_norm": 315.9376726923718,
+              "scalar_frobenius_error": 7.43415083178722e-12,
+              "batch_frobenius_error": 7.43415083178722e-12,
+              "scalar_batch_frobenius_difference": 0.0
+            }
+          }
+        },
+        {
+          "station": 2,
+          "condition_gradient": 101.35380864398415,
+          "fields": {
+            "cauchy_stress": {
+              "reference_frobenius_norm": 10.878384563135043,
+              "scalar_frobenius_error": 6.940911445676209e-13,
+              "batch_frobenius_error": 6.940911445676209e-13,
+              "scalar_batch_frobenius_difference": 0.0
+            },
+            "first_piola_stress": {
+              "reference_frobenius_norm": 77.44450063270907,
+              "scalar_frobenius_error": 5.521961404279345e-12,
+              "batch_frobenius_error": 5.521961404279345e-12,
+              "scalar_batch_frobenius_difference": 0.0
+            }
+          }
+        },
+        {
+          "station": 3,
+          "condition_gradient": 93.38793979491244,
+          "fields": {
+            "cauchy_stress": {
+              "reference_frobenius_norm": 54.37019110191869,
+              "scalar_frobenius_error": 2.125973696285258e-12,
+              "batch_frobenius_error": 2.125973696285258e-12,
+              "scalar_batch_frobenius_difference": 0.0
+            },
+            "first_piola_stress": {
+              "reference_frobenius_norm": 371.5490506911076,
+              "scalar_frobenius_error": 1.493890649088654e-11,
+              "batch_frobenius_error": 1.493890649088654e-11,
+              "scalar_batch_frobenius_difference": 0.0
+            }
+          }
+        },
+        {
+          "station": 4,
+          "condition_gradient": 98.65665697664417,
+          "fields": {
+            "cauchy_stress": {
+              "reference_frobenius_norm": 10.878384563135766,
+              "scalar_frobenius_error": 7.059069871069452e-13,
+              "batch_frobenius_error": 7.059069871069452e-13,
+              "scalar_batch_frobenius_difference": 0.0
+            },
+            "first_piola_stress": {
+              "reference_frobenius_norm": 76.40731106873997,
+              "scalar_frobenius_error": 2.6639750882100543e-12,
+              "batch_frobenius_error": 2.6639750882100543e-12,
+              "scalar_batch_frobenius_difference": 0.0
+            }
+          }
+        },
+        {
+          "station": 5,
+          "condition_gradient": 108.27983827185254,
+          "fields": {
+            "cauchy_stress": {
+              "reference_frobenius_norm": 65.23229565751653,
+              "scalar_frobenius_error": 1.7019595430751308e-12,
+              "batch_frobenius_error": 1.7019595430751308e-12,
+              "scalar_batch_frobenius_difference": 0.0
+            },
+            "first_piola_stress": {
+              "reference_frobenius_norm": 479.998614573293,
+              "scalar_frobenius_error": 1.0702061291708241e-11,
+              "batch_frobenius_error": 1.0702061291708241e-11,
+              "scalar_batch_frobenius_difference": 0.0
+            }
+          }
+        }
+      ]
+    },
+    {
+      "point_index": 1022,
+      "hardening": 100.0,
+      "initial_plastic_condition": 9821.718891883334,
+      "stations": [
+        {
+          "station": 0,
+          "condition_gradient": 9821.718891883334,
+          "fields": {
+            "cauchy_stress": {
+              "reference_frobenius_norm": 0.0,
+              "scalar_frobenius_error": 1.7245066927417677e-10,
+              "batch_frobenius_error": 1.7245066927417677e-10,
+              "scalar_batch_frobenius_difference": 0.0
+            },
+            "first_piola_stress": {
+              "reference_frobenius_norm": 0.0,
+              "scalar_frobenius_error": 9.497537558229717e-09,
+              "batch_frobenius_error": 9.497537558229717e-09,
+              "scalar_batch_frobenius_difference": 0.0
+            }
+          }
+        },
+        {
+          "station": 1,
+          "condition_gradient": 10359.752000414317,
+          "fields": {
+            "cauchy_stress": {
+              "reference_frobenius_norm": 43.5026680008409,
+              "scalar_frobenius_error": 9.52632426344102e-11,
+              "batch_frobenius_error": 9.52632426344102e-11,
+              "scalar_batch_frobenius_difference": 0.0
+            },
+            "first_piola_stress": {
+              "reference_frobenius_norm": 3130.945994754805,
+              "scalar_frobenius_error": 6.568439141902194e-09,
+              "batch_frobenius_error": 6.568439141902194e-09,
+              "scalar_batch_frobenius_difference": 0.0
+            }
+          }
+        },
+        {
+          "station": 2,
+          "condition_gradient": 9954.685955969358,
+          "fields": {
+            "cauchy_stress": {
+              "reference_frobenius_norm": 10.878384563161823,
+              "scalar_frobenius_error": 1.1113252957256037e-10,
+              "batch_frobenius_error": 1.1113252957256037e-10,
+              "scalar_batch_frobenius_difference": 0.0
+            },
+            "first_piola_stress": {
+              "reference_frobenius_norm": 767.4731555381417,
+              "scalar_frobenius_error": 9.200686666258198e-09,
+              "batch_frobenius_error": 9.200686666258198e-09,
+              "scalar_batch_frobenius_difference": 0.0
+            }
+          }
+        },
+        {
+          "station": 3,
+          "condition_gradient": 9172.295701887862,
+          "fields": {
+            "cauchy_stress": {
+              "reference_frobenius_norm": 54.3701911020118,
+              "scalar_frobenius_error": 1.0521426609425197e-10,
+              "batch_frobenius_error": 1.0521426609425197e-10,
+              "scalar_batch_frobenius_difference": 0.0
+            },
+            "first_piola_stress": {
+              "reference_frobenius_norm": 3682.0093574850653,
+              "scalar_frobenius_error": 5.294972145642935e-09,
+              "batch_frobenius_error": 5.294972145642935e-09,
+              "scalar_batch_frobenius_difference": 0.0
+            }
+          }
+        },
+        {
+          "station": 4,
+          "condition_gradient": 9689.77930315521,
+          "fields": {
+            "cauchy_stress": {
+              "reference_frobenius_norm": 10.878384563125447,
+              "scalar_frobenius_error": 1.3300956123988474e-10,
+              "batch_frobenius_error": 1.3300956123988474e-10,
+              "scalar_batch_frobenius_difference": 0.0
+            },
+            "first_piola_stress": {
+              "reference_frobenius_norm": 757.1925892524515,
+              "scalar_frobenius_error": 7.878713453629415e-09,
+              "batch_frobenius_error": 7.878713453629415e-09,
+              "scalar_batch_frobenius_difference": 0.0
+            }
+          }
+        },
+        {
+          "station": 5,
+          "condition_gradient": 10634.933406870668,
+          "fields": {
+            "cauchy_stress": {
+              "reference_frobenius_norm": 65.23229565753861,
+              "scalar_frobenius_error": 9.653094268239264e-11,
+              "batch_frobenius_error": 9.653094268239264e-11,
+              "scalar_batch_frobenius_difference": 0.0
+            },
+            "first_piola_stress": {
+              "reference_frobenius_norm": 4756.8017758259675,
+              "scalar_frobenius_error": 6.515838762241037e-09,
+              "batch_frobenius_error": 6.515838762241037e-09,
+              "scalar_batch_frobenius_difference": 0.0
+            }
+          }
+        }
+      ]
+    },
+    {
+      "point_index": 1024,
+      "hardening": 100.0,
+      "initial_plastic_condition": 9999.999999999722,
+      "stations": [
+        {
+          "station": 0,
+          "condition_gradient": 9999.999999999722,
+          "fields": {
+            "cauchy_stress": {
+              "reference_frobenius_norm": 0.0,
+              "scalar_frobenius_error": 4.6422343889089784e-11,
+              "batch_frobenius_error": 4.6422343889089784e-11,
+              "scalar_batch_frobenius_difference": 0.0
+            },
+            "first_piola_stress": {
+              "reference_frobenius_norm": 0.0,
+              "scalar_frobenius_error": 2.4024359986891257e-09,
+              "batch_frobenius_error": 2.4024359986891257e-09,
+              "scalar_batch_frobenius_difference": 0.0
+            }
+          }
+        },
+        {
+          "station": 1,
+          "condition_gradient": 10547.799335777478,
+          "fields": {
+            "cauchy_stress": {
+              "reference_frobenius_norm": 43.502668000833665,
+              "scalar_frobenius_error": 1.1388881781073493e-10,
+              "batch_frobenius_error": 1.1388881781073493e-10,
+              "scalar_batch_frobenius_difference": 0.0
+            },
+            "first_piola_stress": {
+              "reference_frobenius_norm": 3159.2342316975387,
+              "scalar_frobenius_error": 5.8495426004459406e-09,
+              "batch_frobenius_error": 5.8495426004459406e-09,
+              "scalar_batch_frobenius_difference": 0.0
+            }
+          }
+        },
+        {
+          "station": 2,
+          "condition_gradient": 10135.380645230605,
+          "fields": {
+            "cauchy_stress": {
+              "reference_frobenius_norm": 10.878384563082088,
+              "scalar_frobenius_error": 1.4181546468137287e-10,
+              "batch_frobenius_error": 1.4181546468137287e-10,
+              "scalar_batch_frobenius_difference": 0.0
+            },
+            "first_piola_stress": {
+              "reference_frobenius_norm": 774.407309752573,
+              "scalar_frobenius_error": 1.3049262163610314e-08,
+              "batch_frobenius_error": 1.3049262163610314e-08,
+              "scalar_batch_frobenius_difference": 0.0
+            }
+          }
+        },
+        {
+          "station": 3,
+          "condition_gradient": 9338.788660963623,
+          "fields": {
+            "cauchy_stress": {
+              "reference_frobenius_norm": 54.37019110194033,
+              "scalar_frobenius_error": 8.136934003925537e-11,
+              "batch_frobenius_error": 8.136934003925537e-11,
+              "scalar_batch_frobenius_difference": 0.0
+            },
+            "first_piola_stress": {
+              "reference_frobenius_norm": 3715.276476348154,
+              "scalar_frobenius_error": 6.061914127803351e-09,
+              "batch_frobenius_error": 6.061914127803351e-09,
+              "scalar_batch_frobenius_difference": 0.0
+            }
+          }
+        },
+        {
+          "station": 4,
+          "condition_gradient": 9865.665480582113,
+          "fields": {
+            "cauchy_stress": {
+              "reference_frobenius_norm": 10.878384563151839,
+              "scalar_frobenius_error": 1.4675607187014045e-10,
+              "batch_frobenius_error": 1.4675607187014045e-10,
+              "scalar_batch_frobenius_difference": 0.0
+            },
+            "first_piola_stress": {
+              "reference_frobenius_norm": 764.0338580992914,
+              "scalar_frobenius_error": 5.165179558323487e-09,
+              "batch_frobenius_error": 5.165179558323487e-09,
+              "scalar_batch_frobenius_difference": 0.0
+            }
+          }
+        },
+        {
+          "station": 5,
+          "condition_gradient": 10827.97575853048,
+          "fields": {
+            "cauchy_stress": {
+              "reference_frobenius_norm": 65.23229565748566,
+              "scalar_frobenius_error": 7.385851965376948e-11,
+              "batch_frobenius_error": 7.385851965376948e-11,
+              "scalar_batch_frobenius_difference": 0.0
+            },
+            "first_piola_stress": {
+              "reference_frobenius_norm": 4799.779692416031,
+              "scalar_frobenius_error": 1.0576976656941011e-09,
+              "batch_frobenius_error": 1.0576976656941011e-09,
+              "scalar_batch_frobenius_difference": 0.0
+            }
+          }
+        }
+      ]
+    }
+  ],
+  "material_source_sha256": "e8f9bcc3c6a7d8a5971d03ef68cfd8b82850e9f4322765efca926198b6a1eeea",
+  "tool_sha256": "49ffb98b367afd3e30b0703f7a6e114480bd74ab4a6ecbec63f15598d71e6d99",
+  "precision_scope": "Binary64 F/material parameters preserved exactly at input; independent 80-digit scalar reconstruction and separately advanced histories. First Piola errors are amplified by F^-T; they do not have Cauchy stress scale."
+}

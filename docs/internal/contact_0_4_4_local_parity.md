@@ -58,6 +58,35 @@ individual timings, gates, runtime hashes and fixed reference `d5347eeb`:
 - `evidence/performance/2026-10-25-j2-svd-return-screen.json`
 - `evidence/performance/2026-10-25-j2-svd-return-confirmation.json`
 
+**Cross-platform precision follow-up.** Linux head `5d73ecf3` completed the
+unit/interface suite with 4961 passed, 428 skipped and one failure in the new
+zero-hardening, ill-conditioned cyclic-history check. One first-Piola component
+out of 9225 differed by 3.335e-8 (relative 2.400e-9), just beyond its componentwise
+`rtol=atol=2e-9`. Preserve the failure in
+`evidence/performance/2026-10-25-j2-linux-component-gate-failure.json`; later MPI
+and installed-demo gates did not run, so this CI attempt is not passed.
+
+An optional 80-decimal-digit reconstruction probe advances its own history for
+selected condition-1/100/10^4 points. On the local numerical stack, both binary64
+implementations have Cauchy errors below 6.03e-10. In the condition-10^4 cyclic
+case the new/old first-Piola errors reach 3.57e-8/1.63e-8: multiplication by
+`F^-T` magnifies small stress/history roundoff. Neither double-precision route
+is an exact reference. This is a local conditioning diagnosis, not reproduction
+of Linux's exact arithmetic, a performance test or new material physics evidence.
+Reconstruction tool and measured norms:
+`tools/check_j2_return_precision.py` and
+`evidence/performance/2026-10-25-j2-high-precision-diagnosis.json`.
+
+The regression now compares first-Piola **tensors per material point** in the
+Frobenius norm, retaining the original 2e-9 relative and absolute budgets.
+Rotating a tensor no longer changes the comparison scale. Added tests reject a
+real error at a soft/zero point even beside a stiff point and reject nonfinite
+data. Both routes also satisfy `P F^T = J sigma` with a normwise matrix-product
+roundoff allowance. Cauchy, state, energy, det(Fp), monotonicity, independent
+finite differences and global timing-comparison gates are unchanged; no runtime
+code or tolerance changed. All 49 installed material/spectral/protocol checks
+pass locally. A fresh Linux head must still pass before integration.
+
 **Spatial discrimination.** Accepted implicit-contact samples expose reference
 positions and the integration measure alongside current positions, weights and
 point IDs. Exports preserve this optional array when all providers supply it;
