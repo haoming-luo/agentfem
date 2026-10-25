@@ -494,6 +494,7 @@ def test_windows_bundle_includes_recovery_and_real_solve_verifier():
     installer = (RUNTIME / "wsl" / "Install-AgentFEM.ps1").read_text(encoding="utf-8")
     assert '"Installer-State.ps1", "Install-AgentFEM.cmd"' in builder
     assert '"Windows-HostProbe.ps1", "Test-AgentFEMWindowsHost.ps1"' in builder
+    assert '"Installer-Presentation.ps1"' in builder
     assert '*companion_files' in builder
     assert 'RUNTIME / "verify_installed_runtime.py"' in builder
     assert '"--skip-mpi", "--output", $report' in installer

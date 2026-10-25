@@ -92,6 +92,8 @@ try {
     $report = (& $statusScript -StateRoot $stateRoot | Out-String) | ConvertFrom-Json
     Assert ($report.installations[0].message -eq 'new snapshot after concurrent publication') 'New status reader did not see the published snapshot'
     Assert ($report.installer_busy -and -not $report.runtime_probed) 'Read-only status lost busy state'
+    $textReport = & $statusScript -StateRoot $stateRoot -Format Text | Out-String
+    Assert ($textReport -match 'Do not open a second copy') 'Text entry point lost live installer protection'
     $script:InstallLock.Dispose()
     $statePath = Join-Path $script:InstallStateDirectory 'status.json'
     $beforeStatus = (Get-FileHash -LiteralPath $statePath -Algorithm SHA256).Hash
@@ -99,6 +101,8 @@ try {
     Assert ($report.installations[0].activity -eq 'interrupted') 'Unlocked import was presented as still running'
     Assert ($report.installations[0].next_action -eq 'inspect_log_then_resume_same_installer') 'Interrupted agent would wait forever'
     Assert ($report.installations[0].recorded_next_action -eq 'wait_for_current_installer') 'Historical next action was lost'
+    $textReport = & $statusScript -StateRoot $stateRoot -Format Text | Out-String
+    Assert ($textReport -match 'No installer holds the lock' -and $textReport.Contains($statePath)) 'Text entry point lost interrupted state or literal path'
     Assert ((Get-FileHash -LiteralPath $statePath -Algorithm SHA256).Hash -eq $beforeStatus) 'Read-only inference rewrote saved evidence'
     Initialize-InstallState -Identity @{version='test'; image_sha256='abc'}
     Assert ($script:InstallState.distribution -eq 'AgentFEM-test') 'Resume lost imported distribution'
