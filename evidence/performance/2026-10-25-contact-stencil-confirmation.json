@@ -1,0 +1,560 @@
+{
+  "schema": "agentfem.contact-coo-batching.v1",
+  "status": "completed",
+  "scope": "serial_cyclic_P2_finite_J2_plane_penalty_MPC_not_explicit_composite",
+  "cells": 4,
+  "increments": 64,
+  "reference_commit": "bf0033c4",
+  "reference_source_sha256": "84a1bb27a2054c68bad104a4cb62f4479f298214878c36987b54aee9c1175531",
+  "reference_strategy": "pinned row insertion; disable only adjacent-stencil quadrature coalescing",
+  "git_commit": "7ea31c64f63b7359a4235bd27472b4433448e989",
+  "runtime_source_sha256": "8e70d659533c9a39744a7be155b4652cff4861f0abb2e5cb4783bff8ec3ab3fc",
+  "platform": "macOS-26.6.2-arm64-arm-64bit",
+  "versions": {
+    "numpy": "2.4.6",
+    "dolfinx": "0.11.0",
+    "petsc": [
+      3,
+      25,
+      3
+    ],
+    "mpi": "MPICH Version:      5.0.1"
+  },
+  "thread_environment": {
+    "OMP_NUM_THREADS": "1",
+    "OPENBLAS_NUM_THREADS": "1",
+    "VECLIB_MAXIMUM_THREADS": "1",
+    "FI_PROVIDER": "tcp"
+  },
+  "timing_boundary": "solve and observation, excludes setup; two complete warmups then ABBA",
+  "gates": {
+    "field_state_stress_rtol": 2e-8,
+    "field_state_stress_atol": 2e-10,
+    "per_point_tangent_frobenius_rtol": 2e-10,
+    "accepted_factors_newton_linesearch_linear_reasons": "identical"
+  },
+  "records": [
+    {
+      "mode": "rowwise_warmup",
+      "status": "completed",
+      "stations": [
+        {
+          "factor": 0.25,
+          "displacement_l2": 0.011028189353937297,
+          "force_on_structure": [
+            -4.461224761686008,
+            0,
+            0
+          ],
+          "pressure_area_mean": 17.844899046744032,
+          "maximum_pressure": 111.12080123902857,
+          "active_reference_area": 0.22584706853648912,
+          "maximum_penetration": 0.002778020030975714,
+          "peeq_reference_volume_mean": 0.02304258416858541,
+          "maximum_peeq": 0.05426461130310825,
+          "mpc_equation_mismatch": 1.734723475976807e-18,
+          "normal_relative_work_status": "unavailable_on_this_diagnostic_route",
+          "contact_potential_energy": 0.0020346490091563128
+        },
+        {
+          "factor": 0.5,
+          "displacement_l2": 0.005854647451917763,
+          "force_on_structure": [
+            0,
+            0,
+            0
+          ],
+          "pressure_area_mean": 0,
+          "maximum_pressure": 0,
+          "active_reference_area": 0,
+          "maximum_penetration": 0,
+          "peeq_reference_volume_mean": 0.031044999952620778,
+          "maximum_peeq": 0.062105913693216684,
+          "mpc_equation_mismatch": 4.336808689942018e-19,
+          "normal_relative_work_status": "unavailable_on_this_diagnostic_route",
+          "contact_potential_energy": 0
+        },
+        {
+          "factor": 0.75,
+          "displacement_l2": 0.012722423602264563,
+          "force_on_structure": [
+            0,
+            0,
+            0
+          ],
+          "pressure_area_mean": 0,
+          "maximum_pressure": 0,
+          "active_reference_area": 0,
+          "maximum_penetration": 0,
+          "peeq_reference_volume_mean": 0.044844303375765254,
+          "maximum_peeq": 0.074446995565744,
+          "mpc_equation_mismatch": 1.734723475976807e-18,
+          "normal_relative_work_status": "unavailable_on_this_diagnostic_route",
+          "contact_potential_energy": 0
+        },
+        {
+          "factor": 1,
+          "displacement_l2": 0.011338852748942597,
+          "force_on_structure": [
+            -3.4948033940865564,
+            0,
+            0
+          ],
+          "pressure_area_mean": 13.979213576346213,
+          "maximum_pressure": 103.75956699155253,
+          "active_reference_area": 0.1841715647553026,
+          "maximum_penetration": 0.0025939891747888133,
+          "peeq_reference_volume_mean": 0.062441635844863654,
+          "maximum_peeq": 0.0932583120631825,
+          "mpc_equation_mismatch": 1.734723475976807e-18,
+          "normal_relative_work_status": "unavailable_on_this_diagnostic_route",
+          "contact_potential_energy": 0.0015231580643377866
+        }
+      ],
+      "solve_observe_seconds": 26.061745042003167,
+      "insertion_calls": 208,
+      "insertion_seconds": 1.3523463709789212,
+      "inserted_entries": 13138200,
+      "accepted": 64,
+      "newton_iterations": 208,
+      "maximum_field_state_stress_difference": 0,
+      "maximum_relative_tangent_tensor_error": 0
+    },
+    {
+      "mode": "batched_warmup",
+      "status": "completed",
+      "stations": [
+        {
+          "factor": 0.25,
+          "displacement_l2": 0.011028189353937295,
+          "force_on_structure": [
+            -4.461224761685743,
+            0,
+            0
+          ],
+          "pressure_area_mean": 17.844899046742967,
+          "maximum_pressure": 111.12080123902857,
+          "active_reference_area": 0.22584706853648912,
+          "maximum_penetration": 0.002778020030975714,
+          "peeq_reference_volume_mean": 0.023042584168585463,
+          "maximum_peeq": 0.054264611303108334,
+          "mpc_equation_mismatch": 3.469446951953614e-18,
+          "normal_relative_work_status": "unavailable_on_this_diagnostic_route",
+          "contact_potential_energy": 0.002034649009156171
+        },
+        {
+          "factor": 0.5,
+          "displacement_l2": 0.00585464745191776,
+          "force_on_structure": [
+            0,
+            0,
+            0
+          ],
+          "pressure_area_mean": 0,
+          "maximum_pressure": 0,
+          "active_reference_area": 0,
+          "maximum_penetration": 0,
+          "peeq_reference_volume_mean": 0.03104499995262083,
+          "maximum_peeq": 0.06210591369321686,
+          "mpc_equation_mismatch": 4.336808689942018e-19,
+          "normal_relative_work_status": "unavailable_on_this_diagnostic_route",
+          "contact_potential_energy": 0
+        },
+        {
+          "factor": 0.75,
+          "displacement_l2": 0.012722423602264542,
+          "force_on_structure": [
+            0,
+            0,
+            0
+          ],
+          "pressure_area_mean": 0,
+          "maximum_pressure": 0,
+          "active_reference_area": 0,
+          "maximum_penetration": 0,
+          "peeq_reference_volume_mean": 0.04484430337576531,
+          "maximum_peeq": 0.07444699556574276,
+          "mpc_equation_mismatch": 1.7507301836846373e-18,
+          "normal_relative_work_status": "unavailable_on_this_diagnostic_route",
+          "contact_potential_energy": 0
+        },
+        {
+          "factor": 1,
+          "displacement_l2": 0.01133885274894266,
+          "force_on_structure": [
+            -3.4948033940859404,
+            0,
+            0
+          ],
+          "pressure_area_mean": 13.979213576343746,
+          "maximum_pressure": 103.75956699155253,
+          "active_reference_area": 0.1841715647553026,
+          "maximum_penetration": 0.0025939891747888133,
+          "peeq_reference_volume_mean": 0.062441635844863695,
+          "maximum_peeq": 0.0932583120631827,
+          "mpc_equation_mismatch": 3.469446951953614e-18,
+          "normal_relative_work_status": "unavailable_on_this_diagnostic_route",
+          "contact_potential_energy": 0.0015231580643375318
+        }
+      ],
+      "solve_observe_seconds": 24.328124583000317,
+      "insertion_calls": 208,
+      "insertion_seconds": 0.051386705970799085,
+      "inserted_entries": 583200,
+      "accepted": 64,
+      "newton_iterations": 208,
+      "maximum_field_state_stress_difference": 1.6637358157822746e-11,
+      "maximum_relative_tangent_tensor_error": 1.764704270261211e-12
+    },
+    {
+      "mode": "rowwise",
+      "status": "completed",
+      "stations": [
+        {
+          "factor": 0.25,
+          "displacement_l2": 0.011028189353937297,
+          "force_on_structure": [
+            -4.461224761686008,
+            0,
+            0
+          ],
+          "pressure_area_mean": 17.844899046744032,
+          "maximum_pressure": 111.12080123902857,
+          "active_reference_area": 0.22584706853648912,
+          "maximum_penetration": 0.002778020030975714,
+          "peeq_reference_volume_mean": 0.02304258416858541,
+          "maximum_peeq": 0.05426461130310825,
+          "mpc_equation_mismatch": 1.734723475976807e-18,
+          "normal_relative_work_status": "unavailable_on_this_diagnostic_route",
+          "contact_potential_energy": 0.0020346490091563128
+        },
+        {
+          "factor": 0.5,
+          "displacement_l2": 0.005854647451917763,
+          "force_on_structure": [
+            0,
+            0,
+            0
+          ],
+          "pressure_area_mean": 0,
+          "maximum_pressure": 0,
+          "active_reference_area": 0,
+          "maximum_penetration": 0,
+          "peeq_reference_volume_mean": 0.031044999952620778,
+          "maximum_peeq": 0.062105913693216684,
+          "mpc_equation_mismatch": 4.336808689942018e-19,
+          "normal_relative_work_status": "unavailable_on_this_diagnostic_route",
+          "contact_potential_energy": 0
+        },
+        {
+          "factor": 0.75,
+          "displacement_l2": 0.012722423602264563,
+          "force_on_structure": [
+            0,
+            0,
+            0
+          ],
+          "pressure_area_mean": 0,
+          "maximum_pressure": 0,
+          "active_reference_area": 0,
+          "maximum_penetration": 0,
+          "peeq_reference_volume_mean": 0.044844303375765254,
+          "maximum_peeq": 0.074446995565744,
+          "mpc_equation_mismatch": 1.734723475976807e-18,
+          "normal_relative_work_status": "unavailable_on_this_diagnostic_route",
+          "contact_potential_energy": 0
+        },
+        {
+          "factor": 1,
+          "displacement_l2": 0.011338852748942597,
+          "force_on_structure": [
+            -3.4948033940865564,
+            0,
+            0
+          ],
+          "pressure_area_mean": 13.979213576346213,
+          "maximum_pressure": 103.75956699155253,
+          "active_reference_area": 0.1841715647553026,
+          "maximum_penetration": 0.0025939891747888133,
+          "peeq_reference_volume_mean": 0.062441635844863654,
+          "maximum_peeq": 0.0932583120631825,
+          "mpc_equation_mismatch": 1.734723475976807e-18,
+          "normal_relative_work_status": "unavailable_on_this_diagnostic_route",
+          "contact_potential_energy": 0.0015231580643377866
+        }
+      ],
+      "solve_observe_seconds": 25.884725916002935,
+      "insertion_calls": 208,
+      "insertion_seconds": 1.345714828959899,
+      "inserted_entries": 13138200,
+      "accepted": 64,
+      "newton_iterations": 208,
+      "maximum_field_state_stress_difference": 0,
+      "maximum_relative_tangent_tensor_error": 0
+    },
+    {
+      "mode": "batched",
+      "status": "completed",
+      "stations": [
+        {
+          "factor": 0.25,
+          "displacement_l2": 0.011028189353937295,
+          "force_on_structure": [
+            -4.461224761685743,
+            0,
+            0
+          ],
+          "pressure_area_mean": 17.844899046742967,
+          "maximum_pressure": 111.12080123902857,
+          "active_reference_area": 0.22584706853648912,
+          "maximum_penetration": 0.002778020030975714,
+          "peeq_reference_volume_mean": 0.023042584168585463,
+          "maximum_peeq": 0.054264611303108334,
+          "mpc_equation_mismatch": 3.469446951953614e-18,
+          "normal_relative_work_status": "unavailable_on_this_diagnostic_route",
+          "contact_potential_energy": 0.002034649009156171
+        },
+        {
+          "factor": 0.5,
+          "displacement_l2": 0.00585464745191776,
+          "force_on_structure": [
+            0,
+            0,
+            0
+          ],
+          "pressure_area_mean": 0,
+          "maximum_pressure": 0,
+          "active_reference_area": 0,
+          "maximum_penetration": 0,
+          "peeq_reference_volume_mean": 0.03104499995262083,
+          "maximum_peeq": 0.06210591369321686,
+          "mpc_equation_mismatch": 4.336808689942018e-19,
+          "normal_relative_work_status": "unavailable_on_this_diagnostic_route",
+          "contact_potential_energy": 0
+        },
+        {
+          "factor": 0.75,
+          "displacement_l2": 0.012722423602264542,
+          "force_on_structure": [
+            0,
+            0,
+            0
+          ],
+          "pressure_area_mean": 0,
+          "maximum_pressure": 0,
+          "active_reference_area": 0,
+          "maximum_penetration": 0,
+          "peeq_reference_volume_mean": 0.04484430337576531,
+          "maximum_peeq": 0.07444699556574276,
+          "mpc_equation_mismatch": 1.7507301836846373e-18,
+          "normal_relative_work_status": "unavailable_on_this_diagnostic_route",
+          "contact_potential_energy": 0
+        },
+        {
+          "factor": 1,
+          "displacement_l2": 0.01133885274894266,
+          "force_on_structure": [
+            -3.4948033940859404,
+            0,
+            0
+          ],
+          "pressure_area_mean": 13.979213576343746,
+          "maximum_pressure": 103.75956699155253,
+          "active_reference_area": 0.1841715647553026,
+          "maximum_penetration": 0.0025939891747888133,
+          "peeq_reference_volume_mean": 0.062441635844863695,
+          "maximum_peeq": 0.0932583120631827,
+          "mpc_equation_mismatch": 3.469446951953614e-18,
+          "normal_relative_work_status": "unavailable_on_this_diagnostic_route",
+          "contact_potential_energy": 0.0015231580643375318
+        }
+      ],
+      "solve_observe_seconds": 24.452141624999058,
+      "insertion_calls": 208,
+      "insertion_seconds": 0.05283807998057455,
+      "inserted_entries": 583200,
+      "accepted": 64,
+      "newton_iterations": 208,
+      "maximum_field_state_stress_difference": 1.6637358157822746e-11,
+      "maximum_relative_tangent_tensor_error": 1.764704270261211e-12
+    },
+    {
+      "mode": "batched",
+      "status": "completed",
+      "stations": [
+        {
+          "factor": 0.25,
+          "displacement_l2": 0.011028189353937295,
+          "force_on_structure": [
+            -4.461224761685743,
+            0,
+            0
+          ],
+          "pressure_area_mean": 17.844899046742967,
+          "maximum_pressure": 111.12080123902857,
+          "active_reference_area": 0.22584706853648912,
+          "maximum_penetration": 0.002778020030975714,
+          "peeq_reference_volume_mean": 0.023042584168585463,
+          "maximum_peeq": 0.054264611303108334,
+          "mpc_equation_mismatch": 3.469446951953614e-18,
+          "normal_relative_work_status": "unavailable_on_this_diagnostic_route",
+          "contact_potential_energy": 0.002034649009156171
+        },
+        {
+          "factor": 0.5,
+          "displacement_l2": 0.00585464745191776,
+          "force_on_structure": [
+            0,
+            0,
+            0
+          ],
+          "pressure_area_mean": 0,
+          "maximum_pressure": 0,
+          "active_reference_area": 0,
+          "maximum_penetration": 0,
+          "peeq_reference_volume_mean": 0.03104499995262083,
+          "maximum_peeq": 0.06210591369321686,
+          "mpc_equation_mismatch": 4.336808689942018e-19,
+          "normal_relative_work_status": "unavailable_on_this_diagnostic_route",
+          "contact_potential_energy": 0
+        },
+        {
+          "factor": 0.75,
+          "displacement_l2": 0.012722423602264542,
+          "force_on_structure": [
+            0,
+            0,
+            0
+          ],
+          "pressure_area_mean": 0,
+          "maximum_pressure": 0,
+          "active_reference_area": 0,
+          "maximum_penetration": 0,
+          "peeq_reference_volume_mean": 0.04484430337576531,
+          "maximum_peeq": 0.07444699556574276,
+          "mpc_equation_mismatch": 1.7507301836846373e-18,
+          "normal_relative_work_status": "unavailable_on_this_diagnostic_route",
+          "contact_potential_energy": 0
+        },
+        {
+          "factor": 1,
+          "displacement_l2": 0.01133885274894266,
+          "force_on_structure": [
+            -3.4948033940859404,
+            0,
+            0
+          ],
+          "pressure_area_mean": 13.979213576343746,
+          "maximum_pressure": 103.75956699155253,
+          "active_reference_area": 0.1841715647553026,
+          "maximum_penetration": 0.0025939891747888133,
+          "peeq_reference_volume_mean": 0.062441635844863695,
+          "maximum_peeq": 0.0932583120631827,
+          "mpc_equation_mismatch": 3.469446951953614e-18,
+          "normal_relative_work_status": "unavailable_on_this_diagnostic_route",
+          "contact_potential_energy": 0.0015231580643375318
+        }
+      ],
+      "solve_observe_seconds": 24.486932084000728,
+      "insertion_calls": 208,
+      "insertion_seconds": 0.05160200189129682,
+      "inserted_entries": 583200,
+      "accepted": 64,
+      "newton_iterations": 208,
+      "maximum_field_state_stress_difference": 1.6637358157822746e-11,
+      "maximum_relative_tangent_tensor_error": 1.764704270261211e-12
+    },
+    {
+      "mode": "rowwise",
+      "status": "completed",
+      "stations": [
+        {
+          "factor": 0.25,
+          "displacement_l2": 0.011028189353937297,
+          "force_on_structure": [
+            -4.461224761686008,
+            0,
+            0
+          ],
+          "pressure_area_mean": 17.844899046744032,
+          "maximum_pressure": 111.12080123902857,
+          "active_reference_area": 0.22584706853648912,
+          "maximum_penetration": 0.002778020030975714,
+          "peeq_reference_volume_mean": 0.02304258416858541,
+          "maximum_peeq": 0.05426461130310825,
+          "mpc_equation_mismatch": 1.734723475976807e-18,
+          "normal_relative_work_status": "unavailable_on_this_diagnostic_route",
+          "contact_potential_energy": 0.0020346490091563128
+        },
+        {
+          "factor": 0.5,
+          "displacement_l2": 0.005854647451917763,
+          "force_on_structure": [
+            0,
+            0,
+            0
+          ],
+          "pressure_area_mean": 0,
+          "maximum_pressure": 0,
+          "active_reference_area": 0,
+          "maximum_penetration": 0,
+          "peeq_reference_volume_mean": 0.031044999952620778,
+          "maximum_peeq": 0.062105913693216684,
+          "mpc_equation_mismatch": 4.336808689942018e-19,
+          "normal_relative_work_status": "unavailable_on_this_diagnostic_route",
+          "contact_potential_energy": 0
+        },
+        {
+          "factor": 0.75,
+          "displacement_l2": 0.012722423602264563,
+          "force_on_structure": [
+            0,
+            0,
+            0
+          ],
+          "pressure_area_mean": 0,
+          "maximum_pressure": 0,
+          "active_reference_area": 0,
+          "maximum_penetration": 0,
+          "peeq_reference_volume_mean": 0.044844303375765254,
+          "maximum_peeq": 0.074446995565744,
+          "mpc_equation_mismatch": 1.734723475976807e-18,
+          "normal_relative_work_status": "unavailable_on_this_diagnostic_route",
+          "contact_potential_energy": 0
+        },
+        {
+          "factor": 1,
+          "displacement_l2": 0.011338852748942597,
+          "force_on_structure": [
+            -3.4948033940865564,
+            0,
+            0
+          ],
+          "pressure_area_mean": 13.979213576346213,
+          "maximum_pressure": 103.75956699155253,
+          "active_reference_area": 0.1841715647553026,
+          "maximum_penetration": 0.0025939891747888133,
+          "peeq_reference_volume_mean": 0.062441635844863654,
+          "maximum_peeq": 0.0932583120631825,
+          "mpc_equation_mismatch": 1.734723475976807e-18,
+          "normal_relative_work_status": "unavailable_on_this_diagnostic_route",
+          "contact_potential_energy": 0.0015231580643377866
+        }
+      ],
+      "solve_observe_seconds": 25.894311792006192,
+      "insertion_calls": 208,
+      "insertion_seconds": 1.3564185380237177,
+      "inserted_entries": 13138200,
+      "accepted": 64,
+      "newton_iterations": 208,
+      "maximum_field_state_stress_difference": 0,
+      "maximum_relative_tangent_tensor_error": 0
+    }
+  ],
+  "source_unchanged": true,
+  "mean_seconds": {
+    "rowwise": 25.889518854004564,
+    "batched": 24.469536854499893
+  },
+  "elapsed_reduction_fraction": 0.05484775547634524
+}

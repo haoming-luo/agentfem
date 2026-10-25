@@ -39,12 +39,14 @@ def test_shuffled_duplicate_contact_entries_match_scalar_reference(count, fixed)
 
 def test_one_native_insertion_retains_legacy_duplicate_summation_order():
     class Recorder:
+        calls = 0
         def getSize(self):
             return 31, 31
         getLocalSize = getSize
         def assemble(self, *args):
             pass
         def setValuesIJV(self, pointers, columns, values, *, rowmap, addv):
+            self.calls += 1
             self.received = pointers, columns, values, rowmap
     rng = np.random.default_rng(422)
     rows = rng.choice([2, 8, 29], 3000)
@@ -59,6 +61,7 @@ def test_one_native_insertion_retains_legacy_duplicate_summation_order():
         expected.append((row, unique, np.bincount(inverse, weights=vv[selected])))
     matrix = Recorder()
     add_contact_coo_tangent(matrix, rows, columns, values)
+    assert matrix.calls == 1
     pointers, actual_columns, actual_values, rowmap = matrix.received
     for i, (row, cols, vals) in enumerate(expected):
         segment = slice(pointers[i], pointers[i + 1])

@@ -247,6 +247,8 @@ def main():
                                              "constitutive/finite_strain_plasticity.py",
                                              "constitutive/quadrature.py",
                                              "steps.py", "_nonlinear_problems.py",
+                                             "boundary_models/implicit_contact.py",
+                                             "boundary_models/_petsc_contact_rows.py",
                                              "boundary_models/dolfinx_implicit_facet_contact.py",
                                              "boundary_models/dolfinx_contact_trace.py")},
               "units": {"length": "m", "stress": "Pa", "force": "N", "work": "J"},

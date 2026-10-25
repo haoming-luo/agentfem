@@ -20,7 +20,9 @@ from time import perf_counter
 from unittest.mock import patch
 
 import numpy as np
+import dolfinx
 from mpi4py import MPI
+from petsc4py import PETSc
 
 import agentfem
 from agentfem.boundary_models import dolfinx_implicit_facet_contact as contact_backend
@@ -71,6 +73,8 @@ def main():
         reference_strategy="pinned row insertion; disable only adjacent-stencil quadrature coalescing",
         git_commit=subprocess.check_output(["git", "rev-parse", "HEAD"], cwd=root, text=True).strip(),
         runtime_source_sha256=frozen, platform=platform.platform(),
+        versions={"numpy": np.__version__, "dolfinx": dolfinx.__version__,
+                  "petsc": PETSc.Sys.getVersion(), "mpi": MPI.Get_library_version().splitlines()[0]},
         thread_environment={key: os.environ.get(key) for key in (
             "OMP_NUM_THREADS", "OPENBLAS_NUM_THREADS", "VECLIB_MAXIMUM_THREADS", "FI_PROVIDER")},
         timing_boundary="solve and observation, excludes setup; two complete warmups then ABBA",

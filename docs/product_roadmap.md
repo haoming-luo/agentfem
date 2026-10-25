@@ -21,17 +21,17 @@ or a successful run is not by itself a validated engineering capability.
 
 ### Active sprint decision board (2026-10-25)
 
-The current seven-hour budget prioritizes bounded delivery over expanding the
-capability surface. At entry, PR #118 head `d5347eeb` is mergeable and all
-applicable remote checks pass, but it is still draft. CI establishes source/
-installation regressions, not nonuniform spatial accuracy or commercial parity.
+The current follow-up starts from merged main `6227b926` (PRs #118 and #121
+integrated). It prioritizes bounded diagnostic and execution improvements,
+not another capability expansion. CI establishes source/installation
+regressions, not nonuniform spatial accuracy or commercial parity.
 
 | Order | Work | Decision gate |
 | --- | --- | --- |
 | P0 | Keep engineering integration separate from scientific maturity | The release contract names periodic J2/contact as experimental; no general contact or mesh-independence promotion |
 | P0 | Locate the nonuniform spatial discrepancy | Fixed physical patch, common accepted station, reference-area pressure moments, and unchanged MPC equations; no blind larger-mesh sweep |
-| P1 | Reuse the existing SVD in plastic-gradient reconstruction | Independent scalar/history/rotation/conditioning checks, then fresh whole-path timing; never transfer the gain to explicit composites |
-| P1 | Freeze and test installed ordinary use | Same installed identity, interruption/restart, valid incremental output; no AI-provided executable glue |
+| P1 | Integrate repeated contact stencils before sparse insertion | Retain all current integration points and constrained-row semantics; compare complete cyclic paths, rollback/restart and fresh whole-path timing |
+| P1 | Preserve ordinary-use acceptance | Reuse unaffected installed output/restart evidence explicitly; validate changed assembly paths without AI-provided executable glue |
 | Exit | Commit tested improvements and retain open science gates | No release tag or commercial-parity claim on partial validation; reuse unaffected full composite evidence |
 
 The fixed-width edge-belt diagnostic must also record its sampled area: a
@@ -101,6 +101,33 @@ then obtain an independent same-input reference. Any claimed improvement needs
 its own fine-path sensitivity check. Do not simultaneously open a new contact
 law, penalty sweep, full-cycle sweep or larger uniform mesh. Promotion remains
 separate from the engineering fixes already merged.
+
+The diagnostic now supports an edge-graded mesh with unchanged cell count,
+physical patch, periodic trace equations and material/solver controls. It is
+research fixture geometry, not a new public mesh generator. Positive cell
+quality, physical volume/patch areas and checkpoint mesh identity have focused
+tests. Elastic 8/12-cell force differences decrease from 1.01% (uniform) to
+0.60% (graded); this is a refinement comparison, not a continuum-error bound.
+The graded plastic first station completes through an ordinary checkpoint
+continuation. With 14,739 displacement DOFs its reaction differs from the
+46,875-DOF uniform-12 comparison by 0.416%, versus 2.196% for uniform 8.
+The finer uniform result is not independent truth; sampled peak pressure
+continues to rise. An independent same-input reference and graded-path increment
+sensitivity remain open. No larger uniform sweep is started. Full details and
+the interrupted/continuation evidence are in the contact sprint ledger.
+
+The contact execution candidate sums current quadrature matrices sharing an
+ordered nodal stencil before generating scalar COO entries, then inserts the
+coalesced rows through PETSc's subset-CSR interface. It changes neither contact
+quadrature, projection, physical law nor state ownership, and introduces no
+new user knob or dependency. A 32-increment cyclic screen reduces submitted
+COO entries from 7,661,700 to 340,200 and solve/observe time by 5.73%; independent
+64-increment confirmation measures 5.48% less time with the same 208 Newton
+corrections and matching four-station fields, states, contact force and penalty
+potential. See `evidence/performance/2026-10-25-contact-stencil-confirmation.json`.
+Full-matrix storage reuse alone is withdrawn:
+its small screen showed no meaningful gain. Do not add these percentages to
+earlier optimizations or transfer implicit timing to the explicit composite.
 
 The existing J2 tangent backend now packs its nine derivative directions into
 small rectangular products and reuses their common transform, without another
