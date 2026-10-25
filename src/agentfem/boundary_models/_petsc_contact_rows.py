@@ -100,15 +100,19 @@ def add_contact_coo_tangent(
         column_ids[order],
         entries[order],
     )
-    stops = np.r_[np.flatnonzero(np.diff(row_ids)) + 1, len(row_ids)]
-    start = 0
-    for stop in stops:
-        unique_columns, inverse = np.unique(column_ids[start:stop], return_inverse=True)
-        row_values = np.bincount(inverse, weights=entries[start:stop])
-        matrix.setValues(
-            [int(row_ids[start])],
-            unique_columns.astype(PETSc.IntType),
-            row_values,
-            addv=PETSc.InsertMode.ADD_VALUES,
-        )
-        start = stop
+    # Merge equal (row, column) entries in the same stable lexicographic order
+    # as the former per-row bincount. A single compressed-row insertion removes
+    # Python/PETSc crossings per contact row without caching a projection,
+    # changing the contact law, or requiring SciPy as a new core dependency.
+    first = np.r_[True, (np.diff(row_ids) != 0) | (np.diff(column_ids) != 0)]
+    groups = np.cumsum(first) - 1
+    summed = np.bincount(groups, weights=entries)
+    distinct_rows, distinct_columns = row_ids[first], column_ids[first]
+    row_offsets = np.r_[0, np.flatnonzero(np.diff(distinct_rows)) + 1, len(distinct_rows)]
+    matrix.setValuesIJV(
+        row_offsets.astype(PETSc.IntType),
+        distinct_columns.astype(PETSc.IntType),
+        summed,
+        rowmap=distinct_rows[row_offsets[:-1]].astype(PETSc.IntType),
+        addv=PETSc.InsertMode.ADD_VALUES,
+    )

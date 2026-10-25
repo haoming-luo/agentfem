@@ -1,0 +1,107 @@
+{
+  "scope": "P1/P2 Gaussian penalty diagnostic, not nodal AL or independent continuum reference",
+  "agentfem_version": "0.4.4.dev0",
+  "git_commit": "bf0033c49d7f4bc454b9cd6f365a81db7bb88662",
+  "tool_sha256": "f147c41f6ba8bf97f53b0d3f3c0273bac2bec5d7eb81d0a2249fb72133f4929b",
+  "source_sha256": {
+    "solvers.py": "90b24a54ce4dae8d234e572a30998af008f123da781471dbca26623d6fa818af",
+    "_affine_equilibrium.py": "9f3bc9d4825597892f67db3ebb96fe941363a5dcc6307e0cdef7d4e93cc4ff6f",
+    "mechanics/finite_strain_plasticity.py": "e851c96dec369d1e4d683978393f843b6b1825cedc9fa4ceff00aabac9ce1914",
+    "constitutive/finite_strain_plasticity.py": "e8f9bcc3c6a7d8a5971d03ef68cfd8b82850e9f4322765efca926198b6a1eeea",
+    "constitutive/quadrature.py": "c48fdef1fffdc1eb5657e1cf1b00e32483ef8b1ac2cc8461a00ab94ee10cc0e3",
+    "steps.py": "43707905b97ea1b01edb43f1ef110c7f8a94be49e6fc384c8655f557fe767a1c",
+    "_nonlinear_problems.py": "0aabb0ba0f9d40d54a181ed10020fed3324df73d406723c0f23832d84095382a",
+    "boundary_models/dolfinx_implicit_facet_contact.py": "944569bbaadc8fadff1da55bdedf043ab52b97bde880dd3df514f301a5b399df",
+    "boundary_models/dolfinx_contact_trace.py": "7e696da048967bfbf3a9847973f57e0ffd840e5c98db5ab7bcca268ff8119982"
+  },
+  "units": {
+    "length": "m",
+    "stress": "Pa",
+    "force": "N",
+    "work": "J"
+  },
+  "options": {
+    "cells": [
+      8
+    ],
+    "degrees": [
+      2
+    ],
+    "mesh_family": "edge_sine",
+    "increments": null,
+    "plastic_increment_limit": 0.000375,
+    "penalty": 40000,
+    "contact_degree": 11,
+    "bulk_degree": 6,
+    "yield_stress": 2,
+    "until": 0.25,
+    "patch_partition": true,
+    "checkpoint_directory": "/private/tmp/agentfem-edge-plastic8-checkpoints-20261025",
+    "restart": null
+  },
+  "records": [
+    {
+      "cells": 8,
+      "degree": 2,
+      "status": "interrupted",
+      "stations": [],
+      "mesh_family": "edge_sine",
+      "coordinate_lines": [
+        [
+          0,
+          0.03806023374435663,
+          0.1464466094067262,
+          0.3086582838174551,
+          0.49999999999999994,
+          0.6913417161825448,
+          0.8535533905932737,
+          0.9619397662556434,
+          1
+        ],
+        [
+          0,
+          0.1875,
+          0.25,
+          0.3125,
+          0.5,
+          0.6875,
+          0.75,
+          0.8125,
+          1
+        ],
+        [
+          0,
+          0.1875,
+          0.25,
+          0.3125,
+          0.5,
+          0.6875,
+          0.75,
+          0.8125,
+          1
+        ]
+      ],
+      "full_dofs": 14739,
+      "complete_cycle": false,
+      "setup_solve_observe_seconds": 1799.9728445420042
+    }
+  ],
+  "incrementation": {
+    "kind": "automatic_incrementation",
+    "initial": 0.03125,
+    "minimum": 0.000244140625,
+    "maximum": 0.0625,
+    "max_increments": 4096,
+    "max_cutbacks": 12,
+    "cutback_factor": 0.5,
+    "growth_factor": 1.5,
+    "fast_iterations": 4,
+    "slow_iterations": 10,
+    "maximum_inelastic_increment": 0.000375,
+    "inelastic_prediction": {
+      "algorithm": "accepted_increment_proportional_cap_v1",
+      "safety": 0.8
+    }
+  },
+  "accuracy_claim": "none: limit refinement and spatial refinement are independent diagnostics"
+}

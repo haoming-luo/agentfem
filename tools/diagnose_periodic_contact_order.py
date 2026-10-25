@@ -66,13 +66,45 @@ def periodic_field_equations(coordinates):
         abaqus.AbaqusEquationSet(tuple(equations)), anchor, references
 
 
+def diagnostic_coordinate_lines(cells, family="uniform"):
+    """Prescribed mesh study, not an adaptive mesher or a solver default.
+
+    The sine map fixes 0, 1/4, 1/2, 3/4, 1 and has derivative
+    1 + pi/4*cos(4*pi*s) > 0. It clusters both sides of the two patch
+    edges without changing their physical positions or the cell count.
+    Normal cosine grading resolves both periodic faces. Geometry is fixed
+    before constructing any spaces, constraints, contact traces or state.
+    """
+    if cells < 4 or cells % 4:
+        raise ValueError("Use a positive cell count divisible by four.")
+    s = np.linspace(0., 1., cells + 1)
+    if family == "uniform":
+        return np.tile(s, (3, 1))
+    if family != "edge_sine":
+        raise ValueError("Unknown diagnostic mesh family.")
+    if cells < 8:
+        raise ValueError("edge_sine requires at least eight cells to resolve patch-edge grading.")
+    tangential = s + np.sin(4. * np.pi * s) / 16.
+    # Exact anchors also keep facet selection independent of roundoff.
+    tangential[::cells // 4] = np.linspace(0., 1., 5)
+    normal = .5 * (1. - np.cos(np.pi * s))
+    return np.vstack((normal, tangential, tangential))
+
+
 def make_step(*, cells=4, degree=1, increments=16, penalty=40000., contact_degree=7,
-              yield_stress=2., bulk_degree=4, incrementation=None, checkpoint=None, status_file=None):
+              yield_stress=2., bulk_degree=4, incrementation=None, checkpoint=None, status_file=None,
+              mesh_family="uniform"):
     if MPI.COMM_WORLD.size != 1:
         raise ValueError("This diagnostic is serial only.")
     if cells < 4 or cells % 4 or increments < 4 or increments % 4 or degree not in (1, 2):
         raise ValueError("Use cells/increments divisible by four and displacement degree 1 or 2.")
+    lines = diagnostic_coordinate_lines(cells, mesh_family)
     domain = dm.create_unit_cube(MPI.COMM_SELF, cells, cells, cells)
+    if mesh_family != "uniform":
+        for axis in range(3):
+            domain.geometry.x[:, axis] = np.interp(
+                domain.geometry.x[:, axis], np.linspace(0., 1., cells + 1), lines[axis])
+        mesh.audit_quality(domain, strict=True)
     model = models.create(study=studies.static_solid(dimension=3, nonlinear=True), mesh=domain)
     u = model.field(fields.displacement(domain, degree=degree))
     nodes, equations, anchor, references = periodic_field_equations(u.value.function_space.tabulate_dof_coordinates())
@@ -161,6 +193,8 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--cells", type=int, nargs="+", default=[4, 8])
     parser.add_argument("--degrees", type=int, nargs="+", default=[1, 2])
+    parser.add_argument("--mesh-family", choices=("uniform", "edge_sine"), default="uniform",
+                        help="Explicit fixed-geometry discretization study; never automatic tuning.")
     path_policy = parser.add_mutually_exclusive_group()
     path_policy.add_argument("--increments", type=int, default=None,
                              help="Fixed path increments (default: 32).")
@@ -180,6 +214,11 @@ def main():
     parser.add_argument("--restart", type=Path, default=None,
                         help="Resume one mesh/degree from an ordinary compatible Step checkpoint; no identity override.")
     args = parser.parse_args()
+    for cells in args.cells:
+        try:
+            diagnostic_coordinate_lines(cells, args.mesh_family)
+        except ValueError as exc:
+            parser.error(str(exc))
     if args.output.exists():
         parser.error("Choose a fresh evidence path.")
     if args.checkpoint_directory is not None and Path(args.checkpoint_directory).exists():
@@ -208,6 +247,8 @@ def main():
                                              "constitutive/finite_strain_plasticity.py",
                                              "constitutive/quadrature.py",
                                              "steps.py", "_nonlinear_problems.py",
+                                             "boundary_models/implicit_contact.py",
+                                             "boundary_models/_petsc_contact_rows.py",
                                              "boundary_models/dolfinx_implicit_facet_contact.py",
                                              "boundary_models/dolfinx_contact_trace.py")},
               "units": {"length": "m", "stress": "Pa", "force": "N", "work": "J"},
@@ -228,6 +269,8 @@ def main():
     for cells in args.cells:
         for degree in args.degrees:
             row = {"cells": cells, "degree": degree, "status": "running", "stations": []}
+            row["mesh_family"] = args.mesh_family
+            row["coordinate_lines"] = diagnostic_coordinate_lines(cells, args.mesh_family).tolist()
             report["records"].append(row)
             save()
             started = perf_counter()
@@ -240,6 +283,7 @@ def main():
                                  contact_degree=args.contact_degree, bulk_degree=args.bulk_degree,
                                  yield_stress=args.yield_stress, incrementation=control,
                                  checkpoint=checkpoint,
+                                 mesh_family=args.mesh_family,
                                  status_file=(None if checkpoint_directory is None else
                                      checkpoint_directory / "progress.sta"))
                 row["full_dofs"] = len(step.solution.x.array)
@@ -281,6 +325,11 @@ def main():
                     row["maximum_accepted_plastic_increment"] > args.plastic_increment_limit
                 ):
                     raise ValueError("Accepted plastic increment exceeded the declared limit.")
+            except KeyboardInterrupt:
+                row.update(status="interrupted", complete_cycle=False,
+                           setup_solve_observe_seconds=perf_counter() - started)
+                save()
+                raise
             except Exception as exc:
                 row.update(status="failed", error_type=type(exc).__name__, error=str(exc))
             row["setup_solve_observe_seconds"] = perf_counter() - started

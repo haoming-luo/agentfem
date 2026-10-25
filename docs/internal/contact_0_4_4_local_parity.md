@@ -24,6 +24,120 @@ being silently approximated by the bounded route.
 
 ## Live gate status
 
+### Edge resolution and shared trace assembly follow-up (2026-10-25)
+
+This follow-up starts from merged `6227b926`; it does not reopen PR #118 or
+claim 0.4.4 release acceptance. The physical accuracy and equivalent-execution
+experiments remain separate.
+
+**Spatial discriminator.** `diagnose_periodic_contact_order.py --mesh-family
+edge_sine` redistributes the existing unit-cube coordinates towards the fixed
+patch edges and contact boundary. It preserves the patch anchors, cell count,
+volume, periodic field equations and solver/material controls. The graded
+mesh is audited before fields and constraints are built. A changed mesh cannot
+load a uniform-mesh checkpoint. This remains diagnostic geometry, not a new
+public mesher or a case-specific solver in core.
+
+At the elastic first station, graded 8/12-cell reactions are 18.64860612 and
+18.53715898 N (0.598% coarse-relative difference), compared with 1.009% for
+the existing uniform pair. Both graded sampled active areas are 0.25 m² and
+PEEQ is zero. This is neither an independent reference nor a continuum-error
+bound. See `evidence/contact/2026-10-25-edge-graded-elastic.json`.
+
+The bounded plastic probe reached its 1800-second deadline at accepted
+increment 326 (factor 0.24592998), with no requested station yet complete.
+Its record correctly says interrupted, not running or successful. The retained
+increment-300 checkpoint (factor 0.22938166) then loaded normally into the
+validated assembly candidate and completed the first station in a 154.78-second
+continuation. There was no checkpoint-identity override. The combined history
+has 333 accepted increments, eight rejected attempts and maximum accepted
+plastic increment 0.000321846, below the unchanged 0.000375 cap. Interrupted
+and resumed records retain separate source identities and checkpoint hashes.
+Their elapsed times include diagnostic pauses/concurrent correctness checks;
+neither is an isolated speed comparison or the time for a complete cycle.
+
+| First plastic station | Full displacement DOFs | Reaction magnitude (N) | Difference from uniform 12 |
+| --- | ---: | ---: | ---: |
+| Uniform 8 | 14,739 | 4.19262706 | 2.196% |
+| Uniform 12 | 46,875 | 4.10251562 | comparison only |
+| Graded 8 | 14,739 | 4.08543432 | 0.416% |
+
+The graded sampled active area is 0.25 m² and MPC mismatch is 3.48e-18.
+Mean PEEQ is 0.02251850. Smooth edge/center forces are 2.96556176 / 1.11987256 N.
+Peak sampled pressure rises to 149.37 Pa (uniform 12: 139.99 Pa), so agreement
+in integrated force does not establish pointwise pressure convergence. The
+uniform 12 result is not independent truth, and grading changes resolution both
+along the contact boundary normal and near patch edges. This supports targeting
+resolution rather than another blind uniform sweep; it does not identify a
+unique error source or close continuum/full-cycle accuracy. Next science work
+needs an independent same-input reference and graded-path increment sensitivity.
+See `evidence/contact/2026-10-25-edge-graded-plastic-interrupted.json` and
+`evidence/contact/2026-10-25-edge-graded-plastic.json`.
+
+**Execution redesign.** The normal-contact integration layer still evaluates
+every active point with its current normal, curvature, penalty and reference
+weight. It sums local matrices with equal ordered node stencils *before* COO
+expansion. Thus projection, friction history and point evidence are not cached
+or coarsened. Interleaved/distinct stencils remain valid; only adjacent equal
+stencils are combined. Floating-point association changes, not quadrature or
+the physical law. The PETSc adapter then coalesces repeated entries in stable
+lexicographic order and makes one subset-CSR insertion using `setValuesIJV`.
+Strong prescribed rows/columns are still filtered, and full contact terms
+still enter the existing MPC reduction. No new dependency or user option is
+introduced. This follows ordinary local integration before global assembly;
+the [PETSc matrix interface](https://petsc.org/release/petsc4py/reference/petsc4py.PETSc.Mat.html)
+provides the subset-CSR insertion rather than project-level sparse glue.
+
+The isolated 32-increment ABBA screen retains all 113 Newton corrections,
+accepted factors and line-search/linear-reason histories. Submitted COO entries
+fall from 7,661,700 to 340,200; mean solve/observe time is 13.77687 -> 12.98744 s
+(5.73% less). The insertion timer is inclusive of validation/sorting/flush and
+is not added to whole-path time. Four-station displacement, material state,
+stress, force and tangent comparisons pass; maximum field/state/stress change
+is 1.318e-11. Record and reconstruction tool:
+`evidence/performance/2026-10-25-contact-stencil-screen.json` and
+`tools/benchmark_contact_sparse_insertion.py`. The reference uses pinned
+`bf0033c4` row insertion and disables only local-stencil coalescing. This is
+serial implicit P2/J2/plane-penalty/MPC evidence, not an explicit-composite gain.
+
+Fresh 64-increment confirmation, run after the other numerical process exited,
+retains 64 accepted increments and 208 Newton corrections. ABBA times are
+25.88473 / 24.45214 / 24.48693 / 25.89431 s; means 25.88952 -> 24.46954 s,
+**5.48% less solve-and-observe time**. All four stations also compare contact
+penalty potential; this is not a general energy-closure certificate. Maximum
+field/state/stress difference is 1.664e-11 and maximum relative tangent tensor
+error 1.765e-12. COO entries are 13,138,200 -> 583,200. Source identity,
+dependency versions, individual observations and gates are retained in
+`evidence/performance/2026-10-25-contact-stencil-confirmation.json`.
+
+The preceding allocation-only full-tangent-reuse candidate is withdrawn.
+Its 8-increment screen differs by only 0.032% in mean time, which does not
+justify another runtime toggle/lifetime path. Preserve the unsuccessful
+finding in `evidence/performance/2026-10-25-tangent-storage-withdrawn.json`;
+it does not disprove reuse on other workloads.
+
+Focused source acceptance after the combined assembly change:
+
+- 215 tests across sparse insertion, analytical/facet contact, real DOLFINx
+  traces, convex partitions, certified faces, frozen-equilibrium failure and
+  periodic finite-J2 state/restart pass in 33.66 s.
+- The expanded 2D/3D stencil tests and graded diagnostic tests pass 57 tests
+  in 9.15 s (overlap with the preceding set; do not sum counts).
+- Nonperiodic smooth/frictional contact and work/checkpoint transaction tests
+  pass 82 tests in 8.56 s. Sixteen unsupported refined tetrahedral-face
+  combinations are explicitly skipped, not claimed as covered.
+- The shared adapter's augmented-contact caller passes five targeted
+  open/recontact, restart and failed-outer-iteration checks in 17.13 s;
+  the unrelated large-mesh reference is not repeated.
+- Source lint and generated-documentation checks pass. Local REUSE tooling is
+  absent; licensing CI remains required. The existing `site/` changes are
+  untouched and excluded from these commits.
+
+Correctness tests overlap a bounded plastic diagnostic and their elapsed times
+are not performance evidence. The performance screen temporarily suspended
+that owned diagnostic and resumed it in a `finally` block. `FI_PROVIDER=tcp`
+and thread budgets are process-local; no machine-wide MPI policy is changed.
+
 ### Integration boundary and focused diagnostic sprint (2026-10-25)
 
 **Sprint integration outcome.** PR #118 merged on 2026-10-24 19:12 UTC at

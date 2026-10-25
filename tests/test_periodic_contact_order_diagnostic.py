@@ -14,8 +14,10 @@ def functions():
 
 
 @pytest.mark.parametrize("degree", [1, 2])
-def test_all_boundary_field_dofs_obey_periodic_motion_and_guides(degree):
-    step = functions()["make_step"](degree=degree, increments=4, yield_stress=1e6)
+@pytest.mark.parametrize("mesh_family,cells", [("uniform", 4), ("edge_sine", 8)])
+def test_all_boundary_field_dofs_obey_periodic_motion_and_guides(degree, mesh_family, cells):
+    step = functions()["make_step"](degree=degree, cells=cells, mesh_family=mesh_family,
+                                    increments=4, yield_stress=1e6)
     coordinates = step.solution.function_space.tabulate_dof_coordinates()
     reduction = step.constraint.reduction(.25)
     from scipy.sparse import csr_matrix
@@ -41,6 +43,68 @@ def test_all_boundary_field_dofs_obey_periodic_motion_and_guides(degree):
     if degree == 2:
         assert len(coordinates) > 125
         assert step.contact_provider.adapter.interpolation_degree == 2
+
+
+@pytest.mark.parametrize("cells", [8, 12, 16])
+def test_edge_mesh_keeps_patch_geometry_and_positive_spacing(cells):
+    lines = functions()["diagnostic_coordinate_lines"](cells, "edge_sine")
+    assert np.all(np.diff(lines, axis=1) > 0.)
+    np.testing.assert_array_equal(lines[:, [0, -1]], [[0., 1.]] * 3)
+    np.testing.assert_allclose(lines + lines[:, ::-1], 1., atol=3e-16)
+    np.testing.assert_array_equal(lines[1:, ::cells // 4], [np.linspace(0., 1., 5)] * 2)
+    # Adjacent to each patch edge, both sides are finer than the uniform grid.
+    for edge in (cells // 4, 3 * cells // 4):
+        assert np.all(np.diff(lines[1, edge - 1:edge + 2]) < 1. / cells)
+
+
+def test_edge_mesh_rejects_ineffective_or_unknown_family():
+    lines = functions()["diagnostic_coordinate_lines"]
+    with pytest.raises(ValueError, match="at least eight"):
+        lines(4, "edge_sine")
+    with pytest.raises(ValueError, match="Unknown"):
+        lines(8, "guess")
+
+
+def test_edge_mesh_keeps_volume_patch_and_checkpoint_identity(tmp_path):
+    import ufl
+    from dolfinx import fem
+    from agentfem import mesh
+    make = functions()["make_step"]
+    step = make(cells=8, degree=2, increments=4, yield_stress=1e6,
+                mesh_family="edge_sine", contact_degree=11)
+    domain = step.solution.function_space.mesh
+    assert mesh.audit_quality(domain, strict=True).global_cells == 6 * 8**3
+    assert fem.assemble_scalar(fem.form(1. * ufl.dx(domain=domain))) == pytest.approx(1., abs=1e-12)
+    step.solve(until=.25)
+    samples = step.contact_provider.accepted_point_samples()
+    partition = functions()["patch_pressure_partition"](samples)
+    assert partition["total_reference_area"] == pytest.approx(.25)
+    assert partition["smooth_partition"]["center"]["weighted_reference_area"] == pytest.approx(1./9.)
+    checkpoint = step.save_checkpoint(tmp_path / "graded.npz")
+    wrong = make(cells=8, degree=2, increments=4, yield_stress=1e6, contact_degree=11)
+    before = wrong.solution.x.array.copy()
+    with pytest.raises(ValueError, match="identity"):
+        wrong.load_checkpoint(checkpoint)
+    np.testing.assert_array_equal(wrong.solution.x.array, before)
+
+
+def test_interrupted_diagnostic_does_not_leave_running_or_complete_record(tmp_path, monkeypatch):
+    import json
+    import sys
+    from types import SimpleNamespace
+    main = functions()["main"]
+    output = tmp_path / "interrupted.json"
+    monkeypatch.setattr(sys, "argv", ["diagnostic", "--cells", "4", "--degrees", "2",
+                                     "--output", str(output)])
+    def solve(**kwargs):
+        raise KeyboardInterrupt
+    monkeypatch.setitem(main.__globals__, "make_step", lambda **kwargs: SimpleNamespace(
+        solution=SimpleNamespace(x=SimpleNamespace(array=np.zeros(3))), solve=solve))
+    with pytest.raises(KeyboardInterrupt):
+        main()
+    row = json.loads(output.read_text())["records"][0]
+    assert row["status"] == "interrupted" and row["complete_cycle"] is False
+    assert row["stations"] == [] and row["setup_solve_observe_seconds"] >= 0.
 
 
 def test_quadratic_periodic_gauss_contact_accepts_current_total_residual():
