@@ -20,7 +20,10 @@ $RuntimeVersion = "@VERSION@"
 $ExpectedRuntimeRecordSha256 = "@RUNTIME_RECORD_SHA256@"
 . (Join-Path $PSScriptRoot "Installer-State.ps1")
 . (Join-Path $PSScriptRoot "Windows-HostProbe.ps1")
+. (Join-Path $PSScriptRoot "Installer-Presentation.ps1")
 Write-Host "AgentFEM Runtime for WSL2" -ForegroundColor Blue
+Write-Host 'You approve platform changes and enter credentials privately. Your existing projects are not replaced.'
+Write-Host 'Progress and recovery details are saved locally. Reopen this same installer after any requested restart.'
 
 function Invoke-InstallerPlatformProbe {
     param([ValidateSet('--version', '--status', '--list --quiet')][string]$Arguments)

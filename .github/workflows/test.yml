@@ -291,6 +291,23 @@ jobs:
       - name: Validate versioned scientific knowledge
         run: python build_knowledge.py --check --check-imports
 
+      - name: Verify ordinary environment onboarding without AI glue
+        run: |
+          cd "${RUNNER_TEMP}"
+          python "${GITHUB_WORKSPACE}/packaging/runtime/setup_environment.py" \
+            --manager "${CONDA}/bin/conda" --prefix "${CONDA_PREFIX}" \
+            --no-protect-workspace --apply --json \
+            --state-root "${RUNNER_TEMP}/onboarding-acceptance"
+
+      - name: Retain first-solve onboarding evidence
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: environment-onboarding-evidence
+          path: ${{ runner.temp }}/onboarding-acceptance/
+          if-no-files-found: warn
+          retention-days: 14
+
       - name: Verify installed field archives through an independent volume reader
         run: |
           # A release must not silently skip connectivity/Warp checks simply

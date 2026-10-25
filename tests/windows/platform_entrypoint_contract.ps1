@@ -65,7 +65,7 @@ try {
     # inert local fixture, NOT a built/accepted runtime or a real WSL image.
     $bundle = Join-Path $temp 'bundle [test]'
     New-Item -ItemType Directory -Path $bundle | Out-Null
-    foreach ($helper in @('Installer-State.ps1', 'Windows-HostProbe.ps1')) {
+    foreach ($helper in @('Installer-State.ps1', 'Windows-HostProbe.ps1', 'Installer-Presentation.ps1')) {
         Copy-Item -LiteralPath (Join-Path $root ('packaging/runtime/wsl/' + $helper)) -Destination $bundle
     }
     $image = Join-Path $bundle 'image [test].wsl'

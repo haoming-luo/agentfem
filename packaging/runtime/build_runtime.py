@@ -766,6 +766,7 @@ def build_wsl(args: argparse.Namespace) -> Path:
     for name in (
         "Installer-State.ps1", "Install-AgentFEM.cmd", "Get-AgentFEMInstallStatus.ps1",
         "Windows-HostProbe.ps1", "Test-AgentFEMWindowsHost.ps1",
+        "Installer-Presentation.ps1",
     ):
         destination = output / name
         shutil.copyfile(RUNTIME / "wsl" / name, destination)

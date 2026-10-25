@@ -1,7 +1,7 @@
 name: Windows installer contract
 on:
   pull_request:
-    paths: ['packaging/runtime/**', 'tests/windows/**', '.github/workflows/windows-installer-contract.yml']
+    paths: ['packaging/runtime/**', 'tests/windows/**', 'tests/test_environment_setup.py', '.github/workflows/windows-installer-contract.yml']
   workflow_dispatch:
 permissions:
   contents: read
@@ -17,6 +17,7 @@ jobs:
           ./tests/windows/installer_contract.ps1
           ./tests/windows/platform_entrypoint_contract.ps1
           ./tests/windows/host_probe_contract.ps1
+          ./tests/windows/presentation_contract.ps1
   powershell-core:
     name: Installer on PowerShell 7
     runs-on: windows-latest
@@ -28,3 +29,14 @@ jobs:
           ./tests/windows/installer_contract.ps1
           ./tests/windows/platform_entrypoint_contract.ps1
           ./tests/windows/host_probe_contract.ps1
+          ./tests/windows/presentation_contract.ps1
+  environment-setup:
+    name: Source-usable environment setup contracts
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.11'
+      - run: python -m pip install pytest
+      - run: python -m pytest -q tests/test_environment_setup.py
