@@ -40,6 +40,22 @@ class SetupError(RuntimeError):
         self.code = code
 
 
+@contextmanager
+def interruptible_setup():
+    # Agent tools commonly cancel with TERM rather than terminal Ctrl+C.
+    # Route either through run_logged's owned-child cleanup and state recording.
+    def stop(signum, frame):
+        raise KeyboardInterrupt(f"Setup interrupted by {signal.Signals(signum).name}.")
+    previous = {}
+    try:
+        for sig in (signal.SIGTERM, signal.SIGHUP):
+            previous[sig] = signal.signal(sig, stop)
+        yield
+    finally:
+        for sig, handler in previous.items():
+            signal.signal(sig, handler)
+
+
 def atomic_json(path, record):
     temporary = path.with_name(path.name + "." + uuid.uuid4().hex + ".tmp")
     try:
@@ -348,7 +364,7 @@ def main(argv=None):
             root.mkdir(parents=True, exist_ok=True)
             # Per-user serialization, even when two requests select one target
             # through different manager paths. Never remove manager-owned locks.
-            with setup_lock(root / "setup.lock"):
+            with interruptible_setup(), setup_lock(root / "setup.lock"):
                 # Re-probe after acquiring the lock; a previous run may have
                 # created the environment while this request was being planned.
                 report = make_plan(args)

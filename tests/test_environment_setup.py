@@ -4,6 +4,7 @@
 import importlib.util
 import json
 from pathlib import Path
+import signal
 import subprocess
 import sys
 
@@ -196,6 +197,23 @@ def test_real_owned_process_timeout(tmp_path):
         with pytest.raises(subprocess.TimeoutExpired):
             setup.run_logged([sys.executable, "-c", "import time;time.sleep(30)"],
                              stdout=log, stderr=subprocess.STDOUT, text=True, timeout=.1, check=False)
+
+
+@pytest.mark.parametrize("sig", [signal.SIGTERM, signal.SIGHUP])
+def test_host_cancellation_records_interruption_and_restores_signal_handlers(environment, tmp_path, sig):
+    run, _ = make_run(environment, tmp_path)
+    previous = signal.getsignal(sig)
+    def interrupted(cmd, **kwargs):
+        signal.raise_signal(sig)
+    run.runner = interrupted
+    with pytest.raises(KeyboardInterrupt):
+        with setup.interruptible_setup():
+            run.execute()
+    assert signal.getsignal(sig) == previous
+    report = json.loads((run.root / "status.json").read_text())
+    assert report["status"] == "interrupted"
+    assert report["stages"][-1]["status"] == "failed"
+    assert signal.Signals(sig).name in report["message"]
 
 
 def test_source_cli_help_does_not_import_numerical_stack():
