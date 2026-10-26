@@ -1,3 +1,8 @@
+---
+title: "Validate AgentFEM models and results"
+description: "Separate structural checks, numerical verification and scientific claims when testing an AgentFEM model or reporting simulation evidence."
+---
+
 # AgentFEM Validation Guide
 
 Every nontrivial change should be checked at three levels.

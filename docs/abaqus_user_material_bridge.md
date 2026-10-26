@@ -1,3 +1,8 @@
+---
+title: "Abaqus user-material migration: supported boundary"
+description: "Understand the restricted legacy VUMAT bridge, trusted Fortran requirements and verification needed before reusing a material in AgentFEM."
+---
+
 # Abaqus User-Material Migration Boundary
 
 ## Restricted VUMAT batch bridge (experimental)

@@ -1,3 +1,8 @@
+---
+title: "Install AgentFEM on Windows with an AI assistant"
+description: "Choose a documented WSL2 installation route, reuse existing environments, and verify a first finite-element solve without replacing user projects."
+---
+
 # Windows: WSL → Ubuntu → AgentFEM
 
 For an AI assistant: complete the permitted work yourself. Show the user only

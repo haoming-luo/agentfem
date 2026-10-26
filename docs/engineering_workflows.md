@@ -1,3 +1,8 @@
+---
+title: "Engineering loads and thermal-to-structural workflows"
+description: "Declare loads and scientific expressions, transfer temperatures to structural models, and retain field-transfer evidence in an AgentFEM engineering workflow."
+---
+
 # Engineering Loads, Steps, and Resultants
 
 AgentFEM treats common CAE operations as reusable scientific assets rather

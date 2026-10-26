@@ -1,3 +1,8 @@
+---
+title: "Verify finite-element results with AgentFEM"
+description: "Distinguish computed, converged, verified and validated results. Apply evidence policies and declared reference checks to finite-element simulations."
+---
+
 # Scientific Trust and Verification
 
 ## Execution is not acceptance

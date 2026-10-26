@@ -1,3 +1,8 @@
+---
+title: "Use AI agents with AgentFEM finite-element projects"
+description: "Connect AI agents to readable Python models and structured commands for setup, execution and result inspection, with explicit scientific checks."
+---
+
 # Agent entry
 
 AgentFEM exposes one public workflow to people, scripts, IDEs, GUIs, and AI

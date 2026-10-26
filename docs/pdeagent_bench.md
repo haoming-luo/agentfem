@@ -1,3 +1,8 @@
+---
+title: "AgentFEM and PDEAgent-Bench integration"
+description: "Reproduce the pinned PDEAgent-Bench integration and distinguish original benchmark scoring from companion scientific corrections."
+---
+
 # PDEAgent-Bench Integration
 
 AgentFEM maintains a fixed-solver integration for

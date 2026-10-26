@@ -1,3 +1,8 @@
+---
+title: "Batch finite-element simulations and learning datasets"
+description: "Organize fields, quantities, histories and verification evidence in AgentFEM. Reuse accepted simulation results in parameter campaigns and learning datasets."
+---
+
 # Results, Batch Simulation, and Learning Data
 
 ## One Result Contract

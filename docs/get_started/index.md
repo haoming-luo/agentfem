@@ -1,3 +1,8 @@
+---
+title: "Get started with AgentFEM"
+description: "Set up an AgentFEM environment, create a first project and inspect simulation results through the documented finite-element workflow."
+---
+
 # Getting started
 
 This section takes a new user from an installed numerical environment to one
