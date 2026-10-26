@@ -26,6 +26,13 @@ being silently approximated by the bounded route.
 
 ### Call-local observation work reduction (2026-10-26)
 
+The design follows the separation of nonlinear residual and Jacobian callbacks
+in PETSc ([SNESSetFunction](https://petsc.org/release/manualpages/SNES/SNESSetFunction/),
+[SNESSetJacobian](https://petsc.org/release/manualpages/SNES/SNESSetJacobian/)).
+That separation is an architectural reference, not evidence of an AgentFEM
+speedup: the local callback must still preserve the same current force law,
+admission checks and ownership of trial/accepted State.
+
 The affine Procedure distinguishes Newton assembly from residual-only norm/dual
 observations. Newton still receives current full Operator contributions and
 reuses its accepted trial assembly. Observations may call an optional
