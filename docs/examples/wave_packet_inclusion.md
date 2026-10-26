@@ -1,3 +1,8 @@
+---
+title: "Simulate an elastic wave packet crossing an inclusion"
+description: "Run a 2D AgentFEM elastodynamics example with material regions, a wave source, periodic boundaries, a viscous absorber and time-series field output."
+---
+
 # Wave packet with an inclusion
 
 <span class="af-status af-status--release">Release</span>

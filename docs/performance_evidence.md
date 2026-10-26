@@ -1,3 +1,8 @@
+---
+title: "AgentFEM performance measurements and numerical parity"
+description: "Review bounded runtime measurements, execution conditions and numerical equivalence checks. Distinguish measured improvements from general speed claims."
+---
+
 # Performance evidence
 
 ## Equivalent finite-J2 return-map execution (2026-10-25)

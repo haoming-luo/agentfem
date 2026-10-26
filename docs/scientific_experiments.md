@@ -1,3 +1,8 @@
+---
+title: "Reproducible simulation campaigns with AgentFEM"
+description: "Freeze runtime identities, fingerprint scientific inputs, run independent cases on local cores, and retain evidence for derived simulation responses."
+---
+
 # Scientific Experiments
 
 AgentFEM treats a family of related simulations as a scientific experiment,

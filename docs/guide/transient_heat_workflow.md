@@ -1,3 +1,8 @@
+---
+title: "Transient heat conduction with an analytical reference"
+description: "Run a 2D or 3D cooling example with AgentFEM. Export temperature histories and fields, and compare against an exact decaying-temperature solution."
+---
+
 # Complete transient heat workflow
 
 `examples/transient_heat_decay.py` is a runnable 2D/3D example using the public
