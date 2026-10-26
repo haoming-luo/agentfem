@@ -24,6 +24,25 @@ being silently approximated by the bounded route.
 
 ## Live gate status
 
+### Independent-reference handoff boundary
+
+Use `tools/diagnose_periodic_contact_order.py:make_step` as the physical fixture
+source of truth. An external comparison must match the unit cube and interior
+reference patch, affine periodic equations, anchored translation, fixed plane,
+reference-area penalty measure and the **piecewise-linear matrix** path at
+factors 0, 0.25, 0.75 and 1. Interpolating one stretch and recomputing its lateral
+volume-preserving stretches between those knots would be a different path.
+
+The finite-J2 material is multiplicative Hencky elasticity with a radial return
+in elastic logarithmic strain and a **Kirchhoff-stress** yield invariant. Its
+stored energy includes elastic and linear isotropic hardening energy; plastic
+loss is initial yield stress times accumulated plastic strain. A commercial
+solver's default finite-J2 model is not automatically the same constitutive
+law. Either match that law independently or label the comparison as a model
+comparison, not an implementation-error measurement. Keep reaction, contact
+area, smooth pressure moments, volume-weighted PEEQ and separate work/energy
+channels at common stations; mesh and path differences must be recorded.
+
 ### Call-local observation work reduction (2026-10-26)
 
 The design follows the separation of nonlinear residual and Jacobian callbacks
