@@ -10,6 +10,7 @@ shares equal path directions. This is not an explicit-composite benchmark.
 """
 
 import argparse
+import gc
 from hashlib import sha256
 import json
 import os
@@ -67,6 +68,7 @@ def main():
         thread_environment={key: os.environ.get(key) for key in (
             "OMP_NUM_THREADS", "OPENBLAS_NUM_THREADS", "VECLIB_MAXIMUM_THREADS", "FI_PROVIDER")},
         timing_boundary="solve and four observations, excludes setup; two whole-path warmups then ABBA",
+        garbage_collection="collect old fixture cycles before each path; normal GC remains enabled",
         gates={"field_state_stress_history_rtol": 2e-8, "atol": 2e-10,
                "per_point_tangent_frobenius_rtol": 2e-10,
                "accepted_factors_newton_linesearch_linear_reasons": "identical"}, records=[],
@@ -113,6 +115,9 @@ def main():
             ), patch.object(
                 AbaqusPeriodicConstraint, "_accepted_dual_evidence_pair", dual_pair,
             ):
+                # Do not charge destruction of a preceding fixture to one
+                # mode at an arbitrary point in the measured solve.
+                gc.collect()
                 started = perf_counter()
                 for factor in (.25, .5, .75, 1.):
                     step.solve(until=factor)
