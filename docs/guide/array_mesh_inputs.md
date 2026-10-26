@@ -1,3 +1,8 @@
+---
+title: "Import checked numeric array meshes into AgentFEM"
+description: "Load declared NPZ mesh arrays, preserve cell tags and identify part exteriors, with explicit connectivity, units and supported topology checks."
+---
+
 # Checked array meshes and part exteriors
 
 Use existing Gmsh, XDMF and external-format import for ordinary mesh files.

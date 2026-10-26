@@ -1,3 +1,8 @@
+---
+title: "Creep, plasticity and material-history workflows"
+description: "Explore AgentFEM power-law creep and stateful plasticity workflows, including temperature histories, adaptive stepping, restart and benchmark scope."
+---
+
 # Creep and inelasticity
 
 Time-dependent and path-dependent materials require more than a rate formula.

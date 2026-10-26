@@ -1,3 +1,8 @@
+---
+title: "Steady and transient heat transfer with AgentFEM"
+description: "Set up conduction, convection and temperature histories in Python, then transfer accepted thermal fields to mechanical analyses with AgentFEM."
+---
+
 # Heat transfer
 
 AgentFEM supports steady conduction and implicit transient heat transfer through

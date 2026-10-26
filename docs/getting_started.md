@@ -1,3 +1,8 @@
+---
+title: "Install AgentFEM and run your first finite-element project"
+description: "Install the FEniCSx-based runtime, check the environment, create a project and inspect results. Includes Linux, macOS and Windows through WSL2."
+---
+
 # Installed Project Workflow
 
 AgentFEM is both a Python library and an installed finite-element application.

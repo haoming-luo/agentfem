@@ -1,3 +1,8 @@
+---
+title: "Initialize finite-element fields with expressions"
+description: "Assign scalar, vector and tensor fields from constants or coordinate-time expressions in AgentFEM, with explicit shape and update semantics."
+---
+
 # Initial and prescribed fields through one expression interface
 
 Use `expressions.interpolate(target, source, parameters=...)` for declared

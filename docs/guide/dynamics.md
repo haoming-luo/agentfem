@@ -1,3 +1,8 @@
+---
+title: "Structural dynamics, modal analysis and wave simulation"
+description: "Explore modal, Newmark, generalized-alpha, explicit and harmonic finite-element procedures, with consistent materials, loads and result histories."
+---
+
 # Dynamics and waves
 
 AgentFEM separates the physical study from the solution procedure. Structural
