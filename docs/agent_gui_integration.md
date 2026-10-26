@@ -1,3 +1,8 @@
+---
+title: "Connect an AI assistant or GUI to AgentFEM"
+description: "Build an AgentFEM frontend through the public Python API and structured CLI, with explicit execution, results and error handling."
+---
+
 # Agent and GUI Integration Contract
 
 ## One solver-facing contract

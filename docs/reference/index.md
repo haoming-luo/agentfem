@@ -1,3 +1,8 @@
+---
+title: "AgentFEM theory and API reference"
+description: "Look up finite-element equations, conventions, output semantics and API contracts alongside their documented scientific assumptions."
+---
+
 # Theory and reference
 
 Reference pages answer precise questions about equations, conventions, output

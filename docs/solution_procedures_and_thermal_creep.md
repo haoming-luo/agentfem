@@ -1,3 +1,8 @@
+---
+title: "Thermal stress, creep and solution procedures"
+description: "Choose a numerical procedure for an AgentFEM study, transfer temperature fields and understand the implicit creep and dynamic routes."
+---
+
 # Solution Procedures, Thermal Stress, and the Creep Route
 
 ## Problem type is not a solver algorithm

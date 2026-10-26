@@ -1,3 +1,8 @@
+---
+title: "AgentFEM API design conventions"
+description: "Follow explicit scientific naming, inputs and outputs when extending AgentFEM's public Python API and machine-facing workflows."
+---
+
 # AgentFEM API Style
 
 AgentFEM APIs should be readable by finite-element researchers and predictable

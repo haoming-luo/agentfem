@@ -1,3 +1,8 @@
+---
+title: "Nonlinear materials: capabilities and maturity"
+description: "Review AgentFEM's hyperelastic and plastic material routes, constitutive state, tangent requirements and experimental boundaries."
+---
+
 # Nonlinear Materials and Maturity
 
 ## Design Boundary
