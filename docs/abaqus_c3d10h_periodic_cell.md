@@ -1,3 +1,8 @@
+---
+title: "Import and solve an Abaqus C3D10H periodic cell"
+description: "Preserve quadratic mesh and hybrid-element identity, apply equation constraints, and solve a mixed finite-strain periodic cell with AgentFEM."
+---
+
 # Abaqus C3D10H Periodic Cell
 
 ## Research background

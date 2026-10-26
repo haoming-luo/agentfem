@@ -1,3 +1,8 @@
+---
+title: "Import and inspect Gmsh, XDMF and external meshes"
+description: "Inspect mesh formats and convert supported topology with AgentFEM and meshio. Distinguish geometry import from full engineering input-deck migration."
+---
+
 # External Mesh Interoperability
 
 ## Scope

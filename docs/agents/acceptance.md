@@ -1,3 +1,8 @@
+---
+title: "Testing an AI agent's finite-element workflow"
+description: "Check installed AgentFEM project workflows and prepare a fresh-agent trial, preserving the distinction between successful execution and scientific validity."
+---
+
 # Agent acceptance contract
 
 An AI-native claim should be tested from the package that a user receives,

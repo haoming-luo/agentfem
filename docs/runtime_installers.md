@@ -1,3 +1,8 @@
+---
+title: "AgentFEM runtime installers for macOS and Windows WSL2"
+description: "Understand compatible finite-element runtime bundles, preview status, checksums and protected project locations for macOS and Windows through WSL2."
+---
+
 # Offline Runtime Installers
 
 AgentFEM's normal Python package remains available through conda-forge and

@@ -1,3 +1,8 @@
+---
+title: "AgentFEM platform and dependency support"
+description: "Check Linux, macOS and Windows support, the recommended WSL route and optional dependency boundaries before choosing an installation."
+---
+
 # Platform and Optional-Dependency Support
 
 ## First-release support policy

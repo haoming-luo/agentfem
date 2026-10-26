@@ -19,6 +19,26 @@ or a successful run is not by itself a validated engineering capability.
 
 ## Current product phase: the 0.4 foundation
 
+### Windows onboarding simplification (2026-10-26)
+
+The new user field report identifies Ubuntu distribution metadata download,
+not the numerical stack, as the main installation blocker. Promote the
+already reported TUNA image/import route to the short onboarding path:
+WSL platform → checked Ubuntu image → ordinary account → mirrored environment
+and installed first solve. No checkout, optional helper or Windows Features
+checklist is a prerequisite. Retain mirror choice in local handoff notes and
+offer a one-action manual fallback only when the agent lacks permission.
+Detailed installer recovery remains available separately. The report's root
+installation and older package success are evidence, not recommended defaults
+or proof of current-release/project compatibility. New non-root quickstart
+needs clean Windows/WorkBuddy acceptance; local documentation checks and
+PowerShell parser CI do not substitute for it. This work does not change
+solver algorithms, contact maturity or simulation performance claims.
+
+PR #125 is merged at `5e6cba5b` after all applicable checks passed for
+`11accb3b`, including PowerShell 5.1/7, Linux/FEniCSx and macOS installed-wheel
+acceptance. This is engineering integration, not a new Windows host field trial.
+
 ### Active sprint decision board (2026-10-26)
 
 The numerical follow-up starts from merged main `a862e123` (including PR #123).
@@ -51,7 +71,7 @@ and an external same-input reference remain the next scientific gates. Details,
 raw evidence and exact limits are maintained in the
 [contact sprint ledger](internal/contact_0_4_4_local_parity.md).
 
-Windows onboarding is a separate bounded engineering change in PR #125:
+Windows onboarding is a separate bounded engineering change, merged in PR #125:
 reuse WSL/Ubuntu, honor an explicitly chosen mirror, remove the mandatory
 source checkout, and give one manual action when permission/download blocks a
 stage. A fresh Windows/WorkBuddy machine remains a user acceptance check;

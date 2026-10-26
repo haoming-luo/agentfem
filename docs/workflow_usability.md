@@ -1,3 +1,8 @@
+---
+title: "Check, run and compare AgentFEM simulation results"
+description: "Use the AgentFEM CLI to inspect projects, run cases, locate output files and compare declared quantities or histories with explicit tolerances."
+---
+
 # Check, run, inspect, compare
 
 One project remains one readable `case.py`, with operational metadata in

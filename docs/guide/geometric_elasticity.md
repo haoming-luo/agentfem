@@ -1,3 +1,8 @@
+---
+title: "Large-rotation elastic solids and column bending with AgentFEM"
+description: "Model large rotations with small elastic strains using Saint-Venant–Kirchhoff elasticity. Includes plane stress, imperfect columns and cantilever examples."
+---
+
 # Geometrically nonlinear elastic solids
 
 AgentFEM now accepts an explicit Saint-Venant–Kirchhoff (StVK) material through

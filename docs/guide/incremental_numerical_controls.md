@@ -1,3 +1,8 @@
+---
+title: "Numerical controls for reliable AgentFEM simulations"
+description: "Understand matrix reuse, accepted time steps, Newton line searches and explicit failure diagnostics without changing the declared physical model."
+---
+
 # Numerical controls and input/output contracts
 
 These controls extend the existing workflow. They do not silently change the

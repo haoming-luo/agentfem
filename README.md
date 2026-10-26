@@ -35,12 +35,13 @@ computation, data, and AI.
 ```text
 Bring AgentFEM to life.
 
-Use https://github.com/haoming-luo/agentfem as the guide. Follow the tested
-route in INSTALL.md; if I say "走镜像通道 / use the mirror channel", use its
-single verified mirror route. Read AGENT_GUIDE.md and run `agentfem doctor`.
-
-When it is ready, reply briefly with the environment, AgentFEM
-version, and health-check result.
+Use https://haoming-luo.github.io/agentfem/agentfem.json as the guide.
+Detect my platform and reuse a working environment. If I say
+"走镜像通道 / use the mirror channel", retain that choice for later installs.
+On Windows use the linked short WSL/Ubuntu route, without cloning the repo.
+Do every permitted step; if one fails, give me one simple manual action and
+continue after it is resolved. Finish with one installed example, then report
+the version, result location and actual verification outcome briefly.
 ```
 
 AgentFEM includes the guidance and machine-readable interfaces an agent needs.
@@ -110,7 +111,7 @@ location:
 ```bash
 mamba create -n agentfem-env --no-rc --override-channels \
   -c https://mirrors.tuna.tsinghua.edu.cn/anaconda/cloud/conda-forge \
-  python=3.11 fenics-dolfinx=0.11 agentfem
+  python=3.11 fenics-dolfinx=0.11 c-compiler cxx-compiler agentfem
 mamba activate agentfem-env
 agentfem doctor
 ```

@@ -1,3 +1,8 @@
+---
+title: "Solid mechanics in Python: elasticity, axisymmetry and nonlinear materials"
+description: "Build AgentFEM solid models with materials, constraints and loads. Explore elasticity, axisymmetric stress, plasticity and their documented analysis limits."
+---
+
 # Solid mechanics
 
 AgentFEM keeps the engineering model readable while allowing advanced

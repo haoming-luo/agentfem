@@ -45,12 +45,19 @@ Study → Model → Mesh/Regions → Fields → Materials → Loads/Constraints
 
 ## Quick installation
 
+**Windows?** Ask your agent to follow the
+[short Windows route](windows_agent_installation.md), optionally adding
+“走镜像通道 / use the mirror channel”. It reuses existing WSL, does permitted
+work, and gives one manual action if blocked. No repository clone is needed.
+The same [copyable agent prompt](get_started/index.md#let-your-agent-install-it)
+also works for Linux/macOS; it selects the appropriate platform path.
+
 The recommended conda-forge installation provides AgentFEM and its compatible
 FEniCSx/PETSc/MPI foundation together:
 
 ```bash
 mamba create -n agentfem-env --override-channels -c conda-forge \
-  python=3.11 fenics-dolfinx=0.11 agentfem
+  python=3.11 fenics-dolfinx=0.11 c-compiler cxx-compiler agentfem
 mamba activate agentfem-env
 agentfem doctor
 ```

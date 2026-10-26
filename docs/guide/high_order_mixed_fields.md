@@ -1,3 +1,8 @@
+---
+title: "High-order mixed finite-element field interpolation"
+description: "Transfer mixed velocity, pressure and solid fields through independent finite-element spaces. Preserve element degree without assuming coefficient ordering."
+---
+
 # High-order mixed-field interpolation
 
 Use `spaces.independent_subspace(W, component)` for standalone boundary fields

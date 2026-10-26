@@ -766,7 +766,7 @@ try {
         $script:InstallState.wsl_version = $platformVersion.ToString()
         Save-InstallState -Stage 'platform_ready'
         Write-Host 'WSL platform prepared. AgentFEM is not installed by this operation.' -ForegroundColor Green
-        Write-Host 'Reuse an existing WSL2 Ubuntu or install the named Ubuntu distribution, then follow INSTALL.md for the mirror environment.'
+        Write-Host 'Next: reuse working Ubuntu/WSL2, or follow the checked mirror import in the Windows quickstart. No repository clone is required. AgentFEM is not installed yet.'
         exit 0
     }
     if ($NonInteractive -and $Upgrade) {
