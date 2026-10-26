@@ -69,13 +69,13 @@ function Format-AgentFEMWindowsHost {
     $next = switch ($Report.status) {
         'inventory_available' { 'Select an existing WSL2 distribution and verify its environment. No new distribution is needed automatically.' }
         'no_distribution' {
-            if ($Report.route -eq 'UbuntuMirror') { 'Install the named Ubuntu distribution with approval, then complete its private account prompt.' }
+            if ($Report.route -eq 'UbuntuMirror') { 'Import a verified Ubuntu mirror image using the Windows quickstart; no repository clone is needed. Prepare an ordinary user before installing AgentFEM.' }
             else { 'Open the verified Complete Runtime installer; this route does not need a separate Ubuntu download.' }
         }
         'wsl1_only' { 'Keep existing WSL1 data. Review a WSL2 route; do not convert or remove a distribution automatically.' }
         'blocked' { 'Request approval for this specific command in your agent host, or use a local terminal. Do not switch launchers to bypass policy.' }
         'restart_required' { 'Save your work and restart Windows, then rerun this check.' }
-        'component_required' { 'Use the trusted platform installer with user consent; it will identify any required restart.' }
+        'component_required' { 'Approve WSL platform preparation. If your agent cannot elevate, open Terminal (Administrator) and run the platform command in the Windows quickstart; restart only when requested.' }
         'platform_update_required' { 'The Complete Runtime image needs WSL 2.4.4 or newer. Approve an update, or use the documented Ubuntu environment route.' }
         'command_unavailable' { 'Check the Windows component and agent-host command permission. Missing command visibility is not proof that WSL is absent.' }
         default { 'Inspect the error below. Do not reinstall based on an unknown probe failure.' }

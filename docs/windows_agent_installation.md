@@ -1,297 +1,194 @@
-# Windows installation with an AI assistant
+# Windows: WSL → Ubuntu → AgentFEM
 
-The goal is a working first finite-element solve, with the user participating
-only in required platform consent, restart and account credentials. Never claim
-an unattended installation when the host disallows WSL/elevation.
+For an AI assistant: complete the permitted work yourself. Show the user only
+the next action that needs their approval. **No GitHub clone, Windows Python,
+Docker or AgentFEM installer scripts are required.** Already have working
+Ubuntu/WSL2? Skip platform installation and reuse it.
 
-## The short onboarding path
+国内用户：先准备 WSL，再从清华镜像导入 Ubuntu，最后镜像安装 AgentFEM。
+不用先克隆 GitHub，不用默认打开“Windows 功能”逐项勾选；让智能体完成允许的操作。
 
-1. **Inspect, do not reinstall.** Reuse the source-usable Windows host check
-   below. Add `-Format Text` for a person; keep the default JSON for an agent.
-2. **Choose one route.** A published Complete Runtime supplies its own Linux
-   image. Ubuntu + mirror uses the existing Ubuntu/Miniforge environment.
-   Do not make the user download both or search for an unpublished package.
-3. **Do the permitted work.** Ask the user only for the specific approval,
-   restart or private account input that is actually needed. A blacklisted
-   command is not a missing WSL installation.
-4. **Verify the first solve.** For Ubuntu + mirror, from the trusted checkout
-   inside Ubuntu, run `python3 packaging/runtime/setup_environment.py --channel tuna`,
-   inspect the plan, then repeat with `--apply --json`. The entry point
-   discovers Linux Mamba/Conda, or accepts `--manager` and `--prefix` explicitly.
-   It creates a missing environment through one channel, but never changes an
-   existing environment's packages implicitly. It verifies installed identity,
-   doctor, workspace protection, an installed-template solve and result provenance.
-5. **Hand off one useful summary.** State the distribution/environment, installed
-   version, first-solve outcome, project location and any remaining action.
-   Do not paste a page of platform commands or claim optional accelerators,
-   Windows firmware, another material model or a full scientific benchmark were
-   validated by this small solve.
+## 1. Prepare WSL only if needed
 
-`setup_environment.py` is a Linux source-usable installer entry, not a new
-solver or an executable downloaded from a package index. It requires a trusted
-existing Miniforge and Python 3; it never bootstraps an unsigned/unverified
-installer or changes the user's shell startup files. With `--apply`, package
-download/solve logs and structured stage evidence stay in
-`~/.local/state/agentfem/setup/`. A requested version unavailable on the selected
-mirror fails before environment creation. No alternate channel is selected.
-The normal `--apply` route protects the conventional workspace; advanced
-`--no-protect-workspace` inspects only and still rejects unprotected WSL storage.
-Its first-solve check uses Linux-local files and a fresh JIT cache. Runtime and
-case-specific performance must still be measured separately.
+Inspect `wsl --status` and `wsl --list --verbose` in PowerShell. A blocked
+command is a permission issue, not proof that WSL is missing. A Store Ubuntu
+App is not yet a registered distribution: check the WSL inventory.
 
-## Route selection
-
-Read INSTALL.md and the published release assets first. New x64 Windows users
-may use a compatible published Complete Runtime Preview. Check its version,
-SHA-256 and published acceptance status; a development branch is not a release.
-This route imports the bundled environment, without installing Ubuntu/Miniforge
-and resolving the numerical stack again. If the user requests the documented
-mirror route, follow that route without mixing it with Complete Runtime.
-Reuse working existing environments and preserve their projects.
-
-### Mainland network: keep the platform and package routes separate
-
-An AgentFEM/conda mirror does **not** mirror the Windows WSL platform. With an
-existing healthy Ubuntu WSL2 distribution, go directly to the single-mirror
-command in INSTALL.md. Do not install a second distro or replace a working
-Miniforge installation. Use `mamba run -n agentfem-env ...` in agent tools;
-an interactive `mamba activate` in one tool invocation may not persist in the
-next invocation. Query the mirror for the requested version before installing.
-After a reviewed environment-create plan, agents may add `--yes` to avoid a
-hidden package confirmation prompt. If Mamba is not on PATH after a batch
-Miniforge install, use its actual absolute executable path; do not rewrite the
-user's shell startup files just to make a transient agent tool work.
-Finish with INSTALL.md's installed `init/check/run/verify` smoke test, which
-does not require cloning the repository from GitHub. Preserve its small project
-and result as evidence instead of accepting imports alone.
-
-For a new machine, choose one route and retain it after reboot:
-
-| Route | Windows preparation | Linux environment |
-| --- | --- | --- |
-| Published Complete Runtime bundle | Bundled installer prepares WSL **without** a separate Ubuntu download | Imports the verified local `.wsl` image; no conda solve |
-| Ubuntu + documented mirror | Microsoft `wsl --install -d Ubuntu`; user approves platform changes and required restart | Reuse/install Miniforge from its verified distribution, then use the one-mirror command in INSTALL.md |
-
-For the Ubuntu/mirror route, an agent may prepare just the WSL platform through
-the same tested elevation/restart policy (no runtime image or Python needed):
+If WSL is missing, use approved elevation. If the agent cannot obtain it,
+give just this handoff: **“Open Terminal (Administrator), run the following
+command, and restart only if Windows asks.”**
 
 ```powershell
-powershell.exe -NoProfile -File .\packaging\runtime\wsl\Install-AgentFEM.ps1 -PrepareWslOnly -WslBootstrapSource Store
+wsl --install --no-distribution --web-download
 ```
 
-Use that path from a verified source checkout; in an extracted bundle use
-`.\Install-AgentFEM.ps1` instead. Keep `Installer-State.ps1`,
-`Installer-Presentation.ps1` and `Windows-HostProbe.ps1` beside the installer.
-Use `-NonInteractive` if the host has no interactive console. This operation
-does **not** install Ubuntu, AgentFEM or change existing distro contents. Its
-successful state is `platform_ready`, not `completed`. This checks WSL tooling
-and the read-only platform status;
-it does not certify a working WSL2 VM or installed scientific environment. The
-2.4.4 minimum for `.wsl` packages is not imposed on this Ubuntu/mirror route.
-After any required reboot,
-rerun it with the same options. The agent then inspects `wsl --list --verbose`,
-reuses an appropriate WSL2 distro, or installs the named Ubuntu only if absent.
-Opening Ubuntu for its initial username/password is a one-time user step;
-afterwards the agent continues with the documented mirror commands. Do not
-convert/remove an existing WSL1 or unrelated distro automatically.
+This deliberately installs the platform without downloading Ubuntu.
+`--web-download` is an alternative to the Store, not a domestic mirror or a
+speed guarantee. If its download fails, an approved Store route is
+`wsl --install --no-distribution`. Do not switch routes after denied consent
+or a restart request. Do not start with the Windows Features GUI; reserve
+manual component/firmware repair for a specific diagnosed failure.
 
-The installer's read-only version/status/inventory queries use the same bounded probe as
-the preflight (15 seconds per query; `-ProbeTimeoutSeconds 1..120` when needed).
-A timeout records `AFM-WIN-PROBE-TIMEOUT`, releases the installer lock and stops;
-it does not terminate an installation, distribution, service or simulation.
-Downloads, imports and first solves are not given this short probe timeout.
+## 2. Add Ubuntu from the mirror, only if absent
 
-The warning against bare `wsl --install` applies to the Complete Runtime route;
-it is **not** a claim that Microsoft's default Ubuntu is unrelated to the
-Ubuntu/mirror route. Do not invent a candidate package or a mirror download URL
-if the required artifact has not been published. Obtain a published compatible
-artifact or use the documented source-environment route.
+For a requested mainland/mirror route, use the verified Ubuntu image import
+below directly. Do not first loop through Store, winget and
+`wsl --install -d Ubuntu` after a distribution-metadata timeout. Importing a
+local image avoids that metadata download; it does not bypass permissions.
 
-On restricted networks select the accessible Microsoft source explicitly:
-`-WslBootstrapSource Store`, `Web`, or `None` (platform already prepared).
-`Web` is not a domestic mirror and may still be unreachable. For an offline
-platform bootstrap use Microsoft's documented signed MSI route, not a random
-repacked executable. No VPN, global proxy changes, disabled TLS verification,
-or unrestricted agent permissions are prerequisites imposed by AgentFEM.
+### Copy-safe x64 mirror recipe (PowerShell)
 
-## Agent procedure
-
-Before installing, the source-usable read-only preflight is:
+For a new distribution only. Reuse an existing compatible one instead of
+running this block. It uses a user-owned directory, checks every native
+command, and verifies the exact image against the mirror's published manifest.
+It does not overwrite a registered distribution or an existing destination.
 
 ```powershell
-powershell.exe -NoProfile -File .\packaging\runtime\wsl\Test-AgentFEMWindowsHost.ps1 -Route UbuntuMirror
+$ErrorActionPreference = 'Stop'
+$afmDistro = 'Ubuntu-24.04'
+$afmTarget = Join-Path $env:LOCALAPPDATA 'AgentFEM\WSL\Ubuntu-24.04'
+$afmArch = $env:PROCESSOR_ARCHITEW6432
+if (-not $afmArch) { $afmArch = $env:PROCESSOR_ARCHITECTURE }
+if ($afmArch -ne 'AMD64') { throw 'This recipe is x64 only; select a verified image for your architecture.' }
+$afmExisting = @(wsl.exe --list --quiet)
+if ($LASTEXITCODE -ne 0) { throw 'Check WSL readiness/permission before importing.' }
+$afmExisting = @($afmExisting | ForEach-Object { ($_ -replace "`0", '').Trim() })
+if (($afmExisting -contains $afmDistro) -or (Test-Path -LiteralPath $afmTarget)) {
+    throw 'Existing distribution or directory: inspect and reuse; do not overwrite.'
+}
+$afmDownload = Join-Path $env:TEMP ('agentfem-ubuntu-' + [guid]::NewGuid().ToString('N'))
+New-Item -ItemType Directory -Path $afmDownload | Out-Null
+$afmBase = 'https://mirrors.tuna.tsinghua.edu.cn/ubuntu-releases/24.04'
+$afmSums = Join-Path $afmDownload 'SHA256SUMS'
+curl.exe -fL --retry 2 --connect-timeout 20 -o $afmSums "$afmBase/SHA256SUMS"
+if ($LASTEXITCODE -ne 0) { throw 'Ubuntu checksum download failed.' }
+$afmEntries = @(Get-Content -LiteralPath $afmSums | Select-String '^([0-9a-fA-F]{64})\s+\*?(ubuntu-24\.04(?:\.\d+)?-wsl-amd64\.wsl)$')
+if ($afmEntries.Count -ne 1) { throw 'Expected one Ubuntu 24.04 x64 WSL image; inspect the published manifest.' }
+$afmMatch = $afmEntries[0].Matches[0]
+$afmFile = $afmMatch.Groups[2].Value
+$afmImage = Join-Path $afmDownload $afmFile
+curl.exe -fL --retry 2 --connect-timeout 20 -o $afmImage "$afmBase/$afmFile"
+if ($LASTEXITCODE -ne 0) { throw 'Ubuntu image download failed; do not import it.' }
+if ((Get-FileHash -LiteralPath $afmImage -Algorithm SHA256).Hash -ne $afmMatch.Groups[1].Value) {
+    throw 'Ubuntu checksum mismatch; do not import.'
+}
+New-Item -ItemType Directory -Force -Path (Split-Path $afmTarget) | Out-Null
+wsl.exe --import $afmDistro $afmTarget $afmImage --version 2
+if ($LASTEXITCODE -ne 0) { throw 'Import failed; retain the image and error for diagnosis.' }
+wsl.exe --list --verbose
+if ($LASTEXITCODE -ne 0) { throw 'Cannot verify distribution inventory.' }
 ```
 
-In an extracted bundle use `Test-AgentFEMWindowsHost.ps1` and keep its companion
-`Windows-HostProbe.ps1` beside it. Select `CompleteRuntime` only for that route.
-The JSON distinguishes tooling version from each distro's WSL1/WSL2 version,
-blocked/missing commands, failed probes, and required image-format updates.
-It also runs `wsl --status`: a successful version query alone does not show
-that the Windows components are ready. Known missing-component HRESULTs or
-stable WSL error names report `component_required`; generic failures remain
-unknown rather than triggering reinstallation. Platform preparation uses its
-existing consent/restart path for those known component failures, then checks
-status again. It does not alter firmware, convert distributions or reboot.
-The raw `platform_status_text` is retained because WSL may print a virtualisation
-warning while returning success. `virtual_machine_verified` remains false:
-neither status nor inventory substitutes for launching the selected WSL2 distro.
-An empty successful quiet inventory skips the verbose query (which WSL rejects
-when there is no default distribution); it is not treated as a broken install.
-It never launches a distribution or changes Windows. Each read-only command
-has a 15-second timeout (configurable with `-TimeoutSeconds`); a failed command
-stops the probe sequence, not triggers another launcher. It reports
-`runtime_verified: false` even when a WSL2 inventory is available. Inventory is
-not evidence that Linux, a mirror or AgentFEM is healthy. Preserve a failed
-probe and inspect its code instead of inferring that WSL needs reinstallation.
+Retain the downloaded manifest, filename and digest. This checks integrity
+against the selected HTTPS mirror, not independent signature authentication.
+If policy requires upstream authenticity, also verify Ubuntu's signed
+`SHA256SUMS.gpg` against a trusted Ubuntu signing key before import. Never
+skip a failed checksum. The 24.04 directory tracks its maintenance release;
+do not guess a filename or use a desktop ISO. See the
+[TUNA image directory](https://mirrors.tuna.tsinghua.edu.cn/ubuntu-releases/24.04/).
 
-1. Inspect Windows architecture, WSL availability and existing distributions with
-   the host's supported tools. In WorkBuddy use its PowerShell tool directly.
-2. Retain the selected route. For Complete Runtime, obtain the official
-   compatible bundle and verify its digest. For Ubuntu/mirror, reuse the
-   existing environment or prepare WSL as described above; no runtime bundle
-   is required. Prepare the relevant installer before requesting user action.
-3. When using Install-AgentFEM.ps1, invoke it in the allowed PowerShell tool
-   with the selected route options (`-PrepareWslOnly` for platform-only work).
-   The installer
-   requests administrator approval only for WSL preparation/update. Never ask
-   for manual commands merely because the current shell is non-admin.
-   For a tool without an interactive console, add `-NonInteractive`. It performs
-   permitted setup but returns a named handoff instead of opening UAC or waiting
-   for a password. Use the normal installer in a local terminal for that handoff;
-   the same identity/state is reused. This mode rejects replacement upgrades.
-4. If WorkBuddy blocks wsl.exe, request its authorised allowlist/approval. If
-   elevation is explicitly blocked, explain that exact blocker and ask the user
-   to run the same trusted installer/options in their local terminal. The
-   extracted Install-AgentFEM.cmd is for the Complete Runtime route only.
-   Do not change shells or APIs to
-   bypass policy. The CMD launcher is for human use, not a sandbox escape.
-5. If restart is required, preserve the package and installation record; ask the
-   user to save their work and restart. On session recovery read status.json,
-   then rerun the same installer/options. A completed import is reused only
-   when the recorded distribution and runtime identity match.
-6. Complete the ordinary account prompt with the user entering their password.
-   Never request passwords in chat or recommend routine root use.
-7. Require project protection, runtime identity/doctor and the installed
-   first-solve check. The bundle runs its fresh-cache acceptance check;
-   Ubuntu/mirror users use INSTALL.md's installed-template check. Report the
-   actual distribution/version and results, not just platform readiness.
+### Account: automate setup, not a shared password
 
-## State and failure handling
-
-Records are under LocalAppData/AgentFEM/Installations/<identity>/ with status.json,
-install.log and acceptance.json. The identity includes image checksum, version,
-requested distribution, locations and upgrade mode. An exclusive per-user lock
-also excludes **different** packages that could target the same distribution.
-Never launch a second copy while one is progressing. Before resuming, the saved
-request identity must match and the installed runtime-release record must match
-the package's SHA-256. The same version string alone is not sufficient.
-For full-runtime installs the resolved project directory is also saved before
-platform preparation can request a restart. Resume reuses that destination even
-if Windows redirects Documents in the meantime. Status exposes it as
-`effective_project_directory`; explicit destinations must agree with it. Older
-records without that field resolve and save the destination on their next run;
-they cannot reconstruct a former default that was never recorded.
-
-Agents can read progress without launching WSL or modifying Windows:
+Imported distributions normally start as root. This is useful for initial
+setup, **not** a reason to run the solver as root. With permission to prepare
+this new distribution, the agent can create a normal account without asking
+the user to choose a password:
 
 ```powershell
-powershell.exe -NoProfile -File .\Get-AgentFEMInstallStatus.ps1
+wsl.exe -d Ubuntu-24.04 -u root -- useradd --create-home --shell /bin/bash afm
+if ($LASTEXITCODE -ne 0) { throw 'Account creation failed; inspect existing users before retrying.' }
+wsl.exe -d Ubuntu-24.04 -u afm --cd ~
 ```
 
-For a user-readable view, add `-Format Text`. Both formats read the same
-snapshot and preserve the same nonzero error exit. They perform no installation
-or health-check operation. The human view names the next step and local record,
-instead of asking the user to interpret the JSON.
+Use this only for the newly imported distribution; reuse existing users.
+The new account has password login locked, not an empty/shared password, and
+is not granted passwordless sudo. Use explicit `-u afm` for subsequent agent
+calls (or preserve other settings when configuring `[user] default=afm` in
+`/etc/wsl.conf`). System administration remains separately authorised.
+Imported distributions do not use `ubuntu.exe config --default-user`.
+Store/bundle OOBE is a different route: if it asks for a password, the user
+enters it privately, never in chat.
 
-This prints JSON with `installer_busy`, recorded stages, `error_code`,
-`next_action`, the saved `resume` argument array, and evidence paths. Read the
-arguments as data: review the route, target and privileges before invoking a
-trusted installer; never feed them to `Invoke-Expression`. Keep the recorded
-`-PrepareWslOnly`/source options after reboot. For the private user handoff,
-omit only `-NonInteractive`; if the package moved, verify its identity before
-substituting the new installer path. The query does not prove the environment is
-healthy (`runtime_probed: false`) and does not authorise installation. A stale
-`preparing_wsl` record with no lock is interrupted, not necessarily still running.
-The status query reports `activity: interrupted` and an inspect/resume action
-for an unfinished stage with no busy lock or recorded handoff. It preserves
-`recorded_next_action` and never rewrites the saved evidence. When the shared
-lock is busy, it does not guess which saved record owns that installer.
-Status readers allow atomic replacement of the state file while they hold a
-complete prior snapshot, so polling progress does not lock out state publication.
-Inspect the log and resume the same verified installer/options; do not delete
-the record or distribution to make the status look clean. Keep corrupt records
-for diagnosis; the query exits nonzero if any record cannot be read.
-If a full disk or permission error prevents writing a failure record, the
-installer still reports the original error and a nonzero exit, plus
-`AFM-WIN-STATE-WRITE`. Keep the terminal/transcript: the prior JSON record may
-then be stale and must not be taken as current success.
+## 3. Install the environment and show the first result
 
-| Recorded state / code | Agent action |
+Inside Ubuntu as the ordinary user, reuse working Linux Miniforge. Otherwise
+use its [TUNA release mirror](https://mirrors.tuna.tsinghua.edu.cn/github-release/conda-forge/miniforge/LatestRelease/)
+or [official distribution](https://github.com/conda-forge/miniforge#download).
+Select a versioned **Linux** installer matching the architecture and its
+matching `.sha256` file; verify before executing. The mirror's moving
+`LatestRelease` directory may change: missing files/checksum mean stop and
+reselect the published pair, not execute an unchecked download.
+
+Example verified-release pair available on 2026-10-26, for a new x64 install.
+Run as one Bash block; no root, shell-profile edits or existing-prefix overwrite:
+
+```bash
+(
+  set -eu
+  test "$(id -u)" -ne 0
+  test "$(uname -m)" = x86_64
+  test ! -e "$HOME/miniforge3"
+  afm_download=$(mktemp -d)
+  cd "$afm_download"
+  afm_base=https://mirrors.tuna.tsinghua.edu.cn/github-release/conda-forge/miniforge/LatestRelease
+  afm_file=Miniforge3-26.9.4-0-Linux-x86_64.sh
+  curl -fL --retry 2 --connect-timeout 20 -O "$afm_base/$afm_file"
+  curl -fL --retry 2 --connect-timeout 20 -O "$afm_base/$afm_file.sha256"
+  sha256sum --check "$afm_file.sha256"
+  bash "$afm_file" -b -p "$HOME/miniforge3"
+)
+```
+
+Then use [INSTALL.md's mirror command and installed smoke test](https://github.com/haoming-luo/agentfem/blob/main/INSTALL.md#mirror-channel--镜像通道).
+Use `~/miniforge3/bin/mamba` if it is not on PATH. In agent tools use
+`mamba run -n agentfem-env ...` for each command; activation does not persist
+across tool calls. Query the selected mirror for a required version: an older
+package passing a basic solve does not satisfy a project's newer API needs.
+
+Finish with doctor → workspace protection → init/check/run/verify. Report
+**installed version, first-solve outcome, result path and one useful numerical
+check with units where applicable**. Provenance verification is not a general
+scientific certification. Do not append unrequested benchmarks or a long essay.
+
+## Agent handoffs: one sentence, only when needed
+
+| Actual blocker | Tell the user |
 | --- | --- |
-| Busy lock | Wait for the existing installer; do not duplicate it |
-| `AFM-WIN-ELEVATION-REQUIRED` / `awaiting_authorization` | One specific approval/local-terminal request; no alternate-shell retries |
-| `restart_required` | Ask the user to save work and restart; keep installer and options |
-| `AFM-WIN-ACCOUNT-INPUT-REQUIRED` | User enters credentials privately; never in chat |
-| `AFM-WIN-RESUME-IDENTITY` / `AFM-WIN-STATE-IDENTITY` | Preserve both installations and evidence; do not auto-repair/reuse |
-| `completed` | Read the acceptance report; use ordinary non-root account |
+| Host blocks WSL | “Please approve this WSL operation in your agent, or run the displayed command in your own terminal.” |
+| Elevation unavailable | “Open Terminal (Administrator) and run the platform command above.” |
+| Windows requests restart | “Save your work and restart; I will continue from the installed state.” |
+| Store/bundle asks for credentials | “Enter your Linux account details in the local window, not here.” |
 
-Account setup invokes the bundled idempotent OOBE explicitly and returns.
-It does not rely on `wsl --exec true` triggering an interactive first launch.
+Do not ask users to disable security controls, retry blocked tools through
+another shell, reinstall healthy WSL, or enable every Windows feature.
+After interruption inspect what already exists; do not duplicate downloads,
+imports or package transactions. To avoid PowerShell/Bash quoting errors,
+send complex Linux operations as an inspected LF `.sh` file, rather than
+nested interpolated command strings.
 
-A restart request (exit 3010), declined UAC, and blocked process launch must not
-cause a Store/Web fallback. Only a WSL command that actually ran and returned
-an ordinary error may use the documented one-time fallback. Identify whether
-slowness occurs during download, WSL setup, checksum, import or first JIT solve;
-do not reset environments or invent alternative package sources.
+## Keep the chosen mirror on later visits
 
-The launcher keeps failures visible. Automatic login continuation is not yet
-implemented: reopen it after reboot. Existing transactional replacement upgrades
-remain explicit and retain their backup/rollback procedure; the resumable
-first-install workflow is not a crash-safe replacement-upgrade transaction.
+Record the user's selected channel, environment path and installed version in
+the local project/agent handoff note; do not record credentials. Read it on
+later visits and keep using that channel for optional packages unless the user
+changes it. Use explicit per-command conda/pip sources; do not rewrite global
+configuration or mix compiled package channels. No new mirror CLI is needed.
+[Optional package examples](https://github.com/haoming-luo/agentfem/blob/main/INSTALL.md#optional-tools).
 
-## Windows acceptance required before promotion
+## Other routes and evidence
 
-Test the exact published bundle on clean Windows 11 x64 with WorkBuddy:
-- WSL missing, standard user session, approved UAC;
-- blocked wsl.exe/elevation: one actionable request, no bypass or retry loop;
-- cancelled UAC and restart: correct state, reopen and continue;
-- interrupted first account setup/import: preserve distribution and recheck;
-- existing unrelated distributions and existing AgentFEM: preserve them;
-- paths with spaces/Chinese characters; relocated extraction folder;
-- corrupt/incomplete package, failed first JIT solve, duplicate installer;
-- same-version/different-build runtime; foreign saved state; two different
-  packages racing; non-interactive password/approval handoff;
-- healthy completion with non-root user, Windows project protection and solve.
+If the user already has a compatible published Complete Runtime ZIP, use its
+installer instead; do not also install Ubuntu/Miniforge. Source/bundle helpers
+and detailed recovery records are [optional tooling](windows_installer_reference.md),
+not prerequisites. No repository clone is needed for any step above.
 
-PowerShell contract CI mocks process exits and tests state handling on Windows
-5.1 and 7. It does not validate UAC, WorkBuddy, firmware or real WSL installation.
+The [2026-10-26 field feedback](https://github.com/haoming-luo/agentfem/discussions/3)
+reports Ubuntu mirror download around one minute, environment creation around
+2.5 minutes, AgentFEM 0.4.1 and a completed static-solid solve. These are
+user-reported measurements, not timing guarantees or a validation of the
+current release. It used root; our recommended non-root preparation above is
+a deliberate safety improvement, not a claim that the reporter tested it.
 
-## Platform sources
-
-- [Microsoft WSL installation](https://learn.microsoft.com/en-us/windows/wsl/install)
-  and [command options](https://learn.microsoft.com/en-us/windows/wsl/basic-commands).
-- [Custom distro/OOBE contract](https://learn.microsoft.com/en-us/windows/wsl/build-custom-distro).
-- [Microsoft WSL error definitions](https://github.com/microsoft/WSL/blob/master/src/windows/service/inc/wslservice.idl):
-  optional-component and virtual-machine-platform requirements are distinct
-  from version discovery, denied access and unknown probe failure.
-- [WorkBuddy permissions](https://www.codebuddy.cn/docs/workbuddy/From-Beginner-to-Expert-Guide/Function-Description/Permission-Modes):
-  request scoped approval; do not require disabling its sandbox or switching on
-  global full access. Exact UI labels may change; follow the installed client's
-  permission request, not an invented blacklist menu.
-
-These contracts are model-neutral: Doubao or another model using an agent host
-needs actual authorised terminal tools. A chat-only model cannot install WSL.
-
-## Suggested initial user prompt
-
-> Bring AgentFEM to life using https://github.com/haoming-luo/agentfem.
-> Read INSTALL.md and AGENT_GUIDE.md; on Windows also follow
-> docs/windows_agent_installation.md. Reuse a healthy existing environment;
-> otherwise choose the documented compatible installation route. If I request
-> the mirror channel, use its verified route. Complete every permitted step
-> yourself. Ask me only for required consent, restart or account credentials,
-> explaining the exact action. Respect the host's security controls; do not
-> retry blocked actions through another shell. Preserve installation progress
-> and continue after interruption. Verify the installed version, doctor and
-> first solve before reporting success. Reply briefly with the environment,
-> AgentFEM version and actual verification result.
+Sources: [Microsoft installation](https://learn.microsoft.com/en-us/windows/wsl/install),
+[WSL commands](https://learn.microsoft.com/en-us/windows/wsl/basic-commands),
+[imported distributions](https://learn.microsoft.com/en-us/windows/wsl/use-custom-distro).
