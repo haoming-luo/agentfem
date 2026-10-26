@@ -119,6 +119,7 @@ function Save-InstallState {
     if ($Stage -in @('failed', 'restart_required', 'awaiting_authorization')) {
         $script:InstallState.interrupted_stage = $script:InstallState.stage
     }
+    $previousStage = $script:InstallState.stage
     $script:InstallState.stage = $Stage
     $script:InstallState.message = $Message
     $script:InstallState.error_code = ''
@@ -144,6 +145,11 @@ function Save-InstallState {
         # the diagnostic history, not a repeatedly overwritten backup inode.
         [IO.File]::Replace($temporary, $path, [System.Management.Automation.Language.NullString]::Value)
     } else { [IO.File]::Move($temporary, $path) }
+    # Say only what has actually been reached, never a fabricated percentage.
+    # State remains the machine contract; the renderer owns no installer action.
+    if ($previousStage -ne $Stage -and (Get-Command Get-AgentFEMInstallStageText -ErrorAction SilentlyContinue)) {
+        Write-Host ('AgentFEM setup | ' + (Get-AgentFEMInstallStageText -Stage $Stage))
+    }
 }
 
 function Set-InstallResumeInvocation {

@@ -2,7 +2,8 @@
 [CmdletBinding()]
 param(
     [ValidateSet('UbuntuMirror', 'CompleteRuntime')][string]$Route = 'UbuntuMirror',
-    [ValidateRange(1, 120)][int]$TimeoutSeconds = 15
+    [ValidateRange(1, 120)][int]$TimeoutSeconds = 15,
+    [ValidateSet('Json', 'Text')][string]$Format = 'Json'
 )
 $ErrorActionPreference = 'Stop'
 . (Join-Path $PSScriptRoot 'Windows-HostProbe.ps1')
@@ -12,6 +13,9 @@ catch {
         next_action='inspect_probe_error'; changes_made=$false; runtime_verified=$false;
         errors=@(@{code='AFM-WIN-PROBE-FAILED'; message=$_.Exception.Message})}
 }
-$report | ConvertTo-Json -Depth 8
+if ($Format -eq 'Text') {
+    . (Join-Path $PSScriptRoot 'Installer-Presentation.ps1')
+    Format-AgentFEMWindowsHost -Report $report
+} else { $report | ConvertTo-Json -Depth 8 }
 if ($report.errors.Count) { exit 1 }
 exit 0

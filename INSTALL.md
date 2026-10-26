@@ -124,6 +124,63 @@ MPI libraries.
 
 ## Windows
 
+### Start here
+
+Choose **one** route; keep it through restarts. You do not need native Windows
+Python, Docker, or a second Linux distribution to use a healthy existing WSL2
+environment.
+
+| Your starting point | Next step |
+| --- | --- |
+| A compatible Complete Runtime ZIP | Extract it fully and open `Install-AgentFEM.cmd`. It owns platform preparation, recovery and first-solve verification. |
+| Ubuntu/WSL2 and Miniforge already work | Use the guided environment setup below; it reuses existing packages instead of reinstalling them. |
+| New Windows computer, using the mirror route | Follow [Windows agent installation](docs/windows_agent_installation.md): prepare WSL, privately finish the Ubuntu account prompt, then use the guided setup. |
+
+Windows may ask for administrator approval, a restart, or a Linux password.
+These are distinct steps, not repeated failures. Save your work before restarting;
+keep the same installer and options. Enter passwords only in the local account
+prompt, never in an AI chat. An agent-host permission refusal needs its scoped
+approval, not another shell or disabled security controls.
+
+### Guided Ubuntu / mirror setup
+
+From a trusted source checkout, run **inside Ubuntu** with its existing Python 3
+and Linux Miniforge. This entry point does not need AgentFEM installed yet:
+
+```bash
+python3 packaging/runtime/setup_environment.py --channel tuna
+python3 packaging/runtime/setup_environment.py --channel tuna --apply
+```
+
+The first command is a plan, with no package changes; the second creates a
+missing environment or verifies the existing `agentfem-env`, protects the
+conventional WSL project workspace, and runs a small installed-template solve.
+It never upgrades or repairs an existing environment implicitly. If needed,
+select Miniforge explicitly with `--manager ~/miniforge3/bin/mamba`, select an
+existing environment with `--prefix /absolute/environment/path`, or request an
+exact published package with `--version X.Y.Z`. Use `--channel conda-forge`
+for the canonical source. These options do not change global conda settings.
+
+If Miniforge is missing, first obtain its installer from the
+[official distribution](https://github.com/conda-forge/miniforge#download),
+verify the published checksum, and install it in your Linux account. The TUNA
+package channel is not a promise of a Miniforge installer download mirror; do
+not invent one. The setup command reports this prerequisite without downloading
+or executing an unverified bootstrapper.
+
+Keep the same command after interruption. A completed environment is reused,
+each attempt retains its own logs and first-solve project under
+`~/.local/state/agentfem/setup/`, and an incomplete environment is left intact
+for inspection. Do not delete it or start another package transaction while
+one is active. `--json` gives agents one structured final result and paths to
+the detailed stage logs. A saved completion is not a new health check.
+
+The setup does not modify Windows, perform automatic reboot, remove a distro,
+or register startup tasks. Its small first-solve project/cache stay in Linux
+storage; the ordinary project workspace is protected on Windows. Preserve
+valuable Linux-only data before removing a distribution. No optional heavy
+visualization or learning packages are installed by this core setup.
+
 When a compatible published Windows Complete Runtime is available, open its
 bundled `Install-AgentFEM.cmd` after fully extracting the ZIP. An explicitly
 requested Ubuntu + mirror route remains supported; it does not require this

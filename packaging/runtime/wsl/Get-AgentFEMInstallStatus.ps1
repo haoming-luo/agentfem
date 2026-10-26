@@ -1,6 +1,9 @@
 # Read-only agent entry point: no WSL launch, downloads, elevation or state writes.
 [CmdletBinding()]
-param([string]$StateRoot = (Join-Path $env:LOCALAPPDATA 'AgentFEM\Installations'))
+param(
+    [string]$StateRoot = (Join-Path $env:LOCALAPPDATA 'AgentFEM\Installations'),
+    [ValidateSet('Json', 'Text')][string]$Format = 'Json'
+)
 $ErrorActionPreference = 'Stop'
 
 function Open-InstallStatusSnapshot {
@@ -81,7 +84,7 @@ try {
         }
     }
 } catch { $errors += @{code='AFM-WIN-STATUS-READ'; message=$_.Exception.Message} }
-@{
+$report = @{
     schema = 'agentfem.windows-install-status'; schema_version = 1
     status = $(if ($errors.Count) {'error'} elseif ($busy) {'busy'} elseif ($records.Count) {'recorded'} else {'not_started'})
     installer_busy = $busy
@@ -89,6 +92,10 @@ try {
     runtime_probed = $false
     installations = @($records | Sort-Object updated_at -Descending)
     errors = $errors
-} | ConvertTo-Json -Depth 8
+}
+if ($Format -eq 'Text') {
+    . (Join-Path $PSScriptRoot 'Installer-Presentation.ps1')
+    Format-AgentFEMInstallStatus -Report $report
+} else { $report | ConvertTo-Json -Depth 8 }
 if ($errors.Count) { exit 1 }
 exit 0

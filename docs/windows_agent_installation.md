@@ -4,6 +4,41 @@ The goal is a working first finite-element solve, with the user participating
 only in required platform consent, restart and account credentials. Never claim
 an unattended installation when the host disallows WSL/elevation.
 
+## The short onboarding path
+
+1. **Inspect, do not reinstall.** Reuse the source-usable Windows host check
+   below. Add `-Format Text` for a person; keep the default JSON for an agent.
+2. **Choose one route.** A published Complete Runtime supplies its own Linux
+   image. Ubuntu + mirror uses the existing Ubuntu/Miniforge environment.
+   Do not make the user download both or search for an unpublished package.
+3. **Do the permitted work.** Ask the user only for the specific approval,
+   restart or private account input that is actually needed. A blacklisted
+   command is not a missing WSL installation.
+4. **Verify the first solve.** For Ubuntu + mirror, from the trusted checkout
+   inside Ubuntu, run `python3 packaging/runtime/setup_environment.py --channel tuna`,
+   inspect the plan, then repeat with `--apply --json`. The entry point
+   discovers Linux Mamba/Conda, or accepts `--manager` and `--prefix` explicitly.
+   It creates a missing environment through one channel, but never changes an
+   existing environment's packages implicitly. It verifies installed identity,
+   doctor, workspace protection, an installed-template solve and result provenance.
+5. **Hand off one useful summary.** State the distribution/environment, installed
+   version, first-solve outcome, project location and any remaining action.
+   Do not paste a page of platform commands or claim optional accelerators,
+   Windows firmware, another material model or a full scientific benchmark were
+   validated by this small solve.
+
+`setup_environment.py` is a Linux source-usable installer entry, not a new
+solver or an executable downloaded from a package index. It requires a trusted
+existing Miniforge and Python 3; it never bootstraps an unsigned/unverified
+installer or changes the user's shell startup files. With `--apply`, package
+download/solve logs and structured stage evidence stay in
+`~/.local/state/agentfem/setup/`. A requested version unavailable on the selected
+mirror fails before environment creation. No alternate channel is selected.
+The normal `--apply` route protects the conventional workspace; advanced
+`--no-protect-workspace` inspects only and still rejects unprotected WSL storage.
+Its first-solve check uses Linux-local files and a fresh JIT cache. Runtime and
+case-specific performance must still be measured separately.
+
 ## Route selection
 
 Read INSTALL.md and the published release assets first. New x64 Windows users
@@ -45,8 +80,8 @@ powershell.exe -NoProfile -File .\packaging\runtime\wsl\Install-AgentFEM.ps1 -Pr
 ```
 
 Use that path from a verified source checkout; in an extracted bundle use
-`.\Install-AgentFEM.ps1` instead. Keep `Installer-State.ps1` and
-`Windows-HostProbe.ps1` beside the installer.
+`.\Install-AgentFEM.ps1` instead. Keep `Installer-State.ps1`,
+`Installer-Presentation.ps1` and `Windows-HostProbe.ps1` beside the installer.
 Use `-NonInteractive` if the host has no interactive console. This operation
 does **not** install Ubuntu, AgentFEM or change existing distro contents. Its
 successful state is `platform_ready`, not `completed`. This checks WSL tooling
@@ -162,6 +197,11 @@ Agents can read progress without launching WSL or modifying Windows:
 ```powershell
 powershell.exe -NoProfile -File .\Get-AgentFEMInstallStatus.ps1
 ```
+
+For a user-readable view, add `-Format Text`. Both formats read the same
+snapshot and preserve the same nonzero error exit. They perform no installation
+or health-check operation. The human view names the next step and local record,
+instead of asking the user to interpret the JSON.
 
 This prints JSON with `installer_busy`, recorded stages, `error_code`,
 `next_action`, the saved `resume` argument array, and evidence paths. Read the

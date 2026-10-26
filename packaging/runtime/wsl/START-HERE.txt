@@ -3,6 +3,10 @@ AgentFEM Complete Runtime for Windows (WSL2 Preview)
 
 Runtime version: @VERSION@
 
+You need only this extracted package for the AgentFEM runtime itself.
+Windows may need internet access to prepare WSL. You approve that operation;
+the installer never reboots your PC automatically or asks for passwords in chat.
+
 1. Extract the entire ZIP. Do not run files from inside the ZIP.
 2. Double-click Install-AgentFEM.cmd. It keeps the result/error window open.
 3. Approve the Windows administrator request if WSL needs preparation.
@@ -14,6 +18,13 @@ The installer protects project storage and runs a fresh-cache finite-element
 acceptance check automatically. Completion means those checks passed.
 Logs, acceptance results and status.json are in:
    %LOCALAPPDATA%\AgentFEM\Installations\<installation-id>
+
+For a short, read-only progress/recovery summary, open PowerShell here and run:
+
+   powershell.exe -NoProfile -File .\Get-AgentFEMInstallStatus.ps1 -Format Text
+
+It tells you the next action without launching another installer. Keep this
+folder until installation finishes. A recorded completion is not a fresh check.
 
 Agents and existing PowerShell sessions can use the non-pausing entry point:
    powershell -ExecutionPolicy Bypass -File .\Install-AgentFEM.ps1
@@ -177,8 +188,8 @@ the installer-managed backup and replacement transaction only. Do not run
 `protected_from_distribution_removal: true`. After installation, report the
 distribution name, AgentFEM version, health-check result, persistent project
 directory, and retained backup path, if any. Never replace the bundled WSL
-bootstrap with bare `wsl --install`, because that downloads an unrelated default
-Linux distribution.
+bootstrap with bare `wsl --install`, because that also downloads Ubuntu, which
+this bundled-runtime route does not need.
 
 WorkBuddy installation policy
 -----------------------------

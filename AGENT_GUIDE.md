@@ -32,6 +32,15 @@ finite-element simulation with AgentFEM.
    Use `Get-AgentFEMInstallStatus.ps1` for read-only JSON progress. Never report
    `platform_ready` as AgentFEM installed, or an old completion record as a new
    health check. Keep the same package/options after a requested restart.
+   The Ubuntu/mirror environment route has a source-usable, standard-library
+   entry: run `python3 packaging/runtime/setup_environment.py --channel tuna`
+   inside Ubuntu with trusted Linux Miniforge, review its plan, then add
+   `--apply --json`. It reuses existing environments without changing their
+   packages and retains per-stage logs through the first solve. Use an explicit
+   `--manager` or `--prefix` when discovery is ambiguous. Do not claim that this
+   Linux entry prepares Windows or supplies a missing Miniforge installer.
+   `-Format Text` on the Windows host/status probes is for a user-readable view;
+   their default JSON remains the machine contract.
 2. For an installed case, run `agentfem doctor --json`. On WSL, also run
    `agentfem workspace --json`; before any runtime replacement or removal it
    must report `protected_from_distribution_removal: true`. If it does not,

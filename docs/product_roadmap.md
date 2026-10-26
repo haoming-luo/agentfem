@@ -536,6 +536,19 @@ these passing software contracts from real-machine acceptance.
 Clean Windows/WorkBuddy installation and actual domestic download availability
 remain promotion gates; this is not a new solver capability or a speed claim.
 
+The 2026-10-26 follow-up closes the environment-to-first-solve gap in the
+Ubuntu/mirror route: a source-usable standard-library entry plans first,
+creates only missing environments through one selected channel, reuses existing
+environments without implicit package changes, and verifies installed identity,
+health, protected workspace, a small installed-template solve and result
+provenance. Each attempt retains separate logs and structured failure evidence.
+Human-readable Windows status views preserve the existing JSON contract and
+distinguish approval, restart, private account input, interrupted work and saved
+acceptance. Local contract tests and documentation checks are complete; the
+Windows 5.1/7 and Linux installed-entry CI gates are required before integration.
+These checks do not establish clean-machine WSL/UAC, WorkBuddy or domestic
+network acceptance, and do not promote experimental contact physics.
+
 ### Lean project boundary (2026-10-15)
 
 Checked serial array-mesh import and parent-cell-based exterior regions now
