@@ -32,10 +32,33 @@
     "reported_energy_balance_error": 2.55156e-11,
     "artifacts": ["fields.h5", "fields.xdmf", "result.json", "execution.json"]
   },
+  "final_candidate_follow_up": {
+    "source_commit": "0f2af133",
+    "includes": ["deferred CLI MPI import", "merged main 5e6cba5b including Windows onboarding"],
+    "installation": "second fresh venv with shared numerical dependencies; no-index/no-deps wheel install; no development PYTHONPATH",
+    "build": "AGENTFEM_BUILD_NATIVE=1 python -m pip wheel . --no-deps --no-build-isolation --wheel-dir <fresh-dist>",
+    "wheel_sha256": "cf800a71bd9e1c33ceba05a4940d4bb560e35c2ec60ee36166ba5a27434e35af",
+    "modules_verified_in_venv": ["agentfem", "agentfem._hex_native", "agentfem._body_pipeline", "agentfem._q1_native", "agentfem.cli"],
+    "tests": "The same five installed regression files plus tests/test_cli_startup.py; -o pythonpath=; run from outside the checkout.",
+    "passed": 163,
+    "failed": 0,
+    "skipped": 0,
+    "seconds": 29.07,
+    "timing_claim": "none: another scientific diagnostic was running",
+    "cli_help_in_restricted_sandbox": "passed without MPI initialization",
+    "ordinary_installed_workflow": {
+      "commands": ["agentfem init <fresh-project> --template static-solid --name final-candidate-check", "agentfem check", "agentfem run --name final-smoke"],
+      "status": "completed",
+      "trust_level": "computed",
+      "reported_relative_force_balance_error": 1.90512e-12,
+      "reported_energy_balance_error": 2.55156e-11,
+      "artifacts": ["fields.h5", "fields.xdmf", "result.json", "execution.json"]
+    }
+  },
   "limits": [
     "This is not a clean Windows/WorkBuddy host installation.",
     "Shared numerical dependencies are declared; no complete offline runtime was rebuilt.",
-    "The later CLI deferred-import change is not contained in this wheel and has separate source/MPI tests.",
+    "The first wheel excludes the CLI deferred-import change; final_candidate_follow_up records its subsequent installed acceptance.",
     "A sandbox-only MPI interface permission failure occurred when reading CLI help; the same installed CLI succeeded with permitted MPI initialization. This motivated the separate deferred-import regression."
   ]
 }

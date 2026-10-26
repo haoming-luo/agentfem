@@ -80,6 +80,11 @@ communicator access, without guessing ranks or swallowing runtime errors.
 Seven startup tests deny numerical imports for help/version/invalid arguments;
 45 ordinary CLI tests and two-rank single-rank-failure tests retain behavior.
 This does not make solver execution independent of MPI or certify a new host.
+After merging main `5e6cba5b`, a second fresh-venv wheel at `0f2af133`
+passes all 163 installed tests, including startup, and the ordinary static-solid
+`init → check → run` workflow. Help also works in the restricted sandbox that
+previously prevented MPI initialization. Numerical tests still require their
+real runtime; this is not a clean Windows field trial or a runtime speed claim.
 
 ### Initial-yield work diagnostic (2026-10-26)
 
