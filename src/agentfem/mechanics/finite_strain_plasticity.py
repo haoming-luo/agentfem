@@ -4814,6 +4814,9 @@ def finite_strain_j2_affine_problem(
         "macro_parameter_dependence": "kinematic_lift_only",
         "linearization": "last_accepted_increment_algorithmic_state",
     }
+    from ._affine_energy import attach_affine_material_energy
+
+    attach_affine_material_energy(problem, response, contact_providers)
     return problem
 
 

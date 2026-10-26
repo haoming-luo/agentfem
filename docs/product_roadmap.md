@@ -349,6 +349,14 @@ floating-point fields, or automatic admission of every triangulated tool.
 
 The ordered nine-gate task and technical bibliography are maintained in
 [the 0.4.4 contact sprint record](internal/contact_0_4_4_local_parity.md).
+The October 26 independent elastic assembly audit now passes uniform and
+graded 8/12-cell controls, including periodic virtual work. This narrows the
+spatial investigation but does not certify the plastic full cycle. The next
+bounded checks remain graded plastic increment sensitivity and loading/unloading
+histories. The primal affine J2 result now records restartable accepted energy
+components and combines existing affine/tool work, with explicit unavailable
+status for incomplete historical evidence; this is diagnostics, not automatic
+scientific promotion.
 Promote only combinations that pass independent same-input comparison,
 mesh/increment/enforcement convergence, residual--tangent and lifecycle
 checks. A failed nonconvex sharp-feature gate narrows the release statement;

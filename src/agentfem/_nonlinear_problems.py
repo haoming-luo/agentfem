@@ -1574,7 +1574,10 @@ class AffineNonlinearVariationalProblem:
                     if callable(commit):
                         commit()
                 accepted_snapshot = None
-                if self.accepted_observers or should_save:
+                if should_save or any(
+                    getattr(observer, "requires_field_snapshot", True)
+                    for observer in self.accepted_observers
+                ):
                     accepted_snapshot = _load_snapshot(
                         index,
                         factor,
@@ -1582,6 +1585,8 @@ class AffineNonlinearVariationalProblem:
                         solve_info=solve_info,
                         field_factory=self.snapshot_field_factory,
                     )
+                elif self.accepted_observers:
+                    accepted_snapshot = AcceptedLoadStation(index, factor, solve_info)
                 for observer in self.accepted_observers:
                     observer.accept(accepted_snapshot)
                 self._capture_constraint_dual(factor)
@@ -2481,6 +2486,19 @@ def _restore_accepted_observers(snapshots) -> None:
 
     for observer, state in snapshots:
         observer.restore_runtime_state(state)
+
+
+@dataclass(frozen=True)
+class AcceptedLoadStation:
+    """Accepted scalar coordinate for explicitly field-free observers.
+
+    Unlike a saved field snapshot this does not own a copied solution. Legacy
+    observers receive full snapshots unless they explicitly opt out.
+    """
+
+    index: int
+    load_factor: float
+    solve_info: object | None = None
 
 
 @dataclass(frozen=True)

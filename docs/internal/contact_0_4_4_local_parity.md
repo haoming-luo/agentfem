@@ -24,6 +24,66 @@ being silently approximated by the bounded route.
 
 ## Live gate status
 
+### Accepted affine material-energy ledger (2026-10-26)
+
+The primal periodic J2 constructor now adds a scalar-only accepted observer.
+It integrates the material-owned stored energy and committed plastic loss,
+records the Operator-owned recoverable contact potential and friction losses,
+and reuses the existing affine/tool path work. Result balance uses final-minus-
+initial energy components, including initial penetration storage. The result's
+`mechanical_energy_ledger` reports evidence completeness, not verification.
+Mixed saddle-point and augmented normal-work combinations remain outside this
+ledger; a missing old checkpoint history is marked unavailable, never inferred.
+
+Review found a real reporting omission: affine contact results previously
+summed only the normal assembly potential even when the Operator exposed
+recoverable tangential penalty energy. Results now use the Operator's total
+potential. The contact force/material update algorithms are unchanged.
+
+The new scalar observer explicitly opts out of full-field snapshots. Existing
+observers retain their full copied fields by default. Small immutable history
+blocks provide constant-size rollback handles instead of copying the entire
+energy history each increment. A regression checks five accepted scalar
+stations with only two field snapshots. No runtime percentage is claimed.
+
+The focused 136-test group passes in the real `fenicsx-env`: independent
+virtual-work controls, diagnostic/restart tests, periodic J2/contact/friction,
+legacy field observers and scalar-history tests. Tests cover continuous versus
+restart histories, corrupted endpoint atomic refusal, old-checkpoint incomplete
+history, post-commit failure rollback, initial potential subtraction and moving
+tool/friction quantities. These are serial evidence; no new MPI claim is made.
+
+### Independent elastic virtual-work audit (2026-10-26)
+
+The frozen `4c8bca1e` diagnostic now checks the discrete elastic equilibrium
+without calling the production constitutive/contact assembly for the reference.
+It uses Basix basis tabulation, reference-cell geometry, an independent
+right-metric Hencky energy/stress calculation, explicit patch integration and
+coordinate-defined periodic virtual displacements. The production residual and
+potential are read only for comparison. This is an independent **discrete
+elastic assembly audit**, not a second nonlinear plastic solver or a continuum
+accuracy certificate. Plastic states are explicitly rejected by this oracle.
+
+Uniform and combined-graded 8/12-cell P2 controls all pass. Relative full-force
+differences are at most 1.73e-13; relative energy differences at most 1.74e-14;
+independent reduced residual norms at most 2.37e-9 N (declared limit 1e-7 N).
+The graded reaction remains 18.64860612 / 18.53715898 N. The unchanged spatial
+trend is therefore not explained by the tested assembly/MPC algebra.
+
+Evidence: `evidence/contact/2026-10-26-independent-elastic-{uniform,edge_sine}.json`.
+Reproduce with the directional-control command below plus
+`--elastic-virtual-work-audit`. Oracle source identity is included in each
+record. Nine focused oracle tests cover energy differentiation, rotation,
+independent periodic reduction, four mesh families, a perturbed non-equilibrium
+state and plastic-state rejection. No speedup is claimed.
+
+The quadratic logarithmic strain energy is consistent with the elastic energy
+discussed by [Neff, Eidel and Martin](https://arxiv.org/abs/1402.4027).
+Basis values/derivatives use the
+[Basix finite-element interface](https://docs.fenicsproject.org/basix/main/python/_autosummary/basix.finite_element.html).
+Remaining scientific gates are graded plastic increment sensitivity and the
+full loading/unloading path; the elastic audit does not close those gates.
+
 ### Directional resolution discriminator (2026-10-26)
 
 After Windows onboarding PR #123 merged at `a862e123`, the next experiment

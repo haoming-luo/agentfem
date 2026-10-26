@@ -70,6 +70,25 @@ it selects current temperature. Pass a live field or callback for another
 state variable. Vector probes require `component=...` because one history
 channel has one scalar engineering meaning.
 
+## Periodic plastic-contact energy evidence
+
+For the primal periodic/affine finite-strain J2 route, the result also contains
+`metadata["mechanical_energy_ledger"]` and accepted scalar histories for stored
+material energy, plastic dissipation and, when present, recoverable contact
+potential and friction losses. The contact potential includes both normal and
+tangential penalty storage. The reported balance subtracts **changes** from
+the initial accepted state, not absolute final energy, and combines affine
+prescribed-motion work with moving-tool work.
+
+`status="complete"` means the required histories cover the accepted path; it
+does not mean the balance meets a scientific tolerance. Work uses accepted-path
+trapezoidal integration, so increment refinement is still required. Augmented
+contact and mixed saddle-point routes are not assigned a fictitious penalty
+energy. Older checkpoints without the scalar energy history may resume, but
+the ledger remains unavailable rather than reconstructing missing past values.
+Scalar histories share rollback/restart with the solve and do not force a
+full-field copy at each increment or change the selected field-output schedule.
+
 ## Standard questions
 
 - Did the requested step converge or complete stably?
