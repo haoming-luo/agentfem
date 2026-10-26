@@ -95,6 +95,15 @@ blocks provide constant-size rollback handles instead of copying the entire
 energy history each increment. A regression checks five accepted scalar
 stations with only two field snapshots. No runtime percentage is claimed.
 
+Review extends this field-free declaration to the existing feature-path,
+certified-face and fixed-normal-work observers: they read the accepted station
+and their own Operator, never the copied displacement/field archive. New tests
+first reproduced four/five field captures despite sparse output; the corrected
+route makes only the two requested initial/final captures. Dense/sparse runs
+retain identical accepted diagnostic/checkpoint records and final fields.
+Thirteen focused parity, legacy-observer, corruption and rollback tests pass.
+This reduces unnecessary data movement; it is not a measured full-run speedup.
+
 The focused 136-test group passes in the real `fenicsx-env`: independent
 virtual-work controls, diagnostic/restart tests, periodic J2/contact/friction,
 legacy field observers and scalar-history tests. Tests cover continuous versus

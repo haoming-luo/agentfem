@@ -70,6 +70,8 @@ def sampled_feature_observation(provider: object) -> dict[str, object]:
 class AcceptedContactFeaturePath:
     """Observe each accepted configuration of named reviewed faceted pairs."""
 
+    requires_field_snapshot = False
+
     providers: tuple[object, ...]
     complete: bool = field(default=True, init=False)
     accepted_station_count: int = field(default=0, init=False)

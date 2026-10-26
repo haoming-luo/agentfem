@@ -2928,6 +2928,40 @@ def test_periodic_j2_scalar_energy_does_not_copy_fields_every_increment():
     assert len(step.accepted_history_recorders["material_energy"].frames) == 5
 
 
+@pytest.mark.parametrize("kind", ["convex", "certified_face", "reviewed_open"])
+def test_periodic_contact_diagnostics_do_not_copy_unused_fields(kind):
+    if kind == "convex":
+        options = dict(surface=_rotated_convex_periodic_tool(),
+                       contact_integration="convex_feature_partition")
+    elif kind == "certified_face":
+        options = dict(surface=_periodic_wide_triangular_prism_tool(),
+                       contact_integration="certified_closed_two_feature_research")
+    else:
+        options = dict(surface=boundary_models.triangulated_rigid_surface(
+            vertices=((0.95, -2., -2.), (0.95, -2., 2.),
+                      (0.95, 2., 2.), (0.95, 2., -2.)),
+            triangles=((0, 1, 2), (0, 2, 3))),
+            contact_integration="reviewed_planar_branch_partition")
+    _, _, dense = _periodic_j2_contact_step(**options)
+    dense.output_every = 1
+    dense.solve()
+    _, _, sparse = _periodic_j2_contact_step(**options)
+    sparse.output_every = None
+    original = sparse.snapshot_field_factory
+    calls = []
+    def capture_fields():
+        calls.append(sparse.accepted_load_factor)
+        return original()
+    sparse.snapshot_field_factory = capture_fields
+    sparse.solve()
+    assert len(calls) == 2
+    assert len(sparse.snapshots) == 2 and len(dense.snapshots) == 4
+    np.testing.assert_array_equal(sparse.solution.x.array, dense.solution.x.array)
+    assert set(sparse.accepted_history_recorders) == set(dense.accepted_history_recorders)
+    for name, recorder in sparse.accepted_history_recorders.items():
+        assert recorder.checkpoint_state() == dense.accepted_history_recorders[name].checkpoint_state()
+
+
 def test_periodic_j2_legacy_observer_still_receives_copied_fields():
     step = _periodic_j2_step()
 
