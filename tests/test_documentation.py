@@ -46,6 +46,25 @@ def test_documentation_machine_entrypoints_are_current():
     assert installation["health_check"] == "agentfem doctor --json"
 
 
+def test_installation_onboarding_has_platform_routes_and_bounded_handoffs():
+    installation = json.loads(build_docs.render_agent_manifest())["installation"]
+    onboarding = installation["onboarding"]
+    assert onboarding["mode"] == "agent-assisted"
+    assert onboarding["requires_repository_checkout"] is False
+    assert set(onboarding["routes"]) == set(installation["platforms"])
+    windows = onboarding["routes"]["windows-wsl2"]
+    assert windows["sequence"][0] == "inspect"
+    assert windows["sequence"][-1] == "first_solve"
+    assert "--no-distribution" in windows["platform_only_command"]
+    assert onboarding["failure_policy"]["automatic_attempts_per_stage"] == 1
+    assert onboarding["failure_policy"]["no_policy_bypass"]
+    assert onboarding["progress"]["max_user_actions_at_once"] == 1
+    assert "selected_channel" in onboarding["remember"]
+    assert "tokens" in onboarding["never_record"]
+    assert "doctor_alone" in onboarding["completion"]["not_sufficient"]
+    assert "No repository clone" in build_docs.render_llms_entry()
+
+
 def test_cli_and_documentation_share_one_product_contract():
     parser = build_parser()
     subparsers = next(
@@ -312,12 +331,12 @@ def test_public_installation_routes_pin_the_tested_solver_stack():
     )
     official = (
         "mamba create -n agentfem-env --override-channels -c conda-forge "
-        "python=3.11 fenics-dolfinx=0.11 agentfem"
+        "python=3.11 fenics-dolfinx=0.11 c-compiler cxx-compiler agentfem"
     )
     mirror = (
         "mamba create -n agentfem-env --no-rc --override-channels "
         "-c https://mirrors.tuna.tsinghua.edu.cn/anaconda/cloud/conda-forge "
-        "python=3.11 fenics-dolfinx=0.11 agentfem"
+        "python=3.11 fenics-dolfinx=0.11 c-compiler cxx-compiler agentfem"
     )
     for path in detailed_guides:
         source = " ".join(path.read_text().replace("\\", "").split())

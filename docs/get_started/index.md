@@ -4,6 +4,22 @@ This section takes a new user from an installed numerical environment to one
 inspectable finite-element result. You do not need to understand the internal
 architecture before running the first model.
 
+## Let your agent install it
+
+Give your agent this prompt; add “use the mirror channel / 走镜像通道” if desired:
+
+```text
+Install AgentFEM using https://haoming-luo.github.io/agentfem/agentfem.json.
+Detect my platform and reuse a working environment. On Windows follow the
+linked short WSL/Ubuntu route; do not clone the repository first.
+Do the permitted steps. If a step fails, give me one simple manual action,
+then continue after it is resolved. Finish with one installed example and
+briefly report the version, result location and actual verification outcome.
+```
+
+This is agent-assisted installation, not a promise to bypass Windows consent
+or restart. [Windows manual/agent path](../windows_agent_installation.md).
+
 ## Recommended sequence
 
 1. Follow [Installation and first project](../getting_started.md) to create a

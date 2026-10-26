@@ -8,6 +8,22 @@ Ubuntu/WSL2? Skip platform installation and reuse it.
 国内用户：先准备 WSL，再从清华镜像导入 Ubuntu，最后镜像安装 AgentFEM。
 不用先克隆 GitHub，不用默认打开“Windows 功能”逐项勾选；让智能体完成允许的操作。
 
+## One prompt, one visible next step
+
+The [web prompt](get_started/index.md#let-your-agent-install-it) and
+`installation.onboarding` in [agentfem.json](agentfem.json) share this flow.
+Detect the OS, not the user's location. Use an explicitly requested/recorded
+mirror route; do not infer it from Chinese text, IP or VPN. Try each permitted
+stage once. If it fails, stop that stage and give one manual action immediately;
+do not cycle through commands or wait silently. A new attempt needs changed
+readiness/source or user direction. Successful earlier stages stay completed.
+If the host cannot execute commands, give the same manual path directly.
+
+Show a short status such as `WSL: needs approval — open Terminal (Administrator)`
+or `Environment: installing — no action needed`. Do not dump raw diagnostics
+unless asked; keep the exact error for troubleshooting. This is agent-assisted
+installation, not an unattended executable that bypasses Windows approval.
+
 ## 1. Prepare WSL only if needed
 
 Inspect `wsl --status` and `wsl --list --verbose` in PowerShell. A blocked

@@ -14,6 +14,13 @@ operable through ordinary Python and a machine-readable CLI.
 - [Python API](reference/api/)
 - [Machine manifest](agentfem.json)
 - [Installation and platform guide](getting_started/)
+- [Windows short onboarding](windows_agent_installation/)
+
+Installation is agent-assisted: inspect the OS, retain the user's mirror
+choice, reuse existing environments, and complete one installed solve.
+No repository clone is required. On Windows follow the short onboarding
+route; after one failed stage show one manual action, not a retry loop.
+Read installation.onboarding in agentfem.json for the shared contract.
 
 ## Canonical sources
 

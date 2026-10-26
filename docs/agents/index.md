@@ -12,6 +12,14 @@ solver, and evidence in normal AgentFEM projects.
 
 ## Machine-readable entrypoints
 
+For installation, use `installation.onboarding` in `/agentfem.json`. Inspect
+the host OS and retain the user's selected mirror. Windows follows
+[WSL → Ubuntu → environment → first solve](../windows_agent_installation.md);
+Linux/macOS start at the environment. No repository checkout is a prerequisite.
+Try each permitted stage once; on failure show its exact blocker and **one**
+manual action. Resume after that blocker is resolved, not by reinstalling.
+An AI chat without authorised terminal tools provides the same manual path.
+
 | Resource | Purpose |
 | --- | --- |
 | `/llms.txt` | Short discovery document for language-model tools |
