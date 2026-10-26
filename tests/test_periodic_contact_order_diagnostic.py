@@ -13,8 +13,45 @@ def functions():
                              / "tools/diagnose_periodic_contact_order.py"))
 
 
+def test_energy_increment_audit_localizes_without_correcting_work():
+    from types import SimpleNamespace
+    audit = functions()["energy_increment_audit"]
+    frames = [SimpleNamespace(index=i, factor=f, values=(v,))
+              for i, (f, v) in enumerate(((0., 0.), (.1, .2), (.2, .4)))]
+    duals = [{"load_factor": f.factor, "force": [q], "outgoing_force": [q]}
+             for f, q in zip(frames, (0., 2., 2.), strict=True)]
+    result = audit(duals, frames)
+    assert result["first_increment"]["residual"] == pytest.approx(-.1)
+    assert result["largest_absolute_residual"]["index"] == 1
+    assert result["residual_sum"] == pytest.approx(-.1)
+    assert result["residual_after_first_increment"] == pytest.approx(0.)
+    # Kinks need outgoing force on the left, incoming force on the right.
+    duals[1]["outgoing_force"] = [4.]
+    assert audit(duals, frames)["residual_after_first_increment"] == pytest.approx(.1)
+    with pytest.raises(ValueError, match="same accepted stations"):
+        audit(duals, frames[:-1])
+    duals[1]["load_factor"] += .01
+    with pytest.raises(ValueError, match="coordinates differ"):
+        audit(duals, frames)
+
+
+@pytest.mark.parametrize("initial,automatic", [("nan", True), ("0", True),
+                                              ("0.1", True), ("0.01", False)])
+def test_initial_increment_diagnostic_rejects_ambiguous_or_invalid_control(tmp_path, monkeypatch, initial, automatic):
+    import sys
+    args = ["diagnostic", "--initial-increment", initial, "--output", str(tmp_path / "report.json")]
+    if automatic:
+        args.extend(["--plastic-increment-limit", "0.00075"])
+    monkeypatch.setattr(sys, "argv", args)
+    with pytest.raises(SystemExit) as exc:
+        functions()["main"]()
+    assert exc.value.code == 2
+    assert not (tmp_path / "report.json").exists()
+
+
 @pytest.mark.parametrize("degree", [1, 2])
-@pytest.mark.parametrize("mesh_family,cells", [("uniform", 4), ("edge_sine", 8)])
+@pytest.mark.parametrize("mesh_family,cells", [("uniform", 4), ("edge_sine", 8),
+                                              ("normal_cosine", 8), ("patch_edge_sine", 8)])
 def test_all_boundary_field_dofs_obey_periodic_motion_and_guides(degree, mesh_family, cells):
     step = functions()["make_step"](degree=degree, cells=cells, mesh_family=mesh_family,
                                     increments=4, yield_stress=1e6)
@@ -65,13 +102,30 @@ def test_edge_mesh_rejects_ineffective_or_unknown_family():
         lines(8, "guess")
 
 
-def test_edge_mesh_keeps_volume_patch_and_checkpoint_identity(tmp_path):
+@pytest.mark.parametrize("cells", [8, 12, 16])
+def test_directional_grading_is_exact_factorization_of_existing_mesh(cells):
+    lines = functions()["diagnostic_coordinate_lines"]
+    uniform = lines(cells, "uniform")
+    combined = lines(cells, "edge_sine")
+    normal = lines(cells, "normal_cosine")
+    edge = lines(cells, "patch_edge_sine")
+    np.testing.assert_array_equal(normal[0], combined[0])
+    np.testing.assert_array_equal(normal[1:], uniform[1:])
+    np.testing.assert_array_equal(edge[0], uniform[0])
+    np.testing.assert_array_equal(edge[1:], combined[1:])
+    for family in ("normal_cosine", "patch_edge_sine"):
+        with pytest.raises(ValueError, match="at least eight"):
+            lines(4, family)
+
+
+@pytest.mark.parametrize("mesh_family", ["edge_sine", "normal_cosine", "patch_edge_sine"])
+def test_edge_mesh_keeps_volume_patch_and_checkpoint_identity(tmp_path, mesh_family):
     import ufl
     from dolfinx import fem
     from agentfem import mesh
     make = functions()["make_step"]
     step = make(cells=8, degree=2, increments=4, yield_stress=1e6,
-                mesh_family="edge_sine", contact_degree=11)
+                mesh_family=mesh_family, contact_degree=11)
     domain = step.solution.function_space.mesh
     assert mesh.audit_quality(domain, strict=True).global_cells == 6 * 8**3
     assert fem.assemble_scalar(fem.form(1. * ufl.dx(domain=domain))) == pytest.approx(1., abs=1e-12)
@@ -117,6 +171,11 @@ def test_quadratic_periodic_gauss_contact_accepts_current_total_residual():
     assert observation["peeq_reference_volume_mean"] > 0
     assert "normal_relative_work" not in observation
     assert observation["normal_relative_work_status"] == "unavailable_on_this_diagnostic_route"
+    assert observation["energy"]["plastic_dissipation"] > 0.
+    assert observation["energy"]["contact_potential"] > 0.
+    assert observation["energy_status"] == "accepted_trapezoidal_work_not_exact_continuous_path"
+    assert observation["energy_increment_audit"]["residual_sum"] == pytest.approx(
+        observation["energy"]["mechanical_energy_residual"], abs=1e-12)
     samples = step.contact_provider.accepted_point_samples()
     assert samples["measure_configuration"] == "reference"
     adapter = step.contact_provider.adapter
@@ -251,6 +310,8 @@ def test_diagnostic_cli_restart_uses_public_state_and_preserves_original(tmp_pat
     expected = diagnostic["observe_penalty"](continuous, .5)
     np.testing.assert_allclose(row["stations"][0]["force_on_structure"],
                                expected["force_on_structure"], atol=1e-11)
+    for key, value in expected["energy"].items():
+        assert row["stations"][0]["energy"][key] == pytest.approx(value, abs=1e-12)
     # Changed physical input remains a failed diagnostic, not a forced restore.
     output_wrong = tmp_path / "wrong.json"
     monkeypatch.setattr(sys, "argv", ["diagnostic", "--cells", "4", "--degrees", "2",

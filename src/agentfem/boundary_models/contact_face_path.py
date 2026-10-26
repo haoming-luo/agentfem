@@ -118,6 +118,8 @@ def accepted_face_record(provider, *, factor: float, previous=None) -> dict[str,
 class AcceptedContactFacePath:
     """Observe whole-face proofs at each accepted affine/MPC station."""
 
+    requires_field_snapshot = False
+
     providers: tuple[object, ...]
     complete: bool = field(default=True, init=False)
     accepted_station_count: int = field(default=0, init=False)

@@ -2820,16 +2820,26 @@ def _set_affine_operator_factor(operators, factor: float) -> None:
         setter(factor)
 
 
-def _assemble_affine_full_residual(residual_form, operators=()):
-    """Assemble material and all additive Operators before MPC elimination."""
+def _assemble_affine_full_residual(residual_form, operators=(), *, require_tangent=True):
+    """Assemble all Operators before MPC elimination.
+
+    Newton retains full contributions for its next correction. Norm/work-only
+    consumers may use an optional current-residual hook; unadapted Operators
+    keep their existing evaluation. No tangent is returned in that mode.
+    """
 
     full = fem_petsc.assemble_vector(residual_form)
     contributions = []
     try:
         for operator in operators:
+            current_residual = getattr(operator, "add_current_residual", None)
+            if not require_tangent and callable(current_residual):
+                current_residual(full)
+                continue
             contribution = operator.evaluate()
             operator.add_residual(full, contribution)
-            contributions.append((operator, contribution))
+            if require_tangent:
+                contributions.append((operator, contribution))
     except BaseException:
         full.destroy()
         raise
@@ -2845,7 +2855,7 @@ def _assemble_affine_full_residual(residual_form, operators=()):
 
 
 def _reduced_residual_norm(residual_form, transformation, operators=()) -> float:
-    full, _ = _assemble_affine_full_residual(residual_form, operators)
+    full, _ = _assemble_affine_full_residual(residual_form, operators, require_tangent=False)
     reduced = None
     try:
         reduced = transformation.createVecRight()

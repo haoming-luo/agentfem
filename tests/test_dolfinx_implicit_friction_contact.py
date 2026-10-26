@@ -78,6 +78,66 @@ def _operator(*, motion=None, geometry="plane"):
     return displacement, dolfinx_implicit_rigid_contact(pair, displacement)
 
 
+@pytest.mark.parametrize("geometry", ["plane", "triangulated_plane", "closed_convex"])
+def test_scalar_contact_energy_matches_full_assembly_without_tangent(geometry, monkeypatch):
+    import agentfem.boundary_models.dolfinx_implicit_facet_contact as implementation
+
+    displacement, operator = _operator(geometry=geometry)
+    for normal, sliding in ((.1, .01), (.1, .2), (0., .2), (.1, .22)):
+        displacement.x.array.reshape(-1, 3)[:] = (normal, sliding, 0.)
+        for committed in (False, True):
+            if committed:
+                operator.commit_accepted()
+            reference = operator.evaluate()
+            state = operator.snapshot_accepted_state()
+
+            def forbidden(*args, **kwargs):
+                raise AssertionError("Scalar energy assembled a tangent")
+
+            with monkeypatch.context() as patch:
+                for name in ("linearize_smooth_rigid_contact", "linearize_closed_rigid_solid_contact",
+                             "linearize_piecewise_planar_contact", "linearize_piecewise_planar_penalty_friction"):
+                    patch.setattr(implementation, name, forbidden)
+                scalar = operator.current_energy_components()
+            assert scalar["contact_potential"] == pytest.approx(reference.potential_energy, abs=1e-13)
+            assert scalar["friction_dissipation"] == pytest.approx(reference.friction_assembly.cumulative_dissipation)
+            assert scalar["friction_separation_release"] == pytest.approx(reference.friction_assembly.cumulative_separation_release)
+            assert operator.snapshot_accepted_state() == state
+
+
+@pytest.mark.parametrize("geometry", ["plane", "triangulated_plane", "closed_convex"])
+def test_residual_only_friction_keeps_full_admission_and_current_state(geometry, monkeypatch):
+    from petsc4py import PETSc
+
+    displacement, operator = _operator(geometry=geometry)
+    displacement.x.array.reshape(-1, 3)[:] = (.1, .2, 0.)
+    reference = operator.evaluate()
+    state = operator.snapshot_accepted_state()
+    original = type(operator).evaluate
+    calls = []
+
+    def tracked(self):
+        calls.append(self)
+        return original(self)
+
+    monkeypatch.setattr(type(operator), "evaluate", tracked)
+    vector = PETSc.Vec().createSeq(displacement.x.array.size, comm=MPI.COMM_SELF)
+    try:
+        operator.add_current_residual(vector)
+        assert calls == [operator]
+        np.testing.assert_allclose(vector.array, reference.nodal_structural_residual.reshape(-1))
+        assert operator.snapshot_accepted_state() == state
+
+        def invalid(self):
+            raise ValueError("feature branch not admitted")
+
+        monkeypatch.setattr(type(operator), "evaluate", invalid)
+        with pytest.raises(ValueError, match="feature branch not admitted"):
+            operator.add_current_residual(vector)
+    finally:
+        vector.destroy()
+
+
 @pytest.mark.parametrize(
     ("normal_motion", "expected_force"),
     [(0.0, (-10.0, 4.0, 0.0)), (0.01, (-8.0, 3.2, 0.0))],

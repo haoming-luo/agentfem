@@ -326,6 +326,7 @@ def from_affine_nonlinear_step(
     for checkpoint in step.checkpoints:
         result.add_checkpoint(checkpoint)
     _add_affine_constraint_evidence(step, result)
+    _add_affine_material_energy(step, result)
     add_execution_trace(result, step.execution_events)
     return complete_result(
         step,
@@ -334,6 +335,69 @@ def from_affine_nonlinear_step(
         strict_output=strict_output,
         metadata=metadata,
     )
+
+
+def _add_affine_material_energy(step, result):
+    """Combine observed energy changes with the existing accepted work paths."""
+    recorder = step.accepted_history_recorders.get("material_energy")
+    if recorder is None:
+        if hasattr(step, "material_energy_scope"):
+            result.metadata["mechanical_energy_ledger"] = {
+                "status": "unavailable", "reason": step.material_energy_scope,
+                "automatic_energy_verification": False,
+            }
+        return
+    frames = recorder.frames
+    reasons = []
+    if not recorder.complete or not frames or frames[0].index != 0:
+        reasons.append("Initial or earlier accepted energy evidence is missing.")
+    if not frames or frames[-1].index != len(step.accepted_increments) or abs(
+        frames[-1].factor - step.accepted_load_factor
+    ) > 1e-12:
+        reasons.append("Energy evidence does not end at the accepted boundary.")
+    affine = result.metadata.get("affine_constraint_path_work", {})
+    if affine.get("status") != "complete":
+        reasons.append("Affine prescribed-motion work history is incomplete.")
+    moving = any(getattr(operator, "has_prescribed_motion", False)
+                 for operator in step.full_space_operators)
+    tool = result.metadata.get("affine_operator_path_work", {})
+    if moving and tool.get("status") != "complete":
+        reasons.append("Moving-tool work history is incomplete.")
+    ledger = {"status": "unavailable" if reasons else "complete",
+              "reason": "; ".join(reasons) if reasons else None,
+              "integration": "accepted_path_trapezoidal",
+              "roles": dict(recorder.roles), "sample_count": len(frames),
+              "scope": "primal_material_and_physical_penalty_energy",
+              "automatic_energy_verification": False,
+              "balance": "affine_work + tool_work - change_of_recorded_energy_components"}
+    result.metadata["mechanical_energy_ledger"] = ledger
+    if not frames:
+        return
+    for column, (name, role) in enumerate(recorder.roles.items()):
+        values = tuple(frame.values[column] for frame in frames)
+        result.add_history(name, tuple(f.factor for f in frames), values,
+                           abscissa_name="load_factor", abscissa_unit=None,
+                           description=f"Accepted {role} energy component; not an automatic verification claim.")
+        # Contact/friction quantities may already have been published by their
+        # Operator. The recorder adds histories, not a competing definition.
+        if name not in result.quantities:
+            result.add_quantity(name, values[-1], kind="diagnostic")
+    if reasons:
+        return
+    changes = {name: frames[-1].values[i] - frames[0].values[i]
+               for i, name in enumerate(recorder.roles)}
+    tool_work = sum(tool.get("channels", {}).values()) if moving else 0.
+    external = float(affine["value"]) + float(tool_work)
+    internal = sum(changes.values())
+    residual = external - internal
+    ledger.update(initial_components=dict(zip(recorder.roles, frames[0].values, strict=True)),
+                  component_changes=changes, affine_path_work=float(affine["value"]),
+                  tool_work=float(tool_work), external_work=external,
+                  internal_energy_change=internal, mechanical_energy_residual=residual,
+                  relative_mechanical_energy_residual=abs(residual) / max(abs(external), abs(internal), 1e-30))
+    result.add_quantities({name: ledger[name] for name in (
+        "external_work", "internal_energy_change", "mechanical_energy_residual",
+        "relative_mechanical_energy_residual")}, kind="diagnostic")
 
 
 def _base_nonlinear_result(
@@ -438,7 +502,7 @@ def _add_affine_constraint_evidence(step, result) -> None:
                         source="rigid_penalty_potential",
                     ))
                 continue
-            contact_potential += contact_contribution.assembly.potential_energy
+            contact_potential += contact_contribution.potential_energy
             point_evidence = contact.current_point_diagnostics()
             point_records.append({
                 "constraint": contact.name, **point_evidence,

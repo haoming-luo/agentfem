@@ -197,20 +197,24 @@ never changes solver access, results, verification, or update behavior.
   loads and for 3D affine-periodic cells with exactly one
   `AbaqusPeriodicConstraint`. Both share one provider-owned quadrature
   transaction and accepted-state portable checkpoint. The ordinary serial
-  provider also accepts independently named frictionless rigid pairs using a
+  provider also accepts independently named rigid pairs using a
   differentiable `SmoothRigidSurface` (built-in plane/sphere/cylinder or a
   conforming external implementation), or a triangulated tool with interior
   or coplanar-seam projection. Each prescribed tool pose needs a normalized
   0-to-1 schedule driven by the shared Step amplitude; per-pair accepted
-  force--moment work and all poses must rollback together. Contact at a free
-  edge or noncoplanar seam is rejected. Reject follower loads, other weak
-  boundary models, friction, and MPC in that ordinary strong-boundary
-  provider; the separate affine-periodic provider has its own **single-pair**
-  bounded contact/MPC tests.
-  Do not infer mixed
-  displacement--pressure locking control, external structural validation,
-  a production analytical material tangent,
-  or MPI support for these composed contact routes.
+  force--moment work and all poses must rollback together. Open triangle
+  patches reject active free/noncoplanar edges. Reviewed closed-solid tools
+  and Coulomb friction have separate, geometry-dependent admission limits;
+  use the current matrix in `docs/guide/model_setup.md`, not a blanket
+  friction prohibition or an assumption that all sharp features are supported.
+  The separate affine-periodic provider accepts named multiple rigid pairs
+  and tested locally planar Coulomb combinations, with total-residual MPC
+  reduction and a nonsymmetric linear-solver policy for friction.
+  Reject follower loads and unrelated weak boundary models; ordinary strong
+  constraints and affine MPC cannot be mixed in one Step. The J2 law owns its
+  analytic discrete tangent, but that alone does not validate a contact
+  geometry, mixed displacement--pressure/contact combination, external
+  structure response, general energy closure or distributed implicit route.
 - Named materials: use `materials.define(...)` when material identity, source,
   reuse, or separate mechanical/thermal roles matter. The Study selects the
   required physics role at `model.material(...)`; it does not choose or rewrite

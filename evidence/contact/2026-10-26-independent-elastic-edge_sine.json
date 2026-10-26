@@ -1,0 +1,324 @@
+{
+  "scope": "P1/P2 Gaussian penalty diagnostic, not nodal AL or independent continuum reference",
+  "agentfem_version": "0.4.4.dev0",
+  "git_commit": "4c8bca1e8deac1cac31c1adf83269e297fc1baeb",
+  "tool_sha256": "07602a18e72644f6b1dc2e525804c6231f7835fda2e0082d5307624cfbdd1422",
+  "source_sha256": {
+    "solvers.py": "90b24a54ce4dae8d234e572a30998af008f123da781471dbca26623d6fa818af",
+    "_affine_equilibrium.py": "9f3bc9d4825597892f67db3ebb96fe941363a5dcc6307e0cdef7d4e93cc4ff6f",
+    "mechanics/finite_strain_plasticity.py": "e851c96dec369d1e4d683978393f843b6b1825cedc9fa4ceff00aabac9ce1914",
+    "constitutive/finite_strain_plasticity.py": "e8f9bcc3c6a7d8a5971d03ef68cfd8b82850e9f4322765efca926198b6a1eeea",
+    "constitutive/quadrature.py": "c48fdef1fffdc1eb5657e1cf1b00e32483ef8b1ac2cc8461a00ab94ee10cc0e3",
+    "steps.py": "43707905b97ea1b01edb43f1ef110c7f8a94be49e6fc384c8655f557fe767a1c",
+    "_nonlinear_problems.py": "0aabb0ba0f9d40d54a181ed10020fed3324df73d406723c0f23832d84095382a",
+    "boundary_models/implicit_contact.py": "84d6871ee9e4f71eb7f5bd313fbffbaf1bb4b2bfb6f4c1c42079c62d344889b3",
+    "boundary_models/_petsc_contact_rows.py": "86db627be9cd88f58a03253c6c4fc205dd7ce16a57dc624902b7f72320eab92a",
+    "boundary_models/dolfinx_implicit_facet_contact.py": "944569bbaadc8fadff1da55bdedf043ab52b97bde880dd3df514f301a5b399df",
+    "boundary_models/dolfinx_contact_trace.py": "7e696da048967bfbf3a9847973f57e0ffd840e5c98db5ab7bcca268ff8119982"
+  },
+  "units": {
+    "length": "m",
+    "stress": "Pa",
+    "force": "N",
+    "work": "J"
+  },
+  "options": {
+    "cells": [
+      8,
+      12
+    ],
+    "degrees": [
+      2
+    ],
+    "mesh_family": "edge_sine",
+    "increments": 4,
+    "plastic_increment_limit": null,
+    "penalty": 40000.0,
+    "contact_degree": 11,
+    "bulk_degree": 6,
+    "yield_stress": 1000000.0,
+    "until": 0.25,
+    "patch_partition": true,
+    "elastic_virtual_work_audit": true,
+    "checkpoint_directory": null,
+    "restart": null
+  },
+  "records": [
+    {
+      "cells": 8,
+      "degree": 2,
+      "status": "completed",
+      "stations": [
+        {
+          "factor": 0.25,
+          "displacement_l2": 0.011319424352917964,
+          "force_on_structure": [
+            -18.648606120344446,
+            -0.0,
+            -0.0
+          ],
+          "pressure_area_mean": 74.59442448137777,
+          "maximum_pressure": 250.9573872451565,
+          "active_reference_area": 0.2500000000000002,
+          "maximum_penetration": 0.006273934681128912,
+          "peeq_reference_volume_mean": 0.0,
+          "maximum_peeq": 0.0,
+          "mpc_equation_mismatch": 3.469446951953614e-18,
+          "normal_relative_work_status": "unavailable_on_this_diagnostic_route",
+          "energy": {
+            "stored_energy": 0.3453051825720908,
+            "plastic_dissipation": 0.0,
+            "contact_potential": 0.02083467619806318,
+            "affine_path_work": 0.4103838014683668,
+            "mechanical_energy_residual": 0.0442439426982128,
+            "relative_mechanical_residual": 0.10781113323651302
+          },
+          "energy_status": "accepted_trapezoidal_work_not_exact_continuous_path",
+          "independent_virtual_work": {
+            "bulk_energy": 0.34530518257209375,
+            "contact_energy": 0.020834676198057324,
+            "contact_force": 18.648606120341213,
+            "scope": "independent discrete elastic virtual work, not continuum or plastic verification",
+            "reduced_dofs": 12030,
+            "full_residual_difference_l2": 6.385669493090347e-13,
+            "full_residual_relative_difference": 1.6975582760908748e-13,
+            "energy_relative_difference": 1.6960146416785912e-14,
+            "independent_equilibrium_l2": 5.991564500392432e-10,
+            "contact_reference_area": 0.25,
+            "criteria": {
+              "full_residual_relative_difference": 1e-10,
+              "independent_equilibrium_l2": 1e-07,
+              "energy_relative_difference": 1e-10
+            },
+            "passed": true
+          },
+          "patch_partition": {
+            "edge_width": 0.0625,
+            "classification": "reference_square_distance",
+            "partition_quadrature": "sampled_indicator_not_exact_subcell_integration",
+            "total_reference_area": 0.2500000000000002,
+            "normal_force_magnitude": 18.64860612034446,
+            "regions": {
+              "edge": {
+                "reference_area": 0.10937500000000014,
+                "active_reference_area": 0.10937500000000014,
+                "normal_force_magnitude": 11.128851684718878,
+                "maximum_pressure": 250.9573872451565
+              },
+              "interior": {
+                "reference_area": 0.1406250000000001,
+                "active_reference_area": 0.1406250000000001,
+                "normal_force_magnitude": 7.519754435625581,
+                "maximum_pressure": 83.48942151946481
+              }
+            },
+            "smooth_partition": {
+              "edge": {
+                "weighted_reference_area": 0.13888888888888906,
+                "weighted_normal_force": 12.425997548764212
+              },
+              "center": {
+                "weighted_reference_area": 0.11111111111111119,
+                "weighted_normal_force": 6.222608571580247
+              }
+            }
+          }
+        }
+      ],
+      "mesh_family": "edge_sine",
+      "coordinate_lines": [
+        [
+          0.0,
+          0.03806023374435663,
+          0.1464466094067262,
+          0.3086582838174551,
+          0.49999999999999994,
+          0.6913417161825448,
+          0.8535533905932737,
+          0.9619397662556434,
+          1.0
+        ],
+        [
+          0.0,
+          0.1875,
+          0.25,
+          0.3125,
+          0.5,
+          0.6875,
+          0.75,
+          0.8125,
+          1.0
+        ],
+        [
+          0.0,
+          0.1875,
+          0.25,
+          0.3125,
+          0.5,
+          0.6875,
+          0.75,
+          0.8125,
+          1.0
+        ]
+      ],
+      "full_dofs": 14739,
+      "complete_cycle": false,
+      "accepted_through": 0.25,
+      "accepted_increments": 1,
+      "rejected_attempts": 0,
+      "newton_iterations": 3,
+      "maximum_accepted_plastic_increment": 0.0,
+      "setup_solve_observe_seconds": 4.33631479199903
+    },
+    {
+      "cells": 12,
+      "degree": 2,
+      "status": "completed",
+      "stations": [
+        {
+          "factor": 0.25,
+          "displacement_l2": 0.011328541879744872,
+          "force_on_structure": [
+            -18.537158976806708,
+            -0.0,
+            -0.0
+          ],
+          "pressure_area_mean": 74.14863590722682,
+          "maximum_pressure": 255.85564505432146,
+          "active_reference_area": 0.25000000000000033,
+          "maximum_penetration": 0.006396391126358036,
+          "peeq_reference_volume_mean": 0.0,
+          "maximum_peeq": 0.0,
+          "mpc_equation_mismatch": 3.469446951953614e-18,
+          "normal_relative_work_status": "unavailable_on_this_diagnostic_route",
+          "energy": {
+            "stored_energy": 0.3450375704878631,
+            "plastic_dissipation": 0.0,
+            "contact_potential": 0.020269215674850592,
+            "affine_path_work": 0.4092665277176919,
+            "mechanical_energy_residual": 0.04395974155497823,
+            "relative_mechanical_residual": 0.10741103554234768
+          },
+          "energy_status": "accepted_trapezoidal_work_not_exact_continuous_path",
+          "independent_virtual_work": {
+            "bulk_energy": 0.3450375704878631,
+            "contact_energy": 0.02026921567484462,
+            "contact_force": 18.537158976803482,
+            "scope": "independent discrete elastic virtual work, not continuum or plastic verification",
+            "reduced_dofs": 40894,
+            "full_residual_difference_l2": 4.500892017900987e-13,
+            "full_residual_relative_difference": 1.725138482238631e-13,
+            "energy_relative_difference": 1.730512476038374e-14,
+            "independent_equilibrium_l2": 2.368031864657292e-09,
+            "contact_reference_area": 0.25,
+            "criteria": {
+              "full_residual_relative_difference": 1e-10,
+              "independent_equilibrium_l2": 1e-07,
+              "energy_relative_difference": 1e-10
+            },
+            "passed": true
+          },
+          "patch_partition": {
+            "edge_width": 0.0625,
+            "classification": "reference_square_distance",
+            "partition_quadrature": "sampled_indicator_not_exact_subcell_integration",
+            "total_reference_area": 0.25000000000000033,
+            "normal_force_magnitude": 18.53715897680673,
+            "regions": {
+              "edge": {
+                "reference_area": 0.10805573651332259,
+                "active_reference_area": 0.10805573651332259,
+                "normal_force_magnitude": 10.938466870742715,
+                "maximum_pressure": 255.85564505432146
+              },
+              "interior": {
+                "reference_area": 0.1419442634866777,
+                "active_reference_area": 0.1419442634866777,
+                "normal_force_magnitude": 7.598692106064018,
+                "maximum_pressure": 81.88569339071528
+              }
+            },
+            "smooth_partition": {
+              "edge": {
+                "weighted_reference_area": 0.13888888888888912,
+                "weighted_normal_force": 12.271945614016936
+              },
+              "center": {
+                "weighted_reference_area": 0.1111111111111112,
+                "weighted_normal_force": 6.265213362789796
+              }
+            }
+          }
+        }
+      ],
+      "mesh_family": "edge_sine",
+      "coordinate_lines": [
+        [
+          0.0,
+          0.017037086855465844,
+          0.06698729810778065,
+          0.1464466094067262,
+          0.24999999999999994,
+          0.3705904774487395,
+          0.49999999999999994,
+          0.6294095225512601,
+          0.7499999999999999,
+          0.8535533905932737,
+          0.9330127018922192,
+          0.9829629131445341,
+          1.0
+        ],
+        [
+          0.0,
+          0.13745992106986074,
+          0.22079325440319408,
+          0.25,
+          0.2792067455968059,
+          0.3625400789301392,
+          0.5,
+          0.6374599210698606,
+          0.7207932544031941,
+          0.75,
+          0.7792067455968059,
+          0.8625400789301392,
+          1.0
+        ],
+        [
+          0.0,
+          0.13745992106986074,
+          0.22079325440319408,
+          0.25,
+          0.2792067455968059,
+          0.3625400789301392,
+          0.5,
+          0.6374599210698606,
+          0.7207932544031941,
+          0.75,
+          0.7792067455968059,
+          0.8625400789301392,
+          1.0
+        ]
+      ],
+      "full_dofs": 46875,
+      "complete_cycle": false,
+      "accepted_through": 0.25,
+      "accepted_increments": 1,
+      "rejected_attempts": 0,
+      "newton_iterations": 3,
+      "maximum_accepted_plastic_increment": 0.0,
+      "setup_solve_observe_seconds": 25.354917290998856
+    }
+  ],
+  "incrementation": {
+    "kind": "fixed_incrementation",
+    "increments": 4,
+    "load_factors": [
+      0.25,
+      0.5,
+      0.75,
+      1.0
+    ]
+  },
+  "accuracy_claim": "none: limit refinement and spatial refinement are independent diagnostics",
+  "elastic_oracle_sha256": "b85f9892e13fb58b864cb925ccdd480e5c54c63a004fc8085d1fcf3572c3389c"
+}

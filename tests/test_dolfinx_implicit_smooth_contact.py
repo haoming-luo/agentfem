@@ -23,7 +23,7 @@ from agentfem.boundary_models.dolfinx_implicit_facet_contact import (
     "cell_type", [dolfinx_mesh.CellType.tetrahedron, dolfinx_mesh.CellType.hexahedron],
 )
 def test_curved_contact_matches_independent_ufl_energy_gradient_and_hessian(
-    geometry, degree, cell_type, contact_quadrature_degree,
+    geometry, degree, cell_type, contact_quadrature_degree, monkeypatch,
 ):
     if (
         contact_quadrature_degree is not None
@@ -76,10 +76,14 @@ def test_curved_contact_matches_independent_ufl_energy_gradient_and_hessian(
         ),
         penalty=penalty,
     )
-    contribution = dolfinx_implicit_rigid_contact(
+    operator = dolfinx_implicit_rigid_contact(
         pair, displacement,
         contact_quadrature_degree=contact_quadrature_degree,
-    ).evaluate()
+    )
+    contribution = operator.evaluate()
+    scalar_energy = operator.current_energy_components()
+    assert scalar_energy["contact_potential"] == pytest.approx(contribution.potential_energy)
+    assert scalar_energy["friction_dissipation"] == scalar_energy["friction_separation_release"] == 0.
     assert contribution.active_points > 0
 
     current = ufl.SpatialCoordinate(domain) + displacement
@@ -117,7 +121,18 @@ def test_curved_contact_matches_independent_ufl_energy_gradient_and_hessian(
     reference_tangent.assemble()
     direction = reference_residual.duplicate()
     action = reference_residual.duplicate()
+    residual_only = reference_residual.duplicate()
     try:
+        def forbidden(*args, **kwargs):
+            raise AssertionError("Residual-only assembly evaluated a Newton tangent")
+
+        import agentfem.boundary_models.dolfinx_implicit_facet_contact as implementation
+        with monkeypatch.context() as patch:
+            patch.setattr(implementation, "linearize_smooth_rigid_contact", forbidden)
+            residual_only.set(0.)
+            operator.add_current_residual(residual_only)
+        np.testing.assert_allclose(residual_only.array, reference_residual.array,
+                                   rtol=1e-12, atol=1e-11)
         np.testing.assert_allclose(
             contribution.assembly.potential_energy,
             reference_energy,
@@ -139,6 +154,7 @@ def test_curved_contact_matches_independent_ufl_energy_gradient_and_hessian(
             atol=1e-10,
         )
     finally:
+        residual_only.destroy()
         action.destroy()
         direction.destroy()
         reference_tangent.destroy()

@@ -35,20 +35,59 @@ needs clean Windows/WorkBuddy acceptance; local documentation checks and
 PowerShell parser CI do not substitute for it. This work does not change
 solver algorithms, contact maturity or simulation performance claims.
 
-### Active sprint decision board (2026-10-25)
+PR #125 is merged at `5e6cba5b` after all applicable checks passed for
+`11accb3b`, including PowerShell 5.1/7, Linux/FEniCSx and macOS installed-wheel
+acceptance. This is engineering integration, not a new Windows host field trial.
 
-The current follow-up starts from merged main `6227b926` (PRs #118 and #121
-integrated). It prioritizes bounded diagnostic and execution improvements,
+### Active sprint decision board (2026-10-26)
+
+The numerical follow-up starts from merged main `a862e123` (including PR #123).
+It prioritizes bounded diagnostic and execution improvements,
 not another capability expansion. CI establishes source/installation
 regressions, not nonuniform spatial accuracy or commercial parity.
 
 | Order | Work | Decision gate |
 | --- | --- | --- |
 | P0 | Keep engineering integration separate from scientific maturity | The release contract names periodic J2/contact as experimental; no general contact or mesh-independence promotion |
-| P0 | Locate the nonuniform spatial discrepancy | Fixed physical patch, common accepted station, reference-area pressure moments, and unchanged MPC equations; no blind larger-mesh sweep |
-| P1 | Integrate repeated contact stencils before sparse insertion | Retain all current integration points and constrained-row semantics; compare complete cyclic paths, rollback/restart and fresh whole-path timing |
+| P0 | Separate path-work error from spatial contact error | Independent elastic assembly/MPC audit, per-increment work/energy accounting, then one graded plastic path refinement at common stations |
+| P1 | Remove redundant observation work | Scalar energy/feature histories must not assemble unused global tangents or copy whole fields; retain current geometry, accepted-state transactions and legacy observers |
 | P1 | Preserve ordinary-use acceptance | Reuse unaffected installed output/restart evidence explicitly; validate changed assembly paths without AI-provided executable glue |
 | Exit | Commit tested improvements and retain open science gates | No release tag or commercial-parity claim on partial validation; reuse unaffected full composite evidence |
+
+Current progress: the independent discrete elastic audit agrees with production
+force/energy on uniform and graded 8/12-cell meshes. A primal affine J2 energy
+ledger now distinguishes stored energy, plastic/friction loss, penalty energy
+and accepted external work. Portable two-phase 1↔2-rank checkpoint checks retain
+its complete scalar history; this does not admit distributed implicit contact.
+Scalar contact-energy observation no longer needs full residual/tangent assembly.
+
+The initial-yield diagnostic explains almost all first-station work imbalance
+before contact in the tested graded fixture. A same-source small full-cycle
+control reduces the initial increment alone, with 232 → 237 accepted increments:
+final relative energy residual falls from 0.2106% to 0.0298%, while final force
+changes about 0.0014%. This is an accuracy diagnostic, not a runtime-speed claim
+or justification for a new universal default. The graded full cycle now also
+completes: joint initial-step and plastic-cap refinement lowers the final
+relative work/energy residual from 0.2046% to 0.00625%, with a 0.1137% final-force
+change. This separates path accounting error from spatial sensitivity; it does
+not close the spatial or independent same-input reference gate. Details,
+raw evidence and exact limits are maintained in the
+[contact sprint ledger](internal/contact_0_4_4_local_parity.md).
+
+The observation optimization has a separate 64-increment ABBA confirmation:
+4.73% less solve/observe time within the energy-enabled candidate. A net
+comparison against merged main measures 3.68% less time, including the new
+energy history, with identical physical arrays and common accepted histories.
+These are bounded serial implicit-fixture results, not additive percentages
+or explicit-composite speed claims. The final merged-main candidate also passes
+163 installed regressions and the ordinary `init → check → run` workflow;
+CLI discovery no longer initializes MPI merely to display help or version.
+
+Windows onboarding is a separate bounded engineering change, merged in PR #125:
+reuse WSL/Ubuntu, honor an explicitly chosen mirror, remove the mandatory
+source checkout, and give one manual action when permission/download blocks a
+stage. A fresh Windows/WorkBuddy machine remains a user acceptance check;
+PowerShell contract CI alone is not such a test.
 
 The fixed-width edge-belt diagnostic must also record its sampled area: a
 discontinuous indicator has mesh-dependent quadrature error. Complement it
@@ -365,6 +404,14 @@ floating-point fields, or automatic admission of every triangulated tool.
 
 The ordered nine-gate task and technical bibliography are maintained in
 [the 0.4.4 contact sprint record](internal/contact_0_4_4_local_parity.md).
+The October 26 independent elastic assembly audit now passes uniform and
+graded 8/12-cell controls, including periodic virtual work. This narrows the
+spatial investigation but does not certify the plastic full cycle. The next
+bounded checks remain graded plastic increment sensitivity and loading/unloading
+histories. The primal affine J2 result now records restartable accepted energy
+components and combines existing affine/tool work, with explicit unavailable
+status for incomplete historical evidence; this is diagnostics, not automatic
+scientific promotion.
 Promote only combinations that pass independent same-input comparison,
 mesh/increment/enforcement convergence, residual--tangent and lifecycle
 checks. A failed nonconvex sharp-feature gate narrows the release statement;
@@ -564,6 +611,17 @@ acceptance. Local contract tests and documentation checks are complete; the
 Windows 5.1/7 and Linux installed-entry CI gates are required before integration.
 These checks do not establish clean-machine WSL/UAC, WorkBuddy or domestic
 network acceptance, and do not promote experimental contact physics.
+
+Integration on 2026-10-26: PR #123 merged at `a862e123` after candidate
+`67940f6f` passed Windows PowerShell 5.1/7 contracts, Linux installed-entry
+and FEniCSx acceptance, and macOS installed-wheel acceptance. The development
+branch was removed remotely; local generated website changes were preserved.
+Clean Windows/WorkBuddy and domestic-network feedback remain separate gates.
+Development now returns to bounded contact verification: separate normal and
+in-plane edge resolution before another plastic mesh/path run, then obtain an
+independent same-input reference. Call-local J2 spectral reuse is already
+implemented and evidenced in the 2026-10-19 record; do not schedule it again
+as a missing feature or transfer its speedup to the explicit composite case.
 
 ### Lean project boundary (2026-10-15)
 

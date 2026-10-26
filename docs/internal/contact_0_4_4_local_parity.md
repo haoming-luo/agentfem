@@ -24,6 +24,332 @@ being silently approximated by the bounded route.
 
 ## Live gate status
 
+### Completed graded full-cycle path sensitivity (2026-10-26)
+
+The graded 8-cell P2 cycle now completes with both controls. Initial increment
+1/32 → 1/128 and accepted-plastic cap 0.00075 → 0.000375 change together here;
+the separate small-model experiment below isolates the initial increment.
+All recorded numerical source hashes match. The diagnostic tool/observer
+revisions differ and are recorded, so this is not called a frozen-tool run.
+Mesh, physical parameters, quadrature and solver tolerances are unchanged.
+
+| Factor | Coarse relative work/energy residual | Refined residual |
+| --- | ---: | ---: |
+| 0.25 | 0.819424% | 0.019071% |
+| 0.50 | 0.575814% | 0.014825% |
+| 0.75 | 0.337319% | 0.008684% |
+| 1.00 | 0.204641% | 0.006249% |
+
+Final contact force changes from 2.97514031 to 2.97852375 N (0.113724%);
+the largest common-station volume-mean PEEQ change is 0.015709%. Both runs
+retain open contact at factors 0.5/0.75 and active reference area 0.25 m² at
+0.25/1.0. The refined run accepts 727 increments, rejects 15 trials, uses
+2596 Newton corrections and respects its plastic cap (maximum 0.0003612952).
+Periodic equation mismatch stays below 3.5e-18 m at the common stations.
+
+These are observed sensitivity results, not a retrospectively chosen accuracy
+certificate. They separate a large path-work error from the still-open spatial
+resolution question; they do not certify peak pressure or replace an external
+same-input reference. Setup/solve times are retained but are not speed evidence:
+refinement changes the numerical workload and short independent tests overlapped.
+Raw reports and their checked summary are
+`evidence/contact/2026-10-26-graded-cycle-{coarse,refined}.json` and
+`evidence/contact/2026-10-26-graded-path-comparison.json`.
+
+### Independent-reference handoff boundary
+
+Use `tools/diagnose_periodic_contact_order.py:make_step` as the physical fixture
+source of truth. An external comparison must match the unit cube and interior
+reference patch, affine periodic equations, anchored translation, fixed plane,
+reference-area penalty measure and the **piecewise-linear matrix** path at
+factors 0, 0.25, 0.75 and 1. Interpolating one stretch and recomputing its lateral
+volume-preserving stretches between those knots would be a different path.
+
+The finite-J2 material is multiplicative Hencky elasticity with a radial return
+in elastic logarithmic strain and a **Kirchhoff-stress** yield invariant. Its
+stored energy includes elastic and linear isotropic hardening energy; plastic
+loss is initial yield stress times accumulated plastic strain. A commercial
+solver's default finite-J2 model is not automatically the same constitutive
+law. Either match that law independently or label the comparison as a model
+comparison, not an implementation-error measurement. Keep reaction, contact
+area, smooth pressure moments, volume-weighted PEEQ and separate work/energy
+channels at common stations; mesh and path differences must be recorded.
+
+### Call-local observation work reduction (2026-10-26)
+
+The design follows the separation of nonlinear residual and Jacobian callbacks
+in PETSc ([SNESSetFunction](https://petsc.org/release/manualpages/SNES/SNESSetFunction/),
+[SNESSetJacobian](https://petsc.org/release/manualpages/SNES/SNESSetJacobian/)).
+That separation is an architectural reference, not evidence of an AgentFEM
+speedup: the local callback must still preserve the same current force law,
+admission checks and ownership of trial/accepted State.
+
+The affine Procedure distinguishes Newton assembly from residual-only norm/dual
+observations. Newton still receives current full Operator contributions and
+reuses its accepted trial assembly. Observations may call an optional
+`add_current_residual` hook; an unadapted provider keeps full evaluation. A
+failed hook propagates its error and destroys the temporary PETSc vector; it
+does not silently retry with different semantics.
+
+The built-in smooth frictionless penalty Operator integrates the same current
+trace force without constructing an unused global contact tangent. Friction,
+faceted geometry and derived-law providers retain full evaluation and their
+admission checks. Initial regression exposed an inherited penalty shortcut in
+the augmented provider (16 failures); the corrected shortcut is restricted to
+the exact compatible implementation. The subsequent affected group passes
+176 tests, with 16 already unsupported refined-triangle cases skipped. This
+scope deliberately does not assume every subclass has the same contact law.
+
+An additional constraint-owned optimization shares incoming/outgoing dual
+evidence only inside one segment of the built-in piecewise-linear affine path.
+At each interior path knot the two work directions are evaluated separately.
+Derived or legacy constraints keep their two evaluations. This is call-local
+evidence reuse, not a force cache, changed work quadrature or residual lagging.
+The added tests cover both sides of exact/neighboring knots and preserve the
+legacy-provider behavior; the periodic/automatic-restart group passes 91 tests.
+
+`tools/benchmark_contact_residual_observation.py` compares the combined change
+against the prior full/two-direction observation behavior on the same serial
+cyclic P2/J2/contact/MPC problem. It checks four-station fields, material states,
+stresses, tangents, contact observables, complete dual/energy histories and the
+accepted/Newton/line-search path. Whole-path timing must be obtained without a
+competing numerical job; reduced assembly counts alone are not a speed claim.
+Fresh no-competing-job ABBA runs now complete. The 32-increment screen reduces
+mean solve-and-observe time from 13.8168 to 13.0690 s (5.41%); the separate
+64-increment confirmation reduces it from 25.6600 to 24.4457 s (4.73%). In the
+confirmation, full contact evaluations decrease from 412 to 282 and residual
+observations from 130 to 67, with the same 208 Newton corrections. All compared
+four-station fields/states/stresses/tangents, complete dual/energy histories and
+accepted/line-search paths agree exactly on this host. Raw evidence is in
+`evidence/performance/2026-10-26-contact-observation-{screen,confirmation}.json`.
+These isolate the observation change within the energy-enabled candidate;
+they are not a net revision comparison, a general speed guarantee, or a gain
+to add to earlier percentages. The explicit-composite path was not measured.
+
+A separate cross-revision ABBA check measures the net cost, rather than hiding
+the new accepted-energy diagnostic overhead. Baseline `11accb3b` has exactly
+the same `src/agentfem` tree as merged main `5e6cba5b`; candidate `b4401a86`
+adds the energy history and observation changes. Fresh serial children share
+one interpreter/numerical environment and one 64-increment physical fixture,
+warm a whole path before timing, and retain identical four-station physical
+array hashes, contact results, full dual histories and accepted/Newton paths.
+Mean solve/common-observe time is 25.6546 versus 24.7095 s (3.68% lower), while
+the candidate also records the new energy channels. This bounded result does
+not establish large-model or cross-machine speed, nor a multiplicative gain
+over the isolated optimization. Protocol and raw data:
+`tools/benchmark_periodic_revision.py` and
+`evidence/performance/2026-10-26-periodic-net-revision.json`.
+
+The final follow-up also passes 27 focused equilibrium/augmentation lifecycle
+tests and two-phase material-only 1→2 / 2→1 MPI restart checks, including the
+complete accepted energy/dual history. Distributed contact remains unsupported.
+
+A fresh native wheel at `63e3c23d` passes 156 installed regressions from an
+isolated venv sharing the existing numerical dependencies, without development
+source-path injection. The standard `init → check → run` static-solid project
+also completes and publishes its result/fields. Scope, wheel digest, commands
+and limits are in `evidence/contact/2026-10-26-installed-observation.json`.
+
+The installed exercise exposed an unrelated startup defect: CLI help eagerly
+initialized MPI, so a restricted network interface could prevent even usage
+instructions. A separate follow-up defers that import until the first actual
+communicator access, without guessing ranks or swallowing runtime errors.
+Seven startup tests deny numerical imports for help/version/invalid arguments;
+45 ordinary CLI tests and two-rank single-rank-failure tests retain behavior.
+This does not make solver execution independent of MPI or certify a new host.
+After merging main `5e6cba5b`, a second fresh-venv wheel at `0f2af133`
+passes all 163 installed tests, including startup, and the ordinary static-solid
+`init → check → run` workflow. Help also works in the restricted sandbox that
+previously prevented MPI initialization. Numerical tests still require their
+real runtime; this is not a clean Windows field trial or a runtime speed claim.
+
+### Initial-yield work diagnostic (2026-10-26)
+
+The new accepted energy ledger localizes a path-error confounder before any
+further spatial sweep. In the 8-cell graded first-loading station, the first
+accepted increment (factor 1/32) already has plastic dissipation but zero
+contact potential. Its work-minus-internal-energy change is -0.0006944451 J;
+the total at factor 0.25 is -0.0006924962 J. Thus almost the entire difference
+is present **before contact**, not accumulated by later contact integration.
+This is accounting evidence for this fixture, not an error bound.
+
+A frozen `a36be758` 4-cell/P2 full-cycle control varies **only** the initial
+increment from 1/32 to 1/128. All recorded runtime/tool hashes and other
+options match. The accepted plastic cap remains 0.00075, with bulk/contact
+quadrature 6/11 and unchanged physical parameters and tolerances.
+
+| Quantity | Initial 1/32 | Initial 1/128 |
+| --- | ---: | ---: |
+| Relative mechanical residual at factor 0.25 | 0.788615% | 0.058880% |
+| Relative mechanical residual at factor 1 | 0.210555% | 0.029839% |
+| First-station contact force magnitude (N) | 4.48342286 | 4.48353176 |
+| Final contact force magnitude (N) | 3.70501173 | 3.70506365 |
+| Accepted increments / Newton iterations | 232 / 806 | 237 / 812 |
+
+The first-force change is about 0.00243%; the first residual is substantially
+reduced without relaxing its definition. Later errors remain, including on
+unloading/recontact. This is **not** a speedup measurement (another numerical
+diagnostic was active), a continuum certificate, or evidence for changing the
+global default. It explains why a plastic cap alone cannot guarantee path-work
+accuracy. The new diagnostic-only `--initial-increment` option isolates this
+control, and `energy_increment_audit` reports the largest signed contribution
+without replacing external work by stored/dissipated energy.
+
+Evidence: `evidence/contact/2026-10-26-initial-increment-{control,refined}.json`.
+The 42 diagnostic tests pass, including inconsistent-coordinate refusal,
+outgoing/incoming force at path knots and ordinary Step energy consistency.
+Next compare a refined graded path at common physical stations; do not promote
+the small-model result into a full spatial or commercial-code validation.
+
+### Accepted affine material-energy ledger (2026-10-26)
+
+Follow-up removes an unnecessary full contact tangent assembly from scalar
+energy observation. The contact Operator now integrates its current normal and
+friction energy channels directly from the same projection/constitutive response;
+it does not cache prior geometry or mutate accepted State. Certified-face
+Operators retain their existing evaluation fallback. Moving friction tests
+compare scalar versus full assembly before/after commitment through stick, slip,
+opening and recontact on analytical and triangulated surfaces. Curved P1/P2
+trace tests also compare the potential. The affected group reports 131 passed
+and 16 explicitly unsupported refined-triangle combinations skipped. No
+end-to-end speedup percentage is inferred from eliminating this work.
+
+The primal periodic J2 constructor now adds a scalar-only accepted observer.
+It integrates the material-owned stored energy and committed plastic loss,
+records the Operator-owned recoverable contact potential and friction losses,
+and reuses the existing affine/tool path work. Result balance uses final-minus-
+initial energy components, including initial penetration storage. The result's
+`mechanical_energy_ledger` reports evidence completeness, not verification.
+Mixed saddle-point and augmented normal-work combinations remain outside this
+ledger; a missing old checkpoint history is marked unavailable, never inferred.
+
+Review found a real reporting omission: affine contact results previously
+summed only the normal assembly potential even when the Operator exposed
+recoverable tangential penalty energy. Results now use the Operator's total
+potential. The contact force/material update algorithms are unchanged.
+
+The new scalar observer explicitly opts out of full-field snapshots. Existing
+observers retain their full copied fields by default. Small immutable history
+blocks provide constant-size rollback handles instead of copying the entire
+energy history each increment. A regression checks five accepted scalar
+stations with only two field snapshots. No runtime percentage is claimed.
+
+Review extends this field-free declaration to the existing feature-path,
+certified-face and fixed-normal-work observers: they read the accepted station
+and their own Operator, never the copied displacement/field archive. New tests
+first reproduced four/five field captures despite sparse output; the corrected
+route makes only the two requested initial/final captures. Dense/sparse runs
+retain identical accepted diagnostic/checkpoint records and final fields.
+Thirteen focused parity, legacy-observer, corruption and rollback tests pass.
+This reduces unnecessary data movement; it is not a measured full-run speedup.
+
+The focused 136-test group passes in the real `fenicsx-env`: independent
+virtual-work controls, diagnostic/restart tests, periodic J2/contact/friction,
+legacy field observers and scalar-history tests. Tests cover continuous versus
+restart histories, corrupted endpoint atomic refusal, old-checkpoint incomplete
+history, post-commit failure rollback, initial potential subtraction and moving
+tool/friction quantities.
+
+The existing portable affine-J2 driver now explicitly compares the complete
+accepted stored-energy/plastic-loss history and affine path work, not only
+displacement/material fields. A two-phase material cell passes 1-rank write →
+2-rank resume and 2-rank write → 1-rank resume in `fenicsx-env` using
+`agentfem mpi-run --timeout 120`. The restored half-path contains three scalar
+frames; the completed path contains five, equal across ranks and to an
+uninterrupted reference within rtol 2e-8 / atol 2e-10. The same assertions are
+included in the existing single/two-phase portable CI cases. These are
+material-only periodic-cell portability checks, **not** admission of distributed
+implicit contact or a four-increment energy-accuracy certificate.
+
+### Independent elastic virtual-work audit (2026-10-26)
+
+The frozen `4c8bca1e` diagnostic now checks the discrete elastic equilibrium
+without calling the production constitutive/contact assembly for the reference.
+It uses Basix basis tabulation, reference-cell geometry, an independent
+right-metric Hencky energy/stress calculation, explicit patch integration and
+coordinate-defined periodic virtual displacements. The production residual and
+potential are read only for comparison. This is an independent **discrete
+elastic assembly audit**, not a second nonlinear plastic solver or a continuum
+accuracy certificate. Plastic states are explicitly rejected by this oracle.
+
+Uniform and combined-graded 8/12-cell P2 controls all pass. Relative full-force
+differences are at most 1.73e-13; relative energy differences at most 1.74e-14;
+independent reduced residual norms at most 2.37e-9 N (declared limit 1e-7 N).
+The graded reaction remains 18.64860612 / 18.53715898 N. The unchanged spatial
+trend is therefore not explained by the tested assembly/MPC algebra.
+
+Evidence: `evidence/contact/2026-10-26-independent-elastic-{uniform,edge_sine}.json`.
+Reproduce with the directional-control command below plus
+`--elastic-virtual-work-audit`. Oracle source identity is included in each
+record. Nine focused oracle tests cover energy differentiation, rotation,
+independent periodic reduction, four mesh families, a perturbed non-equilibrium
+state and plastic-state rejection. No speedup is claimed.
+
+The quadratic logarithmic strain energy is consistent with the elastic energy
+discussed by [Neff, Eidel and Martin](https://arxiv.org/abs/1402.4027).
+Basis values/derivatives use the
+[Basix finite-element interface](https://docs.fenicsproject.org/basix/main/python/_autosummary/basix.finite_element.html).
+Remaining scientific gates are graded plastic increment sensitivity and the
+full loading/unloading path; the elastic audit does not close those gates.
+
+### Directional resolution discriminator (2026-10-26)
+
+After Windows onboarding PR #123 merged at `a862e123`, the next experiment
+separates a confounder in the earlier combined grading: normal-to-boundary
+resolution and in-plane patch-edge resolution had changed together.
+`normal_cosine` changes only x coordinates; `patch_edge_sine` changes only y/z;
+`edge_sine` preserves the previously tested combined map. These are explicit
+diagnostic mesh choices, not runtime tuning or new public mesh defaults.
+All four families use the same cell count, P2 space, reference patch, material,
+penalty, bulk/contact quadrature 6/11 and first loading station 0.25. The
+elastic control uses yield stress 1e6 Pa and four fixed path increments.
+
+Frozen driver `1481ec32` gives the following reference-area force magnitudes:
+
+| Cells per edge | Uniform (N) | Normal only (N) | Patch edge only (N) | Combined (N) |
+| --- | ---: | ---: | ---: | ---: |
+| 8 | 18.88425009 | 18.84128337 | 18.71742909 | 18.64860612 |
+| 12 | 18.69374240 | 18.66504642 | 18.58301890 | 18.53715898 |
+
+At both resolutions the isolated in-plane change affects the total reaction
+about 3.9 times as much as the isolated normal change. The combined response
+is not the sum of the two changes. Smooth edge/center pressure moments are
+retained in all eight compact evidence files. Every sampled active reference
+area remains 0.25 m², PEEQ stays zero and periodic mismatch is below 3.5e-18.
+Thus neither plastic history nor changing sampled contact area explains this
+particular sensitivity. This prioritizes in-plane edge resolution in the
+next bounded plastic/reference comparison; it does **not** prove which mesh
+is closest to the continuum solution, identify a constitutive defect, or
+establish full-cycle accuracy. No new runtime speedup is claimed.
+
+Peak sampled pressure still increases between the two meshes, including
+250.96 -> 255.86 Pa for combined grading. A scalar peak is not the pass/fail
+target for this experiment. Abaqus's [adaptive-remeshing guidance](
+https://docs.software.vt.edu/abaqusv2025/English/SIMACAEANLRefMap/simaanl-c-adpover.htm)
+warns that sharp contact edges can introduce singular fields and describes
+simplified provisional analyses for mesh studies. That motivates separating
+integrated observables and elastic controls here; it does not establish a
+singularity for this finite-penalty problem or justify changing its geometry.
+
+Reproduce with `tools/diagnose_periodic_contact_order.py`, selecting each
+`--mesh-family uniform|normal_cosine|patch_edge_sine|edge_sine` separately,
+`--cells 8` then `--cells 12`, `--degrees 2 --increments 4 --contact-degree 11
+--bulk-degree 6 --yield-stress 1000000 --until 0.25 --patch-partition`, and a
+fresh `--output`. Each run was sequential, serial, one requested BLAS/OpenMP
+thread, with a 180-second subprocess bound. Evidence is
+`evidence/contact/2026-10-26-directional-elastic*.json`; it records driver and
+scientific source hashes and no field archives. The 37 focused tests pass,
+including coordinate factorization, all boundary P1/P2 periodic DOFs,
+volume/patch preservation and rejection of mismatched-mesh checkpoints.
+The constitutive and contact kernels are unchanged.
+
+Task audit: call-local J2 spectral reuse is already implemented and measured
+in the 2026-10-19 entry below, not a pending optimization. The agent guide's
+obsolete single-pair/friction exclusions have been replaced with the current
+combination-specific admission matrix. Remaining gates are an independent
+same-input nonuniform reference, graded plastic-path refinement and bounded
+full-cycle verification, not another uncontrolled uniform mesh sweep.
+
 ### Edge resolution and shared trace assembly follow-up (2026-10-25)
 
 This follow-up starts from merged `6227b926`; it does not reopen PR #118 or

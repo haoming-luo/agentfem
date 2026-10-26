@@ -72,7 +72,9 @@ def diagnostic_coordinate_lines(cells, family="uniform"):
     The sine map fixes 0, 1/4, 1/2, 3/4, 1 and has derivative
     1 + pi/4*cos(4*pi*s) > 0. It clusters both sides of the two patch
     edges without changing their physical positions or the cell count.
-    Normal cosine grading resolves both periodic faces. Geometry is fixed
+    Normal cosine grading resolves both periodic faces. The two one-direction
+    families isolate normal resolution from in-plane patch-edge resolution;
+    edge_sine retains the original combined map. Geometry is fixed
     before constructing any spaces, constraints, contact traces or state.
     """
     if cells < 4 or cells % 4:
@@ -80,15 +82,17 @@ def diagnostic_coordinate_lines(cells, family="uniform"):
     s = np.linspace(0., 1., cells + 1)
     if family == "uniform":
         return np.tile(s, (3, 1))
-    if family != "edge_sine":
+    if family not in ("edge_sine", "normal_cosine", "patch_edge_sine"):
         raise ValueError("Unknown diagnostic mesh family.")
     if cells < 8:
-        raise ValueError("edge_sine requires at least eight cells to resolve patch-edge grading.")
+        raise ValueError("Graded diagnostics require at least eight cells to resolve the grading.")
     tangential = s + np.sin(4. * np.pi * s) / 16.
     # Exact anchors also keep facet selection independent of roundoff.
     tangential[::cells // 4] = np.linspace(0., 1., 5)
     normal = .5 * (1. - np.cos(np.pi * s))
-    return np.vstack((normal, tangential, tangential))
+    return np.vstack((s if family == "patch_edge_sine" else normal,
+                      s if family == "normal_cosine" else tangential,
+                      s if family == "normal_cosine" else tangential))
 
 
 def make_step(*, cells=4, degree=1, increments=16, penalty=40000., contact_degree=7,
@@ -140,7 +144,53 @@ def observe_penalty(step, factor):
     # This route does not own the AL relative-work recorder. Missing work is
     # unavailable, never zero; this diagnostic cannot establish energy closure.
     observation["normal_relative_work_status"] = "unavailable_on_this_diagnostic_route"
+    # Penalty potential is an available conservative channel on this route;
+    # it is distinct from the AL relative-work recorder above. Preserve the
+    # existing accepted ledger instead of concealing its increment error.
+    history = step.constraint_dual_history
+    if history.complete and np.isclose(history.factors[-1], factor, rtol=0., atol=1e-12):
+        from dolfinx import fem
+        response = step.response
+        stored = float(fem.assemble_scalar(fem.form(response.strain_energy_density.function * response.measure)))
+        dissipated = float(fem.assemble_scalar(fem.form(
+            response.state.committed["plastic_dissipation"].function * response.measure)))
+        potential = float(step.contact_provider.evaluate().assembly.potential_energy)
+        work = history.work()
+        internal = stored + dissipated + potential
+        observation["energy"] = {"stored_energy": stored, "plastic_dissipation": dissipated,
+                                  "contact_potential": potential, "affine_path_work": work,
+                                  "mechanical_energy_residual": work - internal,
+                                  "relative_mechanical_residual": abs(work - internal) / max(abs(work), abs(internal), 1e-30)}
+        observation["energy_status"] = "accepted_trapezoidal_work_not_exact_continuous_path"
+        observation["energy_increment_audit"] = energy_increment_audit(
+            history.records, step.accepted_history_recorders["material_energy"].frames)
+    else:
+        observation["energy"] = None
+        observation["energy_status"] = "unavailable_incomplete_accepted_history"
     return observation
+
+
+def energy_increment_audit(duals, frames):
+    """Localize discrete work error in this fixed-tool, zero-initial-energy fixture.
+
+    This diagnoses the existing trapezoidal rule; it does not replace work by
+    internal energy, correct the balance, or estimate continuous-path error.
+    """
+    if len(duals) != len(frames) or len(frames) < 2:
+        raise ValueError("Energy and dual histories must contain the same accepted stations.")
+    if any(abs(d["load_factor"] - f.factor) > 1e-12 for d, f in zip(duals, frames, strict=True)):
+        raise ValueError("Energy and dual history coordinates differ.")
+    rows = []
+    for a, b, x, y in zip(duals, duals[1:], frames, frames[1:]):
+        work = .5 * float(np.sum(np.asarray(a["outgoing_force"]) + b["force"])) * (y.factor - x.factor)
+        change = float(sum(y.values) - sum(x.values))
+        rows.append({"index": y.index, "factor": y.factor, "increment_work": work,
+                     "increment_internal_energy_change": change, "residual": work - change})
+    return {"scope": "fixed_tool_discrete_increment_accounting_not_error_estimation",
+            "sample_count": len(frames), "first_increment": rows[0],
+            "largest_absolute_residual": max(rows, key=lambda row: abs(row["residual"])),
+            "residual_sum": sum(row["residual"] for row in rows),
+            "residual_after_first_increment": sum(row["residual"] for row in rows[1:])}
 
 
 def patch_pressure_partition(samples, *, edge_width=.0625):
@@ -193,13 +243,15 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--cells", type=int, nargs="+", default=[4, 8])
     parser.add_argument("--degrees", type=int, nargs="+", default=[1, 2])
-    parser.add_argument("--mesh-family", choices=("uniform", "edge_sine"), default="uniform",
+    parser.add_argument("--mesh-family", choices=("uniform", "edge_sine", "normal_cosine", "patch_edge_sine"), default="uniform",
                         help="Explicit fixed-geometry discretization study; never automatic tuning.")
     path_policy = parser.add_mutually_exclusive_group()
     path_policy.add_argument("--increments", type=int, default=None,
                              help="Fixed path increments (default: 32).")
     path_policy.add_argument("--plastic-increment-limit", type=float, default=None,
                              help="Use the existing accepted-plastic predictor at this limit; refine it separately from mesh size.")
+    parser.add_argument("--initial-increment", type=float, default=None,
+                        help="Automatic path only: vary the first increment independently of the plastic limit (default 1/32).")
     parser.add_argument("--penalty", type=float, default=40000.)
     parser.add_argument("--contact-degree", type=int, default=7)
     parser.add_argument("--bulk-degree", type=int, default=4)
@@ -209,6 +261,8 @@ def main():
                         help="Stop at a declared common station, without claiming a complete cycle.")
     parser.add_argument("--patch-partition", action="store_true",
                         help="Record fixed reference edge/interior pressure integrals.")
+    parser.add_argument("--elastic-virtual-work-audit", action="store_true",
+                        help="Independent same-mesh elastic energy/residual/MPC audit; rejects plastic history.")
     parser.add_argument("--checkpoint-directory", default=None,
                         help="Optional existing Step checkpoint policy: every 50 accepted increments, retain two.")
     parser.add_argument("--restart", type=Path, default=None,
@@ -230,9 +284,15 @@ def main():
             parser.error("Restart requires an existing checkpoint file.")
     if args.increments is not None and (args.increments < 4 or args.increments % 4):
         parser.error("Fixed increments must be positive multiples of four for the common stations.")
+    if args.initial_increment is not None and (
+        args.plastic_increment_limit is None or not np.isfinite(args.initial_increment)
+        or not 1/4096 <= args.initial_increment <= 1/16
+    ):
+        parser.error("Initial increment requires automatic plastic control and must lie in [1/4096, 1/16].")
     control = (steps.fixed(32 if args.increments is None else args.increments)
                if args.plastic_increment_limit is None else steps.automatic(
-                   initial=1/32, minimum=1/4096, maximum=1/16,
+                   initial=1/32 if args.initial_increment is None else args.initial_increment,
+                   minimum=1/4096, maximum=1/16,
                    max_increments=4096, max_cutbacks=12, cutback_factor=.5,
                    maximum_inelastic_increment=args.plastic_increment_limit,
                    inelastic_prediction_safety=.8))
@@ -263,6 +323,10 @@ def main():
         report["restart_scope"] = "Checkpoint identity is enforced by the Step; elapsed time covers only this segment."
     report["incrementation"] = control.summary()
     report["accuracy_claim"] = "none: limit refinement and spatial refinement are independent diagnostics"
+    if args.elastic_virtual_work_audit:
+        oracle_path = Path(__file__).with_name("audit_periodic_contact_virtual_work.py")
+        elastic_audit = runpy.run_path(str(oracle_path))["audit_elastic_station"]
+        report["elastic_oracle_sha256"] = sha256(oracle_path.read_bytes()).hexdigest()
     args.output.parent.mkdir(parents=True, exist_ok=True)
     def save():
         atomic_write_text(args.output, json.dumps(report, indent=2, allow_nan=False) + "\n")
@@ -304,6 +368,10 @@ def main():
                         row["accepted_station_checkpoint"] = str(step.save_checkpoint(
                             checkpoint_directory / f"station-{factor:.2f}.npz"))
                     observation = observe_penalty(step, factor)
+                    if args.elastic_virtual_work_audit:
+                        observation["independent_virtual_work"] = elastic_audit(
+                            step, bulk_degree=args.bulk_degree,
+                            contact_degree=args.contact_degree, penalty=args.penalty)
                     if args.patch_partition:
                         partition = patch_pressure_partition(step.contact_provider.accepted_point_samples())
                         np.testing.assert_allclose(partition["normal_force_magnitude"],
@@ -312,6 +380,8 @@ def main():
                     json.dumps(observation, allow_nan=False)
                     row["stations"].append(observation)
                     save()
+                    if args.elastic_virtual_work_audit and not observation["independent_virtual_work"]["passed"]:
+                        raise ValueError("Independent discrete virtual-work audit failed; evidence preserved.")
                     print(json.dumps({"cells": cells, "degree": degree, "factor": factor}), flush=True)
                 row["status"] = "completed"
                 row["complete_cycle"] = args.until == 1.
