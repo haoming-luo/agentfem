@@ -1,3 +1,8 @@
+---
+title: "Finite-strain plasticity: external beam benchmark"
+description: "Inspect AgentFEM's experimental finite-strain J2 verification protocol against an independently published self-weight beam problem."
+---
+
 # Finite-strain J2 external beam gate
 
 AgentFEM keeps the self-weight beam of Lewandowski et al. (2023) as an

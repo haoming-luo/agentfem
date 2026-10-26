@@ -1,3 +1,8 @@
+---
+title: "Check and upgrade AgentFEM projects"
+description: "Inspect project compatibility, review migration requirements and apply supported metadata upgrades without silently changing model physics."
+---
+
 # Project Compatibility and Upgrades
 
 AgentFEM projects are ordinary Python, but they are not anonymous scripts.

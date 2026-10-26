@@ -1,3 +1,8 @@
+---
+title: "Scientific operator contracts in AgentFEM"
+description: "Understand the residual, tangent, stiffness, capacity and mass contracts used to assemble composable finite-element solution procedures."
+---
+
 # Scientific Operator Contracts
 
 ## Why the second layer exists

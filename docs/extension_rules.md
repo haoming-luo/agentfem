@@ -1,3 +1,8 @@
+---
+title: "AgentFEM extension rules and module boundaries"
+description: "Place new scientific functionality in reusable material, constraint, load or operator modules, with explicit interfaces and verification."
+---
+
 # AgentFEM Extension Rules
 
 Use these rules before adding new public functions or modules.
