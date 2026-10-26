@@ -82,6 +82,17 @@ cyclic P2/J2/contact/MPC problem. It checks four-station fields, material states
 stresses, tangents, contact observables, complete dual/energy histories and the
 accepted/Newton/line-search path. Whole-path timing must be obtained without a
 competing numerical job; reduced assembly counts alone are not a speed claim.
+Fresh no-competing-job ABBA runs now complete. The 32-increment screen reduces
+mean solve-and-observe time from 13.8168 to 13.0690 s (5.41%); the separate
+64-increment confirmation reduces it from 25.6600 to 24.4457 s (4.73%). In the
+confirmation, full contact evaluations decrease from 412 to 282 and residual
+observations from 130 to 67, with the same 208 Newton corrections. All compared
+four-station fields/states/stresses/tangents, complete dual/energy histories and
+accepted/line-search paths agree exactly on this host. Raw evidence is in
+`evidence/performance/2026-10-26-contact-observation-{screen,confirmation}.json`.
+These isolate the observation change within the energy-enabled candidate;
+they are not a net revision comparison, a general speed guarantee, or a gain
+to add to earlier percentages. The explicit-composite path was not measured.
 The final follow-up also passes 27 focused equilibrium/augmentation lifecycle
 tests and two-phase material-only 1→2 / 2→1 MPI restart checks, including the
 complete accepted energy/dual history. Distributed contact remains unsupported.
