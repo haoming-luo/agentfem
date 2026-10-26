@@ -75,6 +75,23 @@ An `OperatorForm` declares one of five roles:
 their operands and operation (`sum`, `scale`, `linearize`) in summaries, so a
 human or agent can inspect how `K`, `C`, or `F` was assembled.
 
+## Residual-only observations in the affine backend
+
+Newton correction, residual-norm checks and accepted-work observations do not
+all need a tangent matrix. The affine backend still requests a current full
+contribution for Newton. For a residual-only consumer, an additive provider
+may implement `add_current_residual(vector)`; providers without that hook keep
+their existing full evaluation. This is a bounded backend optimization, not a
+new public OperatorForm or permission to omit a consistent Newton tangent.
+
+The hook must add the same current residual in full coordinates, before MPC
+reduction and owner-controlled ghost accumulation. It must preserve admission
+checks and leave accepted State unchanged. A failed hook propagates its error;
+the Procedure does not silently use an old force or retry another law. Derived
+providers must retain their own semantics instead of inheriting a shortcut
+for a different enforcement law. Compare force, accepted paths, rollback and
+work histories as well as runtime when enabling this optimization.
+
 ## Extension rule
 
 A new public operator is not admitted because a UFL expression can be written.
