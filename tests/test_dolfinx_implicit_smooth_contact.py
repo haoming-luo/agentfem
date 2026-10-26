@@ -76,10 +76,14 @@ def test_curved_contact_matches_independent_ufl_energy_gradient_and_hessian(
         ),
         penalty=penalty,
     )
-    contribution = dolfinx_implicit_rigid_contact(
+    operator = dolfinx_implicit_rigid_contact(
         pair, displacement,
         contact_quadrature_degree=contact_quadrature_degree,
-    ).evaluate()
+    )
+    contribution = operator.evaluate()
+    scalar_energy = operator.current_energy_components()
+    assert scalar_energy["contact_potential"] == pytest.approx(contribution.potential_energy)
+    assert scalar_energy["friction_dissipation"] == scalar_energy["friction_separation_release"] == 0.
     assert contribution.active_points > 0
 
     current = ufl.SpatialCoordinate(domain) + displacement

@@ -44,6 +44,13 @@ def attach_affine_material_energy(problem, response, contacts):
         if contacts:
             potential = dissipated = released = 0.
             for provider in contacts:
+                scalar_energy = getattr(provider, "current_energy_components", None)
+                if callable(scalar_energy):
+                    components = scalar_energy()
+                    potential += components["contact_potential"]
+                    dissipated += components["friction_dissipation"]
+                    released += components["friction_separation_release"]
+                    continue
                 contribution = provider.evaluate()
                 potential += contribution.potential_energy
                 tangential = getattr(contribution, "friction_assembly", None)

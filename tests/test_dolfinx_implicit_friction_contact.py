@@ -78,6 +78,33 @@ def _operator(*, motion=None, geometry="plane"):
     return displacement, dolfinx_implicit_rigid_contact(pair, displacement)
 
 
+@pytest.mark.parametrize("geometry", ["plane", "triangulated_plane", "closed_convex"])
+def test_scalar_contact_energy_matches_full_assembly_without_tangent(geometry, monkeypatch):
+    import agentfem.boundary_models.dolfinx_implicit_facet_contact as implementation
+
+    displacement, operator = _operator(geometry=geometry)
+    for normal, sliding in ((.1, .01), (.1, .2), (0., .2), (.1, .22)):
+        displacement.x.array.reshape(-1, 3)[:] = (normal, sliding, 0.)
+        for committed in (False, True):
+            if committed:
+                operator.commit_accepted()
+            reference = operator.evaluate()
+            state = operator.snapshot_accepted_state()
+
+            def forbidden(*args, **kwargs):
+                raise AssertionError("Scalar energy assembled a tangent")
+
+            with monkeypatch.context() as patch:
+                for name in ("linearize_smooth_rigid_contact", "linearize_closed_rigid_solid_contact",
+                             "linearize_piecewise_planar_contact", "linearize_piecewise_planar_penalty_friction"):
+                    patch.setattr(implementation, name, forbidden)
+                scalar = operator.current_energy_components()
+            assert scalar["contact_potential"] == pytest.approx(reference.potential_energy, abs=1e-13)
+            assert scalar["friction_dissipation"] == pytest.approx(reference.friction_assembly.cumulative_dissipation)
+            assert scalar["friction_separation_release"] == pytest.approx(reference.friction_assembly.cumulative_separation_release)
+            assert operator.snapshot_accepted_state() == state
+
+
 @pytest.mark.parametrize(
     ("normal_motion", "expected_force"),
     [(0.0, (-10.0, 4.0, 0.0)), (0.01, (-8.0, 3.2, 0.0))],

@@ -1221,6 +1221,42 @@ class DolfinxImplicitRigidContact:
             "cumulative_friction_dissipation_densities": cumulative_dissipation.copy(),
         }
 
+    def _current_friction_response(self, record, response, factor):
+        """Evaluate the same fixed-old-State law for mechanics or observation."""
+        if self.friction_kinematics is None or self.friction_kinematics.accepted is None:
+            raise RuntimeError("Implicit friction requires accepted slave kinematics.")
+        schedule = self.pair.rigid_body.motion_schedule
+        relative = relative_contact_displacement_increment(
+            self.friction_kinematics.accepted, record,
+            motion=None if schedule is None else schedule.motion,
+            current_motion_factor=factor,
+        )
+        return self.pair.friction.evaluate(
+            point_ids=record.point_ids,
+            normal_response=response,
+            relative_displacement_increment=relative,
+            accepted=self.friction_state.accepted,
+            history_rotation=self._tangential_history_rotation(factor),
+        )
+
+    def current_energy_components(self) -> dict[str, float]:
+        """Integrate current energy channels without assembling a tangent.
+
+        Current geometry and the same material law are still evaluated. This
+        method neither advances State nor caches old contact forces/projections.
+        """
+        evaluation, record, response, factor = self._current_point_response()
+        weights = evaluation.trace.weights
+        potential = float(np.dot(weights, response.potential_densities))
+        dissipated = released = 0.
+        if self.friction_state is not None:
+            tangential = self._current_friction_response(record, response, factor)
+            potential += float(np.dot(weights, tangential.recoverable_penalty_energy_densities))
+            dissipated = float(np.dot(weights, tangential.record.cumulative_dissipation_densities))
+            released = float(np.dot(weights, tangential.record.cumulative_separation_release_densities))
+        return {"contact_potential": potential, "friction_dissipation": dissipated,
+                "friction_separation_release": released}
+
     def evaluate(self) -> ImplicitRigidContactContribution:
         """Reproject the current displacement and assemble a fresh trial Operator."""
 
@@ -1261,20 +1297,7 @@ class DolfinxImplicitRigidContact:
             )
         if self.friction_state is None:
             return contribution
-        if self.friction_kinematics is None or self.friction_kinematics.accepted is None:
-            raise RuntimeError("Implicit friction requires accepted slave kinematics.")
-        relative = relative_contact_displacement_increment(
-            self.friction_kinematics.accepted, record,
-            motion=None if schedule is None else schedule.motion,
-            current_motion_factor=factor,
-        )
-        friction_response = self.pair.friction.evaluate(
-            point_ids=record.point_ids,
-            normal_response=response,
-            relative_displacement_increment=relative,
-            accepted=self.friction_state.accepted,
-            history_rotation=self._tangential_history_rotation(factor),
-        )
+        friction_response = self._current_friction_response(record, response, factor)
         friction_assembly = evaluation.assemble_friction(
             record, friction_response,
             surface_reference_point=reference_point,

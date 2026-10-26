@@ -26,6 +26,17 @@ being silently approximated by the bounded route.
 
 ### Accepted affine material-energy ledger (2026-10-26)
 
+Follow-up removes an unnecessary full contact tangent assembly from scalar
+energy observation. The contact Operator now integrates its current normal and
+friction energy channels directly from the same projection/constitutive response;
+it does not cache prior geometry or mutate accepted State. Certified-face
+Operators retain their existing evaluation fallback. Moving friction tests
+compare scalar versus full assembly before/after commitment through stick, slip,
+opening and recontact on analytical and triangulated surfaces. Curved P1/P2
+trace tests also compare the potential. The affected group reports 131 passed
+and 16 explicitly unsupported refined-triangle combinations skipped. No
+end-to-end speedup percentage is inferred from eliminating this work.
+
 The primal periodic J2 constructor now adds a scalar-only accepted observer.
 It integrates the material-owned stored energy and committed plastic loss,
 records the Operator-owned recoverable contact potential and friction losses,
