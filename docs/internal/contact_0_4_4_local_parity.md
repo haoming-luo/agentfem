@@ -62,7 +62,18 @@ virtual-work controls, diagnostic/restart tests, periodic J2/contact/friction,
 legacy field observers and scalar-history tests. Tests cover continuous versus
 restart histories, corrupted endpoint atomic refusal, old-checkpoint incomplete
 history, post-commit failure rollback, initial potential subtraction and moving
-tool/friction quantities. These are serial evidence; no new MPI claim is made.
+tool/friction quantities.
+
+The existing portable affine-J2 driver now explicitly compares the complete
+accepted stored-energy/plastic-loss history and affine path work, not only
+displacement/material fields. A two-phase material cell passes 1-rank write →
+2-rank resume and 2-rank write → 1-rank resume in `fenicsx-env` using
+`agentfem mpi-run --timeout 120`. The restored half-path contains three scalar
+frames; the completed path contains five, equal across ranks and to an
+uninterrupted reference within rtol 2e-8 / atol 2e-10. The same assertions are
+included in the existing single/two-phase portable CI cases. These are
+material-only periodic-cell portability checks, **not** admission of distributed
+implicit contact or a four-increment energy-accuracy certificate.
 
 ### Independent elastic virtual-work audit (2026-10-26)
 

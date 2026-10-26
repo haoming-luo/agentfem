@@ -271,6 +271,40 @@ def _verify_two_phase_completed(step, reference, fixture, periodicity) -> None:
         raise RuntimeError("Two-phase accepted-increment history is incomplete.")
 
 
+def _verify_energy_history(step, reference=None) -> None:
+    """Restart must preserve global scalar history, not only local fields.
+
+    These checks establish portability/parity, not an energy-balance tolerance
+    or the scientific validity of the four-increment material path.
+    """
+    recorder = step.accepted_history_recorders["material_energy"]
+    count = round(4 * step.accepted_load_factor) + 1
+    if not recorder.complete or len(recorder.frames) != count:
+        raise RuntimeError("Portable material-energy history is incomplete.")
+    if list(recorder.roles) != ["stored_energy", "plastic_dissipation"]:
+        raise RuntimeError("Portable material-energy channels changed.")
+    stations = np.asarray([
+        (frame.index, frame.factor, *frame.values) for frame in recorder.frames
+    ])
+    np.testing.assert_array_equal(stations[:, 0], np.arange(count))
+    np.testing.assert_allclose(stations[:, 1], np.arange(count) / 4, atol=0, rtol=0)
+    if not np.all(np.isfinite(stations)):
+        raise RuntimeError("Portable material-energy history is non-finite.")
+    comm = step.solution.function_space.mesh.comm
+    for rank_stations in comm.allgather(stations):
+        np.testing.assert_allclose(stations, rank_stations, rtol=2e-8, atol=2e-10)
+    if reference is not None:
+        expected = reference.accepted_history_recorders["material_energy"]
+        np.testing.assert_allclose(
+            stations[:, 2:], [frame.values for frame in expected.frames],
+            rtol=2e-8, atol=2e-10,
+        )
+        np.testing.assert_allclose(
+            step.constraint_dual_history.work(),
+            reference.constraint_dual_history.work(), rtol=2e-8, atol=2e-10,
+        )
+
+
 def _require_atomic_identity_rejection(step, manifest: Path) -> None:
     solution = step.solution.x.array.copy()
     state = step.response.state.committed_state_vectors().copy()
@@ -390,6 +424,7 @@ def main() -> None:
         )
     if arguments.action == "write":
         step.solve(until=0.5)
+        _verify_energy_history(step)
         manifest = step.save_checkpoint(arguments.root)
         if comm.rank == 0:
             payload = json.loads(manifest.read_text(encoding="utf-8"))
@@ -399,14 +434,14 @@ def main() -> None:
                 raise RuntimeError("Public affine checkpoint is not portable.")
         return
 
-    reference = None
-    if arguments.two_phase:
-        reference, _, _ = _step(comm, two_phase=True)
-        reference.solve()
+    reference, _, _ = _step(comm, two_phase=arguments.two_phase)
+    reference.solve()
     step.load_checkpoint(arguments.root)
     if step.accepted_load_factor != 0.5:
         raise RuntimeError("Portable affine J2 coordinate was not restored.")
+    _verify_energy_history(step)
     step.solve()
+    _verify_energy_history(step, reference)
     if arguments.two_phase:
         _verify_two_phase_completed(step, reference, fixture, periodicity)
     else:
