@@ -1,3 +1,8 @@
+---
+title: "Finite-element results, histories and visualization"
+description: "Inspect displacement and stress fields, record probes and reaction histories, and export results while preserving units, provenance and verification status."
+---
+
 # Results and post-processing
 
 A useful result is more than an array written after a solver exits. AgentFEM's
