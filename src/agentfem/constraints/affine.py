@@ -1086,6 +1086,24 @@ class AbaqusPeriodicConstraint:
             complete=True,
         )
 
+    def _accepted_dual_evidence_pair(self, problem, *, load_factor: float):
+        """Call-local incoming/outgoing evidence for this piecewise-linear path.
+
+        Inside one path segment, both directional derivatives are identical.
+        Reuse the evidence, not a residual/field cache. At an interior knot the
+        two directions remain distinct. Derived constraints retain their own
+        dual semantics and therefore use the original two evaluations.
+        """
+        incoming = self.dual_evidence(problem, load_factor=load_factor)
+        path = self.deformation_gradient_path
+        same_direction = type(self) is AbaqusPeriodicConstraint and (
+            path is None or not np.any(np.asarray(path.coordinates)[1:-1] == load_factor)
+        )
+        outgoing = incoming if same_direction else self.dual_evidence(
+            problem, load_factor=load_factor, path_side="right",
+        )
+        return incoming, outgoing
+
     def reduction(self, load_factor: float = 1.0) -> AffineReduction:
         """Build the exact affine reduction for one load factor."""
 

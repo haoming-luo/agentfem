@@ -1339,7 +1339,7 @@ class AffineNonlinearVariationalProblem:
         from .solvers import _assemble_affine_full_residual
 
         residual, _ = _assemble_affine_full_residual(
-            fem.form(self.residual_form), self.full_space_operators,
+            fem.form(self.residual_form), self.full_space_operators, require_tangent=False,
         )
         return residual
 
@@ -1347,14 +1347,16 @@ class AffineNonlinearVariationalProblem:
         provider = getattr(self.constraint, "dual_evidence", None)
         if provider is None:
             return
-        evidence = provider(self, load_factor=float(load_factor))
+        paired = getattr(self.constraint, "_accepted_dual_evidence_pair", None)
+        if callable(paired):
+            evidence, outgoing_evidence = paired(self, load_factor=float(load_factor))
+        else:
+            evidence = provider(self, load_factor=float(load_factor))
+            outgoing_evidence = None if evidence is None else provider(
+                self, load_factor=float(load_factor), path_side="right",
+            )
         if evidence is None:
             return
-        outgoing_evidence = provider(
-            self,
-            load_factor=float(load_factor),
-            path_side="right",
-        )
         self.constraint_dual_history.append(
             load_factor,
             evidence,

@@ -134,7 +134,7 @@ def _narrow_contact(*, integration="gauss", moving=False):
 
 
 @pytest.mark.parametrize("moving", (False, True))
-def test_trial_planar_partition_recovers_strip_missed_by_whole_face_rule(moving):
+def test_trial_planar_partition_recovers_strip_missed_by_whole_face_rule(moving, monkeypatch):
     displacement, clipped = _narrow_contact(
         integration="planar_active_partition", moving=moving,
     )
@@ -149,6 +149,29 @@ def test_trial_planar_partition_recovers_strip_missed_by_whole_face_rule(moving)
         17.0 * 0.05**2 / 2, rel=1e-12,
     )
     assert clipped.summary()["contact_integration"] == "planar_active_partition"
+    from petsc4py import PETSc
+    import agentfem.boundary_models.dolfinx_implicit_facet_contact as implementation
+
+    vector = PETSc.Vec().createSeq(displacement.x.array.size, comm=MPI.COMM_SELF)
+    try:
+        def forbidden(*args, **kwargs):
+            raise AssertionError("Residual-only partition assembled a tangent")
+
+        with monkeypatch.context() as patch:
+            patch.setattr(implementation, "linearize_smooth_rigid_contact", forbidden)
+            vector.set(0.)
+            clipped.add_current_residual(vector)
+        np.testing.assert_allclose(vector.array, value.nodal_structural_residual.reshape(-1),
+                                   rtol=1e-12, atol=1e-13)
+        # A changed current configuration must not reuse the old projection/force.
+        saved = displacement.x.array.copy()
+        displacement.x.array.reshape(-1, 3)[:, 0] += 1.
+        vector.set(0.)
+        clipped.add_current_residual(vector)
+        np.testing.assert_array_equal(vector.array, 0.)
+        displacement.x.array[:] = saved
+    finally:
+        vector.destroy()
     base = displacement.x.array.copy()
     direction = np.random.default_rng(16).normal(size=base.shape)
     h = 1e-7

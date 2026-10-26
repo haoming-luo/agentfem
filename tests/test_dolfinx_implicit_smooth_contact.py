@@ -23,7 +23,7 @@ from agentfem.boundary_models.dolfinx_implicit_facet_contact import (
     "cell_type", [dolfinx_mesh.CellType.tetrahedron, dolfinx_mesh.CellType.hexahedron],
 )
 def test_curved_contact_matches_independent_ufl_energy_gradient_and_hessian(
-    geometry, degree, cell_type, contact_quadrature_degree,
+    geometry, degree, cell_type, contact_quadrature_degree, monkeypatch,
 ):
     if (
         contact_quadrature_degree is not None
@@ -121,7 +121,18 @@ def test_curved_contact_matches_independent_ufl_energy_gradient_and_hessian(
     reference_tangent.assemble()
     direction = reference_residual.duplicate()
     action = reference_residual.duplicate()
+    residual_only = reference_residual.duplicate()
     try:
+        def forbidden(*args, **kwargs):
+            raise AssertionError("Residual-only assembly evaluated a Newton tangent")
+
+        import agentfem.boundary_models.dolfinx_implicit_facet_contact as implementation
+        with monkeypatch.context() as patch:
+            patch.setattr(implementation, "linearize_smooth_rigid_contact", forbidden)
+            residual_only.set(0.)
+            operator.add_current_residual(residual_only)
+        np.testing.assert_allclose(residual_only.array, reference_residual.array,
+                                   rtol=1e-12, atol=1e-11)
         np.testing.assert_allclose(
             contribution.assembly.potential_energy,
             reference_energy,
@@ -143,6 +154,7 @@ def test_curved_contact_matches_independent_ufl_energy_gradient_and_hessian(
             atol=1e-10,
         )
     finally:
+        residual_only.destroy()
         action.destroy()
         direction.destroy()
         reference_tangent.destroy()

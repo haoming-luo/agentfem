@@ -1326,6 +1326,26 @@ class DolfinxImplicitRigidContact:
 
         add_contact_nodal_residual(vector, contribution.nodal_structural_residual)
 
+    def add_current_residual(self, vector) -> None:
+        """Current smooth frictionless residual without an unused Newton tangent.
+
+        Faceted, frictional and derived-law providers retain full evaluation,
+        including their feature/linearization admission checks. In particular,
+        an augmented provider must not inherit a penalty-law shortcut. This
+        hook does not cache a projection or manufacture an empty tangent.
+        """
+        if (type(self) is not DolfinxImplicitRigidContact
+                or not isinstance(self.surface, SmoothRigidSurface)
+                or self.friction_state is not None):
+            self.add_residual(vector, self.evaluate())
+            return
+        evaluation, record, response, factor = self._current_point_response()
+        schedule = self.pair.rigid_body.motion_schedule
+        reference_point = (self.pair.rigid_body.reference_point if schedule is None
+                           else schedule.motion.state(factor)["reference_point"])
+        assembly = evaluation.assemble(record, response, surface_reference_point=reference_point)
+        add_contact_nodal_residual(vector, assembly.nodal_structural_residual)
+
     def add_tangent(
         self, matrix, contribution: ImplicitRigidContactContribution,
         *, constrained_dofs=(),

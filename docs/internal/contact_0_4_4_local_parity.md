@@ -24,6 +24,42 @@ being silently approximated by the bounded route.
 
 ## Live gate status
 
+### Call-local observation work reduction (2026-10-26)
+
+The affine Procedure distinguishes Newton assembly from residual-only norm/dual
+observations. Newton still receives current full Operator contributions and
+reuses its accepted trial assembly. Observations may call an optional
+`add_current_residual` hook; an unadapted provider keeps full evaluation. A
+failed hook propagates its error and destroys the temporary PETSc vector; it
+does not silently retry with different semantics.
+
+The built-in smooth frictionless penalty Operator integrates the same current
+trace force without constructing an unused global contact tangent. Friction,
+faceted geometry and derived-law providers retain full evaluation and their
+admission checks. Initial regression exposed an inherited penalty shortcut in
+the augmented provider (16 failures); the corrected shortcut is restricted to
+the exact compatible implementation. The subsequent affected group passes
+176 tests, with 16 already unsupported refined-triangle cases skipped. This
+scope deliberately does not assume every subclass has the same contact law.
+
+An additional constraint-owned optimization shares incoming/outgoing dual
+evidence only inside one segment of the built-in piecewise-linear affine path.
+At each interior path knot the two work directions are evaluated separately.
+Derived or legacy constraints keep their two evaluations. This is call-local
+evidence reuse, not a force cache, changed work quadrature or residual lagging.
+The added tests cover both sides of exact/neighboring knots and preserve the
+legacy-provider behavior; the periodic/automatic-restart group passes 91 tests.
+
+`tools/benchmark_contact_residual_observation.py` compares the combined change
+against the prior full/two-direction observation behavior on the same serial
+cyclic P2/J2/contact/MPC problem. It checks four-station fields, material states,
+stresses, tangents, contact observables, complete dual/energy histories and the
+accepted/Newton/line-search path. Whole-path timing must be obtained without a
+competing numerical job; reduced assembly counts alone are not a speed claim.
+The final follow-up also passes 27 focused equilibrium/augmentation lifecycle
+tests and two-phase material-only 1→2 / 2→1 MPI restart checks, including the
+complete accepted energy/dual history. Distributed contact remains unsupported.
+
 ### Initial-yield work diagnostic (2026-10-26)
 
 The new accepted energy ledger localizes a path-error confounder before any
