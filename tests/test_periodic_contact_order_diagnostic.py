@@ -135,6 +135,9 @@ def test_quadratic_periodic_gauss_contact_accepts_current_total_residual():
     assert observation["peeq_reference_volume_mean"] > 0
     assert "normal_relative_work" not in observation
     assert observation["normal_relative_work_status"] == "unavailable_on_this_diagnostic_route"
+    assert observation["energy"]["plastic_dissipation"] > 0.
+    assert observation["energy"]["contact_potential"] > 0.
+    assert observation["energy_status"] == "accepted_trapezoidal_work_not_exact_continuous_path"
     samples = step.contact_provider.accepted_point_samples()
     assert samples["measure_configuration"] == "reference"
     adapter = step.contact_provider.adapter
@@ -269,6 +272,8 @@ def test_diagnostic_cli_restart_uses_public_state_and_preserves_original(tmp_pat
     expected = diagnostic["observe_penalty"](continuous, .5)
     np.testing.assert_allclose(row["stations"][0]["force_on_structure"],
                                expected["force_on_structure"], atol=1e-11)
+    for key, value in expected["energy"].items():
+        assert row["stations"][0]["energy"][key] == pytest.approx(value, abs=1e-12)
     # Changed physical input remains a failed diagnostic, not a forced restore.
     output_wrong = tmp_path / "wrong.json"
     monkeypatch.setattr(sys, "argv", ["diagnostic", "--cells", "4", "--degrees", "2",

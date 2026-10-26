@@ -144,6 +144,27 @@ def observe_penalty(step, factor):
     # This route does not own the AL relative-work recorder. Missing work is
     # unavailable, never zero; this diagnostic cannot establish energy closure.
     observation["normal_relative_work_status"] = "unavailable_on_this_diagnostic_route"
+    # Penalty potential is an available conservative channel on this route;
+    # it is distinct from the AL relative-work recorder above. Preserve the
+    # existing accepted ledger instead of concealing its increment error.
+    history = step.constraint_dual_history
+    if history.complete and np.isclose(history.factors[-1], factor, rtol=0., atol=1e-12):
+        from dolfinx import fem
+        response = step.response
+        stored = float(fem.assemble_scalar(fem.form(response.strain_energy_density.function * response.measure)))
+        dissipated = float(fem.assemble_scalar(fem.form(
+            response.state.committed["plastic_dissipation"].function * response.measure)))
+        potential = float(step.contact_provider.evaluate().assembly.potential_energy)
+        work = history.work()
+        internal = stored + dissipated + potential
+        observation["energy"] = {"stored_energy": stored, "plastic_dissipation": dissipated,
+                                  "contact_potential": potential, "affine_path_work": work,
+                                  "mechanical_energy_residual": work - internal,
+                                  "relative_mechanical_residual": abs(work - internal) / max(abs(work), abs(internal), 1e-30)}
+        observation["energy_status"] = "accepted_trapezoidal_work_not_exact_continuous_path"
+    else:
+        observation["energy"] = None
+        observation["energy_status"] = "unavailable_incomplete_accepted_history"
     return observation
 
 
@@ -213,6 +234,8 @@ def main():
                         help="Stop at a declared common station, without claiming a complete cycle.")
     parser.add_argument("--patch-partition", action="store_true",
                         help="Record fixed reference edge/interior pressure integrals.")
+    parser.add_argument("--elastic-virtual-work-audit", action="store_true",
+                        help="Independent same-mesh elastic energy/residual/MPC audit; rejects plastic history.")
     parser.add_argument("--checkpoint-directory", default=None,
                         help="Optional existing Step checkpoint policy: every 50 accepted increments, retain two.")
     parser.add_argument("--restart", type=Path, default=None,
@@ -267,6 +290,10 @@ def main():
         report["restart_scope"] = "Checkpoint identity is enforced by the Step; elapsed time covers only this segment."
     report["incrementation"] = control.summary()
     report["accuracy_claim"] = "none: limit refinement and spatial refinement are independent diagnostics"
+    if args.elastic_virtual_work_audit:
+        oracle_path = Path(__file__).with_name("audit_periodic_contact_virtual_work.py")
+        elastic_audit = runpy.run_path(str(oracle_path))["audit_elastic_station"]
+        report["elastic_oracle_sha256"] = sha256(oracle_path.read_bytes()).hexdigest()
     args.output.parent.mkdir(parents=True, exist_ok=True)
     def save():
         atomic_write_text(args.output, json.dumps(report, indent=2, allow_nan=False) + "\n")
@@ -308,6 +335,10 @@ def main():
                         row["accepted_station_checkpoint"] = str(step.save_checkpoint(
                             checkpoint_directory / f"station-{factor:.2f}.npz"))
                     observation = observe_penalty(step, factor)
+                    if args.elastic_virtual_work_audit:
+                        observation["independent_virtual_work"] = elastic_audit(
+                            step, bulk_degree=args.bulk_degree,
+                            contact_degree=args.contact_degree, penalty=args.penalty)
                     if args.patch_partition:
                         partition = patch_pressure_partition(step.contact_provider.accepted_point_samples())
                         np.testing.assert_allclose(partition["normal_force_magnitude"],
@@ -316,6 +347,8 @@ def main():
                     json.dumps(observation, allow_nan=False)
                     row["stations"].append(observation)
                     save()
+                    if args.elastic_virtual_work_audit and not observation["independent_virtual_work"]["passed"]:
+                        raise ValueError("Independent discrete virtual-work audit failed; evidence preserved.")
                     print(json.dumps({"cells": cells, "degree": degree, "factor": factor}), flush=True)
                 row["status"] = "completed"
                 row["complete_cycle"] = args.until == 1.
