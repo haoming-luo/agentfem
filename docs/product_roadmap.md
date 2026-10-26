@@ -66,10 +66,22 @@ before contact in the tested graded fixture. A same-source small full-cycle
 control reduces the initial increment alone, with 232 → 237 accepted increments:
 final relative energy residual falls from 0.2106% to 0.0298%, while final force
 changes about 0.0014%. This is an accuracy diagnostic, not a runtime-speed claim
-or justification for a new universal default. Graded full-cycle/path sensitivity
-and an external same-input reference remain the next scientific gates. Details,
+or justification for a new universal default. The graded full cycle now also
+completes: joint initial-step and plastic-cap refinement lowers the final
+relative work/energy residual from 0.2046% to 0.00625%, with a 0.1137% final-force
+change. This separates path accounting error from spatial sensitivity; it does
+not close the spatial or independent same-input reference gate. Details,
 raw evidence and exact limits are maintained in the
 [contact sprint ledger](internal/contact_0_4_4_local_parity.md).
+
+The observation optimization has a separate 64-increment ABBA confirmation:
+4.73% less solve/observe time within the energy-enabled candidate. A net
+comparison against merged main measures 3.68% less time, including the new
+energy history, with identical physical arrays and common accepted histories.
+These are bounded serial implicit-fixture results, not additive percentages
+or explicit-composite speed claims. The final merged-main candidate also passes
+163 installed regressions and the ordinary `init → check → run` workflow;
+CLI discovery no longer initializes MPI merely to display help or version.
 
 Windows onboarding is a separate bounded engineering change, merged in PR #125:
 reuse WSL/Ubuntu, honor an explicitly chosen mirror, remove the mandatory

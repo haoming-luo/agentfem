@@ -24,6 +24,38 @@ being silently approximated by the bounded route.
 
 ## Live gate status
 
+### Completed graded full-cycle path sensitivity (2026-10-26)
+
+The graded 8-cell P2 cycle now completes with both controls. Initial increment
+1/32 → 1/128 and accepted-plastic cap 0.00075 → 0.000375 change together here;
+the separate small-model experiment below isolates the initial increment.
+All recorded numerical source hashes match. The diagnostic tool/observer
+revisions differ and are recorded, so this is not called a frozen-tool run.
+Mesh, physical parameters, quadrature and solver tolerances are unchanged.
+
+| Factor | Coarse relative work/energy residual | Refined residual |
+| --- | ---: | ---: |
+| 0.25 | 0.819424% | 0.019071% |
+| 0.50 | 0.575814% | 0.014825% |
+| 0.75 | 0.337319% | 0.008684% |
+| 1.00 | 0.204641% | 0.006249% |
+
+Final contact force changes from 2.97514031 to 2.97852375 N (0.113724%);
+the largest common-station volume-mean PEEQ change is 0.015709%. Both runs
+retain open contact at factors 0.5/0.75 and active reference area 0.25 m² at
+0.25/1.0. The refined run accepts 727 increments, rejects 15 trials, uses
+2596 Newton corrections and respects its plastic cap (maximum 0.0003612952).
+Periodic equation mismatch stays below 3.5e-18 m at the common stations.
+
+These are observed sensitivity results, not a retrospectively chosen accuracy
+certificate. They separate a large path-work error from the still-open spatial
+resolution question; they do not certify peak pressure or replace an external
+same-input reference. Setup/solve times are retained but are not speed evidence:
+refinement changes the numerical workload and short independent tests overlapped.
+Raw reports and their checked summary are
+`evidence/contact/2026-10-26-graded-cycle-{coarse,refined}.json` and
+`evidence/contact/2026-10-26-graded-path-comparison.json`.
+
 ### Independent-reference handoff boundary
 
 Use `tools/diagnose_periodic_contact_order.py:make_step` as the physical fixture
@@ -93,6 +125,21 @@ accepted/line-search paths agree exactly on this host. Raw evidence is in
 These isolate the observation change within the energy-enabled candidate;
 they are not a net revision comparison, a general speed guarantee, or a gain
 to add to earlier percentages. The explicit-composite path was not measured.
+
+A separate cross-revision ABBA check measures the net cost, rather than hiding
+the new accepted-energy diagnostic overhead. Baseline `11accb3b` has exactly
+the same `src/agentfem` tree as merged main `5e6cba5b`; candidate `b4401a86`
+adds the energy history and observation changes. Fresh serial children share
+one interpreter/numerical environment and one 64-increment physical fixture,
+warm a whole path before timing, and retain identical four-station physical
+array hashes, contact results, full dual histories and accepted/Newton paths.
+Mean solve/common-observe time is 25.6546 versus 24.7095 s (3.68% lower), while
+the candidate also records the new energy channels. This bounded result does
+not establish large-model or cross-machine speed, nor a multiplicative gain
+over the isolated optimization. Protocol and raw data:
+`tools/benchmark_periodic_revision.py` and
+`evidence/performance/2026-10-26-periodic-net-revision.json`.
+
 The final follow-up also passes 27 focused equilibrium/augmentation lifecycle
 tests and two-phase material-only 1→2 / 2→1 MPI restart checks, including the
 complete accepted energy/dual history. Distributed contact remains unsupported.
