@@ -1,0 +1,30 @@
+{
+  "schema": "agentfem.bounded-path-comparison.v1",
+  "scope": "Full-cycle graded 8-cell P2 finite-J2/plane-penalty/periodic-MPC path sensitivity; not a spatial accuracy certificate.",
+  "sources": ["2026-10-26-graded-cycle-coarse.json", "2026-10-26-graded-cycle-refined.json"],
+  "both_cycles_completed": true,
+  "recorded_numerical_source_hashes_match": true,
+  "tool_hashes_match": false,
+  "changed_controls": {
+    "initial_increment": [0.03125, 0.0078125],
+    "maximum_plastic_increment": [0.00075, 0.000375]
+  },
+  "unchanged_controls": {"mesh_family": "edge_sine", "cells_per_axis": 8, "displacement_degree": 2, "bulk_quadrature_degree": 6, "contact_quadrature_degree": 11, "penalty": 40000.0},
+  "counts": {"accepted_increments": [365, 727], "rejected_attempts": [14, 15], "newton_iterations": [1387, 2596]},
+  "refined_maximum_accepted_plastic_increment": 0.0003612952027746835,
+  "stations": [
+    {"factor": 0.25, "force_magnitude_N": [4.084393084635295, 4.085422314081113], "relative_mechanical_residual": [0.008194238371758606, 0.00019070777457529068], "volume_mean_peeq": [0.022514694449990314, 0.022518231257597894]},
+    {"factor": 0.5, "force_magnitude_N": [0.0, 0.0], "relative_mechanical_residual": [0.005758137016456147, 0.0001482535202973741], "volume_mean_peeq": [0.03057945312316523, 0.0305833993192106]},
+    {"factor": 0.75, "force_magnitude_N": [0.0, 0.0], "relative_mechanical_residual": [0.0033731947574888125, 0.00008683801146462142], "volume_mean_peeq": [0.04438732570733418, 0.044391510200665805]},
+    {"factor": 1.0, "force_magnitude_N": [2.97514031083531, 2.978523749180236], "relative_mechanical_residual": [0.0020464094084935765, 0.0000624904086384861], "volume_mean_peeq": [0.06195757827438046, 0.06196116057255667]}
+  ],
+  "interpretation": [
+    "Refinement reduces the observed work/energy imbalance at every common station without changing the balance definition.",
+    "Final contact force changes by 0.113724%; the largest common-station mean-PEEQ change is 0.015709%.",
+    "Both runs have open contact at factors 0.5 and 0.75, and active reference area 0.25 m^2 at 0.25 and 1.0.",
+    "This joint initial-increment/plastic-cap refinement does not attribute the effect to either control alone; the separate same-source initial-increment experiment isolates that control.",
+    "This is diagnostic evidence, not a retrospective pass/fail tolerance or a continuum error estimate.",
+    "The full coarse/refined runtimes are not performance evidence: refinement changes numerical work, and independent short tests overlapped parts of these runs.",
+    "Nonuniform spatial accuracy and an equivalent-input independent external reference remain open."
+  ]
+}
