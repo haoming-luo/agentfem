@@ -1,3 +1,8 @@
+---
+title: "Export simulation animations and preserve restart state"
+description: "Write accepted process fields for ParaView while keeping visualization frames, scalar histories and restart checkpoints separate in AgentFEM."
+---
+
 # Process fields and restart custody
 
 Process visualization, scalar histories and restart checkpoints have different
