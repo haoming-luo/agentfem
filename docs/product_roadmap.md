@@ -549,6 +549,17 @@ Windows 5.1/7 and Linux installed-entry CI gates are required before integration
 These checks do not establish clean-machine WSL/UAC, WorkBuddy or domestic
 network acceptance, and do not promote experimental contact physics.
 
+Integration on 2026-10-26: PR #123 merged at `a862e123` after candidate
+`67940f6f` passed Windows PowerShell 5.1/7 contracts, Linux installed-entry
+and FEniCSx acceptance, and macOS installed-wheel acceptance. The development
+branch was removed remotely; local generated website changes were preserved.
+Clean Windows/WorkBuddy and domestic-network feedback remain separate gates.
+Development now returns to bounded contact verification: separate normal and
+in-plane edge resolution before another plastic mesh/path run, then obtain an
+independent same-input reference. Call-local J2 spectral reuse is already
+implemented and evidenced in the 2026-10-19 record; do not schedule it again
+as a missing feature or transfer its speedup to the explicit composite case.
+
 ### Lean project boundary (2026-10-15)
 
 Checked serial array-mesh import and parent-cell-based exterior regions now

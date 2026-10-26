@@ -24,6 +24,64 @@ being silently approximated by the bounded route.
 
 ## Live gate status
 
+### Directional resolution discriminator (2026-10-26)
+
+After Windows onboarding PR #123 merged at `a862e123`, the next experiment
+separates a confounder in the earlier combined grading: normal-to-boundary
+resolution and in-plane patch-edge resolution had changed together.
+`normal_cosine` changes only x coordinates; `patch_edge_sine` changes only y/z;
+`edge_sine` preserves the previously tested combined map. These are explicit
+diagnostic mesh choices, not runtime tuning or new public mesh defaults.
+All four families use the same cell count, P2 space, reference patch, material,
+penalty, bulk/contact quadrature 6/11 and first loading station 0.25. The
+elastic control uses yield stress 1e6 Pa and four fixed path increments.
+
+Frozen driver `1481ec32` gives the following reference-area force magnitudes:
+
+| Cells per edge | Uniform (N) | Normal only (N) | Patch edge only (N) | Combined (N) |
+| --- | ---: | ---: | ---: | ---: |
+| 8 | 18.88425009 | 18.84128337 | 18.71742909 | 18.64860612 |
+| 12 | 18.69374240 | 18.66504642 | 18.58301890 | 18.53715898 |
+
+At both resolutions the isolated in-plane change affects the total reaction
+about 3.9 times as much as the isolated normal change. The combined response
+is not the sum of the two changes. Smooth edge/center pressure moments are
+retained in all eight compact evidence files. Every sampled active reference
+area remains 0.25 m², PEEQ stays zero and periodic mismatch is below 3.5e-18.
+Thus neither plastic history nor changing sampled contact area explains this
+particular sensitivity. This prioritizes in-plane edge resolution in the
+next bounded plastic/reference comparison; it does **not** prove which mesh
+is closest to the continuum solution, identify a constitutive defect, or
+establish full-cycle accuracy. No new runtime speedup is claimed.
+
+Peak sampled pressure still increases between the two meshes, including
+250.96 -> 255.86 Pa for combined grading. A scalar peak is not the pass/fail
+target for this experiment. Abaqus's [adaptive-remeshing guidance](
+https://docs.software.vt.edu/abaqusv2025/English/SIMACAEANLRefMap/simaanl-c-adpover.htm)
+warns that sharp contact edges can introduce singular fields and describes
+simplified provisional analyses for mesh studies. That motivates separating
+integrated observables and elastic controls here; it does not establish a
+singularity for this finite-penalty problem or justify changing its geometry.
+
+Reproduce with `tools/diagnose_periodic_contact_order.py`, selecting each
+`--mesh-family uniform|normal_cosine|patch_edge_sine|edge_sine` separately,
+`--cells 8` then `--cells 12`, `--degrees 2 --increments 4 --contact-degree 11
+--bulk-degree 6 --yield-stress 1000000 --until 0.25 --patch-partition`, and a
+fresh `--output`. Each run was sequential, serial, one requested BLAS/OpenMP
+thread, with a 180-second subprocess bound. Evidence is
+`evidence/contact/2026-10-26-directional-elastic*.json`; it records driver and
+scientific source hashes and no field archives. The 37 focused tests pass,
+including coordinate factorization, all boundary P1/P2 periodic DOFs,
+volume/patch preservation and rejection of mismatched-mesh checkpoints.
+The constitutive and contact kernels are unchanged.
+
+Task audit: call-local J2 spectral reuse is already implemented and measured
+in the 2026-10-19 entry below, not a pending optimization. The agent guide's
+obsolete single-pair/friction exclusions have been replaced with the current
+combination-specific admission matrix. Remaining gates are an independent
+same-input nonuniform reference, graded plastic-path refinement and bounded
+full-cycle verification, not another uncontrolled uniform mesh sweep.
+
 ### Edge resolution and shared trace assembly follow-up (2026-10-25)
 
 This follow-up starts from merged `6227b926`; it does not reopen PR #118 or
