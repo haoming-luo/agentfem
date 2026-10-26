@@ -162,10 +162,35 @@ def observe_penalty(step, factor):
                                   "mechanical_energy_residual": work - internal,
                                   "relative_mechanical_residual": abs(work - internal) / max(abs(work), abs(internal), 1e-30)}
         observation["energy_status"] = "accepted_trapezoidal_work_not_exact_continuous_path"
+        observation["energy_increment_audit"] = energy_increment_audit(
+            history.records, step.accepted_history_recorders["material_energy"].frames)
     else:
         observation["energy"] = None
         observation["energy_status"] = "unavailable_incomplete_accepted_history"
     return observation
+
+
+def energy_increment_audit(duals, frames):
+    """Localize discrete work error in this fixed-tool, zero-initial-energy fixture.
+
+    This diagnoses the existing trapezoidal rule; it does not replace work by
+    internal energy, correct the balance, or estimate continuous-path error.
+    """
+    if len(duals) != len(frames) or len(frames) < 2:
+        raise ValueError("Energy and dual histories must contain the same accepted stations.")
+    if any(abs(d["load_factor"] - f.factor) > 1e-12 for d, f in zip(duals, frames, strict=True)):
+        raise ValueError("Energy and dual history coordinates differ.")
+    rows = []
+    for a, b, x, y in zip(duals, duals[1:], frames, frames[1:]):
+        work = .5 * float(np.sum(np.asarray(a["outgoing_force"]) + b["force"])) * (y.factor - x.factor)
+        change = float(sum(y.values) - sum(x.values))
+        rows.append({"index": y.index, "factor": y.factor, "increment_work": work,
+                     "increment_internal_energy_change": change, "residual": work - change})
+    return {"scope": "fixed_tool_discrete_increment_accounting_not_error_estimation",
+            "sample_count": len(frames), "first_increment": rows[0],
+            "largest_absolute_residual": max(rows, key=lambda row: abs(row["residual"])),
+            "residual_sum": sum(row["residual"] for row in rows),
+            "residual_after_first_increment": sum(row["residual"] for row in rows[1:])}
 
 
 def patch_pressure_partition(samples, *, edge_width=.0625):
@@ -225,6 +250,8 @@ def main():
                              help="Fixed path increments (default: 32).")
     path_policy.add_argument("--plastic-increment-limit", type=float, default=None,
                              help="Use the existing accepted-plastic predictor at this limit; refine it separately from mesh size.")
+    parser.add_argument("--initial-increment", type=float, default=None,
+                        help="Automatic path only: vary the first increment independently of the plastic limit (default 1/32).")
     parser.add_argument("--penalty", type=float, default=40000.)
     parser.add_argument("--contact-degree", type=int, default=7)
     parser.add_argument("--bulk-degree", type=int, default=4)
@@ -257,9 +284,15 @@ def main():
             parser.error("Restart requires an existing checkpoint file.")
     if args.increments is not None and (args.increments < 4 or args.increments % 4):
         parser.error("Fixed increments must be positive multiples of four for the common stations.")
+    if args.initial_increment is not None and (
+        args.plastic_increment_limit is None or not np.isfinite(args.initial_increment)
+        or not 1/4096 <= args.initial_increment <= 1/16
+    ):
+        parser.error("Initial increment requires automatic plastic control and must lie in [1/4096, 1/16].")
     control = (steps.fixed(32 if args.increments is None else args.increments)
                if args.plastic_increment_limit is None else steps.automatic(
-                   initial=1/32, minimum=1/4096, maximum=1/16,
+                   initial=1/32 if args.initial_increment is None else args.initial_increment,
+                   minimum=1/4096, maximum=1/16,
                    max_increments=4096, max_cutbacks=12, cutback_factor=.5,
                    maximum_inelastic_increment=args.plastic_increment_limit,
                    inelastic_prediction_safety=.8))

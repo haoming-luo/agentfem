@@ -13,6 +13,42 @@ def functions():
                              / "tools/diagnose_periodic_contact_order.py"))
 
 
+def test_energy_increment_audit_localizes_without_correcting_work():
+    from types import SimpleNamespace
+    audit = functions()["energy_increment_audit"]
+    frames = [SimpleNamespace(index=i, factor=f, values=(v,))
+              for i, (f, v) in enumerate(((0., 0.), (.1, .2), (.2, .4)))]
+    duals = [{"load_factor": f.factor, "force": [q], "outgoing_force": [q]}
+             for f, q in zip(frames, (0., 2., 2.), strict=True)]
+    result = audit(duals, frames)
+    assert result["first_increment"]["residual"] == pytest.approx(-.1)
+    assert result["largest_absolute_residual"]["index"] == 1
+    assert result["residual_sum"] == pytest.approx(-.1)
+    assert result["residual_after_first_increment"] == pytest.approx(0.)
+    # Kinks need outgoing force on the left, incoming force on the right.
+    duals[1]["outgoing_force"] = [4.]
+    assert audit(duals, frames)["residual_after_first_increment"] == pytest.approx(.1)
+    with pytest.raises(ValueError, match="same accepted stations"):
+        audit(duals, frames[:-1])
+    duals[1]["load_factor"] += .01
+    with pytest.raises(ValueError, match="coordinates differ"):
+        audit(duals, frames)
+
+
+@pytest.mark.parametrize("initial,automatic", [("nan", True), ("0", True),
+                                              ("0.1", True), ("0.01", False)])
+def test_initial_increment_diagnostic_rejects_ambiguous_or_invalid_control(tmp_path, monkeypatch, initial, automatic):
+    import sys
+    args = ["diagnostic", "--initial-increment", initial, "--output", str(tmp_path / "report.json")]
+    if automatic:
+        args.extend(["--plastic-increment-limit", "0.00075"])
+    monkeypatch.setattr(sys, "argv", args)
+    with pytest.raises(SystemExit) as exc:
+        functions()["main"]()
+    assert exc.value.code == 2
+    assert not (tmp_path / "report.json").exists()
+
+
 @pytest.mark.parametrize("degree", [1, 2])
 @pytest.mark.parametrize("mesh_family,cells", [("uniform", 4), ("edge_sine", 8),
                                               ("normal_cosine", 8), ("patch_edge_sine", 8)])
@@ -138,6 +174,8 @@ def test_quadratic_periodic_gauss_contact_accepts_current_total_residual():
     assert observation["energy"]["plastic_dissipation"] > 0.
     assert observation["energy"]["contact_potential"] > 0.
     assert observation["energy_status"] == "accepted_trapezoidal_work_not_exact_continuous_path"
+    assert observation["energy_increment_audit"]["residual_sum"] == pytest.approx(
+        observation["energy"]["mechanical_energy_residual"], abs=1e-12)
     samples = step.contact_provider.accepted_point_samples()
     assert samples["measure_configuration"] == "reference"
     adapter = step.contact_provider.adapter
