@@ -60,6 +60,20 @@ The final follow-up also passes 27 focused equilibrium/augmentation lifecycle
 tests and two-phase material-only 1→2 / 2→1 MPI restart checks, including the
 complete accepted energy/dual history. Distributed contact remains unsupported.
 
+A fresh native wheel at `63e3c23d` passes 156 installed regressions from an
+isolated venv sharing the existing numerical dependencies, without development
+source-path injection. The standard `init → check → run` static-solid project
+also completes and publishes its result/fields. Scope, wheel digest, commands
+and limits are in `evidence/contact/2026-10-26-installed-observation.json`.
+
+The installed exercise exposed an unrelated startup defect: CLI help eagerly
+initialized MPI, so a restricted network interface could prevent even usage
+instructions. A separate follow-up defers that import until the first actual
+communicator access, without guessing ranks or swallowing runtime errors.
+Seven startup tests deny numerical imports for help/version/invalid arguments;
+45 ordinary CLI tests and two-rank single-rank-failure tests retain behavior.
+This does not make solver execution independent of MPI or certify a new host.
+
 ### Initial-yield work diagnostic (2026-10-26)
 
 The new accepted energy ledger localizes a path-error confounder before any

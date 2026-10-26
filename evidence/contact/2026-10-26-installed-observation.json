@@ -1,0 +1,41 @@
+{
+  "schema": "agentfem.installed-acceptance.v1",
+  "date": "2026-10-26",
+  "source_commit": "63e3c23da953827e813b708f885f93eea7ec2cfd",
+  "scope": "Accepted affine energy, residual-only contact observation, periodic restart and live output; not spatial accuracy or full-composite timing.",
+  "platform": "macOS-26.6.2-arm64-arm-64bit",
+  "python": "3.11.15 (conda-forge)",
+  "versions": {"numpy": "2.4.6", "dolfinx": "0.11.0", "petsc": [3, 25, 3]},
+  "installation": {
+    "kind": "fresh venv with shared system-site-packages numerical dependencies; local native wheel; no-index/no-deps install",
+    "development_pythonpath": false,
+    "wheel": "agentfem-0.4.4.dev0-cp311-cp311-macosx_11_0_arm64.whl",
+    "wheel_sha256": "36e107e276aa3cba87d8cf81f848da709b0894dc8a9f3356bc99274aec3eaa3c",
+    "modules_verified_in_venv": ["agentfem", "agentfem._hex_native", "agentfem._body_pipeline", "agentfem._q1_native", "agentfem.results._accepted_energy_components"],
+    "build": "AGENTFEM_GMP_PREFIX=<fenicsx-env> python -m build --wheel --no-isolation --outdir <fresh-dist>",
+    "tests": "Run venv/bin/python -m pytest -q -o pythonpath= against the listed absolute test paths, from outside the checkout; OMP_NUM_THREADS=1 OPENBLAS_NUM_THREADS=1."
+  },
+  "installed_regressions": {
+    "files": ["tests/test_accepted_energy_components.py", "tests/test_affine_residual_only.py", "tests/test_finite_strain_j2_periodic.py", "tests/test_live_xdmf.py", "tests/test_xdmf_layout.py"],
+    "passed": 156,
+    "failed": 0,
+    "skipped": 0,
+    "seconds": 26.79,
+    "timing_claim": "none: another scientific diagnostic was running"
+  },
+  "ordinary_installed_workflow": {
+    "commands": ["agentfem init <fresh-project> --template static-solid --name installed-observation-check", "agentfem check", "agentfem run --name installed-smoke"],
+    "status": "completed",
+    "structured_result": true,
+    "trust_level": "computed",
+    "reported_relative_force_balance_error": 1.90512e-12,
+    "reported_energy_balance_error": 2.55156e-11,
+    "artifacts": ["fields.h5", "fields.xdmf", "result.json", "execution.json"]
+  },
+  "limits": [
+    "This is not a clean Windows/WorkBuddy host installation.",
+    "Shared numerical dependencies are declared; no complete offline runtime was rebuilt.",
+    "The later CLI deferred-import change is not contained in this wheel and has separate source/MPI tests.",
+    "A sandbox-only MPI interface permission failure occurred when reading CLI help; the same installed CLI succeeded with permitted MPI initialization. This motivated the separate deferred-import regression."
+  ]
+}
