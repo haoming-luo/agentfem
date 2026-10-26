@@ -14,7 +14,8 @@ def functions():
 
 
 @pytest.mark.parametrize("degree", [1, 2])
-@pytest.mark.parametrize("mesh_family,cells", [("uniform", 4), ("edge_sine", 8)])
+@pytest.mark.parametrize("mesh_family,cells", [("uniform", 4), ("edge_sine", 8),
+                                              ("normal_cosine", 8), ("patch_edge_sine", 8)])
 def test_all_boundary_field_dofs_obey_periodic_motion_and_guides(degree, mesh_family, cells):
     step = functions()["make_step"](degree=degree, cells=cells, mesh_family=mesh_family,
                                     increments=4, yield_stress=1e6)
@@ -65,13 +66,30 @@ def test_edge_mesh_rejects_ineffective_or_unknown_family():
         lines(8, "guess")
 
 
-def test_edge_mesh_keeps_volume_patch_and_checkpoint_identity(tmp_path):
+@pytest.mark.parametrize("cells", [8, 12, 16])
+def test_directional_grading_is_exact_factorization_of_existing_mesh(cells):
+    lines = functions()["diagnostic_coordinate_lines"]
+    uniform = lines(cells, "uniform")
+    combined = lines(cells, "edge_sine")
+    normal = lines(cells, "normal_cosine")
+    edge = lines(cells, "patch_edge_sine")
+    np.testing.assert_array_equal(normal[0], combined[0])
+    np.testing.assert_array_equal(normal[1:], uniform[1:])
+    np.testing.assert_array_equal(edge[0], uniform[0])
+    np.testing.assert_array_equal(edge[1:], combined[1:])
+    for family in ("normal_cosine", "patch_edge_sine"):
+        with pytest.raises(ValueError, match="at least eight"):
+            lines(4, family)
+
+
+@pytest.mark.parametrize("mesh_family", ["edge_sine", "normal_cosine", "patch_edge_sine"])
+def test_edge_mesh_keeps_volume_patch_and_checkpoint_identity(tmp_path, mesh_family):
     import ufl
     from dolfinx import fem
     from agentfem import mesh
     make = functions()["make_step"]
     step = make(cells=8, degree=2, increments=4, yield_stress=1e6,
-                mesh_family="edge_sine", contact_degree=11)
+                mesh_family=mesh_family, contact_degree=11)
     domain = step.solution.function_space.mesh
     assert mesh.audit_quality(domain, strict=True).global_cells == 6 * 8**3
     assert fem.assemble_scalar(fem.form(1. * ufl.dx(domain=domain))) == pytest.approx(1., abs=1e-12)

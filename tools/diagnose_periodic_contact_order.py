@@ -72,7 +72,9 @@ def diagnostic_coordinate_lines(cells, family="uniform"):
     The sine map fixes 0, 1/4, 1/2, 3/4, 1 and has derivative
     1 + pi/4*cos(4*pi*s) > 0. It clusters both sides of the two patch
     edges without changing their physical positions or the cell count.
-    Normal cosine grading resolves both periodic faces. Geometry is fixed
+    Normal cosine grading resolves both periodic faces. The two one-direction
+    families isolate normal resolution from in-plane patch-edge resolution;
+    edge_sine retains the original combined map. Geometry is fixed
     before constructing any spaces, constraints, contact traces or state.
     """
     if cells < 4 or cells % 4:
@@ -80,15 +82,17 @@ def diagnostic_coordinate_lines(cells, family="uniform"):
     s = np.linspace(0., 1., cells + 1)
     if family == "uniform":
         return np.tile(s, (3, 1))
-    if family != "edge_sine":
+    if family not in ("edge_sine", "normal_cosine", "patch_edge_sine"):
         raise ValueError("Unknown diagnostic mesh family.")
     if cells < 8:
-        raise ValueError("edge_sine requires at least eight cells to resolve patch-edge grading.")
+        raise ValueError("Graded diagnostics require at least eight cells to resolve the grading.")
     tangential = s + np.sin(4. * np.pi * s) / 16.
     # Exact anchors also keep facet selection independent of roundoff.
     tangential[::cells // 4] = np.linspace(0., 1., 5)
     normal = .5 * (1. - np.cos(np.pi * s))
-    return np.vstack((normal, tangential, tangential))
+    return np.vstack((s if family == "patch_edge_sine" else normal,
+                      s if family == "normal_cosine" else tangential,
+                      s if family == "normal_cosine" else tangential))
 
 
 def make_step(*, cells=4, degree=1, increments=16, penalty=40000., contact_degree=7,
@@ -193,7 +197,7 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--cells", type=int, nargs="+", default=[4, 8])
     parser.add_argument("--degrees", type=int, nargs="+", default=[1, 2])
-    parser.add_argument("--mesh-family", choices=("uniform", "edge_sine"), default="uniform",
+    parser.add_argument("--mesh-family", choices=("uniform", "edge_sine", "normal_cosine", "patch_edge_sine"), default="uniform",
                         help="Explicit fixed-geometry discretization study; never automatic tuning.")
     path_policy = parser.add_mutually_exclusive_group()
     path_policy.add_argument("--increments", type=int, default=None,
