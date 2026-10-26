@@ -4,6 +4,10 @@ AgentFEM supports Linux, macOS, and Windows through WSL2. It depends on the
 compiled FEniCSx/DOLFINx stack, so use conda-forge unless you already maintain
 a compatible MPI/PETSc/DOLFINx build.
 
+Windows users: start with the [three-step Windows route](#windows), without
+cloning this repository. For an already downloaded compatible runtime bundle,
+see the optional offline route below.
+
 For new users who do not want to manage a scientific Python environment,
 AgentFEM's release workflow also produces self-contained offline runtime
 installers for Apple Silicon macOS and Windows through WSL2. See
@@ -15,7 +19,7 @@ during installation.
 
 ```bash
 mamba create -n agentfem-env --override-channels -c conda-forge \
-  python=3.11 fenics-dolfinx=0.11 agentfem
+  python=3.11 fenics-dolfinx=0.11 c-compiler cxx-compiler agentfem
 mamba activate agentfem-env
 agentfem doctor
 ```
@@ -37,7 +41,7 @@ command uses TUNA and leaves the user's global conda configuration unchanged:
 ```bash
 mamba create -n agentfem-env --no-rc --override-channels \
   -c https://mirrors.tuna.tsinghua.edu.cn/anaconda/cloud/conda-forge \
-  python=3.11 fenics-dolfinx=0.11 agentfem
+  python=3.11 fenics-dolfinx=0.11 c-compiler cxx-compiler agentfem
 mamba activate agentfem-env
 agentfem doctor
 ```
@@ -49,7 +53,7 @@ slower):
 ```bash
 conda create -n agentfem-env --override-channels \
   -c https://mirrors.tuna.tsinghua.edu.cn/anaconda/cloud/conda-forge \
-  python=3.11 fenics-dolfinx=0.11 agentfem
+  python=3.11 fenics-dolfinx=0.11 c-compiler cxx-compiler agentfem
 ```
 
 On Windows, run either command inside Ubuntu on WSL2.
@@ -124,109 +128,68 @@ MPI libraries.
 
 ## Windows
 
-### Start here
+**WSL → Ubuntu → AgentFEM. No GitHub clone or AgentFEM installer is required.**
+Already have working Ubuntu/WSL2? Skip straight to the
+[mirror environment command](#mirror-channel--镜像通道) and [first solve](#smoke-test).
 
-Choose **one** route; keep it through restarts. You do not need native Windows
-Python, Docker, or a second Linux distribution to use a healthy existing WSL2
-environment.
+For a new machine using the domestic mirror route:
 
-| Your starting point | Next step |
-| --- | --- |
-| A compatible Complete Runtime ZIP | Extract it fully and open `Install-AgentFEM.cmd`. It owns platform preparation, recovery and first-solve verification. |
-| Ubuntu/WSL2 and Miniforge already work | Use the guided environment setup below; it reuses existing packages instead of reinstalling them. |
-| New Windows computer, using the mirror route | Follow [Windows agent installation](docs/windows_agent_installation.md): prepare WSL, privately finish the Ubuntu account prompt, then use the guided setup. |
+1. **Prepare WSL.** Let your agent inspect and do the authorised work.
+   If it cannot obtain administrator permission, open Terminal (Administrator)
+   and run the command below. Restart only if Windows asks.
+2. **Add Ubuntu from TUNA.** Use the
+   [checked, copy-safe image import](docs/windows_agent_installation.md#2-add-ubuntu-from-the-mirror-only-if-absent).
+   This avoids the GitHub-hosted distribution-list download. The agent can
+   prepare a normal account automatically; no shared password or daily root use.
+3. **Install and verify.** Reuse/install Linux Miniforge from its verified
+   [TUNA mirror](https://mirrors.tuna.tsinghua.edu.cn/github-release/conda-forge/miniforge/LatestRelease/),
+   use the single-channel command above, then doctor → workspace protection →
+   [installed first solve](#smoke-test).
 
-Windows may ask for administrator approval, a restart, or a Linux password.
-These are distinct steps, not repeated failures. Save your work before restarting;
-keep the same installer and options. Enter passwords only in the local account
-prompt, never in an AI chat. An agent-host permission refusal needs its scoped
-approval, not another shell or disabled security controls.
-
-### Guided Ubuntu / mirror setup
-
-From a trusted source checkout, run **inside Ubuntu** with its existing Python 3
-and Linux Miniforge. This entry point does not need AgentFEM installed yet:
-
-```bash
-python3 packaging/runtime/setup_environment.py --channel tuna
-python3 packaging/runtime/setup_environment.py --channel tuna --apply
+```powershell
+wsl --install --no-distribution --web-download
 ```
 
-The first command is a plan, with no package changes; the second creates a
-missing environment or verifies the existing `agentfem-env`, protects the
-conventional WSL project workspace, and runs a small installed-template solve.
-It never upgrades or repairs an existing environment implicitly. If needed,
-select Miniforge explicitly with `--manager ~/miniforge3/bin/mamba`, select an
-existing environment with `--prefix /absolute/environment/path`, or request an
-exact published package with `--version X.Y.Z`. Use `--channel conda-forge`
-for the canonical source. These options do not change global conda settings.
+国内用户：不用先下载源码，不用默认进入“Windows 功能”勾选。
+让智能体完成允许的操作；权限不足时，在管理员终端执行上面一条命令，
+按系统提示重启，然后继续镜像安装。详细命令由
+[Windows 简明指引](docs/windows_agent_installation.md)统一维护。
 
-If Miniforge is missing, first obtain its installer from the
-[official distribution](https://github.com/conda-forge/miniforge#download),
-verify the published checksum, and install it in your Linux account. The TUNA
-package channel is not a promise of a Miniforge installer download mirror; do
-not invent one. The setup command reports this prerequisite without downloading
-or executing an unverified bootstrapper.
+`--web-download` is a non-Store option, not a domestic mirror or a speed
+guarantee. If its download fails, the Store platform route is
+`wsl --install --no-distribution`. A denied permission or restart request is
+not a reason to try another launcher. Standard `wsl --install` normally
+installs Ubuntu; `--no-distribution` intentionally leaves that to the mirror.
+Do not repeatedly retry `wsl --install -d Ubuntu` after metadata timeouts.
+An installed Store App alone does not prove a registered, working WSL2 distro.
 
-Keep the same command after interruption. A completed environment is reused,
-each attempt retains its own logs and first-solve project under
-`~/.local/state/agentfem/setup/`, and an incomplete environment is left intact
-for inspection. Do not delete it or start another package transaction while
-one is active. `--json` gives agents one structured final result and paths to
-the detailed stage logs. A saved completion is not a new health check.
+Existing environments are reused, not overwritten. A Store/bundle account
+prompt stays private; imported Ubuntu can use automated non-root preparation.
+Do not remove a distribution to repair an installation. Check
+`agentfem workspace --json` before any planned removal; its
+`protected_from_distribution_removal` must be true, and other Linux-only data
+must also be backed up.
 
-The setup does not modify Windows, perform automatic reboot, remove a distro,
-or register startup tasks. Its small first-solve project/cache stay in Linux
-storage; the ordinary project workspace is protected on Windows. Preserve
-valuable Linux-only data before removing a distribution. No optional heavy
-visualization or learning packages are installed by this core setup.
+### Optional tools, not prerequisites
 
-When a compatible published Windows Complete Runtime is available, open its
-bundled `Install-AgentFEM.cmd` after fully extracting the ZIP. An explicitly
-requested Ubuntu + mirror route remains supported; it does not require this
-bundle or a development candidate package.
-For AI-assisted installation and WorkBuddy permissions, follow
-[Windows agent installation](docs/windows_agent_installation.md).
-The Complete Runtime installer
-prepares WSL without downloading Ubuntu and then imports the bundled AgentFEM
-image. Existing WSL users may instead use Ubuntu, Miniforge, and the
-Linux environment above; this uses the same package family exercised by
-AgentFEM's Linux CI.
+Already have a compatible published Complete Runtime ZIP? Extract it fully and
+open `Install-AgentFEM.cmd`; it supplies its own Linux image, so do not also
+download Ubuntu. Already have a trusted source checkout? Its
+`packaging/runtime/setup_environment.py --channel tuna` can plan the Linux
+environment and `--apply --json` can install/verify it with logs.
+Neither a source checkout nor an offline bundle is required for ordinary users.
+See the [optional installer reference](docs/windows_installer_reference.md)
+for status, interrupted installs and explicit recovery.
 
-Agents can use the source installer's `-PrepareWslOnly` option to prepare only
-the Windows platform before an Ubuntu + mirror installation. This does not
-install the scientific software or replace existing distributions. See the
-Windows agent guide for non-interactive handoffs and structured progress;
-users still approve platform changes and enter their own account credentials.
+The [Windows field reports](https://github.com/haoming-luo/agentfem/discussions/3)
+record successful mirror installs. Package versions and mirror synchronization
+change; query the selected channel rather than assuming an old report's
+version is current. A successful basic solve on an older version does not
+establish compatibility with a project requiring newer APIs.
 
-The published v0.3.6 Windows Preview has one known first-solve issue: its
-exported WSL image may not expose a C compiler to FEniCSx. Repair that existing
-runtime in place, without touching project data, from its WSL terminal:
-
-```bash
-sudo apt-get update
-sudo apt-get install -y gcc g++
-agentfem doctor
-```
-
-The corrected runtime contract installs the toolchain in the exported root
-filesystem and verifies a cold-cache finite-element solve after re-importing
-the final `.wsl` artifact. The
-[first successful Windows field report](https://github.com/haoming-luo/agentfem/discussions/3)
-records a clean-host WSL2 + TUNA installation through a completed solve. TUNA
-briefly lagged the release during that run and now carries AgentFEM 0.3.6.
-
-Do not run `wsl --unregister` until `agentfem workspace --json` reports
-`protected_from_distribution_removal: true`. For the Complete Runtime, use its
-bundled `Remove-AgentFEM.ps1`; an ordinary Mamba environment may be removed
-normally because its protected projects are independent of that environment.
-
-Native Windows is experimental, not a release-supported route. FEniCSx 0.11
-has `win-64` packages, but AgentFEM currently uses PETSc-based solver APIs and
-the distributed Abaqus-equation example uses `dolfinx_mpc`; the corresponding
-complete conda-forge Windows stack is not available and AgentFEM has no native
-Windows CI gate. A hand-built expert environment may work for a subset, but it
-is not an installation promise.
+Native Windows remains experimental. The supported Windows numerical runtime
+is Linux through WSL2; Windows PowerShell installer tests do not certify a
+native Windows FEniCSx/PETSc solver stack.
 
 ## Smoke Test
 
@@ -290,6 +253,20 @@ Homebrew Open MPI can appear before a conda MPICH launcher on `PATH`; check
 `which mpiexec` and use the environment's `bin/mpiexec` when they differ.
 
 ## Optional Tools
+
+Keep the user's chosen mirror for later optional installs. Record the choice
+in a local project/agent note, not global conda/pip configuration. On the TUNA
+route, for example (inspect the plan before confirming package changes):
+
+```bash
+mamba install -n agentfem-env --no-rc --override-channels \
+  -c https://mirrors.tuna.tsinghua.edu.cn/anaconda/cloud/conda-forge matplotlib
+mamba run -n agentfem-env python -m pip install 'agentfem[mesh-formats]' \
+  --index-url https://pypi.tuna.tsinghua.edu.cn/simple
+```
+
+Respect the project's AgentFEM version pin when selecting extras. Pip extras
+are for an existing compatible solver environment, not a substitute for it.
 
 - `meshio`: `python -m pip install 'agentfem[mesh-formats]'` for external CAE
   mesh conversion, including Abaqus `.inp` and NASTRAN `.bdf/.nas` formats.

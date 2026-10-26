@@ -19,6 +19,22 @@ or a successful run is not by itself a validated engineering capability.
 
 ## Current product phase: the 0.4 foundation
 
+### Windows onboarding simplification (2026-10-26)
+
+The new user field report identifies Ubuntu distribution metadata download,
+not the numerical stack, as the main installation blocker. Promote the
+already reported TUNA image/import route to the short onboarding path:
+WSL platform → checked Ubuntu image → ordinary account → mirrored environment
+and installed first solve. No checkout, optional helper or Windows Features
+checklist is a prerequisite. Retain mirror choice in local handoff notes and
+offer a one-action manual fallback only when the agent lacks permission.
+Detailed installer recovery remains available separately. The report's root
+installation and older package success are evidence, not recommended defaults
+or proof of current-release/project compatibility. New non-root quickstart
+needs clean Windows/WorkBuddy acceptance; local documentation checks and
+PowerShell parser CI do not substitute for it. This work does not change
+solver algorithms, contact maturity or simulation performance claims.
+
 ### Active sprint decision board (2026-10-25)
 
 The current follow-up starts from merged main `6227b926` (PRs #118 and #121

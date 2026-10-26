@@ -35,13 +35,61 @@ TESTED_PYTHON = "3.11"
 TESTED_DOLFINX = "0.11"
 CONDAFORGE_INSTALL = (
     "mamba create -n agentfem-env --override-channels -c conda-forge "
-    f"python={TESTED_PYTHON} fenics-dolfinx={TESTED_DOLFINX} agentfem"
+    f"python={TESTED_PYTHON} fenics-dolfinx={TESTED_DOLFINX} c-compiler cxx-compiler agentfem"
 )
 TUNA_INSTALL = (
     "mamba create -n agentfem-env --no-rc --override-channels "
     "-c https://mirrors.tuna.tsinghua.edu.cn/anaconda/cloud/conda-forge "
-    f"python={TESTED_PYTHON} fenics-dolfinx={TESTED_DOLFINX} agentfem"
+    f"python={TESTED_PYTHON} fenics-dolfinx={TESTED_DOLFINX} c-compiler cxx-compiler agentfem"
 )
+
+
+def onboarding_contract() -> dict[str, object]:
+    """Agent guidance, not an installer executable or a permission grant."""
+    return {
+        "schema_version": 1,
+        "mode": "agent-assisted",
+        "requires_repository_checkout": False,
+        "detect": {
+            "platform": "Inspect host OS and current shell; Windows uses WSL2. Reuse working Linux/WSL environments.",
+            "channel": "Use the user's requested or recorded mirror choice; do not infer location from IP, language or VPN.",
+            "unknown": "Ask only for the missing choice; do not guess installed platform state from a blocked probe.",
+        },
+        "routes": {
+            "windows-wsl2": {
+                "guide": "windows_agent_installation/",
+                "sequence": ["inspect", "wsl_platform", "ubuntu", "ordinary_user", "environment", "first_solve"],
+                "platform_only_command": "wsl --install --no-distribution --web-download",
+                "platform_command_requires": "Missing platform, approved elevation, supported WSL options; not for healthy existing WSL.",
+                "mirror_distribution": "Verified TUNA Ubuntu image import; do not depend on GitHub distribution metadata.",
+                "existing_environment": "Reuse; no automatic overwrite, unregister, conversion or package upgrade.",
+            },
+            "linux": {"guide": "getting_started/", "sequence": ["inspect", "environment", "first_solve"]},
+            "macos": {"guide": "getting_started/", "sequence": ["inspect", "environment", "first_solve"]},
+        },
+        "failure_policy": {
+            "automatic_attempts_per_stage": 1,
+            "on_failure": "Stop this stage, retain its exact error, show one manual action; continue after readiness is verified.",
+            "retry_requires": "Changed readiness, source or explicit user direction; never repeat a blocked command unchanged.",
+            "no_policy_bypass": True,
+            "no_global_security_or_proxy_changes": True,
+        },
+        "handoffs": {
+            "permission": "Approve this specific operation in your agent, or run the displayed command in your own terminal.",
+            "elevation": "Open Terminal (Administrator), run the displayed platform command, and restart only if requested.",
+            "restart": "Save your work and restart. Continue from the installed state; do not reinstall.",
+            "download": "Show the failing source and the verified manual download/import route; do not repeat the same download.",
+            "account": "Use authorised non-root preparation for a new import; enter Store/bundle credentials privately if prompted.",
+        },
+        "progress": {"format": "stage: status — next action", "max_user_actions_at_once": 1},
+        "remember": ["selected_channel", "distribution", "ordinary_user", "environment_path", "installed_version", "last_successful_stage"],
+        "never_record": ["passwords", "tokens"],
+        "completion": {
+            "checks": ["doctor", "workspace_protection_on_wsl", "init", "check", "run", "verify"],
+            "summary": ["installed_version", "environment", "first_solve_status", "result_path", "numerical_check_with_units_where_applicable"],
+            "not_sufficient": ["download_finished", "platform_ready", "import_success", "doctor_alone"],
+        },
+    }
 
 
 @dataclass(frozen=True)
@@ -454,6 +502,7 @@ def render_agent_manifest() -> str:
                 "no-location-inference"
             ),
             "health_check": "agentfem doctor --json",
+            "onboarding": onboarding_contract(),
         },
         "human_entrypoints": {
             "start": "get_started/",
@@ -516,6 +565,13 @@ def render_llms_entry() -> str:
         "- [Python API](reference/api/)",
         "- [Machine manifest](agentfem.json)",
         "- [Installation and platform guide](getting_started/)",
+        "- [Windows short onboarding](windows_agent_installation/)",
+        "",
+        "Installation is agent-assisted: inspect the OS, retain the user's mirror",
+        "choice, reuse existing environments, and complete one installed solve.",
+        "No repository clone is required. On Windows follow the short onboarding",
+        "route; after one failed stage show one manual action, not a retry loop.",
+        "Read installation.onboarding in agentfem.json for the shared contract.",
         "",
         "## Canonical sources",
         "",

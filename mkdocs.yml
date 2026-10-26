@@ -130,6 +130,7 @@ nav:
       - Strain-History Materials: strain_history_runtime.md
       - Offline Runtime Installers: runtime_installers.md
       - Windows and AI-Assisted Installation: windows_agent_installation.md
+      - Optional Windows Installer Reference: windows_installer_reference.md
       - For AI Agents: agents/index.md
       - Connect with MCP: agents/mcp.md
       - Agent Acceptance: agents/acceptance.md

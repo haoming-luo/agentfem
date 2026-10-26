@@ -23,24 +23,29 @@ finite-element simulation with AgentFEM.
    Runtime is another new-user route: its installer owns WSL preparation and
    avoids downloading a separate Ubuntu because that route supplies its own
    distribution. This is not a prohibition on Ubuntu for the mirror route.
-   For Windows/WorkBuddy installation, follow
-   `docs/windows_agent_installation.md`. A non-admin shell alone is not a blocker;
-   use only approved user-confirmed elevation. Explicit host-policy refusal is
-   not a network failure and must not trigger alternate-shell attempts.
-   The source installer supports `-PrepareWslOnly` without a runtime image, and
-   `-NonInteractive` returns explicit approval/account handoffs for agent tools.
-   Use `Get-AgentFEMInstallStatus.ps1` for read-only JSON progress. Never report
-   `platform_ready` as AgentFEM installed, or an old completion record as a new
-   health check. Keep the same package/options after a requested restart.
-   The Ubuntu/mirror environment route has a source-usable, standard-library
-   entry: run `python3 packaging/runtime/setup_environment.py --channel tuna`
-   inside Ubuntu with trusted Linux Miniforge, review its plan, then add
-   `--apply --json`. It reuses existing environments without changing their
-   packages and retains per-stage logs through the first solve. Use an explicit
-   `--manager` or `--prefix` when discovery is ambiguous. Do not claim that this
-   Linux entry prepares Windows or supplies a missing Miniforge installer.
-   `-Format Text` on the Windows host/status probes is for a user-readable view;
-   their default JSON remains the machine contract.
+   For Windows/WorkBuddy installation, follow the short path in
+   `docs/windows_agent_installation.md`: inspect/reuse WSL → import checked
+   Ubuntu from the requested mirror → Linux Miniforge/environment → first solve.
+   Do not require a GitHub clone, source helper, Windows Features GUI or offline
+   bundle. Helpers are optional, documented in `docs/windows_installer_reference.md`.
+   An installed Ubuntu Store App is not proof of a registered WSL2 distro.
+   After a distribution-metadata timeout, use the documented checked mirror
+   import rather than repeating Store/winget/network attempts.
+   Do permitted work yourself; when blocked give one specific approval, local
+   administrator command or restart request. Do not bypass host policy.
+   New imported distributions can use authorised automatic non-root account
+   creation; do not insist on a nonexistent OOBE prompt. Store/bundle passwords
+   remain private. Never recommend routine root or a shared/default password.
+   Use copy-safe paths, not angle-bracket command placeholders.
+   Retain the selected mirror and environment path in a local handoff note
+   (no credentials); later optional packages use the same explicit source,
+   without global configuration changes or mixed numerical channels.
+   Use `mamba run -n agentfem-env` for separate tool calls; shell activation
+   does not persist between them. Send complex Linux scripts as inspected LF
+   files to avoid nested PowerShell/Bash interpolation.
+   On first-solve completion, promptly report installed version, result path,
+   one useful quantity with units, and the actual check outcome. Do not add
+   unrequested benchmarks or claim provenance verification certifies all physics.
 2. For an installed case, run `agentfem doctor --json`. On WSL, also run
    `agentfem workspace --json`; before any runtime replacement or removal it
    must report `protected_from_distribution_removal: true`. If it does not,
