@@ -142,6 +142,9 @@ def test_trial_planar_partition_recovers_strip_missed_by_whole_face_rule(moving)
     value = clipped.evaluate()
     assert ordinary.evaluate().potential_energy == 0.0
     assert value.potential_energy == pytest.approx(17.0 * 0.05**3 / 6, rel=1e-12)
+    assert clipped.current_energy_components()["contact_potential"] == pytest.approx(
+        value.potential_energy, rel=1e-12,
+    )
     assert value.assembly.contact_force_on_structure[0] == pytest.approx(
         17.0 * 0.05**2 / 2, rel=1e-12,
     )

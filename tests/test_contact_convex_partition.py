@@ -432,6 +432,9 @@ def test_real_dolfinx_convex_feature_operator_captures_strip_and_full_tangent():
     ordinary = dolfinx_implicit_rigid_contact(pair, displacement)
     value = clipped.evaluate()
     assert value.potential_energy == pytest.approx(7.0 * 0.04**3 / 3, rel=1e-11)
+    assert clipped.current_energy_components()["contact_potential"] == pytest.approx(
+        value.potential_energy, rel=1e-12,
+    )
     assert ordinary.evaluate().potential_energy == 0.0
     assert abs(value.contact_force_on_structure[0]) < 1e-11
     evidence = clipped.current_point_diagnostics()

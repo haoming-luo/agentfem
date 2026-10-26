@@ -870,6 +870,9 @@ def test_periodic_j2_reviewed_open_facet_patch_reduces_total_residual():
     evidence = step.contact_provider.current_point_diagnostics()
     assert evidence["feature_transition_integral_certified"] is True
     assert evidence["active_point_count"] > 0
+    assert step.contact_provider.current_energy_components()["contact_potential"] == pytest.approx(
+        step.contact_provider.evaluate().potential_energy, rel=1e-12,
+    )
     total = step.assemble_full_residual()
     reduction = periodicity.reduction(1.0).matrix(fixture.domain.comm)
     reduced = reduction.createVecRight()

@@ -24,6 +24,44 @@ being silently approximated by the bounded route.
 
 ## Live gate status
 
+### Initial-yield work diagnostic (2026-10-26)
+
+The new accepted energy ledger localizes a path-error confounder before any
+further spatial sweep. In the 8-cell graded first-loading station, the first
+accepted increment (factor 1/32) already has plastic dissipation but zero
+contact potential. Its work-minus-internal-energy change is -0.0006944451 J;
+the total at factor 0.25 is -0.0006924962 J. Thus almost the entire difference
+is present **before contact**, not accumulated by later contact integration.
+This is accounting evidence for this fixture, not an error bound.
+
+A frozen `a36be758` 4-cell/P2 full-cycle control varies **only** the initial
+increment from 1/32 to 1/128. All recorded runtime/tool hashes and other
+options match. The accepted plastic cap remains 0.00075, with bulk/contact
+quadrature 6/11 and unchanged physical parameters and tolerances.
+
+| Quantity | Initial 1/32 | Initial 1/128 |
+| --- | ---: | ---: |
+| Relative mechanical residual at factor 0.25 | 0.788615% | 0.058880% |
+| Relative mechanical residual at factor 1 | 0.210555% | 0.029839% |
+| First-station contact force magnitude (N) | 4.48342286 | 4.48353176 |
+| Final contact force magnitude (N) | 3.70501173 | 3.70506365 |
+| Accepted increments / Newton iterations | 232 / 806 | 237 / 812 |
+
+The first-force change is about 0.00243%; the first residual is substantially
+reduced without relaxing its definition. Later errors remain, including on
+unloading/recontact. This is **not** a speedup measurement (another numerical
+diagnostic was active), a continuum certificate, or evidence for changing the
+global default. It explains why a plastic cap alone cannot guarantee path-work
+accuracy. The new diagnostic-only `--initial-increment` option isolates this
+control, and `energy_increment_audit` reports the largest signed contribution
+without replacing external work by stored/dissipated energy.
+
+Evidence: `evidence/contact/2026-10-26-initial-increment-{control,refined}.json`.
+The 42 diagnostic tests pass, including inconsistent-coordinate refusal,
+outgoing/incoming force at path knots and ordinary Step energy consistency.
+Next compare a refined graded path at common physical stations; do not promote
+the small-model result into a full spatial or commercial-code validation.
+
 ### Accepted affine material-energy ledger (2026-10-26)
 
 Follow-up removes an unnecessary full contact tangent assembly from scalar

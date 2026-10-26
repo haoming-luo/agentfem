@@ -119,6 +119,19 @@ an estimate of force, displacement or accumulated path error. Small Newton
 residuals and an accepted plastic-increment bound do not replace mesh/path
 refinement at common physical stations.
 
+The initial increment needs its own check when reporting accepted-path work.
+An increment can satisfy the plastic-state cap while crossing the onset of
+yielding; endpoint trapezoidal work then misses part of the load-path curvature.
+Reducing the Newton tolerance does not resolve that path integration error.
+Compare the first accepted work/energy change before refining every later
+increment. Use the existing `initial` control explicitly; do not infer one
+universal value from a particular material or contact example. Likewise, a
+lagged material predictor does not foresee the first contact event. MOOSE's
+[material timestep limiter](https://mooseframework.inl.gov/source/postprocessors/MaterialTimeStepPostprocessor.html)
+and separate [function-change control](https://mooseframework.inl.gov/moose/source/timesteppers/IterationAdaptiveDT.html)
+illustrate the distinction between material-change and loading-path controls;
+they are references, not additional AgentFEM capabilities.
+
 ### Accepted-material prediction (experimental, opt-in)
 
 Serial displacement-only finite-strain J2 Steps with one built-in material
