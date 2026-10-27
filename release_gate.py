@@ -342,11 +342,18 @@ def check_release_contract(
             f"{contract_path.relative_to(ROOT)}."
         )
     record = json.loads(contract_path.read_text(encoding="utf-8"))
+    if not isinstance(record, dict):
+        raise RuntimeError("Release contract must be a JSON object.")
     if record.get("schema") != "agentfem.release-contract":
         raise RuntimeError("Release contract has an unknown schema.")
     target = record.get("target_version")
     if not isinstance(target, str) or not target:
         raise RuntimeError("Release contract must declare target_version.")
+    version = check_versions(tag=tag)
+    if target != version:
+        raise RuntimeError(
+            f"Release contract targets {target!r}, not package version {version!r}."
+        )
     if tag is not None and tag.removeprefix("v") != target:
         raise RuntimeError(
             f"Release contract targets {target!r}, not tag {tag!r}."
@@ -357,6 +364,8 @@ def check_release_contract(
     allowed = {"release", "engineering", "experimental"}
     identifiers = set()
     for workflow in workflows:
+        if not isinstance(workflow, dict):
+            raise RuntimeError("Every release workflow must be a JSON object.")
         identifier = workflow.get("id")
         if not isinstance(identifier, str) or not identifier:
             raise RuntimeError("Every release workflow must have an id.")
@@ -970,7 +979,16 @@ def main() -> None:
                     platform_record,
                     expected=options.require_platform,
                 )
-    print(f"AgentFEM {version} release gate passed.")
+    scope = (
+        "source, distribution and installed-use smoke"
+        if options.smoke and wheel is not None
+        else "source and installed-use smoke"
+        if options.smoke
+        else "source and distribution"
+        if wheel is not None
+        else "source"
+    )
+    print(f"AgentFEM {version} release gate passed ({scope} checks only).")
 
 
 if __name__ == "__main__":

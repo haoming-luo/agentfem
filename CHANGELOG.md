@@ -6,6 +6,42 @@ experimental formulation to a validated one.
 
 ## [Unreleased]
 
+## [0.4.4] - 2026-10-27
+
+- Publish a bounded contact and reliability update, not a promotion to general
+  commercial contact parity. Keep periodic J2/contact, selected faceted Coulomb
+  contact and plane augmentation experimental, with one geometry/friction/MPC
+  admission matrix and explicit unsupported combinations.
+
+- Publish selected accepted response frames through immutable per-frame HDF5
+  files and an atomically replaced XDMF index. Readers can inspect completed
+  frames during a run; restart writes a new time-continuous segment and preserves
+  the original files. Recover a validated partial index from supported interrupted legacy
+  output. Missing historical fields cannot be reconstructed from scalar history.
+
+- Add the affine J2 accepted energy ledger: distinguish elastic/hardening
+  storage, plastic/friction loss, penalty potential and external work. Reduce
+  unused tangent assembly and whole-field copies in scalar observers while
+  preserving legacy observers and accepted-state ownership. A bounded path
+  refinement diagnoses work-integration error; it does not establish spatial
+  independence or general first-law closure.
+
+- Simplify Windows onboarding to WSL, a checked Ubuntu distribution and the
+  numerical environment. Honor explicit mirror selection, retain existing
+  installations and provide one manual action at a blocked stage. Help and
+  version discovery no longer initialize MPI. Script/platform CI is separate
+  from fresh Windows/WorkBuddy field acceptance.
+
+- Verify release-contract contents against package metadata even without a
+  supplied tag; a correctly named file cannot disguise a stale target version.
+  Report which checks actually ran rather than implying installed-use
+  acceptance from a source-only check.
+
+- Offer lossless binary history companions for long runs, with checked
+  inventory/hash/shape and lazy data-only readers. Keep scalar histories,
+  field frames and restart state separate; storage savings do not imply a
+  whole-simulation speedup.
+
 - Reject unassembled weak/contact boundary models for small-strain J2,
   Chaboche, power-law creep, quasistatic/harmonic Maxwell and provider-neutral
   small-strain Steps during both capability inspection and execution,
@@ -86,8 +122,6 @@ experimental formulation to a validated one.
 - Supply opt-in GMRES/GAMG with reference rigid-body near-nullspace modes on
   the compatible serial displacement/contact route. Preserve the direct solver
   default and report the actual preconditioner attachment in Step evidence.
-- Advance the unreleased package identity to `0.4.4.dev0`; the published
-  `0.4.3` citation and release remain unchanged.
 - Report the underlying finite-J2 Newton, linear-solve, line-search or
   non-finite-residual rejection when a fixed increment fails or automatic
   cutbacks are exhausted, while preserving the accepted-state rollback.
