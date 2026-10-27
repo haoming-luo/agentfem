@@ -2,12 +2,12 @@ cff-version: 1.2.0
 message: "Please cite the exact AgentFEM version used. Cite the technical report as an additional reference when discussing the platform's architecture, methods, or verification philosophy."
 title: "AgentFEM"
 type: software
-version: "0.4.3"
+version: "0.4.4"
 authors:
   - family-names: Luo
     given-names: Haoming
     affiliation: "Materials Department, Xi'an Thermal Power Research Institute (TPRI)"
-date-released: 2026-10-17
+date-released: 2026-10-27
 repository-code: "https://github.com/haoming-luo/agentfem"
-url: "https://github.com/haoming-luo/agentfem/releases/tag/v0.4.3"
+url: "https://github.com/haoming-luo/agentfem/releases/tag/v0.4.4"
 license: "Apache-2.0"

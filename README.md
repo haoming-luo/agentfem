@@ -322,12 +322,12 @@ Please cite the AgentFEM version used. GitHub's **Cite this repository** uses
 [`CITATION.cff`](CITATION.cff).
 
 ```bibtex
-@software{luo2026agentfem043,
+@software{luo2026agentfem044,
   author  = {Luo, Haoming},
   title   = {AgentFEM},
   year    = {2026},
-  version = {0.4.3},
-  url     = {https://github.com/haoming-luo/agentfem/releases/tag/v0.4.3}
+  version = {0.4.4},
+  url     = {https://github.com/haoming-luo/agentfem/releases/tag/v0.4.4}
 }
 ```
 

@@ -234,6 +234,9 @@ jobs:
           tests/test_parallel_mixed.py
           tests/test_parallel_modal.py
           tests/test_parallel_results.py
+          tests/test_quadrature_physical_recovery.py
+          tests/test_finite_strain_j2_contact_mpi_boundary.py
+          tests/test_affine_adaptive_preconditioner.py::test_distributed_reuse_rejected_before_mutation
           tests/test_parallel_transient.py
           tests/test_parallel_viscoelasticity.py
 

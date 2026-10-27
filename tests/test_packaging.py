@@ -2,6 +2,7 @@ import io
 import json
 from pathlib import Path
 import subprocess
+import sys
 import tarfile
 import tomllib
 import zipfile
@@ -187,6 +188,63 @@ def test_release_contract_is_complete_and_references_real_workflows():
     } <= set(contract["not_release_claims"])
 
 
+@pytest.mark.parametrize("tag", [None, f"v{__version__}"])
+def test_release_gate_rejects_stale_contract_content_without_relying_on_filename(
+    tmp_path, monkeypatch, tag,
+):
+    record = json.loads(release_gate.release_contract_path().read_text())
+    record["target_version"] = "0.0.0"
+    path = tmp_path / f"{__version__}.json"
+    path.write_text(json.dumps(record), encoding="utf-8")
+    monkeypatch.setattr(release_gate, "release_contract_path", lambda: path)
+
+    with pytest.raises(RuntimeError, match="not package version"):
+        release_gate.check_release_contract(tag=tag)
+
+
+@pytest.mark.parametrize("payload, message", [
+    ([], "must be a JSON object"),
+    (None, "must be a JSON object"),
+    ({"workflows": [None]}, "workflow must be a JSON object"),
+])
+def test_release_gate_reports_invalid_contract_structure(
+    tmp_path, monkeypatch, payload, message,
+):
+    if isinstance(payload, dict):
+        record = json.loads(release_gate.release_contract_path().read_text())
+        record.update(payload)
+        payload = record
+    path = tmp_path / f"{__version__}.json"
+    path.write_text(json.dumps(payload), encoding="utf-8")
+    monkeypatch.setattr(release_gate, "release_contract_path", lambda: path)
+
+    with pytest.raises(RuntimeError, match=message):
+        release_gate.check_release_contract()
+
+
+@pytest.mark.parametrize("arguments, scope", [
+    ([], "source"),
+    (["--dist", "candidate"], "source and distribution"),
+    (["--smoke"], "source and installed-use smoke"),
+    (["--dist", "candidate", "--smoke"], "source, distribution and installed-use smoke"),
+])
+def test_release_gate_reports_only_the_checks_actually_requested(
+    monkeypatch, capsys, arguments, scope,
+):
+    monkeypatch.setattr(sys, "argv", ["release_gate.py", *arguments])
+    monkeypatch.setattr(release_gate, "check_versions", lambda **_: __version__)
+    monkeypatch.setattr(release_gate, "check_dependency_boundaries", lambda: None)
+    monkeypatch.setattr(release_gate, "check_release_contract", lambda **_: {})
+    monkeypatch.setattr(release_gate, "check_distributions", lambda _: Path("candidate.whl"))
+    monkeypatch.setattr(release_gate, "run_smoke", lambda **_: {})
+
+    release_gate.main()
+
+    assert capsys.readouterr().out.strip() == (
+        f"AgentFEM {__version__} release gate passed ({scope} checks only)."
+    )
+
+
 def test_release_wheel_requires_the_direct_harmonic_evidence_chain():
     assert {
         "agentfem/backends/_harmonic.py",
@@ -210,6 +268,17 @@ def test_release_wheel_requires_the_direct_harmonic_evidence_chain():
 
 def test_release_gate_exercises_every_installed_project_template():
     assert release_gate.INSTALLED_PROJECT_TEMPLATES == cli._templates()
+
+
+@pytest.mark.parametrize("workflow", ["test.yml", "publish-pypi.yml"])
+def test_ci_and_publication_keep_distributed_recovery_and_rejection_gates(workflow):
+    source = (PROJECT_ROOT / ".github" / "workflows" / workflow).read_text()
+    for gate in (
+        "tests/test_quadrature_physical_recovery.py",
+        "tests/test_finite_strain_j2_contact_mpi_boundary.py",
+        "tests/test_affine_adaptive_preconditioner.py::test_distributed_reuse_rejected_before_mutation",
+    ):
+        assert gate in source, f"{workflow} omits the distributed gate {gate}"
 
 
 def test_release_smoke_includes_both_global_viscoelastic_routes():
