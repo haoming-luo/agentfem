@@ -89,6 +89,26 @@ Output scope is explicit: a restart writes a new result segment and preserves
 the old files. It does not automatically append/merge an earlier XDMF index.
 Live frame-file publication and continuous physical time do not imply otherwise.
 
+The first frozen source `5dbc6cc7` also passes native installed-use acceptance:
+four ordinary templates, bounded contact examples and two-rank elasticity;
+339 installed regressions; and a separate two-rank recovery/rejection group
+with 26 tests passing on each rank. The local wheel SHA-256 is
+`0a2b7084b0f90597cb0951d42fecc7783af93d6f6f5babb69c0e7275ccec3551`.
+Its sdist SHA-256 is
+`c9bd1971a532a8fb34a92bb8b2976fde7fc6d52ad73068aecbffe80284d4f413`.
+These are pre-publication artifacts, not the final tagged Linux distribution.
+Additional installed execution-policy checks pass 64 tests, with the
+distributed-only policy-rejection test reserved for the two-rank gate.
+
+The closeout audit found that the existing distributed contact/policy rejection
+tests were not all selected by the complete CI/publication workflows. Both now
+select those gates explicitly; publication also selects physical quadrature
+recovery, including an empty partition and collective invalid-measure rejection.
+This closes an acceptance-coverage gap without changing runtime algorithms.
+The exact three-file selection passes **27 tests per rank** locally (two
+ranks, 120-second launcher limit, 1.02 seconds of pytest execution). Packaging
+and CI-scope checks pass 76 tests after the workflow update.
+
 ## Follow-up, not release scope expansion
 
 Obtain a same-input independent nonlinear reference and targeted contact-edge

@@ -270,6 +270,17 @@ def test_release_gate_exercises_every_installed_project_template():
     assert release_gate.INSTALLED_PROJECT_TEMPLATES == cli._templates()
 
 
+@pytest.mark.parametrize("workflow", ["test.yml", "publish-pypi.yml"])
+def test_ci_and_publication_keep_distributed_recovery_and_rejection_gates(workflow):
+    source = (PROJECT_ROOT / ".github" / "workflows" / workflow).read_text()
+    for gate in (
+        "tests/test_quadrature_physical_recovery.py",
+        "tests/test_finite_strain_j2_contact_mpi_boundary.py",
+        "tests/test_affine_adaptive_preconditioner.py::test_distributed_reuse_rejected_before_mutation",
+    ):
+        assert gate in source, f"{workflow} omits the distributed gate {gate}"
+
+
 def test_release_smoke_includes_both_global_viscoelastic_routes():
     examples = {relative for relative, _arguments in release_gate.SMOKE_COMMANDS}
 
