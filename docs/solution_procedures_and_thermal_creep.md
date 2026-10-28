@@ -148,6 +148,35 @@ is inferred. Coupled plasticity, damage and contact are not enabled by this
 addition. The historical quadrature storage schema name is retained for archive
 compatibility; full-Step identity also binds the complete material law.
 
+### Explicit creep/plasticity composition
+
+`constitutive.CreepPlasticityMaterial(creep=..., plastic=...)` combines an
+implicit creep material with `J2LinearIsotropicHardening` or
+`ChabocheCombinedHardening`. Register this one material and retain the ordinary
+`studies.creep_solid()` → `model.step(duration=..., temperature=...)` workflow.
+The two mechanisms share one physical increment and one accepted state; this
+is not two sequential Steps and does not reset plastic history during a hold.
+
+The first admitted scope is experimental serial homogeneous 3D small strain
+with constant shared elastic moduli. Thermal expansion and the Arrhenius
+power-law rate use the existing temperature-history input. Temperature-dependent
+plastic parameters, static recovery, regional composition, axisymmetry, MPI,
+finite strain and contact are not admitted. The local quadrature loop currently
+prioritizes correctness; no throughput improvement is claimed.
+
+CE/CEEQ, PE/PEEQ and every backstress branch remain distinct restart fields.
+The maximum inelastic increment limit checks both creep and plastic increments.
+Energy histories distinguish plastic work, hardening storage, reference-yield/
+dynamic-recovery dissipation and the backward-Euler contribution. The mechanical
+energy residual still excludes imposed thermal energy transfer; it is not a
+general first-law certificate. V1 and V2 checkpoint formats pass serial joint
+continuation, but V2 file layout alone does not qualify MPI execution.
+
+`examples/thermal_cyclic_creep` is an ordinary project with synthetic parameters.
+Independent uniaxial equations, nonproportional material paths and tangent
+differences form the current evidence. Independent multiaxial structural
+validation and broader time/mesh studies remain promotion gates.
+
 ### Power-law and temperature dependence
 
 The local `ArrheniusPowerLawCreep` relation is normalized at a declared

@@ -220,7 +220,7 @@ _CAPABILITIES = {
         ),
         limitations=(
             "the 3D and axisymmetric global Newton routes retain an experimental MPI boundary",
-            "coupled creep/plasticity and K-R damage are not admitted by this Step",
+            "coupled creep/plasticity requires an explicit composite material; K-R damage is not admitted",
             "external structural evidence is currently limited to the NAFEMS thick-cylinder benchmark",
             "no creep-damage regularization",
         ),
@@ -238,7 +238,25 @@ _CAPABILITIES = {
             "global exponent must be >= 1; rate parameters are temperature independent",
             "shared thermoelastic properties do not imply temperature-dependent creep rate",
             "no independent structural or distributed validation for this law yet",
-            "no coupled plasticity, contact, finite strain or damage evolution in this route",
+            "plasticity requires an explicit composite material; no contact, finite strain or damage evolution",
+        ),
+    ),
+    "coupled_creep_plasticity": ConstitutiveCapability(
+        name="coupled_creep_plasticity",
+        model="simultaneous Mises creep and isotropic J2/Chaboche plasticity",
+        maturity="experimental_global_patch",
+        available_scope=(
+            "same-increment local stress consistency and tangent; serial homogeneous "
+            "3D physical-time Step with separate creep/plastic/backstress state, "
+            "thermal expansion and Arrhenius power-law temperature history, "
+            "joint cutback/restart and separated plastic energy channels"
+        ),
+        limitations=(
+            "constant shared elastic moduli; no temperature-dependent plastic parameters or static recovery",
+            "no MPI, regional composition, axisymmetry, contact or finite strain admission",
+            "local point loop is a correctness foundation, not a new batch performance claim",
+            "thermal input energy is excluded; mechanical ledger is not a full first-law balance",
+            "independent uniaxial equations are verified; no independent multiaxial structural validation yet",
         ),
     ),
     "creep_damage": ConstitutiveCapability(

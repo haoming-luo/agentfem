@@ -277,7 +277,13 @@ quadrature state, shared E(T)/nu(T)/alpha(T) thermoelastic properties, an
 analytical algorithmic tangent, atomic cutback/restart, prescribed temperature
 histories, mechanical work/energy evidence, and serial external structural
 evidence. Its distributed state is MPI-safe, while distributed global
-equilibrium retains an explicit experimental boundary. Other creep
+equilibrium retains an explicit experimental boundary. `isotropic_sinh` reuses
+that implicit lifecycle with a separate experimental global-patch gate.
+`CreepPlasticityMaterial(creep=..., plastic=...)` solves simultaneous creep
+and J2/Chaboche evolution with a joint state and consistent tangent; its current
+global scope is serial homogeneous 3D small strain with constant elastic and
+plastic parameters, optionally prescribed temperature/Arrhenius creep. Neither
+composition implies heat generation, contact or distributed admission. Other creep
 families remain local or assessment capabilities unless their own catalog
 evidence says otherwise. Path-dependent material FEM integration additionally
 requires quadrature state, a consistent tangent or documented alternative,

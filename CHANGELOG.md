@@ -6,6 +6,12 @@ experimental formulation to a validated one.
 
 ## [Unreleased]
 
+- Add an experimental simultaneous creep/J2-or-Chaboche material on the existing
+  physical-time implicit Step. Keep joint history, consistent tangent, thermal
+  input, cutback and restart together; expose separate plastic work/storage/
+  dissipation channels. First admission is serial homogeneous 3D small strain,
+  not contact, MPI, damage or industrial-life validation.
+
 - Restore the entire live creep Step after a failed checkpoint load, including
   displacement, trial/accepted state and time/energy ledgers. Preserve the
   nonzero flow derivative in the zero-stress linear-creep tangent.

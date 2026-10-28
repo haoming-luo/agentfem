@@ -19,6 +19,26 @@ or a successful run is not by itself a validated engineering capability.
 
 ## Current product phase: the 0.4 foundation
 
+### Thermal–inelastic continuity sprint (2026-10-29)
+
+PR #132 maintenance is merged at `44fda9c4`; the published 0.4.4 tag remains
+unchanged. The next bounded sequence is reliability → thermal/cyclic-creep
+integration → damage/life assessment. It does not reopen packaging, claim
+commercial contact parity, or replace the earlier open spatial-accuracy gates.
+
+| Stage | Implemented slice | Remaining promotion gate |
+| --- | --- | --- |
+| Reliable results and restart | Validated zero-copy XDMF continuation views; atomic late-failure creep checkpoint restoration | Installed-use regression; a joined view alone does not prove physical restart continuity |
+| Thermal–cyclic plasticity–creep | Shared implicit Sinh flow; simultaneous J2/Chaboche + creep update, consistent tangent, ordinary `model.step`, temperature history, cutback, separate energy channels and serial restart | Spatial/time refinement and broader independent references; MPI, contact, regional materials and temperature-dependent plastic properties remain unsupported for the new composition |
+| Damage/life | Existing engineering time-fraction/interaction assessment is reused | Add calibrated scalar strain-life assessment first; global damage feedback needs its own regularization and verification design |
+
+The initial joint-material gate is a homogeneous 3D small-strain hold/reverse
+fixture, including an independent uniaxial stress solution. It is not an
+industrial lifetime prediction, two-way heat generation, or a performance
+benchmark. The [design and evidence record](internal/thermo_inelastic_continuity_20261029.md)
+tracks exact scope and the [ordinary project](../examples/thermal_cyclic_creep/README.md)
+uses synthetic parameters, not confidential calibration data.
+
 ### 0.4.4 published; bounded maintenance (2026-10-27)
 
 [0.4.4 is published](https://github.com/haoming-luo/agentfem/releases/tag/v0.4.4)

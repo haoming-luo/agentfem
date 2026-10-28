@@ -18,6 +18,7 @@ from . import small_strain_user_material
 from . import user_material
 from . import viscoelasticity
 from .catalog import ConstitutiveCapability, capabilities, capability
+from ._creep_plasticity import CreepPlasticityMaterial, CreepPlasticityState, CreepPlasticityUpdate
 from .corotational import (
     CorotationalIncrement,
     polar_strain_increment,
@@ -250,6 +251,9 @@ from .._material_history import (
 )
 
 __all__ = [
+    "CreepPlasticityMaterial",
+    "CreepPlasticityState",
+    "CreepPlasticityUpdate",
     "CompiledCorotationalIncrement",
     "StrainHistoryRuntime",
     "NativeLibraryBundle",

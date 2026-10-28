@@ -97,7 +97,8 @@ record.
     accepted provider-owned
     `F/P/S/MISES/SENER/ELENER/HARDENER/FP/PEEQ` rather than rebuilding them
     from a stateless material expression. For implicit
-    creep, keep Newton convergence, maximum accepted CEEQ increment, and the
+    creep, keep Newton convergence, maximum accepted CEEQ increment (and PEEQ
+    for the experimental `CreepPlasticityMaterial` composition), and the
     optional endpoint creep-rate time-error tolerance as separate acceptance
     decisions. Declare a model unit system when time histories require a
     physical unit label.

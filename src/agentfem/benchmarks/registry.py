@@ -872,6 +872,19 @@ _BENCHMARKS = (
         ),
     ),
     BenchmarkSpec(
+        identifier="coupled_creep_plasticity_cycle",
+        capability="coupled_creep_plasticity",
+        level="material_point_and_finite_element",
+        reference="docs/internal/thermo_inelastic_continuity_20261029.md",
+        criterion=(
+            "simultaneous equations and fixed-old-state tangent hold on nonproportional "
+            "paths; 3D cycle agrees with independent uniaxial equations; joint-state "
+            "cutback, thermal-history restart and corrupted restart rejection pass"
+        ),
+        automated_test="tests/test_coupled_creep_plasticity.py",
+        status="automated_experimental_global_patch",
+    ),
+    BenchmarkSpec(
         identifier="sinh_creep_update_and_hold",
         capability="sinh_creep",
         level="material_point_and_finite_element",

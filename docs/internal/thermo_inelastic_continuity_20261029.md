@@ -61,3 +61,26 @@ work stored energy. Do not graft the coupled state onto a CE-only checkpoint.
 No new full composite runtime, MPI composition, release or installer claim is
 part of this record. Local targeted counts are recorded at each verified commit;
 skipped rank-specific tests are not counted as passed.
+
+## Integrated slice
+
+The serial homogeneous 3D composition now reuses the existing implicit creep
+Step rather than creating a second nonlinear solver. The joined quadrature
+transaction saves CE/CEEQ and PE/PEEQ/all backstresses. Accepted plastic work,
+hardening storage, material loss and discrete contributions are separate.
+Both serial and portable file formats have serial interruption/continuation
+checks; MPI execution remains rejected. The ordinary
+`examples/thermal_cyclic_creep` project completes through `agentfem run` with
+computed (not independently validated) result status.
+
+Promotion remains gated on broader structural time/mesh convergence and an
+independent multiaxial reference. Static backstress recovery and temperature-
+dependent plastic parameters are not implemented. The mechanical energy
+ledger excludes imposed thermal transfer; the isolated plastic energy
+decomposition is not promoted into a full thermal first-law claim.
+
+Local verification: 156 targeted tests passed in 100.98 s across coupled
+creep/plasticity, Sinh creep, platform/constitutive models, checkpoint
+capabilities and the generic small-strain Step. The ordinary source CLI example
+completed 16 accepted increments in approximately 4.4 s; this is a workflow
+smoke check, not a speed benchmark or an installed-wheel test.

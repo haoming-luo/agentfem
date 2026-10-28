@@ -112,3 +112,203 @@ def test_combined_isotropic_solution_matches_independent_scalar_equations():
     assert update.plastic_increment > 0.
     assert von_mises(update.stress) == pytest.approx(expected_q, rel=1.e-10)
     assert update.plastic_increment == pytest.approx((expected_q - yield_stress) / hardening, rel=1.e-9)
+
+
+def _structure(*, chaboche=True, incrementation=None, thermal=False):
+    from dolfinx import mesh as dmesh
+    from mpi4py import MPI
+    from agentfem import amplitudes, fields, histories, mesh, models, solvers, steps, studies
+
+    domain = dmesh.create_unit_cube(MPI.COMM_SELF, 1, 1, 1)
+    model = models.create(study=studies.creep_solid(), mesh=domain, name="coupled_hold")
+    u = model.field(fields.displacement(domain))
+    law = _material(chaboche=chaboche, coefficient=1.e-6)
+    temperature = None
+    if thermal:
+        properties = constitutive.thermoelastic(
+            young=200_000., poisson=0.3, density=1., thermal_expansion=1.e-5,
+            conductivity=1., specific_heat=1., reference_temperature=800.)
+        law = CreepPlasticityMaterial(
+            creep=constitutive.isotropic_arrhenius_power_law(
+                elastic=properties, coefficient=1.e-6, stress_exponent=3., reference_stress=100.,
+                activation_energy=120_000., reference_temperature=800.), plastic=law.plastic)
+        field = model.field(fields.temperature(domain, value=800.))
+        temperature = histories.temperature(field)
+        temperature.record(0.)
+        field.value.x.array[:] = 900.
+        field.value.x.scatter_forward()
+        temperature.record(4.)
+    selected = model.material(law)
+    for component, axis in enumerate(("x", "y", "z")):
+        model.fix(u, on=mesh.face(domain, axis=axis, value=0., tag=component + 1),
+                  component=component, value=0.)
+    model.fix(u, on=mesh.face(domain, axis="x", value=1., tag=4), component=0, value=0.004)
+    amplitude = amplitudes.tabular([0., 1., 2., 3., 4.], [0., 1., 1., -0.5, -0.5])
+    return model.step(target=u, material=selected, duration=4., amplitude=amplitude,
+                      incrementation=steps.fixed(16) if incrementation is None else incrementation,
+                      progress=False, temperature=temperature, solver_options=solvers.newton(
+                          relative_tolerance=1.e-9, absolute_tolerance=1.e-9,
+                          maximum_iterations=25, line_search="backtracking"))
+
+
+@pytest.mark.parametrize("chaboche", [False, True])
+@pytest.mark.parametrize("portable", [False, True])
+def test_coupled_global_hold_reverse_restart_and_energy(tmp_path, chaboche, portable):
+    full = _structure(chaboche=chaboche)
+    result = full.solve_result()
+    assert result.fields["PE"].location == "quadrature_points"
+    assert result.fields["CE"].location == "quadrature_points"
+    assert result.fields["PEEQ_CELL"].location == "cells"
+    assert full.state.plastic_fields["equivalent_plastic_strain"].global_max() > 0.
+    assert full.state.equivalent_creep_strain.global_max() > 0.
+    for frame in full.energy_history:
+        assert frame.plastic_work == pytest.approx(
+            frame.plastic_stored_energy + frame.plastic_dissipation + frame.plastic_backward_euler_dissipation,
+            rel=1.e-8, abs=1.e-10)
+        assert frame.plastic_dissipation >= 0.
+    paused = _structure(chaboche=chaboche)
+    paused.solve(until=2.)
+    checkpoint = paused.save_checkpoint(tmp_path / "joint.npz", portable=portable)
+    resumed = _structure(chaboche=chaboche)
+    resumed.load_checkpoint(checkpoint)
+    resumed.solve_result()
+    for key, expected in full.state.snapshot().items():
+        np.testing.assert_allclose(resumed.state.snapshot()[key], expected, atol=1.e-9, rtol=1.e-8)
+    np.testing.assert_allclose(resumed.solution.x.array, full.solution.x.array, atol=1.e-10)
+    assert resumed.energy_history[-1].internal_energy == pytest.approx(full.energy_history[-1].internal_energy, rel=1.e-8)
+
+
+def test_coupled_global_cycle_matches_independent_uniaxial_return_equations():
+    from scipy.optimize import brentq
+
+    step = _structure(chaboche=False)
+    step.solve_result()
+    p, ce, pe = 0., 0., 0.
+    reference_stress = []
+    rate = step.material.creep.creep.equivalent_rate
+    for time in np.arange(0.25, 4.01, 0.25):
+        strain = 0.004 * np.interp(time, [0., 1., 2., 3., 4.], [0., 1., 1., -0.5, -0.5])
+        trial = 200_000. * (strain - ce - pe)
+        sign = np.sign(trial)
+        radius = 200. + 2_000. * p
+        q = brentq(lambda q, time=time, radius=radius, trial=trial: q / 200_000. + 0.25 * rate(q, time)
+                   + max(0., (q - radius) / 2_000.) - abs(trial) / 200_000.,
+                   0., abs(trial), xtol=1.e-11)
+        dp = max(0., (q - radius) / 2_000.)
+        ce += sign * 0.25 * rate(q, time)
+        pe += sign * dp
+        p += dp
+        reference_stress.append(sign * q)
+    # Unit area and displacement target 0.004: generalized reaction = .004 RF.
+    np.testing.assert_allclose([f.generalized_reaction / 0.004 for f in step.energy_history],
+                               reference_stress, rtol=2.e-7, atol=1.e-6)
+    np.testing.assert_allclose(step.state.plastic_fields["equivalent_plastic_strain"].values, p, atol=1.e-10)
+    np.testing.assert_allclose(step.state.creep_strain.values[:, 0, 0], ce, atol=1.e-10)
+
+
+def test_coupled_quadrature_late_point_failure_is_atomic(monkeypatch):
+    step = _structure()
+    state = step.state
+    strain = np.broadcast_to(np.diag([0.004, -0.002, -0.002]), state.creep_strain.values.shape)
+    state.update(strain, step.material, time_start=0., time_end=0.25)
+    state.commit()
+    before = state.snapshot()
+    before_trial = {key: value.values.copy() for key, value in state.transaction.trial.items()}
+    before_stress = state.stress.values.copy()
+    original = CreepPlasticityMaterial.update
+    count = 0
+    def fail_late(self, *args, **kwargs):
+        nonlocal count
+        count += 1
+        if count == 3:
+            raise RuntimeError("injected late point failure")
+        return original(self, *args, **kwargs)
+    monkeypatch.setattr(CreepPlasticityMaterial, "update", fail_late)
+    with pytest.raises(RuntimeError, match="local point 2"):
+        state.update(-strain, step.material, time_start=0.25, time_end=0.5)
+    for key in before:
+        np.testing.assert_array_equal(state.snapshot()[key], before[key])
+        np.testing.assert_array_equal(state.transaction.trial[key].values, before_trial[key])
+    np.testing.assert_array_equal(state.stress.values, before_stress)
+
+
+def test_coupled_free_thermal_expansion_and_arrhenius_rate():
+    thermal = constitutive.thermoelastic(young=200_000., poisson=0.3, density=1.,
+                                        thermal_expansion=1.e-5, reference_temperature=800.,
+                                        conductivity=1., specific_heat=1.)
+    creep = constitutive.isotropic_arrhenius_power_law(
+        elastic=thermal, coefficient=1.e-6, stress_exponent=3., reference_stress=100.,
+        activation_energy=120_000., reference_temperature=800.,
+    )
+    coupled = CreepPlasticityMaterial(creep=creep, plastic=_material().plastic)
+    free = coupled.update(0.001 * np.eye(3), time_start=0., time_end=1., temperature=900.)
+    np.testing.assert_allclose(free.stress, 0., atol=1.e-9)
+    assert free.creep_increment == 0.
+    assert free.plastic_increment == 0.
+    strain = np.diag([0.004, -0.002, -0.002])
+    hot = coupled.update(strain + 0.001 * np.eye(3), time_start=0., time_end=1., temperature=900.)
+    warm = coupled.update(strain, time_start=0., time_end=1., temperature=800.)
+    assert hot.creep_increment > warm.creep_increment
+
+
+def test_coupled_global_inelastic_limit_cuts_back_plasticity():
+    from agentfem import steps
+
+    limit = 5.e-4
+    control = steps.automatic(initial=0.25, minimum=1.e-5, maximum=0.25,
+                              maximum_inelastic_increment=limit, max_increments=150,
+                              max_cutbacks=15)
+    step = _structure(incrementation=control)
+    step.solve()
+    rejected = [entry for entry in step.attempted_increments if not entry.converged]
+    assert rejected
+    assert any(entry.maximum_plastic_increment > limit for entry in rejected)
+    assert all(max(entry.maximum_plastic_increment, entry.maximum_creep_increment) <= limit
+               for entry in step.accepted_increments)
+    assert step.last_solve_info.completed_step
+
+
+@pytest.mark.parametrize("portable", [False, True])
+def test_coupled_checkpoint_late_corruption_preserves_both_histories(tmp_path, portable):
+    import json
+
+    source = _structure()
+    source.solve(until=2.)
+    checkpoint = source.save_checkpoint(tmp_path / "joint.npz", portable=portable)
+    if portable:
+        payload = json.loads(checkpoint.read_text())
+        payload["energy_history"] = [{"broken": True}]
+        checkpoint.write_text(json.dumps(payload))
+    else:
+        with np.load(checkpoint, allow_pickle=False) as data:
+            payload = {key: data[key].copy() for key in data.files}
+        payload["energy_history"] = json.dumps([{"broken": True}])
+        np.savez(checkpoint, **payload)
+    receiver = _structure()
+    receiver.solve(until=1.)
+    old = receiver.state.snapshot()
+    displacement = receiver.solution.x.array.copy()
+    with pytest.raises((KeyError, ValueError, TypeError)):
+        receiver.load_checkpoint(checkpoint)
+    assert receiver.accepted_time == 1.
+    np.testing.assert_array_equal(receiver.solution.x.array, displacement)
+    for key, values in old.items():
+        np.testing.assert_array_equal(receiver.state.snapshot()[key], values)
+    assert receiver.checkpoint_capabilities().rank_count_portability == "unsupported"
+
+
+def test_coupled_global_thermal_history_restart(tmp_path):
+    full = _structure(thermal=True)
+    result = full.solve_result()
+    assert result.histories["maximum_creep_temperature"].latest == pytest.approx(900.)
+    assert full.temperature.active_time == 4.
+    partial = _structure(thermal=True)
+    partial.solve(until=2.)
+    checkpoint = partial.save_checkpoint(tmp_path / "thermal.npz", portable=True)
+    resumed = _structure(thermal=True)
+    resumed.load_checkpoint(checkpoint)
+    assert resumed.temperature.active_time == 2.
+    resumed.solve()
+    for key, values in full.state.snapshot().items():
+        np.testing.assert_allclose(resumed.state.snapshot()[key], values, atol=2.e-9, rtol=2.e-8)
+    np.testing.assert_allclose(resumed.solution.x.array, full.solution.x.array, atol=1.e-10)

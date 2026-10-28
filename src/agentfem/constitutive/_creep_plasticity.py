@@ -3,8 +3,8 @@
 
 """Experimental simultaneous small-strain creep/plasticity local integration.
 
-No global Step admission is implied. Plastic history and creep history are
-returned together; every local iteration starts from the same accepted state.
+The bounded serial 3D consumer reuses the implicit creep Step. Plastic and creep
+history are returned together; local trials always use the same accepted state.
 """
 
 from dataclasses import dataclass, field
@@ -72,6 +72,31 @@ class CreepPlasticityMaterial:
     creep: IsotropicCreepMaterial
     plastic: J2LinearIsotropicHardening | ChabocheCombinedHardening
     name: str = "simultaneous creep and plasticity"
+    stateful_constitutive = True
+
+    @property
+    def requires_temperature(self):
+        return self.creep.requires_temperature
+
+    @property
+    def young(self):
+        return self.creep.young
+
+    @property
+    def poisson(self):
+        return self.creep.poisson
+
+    @property
+    def density(self):
+        return self.creep.density
+
+    def thermal_strain(self, temperature):
+        return self.creep.thermal_strain(temperature)
+
+    def stress_from_state(self, strain, state, *, temperature=None):
+        elastic = (strain - state.creep.creep_strain - state.plastic.plastic_strain
+                   - self.thermal_strain(temperature))
+        return np.einsum("ijkl,kl->ij", self.plastic.elastic_tangent(), elastic)
 
     def __post_init__(self):
         if not isinstance(self.creep, IsotropicCreepMaterial):
@@ -177,5 +202,5 @@ class CreepPlasticityMaterial:
         return dict(name=self.name, model="simultaneous_creep_plasticity",
                     creep=self.creep.as_dict(), plastic=self.plastic.as_dict(),
                     integration="simultaneous_backward_euler",
-                    kinematics="small_strain", maturity="material_point_experimental",
-                    fem_quadrature_driver=False)
+                    kinematics="small_strain", maturity="experimental_global_patch",
+                    fem_quadrature_driver=True, global_scope="serial_3d_homogeneous")

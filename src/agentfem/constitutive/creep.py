@@ -625,7 +625,8 @@ class IsotropicCreepMaterial:
             ),
             "integration": "backward_euler",
             "algorithmic_tangent": "analytical_consistent",
-            "maturity": "fem_integrated_foundation",
+            "maturity": ("fem_integrated_foundation" if isinstance(self.creep, PowerLawCreep)
+                         else "experimental_global_patch"),
             "fem_quadrature_driver": True,
         }
 

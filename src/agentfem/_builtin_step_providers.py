@@ -1105,6 +1105,7 @@ def _lower_small_strain_material(model, request: StepRequest):
 
 def _implicit_creep_preconditions(model, request: StepRequest) -> bool:
     from .constitutive.creep import IsotropicCreepMaterial
+    from .constitutive._creep_plasticity import CreepPlasticityMaterial
 
     study = getattr(model, "study", None)
     method = _procedure_method(model, request)
@@ -1124,17 +1125,35 @@ def _implicit_creep_preconditions(model, request: StepRequest) -> bool:
         and _all_materials_support(
             model,
             request,
-            lambda item: isinstance(item, IsotropicCreepMaterial),
+            lambda item: isinstance(item, (IsotropicCreepMaterial, CreepPlasticityMaterial)),
         )
     )
 
 
 def _accept_implicit_creep(model, request: StepRequest) -> bool:
-    return _implicit_creep_preconditions(model, request) and not getattr(model, "boundary_models", ())
+    return _implicit_creep_preconditions(model, request) and _implicit_creep_boundary_rejection(model, request) is None
 
 
 def _implicit_creep_boundary_rejection(model, request: StepRequest) -> str | None:
-    return _unsupported_small_strain_boundary(model) if _implicit_creep_preconditions(model, request) else None
+    if not _implicit_creep_preconditions(model, request):
+        return None
+    boundary = _unsupported_small_strain_boundary(model)
+    if boundary:
+        return boundary
+    from .constitutive._creep_plasticity import CreepPlasticityMaterial
+
+    materials = _registered_materials(model, request)
+    if any(isinstance(item, CreepPlasticityMaterial) for item in materials):
+        if getattr(model.study, "dimension", None) != 3:
+            return "Coupled creep/plasticity currently admits three-dimensional small strain only."
+        domain = request.target.value.function_space.mesh
+        if domain.comm.size != 1:
+            return "Coupled creep/plasticity currently admits serial execution only."
+        if len(materials) != 1 or (request.material is None and any(
+            record.region is not None for record in model.materials
+        )):
+            return "Regional coupled creep/plasticity is not admitted yet."
+    return None
 
 
 def _lower_implicit_creep(model, request: StepRequest):
@@ -1811,8 +1830,8 @@ register_step_provider(
         lower=_lower_implicit_creep,
         priority=120,
         description=(
-            "Lower isotropic power-law creep to backward-Euler quadrature "
-            "state, consistent-tangent Newton equilibrium, and cutback."
+            "Lower supported isotropic creep and bounded creep/plasticity to "
+            "backward-Euler quadrature state, consistent-tangent Newton and cutback."
         ),
         procedure="standard/backward_euler/stateful",
         option_contract=_option_contract(
