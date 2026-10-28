@@ -1,6 +1,8 @@
 # 0.4.4 candidate decision record — 2026-10-27
 
-Status: release preparation, not a publication or a scientific promotion.
+Status: **published** as immutable `v0.4.4` at
+`7dbf936df18997bd8785a72f27ff230bcad68581`; no scientific promotion.
+The initial plan and pre-publication checks below remain historical evidence.
 Base: merged main `5746414856ff002b752b596b7e93504ad96c597d` (PR #124),
 including Windows quickstart PR #125. The previous source gate passed Linux
 native/FEniCSx, MPI, macOS and PowerShell checks. Final release evidence must
@@ -8,8 +10,8 @@ bind to this candidate, not reuse a previous wheel hash as if unchanged.
 
 ## Five-hour closeout
 
-The authorized window begins at 08:57:57 UTC and ends at 13:57:57 UTC on
-2026-10-27. Stop starting new work at the deadline and report actual outcomes.
+The original authorization covered 08:57:57–13:57:57 UTC on 2026-10-27,
+with instructions to stop starting new work at the deadline and report actual outcomes.
 No new physical formulation, large mesh sweep, full composite run or installer
 bundle is part of this closeout. Preserve other worktrees and generated sites.
 
@@ -116,3 +118,63 @@ spatial evidence before promoting the nonuniform periodic composition.
 Collect a clean non-root Windows/WorkBuddy installation report. Resume
 explicit composite acceleration only with its own fixed-workload evidence;
 implicit fixture improvements are not a substitute.
+
+## Publication receipt
+
+PR #131 merged at the tagged commit above. The
+[official publication workflow](https://github.com/haoming-luo/agentfem/actions/runs/40486982823)
+completed successfully, including installed-use, distributed and foundation
+gates. Its serial suite reports **5155 passed, 427 conditional skips**;
+separate MPI/native gates, not the skipped tests, supply that coverage.
+The [GitHub Release](https://github.com/haoming-luo/agentfem/releases/tag/v0.4.4)
+was published at 2026-10-27 11:08:09 UTC; the version is also available on
+[PyPI](https://pypi.org/project/agentfem/0.4.4/).
+Publication establishes the bounded release contract, not the open spatial
+or independent nonlinear-reference gates.
+
+## Bounded post-release review
+
+The next small maintenance change preserves the single native contact tangent
+insertion while rejecting non-real inputs and nonfinite duplicate sums before
+any bulk-matrix mutation. Regression coverage includes unchanged valid duplicate
+summation, real PETSc matrix preservation and a failed augmented-contact
+increment followed by successful continuation. The accepted displacement,
+material state, multiplier and work ledger must survive the rejection.
+
+Review also rechecks retained material response, attempt-owned linear resources,
+managed preconditioning, live frame publication and binary-history readers.
+Source tests and their subprocesses must use the same source identity:
+`PYTHONPATH=src` is necessary when the numerical environment also contains an
+older installed AgentFEM. An initial run without that setting passed its
+in-process tests but failed two subprocess checks by importing the old package;
+the same selection passed with consistent source selection. No runtime code was
+changed to disguise that environment mismatch.
+
+The final source selection passes **315 tests, 21 skipped** on local
+FEniCSx/PETSc with one numerical-library thread. Sixteen skips are unsupported
+refined tetrahedral-contact combinations; five require multiple MPI ranks.
+This review did not rerun MPI. Seven new cases cover the assembly rejection,
+matrix preservation and joint recovery; the four new malformed/overflow-input
+cases failed before the fix. Existing tests retain exact duplicate summation
+and compare accepted fields, material state, work and restart.
+
+Reproduce from the checkout with `PYTHONPATH=src`, `OPENBLAS_NUM_THREADS=1`
+and `OMP_NUM_THREADS=1`, using the numerical environment's Python:
+
+```sh
+python -m pytest -q \
+  tests/test_contact_sparse_insertion.py tests/test_affine_residual_only.py \
+  tests/test_accepted_energy_components.py tests/test_adaptive_linear_correction.py \
+  tests/test_retained_material_trial.py tests/test_affine_linear_workspace.py \
+  tests/test_affine_adaptive_preconditioner.py tests/test_live_xdmf.py \
+  tests/test_history_archive.py tests/test_dolfinx_implicit_facet_contact.py \
+  tests/test_dolfinx_implicit_smooth_contact.py \
+  tests/test_quadrature_physical_recovery.py tests/test_increment_control_validation.py
+```
+
+Generated-documentation consistency, targeted Ruff and `git diff --check`
+also pass. These are targeted maintenance checks, not a second full-release
+qualification or an audit of every module.
+
+This follow-up neither rebuilds an installer nor changes a constitutive law,
+acceptance tolerance or public default. It reports no new full-composite timing.

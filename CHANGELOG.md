@@ -6,6 +6,11 @@ experimental formulation to a validated one.
 
 ## [Unreleased]
 
+- Reject non-real contact tangent payloads and overflow during duplicate COO
+  accumulation before flushing or modifying the bulk PETSc matrix. Preserve
+  the existing single-call sparse insertion, joint rollback and continuation;
+  no contact law, tolerance or default solver policy changes.
+
 ## [0.4.4] - 2026-10-27
 
 - Publish a bounded contact and reliability update, not a promotion to general

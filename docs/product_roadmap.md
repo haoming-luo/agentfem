@@ -19,23 +19,33 @@ or a successful run is not by itself a validated engineering capability.
 
 ## Current product phase: the 0.4 foundation
 
-### 0.4.4 release closeout (2026-10-27)
+### 0.4.4 published; bounded maintenance (2026-10-27)
 
-The current sprint is bounded release closure from merged main `57464148`,
-not another contact-feature expansion. The [0.4.4 release scope](release_0.4.4.md)
-separates admitted experimental compositions from stable engineering changes.
-Complete version/contract consistency, targeted safety and installed-use
-checks, then exact-head CI and immutable-artifact publication. Do not start
-another large spatial sweep or a full composite run merely to close this version.
+[0.4.4 is published](https://github.com/haoming-luo/agentfem/releases/tag/v0.4.4)
+at immutable commit `7dbf936df18997bd8785a72f27ff230bcad68581`.
+The [publication workflow](https://github.com/haoming-luo/agentfem/actions/runs/40486982823)
+completed successfully. The [release scope](release_0.4.4.md) continues to
+separate admitted experimental compositions from stable engineering changes.
+Follow-up maintenance reviews the changed assembly, state and output paths;
+it does not replace the published tag or reopen installer/package development.
+Do not start another large spatial sweep or a full composite run merely to
+close a maintenance review.
 
 The graded-cycle path study is complete within its recorded scope. Spatial
 plastic-contact accuracy and an independent same-input nonlinear reference
 remain open promotion gates; they must not be relabeled as passed. Correctness
 regressions in admitted routes still block release. Fresh Windows/WorkBuddy
 field acceptance remains separate from installer-contract CI. The current
-task board and candidate evidence are in the
+historical release board and evidence are in the
 [release decision record](internal/release_0_4_4_candidate_gate_20261027.md).
 Earlier dated boards below are historical evidence, not simultaneous tasks.
+
+The short post-release review found a bounded assembly-validation gap:
+individually finite duplicate contact stiffness entries can overflow when
+summed, and complex inputs could lose their imaginary part during conversion.
+Reject both before PETSc mutation; retain the existing batched insertion and
+test joint rollback/continuation. This is reliability hardening, not a new
+speedup or promotion of experimental contact accuracy.
 
 ### Windows onboarding simplification (2026-10-26)
 
