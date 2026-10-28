@@ -645,6 +645,12 @@ criterion rolls back the same complete transaction.
 
 ## Output Interval and Frame
 
+A continuation view is a presentation index over existing frame segments, not
+a new result or checkpoint. `results.join_xdmf_segments` checks reference mesh,
+schema, order and shared-boundary values without copying heavy data. Requested
+stations can be audited explicitly; no interpolation or scientific continuity
+is inferred from an ordered visualization.
+
 A visualization frame owns one geometry and the point/cell attributes attached
 to that geometry. Element node ordering is a backend output responsibility,
 not an application modeling choice. Field length alone is not a spatial map.

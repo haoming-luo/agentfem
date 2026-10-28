@@ -11,6 +11,11 @@ this sequence visible unless there is a strong reason to encapsulate it.
 
 ## Standard Sequence
 
+After a supported restart, `results.join_xdmf_segments` can publish a single
+view of existing reference-mesh output segments. Retain source HDF5 files and
+declare expected output stations when checking coverage. This presentation
+operation neither resumes the solve nor validates checkpoint ancestry.
+
 For an existing Abaqus project, first run `agentfem inspect-abaqus` and then
 `agentfem migrate-abaqus`. Review the recursive source graph, Part/Instance
 scope, regions, section/material assignments, formulation suffixes, and every

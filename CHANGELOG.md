@@ -6,6 +6,11 @@ experimental formulation to a validated one.
 
 ## [Unreleased]
 
+- Add `results.join_xdmf_segments` for a checked, lightweight reference-mesh
+  continuation view without copying heavy data. Reject conflicting overlap,
+  mesh/schema changes and missing declared stations before publication.
+  Visualization coverage remains distinct from physical/restart continuity.
+
 - Reject non-real contact tangent payloads and overflow during duplicate COO
   accumulation before flushing or modifying the bulk PETSc matrix. Preserve
   the existing single-call sparse insertion, joint rollback and continuation;
