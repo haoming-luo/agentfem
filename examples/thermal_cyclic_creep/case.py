@@ -1,7 +1,7 @@
 """Synthetic small-strain thermal hold/reversal; not calibrated design data."""
 
 from agentfem import (
-    amplitudes, constitutive, fields, histories, mesh, models, project,
+    amplitudes, constitutive, fields, loads, mesh, models, project,
     solvers, steps, studies,
 )
 
@@ -12,13 +12,23 @@ def main():
     model = models.create(study=studies.creep_solid(), mesh=domain,
                           name="thermal_hold_and_reversal")
     u = model.field(fields.displacement(domain))
-    temperature = model.field(fields.temperature(domain, value=800.))
 
     # One shared elastic/thermal asset; stress unit MPa, temperature kelvin.
     thermal = constitutive.thermoelastic(
         young=200_000., poisson=0.3, density=1., thermal_expansion=1.e-5,
         conductivity=1., specific_heat=1., reference_temperature=800.,
     )
+    # Solve heat on the same mesh first. An insulated homogeneous cube with
+    # rho*c=1 and source=25 has T(t)=800+25t. Only accepted thermal frames
+    # drive mechanics; dissipative mechanical heating is not fed back.
+    heat = models.create(study=studies.transient_heat_transfer(dimension=3),
+                         mesh=domain, name="uniform_heating")
+    temperature = heat.field(fields.temperature(domain, value=800.))
+    heat.material(thermal)
+    heat.load(loads.heat_source(25., target=temperature))
+    heat_step = heat.step(target=temperature, dt=.25, steps=16, progress=False)
+    thermal_path = heat_step.capture_history(name="temperature", unit="K")
+    heat_step.run()
     creep = constitutive.isotropic_arrhenius_power_law(
         elastic=thermal, coefficient=1.e-6, stress_exponent=3., reference_stress=100.,
         activation_energy=120_000., reference_temperature=800.,
@@ -30,11 +40,6 @@ def main():
     )
     model.material(constitutive.CreepPlasticityMaterial(creep=creep, plastic=cyclic))
 
-    thermal_path = histories.temperature(temperature)
-    thermal_path.record(0.)
-    temperature.value.x.array[:] = 900.
-    temperature.value.x.scatter_forward()
-    thermal_path.record(4.)
     loading = amplitudes.tabular([0., 1., 2., 3., 4.], [0., 1., 1., -0.5, -0.5])
     for component, axis in enumerate(("x", "y", "z")):
         model.fix(u, on=mesh.face(domain, axis=axis, value=0., tag=component + 1),
@@ -53,6 +58,7 @@ def main():
         "parameters": "synthetic, not calibrated",
         "verification": "small-strain serial 3D demonstration",
         "thermal_energy": "not a full first-law balance",
+        "thermal_transfer": "accepted same-mesh heat solution; one-way only",
     }
     run.publish(result)
     return result

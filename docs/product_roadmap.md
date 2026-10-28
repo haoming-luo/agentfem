@@ -36,8 +36,8 @@ The initial joint-material gate is a homogeneous 3D small-strain hold/reverse
 fixture, including an independent uniaxial stress solution. It is not an
 industrial lifetime prediction, two-way heat generation, or a performance
 benchmark. The [design and evidence record](internal/thermo_inelastic_continuity_20261029.md)
-tracks exact scope and the [ordinary project](../examples/thermal_cyclic_creep/README.md)
-uses synthetic parameters, not confidential calibration data.
+tracks exact scope. The ordinary `examples/thermal_cyclic_creep` project uses
+synthetic parameters, not confidential calibration data.
 
 ### 0.4.4 published; bounded maintenance (2026-10-27)
 

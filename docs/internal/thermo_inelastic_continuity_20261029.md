@@ -85,6 +85,27 @@ capabilities and the generic small-strain Step. The ordinary source CLI example
 completed 16 accepted increments in approximately 4.4 s; this is a workflow
 smoke check, not a speed benchmark or an installed-wheel test.
 
+Follow-up checks add an independent continuous uniaxial solution for linear
+creep plus isotropic plasticity: 16/32/64-step error ratios verify first-order
+time convergence. A 1/2-subdivision homogeneous patch gives matching reactions
+and state; it is deliberately not called nonuniform spatial convergence.
+The broad affected static/dynamic/operator/stateful selection passed 193 tests
+in 109.69 s. It exposed and now guards against an old duck-typing hazard:
+having E/nu must not advertise a history material as stateless elasticity.
+Explicit supplied-operator workflows remain distinct and supported.
+
+The ordinary project now solves homogeneous insulated heat first, transfers
+accepted temperature frames on the same mesh, and completes the 16-increment
+mechanical path in approximately 4.2 s. This records a source-CLI workflow
+check only, not an installed-wheel or thermal feedback/first-law validation.
+The project declares its required public API, and `agentfem check --runtime`
+passes. A separate final selection of flow/platform, continuation output and
+assessment regressions passed 178 tests in 11.20 s. Counts overlap earlier
+selections and must not be summed as unique test coverage. Ruff, generated
+documentation checks, strict MkDocs and the 57-card knowledge check pass.
+Local REUSE lint was unavailable because that tool is absent in the numerical
+environment; repository CI retains that gate.
+
 ## First damage/life assessment slice
 
 The bounded scalar Coffin-Manson-Basquin postprocessor adds explicit

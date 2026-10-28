@@ -99,6 +99,11 @@ def has_complete_linear_system(request) -> bool:
 
 
 def supports_elasticity(material) -> bool:
+    # Elastic moduli on a history material do not authorize discarding its
+    # state. Stateful providers own constitutive updates and transactions;
+    # the linear operator fallback must never infer that capability from E/nu.
+    if supports_stateful_constitutive(material):
+        return False
     return hasattr(material, "stiffness_voigt") or (
         hasattr(material, "young") and hasattr(material, "poisson")
     )
@@ -108,7 +113,8 @@ def supports_axisymmetric_elasticity(material) -> bool:
     """Require a constitutive record defining the full isotropic hoop response."""
 
     return (
-        hasattr(material, "young")
+        not supports_stateful_constitutive(material)
+        and hasattr(material, "young")
         and hasattr(material, "poisson")
         and not hasattr(material, "stiffness_voigt")
     )

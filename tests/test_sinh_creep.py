@@ -78,6 +78,18 @@ def test_sinh_zero_rate_and_unsupported_parameters():
         material(exponent=3.).update(strain, time_start=0., time_end=10., maximum_iterations=1)
 
 
+def test_sinh_public_rate_avoids_intermediate_overflow_without_clipping():
+    law = constitutive.SinhCreep(coefficient=1.e-300, stress_scale=1., exponent=1.)
+    # sinh(800) itself overflows, but coefficient*sinh(800) is representable.
+    expected = np.exp(np.log(1.e-300) + 800. - np.log(2.))
+    assert law.equivalent_rate(800.) == pytest.approx(expected, rel=1.e-13)
+    assert constitutive.SinhCreep(0., 1.).equivalent_rate(1.e6) == 0.
+    with pytest.raises(OverflowError, match="representable"):
+        constitutive.SinhCreep(1., 1.).equivalent_rate(1000.)
+    with pytest.raises(ValueError, match="finite"):
+        law.equivalent_rate(np.inf)
+
+
 @pytest.mark.parametrize("family", ["sinh", "power"])
 def test_linear_creep_zero_stress_tangent_includes_rate_derivative(family):
     law = (material(exponent=1.) if family == "sinh" else

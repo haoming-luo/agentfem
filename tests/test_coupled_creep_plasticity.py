@@ -312,3 +312,94 @@ def test_coupled_global_thermal_history_restart(tmp_path):
     for key, values in full.state.snapshot().items():
         np.testing.assert_allclose(resumed.state.snapshot()[key], values, atol=2.e-9, rtol=2.e-8)
     np.testing.assert_allclose(resumed.solution.x.array, full.solution.x.array, atol=1.e-10)
+
+
+def _linear_creep_ramp_hold(increments, cells=1):
+    from dolfinx import mesh as dmesh
+    from mpi4py import MPI
+    from agentfem import amplitudes, fields, mesh, models, solvers, steps, studies
+
+    domain = dmesh.create_unit_cube(MPI.COMM_SELF, cells, cells, cells)
+    model = models.create(study=studies.creep_solid(), mesh=domain)
+    u = model.field(fields.displacement(domain))
+    material = CreepPlasticityMaterial(
+        creep=constitutive.isotropic_power_law(
+            young=200_000., poisson=.3, density=1., coefficient=.001,
+            reference_stress=100., stress_exponent=1.),
+        plastic=constitutive.J2LinearIsotropicHardening(
+            young=200_000., poisson=.3, yield_stress=200., hardening_modulus=2_000.),
+    )
+    model.material(material)
+    for component, axis in enumerate(("x", "y", "z")):
+        model.fix(u, on=mesh.face(domain, axis=axis, value=0., tag=component + 1),
+                  component=component, value=0.)
+    model.fix(u, on=mesh.face(domain, axis="x", value=1., tag=4), component=0, value=.004)
+    return model.step(target=u, duration=2., amplitude=amplitudes.tabular([0., 1., 2.], [0., 1., 1.]),
+                      incrementation=steps.fixed(increments), progress=False,
+                      solver_options=solvers.newton(relative_tolerance=1.e-10, absolute_tolerance=1.e-10))
+
+
+def test_global_joint_linear_creep_time_refinement_against_continuous_solution():
+    # Independent continuous uniaxial equations: elastic-creep until yield,
+    # simultaneous linear isotropic plasticity/creep during the remaining ramp,
+    # then elastic-creep relaxation at fixed strain. Not a same-integrator reference.
+    young, hardening, rate, strain_rate, yield_stress = 200_000., 2_000., 1.e-5, .004, 200.
+    yield_time = -np.log1p(-rate * yield_stress / strain_rate) / (young * rate)
+    tangent = young * hardening / (young + hardening)
+    peak = strain_rate / rate + (yield_stress - strain_rate / rate) * np.exp(
+        -tangent * rate * (1. - yield_time))
+    final = peak * np.exp(-young * rate)
+    errors = []
+    for increments in (16, 32, 64):
+        step = _linear_creep_ramp_hold(increments)
+        step.solve()
+        stress = step.energy_history[-1].generalized_reaction / .004
+        errors.append(abs(stress - final))
+        assert step.state.plastic_fields["equivalent_plastic_strain"].global_max() > 0.
+        assert step.state.equivalent_creep_strain.global_max() > 0.
+    assert 1.7 < errors[0] / errors[1] < 2.3
+    assert 1.7 < errors[1] / errors[2] < 2.3
+    assert errors[2] / final < .07
+
+
+def test_joint_homogeneous_patch_is_mesh_independent_not_spatial_convergence():
+    coarse = _linear_creep_ramp_hold(16)
+    fine = _linear_creep_ramp_hold(16, cells=2)
+    coarse.solve()
+    fine.solve()
+    np.testing.assert_allclose(
+        [f.generalized_reaction for f in fine.energy_history],
+        [f.generalized_reaction for f in coarse.energy_history], rtol=1.e-8, atol=1.e-9)
+    for key, values in fine.state.snapshot().items():
+        np.testing.assert_allclose(values, np.broadcast_to(coarse.state.snapshot()[key][0], values.shape),
+                                   rtol=1.e-8, atol=1.e-9)
+
+
+@pytest.mark.parametrize("scope", ["axisymmetric", "regional", "static", "dynamic"])
+def test_joint_provider_inspection_and_execution_reject_unsupported_scope(scope):
+    from dolfinx import mesh as dmesh
+    from mpi4py import MPI
+    from agentfem import fields, models, studies
+    from agentfem.step_providers import step_capability
+
+    if scope == "axisymmetric":
+        domain = dmesh.create_unit_square(MPI.COMM_SELF, 1, 1)
+        study = studies.creep_solid(dimension=2, assumption="axisymmetric")
+    else:
+        domain = dmesh.create_unit_cube(MPI.COMM_SELF, 1, 1, 1)
+        study = (studies.static_solid(dimension=3) if scope == "static" else
+                 studies.dynamic_solid(dimension=3) if scope == "dynamic" else studies.creep_solid())
+    model = models.create(study=study, mesh=domain)
+    u = model.field(fields.displacement(domain))
+    # Region meaning is not evaluated: this composition must reject regional
+    # dispatch before lowering any quadrature/operator implementation.
+    model.material(_material(), region=object() if scope == "regional" else None)
+    options = {} if scope in ("static", "dynamic") else dict(duration=1.)
+    capability = step_capability(model, target=u, options=options)
+    assert not capability["supported"]
+    assert not capability["ready"]
+    if scope not in ("static", "dynamic"):
+        assert capability["rejection_reasons"]
+    with pytest.raises((ValueError, RuntimeError, NotImplementedError)):
+        model.step(target=u, **options)
+    assert not model.steps

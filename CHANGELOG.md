@@ -6,6 +6,10 @@ experimental formulation to a validated one.
 
 ## [Unreleased]
 
+- Reject history materials from inferred stateless linear elasticity/dynamics
+  dispatch even when they expose elastic moduli. Preserve explicitly supplied
+  operators and the dedicated stateful providers.
+
 - Add bounded scalar Coffin-Manson-Basquin strain-life assessment with required
   calibration range/provenance and explicit uncorrected-mean assumption;
   reuse existing rainflow and creep/fatigue assessment without altering FEM state.

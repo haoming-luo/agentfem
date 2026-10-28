@@ -6,7 +6,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from math import exp, isfinite, log, sinh
+from math import exp, isfinite, log
 from typing import ClassVar
 
 import numpy as np
@@ -896,11 +896,13 @@ class SinhCreep:
 
     def equivalent_rate(self, equivalent_stress: float, time: float = 0.0) -> float:
         """Return the autonomous rate; time is accepted for common flow consumers."""
-        return float(
-            self.coefficient
-            * sinh(abs(float(equivalent_stress)) / self.stress_scale) ** self.exponent
-            / self.reference_time
-        )
+        stress = abs(float(equivalent_stress))
+        if not isfinite(stress):
+            raise ValueError("Sinh creep stress must be finite.")
+        rate = float(_flow_rate_slope(self, stress, time)[0])
+        if not isfinite(rate):
+            raise OverflowError("Sinh creep rate exceeds the finite representable range.")
+        return rate
 
     def tensor_increment(self, stress, duration: float) -> np.ndarray:
         selected = np.asarray(stress, dtype=float)
