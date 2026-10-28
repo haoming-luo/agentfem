@@ -23,7 +23,7 @@ from .. import checkpointing
 from .. import procedures
 from .. import steps as step_controls
 from ..constitutive import elasticity
-from ..constitutive.creep import IsotropicPowerLawCreepMaterial
+from ..constitutive.creep import IsotropicCreepMaterial
 from ..constitutive.creep import von_mises
 from ..constitutive.quadrature import (
     CreepQuadratureState,
@@ -224,7 +224,7 @@ class ImplicitCreepStep:
 
     name: str
     solution: object
-    material: IsotropicPowerLawCreepMaterial | QuadratureMaterialMap
+    material: IsotropicCreepMaterial | QuadratureMaterialMap
     state: CreepQuadratureState
     residual_form: object
     tangent_form: object
@@ -1760,10 +1760,10 @@ def implicit_creep_step(
     """Build global 3D or axisymmetric implicit power-law creep."""
 
     if not isinstance(
-        material, (IsotropicPowerLawCreepMaterial, QuadratureMaterialMap)
+        material, (IsotropicCreepMaterial, QuadratureMaterialMap)
     ):
         raise TypeError(
-            "implicit_creep_step requires IsotropicPowerLawCreepMaterial or "
+            "implicit_creep_step requires IsotropicCreepMaterial or "
             "a QuadratureMaterialMap of that family."
         )
     domain = displacement.value.function_space.mesh

@@ -24,7 +24,7 @@ from .plasticity import (
     J2LinearIsotropicHardening,
     J2PlasticState,
 )
-from .creep import ImplicitCreepState, IsotropicPowerLawCreepMaterial
+from .creep import ImplicitCreepState, IsotropicCreepMaterial
 
 
 @dataclass(frozen=True)
@@ -1931,7 +1931,7 @@ class CreepQuadratureState:
     def update(
         self,
         strain_values,
-        material: IsotropicPowerLawCreepMaterial | QuadratureMaterialMap,
+        material: IsotropicCreepMaterial | QuadratureMaterialMap,
         *,
         time_start: float,
         time_end: float,
@@ -2111,7 +2111,7 @@ class CreepQuadratureState:
     def refresh_response(
         self,
         strain_values,
-        material: IsotropicPowerLawCreepMaterial | QuadratureMaterialMap,
+        material: IsotropicCreepMaterial | QuadratureMaterialMap,
         *,
         temperature_values=None,
     ) -> None:

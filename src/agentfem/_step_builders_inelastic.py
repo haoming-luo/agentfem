@@ -583,7 +583,7 @@ def creep(
     """Build and register a global 3D implicit power-law creep Step."""
 
     from . import mechanics
-    from .constitutive.creep import IsotropicPowerLawCreepMaterial
+    from .constitutive.creep import IsotropicCreepMaterial
     from .constitutive.quadrature import QuadratureMaterialMap
 
     _require_small_strain_boundary_support(model)
@@ -597,14 +597,14 @@ def creep(
         model,
         target,
         material,
-        material_type=IsotropicPowerLawCreepMaterial,
+        material_type=IsotropicCreepMaterial,
         label="model.step with implicit creep",
     )
     if not isinstance(
         material,
-        (IsotropicPowerLawCreepMaterial, QuadratureMaterialMap),
+        (IsotropicCreepMaterial, QuadratureMaterialMap),
     ):
-        raise TypeError("model.step requires IsotropicPowerLawCreepMaterial here.")
+        raise TypeError("model.step requires IsotropicCreepMaterial here.")
 
     selected_loads, amplitude = _single_shared_amplitude_loads(
         model.loads,

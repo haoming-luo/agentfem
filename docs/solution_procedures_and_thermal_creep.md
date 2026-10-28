@@ -126,6 +126,30 @@ effectively one way. The current route does not claim monolithic coupling.
 
 ## The first global creep state consumer
 
+### Hyperbolic-sine branch
+
+`constitutive.isotropic_sinh(young=..., poisson=..., density=...,
+coefficient=..., stress_scale=..., exponent=...)` now uses the same
+`studies.creep_solid()` and `model.step(...)` route. Its equivalent rate is
+`coefficient * sinh(q / stress_scale)**exponent / reference_time`.
+The bounded global integrator requires `exponent >= 1`. A safeguarded local
+solve and log-domain rate evaluation handle large *trial* stresses without
+clipping the physical rate. The consistent tangent differentiates the full
+backward-Euler update, holding the previously accepted state fixed.
+
+This branch is **experimental global**, not a newly validated engineering law.
+`tests/test_sinh_creep.py` checks scalar/batch histories, fixed-old-state tangent,
+the zero-rate limit, local relaxation convergence to an independent analytical
+solution, serial 3D held stress, and checkpoint continuation. Existing power-law
+checks remain separate. Distributed and independent structural validation have
+not been added for Sinh. Shared `elastic=...` thermal properties are accepted,
+but the Sinh rate parameters are temperature independent; no Arrhenius factor
+is inferred. Coupled plasticity, damage and contact are not enabled by this
+addition. The historical quadrature storage schema name is retained for archive
+compatibility; full-Step identity also binds the complete material law.
+
+### Power-law and temperature dependence
+
 The local `ArrheniusPowerLawCreep` relation is normalized at a declared
 reference temperature:
 

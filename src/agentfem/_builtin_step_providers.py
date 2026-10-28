@@ -1104,7 +1104,7 @@ def _lower_small_strain_material(model, request: StepRequest):
 
 
 def _implicit_creep_preconditions(model, request: StepRequest) -> bool:
-    from .constitutive.creep import IsotropicPowerLawCreepMaterial
+    from .constitutive.creep import IsotropicCreepMaterial
 
     study = getattr(model, "study", None)
     method = _procedure_method(model, request)
@@ -1124,7 +1124,7 @@ def _implicit_creep_preconditions(model, request: StepRequest) -> bool:
         and _all_materials_support(
             model,
             request,
-            lambda item: isinstance(item, IsotropicPowerLawCreepMaterial),
+            lambda item: isinstance(item, IsotropicCreepMaterial),
         )
     )
 

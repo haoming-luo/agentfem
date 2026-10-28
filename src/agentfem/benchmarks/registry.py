@@ -872,6 +872,19 @@ _BENCHMARKS = (
         ),
     ),
     BenchmarkSpec(
+        identifier="sinh_creep_update_and_hold",
+        capability="sinh_creep",
+        level="material_point_and_finite_element",
+        reference="docs/solution_procedures_and_thermal_creep.md",
+        criterion=(
+            "independent n=1 relaxation has first-order time convergence; "
+            "fixed-old-state tangent, scalar/batch histories, serial held "
+            "stress and complete checkpoint continuation agree"
+        ),
+        automated_test="tests/test_sinh_creep.py",
+        status="automated_experimental_global_patch",
+    ),
+    BenchmarkSpec(
         identifier="implicit_creep_relaxation",
         capability="power_law_creep",
         level="finite_element",

@@ -220,18 +220,34 @@ _CAPABILITIES = {
         ),
         limitations=(
             "the 3D and axisymmetric global Newton routes retain an experimental MPI boundary",
-            "Sinh and K-R laws remain local consumers",
+            "coupled creep/plasticity and K-R damage are not admitted by this Step",
             "external structural evidence is currently limited to the NAFEMS thick-cylinder benchmark",
             "no creep-damage regularization",
         ),
     ),
+    "sinh_creep": ConstitutiveCapability(
+        name="sinh_creep",
+        model="isotropic hyperbolic-sine Mises creep",
+        maturity="experimental_global_patch",
+        available_scope=(
+            "small-strain backward-Euler stress update with analytical consistent "
+            "tangent, scalar/batch history parity, and the shared implicit creep "
+            "Step; serial 3D held-stress and checkpoint/restart verification"
+        ),
+        limitations=(
+            "global exponent must be >= 1; rate parameters are temperature independent",
+            "shared thermoelastic properties do not imply temperature-dependent creep rate",
+            "no independent structural or distributed validation for this law yet",
+            "no coupled plasticity, contact, finite strain or damage evolution in this route",
+        ),
+    ),
     "creep_damage": ConstitutiveCapability(
         name="creep_damage",
-        model="Kachanov-Rabotnov damage coupling and hyperbolic-sine creep",
+        model="Kachanov-Rabotnov damage coupling",
         maturity="material_point_verified",
         available_scope=(
             "exact constant-stress K-R strain/damage update, rupture-time "
-            "screening, associative Mises tensor flow, and Sinh stress response"
+            "screening and associative Mises tensor flow"
         ),
         limitations=(
             "von Mises is the only implemented multiaxial damage-stress measure",

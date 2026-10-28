@@ -6,6 +6,11 @@ experimental formulation to a validated one.
 
 ## [Unreleased]
 
+- Reuse the implicit creep lifecycle for an experimental hyperbolic-sine flow
+  branch, including a safeguarded local corrector, analytical tangent and
+  scalar/batch parity. Preserve the power-law constructor and archive identity;
+  this does not add coupled plasticity, damage or contact admission.
+
 - Add `results.join_xdmf_segments` for a checked, lightweight reference-mesh
   continuation view without copying heavy data. Reject conflicting overlap,
   mesh/schema changes and missing declared stations before publication.
