@@ -334,12 +334,18 @@ class IsotropicCreepMaterial:
         )
         trial_deviator = deviatoric(trial_stress)
         q_trial = von_mises(trial_stress)
-        if q_trial <= max(1.0, young) * tolerance:
+        if q_trial == 0.0:
+            slope = float(_flow_rate_slope(creep_law, 0.0, end)[1])
+            relaxation = 1.0 / (1.0 + 3.0 * shear_modulus * dt * slope)
+            bulk_tangent = bulk_modulus * np.einsum("ij,kl->ijkl", np.eye(3), np.eye(3))
+            tangent = bulk_tangent + relaxation * (
+                self.elastic_tangent(temperature=temperature) - bulk_tangent
+            )
             return ImplicitCreepUpdate(
                 stress=trial_stress,
                 state=old,
                 equivalent_increment=0.0,
-                algorithmic_tangent=self.elastic_tangent(temperature=temperature),
+                algorithmic_tangent=tangent,
                 local_iterations=0,
             )
 
@@ -474,7 +480,7 @@ class IsotropicCreepMaterial:
         stress_trace = np.trace(trial_stress, axis1=1, axis2=2)
         trial_deviator = trial_stress - stress_trace[:, None, None] * identity / 3.0
         q_trial = np.sqrt(1.5 * np.sum(trial_deviator**2, axis=(1, 2)))
-        active = q_trial > max(1.0, self.young) * tolerance
+        active = q_trial > 0.0
 
         upper = np.zeros_like(q_trial)
         upper[active] = q_trial[active] / (3.0 * self.shear_modulus)
@@ -548,6 +554,11 @@ class IsotropicCreepMaterial:
         reduction[active] = q[active] / q_trial[active]
         pressure = stress_trace[:, None, None] * identity / 3.0
         stress = pressure + reduction[:, None, None] * trial_deviator
+
+        # At zero stress the flow vanishes, but its derivative need not vanish.
+        # This affects the deviatoric tangent, not the committed strain state.
+        zero_slope = float(_flow_rate_slope(self.creep, 0.0, end)[1])
+        reduction[~active] = 1.0 / (1.0 + 3.0 * self.shear_modulus * dt * zero_slope)
 
         rate = rates(q)
         rate_derivative = np.zeros_like(rate)
@@ -643,6 +654,10 @@ def _flow_rate_slope(law, equivalent, time):
             factor = 1.0 if law.time_exponent == 0.0 else (time / law.reference_time) ** law.time_exponent
             rate = law.coefficient * (q / law.reference_stress) ** law.stress_exponent * factor
             slope = np.divide(law.stress_exponent * rate, q, out=np.zeros_like(q), where=q > 0.)
+            if law.coefficient > 0.0 and law.stress_exponent <= 1.0:
+                zero_slope = (law.coefficient * factor / law.reference_stress
+                              if law.stress_exponent == 1.0 else np.inf)
+                slope = np.where(q == 0.0, zero_slope, slope)
         else:
             if law.coefficient == 0.0:
                 return np.zeros_like(q), np.zeros_like(q)

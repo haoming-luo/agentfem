@@ -1175,6 +1175,39 @@ class ImplicitCreepStep:
         return selected
 
     def load_checkpoint(self, path) -> None:
+        """Restore the whole accepted Step or leave every live component intact."""
+        displacement = self.solution.x.array.copy()
+        committed = self.state.snapshot()
+        trial = {key: value.values.copy() for key, value in self.state.transaction.trial.items()}
+        stress = self.state.stress.values.copy()
+        tangent = self.state.tangent.values.copy()
+        old_time = self.accepted_time
+        old_size = self.next_increment_size
+        old_info = self.last_solve_info
+        ledgers = {
+            name: list(getattr(self, name))
+            for name in ("accepted_increments", "attempted_increments",
+                         "execution_events", "energy_history")
+        }
+        try:
+            self._load_checkpoint_payload(path)
+        except Exception:
+            self.solution.x.array[:] = displacement
+            self.solution.x.scatter_forward()
+            self.state.restore(committed)
+            for key, value in self.state.transaction.trial.items():
+                value.assign(trial[key])
+            self.state.stress.assign(stress)
+            self.state.tangent.assign(tangent)
+            self.accepted_time = old_time
+            self.next_increment_size = old_size
+            self.last_solve_info = old_info
+            for name, values in ledgers.items():
+                getattr(self, name)[:] = values
+            self._apply_loading(old_time)
+            raise
+
+    def _load_checkpoint_payload(self, path) -> None:
         selected = Path(path)
         manifest = (
             selected
@@ -1214,6 +1247,18 @@ class ImplicitCreepStep:
             displacement = np.asarray(data["displacement"])
             if displacement.size != self.solution.x.array.size:
                 raise ValueError("Creep checkpoint displacement layout does not match.")
+            if not np.all(np.isfinite(displacement)) or np.iscomplexobj(displacement):
+                raise ValueError("Creep checkpoint displacement must be real and finite.")
+            accepted_time = float(data["accepted_time"])
+            if not np.isfinite(accepted_time) or not 0.0 <= accepted_time <= self.duration:
+                raise ValueError("Creep checkpoint time is outside the Step.")
+            for key, selected_field in self.state.transaction.committed.items():
+                values = data[key]
+                if (np.iscomplexobj(values) or not np.all(np.isfinite(values))
+                        or values.shape != selected_field.values.shape):
+                    raise ValueError(f"Creep checkpoint {key} has invalid values or layout.")
+            if np.any(data["equivalent_creep_strain"] < 0.0):
+                raise ValueError("Creep checkpoint equivalent strain must be nonnegative.")
             self.solution.x.array[:] = displacement
             self.solution.x.scatter_forward()
             self.state.restore(
@@ -1222,7 +1267,7 @@ class ImplicitCreepStep:
                     "equivalent_creep_strain": data["equivalent_creep_strain"],
                 }
             )
-            self.accepted_time = float(data["accepted_time"])
+            self.accepted_time = accepted_time
             self.accepted_increments[:] = [
                 CreepIncrementInfo.from_dict(item)
                 for item in json.loads(str(data["accepted_increments"]))
@@ -1324,6 +1369,9 @@ class ImplicitCreepStep:
         )
         if payload.get("step_identity") != current:
             raise ValueError("Portable creep checkpoint scientific identity differs.")
+        accepted_time = float(payload["coordinate"])
+        if not np.isfinite(accepted_time) or not 0.0 <= accepted_time <= self.duration:
+            raise ValueError("Portable creep checkpoint time is outside the Step.")
         load_portable_state_bundle(
             manifest,
             state={"U": self.solution},
@@ -1334,7 +1382,7 @@ class ImplicitCreepStep:
             validate_checkpoint_record(manifest.parent, payload["quadrature_state"]),
             material=self.material,
         )
-        self.accepted_time = float(payload["coordinate"])
+        self.accepted_time = accepted_time
         self.accepted_increments[:] = [
             CreepIncrementInfo.from_dict(item) for item in payload["accepted_increments"]
         ]

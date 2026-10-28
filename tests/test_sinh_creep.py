@@ -78,6 +78,24 @@ def test_sinh_zero_rate_and_unsupported_parameters():
         material(exponent=3.).update(strain, time_start=0., time_end=10., maximum_iterations=1)
 
 
+@pytest.mark.parametrize("family", ["sinh", "power"])
+def test_linear_creep_zero_stress_tangent_includes_rate_derivative(family):
+    law = (material(exponent=1.) if family == "sinh" else
+           constitutive.isotropic_power_law(young=200_000., poisson=0.3, density=1.,
+                                            coefficient=1.e-5, reference_stress=100., stress_exponent=1.))
+    strain = np.zeros((3, 3))
+    direction = np.diag([1., -0.5, -0.5])
+    delta = 1.e-7
+    response = law.update(strain, time_start=0., time_end=10.)
+    numerical = (law.update(delta * direction, time_start=0., time_end=10.).stress
+                 - law.update(-delta * direction, time_start=0., time_end=10.).stress) / (2 * delta)
+    np.testing.assert_allclose(np.einsum("ijkl,kl->ij", response.algorithmic_tangent, direction),
+                               numerical, rtol=1.e-8)
+    batch = law.update_many(strain[None], time_start=0., time_end=10.,
+                            creep_strain=strain[None], equivalent_creep_strain=[0.])
+    np.testing.assert_allclose(batch.algorithmic_tangent[0], response.algorithmic_tangent)
+
+
 def test_sinh_relaxation_converges_to_independent_continuous_solution():
     # Fixed deviatoric strain: dq/dt = -3 G A sinh(q/s), n=1.
     law = material(coefficient=1.e-4)
@@ -136,3 +154,52 @@ def test_sinh_public_step_constant_stress_and_restart(tmp_path):
     with pytest.raises((ValueError, RuntimeError)):
         incompatible.load_checkpoint(checkpoint)
     np.testing.assert_array_equal(incompatible.state.creep_strain.values, before)
+
+
+@pytest.mark.parametrize("portable", [False, True])
+@pytest.mark.parametrize("damage", ["ledger", "state"])
+def test_creep_checkpoint_late_failure_restores_complete_live_step(tmp_path, portable, damage):
+    import json
+
+    source = _structure()
+    source.solve(until=1.)
+    checkpoint = source.save_checkpoint(tmp_path / "source.npz", portable=portable)
+    if portable:
+        payload = json.loads(checkpoint.read_text())
+        if damage == "ledger":
+            payload["energy_history"] = [{"broken": True}]
+        else:
+            payload["quadrature_state"]["sha256"] = "0" * 64
+        checkpoint.write_text(json.dumps(payload))
+    else:
+        with np.load(checkpoint, allow_pickle=False) as archive:
+            payload = {key: archive[key].copy() for key in archive.files}
+        if damage == "ledger":
+            payload["energy_history"] = json.dumps([{"broken": True}])
+        else:
+            payload["equivalent_creep_strain"] = np.array([np.nan])
+        np.savez(checkpoint, **payload)
+    receiving = _structure()
+    receiving.solve(until=0.5)
+    before_u = receiving.solution.x.array.copy()
+    before_state = receiving.state.snapshot()
+    before_stress = receiving.state.stress.values.copy()
+    before_tangent = receiving.state.tangent.values.copy()
+    before_energy = list(receiving.energy_history)
+    before_info = receiving.last_solve_info
+    with pytest.raises((ValueError, RuntimeError, KeyError, TypeError)):
+        receiving.load_checkpoint(checkpoint)
+    assert receiving.accepted_time == 0.5
+    assert receiving.last_solve_info is before_info
+    assert receiving.energy_history == before_energy
+    np.testing.assert_array_equal(receiving.solution.x.array, before_u)
+    np.testing.assert_array_equal(receiving.state.stress.values, before_stress)
+    np.testing.assert_array_equal(receiving.state.tangent.values, before_tangent)
+    for key, values in before_state.items():
+        np.testing.assert_array_equal(receiving.state.snapshot()[key], values)
+        np.testing.assert_array_equal(receiving.state.transaction.trial[key].values, values)
+    # Rejection must not poison the following ordinary continuation.
+    receiving.solve()
+    reference = _structure()
+    reference.solve()
+    np.testing.assert_allclose(receiving.solution.x.array, reference.solution.x.array, atol=1.e-10)

@@ -6,6 +6,10 @@ experimental formulation to a validated one.
 
 ## [Unreleased]
 
+- Restore the entire live creep Step after a failed checkpoint load, including
+  displacement, trial/accepted state and time/energy ledgers. Preserve the
+  nonzero flow derivative in the zero-stress linear-creep tangent.
+
 - Reuse the implicit creep lifecycle for an experimental hyperbolic-sine flow
   branch, including a safeguarded local corrector, analytical tangent and
   scalar/batch parity. Preserve the power-law constructor and archive identity;
