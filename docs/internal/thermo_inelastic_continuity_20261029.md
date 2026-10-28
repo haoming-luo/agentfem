@@ -84,3 +84,14 @@ creep/plasticity, Sinh creep, platform/constitutive models, checkpoint
 capabilities and the generic small-strain Step. The ordinary source CLI example
 completed 16 accepted increments in approximately 4.4 s; this is a workflow
 smoke check, not a speed benchmark or an installed-wheel test.
+
+## First damage/life assessment slice
+
+The bounded scalar Coffin-Manson-Basquin postprocessor adds explicit
+calibration range, source, cycle/reversal convention and an uncorrected-mean
+decision. It reuses rainflow and the existing creep/fatigue interaction;
+no stiffness damage or life-driven state mutation is introduced. All 68 tests
+in the strain-life, existing fatigue/fracture and assessment selection passed.
+The [public contract](../strain_life_assessment.md) explains scope, theory
+source and the risk of dwell double-counting. This starts stage three; it does
+not close global damage, regularization, multiaxial life or material calibration.

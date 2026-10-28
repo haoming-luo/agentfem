@@ -964,6 +964,18 @@ _BENCHMARKS = (
         automated_test="tests/test_assessments.py",
     ),
     BenchmarkSpec(
+        identifier="calibrated_strain_life_assessment",
+        capability="strain_life_fatigue",
+        level="postprocessor",
+        reference="docs/strain_life_assessment.md",
+        criterion=(
+            "closed-form equal-exponent inversion, cycle/reversal convention, "
+            "calibration-domain rejection, scalar half-cycle counting and "
+            "source-preserving creep/fatigue composition"
+        ),
+        automated_test="tests/test_strain_life.py",
+    ),
+    BenchmarkSpec(
         identifier="creep_damage_material_paths",
         capability="creep_damage",
         level="material_point",

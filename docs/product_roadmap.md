@@ -30,7 +30,7 @@ commercial contact parity, or replace the earlier open spatial-accuracy gates.
 | --- | --- | --- |
 | Reliable results and restart | Validated zero-copy XDMF continuation views; atomic late-failure creep checkpoint restoration | Installed-use regression; a joined view alone does not prove physical restart continuity |
 | Thermal–cyclic plasticity–creep | Shared implicit Sinh flow; simultaneous J2/Chaboche + creep update, consistent tangent, ordinary `model.step`, temperature history, cutback, separate energy channels and serial restart | Spatial/time refinement and broader independent references; MPI, contact, regional materials and temperature-dependent plastic properties remain unsupported for the new composition |
-| Damage/life | Existing engineering time-fraction/interaction assessment is reused | Add calibrated scalar strain-life assessment first; global damage feedback needs its own regularization and verification design |
+| Damage/life | Calibrated scalar strain-life assessment reuses rainflow and the existing time-fraction/interaction assessment | Paired mean-stress/multiaxial/nonisothermal life and global damage feedback need their own contracts and independent validation |
 
 The initial joint-material gate is a homogeneous 3D small-strain hold/reverse
 fixture, including an independent uniaxial stress solution. It is not an

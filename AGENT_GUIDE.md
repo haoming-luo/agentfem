@@ -281,6 +281,11 @@ never changes solver access, results, verification, or update behavior.
   residuals separate. For engineering creep--fatigue from result histories,
   declare `DwellInterval` objects and pass a source-identified project rupture
   relation to `creep_fatigue_from_result(...)`; do not embed normative curves.
+  For scalar strain-life instead, explicitly call `assess_strain_history`
+  with a calibrated `CoffinMansonBasquinCurve` and signed total mechanical
+  strain. Never substitute accumulated PEEQ or sparse visualization frames.
+  The result can be passed to `assessments.creep_fatigue`; it is not a
+  stiffness-damage law or a certified service-life prediction.
 - Multi-Step activation: use `model.stage(...)` and pass its result as
   `configuration=` to `model.step(...)`; keep asset inheritance separate from
   incrementation and nonlinear solver controls.

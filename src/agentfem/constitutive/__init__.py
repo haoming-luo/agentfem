@@ -133,6 +133,12 @@ from .fatigue import (
     rainflow_cycles,
     turning_points,
 )
+from .strain_life import (
+    CoffinMansonBasquinCurve,
+    StrainCycle,
+    StrainLifeAssessment,
+    assess_strain_history,
+)
 from .finite_strain_plasticity import (
     FiniteStrainJ2Logarithmic,
     finite_strain_j2_logarithmic,
@@ -290,6 +296,10 @@ __all__ = [
     "AnisotropicElasticMaterial2D",
     "ConstitutiveCapability",
     "BasquinCurve",
+    "CoffinMansonBasquinCurve",
+    "StrainCycle",
+    "StrainLifeAssessment",
+    "assess_strain_history",
     "CreepHistory",
     "ChabocheCombinedHardening",
     "ChabocheQuadratureState",

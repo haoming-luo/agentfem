@@ -6,6 +6,10 @@ experimental formulation to a validated one.
 
 ## [Unreleased]
 
+- Add bounded scalar Coffin-Manson-Basquin strain-life assessment with required
+  calibration range/provenance and explicit uncorrected-mean assumption;
+  reuse existing rainflow and creep/fatigue assessment without altering FEM state.
+
 - Add an experimental simultaneous creep/J2-or-Chaboche material on the existing
   physical-time implicit Step. Keep joint history, consistent tangent, thermal
   input, cutback and restart together; expose separate plastic work/storage/

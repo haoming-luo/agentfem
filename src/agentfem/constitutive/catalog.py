@@ -297,12 +297,23 @@ _CAPABILITIES = {
             "linear Goodman is the only mean-stress correction",
         ),
     ),
+    "strain_life_fatigue": ConstitutiveCapability(
+        name="strain_life_fatigue",
+        model="combined Coffin-Manson-Basquin strain-life curve with rainflow and Miner sum",
+        maturity="postprocessor",
+        available_scope="signed scalar total mechanical strain histories within declared calibration bounds",
+        limitations=(
+            "no implicit tensor reduction, PEEQ substitution, or extrapolation",
+            "uncorrected mean stress must be explicitly selected; no Morrow/SWT",
+            "no stiffness damage, thermomechanical calibration or industrial lifetime certification",
+        ),
+    ),
     "creep_fatigue_assessment": ConstitutiveCapability(
         name="creep_fatigue_assessment",
         model="creep time-fraction plus declared fatigue interaction diagram",
         maturity="postprocessor",
         available_scope=(
-            "source-identified dwell blocks, existing stress-life fatigue "
+            "source-identified dwell blocks, stress-life or scalar strain-life fatigue "
             "assessments, explicit piecewise-linear interaction curves, and "
             "structured SimulationResult attachment"
         ),

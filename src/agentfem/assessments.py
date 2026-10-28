@@ -18,6 +18,7 @@ from typing import Callable, Iterable
 import numpy as np
 
 from .constitutive.fatigue import FatigueAssessment
+from .constitutive.strain_life import StrainLifeAssessment
 
 
 @dataclass(frozen=True)
@@ -389,7 +390,7 @@ class InteractionDiagram:
 class CreepFatigueAssessment:
     """Combined engineering assessment from independent damage consumers."""
 
-    fatigue: FatigueAssessment
+    fatigue: FatigueAssessment | StrainLifeAssessment
     creep: CreepDamageAssessment
     interaction: InteractionDiagram
     allowable_fatigue_damage: float
@@ -472,14 +473,14 @@ def linear_interaction() -> InteractionDiagram:
 
 def creep_fatigue(
     *,
-    fatigue: FatigueAssessment,
+    fatigue: FatigueAssessment | StrainLifeAssessment,
     creep: CreepDamageAssessment,
     interaction: InteractionDiagram | None = None,
 ) -> CreepFatigueAssessment:
     """Combine existing fatigue and creep assessments against one boundary."""
 
-    if not isinstance(fatigue, FatigueAssessment):
-        raise TypeError("fatigue must be a constitutive.fatigue.FatigueAssessment.")
+    if not isinstance(fatigue, (FatigueAssessment, StrainLifeAssessment)):
+        raise TypeError("fatigue must be a FatigueAssessment or StrainLifeAssessment.")
     if not isinstance(creep, CreepDamageAssessment):
         raise TypeError("creep must be a CreepDamageAssessment.")
     selected = linear_interaction() if interaction is None else interaction
