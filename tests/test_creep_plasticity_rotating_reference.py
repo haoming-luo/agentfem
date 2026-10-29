@@ -11,8 +11,9 @@ from agentfem import constitutive
 
 def _reference(time, *, thermal, chaboche=False, order=64):
     # Prescribed deviatoric stress rotates between two orthonormal tensors.
-    # q=Y+H*p with p=beta*t ensures continuing plastic loading. Both creep
-    # and plastic flow directions follow the CURRENT stress, not an old axis.
+    # q=Y+H*p with p=beta*t ensures continuing plastic loading. Plastic flow
+    # follows current relative stress; creep follows current Cauchy stress.
+    # They coincide only for the isotropic branch, never by freezing an axis.
     young, poisson, yield_stress, hardening = 200_000., .3, 200., 2_000.
     beta, coefficient, reference_stress = .002, 1.e-5, 100.
     shear = young / (2. * (1. + poisson))
