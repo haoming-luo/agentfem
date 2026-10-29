@@ -875,14 +875,32 @@ _BENCHMARKS = (
         identifier="coupled_creep_plasticity_cycle",
         capability="coupled_creep_plasticity",
         level="material_point_and_finite_element",
-        reference="docs/internal/thermo_inelastic_continuity_20261029.md",
+        reference="docs/creep_fatigue_verification.md",
         criterion=(
             "simultaneous equations and fixed-old-state tangent hold on nonproportional "
             "paths; 3D cycle agrees with independent uniaxial equations; joint-state "
-            "cutback, thermal-history restart and corrupted restart rejection pass"
+            "cutback, thermal-history restart and corrupted restart rejection pass; "
+            "independent rotating thermal paths and nonuniform fields refine in time/space"
         ),
-        automated_test="tests/test_coupled_creep_plasticity.py",
+        automated_test=(
+            "tests/test_coupled_creep_plasticity.py "
+            "tests/test_creep_plasticity_rotating_reference.py "
+            "tests/test_creep_manufactured_field.py"
+        ),
         status="automated_experimental_global_patch",
+    ),
+    BenchmarkSpec(
+        identifier="creep_elastic_followup",
+        capability="power_law_creep",
+        level="finite_element",
+        reference="docs/creep_fatigue_verification.md",
+        criterion=(
+            "ordinary regional creep reproduces independent series-shear relaxation "
+            "with elastic follow-up ratios 2 and 5, first-order time convergence, "
+            "interface traction balance and zero creep in the elastic region"
+        ),
+        automated_test="tests/test_creep_elastic_followup.py",
+        status="automated_analytical_reference",
     ),
     BenchmarkSpec(
         identifier="sinh_creep_update_and_hold",

@@ -146,6 +146,10 @@ convergence. Do not infer universal conservatism or material accuracy from
 either test. Explicit hour/second invariance, mismatched grids, domain failures,
 nonoverlapping dwells, finite strict JSON and late-failure nonpublication are
 also tested. Original sampling gaps remain in the assessment evidence.
+The optional source-gap limit has a recorded 1e-12 relative roundoff allowance
+so ordinary equal time increments are not rejected by subtraction noise. There
+is no absolute or time-origin-scaled tolerance; large time offsets and very
+small intervals cannot conceal a genuinely undersampled history.
 
 ### Independent rainflow counting
 

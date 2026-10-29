@@ -304,3 +304,11 @@ This reuses ordinary material regions and coefficient-zero elasticity; no
 empirical follow-up parameter or new solver is added to production code.
 It is a shear analogue motivated by the public ANL two-bar mechanism, not
 an experimental axial-specimen comparison or joint-regional admission.
+
+Final usage review reproduced a new-history guard defect: ten nominal 0.1 s
+intervals include a floating-point gap 0.10000000000000009 and were rejected
+by an exact 0.1 s limit. The comparison now has a recorded 1e-12 relative
+roundoff allowance, retains the measured source gaps, and has no absolute or
+large-time-origin allowance. Regressions reject real excess, large-origin
+gaps and tiny-scale undersampling. This does not alter the quadrature or
+invent additional source samples.

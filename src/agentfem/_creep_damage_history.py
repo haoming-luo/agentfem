@@ -11,6 +11,9 @@ from math import fsum, isfinite
 import numpy as np
 
 
+_SOURCE_INTERVAL_RTOL = 1.e-12
+
+
 @dataclass(frozen=True)
 class _DamageInterval:
     start: float
@@ -58,6 +61,7 @@ class CreepDamageHistoryAssessment:
             damage_rate_unit=f"1/{self.time_unit}", damage=float(self.damage),
             maximum_stress_sample_interval=self.maximum_stress_sample_interval,
             maximum_temperature_sample_interval=self.maximum_temperature_sample_interval,
+            source_interval_relative_tolerance=_SOURCE_INTERVAL_RTOL,
             intervals=[interval.as_dict() for interval in self.intervals],
         )
 
@@ -90,7 +94,8 @@ def creep_damage_from_result(
     fitted rupture relation, unit conversion or extrapolation is implicit.
     Histories may have different time grids; their union and clipped dwell
     endpoints define the trapezoidal quadrature. Source sampling, not just the
-    union grid, is checked by optional ``maximum_source_interval``.
+    union grid, is checked by optional ``maximum_source_interval``, with a
+    relative 1e-12 roundoff allowance and no absolute/time-origin allowance.
 
     Dwells must be ordered, disjoint and covered by both histories. A repeated
     dwell represents an explicitly assumed repeated response; it does not
@@ -140,7 +145,8 @@ def creep_damage_from_result(
             slices.append(slice(first, stop))
             gap = float(np.max(source_intervals[index][first - 1:stop]))
             gaps[index] = max(gaps[index], gap)
-            if maximum_source_interval is not None and gap > maximum_source_interval:
+            if (maximum_source_interval is not None
+                    and gap - maximum_source_interval > _SOURCE_INTERVAL_RTOL * maximum_source_interval):
                 raise ValueError("Source history exceeds maximum_source_interval; interpolation cannot add evidence.")
         dwell_slices.append(slices)
     intervals = []

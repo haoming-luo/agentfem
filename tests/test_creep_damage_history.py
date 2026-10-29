@@ -132,6 +132,27 @@ def test_dense_other_channel_cannot_hide_sparse_source():
     assert _integrate(result).maximum_stress_sample_interval == 3.
 
 
+def test_declared_regular_sampling_tolerates_roundoff_but_keeps_measured_gap():
+    times = np.linspace(0., 1., 11)
+    history = _result(times, np.ones(11), times, np.full(11, 800.))
+    assessment = _integrate(history, dwells=[assessments.DwellInterval(0., 1.)],
+                            maximum_source_interval=.1)
+    assert assessment.damage == pytest.approx(1.e-5)
+    assert assessment.maximum_stress_sample_interval == float(np.diff(times).max())
+    assert assessment.as_dict()["source_interval_relative_tolerance"] == 1.e-12
+
+
+@pytest.mark.parametrize("times, limit", [
+    ((0., .1 + 1.e-10), .1),
+    ((1.e12, 1.e12 + .25), .1),
+    ((0., 1.e-20), 1.e-21),
+])
+def test_sampling_allowance_cannot_hide_real_gaps_large_time_origins_or_tiny_scales(times, limit):
+    history = _result(times, (1., 1.), times, (800., 800.))
+    with pytest.raises(ValueError, match="Source history"):
+        _integrate(history, dwells=[assessments.DwellInterval(*times)], maximum_source_interval=limit)
+
+
 @pytest.mark.parametrize("value", [0., -1., np.nan, -np.inf, 1.j, [1.], 1.e-320])
 def test_invalid_rupture_relation_reports_dwell_and_time(value):
     with pytest.raises(ValueError, match="Rupture relation failed.*time"):
