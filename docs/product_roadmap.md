@@ -54,6 +54,13 @@ archives; failure, pause and restart do not need project checkpoint callbacks.
 Cadence is based on the restored accepted ledger; only newly published scheduled
 records are eligible for retention. Manual and previous-run files stay outside
 that policy. Disk/reporting failure is not numerical cutback or material failure.
+The follow-up verification audit also rejects observable provider input mutation
+without modifying the caller's request. Full/reduced finite-strain and small-strain
+tangent evidence now share unit-robust error arithmetic; scalar/batch stress
+symmetry retains point-local scales. This is verification infrastructure, not
+experimental validation of any user law. Generic rotation evidence must declare
+the frame of history tensors and external fields before a reusable checker can
+admit them; array shape alone cannot establish those transformation rules.
 
 ### Thermal–inelastic continuity sprint (2026-10-29)
 

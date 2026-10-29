@@ -25,6 +25,7 @@ from .user_material import (
     MaterialTangentConvention,
     UserMaterial,
     _STATE_NAME,
+    _symmetric_tensors,
 )
 
 
@@ -157,11 +158,7 @@ class MaterialPointArrayBatchOutput:
             raise ValueError("An array response requires a batch of stress tensors.")
         count = len(stress)
         stress = _array(stress, (count, 3, 3), "cauchy_stress")
-        scale = np.maximum(np.linalg.norm(stress, axis=(1, 2)), np.finfo(float).tiny)
-        if np.any(
-            np.max(np.abs(stress - stress.transpose(0, 2, 1)), axis=(1, 2))
-            > 1e-10 * scale
-        ):
+        if not _symmetric_tensors(stress):
             raise ValueError("cauchy_stress must be symmetric at every point.")
         object.__setattr__(self, "cauchy_stress", stress)
         object.__setattr__(

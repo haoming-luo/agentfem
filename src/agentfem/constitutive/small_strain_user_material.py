@@ -22,6 +22,9 @@ import numpy as np
 from .user_material import (
     MaterialStateSchema,
     MaterialTangentConvention,
+    _isolated_material_evaluation,
+    _symmetric_tensors,
+    _tangent_error_metrics,
 )
 
 
@@ -697,7 +700,15 @@ def check_small_strain_material_tangent(
         raise ValueError("relative_step must be finite and positive.")
     if not np.isfinite(selected_tolerance) or selected_tolerance <= 0.0:
         raise ValueError("tolerance must be finite and positive.")
-    baseline = validated_small_strain_update(material, point)
+
+    def evaluate(candidate):
+        return _isolated_material_evaluation(
+            candidate,
+            lambda trial: validated_small_strain_update(material, trial),
+            ("strain_old", "strain_new", "state_old"),
+        )
+
+    baseline = evaluate(point)
     numerical = np.empty((6, 6), dtype=float)
     base = point.strain_new
     for column, (row, component) in enumerate(
@@ -708,27 +719,27 @@ def check_small_strain_material_tangent(
         minus = base.copy()
         plus[row, component] += increment
         minus[row, component] -= increment
+        if (
+            plus[row, component] == base[row, component]
+            or minus[row, component] == base[row, component]
+        ):
+            raise ValueError(
+                "Tangent perturbation is not representable; increase relative_step."
+            )
         denominator = 2.0 * increment
         if row != component:
             plus[component, row] += increment
             minus[component, row] -= increment
             if baseline.tangent_convention.shear_convention == "engineering":
                 denominator *= 2.0
-        plus_response = validated_small_strain_update(
-            material, replace(point, strain_new=plus)
-        )
-        minus_response = validated_small_strain_update(
-            material, replace(point, strain_new=minus)
-        )
+        plus_response = evaluate(replace(point, strain_new=plus))
+        minus_response = evaluate(replace(point, strain_new=minus))
         numerical[:, column] = (
             _symmetric_voigt(plus_response.cauchy_stress)
             - _symmetric_voigt(minus_response.cauchy_stress)
         ) / denominator
     declared = baseline.consistent_tangent
-    difference = numerical - declared
-    denominator = max(float(np.linalg.norm(numerical)), np.finfo(float).tiny)
-    relative_error = float(np.linalg.norm(difference) / denominator)
-    maximum = float(np.max(np.abs(difference), initial=0.0))
+    relative_error, maximum = _tangent_error_metrics(declared, numerical)
     return SmallStrainMaterialTangentCheck(
         relative_error=relative_error,
         maximum_absolute_error=maximum,
@@ -854,10 +865,9 @@ def _symmetric_tensor(value, *, label: str) -> np.ndarray:
     selected = np.asarray(value, dtype=float)
     if selected.shape != (3, 3) or not np.all(np.isfinite(selected)):
         raise ValueError(f"{label} must be a finite 3x3 tensor.")
-    scale = max(float(np.linalg.norm(selected)), np.finfo(float).tiny)
-    if np.max(np.abs(selected - selected.T)) > 1.0e-10 * scale:
+    if not _symmetric_tensors(selected):
         raise ValueError(f"{label} must be symmetric.")
-    return 0.5 * (selected + selected.T)
+    return selected + 0.5 * (selected.T - selected)
 
 
 def _symmetric_tensor_batch(value, *, label: str) -> np.ndarray:
@@ -870,11 +880,9 @@ def _symmetric_tensor_batch(value, *, label: str) -> np.ndarray:
         raise ValueError(f"{label} must have shape (points, 3, 3) and be finite.")
     if len(selected) == 0:
         raise ValueError(f"{label} must contain at least one point.")
-    skew = np.max(np.abs(selected - np.swapaxes(selected, 1, 2)), axis=(1, 2))
-    scale = np.maximum(np.linalg.norm(selected, axis=(1, 2)), np.finfo(float).tiny)
-    if np.any(skew > 1.0e-10 * scale):
+    if not _symmetric_tensors(selected):
         raise ValueError(f"Every {label} tensor must be symmetric.")
-    return 0.5 * (selected + np.swapaxes(selected, 1, 2))
+    return selected + 0.5 * (np.swapaxes(selected, 1, 2) - selected)
 
 
 def _symmetric_voigt(value) -> np.ndarray:

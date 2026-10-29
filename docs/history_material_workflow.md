@@ -318,6 +318,17 @@ central difference. The reduced checker instead rejects inadmissible
 perturbations. Both normalize error arithmetic before forming norms, so stress
 unit scaling does not turn a wrong tangent into a passing zero-error check.
 Perturbations too small to change the stored gradient are rejected explicitly.
+Both checkers isolate every provider request, including the baseline and local
+plane-stress iterations. If `update()` changes an input array (`F_old`, `F_new`,
+old state, properties or external fields), verification rejects it with
+`AFM-MATERIAL-INPUT-MUTATION` and leaves the caller's request unchanged. Return
+trial history in `state_new`; do not edit committed input history. This audit
+runs in verification only, not every production integration-point update. It
+does not prove the absence of hidden mutable state in an arbitrary provider.
+The small-strain checker follows the same isolation and unit-robust error rules,
+while keeping its own stress/strain and shear convention. Scalar and batch
+Cauchy-stress symmetry checks normalize each point independently; a large
+neighboring stress cannot hide a smaller point's nonsymmetric response.
 
 ## Extension authors
 

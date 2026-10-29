@@ -375,8 +375,7 @@ class MaterialPointOutput:
         state = np.asarray(self.state_new, dtype=float).reshape(-1)
         if stress.shape != (3, 3) or not np.all(np.isfinite(stress)):
             raise ValueError("cauchy_stress must be a finite 3x3 tensor.")
-        stress_scale = max(float(np.linalg.norm(stress)), np.finfo(float).tiny)
-        if np.max(np.abs(stress - stress.T)) > 1.0e-10 * stress_scale:
+        if not _symmetric_tensors(stress):
             raise ValueError("cauchy_stress must be symmetric.")
         if self.tangent_convention is None:
             if tangent.shape != (6, 6) or not np.all(np.isfinite(tangent)):
@@ -651,6 +650,70 @@ def validated_material_batch_update(
     )
 
 
+def _symmetric_tensors(values):
+    """Check finite (...,3,3) tensors without squaring dimensional magnitudes."""
+    magnitude = np.max(np.abs(values), axis=(-2, -1), keepdims=True)
+    normalized = np.divide(
+        values, magnitude, out=np.zeros_like(values), where=magnitude != 0
+    )
+    skew = np.max(
+        np.abs(normalized - np.swapaxes(normalized, -2, -1)), axis=(-2, -1)
+    )
+    return bool(np.all(skew <= 1e-10 * np.linalg.norm(normalized, axis=(-2, -1))))
+
+
+class _MaterialInputMutationError(ValueError):
+    """A verification contract error, never a recoverable constitutive trial."""
+
+
+def _isolated_material_evaluation(point, update, array_names):
+    candidate = replace(point)
+    try:
+        return update(candidate)
+    finally:
+        for name in array_names:
+            expected, actual = getattr(point, name), getattr(candidate, name)
+            if not np.array_equal(expected, actual):
+                raise _MaterialInputMutationError(
+                    f"AFM-MATERIAL-INPUT-MUTATION: update() modified {name}; "
+                    "return new history in state_new without modifying the request."
+                )
+
+
+class _VerificationMaterial:
+    """Isolate and audit verifier requests without taxing production updates.
+
+    Frozen dataclasses do not freeze their NumPy arrays. Give the provider a
+    fresh request on every evaluation, including the baseline, and refuse to
+    label a mutated request as fixed-old-state differentiation. This checks
+    observable input mutation, not arbitrary hidden state inside a provider.
+    """
+
+    def __init__(self, material):
+        if not isinstance(material, UserMaterial):
+            raise TypeError(
+                "User material must declare name, state_schema, tangent_convention, "
+                "and update()."
+            )
+        self.name = material.name
+        self.state_schema = material.state_schema
+        self.tangent_convention = material.tangent_convention
+        self._material = material
+
+    def update(self, point):
+        return _isolated_material_evaluation(
+            point,
+            self._material.update,
+            (
+                "deformation_gradient_old",
+                "deformation_gradient_new",
+                "state_old",
+                "properties",
+                "field_variables",
+            ),
+        )
+
+
 def _tangent_error_metrics(analytic, numerical):
     """Normalize before norms/subtraction so the verdict does not depend on units."""
     if not np.isfinite(analytic).all() or not np.isfinite(numerical).all():
@@ -728,6 +791,8 @@ def check_material_tangent(
     of continuum formulas evaluated along different material histories.
     When the negative perturbation would invert F, a forward difference is
     retained for that column and explicitly identified in the evidence.
+    Requests are isolated and observable input-array mutation is rejected;
+    this does not certify that a provider has no hidden mutable state.
     """
 
     step = float(relative_step)
@@ -736,6 +801,7 @@ def check_material_tangent(
         raise ValueError("relative_step must be finite and positive.")
     if not np.isfinite(selected_tolerance) or selected_tolerance <= 0.0:
         raise ValueError("tolerance must be finite and positive.")
+    material = _VerificationMaterial(material)
     baseline = validated_material_update(material, point)
     convention = baseline.tangent_convention
     if (

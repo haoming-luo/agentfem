@@ -17,6 +17,8 @@ from .user_material import (
     MaterialTangentConvention,
     validated_material_update,
     _tangent_error_metrics,
+    _MaterialInputMutationError,
+    _VerificationMaterial,
 )
 
 _IN_PLANE = np.array((0, 1, 3, 4))  # row-major 11,12,21,22
@@ -295,6 +297,8 @@ def reduce_plane_stress(
                 if abs(trial[2][2, 2]) < abs(P[2, 2]):
                     candidate = trial
                     break
+            except _MaterialInputMutationError:
+                raise  # A verification contract error cannot be fixed by backtracking.
             except (
                 ValueError,
                 RuntimeError,
@@ -334,6 +338,7 @@ def check_plane_stress_tangent(
         raise ValueError("relative_step must be finite and positive.")
     if not np.isfinite(tolerance) or tolerance <= 0:
         raise ValueError("tolerance must be finite and positive.")
+    material = _VerificationMaterial(material)
     baseline = reduce_plane_stress(material, point, reduction=reduction)
     numerical = np.empty((4, 4))
     for column, component in enumerate(_IN_PLANE):
