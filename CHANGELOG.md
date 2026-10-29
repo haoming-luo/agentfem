@@ -6,12 +6,24 @@ experimental formulation to a validated one.
 
 ## [Unreleased]
 
+- Extend that material-only workflow with explicit reflection-symmetric
+  plane-stress reduction: solve positive thickness stretch from `P33=0`,
+  check transverse shear/coupling, and use a separately condensed in-plane
+  algorithmic tangent. Preserve original full 3D material stress and tangent,
+  accepted thickness history, rollback and restart. Include independent
+  force-controlled history checks and actual VTK/Warp field validation.
+  This is serial and per unit reference thickness, not shells or general
+  anisotropic plane stress; no scalar-reduction batching speedup is claimed.
+  Keep built-in J2 rejection contracts authoritative rather than allowing the
+  generic material provider to bypass an unsupported solver policy.
+
 - Add an experimental material-only finite-strain structural route through
   `model.step`: reuse the neutral `UserMaterial` contract, reference `dP/dF`,
   shared Newton runtime and committed/trial quadrature state. First admission
   is serial homogeneous 3D or plane strain with reference dead loads and strong
   displacement constraints. Physical-time cutback and atomic same-layout
-  restart do not imply contact, MPI, plane stress or arbitrary UMAT support.
+  restart do not imply contact, MPI or arbitrary UMAT support. The explicit
+  limited plane-stress option is described above.
   Include two replaceable educational history laws in one four-file project.
   Require a standalone H1 displacement space; reject DG and mixed subfields
   rather than omitting their interface or pressure equations.

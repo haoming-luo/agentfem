@@ -25,13 +25,16 @@ Use `constitutive.capabilities()` before selecting a nonlinear law.
 
 The experimental `UserMaterial` route now supplies bounded global equilibrium
 through ordinary `model.step(target=u, duration=..., ...)`: serial homogeneous
-3D or explicit plane strain, strong displacement constraints/reference dead
+3D, explicit plane strain or declared reflection-symmetric plane stress,
+strong displacement constraints/reference dead
 loads, declared reference `dP/dF`, physical time, transactional history and
 same-layout restart. The complete two-law example needs no project Newton
 loop or Step provider. See [history-material workflow](history_material_workflow.md)
 for the exact contract, output behavior and rejection boundaries. This does
-not promote arbitrary user laws or add plane stress, contact, MPI or UMAT
-conversion to that route.
+not promote arbitrary user laws or add general anisotropic plane stress,
+shells, contact, MPI or UMAT conversion to that route. The limited
+`PlaneStressReduction` solves transverse equilibrium and consistently
+condenses the full discrete 3D update; it does not truncate a stiffness matrix.
 
 ## Compressible Neo-Hookean Hyperelasticity
 

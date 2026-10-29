@@ -2,7 +2,16 @@
 
 import argparse
 
-from agentfem import amplitudes, fields, mesh, models, project, steps, studies
+from agentfem import (
+    amplitudes,
+    constitutive,
+    fields,
+    mesh,
+    models,
+    project,
+    steps,
+    studies,
+)
 from material import HistoryMaterial
 
 
@@ -12,12 +21,15 @@ def main():
         "--material", choices=("viscoelastic", "damage"), default="viscoelastic"
     )
     parser.add_argument("--restart", default=None)
+    parser.add_argument(
+        "--assumption", choices=("plane_strain", "plane_stress"), default="plane_strain"
+    )
     args = parser.parse_args()
     run = project.current_run()
     domain = mesh.rectangle((0.0, 0.0), (1.0, 1.0), (8, 8))
     model = models.create(
         study=studies.static_solid(
-            dimension=2, assumption="plane_strain", nonlinear=True
+            dimension=2, assumption=args.assumption, nonlinear=True
         ),
         mesh=domain,
         name="history_material_plate",
@@ -34,6 +46,11 @@ def main():
         amplitude=cycle,
         incrementation=steps.fixed(16),
         output=run.artifact("results.xdmf"),
+        plane_stress=(
+            constitutive.PlaneStressReduction(symmetry="reflection_symmetric")
+            if args.assumption == "plane_stress"
+            else None
+        ),
     )
     if args.restart:
         step.load_checkpoint(args.restart)
@@ -42,7 +59,7 @@ def main():
     result.add_checkpoint(step.checkpoints[-1])
     result.add_artifact("restart", checkpoint)
     result.metadata["scientific_scope"] = (
-        "Educational finite-strain plane strain; synthetic material, not hydrogel calibration or general energy closure."
+        f"Educational finite-strain {args.assumption}; unit reference thickness; synthetic material, not hydrogel calibration or general energy closure."
     )
     run.publish(result)
 

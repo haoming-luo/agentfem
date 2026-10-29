@@ -24,7 +24,10 @@ HistoryMaterial = module.HistoryMaterial
 
 
 @pytest.mark.parametrize("mechanism", ["viscoelastic", "damage"])
-def test_four_file_example_runs_through_project_cli(tmp_path, mechanism, capsys):
+@pytest.mark.parametrize("assumption", ["plane_strain", "plane_stress"])
+def test_four_file_example_runs_through_project_cli(
+    tmp_path, mechanism, assumption, capsys
+):
     from agentfem import cli
 
     source = Path(__file__).parents[1] / "examples/history_material"
@@ -44,6 +47,8 @@ def test_four_file_example_runs_through_project_cli(tmp_path, mechanism, capsys)
                 "--",
                 "--material",
                 mechanism,
+                "--assumption",
+                assumption,
             ]
         )
         == 0
@@ -63,6 +68,8 @@ def test_four_file_example_runs_through_project_cli(tmp_path, mechanism, capsys)
     for frame in frames:
         names = {a.get("Name") for a in frame.findall("Attribute")}
         assert {"Displacement", "S_CELL", "AGE_CELL"} <= names
+        if assumption == "plane_stress":
+            assert "F_CELL" in names
 
 
 @pytest.mark.parametrize("mechanism", ["viscoelastic", "damage"])
@@ -389,6 +396,21 @@ def test_changed_restart_identity_is_rejected(tmp_path, change):
     assert np.max(np.abs(target.solution.x.array)) == 0
 
 
+def test_unreduced_checkpoint_keeps_original_identity_shape(tmp_path):
+    step, _ = build()
+    step.solve(until=0.5)
+    path = step.save_checkpoint(tmp_path / "unchanged-format")
+    with np.load(path) as archive:
+        identity = json.loads(str(archive["identity"].item()))
+        assert "plane_stress" not in identity
+        assert (
+            str(archive["schema"].item()) == "agentfem.finite-strain-material-step.v1"
+        )
+    restored, _ = build()
+    restored.load_checkpoint(path)
+    restored.solve()
+
+
 @pytest.mark.parametrize("mechanism", ["viscoelastic", "damage"])
 @pytest.mark.parametrize("branch", [1.1, 0.9])
 @pytest.mark.parametrize("dimension", [2, 3])
@@ -593,7 +615,7 @@ def test_unsupported_2d_reductions_are_not_inferred(kind):
     )
     u = model.field(fields.displacement(domain))
     model.material(HistoryMaterial())
-    with pytest.raises(NotImplementedError, match="plane strain"):
+    with pytest.raises(NotImplementedError, match="AFM-USER-FINITE-REDUCTION"):
         model.step(target=u, duration=1.0, progress=False)
 
 

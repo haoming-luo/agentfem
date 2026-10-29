@@ -218,6 +218,10 @@ from .material_array_batch import (
     MaterialPointArrayBatchOutput,
     validated_material_array_batch_update,
 )
+from .plane_stress import (
+    PlaneStressReduction, PlaneStressPointResponse, PlaneStressTangentCheck,
+    reduce_plane_stress, check_plane_stress_tangent,
+)
 from .small_strain_user_material import (
     MaterialApplicabilityError,
     MaterialParameter,
@@ -291,6 +295,11 @@ __all__ = [
     "viscoelasticity",
     "AbaqusUserMaterialBridge",
     "BatchedUserMaterial",
+    "PlaneStressReduction",
+    "PlaneStressPointResponse",
+    "PlaneStressTangentCheck",
+    "reduce_plane_stress",
+    "check_plane_stress_tangent",
     "ArrheniusPowerLawCreep",
     "ArrheniusShift",
     "AnisotropicElasticMaterial2D",
