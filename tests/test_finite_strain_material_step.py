@@ -147,6 +147,107 @@ def build(
     return step, material
 
 
+@pytest.mark.parametrize("change", ["increment_policy", "prescribed_target"])
+def test_live_path_configuration_cannot_drift_from_checkpoint_identity(
+    change, tmp_path
+):
+    step, _ = build()
+    step.solve(until=0.5)
+    if change == "increment_policy":
+        step.incrementation = steps.fixed(8)
+    else:
+        constant, target = step.prescribed[-1]
+        step.prescribed[-1] = (constant, target + 0.1)
+    before = step.solution.x.array.copy()
+    for action in (step.solve, lambda: step.save_checkpoint(tmp_path / "invalid")):
+        with pytest.raises(ValueError, match="scientific inputs changed"):
+            action()
+    np.testing.assert_array_equal(step.solution.x.array, before)
+    assert not (tmp_path / "invalid.npz").exists()
+
+
+@pytest.mark.parametrize(
+    "change", ["history", "stress", "tangent", "time", "load", "boundary"]
+)
+def test_external_accepted_material_field_mutation_is_rejected(change, tmp_path):
+    step, _ = build()
+    step.solve(until=0.5)
+    if change == "time":
+        step.accepted_load_factor += 0.1
+    elif change == "load":
+        step.load_factor.value += 0.1
+    elif change == "boundary":
+        step.prescribed[0][0].value += 0.1
+    else:
+        selected = {
+            "history": next(iter(step.state.committed.values())).function,
+            "stress": step.response.cauchy_stress.function,
+            "tangent": step.response.tangent.function,
+        }[change]
+        selected.x.array[0] += 0.1
+    before = step.accepted_load_factor
+    for action in (
+        step.solve,
+        step.reaction_field,
+        lambda: step.save_checkpoint(tmp_path / "invalid"),
+        lambda: step.solve_result(output=tmp_path / "invalid.xdmf"),
+    ):
+        with pytest.raises(ValueError, match="outside the accepted Step state"):
+            action()
+    assert step.accepted_load_factor == before
+    assert not list(tmp_path.iterdir())
+
+
+@pytest.mark.parametrize("change", ["displacement", "history", "stress"])
+def test_accept_observer_cannot_mutate_even_the_final_increment(change):
+    step, _ = build()
+
+    def corrupt_final(accepted):
+        if accepted.accepted_load_factor == 1:
+            selected = {
+                "displacement": accepted.solution,
+                "history": next(iter(accepted.state.committed.values())).function,
+                "stress": accepted.response.cauchy_stress.function,
+            }[change]
+            selected.x.array[0] += 0.1
+
+    with pytest.raises(ValueError, match="outside the accepted Step state"):
+        step.solve(on_accept=corrupt_final)
+    assert not step._busy
+
+
+def test_reporter_cannot_modify_accepted_state_before_field_publication():
+    holder = {}
+
+    class MutatingReporter:
+        def emit(self, event):
+            if event.kind == "increment_converged":
+                holder["step"].response.cauchy_stress.function.x.array[0] += 0.1
+
+    step, _ = build(progress=MutatingReporter())
+    holder["step"] = step
+    published = []
+    with pytest.raises(ValueError, match="outside the accepted Step state"):
+        step.solve(on_accept=lambda value: published.append(value.time))
+    assert not published
+    assert step.accepted_load_factor == 0.25
+
+
+def test_invalid_live_history_cannot_be_laundered_by_failed_restore(tmp_path):
+    step, _ = build()
+    step.solve(until=0.5)
+    valid = step.save_checkpoint(tmp_path / "valid")
+    next(iter(step.state.committed.values())).function.x.array[0] += 0.1
+    with pytest.raises(ValueError, match="outside the accepted Step state"):
+        step.load_checkpoint(valid)
+    with pytest.raises(ValueError, match="outside the accepted Step state"):
+        step.save_checkpoint(tmp_path / "invalid")
+    restored, _ = build()
+    restored.load_checkpoint(valid)
+    restored.solve()
+    assert restored.time == 2.0
+
+
 @pytest.mark.parametrize("mechanism", ["viscoelastic", "damage"])
 def test_tangent_and_rotated_stress(mechanism):
     material = HistoryMaterial(mechanism=mechanism)

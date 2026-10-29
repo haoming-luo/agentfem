@@ -95,9 +95,34 @@ material from generic fallback; 93 targeted tests passed and one MPI-only
 test was skipped. The fix was pushed to #134 independently of this reduction.
 The failed full run is not relabeled as a passing release gate.
 
+The subsequent parent run `40844625630` at `295bfa80` completed successfully,
+including FEniCSx and macOS installed-wheel acceptance. That result applies to
+the parent workflow, not automatically to this stacked plane-stress change.
+
+## Accepted-state ownership audit
+
+After the initial reduction commit, eight new failing regressions exposed two
+ownership gaps in the shared history Step: modified live increment/constraint
+targets could retain an obsolete checkpoint identity, and changes to accepted
+material fields or a final observer's displacement could escape continuation
+checks. The fix compares the existing input identity and uses a compact hash of
+the contiguous accepted material/response buffers at transaction boundaries.
+It does not call the material, retain a second field snapshot, or add checks
+inside the Newton/material-point loop. Time and live loading values are checked
+alongside the fields. Rejected external mutations cannot be published or saved
+as accepted data; restoring into a fresh Step remains available.
+
+Thirteen targeted ownership cases cover policy/target changes, history,
+stress/tangent, time/loading/boundary edits, final observers, reporting before
+publication, and failed-restore laundering. The guard detects accidental live
+edits, not malicious archive modification; no new cryptographic archive promise
+or performance benefit is claimed. Hashing remains proportional to accepted
+field bytes and occurs only at these lifecycle boundaries.
+
 ## Installed-use and output evidence
 
-The final targeted source selection passed **418 tests**, with **4 skipped**
+The initial targeted source selection passed **418 tests**; after the ownership
+audit the same selection passed **431 tests**, with **4 skipped**
 because their tests require two MPI ranks. It ran in the real `fenicsx-env`
 with `PYTHONPATH=src` and OpenMP/OpenBLAS threads limited to one:
 

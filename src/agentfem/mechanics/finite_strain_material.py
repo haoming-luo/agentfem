@@ -349,6 +349,7 @@ class FiniteStrainMaterialStep:
                 ],
             }
         )
+        self._accepted_field_signature = self._field_signature()
 
     @property
     def time(self):
@@ -365,6 +366,35 @@ class FiniteStrainMaterialStep:
             raise ValueError(
                 "Displacement was changed outside the accepted Step state."
             )
+        if self._field_signature() != self._accepted_field_signature:
+            raise ValueError(
+                "Material fields or time were changed outside the accepted Step state. "
+                "Observers must not modify committed history or response fields."
+            )
+        factor = float(self.amplitude(self.accepted_load_factor))
+        if not np.array_equal(
+            np.asarray(self.load_factor.value), np.asarray(factor)
+        ) or any(
+            not np.array_equal(np.asarray(constant.value), factor * target)
+            for constant, target in self.prescribed
+        ):
+            raise ValueError("Loading was changed outside the accepted Step state.")
+
+    def _field_signature(self):
+        # A small fingerprint, not a second checkpoint or a constitutive call.
+        # Hash contiguous DOLFINx buffers directly: no retained field copies and
+        # no checks in the Newton/material-point hot loop. This catches accidental
+        # edits through public field views; it is not archive authentication.
+        arrays = [
+            ("state", name, field.function.x.array)
+            for name, field in self.state.committed.items()
+        ] + [
+            ("response", name, field.x.array) for name, field in self._responses.items()
+        ]
+        return self.accepted_load_factor, tuple(
+            (group, name, array.shape, array.dtype.str, sha256(array).digest())
+            for group, name, array in arrays
+        )
 
     def _kinematics_match(self, effective_F):
         geometric_F = self._gradient()
@@ -400,6 +430,13 @@ class FiniteStrainMaterialStep:
             or self.time_unit != self._identity["time_unit"]
             or _json(self.amplitude.summary()) != self._identity["amplitude"]
             or _json(self._load_identity()) != self._identity["load"]
+            or _json(self.incrementation.summary()) != self._identity["incrementation"]
+            or len(self.bcs) != len(self.prescribed)
+            or [
+                {"dofs": bc.dof_indices()[0].tolist(), "value": value.tolist()}
+                for bc, (_, value) in zip(self.bcs, self.prescribed)
+            ]
+            != self._identity["constraints"]
             or (None if self.plane_stress is None else self.plane_stress.summary())
             != self._identity.get("plane_stress")
         ):
@@ -478,6 +515,7 @@ class FiniteStrainMaterialStep:
         self._energy_defined = snapshot["energy_defined"]
         self._apply_loading(self.accepted_load_factor)
         self._at_accepted = True
+        self._accepted_field_signature = self._field_signature()
 
     def _evaluate(self, target, start):
         gradient = self._gradient()
@@ -584,6 +622,7 @@ class FiniteStrainMaterialStep:
             )
         if self._busy:
             raise RuntimeError("A material Step cannot be advanced recursively.")
+        self._check_input_identity()
         self._check_accepted_solution()
         self._busy = True
         self._reporter_failure = None
@@ -687,6 +726,7 @@ class FiniteStrainMaterialStep:
                     self.accepted_load_factor = target
                     self.accepted_increments.append(record.copy())
                     self._at_accepted = True
+                    self._accepted_field_signature = self._field_signature()
                     successful_attempt = cutbacks + 1
                     cutbacks = 0
                     if automatic:
@@ -703,8 +743,12 @@ class FiniteStrainMaterialStep:
                         iteration=iterations,
                         residual_norm=norm,
                     )
+                    self._check_input_identity()
+                    self._check_accepted_solution()
                     if on_accept is not None:
                         on_accept(self)
+                        self._check_input_identity()
+                        self._check_accepted_solution()
                     continue
                 self._restore(snapshot)
                 cutbacks += 1
@@ -735,6 +779,8 @@ class FiniteStrainMaterialStep:
                 increment=len(self.accepted_increments),
                 attempt=len(self.attempted_increments),
             )
+            self._check_input_identity()
+            self._check_accepted_solution()
         except BaseException as error:
             if error is not self._reporter_failure:
                 try:
@@ -1090,6 +1136,7 @@ class FiniteStrainMaterialStep:
         if self._busy:
             raise RuntimeError("Cannot restore during an active solve.")
         self._check_input_identity()
+        self._check_accepted_solution()
         snapshot = self._snapshot()
         with np.load(path, allow_pickle=False) as data:
             if (
@@ -1155,3 +1202,4 @@ class FiniteStrainMaterialStep:
         self.attempted_increments = ledger["attempted"]
         self.next_increment_size = next_size
         self.restored_from = self._checkpoint_record(path)
+        self._accepted_field_signature = self._field_signature()

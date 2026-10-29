@@ -166,6 +166,18 @@ saved time. Restore failure is atomic. This first checkpoint format is serial
 and same-layout only.
 Changing rank count or remeshing is not supported by this Step.
 
+Accepted fields are observations, not editable initial conditions. Do not modify
+displacement, committed history, stress/tangent, physical-time position or live
+loading constants through their array views. The Step detects such changes at
+continuation, reaction/output and checkpoint boundaries, including after an
+accepted-state observer. Prescribed targets and the increment policy must also
+remain consistent with the Step's construction identity. To run a different
+problem, construct another Step; do not reuse an old checkpoint identity.
+If external code has already corrupted live state, restore a valid checkpoint
+into a fresh compatible Step. Detection does not reconstruct overwritten arrays
+or authenticate arbitrary archive edits. Ordinary numerical failure still uses
+the existing atomic trial rollback, without this user intervention.
+
 ## Results that can be viewed directly
 
 `solve_result(output="results.xdmf")` writes accepted frames through the shared
