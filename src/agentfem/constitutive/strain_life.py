@@ -147,7 +147,8 @@ class StrainLifeAssessment:
             kind="strain_life_fatigue_assessment", maturity="postprocessor",
             source=self.source, curve=self.curve.as_dict(), damage=self.damage,
             repeated_history_life=life if isfinite(life) else None,
-            life_status="finite" if isfinite(life) else "no_counted_damage",
+            life_status=("finite" if isfinite(life) else
+                         "no_counted_damage" if self.damage == 0.0 else "outside_numeric_range"),
             strain_measure="mechanical_total", strain_unit="1",
             mean_stress_correction="none", cycle_count=len(self.cycles),
             counted_repetitions=fsum(cycle.count for cycle in self.cycles),
@@ -175,6 +176,8 @@ def assess_strain_history(history, curve: CoffinMansonBasquinCurve, *,
         raise ValueError("Only explicit mean_stress_correction='none' is supported.")
     if not isinstance(source, str) or not source.strip():
         raise ValueError("source must identify the supplied mechanical strain history.")
+    if np.iscomplexobj(history):
+        raise ValueError("Mechanical strain history must be real, not complex.")
     values = np.asarray(history, dtype=float)
     if values.ndim != 1 or len(values) < 2 or not np.isfinite(values).all():
         raise ValueError("Mechanical strain history must be a finite scalar array of length >= 2.")

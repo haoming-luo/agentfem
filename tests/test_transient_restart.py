@@ -107,7 +107,9 @@ def test_dynamics_restart_matches_uninterrupted_state_and_energy(tmp_path, impli
         restarted.state.a.value.x.array,
         reference.state.a.value.x.array,
     )
-    assert restarted.history_records == pytest.approx(reference.history_records)
+    # Records are nested dictionaries: compare exactly, preserving the old
+    # nonnumeric fallback rather than passing unsupported nesting to approx.
+    assert restarted.history_records == reference.history_records
     simulation = restarted.solve_result()
     assert {
         "kinetic_energy",

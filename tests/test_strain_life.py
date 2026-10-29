@@ -95,13 +95,23 @@ def test_invalid_strain_life_calibration_is_rejected(changes):
 
 
 def test_invalid_histories_and_unsupported_mean_correction():
-    for values in ([1.], [0., np.inf], [[0., .001], [.001, 0.]]):
+    for values in ([1.], [0., np.inf], [[0., .001], [.001, 0.]], [0., .001 + .01j]):
         with pytest.raises(ValueError):
             _assess(values)
     with pytest.raises(ValueError, match="mean_stress_correction"):
         _assess([-.01, .01], mean_stress_correction="Morrow")
     with pytest.raises(ValueError, match="source"):
         _assess([-.01, .01], source="")
+
+
+def test_unrepresentable_history_life_is_not_zero_damage():
+    curve = replace(_curve(), calibrated_cycles=(1., 1.e308),
+                    fatigue_strength_exponent=-.001, fatigue_ductility_exponent=-.001)
+    amplitude = curve.strain_amplitude(1.e308)
+    result = _assess([-amplitude, amplitude], curve)
+    assert result.damage > 0.
+    assert result.as_dict()["life_status"] == "outside_numeric_range"
+    json.dumps(result.as_dict(), allow_nan=False)
 
 
 def test_strain_life_reuses_declared_creep_fatigue_interaction():

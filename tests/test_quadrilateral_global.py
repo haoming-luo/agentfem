@@ -119,7 +119,7 @@ def test_uniform_hex_nonmatching_interface_dynamics_restart_and_energy(tmp_path)
     np.testing.assert_allclose(
         resumed.state.u.value.x.array, reference.state.u.value.x.array, atol=1e-15
     )
-    assert resumed.history_records == pytest.approx(reference.history_records)
+    assert resumed.history_records == reference.history_records
     assert reference.stability["interface_omega_squared_bound"] > 0
     # Independently assembled dense interface-only spectrum verifies the bound.
     mass = reference.integrator.mass.mass_diagonal

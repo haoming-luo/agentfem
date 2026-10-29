@@ -116,3 +116,18 @@ in the strain-life, existing fatigue/fracture and assessment selection passed.
 The [public contract](../strain_life_assessment.md) explains scope, theory
 source and the risk of dwell double-counting. This starts stage three; it does
 not close global damage, regularization, multiaxial life or material calibration.
+
+## Integration review
+
+PR #133 first full Linux run: 5223 passed, 428 skipped, 8 failed. All eight
+failures were pytest 9.2 rejecting nested `approx(list_of_dicts)` in older
+restart tests; they were not reported as scientific passes. The tests now
+compare complete record sequences exactly, preserving the previous nonnumeric
+fallback without relaxing tolerances. The six affected files pass 84 tests
+under local pytest 9.1.1; an isolated pytest 9.2.0 run including strain-life
+passes 104 tests. The installed scientific environment is unchanged.
+
+Additional assessment guards reject complex histories and distinguish numeric
+life overflow from no counted damage. CI must rerun on the repair commit;
+the first run's skipped macOS gate is not acceptance. No automatic merge or
+release follows from these local results.
