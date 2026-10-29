@@ -879,7 +879,14 @@ class FiniteStrainMaterialStep:
             item.processing.update(self._field_metadata(name))
         return sources, recovered
 
-    def solve_result(self, *, output=None, metadata=None):
+    def solve_result(self, *, output=None, metadata=None, until=1.0):
+        """Publish accepted state up to a normalized coordinate, including a pause.
+
+        ``until`` uses the same normalized path coordinate as :meth:`solve`,
+        not physical seconds. A deliberately paused result has status
+        ``partial``; its accepted equilibrium is valid but the full path is not
+        complete. A fresh output path is required for each continuation segment.
+        """
         from .. import io, results
         from ..results.lifecycle import execution_context, attach_checkpoint_contract
 
@@ -888,6 +895,17 @@ class FiniteStrainMaterialStep:
         # any writer or replacing an existing visualization index.
         if self._busy:
             raise RuntimeError("Cannot publish a material Step during an active solve.")
+        if isinstance(until, (bool, np.bool_)):
+            raise ValueError("until must be a normalized coordinate, not a boolean.")
+        until = float(until)
+        if (
+            not np.isfinite(until)
+            or not 0 < until <= 1
+            or until < self.accepted_load_factor
+        ):
+            raise ValueError(
+                "until must be in (0, 1] and not precede the accepted coordinate."
+            )
         self._check_input_identity()
         self._check_accepted_solution()
         context = execution_context(self)
@@ -917,8 +935,8 @@ class FiniteStrainMaterialStep:
                     step.time, step.solution, *(item.field for item in recovered)
                 )
 
-            if self.accepted_load_factor < 1:
-                self.solve(on_accept=publish if writer else None)
+            if self.accepted_load_factor < until:
+                self.solve(until=until, on_accept=publish if writer else None)
             elif writer:
                 publish(self)
         result = results.from_solution(
@@ -926,8 +944,15 @@ class FiniteStrainMaterialStep:
             name=self.name,
             metadata={"step": self.summary(), **(metadata or {})},
         )
+        complete = self.accepted_load_factor == 1.0
+        result.status = "completed" if complete else "partial"
         result.metadata["solve"] = {
-            "converged": self.accepted_load_factor == 1.0,
+            "converged": complete,
+            "equilibrium_converged": True,
+            "path_complete": complete,
+            "requested_coordinate": until,
+            "accepted_coordinate": self.accepted_load_factor,
+            "physical_time": self.time,
             "accepted_increments": len(self.accepted_increments),
             "attempts": len(self.attempted_increments),
             "scope": "nonlinear_equilibrium_not_scientific_validation",
@@ -992,6 +1017,8 @@ class FiniteStrainMaterialStep:
                 if output_start
                 else "accepted_path",
                 "start_time": output_start,
+                "end_time": self.time,
+                "path_complete": complete,
             }
             result.metadata["visualization"] = {
                 "primary_artifact": "field_output",

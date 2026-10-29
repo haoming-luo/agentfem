@@ -73,6 +73,95 @@ def test_four_file_example_runs_through_project_cli(
 
 
 @pytest.mark.parametrize("mechanism", ["viscoelastic", "damage"])
+def test_four_file_cli_pause_restart_matches_continuous(tmp_path, mechanism):
+    from agentfem import cli, results
+
+    source = Path(__file__).parents[1] / "examples/history_material"
+    for name in ("case.py", "material.py", "agentfem.toml", "README.md"):
+        shutil.copy2(source / name, tmp_path / name)
+
+    def execute(name, *extra):
+        assert (
+            cli.main(
+                [
+                    "run",
+                    "--project",
+                    str(tmp_path),
+                    "--name",
+                    name,
+                    "--",
+                    "--material",
+                    mechanism,
+                    "--assumption",
+                    "plane_stress",
+                    *extra,
+                ]
+            )
+            == 0
+        )
+
+    execute("pause", "--until", "0.5")
+    first = tmp_path / "outputs/001-pause"
+    record = json.loads((first / "result.json").read_text())
+    assert record["status"] == "partial"
+    assert record["metadata"]["solve"]["equilibrium_converged"]
+    assert not record["metadata"]["solve"]["path_complete"]
+    assert record["metadata"]["solve"]["physical_time"] == 1.0
+    assert len(ET.parse(first / "results.xdmf").findall(".//Time")) == 8
+    checkpoint = first / "accepted.npz"
+    assert checkpoint.exists() and not (first / "final.npz").exists()
+    execute("resume", "--restart", str(checkpoint))
+    execute("whole")
+    resumed, full = (
+        tmp_path / f"outputs/{name}" for name in ("002-resume", "003-whole")
+    )
+    with (
+        np.load(resumed / "final.npz") as actual,
+        np.load(full / "final.npz") as expected,
+    ):
+        assert actual.files == expected.files
+        for key in actual.files:
+            if actual[key].dtype.kind in "fiu":
+                np.testing.assert_allclose(
+                    actual[key], expected[key], rtol=1e-9, atol=1e-10
+                )
+    manifest = json.loads((resumed / "result.json").read_text())
+    assert manifest["status"] == "completed"
+    assert manifest["metadata"]["solve"]["path_complete"]
+    assert manifest["metadata"]["field_output"]["start_time"] == 1.0
+    joined = results.join_xdmf_segments(
+        [first / "results.xdmf", resumed / "results.xdmf"],
+        tmp_path / "joined.xdmf",
+        expected_times=np.linspace(0.125, 2.0, 16),
+    )
+    assert len(ET.parse(joined).findall(".//Time")) == 16
+
+
+@pytest.mark.parametrize(
+    "until", [0, -0.1, 1.1, float("nan"), float("inf"), True, 0.25]
+)
+def test_invalid_result_pause_does_not_open_output(tmp_path, until):
+    step, _ = build()
+    step.solve(until=0.5)
+    with pytest.raises(ValueError, match="until"):
+        step.solve_result(until=until, output=tmp_path / "invalid.xdmf")
+    assert not list(tmp_path.iterdir())
+    assert step.accepted_load_factor == 0.5
+
+
+def test_current_accepted_result_can_be_published_without_advancing(tmp_path):
+    step, material = build()
+    step.solve(until=0.5)
+    material.update = lambda point: (_ for _ in ()).throw(
+        AssertionError("No reintegration")
+    )
+    result = step.solve_result(until=0.5, output=tmp_path / "accepted.xdmf")
+    assert result.status == "partial"
+    assert len(ET.parse(tmp_path / "accepted.xdmf").findall(".//Time")) == 1
+    assert step.time == 1.0
+
+
+@pytest.mark.parametrize("mechanism", ["viscoelastic", "damage"])
 def test_scalar_only_material_has_same_accepted_history(mechanism):
     local = HistoryMaterial(mechanism=mechanism)
 

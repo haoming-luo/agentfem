@@ -158,6 +158,17 @@ volume assumptions before it can be used here.
   reconstruct stress. Accepted response arrays are part of restart state.
 
 `step.solve(until=0.5)` pauses at normalized coordinate 0.5.
+`step.solve_result(until=0.5, output="first.xdmf")` also publishes that accepted
+segment through the standard result interface. A paused result has
+`status="partial"`, `equilibrium_converged=True` and `path_complete=False` in
+its solve metadata. The existing `converged` flag remains a full-path flag.
+The physical time and requested/accepted coordinates are explicit. At an
+already accepted coordinate, this method can publish current state without
+reintegration; it cannot synthesize past fields. Values before the accepted
+coordinate, zero, nonfinite values and booleans are rejected before output is
+opened. Continuation writes to a new path; preserve or join both segments.
+Choose an existing path station to preserve the original increment partition;
+an extra pause station is a different time discretization for history laws.
 `step.save_checkpoint(path)` requires an accepted state; `load_checkpoint(path)`
 checks mesh/space, schema, parameters, loading, duration, response arrays and
 the accepted/attempted time ledger before changing live state. It also checks

@@ -40,6 +40,32 @@ same-layout serial restart; a resumed run writes a new visualization segment,
 not a second copy of unavailable old fields. The core continuation view can
 join compatible segments without copying heavy data.
 
+## Pause, inspect, and continue
+
+In a fresh project copy, these two ordinary runs pause halfway and then finish:
+
+```sh
+agentfem run --name pause -- --material viscoelastic --assumption plane_stress --until 0.5
+agentfem run --name resume -- --material viscoelastic --assumption plane_stress --restart outputs/001-pause/accepted.npz
+```
+
+Use the actual numbered pause directory if other runs already exist. The first
+run publishes eight frames and `accepted.npz`; its result is explicitly
+`partial`, not a completed physical path. `0.5` is the normalized path position
+(physical time 1 s in this example), not half a second. The command itself exits
+successfully because the requested pause was reached. Inspect its `results.xdmf`
+immediately, without waiting for continuation. The second run publishes the
+remaining eight frames and `final.npz`. Keep the same material, assumption,
+parameters and mesh when restoring. Pausing on an existing station preserves
+the exact original increment partition; inserting an extra station can change
+the time-discretized response of a rate-dependent material.
+
+An unexpected numerical/output failure preserves already published frames but
+does not automatically write a checkpoint in this bounded example. Planned
+pauses save accepted state explicitly; the underlying Step's checkpoint cadence
+remains manual. To join compatible output segments without copying HDF5 data,
+use `results.join_xdmf_segments`; this does not recreate unsaved frames.
+
 ## Scientific and numerical boundaries
 
 - `duration=2.` is physical time in the user's consistent units. The amplitude

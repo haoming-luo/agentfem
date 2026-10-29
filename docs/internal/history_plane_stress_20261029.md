@@ -119,6 +119,19 @@ edits, not malicious archive modification; no new cryptographic archive promise
 or performance benefit is claimed. Hashing remains proportional to accepted
 field bytes and occurs only at these lifecycle boundaries.
 
+## Ordinary pause and continuation
+
+The four-file project now exposes `--until` through the Step's `solve_result`
+interface. A planned pause returns a `partial` result with explicit equilibrium,
+full-path completion, normalized coordinate and physical-time metadata, plus
+an accepted checkpoint. It does not require a project output or Newton loop.
+Ten additional tests cover two-law CLI pause/restart/whole-run equality,
+zero-copy segment joining, invalid requests before writer creation, and
+publishing current accepted state without constitutive reintegration. The
+comparison pauses at an existing increment station; no identity claim is made
+when a new station changes the time discretization. Unexpected failure still
+requires explicit checkpoint cadence; saved visualization frames remain usable.
+
 ## Installed-use and output evidence
 
 The initial targeted source selection passed **418 tests**; after the ownership
