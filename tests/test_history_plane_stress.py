@@ -301,6 +301,7 @@ def test_public_reduced_tangent_check_detects_wrong_derivative_without_mutating_
     [
         {"relative_step": 0},
         {"relative_step": np.nan},
+        {"relative_step": 1e-30},
         {"tolerance": 0},
         {"tolerance": np.inf},
     ],

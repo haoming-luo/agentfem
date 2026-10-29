@@ -79,6 +79,16 @@ Equivalent scales from 1e-200 through 1e200 preserve the reduced response.
 This is a representability regression test, not a useful physical unit range
 or a change in constitutive equations or numerical tolerances.
 
+The follow-up audit reproduced the same dimensional-norm hazard in the
+pre-existing full 3D tangent checker: a deliberately 20% wrong tangent passed
+at scale 1e-200 because both norms underflowed, while scale 1e200 produced NaN.
+The full and reduced checkers now share normalized error arithmetic. Correct
+and wrong derivatives retain their verdicts across the tested scales. The
+existing one-sided fallback at the positive-determinant boundary is explicitly
+reported as mixed difference with named components; ordinary central evidence
+retains its existing summary shape. Unrepresentable gradient perturbations
+are rejected. These checks validate the checker, not a material calibration.
+
 These laws are synthetic educational fixtures, not hydrogel calibration or
 general fracture/thermodynamic verification. The damage tangent must be tested
 away from its nonsmooth maximum-history switch; a centered difference across
@@ -135,7 +145,8 @@ requires explicit checkpoint cadence; saved visualization frames remain usable.
 ## Installed-use and output evidence
 
 The initial targeted source selection passed **418 tests**; after the ownership
-audit the same selection passed **431 tests**, with **4 skipped**
+audit, ordinary pause workflow and tangent-check hardening, the same selection
+passed **453 tests**, with **4 skipped**
 because their tests require two MPI ranks. It ran in the real `fenicsx-env`
 with `PYTHONPATH=src` and OpenMP/OpenBLAS threads limited to one:
 
@@ -155,6 +166,13 @@ build also passed. Existing unreduced checkpoint identity/summary shape is
 preserved; only the new reduction has its additional identity and schema.
 This is targeted evidence, not a full-repository or MPI release certificate.
 
+Those four skipped cases were subsequently run with the verified
+`agentfem mpi-run -n 2 --timeout 120` launcher and one numerical thread per
+rank. All **four distinct tests passed on both ranks**: rejected unsupported
+distributed linear reuse, two physical-recovery/empty-rank cases and
+collective invalid-measure rejection. This protects existing distributed
+contracts; the new history-material structural route remains serial-only.
+
 A disposable pure-Python wheel was installed into a separate system-site-
 packages venv sharing the already available numerical runtime. With no source
 PYTHONPATH, imports resolved to that venv. The ordinary four-file project
@@ -172,6 +190,7 @@ distribution is produced by this check.
 
 ## References
 
+- [LAPACK scaled sum-of-squares](https://www.netlib.org/lapack/explore-html/d8/d76/group__lassq.html): normalize dimensional values before forming norms to avoid overflow/underflow. The tangent checker uses that scaling principle, not a new LAPACK dependency or copied performance claim.
 - [Ahmadi et al., plane stress in finite deformation hyperelasticity](https://arxiv.org/html/2410.22562v1): local transverse equilibrium and consistent condensation.
 - [Sierra/SM plane stress rate-dependent plasticity](https://www.sandia.gov/files/sierra/SM_LAME_5_24/main/models/plane_stress_rate_plasticity.html): specialized constitutive reduction with transverse conditions; not a generic history-provider validation.
 - Existing AgentFEM neutral `UserMaterial`, quadrature transactions and shared

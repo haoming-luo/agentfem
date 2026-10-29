@@ -16,6 +16,7 @@ from .user_material import (
     MaterialPointOutput,
     MaterialTangentConvention,
     validated_material_update,
+    _tangent_error_metrics,
 )
 
 _IN_PLANE = np.array((0, 1, 3, 4))  # row-major 11,12,21,22
@@ -343,6 +344,13 @@ def check_plane_stress_tangent(
         for sign in (1.0, -1.0):
             gradient = point.deformation_gradient_new.copy()
             gradient.flat[component] += sign * increment
+            if (
+                gradient.flat[component]
+                == point.deformation_gradient_new.flat[component]
+            ):
+                raise ValueError(
+                    "Tangent perturbation is not representable; increase relative_step."
+                )
             response = reduce_plane_stress(
                 material,
                 replace(point, deformation_gradient_new=gradient),
@@ -354,11 +362,10 @@ def check_plane_stress_tangent(
         raise ValueError(
             "Nonfinite reduced tangent differences; check perturbation and units."
         )
-    difference = baseline.in_plane_tangent - numerical
-    error = float(_norm(difference) / max(_norm(numerical), np.finfo(float).tiny))
+    error, absolute = _tangent_error_metrics(baseline.in_plane_tangent, numerical)
     return PlaneStressTangentCheck(
         error,
-        float(np.max(abs(difference))),
+        absolute,
         step,
         tolerance,
         bool(np.isfinite(error) and error <= tolerance),

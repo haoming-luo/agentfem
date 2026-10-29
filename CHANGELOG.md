@@ -6,6 +6,14 @@ experimental formulation to a validated one.
 
 ## [Unreleased]
 
+- Guard accepted history-material fields, time and loading against external
+  mutation before continuation, output or checkpoint publication. Preserve
+  increment/constraint identity. Add ordinary planned pause/result publication
+  and a tested four-file CLI pause/restart example; partial paths stay explicit.
+- Make material tangent-check verdicts robust to stress-unit scaling. Reject
+  unrepresentable perturbations and identify one-sided differences at the
+  positive-determinant boundary instead of labeling them central differences.
+
 - Extend that material-only workflow with explicit reflection-symmetric
   plane-stress reduction: solve positive thickness stretch from `P33=0`,
   check transverse shear/coupling, and use a separately condensed in-plane

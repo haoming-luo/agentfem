@@ -262,6 +262,12 @@ For a nonsmooth constitutive switch, test each smooth branch and the switch
 separately; a centered difference across the switch is not its one-sided
 algorithmic derivative. Solver completion remains distinct from verification
 and experimental validation.
+The full 3D tangent checker reports `one_sided_components` if a negative
+perturbation would invert `F`; such evidence is labeled mixed difference, not
+central difference. The reduced checker instead rejects inadmissible
+perturbations. Both normalize error arithmetic before forming norms, so stress
+unit scaling does not turn a wrong tangent into a passing zero-error check.
+Perturbations too small to change the stored gradient are rejected explicitly.
 
 ## Extension authors
 
