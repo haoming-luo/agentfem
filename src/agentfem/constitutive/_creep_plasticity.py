@@ -118,6 +118,8 @@ class CreepPlasticityMaterial:
 
     def update(self, total_strain, *, time_start, time_end, state=None,
                temperature=None, tolerance=1.e-10, maximum_iterations=60):
+        if np.iscomplexobj(total_strain):
+            raise ValueError("total_strain must be real.")
         strain = _symmetric_tensor(total_strain, label="total_strain")
         start, end = float(time_start), float(time_end)
         if not np.isfinite([start, end]).all() or not 0. <= start < end:
@@ -144,23 +146,31 @@ class CreepPlasticityMaterial:
         mechanical = strain - self.creep.thermal_strain(temperature)
         stress = _vector(predictor.stress)
 
-        def response(candidate):
+        def response(candidate, *, linearize=True):
             s = _DEV @ candidate
             q = np.sqrt(1.5 * np.dot(s, s))
             rate, slope = _flow_rate_slope(law, q, end)
             if q > 0.:
                 direction = 1.5 * s / q
                 flow = rate * direction
-                derivative = 1.5 * rate / q * _DEV + (slope - rate / q) * np.outer(direction, direction)
             else:
                 flow = np.zeros(6)
-                derivative = 1.5 * slope * _DEV
-            if not np.isfinite(flow).all() or not np.isfinite(derivative).all():
+            if not np.isfinite(flow).all():
                 raise FloatingPointError("Nonfinite creep trial flow.")
             creep_delta = dt * _tensor(flow)
-            plastic = self.plastic.update(mechanical - old.creep.creep_strain - creep_delta, old.plastic)
-            cp = np.einsum("aij,ijkl,bkl->ab", _BASIS, plastic.algorithmic_tangent, _BASIS)
+            plastic = self.plastic.update(
+                mechanical - old.creep.creep_strain - creep_delta, old.plastic,
+                linearization="consistent" if linearize else "none")
             residual = candidate - _vector(plastic.stress)
+            # Backtracking needs only the residual. It uses the identical
+            # fixed-old-state plastic return, not a tangent approximation.
+            if not linearize:
+                return residual
+            derivative = (1.5 * rate / q * _DEV + (slope - rate / q) * np.outer(direction, direction)
+                          if q > 0. else 1.5 * slope * _DEV)
+            if not np.isfinite(derivative).all():
+                raise FloatingPointError("Nonfinite creep trial derivative.")
+            cp = np.einsum("aij,ijkl,bkl->ab", _BASIS, plastic.algorithmic_tangent, _BASIS)
             jacobian = np.eye(6) + dt * cp @ derivative
             return residual, jacobian, cp, plastic, creep_delta, float(dt * rate)
 
@@ -187,7 +197,7 @@ class CreepPlasticityMaterial:
             for _ in range(24):
                 trial = stress + alpha * correction
                 try:
-                    trial_residual = response(trial)[0]
+                    trial_residual = response(trial, linearize=False)
                 except (FloatingPointError, OverflowError):
                     trial_residual = np.full(6, np.inf)
                 if np.linalg.norm(trial_residual) < (1. - 1.e-4 * alpha) * norm:

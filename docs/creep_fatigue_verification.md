@@ -29,6 +29,8 @@ has not been reviewed here. This is not a declaration of ASTM compliance.
 | Independent cycle-counting output | [MathWorks rainflow worked examples](https://www.mathworks.com/help/signal/ref/rainflow.html) | Compare numerical count/range/mean triples for nested reversals and residual half-cycles; not an executed MATLAB comparison or full ASTM certification |
 | Nonuniform secondary creep | [NAFEMS R0027 Test 7 in the Abaqus benchmark manual](https://docs.software.vt.edu/abaqusv2025/English/SIMACAEBMKRefMap/simabmk-c-creeptest7.htm) | Reuse the existing `creep_thick_cylinder_benchmark`; do not replace it with another project-level solver |
 | P91 mechanism selection | [JRC94508](https://publications.jrc.ec.europa.eu/repository/handle/JRC94508), DOI 10.2790/49517 | Cyclic softening changes subsequent creep response; the public report summary also identifies limited long-hold/low-strain evidence. Do not present a hardening-only model or linear interaction as universal |
+| Elastic follow-up and separated test families | [ANL-ART-168 (2019)](https://publications.anl.gov/anlpubs/2020/02/158589.pdf) | Section 2.1 provides a two-bar relaxation reference; Appendix A separates ordinary controlled strain from SMT effective strain and tensile/compressive holds. Do not mix those inputs as interchangeable fatigue samples |
+| Traceable Grade 91 material scope | [NIMS Grade 91 sheet article](https://mdr.nims.go.jp/datasets/f9cdc009-32b5-4e6a-ba51-4b7338d799c5), DOI 10.1080/27660400.2025.2588872 | Public landing page identifies tube/plate/pipe grades, temperature/stress scope and CC BY 4.0. Candidate for matched-condition creep validation, not a fit already admitted to core |
 
 Do not conflate the separately published
 [INL/EXT-21-64314 Alloy 709 report](https://inldigitallibrary.inl.gov/sites/sti/sti/Sort_52942.pdf)
@@ -158,6 +160,34 @@ being mislabeled as spatial error. This verifies bounded proportional,
 isothermal small-strain behavior; it is not experimental validation, spatial
 verification of nonproportional cyclic thermal loading, or a life prediction.
 
+### Prescribed nonuniform temperature with active plasticity and creep
+
+A second version retains the force-driven field above and introduces
+Arrhenius dependence, with Q=120000 J/mol, R=8.31446261815324 J/(mol K),
+T_ref=800 K and `a=2`. Prescribe
+
+```text
+T(x) = 1 / [1/T_ref - (R/Q) log(1+a*(1-2x)^2)]
+```
+
+so the continuous local rate coefficient is exactly
+`A(x)=A_ref*(1+a*(1-2x)^2)`. The analytical stress/plastic field remains
+as above. Let `l=min(x,1-x)`, `y=1-2l`; at t=1 the creep part of displacement is
+
+```text
+sqrt(3)*A_ref*(sqrt(3)*S/s_ref)^n / [2*(n+1)]
+    * [(1-y^(n+1))/(n+1) + a*(1-y^(n+3))/(n+3)]
+```
+
+The Q1 temperature field is independently interpolated from this profile.
+On 4/8/16 cells with 128 increments, relative displacement L2 errors are
+0.137992, 0.0346244 and 0.00813975. Both plasticity and creep are active.
+This checks spatial temperature sampling and its rate effect together with
+equilibrium. Thermal expansion is deliberately zero to isolate that mechanism;
+the profile is prescribed, not an independently verified heat-conduction
+solution. Nonproportional thermal cycling and experimental material accuracy
+remain separate gates.
+
 ### Perfect-plastic cyclic limit and strain-life conventions
 
 The simultaneous material, with zero creep and perfect J2 plasticity, follows
@@ -215,6 +245,16 @@ but the attempted public PDF retrieval returned a rate-limit HTML page on
 2026-10-29. Its tables have **not** been inspected or admitted. A search snippet
 is not enough to establish strain conventions, material identities or reuse
 rights, and no missing values were inferred.
+
+A subsequent review obtained the CC BY 4.0 NIMS Grade 91 article linked
+above and visually checked Tables 7–9. The reported rupture times are in
+**hours**, temperatures in **degrees C**, stress in **MPa**, and minimum
+creep rates in **percent/hour**, not strain/second. Tube, plate and pipe fits
+and their stress regimes are separate. These are published regression
+relations/derived strengths, not a held-out raw measurement set; reproducing
+their tables would verify transcription and units, not independent material
+prediction. A material card must preserve that distinction and the underlying
+heat/condition scope before any calibration is admitted.
 
 1. Select **one** material heat/condition and isothermal test temperature;
    acquire compatible creep, continuous cycling and hold-cycle data with

@@ -216,3 +216,62 @@ holds on long histories, not the cost of densely evaluating every sample.
 It is **not a finite-element or full-simulation speedup**. The algorithmic
 reason to retain the change is removal of the histories-times-holds scan,
 not a portable fixed speedup promise. No concurrent simulation was running.
+
+## Spatial temperature and response validation follow-up
+
+A prescribed Arrhenius temperature profile has an independently integrable
+joint plastic/creep field. Relative displacement L2 errors are 0.1379916,
+0.0346244 and 0.00813975 at 4/8/16 cells; the focused check passed in 76.86 s.
+It isolates local temperature sampling/rate dependence with zero expansion,
+not nonproportional thermal cycling or a heat-equation verification.
+
+Review found that the new joint quadrature consumer could cast complex inputs
+to real and had no full-array validation barrier after successful local calls.
+Inputs are now checked before dispatch. Returned state, stress, tangent and
+energy arrays are staged and checked before any live publication. Thirteen
+focused fault-injection/input checks pass, including a bad third point's
+tangent, stress, energy or backstress. This is numerical-input atomicity, not
+a guarantee against arbitrary process or storage failure during assignment.
+
+The ANL-ART-168 Appendix A pages were inspected in the original PDF, including
+column units and hold-direction definitions. They are a candidate life-test
+source, not complete pointwise stress/relaxation histories or a qualified
+AgentFEM material. The NIMS Grade 91 article was then obtained; Tables 7–9
+were checked visually against extraction. Their hours/Celsius/MPa and
+percent-per-hour conventions must not be mistaken for seconds/kelvin and
+strain-per-second. Published fitted correlations are not independent raw
+validation data. Its data have not been fitted here. No universal empirical follow-up factor
+or proprietary design curve was added to core.
+
+### Residual-only local backtracking
+
+The condensed joint material's local backtracking previously requested a
+full plastic algorithmic tangent for every residual-only probe. It now calls
+the existing `linearization="none"` branch for those probes; full Newton
+states and the returned consistent tangent are still computed as before from
+the same accepted old state. Twenty-four focused local/material and input
+checks pass. Direct material-point complex strain is explicitly rejected.
+
+An alternating eight-observation prepared 16-increment thermal
+Chaboche/creep `solve_result` comparison, after one warmup per method, measured:
+
+| Method | Solve/observe seconds |
+| --- | --- |
+| Original local update | 9.729661, 9.836265, 9.953227, 9.915063 |
+| Residual-only backtracking | 9.120214, 9.138382, 9.215313, 9.236852 |
+
+Median reduction is 7.08%. All physical state arrays and non-timing histories
+match exactly, and both accept 16 increments. Both methods use the same new
+quadrature validation barrier; this isolates the local-update change, not a
+net comparison against an older release. Preparation, compilation and output
+files are outside the timer. OMP/OpenBLAS/VECLIB requested one thread in this
+single-process Mac run. This is not a full-composite or portable speed claim;
+the earlier ordinary-project smoke uses a different fixture and tolerance.
+
+Final affected selection: **149 passed in 267.88 s**, covering joint local and
+global updates, nonuniform mechanical/temperature references, failure atomicity,
+resolved creep damage, rainflow, strain-life and Sinh creep. Counts overlap the
+earlier selections. The final source CLI project accepted all 16 increments in
+about 3.8 s and wrote fields, the final checkpoint and the `computed` result
+record. Neither this smoke nor the synthetic reference suite calibrates an
+alloy or certifies component life.

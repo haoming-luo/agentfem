@@ -49,6 +49,15 @@ label discrepancy; it is recorded as a candidate, not admitted as a validated
 alloy. Use independently documented deformation, cyclic and dwell tests to
 decide whether static recovery or cyclic softening must be added next; do not
 silently fit those mechanisms with the currently hardening-only plastic asset.
+The prescribed nonuniform-temperature joint field now also has an independent
+spatial-refinement reference. It isolates Arrhenius rate dependence with zero
+thermal expansion, not a full thermal-cyclic component qualification. Future
+material comparison must distinguish ordinary strain-controlled tests from
+elastic-follow-up/SMT tests; the ANL-ART-168 reference provides that distinction.
+Before nonuniform component-life productization, preserve co-located accepted
+stress/strain/temperature histories with point identity through restart; separate
+spatial maxima are not a replacement. Reuse result/state sampling contracts,
+not a second simulation or sensor framework.
 
 ### 0.4.4 published; bounded maintenance (2026-10-27)
 

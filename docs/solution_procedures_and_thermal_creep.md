@@ -318,6 +318,11 @@ and stress-life convenience entrypoint remain unchanged.
 
 ## Current boundary and next gates
 
+For the simultaneous creep/plasticity route, "homogeneous" describes the
+material assignment, not a requirement of uniform strain or temperature.
+Nonuniform fields have bounded analytical refinement checks; that does not
+admit regional material mixtures, contact or MPI for this composition.
+
 Implemented now:
 
 - explicit central difference and implicit Newmark/generalized-\(\alpha\);

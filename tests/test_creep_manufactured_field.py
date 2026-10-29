@@ -12,12 +12,17 @@ from mpi4py import MPI
 from agentfem import amplitudes, constitutive, fields, mesh, models, solvers, steps, studies
 
 
-def _antiplane_step(cells, increments, material, body_force, amplitude):
+def _antiplane_step(cells, increments, material, body_force, amplitude, *, temperature_profile=None):
     domain = mesh.cuboid((0., 0., 0.), (1., 1., 1.), (cells, 1, 1),
                           cell_type="hexahedron", comm=MPI.COMM_SELF)
     model = models.create(study=studies.creep_solid(), mesh=domain)
     u = model.field(fields.displacement(domain))
     model.material(material)
+    temperature = None
+    if temperature_profile is not None:
+        temperature = model.field(fields.temperature(domain))
+        temperature.value.interpolate(temperature_profile)
+        temperature.value.x.scatter_forward()
     # Constrain x/y on both z end faces; the analytical solution satisfies
     # these constraints. z traction there is zero. x ends have u_z=0.
     for end in (0., 1.):
@@ -30,6 +35,7 @@ def _antiplane_step(cells, increments, material, body_force, amplitude):
     step = model.step(
         target=u, duration=1., amplitude=amplitude,
         incrementation=steps.fixed(increments), progress=False,
+        temperature=temperature,
         solver_options=solvers.newton(relative_tolerance=1.e-10, absolute_tolerance=1.e-10),
     )
     step.solve()
@@ -141,3 +147,53 @@ def test_active_joint_creep_state_time_refines_at_fixed_mesh(record_property):
     errors = [_active_joint_field(8, count, return_creep_error=True) for count in (32, 64)]
     assert 1.9 < errors[0] / errors[1] < 2.1
     record_property("active_joint_peak_creep_relative_error_32_64_steps", list(map(float, errors)))
+
+
+def _thermal_joint_field(cells, increments):
+    # Manufactured prescribed T(x) makes the Arrhenius factor exactly
+    # 1+a*(1-2x)^2 in the continuum. No production update builds the reference.
+    young, poisson, stress, yield_stress, hardening = 200_000., .3, 60., 50., 10_000.
+    coefficient, reference, exponent, contrast = 1.e-3, 100., 3., 2.
+    activation, gas_constant, reference_temperature = 120_000., 8.31446261815324, 800.
+    elastic = constitutive.thermoelastic(
+        young=young, poisson=poisson, density=1., thermal_expansion=0.,
+        conductivity=1., specific_heat=1., reference_temperature=reference_temperature)
+    material = constitutive.CreepPlasticityMaterial(
+        creep=constitutive.isotropic_arrhenius_power_law(
+            elastic=elastic, coefficient=coefficient, reference_stress=reference,
+            stress_exponent=exponent, activation_energy=activation,
+            reference_temperature=reference_temperature),
+        plastic=constitutive.J2LinearIsotropicHardening(
+            young=young, poisson=poisson, yield_stress=yield_stress, hardening_modulus=hardening))
+    def temperature(coordinates):
+        factor = 1. + contrast * (1. - 2. * coordinates[0])**2
+        return 1. / (1. / reference_temperature - gas_constant / activation * np.log(factor))
+    u, step = _antiplane_step(cells, increments, material, 2. * stress,
+        amplitudes.tabular([0., 1.], [0., 1.]), temperature_profile=temperature)
+    x = ufl.SpatialCoordinate(u.value.function_space.mesh)[0]
+    left = ufl.min_value(x, 1. - x)
+    y = 1. - 2. * left
+    front = .5 * (1. - yield_stress / (np.sqrt(3.) * stress))
+    extent = ufl.min_value(left, front)
+    elastic_strain_integral = stress / (young / (2. * (1. + poisson))) * (left - left**2)
+    plastic_integral = (3. * stress * (extent - extent**2)
+                        - np.sqrt(3.) * yield_stress * extent) / hardening
+    creep_integral = (np.sqrt(3.) * coefficient * (np.sqrt(3.) * stress / reference)**exponent
+        / (2. * (exponent + 1.))
+        * ((1. - y**(exponent + 1.)) / (exponent + 1.)
+           + contrast * (1. - y**(exponent + 3.)) / (exponent + 3.)))
+    exact = ufl.as_vector((0., 0., elastic_strain_integral + plastic_integral + creep_integral))
+    assert step.state.plastic_fields["equivalent_plastic_strain"].global_max() > .001
+    assert step.state.equivalent_creep_strain.global_max() > 1.e-4
+    minimum = step.accepted_increments[-1].minimum_temperature
+    maximum = step.accepted_increments[-1].maximum_temperature
+    assert 800. <= minimum < maximum < 860.
+    return _relative_displacement_error(u, exact)
+
+
+def test_nonuniform_temperature_joint_field_refines_to_independent_solution(record_property):
+    errors = [_thermal_joint_field(cells, 128) for cells in (4, 8, 16)]
+    assert errors[0] > errors[1] > errors[2]
+    assert errors[0] / errors[2] > 6.
+    assert errors[-1] < .02
+    record_property("thermal_joint_relative_l2_4_8_16_cells", list(map(float, errors)))

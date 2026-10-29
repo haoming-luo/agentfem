@@ -16,6 +16,10 @@ experimental formulation to a validated one.
   than a nonstandard infinity token or an infinite-life claim.
   Add independent nonuniform shear references with simultaneous active
   plasticity/creep, separating spatial convergence from time-integration bias.
+  Include a prescribed spatial-temperature reference and reject invalid
+  coupled quadrature inputs/returned arrays before publishing trial or response.
+  Reuse the existing residual-only plastic update during local backtracking
+  instead of calculating unused tangents; retain the complete accepted tangent.
 
 - Require creep/fatigue damage points to lie within the supplied interaction
   diagram's domain, including the zero-fatigue creep-axis case. Reject invalid

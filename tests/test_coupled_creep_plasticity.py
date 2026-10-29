@@ -94,6 +94,28 @@ def test_failure_does_not_mutate_old_state():
     np.testing.assert_array_equal(state.plastic.backstresses, 0.)
 
 
+def test_coupled_material_point_rejects_complex_strain():
+    with pytest.raises(ValueError, match="real"):
+        _material().update(np.eye(3, dtype=complex) * 1.j, time_start=0., time_end=1.)
+
+
+@pytest.mark.parametrize("chaboche", [False, True])
+def test_coupled_backtracking_does_not_request_unused_plastic_tangents(monkeypatch, chaboche):
+    law = _material(chaboche=chaboche)
+    cls = type(law.plastic)
+    original = cls.update
+    requests = []
+    def observe(self, *args, **kwargs):
+        requests.append(kwargs.get("linearization", "consistent"))
+        return original(self, *args, **kwargs)
+    monkeypatch.setattr(cls, "update", observe)
+    result = law.update(np.diag([.004, -.002, -.002]), time_start=0., time_end=2.)
+    assert result.local_iterations > 1
+    assert "none" in requests
+    assert requests.count("consistent") == result.local_iterations
+    assert np.isfinite(result.algorithmic_tangent).all()
+
+
 def test_combined_isotropic_solution_matches_independent_scalar_equations():
     # Coaxial J2 with linear hardening reduces to two scalar equations. Solve
     # the endpoint equivalent stress independently with scipy's bracket root.
@@ -230,6 +252,74 @@ def test_coupled_quadrature_late_point_failure_is_atomic(monkeypatch):
         np.testing.assert_array_equal(state.snapshot()[key], before[key])
         np.testing.assert_array_equal(state.transaction.trial[key].values, before_trial[key])
     np.testing.assert_array_equal(state.stress.values, before_stress)
+
+
+@pytest.mark.parametrize("corruption", ["stress", "tangent", "energy", "backstress"])
+def test_coupled_bad_returned_array_does_not_publish_any_trial_or_response(monkeypatch, corruption):
+    from dataclasses import replace
+
+    step = _structure()
+    state = step.state
+    strain = np.broadcast_to(np.diag([0.004, -0.002, -0.002]), state.creep_strain.values.shape)
+    state.update(strain, step.material, time_start=0., time_end=.25)
+    state.commit()
+    committed = state.snapshot()
+    trial = {key: value.values for key, value in state.transaction.trial.items()}
+    stress, tangent = state.stress.values, state.tangent.values
+    energy = {key: value.copy() for key, value in state.plastic_energy_increments.items()}
+    original = CreepPlasticityMaterial.update
+    calls = 0
+    def corrupt_late(self, *args, **kwargs):
+        nonlocal calls
+        answer = original(self, *args, **kwargs)
+        calls += 1
+        if calls != 3:
+            return answer
+        if corruption == "stress":
+            return replace(answer, stress=answer.stress.astype(complex) + 1.j)
+        if corruption == "tangent":
+            return replace(answer, algorithmic_tangent=np.full((3, 3, 3, 3), np.nan))
+        if corruption == "energy":
+            return replace(answer, plastic_energy=replace(answer.plastic_energy, plastic_work=np.inf))
+        # Frozen state arrays are copied by the constitutive update. Corrupt
+        # this returned state, not a live previously accepted material state.
+        answer.state.plastic.backstresses[0, 0, 0] = np.nan
+        return answer
+    monkeypatch.setattr(CreepPlasticityMaterial, "update", corrupt_late)
+    with pytest.raises(ValueError, match="real|finite"):
+        state.update(-strain, step.material, time_start=.25, time_end=.5)
+    for key, expected in committed.items():
+        np.testing.assert_array_equal(state.snapshot()[key], expected)
+        np.testing.assert_array_equal(state.transaction.trial[key].values, trial[key])
+    np.testing.assert_array_equal(state.stress.values, stress)
+    np.testing.assert_array_equal(state.tangent.values, tangent)
+    for key, expected in energy.items():
+        np.testing.assert_array_equal(state.plastic_energy_increments[key], expected)
+
+
+@pytest.mark.parametrize("method", ["update", "refresh_response"])
+@pytest.mark.parametrize("invalid", ["complex_strain", "nonfinite_strain", "wrong_shape", "complex_temperature"])
+def test_coupled_quadrature_rejects_invalid_inputs_without_losing_information(method, invalid):
+    step = _structure(thermal=invalid == "complex_temperature")
+    state = step.state
+    strain = np.zeros((state.creep_strain.point_count, 3, 3))
+    temperature = None
+    if invalid == "complex_strain":
+        strain = strain.astype(complex) + 1.j
+    elif invalid == "nonfinite_strain":
+        strain[-1, 0, 0] = np.inf
+    elif invalid == "wrong_shape":
+        strain = strain[:-1]
+    else:
+        temperature = np.full(len(strain), 800. + 1.j)
+    before = state.snapshot()
+    options = dict(temperature_values=temperature)
+    if method == "update":
+        options.update(time_start=0., time_end=.25)
+    with pytest.raises(ValueError, match="real|finite"):
+        getattr(state, method)(strain, step.material, **options)
+    for key, expected in before.items():
+        np.testing.assert_array_equal(state.snapshot()[key], expected)
 
 
 def test_coupled_free_thermal_expansion_and_arrhenius_rate():
