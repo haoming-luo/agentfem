@@ -59,6 +59,7 @@ class FiniteStrainMaterialStep:
         time_unit=None,
     ):
         from .. import constraints as constraint_api
+        from .._step_provider_support import is_standalone_h1_vector_field
 
         self.solution = displacement.value
         domain = self.solution.function_space.mesh
@@ -74,6 +75,10 @@ class FiniteStrainMaterialStep:
         if self.solution.ufl_shape != (dimension,):
             raise ValueError(
                 "Displacement must have one component per spatial dimension."
+            )
+        if not is_standalone_h1_vector_field(displacement):
+            raise NotImplementedError(
+                "AFM-USER-FINITE-SPACE: use a standalone H1-conforming displacement; no mixed-pressure or DG interface terms are supplied."
             )
         if dimension == 2 and getattr(study, "assumption", None) != "plane_strain":
             raise NotImplementedError(

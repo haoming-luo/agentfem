@@ -12,6 +12,9 @@ The current admission is serial, one homogeneous material, strong prescribed
 displacements and reference dead loads, in 3D or explicitly declared 2D plane
 strain. It is not a hydrogel-specific solver or automatic multiaxial inference
 from a uniaxial calibration.
+Displacement must be a standalone H1-conforming vector field with one component
+per spatial dimension. DG fields require interface terms, and a mixed-field
+subspace cannot silently discard its pressure equation. Both are rejected.
 
 ## Start with the complete example
 
@@ -148,7 +151,7 @@ numerical cutback; a secondary reporting error never hides the original failure.
 ## Evidence and limits
 
 `tests/test_finite_strain_material_step.py` checks fixed-old-state material
-tangents, superposed rotations, 2D/3D patches against material points,
+tangents, superposed rotations, degree-one/two 2D/3D patches against material points,
 nonuniform traction equilibrium and assembled tangent directions, physical-time
 sensitivity, cutback, restart equivalence, corrupt restore rejection and real
 VTK reading/warping. `tests/test_live_xdmf.py` also checks process interruption

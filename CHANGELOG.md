@@ -13,6 +13,8 @@ experimental formulation to a validated one.
   displacement constraints. Physical-time cutback and atomic same-layout
   restart do not imply contact, MPI, plane stress or arbitrary UMAT support.
   Include two replaceable educational history laws in one four-file project.
+  Require a standalone H1 displacement space; reject DG and mixed subfields
+  rather than omitting their interface or pressure equations.
 - Publish this route's accepted displacement/stress/state frames on one mesh,
   with explicit quadrature-to-cell recovery and closed HDF5 frame files.
   Inventory only the index's referenced data; reject output-name collisions.

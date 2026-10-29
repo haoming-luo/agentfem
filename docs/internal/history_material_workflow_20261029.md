@@ -63,7 +63,7 @@ branch. No released version/tag is overwritten and no private user data is used.
 ## Acceptance evidence (2026-10-29)
 
 One consolidated targeted run in the real `fenicsx-env`, with source
-`PYTHONPATH=src` and BLAS/OpenMP threads limited to one, passed **400 tests**;
+`PYTHONPATH=src` and BLAS/OpenMP threads limited to one, passed **407 tests**;
 **3 tests were skipped because they require two MPI ranks**. This is not a
 full repository run and does not promote this serial Step to MPI support.
 
@@ -84,7 +84,7 @@ python -m pytest -q \
 
 Evidence covers:
 
-- Both history laws, scalar/batch parity, 2D/3D homogeneous patch agreement;
+- Both history laws, scalar/batch parity, degree-one/two 2D/3D homogeneous patch agreement;
   fixed-old-state material tangents and superposed rotation covariance.
 - Nonuniform 2D/3D dead-load equilibrium, loading/unloading branch tangent
   directions and reaction balance. The damage tangent check avoids the
@@ -99,6 +99,9 @@ Evidence covers:
 - Existing small-strain, finite-J2/contact, project, architecture and output
   contracts. Dispatch uses the declared kinematic convention, not structural
   Python protocol matching alone.
+- Shared admission checks reject DG displacement, wrong component counts and
+  mixed-field subspaces before assembly; no missing interface/pressure equation
+  is hidden by a successful scalar material evaluation.
 
 A separate disposable installed-use check built a pure-Python wheel with
 `AGENTFEM_BUILD_NATIVE=0`, installed it in a new system-site-packages venv sharing

@@ -366,6 +366,9 @@ def _finite_strain_user_material_rejection(model, request: StepRequest):
     domain = getattr(getattr(getattr(request.target, "value", None), "function_space", None), "mesh", None)
     if domain is None:
         return "AFM-USER-FINITE-TARGET: register a displacement Field before selecting a Step."
+    from ._step_provider_support import is_standalone_h1_vector_field
+    if not is_standalone_h1_vector_field(request.target) or request.target.value.ufl_shape != (domain.geometry.dim,):
+        return "AFM-USER-FINITE-SPACE: use a standalone H1-conforming displacement with one component per spatial dimension."
     if domain.comm.size != 1:
         return "AFM-USER-FINITE-MPI: implicit user-material MPI is not verified."
     if domain.geometry.dim not in (2, 3) or domain.topology.dim != domain.geometry.dim:

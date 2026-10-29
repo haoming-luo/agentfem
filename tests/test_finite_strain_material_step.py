@@ -100,6 +100,7 @@ def build(
     *,
     mechanism="viscoelastic",
     dimension=3,
+    degree=1,
     duration=2.0,
     material=None,
     incrementation=None,
@@ -116,7 +117,7 @@ def build(
         **({"assumption": "plane_strain"} if dimension == 2 else {}),
     )
     model = models.create(study=study, mesh=domain)
-    u = model.field(fields.displacement(domain))
+    u = model.field(fields.displacement(domain, degree=degree))
     material = material or HistoryMaterial(mechanism=mechanism)
     model.material(material)
     for axis in range(dimension):
@@ -128,6 +129,7 @@ def build(
             value=0.12 if axis == 0 else 0.0,
         )
     options.setdefault("progress", False)
+    options.setdefault("quadrature_degree", max(2, 2 * degree))
     step = model.step(
         target=u,
         duration=duration,
@@ -182,8 +184,9 @@ def test_tangent_and_rotated_stress(mechanism):
 
 @pytest.mark.parametrize("mechanism", ["viscoelastic", "damage"])
 @pytest.mark.parametrize("dimension", [2, 3])
-def test_material_point_matches_structure(mechanism, dimension):
-    step, material = build(mechanism=mechanism, dimension=dimension)
+@pytest.mark.parametrize("degree", [1, 2])
+def test_material_point_matches_structure(mechanism, dimension, degree):
+    step, material = build(mechanism=mechanism, dimension=dimension, degree=degree)
     # Construction must never integrate a fictitious physical time step.
     assert np.max(np.abs(step.state.committed_state_vectors())) == 0
     step.solve()
@@ -539,6 +542,48 @@ def test_wrong_solver_policy_and_nonraising_failure_reject():
         build(solver_options=solvers.newton(error_if_not_converged=False))
 
 
+@pytest.mark.parametrize(
+    "family, components", [("Discontinuous Lagrange", 2), ("Lagrange", 3)]
+)
+def test_unsupported_displacement_space_rejects_in_preflight_and_construction(
+    family, components
+):
+    import ufl
+    from dolfinx import fem
+    from agentfem import mechanics
+    from agentfem.step_providers import step_capability
+
+    domain = dmesh.create_unit_square(MPI.COMM_SELF, 1, 1)
+    space = fem.functionspace(domain, (family, 1, (components,)))
+    u = fields.UnknownField(
+        "U",
+        space,
+        fem.Function(space),
+        ufl.TrialFunction(space),
+        ufl.TestFunction(space),
+        "displacement",
+    )
+    study = studies.static_solid(dimension=2, assumption="plane_strain", nonlinear=True)
+    model = models.create(study=study, mesh=domain)
+    model.field(u)
+    material = HistoryMaterial()
+    model.material(material)
+    capability = step_capability(model, target=u, options={"duration": 1.0})
+    assert not capability["supported"]
+    assert any(
+        "AFM-USER-FINITE-SPACE" in item["message"]
+        for item in capability["rejection_reasons"]
+    )
+    with pytest.raises(NotImplementedError, match="AFM-USER-FINITE-SPACE"):
+        model.step(target=u, duration=1.0, progress=False)
+    with pytest.raises(
+        (ValueError, NotImplementedError), match="H1-conforming|component per spatial"
+    ):
+        mechanics.FiniteStrainMaterialStep(
+            displacement=u, material=material, duration=1.0, study=study, progress=False
+        )
+
+
 @pytest.mark.parametrize("kind", ["plane_stress", "axisymmetric"])
 def test_unsupported_2d_reductions_are_not_inferred(kind):
     domain = dmesh.create_unit_square(MPI.COMM_SELF, 1, 1)
@@ -549,6 +594,23 @@ def test_unsupported_2d_reductions_are_not_inferred(kind):
     u = model.field(fields.displacement(domain))
     model.material(HistoryMaterial())
     with pytest.raises(NotImplementedError, match="plane strain"):
+        model.step(target=u, duration=1.0, progress=False)
+
+
+def test_mixed_displacement_subfield_cannot_drop_its_pressure_equation():
+    from agentfem.step_providers import step_capability
+
+    domain = dmesh.create_unit_square(MPI.COMM_SELF, 1, 1)
+    model = models.create(
+        study=studies.static_solid(
+            dimension=2, assumption="plane_strain", nonlinear=True
+        ),
+        mesh=domain,
+    )
+    u = model.field(fields.displacement_pressure(domain).displacement)
+    model.material(HistoryMaterial())
+    assert not step_capability(model, target=u, options={"duration": 1.0})["supported"]
+    with pytest.raises(NotImplementedError, match="standalone H1"):
         model.step(target=u, duration=1.0, progress=False)
 
 
