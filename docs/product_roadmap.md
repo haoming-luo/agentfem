@@ -39,6 +39,12 @@ benchmark. The [design and evidence record](internal/thermo_inelastic_continuity
 tracks exact scope. The ordinary `examples/thermal_cyclic_creep` project uses
 synthetic parameters, not confidential calibration data.
 
+The [creep/fatigue verification ladder](creep_fatigue_verification.md) now ties
+the next gate to independent Norton relaxation, cyclic loop work and
+time-fraction references, followed by compatible held-out material test data.
+ASTM catalogue references identify test families, not software certification;
+the generic linear interaction is not a qualified design-code envelope.
+
 ### 0.4.4 published; bounded maintenance (2026-10-27)
 
 [0.4.4 is published](https://github.com/haoming-luo/agentfem/releases/tag/v0.4.4)

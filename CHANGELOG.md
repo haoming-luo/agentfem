@@ -6,6 +6,11 @@ experimental formulation to a validated one.
 
 ## [Unreleased]
 
+- Require creep/fatigue damage points to lie within the supplied interaction
+  diagram's domain, including the zero-fatigue creep-axis case. Reject invalid
+  imported damage and expose the limited acceptance scope in result metadata.
+  Add independent structural relaxation, cyclic-loop and time-fraction checks.
+
 - Reject history materials from inferred stateless linear elasticity/dynamics
   dispatch even when they expose elastic moduli. Preserve explicitly supplied
   operators and the dedicated stateful providers.

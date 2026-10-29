@@ -131,3 +131,29 @@ Additional assessment guards reject complex histories and distinguish numeric
 life overflow from no counted damage. CI must rerun on the repair commit;
 the first run's skipped macOS gate is not acceptance. No automatic merge or
 release follows from these local results.
+
+## Reference-driven follow-up (2026-10-29)
+
+The [verification ladder](../creep_fatigue_verification.md) records official
+test-method catalogue entries, open institutional literature, analytical
+derivations, numerical errors and the remaining independent-material gate.
+Only public catalogue scopes were reviewed for ASTM; no full-standard
+compliance or qualified material fit is claimed.
+
+Three new structural/reference cases check n=1 and n=3 Norton relaxation,
+the corresponding synthetic time-fraction integral, and a perfect-plastic
+closed-cycle work/strain-life reference. These use the ordinary Step. The
+first test attempt found a missing required `stress_exponent` in the new
+zero-creep fixture; adding its explicit n=1 setting fixed the fixture without
+changing the solver. Focused checks passed 41 tests; the expanded creep,
+coupled plasticity, fatigue and assessment set passed 124 tests in 106.53 s.
+These counts overlap and are not additive. Ruff, generated documentation,
+57 scientific-card checks and strict MkDocs pass.
+
+The review also fixed a decision bug: zero fatigue previously allowed creep
+damage beyond the supplied diagram because the out-of-range ordinate was
+zero. Acceptance now requires actual abscissa coverage, with explicit
+machine-readable scope/domain metadata and invalid imported damage rejection.
+This changes unsafe assessment decisions, not equilibrium or material history.
+PR #133's preceding full CI is still running; this local evidence does not
+replace the latest-commit remote gate.

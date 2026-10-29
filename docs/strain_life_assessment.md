@@ -75,3 +75,8 @@ The current tests cover equal-exponent closed-form inversion, round trips,
 stress-unit invariance, full/half-cycle conventions, calibration rejection,
 source retention and composition. They do not validate a material's fitted
 parameters, nonisothermal life, multiaxial damage or component service life.
+
+The [verification ladder](creep_fatigue_verification.md) adds structural
+relaxation, a classical cyclic hysteresis reference and a traceable standards
+and experimental-data map. Interaction acceptance requires diagram-domain
+coverage even when the fatigue damage is zero; it is not regulatory approval.
