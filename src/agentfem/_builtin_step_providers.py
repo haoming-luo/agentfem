@@ -337,6 +337,7 @@ def _accept_small_strain_material(model, request: StepRequest) -> bool:
 
 
 def _finite_strain_user_material_preconditions(model, request: StepRequest) -> bool:
+    from .constitutive import FiniteStrainJ2Logarithmic
     from .constitutive.user_material import UserMaterial, MaterialTangentConvention
 
     study = getattr(model, "study", None)
@@ -346,6 +347,9 @@ def _finite_strain_user_material_preconditions(model, request: StepRequest) -> b
         and getattr(study, "physics", None) == "solid_mechanics"
         and _is_vector_target(request.target)
         and isinstance(material, UserMaterial)
+        # Built-in J2 has its own procedure and rejection contracts. A generic
+        # fallback must not bypass those contracts when its options are refused.
+        and not isinstance(material, FiniteStrainJ2Logarithmic)
         # Runtime protocols share attribute names with small-strain providers;
         # their physical tangent declarations, not Python duck typing alone,
         # distinguish the two contracts.
