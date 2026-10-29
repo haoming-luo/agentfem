@@ -108,6 +108,10 @@ The failed full run is not relabeled as a passing release gate.
 The subsequent parent run `40844625630` at `295bfa80` completed successfully,
 including FEniCSx and macOS installed-wheel acceptance. That result applies to
 the parent workflow, not automatically to this stacked plane-stress change.
+The initial plane-stress commit `64fbd5a5` then passed all applicable CI checks
+in run `40848734377`, including FEniCSx and macOS installed-wheel acceptance.
+Later audit commits require their own CI; the earlier green result is not
+silently reassigned to a new HEAD.
 
 ## Accepted-state ownership audit
 
@@ -146,7 +150,8 @@ requires explicit checkpoint cadence; saved visualization frames remain usable.
 
 The initial targeted source selection passed **418 tests**; after the ownership
 audit, ordinary pause workflow and tangent-check hardening, the same selection
-passed **453 tests**, with **4 skipped**
+passed **453 tests**. The final expanded selection below passed **777 tests**,
+with **4 skipped**
 because their tests require two MPI ranks. It ran in the real `fenicsx-env`
 with `PYTHONPATH=src` and OpenMP/OpenBLAS threads limited to one:
 
@@ -158,7 +163,10 @@ python -m pytest -q \
   tests/test_documentation.py tests/test_architecture_contract.py \
   tests/test_constitutive_models.py tests/test_extension_upgrade_context.py \
   tests/test_live_xdmf.py tests/test_xdmf_layout.py tests/test_common_workflows.py \
-  tests/test_quadrature_physical_recovery.py tests/test_quadrature_snapshot_ownership.py
+  tests/test_quadrature_physical_recovery.py tests/test_quadrature_snapshot_ownership.py \
+  tests/test_verification.py tests/test_results.py tests/test_project_cli.py \
+  tests/test_project_execution.py tests/test_solvers.py \
+  tests/test_workflow_usability.py tests/test_progress_display.py
 ```
 
 Correctness lint, generated API/knowledge checks and strict documentation
