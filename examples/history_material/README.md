@@ -80,6 +80,40 @@ the restart time. Use its explicit `overlap="identical"` option to verify and
 deduplicate the recomputed interval. Conflicting fields or unmatched overlapping
 times are rejected; never concatenate different branches by ignoring warnings.
 
+## Check a local update before solving the structure
+
+With a build exposing `constitutive.check_material_rotation`, the same public
+tools can check either local law without running a global solve. Run this Python
+snippet from the example directory:
+
+```python
+import numpy as np
+from agentfem import constitutive as c
+from material import HistoryMaterial
+
+material = HistoryMaterial(mechanism="viscoelastic")  # or "damage"
+point = c.MaterialPointInput(
+    np.eye(3), np.diag((1.1, 0.98, 1.02)), 0.1, 0.1, [],
+    material.state_schema.initial_state(), material.state_schema,
+)
+Q = np.array(((0., -1., 0.), (1., 0., 0.), (0., 0., 1.)))
+derivative = c.check_material_tangent(material, point)
+rotated = c.check_material_rotation(
+    material, point, Q,
+    state_frames={v.name: "invariant" for v in material.state_schema.variables},
+)
+print(derivative.summary())
+print(rotated.summary())
+assert derivative.accepted and rotated.accepted
+```
+
+Here `Q` history is a reference Green-strain tensor, `KAPPA` a scalar and `AGE`
+physical elapsed time; all are invariant under the selected observer rotation.
+Do not copy that declaration to spatial history tensors in a different law.
+Repeat at unloading/hold states and use meaningful characteristic scales near
+zero responses. These checks complement, not replace, independent material and
+structural references. They add no checks to each production integration point.
+
 ## Scientific and numerical boundaries
 
 - `duration=2.` is physical time in the user's consistent units. The amplitude

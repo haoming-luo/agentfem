@@ -52,8 +52,14 @@ same-version package fails project preflight instead of late execution.
   educational laws. Each merged view contains 16 unique frames / 64 cells;
   maximum field difference is 0.0, final checkpoint arrays match, each run keeps
   two scheduled archives, and actual VTK/Warp preserves stress, history and F.
-  This installed check preceded the final exclusive-publication and optional
-  multi-station-overlap hardening; those are covered by the final source tests.
+  The first installed check preceded exclusive-publication and optional
+  multi-station-overlap hardening. A fresh isolated installed check now repeats
+  both laws with those changes and the material-verification audit included:
+  the same 16-frame/64-cell, exact-field/state and real VTK/Warp checks pass.
+  Candidate wheel SHA256:
+  `fe23d7d6c03f993c5b679919d4a47c2359adad4b70449b8109a8482be033ab2d`.
+  No source-path injection or user-environment replacement was used. Same-host
+  exact equality is evidence for this fixture, not a cross-platform bitwise claim.
 - Correctness lint and generated documentation checks pass. Remote CI is a
   separate gate; this record does not assign earlier parent CI to a new HEAD.
 

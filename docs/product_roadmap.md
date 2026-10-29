@@ -58,9 +58,15 @@ The follow-up verification audit also rejects observable provider input mutation
 without modifying the caller's request. Full/reduced finite-strain and small-strain
 tangent evidence now share unit-robust error arithmetic; scalar/batch stress
 symmetry retains point-local scales. This is verification infrastructure, not
-experimental validation of any user law. Generic rotation evidence must declare
-the frame of history tensors and external fields before a reusable checker can
-admit them; array shape alone cannot establish those transformation rules.
+experimental validation of any user law. Reusable local rotation evidence now
+requires explicit invariant/spatial-vector/spatial-tensor declarations for every
+history variable and rejects undeclared external fields. It checks each channel
+independently, including two different endpoint rotations; it does not replace
+derivative, thermodynamic, path-wide or experimental checks. The existing J2
+material is included as a local cross-check, not a wider structural admission.
+Real material requests/responses and checkpoint restoration now refuse complex
+values before conversion, instead of silently discarding imaginary components.
+This is boundary validation, not support for frequency-domain constitutive laws.
 
 ### Thermal–inelastic continuity sprint (2026-10-29)
 

@@ -24,6 +24,9 @@ from .user_material import (
     MaterialPointInput,
     UserMaterial,
     validated_material_batch_update,
+    _real_material_array,
+    _real_material_scalar,
+    _symmetric_tensors,
 )
 from .small_strain_user_material import (
     SmallStrainMaterialPointBatchInput,
@@ -56,11 +59,11 @@ class MaterialPointBatchResult:
     plane_stress: PlaneStressBatchResponse | None = None
 
     def __post_init__(self) -> None:
-        stress = np.asarray(self.cauchy_stress, dtype=float)
-        tangent = np.asarray(self.consistent_tangent, dtype=float)
-        state = np.asarray(self.state_new, dtype=float)
-        energy = np.asarray(self.strain_energy_density, dtype=float).reshape(-1)
-        scale = np.asarray(self.suggested_time_scale, dtype=float).reshape(-1)
+        stress = _real_material_array(self.cauchy_stress, label="cauchy_stress")
+        tangent = _real_material_array(self.consistent_tangent, label="consistent_tangent")
+        state = _real_material_array(self.state_new, label="state_new")
+        energy = _real_material_array(self.strain_energy_density, label="strain_energy_density").reshape(-1)
+        scale = _real_material_array(self.suggested_time_scale, label="suggested_time_scale").reshape(-1)
         count = len(stress)
         if self.plane_stress is not None and (
             not isinstance(self.plane_stress, PlaneStressBatchResponse)
@@ -70,7 +73,7 @@ class MaterialPointBatchResult:
         dissipation = (
             np.zeros(count)
             if self.dissipation_density_increment is None
-            else np.asarray(self.dissipation_density_increment, dtype=float)
+            else _real_material_array(self.dissipation_density_increment, label="dissipation_density_increment")
         )
         dissipation_defined = (
             np.full(count, self.dissipation_density_increment is not None, dtype=bool)
@@ -136,7 +139,7 @@ class MaterialPointBatchResult:
             )
         for name, value in self.stored_energy_density_components.items():
             key = str(name).strip().upper()
-            selected = np.asarray(value, dtype=float).reshape(-1)
+            selected = _real_material_array(value, label=f"energy component {name}").reshape(-1)
             if not key or len(selected) != count or not np.all(np.isfinite(selected)):
                 raise ValueError(
                     "Batch stored-energy components require a nonempty name and "
@@ -733,8 +736,8 @@ class SmallStrainMaterialQuadratureResponse:
 
 def _cauchy_to_first_piola(gradients, stresses):
     """Bound temporary inversion storage; preserve empty MPI partitions."""
-    gradients = np.asarray(gradients, dtype=float)
-    stresses = np.asarray(stresses, dtype=float)
+    gradients = _real_material_array(gradients, label="gradients")
+    stresses = _real_material_array(stresses, label="stresses")
     if (
         gradients.ndim != 3
         or gradients.shape[1:] != (3, 3)
@@ -772,34 +775,31 @@ def _raise_collective_material_problem(comm, local_problem, *, context: str) -> 
 
 
 def _point_array(value, *, point_count: int, label: str) -> np.ndarray:
-    selected = np.asarray(value, dtype=float)
+    selected = _real_material_array(value, label=label)
     if selected.shape == (3, 3):
         selected = np.broadcast_to(selected, (point_count, 3, 3)).copy()
     if selected.shape != (point_count, 3, 3) or not np.all(np.isfinite(selected)):
         raise ValueError(f"{label} must have shape (3, 3) or (points, 3, 3).")
-    determinants = np.linalg.det(selected)
-    if np.any(determinants <= 0.0):
-        raise ValueError(f"Every {label} must have positive determinant.")
+    if not positive_finite_determinants(selected).all():
+        raise ValueError(f"Every {label} must have finite positive determinant.")
     return selected
 
 
 def _small_strain_point_array(value, *, point_count: int, label: str) -> np.ndarray:
-    selected = np.asarray(value, dtype=float)
+    selected = _real_material_array(value, label=label)
     if selected.shape == (3, 3):
         selected = np.broadcast_to(selected, (point_count, 3, 3)).copy()
     if selected.shape != (point_count, 3, 3) or not np.all(np.isfinite(selected)):
         raise ValueError(f"{label} must have shape (3, 3) or (points, 3, 3).")
-    skew = np.max(np.abs(selected - np.swapaxes(selected, 1, 2)), axis=(1, 2))
-    scale = np.maximum(np.linalg.norm(selected, axis=(1, 2)), np.finfo(float).tiny)
-    if np.any(skew > 1.0e-10 * scale):
+    if not _symmetric_tensors(selected):
         raise ValueError(f"Every {label} tensor must be symmetric.")
-    return 0.5 * (selected + np.swapaxes(selected, 1, 2))
+    return selected + 0.5 * (np.swapaxes(selected, 1, 2) - selected)
 
 
 def _optional_point_scalars(value, *, point_count: int, label: str):
     if value is None:
         return None
-    selected = np.asarray(value, dtype=float)
+    selected = _real_material_array(value, label=label)
     if selected.ndim == 0:
         selected = np.full(point_count, float(selected))
     selected = selected.reshape(-1)
@@ -846,11 +846,9 @@ def update_material_points(
             or max_batch_points < 1
         ):
             raise ValueError("max_batch_points must be a positive integer.")
-        if (
-            not np.isfinite(time)
-            or not np.isfinite(time_increment)
-            or time_increment <= 0
-        ):
+        time = _real_material_scalar(time, label="time")
+        time_increment = _real_material_scalar(time_increment, label="time_increment")
+        if time_increment <= 0:
             raise ValueError("Material time must be finite and increment positive.")
         regional = isinstance(material, QuadratureMaterialMap)
         if plane_stress is not None:
@@ -904,7 +902,7 @@ def update_material_points(
             point_count=point_count,
             label="temperature_increment",
         )
-        selected_properties = np.asarray(properties, dtype=float).reshape(-1)
+        selected_properties = _real_material_array(properties, label="properties").reshape(-1)
         if not np.all(np.isfinite(selected_properties)):
             raise ValueError("properties must contain finite values.")
         if regional and selected_properties.size:
@@ -915,7 +913,7 @@ def update_material_points(
         fields = (
             None
             if field_variables is None
-            else np.asarray(field_variables, dtype=float)
+            else _real_material_array(field_variables, label="field_variables")
         )
         if fields is not None:
             if fields.ndim == 1:

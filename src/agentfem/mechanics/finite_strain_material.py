@@ -25,7 +25,9 @@ from petsc4py import PETSc
 
 from .. import amplitudes, checkpointing, procedures, steps
 from ..constitutive.material_driver import MaterialQuadratureResponse
-from ..constitutive.user_material import UserMaterial, MaterialTangentConvention
+from ..constitutive.user_material import (
+    UserMaterial, MaterialTangentConvention, _real_material_array, _real_material_scalar,
+)
 from ..constitutive.plane_stress import PlaneStressReduction
 from ..constitutive.quadrature import QuadratureField
 from ..solvers import NewtonSolverOptions, newton, solve_matrix_system
@@ -118,7 +120,7 @@ class FiniteStrainMaterialStep:
             raise ValueError(
                 "Material summary must be a nonempty JSON scientific identity."
             )
-        self.duration = float(duration)
+        self.duration = _real_material_scalar(duration, label="Physical duration")
         if not np.isfinite(self.duration) or self.duration <= 0:
             raise ValueError("Physical duration must be finite and positive.")
         self.time_unit = None if time_unit is None else str(time_unit).strip()
@@ -133,7 +135,7 @@ class FiniteStrainMaterialStep:
             material,
             study,
         )
-        self.properties = np.asarray(properties, dtype=float).reshape(-1).copy()
+        self.properties = _real_material_array(properties, label="properties").reshape(-1).copy()
         if not np.isfinite(self.properties).all():
             raise ValueError("Material properties must be finite.")
         self.procedure = procedures.nonlinear_static(stateful=True)
@@ -1281,9 +1283,12 @@ class FiniteStrainMaterialStep:
                 for group in ("state", "response")
                 for key, value in snapshot[group].items()
             ]
-            if any(a.shape != b.shape or not np.isfinite(a).all() for a, b in pairs):
+            if any(
+                a.shape != b.shape or np.iscomplexobj(a) or not np.isfinite(a).all()
+                for a, b in pairs
+            ):
                 raise ValueError(
-                    "Checkpoint arrays must have matching shapes and finite values."
+                    "Checkpoint arrays must have matching shapes and finite real values."
                 )
             if np.any(np.linalg.det(candidate["F"]) <= 0):
                 raise ValueError("Checkpoint deformation gradient is inverted.")

@@ -329,6 +329,42 @@ The small-strain checker follows the same isolation and unit-robust error rules,
 while keeping its own stress/strain and shear convention. Scalar and batch
 Cauchy-stress symmetry checks normalize each point independently; a large
 neighboring stress cannot hide a smaller point's nonsymmetric response.
+These material contracts are real-valued. Complex gradients, states, stresses
+or tangents are rejected before conversion instead of losing their imaginary
+parts; a complex-valued frequency-domain constitutive contract is a separate
+capability. The same rule applies before restoring this Step's state arrays.
+
+### Rotation evidence without guessed history frames
+
+`constitutive.check_material_rotation(material, point, Q, state_frames=...)`
+compares a discrete update with its observer-rotated counterpart. It checks
+Cauchy stress, first Piola stress, the full declared `dP/dF` and each named
+history variable separately. `old_rotation=Qn` can differ from `Q`; omitting it
+tests a constant observer rotation. All rotations must be proper orthogonal
+3×3 matrices. The test does not rotate material axes in the reference body and
+therefore does not assume isotropy.
+
+Every state name needs an explicit transformation declaration:
+
+- `invariant`: scalar, reference-frame or corotated history unchanged by the
+  selected spatial observer transformation;
+- `spatial_vector`: `Q @ v`, with declared shape `(3,)`;
+- `spatial_tensor`: `Q @ T @ Q.T`, with declared shape `(3, 3)`.
+
+The old history uses `Qn`, returned history uses `Q`. A mixed tensor with only
+one spatial index is not a spatial second-order tensor: use a separately
+verified adapter rather than selecting a convenient frame. Nonempty external
+field arrays are rejected because their frames have not been declared. Material
+properties must be scalar/reference parameters; scalar temperatures are unchanged.
+
+Errors use independent channel norms. Optional `stress_scale` and named
+`state_scales` are positive characteristic values in the corresponding physical
+units and are recorded in the evidence. Supply meaningful scales when testing
+near-zero responses; there is no hidden unit-size absolute tolerance. A large
+age variable cannot conceal a small strain-history error. A passing covariance
+check is not a passing derivative check: run `check_material_tangent` too, over
+loading, unloading and hold states. Neither one-point test proves path-wide
+objectivity, thermodynamics, stability, or agreement with experiments.
 
 ## Extension authors
 
@@ -361,3 +397,11 @@ substituting a continuum modulus, is also established in
 and [their plane-stress return mapping](https://doi.org/10.1002/nme.1620220310).
 Those papers motivate the consistency requirement; they do not certify this
 generic finite-strain adapter or arbitrary user laws.
+
+The observer transformations follow the
+[Sierra/SM frame-indifference theory](https://www.sandia.gov/files/sierra/SM_Theory_5_20/main/frame_indifference.html):
+`F*=Q F` and `sigma*=Q sigma Q.T`. Differentiating the first-Piola relation
+`P*=Q P` at fixed old state transforms the two spatial indices of `dP/dF`.
+[MFront's generic interface](https://thelfer.github.io/tfel/web/generic-behaviours-interface.html)
+also keeps stress measures, tangent measures and rotation operations explicit;
+its material-frame rotation helpers are not a substitute for this observer test.

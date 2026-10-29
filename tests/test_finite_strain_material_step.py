@@ -476,7 +476,12 @@ def test_failure_restores_accepted_responses(tmp_path):
 
 @pytest.mark.parametrize(
     "change, message",
-    [("gradient", "disagree"), ("translation", "prescribed boundary")],
+    [
+        ("gradient", "disagree"),
+        ("translation", "prescribed boundary"),
+        ("complex_displacement", "finite real"),
+        ("complex_history", "finite real"),
+    ],
 )
 def test_corrupt_response_restore_is_atomic(tmp_path, change, message):
     step, _ = build()
@@ -486,6 +491,10 @@ def test_corrupt_response_restore_is_atomic(tmp_path, change, message):
         payload = {name: source[name].copy() for name in source.files}
     if change == "gradient":
         payload["F"] *= 1.01  # Finite, positive but inconsistent with saved U.
+    elif change == "complex_displacement":
+        payload["U"] = payload["U"].astype(complex) + 1j
+    elif change == "complex_history":
+        payload["state_0"] = payload["state_0"].astype(complex) + 1j
     else:
         payload["U"] += 0.1  # Same F, but incompatible with essential BCs.
     corrupt = tmp_path / "corrupt.npz"
@@ -744,6 +753,9 @@ def test_output_failure_keeps_restartable_accepted_state(tmp_path, monkeypatch):
     "option, value, error",
     [
         ("duration", 0.0, ValueError),
+        ("duration", np.complex128(1 + 1j), ValueError),
+        ("duration", [1.0], ValueError),
+        ("properties", np.array([1j]), ValueError),
         ("time_unit", "", ValueError),
         ("temperature", 300.0, TypeError),
     ],

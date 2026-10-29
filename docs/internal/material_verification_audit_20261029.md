@@ -43,3 +43,64 @@ symmetrization avoids overflowing the intermediate sum of large equal entries.
 No new material physics, dimensional reduction scope, MPI admission, arbitrary
 energy-law claim or performance gain is implied. Rotation testing must declare
 history and external-field frames; shapes alone cannot establish those rules.
+
+## Follow-up: explicit-frame rotation evidence and real contracts
+
+`check_material_rotation` now compares one discrete update under independently
+declared old/new proper rotations. Every named history variable must specify
+invariant, spatial-vector or spatial-tensor transformation; external field
+arrays without frame declarations are refused. Reference/corotated parameters
+are unchanged. Cauchy stress, first Piola stress, `dP/dF` and each history
+variable have separate error channels. Optional characteristic scales are
+explicit and recorded; neither a large clock nor a different unit system can
+hide a small history variable's error. This is covariance evidence, not a
+derivative, thermodynamic or general material-objectivity proof.
+
+Negative controls deliberately break stress, tangent or history transformation.
+Another control scales an otherwise covariant tangent: rotation passes while
+the independent derivative check fails. Existing logarithmic J2 analytic and
+numerical tangent paths are checked through loading and reversal, without
+broadening their structural admission. The runnable README snippet is tested
+for both educational local laws.
+
+The audit also reproduced silent complex-to-real conversion in real material
+requests. Scalar, object-batch and columnar boundaries now reject unsupported
+complex values before casting; physical time and optional scalar channels must
+be actual finite real scalars. Finite F must also have a finite positive
+determinant. Invalid driver inputs are rejected before the provider and restore
+trial storage; complex checkpoint displacement/history is refused atomically.
+This does not remove or redefine separate frequency-domain complex physics.
+
+The existing two-rank ordered/columnar late-chunk failure tests pass (two tests
+per rank). They establish collective rollback for the material driver only;
+the new global history Step remains serial.
+
+Final affected regression: **888 passed**, 79.93 s, in the real FEniCSx
+environment with one numerical thread. This includes the documented local
+verification snippet, both history laws, plane-stress and full 3D checks,
+existing J2, checkpoint failure/recovery, real VTK output, CLI and
+extension-aware guidance. Early failures in the new scalar-channel test were
+fixture errors (undeclared 9x9 tangent and the small-strain energy field name);
+the corrected test and the final affected selection pass.
+
+An isolated installed-package check, without `PYTHONPATH`, also passes the
+README's tangent/rotation snippet for both laws and six ordinary CLI runs:
+pause, automatic-checkpoint resume and uninterrupted reference per law.
+Each joined view has 16 unique frames and 64 cells, zero measured field
+difference, identical final checkpoint arrays and actual VTK/Warp field
+preservation. Each run retains two scheduled archives. The candidate wheel
+SHA256 is `fe23d7d6c03f993c5b679919d4a47c2359adad4b70449b8109a8482be033ab2d`;
+native accelerators were disabled for this workflow acceptance, and the user's
+installation was not replaced. This is not a performance or cross-platform
+bitwise-reproducibility claim.
+
+### Primary references and interpretation
+
+- [Sierra/SM frame indifference](https://www.sandia.gov/files/sierra/SM_Theory_5_20/main/frame_indifference.html)
+  motivates left-rotated F and covariant spatial stress. The implemented
+  two-endpoint discrete check does not certify every time discretization or
+  objective stress rate.
+- [TFEL generic behaviour interface](https://thelfer.github.io/tfel/web/generic-behaviours-interface.html)
+  distinguishes stress/tangent conventions and material-axis transformations.
+  Observer covariance here is not a replacement for an anisotropic material
+  orientation adapter.

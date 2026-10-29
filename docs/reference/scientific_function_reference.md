@@ -2507,6 +2507,8 @@ Versioned internal variables and explicit stress/tangent conventions, with a bou
 - `agentfem.constitutive.MaterialTangentCheck`
 - `agentfem.constitutive.UserMaterial`
 - `agentfem.constitutive.check_material_tangent`
+- `agentfem.constitutive.check_material_rotation`
+- `agentfem.constitutive.MaterialRotationCheck`
 - `agentfem.constitutive.validated_material_update`
 - `agentfem.mechanics.FiniteStrainMaterialStep`
 - `agentfem.constitutive.PlaneStressReduction`
@@ -2548,7 +2550,8 @@ This adapter convention includes Abaqus component, engineering-shear, rotating-b
 | --- | --- | --- | --- |
 | MaterialPointOutput | Cauchy stress, declared consistent tangent, typed new state, optional energy and suggested time scale | stress, tangent, state and energy density | Global-Newton eligibility is explicit and false for undeclared legacy outputs. |
 | MaterialQuadratureState | schema-lowered committed/trial integration-point fields | per-variable declared units | Scalar and tensor state initialization, aliases and full schema identity remain attached to portable checkpoint storage. |
-| MaterialTangentCheck | fixed-old-state numerical differentiation evidence | dimensionless relative error and tangent units for absolute error | Compares a declared first-Piola/deformation-gradient Jacobian against all nine new-gradient components with stress-unit-robust error arithmetic. Mixed one-sided differences are explicitly named; unrepresentable perturbations are rejected. |
+| MaterialTangentCheck | fixed-old-state numerical differentiation evidence | dimensionless relative error and tangent units for absolute error | Compares a declared first-Piola/deformation-gradient Jacobian against all nine new-gradient components with stress-unit-robust error arithmetic. Mixed one-sided differences are explicitly named; unrepresentable perturbations and observable provider input mutation are rejected. |
+| MaterialRotationCheck | declared-frame two-endpoint discrete-update covariance evidence | independently normalized stress, tangent and named history errors; explicit characteristic scales retain their physical units | Requires every history frame to be declared invariant, spatial_vector or spatial_tensor. Checks Cauchy stress, first Piola stress, dP/dF and history, not tangent differentiation, energy, experimental validity or general path-wide objectivity. |
 
 #### Assumptions
 
@@ -2574,6 +2577,7 @@ This adapter convention includes Abaqus component, engineering-shear, rotating-b
 - The contract does not itself compile or execute arbitrary UMAT or UHYPER source.
 - MaterialQuadratureState owns storage and atomic lifecycle, not a constitutive integration algorithm or global residual.
 - Direct numerical tangent checking currently applies to first-Piola/deformation-gradient 9x9 tangents; spatial UMAT tangents require a verified transformation.
+- Rotation checking does not infer history frames, transform mixed tensors, or admit undeclared external-field arrays. Properties remain scalar/reference parameters; meaningful characteristic scales are needed near zero responses.
 - The generic implicit Step does not admit MPI, contact, MPC, regional materials, mixed pressure, general anisotropic plane stress, shells or temperature histories; its checkpoint is serial same-layout only.
 - Plane stress requires declared reflection symmetry and positive transverse algorithmic stiffness; 2D forces/energies are per unit reference thickness. Scalar reduction iterations do not imply a vectorized batch speedup.
 - Workflow evidence does not independently validate a supplied constitutive law. Optional stored energy is not total work or general energy closure.
@@ -2594,6 +2598,8 @@ response = constitutive.validated_material_update(material, point)
 - `tests/test_finite_strain_material_step.py`
 - `tests/test_history_plane_stress.py`
 - `tests/test_history_checkpoint_policy.py`
+- `tests/test_material_verification_inputs.py`
+- `tests/test_material_rotation.py`
 
 **Benchmarks**
 
@@ -2602,6 +2608,7 @@ response = constitutive.validated_material_update(material, point)
 **Validation rules**
 
 - Reject invalid deformation gradients, nonfinite state and mismatched state size.
+- Reject complex-valued data before any real cast in material requests/responses and the bounded history Step checkpoint restore.
 - Reject tensor initial values whose shape differs from the declared state variable shape.
 - Reject spatial rate tangents without an objective-rate declaration.
 - Reject array shapes inconsistent with the declared tangent storage.
@@ -2609,6 +2616,8 @@ response = constitutive.validated_material_update(material, point)
 - Reject incompatible material schemas during portable checkpoint restore.
 - Exercise schema-driven state in the existing two-rank-write to one-rank-read acceptance driver.
 - Reject an incorrect first-Piola tangent and retain the numerical relative-error evidence.
+- Reject observable provider input mutation while preserving caller requests, including failed providers; normalize tensor symmetry independently per point.
+- Check reference/spatial history covariance, changing endpoint rotations, anisotropy and component permutations; retain a negative control that passes rotation covariance but fails differentiation.
 - Keep undeclared legacy outputs ineligible for global Newton consumption.
 - Compare two history laws against material points, check global tangent directions, physical-time cutback, atomic same-layout restart and real multi-field VTK/Warp output.
 
@@ -2616,6 +2625,7 @@ response = constitutive.validated_material_update(material, point)
 
 - Abaqus 2025 UMAT reference: `https://docs.software.vt.edu/abaqusv2025/English/SIMACAESUBRefMap/simasub-c-umat.htm`
 - Numerical computation of algorithmic consistent tangent moduli in large-strain computational inelasticity: `https://doi.org/10.1016/0045-7825(96)01019-5`
+- Sierra/SM Theory Manual: Frame Indifference: `https://www.sandia.gov/files/sierra/SM_Theory_5_20/main/frame_indifference.html`
 
 <a id="agentfem-operator-biharmonic_split"></a>
 

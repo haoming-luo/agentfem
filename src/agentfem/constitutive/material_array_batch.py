@@ -26,6 +26,7 @@ from .user_material import (
     UserMaterial,
     _STATE_NAME,
     _symmetric_tensors,
+    _real_material_scalar,
 )
 
 
@@ -100,12 +101,12 @@ class MaterialPointArrayBatchInput:
             "state_old",
             _array(self.state_old, (count, self.state_schema.size), "state_old"),
         )
-        if (
-            not np.isfinite(self.time)
-            or not np.isfinite(self.time_increment)
-            or self.time_increment <= 0
-        ):
+        time = _real_material_scalar(self.time, label="time")
+        increment = _real_material_scalar(self.time_increment, label="time_increment")
+        if increment <= 0:
             raise ValueError("Material time must be finite and increment positive.")
+        object.__setattr__(self, "time", time)
+        object.__setattr__(self, "time_increment", increment)
         if np.iscomplexobj(self.properties):
             raise ValueError("properties must be real; complex values are not supported.")
         properties = np.asarray(self.properties, dtype=float).reshape(-1)
