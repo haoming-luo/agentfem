@@ -231,6 +231,27 @@ def test_fixed_increments_are_an_explicit_compatibility_mode():
     assert control.increments == 4
 
 
+@pytest.mark.parametrize("physical_time", [False, True])
+def test_paused_reporter_uses_declared_coordinate_without_relabeling_status(tmp_path, capsys, physical_time):
+    status = tmp_path / "pause.sta"
+    reporter = StandardRunReporter(type("Comm", (), {"rank": 0})(), status_file=status)
+    event = SolveEvent(
+        "step_paused", "history", increment=8, target_factor=0.5,
+        **({"coordinate_name": "time", "coordinate_value": 1.0, "coordinate_unit": "s"}
+           if physical_time else {}),
+    )
+    reporter.emit(event)
+    text = capsys.readouterr().out
+    assert "PAUSED" in text
+    if physical_time:
+        assert "time=1.000000e+00 s" in text
+        assert "load_factor=" not in text
+    else:
+        assert "load_factor=0.5" in text
+    # The existing machine status column still means normalized coordinate.
+    assert "0.5 0 0 0 PAUSED" in status.read_text()
+
+
 def test_standard_reporter_flushes_concise_status_and_iteration_text(
     tmp_path,
     capsys,

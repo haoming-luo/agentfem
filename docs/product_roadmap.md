@@ -44,6 +44,10 @@ promise a composite performance improvement. Precise evidence is recorded in
 [the sprint record](internal/history_material_workflow_20261029.md).
 The bounded reduction's design and evidence are recorded in
 [the plane-stress record](internal/history_plane_stress_20261029.md).
+The example also covers ordinary CLI pause/restart/whole-run comparison with
+explicit partial-result trust, rather than requiring a project-managed output
+loop. Accepted-state ownership guards and unit-robust tangent evidence are
+engineering hardening, not additional material validation or wider admission.
 
 ### Thermal–inelastic continuity sprint (2026-10-29)
 

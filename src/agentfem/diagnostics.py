@@ -535,10 +535,15 @@ class StandardRunReporter:
                 f"1 0 0 0 COMPLETED {elapsed:.6f}"
             )
         elif kind == "step_paused":
+            coordinate = (
+                _coordinate(event)
+                if event.coordinate_name and event.coordinate_value is not None
+                else f"load_factor={event.target_factor:.6g}"
+            )
             self._print(
                 f"[STEP {event.step_number}] PAUSED "
                 f"| increments={event.increment} "
-                f"| load_factor={event.target_factor:.6g} "
+                f"| {coordinate} "
                 f"| elapsed={elapsed:.1f}s"
             )
             self._write_status(

@@ -196,6 +196,12 @@ fallback called a `partial` result uncomputed. The Step now attaches the
 existing computed-but-not-full-convergence report for this accepted segment.
 It does not invent another trust grade or promote partial output to independent
 verification. Source tests require that `verified` acceptance still fails.
+The updated installed pause smoke confirms `status=partial`, `trust=computed`
+and no complete-path convergence. A subsequent shared presentation refinement
+uses the declared physical coordinate for pause messages and distinguishes
+empty/unassessed evidence from an actual failed claim or required quality gate.
+All 137 solver/progress/workflow usability tests passed; machine status columns
+and verification decisions are unchanged by this human-facing wording.
 
 The project requires both `mechanics.FiniteStrainMaterialStep` and
 `constitutive.PlaneStressReduction` by API identity. A matching development
