@@ -20,7 +20,7 @@ subspace cannot silently discard its pressure equation. Both are rejected.
 
 [`examples/history_material`](https://github.com/haoming-luo/agentfem/tree/main/examples/history_material)
 contains four files: `case.py`, `material.py`, `agentfem.toml`, and `README.md`.
-With an installation exposing `mechanics.FiniteStrainMaterialStep` and
+With an installation exposing `mechanics.FiniteStrainMaterialStep(checkpoint=...)` and
 `constitutive.PlaneStressReduction` (checked by the project manifest), run:
 
 ```sh
@@ -46,6 +46,9 @@ step = model.step(
     amplitude=cycle,
     incrementation=steps.fixed(16),
     output=run.artifact("results.xdmf"),
+    checkpoint=checkpointing.every(
+        4, directory=run.artifact("checkpoints"), keep_last=2
+    ),
 )
 result = step.solve_result()
 run.publish(result)
@@ -179,6 +182,40 @@ saved time. Restore failure is atomic. This first checkpoint format is serial
 and same-layout only.
 Changing rank count or remeshing is not supported by this Step.
 
+### Automatic accepted-state checkpoints
+
+Use the existing `checkpointing.every(...)` policy in `model.step(checkpoint=...)`.
+Cadence counts **globally accepted increments**, including those restored from
+an earlier checkpoint, not Newton iterations or failed attempts. `final=True`
+also saves the endpoint of a requested solve segment, including a planned pause;
+`final=False` saves only the cadence stations. An arbitrary interruption may
+therefore require recomputing at most the unsaved accepted interval. It never
+implies every completed increment was durable.
+
+Saving follows numerical acceptance and precedes optional field output and
+progress callbacks. The payload is atomically published through the shared
+archive writer; a small discovery sidecar follows. If writing fails, the solve
+raises without numerical cutback, preserving live accepted state, earlier
+archives and already published frames. A complete payload is independently
+restorable even if its discovery sidecar could not be written. Only after
+successful payload and sidecar publication does `keep_last` remove old scheduled
+checkpoints. Manual saves, restart sources and files left by earlier processes
+are not adopted or deleted. Thus retention applies to the current Step's
+scheduled records, not a blanket disk quota across restarts.
+
+Use a new run-owned checkpoint directory for an independent simulation. A
+scheduled filename collision is an error, never permission to overwrite old
+evidence. Cadence and destination are operational policy, not material identity:
+a fresh compatible Step can restore using a different directory or cadence.
+`every`/`keep_last` require positive integers, flags require booleans and
+`prefix` is a filename prefix, not a path. This prevents accidental truncation
+or escaping the declared output directory.
+
+The educational case keeps the latest two scheduled archives (every four
+accepted increments) and a convenient `accepted.npz`/`final.npz` end-of-segment
+archive. No observer or checkpoint-writing loop belongs in the case. There is
+no automatic save of a failed trial state and no new cross-rank portability.
+
 Accepted fields are observations, not editable initial conditions. Do not modify
 displacement, committed history, stress/tangent, physical-time position or live
 loading constants through their array views. The Step detects such changes at
@@ -220,8 +257,19 @@ stress, reaction or recovered `*_CELL` names. Collisions fail during Step
 construction rather than silently replacing fields during publication.
 
 A restored Step writes a new visualization segment and records its restart
-source. It cannot invent fields that were not saved in the old run. Compatible
+source. It first publishes the restored accepted boundary, without integrating
+the material again. This covers a process exit after checkpoint publication but
+before field publication. If both segments contain that boundary, the joined
+view checks every field and retains one identical frame. It cannot invent
+fields that were not saved in the old run. Compatible
 saved segments can be joined with the existing zero-copy continuation view.
+If the restored checkpoint is older than the last saved field frame, the
+recomputed interval overlaps old output. Opt in to
+`results.join_xdmf_segments(..., overlap="identical")` to compare all overlapping
+stations and every saved array exactly before deduplication. Different time
+partitions, mesh/schema changes or conflicting arrays are rejected, not hidden
+by a "latest wins" rule. The default still admits only one identical boundary.
+This is a visualization consistency check, not a material/restart certification.
 Numerical acceptance precedes output: an I/O failure preserves the last
 accepted restartable state and the already published frames.
 Progress-reporting failures are not material rejections and do not trigger
@@ -296,3 +344,9 @@ plane-stress strategy discussed in [Ahmadi et al., plane stress in finite
 deformation hyperelasticity](https://arxiv.org/html/2410.22562v1). Here it is
 applied to the declared algorithmic tangent of a fixed-old-state history update;
 the paper's hyperelastic evidence alone does not validate history materials.
+The need to differentiate the actual discrete material update, rather than
+substituting a continuum modulus, is also established in
+[Simo and Taylor's consistent tangent work](https://doi.org/10.1016/0045-7825(85)90070-2)
+and [their plane-stress return mapping](https://doi.org/10.1002/nme.1620220310).
+Those papers motivate the consistency requirement; they do not certify this
+generic finite-strain adapter or arbitrary user laws.

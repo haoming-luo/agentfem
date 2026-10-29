@@ -48,6 +48,12 @@ The example also covers ordinary CLI pause/restart/whole-run comparison with
 explicit partial-result trust, rather than requiring a project-managed output
 loop. Accepted-state ownership guards and unit-robust tangent evidence are
 engineering hardening, not additional material validation or wider admission.
+Automatic accepted-state persistence now reuses `checkpointing.every` through
+the same Step option contract. The four-file example retains two scheduled
+archives; failure, pause and restart do not need project checkpoint callbacks.
+Cadence is based on the restored accepted ledger; only newly published scheduled
+records are eligible for retention. Manual and previous-run files stay outside
+that policy. Disk/reporting failure is not numerical cutback or material failure.
 
 ### Thermal–inelastic continuity sprint (2026-10-29)
 

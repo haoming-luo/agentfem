@@ -2567,6 +2567,7 @@ This adapter convention includes Abaqus component, engineering-shear, rotating-b
 - Experimental ordinary model.step with one homogeneous UserMaterial, reference 9x9 dP/dF, positive physical duration, strong displacement constraints/reference dead loads, serial 3D, explicit plane strain or declared reflection-symmetric plane stress.
 - The bounded plane-stress reduction solves positive F33 from P33 equilibrium using fixed accepted history, checks transverse shear/coupling and supplies a separate Schur-condensed in-plane tangent. Full 3D Cauchy stress and material tangent are retained.
 - solve_result(until=coordinate) publishes a deliberately partial accepted segment; save_checkpoint and load_checkpoint resume the same scientific path. The coordinate is normalized, not physical seconds.
+- checkpoint=checkpointing.every(...) schedules accepted increments and optional segment endpoints. Restart preserves the global accepted-increment count; retention removes only this Step's scheduled records after successful durable publication.
 
 #### Limitations
 
@@ -2576,7 +2577,7 @@ This adapter convention includes Abaqus component, engineering-shear, rotating-b
 - The generic implicit Step does not admit MPI, contact, MPC, regional materials, mixed pressure, general anisotropic plane stress, shells or temperature histories; its checkpoint is serial same-layout only.
 - Plane stress requires declared reflection symmetry and positive transverse algorithmic stiffness; 2D forces/energies are per unit reference thickness. Scalar reduction iterations do not imply a vectorized batch speedup.
 - Workflow evidence does not independently validate a supplied constitutive law. Optional stored energy is not total work or general energy closure.
-- Accepted fields and loading targets are read-only observations. External changes are rejected at lifecycle boundaries. Partial results are computed segments, not complete-path convergence or scientific verification; unexpected failures do not imply automatic checkpoint cadence.
+- Accepted fields and loading targets are read-only observations. External changes are rejected at lifecycle boundaries. Partial results are computed segments, not complete-path convergence or scientific verification. Without a checkpoint policy, saves are manual; with a policy, unsaved accepted intervals may need recomputation after failure.
 
 ### Minimal example
 
@@ -2592,6 +2593,7 @@ response = constitutive.validated_material_update(material, point)
 - `tests/test_user_material_inspection.py`
 - `tests/test_finite_strain_material_step.py`
 - `tests/test_history_plane_stress.py`
+- `tests/test_history_checkpoint_policy.py`
 
 **Benchmarks**
 

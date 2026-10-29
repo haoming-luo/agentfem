@@ -3,7 +3,7 @@
 This educational project keeps `case.py` as the engineering model and
 `material.py` as two local constitutive updates. There is no project Newton
 loop, quadrature manager, Step provider, mesh writer or checkpoint adapter.
-Use an AgentFEM build exposing `mechanics.FiniteStrainMaterialStep` and
+Use an AgentFEM build exposing `mechanics.FiniteStrainMaterialStep(checkpoint=...)` and
 `constitutive.PlaneStressReduction`; an older
 development package with the same version string is not sufficient.
 
@@ -55,16 +55,30 @@ run publishes eight frames and `accepted.npz`; its result is explicitly
 (physical time 1 s in this example), not half a second. The command itself exits
 successfully because the requested pause was reached. Inspect its `results.xdmf`
 immediately, without waiting for continuation. The second run publishes the
-remaining eight frames and `final.npz`. Keep the same material, assumption,
+restored boundary plus the remaining eight new frames and `final.npz`. A joined
+view verifies and deduplicates the shared boundary; it has 16 unique frames.
+Keep the same material, assumption,
 parameters and mesh when restoring. Pausing on an existing station preserves
 the exact original increment partition; inserting an extra station can change
 the time-discretized response of a rate-dependent material.
 
-An unexpected numerical/output failure preserves already published frames but
-does not automatically write a checkpoint in this bounded example. Planned
-pauses save accepted state explicitly; the underlying Step's checkpoint cadence
-remains manual. To join compatible output segments without copying HDF5 data,
-use `results.join_xdmf_segments`; this does not recreate unsaved frames.
+The framework also saves an accepted-state checkpoint every four accepted
+increments under the run's `checkpoints/` directory, keeping the latest two
+scheduled saves. A planned pause or normal completion saves its endpoint even
+off that cadence. `accepted.npz`/`final.npz` is an additional convenient final
+archive, not a replacement for intermediate recovery. On unexpected failure,
+restart from the latest successfully written `.npz` under `checkpoints/`;
+unsaved increments must be recomputed. Failed trial states are never saved.
+Numerical acceptance precedes writing; a disk error raises without numerical
+cutback or deletion of the previous good archive. Cadence continues from the
+restored accepted-increment count. A new run writes to its own directory and
+does not delete previous runs' checkpoints. No checkpoint callback is needed.
+To join compatible output segments without copying HDF5 data, use
+`results.join_xdmf_segments`; this does not recreate unsaved frames.
+When restarting from an older scheduled archive, old output can extend beyond
+the restart time. Use its explicit `overlap="identical"` option to verify and
+deduplicate the recomputed interval. Conflicting fields or unmatched overlapping
+times are rejected; never concatenate different branches by ignoring warnings.
 
 ## Scientific and numerical boundaries
 

@@ -4,6 +4,7 @@ import argparse
 
 from agentfem import (
     amplitudes,
+    checkpointing,
     constitutive,
     fields,
     mesh,
@@ -52,6 +53,9 @@ def main():
         amplitude=cycle,
         incrementation=steps.fixed(16),
         output=run.artifact("results.xdmf"),
+        checkpoint=checkpointing.every(
+            4, directory=run.artifact("checkpoints"), keep_last=2
+        ),
         plane_stress=(
             constitutive.PlaneStressReduction(symmetry="reflection_symmetric")
             if args.assumption == "plane_stress"

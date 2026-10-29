@@ -678,6 +678,9 @@ a new result or checkpoint. `results.join_xdmf_segments` checks reference mesh,
 schema, order and shared-boundary values without copying heavy data. Requested
 stations can be audited explicitly; no interpolation or scientific continuity
 is inferred from an ordered visualization.
+An explicit `overlap="identical"` policy can verify and deduplicate an interval
+recomputed from an older checkpoint. It does not select between conflicting
+solution branches or relax exact field equality; the default is boundary-only.
 
 A visualization frame owns one geometry and the point/cell attributes attached
 to that geometry. Element node ordering is a backend output responsibility,

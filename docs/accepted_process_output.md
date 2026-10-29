@@ -87,8 +87,13 @@ results.join_xdmf_segments(
 
 This publishes only an XDMF index. It preserves the source files and references
 their HDF5 arrays through relative paths. Share the referenced data directories
-with the view. Source meshes and field schemas must agree; overlapping segments
-are rejected except for an identical shared boundary frame. Missing requested
+with the view. Source meshes and field schemas must agree; by default overlapping
+segments are rejected except for an identical shared boundary frame. When an
+older checkpoint requires recomputing already saved stations, explicitly select
+`overlap="identical"`. Every overlapping station must exist in the earlier view,
+and all arrays must match exactly before deduplication. A changed time grid or
+different field values fail; there is no "latest wins" or approximate comparison.
+Original frames remain untouched. Missing requested
 stations fail before publication. Without `expected_times`, temporal coverage
 is explicitly uncertified: sparse visualization cannot prove no states are missing.
 The view does not certify checkpoint ancestry or physical continuity.
