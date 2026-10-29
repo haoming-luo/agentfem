@@ -336,6 +336,92 @@ def _accept_small_strain_material(model, request: StepRequest) -> bool:
     )
 
 
+def _finite_strain_user_material_preconditions(model, request: StepRequest) -> bool:
+    from .constitutive.user_material import UserMaterial, MaterialTangentConvention
+
+    study = getattr(model, "study", None)
+    material = _selected_material(model, request)
+    return (
+        getattr(study, "analysis", None) == "nonlinear_static"
+        and getattr(study, "physics", None) == "solid_mechanics"
+        and _is_vector_target(request.target)
+        and isinstance(material, UserMaterial)
+        # Runtime protocols share attribute names with small-strain providers;
+        # their physical tangent declarations, not Python duck typing alone,
+        # distinguish the two contracts.
+        and isinstance(material.tangent_convention, MaterialTangentConvention)
+        and material.tangent_convention.kinematic_measure != "small_strain"
+    )
+
+
+def _finite_strain_user_material_rejection(model, request: StepRequest):
+    if not _finite_strain_user_material_preconditions(model, request):
+        return None
+    from . import constraints as constraint_api, loads as load_api
+    from .constitutive.user_material import MaterialTangentConvention
+
+    material = _selected_material(model, request)
+    if material.tangent_convention != MaterialTangentConvention.first_piola_deformation_gradient():
+        return "AFM-USER-FINITE-TANGENT: the implicit route requires reference 9x9 dP/dF."
+    domain = getattr(getattr(getattr(request.target, "value", None), "function_space", None), "mesh", None)
+    if domain is None:
+        return "AFM-USER-FINITE-TARGET: register a displacement Field before selecting a Step."
+    if domain.comm.size != 1:
+        return "AFM-USER-FINITE-MPI: implicit user-material MPI is not verified."
+    if domain.geometry.dim not in (2, 3) or domain.topology.dim != domain.geometry.dim:
+        return "AFM-USER-FINITE-DIMENSION: use a 3D solid or 2D plane strain."
+    if domain.geometry.dim == 2 and getattr(model.study, "assumption", None) != "plane_strain":
+        return "AFM-USER-FINITE-REDUCTION: only explicit plane strain is admitted in 2D."
+    if model.boundary_models:
+        return "AFM-USER-FINITE-BOUNDARY: generic history materials do not yet compose with weak/contact boundaries."
+    if len(model.materials) > 1 or any(item.region is not None for item in model.materials):
+        return "AFM-USER-FINITE-REGIONS: one global material is required."
+    constraints = request.option("constraints")
+    if constraints is None:
+        constraints = model.constraints
+    if any(not isinstance(item, (constraint_api.DirichletConstraint, constraint_api.RemoteDisplacementConstraint))
+           for item in constraint_api.constraint_assets(constraints)):
+        return "AFM-USER-FINITE-BC: only strong displacement constraints are admitted."
+    if any(not hasattr(getattr(item, "value", None), "value")
+           for item in constraint_api.dirichlet_constraints(constraints)):
+        return "AFM-USER-FINITE-BC: use constant end-displacement data and one normalized amplitude."
+    if any(getattr(load, "configuration", "reference") != "reference"
+           for load in load_api.load_assets(model.loads, unwrap_amplitudes=True)):
+        return "AFM-USER-FINITE-FOLLOWER: only reference dead loads are admitted."
+    return None
+
+
+def _accept_finite_strain_user_material(model, request: StepRequest) -> bool:
+    return (_finite_strain_user_material_preconditions(model, request)
+            and _finite_strain_user_material_rejection(model, request) is None)
+
+
+def _lower_finite_strain_user_material(model, request: StepRequest):
+    from ._step_builders_inelastic import _single_shared_amplitude_loads
+    from .mechanics.finite_strain_material import FiniteStrainMaterialStep
+
+    rejection = _finite_strain_user_material_rejection(model, request)
+    if rejection is not None:
+        raise NotImplementedError(rejection)
+    options = dict(request.options)
+    for key in ("K", "F"):
+        if options.pop(key, None) is not None:
+            raise ValueError("Generic history-material equilibrium owns its operators; use registered reference loads.")
+    options.pop("material", None)
+    options.pop("output", None)
+    selected_loads, options["amplitude"] = _single_shared_amplitude_loads(
+        model.loads, options.pop("amplitude", None), label="finite-strain user material", physical_time=False,
+    )
+    constraints = options.pop("constraints", None)
+    step = FiniteStrainMaterialStep(
+        displacement=request.target, material=_selected_material(model, request),
+        external_force=model.external_force(request.target, loads=selected_loads) if selected_loads else None,
+        constraints=model.constraints if constraints is None else constraints,
+        study=model.study, **options,
+    )
+    return model.add_step(step)
+
+
 def _unsupported_small_strain_boundary(model) -> str | None:
     from ._step_builders_inelastic import small_strain_boundary_rejection
 
@@ -1751,6 +1837,20 @@ register_step_provider(
             "status_file",
             "amplitude",
         ),
+    )
+)
+register_step_provider(
+    StepProvider(
+        name="finite_strain_user_material_static",
+        analyses=("nonlinear_static",),
+        accepts=_accept_finite_strain_user_material,
+        lower=_lower_finite_strain_user_material,
+        rejection_reason=_finite_strain_user_material_rejection,
+        priority=1,
+        description="Experimental serial history-material equilibrium with reference dP/dF and physical duration.",
+        procedure="standard/newton/stateful",
+        option_contract=_option_contract("duration", "incrementation", "quadrature_degree",
+                                         "amplitude", "properties", "progress", "time_unit", required=("duration",)),
     )
 )
 register_step_provider(

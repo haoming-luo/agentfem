@@ -64,6 +64,26 @@ def test_live_vtk_single_volume_and_warp(tmp_path):
         check_warp(path)
 
 
+@pytest.mark.parametrize("storage", ["single_file", "frame_files"])
+def test_writer_artifacts_follow_only_current_published_view(tmp_path, storage):
+    domain, u, damage = fields()
+    path = tmp_path / "results.xdmf"
+    with ResultWriter(path, domain, (u, damage), storage=storage) as writer:
+        assert writer.artifacts() == {}
+        writer.write(0.)
+        first = writer.artifacts()
+        assert first["field_output"].is_file()
+        assert len(first) == (2 if storage == "single_file" else 3)
+        # Unreferenced junk is not included in the delivery inventory.
+        (tmp_path / "unrelated.h5").touch()
+        assert writer.artifacts() == first
+    final = writer.artifacts()
+    assert final["field_output"] == path
+    assert all(file.is_file() for file in final.values())
+    idle = ResultWriter(path, domain, (u, damage), storage=storage)
+    assert idle.artifacts() == {}  # Not this writer's prior run.
+
+
 def test_kill_during_next_frame_preserves_published_view(tmp_path):
     script = textwrap.dedent("""
         import os, sys, time

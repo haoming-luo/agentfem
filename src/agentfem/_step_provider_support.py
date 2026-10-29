@@ -144,8 +144,9 @@ def supports_stateful_constitutive(material) -> bool:
         return True
     try:
         from .constitutive.small_strain_user_material import SmallStrainUserMaterial
+        from .constitutive.user_material import UserMaterial
 
-        if isinstance(material, SmallStrainUserMaterial):
+        if isinstance(material, (SmallStrainUserMaterial, UserMaterial)):
             return True
     except (ImportError, TypeError):
         pass

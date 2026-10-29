@@ -187,6 +187,14 @@ assumption; the Study must agree. Reference tractions, initial geometry
 imperfections, accepted increments and reaction histories retain their usual
 owners. See `docs/guide/geometric_elasticity.md`.
 
+For a custom finite-strain history law, first check the admitted
+[material-only workflow](docs/history_material_workflow.md). Implement the
+local `UserMaterial` update and retain ordinary `model.step(duration=...)`;
+do not duplicate Newton, quadrature transactions or output in a project Step
+provider when the existing serial 3D/plane-strain route applies. Physical time
+and normalized loading coordinate are distinct. Unsupported compositions
+require separate development and verification, not project-level bypasses.
+
 ## Module Map
 
 Package paths below are relative to `src/agentfem/`.

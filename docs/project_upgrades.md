@@ -39,6 +39,14 @@ Advisory does not mean deprecated or wrong. Expert UFL and low-level I/O remain
 valid for new physics and custom output. A finding means AgentFEM now has a
 standard reusable path for that particular workflow.
 
+The inspector recognizes module-level lowering functions explicitly passed as
+`lower=` to an imported `agentfem.step_providers.StepProvider`. Their internal
+`model.add_step(...)` is registration, not a request to dispatch recursively
+through `model.step(...)`. Other application functions in the same file still
+receive migration advice. Indirect/dynamic registration remains a manual-review
+case; folder names do not grant exemptions. Custom accepted-state output loops
+use `io.ResultWriter`, not a recursive call to their own `solve_result`.
+
 ## Safe automation boundary
 
 ```bash

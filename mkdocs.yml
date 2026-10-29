@@ -164,6 +164,7 @@ nav:
           - UFL Integration: guide/ufl_adoption.md
           - Numerical Controls: guide/incremental_numerical_controls.md
           - Nonlinear Materials: nonlinear_materials.md
+          - Local History Materials: history_material_workflow.md
           - Composite Materials and Forming: composite_materials_and_forming.md
           - Thermal Stress and Creep: solution_procedures_and_thermal_creep.md
           - Strain-Life Assessment: strain_life_assessment.md
