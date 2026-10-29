@@ -147,6 +147,10 @@ Numerical acceptance precedes output: an I/O failure preserves the last
 accepted restartable state and the already published frames.
 Progress-reporting failures are not material rejections and do not trigger
 numerical cutback; a secondary reporting error never hides the original failure.
+Completed-result and reaction publication also check accepted displacement and
+material identity. Changing a solved field or material parameter externally
+cannot silently turn stale stresses into a new accepted result. Recursive
+result publication during an active solve is rejected before opening a writer.
 
 ## Evidence and limits
 

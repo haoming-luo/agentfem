@@ -771,6 +771,39 @@ def test_stateful_provider_never_falls_back_to_linear_elastic_constants():
     assert not supports_elasticity(material)
 
 
+@pytest.mark.parametrize("change", ["displacement", "material"])
+@pytest.mark.parametrize("operation", ["result", "reaction"])
+def test_completed_output_refuses_modified_accepted_state(tmp_path, change, operation):
+    step, material = build()
+    step.solve()
+    if change == "displacement":
+        step.solution.x.array[:] += 0.1  # A translation preserves F.
+    else:
+        material.shear *= 2.0
+    output = tmp_path / "results.xdmf"
+    with pytest.raises(ValueError, match="changed"):
+        if operation == "result":
+            step.solve_result(output=output)
+        else:
+            step.reaction_field()
+    assert not output.exists()
+    assert not (tmp_path / "results-data").exists()
+
+
+def test_recursive_result_output_does_not_open_a_writer(tmp_path):
+    step, _ = build()
+    output = tmp_path / "results.xdmf"
+
+    def attempt_publication(current):
+        with pytest.raises(RuntimeError, match="active solve"):
+            current.solve_result(output=output)
+        assert not output.exists()
+
+    step.solve(on_accept=attempt_publication)
+    assert step.accepted_load_factor == 1.0
+    assert not (tmp_path / "results-data").exists()
+
+
 @pytest.mark.parametrize("wrapped", [False, True])
 def test_follower_load_is_rejected_before_constitutive_evaluation(wrapped):
     domain = dmesh.create_unit_cube(MPI.COMM_SELF, 1, 1, 1)

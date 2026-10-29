@@ -706,6 +706,8 @@ class FiniteStrainMaterialStep:
         """Full accepted nodal residual; only constrained DOFs are reactions."""
         if not self._at_accepted or not self.accepted_increments:
             raise RuntimeError("Reaction output requires an accepted increment.")
+        self._check_input_identity()
+        self._check_accepted_solution()
         residual = fem_petsc.assemble_vector(self.residual_form)
         try:
             residual.ghostUpdate(
@@ -774,6 +776,13 @@ class FiniteStrainMaterialStep:
         from .. import io, results
         from ..results.lifecycle import execution_context, attach_checkpoint_contract
 
+        # A completed Step may be published without calling solve again. Keep
+        # that path subject to the same accepted-state checks, before opening
+        # any writer or replacing an existing visualization index.
+        if self._busy:
+            raise RuntimeError("Cannot publish a material Step during an active solve.")
+        self._check_input_identity()
+        self._check_accepted_solution()
         context = execution_context(self)
         if output is None and context is not None:
             output = context.configured_output

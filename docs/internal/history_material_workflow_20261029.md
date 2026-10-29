@@ -63,7 +63,7 @@ branch. No released version/tag is overwritten and no private user data is used.
 ## Acceptance evidence (2026-10-29)
 
 One consolidated targeted run in the real `fenicsx-env`, with source
-`PYTHONPATH=src` and BLAS/OpenMP threads limited to one, passed **407 tests**;
+`PYTHONPATH=src` and BLAS/OpenMP threads limited to one, passed **412 tests**;
 **3 tests were skipped because they require two MPI ranks**. This is not a
 full repository run and does not promote this serial Step to MPI support.
 
@@ -102,6 +102,9 @@ Evidence covers:
 - Shared admission checks reject DG displacement, wrong component counts and
   mixed-field subspaces before assembly; no missing interface/pressure equation
   is hidden by a successful scalar material evaluation.
+- Completed-result/reaction publication refuses externally modified accepted
+  displacement or material identity. Recursive result publication is refused
+  before opening an output writer, so it cannot replace the active view.
 
 A separate disposable installed-use check built a pure-Python wheel with
 `AGENTFEM_BUILD_NATIVE=0`, installed it in a new system-site-packages venv sharing
@@ -133,3 +136,60 @@ source import path rather than the older installed package.
 4. Validate real constitutive laws/calibrations with their owners. These synthetic
    examples do not establish hydrogel validity, fracture regularization, a
    creep-fatigue life envelope or general energy closure.
+
+## Next reduction gate: reuse, do not truncate
+
+This is a design boundary, **not an implemented capability of this Step**.
+AgentFEM already has specialized plane-stress StVK and hyperelastic routes in
+`constitutive/geometric_elasticity.py` and `constitutive/hyperelasticity.py`.
+The missing piece is reduction of a replaceable **history-dependent** material
+while preserving its effective 3D kinematics and accepted lifecycle. Existing
+specialized routes should remain independent regression references.
+
+For a first bounded planar, reflection-symmetric material class, embed the
+in-plane gradient and solve for a positive thickness stretch with `P33=0` at
+each quadrature point. Check the remaining transverse traction components;
+zero transverse shear cannot be inferred for arbitrary anisotropy. A general
+membrane director/three-component transverse solve is a different admission
+gate, not an automatic extension of the scalar solve.
+
+At fixed committed state and physical `dt`, differentiate the **whole local
+update** and eliminate the transverse unknown through the Schur complement
+`A_aa - A_ab solve(A_bb, A_ba)`. Here `a` denotes in-plane gradient components,
+and `b` the declared transverse unknowns. Do not slice a 9-by-9 tangent or use
+an elastic predictor tangent. A singular transverse block, nonpositive volume
+or failed local equilibrium must fail explicitly and permit a global cutback;
+it must not be concealed by clipping the stretch or silently relaxing tolerance.
+
+The reduction must participate in the existing material transaction:
+
+- Every thickness/local Newton candidate starts from the same accepted
+  material state, effective `F_n` and transverse state; local iterations do
+  not accumulate fictitious material history.
+- Commit the converged effective 3D gradient and transverse state only with
+  the accepted global increment. Restore them together after rejected trials
+  and from checkpoints. Do not overwrite user state-variable names.
+- Cauchy/Piola conversion, Jacobian and thickness diagnostics use that same
+  effective gradient. Passing the plane-strain `F33=1` embedding to the existing
+  driver and replacing only its stress would produce inconsistent measures.
+- Record reference thickness and volume-versus-area conventions. Require an
+  explicit constitutive reduction declaration; do not infer multiaxial response
+  from a uniaxial experimental fit.
+
+Acceptance should progress from local traction closure and finite differences
+of the reduced response, through specialized StVK/neo-Hookean comparisons and
+the small-strain limit, to two history laws on the same structural workflow.
+Then repeat hold/reversal, local and global rejection, restart and output tests.
+Plane-stress history support remains rejected until those gates pass. Nearly
+incompressible mixed formulations and softening regularization are separate
+requirements, not benefits obtained automatically through condensation.
+
+Design references:
+
+- [Ahmadi et al., plane-stress hyperelastic finite elements, section 3.1](https://arxiv.org/html/2410.22562v1):
+  quadrature-level transverse equilibrium and its consistent condensed tangent.
+  Its hyperelastic derivation is a reference for reduction, not validation of
+  an arbitrary history-material algorithm.
+- [Sandia LAMÉ, plane-stress rate plasticity](https://www.sandia.gov/files/sierra/SM_LAME_5_24/main/models/plane_stress_rate_plasticity.html):
+  a specialized plasticity treatment with explicit transverse stress conditions,
+  not a generic adapter obtained by truncating a 3D material matrix.
