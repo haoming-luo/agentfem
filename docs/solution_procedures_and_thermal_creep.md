@@ -264,6 +264,58 @@ from named scalar histories. The supplied rupture-time callable and its source
 remain project assets. Out-of-range dwells, missing histories, non-scalar
 histories, and nonphysical rupture times fail explicitly.
 
+For a resolved relaxation history, use `creep_damage_from_result` instead of
+reducing an entire hold to one governing value. This integrates the **damage
+rate** `1 / rupture_time(stress, temperature)` on the union of the stress and
+temperature sample times, with clipped dwell endpoints and trapezoidal
+quadrature. Both inputs must declare physical time and the same time unit;
+stress units must match explicitly and temperature must be in kelvin.
+
+```python
+from agentfem import assessments
+
+# result contains source-identified scalar stress (MPa) and temperature (K)
+# histories on physical time in seconds. The project supplies a reviewed
+# rupture_time(sigma_MPa, temperature_K) callable returning seconds and
+# rejecting states outside its own calibration domain.
+creep = assessments.creep_damage_from_result(
+    result,
+    stress_history="axial_stress",
+    temperature_history="temperature",
+    dwells=[assessments.DwellInterval(1.0, 2.0, label="tensile_hold")],
+    rupture_time=rupture_time,
+    rupture_source="project material relation, revision and calibration domain",
+    stress_unit="MPa", time_unit="s", stress_measure="signed_axial",
+    maximum_source_interval=0.05,
+)
+# Combine explicitly with a separately assessed stress- or strain-life history.
+combined = assessments.creep_fatigue(fatigue=fatigue, creep=creep,
+                                    interaction=reviewed_interaction)
+combined.attach(result)
+```
+
+The result retains each segment's stress, temperature, rates and damage,
+plus source IDs and original sampling gaps. No implicit absolute stress,
+unit conversion, temperature conversion or history extrapolation is applied.
+Positive infinite rupture time means explicitly zero damage rate. Missing
+coverage, overlapping/out-of-order dwells and invalid callback output fail
+without attaching a partial assessment. `repetitions` assumes a repeated
+response; it does not simulate cyclic evolution. The maximum source interval
+is checked on **each original history**, so a dense temperature grid cannot
+hide an under-resolved stress history. It is a sampling guard, not an error
+certificate: refine the histories to establish quadrature accuracy.
+
+Stress and temperature histories must describe the **same material location**
+and loading path. Pairing separate spatial maxima can combine values that
+never occurred together; that is an explicitly chosen envelope assessment,
+not a local material-life prediction. This scalar interface does not infer
+point identity from history names or certify such an envelope as conservative.
+
+Nonisothermal integration is mathematically supported when the supplied
+relation covers every evaluated state, but this does not validate a material's
+nonisothermal rupture or creep-fatigue behavior. The existing block interface
+and stress-life convenience entrypoint remain unchanged.
+
 ## Current boundary and next gates
 
 Implemented now:

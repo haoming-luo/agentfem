@@ -48,7 +48,7 @@ def test_global_norton_relaxation_and_dwell_damage_refine_to_closed_form(exponen
     # Synthetic rupture law t_r(sigma)=1000*(initial/sigma)^n gives an
     # independent integral: Dc=(initial-sigma_end)/(1000*k*initial^n).
     exact_damage = (initial - exact(end)) / (1000. * rate_constant * initial ** exponent)
-    stress_errors, damage_errors = [], []
+    stress_errors, damage_errors, integrated_damage_errors = [], [], []
     for count in (16, 32, 64):
         step = _uniaxial_step(material, displacement=.001, duration=end, count=count)
         step.solve()
@@ -61,7 +61,8 @@ def test_global_norton_relaxation_and_dwell_damage_refine_to_closed_form(exponen
         np.testing.assert_allclose(step.state.creep_strain.values[:, 0, 0],
                                    (initial - stress[-1]) / young, atol=1.e-10)
         history = results.SimulationResult("analytic_relaxation")
-        history.add_histories(times, {"axial_stress": stress, "temperature": np.full(count + 1, 800.)})
+        history.add_history("axial_stress", times, stress, unit="MPa")
+        history.add_history("temperature", times, np.full(count + 1, 800.), unit="K")
         blocks = assessments.creep_blocks_from_result(
             history, stress_history="axial_stress", temperature_history="temperature",
             dwells=[assessments.DwellInterval(a, b) for a, b in zip(times[:-1], times[1:], strict=True)],
@@ -71,13 +72,24 @@ def test_global_norton_relaxation_and_dwell_damage_refine_to_closed_form(exponen
         damage = assessments.creep_time_fraction(blocks).damage
         assert damage > exact_damage  # maxima are conservative for this monotone law
         damage_errors.append(damage - exact_damage)
-    for errors in (stress_errors, damage_errors):
+        integrated = assessments.creep_damage_from_result(
+            history, stress_history="axial_stress", temperature_history="temperature",
+            dwells=[assessments.DwellInterval(0., end)],
+            rupture_time=lambda sigma, temperature: 1000. * (initial / sigma) ** exponent,
+            rupture_source="synthetic analytical verification; seconds and MPa",
+            stress_unit="MPa", time_unit="s", stress_measure="signed_axial",
+            maximum_source_interval=end / count * (1. + 1.e-12),
+        )
+        assert exact_damage < integrated.damage < damage
+        integrated_damage_errors.append(integrated.damage - exact_damage)
+    for errors in (stress_errors, damage_errors, integrated_damage_errors):
         assert 1.7 < errors[0] / errors[1] < 2.2
         assert 1.7 < errors[1] / errors[2] < 2.2
     assert stress_errors[-1] / initial < .01
     assert damage_errors[-1] / exact_damage < .05
     record_property("stress_max_abs_errors_MPa_16_32_64", stress_errors)
     record_property("time_fraction_errors_16_32_64", damage_errors)
+    record_property("integrated_time_fraction_errors_16_32_64", integrated_damage_errors)
     record_property("continuous_final_stress_MPa", float(exact(end)))
     record_property("continuous_time_fraction", float(exact_damage))
 

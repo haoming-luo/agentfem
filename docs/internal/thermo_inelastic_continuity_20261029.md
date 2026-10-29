@@ -157,3 +157,62 @@ machine-readable scope/domain metadata and invalid imported damage rejection.
 This changes unsafe assessment decisions, not equilibrium or material history.
 PR #133's preceding full CI is still running; this local evidence does not
 replace the latest-commit remote gate.
+
+## Resolved histories and nonuniform joint fields (2026-10-29)
+
+PR #133 at `42ed45b6aee2ea79c166ff34794d19ae0b4aa900` completed all
+applicable remote checks, including FEniCSx and macOS installed-wheel
+acceptance. The following changes require a new latest-commit CI run.
+
+The public assessment now integrates the reciprocal of a supplied rupture
+life along explicit, covered dwell intervals. Physical time, stress units,
+kelvin temperature, original sampling gaps, relation provenance and segment
+contributions are preserved. Missing coverage, overlapping holds and invalid
+relation output cannot publish a partial assessment. Temperature histories
+from the implicit creep Step now declare kelvin. Zero counted fatigue damage
+serializes to null lifetime with an explicit status, not nonstandard JSON
+infinity. Rainflow direction detection no longer loses tiny-scale reversals
+through multiplication underflow; the published MathWorks 14-reversal example
+provides an external counting reference, not ASTM certification.
+
+Independent nonuniform antiplane fields exercise the ordinary Step. Pure
+creep gives relative displacement L2 errors 0.2490, 0.06125 and 0.01433 on
+2/4/8 cells. With simultaneous active plasticity and nonlinear creep, errors
+are 0.12862, 0.03200 and 0.007810 on 4/8/16 cells at 128 increments. Exact
+equilibrium stress and plastic strain are checked independently; 32/64-step
+peak-creep errors 0.06348/0.03149 match the known backward-Euler sum. These
+are synthetic proportional isothermal references, not alloy calibration or
+nonproportional thermal-field validation. The combined reference, material,
+assessment and existing NAFEMS-cylinder selection passed **135 tests in
+205.80 s**. After the history-index change, **86 assessment tests passed in
+0.24 s**. Counts overlap; do not add them. The ordinary thermal/cyclic project
+also completed 16 accepted increments via source CLI in about 3.9 s, with
+physical units and `computed`, not `validated`, result status.
+
+The first open rupture-data audit retained source/hash/license and rejected
+premature calibration because temperature/condition metadata are missing and
+the landing-page/table material labels disagree. Public catalogue scopes and
+institutional literature guide the next experimental gate; inaccessible full
+papers are not evidence of having checked their tables. No private proposal
+or personal details were copied into this repository.
+
+### Bounded assessment scaling check
+
+The first history implementation scanned each entire source channel for each
+dwell. Ordered-time binary searches now select enclosing source intervals and
+interior sample views, retaining identical complete assessment records. On
+macOS arm64, Python 3.11.15/NumPy 2.4.6, one process with BLAS/OpenMP threads
+limited to one, three alternating baseline/indexed measurements after warmup:
+
+| Samples/channel; holds | Baseline seconds | Indexed seconds |
+| --- | --- | --- |
+| 1,001; 100 | 0.001855, 0.002078, 0.001902 | 0.001451, 0.001325, 0.001357 |
+| 1,000,001; 1,000 | 3.312518, 3.476882, 3.128787 | 0.027396, 0.019692, 0.018547 |
+
+Each hold covers two source intervals. Timing includes the full assessment
+call but excludes input creation and serialization; every output record is
+compared exactly outside the timed region. This deliberately exposes sparse
+holds on long histories, not the cost of densely evaluating every sample.
+It is **not a finite-element or full-simulation speedup**. The algorithmic
+reason to retain the change is removal of the histories-times-holds scan,
+not a portable fixed speedup promise. No concurrent simulation was running.

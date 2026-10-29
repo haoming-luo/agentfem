@@ -3976,7 +3976,7 @@ local = coordinates.cartesian(x=(0,1), y=(-1,0)); rp = coordinates.reference_poi
 **Status:** `supported`<br>
 **Source card:** `src/agentfem/knowledge/cards/creep_fatigue_assessment.json`
 
-A standard-neutral postprocessing contract for source-identified creep time fractions, declared dwell extraction from named stress/temperature histories, existing stress-life fatigue assessments, explicit interaction diagrams, and structured result evidence.
+Standard-neutral postprocessing of source-identified creep time fractions, resolved stress/temperature dwell histories, scalar stress- or strain-life fatigue, and explicit interaction diagrams; no constitutive damage or automatic design-code approval.
 
 ### Public API
 
@@ -3984,6 +3984,10 @@ A standard-neutral postprocessing contract for source-identified creep time frac
 - `agentfem.assessments.DwellInterval`
 - `agentfem.assessments.creep_blocks_from_result`
 - `agentfem.assessments.creep_time_fraction`
+- `agentfem.assessments.CreepDamageHistoryAssessment`
+- `agentfem.assessments.creep_damage_from_result`
+- `agentfem.constitutive.CoffinMansonBasquinCurve`
+- `agentfem.constitutive.assess_strain_history`
 - `agentfem.assessments.interaction_diagram`
 - `agentfem.assessments.creep_fatigue`
 - `agentfem.assessments.creep_fatigue_from_result`
@@ -4000,6 +4004,14 @@ $$
 
 Each dwell duration and rupture time remains attached to its label and source.
 
+**resolved creep history**
+
+$$
+D_c=\int_{t_a}^{t_b}\frac{1}{t_r(\sigma(t),T(t))}\,\mathrm{d}t
+$$
+
+Trapezoidal integration of damage rate on the union of declared source sample times; original sampling gaps remain visible and convergence must be checked.
+
 **interaction decision**
 
 $$
@@ -4013,15 +4025,15 @@ The allowable boundary is a declared piecewise-linear scientific input.
 | Name | Type | Unit role | Meaning |
 | --- | --- | --- | --- |
 | creep blocks | duration, rupture time, repetitions, label and source | duration and rupture time use the same time unit | Rupture times come from reviewed material data or a declared assessment relation. |
-| named result histories and dwells | scalar stress/temperature HistoryResult names and DwellInterval records | history time, stress and absolute temperature | The V1 extractor interpolates dwell endpoints, applies declared reducers and calls a source-identified project rupture relation. |
-| fatigue assessment | FatigueAssessment | dimensionless cumulative damage | Usually produced from a verified scalar history, cycle counting, mean-stress policy and S-N curve. |
+| named result histories and dwells | scalar stress/temperature HistoryResult names and DwellInterval records | history time, stress and absolute temperature | The block extractor applies declared reducers. The history integrator requires explicit stress/time units and kelvin temperature, keeps every interval contribution, and rejects overlapping holds or extrapolation. Neither creates missing measurement evidence. |
+| fatigue assessment | FatigueAssessment or StrainLifeAssessment | dimensionless cumulative damage | Use a declared signed scalar stress/S-N history, or total mechanical strain with a bounded Coffin-Manson-Basquin calibration and explicit uncorrected-mean assumption. PEEQ is not reversing strain. |
 | interaction diagram | ordered creep-damage and allowable-fatigue-damage points | dimensionless damage coordinates | Normative, company or research data stay outside the core and retain their source. |
 
 #### Outputs
 
 | Name | Type | Unit role | Meaning |
 | --- | --- | --- | --- |
-| damage and margin | creep damage, fatigue damage, allowable fatigue damage and signed margin | dimensionless | Positive margin is inside the declared boundary. |
+| damage and margin | creep damage, fatigue damage, allowable fatigue damage and signed margin | dimensionless | The vertical fatigue margin alone is insufficient: acceptable additionally requires creep-damage abscissa coverage of the declared diagram. It is not regulatory approval. |
 | assessment record | JSON-safe source-preserving structure | scientific evidence | May be attached to a SimulationResult without changing the FEM solution. |
 
 #### Assumptions
@@ -4035,6 +4047,7 @@ The allowable boundary is a declared piecewise-linear scientific input.
 - AgentFEM provides a transparent linear reference but no design-code or material-specific curve.
 - An assessment is a postprocessor and does not weaken stiffness or advance constitutive state.
 - A declared dwell outside either result history fails instead of silently clamping or extrapolating.
+- Time integration averages reciprocal rupture time, not rupture time. No implicit stress magnitude or unit conversion is applied.
 
 #### Applicability
 
@@ -4043,8 +4056,10 @@ The allowable boundary is a declared piecewise-linear scientific input.
 
 #### Limitations
 
-- It does not implement cyclic viscoplasticity, dwell stress relaxation or coupled continuum damage.
+- It consumes, but does not solve, cyclic viscoplasticity or dwell stress relaxation; it does not implement coupled continuum damage.
 - Qualification against a design standard requires licensed/current normative data and engineering review.
+- Mathematical integration of varying temperature is not independent nonisothermal material validation. Repeated holds assume repeated response rather than simulating cyclic evolution.
+- Do not double-count dwell effects already included in a fatigue calibration; fatigue and rupture fits require independent hold-cycle validation.
 
 ### Minimal example
 
@@ -4057,6 +4072,10 @@ For existing result histories, declare DwellInterval records and call assessment
 **Tests**
 
 - `tests/test_assessments.py`
+- `tests/test_creep_damage_history.py`
+- `tests/test_creep_fatigue_references.py`
+- `tests/test_rainflow_references.py`
+- `tests/test_strain_life.py`
 
 **Benchmarks**
 
@@ -4067,6 +4086,8 @@ For existing result histories, declare DwellInterval records and call assessment
 - Reject missing rupture and interaction sources.
 - Reject malformed or nonmonotone interaction boundaries.
 - Reject missing, non-scalar, or out-of-range result histories and nonphysical rupture times.
+- Require physical time and explicit units for resolved integration; fail without partial publication on late rupture-domain rejection.
+- Verify analytical time refinement and published rainflow count/range/mean triples, without claiming material validation.
 - Keep the complete fatigue, creep and interaction records with the decision.
 
 ### References

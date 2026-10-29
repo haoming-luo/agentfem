@@ -737,8 +737,10 @@ and evidence remain in the linked guides and scientific function reference.
 | function | `creep_time_fraction(blocks: Iterable[CreepDamageBlock]) -> CreepDamageAssessment` | Evaluate the linear creep time-fraction rule for declared blocks. |
 | function | `interaction_diagram(*, points, name: str, source: str) -> InteractionDiagram` | Create an explicit piecewise-linear creep/fatigue interaction curve. |
 | function | `linear_interaction() -> InteractionDiagram` | Return the transparent reference boundary ``Dc + Df = 1``. |
-| function | `creep_fatigue(*, fatigue: FatigueAssessment \| StrainLifeAssessment, creep: CreepDamageAssessment, interaction: InteractionDiagram \| None = None) -> CreepFatigueAssessment` | Combine existing fatigue and creep assessments against one boundary. |
+| function | `creep_fatigue(*, fatigue: FatigueAssessment \| StrainLifeAssessment, creep: CreepDamageAssessment \| CreepDamageHistoryAssessment, interaction: InteractionDiagram \| None = None) -> CreepFatigueAssessment` | Combine existing fatigue and creep assessments against one boundary. |
 | function | `creep_fatigue_from_result(result, *, fatigue_history: str, fatigue_curve, stress_history: str, temperature_history: str, dwells: Iterable[DwellInterval], rupture_time: Callable[[float, float], float], rupture_source: str, interaction: InteractionDiagram \| None = None, ultimate_strength: float \| None = None, stress_reducer: str = 'maximum_absolute', temperature_reducer: str = 'maximum') -> CreepFatigueAssessment` | Build the engineering V1 assessment from named result histories. |
+| class | `CreepDamageHistoryAssessment` | Trapezoidal time fractions on sampled stress/temperature histories. |
+| function | `creep_damage_from_result(result, *, stress_history: str, temperature_history: str, dwells, rupture_time, rupture_source: str, stress_unit: str, time_unit: str, stress_measure: str, maximum_source_interval: float \| None = None) -> CreepDamageHistoryAssessment` | Integrate ``dt / rupture_time(stress, temperature)`` over explicit dwells. |
 
 ## `agentfem.boundary_models`
 

@@ -12,6 +12,9 @@ heat-transfer solve (800 to 900 K), and axial loading, hold and reversal. It
 demonstrates simultaneous creep and Chaboche plasticity through the existing
 physical-time implicit Step. Heat and mechanics share a mesh and accepted
 physical time; the coupling is one-way, with no mechanical heat feedback.
+The model explicitly declares N-mm-MPa-s with kelvin temperature; constitutive
+and thermal coefficients are synthetic values in that consistent system, not
+SI values silently converted by the solver. Time histories retain seconds.
 The uniform heat solution is `T(t)=800+25t` for the declared synthetic heat
 capacity/source. This does not calibrate a real material. The output contains separate CE/CEEQ, PE/PEEQ,
 backstress, stress and energy histories, a final visualization and checkpoint.

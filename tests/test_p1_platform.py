@@ -1469,6 +1469,8 @@ def test_global_arrhenius_creep_consumes_nonuniform_temperature_field(tmp_path):
     maximum = simulation.quantity("maximum_creep_temperature")
     assert 800.0 < minimum < 850.0 < maximum < 900.0
     assert minimum + maximum == pytest.approx(1700.0)
+    assert simulation.histories["minimum_creep_temperature"].unit == "K"
+    assert simulation.histories["maximum_creep_temperature"].unit == "K"
     assert all(
         item.minimum_temperature == pytest.approx(minimum)
         and item.maximum_temperature == pytest.approx(maximum)

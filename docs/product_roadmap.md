@@ -29,8 +29,8 @@ commercial contact parity, or replace the earlier open spatial-accuracy gates.
 | Stage | Implemented slice | Remaining promotion gate |
 | --- | --- | --- |
 | Reliable results and restart | Validated zero-copy XDMF continuation views; atomic late-failure creep checkpoint restoration | Installed-use regression; a joined view alone does not prove physical restart continuity |
-| Thermal–cyclic plasticity–creep | Shared implicit Sinh flow; simultaneous J2/Chaboche + creep update, consistent tangent, ordinary `model.step`, temperature history, cutback, separate energy channels and serial restart | Spatial/time refinement and broader independent references; MPI, contact, regional materials and temperature-dependent plastic properties remain unsupported for the new composition |
-| Damage/life | Calibrated scalar strain-life assessment reuses rainflow and the existing time-fraction/interaction assessment | Paired mean-stress/multiaxial/nonisothermal life and global damage feedback need their own contracts and independent validation |
+| Thermal–cyclic plasticity–creep | Shared implicit Sinh flow; simultaneous J2/Chaboche + creep update, consistent tangent, ordinary `model.step`, temperature history, cutback, separate energy channels and serial restart; analytical time checks and a nonuniform active-plastic/creep spatial reference | Independent material calibration and nonproportional thermal spatial references; MPI, contact, regional materials and temperature-dependent plastic properties remain unsupported for the new composition |
+| Damage/life | Bounded scalar strain-life and time-resolved creep-damage assessments reuse rainflow and the existing interaction envelope; explicit units, source sampling and domain rejection | Paired mean-stress/multiaxial/nonisothermal life and global damage feedback need their own contracts and independent validation; no material calibration is implied |
 
 The initial joint-material gate is a homogeneous 3D small-strain hold/reverse
 fixture, including an independent uniaxial stress solution. It is not an
@@ -44,6 +44,11 @@ the next gate to independent Norton relaxation, cyclic loop work and
 time-fraction references, followed by compatible held-out material test data.
 ASTM catalogue references identify test families, not software certification;
 the generic linear interaction is not a qualified design-code envelope.
+The first open rupture-data audit found missing test metadata and a material
+label discrepancy; it is recorded as a candidate, not admitted as a validated
+alloy. Use independently documented deformation, cyclic and dwell tests to
+decide whether static recovery or cyclic softening must be added next; do not
+silently fit those mechanisms with the currently hardening-only plastic asset.
 
 ### 0.4.4 published; bounded maintenance (2026-10-27)
 

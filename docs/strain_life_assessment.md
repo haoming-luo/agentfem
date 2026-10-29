@@ -64,7 +64,11 @@ print(assessment.as_dict())
 
 Pass this assessment explicitly as `fatigue=` to `assessments.creep_fatigue`,
 together with source-identified creep time fractions and the intended
-interaction diagram. The existing `creep_fatigue_from_result` convenience
+interaction diagram. `assessments.creep_damage_from_result` provides
+time-resolved creep fractions for declared, nonoverlapping dwell intervals;
+its stress/temperature/time units and rupture source are explicit. Do not
+replace a resolved relaxation history by its maximum when evaluating the
+actual time integral. The existing `creep_fatigue_from_result` convenience
 function remains stress-life based; it does not silently reinterpret its
 history as strain. The reference linear interaction is transparent, not a
 design-code acceptance curve. A combined assessment does not feed damage back

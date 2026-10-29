@@ -19,6 +19,12 @@ import numpy as np
 
 from .constitutive.fatigue import FatigueAssessment
 from .constitutive.strain_life import StrainLifeAssessment
+from ._creep_damage_history import CreepDamageHistoryAssessment, creep_damage_from_result
+
+_DOCUMENTED_REEXPORTS = {
+    "CreepDamageHistoryAssessment": "_creep_damage_history",
+    "creep_damage_from_result": "_creep_damage_history",
+}
 
 
 @dataclass(frozen=True)
@@ -391,7 +397,7 @@ class CreepFatigueAssessment:
     """Combined engineering assessment from independent damage consumers."""
 
     fatigue: FatigueAssessment | StrainLifeAssessment
-    creep: CreepDamageAssessment
+    creep: CreepDamageAssessment | CreepDamageHistoryAssessment
     interaction: InteractionDiagram
     allowable_fatigue_damage: float
     margin: float
@@ -479,15 +485,15 @@ def linear_interaction() -> InteractionDiagram:
 def creep_fatigue(
     *,
     fatigue: FatigueAssessment | StrainLifeAssessment,
-    creep: CreepDamageAssessment,
+    creep: CreepDamageAssessment | CreepDamageHistoryAssessment,
     interaction: InteractionDiagram | None = None,
 ) -> CreepFatigueAssessment:
     """Combine existing fatigue and creep assessments against one boundary."""
 
     if not isinstance(fatigue, (FatigueAssessment, StrainLifeAssessment)):
         raise TypeError("fatigue must be a FatigueAssessment or StrainLifeAssessment.")
-    if not isinstance(creep, CreepDamageAssessment):
-        raise TypeError("creep must be a CreepDamageAssessment.")
+    if not isinstance(creep, (CreepDamageAssessment, CreepDamageHistoryAssessment)):
+        raise TypeError("creep must be a CreepDamageAssessment or CreepDamageHistoryAssessment.")
     for name, value in (("fatigue", fatigue.damage), ("creep", creep.damage)):
         if not isfinite(float(value)) or value < 0.0:
             raise ValueError(f"{name} damage must be finite and nonnegative.")
@@ -558,6 +564,7 @@ def creep_fatigue_from_result(
 
 __all__ = [
     "CreepDamageAssessment",
+    "CreepDamageHistoryAssessment",
     "CreepDamageBlock",
     "CreepFatigueAssessment",
     "DwellInterval",
@@ -567,6 +574,7 @@ __all__ = [
     "creep_fatigue_from_result",
     "creep_blocks_from_result",
     "creep_time_fraction",
+    "creep_damage_from_result",
     "interaction_diagram",
     "linear_interaction",
     "sequential_energy_ledger",

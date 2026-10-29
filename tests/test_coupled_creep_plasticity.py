@@ -301,6 +301,8 @@ def test_coupled_global_thermal_history_restart(tmp_path):
     full = _structure(thermal=True)
     result = full.solve_result()
     assert result.histories["maximum_creep_temperature"].latest == pytest.approx(900.)
+    assert result.histories["maximum_creep_temperature"].unit == "K"
+    assert result.histories["minimum_creep_temperature"].unit == "K"
     assert full.temperature.active_time == 4.
     partial = _structure(thermal=True)
     partial.solve(until=2.)

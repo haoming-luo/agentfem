@@ -1665,6 +1665,7 @@ class ImplicitCreepStep:
             result.add_histories(
                 times,
                 increment_histories,
+                units={"minimum_creep_temperature": "K", "maximum_creep_temperature": "K"},
                 abscissa_name="time",
                 abscissa_unit=self.time_unit,
             )

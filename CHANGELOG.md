@@ -6,6 +6,17 @@ experimental formulation to a validated one.
 
 ## [Unreleased]
 
+- Add explicit-unit, time-resolved creep-damage integration over declared
+  dwell intervals, retaining source sampling and interval contributions.
+  Reject extrapolation, double-counted holds and invalid rupture relations;
+  preserve the existing block/interaction APIs and constitutive state.
+  Check published rainflow counting and fix small-range reversal loss from
+  slope-product underflow without changing normal engineering conventions.
+  Zero-fatigue JSON records use an explicit no-counted-damage status rather
+  than a nonstandard infinity token or an infinite-life claim.
+  Add independent nonuniform shear references with simultaneous active
+  plasticity/creep, separating spatial convergence from time-integration bias.
+
 - Require creep/fatigue damage points to lie within the supplied interaction
   diagram's domain, including the zero-fatigue creep-axis case. Reject invalid
   imported damage and expose the limited acceptance scope in result metadata.

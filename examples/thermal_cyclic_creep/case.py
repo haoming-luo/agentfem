@@ -2,7 +2,7 @@
 
 from agentfem import (
     amplitudes, constitutive, fields, loads, mesh, models, project,
-    solvers, steps, studies,
+    solvers, steps, studies, units,
 )
 
 
@@ -10,7 +10,7 @@ def main():
     run = project.current_run()
     domain = mesh.cuboid((0., 0., 0.), (1., 1., 1.), (1, 1, 1))
     model = models.create(study=studies.creep_solid(), mesh=domain,
-                          name="thermal_hold_and_reversal")
+                          name="thermal_hold_and_reversal", units=units.n_mm_mpa())
     u = model.field(fields.displacement(domain))
 
     # One shared elastic/thermal asset; stress unit MPa, temperature kelvin.
@@ -22,7 +22,7 @@ def main():
     # rho*c=1 and source=25 has T(t)=800+25t. Only accepted thermal frames
     # drive mechanics; dissipative mechanical heating is not fed back.
     heat = models.create(study=studies.transient_heat_transfer(dimension=3),
-                         mesh=domain, name="uniform_heating")
+                         mesh=domain, name="uniform_heating", units=units.n_mm_mpa())
     temperature = heat.field(fields.temperature(domain, value=800.))
     heat.material(thermal)
     heat.load(loads.heat_source(25., target=temperature))
