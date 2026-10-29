@@ -162,6 +162,8 @@ volume assumptions before it can be used here.
 segment through the standard result interface. A paused result has
 `status="partial"`, `equilibrium_converged=True` and `path_complete=False` in
 its solve metadata. The existing `converged` flag remains a full-path flag.
+The trust report identifies a **computed accepted segment**, not uncomputed
+data, complete-path convergence or independent scientific verification.
 The physical time and requested/accepted coordinates are explicit. At an
 already accepted coordinate, this method can publish current state without
 reintegration; it cannot synthesize past fields. Values before the accepted

@@ -2548,7 +2548,7 @@ This adapter convention includes Abaqus component, engineering-shear, rotating-b
 | --- | --- | --- | --- |
 | MaterialPointOutput | Cauchy stress, declared consistent tangent, typed new state, optional energy and suggested time scale | stress, tangent, state and energy density | Global-Newton eligibility is explicit and false for undeclared legacy outputs. |
 | MaterialQuadratureState | schema-lowered committed/trial integration-point fields | per-variable declared units | Scalar and tensor state initialization, aliases and full schema identity remain attached to portable checkpoint storage. |
-| MaterialTangentCheck | fixed-old-state numerical differentiation evidence | dimensionless relative error and tangent units for absolute error | Compares a declared first-Piola/deformation-gradient Jacobian against perturbations of all nine new-deformation-gradient components. |
+| MaterialTangentCheck | fixed-old-state numerical differentiation evidence | dimensionless relative error and tangent units for absolute error | Compares a declared first-Piola/deformation-gradient Jacobian against all nine new-gradient components with stress-unit-robust error arithmetic. Mixed one-sided differences are explicitly named; unrepresentable perturbations are rejected. |
 
 #### Assumptions
 
@@ -2566,6 +2566,7 @@ This adapter convention includes Abaqus component, engineering-shear, rotating-b
 - Native or adapted three-dimensional finite-strain material-point providers.
 - Experimental ordinary model.step with one homogeneous UserMaterial, reference 9x9 dP/dF, positive physical duration, strong displacement constraints/reference dead loads, serial 3D, explicit plane strain or declared reflection-symmetric plane stress.
 - The bounded plane-stress reduction solves positive F33 from P33 equilibrium using fixed accepted history, checks transverse shear/coupling and supplies a separate Schur-condensed in-plane tangent. Full 3D Cauchy stress and material tangent are retained.
+- solve_result(until=coordinate) publishes a deliberately partial accepted segment; save_checkpoint and load_checkpoint resume the same scientific path. The coordinate is normalized, not physical seconds.
 
 #### Limitations
 
@@ -2575,6 +2576,7 @@ This adapter convention includes Abaqus component, engineering-shear, rotating-b
 - The generic implicit Step does not admit MPI, contact, MPC, regional materials, mixed pressure, general anisotropic plane stress, shells or temperature histories; its checkpoint is serial same-layout only.
 - Plane stress requires declared reflection symmetry and positive transverse algorithmic stiffness; 2D forces/energies are per unit reference thickness. Scalar reduction iterations do not imply a vectorized batch speedup.
 - Workflow evidence does not independently validate a supplied constitutive law. Optional stored energy is not total work or general energy closure.
+- Accepted fields and loading targets are read-only observations. External changes are rejected at lifecycle boundaries. Partial results are computed segments, not complete-path convergence or scientific verification; unexpected failures do not imply automatic checkpoint cadence.
 
 ### Minimal example
 

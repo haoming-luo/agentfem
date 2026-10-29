@@ -946,6 +946,17 @@ class FiniteStrainMaterialStep:
         )
         complete = self.accepted_load_factor == 1.0
         result.status = "completed" if complete else "partial"
+        if not complete:
+            from ..verification import report
+
+            # Accepted fields were computed even though the complete requested
+            # physical path was not. Do not promote this to full convergence or
+            # independent verification, and do not label saved fields uncomputed.
+            result.verification = report(
+                computed=True,
+                converged=False,
+                scope="accepted_history_segment_not_complete_path",
+            )
         result.metadata["solve"] = {
             "converged": complete,
             "equilibrium_converged": True,

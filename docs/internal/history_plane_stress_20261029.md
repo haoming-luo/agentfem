@@ -183,6 +183,20 @@ cell fields. Visualization occupied 696,475 bytes for the viscous law and
 686,479 bytes for damage. These small fixtures are workflow checks, not
 performance measurements or Windows/fresh-dependency installation evidence.
 
+A second isolated install at source `fbfc249c` exercised ordinary CLI pause,
+restart and uninterrupted runs for both laws. Every joined field at all 16
+times and every numeric final checkpoint array matched the uninterrupted
+reference exactly on this machine. Maximum absolute Cauchy S33 was 5.323e-9
+for the viscous fixture and 8.828e-10 for damage; positive thickness, AGE and
+post-Warp fields were checked through VTK. The two complete visualization
+sets occupied 696,658 and 686,738 bytes. These are synthetic 64-cell examples.
+
+Installed-use review caught a presentation mismatch: the shared default trust
+fallback called a `partial` result uncomputed. The Step now attaches the
+existing computed-but-not-full-convergence report for this accepted segment.
+It does not invent another trust grade or promote partial output to independent
+verification. Source tests require that `verified` acceptance still fails.
+
 The project requires both `mechanics.FiniteStrainMaterialStep` and
 `constitutive.PlaneStressReduction` by API identity. A matching development
 version string alone is not enough. No release installer or public binary

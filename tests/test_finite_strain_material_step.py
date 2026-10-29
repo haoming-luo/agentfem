@@ -104,6 +104,7 @@ def test_four_file_cli_pause_restart_matches_continuous(tmp_path, mechanism):
     first = tmp_path / "outputs/001-pause"
     record = json.loads((first / "result.json").read_text())
     assert record["status"] == "partial"
+    assert record["trust_level"] == "computed"
     assert record["metadata"]["solve"]["equilibrium_converged"]
     assert not record["metadata"]["solve"]["path_complete"]
     assert record["metadata"]["solve"]["physical_time"] == 1.0
@@ -157,6 +158,10 @@ def test_current_accepted_result_can_be_published_without_advancing(tmp_path):
     )
     result = step.solve_result(until=0.5, output=tmp_path / "accepted.xdmf")
     assert result.status == "partial"
+    assert result.trust_level == "computed"
+    assert not result.verification.converged
+    with pytest.raises(RuntimeError, match="below required"):
+        result.verification.require("verified")
     assert len(ET.parse(tmp_path / "accepted.xdmf").findall(".//Time")) == 1
     assert step.time == 1.0
 
@@ -544,6 +549,9 @@ def test_result_output_mixed_fields_at_every_time(tmp_path, dimension):
 def test_material_cutback_subdivides_physical_time_without_pollution():
     class LimitedMaterial(HistoryMaterial):
         def update(self, point):
+            assert point.time == pytest.approx(
+                point.state_old[-1] + point.time_increment
+            )
             response = super().update(point)
             return replace(
                 response,

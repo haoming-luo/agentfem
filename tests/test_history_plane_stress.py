@@ -21,11 +21,11 @@ POLICY = PlaneStressReduction(symmetry="reflection_symmetric")
 INDICES = (0, 1, 3, 4)
 
 
-def point(material, F=None, *, old_F=None, state=None, dt=0.1):
+def point(material, F=None, *, old_F=None, state=None, dt=0.1, time=None):
     return c.MaterialPointInput(
         np.eye(3) if old_F is None else old_F,
         np.diag((1.1, 0.98, 1.0)) if F is None else F,
-        dt,
+        dt if time is None else time,
         dt,
         [],
         np.zeros(material.state_schema.size) if state is None else state,
@@ -37,9 +37,11 @@ def point(material, F=None, *, old_F=None, state=None, dt=0.1):
 def test_local_reduction_against_independent_green_strain_solution(mechanism):
     material = HistoryMaterial(mechanism=mechanism)
     previous_F, state = np.eye(3), np.zeros(material.state_schema.size)
-    for stretch in (1.08, 1.14, 1.14, 1.03, 0.97, 1.06):
+    for index, stretch in enumerate((1.08, 1.14, 1.14, 1.03, 0.97, 1.06), start=1):
         F = np.array(((stretch, 0.04, 0), (0.01, 1.0, 0), (0, 0, previous_F[2, 2])))
-        request = point(material, F, old_F=previous_F, state=state, dt=0.1)
+        request = point(
+            material, F, old_F=previous_F, state=state, dt=0.1, time=index * 0.1
+        )
         before = request.state_old.copy()
         response = reduce_plane_stress(material, request, reduction=POLICY)
         E2 = (F[:2, :2].T @ F[:2, :2] - np.eye(2)) / 2
@@ -694,6 +696,7 @@ def test_plane_stress_material_requested_cutback_and_reduction_identity(tmp_path
 
     class LimitedMaterial(HistoryMaterial):
         def update(self, p):
+            assert p.time == pytest.approx(p.state_old[-1] + p.time_increment)
             return replace(
                 super().update(p),
                 suggested_time_scale=0.5 if p.time_increment > 0.5 + 1e-12 else 1.0,
@@ -968,7 +971,9 @@ def test_finite_j2_local_reduction_against_independent_uniaxial_logarithmic_retu
     )
     old_F, state = np.eye(3), material.state_schema.initial_state()
     plastic_log_stretch, accumulated = 0.0, 0.0
-    for epsilon in (0.0005, 0.004, 0.02, 0.04, 0.04, 0.01, -0.015, -0.03, 0.005):
+    for index, epsilon in enumerate(
+        (0.0005, 0.004, 0.02, 0.04, 0.04, 0.01, -0.015, -0.03, 0.005), start=1
+    ):
         trial = young * (epsilon - plastic_log_stretch)
         gamma = max(abs(trial) - yield_stress - hardening * accumulated, 0.0) / (
             young + hardening
@@ -978,7 +983,7 @@ def test_finite_j2_local_reduction_against_independent_uniaxial_logarithmic_retu
         kirchhoff = young * (epsilon - plastic_log_stretch)
         transverse = np.exp(-poisson * kirchhoff / young - 0.5 * plastic_log_stretch)
         F = np.diag((np.exp(epsilon), transverse, old_F[2, 2]))
-        request = point(material, F, old_F=old_F, state=state)
+        request = point(material, F, old_F=old_F, state=state, time=index * 0.1)
         reduced = reduce_plane_stress(material, request, reduction=POLICY)
         np.testing.assert_allclose(
             reduced.deformation_gradient[2, 2], transverse, rtol=2e-9
@@ -1012,6 +1017,8 @@ def test_finite_j2_local_reduction_against_independent_uniaxial_logarithmic_retu
     check_F = old_F.copy()
     check_F[0, 0] *= 1.01
     evidence = c.check_plane_stress_tangent(
-        material, point(material, check_F, old_F=old_F, state=state), reduction=POLICY
+        material,
+        point(material, check_F, old_F=old_F, state=state, time=1.0),
+        reduction=POLICY,
     )
     assert evidence.accepted, evidence.summary()
