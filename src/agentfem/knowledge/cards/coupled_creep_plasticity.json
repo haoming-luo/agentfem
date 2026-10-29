@@ -1,0 +1,126 @@
+{
+  "schema": "agentfem.scientific-function-card",
+  "schema_version": "0.1.0",
+  "id": "agentfem.material.coupled_creep_plasticity",
+  "title": "Simultaneous small-strain creep and cyclic plasticity",
+  "kind": "material",
+  "status": "experimental",
+  "summary": "One fixed-old-state simultaneous creep/J2 or creep/Chaboche update, lowered through the ordinary physical-time implicit creep Step. The bounded serial 3D composition preserves separate creep/plastic histories, consistent tangent, accepted-temperature input, cutback, energy channels and joint checkpoint continuation.",
+  "public_api": [
+    "agentfem.constitutive.CreepPlasticityMaterial",
+    "agentfem.constitutive.CreepPlasticityState",
+    "agentfem.constitutive.isotropic_power_law",
+    "agentfem.constitutive.isotropic_arrhenius_power_law",
+    "agentfem.constitutive.isotropic_sinh",
+    "agentfem.constitutive.J2LinearIsotropicHardening",
+    "agentfem.constitutive.ChabocheCombinedHardening",
+    "agentfem.studies.creep_solid",
+    "agentfem.models.Model.step"
+  ],
+  "implementation": [
+    "constitutive/_creep_plasticity.py",
+    "constitutive/_creep_plasticity_quadrature.py",
+    "mechanics/creep.py"
+  ],
+  "science": {
+    "statement": "Solve both mechanisms within the same backward-Euler increment. Every local and global trial starts from the same accepted histories; backstress and creep flow need not be coaxial. This is not a one-pass split or sequential plastic and creep Steps.",
+    "equations": [
+      {
+        "label": "condensed local residual",
+        "expression": "\\mathbf R(\\boldsymbol\\sigma)=\\boldsymbol\\sigma-\\mathcal P(\\boldsymbol\\varepsilon_m-\\mathbf{CE}_n-\\Delta t\\,\\mathbf f(\\boldsymbol\\sigma);\\mathbf z_n)=\\mathbf 0",
+        "description": "P is the complete existing plastic return at fixed old plastic state z; f is the creep flow rate. Mandel coordinates preserve tensor contraction."
+      },
+      {
+        "label": "consistent tangent",
+        "expression": "(\\mathbf I+\\Delta t\\,\\mathbf C_p\\mathbf L)\\mathbf C=\\mathbf C_p",
+        "description": "Cp is the plastic algorithmic tangent and L is the creep flow derivative at the converged local state. Residual-only backtracking does not need a tangent; final tangent evaluation is unchanged."
+      }
+    ],
+    "inputs": [
+      {
+        "name": "shared elasticity and separate rate/plastic branches",
+        "type": "IsotropicCreepMaterial plus J2LinearIsotropicHardening or ChabocheCombinedHardening",
+        "unit_role": "one consistent stress and physical-time system",
+        "description": "Both branches must share constant E and nu. Optional thermal expansion and Arrhenius power-law dependence come through the creep material, not a second incompatible elastic asset."
+      },
+      {
+        "name": "physical-time loading and temperature",
+        "type": "amplitude, positive duration and optional scalar/field/accepted FieldHistory",
+        "unit_role": "physical time and positive kelvin temperature",
+        "description": "Temperature is sampled at attempted physical time and restored on rejected increments. The Sinh rate does not infer Arrhenius dependence."
+      }
+    ],
+    "outputs": [
+      {
+        "name": "S, CE, CEEQ, PE, PEEQ and ALPHA when present",
+        "type": "accepted integration-point state and response",
+        "unit_role": "stress, strain and backstress",
+        "description": "Plastic and creep history remain distinct. Output cell recovery does not replace raw point identity."
+      },
+      {
+        "name": "work, storage and dissipation",
+        "type": "separate accepted energy histories",
+        "unit_role": "consistent energy unit",
+        "description": "Distinguish creep work, plastic work, hardening storage, modeled dissipation and backward-Euler contributions; do not call all work stored energy."
+      }
+    ],
+    "assumptions": [
+      "Small strain, serial 3D, one homogeneous material; spatial fields may be nonuniform.",
+      "Constant shared elastic and plastic parameters; power-law or Sinh creep and optional existing thermal strain.",
+      "Quasi-static global equilibrium with one joint accepted state."
+    ],
+    "conventions": [
+      "Use studies.creep_solid and ordinary model.step, not a new coupled Model or a project-owned solver.",
+      "Fixed-old-state local probes and staged full-array validation precede trial publication.",
+      "maximum_inelastic_increment checks both equivalent creep and plastic increments.",
+      "Serial checkpoint continuation preserves both branches and all backstresses; portable file format alone does not authorize rank-changing execution."
+    ],
+    "applicability": [
+      "Bounded synthetic hold/reversal and prescribed-temperature studies with an explicitly selected material law.",
+      "Independent material-point tangent, global equilibrium, time/mesh refinement and restart verification."
+    ],
+    "limitations": [
+      "No joint MPI, regional material composition, axisymmetry, finite strain or contact admission.",
+      "No temperature-dependent plastic parameters, cyclic softening or static backstress recovery; plastic-flow-driven dynamic recovery is not static recovery during a hold.",
+      "No constitutive damage feedback or calibrated service-life prediction. Separate creep/fatigue postprocessors do not change stiffness.",
+      "Mechanical energy bookkeeping excludes imposed thermal transfer and is not a full first-law certificate.",
+      "The nonuniform Arrhenius reference prescribes temperature and isolates rate dependence; it does not verify heat feedback or nonproportional thermal-cyclic component behavior."
+    ]
+  },
+  "usage": {
+    "minimal_example": "Register constitutive.CreepPlasticityMaterial(creep=creep_law, plastic=plastic_law) on a studies.creep_solid model, then use model.step(target=u, duration=duration, temperature=temperature_history).solve_result().",
+    "examples": ["examples/thermal_cyclic_creep/case.py"]
+  },
+  "verification": {
+    "tests": [
+      "tests/test_coupled_creep_plasticity.py",
+      "tests/test_creep_plasticity_rotating_reference.py",
+      "tests/test_creep_manufactured_field.py",
+      "tests/test_creep_fatigue_references.py"
+    ],
+    "benchmarks": [],
+    "validation_rules": [
+      "Compare the complete discrete tangent against fixed-old-state directional differences on nonproportional material paths.",
+      "Recover pure-creep and pure-plastic limiting cases without advancing either history twice.",
+      "Check independent continuous uniaxial relaxation and nonuniform active-plastic/creep fields under refinement.",
+      "Check independently constructed rotating-stress paths under heating/cooling, including distinct Chaboche plastic and creep directions and backstress time refinement.",
+      "Force late returned-array and restart corruption failures; accepted state and previously valid response must remain unchanged.",
+      "Reject unsupported compositions rather than silently lower the material to elasticity.",
+      "Passing synthetic references establishes numerical evidence only, not alloy calibration or code-standard acceptance."
+    ]
+  },
+  "references": [
+    {
+      "title": "MOOSE simultaneous creep/plasticity integration",
+      "locator": "https://mooseframework.inl.gov/source/materials/ComputeCreepPlasticityStress.html"
+    },
+    {
+      "title": "AgentFEM independent analytical and experimental-reference ladder",
+      "locator": "docs/creep_fatigue_verification.md"
+    }
+  ],
+  "related_cards": [
+    "agentfem.material.global_implicit_creep",
+    "agentfem.material.creep_damage_assessment"
+  ]
+}

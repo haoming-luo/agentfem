@@ -71,6 +71,44 @@ The approximately first-order decay checks backward-Euler accuracy against a
 continuous solution, rather than comparing two copies of the same recurrence.
 This homogeneous patch is not a nonuniform spatial-convergence claim.
 
+### Elastic follow-up through ordinary regional equilibrium
+
+`tests/test_creep_elastic_followup.py` is a shear analogue of the elastic/creep
+series-bar mechanism discussed in ANL-ART-168 Section 2.1, not a reproduction
+of its axial specimen or Alloy 617 tests. Two equal-area, unit-length slabs
+carry equal shear traction. The left slab creeps; the right is elastic.
+The ordinary regional power-law Step uses coefficient zero in the elastic
+region, not a separate benchmark solver or an empirical follow-up correction.
+
+For fixed total displacement, compatibility gives
+`(1/G1+1/G2)*d(tau)/dt + d(gamma_creep)/dt = 0`. Define
+`f=1+G1/G2` and use associative Mises shear flow to obtain
+
+```text
+d(tau)/dt = -k*tau^n
+k = (G1/f)*sqrt(3)*A*(sqrt(3)/s_ref)^n
+```
+
+The exponential/power-law continuous solutions above apply to tau. G1=100000
+MPa, tau_0=100 MPa, A=1e-4 /s, s_ref=100 MPa, duration=2 s. Four Q1 cells
+resolve the piecewise-affine displacement field; antiplane support supplies
+the required transverse reactions. Maximum stress-history errors are:
+
+| f / n | Exact final tau (MPa) | 16 increments error (MPa) | 32 | 64 |
+| --- | ---: | ---: | ---: | ---: |
+| 2 / 1 | 74.08182 | 0.206073 | 0.103603 | 0.0519448 |
+| 2 / 3 | 59.76143 | 0.981558 | 0.503437 | 0.255129 |
+| 5 / 1 | 88.69204 | 0.0397219 | 0.0199082 | 0.0099660 |
+| 5 / 3 | 76.24929 | 0.395441 | 0.200246 | 0.100769 |
+
+Tests check interface traction balance, zero creep in the elastic region,
+compatibility of the creeping strain and first-order time convergence. Elastic
+follow-up slows relaxation compared with complete local strain restraint at
+the same initial stress. This supports an existing regional **pure-creep**
+route, not regional admission of the new joint creep/plastic composition.
+Initial elastic preload work and experimental component qualification are
+outside this benchmark.
+
 ### Time-fraction integration through a relaxing history
 
 Use a deliberately synthetic rupture relation
@@ -187,6 +225,54 @@ equilibrium. Thermal expansion is deliberately zero to isolate that mechanism;
 the profile is prescribed, not an independently verified heat-conduction
 solution. Nonproportional thermal cycling and experimental material accuracy
 remain separate gates.
+
+### Rotating stress, distinct flow directions and thermal cycling
+
+`tests/test_creep_plasticity_rotating_reference.py` constructs a continuous
+material path independently of the discrete return map. This follows the
+general verification principle of prescribed/manufactured solutions described
+by [Salari and Knupp, SAND2000-1444](https://www.osti.gov/biblio/759450);
+the particular material fixture here is not a published experimental test.
+
+Two orthonormal deviatoric tensors define a direction
+`e(t)=e1*cos(pi*t)+e2*sin(pi*t)` for 0 <= t <= 1 s. Prescribe accumulated
+plastic strain `p=beta*t`, beta=0.002 /s, with plastic flow
+`n_p=sqrt(3/2)*e(t)`. For linear isotropic hardening, stress is
+`sqrt(2/3)*(Y+H*p)*e(t)`. For Chaboche, the relative stress has radius
+`Y+Q*(1-exp(-b*p))`; add the exact continuous backstress convolution
+
+```text
+alpha_i(t) = sqrt(2/3)*C_i*beta *
+    [real(z_i)*e1 + imag(z_i)*e2]
+z_i = [exp(i*pi*t)-exp(-gamma_i*beta*t)] / (gamma_i*beta+i*pi)
+```
+
+The current stress and relative stress deliberately have different directions,
+so creep and plastic flow are not coaxial in the Chaboche fixture. Integrate
+the prescribed continuous creep/plastic rates to construct total strain,
+then supply only that strain and temperature to the tested material update.
+No AgentFEM return-map result enters the reference. Independent 64/128-point
+Gauss integration agrees within 1e-12 relative and 1e-15 absolute tolerance.
+
+Both isothermal and `T=800+50*sin(pi*t)^2` K heating/cooling paths are tested;
+the latter includes alpha=1e-5 /K thermal expansion and Arrhenius creep with
+Q_activation=120000 J/mol. E=200000 MPa, nu=0.3, Y=200 MPa,
+A_ref=1e-5 /s, s_ref=100 MPa, n=3. Linear H=2000 MPa, or Chaboche
+C=(12000,3000) MPa, gamma=(100,8), Q=60 MPa and b=10. Maximum stress
+Frobenius errors over accepted time stations are:
+
+| Plastic branch / temperature | 32 increments (MPa) | 64 | 128 |
+| --- | ---: | ---: | ---: |
+| Linear isotropic / constant | 7.01398 | 3.57182 | 1.80262 |
+| Linear isotropic / heating-cooling | 7.07495 | 3.60098 | 1.81684 |
+| Chaboche / constant | 6.69018 | 3.40388 | 1.71705 |
+| Chaboche / heating-cooling | 6.76379 | 3.43956 | 1.73459 |
+
+Creep/plastic tensors, their accumulated scalars, and all Chaboche backstress
+branches also show first-order error reduction. This is a nonproportional
+thermal material-point reference, not nonuniform structural verification or
+an experimentally calibrated thermomechanical fatigue-life model. The initial
+elastic preload to yield is prescribed; its work is outside this test.
 
 ### Perfect-plastic cyclic limit and strain-life conventions
 

@@ -58,6 +58,13 @@ Before nonuniform component-life productization, preserve co-located accepted
 stress/strain/temperature histories with point identity through restart; separate
 spatial maxima are not a replacement. Reuse result/state sampling contracts,
 not a second simulation or sensor framework.
+An independent rotating-stress material reference now also checks nonproportional
+J2/Chaboche plus creep under heating/cooling, including distinct plastic/creep
+directions and first-order time convergence. This strengthens local integration
+evidence; the nonuniform structural/experimental promotion gate remains open.
+The existing regional pure-creep route now has an independent elastic-follow-up
+series-shear reference. This verifies structural restraint effects without
+adding a case-specific correction factor or admitting regional joint plasticity.
 
 ### 0.4.4 published; bounded maintenance (2026-10-27)
 

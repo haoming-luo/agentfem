@@ -275,3 +275,32 @@ earlier selections. The final source CLI project accepted all 16 increments in
 about 3.8 s and wrote fields, the final checkpoint and the `computed` result
 record. Neither this smoke nor the synthetic reference suite calibrates an
 alloy or certifies component life.
+
+## Independent rotating-flow and knowledge review
+
+Four additional continuous material references pass in 2.82 s: linear isotropic
+and Chaboche plasticity, each with constant temperature or heating/cooling.
+The reference prescribes plastic rate and rotating relative stress, integrates
+the continuous Chaboche backstress convolution analytically, and independently
+integrates creep strain before reconstructing the imposed total strain. It
+does not reuse the discrete update. Chaboche creep and plastic axes differ.
+32/64/128 increments recover first-order stress, strain and backstress accuracy;
+the detailed equations and errors are in the verification ladder. This is
+material-point evidence, not a newly passed structural or life-calibration gate.
+
+Machine-facing review found stale knowledge claims that Sinh remained local
+only. Those are corrected without extending its tested combinations. The new
+joint composition has a separate experimental card so power-law MPI/regional
+claims cannot be inherited accidentally. The resulting 58-card catalog passes
+import/contract validation, and 18 documentation tests pass. No solver behavior
+is changed by this knowledge correction.
+
+The existing regional pure-creep Step also passes four series-shear elastic
+follow-up checks in 9.68 s. Independent continuous relaxation at follow-up
+ratios 2 and 5 and Norton exponents 1 and 3 matches first-order FE time
+refinement. The elastic region has exactly zero creep, interface tractions
+balance, and total-displacement compatibility predicts the creeping strain.
+This reuses ordinary material regions and coefficient-zero elasticity; no
+empirical follow-up parameter or new solver is added to production code.
+It is a shear analogue motivated by the public ANL two-bar mechanism, not
+an experimental axial-specimen comparison or joint-regional admission.

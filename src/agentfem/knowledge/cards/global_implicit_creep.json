@@ -114,7 +114,9 @@
     "limitations": [
       "The MPI global Newton route has regional patch, rollback, and cross-rank-count restart evidence; the external NAFEMS R0027 structure benchmark currently exercises the native serial axisymmetric route rather than an independent distributed component model.",
       "Portable nodal histories are root-gathered; global damage and mesh regularization are not part of this route.",
-      "External component or code-standard validation remains required before application-specific qualification."
+      "External component or code-standard validation remains required before application-specific qualification.",
+      "The separate isotropic_sinh consumer has serial implicit-update, held-stress and restart checks; its rate parameters are temperature independent. This power-law card does not establish MPI or regional Sinh composition.",
+      "CreepPlasticityMaterial has a separate experimental serial homogeneous-material 3D contract. Do not infer its MPI, regional, contact or temperature-dependent plastic capability from this power-law card."
     ]
   },
   "usage": {
@@ -126,6 +128,7 @@
   "verification": {
     "tests": [
       "tests/test_p1_platform.py",
+      "tests/test_creep_elastic_followup.py",
       "tests/test_histories.py",
       "tests/portable_field_history_driver.py"
     ],
@@ -141,6 +144,7 @@
       "Commit shared transaction state only after a globally accepted physical-time increment.",
       "Evaluate and record positive kelvin temperatures at the creep quadrature identity for every attempted increment.",
       "Keep equilibrium convergence and creep time-integration accuracy as separate acceptance decisions.",
+      "Verify elastic follow-up using regional equilibrium and independent series-slab relaxation; do not substitute complete local strain restraint or insert an unexplained correction factor.",
       "Restore displacement, CE, CEEQ, physical time, next increment, histories, energies, and events from a compatible checkpoint."
     ]
   },
@@ -162,6 +166,7 @@
     "agentfem.formulation.axisymmetric_solid",
     "agentfem.material.j2_global_plasticity",
     "agentfem.material.creep_damage_assessment",
-    "agentfem.workflow.solution_procedures"
+    "agentfem.workflow.solution_procedures",
+    "agentfem.material.coupled_creep_plasticity"
   ]
 }
