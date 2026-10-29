@@ -312,3 +312,15 @@ roundoff allowance, retains the measured source gaps, and has no absolute or
 large-time-origin allowance. Regressions reject real excess, large-origin
 gaps and tiny-scale undersampling. This does not alter the quadrature or
 invent additional source samples.
+
+## CI budget follow-up
+
+Run `40812073297` on `acd46f3b` passed the full serial suite: **5315 passed,
+428 skipped in 2497.73 s**. Installed native kernels (310 tests), the independent
+provider and several distributed suites also passed. The 45-minute job-wide
+limit then cancelled the checkpoint-portability step; later MPI/demo gates
+and dependent macOS acceptance did not complete. This is not a successful
+whole-CI result or evidence for the later local commits. Logs identify a job
+budget interruption, not a checkpoint assertion failure. Increase the bounded
+budget to 60 minutes and print the slowest 20 serial tests without removing
+any tests or relaxing numerical tolerances. Final HEAD requires a fresh run.
