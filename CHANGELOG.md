@@ -6,6 +6,54 @@ experimental formulation to a validated one.
 
 ## [Unreleased]
 
+- Add explicit-unit, time-resolved creep-damage integration over declared
+  dwell intervals, retaining source sampling and interval contributions.
+  Reject extrapolation, double-counted holds and invalid rupture relations;
+  preserve the existing block/interaction APIs and constitutive state.
+  Check published rainflow counting and fix small-range reversal loss from
+  slope-product underflow without changing normal engineering conventions.
+  Zero-fatigue JSON records use an explicit no-counted-damage status rather
+  than a nonstandard infinity token or an infinite-life claim.
+  Add independent nonuniform shear references with simultaneous active
+  plasticity/creep, separating spatial convergence from time-integration bias.
+  Include a prescribed spatial-temperature reference and reject invalid
+  coupled quadrature inputs/returned arrays before publishing trial or response.
+  Reuse the existing residual-only plastic update during local backtracking
+  instead of calculating unused tangents; retain the complete accepted tangent.
+
+- Require creep/fatigue damage points to lie within the supplied interaction
+  diagram's domain, including the zero-fatigue creep-axis case. Reject invalid
+  imported damage and expose the limited acceptance scope in result metadata.
+  Add independent structural relaxation, cyclic-loop and time-fraction checks.
+
+- Reject history materials from inferred stateless linear elasticity/dynamics
+  dispatch even when they expose elastic moduli. Preserve explicitly supplied
+  operators and the dedicated stateful providers.
+
+- Add bounded scalar Coffin-Manson-Basquin strain-life assessment with required
+  calibration range/provenance and explicit uncorrected-mean assumption;
+  reuse existing rainflow and creep/fatigue assessment without altering FEM state.
+
+- Add an experimental simultaneous creep/J2-or-Chaboche material on the existing
+  physical-time implicit Step. Keep joint history, consistent tangent, thermal
+  input, cutback and restart together; expose separate plastic work/storage/
+  dissipation channels. First admission is serial homogeneous 3D small strain,
+  not contact, MPI, damage or industrial-life validation.
+
+- Restore the entire live creep Step after a failed checkpoint load, including
+  displacement, trial/accepted state and time/energy ledgers. Preserve the
+  nonzero flow derivative in the zero-stress linear-creep tangent.
+
+- Reuse the implicit creep lifecycle for an experimental hyperbolic-sine flow
+  branch, including a safeguarded local corrector, analytical tangent and
+  scalar/batch parity. Preserve the power-law constructor and archive identity;
+  this does not add coupled plasticity, damage or contact admission.
+
+- Add `results.join_xdmf_segments` for a checked, lightweight reference-mesh
+  continuation view without copying heavy data. Reject conflicting overlap,
+  mesh/schema changes and missing declared stations before publication.
+  Visualization coverage remains distinct from physical/restart continuity.
+
 - Reject non-real contact tangent payloads and overflow during duplicate COO
   accumulation before flushing or modifying the bulk PETSc matrix. Preserve
   the existing single-call sparse insertion, joint rollback and continuation;

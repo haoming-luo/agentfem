@@ -18,6 +18,7 @@ from . import small_strain_user_material
 from . import user_material
 from . import viscoelasticity
 from .catalog import ConstitutiveCapability, capabilities, capability
+from ._creep_plasticity import CreepPlasticityMaterial, CreepPlasticityState, CreepPlasticityUpdate
 from .corotational import (
     CorotationalIncrement,
     polar_strain_increment,
@@ -45,12 +46,14 @@ from .creep import (
     ImplicitCreepState,
     ImplicitCreepUpdate,
     IsotropicPowerLawCreepMaterial,
+    IsotropicCreepMaterial,
     KachanovRabotnovCreep,
     ModifiedThetaProjection,
     PowerLawCreep,
     SinhCreep,
     integrate_stress_history,
     isotropic_power_law,
+    isotropic_sinh,
     isotropic_arrhenius_power_law,
 )
 from .elasticity import (
@@ -129,6 +132,12 @@ from .fatigue import (
     miner_damage,
     rainflow_cycles,
     turning_points,
+)
+from .strain_life import (
+    CoffinMansonBasquinCurve,
+    StrainCycle,
+    StrainLifeAssessment,
+    assess_strain_history,
 )
 from .finite_strain_plasticity import (
     FiniteStrainJ2Logarithmic,
@@ -248,6 +257,9 @@ from .._material_history import (
 )
 
 __all__ = [
+    "CreepPlasticityMaterial",
+    "CreepPlasticityState",
+    "CreepPlasticityUpdate",
     "CompiledCorotationalIncrement",
     "StrainHistoryRuntime",
     "NativeLibraryBundle",
@@ -284,6 +296,10 @@ __all__ = [
     "AnisotropicElasticMaterial2D",
     "ConstitutiveCapability",
     "BasquinCurve",
+    "CoffinMansonBasquinCurve",
+    "StrainCycle",
+    "StrainLifeAssessment",
+    "assess_strain_history",
     "CreepHistory",
     "ChabocheCombinedHardening",
     "ChabocheQuadratureState",
@@ -294,6 +310,7 @@ __all__ = [
     "ImplicitCreepState",
     "ImplicitCreepUpdate",
     "IsotropicPowerLawCreepMaterial",
+    "IsotropicCreepMaterial",
     "CreepDamageState",
     "CreepDamageUpdate",
     "ElasticAnisotropic2DProperties",
@@ -429,6 +446,7 @@ __all__ = [
     "thermoelastic_stress",
     "integrate_stress_history",
     "isotropic_power_law",
+    "isotropic_sinh",
     "isotropic_arrhenius_power_law",
     "life_scale_factor",
     "damage_from_history",

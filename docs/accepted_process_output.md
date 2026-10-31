@@ -73,6 +73,33 @@ not be reopened in truncating mode.
 
 ## Checkpoint policy
 
+### One view across continuation segments
+
+For saved reference-mesh segments, create a lightweight combined view:
+
+```python
+results.join_xdmf_segments(
+    ["outputs/first/results.xdmf", "outputs/resumed/results.xdmf"],
+    "outputs/combined/results.xdmf",
+    expected_times=[0.0, 0.025, 0.05, 0.075, 0.1],  # optional output-station audit
+)
+```
+
+This publishes only an XDMF index. It preserves the source files and references
+their HDF5 arrays through relative paths. Share the referenced data directories
+with the view. Source meshes and field schemas must agree; overlapping segments
+are rejected except for an identical shared boundary frame. Missing requested
+stations fail before publication. Without `expected_times`, temporal coverage
+is explicitly uncertified: sparse visualization cannot prove no states are missing.
+The view does not certify checkpoint ancestry or physical continuity.
+
+The first route accepts explicit uniform frames on one unchanged reference
+mesh, including the live immutable-frame writer. Deformed-coordinate output,
+remeshing and legacy per-field DOLFINx collections are not silently combined.
+The descriptor captures already published frames at invocation, not future
+frames. Rebuild into a fresh path when more frames become available. It requires
+no solver or MPI initialization and does not copy the heavy data.
+
 ### Live viewing with immutable frames
 
 The opt-in serial `storage="frame_files"` backend publishes one `results.xdmf`

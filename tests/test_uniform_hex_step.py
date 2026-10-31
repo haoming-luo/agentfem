@@ -51,7 +51,7 @@ def test_uniform_hex_ordinary_step_result_and_restart(tmp_path):
             getattr(reference.state, name).value.x.array,
             atol=1e-15,
         )
-    assert restarted.history_records == pytest.approx(reference.history_records)
+    assert restarted.history_records == reference.history_records
     with pytest.raises(NotImplementedError, match="portable"):
         restarted.save_checkpoint(tmp_path / "portable", portable=True)
     changed = _step(scale=0.2)

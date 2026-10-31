@@ -102,6 +102,39 @@ def test_assessments_is_an_advanced_public_module():
     )
 
 
+@pytest.mark.parametrize("damage, acceptable", [(0., True), (1., True), (1.00001, False), (2., False)])
+def test_creep_axis_exhaustion_cannot_pass_with_zero_fatigue(damage, acceptable):
+    creep = assessments.creep_time_fraction([
+        assessments.CreepDamageBlock(duration=damage, rupture_time=1., source="synthetic")
+    ])
+    combined = assessments.creep_fatigue(fatigue=_fatigue_assessment(0.), creep=creep)
+    assert combined.acceptable is acceptable
+    assert combined.as_dict()["within_interaction_domain"] is acceptable
+    assert combined.as_dict()["acceptance_scope"] == "declared_interaction_diagram_only"
+
+
+@pytest.mark.parametrize("damage", [0.1, 0.9])
+def test_partial_interaction_curve_does_not_certify_uncovered_axis(damage):
+    diagram = assessments.interaction_diagram(points=((.2, .8), (.8, .2)),
+                                              name="partial", source="synthetic")
+    creep = assessments.creep_time_fraction([
+        assessments.CreepDamageBlock(duration=damage, rupture_time=1., source="synthetic")
+    ])
+    combined = assessments.creep_fatigue(fatigue=_fatigue_assessment(0.), creep=creep,
+                                        interaction=diagram)
+    assert not combined.acceptable
+    assert not combined.as_dict()["within_interaction_domain"]
+
+
+@pytest.mark.parametrize("damage", [-.01, np.nan, np.inf])
+@pytest.mark.parametrize("channel", ["creep", "fatigue"])
+def test_combined_assessment_rejects_invalid_imported_damage(channel, damage):
+    creep = assessments.CreepDamageAssessment((), damage if channel == "creep" else 0.)
+    fatigue = _fatigue_assessment(damage if channel == "fatigue" else 0.)
+    with pytest.raises(ValueError, match="finite and nonnegative"):
+        assessments.creep_fatigue(fatigue=fatigue, creep=creep)
+
+
 def test_sequential_energy_ledger_keeps_thermal_and_mechanical_layers_distinct():
     thermal = results.SimulationResult("thermal")
     thermal.add_histories(

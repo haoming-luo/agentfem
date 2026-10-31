@@ -1,12 +1,12 @@
 # SPDX-FileCopyrightText: 2026 Haoming Luo and AgentFEM contributors
 # SPDX-License-Identifier: Apache-2.0
 
-"""Power-law creep material-point relations and closed-form checks."""
+"""Monotone creep integration, material-point relations and reference checks."""
 
 from __future__ import annotations
 
 from dataclasses import dataclass
-from math import exp, isfinite, log, sinh
+from math import exp, isfinite, log
 from typing import ClassVar
 
 import numpy as np
@@ -126,12 +126,12 @@ class ImplicitCreepBatchUpdate:
 
 
 @dataclass(frozen=True)
-class IsotropicPowerLawCreepMaterial:
-    """Isotropic elasticity with an implicit Mises power-law creep branch.
+class IsotropicCreepMaterial:
+    """Isotropic elasticity with a supported monotone Mises creep branch.
 
     The local corrector solves
 
-    ``dgamma = dt * A(t_end) * (q_new / sigma_ref)**n``
+    ``dgamma = dt * rate(q_new, t_end)``
 
     with ``q_new = q_trial - 3*G*dgamma``.  Differentiating this exact
     backward-Euler equation supplies the algorithmic tangent consumed by the
@@ -143,10 +143,18 @@ class IsotropicPowerLawCreepMaterial:
         | ThermoElasticIsotropicProperties
         | TemperatureDependentThermoElasticProperties
     )
-    creep: "PowerLawCreep"
-    name: str = "isotropic power-law creep material"
+    creep: "PowerLawCreep | SinhCreep"
+    name: str = "isotropic creep material"
     temperature_dependence: "ArrheniusPowerLawCreep | None" = None
     stateful_constitutive: ClassVar[bool] = True
+
+    def __post_init__(self):
+        if not isinstance(self.creep, (PowerLawCreep, SinhCreep)):
+            raise TypeError("Implicit creep requires a supported monotone rate law.")
+        if isinstance(self.creep, SinhCreep) and self.creep.exponent < 1.0:
+            raise ValueError("Global Sinh creep requires exponent >= 1 for a finite zero-stress slope.")
+        if self.temperature_dependence is not None and not isinstance(self.creep, PowerLawCreep):
+            raise ValueError("Arrhenius rate dependence is currently supported for power-law creep only.")
 
     @property
     def requires_temperature(self) -> bool:
@@ -326,45 +334,47 @@ class IsotropicPowerLawCreepMaterial:
         )
         trial_deviator = deviatoric(trial_stress)
         q_trial = von_mises(trial_stress)
-        if q_trial <= max(1.0, young) * tolerance:
+        if q_trial == 0.0:
+            slope = float(_flow_rate_slope(creep_law, 0.0, end)[1])
+            relaxation = 1.0 / (1.0 + 3.0 * shear_modulus * dt * slope)
+            bulk_tangent = bulk_modulus * np.einsum("ij,kl->ijkl", np.eye(3), np.eye(3))
+            tangent = bulk_tangent + relaxation * (
+                self.elastic_tangent(temperature=temperature) - bulk_tangent
+            )
             return ImplicitCreepUpdate(
                 stress=trial_stress,
                 state=old,
                 equivalent_increment=0.0,
-                algorithmic_tangent=self.elastic_tangent(temperature=temperature),
+                algorithmic_tangent=tangent,
                 local_iterations=0,
             )
 
         upper = q_trial / (3.0 * shear_modulus)
-        increment = min(dt * creep_law.equivalent_rate(q_trial, end), upper)
+        increment = float(_initial_creep_increment(creep_law, q_trial, shear_modulus, dt, end))
         lower = 0.0
         iterations = 0
         converged = False
         for iterations in range(1, maximum_iterations + 1):
             q = max(0.0, q_trial - 3.0 * shear_modulus * increment)
-            rate = creep_law.equivalent_rate(q, end)
+            rate, rate_derivative = _flow_rate_slope(creep_law, q, end)
             residual = increment - dt * rate
             scale = max(1.0, upper, abs(increment), dt * rate)
-            if abs(residual) <= tolerance * scale:
+            if np.isfinite(residual) and abs(residual) <= tolerance * scale:
                 converged = True
                 break
             if residual > 0.0:
                 upper = increment
             else:
                 lower = increment
-            rate_derivative = (
-                0.0
-                if q <= 0.0 or rate == 0.0
-                else creep_law.stress_exponent * rate / q
-            )
             derivative = 1.0 + 3.0 * shear_modulus * dt * rate_derivative
-            candidate = increment - residual / derivative
+            candidate = (increment - residual / derivative
+                         if np.isfinite(derivative) and np.isfinite(residual) else np.nan)
             if not lower < candidate < upper:
                 candidate = 0.5 * (lower + upper)
             increment = candidate
         if not converged:
             raise RuntimeError(
-                "Implicit power-law creep local update did not converge within "
+                "Implicit creep local update did not converge within "
                 f"{maximum_iterations} iterations."
             )
 
@@ -374,12 +384,7 @@ class IsotropicPowerLawCreepMaterial:
         reduction = q / q_trial
         pressure = np.trace(trial_stress) * np.eye(3) / 3.0
         stress = pressure + reduction * trial_deviator
-        rate = creep_law.equivalent_rate(q, end)
-        rate_derivative = (
-            0.0
-            if q <= 0.0 or rate == 0.0
-            else creep_law.stress_exponent * rate / q
-        )
+        rate, rate_derivative = _flow_rate_slope(creep_law, q, end)
         d_increment_d_qtrial = (
             0.0
             if rate_derivative == 0.0
@@ -475,29 +480,16 @@ class IsotropicPowerLawCreepMaterial:
         stress_trace = np.trace(trial_stress, axis1=1, axis2=2)
         trial_deviator = trial_stress - stress_trace[:, None, None] * identity / 3.0
         q_trial = np.sqrt(1.5 * np.sum(trial_deviator**2, axis=(1, 2)))
-        active = q_trial > max(1.0, self.young) * tolerance
+        active = q_trial > 0.0
 
         upper = np.zeros_like(q_trial)
         upper[active] = q_trial[active] / (3.0 * self.shear_modulus)
-        time_factor = (
-            1.0
-            if self.creep.time_exponent == 0.0
-            else (end / self.creep.reference_time) ** self.creep.time_exponent
-        )
-
         def rates(equivalent):
-            return (
-                self.creep.coefficient
-                * (equivalent / self.creep.reference_stress)
-                ** self.creep.stress_exponent
-                * time_factor
-            )
+            return _flow_rate_slope(self.creep, equivalent, end)[0]
 
         increment = np.zeros_like(q_trial)
-        increment[active] = np.minimum(
-            dt * rates(q_trial[active]),
-            upper[active],
-        )
+        increment[active] = _initial_creep_increment(
+            self.creep, q_trial[active], self.shear_modulus, dt, end)
         lower = np.zeros_like(q_trial)
         converged = ~active
         local_iterations = np.zeros(len(strain), dtype=np.int32)
@@ -520,7 +512,7 @@ class IsotropicPowerLawCreepMaterial:
                 )
             )
             selected = np.flatnonzero(pending)
-            finished = np.abs(residual) <= tolerance * scale
+            finished = np.isfinite(residual) & (np.abs(residual) <= tolerance * scale)
             converged[selected[finished]] = True
             local_iterations[selected] = iteration
             remaining = ~finished
@@ -533,14 +525,12 @@ class IsotropicPowerLawCreepMaterial:
             positive = residual > 0.0
             upper[indices[positive]] = increment[indices[positive]]
             lower[indices[~positive]] = increment[indices[~positive]]
-            derivative_rate = np.zeros_like(rate)
-            nonzero = (q > 0.0) & (rate != 0.0)
-            derivative_rate[nonzero] = (
-                self.creep.stress_exponent * rate[nonzero] / q[nonzero]
-            )
+            derivative_rate = _flow_rate_slope(self.creep, q, end)[1]
             derivative = 1.0 + 3.0 * self.shear_modulus * dt * derivative_rate
-            candidate = increment[indices] - residual / derivative
-            outside = (candidate <= lower[indices]) | (candidate >= upper[indices])
+            with np.errstate(invalid="ignore", over="ignore"):
+                candidate = increment[indices] - residual / derivative
+            outside = (~np.isfinite(candidate) | (candidate <= lower[indices])
+                       | (candidate >= upper[indices]))
             candidate[outside] = 0.5 * (
                 lower[indices[outside]] + upper[indices[outside]]
             )
@@ -548,7 +538,7 @@ class IsotropicPowerLawCreepMaterial:
         if not np.all(converged):
             index = int(np.flatnonzero(~converged)[0])
             raise RuntimeError(
-                "Implicit power-law creep batch update did not converge at "
+                "Implicit creep batch update did not converge at "
                 f"point {index} within {maximum_iterations} iterations."
             )
 
@@ -565,12 +555,15 @@ class IsotropicPowerLawCreepMaterial:
         pressure = stress_trace[:, None, None] * identity / 3.0
         stress = pressure + reduction[:, None, None] * trial_deviator
 
+        # At zero stress the flow vanishes, but its derivative need not vanish.
+        # This affects the deviatoric tangent, not the committed strain state.
+        zero_slope = float(_flow_rate_slope(self.creep, 0.0, end)[1])
+        reduction[~active] = 1.0 / (1.0 + 3.0 * self.shear_modulus * dt * zero_slope)
+
         rate = rates(q)
         rate_derivative = np.zeros_like(rate)
         nonzero = active & (q > 0.0) & (rate != 0.0)
-        rate_derivative[nonzero] = (
-            self.creep.stress_exponent * rate[nonzero] / q[nonzero]
-        )
+        rate_derivative[nonzero] = _flow_rate_slope(self.creep, q[nonzero], end)[1]
         d_increment_d_qtrial = np.zeros_like(q_trial)
         d_increment_d_qtrial[nonzero] = (
             dt
@@ -621,7 +614,8 @@ class IsotropicPowerLawCreepMaterial:
     def as_dict(self) -> dict[str, object]:
         return {
             "name": self.name,
-            "model": "isotropic_power_law_creep",
+            "model": ("isotropic_power_law_creep" if isinstance(self.creep, PowerLawCreep)
+                      else "isotropic_sinh_creep"),
             "elastic": self.elastic.as_dict(),
             "creep": self.creep.as_dict(),
             "temperature_dependence": (
@@ -631,9 +625,70 @@ class IsotropicPowerLawCreepMaterial:
             ),
             "integration": "backward_euler",
             "algorithmic_tangent": "analytical_consistent",
-            "maturity": "fem_integrated_foundation",
+            "maturity": ("fem_integrated_foundation" if isinstance(self.creep, PowerLawCreep)
+                         else "experimental_global_patch"),
             "fem_quadrature_driver": True,
         }
+
+
+@dataclass(frozen=True)
+class IsotropicPowerLawCreepMaterial(IsotropicCreepMaterial):
+    """Backward-compatible power-law material identity and construction."""
+
+    name: str = "isotropic power-law creep material"
+
+    def __post_init__(self):
+        super().__post_init__()
+        if not isinstance(self.creep, PowerLawCreep):
+            raise TypeError("Use IsotropicCreepMaterial for non-power-law flow.")
+
+
+def _flow_rate_slope(law, equivalent, time):
+    """Rate and stress derivative shared by scalar and batched correctors.
+
+    Overflow at an unaccepted trial is a bracket signal, never convergence.
+    No rate clipping is used to change the constitutive equation.
+    """
+    q = np.asarray(equivalent, dtype=float)
+    with np.errstate(over="ignore", divide="ignore", invalid="ignore"):
+        if isinstance(law, PowerLawCreep):
+            factor = 1.0 if law.time_exponent == 0.0 else (time / law.reference_time) ** law.time_exponent
+            rate = law.coefficient * (q / law.reference_stress) ** law.stress_exponent * factor
+            slope = np.divide(law.stress_exponent * rate, q, out=np.zeros_like(q), where=q > 0.)
+            if law.coefficient > 0.0 and law.stress_exponent <= 1.0:
+                zero_slope = (law.coefficient * factor / law.reference_stress
+                              if law.stress_exponent == 1.0 else np.inf)
+                slope = np.where(q == 0.0, zero_slope, slope)
+        else:
+            if law.coefficient == 0.0:
+                return np.zeros_like(q), np.zeros_like(q)
+            z = q / law.stress_scale
+            log_sinh = z + np.log(-np.expm1(-2.0 * z)) - np.log(2.0)
+            rate = np.exp(np.log(law.coefficient) - np.log(law.reference_time) + law.exponent * log_sinh)
+            slope = np.divide(law.exponent * rate, law.stress_scale * np.tanh(z),
+                              out=np.zeros_like(q), where=q > 0.)
+            if law.exponent == 1.0:
+                slope = np.where(q == 0., law.coefficient / law.reference_time / law.stress_scale, slope)
+    return rate, slope
+
+
+def _initial_creep_increment(law, q_trial, shear, dt, time):
+    q_trial = np.asarray(q_trial, dtype=float)
+    upper = q_trial / (3.0 * shear)
+    if isinstance(law, PowerLawCreep):
+        return np.minimum(dt * _flow_rate_slope(law, q_trial, time)[0], upper)
+    if law.coefficient == 0.:
+        return np.zeros_like(q_trial)
+    # Invert the rate at the maximum possible creep increment. This provides
+    # a finite stress bracket even when sinh(q_trial / scale) would overflow.
+    log_x = (np.log(upper) - np.log(dt) - np.log(law.coefficient)
+             + np.log(law.reference_time)) / law.exponent
+    inverse = np.empty_like(log_x)
+    large = log_x > 350.
+    inverse[large] = log_x[large] + np.log(2.)
+    inverse[~large] = np.arcsinh(np.exp(log_x[~large]))
+    q_bound = np.minimum(q_trial, law.stress_scale * inverse)
+    return np.maximum(0., (q_trial - q_bound) / (3.0 * shear))
 
 
 @dataclass(frozen=True)
@@ -839,12 +894,15 @@ class SinhCreep:
         if self.stress_scale <= 0.0 or self.exponent <= 0.0 or self.reference_time <= 0.0:
             raise ValueError("SinhCreep scales and exponent must be positive.")
 
-    def equivalent_rate(self, equivalent_stress: float) -> float:
-        return float(
-            self.coefficient
-            * sinh(abs(float(equivalent_stress)) / self.stress_scale) ** self.exponent
-            / self.reference_time
-        )
+    def equivalent_rate(self, equivalent_stress: float, time: float = 0.0) -> float:
+        """Return the autonomous rate; time is accepted for common flow consumers."""
+        stress = abs(float(equivalent_stress))
+        if not isfinite(stress):
+            raise ValueError("Sinh creep stress must be finite.")
+        rate = float(_flow_rate_slope(self, stress, time)[0])
+        if not isfinite(rate):
+            raise OverflowError("Sinh creep rate exceeds the finite representable range.")
+        return rate
 
     def tensor_increment(self, stress, duration: float) -> np.ndarray:
         selected = np.asarray(stress, dtype=float)
@@ -1246,6 +1304,43 @@ def isotropic_power_law(
         name=f"{name} creep law",
     )
     return IsotropicPowerLawCreepMaterial(elastic=elastic, creep=law, name=name)
+
+
+def isotropic_sinh(
+    *,
+    coefficient: float,
+    stress_scale: float,
+    exponent: float = 1.0,
+    reference_time: float = 1.0,
+    young: float | None = None,
+    poisson: float | None = None,
+    density: float | None = None,
+    elastic: (
+        ElasticIsotropicProperties
+        | ThermoElasticIsotropicProperties
+        | TemperatureDependentThermoElasticProperties
+        | None
+    ) = None,
+    name: str = "isotropic hyperbolic-sine creep",
+) -> IsotropicCreepMaterial:
+    """Build a small-strain backward-Euler hyperbolic-sine creep material.
+
+    The equivalent rate is ``coefficient * sinh(q/stress_scale)**exponent /
+    reference_time``. This global integrator requires ``exponent >= 1``.
+    Shared thermal elasticity is supported; the rate parameters themselves
+    are temperature independent. No Arrhenius dependence is inferred.
+    """
+    selected = _creep_elastic_properties(
+        elastic=elastic, young=young, poisson=poisson, density=density, name=name
+    )
+    law = SinhCreep(
+        coefficient=coefficient,
+        stress_scale=stress_scale,
+        exponent=exponent,
+        reference_time=reference_time,
+        name=f"{name} creep law",
+    )
+    return IsotropicCreepMaterial(elastic=selected, creep=law, name=name)
 
 
 @dataclass(frozen=True)

@@ -19,6 +19,53 @@ or a successful run is not by itself a validated engineering capability.
 
 ## Current product phase: the 0.4 foundation
 
+### Thermal–inelastic continuity sprint (2026-10-29)
+
+PR #132 maintenance is merged at `44fda9c4`; the published 0.4.4 tag remains
+unchanged. The next bounded sequence is reliability → thermal/cyclic-creep
+integration → damage/life assessment. It does not reopen packaging, claim
+commercial contact parity, or replace the earlier open spatial-accuracy gates.
+
+| Stage | Implemented slice | Remaining promotion gate |
+| --- | --- | --- |
+| Reliable results and restart | Validated zero-copy XDMF continuation views; atomic late-failure creep checkpoint restoration | Installed-use regression; a joined view alone does not prove physical restart continuity |
+| Thermal–cyclic plasticity–creep | Shared implicit Sinh flow; simultaneous J2/Chaboche + creep update, consistent tangent, ordinary `model.step`, temperature history, cutback, separate energy channels and serial restart; analytical time checks and a nonuniform active-plastic/creep spatial reference | Independent material calibration and nonproportional thermal spatial references; MPI, contact, regional materials and temperature-dependent plastic properties remain unsupported for the new composition |
+| Damage/life | Bounded scalar strain-life and time-resolved creep-damage assessments reuse rainflow and the existing interaction envelope; explicit units, source sampling and domain rejection | Paired mean-stress/multiaxial/nonisothermal life and global damage feedback need their own contracts and independent validation; no material calibration is implied |
+
+The initial joint-material gate is a homogeneous 3D small-strain hold/reverse
+fixture, including an independent uniaxial stress solution. It is not an
+industrial lifetime prediction, two-way heat generation, or a performance
+benchmark. The [design and evidence record](internal/thermo_inelastic_continuity_20261029.md)
+tracks exact scope. The ordinary `examples/thermal_cyclic_creep` project uses
+synthetic parameters, not confidential calibration data.
+
+The [creep/fatigue verification ladder](creep_fatigue_verification.md) now ties
+the next gate to independent Norton relaxation, cyclic loop work and
+time-fraction references, followed by compatible held-out material test data.
+ASTM catalogue references identify test families, not software certification;
+the generic linear interaction is not a qualified design-code envelope.
+The first open rupture-data audit found missing test metadata and a material
+label discrepancy; it is recorded as a candidate, not admitted as a validated
+alloy. Use independently documented deformation, cyclic and dwell tests to
+decide whether static recovery or cyclic softening must be added next; do not
+silently fit those mechanisms with the currently hardening-only plastic asset.
+The prescribed nonuniform-temperature joint field now also has an independent
+spatial-refinement reference. It isolates Arrhenius rate dependence with zero
+thermal expansion, not a full thermal-cyclic component qualification. Future
+material comparison must distinguish ordinary strain-controlled tests from
+elastic-follow-up/SMT tests; the ANL-ART-168 reference provides that distinction.
+Before nonuniform component-life productization, preserve co-located accepted
+stress/strain/temperature histories with point identity through restart; separate
+spatial maxima are not a replacement. Reuse result/state sampling contracts,
+not a second simulation or sensor framework.
+An independent rotating-stress material reference now also checks nonproportional
+J2/Chaboche plus creep under heating/cooling, including distinct plastic/creep
+directions and first-order time convergence. This strengthens local integration
+evidence; the nonuniform structural/experimental promotion gate remains open.
+The existing regional pure-creep route now has an independent elastic-follow-up
+series-shear reference. This verifies structural restraint effects without
+adding a case-specific correction factor or admitting regional joint plasticity.
+
 ### 0.4.4 published; bounded maintenance (2026-10-27)
 
 [0.4.4 is published](https://github.com/haoming-luo/agentfem/releases/tag/v0.4.4)

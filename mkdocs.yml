@@ -166,6 +166,8 @@ nav:
           - Nonlinear Materials: nonlinear_materials.md
           - Composite Materials and Forming: composite_materials_and_forming.md
           - Thermal Stress and Creep: solution_procedures_and_thermal_creep.md
+          - Strain-Life Assessment: strain_life_assessment.md
+          - Creep-Fatigue Verification: creep_fatigue_verification.md
           - Cohesive Fracture: dynamic_cohesive_fracture_architecture.md
           - Cyclic Cohesive Fatigue: cyclic_cohesive_fatigue_architecture.md
           - Nonlinear Architecture: nonlinear_solid_architecture.md

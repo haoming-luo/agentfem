@@ -126,6 +126,59 @@ effectively one way. The current route does not claim monolithic coupling.
 
 ## The first global creep state consumer
 
+### Hyperbolic-sine branch
+
+`constitutive.isotropic_sinh(young=..., poisson=..., density=...,
+coefficient=..., stress_scale=..., exponent=...)` now uses the same
+`studies.creep_solid()` and `model.step(...)` route. Its equivalent rate is
+`coefficient * sinh(q / stress_scale)**exponent / reference_time`.
+The bounded global integrator requires `exponent >= 1`. A safeguarded local
+solve and log-domain rate evaluation handle large *trial* stresses without
+clipping the physical rate. The consistent tangent differentiates the full
+backward-Euler update, holding the previously accepted state fixed.
+
+This branch is **experimental global**, not a newly validated engineering law.
+`tests/test_sinh_creep.py` checks scalar/batch histories, fixed-old-state tangent,
+the zero-rate limit, local relaxation convergence to an independent analytical
+solution, serial 3D held stress, and checkpoint continuation. Existing power-law
+checks remain separate. Distributed and independent structural validation have
+not been added for Sinh. Shared `elastic=...` thermal properties are accepted,
+but the Sinh rate parameters are temperature independent; no Arrhenius factor
+is inferred. Coupled plasticity, damage and contact are not enabled by this
+addition. The historical quadrature storage schema name is retained for archive
+compatibility; full-Step identity also binds the complete material law.
+
+### Explicit creep/plasticity composition
+
+`constitutive.CreepPlasticityMaterial(creep=..., plastic=...)` combines an
+implicit creep material with `J2LinearIsotropicHardening` or
+`ChabocheCombinedHardening`. Register this one material and retain the ordinary
+`studies.creep_solid()` → `model.step(duration=..., temperature=...)` workflow.
+The two mechanisms share one physical increment and one accepted state; this
+is not two sequential Steps and does not reset plastic history during a hold.
+
+The first admitted scope is experimental serial homogeneous 3D small strain
+with constant shared elastic moduli. Thermal expansion and the Arrhenius
+power-law rate use the existing temperature-history input. Temperature-dependent
+plastic parameters, static recovery, regional composition, axisymmetry, MPI,
+finite strain and contact are not admitted. The local quadrature loop currently
+prioritizes correctness; no throughput improvement is claimed.
+
+CE/CEEQ, PE/PEEQ and every backstress branch remain distinct restart fields.
+The maximum inelastic increment limit checks both creep and plastic increments.
+Energy histories distinguish plastic work, hardening storage, reference-yield/
+dynamic-recovery dissipation and the backward-Euler contribution. The mechanical
+energy residual still excludes imposed thermal energy transfer; it is not a
+general first-law certificate. V1 and V2 checkpoint formats pass serial joint
+continuation, but V2 file layout alone does not qualify MPI execution.
+
+`examples/thermal_cyclic_creep` is an ordinary project with synthetic parameters.
+Independent uniaxial equations, nonproportional material paths and tangent
+differences form the current evidence. Independent multiaxial structural
+validation and broader time/mesh studies remain promotion gates.
+
+### Power-law and temperature dependence
+
 The local `ArrheniusPowerLawCreep` relation is normalized at a declared
 reference temperature:
 
@@ -211,7 +264,64 @@ from named scalar histories. The supplied rupture-time callable and its source
 remain project assets. Out-of-range dwells, missing histories, non-scalar
 histories, and nonphysical rupture times fail explicitly.
 
+For a resolved relaxation history, use `creep_damage_from_result` instead of
+reducing an entire hold to one governing value. This integrates the **damage
+rate** `1 / rupture_time(stress, temperature)` on the union of the stress and
+temperature sample times, with clipped dwell endpoints and trapezoidal
+quadrature. Both inputs must declare physical time and the same time unit;
+stress units must match explicitly and temperature must be in kelvin.
+
+```python
+from agentfem import assessments
+
+# result contains source-identified scalar stress (MPa) and temperature (K)
+# histories on physical time in seconds. The project supplies a reviewed
+# rupture_time(sigma_MPa, temperature_K) callable returning seconds and
+# rejecting states outside its own calibration domain.
+creep = assessments.creep_damage_from_result(
+    result,
+    stress_history="axial_stress",
+    temperature_history="temperature",
+    dwells=[assessments.DwellInterval(1.0, 2.0, label="tensile_hold")],
+    rupture_time=rupture_time,
+    rupture_source="project material relation, revision and calibration domain",
+    stress_unit="MPa", time_unit="s", stress_measure="signed_axial",
+    maximum_source_interval=0.05,
+)
+# Combine explicitly with a separately assessed stress- or strain-life history.
+combined = assessments.creep_fatigue(fatigue=fatigue, creep=creep,
+                                    interaction=reviewed_interaction)
+combined.attach(result)
+```
+
+The result retains each segment's stress, temperature, rates and damage,
+plus source IDs and original sampling gaps. No implicit absolute stress,
+unit conversion, temperature conversion or history extrapolation is applied.
+Positive infinite rupture time means explicitly zero damage rate. Missing
+coverage, overlapping/out-of-order dwells and invalid callback output fail
+without attaching a partial assessment. `repetitions` assumes a repeated
+response; it does not simulate cyclic evolution. The maximum source interval
+is checked on **each original history**, so a dense temperature grid cannot
+hide an under-resolved stress history. It is a sampling guard, not an error
+certificate: refine the histories to establish quadrature accuracy.
+
+Stress and temperature histories must describe the **same material location**
+and loading path. Pairing separate spatial maxima can combine values that
+never occurred together; that is an explicitly chosen envelope assessment,
+not a local material-life prediction. This scalar interface does not infer
+point identity from history names or certify such an envelope as conservative.
+
+Nonisothermal integration is mathematically supported when the supplied
+relation covers every evaluated state, but this does not validate a material's
+nonisothermal rupture or creep-fatigue behavior. The existing block interface
+and stress-life convenience entrypoint remain unchanged.
+
 ## Current boundary and next gates
+
+For the simultaneous creep/plasticity route, "homogeneous" describes the
+material assignment, not a requirement of uniform strain or temperature.
+Nonuniform fields have bounded analytical refinement checks; that does not
+admit regional material mixtures, contact or MPI for this composition.
 
 Implemented now:
 

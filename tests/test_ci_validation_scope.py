@@ -23,7 +23,8 @@ def test_core_release_job_has_bounded_runtime_and_no_nested_blas_oversubscriptio
     match = re.search(r"(?ms)^  fenicsx:\n(.*?)(?=^  [\w-]+:\s*$|\Z)", text)
     assert match is not None
     job = match.group(1)
-    assert re.search(r"(?m)^    timeout-minutes: 45$", job)
+    assert re.search(r"(?m)^    timeout-minutes: 60$", job)
+    assert "python -m pytest --durations=20" in job
     environment = re.search(r"(?m)^    env:\n((?:      .*\n)+)", job)
     assert environment is not None
     for name in ("OMP_NUM_THREADS", "OPENBLAS_NUM_THREADS", "MKL_NUM_THREADS"):

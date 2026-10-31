@@ -1,0 +1,8 @@
+[project]
+name = "thermal_cyclic_creep"
+entrypoint = "case.py"
+schema_version = "0.2.0"
+requires_api = ["constitutive.CreepPlasticityMaterial"]
+
+[run]
+output_directory = "outputs"

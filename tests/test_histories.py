@@ -373,7 +373,7 @@ def test_state_dependent_heat_checkpoint_restart_matches_continuous_run(tmp_path
         reference_temperature.value.x.array,
     )
     assert restarted.completed_steps == 2
-    assert restarted.history_records == pytest.approx(reference.history_records)
+    assert restarted.history_records == reference.history_records
 
 
 def _constant_property_cooling_solution(*, tabulated: bool):

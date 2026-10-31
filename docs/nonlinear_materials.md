@@ -373,9 +373,11 @@ duration give the closed-form equivalent creep strain 0.1. The versioned
 100-increment contract declares its expected backward-Euler error instead of
 freezing a solver-specific number as physical truth.
 
-The next milestone is nonuniform multi-element and high-temperature component
-evidence, followed by accepted temperature-field coupling and portable
-quadrature state. A new creep-law name alone is not that milestone.
+Accepted temperature histories, regional state and portable restart are already
+implemented. The native axisymmetric route includes NAFEMS R0027 Test 7 evidence.
+See [the current scope](guide/creep_and_inelasticity.md) for the distinction
+between these routes and distributed structural or combined creep/plasticity
+promotion. A new creep-law name alone is not a global verification milestone.
 
 ## Creep Damage, Sinh Flow, and Modified Theta
 
@@ -407,8 +409,9 @@ The release demo `examples/creep_hot_wall_assessment.py` connects an implicit
 heat-transfer solve, sequential thermoelastic stress, the governing sampled
 equivalent stress, K-R damage history, and modified-theta projection through
 one `SimulationResult`. Its material constants are explicitly illustrative.
-It demonstrates the power-component workflow and data contract while the
-global quadrature creep step remains a visible next gate.
+It demonstrates the power-component workflow and data contract. The global
+power-law quadrature Step is implemented separately; this demo's K-R damage
+postprocessing does not turn it into a coupled global damage calculation.
 
 ## Stress-Life Fatigue
 

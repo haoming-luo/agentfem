@@ -20,6 +20,7 @@ the compact machine-readable `agentfem/knowledge/catalog.json`.
 | [`agentfem.load.surface_resultant`](#agentfem-load-surface_resultant) | Uniform boundary traction from a requested resultant force | workflow | supported |
 | [`agentfem.material.chaboche_global_plasticity`](#agentfem-material-chaboche_global_plasticity) | Global Chaboche combined-hardening plasticity | material | experimental |
 | [`agentfem.material.composite_ply_failure`](#agentfem-material-composite_ply_failure) | Material-axis composite ply failure assessment | material | experimental |
+| [`agentfem.material.coupled_creep_plasticity`](#agentfem-material-coupled_creep_plasticity) | Simultaneous small-strain creep and cyclic plasticity | material | experimental |
 | [`agentfem.material.creep_damage_assessment`](#agentfem-material-creep_damage_assessment) | Creep damage and modified-theta assessment | material | supported |
 | [`agentfem.material.cyclic_cohesive_fatigue`](#agentfem-material-cyclic_cohesive_fatigue) | Cyclic cohesive damage with an independent cycle coordinate | material | experimental |
 | [`agentfem.material.fabric_surface_constitutive`](#agentfem-material-fabric_surface_constitutive) | Non-orthogonal woven-fabric surface response | material | experimental |
@@ -712,6 +713,123 @@ strengths = constitutive.composite_strengths_2d(xt=1500e6, xc=1000e6, yt=50e6, y
 - Hashin (1980), Failure Criteria for Unidirectional Fiber Composites: `https://doi.org/10.1115/1.3153664`
 - Tsai and Wu (1971), A General Theory of Strength for Anisotropic Materials: `https://doi.org/10.1177/002199837100500106`
 
+<a id="agentfem-material-coupled_creep_plasticity"></a>
+
+## Simultaneous small-strain creep and cyclic plasticity
+
+**Stable ID:** `agentfem.material.coupled_creep_plasticity`<br>
+**Kind:** `material`<br>
+**Status:** `experimental`<br>
+**Source card:** `src/agentfem/knowledge/cards/coupled_creep_plasticity.json`
+
+One fixed-old-state simultaneous creep/J2 or creep/Chaboche update, lowered through the ordinary physical-time implicit creep Step. The bounded serial 3D composition preserves separate creep/plastic histories, consistent tangent, accepted-temperature input, cutback, energy channels and joint checkpoint continuation.
+
+### Public API
+
+- `agentfem.constitutive.CreepPlasticityMaterial`
+- `agentfem.constitutive.CreepPlasticityState`
+- `agentfem.constitutive.isotropic_power_law`
+- `agentfem.constitutive.isotropic_arrhenius_power_law`
+- `agentfem.constitutive.isotropic_sinh`
+- `agentfem.constitutive.J2LinearIsotropicHardening`
+- `agentfem.constitutive.ChabocheCombinedHardening`
+- `agentfem.studies.creep_solid`
+- `agentfem.models.Model.step`
+
+### Scientific contract
+
+Solve both mechanisms within the same backward-Euler increment. Every local and global trial starts from the same accepted histories; backstress and creep flow need not be coaxial. This is not a one-pass split or sequential plastic and creep Steps.
+
+**condensed local residual**
+
+$$
+\mathbf R(\boldsymbol\sigma)=\boldsymbol\sigma-\mathcal P(\boldsymbol\varepsilon_m-\mathbf{CE}_n-\Delta t\,\mathbf f(\boldsymbol\sigma);\mathbf z_n)=\mathbf 0
+$$
+
+P is the complete existing plastic return at fixed old plastic state z; f is the creep flow rate. Mandel coordinates preserve tensor contraction.
+
+**consistent tangent**
+
+$$
+(\mathbf I+\Delta t\,\mathbf C_p\mathbf L)\mathbf C=\mathbf C_p
+$$
+
+Cp is the plastic algorithmic tangent and L is the creep flow derivative at the converged local state. Residual-only backtracking does not need a tangent; final tangent evaluation is unchanged.
+
+#### Inputs
+
+| Name | Type | Unit role | Meaning |
+| --- | --- | --- | --- |
+| shared elasticity and separate rate/plastic branches | IsotropicCreepMaterial plus J2LinearIsotropicHardening or ChabocheCombinedHardening | one consistent stress and physical-time system | Both branches must share constant E and nu. Optional thermal expansion and Arrhenius power-law dependence come through the creep material, not a second incompatible elastic asset. |
+| physical-time loading and temperature | amplitude, positive duration and optional scalar/field/accepted FieldHistory | physical time and positive kelvin temperature | Temperature is sampled at attempted physical time and restored on rejected increments. The Sinh rate does not infer Arrhenius dependence. |
+
+#### Outputs
+
+| Name | Type | Unit role | Meaning |
+| --- | --- | --- | --- |
+| S, CE, CEEQ, PE, PEEQ and ALPHA when present | accepted integration-point state and response | stress, strain and backstress | Plastic and creep history remain distinct. Output cell recovery does not replace raw point identity. |
+| work, storage and dissipation | separate accepted energy histories | consistent energy unit | Distinguish creep work, plastic work, hardening storage, modeled dissipation and backward-Euler contributions; do not call all work stored energy. |
+
+#### Assumptions
+
+- Small strain, serial 3D, one homogeneous material; spatial fields may be nonuniform.
+- Constant shared elastic and plastic parameters; power-law or Sinh creep and optional existing thermal strain.
+- Quasi-static global equilibrium with one joint accepted state.
+
+#### Conventions
+
+- Use studies.creep_solid and ordinary model.step, not a new coupled Model or a project-owned solver.
+- Fixed-old-state local probes and staged full-array validation precede trial publication.
+- maximum_inelastic_increment checks both equivalent creep and plastic increments.
+- Serial checkpoint continuation preserves both branches and all backstresses; portable file format alone does not authorize rank-changing execution.
+
+#### Applicability
+
+- Bounded synthetic hold/reversal and prescribed-temperature studies with an explicitly selected material law.
+- Independent material-point tangent, global equilibrium, time/mesh refinement and restart verification.
+
+#### Limitations
+
+- No joint MPI, regional material composition, axisymmetry, finite strain or contact admission.
+- No temperature-dependent plastic parameters, cyclic softening or static backstress recovery; plastic-flow-driven dynamic recovery is not static recovery during a hold.
+- No constitutive damage feedback or calibrated service-life prediction. Separate creep/fatigue postprocessors do not change stiffness.
+- Mechanical energy bookkeeping excludes imposed thermal transfer and is not a full first-law certificate.
+- The nonuniform Arrhenius reference prescribes temperature and isolates rate dependence; it does not verify heat feedback or nonproportional thermal-cyclic component behavior.
+
+### Minimal example
+
+```python
+Register constitutive.CreepPlasticityMaterial(creep=creep_law, plastic=plastic_law) on a studies.creep_solid model, then use model.step(target=u, duration=duration, temperature=temperature_history).solve_result().
+```
+
+### Verification
+
+**Tests**
+
+- `tests/test_coupled_creep_plasticity.py`
+- `tests/test_creep_plasticity_rotating_reference.py`
+- `tests/test_creep_manufactured_field.py`
+- `tests/test_creep_fatigue_references.py`
+
+**Benchmarks**
+
+- None declared.
+
+**Validation rules**
+
+- Compare the complete discrete tangent against fixed-old-state directional differences on nonproportional material paths.
+- Recover pure-creep and pure-plastic limiting cases without advancing either history twice.
+- Check independent continuous uniaxial relaxation and nonuniform active-plastic/creep fields under refinement.
+- Check independently constructed rotating-stress paths under heating/cooling, including distinct Chaboche plastic and creep directions and backstress time refinement.
+- Force late returned-array and restart corruption failures; accepted state and previously valid response must remain unchanged.
+- Reject unsupported compositions rather than silently lower the material to elasticity.
+- Passing synthetic references establishes numerical evidence only, not alloy calibration or code-standard acceptance.
+
+### References
+
+- MOOSE simultaneous creep/plasticity integration: `https://mooseframework.inl.gov/source/materials/ComputeCreepPlasticityStress.html`
+- AgentFEM independent analytical and experimental-reference ladder: `docs/creep_fatigue_verification.md`
+
 <a id="agentfem-material-creep_damage_assessment"></a>
 
 ## Creep damage and modified-theta assessment
@@ -721,7 +839,7 @@ strengths = constitutive.composite_strengths_2d(xt=1500e6, xc=1000e6, yt=50e6, y
 **Status:** `supported`<br>
 **Source card:** `src/agentfem/knowledge/cards/creep_damage_assessment.json`
 
-Verified material-point Kachanov-Rabotnov and hyperbolic-sine creep relations plus a deterministic modified-theta curve projection, kept distinct from the implemented global isothermal/Arrhenius power-law creep route.
+Verified material-point Kachanov-Rabotnov and hyperbolic-sine creep relations plus a deterministic modified-theta curve projection. K-R damage and curve projection remain separate from global equilibrium; Sinh has a separately tested implicit consumer with its own bounded scope.
 
 ### Public API
 
@@ -790,11 +908,11 @@ Primary and tertiary terms project a creep strain-time curve.
 
 - Material calibration checks and constant-stress creep screening.
 - Sequential thermoelastic-to-creep hotspot workflows with explicit scope labels.
-- Reference updates for future global damage and Sinh consumers.
+- Reference material updates; consult the separate implicit-creep contract for the bounded global Sinh consumer.
 
 #### Limitations
 
-- K-R damage and Sinh flow do not yet enter global equilibrium, adaptive time stepping, or restartable quadrature state; the separate isothermal/Arrhenius power-law model does.
+- K-R damage does not enter global equilibrium, adaptive time stepping, or restartable quadrature state. The separate implicit Sinh consumer does not promote K-R damage or modified-theta projection into global constitutive laws.
 - Local softening/damage is not mesh regularized.
 - No Liu-Murakami multiaxial damage law is claimed in this release.
 
@@ -818,7 +936,7 @@ Create KachanovRabotnovCreep with traceable parameters, advance CreepDamageState
 
 - Reject nonfinite parameters, invalid reference scales, and damage outside [0, 1).
 - Clamp a failed update at the declared failure damage and report failed=True.
-- Do not promote K-R, Sinh, or modified-theta beyond their declared local/curve maturity merely because power-law creep has a global state consumer.
+- Do not promote K-R or modified-theta beyond local/curve maturity. Global Sinh admission requires its own update, tangent and restart evidence, not inference from power-law support.
 
 ### References
 
@@ -1717,6 +1835,8 @@ A declared creep_strain_error_tolerance may reject an otherwise converged increm
 - The MPI global Newton route has regional patch, rollback, and cross-rank-count restart evidence; the external NAFEMS R0027 structure benchmark currently exercises the native serial axisymmetric route rather than an independent distributed component model.
 - Portable nodal histories are root-gathered; global damage and mesh regularization are not part of this route.
 - External component or code-standard validation remains required before application-specific qualification.
+- The separate isotropic_sinh consumer has serial implicit-update, held-stress and restart checks; its rate parameters are temperature independent. This power-law card does not establish MPI or regional Sinh composition.
+- CreepPlasticityMaterial has a separate experimental serial homogeneous-material 3D contract. Do not infer its MPI, regional, contact or temperature-dependent plastic capability from this power-law card.
 
 ### Minimal example
 
@@ -1729,6 +1849,7 @@ Create studies.creep_solid(), register constitutive.isotropic_power_law(...) or 
 **Tests**
 
 - `tests/test_p1_platform.py`
+- `tests/test_creep_elastic_followup.py`
 - `tests/test_histories.py`
 - `tests/portable_field_history_driver.py`
 
@@ -1746,6 +1867,7 @@ Create studies.creep_solid(), register constitutive.isotropic_power_law(...) or 
 - Commit shared transaction state only after a globally accepted physical-time increment.
 - Evaluate and record positive kelvin temperatures at the creep quadrature identity for every attempted increment.
 - Keep equilibrium convergence and creep time-integration accuracy as separate acceptance decisions.
+- Verify elastic follow-up using regional equilibrium and independent series-slab relaxation; do not substitute complete local strain restraint or insert an unexplained correction factor.
 - Restore displacement, CE, CEEQ, physical time, next increment, histories, energies, and events from a compatible checkpoint.
 
 ### References
@@ -3976,7 +4098,7 @@ local = coordinates.cartesian(x=(0,1), y=(-1,0)); rp = coordinates.reference_poi
 **Status:** `supported`<br>
 **Source card:** `src/agentfem/knowledge/cards/creep_fatigue_assessment.json`
 
-A standard-neutral postprocessing contract for source-identified creep time fractions, declared dwell extraction from named stress/temperature histories, existing stress-life fatigue assessments, explicit interaction diagrams, and structured result evidence.
+Standard-neutral postprocessing of source-identified creep time fractions, resolved stress/temperature dwell histories, scalar stress- or strain-life fatigue, and explicit interaction diagrams; no constitutive damage or automatic design-code approval.
 
 ### Public API
 
@@ -3984,6 +4106,10 @@ A standard-neutral postprocessing contract for source-identified creep time frac
 - `agentfem.assessments.DwellInterval`
 - `agentfem.assessments.creep_blocks_from_result`
 - `agentfem.assessments.creep_time_fraction`
+- `agentfem.assessments.CreepDamageHistoryAssessment`
+- `agentfem.assessments.creep_damage_from_result`
+- `agentfem.constitutive.CoffinMansonBasquinCurve`
+- `agentfem.constitutive.assess_strain_history`
 - `agentfem.assessments.interaction_diagram`
 - `agentfem.assessments.creep_fatigue`
 - `agentfem.assessments.creep_fatigue_from_result`
@@ -4000,6 +4126,14 @@ $$
 
 Each dwell duration and rupture time remains attached to its label and source.
 
+**resolved creep history**
+
+$$
+D_c=\int_{t_a}^{t_b}\frac{1}{t_r(\sigma(t),T(t))}\,\mathrm{d}t
+$$
+
+Trapezoidal integration of damage rate on the union of declared source sample times; original sampling gaps remain visible and convergence must be checked.
+
 **interaction decision**
 
 $$
@@ -4013,15 +4147,15 @@ The allowable boundary is a declared piecewise-linear scientific input.
 | Name | Type | Unit role | Meaning |
 | --- | --- | --- | --- |
 | creep blocks | duration, rupture time, repetitions, label and source | duration and rupture time use the same time unit | Rupture times come from reviewed material data or a declared assessment relation. |
-| named result histories and dwells | scalar stress/temperature HistoryResult names and DwellInterval records | history time, stress and absolute temperature | The V1 extractor interpolates dwell endpoints, applies declared reducers and calls a source-identified project rupture relation. |
-| fatigue assessment | FatigueAssessment | dimensionless cumulative damage | Usually produced from a verified scalar history, cycle counting, mean-stress policy and S-N curve. |
+| named result histories and dwells | scalar stress/temperature HistoryResult names and DwellInterval records | history time, stress and absolute temperature | The block extractor applies declared reducers. The history integrator requires explicit stress/time units and kelvin temperature, keeps every interval contribution, and rejects overlapping holds or extrapolation. Neither creates missing measurement evidence. |
+| fatigue assessment | FatigueAssessment or StrainLifeAssessment | dimensionless cumulative damage | Use a declared signed scalar stress/S-N history, or total mechanical strain with a bounded Coffin-Manson-Basquin calibration and explicit uncorrected-mean assumption. PEEQ is not reversing strain. |
 | interaction diagram | ordered creep-damage and allowable-fatigue-damage points | dimensionless damage coordinates | Normative, company or research data stay outside the core and retain their source. |
 
 #### Outputs
 
 | Name | Type | Unit role | Meaning |
 | --- | --- | --- | --- |
-| damage and margin | creep damage, fatigue damage, allowable fatigue damage and signed margin | dimensionless | Positive margin is inside the declared boundary. |
+| damage and margin | creep damage, fatigue damage, allowable fatigue damage and signed margin | dimensionless | The vertical fatigue margin alone is insufficient: acceptable additionally requires creep-damage abscissa coverage of the declared diagram. It is not regulatory approval. |
 | assessment record | JSON-safe source-preserving structure | scientific evidence | May be attached to a SimulationResult without changing the FEM solution. |
 
 #### Assumptions
@@ -4035,6 +4169,7 @@ The allowable boundary is a declared piecewise-linear scientific input.
 - AgentFEM provides a transparent linear reference but no design-code or material-specific curve.
 - An assessment is a postprocessor and does not weaken stiffness or advance constitutive state.
 - A declared dwell outside either result history fails instead of silently clamping or extrapolating.
+- Time integration averages reciprocal rupture time, not rupture time. No implicit stress magnitude or unit conversion is applied.
 
 #### Applicability
 
@@ -4043,8 +4178,10 @@ The allowable boundary is a declared piecewise-linear scientific input.
 
 #### Limitations
 
-- It does not implement cyclic viscoplasticity, dwell stress relaxation or coupled continuum damage.
+- It consumes, but does not solve, cyclic viscoplasticity or dwell stress relaxation; it does not implement coupled continuum damage.
 - Qualification against a design standard requires licensed/current normative data and engineering review.
+- Mathematical integration of varying temperature is not independent nonisothermal material validation. Repeated holds assume repeated response rather than simulating cyclic evolution.
+- Do not double-count dwell effects already included in a fatigue calibration; fatigue and rupture fits require independent hold-cycle validation.
 
 ### Minimal example
 
@@ -4057,6 +4194,10 @@ For existing result histories, declare DwellInterval records and call assessment
 **Tests**
 
 - `tests/test_assessments.py`
+- `tests/test_creep_damage_history.py`
+- `tests/test_creep_fatigue_references.py`
+- `tests/test_rainflow_references.py`
+- `tests/test_strain_life.py`
 
 **Benchmarks**
 
@@ -4067,6 +4208,8 @@ For existing result histories, declare DwellInterval records and call assessment
 - Reject missing rupture and interaction sources.
 - Reject malformed or nonmonotone interaction boundaries.
 - Reject missing, non-scalar, or out-of-range result histories and nonphysical rupture times.
+- Require physical time and explicit units for resolved integration; fail without partial publication on late rupture-domain rejection.
+- Verify analytical time refinement and published rainflow count/range/mean triples, without claiming material validation.
 - Keep the complete fatigue, creep and interaction records with the decision.
 
 ### References

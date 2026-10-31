@@ -230,10 +230,11 @@ jobs:
       needs.change-scope.outputs.level == 'core' ||
       needs.change-scope.outputs.level == 'release'
     runs-on: ubuntu-latest
-    # The release tier includes the full serial suite, MPI restart checks and
-    # installed demos. Successful tests previously exhausted 30 min before
-    # the demo gate finished; allow bounded runner variance without skipping it.
-    timeout-minutes: 45
+    # The release tier includes serial scientific-refinement references, MPI
+    # restart checks and installed demos. Run 40812073297 passed all 5315 serial
+    # tests in 41m37s, then hit the old 45-minute job limit during MPI checks.
+    # Retain every gate and a bounded budget; print slow tests for diagnosis.
+    timeout-minutes: 60
     concurrency:
       group: test-core-${{ github.event.pull_request.number || github.ref }}
       cancel-in-progress: true
@@ -323,9 +324,9 @@ jobs:
         run: |
           if [[ "${VALIDATION_LEVEL}" == "core" && -n "${CHANGED_TESTS}" ]]; then
             read -r -a selected <<< "${CHANGED_TESTS}"
-            python -m pytest -q "${selected[@]}"
+            python -m pytest -q --durations=20 "${selected[@]}"
           else
-            python -m pytest
+            python -m pytest --durations=20
           fi
 
       - name: Verify the optional stateless native kernels from an installed wheel

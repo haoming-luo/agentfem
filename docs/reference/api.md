@@ -223,6 +223,9 @@ and evidence remain in the linked guides and scientific function reference.
 | class | `ConstitutiveCapability` | What a material capability can truthfully do in this release. |
 | function | `capabilities() -> tuple[ConstitutiveCapability, ...]` | Return all constitutive capabilities in stable name order. |
 | function | `capability(name: str) -> ConstitutiveCapability` | Return one capability or raise with the available names. |
+| class | `CreepPlasticityMaterial` | Compose one creep branch with existing isotropic J2 or Chaboche. |
+| class | `CreepPlasticityState` | Public AgentFEM object. |
+| class | `CreepPlasticityUpdate` | Public AgentFEM object. |
 | class | `FirstPiolaTangentEnvelope` | Declared symmetric dP/dF envelope over a principal-stretch domain. |
 | class | `VumatBatchInput` | Complete legacy VUMAT input; no missing channel is filled implicitly. |
 | class | `VumatBatchOutput` | Uncommitted local response. Missing optional energy remains unavailable. |
@@ -241,13 +244,15 @@ and evidence remain in the linked guides and scientific function reference.
 | class | `ImplicitCreepBatchUpdate` | Vectorized backward-Euler updates for one homogeneous material region. |
 | class | `ImplicitCreepState` | Committed small-strain creep state at one integration point. |
 | class | `ImplicitCreepUpdate` | Backward-Euler material-point update and consistent tangent. |
-| class | `IsotropicPowerLawCreepMaterial` | Isotropic elasticity with an implicit Mises power-law creep branch. |
+| class | `IsotropicPowerLawCreepMaterial` | Backward-compatible power-law material identity and construction. |
+| class | `IsotropicCreepMaterial` | Isotropic elasticity with a supported monotone Mises creep branch. |
 | class | `KachanovRabotnovCreep` | Classical scalar Kachanov--Rabotnov creep-damage coupling. |
 | class | `ModifiedThetaProjection` | Three-parameter modified-theta representation of a creep curve. |
 | class | `PowerLawCreep` | Mises time-hardening creep law. |
 | class | `SinhCreep` | Stress-sensitive hyperbolic-sine Mises creep law. |
 | function | `integrate_stress_history(law: PowerLawCreep, times, interval_stresses) -> CreepHistory` | Integrate a piecewise-constant scalar or tensor stress history. |
 | function | `isotropic_power_law(*, young: float \| None = None, poisson: float \| None = None, density: float \| None = None, elastic: ElasticIsotropicProperties \| ThermoElasticIsotropicProperties \| TemperatureDependentThermoElasticProperties \| None = None, coefficient: float, stress_exponent: float, time_exponent: float = 0.0, reference_stress: float = 1.0, reference_time: float = 1.0, name: str = 'isotropic power-law creep') -> IsotropicPowerLawCreepMaterial` | Create one Abaqus-style material record with elastic and creep data. |
+| function | `isotropic_sinh(*, coefficient: float, stress_scale: float, exponent: float = 1.0, reference_time: float = 1.0, young: float \| None = None, poisson: float \| None = None, density: float \| None = None, elastic: ElasticIsotropicProperties \| ThermoElasticIsotropicProperties \| TemperatureDependentThermoElasticProperties \| None = None, name: str = 'isotropic hyperbolic-sine creep') -> IsotropicCreepMaterial` | Build a small-strain backward-Euler hyperbolic-sine creep material. |
 | function | `isotropic_arrhenius_power_law(*, young: float \| None = None, poisson: float \| None = None, density: float \| None = None, elastic: ElasticIsotropicProperties \| ThermoElasticIsotropicProperties \| TemperatureDependentThermoElasticProperties \| None = None, coefficient: float, stress_exponent: float, activation_energy: float, reference_temperature: float, time_exponent: float = 0.0, reference_stress: float = 1.0, reference_time: float = 1.0, gas_constant: float = 8.31446261815324, name: str = 'isotropic Arrhenius power-law creep') -> IsotropicPowerLawCreepMaterial` | Create elasticity plus a globally consumable Arrhenius creep law. |
 | function | `anisotropic_stress_2d(displacement, properties: ElasticAnisotropic2DProperties, *, study = None, orientation = None)` | 2D anisotropic stress from engineering-strain Voigt stiffness. |
 | function | `anisotropic_stress_3d(displacement, properties: ElasticAnisotropic3DProperties, *, study = None, orientation = None)` | 3D anisotropic stress with an optional independent material frame. |
@@ -311,6 +316,10 @@ and evidence remain in the linked guides and scientific function reference.
 | function | `miner_damage(blocks: Iterable[FatigueBlock], curve) -> float` | Return Palmgren-Miner cumulative damage ``sum(n_i / N_i)``. |
 | function | `rainflow_cycles(history) -> tuple[StressCycle, ...]` | Count full and residual half-cycles from a scalar stress history. |
 | function | `turning_points(history) -> np.ndarray` | Return endpoints and local reversals from a scalar stress history. |
+| class | `CoffinMansonBasquinCurve` | Total mechanical strain amplitude versus full cycles to failure. |
+| class | `StrainCycle` | Rainflow cycle of one signed mechanical strain component. |
+| class | `StrainLifeAssessment` | Auditable uncorrected strain-life Miner sum, not an engineering approval. |
+| function | `assess_strain_history(history, curve: CoffinMansonBasquinCurve, *, strain_measure: str, source: str, mean_stress_correction: str) -> StrainLifeAssessment` | Count signed scalar total-mechanical-strain cycles and assess life. |
 | class | `FiniteStrainJ2Logarithmic` | Multiplicative finite-strain J2 plasticity with Hencky elasticity. |
 | function | `finite_strain_j2_logarithmic(*, young: float, poisson: float, yield_stress: float, hardening_modulus: float = 0.0, tangent_relative_step: float = 2e-06, tangent_evaluation: str = 'analytic_spectral', density: float \| None = None) -> FiniteStrainJ2Logarithmic` | Create the logarithmic finite-strain J2 material provider. |
 | class | `SaintVenantKirchhoffProperties` | Public AgentFEM object. |
@@ -543,6 +552,7 @@ and evidence remain in the linked guides and scientific function reference.
 
 | Kind | Public object | Purpose |
 | --- | --- | --- |
+| function | `join_xdmf_segments(sources, destination, *, expected_times = None) -> Path` | Publish one temporal index without copying or modifying heavy data. |
 | function | `consolidate_xdmf_fields(source, destination) -> Path` | Group synchronized fields on one grid per time, without copying HDF5. |
 | function | `cell_field_from_values(domain, values, *, name, cell_keys = None)` | Create a detached DG0 field from one scalar/vector/tensor per cell. |
 | function | `compare_records(reference: Mapping, candidate: Mapping, *, quantities: Sequence[str] = (), histories: Sequence[str] = (), atol: float = 0.0, rtol: float = 0.0) -> dict` | Compare selected observables with explicit componentwise tolerances. |
@@ -727,8 +737,10 @@ and evidence remain in the linked guides and scientific function reference.
 | function | `creep_time_fraction(blocks: Iterable[CreepDamageBlock]) -> CreepDamageAssessment` | Evaluate the linear creep time-fraction rule for declared blocks. |
 | function | `interaction_diagram(*, points, name: str, source: str) -> InteractionDiagram` | Create an explicit piecewise-linear creep/fatigue interaction curve. |
 | function | `linear_interaction() -> InteractionDiagram` | Return the transparent reference boundary ``Dc + Df = 1``. |
-| function | `creep_fatigue(*, fatigue: FatigueAssessment, creep: CreepDamageAssessment, interaction: InteractionDiagram \| None = None) -> CreepFatigueAssessment` | Combine existing fatigue and creep assessments against one boundary. |
+| function | `creep_fatigue(*, fatigue: FatigueAssessment \| StrainLifeAssessment, creep: CreepDamageAssessment \| CreepDamageHistoryAssessment, interaction: InteractionDiagram \| None = None) -> CreepFatigueAssessment` | Combine existing fatigue and creep assessments against one boundary. |
 | function | `creep_fatigue_from_result(result, *, fatigue_history: str, fatigue_curve, stress_history: str, temperature_history: str, dwells: Iterable[DwellInterval], rupture_time: Callable[[float, float], float], rupture_source: str, interaction: InteractionDiagram \| None = None, ultimate_strength: float \| None = None, stress_reducer: str = 'maximum_absolute', temperature_reducer: str = 'maximum') -> CreepFatigueAssessment` | Build the engineering V1 assessment from named result histories. |
+| class | `CreepDamageHistoryAssessment` | Trapezoidal time fractions on sampled stress/temperature histories. |
+| function | `creep_damage_from_result(result, *, stress_history: str, temperature_history: str, dwells, rupture_time, rupture_source: str, stress_unit: str, time_unit: str, stress_measure: str, maximum_source_interval: float \| None = None) -> CreepDamageHistoryAssessment` | Integrate ``dt / rupture_time(stress, temperature)`` over explicit dwells. |
 
 ## `agentfem.boundary_models`
 

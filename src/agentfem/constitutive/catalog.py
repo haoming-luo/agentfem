@@ -220,18 +220,52 @@ _CAPABILITIES = {
         ),
         limitations=(
             "the 3D and axisymmetric global Newton routes retain an experimental MPI boundary",
-            "Sinh and K-R laws remain local consumers",
+            "coupled creep/plasticity requires an explicit composite material; K-R damage is not admitted",
             "external structural evidence is currently limited to the NAFEMS thick-cylinder benchmark",
             "no creep-damage regularization",
         ),
     ),
+    "sinh_creep": ConstitutiveCapability(
+        name="sinh_creep",
+        model="isotropic hyperbolic-sine Mises creep",
+        maturity="experimental_global_patch",
+        available_scope=(
+            "small-strain backward-Euler stress update with analytical consistent "
+            "tangent, scalar/batch history parity, and the shared implicit creep "
+            "Step; serial 3D held-stress and checkpoint/restart verification"
+        ),
+        limitations=(
+            "global exponent must be >= 1; rate parameters are temperature independent",
+            "shared thermoelastic properties do not imply temperature-dependent creep rate",
+            "no independent structural or distributed validation for this law yet",
+            "plasticity requires an explicit composite material; no contact, finite strain or damage evolution",
+        ),
+    ),
+    "coupled_creep_plasticity": ConstitutiveCapability(
+        name="coupled_creep_plasticity",
+        model="simultaneous Mises creep and isotropic J2/Chaboche plasticity",
+        maturity="experimental_global_patch",
+        available_scope=(
+            "same-increment local stress consistency and tangent; serial homogeneous "
+            "3D physical-time Step with separate creep/plastic/backstress state, "
+            "thermal expansion and Arrhenius power-law temperature history, "
+            "joint cutback/restart and separated plastic energy channels"
+        ),
+        limitations=(
+            "constant shared elastic moduli; no temperature-dependent plastic parameters or static recovery",
+            "no MPI, regional composition, axisymmetry, contact or finite strain admission",
+            "local point loop is a correctness foundation, not a new batch performance claim",
+            "thermal input energy is excluded; mechanical ledger is not a full first-law balance",
+            "independent uniaxial equations are verified; no independent multiaxial structural validation yet",
+        ),
+    ),
     "creep_damage": ConstitutiveCapability(
         name="creep_damage",
-        model="Kachanov-Rabotnov damage coupling and hyperbolic-sine creep",
+        model="Kachanov-Rabotnov damage coupling",
         maturity="material_point_verified",
         available_scope=(
             "exact constant-stress K-R strain/damage update, rupture-time "
-            "screening, associative Mises tensor flow, and Sinh stress response"
+            "screening and associative Mises tensor flow"
         ),
         limitations=(
             "von Mises is the only implemented multiaxial damage-stress measure",
@@ -263,12 +297,23 @@ _CAPABILITIES = {
             "linear Goodman is the only mean-stress correction",
         ),
     ),
+    "strain_life_fatigue": ConstitutiveCapability(
+        name="strain_life_fatigue",
+        model="combined Coffin-Manson-Basquin strain-life curve with rainflow and Miner sum",
+        maturity="postprocessor",
+        available_scope="signed scalar total mechanical strain histories within declared calibration bounds",
+        limitations=(
+            "no implicit tensor reduction, PEEQ substitution, or extrapolation",
+            "uncorrected mean stress must be explicitly selected; no Morrow/SWT",
+            "no stiffness damage, thermomechanical calibration or industrial lifetime certification",
+        ),
+    ),
     "creep_fatigue_assessment": ConstitutiveCapability(
         name="creep_fatigue_assessment",
         model="creep time-fraction plus declared fatigue interaction diagram",
         maturity="postprocessor",
         available_scope=(
-            "source-identified dwell blocks, existing stress-life fatigue "
+            "source-identified dwell blocks, stress-life or scalar strain-life fatigue "
             "assessments, explicit piecewise-linear interaction curves, and "
             "structured SimulationResult attachment"
         ),
