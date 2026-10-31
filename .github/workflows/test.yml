@@ -231,10 +231,11 @@ jobs:
       needs.change-scope.outputs.level == 'release'
     runs-on: ubuntu-latest
     # The release tier includes serial scientific-refinement references, MPI
-    # restart checks and installed demos. Run 40812073297 passed all 5315 serial
-    # tests in 41m37s, then hit the old 45-minute job limit during MPI checks.
+    # restart checks and installed demos. Run 41218586594 passed 5909 serial
+    # tests in 49m09s plus MPI and release demos, then hit the 60-minute job
+    # limit while preparing the final fresh-agent trial artifact.
     # Retain every gate and a bounded budget; print slow tests for diagnosis.
-    timeout-minutes: 60
+    timeout-minutes: 90
     concurrency:
       group: test-core-${{ github.event.pull_request.number || github.ref }}
       cancel-in-progress: true

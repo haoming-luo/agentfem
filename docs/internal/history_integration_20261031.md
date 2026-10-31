@@ -1,5 +1,20 @@
 # History-material integration acceptance — 2026-10-31
 
+## CI budget correction
+
+Run `41218586594` at `5a038155` completed 5909 serial tests with 427 skips
+in 49m09s. Installed ordinary projects, native kernels, external provider,
+distributed checks, cross-rank checkpoint recovery and release demos then
+passed. At exactly the job's 60-minute bound, preparation of the final
+fresh-agent trial artifact was cancelled. macOS acceptance consequently did
+not run. This is not full CI acceptance and does not authorize merge.
+
+The release job budget is now 90 minutes, retaining every test, timeout and
+acceptance gate inside the job. The latest revision must complete CI before
+merge; previous successful substeps are evidence, not substitutes for that gate.
+Separating long scientific references into independent jobs remains a future
+CI scheduling improvement, not a reason to omit them here.
+
 ## Bounded engineering closure
 
 Keep the five ownership boundaries and the existing public `model.step` route.
