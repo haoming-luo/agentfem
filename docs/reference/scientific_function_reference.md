@@ -33,7 +33,7 @@ the compact machine-readable `agentfem/knowledge/catalog.json`.
 | [`agentfem.material.mixed_hybrid_hyperelasticity`](#agentfem-material-mixed_hybrid_hyperelasticity) | Constant-pressure mixed Neo-Hookean solid | material | supported |
 | [`agentfem.material.mixed_mode_cyclic_cohesive`](#agentfem-material-mixed_mode_cyclic_cohesive) | Proportional and ordered-path mixed-mode cyclic cohesive damage | material | experimental |
 | [`agentfem.material.mooney_rivlin_hyperelasticity`](#agentfem-material-mooney_rivlin_hyperelasticity) | Mooney--Rivlin finite-strain solids and incompressible sheets | material | experimental |
-| [`agentfem.material.solver_neutral_user_material_contract`](#agentfem-material-solver_neutral_user_material_contract) | Solver-neutral finite-strain user-material contract | material | contract_only |
+| [`agentfem.material.solver_neutral_user_material_contract`](#agentfem-material-solver_neutral_user_material_contract) | Solver-neutral finite-strain user-material contract | material | experimental |
 | [`agentfem.operator.biharmonic_split`](#agentfem-operator-biharmonic_split) | Biharmonic split operators and boundary closure | operator | supported |
 | [`agentfem.operator.elastic_foundation_reaction`](#agentfem-operator-elastic_foundation_reaction) | Linear elastic foundation reaction and energy ownership | operator | supported |
 | [`agentfem.operator.fibrous_shell_curvature_reconstruction`](#agentfem-operator-fibrous_shell_curvature_reconstruction) | Neighbor-reconstructed fibre curvature | operator | experimental |
@@ -2491,10 +2491,10 @@ step = model.step(target=u, material=material, dt='auto', steps=100)
 
 **Stable ID:** `agentfem.material.solver_neutral_user_material_contract`<br>
 **Kind:** `material`<br>
-**Status:** `contract_only`<br>
+**Status:** `experimental`<br>
 **Source card:** `src/agentfem/knowledge/cards/solver_neutral_user_material_contract.json`
 
-Defines versioned named internal variables and explicit stress/kinematic tangent conventions shared by native materials and future industrial adapters, with a fail-closed validated update boundary before global Newton integration.
+Versioned internal variables and explicit stress/tangent conventions, with a bounded serial 3D/plane-strain global Newton consumer, physical-time cutback, atomic same-layout restart and single-grid accepted output.
 
 ### Public API
 
@@ -2508,6 +2508,7 @@ Defines versioned named internal variables and explicit stress/kinematic tangent
 - `agentfem.constitutive.UserMaterial`
 - `agentfem.constitutive.check_material_tangent`
 - `agentfem.constitutive.validated_material_update`
+- `agentfem.mechanics.FiniteStrainMaterialStep`
 
 ### Scientific contract
 
@@ -2557,14 +2558,16 @@ This adapter convention includes Abaqus component, engineering-shear, rotating-b
 
 #### Applicability
 
-- Native or adapted three-dimensional finite-strain material-point providers entering a future quadrature/global-Newton driver.
+- Native or adapted three-dimensional finite-strain material-point providers.
+- Experimental ordinary model.step with one homogeneous UserMaterial, reference 9x9 dP/dF, positive physical duration, strong displacement constraints/reference dead loads, serial 3D or explicit plane strain.
 
 #### Limitations
 
 - The contract does not itself compile or execute arbitrary UMAT or UHYPER source.
 - MaterialQuadratureState owns storage and atomic lifecycle, not a constitutive integration algorithm or global residual.
 - Direct numerical tangent checking currently applies to first-Piola/deformation-gradient 9x9 tangents; spatial UMAT tangents require a verified transformation.
-- No finite-strain inelastic material is promoted until material paths, tangent checks, global cutback/restart, MPI identity and an external benchmark pass.
+- The generic implicit Step does not admit MPI, contact, MPC, regional materials, mixed pressure, plane stress or temperature histories; its checkpoint is serial same-layout only.
+- Workflow evidence does not independently validate a supplied constitutive law. Optional stored energy is not total work or general energy closure.
 
 ### Minimal example
 
@@ -2578,6 +2581,7 @@ response = constitutive.validated_material_update(material, point)
 
 - `tests/test_user_material.py`
 - `tests/test_user_material_inspection.py`
+- `tests/test_finite_strain_material_step.py`
 
 **Benchmarks**
 
@@ -2594,6 +2598,7 @@ response = constitutive.validated_material_update(material, point)
 - Exercise schema-driven state in the existing two-rank-write to one-rank-read acceptance driver.
 - Reject an incorrect first-Piola tangent and retain the numerical relative-error evidence.
 - Keep undeclared legacy outputs ineligible for global Newton consumption.
+- Compare two history laws against material points, check global tangent directions, physical-time cutback, atomic same-layout restart and real multi-field VTK/Warp output.
 
 ### References
 

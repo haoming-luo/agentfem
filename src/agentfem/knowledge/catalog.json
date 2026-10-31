@@ -850,15 +850,16 @@
         "agentfem.constitutive.MaterialTangentCheck",
         "agentfem.constitutive.UserMaterial",
         "agentfem.constitutive.check_material_tangent",
-        "agentfem.constitutive.validated_material_update"
+        "agentfem.constitutive.validated_material_update",
+        "agentfem.mechanics.FiniteStrainMaterialStep"
       ],
       "related_cards": [
         "agentfem.workflow.physical_field_statistics",
         "agentfem.workflow.scientific_verification"
       ],
       "source": "src/agentfem/knowledge/cards/solver_neutral_user_material_contract.json",
-      "status": "contract_only",
-      "summary": "Defines versioned named internal variables and explicit stress/kinematic tangent conventions shared by native materials and future industrial adapters, with a fail-closed validated update boundary before global Newton integration.",
+      "status": "experimental",
+      "summary": "Versioned internal variables and explicit stress/tangent conventions, with a bounded serial 3D/plane-strain global Newton consumer, physical-time cutback, atomic same-layout restart and single-grid accepted output.",
       "title": "Solver-neutral finite-strain user-material contract"
     },
     {

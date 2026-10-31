@@ -98,6 +98,17 @@ def has_complete_linear_system(request) -> bool:
     return request.options.get("K") is not None and request.options.get("F") is not None
 
 
+def is_standalone_h1_vector_field(target) -> bool:
+    """Check conformity before using an unaugmented displacement weak form."""
+    import ufl
+
+    value = getattr(target, "value", target)
+    space = getattr(value, "function_space", None)
+    if space is None or len(getattr(value, "ufl_shape", ())) != 1:
+        return False
+    return not space.component() and space.ufl_element().sobolev_space == ufl.H1
+
+
 def supports_elasticity(material) -> bool:
     # Elastic moduli on a history material do not authorize discarding its
     # state. Stateful providers own constitutive updates and transactions;
@@ -144,8 +155,9 @@ def supports_stateful_constitutive(material) -> bool:
         return True
     try:
         from .constitutive.small_strain_user_material import SmallStrainUserMaterial
+        from .constitutive.user_material import UserMaterial
 
-        if isinstance(material, SmallStrainUserMaterial):
+        if isinstance(material, (SmallStrainUserMaterial, UserMaterial)):
             return True
     except (ImportError, TypeError):
         pass

@@ -6,6 +6,24 @@ experimental formulation to a validated one.
 
 ## [Unreleased]
 
+- Add an experimental material-only finite-strain structural route through
+  `model.step`: reuse the neutral `UserMaterial` contract, reference `dP/dF`,
+  shared Newton runtime and committed/trial quadrature state. First admission
+  is serial homogeneous 3D or plane strain with reference dead loads and strong
+  displacement constraints. Physical-time cutback and atomic same-layout
+  restart do not imply contact, MPI, plane stress or arbitrary UMAT support.
+  Include two replaceable educational history laws in one four-file project.
+  Require a standalone H1 displacement space; reject DG and mixed subfields
+  rather than omitting their interface or pressure equations.
+- Publish this route's accepted displacement/stress/state frames on one mesh,
+  with explicit quadrature-to-cell recovery and closed HDF5 frame files.
+  Inventory only the index's referenced data; reject output-name collisions.
+  Check actual VTK reading and warping, not just file existence. Optional
+  stored energy remains distinct from work or a general energy balance.
+- Recognize explicitly declared Step lowerers in project upgrade advice.
+  Do not recommend recursive `model.step` inside `add_step` registration;
+  retain scientific warnings and recommend the shared writer for custom loops.
+
 - Add explicit-unit, time-resolved creep-damage integration over declared
   dwell intervals, retaining source sampling and interval contributions.
   Reject extrapolation, double-counted holds and invalid rupture relations;

@@ -42,6 +42,7 @@ from .small_strain_material import (
     SmallStrainMaterialStep,
     small_strain_material_step,
 )
+from .finite_strain_material import FiniteStrainMaterialStep
 from .shell import (
     DirectorShellKinematics,
     FiberCurveKinematics,
@@ -98,6 +99,7 @@ __all__ = [
     "SmallStrainMaterialIncrementInfo",
     "SmallStrainMaterialPathInfo",
     "SmallStrainMaterialStep",
+    "FiniteStrainMaterialStep",
     "HarmonicViscoelasticStep",
     "ModalAnalysisStep",
     "QuasistaticViscoelasticStep",

@@ -321,6 +321,17 @@ and sparse-owner MPI assembly, while leaving cohesive state commit/rollback to
 the owning monotonic or cyclic Step. A converged Newton correction therefore
 does not silently advance crack history.
 
+An experimental generic implicit `UserMaterial` consumer now integrates
+declared reference `dP/dF` and named history through ordinary `model.step`.
+The local contract supplies Cauchy stress; the driver transforms it to first
+Piola for total-Lagrangian assembly. A positive physical duration maps the
+normalized path to material time. Candidate evaluations never commit history;
+accepted response fields are restored directly rather than reconstructed with
+an invented time increment. The first scope is serial homogeneous 3D or plane
+strain, with strong constraints/reference dead loads and same-layout restart.
+No new material-specific Model or Solver API is introduced. See
+`docs/history_material_workflow.md` for limits and executable evidence.
+
 ### Material stability envelope
 
 A `FirstPiolaTangentEnvelope` is optional material-owned stability evidence,

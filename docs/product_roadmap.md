@@ -19,6 +19,29 @@ or a successful run is not by itself a validated engineering capability.
 
 ## Current product phase: the 0.4 foundation
 
+### Material-only structural workflow sprint (2026-10-29)
+
+User feedback identified an important boundary: a local history law should not
+force each project to implement Newton, quadrature transactions and XDMF layout.
+The [bounded workflow](history_material_workflow.md) reuses the existing
+finite-strain `UserMaterial` protocol, shared Newton/PETSc integration and
+committed/trial quadrature storage. It adds no hydrogel-specific model family
+and does not infer multiaxial physics from a one-dimensional fit.
+
+| Priority | Deliverable | Admission boundary |
+| --- | --- | --- |
+| P0 | One ordinary `model.step` workflow for two replaceable history laws; positive physical duration, cutback and same-layout restart | Experimental serial homogeneous 3D/plane strain, strong BCs/reference dead loads; fixed-old-state `dP/dF` is mandatory |
+| P0 | Single-grid accepted multi-field output, readable closed frame files, explicit recovery and restart provenance | Real VTK/Warp and interruption checks; no fabricated unsaved fields, energy, or independent validation |
+| P0 | Extension-aware upgrade guidance and a four-file runnable example | Recognize explicit Step lowerers, not entire extension directories; local materials do not need project Step providers |
+| Next | Condensed plane-stress adaptation and further material verification tools | Solve out-of-plane equilibrium and differentiate the full update; do not truncate a 3D tangent |
+| Later | Temperature/external-field histories, regional materials and distributed global equilibrium | Add each composition with atomic failure/restart and independent scientific evidence, not by relaxing admission checks |
+
+This sprint complements thermal/cyclic-creep work below; it does not replace
+its physical-time semantics or introduce another state/output framework. It
+does not close the outstanding nonuniform plastic-contact spatial gate or
+promise a composite performance improvement. Precise evidence is recorded in
+[the sprint record](internal/history_material_workflow_20261029.md).
+
 ### Thermal–inelastic continuity sprint (2026-10-29)
 
 PR #132 maintenance is merged at `44fda9c4`; the published 0.4.4 tag remains

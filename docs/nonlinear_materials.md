@@ -21,6 +21,18 @@ convergence evidence, and restart are present.
 
 Use `constitutive.capabilities()` before selecting a nonlinear law.
 
+## Custom finite-strain history materials
+
+The experimental `UserMaterial` route now supplies bounded global equilibrium
+through ordinary `model.step(target=u, duration=..., ...)`: serial homogeneous
+3D or explicit plane strain, strong displacement constraints/reference dead
+loads, declared reference `dP/dF`, physical time, transactional history and
+same-layout restart. The complete two-law example needs no project Newton
+loop or Step provider. See [history-material workflow](history_material_workflow.md)
+for the exact contract, output behavior and rejection boundaries. This does
+not promote arbitrary user laws or add plane stress, contact, MPI or UMAT
+conversion to that route.
+
 ## Compressible Neo-Hookean Hyperelasticity
 
 `constitutive.NeoHookeanProperties` and

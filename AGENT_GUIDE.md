@@ -175,6 +175,13 @@ never changes solver access, results, verification, or update behavior.
   `constitutive.capabilities()`, then use `constitutive/`. Never turn a
   material-point law into a claimed FEM step without state/tangent/solver
   evidence.
+  For a custom finite-strain history material, read
+  `docs/history_material_workflow.md` and `examples/history_material` before
+  creating a project Step provider. The bounded serial 3D/plane-strain route
+  already owns quadrature, Newton, physical time, rollback/restart and unified
+  multi-field output. Supply the local `UserMaterial` and its reference
+  `dP/dF`, not a project Newton loop. Its exclusions are explicit; do not infer
+  plane stress, MPI, contact, thermal-history or arbitrary UMAT support.
   For a reviewed strain-history VUMAT, read `docs/strain_history_runtime.md`.
   Use the declared runtime instead of writing project-specific ctypes/Fortran
   bridges. Never declare unused thermal, time, length or energy channels without
