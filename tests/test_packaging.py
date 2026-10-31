@@ -123,7 +123,7 @@ def test_release_contract_is_complete_and_references_real_workflows():
     } <= workflow_ids
     assert workflow_maturity["structural-direct-harmonic"] == "engineering"
     assert workflow_maturity["generalized-maxwell-harmonic"] == "experimental"
-    if contract["target_version"].startswith("0.4.4"):
+    if "bounded-serial-periodic-j2-contact" in workflow_maturity:
         assert workflow_maturity["bounded-serial-periodic-j2-contact"] == "experimental"
         assert "mesh-independent nonuniform periodic plastic-contact response without spatial and path convergence" in contract["not_release_claims"]
     assert {
@@ -449,6 +449,25 @@ def test_release_facing_examples_never_insert_the_checkout_into_sys_path():
         source = (PROJECT_ROOT / relative).read_text(encoding="utf-8")
         assert "sys.path.insert" not in source, relative
         assert "SOURCE_PARENT" not in source, relative
+
+
+def test_history_integration_checks_installed_project_and_release_tag_history():
+    workflow = (PROJECT_ROOT / ".github/workflows/test.yml").read_text()
+    numerical = workflow.split("  fenicsx:\n", 1)[1].split("  macos", 1)[0]
+    assert "fetch-depth: 0" in numerical
+    assert "tools/check_installed_history_project.py" in numerical
+    checker = (PROJECT_ROOT / "tools/check_installed_history_project.py").read_text()
+    assert 'environment.pop("PYTHONPATH", None)' in checker
+    assert '"-m", "agentfem._cli_entry"' in checker
+    assert "sys.path.insert" not in checker
+    record = release_gate.check_release_contract(source_root=PROJECT_ROOT)
+    workflows = {item["id"]: item for item in record["workflows"]}
+    for name in (
+        "bounded-finite-strain-history-material",
+        "bounded-thermal-cyclic-creep",
+        "bounded-strain-life-creep-assessment",
+    ):
+        assert workflows[name]["maturity"] == "experimental"
 
 
 def test_publish_workflow_verifies_the_same_artifacts_it_builds_once():

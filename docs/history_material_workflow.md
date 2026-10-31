@@ -247,7 +247,11 @@ displacement, committed history, stress/tangent, physical-time position or live
 loading constants through their array views. The Step detects such changes at
 continuation, reaction/output and checkpoint boundaries, including after an
 accepted-state observer. Prescribed targets and the increment policy must also
-remain consistent with the Step's construction identity. To run a different
+remain consistent with the Step's construction identity. Reference coordinates
+and geometry connectivity are fixed after construction, including rigid
+translations of the reference mesh; this bounded route does not support ALE
+or remeshing. Path endpoints must be finite real scalars, not booleans, complex
+values or single-element arrays. To run a different
 problem, construct another Step; do not reuse an old checkpoint identity.
 If external code has already corrupted live state, restore a valid checkpoint
 into a fresh compatible Step. Detection does not reconstruct overwritten arrays

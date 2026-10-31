@@ -6,6 +6,20 @@ experimental formulation to a validated one.
 
 ## [Unreleased]
 
+- Add accepted-increment `output_every` sampling to the material-only finite-
+  strain workflow, always retaining segment endpoints and continuation
+  boundaries without changing physical integration or checkpoint retention.
+  Reuse serial quadrature geometry-expression preparation while evaluating
+  current coordinates on each recovery; keep MPI preparation unchanged.
+
+- Distinguish this moving development checkout as `0.4.5.dev0`, with its own
+  experimental capability contract; leave the published `0.4.4` tag unchanged.
+  Validate release identity with full tag history in the numerical CI gate.
+- Reject changed reference geometry and lossy path endpoint conversions before
+  advancing, publishing or restoring a finite-strain history Step. Exercise the
+  ordinary installed two-material example through pause, restart, continuous
+  and sparse-output runs, including independent VTK/Warp reading.
+
 - Connect the bounded finite-strain history Step to the existing automatic
   checkpoint policy. Count only accepted increments, save planned segment
   endpoints, preserve earlier archives on write failure, and prune only this

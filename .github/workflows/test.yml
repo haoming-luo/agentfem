@@ -256,6 +256,10 @@ jobs:
     steps:
       - name: Check out repository
         uses: actions/checkout@v6
+        with:
+          # Version identity acceptance must see the actual release tags;
+          # a shallow checkout silently skips that regression.
+          fetch-depth: 0
 
       - name: Create FEniCSx environment
         uses: conda-incubator/setup-miniconda@v4
@@ -319,6 +323,11 @@ jobs:
           python -m pytest -q -o pythonpath= \
             tests/test_xdmf_cell_ordering.py tests/test_xdmf_layout.py \
             tests/test_paraview_warp_tool.py
+
+      - name: Verify installed ordinary history-material project
+        run: |
+          cd "${RUNNER_TEMP}"
+          python "${GITHUB_WORKSPACE}/tools/check_installed_history_project.py"
 
       - name: Run unit and interface tests
         run: |

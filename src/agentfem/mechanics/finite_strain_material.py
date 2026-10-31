@@ -371,6 +371,7 @@ class FiniteStrainMaterialStep:
                 ],
             }
         )
+        self._reference_geometry_signature = self._geometry_signature()
         self._accepted_field_signature = self._field_signature()
 
     @property
@@ -444,7 +445,20 @@ class FiniteStrainMaterialStep:
             "constants": [np.asarray(c.value).tolist() for c in form.constants()],
         }
 
+    def _geometry_signature(self):
+        # This bounded total-Lagrangian Step has a fixed reference mesh. A
+        # rigid translation leaves F unchanged, but changes restart identity.
+        geometry = self.state.domain.geometry
+        return tuple(
+            (array.shape, array.dtype.str, sha256(array.tobytes()).digest())
+            for array in (geometry.x, *geometry.dofmaps)
+        )
+
     def _check_input_identity(self):
+        if self._geometry_signature() != self._reference_geometry_signature:
+            raise ValueError(
+                "Reference geometry changed after Step construction; construct a new Step."
+            )
         if _json(self.material.summary()) != self.material_identity:
             raise ValueError("Material scientific identity changed during the path.")
         if (
@@ -642,7 +656,7 @@ class FiniteStrainMaterialStep:
         )
 
     def solve(self, *, until=1.0, on_accept=None):
-        until = float(until)
+        until = self._path_endpoint(until)
         if not self.accepted_load_factor < until <= 1 or not np.isfinite(until):
             raise ValueError(
                 "until must exceed the accepted normalized coordinate and be <= 1."
@@ -919,6 +933,12 @@ class FiniteStrainMaterialStep:
         """
         return self._output_every
 
+    @staticmethod
+    def _path_endpoint(until):
+        if np.asarray(until).dtype.kind == "b":
+            raise ValueError("until must be a normalized coordinate, not a boolean.")
+        return _real_material_scalar(until, label="until")
+
     def solve_result(self, *, output=None, metadata=None, until=1.0):
         """Publish accepted state up to a normalized coordinate, including a pause.
 
@@ -938,9 +958,7 @@ class FiniteStrainMaterialStep:
         # any writer or replacing an existing visualization index.
         if self._busy:
             raise RuntimeError("Cannot publish a material Step during an active solve.")
-        if isinstance(until, (bool, np.bool_)):
-            raise ValueError("until must be a normalized coordinate, not a boolean.")
-        until = float(until)
+        until = self._path_endpoint(until)
         if (
             not np.isfinite(until)
             or not 0 < until <= 1
