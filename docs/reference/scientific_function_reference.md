@@ -2494,7 +2494,7 @@ step = model.step(target=u, material=material, dt='auto', steps=100)
 **Status:** `experimental`<br>
 **Source card:** `src/agentfem/knowledge/cards/solver_neutral_user_material_contract.json`
 
-Versioned internal variables and explicit stress/tangent conventions, with a bounded serial 3D/plane-strain global Newton consumer, physical-time cutback, atomic same-layout restart and single-grid accepted output.
+Versioned internal variables and explicit stress/tangent conventions, with a bounded serial 3D/plane-strain or declared reflection-symmetric plane-stress global Newton consumer, physical-time cutback, atomic same-layout restart and single-grid accepted output.
 
 ### Public API
 
@@ -2509,6 +2509,11 @@ Versioned internal variables and explicit stress/tangent conventions, with a bou
 - `agentfem.constitutive.check_material_tangent`
 - `agentfem.constitutive.validated_material_update`
 - `agentfem.mechanics.FiniteStrainMaterialStep`
+- `agentfem.constitutive.PlaneStressReduction`
+- `agentfem.constitutive.PlaneStressPointResponse`
+- `agentfem.constitutive.reduce_plane_stress`
+- `agentfem.constitutive.check_plane_stress_tangent`
+- `agentfem.constitutive.PlaneStressTangentCheck`
 
 ### Scientific contract
 
@@ -2543,7 +2548,7 @@ This adapter convention includes Abaqus component, engineering-shear, rotating-b
 | --- | --- | --- | --- |
 | MaterialPointOutput | Cauchy stress, declared consistent tangent, typed new state, optional energy and suggested time scale | stress, tangent, state and energy density | Global-Newton eligibility is explicit and false for undeclared legacy outputs. |
 | MaterialQuadratureState | schema-lowered committed/trial integration-point fields | per-variable declared units | Scalar and tensor state initialization, aliases and full schema identity remain attached to portable checkpoint storage. |
-| MaterialTangentCheck | fixed-old-state numerical differentiation evidence | dimensionless relative error and tangent units for absolute error | Compares a declared first-Piola/deformation-gradient Jacobian against perturbations of all nine new-deformation-gradient components. |
+| MaterialTangentCheck | fixed-old-state numerical differentiation evidence | dimensionless relative error and tangent units for absolute error | Compares a declared first-Piola/deformation-gradient Jacobian against all nine new-gradient components with stress-unit-robust error arithmetic. Mixed one-sided differences are explicitly named; unrepresentable perturbations are rejected. |
 
 #### Assumptions
 
@@ -2559,15 +2564,19 @@ This adapter convention includes Abaqus component, engineering-shear, rotating-b
 #### Applicability
 
 - Native or adapted three-dimensional finite-strain material-point providers.
-- Experimental ordinary model.step with one homogeneous UserMaterial, reference 9x9 dP/dF, positive physical duration, strong displacement constraints/reference dead loads, serial 3D or explicit plane strain.
+- Experimental ordinary model.step with one homogeneous UserMaterial, reference 9x9 dP/dF, positive physical duration, strong displacement constraints/reference dead loads, serial 3D, explicit plane strain or declared reflection-symmetric plane stress.
+- The bounded plane-stress reduction solves positive F33 from P33 equilibrium using fixed accepted history, checks transverse shear/coupling and supplies a separate Schur-condensed in-plane tangent. Full 3D Cauchy stress and material tangent are retained.
+- solve_result(until=coordinate) publishes a deliberately partial accepted segment; save_checkpoint and load_checkpoint resume the same scientific path. The coordinate is normalized, not physical seconds.
 
 #### Limitations
 
 - The contract does not itself compile or execute arbitrary UMAT or UHYPER source.
 - MaterialQuadratureState owns storage and atomic lifecycle, not a constitutive integration algorithm or global residual.
 - Direct numerical tangent checking currently applies to first-Piola/deformation-gradient 9x9 tangents; spatial UMAT tangents require a verified transformation.
-- The generic implicit Step does not admit MPI, contact, MPC, regional materials, mixed pressure, plane stress or temperature histories; its checkpoint is serial same-layout only.
+- The generic implicit Step does not admit MPI, contact, MPC, regional materials, mixed pressure, general anisotropic plane stress, shells or temperature histories; its checkpoint is serial same-layout only.
+- Plane stress requires declared reflection symmetry and positive transverse algorithmic stiffness; 2D forces/energies are per unit reference thickness. Scalar reduction iterations do not imply a vectorized batch speedup.
 - Workflow evidence does not independently validate a supplied constitutive law. Optional stored energy is not total work or general energy closure.
+- Accepted fields and loading targets are read-only observations. External changes are rejected at lifecycle boundaries. Partial results are computed segments, not complete-path convergence or scientific verification; unexpected failures do not imply automatic checkpoint cadence.
 
 ### Minimal example
 
@@ -2582,6 +2591,7 @@ response = constitutive.validated_material_update(material, point)
 - `tests/test_user_material.py`
 - `tests/test_user_material_inspection.py`
 - `tests/test_finite_strain_material_step.py`
+- `tests/test_history_plane_stress.py`
 
 **Benchmarks**
 

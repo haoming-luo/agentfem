@@ -25,6 +25,8 @@ from petsc4py import PETSc
 from .. import amplitudes, checkpointing, procedures, steps
 from ..constitutive.material_driver import MaterialQuadratureResponse
 from ..constitutive.user_material import UserMaterial, MaterialTangentConvention
+from ..constitutive.plane_stress import PlaneStressReduction
+from ..constitutive.quadrature import QuadratureField
 from ..solvers import NewtonSolverOptions, newton, solve_matrix_system
 from ..diagnostics import StandardRunReporter, SolveEventRecorder, compose_reporters
 from ..events import SolveEvent
@@ -36,7 +38,7 @@ def _json(value):
 
 
 class FiniteStrainMaterialStep:
-    """Experimental serial 3D/plane-strain, strong-BC history-material Step."""
+    """Experimental serial 3D/planar, strong-BC history-material Step."""
 
     schema = "agentfem.finite-strain-material-step.v1"
 
@@ -57,6 +59,7 @@ class FiniteStrainMaterialStep:
         name="finite_strain_material",
         progress=True,
         time_unit=None,
+        plane_stress=None,
     ):
         from .. import constraints as constraint_api
         from .._step_provider_support import is_standalone_h1_vector_field
@@ -80,9 +83,18 @@ class FiniteStrainMaterialStep:
             raise NotImplementedError(
                 "AFM-USER-FINITE-SPACE: use a standalone H1-conforming displacement; no mixed-pressure or DG interface terms are supplied."
             )
-        if dimension == 2 and getattr(study, "assumption", None) != "plane_strain":
+        self.plane_stress = plane_stress
+        if dimension == 2 and getattr(study, "assumption", None) == "plane_stress":
+            if not isinstance(plane_stress, PlaneStressReduction):
+                raise NotImplementedError(
+                    "AFM-USER-FINITE-REDUCTION: plane stress requires an explicit PlaneStressReduction declaration."
+                )
+            self.schema = "agentfem.finite-strain-material-plane-stress.v1"
+        elif plane_stress is not None:
+            raise ValueError("PlaneStressReduction requires a 2D plane-stress Study.")
+        elif dimension == 2 and getattr(study, "assumption", None) != "plane_strain":
             raise NotImplementedError(
-                "AFM-USER-FINITE-REDUCTION: only explicit plane strain is admitted in 2D."
+                "AFM-USER-FINITE-REDUCTION: declare plane strain or an admitted plane-stress reduction."
             )
         if not isinstance(material, UserMaterial):
             raise TypeError("A finite-strain UserMaterial is required.")
@@ -197,6 +209,8 @@ class FiniteStrainMaterialStep:
                 "Stored-energy component names must be unique and not collide with response/state fields."
             )
         raw_names = ["S", "P", "SENER", *state_names, *component_names]
+        if self.plane_stress is not None:
+            raw_names.append("F")
         published_names = [
             self.solution.name,
             "RF",
@@ -224,6 +238,15 @@ class FiniteStrainMaterialStep:
                 for key, field in self.response.stored_energy_density_components.items()
             },
         }
+        self._effective_gradient_field = None
+        if self.plane_stress is not None:
+            self._effective_gradient_field = QuadratureField.create(
+                domain,
+                name="F",
+                value_shape=(3, 3),
+                degree=quadrature_degree,
+            )
+            self._responses["F"] = self._effective_gradient_field.function
         self.bcs, self.prescribed = [], []
         for item in constraint_api.constraint_assets(constraints):
             if not isinstance(
@@ -252,6 +275,9 @@ class FiniteStrainMaterialStep:
             F = ufl.as_matrix(((F[0, 0], F[0, 1], 0), (F[1, 0], F[1, 1], 0), (0, 0, 1)))
         self._F_evaluator = self.state.compile_expression(F, value_shape=(3, 3))
         self._accepted_F = self._gradient()
+        self._trial_F = self._accepted_F.copy()
+        if self._effective_gradient_field is not None:
+            self._effective_gradient_field.assign(self._accepted_F)
         self._accepted_U = self.solution.x.array.copy()
         self.load_factor = fem.Constant(domain, PETSc.ScalarType(0))
         P = self.response.first_piola_stress.function
@@ -312,12 +338,18 @@ class FiniteStrainMaterialStep:
                 "amplitude": self.amplitude.summary(),
                 "incrementation": self.incrementation.summary(),
                 "load": load_identity,
+                **(
+                    {"plane_stress": self.plane_stress.summary()}
+                    if self.plane_stress is not None
+                    else {}
+                ),
                 "constraints": [
                     {"dofs": bc.dof_indices()[0].tolist(), "value": value.tolist()}
                     for bc, (_, value) in zip(self.bcs, self.prescribed)
                 ],
             }
         )
+        self._accepted_field_signature = self._field_signature()
 
     @property
     def time(self):
@@ -330,12 +362,47 @@ class FiniteStrainMaterialStep:
         # F alone cannot detect a rigid translation of the displacement field.
         if not np.array_equal(
             self.solution.x.array, self._accepted_U
-        ) or not np.allclose(
-            self._gradient(), self._accepted_F, rtol=1e-12, atol=1e-13
-        ):
+        ) or not self._kinematics_match(self._accepted_F):
             raise ValueError(
                 "Displacement was changed outside the accepted Step state."
             )
+        if self._field_signature() != self._accepted_field_signature:
+            raise ValueError(
+                "Material fields or time were changed outside the accepted Step state. "
+                "Observers must not modify committed history or response fields."
+            )
+        factor = float(self.amplitude(self.accepted_load_factor))
+        if not np.array_equal(
+            np.asarray(self.load_factor.value), np.asarray(factor)
+        ) or any(
+            not np.array_equal(np.asarray(constant.value), factor * target)
+            for constant, target in self.prescribed
+        ):
+            raise ValueError("Loading was changed outside the accepted Step state.")
+
+    def _field_signature(self):
+        # A small fingerprint, not a second checkpoint or a constitutive call.
+        # Hash contiguous DOLFINx buffers directly: no retained field copies and
+        # no checks in the Newton/material-point hot loop. This catches accidental
+        # edits through public field views; it is not archive authentication.
+        arrays = [
+            ("state", name, field.function.x.array)
+            for name, field in self.state.committed.items()
+        ] + [
+            ("response", name, field.x.array) for name, field in self._responses.items()
+        ]
+        return self.accepted_load_factor, tuple(
+            (group, name, array.shape, array.dtype.str, sha256(array).digest())
+            for group, name, array in arrays
+        )
+
+    def _kinematics_match(self, effective_F):
+        geometric_F = self._gradient()
+        if self.plane_stress is not None:
+            if not np.isfinite(effective_F).all() or np.any(effective_F[:, 2, 2] <= 0):
+                return False
+            geometric_F[:, 2, 2] = effective_F[:, 2, 2]
+        return np.allclose(geometric_F, effective_F, rtol=1e-12, atol=1e-13)
 
     def _load_identity(self):
         if self._external_force is None:
@@ -363,6 +430,15 @@ class FiniteStrainMaterialStep:
             or self.time_unit != self._identity["time_unit"]
             or _json(self.amplitude.summary()) != self._identity["amplitude"]
             or _json(self._load_identity()) != self._identity["load"]
+            or _json(self.incrementation.summary()) != self._identity["incrementation"]
+            or len(self.bcs) != len(self.prescribed)
+            or [
+                {"dofs": bc.dof_indices()[0].tolist(), "value": value.tolist()}
+                for bc, (_, value) in zip(self.bcs, self.prescribed)
+            ]
+            != self._identity["constraints"]
+            or (None if self.plane_stress is None else self.plane_stress.summary())
+            != self._identity.get("plane_stress")
         ):
             raise ValueError(
                 "History-material scientific inputs changed after Step construction."
@@ -431,6 +507,7 @@ class FiniteStrainMaterialStep:
         self.solution.x.scatter_forward()
         self._accepted_U = snapshot["U"].copy()
         self._accepted_F = snapshot["F"].copy()
+        self._trial_F = snapshot["F"].copy()
         self.state.restore(snapshot["state"])
         for key, values in snapshot["response"].items():
             self._responses[key].x.array[:] = values
@@ -438,16 +515,28 @@ class FiniteStrainMaterialStep:
         self._energy_defined = snapshot["energy_defined"]
         self._apply_loading(self.accepted_load_factor)
         self._at_accepted = True
+        self._accepted_field_signature = self._field_signature()
 
     def _evaluate(self, target, start):
+        gradient = self._gradient()
+        if self.plane_stress is not None:
+            gradient[:, 2, 2] = self._accepted_F[:, 2, 2]
         result = self.response.update(
             self.material,
             deformation_gradient_old=self._accepted_F,
-            deformation_gradient_new=self._gradient(),
+            deformation_gradient_new=gradient,
             time=target * self.duration,
             time_increment=(target - start) * self.duration,
             properties=self.properties,
+            plane_stress=self.plane_stress,
         )
+        self._trial_F = (
+            gradient
+            if result.plane_stress is None
+            else result.plane_stress.deformation_gradient.copy()
+        )
+        if self._effective_gradient_field is not None:
+            self._effective_gradient_field.assign(self._trial_F)
         rhs = fem_petsc.assemble_vector(self.residual_form)
         try:
             fem_petsc.apply_lifting(
@@ -533,6 +622,7 @@ class FiniteStrainMaterialStep:
             )
         if self._busy:
             raise RuntimeError("A material Step cannot be advanced recursively.")
+        self._check_input_identity()
         self._check_accepted_solution()
         self._busy = True
         self._reporter_failure = None
@@ -621,7 +711,7 @@ class FiniteStrainMaterialStep:
                 self.attempted_increments.append(record)
                 if accepted:
                     try:
-                        new_F = self._gradient()
+                        new_F = self._trial_F.copy()
                         self.response.commit()
                     except BaseException:
                         self._restore(snapshot)
@@ -636,6 +726,7 @@ class FiniteStrainMaterialStep:
                     self.accepted_load_factor = target
                     self.accepted_increments.append(record.copy())
                     self._at_accepted = True
+                    self._accepted_field_signature = self._field_signature()
                     successful_attempt = cutbacks + 1
                     cutbacks = 0
                     if automatic:
@@ -652,8 +743,12 @@ class FiniteStrainMaterialStep:
                         iteration=iterations,
                         residual_norm=norm,
                     )
+                    self._check_input_identity()
+                    self._check_accepted_solution()
                     if on_accept is not None:
                         on_accept(self)
+                        self._check_input_identity()
+                        self._check_accepted_solution()
                     continue
                 self._restore(snapshot)
                 cutbacks += 1
@@ -684,6 +779,8 @@ class FiniteStrainMaterialStep:
                 increment=len(self.accepted_increments),
                 attempt=len(self.attempted_increments),
             )
+            self._check_input_identity()
+            self._check_accepted_solution()
         except BaseException as error:
             if error is not self._reporter_failure:
                 try:
@@ -721,6 +818,14 @@ class FiniteStrainMaterialStep:
             residual.destroy()
 
     def _field_metadata(self, name):
+        if name == "F" and self.plane_stress is not None:
+            return {
+                "kinematic_measure": "effective_3D_deformation_gradient",
+                "component_shape": [3, 3],
+                "component_order": "row_major",
+                "F33": "accepted_thickness_stretch_from_P33_equilibrium",
+                "reference_thickness": "unit; forces are per unit reference thickness",
+            }
         if name in {"P", "S"}:
             return {
                 "stress_measure": "first_piola_kirchhoff" if name == "P" else "cauchy",
@@ -761,6 +866,8 @@ class FiniteStrainMaterialStep:
                 for v in self.material.state_schema.variables
             },
         }
+        if self._effective_gradient_field is not None:
+            sources["F"] = self._effective_gradient_field
         if include_energy and self._energy_defined:
             sources["SENER"] = self.response.strain_energy_density
             sources.update(self.response.stored_energy_density_components)
@@ -772,7 +879,14 @@ class FiniteStrainMaterialStep:
             item.processing.update(self._field_metadata(name))
         return sources, recovered
 
-    def solve_result(self, *, output=None, metadata=None):
+    def solve_result(self, *, output=None, metadata=None, until=1.0):
+        """Publish accepted state up to a normalized coordinate, including a pause.
+
+        ``until`` uses the same normalized path coordinate as :meth:`solve`,
+        not physical seconds. A deliberately paused result has status
+        ``partial``; its accepted equilibrium is valid but the full path is not
+        complete. A fresh output path is required for each continuation segment.
+        """
         from .. import io, results
         from ..results.lifecycle import execution_context, attach_checkpoint_contract
 
@@ -781,6 +895,17 @@ class FiniteStrainMaterialStep:
         # any writer or replacing an existing visualization index.
         if self._busy:
             raise RuntimeError("Cannot publish a material Step during an active solve.")
+        if isinstance(until, (bool, np.bool_)):
+            raise ValueError("until must be a normalized coordinate, not a boolean.")
+        until = float(until)
+        if (
+            not np.isfinite(until)
+            or not 0 < until <= 1
+            or until < self.accepted_load_factor
+        ):
+            raise ValueError(
+                "until must be in (0, 1] and not precede the accepted coordinate."
+            )
         self._check_input_identity()
         self._check_accepted_solution()
         context = execution_context(self)
@@ -810,8 +935,8 @@ class FiniteStrainMaterialStep:
                     step.time, step.solution, *(item.field for item in recovered)
                 )
 
-            if self.accepted_load_factor < 1:
-                self.solve(on_accept=publish if writer else None)
+            if self.accepted_load_factor < until:
+                self.solve(until=until, on_accept=publish if writer else None)
             elif writer:
                 publish(self)
         result = results.from_solution(
@@ -819,8 +944,26 @@ class FiniteStrainMaterialStep:
             name=self.name,
             metadata={"step": self.summary(), **(metadata or {})},
         )
+        complete = self.accepted_load_factor == 1.0
+        result.status = "completed" if complete else "partial"
+        if not complete:
+            from ..verification import report
+
+            # Accepted fields were computed even though the complete requested
+            # physical path was not. Do not promote this to full convergence or
+            # independent verification, and do not label saved fields uncomputed.
+            result.verification = report(
+                computed=True,
+                converged=False,
+                scope="accepted_history_segment_not_complete_path",
+            )
         result.metadata["solve"] = {
-            "converged": self.accepted_load_factor == 1.0,
+            "converged": complete,
+            "equilibrium_converged": True,
+            "path_complete": complete,
+            "requested_coordinate": until,
+            "accepted_coordinate": self.accepted_load_factor,
+            "physical_time": self.time,
             "accepted_increments": len(self.accepted_increments),
             "attempts": len(self.attempted_increments),
             "scope": "nonlinear_equilibrium_not_scientific_validation",
@@ -885,6 +1028,8 @@ class FiniteStrainMaterialStep:
                 if output_start
                 else "accepted_path",
                 "start_time": output_start,
+                "end_time": self.time,
+                "path_complete": complete,
             }
             result.metadata["visualization"] = {
                 "primary_artifact": "field_output",
@@ -907,12 +1052,15 @@ class FiniteStrainMaterialStep:
             "accepted_increments": list(self.accepted_increments),
             "attempted_increments": list(self.attempted_increments),
             "stored_energy_available": self._energy_defined,
+            "plane_stress": None
+            if self.plane_stress is None
+            else self.plane_stress.summary(),
             "limitations": [
                 "serial",
                 "homogeneous material",
                 "strong BCs",
                 "no contact or MPC",
-                "3D or plane strain",
+                "3D, plane strain or declared reflection-symmetric plane stress; unit reference thickness in 2D",
                 "no general energy-balance claim",
             ],
         }
@@ -1026,6 +1174,7 @@ class FiniteStrainMaterialStep:
         if self._busy:
             raise RuntimeError("Cannot restore during an active solve.")
         self._check_input_identity()
+        self._check_accepted_solution()
         snapshot = self._snapshot()
         with np.load(path, allow_pickle=False) as data:
             if (
@@ -1063,11 +1212,15 @@ class FiniteStrainMaterialStep:
                 raise ValueError("Checkpoint deformation gradient is inverted.")
         try:
             self._restore(candidate)
-            if not np.allclose(
-                self._gradient(), candidate["F"], rtol=1e-12, atol=1e-13
-            ):
+            if not self._kinematics_match(candidate["F"]):
                 raise ValueError(
                     "Checkpoint displacement and deformation gradient disagree."
+                )
+            if self.plane_stress is not None and not np.array_equal(
+                self._effective_gradient_field.values, candidate["F"]
+            ):
+                raise ValueError(
+                    "Checkpoint effective plane-stress gradient field disagrees with accepted kinematics."
                 )
             self._apply_loading(coordinate)
             prescribed = self.solution.x.array.copy()
@@ -1087,3 +1240,4 @@ class FiniteStrainMaterialStep:
         self.attempted_increments = ledger["attempted"]
         self.next_increment_size = next_size
         self.restored_from = self._checkpoint_record(path)
+        self._accepted_field_signature = self._field_signature()

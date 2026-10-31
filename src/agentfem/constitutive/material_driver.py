@@ -15,6 +15,9 @@ from .._orientation import positive_finite_determinants
 from .quadrature import MaterialQuadratureState
 from .quadrature import QuadratureField
 from .quadrature import QuadratureMaterialMap
+from .plane_stress import (
+    PlaneStressReduction, PlaneStressBatchResponse, reduce_plane_stress,
+)
 from .user_material import (
     BatchedUserMaterial,
     MaterialPointBatchInput,
@@ -50,6 +53,7 @@ class MaterialPointBatchResult:
     strain_energy_density_defined: np.ndarray | None = None
     dissipation_density_increment: np.ndarray | None = None
     dissipation_density_increment_defined: np.ndarray | None = None
+    plane_stress: PlaneStressBatchResponse | None = None
 
     def __post_init__(self) -> None:
         stress = np.asarray(self.cauchy_stress, dtype=float)
@@ -58,6 +62,11 @@ class MaterialPointBatchResult:
         energy = np.asarray(self.strain_energy_density, dtype=float).reshape(-1)
         scale = np.asarray(self.suggested_time_scale, dtype=float).reshape(-1)
         count = len(stress)
+        if self.plane_stress is not None and (
+            not isinstance(self.plane_stress, PlaneStressBatchResponse)
+            or len(self.plane_stress.deformation_gradient) != count
+        ):
+            raise ValueError("Plane-stress evidence must match the material batch.")
         dissipation = (
             np.zeros(count)
             if self.dissipation_density_increment is None
@@ -187,6 +196,11 @@ class MaterialPointBatchResult:
             ),
             "stress_measure": "cauchy",
             "tangent_measure": "first_piola_deformation_gradient",
+            **({"reduction": {
+                "kind": "plane_stress",
+                "material_tangent": "original_full_3D",
+                "assembly_tangent": "separate_condensed_in_plane",
+            }} if self.plane_stress is not None else {}),
             "evaluation": {
                 "material_groups": self.material_group_count,
                 "provider_batch_calls": self.provider_batch_calls,
@@ -200,7 +214,13 @@ class MaterialPointBatchResult:
 
 @dataclass
 class MaterialQuadratureResponse:
-    """Quadrature stress/tangent fields sharing one typed state transaction."""
+    """Quadrature assembly fields sharing one typed state transaction.
+
+    With explicit plane-stress reduction, ``tangent`` is the assembly-only
+    in-plane Schur tangent embedded in 3D storage. The returned batch retains
+    the original full material tangent separately; never interpret the
+    embedded zeros as the material's unconstrained transverse derivatives.
+    """
 
     state: MaterialQuadratureState
     first_piola_stress: QuadratureField
@@ -274,6 +294,7 @@ class MaterialQuadratureResponse:
         properties=(),
         commit: bool = False,
         max_batch_points: int = 1024,
+        plane_stress: PlaneStressReduction | None = None,
     ) -> MaterialPointBatchResult:
         comm = self.domain.comm
         contract_problem = None
@@ -315,12 +336,14 @@ class MaterialQuadratureResponse:
             # Otherwise a postprocessing failure could commit the internal
             # variables while leaving P/S/DPDF at the previous boundary.
             commit=False,
+            plane_stress=plane_stress,
         )
         first_piola = None
         postprocessing_problem = None
         try:
             new_gradients = _point_array(
-                deformation_gradient_new,
+                (deformation_gradient_new if result.plane_stress is None
+                 else result.plane_stress.deformation_gradient),
                 point_count=result.point_count,
                 label="deformation_gradient_new",
             )
@@ -351,7 +374,8 @@ class MaterialQuadratureResponse:
             (self.cauchy_stress, result.cauchy_stress),
             (
                 self.tangent,
-                result.consistent_tangent.reshape((-1, 3, 3, 3, 3)),
+                (result.consistent_tangent if result.plane_stress is None
+                 else result.plane_stress.embedded_tangent()).reshape((-1, 3, 3, 3, 3)),
             ),
             (self.strain_energy_density, result.strain_energy_density),
             *(
@@ -798,6 +822,7 @@ def update_material_points(
     field_variables=None,
     commit: bool = False,
     max_batch_points: int = 1024,
+    plane_stress: PlaneStressReduction | None = None,
 ) -> MaterialPointBatchResult:
     """Update every local quadrature point as one rollback-safe transaction.
 
@@ -828,6 +853,13 @@ def update_material_points(
         ):
             raise ValueError("Material time must be finite and increment positive.")
         regional = isinstance(material, QuadratureMaterialMap)
+        if plane_stress is not None:
+            if not isinstance(plane_stress, PlaneStressReduction):
+                raise TypeError("plane_stress must be a PlaneStressReduction declaration.")
+            if regional or state.domain.comm.size != 1:
+                raise NotImplementedError(
+                    "Plane-stress history batches currently require serial homogeneous material."
+                )
         if regional:
             if material.domain is not state.domain:
                 raise ValueError(
@@ -927,6 +959,13 @@ def update_material_points(
         )
         energy_components = {str(name).strip().upper(): np.empty(0) for name in names}
     scales = np.empty(point_count, dtype=float)
+    reduced_F = np.empty((point_count, 3, 3)) if plane_stress is not None else None
+    reduced_A = np.empty((point_count, 4, 4)) if plane_stress is not None else None
+    reduced_iterations = (
+        np.empty(point_count, dtype=np.int64) if plane_stress is not None else None
+    )
+    reduced_residual = np.empty(point_count) if plane_stress is not None else None
+    reduced_tolerance = np.empty(point_count) if plane_stress is not None else None
     material_group_count = 0
     provider_batch_calls = 0
     scalar_fallback_points = 0
@@ -961,7 +1000,9 @@ def update_material_points(
                 material_group_count += 1
                 for start in range(0, len(all_indices), max_batch_points):
                     indices = all_indices[start : start + max_batch_points]
-                    if callable(getattr(selected_material, "update_array_batch", None)):
+                    if plane_stress is None and callable(
+                        getattr(selected_material, "update_array_batch", None)
+                    ):
                         from .material_array_batch import (
                             MaterialPointArrayBatchInput,
                             validated_material_array_batch_update,
@@ -1012,6 +1053,24 @@ def update_material_points(
                         )
                         for index in indices
                     )
+                    if plane_stress is not None:
+                        scalar_fallback_points += len(indices)
+                        for index, request in zip(indices, point_inputs, strict=True):
+                            try:
+                                reduced = reduce_plane_stress(
+                                    selected_material, request, reduction=plane_stress
+                                )
+                            except Exception as exc:
+                                raise RuntimeError(
+                                    f"Plane-stress reduction failed at local quadrature point {index}: {exc}"
+                                ) from exc
+                            reduced_F[index] = reduced.deformation_gradient
+                            reduced_A[index] = reduced.in_plane_tangent
+                            reduced_iterations[index] = reduced.iterations
+                            reduced_residual[index] = reduced.residual
+                            reduced_tolerance[index] = reduced.tolerance
+                            yield index, selected_material, reduced.material_response
+                        continue
                     if isinstance(selected_material, BatchedUserMaterial):
                         provider_batch_calls += 1
                     else:
@@ -1106,6 +1165,11 @@ def update_material_points(
                 scalar_fallback_points=scalar_fallback_points,
                 stored_energy_density_components=(
                     {} if energy_components is None else energy_components
+                ),
+                plane_stress=(
+                    None if plane_stress is None else PlaneStressBatchResponse(
+                        reduced_F, reduced_A, reduced_iterations, reduced_residual, reduced_tolerance
+                    )
                 ),
             )
         except Exception as exc:

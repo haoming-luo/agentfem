@@ -651,6 +651,34 @@ def validated_material_batch_update(
     )
 
 
+def _tangent_error_metrics(analytic, numerical):
+    """Normalize before norms/subtraction so the verdict does not depend on units."""
+    if not np.isfinite(analytic).all() or not np.isfinite(numerical).all():
+        raise ValueError(
+            "Tangent differences must be finite; check perturbation and units."
+        )
+    scale = max(
+        float(np.max(np.abs(analytic), initial=0)),
+        float(np.max(np.abs(numerical), initial=0)),
+    )
+    if scale == 0:
+        return 0.0, 0.0
+    try:
+        with np.errstate(over="raise", invalid="raise", divide="raise"):
+            scaled_reference = numerical / scale
+            difference = analytic / scale - scaled_reference
+            denominator = max(
+                float(np.linalg.norm(scaled_reference)), np.finfo(float).tiny
+            )
+            error = float(np.linalg.norm(difference) / denominator)
+            absolute = float(np.max(np.abs(difference), initial=0) * scale)
+    except FloatingPointError as exc:
+        raise ValueError(
+            "Tangent error is not representable; check perturbation and units."
+        ) from exc
+    return error, absolute
+
+
 @dataclass(frozen=True)
 class MaterialTangentCheck:
     """Numerical-differentiation evidence for one declared material tangent."""
@@ -661,11 +689,21 @@ class MaterialTangentCheck:
     tolerance: float
     accepted: bool
     convention: MaterialTangentConvention
+    one_sided_components: tuple[str, ...] = ()
 
     def summary(self) -> dict[str, object]:
         return {
             "kind": "material_tangent_check",
-            "method": "central_difference_fixed_old_state",
+            "method": (
+                "mixed_difference_fixed_old_state"
+                if self.one_sided_components
+                else "central_difference_fixed_old_state"
+            ),
+            **(
+                {"one_sided_components": list(self.one_sided_components)}
+                if self.one_sided_components
+                else {}
+            ),
             "relative_error": self.relative_error,
             "maximum_absolute_error": self.maximum_absolute_error,
             "relative_step": self.relative_step,
@@ -688,6 +726,8 @@ def check_material_tangent(
     for every perturbation. This checks the derivative of the discrete local
     update that a global Newton iteration would consume; it is not a comparison
     of continuum formulas evaluated along different material histories.
+    When the negative perturbation would invert F, a forward difference is
+    retained for that column and explicitly identified in the evidence.
     """
 
     step = float(relative_step)
@@ -724,6 +764,7 @@ def check_material_tangent(
     base_gradient = point.deformation_gradient_new
     base_piola = first_piola(baseline, base_gradient)
     numerical = np.empty((9, 9), dtype=float)
+    one_sided = []
     for column in range(9):
         row, component = divmod(column, 3)
         increment = step * max(1.0, abs(float(base_gradient[row, component])))
@@ -731,6 +772,13 @@ def check_material_tangent(
         minus = base_gradient.copy()
         plus[row, component] += increment
         minus[row, component] -= increment
+        if (
+            plus[row, component] == base_gradient[row, component]
+            or minus[row, component] == base_gradient[row, component]
+        ):
+            raise ValueError(
+                "Tangent perturbation is not representable; increase relative_step."
+            )
         plus_response = validated_material_update(
             material,
             replace(point, deformation_gradient_new=plus),
@@ -745,6 +793,7 @@ def check_material_tangent(
             derivative = (plus_piola - minus_piola) / (2.0 * increment)
         else:
             derivative = (plus_piola - base_piola) / increment
+            one_sided.append(standard_order[column])
         numerical[:, column] = derivative.reshape(-1)
 
     indices = np.asarray(
@@ -753,10 +802,7 @@ def check_material_tangent(
     )
     numerical = numerical[np.ix_(indices, indices)]
     analytic = np.asarray(baseline.consistent_tangent, dtype=float)
-    difference = analytic - numerical
-    denominator = max(float(np.linalg.norm(numerical)), np.finfo(float).tiny)
-    relative_error = float(np.linalg.norm(difference) / denominator)
-    maximum_absolute_error = float(np.max(np.abs(difference), initial=0.0))
+    relative_error, maximum_absolute_error = _tangent_error_metrics(analytic, numerical)
     return MaterialTangentCheck(
         relative_error=relative_error,
         maximum_absolute_error=maximum_absolute_error,
@@ -764,6 +810,7 @@ def check_material_tangent(
         tolerance=selected_tolerance,
         accepted=relative_error <= selected_tolerance,
         convention=convention,
+        one_sided_components=tuple(one_sided),
     )
 
 
@@ -992,8 +1039,17 @@ _ABAQUS_UTILITY_NAMES = {
 
 _REQUIRED_CONTRACT_SYMBOLS = {
     "VUMAT": {
-        "NBLOCK", "NDIR", "NSHR", "NSTATEV", "NPROPS", "PROPS",
-        "STRAININC", "STRESSOLD", "STRESSNEW", "STATEOLD", "STATENEW",
+        "NBLOCK",
+        "NDIR",
+        "NSHR",
+        "NSTATEV",
+        "NPROPS",
+        "PROPS",
+        "STRAININC",
+        "STRESSOLD",
+        "STRESSNEW",
+        "STATEOLD",
+        "STATENEW",
     },
     "UMAT": {
         "STRESS",
@@ -1284,7 +1340,11 @@ def inspect_abaqus_user_material(
                 "info",
                 "The source is a candidate for adapter development. Compilation, "
                 "material-point path comparison, "
-                + ("explicit kinematics/stability checks" if interface == "VUMAT" else "tangent checks")
+                + (
+                    "explicit kinematics/stability checks"
+                    if interface == "VUMAT"
+                    else "tangent checks"
+                )
                 + ", and global FEM integration remain required before production use.",
             )
         )

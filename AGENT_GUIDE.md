@@ -181,7 +181,12 @@ never changes solver access, results, verification, or update behavior.
   already owns quadrature, Newton, physical time, rollback/restart and unified
   multi-field output. Supply the local `UserMaterial` and its reference
   `dP/dF`, not a project Newton loop. Its exclusions are explicit; do not infer
-  plane stress, MPI, contact, thermal-history or arbitrary UMAT support.
+  general plane stress, MPI, contact, thermal-history or arbitrary UMAT support.
+  The limited plane-stress option requires a 2D plane-stress Study and explicit
+  `constitutive.PlaneStressReduction(symmetry="reflection_symmetric")`. The
+  core solves thickness equilibrium, condenses the algorithmic tangent and
+  preserves full 3D stress/history. Never truncate stiffness or infer a 3D
+  material from a uniaxial fit. Forces are per unit reference thickness.
   For a reviewed strain-history VUMAT, read `docs/strain_history_runtime.md`.
   Use the declared runtime instead of writing project-specific ctypes/Fortran
   bridges. Never declare unused thermal, time, length or energy channels without
