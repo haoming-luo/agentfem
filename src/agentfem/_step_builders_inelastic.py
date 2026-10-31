@@ -578,6 +578,7 @@ def creep(
     status_file=None,
     amplitude=None,
     temperature=None,
+    material_points=(),
     name: str = "implicit_creep",
 ):
     """Build and register a global 3D implicit power-law creep Step."""
@@ -629,6 +630,8 @@ def creep(
         quadrature_degree=quadrature_degree,
         creep_strain_error_tolerance=creep_strain_error_tolerance,
         time_unit=getattr(model.unit_system, "time", None),
+        material_points=material_points,
+        unit_system=model.unit_system,
         progress=progress,
         status_file=status_file,
         amplitude=amplitude,

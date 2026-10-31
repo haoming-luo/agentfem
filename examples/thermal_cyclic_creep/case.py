@@ -2,7 +2,7 @@
 
 from agentfem import (
     amplitudes, constitutive, fields, loads, mesh, models, project,
-    solvers, steps, studies, units,
+    results, solvers, steps, studies, units,
 )
 
 
@@ -49,6 +49,7 @@ def main():
     step = model.step(
         target=u, duration=4., amplitude=loading, temperature=thermal_path,
         incrementation=steps.fixed(16),
+        material_points=(results.material_point("gauge", cell=0, point=0),),
         solver_options=solvers.newton(maximum_iterations=25, line_search="backtracking"),
     )
     result = step.solve_result(output=run.artifact("results.xdmf"))

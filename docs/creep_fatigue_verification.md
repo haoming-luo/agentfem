@@ -38,6 +38,12 @@ with Alloy 617 data. A similar test protocol is not the same material.
 
 ## Executable analytical references
 
+The next experimental source gate is recorded in the
+[Alloy 617 audit](internal/alloy617_validation_plan_20261101.md). Public
+parameters are not interchangeable with another constitutive model. Local
+assessment inputs can now use [co-located accepted material histories](material_point_histories.md);
+this closes a data-lifecycle gap, not the experimental-validation gate.
+
 Run the focused checks in the scientific environment:
 
 ```bash

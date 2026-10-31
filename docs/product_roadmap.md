@@ -19,6 +19,31 @@ or a successful run is not by itself a validated engineering capability.
 
 ## Current product phase: the 0.4 foundation
 
+### Co-located histories and real-material gate (2026-11-01)
+
+Keep the preceding output/integration PR separate from this scientific slice.
+The new opt-in `material_points` contract records selected raw integration-point
+stress, total strain, internal variables and prescribed kelvin temperature at
+accepted physical times. It reuses ordinary result histories and both existing
+creep checkpoint formats; corrupted history or changed selection rejects the
+whole restore. Serial thermal-history restart now compares the complete path
+identity, not the receiver's current temperature sample. See
+[the history contract](material_point_histories.md).
+
+The first composition tests nonuniform time-dependent temperature with regional
+pure creep, or homogeneous joint creep/plasticity. It does not broaden the
+joint material to regional, contact or MPI use, nor admit temperature fields
+on arbitrary finite-strain UserMaterial Steps. Sampling is selected-point only,
+every accepted increment, independently of visualization frames.
+
+The [Alloy 617 source audit](internal/alloy617_validation_plan_20261101.md)
+selects a public report with test conditions and model parameters, but identifies
+softening/damage mechanisms incompatible with a direct parameter substitution
+into the current hardening-only model. Real-data calibration and held-out
+validation remain **open**, not replaced by synthetic test passes. Next: resolve
+source/test definitions, freeze a compatible material law and fit/holdout split,
+then validate the local law and the same ordinary structural lifecycle.
+
 ### Material-only structural workflow sprint (2026-10-29)
 
 User feedback identified an important boundary: a local history law should not

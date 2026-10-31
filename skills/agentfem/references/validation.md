@@ -21,6 +21,12 @@ Minimum validation after code changes:
 
 For modeling changes, also check units, boundary-condition type, and output
 availability.
+For local creep/fatigue histories, retain original cell identity, quadrature
+rule/index, tensor measures, units and physical time for the same location.
+Use the supported Step's `material_points` option rather than stitching spatial
+maxima or creating a project sampling loop. Verify accepted-only sampling and
+full history restart; missing past samples cannot be reconstructed. The first
+consumer is serial Cartesian 3D creep, not universal user-material/MPI support.
 For axisymmetric changes, verify radial regularity when the mesh reaches the
 axis, full `(r,theta,z)` tensor output, the `2*pi*r` measure in stiffness,
 loads, energy and results, analytical Lamé response, and at least one stateful

@@ -2,7 +2,7 @@
 name = "thermal_cyclic_creep"
 entrypoint = "case.py"
 schema_version = "0.2.0"
-requires_api = ["constitutive.CreepPlasticityMaterial"]
+requires_api = ["constitutive.CreepPlasticityMaterial", "results.material_point"]
 
 [run]
 output_directory = "outputs"

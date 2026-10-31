@@ -47,6 +47,7 @@ dissipation energy closure remain promotion gates.
 
 ## Go deeper
 
+- [Co-located material-point histories](../material_point_histories.md)
 - [Thermal stress and creep procedures](../solution_procedures_and_thermal_creep.md)
 - [Nonlinear materials](../nonlinear_materials.md)
 - [Scientific trust and verification](../scientific_verification.md)

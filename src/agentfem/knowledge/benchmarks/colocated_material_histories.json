@@ -1,0 +1,17 @@
+{
+  "schema": "agentfem.benchmark-card",
+  "schema_version": "0.1.0",
+  "id": "agentfem.benchmark.colocated_material_histories",
+  "title": "Co-located accepted creep/plastic/thermal histories",
+  "status": "automated_regression",
+  "purpose": "Preserve local life-assessment inputs through ordinary Step acceptance and atomic restart without mixing spatial extrema.",
+  "physics": "Serial Cartesian 3D small-strain creep with physical-time temperature; homogeneous joint plasticity or regional pure creep",
+  "execution": {
+    "command": "python -m pytest -q tests/test_material_point_histories.py",
+    "example": "examples/thermal_cyclic_creep/case.py",
+    "evidence": "Two original cell IDs select distinct quadrature points in a nonuniform time-dependent temperature field; tensor/state channels match the constitutive points and complete trajectories survive both serial checkpoint formats."
+  },
+  "observables": ["S, E, CE, CEEQ, optional PE, PEEQ, ALPHA and TEMP at the same point", "Original cell, quadrature rule/index, reference position and scientific path identity", "Accepted physical times and complete restart trajectories"],
+  "acceptance": ["No failed attempt enters the history", "A corrupted or changed history selection rejects restore atomically", "Continuous and resumed point histories agree within declared floating-point tolerance", "Ordinary NPZ result publication preserves tensor history values and identity"],
+  "limitations": ["Synthetic integration test, not calibrated material or design-code validation", "No MPI, axisymmetric point recording or arbitrary UserMaterial Step admission", "No fabricated time-zero equilibrium or unsaved past state"]
+}

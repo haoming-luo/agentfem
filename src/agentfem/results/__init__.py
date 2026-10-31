@@ -9,6 +9,8 @@ from importlib import import_module as _import_module
 # Numerical functions retain their original implementations and import their
 # owning modules when first used, as the existing output-plan exports do.
 _LAZY_EXPORTS = {
+    "MaterialPointHistoryRequest": "material_points",
+    "material_point": "material_points",
     "join_xdmf_segments": "series_view",
     "consolidate_xdmf_fields": "xdmf_layout",
     "cell_field_from_values": "cell_data",
@@ -154,6 +156,8 @@ def __dir__():
 
 
 __all__ = [
+    "MaterialPointHistoryRequest",
+    "material_point",
     "join_xdmf_segments",
     "AcceptedHistoryJournal",
     "read_accepted_history",
