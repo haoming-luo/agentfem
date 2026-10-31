@@ -2571,6 +2571,7 @@ This adapter convention includes Abaqus component, engineering-shear, rotating-b
 - The bounded plane-stress reduction solves positive F33 from P33 equilibrium using fixed accepted history, checks transverse shear/coupling and supplies a separate Schur-condensed in-plane tangent. Full 3D Cauchy stress and material tangent are retained.
 - solve_result(until=coordinate) publishes a deliberately partial accepted segment; save_checkpoint and load_checkpoint resume the same scientific path. The coordinate is normalized, not physical seconds.
 - checkpoint=checkpointing.every(...) schedules accepted increments and optional segment endpoints. Restart preserves the global accepted-increment count; retention removes only this Step's scheduled records after successful durable publication.
+- output_every is a positive accepted-increment count (default 1), or None for segment endpoints only. Continuation includes its starting accepted boundary. Sampling skips field recovery and writes, not equilibrium or material updates; it never adds time knots or changes checkpoint identity.
 
 #### Limitations
 
@@ -2598,6 +2599,7 @@ response = constitutive.validated_material_update(material, point)
 - `tests/test_finite_strain_material_step.py`
 - `tests/test_history_plane_stress.py`
 - `tests/test_history_checkpoint_policy.py`
+- `tests/test_history_output_cadence.py`
 - `tests/test_material_verification_inputs.py`
 - `tests/test_material_rotation.py`
 

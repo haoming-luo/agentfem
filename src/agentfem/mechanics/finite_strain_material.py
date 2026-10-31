@@ -64,6 +64,7 @@ class FiniteStrainMaterialStep:
         time_unit=None,
         plane_stress=None,
         checkpoint=None,
+        output_every=1,
     ):
         from .. import constraints as constraint_api
         from .._step_provider_support import is_standalone_h1_vector_field
@@ -123,6 +124,15 @@ class FiniteStrainMaterialStep:
         self.duration = _real_material_scalar(duration, label="Physical duration")
         if not np.isfinite(self.duration) or self.duration <= 0:
             raise ValueError("Physical duration must be finite and positive.")
+        if output_every is not None and (
+            isinstance(output_every, (bool, np.bool_))
+            or not isinstance(output_every, (int, np.integer))
+            or output_every < 1
+        ):
+            raise ValueError(
+                "output_every must be a positive integer or None (endpoint only)."
+            )
+        self._output_every = None if output_every is None else int(output_every)
         self.time_unit = None if time_unit is None else str(time_unit).strip()
         if self.time_unit == "":
             raise ValueError("time_unit must be nonempty when declared.")
@@ -900,6 +910,15 @@ class FiniteStrainMaterialStep:
             item.processing.update(self._field_metadata(name))
         return sources, recovered
 
+    @property
+    def output_every(self):
+        """Field cadence in accepted increments; None keeps segment endpoints.
+
+        This is an output policy, not a physical time subdivision or restart
+        identity. A newly constructed continuation may choose another cadence.
+        """
+        return self._output_every
+
     def solve_result(self, *, output=None, metadata=None, until=1.0):
         """Publish accepted state up to a normalized coordinate, including a pause.
 
@@ -907,6 +926,9 @@ class FiniteStrainMaterialStep:
         not physical seconds. A deliberately paused result has status
         ``partial``; its accepted equilibrium is valid but the full path is not
         complete. A fresh output path is required for each continuation segment.
+        ``output_every`` counts globally accepted increments, including restored
+        history. The current accepted continuation boundary and the requested
+        segment endpoint are always published. No output time knots are added.
         """
         from .. import io, results
         from ..results.lifecycle import execution_context, attach_checkpoint_contract
@@ -941,6 +963,8 @@ class FiniteStrainMaterialStep:
                 "The bounded history-material Step publishes a serial XDMF field series."
             )
         output_start = self.time
+        published_times = []
+        continuation_boundary = bool(self.accepted_increments)
         writer = (
             io.ResultWriter(Path(output), self.state.domain, storage="frame_files")
             if output
@@ -955,14 +979,22 @@ class FiniteStrainMaterialStep:
                 writer.write(
                     step.time, step.solution, *(item.field for item in recovered)
                 )
+                published_times.append(step.time)
+
+            def publish_scheduled(step):
+                if step.accepted_load_factor == until or (
+                    step.output_every is not None
+                    and len(step.accepted_increments) % step.output_every == 0
+                ):
+                    publish(step)
 
             if self.accepted_load_factor < until:
-                if writer and self.restored_from is not None:
+                if writer and continuation_boundary:
                     # The checkpoint can be newer than the last durable field
                     # frame. Publish its actual accepted fields before advancing;
                     # continuation views check/deduplicate a shared boundary.
                     publish(self)
-                self.solve(until=until, on_accept=publish if writer else None)
+                self.solve(until=until, on_accept=publish_scheduled if writer else None)
             elif writer:
                 publish(self)
         result = results.from_solution(
@@ -1055,6 +1087,11 @@ class FiniteStrainMaterialStep:
                 else "accepted_path",
                 "start_time": output_start,
                 "restored_boundary_published": self.restored_from is not None,
+                "continuation_boundary_published": continuation_boundary,
+                "output_every": self.output_every,
+                "schedule_basis": "global_accepted_increment_count",
+                "frame_count": len(published_times),
+                "frame_times": published_times,
                 "end_time": self.time,
                 "path_complete": complete,
             }
@@ -1075,6 +1112,7 @@ class FiniteStrainMaterialStep:
             "duration": self.duration,
             "time": self.time,
             "time_unit": self.time_unit,
+            "output_every": self.output_every,
             "accepted_load_factor": self.accepted_load_factor,
             "accepted_increments": list(self.accepted_increments),
             "attempted_increments": list(self.attempted_increments),

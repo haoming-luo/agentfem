@@ -3,7 +3,7 @@
 This educational project keeps `case.py` as the engineering model and
 `material.py` as two local constitutive updates. There is no project Newton
 loop, quadrature manager, Step provider, mesh writer or checkpoint adapter.
-Use an AgentFEM build exposing `mechanics.FiniteStrainMaterialStep(checkpoint=...)` and
+Use an AgentFEM build exposing `mechanics.FiniteStrainMaterialStep(checkpoint=..., output_every=...)` and
 `constitutive.PlaneStressReduction`; an older
 development package with the same version string is not sufficient.
 
@@ -39,6 +39,22 @@ are needed. Failure never fabricates missing frames. `final.npz` is the full
 same-layout serial restart; a resumed run writes a new visualization segment,
 not a second copy of unavailable old fields. The core continuation view can
 join compatible segments without copying heavy data.
+
+To save fewer frames without changing the material integration or solver path:
+
+```sh
+agentfem run --name sparse -- --material viscoelastic --output-every 4
+```
+
+This example saves four field frames instead of sixteen. All sixteen increments
+are still solved, accepted and recorded. The requested pause/completion endpoint
+is always saved, even off cadence. Continuation includes its starting accepted
+boundary and counts from the complete accepted ledger, not from zero again.
+This cadence is independent of checkpoint retention. A different cadence may be
+selected on restart; it cannot recover earlier unsaved field frames. In Python,
+`output_every=None` keeps only segment endpoints. Neither option changes physical
+time or inserts output stations into the solver path. Fewer saved frames reduce
+field recovery and storage work, not the cost of the constitutive solve itself.
 
 ## Pause, inspect, and continue
 

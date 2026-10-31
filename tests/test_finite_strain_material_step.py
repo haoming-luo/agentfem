@@ -706,13 +706,16 @@ def test_configured_output_and_continuation(tmp_path):
     step.solve(until=0.5)
     result = step.solve_result()
     times = [float(t.get("Value")) for t in ET.parse(path).findall(".//Time")]
-    assert times == [1.5, 2.0]
+    # In-memory continuation has the same accepted-boundary contract as restart.
+    assert times == [1.0, 1.5, 2.0]
+    assert result.metadata["field_output"]["continuation_boundary_published"]
+    assert not result.metadata["field_output"]["restored_boundary_published"]
     assert result.metadata["field_output"]["output_scope"] == "continuation_segment"
     assert (
         result.checkpoint_contract["capabilities"]["rank_count_portability"]
         == "unsupported"
     )
-    assert len(result.artifacts) == 4  # index + shared mesh + two closed frames
+    assert len(result.artifacts) == 5  # index + shared mesh + three closed frames
     assert all(path.is_file() for path in result.artifacts.values())
 
 
