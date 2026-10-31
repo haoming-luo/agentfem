@@ -39,7 +39,7 @@ runtime, not bitwise portability across hardware.
 
 The isolated installed candidate passed all eight paths locally. Its package,
 source and checker hashes are retained in
-[the confirmation record](../../evidence/history_output_cadence/installed_project_confirmation.json).
+[the confirmation record](https://github.com/haoming-luo/agentfem/blob/abb8dc04d7fb2ecc6608d71e993add69892cb3c5/evidence/history_output_cadence/installed_project_confirmation.json).
 The disposable environment shares the existing FEniCSx dependencies; this does
 not claim a clean dependency installation, Windows acceptance, MPI support or
 calibration of the synthetic materials. No full installer was built or released.

@@ -102,7 +102,7 @@ variants, measured mean short-path times of 1.4613 → 1.2526 s for the educatio
 viscoelastic law and 1.3423 → 1.1258 s for damage. Mean recovery time was
 0.2320 → 0.0286 s and 0.2283 → 0.0248 s respectively. These are diagnostic
 measurements, not a composite speed claim or a release-wide percentage.
-The [uninstrumented confirmation](../../evidence/history_output_cadence/serial_confirmation.json)
+The [uninstrumented confirmation](https://github.com/haoming-luo/agentfem/blob/0f4c17d7c63e25a1e304ac5fdd6e08edb5f88ccf/evidence/history_output_cadence/serial_confirmation.json)
 contains three alternating observations per combination and records source hashes,
 runtime identity and all individual timings. With the same 16 frames, mean total
 times were **1.4613 → 1.2633 s (13.5% less)** for viscoelasticity and
