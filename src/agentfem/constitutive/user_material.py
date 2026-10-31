@@ -28,6 +28,20 @@ import numpy as np
 _STATE_NAME = re.compile(r"^[A-Za-z][A-Za-z0-9_]*$")
 
 
+def _real_material_array(value, *, label):
+    """Reject unsupported complex data before conversion can discard it."""
+    if np.iscomplexobj(value):
+        raise ValueError(f"{label} must be real; complex material data are not supported.")
+    return np.asarray(value, dtype=float)
+
+
+def _real_material_scalar(value, *, label):
+    selected = _real_material_array(value, label=label)
+    if selected.ndim != 0 or not np.isfinite(selected):
+        raise ValueError(f"{label} must be a finite real scalar.")
+    return float(selected)
+
+
 @dataclass(frozen=True)
 class MaterialStateVariable:
     """One named entry in a solver-neutral material state vector."""
@@ -48,7 +62,7 @@ class MaterialStateVariable:
         shape = tuple(int(value) for value in self.shape)
         if any(value <= 0 for value in shape):
             raise ValueError("Material state shapes must contain positive dimensions.")
-        initial = np.asarray(self.initial_value, dtype=float)
+        initial = _real_material_array(self.initial_value, label="initial_value")
         if not np.all(np.isfinite(initial)):
             raise ValueError("Material state initial_value must be finite.")
         if shape:
@@ -141,7 +155,7 @@ class MaterialStateSchema:
         return np.concatenate(values) if values else np.empty(0, dtype=float)
 
     def validate(self, state, *, label: str = "material state") -> np.ndarray:
-        values = np.asarray(state, dtype=float).reshape(-1)
+        values = _real_material_array(state, label=label).reshape(-1)
         if len(values) != self.size:
             raise ValueError(
                 f"{label} has {len(values)} values but schema {self.identity!r} "
@@ -249,7 +263,7 @@ class MaterialTangentConvention:
         }[self.storage]
 
     def validate(self, tangent) -> np.ndarray:
-        values = np.asarray(tangent, dtype=float)
+        values = _real_material_array(tangent, label="Material tangent")
         if values.shape != self.array_shape or not np.all(np.isfinite(values)):
             raise ValueError(
                 f"Material tangent must be a finite array with shape "
@@ -314,18 +328,20 @@ class MaterialPointInput:
 
     def __post_init__(self) -> None:
         for name in ("deformation_gradient_old", "deformation_gradient_new"):
-            value = np.asarray(getattr(self, name), dtype=float)
+            value = _real_material_array(getattr(self, name), label=name)
             if value.shape != (3, 3) or not np.all(np.isfinite(value)):
                 raise ValueError(f"{name} must be a finite 3x3 matrix.")
-            if np.linalg.det(value) <= 0.0:
-                raise ValueError(f"{name} must have a positive determinant.")
+            with np.errstate(over="ignore", invalid="ignore", under="ignore"):
+                determinant = np.linalg.det(value)
+            if not np.isfinite(determinant) or determinant <= 0.0:
+                raise ValueError(f"{name} must have a finite positive determinant.")
             object.__setattr__(self, name, value.copy())
-        if not np.isfinite(self.time) or not np.isfinite(self.time_increment):
-            raise ValueError("Material-point time values must be finite.")
+        for name in ("time", "time_increment"):
+            object.__setattr__(self, name, _real_material_scalar(getattr(self, name), label=name))
         if self.time_increment <= 0.0:
             raise ValueError("Material-point time_increment must be positive.")
         for name in ("properties", "state_old"):
-            value = np.asarray(getattr(self, name), dtype=float).reshape(-1)
+            value = _real_material_array(getattr(self, name), label=name).reshape(-1)
             if not np.all(np.isfinite(value)):
                 raise ValueError(f"{name} must contain finite values.")
             object.__setattr__(self, name, value.copy())
@@ -339,10 +355,10 @@ class MaterialPointInput:
             )
         for name in ("temperature", "temperature_increment"):
             value = getattr(self, name)
-            if value is not None and not np.isfinite(value):
-                raise ValueError(f"{name} must be finite when provided.")
+            if value is not None:
+                object.__setattr__(self, name, _real_material_scalar(value, label=name))
         if self.field_variables is not None:
-            fields = np.asarray(self.field_variables, dtype=float).reshape(-1)
+            fields = _real_material_array(self.field_variables, label="field_variables").reshape(-1)
             if not np.all(np.isfinite(fields)):
                 raise ValueError("field_variables must contain finite values.")
             object.__setattr__(self, "field_variables", fields.copy())
@@ -363,20 +379,19 @@ class MaterialPointOutput:
     dissipation_density_increment: float | None = None
 
     def __post_init__(self) -> None:
-        stress = np.asarray(self.cauchy_stress, dtype=float)
+        stress = _real_material_array(self.cauchy_stress, label="cauchy_stress")
         if self.dissipation_density_increment is not None:
-            value = float(self.dissipation_density_increment)
+            value = _real_material_scalar(self.dissipation_density_increment, label="dissipation_density_increment")
             if not np.isfinite(value):
                 raise ValueError(
                     "dissipation_density_increment must be finite when provided."
                 )
             object.__setattr__(self, "dissipation_density_increment", value)
-        tangent = np.asarray(self.consistent_tangent, dtype=float)
-        state = np.asarray(self.state_new, dtype=float).reshape(-1)
+        tangent = _real_material_array(self.consistent_tangent, label="consistent_tangent")
+        state = _real_material_array(self.state_new, label="state_new").reshape(-1)
         if stress.shape != (3, 3) or not np.all(np.isfinite(stress)):
             raise ValueError("cauchy_stress must be a finite 3x3 tensor.")
-        stress_scale = max(float(np.linalg.norm(stress)), np.finfo(float).tiny)
-        if np.max(np.abs(stress - stress.T)) > 1.0e-10 * stress_scale:
+        if not _symmetric_tensors(stress):
             raise ValueError("cauchy_stress must be symmetric.")
         if self.tangent_convention is None:
             if tangent.shape != (6, 6) or not np.all(np.isfinite(tangent)):
@@ -396,10 +411,8 @@ class MaterialPointOutput:
             if not isinstance(self.state_schema, MaterialStateSchema):
                 raise TypeError("state_schema must be a MaterialStateSchema.")
             state = self.state_schema.validate(state, label="state_new")
-        if self.strain_energy_density is not None and not np.isfinite(
-            self.strain_energy_density
-        ):
-            raise ValueError("strain_energy_density must be finite when provided.")
+        if self.strain_energy_density is not None:
+            object.__setattr__(self, "strain_energy_density", _real_material_scalar(self.strain_energy_density, label="strain_energy_density"))
         components = {}
         for name, value in self.stored_energy_density_components.items():
             key = str(name).strip().upper()
@@ -407,7 +420,7 @@ class MaterialPointOutput:
                 raise ValueError(
                     "Stored-energy component names must use result-variable syntax."
                 )
-            selected = float(value)
+            selected = _real_material_scalar(value, label=f"Stored-energy component {key!r}")
             if not np.isfinite(selected):
                 raise ValueError(f"Stored-energy component {key!r} must be finite.")
             if key in components:
@@ -425,11 +438,10 @@ class MaterialPointOutput:
             raise ValueError(
                 "Stored-energy components must sum to strain_energy_density."
             )
-        if (
-            not np.isfinite(self.suggested_time_scale)
-            or self.suggested_time_scale <= 0.0
-        ):
+        selected_scale = _real_material_scalar(self.suggested_time_scale, label="suggested_time_scale")
+        if selected_scale <= 0.0:
             raise ValueError("suggested_time_scale must be finite and positive.")
+        object.__setattr__(self, "suggested_time_scale", selected_scale)
         object.__setattr__(self, "cauchy_stress", stress.copy())
         object.__setattr__(self, "consistent_tangent", tangent.copy())
         object.__setattr__(self, "state_new", state.copy())
@@ -651,6 +663,70 @@ def validated_material_batch_update(
     )
 
 
+def _symmetric_tensors(values):
+    """Check finite (...,3,3) tensors without squaring dimensional magnitudes."""
+    magnitude = np.max(np.abs(values), axis=(-2, -1), keepdims=True)
+    normalized = np.divide(
+        values, magnitude, out=np.zeros_like(values), where=magnitude != 0
+    )
+    skew = np.max(
+        np.abs(normalized - np.swapaxes(normalized, -2, -1)), axis=(-2, -1)
+    )
+    return bool(np.all(skew <= 1e-10 * np.linalg.norm(normalized, axis=(-2, -1))))
+
+
+class _MaterialInputMutationError(ValueError):
+    """A verification contract error, never a recoverable constitutive trial."""
+
+
+def _isolated_material_evaluation(point, update, array_names):
+    candidate = replace(point)
+    try:
+        return update(candidate)
+    finally:
+        for name in array_names:
+            expected, actual = getattr(point, name), getattr(candidate, name)
+            if not np.array_equal(expected, actual):
+                raise _MaterialInputMutationError(
+                    f"AFM-MATERIAL-INPUT-MUTATION: update() modified {name}; "
+                    "return new history in state_new without modifying the request."
+                )
+
+
+class _VerificationMaterial:
+    """Isolate and audit verifier requests without taxing production updates.
+
+    Frozen dataclasses do not freeze their NumPy arrays. Give the provider a
+    fresh request on every evaluation, including the baseline, and refuse to
+    label a mutated request as fixed-old-state differentiation. This checks
+    observable input mutation, not arbitrary hidden state inside a provider.
+    """
+
+    def __init__(self, material):
+        if not isinstance(material, UserMaterial):
+            raise TypeError(
+                "User material must declare name, state_schema, tangent_convention, "
+                "and update()."
+            )
+        self.name = material.name
+        self.state_schema = material.state_schema
+        self.tangent_convention = material.tangent_convention
+        self._material = material
+
+    def update(self, point):
+        return _isolated_material_evaluation(
+            point,
+            self._material.update,
+            (
+                "deformation_gradient_old",
+                "deformation_gradient_new",
+                "state_old",
+                "properties",
+                "field_variables",
+            ),
+        )
+
+
 def _tangent_error_metrics(analytic, numerical):
     """Normalize before norms/subtraction so the verdict does not depend on units."""
     if not np.isfinite(analytic).all() or not np.isfinite(numerical).all():
@@ -728,6 +804,8 @@ def check_material_tangent(
     of continuum formulas evaluated along different material histories.
     When the negative perturbation would invert F, a forward difference is
     retained for that column and explicitly identified in the evidence.
+    Requests are isolated and observable input-array mutation is rejected;
+    this does not certify that a provider has no hidden mutable state.
     """
 
     step = float(relative_step)
@@ -736,6 +814,7 @@ def check_material_tangent(
         raise ValueError("relative_step must be finite and positive.")
     if not np.isfinite(selected_tolerance) or selected_tolerance <= 0.0:
         raise ValueError("tolerance must be finite and positive.")
+    material = _VerificationMaterial(material)
     baseline = validated_material_update(material, point)
     convention = baseline.tangent_convention
     if (

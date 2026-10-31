@@ -11,6 +11,7 @@ from __future__ import annotations
 
 from contextlib import nullcontext
 from copy import deepcopy
+from dataclasses import replace
 from hashlib import sha256
 import json
 from pathlib import Path
@@ -24,7 +25,9 @@ from petsc4py import PETSc
 
 from .. import amplitudes, checkpointing, procedures, steps
 from ..constitutive.material_driver import MaterialQuadratureResponse
-from ..constitutive.user_material import UserMaterial, MaterialTangentConvention
+from ..constitutive.user_material import (
+    UserMaterial, MaterialTangentConvention, _real_material_array, _real_material_scalar,
+)
 from ..constitutive.plane_stress import PlaneStressReduction
 from ..constitutive.quadrature import QuadratureField
 from ..solvers import NewtonSolverOptions, newton, solve_matrix_system
@@ -60,6 +63,7 @@ class FiniteStrainMaterialStep:
         progress=True,
         time_unit=None,
         plane_stress=None,
+        checkpoint=None,
     ):
         from .. import constraints as constraint_api
         from .._step_provider_support import is_standalone_h1_vector_field
@@ -116,7 +120,7 @@ class FiniteStrainMaterialStep:
             raise ValueError(
                 "Material summary must be a nonempty JSON scientific identity."
             )
-        self.duration = float(duration)
+        self.duration = _real_material_scalar(duration, label="Physical duration")
         if not np.isfinite(self.duration) or self.duration <= 0:
             raise ValueError("Physical duration must be finite and positive.")
         self.time_unit = None if time_unit is None else str(time_unit).strip()
@@ -131,7 +135,7 @@ class FiniteStrainMaterialStep:
             material,
             study,
         )
-        self.properties = np.asarray(properties, dtype=float).reshape(-1).copy()
+        self.properties = _real_material_array(properties, label="properties").reshape(-1).copy()
         if not np.isfinite(self.properties).all():
             raise ValueError("Material properties must be finite.")
         self.procedure = procedures.nonlinear_static(stateful=True)
@@ -166,6 +170,14 @@ class FiniteStrainMaterialStep:
         )
         if not np.isclose(self.amplitude(0), 0):
             raise ValueError("Load amplitude must start at zero.")
+        checkpointing.validate_policy_argument(checkpoint)
+        self._checkpoint_policy = checkpoint
+        if checkpoint is not None:
+            checkpointing.validate_policy(self, checkpoint)
+            if not self.amplitude.serializable:
+                raise NotImplementedError(
+                    "Automatic checkpointing requires a serializable amplitude identity."
+                )
         self._load_knots = ()
         if self.amplitude.kind == "tabular":
             self._load_knots = tuple(
@@ -355,6 +367,11 @@ class FiniteStrainMaterialStep:
     def time(self):
         return self.duration * self.accepted_load_factor
 
+    @property
+    def checkpoint_policy(self):
+        """The construction-time persistence policy, separate from material identity."""
+        return self._checkpoint_policy
+
     def _gradient(self):
         return self.state.evaluate_expression(self._F_evaluator, value_shape=(3, 3))
 
@@ -476,7 +493,7 @@ class FiniteStrainMaterialStep:
                 "provider summary and state schema",
                 "loads, constraints and duration",
             ),
-            limitations=("serial same-layout restart", "manual checkpoint cadence"),
+            limitations=("serial same-layout restart",),
             evidence=(
                 "continuous/restarted two-law paths",
                 "atomic corrupt-restore rejection",
@@ -734,6 +751,10 @@ class FiniteStrainMaterialStep:
                             target - start, iterations
                         )
                         self.next_increment_size = proposed
+                    # Persistence is outside the numerical-attempt exception
+                    # handler and precedes optional observers/field output.
+                    # A failed write preserves accepted state, not a cutback.
+                    self._save_scheduled_checkpoint(segment_complete=target == until)
                     self._emit(
                         "increment_converged",
                         increment=len(self.accepted_increments),
@@ -936,6 +957,11 @@ class FiniteStrainMaterialStep:
                 )
 
             if self.accepted_load_factor < until:
+                if writer and self.restored_from is not None:
+                    # The checkpoint can be newer than the last durable field
+                    # frame. Publish its actual accepted fields before advancing;
+                    # continuation views check/deduplicate a shared boundary.
+                    publish(self)
                 self.solve(until=until, on_accept=publish if writer else None)
             elif writer:
                 publish(self)
@@ -1028,6 +1054,7 @@ class FiniteStrainMaterialStep:
                 if output_start
                 else "accepted_path",
                 "start_time": output_start,
+                "restored_boundary_published": self.restored_from is not None,
                 "end_time": self.time,
                 "path_complete": complete,
             }
@@ -1070,6 +1097,9 @@ class FiniteStrainMaterialStep:
             raise NotImplementedError(
                 "This Step currently supports serial same-layout restart only."
             )
+        return self._publish_checkpoint(path, exclusive=False)
+
+    def _publish_checkpoint(self, path, *, exclusive):
         if not self._at_accepted or not self.accepted_increments:
             raise RuntimeError("Checkpoint requires an accepted increment.")
         if not self.amplitude.serializable:
@@ -1092,7 +1122,9 @@ class FiniteStrainMaterialStep:
                 for key, values in snapshot["response"].items()
             },
         }
-        checkpointing.atomic_savez(
+        publish = (checkpointing._atomic_savez_exclusive
+                   if exclusive else checkpointing.atomic_savez)
+        publish(
             selected,
             schema=self.schema,
             identity=json.dumps(self._identity, sort_keys=True),
@@ -1110,6 +1142,53 @@ class FiniteStrainMaterialStep:
         )
         self.checkpoints.append(self._checkpoint_record(selected))
         return selected
+
+    def _save_scheduled_checkpoint(self, *, segment_complete):
+        policy = self.checkpoint_policy
+        if policy is None:
+            return
+        checkpointing.validate_policy(self, policy)
+        increment = len(self.accepted_increments)
+        if increment % policy.every != 0 and not (policy.final and segment_complete):
+            return
+        base = policy.path(step_name=self.name, increment=increment)
+        path = base.with_name(base.name + ".npz")
+        sidecar = path.with_suffix(".npz.checkpoint.json")
+        # A fresh run must never silently replace an older run's evidence.
+        # Retention tracks this Step's published records, not a directory glob.
+        if (
+            path.exists()
+            or path.is_symlink()
+            or sidecar.exists()
+            or sidecar.is_symlink()
+        ):
+            raise FileExistsError(
+                f"Scheduled checkpoint already exists: {path}. Use a new run directory "
+                "or restore the existing checkpoint into a compatible Step."
+            )
+        self._publish_checkpoint(path, exclusive=True)
+        record = replace(
+            self.checkpoints[-1],
+            metadata={
+                **self.checkpoints[-1].metadata,
+                "role": "scheduled_checkpoint",
+                "accepted_increment": increment,
+                "segment_complete": bool(segment_complete),
+            },
+        )
+        checkpointing.atomic_write_text(
+            sidecar,
+            json.dumps(
+                record.as_dict(artifact_base=path.parent), indent=2, sort_keys=True
+            )
+            + "\n",
+        )
+        self.checkpoints[-1] = record
+        checkpointing._prune_scheduled_serial_records(
+            self.checkpoints,
+            keep_last=policy.keep_last,
+            comm=self.solution.function_space.mesh.comm,
+        )
 
     def _checkpoint_record(self, path):
         from ..results import CheckpointRecord
@@ -1204,9 +1283,12 @@ class FiniteStrainMaterialStep:
                 for group in ("state", "response")
                 for key, value in snapshot[group].items()
             ]
-            if any(a.shape != b.shape or not np.isfinite(a).all() for a, b in pairs):
+            if any(
+                a.shape != b.shape or np.iscomplexobj(a) or not np.isfinite(a).all()
+                for a, b in pairs
+            ):
                 raise ValueError(
-                    "Checkpoint arrays must have matching shapes and finite values."
+                    "Checkpoint arrays must have matching shapes and finite real values."
                 )
             if np.any(np.linalg.det(candidate["F"]) <= 0):
                 raise ValueError("Checkpoint deformation gradient is inverted.")

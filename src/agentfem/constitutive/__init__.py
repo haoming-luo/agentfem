@@ -222,6 +222,7 @@ from .plane_stress import (
     PlaneStressReduction, PlaneStressPointResponse, PlaneStressTangentCheck,
     reduce_plane_stress, check_plane_stress_tangent,
 )
+from .material_rotation import MaterialRotationCheck, check_material_rotation
 from .small_strain_user_material import (
     MaterialApplicabilityError,
     MaterialParameter,
@@ -364,6 +365,7 @@ __all__ = [
     "MaterialStateSchema",
     "MaterialStateVariable",
     "MaterialTangentCheck",
+    "MaterialRotationCheck",
     "MaterialTangentConvention",
     "SmallStrainMaterialPointBatchInput",
     "SmallStrainMaterialPointBatchOutput",
@@ -397,6 +399,7 @@ __all__ = [
     "validated_material_array_batch_update",
     "update_material_points",
     "check_material_tangent",
+    "check_material_rotation",
     "check_small_strain_material_tangent",
     "anisotropic_stress_2d",
     "anisotropic_stress_3d",

@@ -12,12 +12,15 @@ import tempfile
 import xml.etree.ElementTree as ET
 
 
-def join_xdmf_segments(sources, destination, *, expected_times=None) -> Path:
+def join_xdmf_segments(sources, destination, *, expected_times=None, overlap="boundary") -> Path:
     """Publish one temporal index without copying or modifying heavy data.
 
     Accepts single-mesh uniform-frame temporal XDMF with direct HDF references.
     Reference geometry, topology and field schema must agree. Adjacent segments
     may share one boundary time only if every saved array is identical there.
+    Explicit ``overlap="identical"`` also admits recomputed stations after an
+    older checkpoint, but only at already saved times with exactly identical
+    arrays. It never chooses between conflicting solution branches.
     Disjoint stations are retained without interpolation. Supply expected_times
     to detect missing requested stations; sparse output alone cannot establish
     temporal completeness or checkpoint/scientific continuity.
@@ -29,6 +32,8 @@ def join_xdmf_segments(sources, destination, *, expected_times=None) -> Path:
     import h5py
     import numpy as np
 
+    if overlap not in ("boundary", "identical"):
+        raise ValueError("overlap must be 'boundary' or 'identical'.")
     paths = tuple(Path(source).resolve() for source in sources)
     destination = Path(destination).resolve()
     if not paths or len(set(paths)) != len(paths):
@@ -76,6 +81,7 @@ def join_xdmf_segments(sources, destination, *, expected_times=None) -> Path:
     output = ET.Element("Xdmf", Version="3.0")
     domain = ET.SubElement(output, "Domain")
     ET.SubElement(domain, "Information", Name="agentfem_view", Value="visualization_only")
+    ET.SubElement(domain, "Information", Name="overlap_policy", Value=overlap)
     target = ET.SubElement(domain, "Grid", Name="Results", GridType="Collection",
                            CollectionType="Temporal")
     mesh_identity = schema = previous = None
@@ -119,6 +125,7 @@ def join_xdmf_segments(sources, destination, *, expected_times=None) -> Path:
             mesh_identity = mesh
             fields = {}
             boundary = previous is not None and station == previous
+            overlapping = previous is not None and station <= previous
             for attribute in grid.findall("Attribute"):
                 name = attribute.get("Name")
                 center = attribute.get("Center")
@@ -129,13 +136,15 @@ def join_xdmf_segments(sources, destination, *, expected_times=None) -> Path:
                 if len(items) != 1:
                     raise ValueError("Expected one direct DataItem per field.")
                 fields[identity] = (tuple(sorted(attribute.attrib.items())),
-                                    dataset(items[0], source, digest=boundary)[:2])
+                                    dataset(items[0], source, digest=overlapping)[:2])
             if not fields or (schema is not None and fields != schema):
                 raise ValueError("Field schema changes between frames.")
             schema = fields
             if previous is not None and station <= previous:
-                if not boundary or index != 0:
+                if overlap == "boundary" and (not boundary or index != 0):
                     raise ValueError("Segments overlap or are not in time order.")
+                if station not in retained:
+                    raise ValueError("Overlapping station has no saved frame to compare.")
                 old_grid, old_source = retained[station]
                 # Resolve against the source, not against already rebased view refs.
                 old_attributes = {(a.get("Center"), a.get("Name")): a
@@ -145,7 +154,7 @@ def join_xdmf_segments(sources, destination, *, expected_times=None) -> Path:
                     old = deepcopy(old_attributes[identity].find("DataItem"))
                     new = deepcopy(attribute.find("DataItem"))
                     if dataset(old, old_source, digest=True) != dataset(new, source, digest=True):
-                        raise ValueError("Shared boundary frame has conflicting field values.")
+                        raise ValueError("Overlapping frame has conflicting field values.")
                 continue
             target.append(grid)
             retained[station] = (original, source)

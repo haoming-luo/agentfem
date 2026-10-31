@@ -6,6 +6,18 @@ experimental formulation to a validated one.
 
 ## [Unreleased]
 
+- Connect the bounded finite-strain history Step to the existing automatic
+  checkpoint policy. Count only accepted increments, save planned segment
+  endpoints, preserve earlier archives on write failure, and prune only this
+  Step's scheduled records after successful publication. Do not overwrite
+  existing scheduled files or reinterpret I/O failure as numerical cutback.
+  Validate checkpoint counts/flags/prefixes without silent truncation or paths.
+  Republish a restored history boundary before advancing so a process exit
+  between checkpoint and field publication does not lose that frame. Extend
+  the checked XDMF continuation view with explicit `overlap="identical"` for
+  exactly matching recomputed intervals; preserve strict default behavior and
+  reject conflicting solution branches without modifying source data.
+
 - Guard accepted history-material fields, time and loading against external
   mutation before continuation, output or checkpoint publication. Preserve
   increment/constraint identity. Add ordinary planned pause/result publication

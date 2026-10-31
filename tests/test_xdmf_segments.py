@@ -129,3 +129,46 @@ def test_real_live_writer_continuation(tmp_path):
                 writer.write(station)
     output = results.join_xdmf_segments(paths, tmp_path / "combined.xdmf")
     assert times(output) == [0., .5, 1.]
+
+
+def test_explicit_identical_overlap_checks_recomputed_interval(tmp_path):
+    a = segment(tmp_path / "a", [0., 1., 2., 3.])
+    b = segment(tmp_path / "b", [1., 2., 3., 4.])
+    c = segment(tmp_path / "c", [2., 3., 4., 5.])
+    originals = {p: p.read_bytes() for p in tmp_path.rglob("*") if p.is_file()}
+    with pytest.raises(ValueError, match="overlap"):
+        results.join_xdmf_segments([a, b], tmp_path / "default.xdmf")
+    view = results.join_xdmf_segments([a, b, c], tmp_path / "joined.xdmf",
+                                     overlap="identical", expected_times=range(6))
+    assert times(view) == list(range(6))
+    for path, payload in originals.items():
+        assert path.read_bytes() == payload
+    info = {i.get("Name"): i.get("Value") for i in ET.parse(view).findall("Domain/Information")}
+    assert info["overlap_policy"] == "identical"
+    assert info["agentfem_view"] == "visualization_only"
+
+
+@pytest.mark.parametrize("problem", ["late_difference", "unmatched_time", "mesh", "schema"])
+def test_identical_overlap_never_selects_a_conflicting_branch(tmp_path, problem):
+    a = segment(tmp_path / "a", [0., 1., 2., 3.])
+    b = segment(tmp_path / "b", [1., 2.5, 3., 4.] if problem == "unmatched_time" else [1., 2., 3., 4.])
+    if problem in {"late_difference", "mesh"}:
+        with h5py.File(b.parent / "data.h5", "r+") as store:
+            if problem == "late_difference":
+                store["u2"][3, 2] += 1e-12
+            else:
+                store["cells"][0] = [0, 2, 1, 3]
+    if problem == "schema":
+        tree = ET.parse(b)
+        tree.findall(".//Attribute")[2].set("Name", "other")
+        tree.write(b)
+    view = tmp_path / "failed.xdmf"
+    with pytest.raises(ValueError):
+        results.join_xdmf_segments([a, b], view, overlap="identical")
+    assert not view.exists()
+
+
+def test_overlap_policy_must_be_explicit(tmp_path):
+    a = segment(tmp_path / "a", [0., 1.])
+    with pytest.raises(ValueError, match="overlap"):
+        results.join_xdmf_segments([a], tmp_path / "failed.xdmf", overlap="latest_wins")

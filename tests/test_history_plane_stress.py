@@ -325,6 +325,7 @@ def structure(
     incrementation=None,
     policy=POLICY,
     size=2,
+    checkpoint=None,
 ):
     from mpi4py import MPI
     from dolfinx import mesh as dmesh
@@ -361,6 +362,7 @@ def structure(
         progress=False,
         amplitude=amplitudes.tabular((0.0, 0.5, 0.75, 1.0), (0.0, 1.0, 1.0, 0.2)),
         quadrature_degree=2 * degree,
+        checkpoint=checkpoint,
     )
     return step, material
 
