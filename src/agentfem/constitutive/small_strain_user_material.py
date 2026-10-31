@@ -22,6 +22,11 @@ import numpy as np
 from .user_material import (
     MaterialStateSchema,
     MaterialTangentConvention,
+    _isolated_material_evaluation,
+    _symmetric_tensors,
+    _tangent_error_metrics,
+    _real_material_array,
+    _real_material_scalar,
 )
 
 
@@ -63,9 +68,9 @@ class MaterialParameter:
                 "Material parameter names must start with a letter and contain "
                 "only letters, digits, or underscores."
             )
-        lower = None if self.lower is None else float(self.lower)
-        upper = None if self.upper is None else float(self.upper)
-        default = None if self.default is None else float(self.default)
+        lower = None if self.lower is None else _real_material_scalar(self.lower, label="lower")
+        upper = None if self.upper is None else _real_material_scalar(self.upper, label="upper")
+        default = None if self.default is None else _real_material_scalar(self.default, label="default")
         if any(
             value is not None and not np.isfinite(value)
             for value in (lower, upper, default)
@@ -90,7 +95,7 @@ class MaterialParameter:
         return self.default is None
 
     def validate(self, value) -> float:
-        selected = float(value)
+        selected = _real_material_scalar(value, label=self.name)
         if not np.isfinite(selected):
             raise ValueError(f"Material parameter {self.name!r} must be finite.")
         if self.lower is not None and selected < self.lower:
@@ -199,8 +204,8 @@ class SmallStrainMaterialPointInput:
         for name in ("strain_old", "strain_new"):
             value = _symmetric_tensor(getattr(self, name), label=name)
             object.__setattr__(self, name, value)
-        if not np.isfinite(self.time) or not np.isfinite(self.time_increment):
-            raise ValueError("Material-point time values must be finite.")
+        for name in ("time", "time_increment"):
+            object.__setattr__(self, name, _real_material_scalar(getattr(self, name), label=name))
         if self.time_increment <= 0.0:
             raise ValueError("Material-point time_increment must be positive.")
         if not isinstance(self.state_schema, MaterialStateSchema):
@@ -217,8 +222,8 @@ class SmallStrainMaterialPointInput:
         )
         for name in ("temperature", "temperature_increment"):
             value = getattr(self, name)
-            if value is not None and not np.isfinite(value):
-                raise ValueError(f"{name} must be finite when provided.")
+            if value is not None:
+                object.__setattr__(self, name, _real_material_scalar(value, label=name))
         object.__setattr__(
             self,
             "field_variables",
@@ -261,7 +266,7 @@ class SmallStrainMaterialPointOutput:
                 f"Unknown applicability {applicability!r}; expected "
                 f"{sorted(_APPLICABILITY)!r}."
             )
-        scale = float(self.suggested_time_scale)
+        scale = _real_material_scalar(self.suggested_time_scale, label="suggested_time_scale")
         if not np.isfinite(scale) or not 0.0 < scale <= 1.0:
             raise ValueError("suggested_time_scale must be in the interval (0, 1].")
         stored = _optional_finite(self.stored_energy_density, "stored_energy_density")
@@ -347,15 +352,15 @@ class SmallStrainMaterialPointBatchInput:
         if old.shape != new.shape:
             raise ValueError("strain_old and strain_new batch shapes must match.")
         count = len(old)
-        if not np.isfinite(self.time) or not np.isfinite(self.time_increment):
-            raise ValueError("Material-point time values must be finite.")
+        for name in ("time", "time_increment"):
+            object.__setattr__(self, name, _real_material_scalar(getattr(self, name), label=name))
         if self.time_increment <= 0.0:
             raise ValueError("Material-point time_increment must be positive.")
         if not isinstance(self.state_schema, MaterialStateSchema):
             raise TypeError("state_schema must be a MaterialStateSchema.")
         if not isinstance(self.parameter_schema, MaterialParameterSchema):
             raise TypeError("parameter_schema must be a MaterialParameterSchema.")
-        states = np.asarray(self.state_old, dtype=float)
+        states = _real_material_array(self.state_old, label="state_old")
         if states.shape != (count, self.state_schema.size) or not np.all(
             np.isfinite(states)
         ):
@@ -436,7 +441,7 @@ class SmallStrainMaterialPointBatchOutput:
         count = len(stress)
         if not isinstance(self.state_schema, MaterialStateSchema):
             raise TypeError("state_schema must be a MaterialStateSchema.")
-        state = np.asarray(self.state_new, dtype=float)
+        state = _real_material_array(self.state_new, label="state_new")
         if state.shape != (count, self.state_schema.size) or not np.all(
             np.isfinite(state)
         ):
@@ -445,7 +450,7 @@ class SmallStrainMaterialPointBatchOutput:
         if not isinstance(convention, MaterialTangentConvention):
             raise TypeError("tangent_convention must be a MaterialTangentConvention.")
         _require_small_strain_convention(convention)
-        tangent = np.asarray(self.consistent_tangent, dtype=float)
+        tangent = _real_material_array(self.consistent_tangent, label="consistent_tangent")
         if tangent.shape != (count, *convention.array_shape) or not np.all(
             np.isfinite(tangent)
         ):
@@ -697,7 +702,15 @@ def check_small_strain_material_tangent(
         raise ValueError("relative_step must be finite and positive.")
     if not np.isfinite(selected_tolerance) or selected_tolerance <= 0.0:
         raise ValueError("tolerance must be finite and positive.")
-    baseline = validated_small_strain_update(material, point)
+
+    def evaluate(candidate):
+        return _isolated_material_evaluation(
+            candidate,
+            lambda trial: validated_small_strain_update(material, trial),
+            ("strain_old", "strain_new", "state_old"),
+        )
+
+    baseline = evaluate(point)
     numerical = np.empty((6, 6), dtype=float)
     base = point.strain_new
     for column, (row, component) in enumerate(
@@ -708,27 +721,27 @@ def check_small_strain_material_tangent(
         minus = base.copy()
         plus[row, component] += increment
         minus[row, component] -= increment
+        if (
+            plus[row, component] == base[row, component]
+            or minus[row, component] == base[row, component]
+        ):
+            raise ValueError(
+                "Tangent perturbation is not representable; increase relative_step."
+            )
         denominator = 2.0 * increment
         if row != component:
             plus[component, row] += increment
             minus[component, row] -= increment
             if baseline.tangent_convention.shear_convention == "engineering":
                 denominator *= 2.0
-        plus_response = validated_small_strain_update(
-            material, replace(point, strain_new=plus)
-        )
-        minus_response = validated_small_strain_update(
-            material, replace(point, strain_new=minus)
-        )
+        plus_response = evaluate(replace(point, strain_new=plus))
+        minus_response = evaluate(replace(point, strain_new=minus))
         numerical[:, column] = (
             _symmetric_voigt(plus_response.cauchy_stress)
             - _symmetric_voigt(minus_response.cauchy_stress)
         ) / denominator
     declared = baseline.consistent_tangent
-    difference = numerical - declared
-    denominator = max(float(np.linalg.norm(numerical)), np.finfo(float).tiny)
-    relative_error = float(np.linalg.norm(difference) / denominator)
-    maximum = float(np.max(np.abs(difference), initial=0.0))
+    relative_error, maximum = _tangent_error_metrics(declared, numerical)
     return SmallStrainMaterialTangentCheck(
         relative_error=relative_error,
         maximum_absolute_error=maximum,
@@ -851,17 +864,16 @@ def _require_small_strain_convention(convention) -> None:
 
 
 def _symmetric_tensor(value, *, label: str) -> np.ndarray:
-    selected = np.asarray(value, dtype=float)
+    selected = _real_material_array(value, label=label)
     if selected.shape != (3, 3) or not np.all(np.isfinite(selected)):
         raise ValueError(f"{label} must be a finite 3x3 tensor.")
-    scale = max(float(np.linalg.norm(selected)), np.finfo(float).tiny)
-    if np.max(np.abs(selected - selected.T)) > 1.0e-10 * scale:
+    if not _symmetric_tensors(selected):
         raise ValueError(f"{label} must be symmetric.")
-    return 0.5 * (selected + selected.T)
+    return selected + 0.5 * (selected.T - selected)
 
 
 def _symmetric_tensor_batch(value, *, label: str) -> np.ndarray:
-    selected = np.asarray(value, dtype=float)
+    selected = _real_material_array(value, label=label)
     if (
         selected.ndim != 3
         or selected.shape[1:] != (3, 3)
@@ -870,11 +882,9 @@ def _symmetric_tensor_batch(value, *, label: str) -> np.ndarray:
         raise ValueError(f"{label} must have shape (points, 3, 3) and be finite.")
     if len(selected) == 0:
         raise ValueError(f"{label} must contain at least one point.")
-    skew = np.max(np.abs(selected - np.swapaxes(selected, 1, 2)), axis=(1, 2))
-    scale = np.maximum(np.linalg.norm(selected, axis=(1, 2)), np.finfo(float).tiny)
-    if np.any(skew > 1.0e-10 * scale):
+    if not _symmetric_tensors(selected):
         raise ValueError(f"Every {label} tensor must be symmetric.")
-    return 0.5 * (selected + np.swapaxes(selected, 1, 2))
+    return selected + 0.5 * (np.swapaxes(selected, 1, 2) - selected)
 
 
 def _symmetric_voigt(value) -> np.ndarray:
@@ -885,7 +895,7 @@ def _symmetric_voigt(value) -> np.ndarray:
 def _optional_finite(value, label: str) -> float | None:
     if value is None:
         return None
-    selected = float(value)
+    selected = _real_material_scalar(value, label=label)
     if not np.isfinite(selected):
         raise ValueError(f"{label} must be finite when provided.")
     return selected
@@ -902,7 +912,7 @@ def _finite_scalar_mapping(
         key = key.upper() if normalize_names else key
         if not key or key in normalized:
             raise ValueError(f"{label} names must be nonempty and unique.")
-        selected = float(value)
+        selected = _real_material_scalar(value, label=f"{label}[{name!r}]")
         if not np.isfinite(selected):
             raise ValueError(f"{label}[{key!r}] must be finite.")
         normalized[key] = selected
@@ -922,7 +932,7 @@ def _json_mapping(values: Mapping[str, object], *, label: str) -> Mapping[str, o
 
 
 def _point_values(value, *, count: int, label: str) -> np.ndarray:
-    selected = np.asarray(value, dtype=float)
+    selected = _real_material_array(value, label=label)
     if selected.ndim == 0:
         selected = np.full(count, float(selected))
     selected = selected.reshape(-1)

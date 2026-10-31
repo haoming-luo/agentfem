@@ -24,7 +24,10 @@ HistoryMaterial = module.HistoryMaterial
 
 
 @pytest.mark.parametrize("mechanism", ["viscoelastic", "damage"])
-def test_four_file_example_runs_through_project_cli(tmp_path, mechanism, capsys):
+@pytest.mark.parametrize("assumption", ["plane_strain", "plane_stress"])
+def test_four_file_example_runs_through_project_cli(
+    tmp_path, mechanism, assumption, capsys
+):
     from agentfem import cli
 
     source = Path(__file__).parents[1] / "examples/history_material"
@@ -44,6 +47,8 @@ def test_four_file_example_runs_through_project_cli(tmp_path, mechanism, capsys)
                 "--",
                 "--material",
                 mechanism,
+                "--assumption",
+                assumption,
             ]
         )
         == 0
@@ -63,6 +68,102 @@ def test_four_file_example_runs_through_project_cli(tmp_path, mechanism, capsys)
     for frame in frames:
         names = {a.get("Name") for a in frame.findall("Attribute")}
         assert {"Displacement", "S_CELL", "AGE_CELL"} <= names
+        if assumption == "plane_stress":
+            assert "F_CELL" in names
+
+
+@pytest.mark.parametrize("mechanism", ["viscoelastic", "damage"])
+def test_four_file_cli_pause_restart_matches_continuous(tmp_path, mechanism):
+    from agentfem import cli, results
+
+    source = Path(__file__).parents[1] / "examples/history_material"
+    for name in ("case.py", "material.py", "agentfem.toml", "README.md"):
+        shutil.copy2(source / name, tmp_path / name)
+
+    def execute(name, *extra):
+        assert (
+            cli.main(
+                [
+                    "run",
+                    "--project",
+                    str(tmp_path),
+                    "--name",
+                    name,
+                    "--",
+                    "--material",
+                    mechanism,
+                    "--assumption",
+                    "plane_stress",
+                    *extra,
+                ]
+            )
+            == 0
+        )
+
+    execute("pause", "--until", "0.5")
+    first = tmp_path / "outputs/001-pause"
+    record = json.loads((first / "result.json").read_text())
+    assert record["status"] == "partial"
+    assert record["trust_level"] == "computed"
+    assert record["metadata"]["solve"]["equilibrium_converged"]
+    assert not record["metadata"]["solve"]["path_complete"]
+    assert record["metadata"]["solve"]["physical_time"] == 1.0
+    assert len(ET.parse(first / "results.xdmf").findall(".//Time")) == 8
+    checkpoint = first / "accepted.npz"
+    assert checkpoint.exists() and not (first / "final.npz").exists()
+    execute("resume", "--restart", str(checkpoint))
+    execute("whole")
+    resumed, full = (
+        tmp_path / f"outputs/{name}" for name in ("002-resume", "003-whole")
+    )
+    with (
+        np.load(resumed / "final.npz") as actual,
+        np.load(full / "final.npz") as expected,
+    ):
+        assert actual.files == expected.files
+        for key in actual.files:
+            if actual[key].dtype.kind in "fiu":
+                np.testing.assert_allclose(
+                    actual[key], expected[key], rtol=1e-9, atol=1e-10
+                )
+    manifest = json.loads((resumed / "result.json").read_text())
+    assert manifest["status"] == "completed"
+    assert manifest["metadata"]["solve"]["path_complete"]
+    assert manifest["metadata"]["field_output"]["start_time"] == 1.0
+    joined = results.join_xdmf_segments(
+        [first / "results.xdmf", resumed / "results.xdmf"],
+        tmp_path / "joined.xdmf",
+        expected_times=np.linspace(0.125, 2.0, 16),
+    )
+    assert len(ET.parse(joined).findall(".//Time")) == 16
+
+
+@pytest.mark.parametrize(
+    "until", [0, -0.1, 1.1, float("nan"), float("inf"), True, 0.25]
+)
+def test_invalid_result_pause_does_not_open_output(tmp_path, until):
+    step, _ = build()
+    step.solve(until=0.5)
+    with pytest.raises(ValueError, match="until"):
+        step.solve_result(until=until, output=tmp_path / "invalid.xdmf")
+    assert not list(tmp_path.iterdir())
+    assert step.accepted_load_factor == 0.5
+
+
+def test_current_accepted_result_can_be_published_without_advancing(tmp_path):
+    step, material = build()
+    step.solve(until=0.5)
+    material.update = lambda point: (_ for _ in ()).throw(
+        AssertionError("No reintegration")
+    )
+    result = step.solve_result(until=0.5, output=tmp_path / "accepted.xdmf")
+    assert result.status == "partial"
+    assert result.trust_level == "computed"
+    assert not result.verification.converged
+    with pytest.raises(RuntimeError, match="below required"):
+        result.verification.require("verified")
+    assert len(ET.parse(tmp_path / "accepted.xdmf").findall(".//Time")) == 1
+    assert step.time == 1.0
 
 
 @pytest.mark.parametrize("mechanism", ["viscoelastic", "damage"])
@@ -138,6 +239,107 @@ def build(
         **options,
     )
     return step, material
+
+
+@pytest.mark.parametrize("change", ["increment_policy", "prescribed_target"])
+def test_live_path_configuration_cannot_drift_from_checkpoint_identity(
+    change, tmp_path
+):
+    step, _ = build()
+    step.solve(until=0.5)
+    if change == "increment_policy":
+        step.incrementation = steps.fixed(8)
+    else:
+        constant, target = step.prescribed[-1]
+        step.prescribed[-1] = (constant, target + 0.1)
+    before = step.solution.x.array.copy()
+    for action in (step.solve, lambda: step.save_checkpoint(tmp_path / "invalid")):
+        with pytest.raises(ValueError, match="scientific inputs changed"):
+            action()
+    np.testing.assert_array_equal(step.solution.x.array, before)
+    assert not (tmp_path / "invalid.npz").exists()
+
+
+@pytest.mark.parametrize(
+    "change", ["history", "stress", "tangent", "time", "load", "boundary"]
+)
+def test_external_accepted_material_field_mutation_is_rejected(change, tmp_path):
+    step, _ = build()
+    step.solve(until=0.5)
+    if change == "time":
+        step.accepted_load_factor += 0.1
+    elif change == "load":
+        step.load_factor.value += 0.1
+    elif change == "boundary":
+        step.prescribed[0][0].value += 0.1
+    else:
+        selected = {
+            "history": next(iter(step.state.committed.values())).function,
+            "stress": step.response.cauchy_stress.function,
+            "tangent": step.response.tangent.function,
+        }[change]
+        selected.x.array[0] += 0.1
+    before = step.accepted_load_factor
+    for action in (
+        step.solve,
+        step.reaction_field,
+        lambda: step.save_checkpoint(tmp_path / "invalid"),
+        lambda: step.solve_result(output=tmp_path / "invalid.xdmf"),
+    ):
+        with pytest.raises(ValueError, match="outside the accepted Step state"):
+            action()
+    assert step.accepted_load_factor == before
+    assert not list(tmp_path.iterdir())
+
+
+@pytest.mark.parametrize("change", ["displacement", "history", "stress"])
+def test_accept_observer_cannot_mutate_even_the_final_increment(change):
+    step, _ = build()
+
+    def corrupt_final(accepted):
+        if accepted.accepted_load_factor == 1:
+            selected = {
+                "displacement": accepted.solution,
+                "history": next(iter(accepted.state.committed.values())).function,
+                "stress": accepted.response.cauchy_stress.function,
+            }[change]
+            selected.x.array[0] += 0.1
+
+    with pytest.raises(ValueError, match="outside the accepted Step state"):
+        step.solve(on_accept=corrupt_final)
+    assert not step._busy
+
+
+def test_reporter_cannot_modify_accepted_state_before_field_publication():
+    holder = {}
+
+    class MutatingReporter:
+        def emit(self, event):
+            if event.kind == "increment_converged":
+                holder["step"].response.cauchy_stress.function.x.array[0] += 0.1
+
+    step, _ = build(progress=MutatingReporter())
+    holder["step"] = step
+    published = []
+    with pytest.raises(ValueError, match="outside the accepted Step state"):
+        step.solve(on_accept=lambda value: published.append(value.time))
+    assert not published
+    assert step.accepted_load_factor == 0.25
+
+
+def test_invalid_live_history_cannot_be_laundered_by_failed_restore(tmp_path):
+    step, _ = build()
+    step.solve(until=0.5)
+    valid = step.save_checkpoint(tmp_path / "valid")
+    next(iter(step.state.committed.values())).function.x.array[0] += 0.1
+    with pytest.raises(ValueError, match="outside the accepted Step state"):
+        step.load_checkpoint(valid)
+    with pytest.raises(ValueError, match="outside the accepted Step state"):
+        step.save_checkpoint(tmp_path / "invalid")
+    restored, _ = build()
+    restored.load_checkpoint(valid)
+    restored.solve()
+    assert restored.time == 2.0
 
 
 @pytest.mark.parametrize("mechanism", ["viscoelastic", "damage"])
@@ -274,7 +476,12 @@ def test_failure_restores_accepted_responses(tmp_path):
 
 @pytest.mark.parametrize(
     "change, message",
-    [("gradient", "disagree"), ("translation", "prescribed boundary")],
+    [
+        ("gradient", "disagree"),
+        ("translation", "prescribed boundary"),
+        ("complex_displacement", "finite real"),
+        ("complex_history", "finite real"),
+    ],
 )
 def test_corrupt_response_restore_is_atomic(tmp_path, change, message):
     step, _ = build()
@@ -284,6 +491,10 @@ def test_corrupt_response_restore_is_atomic(tmp_path, change, message):
         payload = {name: source[name].copy() for name in source.files}
     if change == "gradient":
         payload["F"] *= 1.01  # Finite, positive but inconsistent with saved U.
+    elif change == "complex_displacement":
+        payload["U"] = payload["U"].astype(complex) + 1j
+    elif change == "complex_history":
+        payload["state_0"] = payload["state_0"].astype(complex) + 1j
     else:
         payload["U"] += 0.1  # Same F, but incompatible with essential BCs.
     corrupt = tmp_path / "corrupt.npz"
@@ -347,6 +558,9 @@ def test_result_output_mixed_fields_at_every_time(tmp_path, dimension):
 def test_material_cutback_subdivides_physical_time_without_pollution():
     class LimitedMaterial(HistoryMaterial):
         def update(self, point):
+            assert point.time == pytest.approx(
+                point.state_old[-1] + point.time_increment
+            )
             response = super().update(point)
             return replace(
                 response,
@@ -387,6 +601,21 @@ def test_changed_restart_identity_is_rejected(tmp_path, change):
     with pytest.raises(ValueError, match="identity differs"):
         target.load_checkpoint(path)
     assert np.max(np.abs(target.solution.x.array)) == 0
+
+
+def test_unreduced_checkpoint_keeps_original_identity_shape(tmp_path):
+    step, _ = build()
+    step.solve(until=0.5)
+    path = step.save_checkpoint(tmp_path / "unchanged-format")
+    with np.load(path) as archive:
+        identity = json.loads(str(archive["identity"].item()))
+        assert "plane_stress" not in identity
+        assert (
+            str(archive["schema"].item()) == "agentfem.finite-strain-material-step.v1"
+        )
+    restored, _ = build()
+    restored.load_checkpoint(path)
+    restored.solve()
 
 
 @pytest.mark.parametrize("mechanism", ["viscoelastic", "damage"])
@@ -524,6 +753,9 @@ def test_output_failure_keeps_restartable_accepted_state(tmp_path, monkeypatch):
     "option, value, error",
     [
         ("duration", 0.0, ValueError),
+        ("duration", np.complex128(1 + 1j), ValueError),
+        ("duration", [1.0], ValueError),
+        ("properties", np.array([1j]), ValueError),
         ("time_unit", "", ValueError),
         ("temperature", 300.0, TypeError),
     ],
@@ -593,7 +825,7 @@ def test_unsupported_2d_reductions_are_not_inferred(kind):
     )
     u = model.field(fields.displacement(domain))
     model.material(HistoryMaterial())
-    with pytest.raises(NotImplementedError, match="plane strain"):
+    with pytest.raises(NotImplementedError, match="AFM-USER-FINITE-REDUCTION"):
         model.step(target=u, duration=1.0, progress=False)
 
 

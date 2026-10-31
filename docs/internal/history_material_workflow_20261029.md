@@ -139,7 +139,10 @@ source import path rather than the older installed package.
 
 ## Next reduction gate: reuse, do not truncate
 
-This is a design boundary, **not an implemented capability of this Step**.
+This was the next gate at the initial workflow submission. Its subsequently
+implemented bounded slice is documented in
+[the plane-stress record](history_plane_stress_20261029.md); the broader
+anisotropic/director scope remains unimplemented.
 AgentFEM already has specialized plane-stress StVK and hyperelastic routes in
 `constitutive/geometric_elasticity.py` and `constitutive/hyperelasticity.py`.
 The missing piece is reduction of a replaceable **history-dependent** material

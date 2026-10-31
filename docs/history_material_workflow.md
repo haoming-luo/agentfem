@@ -10,7 +10,7 @@ local update, not another global solver. An ordinary case still uses
 `Study → Model → material/boundaries → model.step → SimulationResult`.
 The current admission is serial, one homogeneous material, strong prescribed
 displacements and reference dead loads, in 3D or explicitly declared 2D plane
-strain. It is not a hydrogel-specific solver or automatic multiaxial inference
+strain/limited plane stress. It is not a hydrogel-specific solver or automatic multiaxial inference
 from a uniaxial calibration.
 Displacement must be a standalone H1-conforming vector field with one component
 per spatial dimension. DG fields require interface terms, and a mixed-field
@@ -20,12 +20,14 @@ subspace cannot silently discard its pressure equation. Both are rejected.
 
 [`examples/history_material`](https://github.com/haoming-luo/agentfem/tree/main/examples/history_material)
 contains four files: `case.py`, `material.py`, `agentfem.toml`, and `README.md`.
-With an installation exposing `mechanics.FiniteStrainMaterialStep`, run:
+With an installation exposing `mechanics.FiniteStrainMaterialStep(checkpoint=...)` and
+`constitutive.PlaneStressReduction` (checked by the project manifest), run:
 
 ```sh
 agentfem check
 agentfem run --name viscous -- --material viscoelastic
 agentfem run --name damage -- --material damage
+agentfem run --name plane-stress -- --material viscoelastic --assumption plane_stress
 ```
 
 Only the local material changes. Both use the same plane-strain structure,
@@ -44,6 +46,9 @@ step = model.step(
     amplitude=cycle,
     incrementation=steps.fixed(16),
     output=run.artifact("results.xdmf"),
+    checkpoint=checkpointing.every(
+        4, directory=run.artifact("checkpoints"), keep_last=2
+    ),
 )
 result = step.solve_result()
 run.publish(result)
@@ -88,6 +93,58 @@ with `F33=1` and zero out-of-plane shear. It neither solves plane stress nor
 guesses missing transverse constitutive behavior. Initial displacement is zero;
 the material author must choose a compatible initial reference state.
 
+## Explicit plane-stress reduction
+
+For a compatible **three-dimensional** law, use a 2D `plane_stress` Study and
+add this option to the same `model.step(...)`:
+
+```python
+plane_stress=constitutive.PlaneStressReduction(symmetry="reflection_symmetric")
+```
+
+The declaration asserts that the material and its accepted history preserve
+reflection symmetry about the model plane. It is not inferred from one stress
+sample or from a uniaxial calibration. The current bounded reduction admits
+block-diagonal `F` with positive `F33`; at every quadrature point it solves
+`P33=0` using a safeguarded local Newton iteration on `log(F33)`. Every candidate
+reuses exactly the same old state, old full `F`, endpoint time and physical `dt`.
+Transverse shear stress and tangent coupling are checked. A positive transverse
+algorithmic stiffness is required; failure rejects the global attempt and the
+usual increment policy controls cutback.
+
+For in-plane components `a=(11,12,21,22)`, the derivative supplied to structural
+assembly is `A_aa - A_a33 * A_33a / A_3333`, using the **full discrete update's**
+`dP/dF`. The original material output is not modified: Cauchy stress is converted
+using the actual 3D determinant and effective `F`, not an `F33=1` surrogate.
+`constitutive.reduce_plane_stress(material, point, reduction=policy)` exposes
+the same uncommitted material-point calculation, returning the original 3D
+response and a separate 4×4 reduced tangent. Scalar local iterations currently
+call `update`; they do not imply a vectorized material-batch speedup.
+
+Use `constitutive.check_material_tangent(material, point)` for the complete
+3D law, then `constitutive.check_plane_stress_tangent(material, point,
+reduction=policy)` for the reduced discrete derivative. The latter independently
+resolves transverse equilibrium for each positive/negative in-plane
+perturbation and returns explicit 4×4 component-order evidence. It does not
+replace missing tangents, commit history, switch to one-sided differences or
+claim experimental validation. For nonsmooth laws, check each smooth branch
+separately; choose perturbations resolvable above the local solve tolerance.
+
+Effective 3D `F`, including accepted thickness stretch, belongs to the shared
+trial/commit/rollback and checkpoint lifecycle. The result includes raw `F`
+and recovered `F_CELL`; its `(2,2)` component is the thickness stretch. Default
+visualization remains a 2D reference surface, not an extruded thickness mesh.
+2D forces/energies are per unit reference thickness. Local relative tolerance
+uses a physical stress scale (not an arbitrary unit-sized floor); optional
+absolute tolerance has the material's stress unit and is part of restart identity.
+
+This is **not** general anisotropic plane stress, finite-rotation shells,
+membrane directors, mixed incompressibility, or automatic multiaxial physics.
+Out-of-plane rotation/shear and singular or negative transverse stiffness are
+rejected. A compatible initial reference state is still the author's
+responsibility. A 1D calibrated law still needs explicit transverse/shear/
+volume assumptions before it can be used here.
+
 ## Who owns history and failure
 
 - The material computes a candidate response from the input old state. It must
@@ -104,6 +161,19 @@ the material author must choose a compatible initial reference state.
   reconstruct stress. Accepted response arrays are part of restart state.
 
 `step.solve(until=0.5)` pauses at normalized coordinate 0.5.
+`step.solve_result(until=0.5, output="first.xdmf")` also publishes that accepted
+segment through the standard result interface. A paused result has
+`status="partial"`, `equilibrium_converged=True` and `path_complete=False` in
+its solve metadata. The existing `converged` flag remains a full-path flag.
+The trust report identifies a **computed accepted segment**, not uncomputed
+data, complete-path convergence or independent scientific verification.
+The physical time and requested/accepted coordinates are explicit. At an
+already accepted coordinate, this method can publish current state without
+reintegration; it cannot synthesize past fields. Values before the accepted
+coordinate, zero, nonfinite values and booleans are rejected before output is
+opened. Continuation writes to a new path; preserve or join both segments.
+Choose an existing path station to preserve the original increment partition;
+an extra pause station is a different time discretization for history laws.
 `step.save_checkpoint(path)` requires an accepted state; `load_checkpoint(path)`
 checks mesh/space, schema, parameters, loading, duration, response arrays and
 the accepted/attempted time ledger before changing live state. It also checks
@@ -111,6 +181,52 @@ displacement/gradient consistency and the prescribed boundary values at the
 saved time. Restore failure is atomic. This first checkpoint format is serial
 and same-layout only.
 Changing rank count or remeshing is not supported by this Step.
+
+### Automatic accepted-state checkpoints
+
+Use the existing `checkpointing.every(...)` policy in `model.step(checkpoint=...)`.
+Cadence counts **globally accepted increments**, including those restored from
+an earlier checkpoint, not Newton iterations or failed attempts. `final=True`
+also saves the endpoint of a requested solve segment, including a planned pause;
+`final=False` saves only the cadence stations. An arbitrary interruption may
+therefore require recomputing at most the unsaved accepted interval. It never
+implies every completed increment was durable.
+
+Saving follows numerical acceptance and precedes optional field output and
+progress callbacks. The payload is atomically published through the shared
+archive writer; a small discovery sidecar follows. If writing fails, the solve
+raises without numerical cutback, preserving live accepted state, earlier
+archives and already published frames. A complete payload is independently
+restorable even if its discovery sidecar could not be written. Only after
+successful payload and sidecar publication does `keep_last` remove old scheduled
+checkpoints. Manual saves, restart sources and files left by earlier processes
+are not adopted or deleted. Thus retention applies to the current Step's
+scheduled records, not a blanket disk quota across restarts.
+
+Use a new run-owned checkpoint directory for an independent simulation. A
+scheduled filename collision is an error, never permission to overwrite old
+evidence. Cadence and destination are operational policy, not material identity:
+a fresh compatible Step can restore using a different directory or cadence.
+`every`/`keep_last` require positive integers, flags require booleans and
+`prefix` is a filename prefix, not a path. This prevents accidental truncation
+or escaping the declared output directory.
+
+The educational case keeps the latest two scheduled archives (every four
+accepted increments) and a convenient `accepted.npz`/`final.npz` end-of-segment
+archive. No observer or checkpoint-writing loop belongs in the case. There is
+no automatic save of a failed trial state and no new cross-rank portability.
+
+Accepted fields are observations, not editable initial conditions. Do not modify
+displacement, committed history, stress/tangent, physical-time position or live
+loading constants through their array views. The Step detects such changes at
+continuation, reaction/output and checkpoint boundaries, including after an
+accepted-state observer. Prescribed targets and the increment policy must also
+remain consistent with the Step's construction identity. To run a different
+problem, construct another Step; do not reuse an old checkpoint identity.
+If external code has already corrupted live state, restore a valid checkpoint
+into a fresh compatible Step. Detection does not reconstruct overwritten arrays
+or authenticate arbitrary archive edits. Ordinary numerical failure still uses
+the existing atomic trial rollback, without this user intervention.
 
 ## Results that can be viewed directly
 
@@ -141,8 +257,19 @@ stress, reaction or recovered `*_CELL` names. Collisions fail during Step
 construction rather than silently replacing fields during publication.
 
 A restored Step writes a new visualization segment and records its restart
-source. It cannot invent fields that were not saved in the old run. Compatible
+source. It first publishes the restored accepted boundary, without integrating
+the material again. This covers a process exit after checkpoint publication but
+before field publication. If both segments contain that boundary, the joined
+view checks every field and retains one identical frame. It cannot invent
+fields that were not saved in the old run. Compatible
 saved segments can be joined with the existing zero-copy continuation view.
+If the restored checkpoint is older than the last saved field frame, the
+recomputed interval overlaps old output. Opt in to
+`results.join_xdmf_segments(..., overlap="identical")` to compare all overlapping
+stations and every saved array exactly before deduplication. Different time
+partitions, mesh/schema changes or conflicting arrays are rejected, not hidden
+by a "latest wins" rule. The default still admits only one identical boundary.
+This is a visualization consistency check, not a material/restart certification.
 Numerical acceptance precedes output: an I/O failure preserves the last
 accepted restartable state and the already published frames.
 Progress-reporting failures are not material rejections and do not trigger
@@ -162,8 +289,17 @@ VTK reading/warping. `tests/test_live_xdmf.py` also checks process interruption
 and concurrent reading of closed published frames. These verify the bounded
 workflow, not arbitrary user constitutive physics.
 
+`tests/test_history_plane_stress.py` additionally checks independent scalar
+force-controlled history solutions, a separate Neo-Hookean thickness solution,
+the condensed local and assembled structural tangents on both smooth history
+branches, degree-one/two patches, unit rescaling, in-plane rotation, cutback,
+thickness-aware restart, readable interrupted/continued frames, nonuniform
+damage spatial refinement, viscous time refinement, independent uniaxial J2
+local reduction and real VTK/Warp reading of stress and `F_CELL`.
+None of these tests calibrates a user material or promotes arbitrary laws.
+
 Unsupported combinations fail explicitly: MPI, contact/weak boundaries, MPC,
-regional materials, mixed pressure, plane stress, temperature histories,
+regional materials, mixed pressure, undeclared/general plane stress, temperature histories,
 undeclared/spatial tangents, arbitrary UMAT conversion and declarative
 `OutputPlan`. The required Newton policy raises on exhausted increments;
 non-raising failure mode is not admitted yet. Nearly incompressible materials
@@ -176,6 +312,59 @@ For a nonsmooth constitutive switch, test each smooth branch and the switch
 separately; a centered difference across the switch is not its one-sided
 algorithmic derivative. Solver completion remains distinct from verification
 and experimental validation.
+The full 3D tangent checker reports `one_sided_components` if a negative
+perturbation would invert `F`; such evidence is labeled mixed difference, not
+central difference. The reduced checker instead rejects inadmissible
+perturbations. Both normalize error arithmetic before forming norms, so stress
+unit scaling does not turn a wrong tangent into a passing zero-error check.
+Perturbations too small to change the stored gradient are rejected explicitly.
+Both checkers isolate every provider request, including the baseline and local
+plane-stress iterations. If `update()` changes an input array (`F_old`, `F_new`,
+old state, properties or external fields), verification rejects it with
+`AFM-MATERIAL-INPUT-MUTATION` and leaves the caller's request unchanged. Return
+trial history in `state_new`; do not edit committed input history. This audit
+runs in verification only, not every production integration-point update. It
+does not prove the absence of hidden mutable state in an arbitrary provider.
+The small-strain checker follows the same isolation and unit-robust error rules,
+while keeping its own stress/strain and shear convention. Scalar and batch
+Cauchy-stress symmetry checks normalize each point independently; a large
+neighboring stress cannot hide a smaller point's nonsymmetric response.
+These material contracts are real-valued. Complex gradients, states, stresses
+or tangents are rejected before conversion instead of losing their imaginary
+parts; a complex-valued frequency-domain constitutive contract is a separate
+capability. The same rule applies before restoring this Step's state arrays.
+
+### Rotation evidence without guessed history frames
+
+`constitutive.check_material_rotation(material, point, Q, state_frames=...)`
+compares a discrete update with its observer-rotated counterpart. It checks
+Cauchy stress, first Piola stress, the full declared `dP/dF` and each named
+history variable separately. `old_rotation=Qn` can differ from `Q`; omitting it
+tests a constant observer rotation. All rotations must be proper orthogonal
+3×3 matrices. The test does not rotate material axes in the reference body and
+therefore does not assume isotropy.
+
+Every state name needs an explicit transformation declaration:
+
+- `invariant`: scalar, reference-frame or corotated history unchanged by the
+  selected spatial observer transformation;
+- `spatial_vector`: `Q @ v`, with declared shape `(3,)`;
+- `spatial_tensor`: `Q @ T @ Q.T`, with declared shape `(3, 3)`.
+
+The old history uses `Qn`, returned history uses `Q`. A mixed tensor with only
+one spatial index is not a spatial second-order tensor: use a separately
+verified adapter rather than selecting a convenient frame. Nonempty external
+field arrays are rejected because their frames have not been declared. Material
+properties must be scalar/reference parameters; scalar temperatures are unchanged.
+
+Errors use independent channel norms. Optional `stress_scale` and named
+`state_scales` are positive characteristic values in the corresponding physical
+units and are recorded in the evidence. Supply meaningful scales when testing
+near-zero responses; there is no hidden unit-size absolute tolerance. A large
+age variable cannot conceal a small strain-history error. A passing covariance
+check is not a passing derivative check: run `check_material_tangent` too, over
+loading, unloading and hold states. Neither one-point test proves path-wide
+objectivity, thermodynamics, stability, or agreement with experiments.
 
 ## Extension authors
 
@@ -196,3 +385,23 @@ and [DOLFINx external constitutive operators](https://a-latyshev.github.io/dolfi
 keep local integration separate from global residual/tangent assembly.
 AgentFEM reuses its own existing material and state contracts; it does not add
 an MGIS or JAX runtime dependency for this workflow.
+
+The transverse solve and tangent condensation follow the established local
+plane-stress strategy discussed in [Ahmadi et al., plane stress in finite
+deformation hyperelasticity](https://arxiv.org/html/2410.22562v1). Here it is
+applied to the declared algorithmic tangent of a fixed-old-state history update;
+the paper's hyperelastic evidence alone does not validate history materials.
+The need to differentiate the actual discrete material update, rather than
+substituting a continuum modulus, is also established in
+[Simo and Taylor's consistent tangent work](https://doi.org/10.1016/0045-7825(85)90070-2)
+and [their plane-stress return mapping](https://doi.org/10.1002/nme.1620220310).
+Those papers motivate the consistency requirement; they do not certify this
+generic finite-strain adapter or arbitrary user laws.
+
+The observer transformations follow the
+[Sierra/SM frame-indifference theory](https://www.sandia.gov/files/sierra/SM_Theory_5_20/main/frame_indifference.html):
+`F*=Q F` and `sigma*=Q sigma Q.T`. Differentiating the first-Piola relation
+`P*=Q P` at fixed old state transforms the two spatial indices of `dP/dF`.
+[MFront's generic interface](https://thelfer.github.io/tfel/web/generic-behaviours-interface.html)
+also keeps stress measures, tangent measures and rotation operations explicit;
+its material-frame rotation helpers are not a substitute for this observer test.

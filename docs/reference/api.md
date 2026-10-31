@@ -342,9 +342,9 @@ and evidence remain in the linked guides and scientific function reference.
 | function | `plane_stress_uniaxial_deformation_gradient(axial_stretch: float, properties: PlaneStressNeoHookeanProperties \| MooneyRivlinProperties, *, tolerance: float = 1e-12, maximum_iterations: int = 30) -> np.ndarray` | Return homogeneous uniaxial ``F2`` with traction-free lateral faces. |
 | function | `supports_hyperelastic_study(properties, *, dimension: int, assumption) -> bool` | Return whether one material has a formulation for the declared Study. |
 | class | `MaterialPointBatchResult` | Responses from one atomic integration-point constitutive update. |
-| class | `MaterialQuadratureResponse` | Quadrature stress/tangent fields sharing one typed state transaction. |
+| class | `MaterialQuadratureResponse` | Quadrature assembly fields sharing one typed state transaction. |
 | class | `SmallStrainMaterialQuadratureResponse` | Rollback-safe local state and fields for a generic small-strain material. |
-| function | `update_material_points(material: UserMaterial \| QuadratureMaterialMap, state: MaterialQuadratureState, *, deformation_gradient_old, deformation_gradient_new, time: float, time_increment: float, properties = (), temperature = None, temperature_increment = None, field_variables = None, commit: bool = False, max_batch_points: int = 1024) -> MaterialPointBatchResult` | Update every local quadrature point as one rollback-safe transaction. |
+| function | `update_material_points(material: UserMaterial \| QuadratureMaterialMap, state: MaterialQuadratureState, *, deformation_gradient_old, deformation_gradient_new, time: float, time_increment: float, properties = (), temperature = None, temperature_increment = None, field_variables = None, commit: bool = False, max_batch_points: int = 1024, plane_stress: PlaneStressReduction \| None = None) -> MaterialPointBatchResult` | Update every local quadrature point as one rollback-safe transaction. |
 | class | `ChabocheCombinedHardening` | Small-strain J2 plasticity with nonlinear combined hardening. |
 | class | `ChabocheState` | History for small-strain combined isotropic/kinematic hardening. |
 | class | `J2LinearIsotropicHardening` | Rate-independent von Mises plasticity with linear isotropic hardening. |
@@ -383,6 +383,13 @@ and evidence remain in the linked guides and scientific function reference.
 | class | `MaterialPointArrayBatchInput` | Read-only finite-strain arrays sharing one schema, time and parameter set. |
 | class | `MaterialPointArrayBatchOutput` | Stress, declared tangent and uncommitted state in matching point order. |
 | function | `validated_material_array_batch_update(material: UserMaterial, request: MaterialPointArrayBatchInput) -> MaterialPointArrayBatchOutput` | Validate one columnar batch; failures never silently fall back. |
+| class | `PlaneStressReduction` | Explicit reflection-symmetric planar assumption and local solve policy. |
+| class | `PlaneStressPointResponse` | Uncommitted original 3D material response plus its planar reduction. |
+| class | `PlaneStressTangentCheck` | Fixed-old-state numerical evidence for the reduced 4-by-4 derivative. |
+| function | `reduce_plane_stress(material, point: MaterialPointInput, *, reduction: PlaneStressReduction)` | Solve P33=0 with fixed old state/time and condense the discrete tangent. |
+| function | `check_plane_stress_tangent(material, point: MaterialPointInput, *, reduction: PlaneStressReduction, relative_step: float = 1e-06, tolerance: float = 1e-05) -> PlaneStressTangentCheck` | Check the reduced derivative by independently resolving each perturbation. |
+| class | `MaterialRotationCheck` | Measured covariance of one discrete update, not global objectivity proof. |
+| function | `check_material_rotation(material, point: MaterialPointInput, rotation, *, state_frames: Mapping[str, str], old_rotation = None, tolerance: float = 1e-08, stress_scale: float \| None = None, state_scales: Mapping[str, float] \| None = None) -> MaterialRotationCheck` | Check stress, dP/dF and named history under declared observer rotations. |
 | class | `MaterialApplicabilityError(status: str, message: str) -> None` | A material refused to extrapolate or accepted state was invalid. |
 | class | `MaterialParameter` | One named, unit-aware constitutive parameter. |
 | class | `MaterialParameterSchema` | Stable named parameter layout for native and external materials. |
@@ -552,7 +559,7 @@ and evidence remain in the linked guides and scientific function reference.
 
 | Kind | Public object | Purpose |
 | --- | --- | --- |
-| function | `join_xdmf_segments(sources, destination, *, expected_times = None) -> Path` | Publish one temporal index without copying or modifying heavy data. |
+| function | `join_xdmf_segments(sources, destination, *, expected_times = None, overlap = 'boundary') -> Path` | Publish one temporal index without copying or modifying heavy data. |
 | function | `consolidate_xdmf_fields(source, destination) -> Path` | Group synchronized fields on one grid per time, without copying HDF5. |
 | function | `cell_field_from_values(domain, values, *, name, cell_keys = None)` | Create a detached DG0 field from one scalar/vector/tensor per cell. |
 | function | `compare_records(reference: Mapping, candidate: Mapping, *, quantities: Sequence[str] = (), histories: Sequence[str] = (), atol: float = 0.0, rtol: float = 0.0) -> dict` | Compare selected observables with explicit componentwise tolerances. |
@@ -1222,7 +1229,7 @@ and evidence remain in the linked guides and scientific function reference.
 | class | `SmallStrainMaterialPathInfo` | Public AgentFEM object. |
 | class | `SmallStrainMaterialStep` | Implicit Newton Step driven by an ordinary small-strain material. |
 | function | `small_strain_material_step(*, displacement, material, external_force, constraints = (), study = None, incrementation = None, solver_options = None, quadrature_degree = 2, progress = True, status_file = None, amplitude = None, name = 'small_strain_material') -> SmallStrainMaterialStep` | Public AgentFEM object. |
-| class | `FiniteStrainMaterialStep(*, displacement, material, duration, external_force = None, constraints = (), study = None, incrementation = None, solver_options = None, quadrature_degree = 2, amplitude = None, properties = (), name = 'finite_strain_material', progress = True, time_unit = None)` | Experimental serial 3D/plane-strain, strong-BC history-material Step. |
+| class | `FiniteStrainMaterialStep(*, displacement, material, duration, external_force = None, constraints = (), study = None, incrementation = None, solver_options = None, quadrature_degree = 2, amplitude = None, properties = (), name = 'finite_strain_material', progress = True, time_unit = None, plane_stress = None, checkpoint = None)` | Experimental serial 3D/planar, strong-BC history-material Step. |
 | class | `DirectorShellKinematics` | Finite-rotation surface measures at one material point. |
 | class | `FiberCurveKinematics` | Objective bending measures for one material fibre curve. |
 | class | `ReconstructedFiberCurvature` | Owned-cell fibre curvatures plus neighbour reconstruction evidence. |

@@ -850,8 +850,15 @@
         "agentfem.constitutive.MaterialTangentCheck",
         "agentfem.constitutive.UserMaterial",
         "agentfem.constitutive.check_material_tangent",
+        "agentfem.constitutive.check_material_rotation",
+        "agentfem.constitutive.MaterialRotationCheck",
         "agentfem.constitutive.validated_material_update",
-        "agentfem.mechanics.FiniteStrainMaterialStep"
+        "agentfem.mechanics.FiniteStrainMaterialStep",
+        "agentfem.constitutive.PlaneStressReduction",
+        "agentfem.constitutive.PlaneStressPointResponse",
+        "agentfem.constitutive.reduce_plane_stress",
+        "agentfem.constitutive.check_plane_stress_tangent",
+        "agentfem.constitutive.PlaneStressTangentCheck"
       ],
       "related_cards": [
         "agentfem.workflow.physical_field_statistics",
@@ -859,7 +866,7 @@
       ],
       "source": "src/agentfem/knowledge/cards/solver_neutral_user_material_contract.json",
       "status": "experimental",
-      "summary": "Versioned internal variables and explicit stress/tangent conventions, with a bounded serial 3D/plane-strain global Newton consumer, physical-time cutback, atomic same-layout restart and single-grid accepted output.",
+      "summary": "Versioned internal variables and explicit stress/tangent conventions, with a bounded serial 3D/plane-strain or declared reflection-symmetric plane-stress global Newton consumer, physical-time cutback, atomic same-layout restart and single-grid accepted output.",
       "title": "Solver-neutral finite-strain user-material contract"
     },
     {

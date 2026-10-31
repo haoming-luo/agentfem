@@ -109,6 +109,23 @@ def test_summary_bounds_file_list_without_changing_manifest(tmp_path):
     assert data == original
 
 
+@pytest.mark.parametrize("case", ["unassessed", "failed_claim", "required_quality"])
+def test_empty_evidence_is_not_presented_as_a_failed_verification(tmp_path, case):
+    from agentfem import presentation
+    data = record()
+    data["status"] = "partial"
+    data["verification"] = {"acceptable": False, "claims": []}
+    if case == "failed_claim":
+        data["verification"]["claims"] = [{"name": "equilibrium", "status": "failed"}]
+    elif case == "required_quality":
+        data["verification"]["minimum_trust_level"] = "verified"
+    original = copy.deepcopy(data)
+    text = presentation.format_result(data, tmp_path / "result.json")
+    assert ("verification: not assessed" in text) == (case == "unassessed")
+    assert ("verification: not accepted" in text) == (case != "unassessed")
+    assert data == original  # Human wording never changes the actual decision.
+
+
 def test_malformed_artifacts_and_string_selection(tmp_path, capsys):
     with pytest.raises(ValueError, match="AFM-COMPARE-SELECTION"):
         compare_records(record(), record(), quantities="displacement")

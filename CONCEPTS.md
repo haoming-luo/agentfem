@@ -327,8 +327,14 @@ The local contract supplies Cauchy stress; the driver transforms it to first
 Piola for total-Lagrangian assembly. A positive physical duration maps the
 normalized path to material time. Candidate evaluations never commit history;
 accepted response fields are restored directly rather than reconstructed with
-an invented time increment. The first scope is serial homogeneous 3D or plane
-strain, with strong constraints/reference dead loads and same-layout restart.
+an invented time increment. The scope is serial homogeneous 3D, plane strain,
+or explicitly declared reflection-symmetric plane stress, with strong
+constraints/reference dead loads and same-layout restart. The bounded
+`PlaneStressReduction` solves positive thickness stretch from transverse
+equilibrium and supplies a separate Schur-condensed in-plane tangent; the
+material retains its full 3D Cauchy response and `dP/dF`. Effective thickness
+belongs to State, not a hidden material or case cache. It is not a shell or
+an automatic multiaxial extension of a one-dimensional experiment.
 No new material-specific Model or Solver API is introduced. See
 `docs/history_material_workflow.md` for limits and executable evidence.
 
@@ -672,6 +678,9 @@ a new result or checkpoint. `results.join_xdmf_segments` checks reference mesh,
 schema, order and shared-boundary values without copying heavy data. Requested
 stations can be audited explicitly; no interpolation or scientific continuity
 is inferred from an ordered visualization.
+An explicit `overlap="identical"` policy can verify and deduplicate an interval
+recomputed from an older checkpoint. It does not select between conflicting
+solution branches or relax exact field equality; the default is boundary-only.
 
 A visualization frame owns one geometry and the point/cell attributes attached
 to that geometry. Element node ordering is a backend output responsibility,

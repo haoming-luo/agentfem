@@ -377,8 +377,15 @@ def _finite_strain_user_material_rejection(model, request: StepRequest):
         return "AFM-USER-FINITE-MPI: implicit user-material MPI is not verified."
     if domain.geometry.dim not in (2, 3) or domain.topology.dim != domain.geometry.dim:
         return "AFM-USER-FINITE-DIMENSION: use a 3D solid or 2D plane strain."
-    if domain.geometry.dim == 2 and getattr(model.study, "assumption", None) != "plane_strain":
-        return "AFM-USER-FINITE-REDUCTION: only explicit plane strain is admitted in 2D."
+    from .constitutive.plane_stress import PlaneStressReduction
+    reduction = request.option("plane_stress")
+    if domain.geometry.dim == 2 and getattr(model.study, "assumption", None) == "plane_stress":
+        if not isinstance(reduction, PlaneStressReduction):
+            return "AFM-USER-FINITE-REDUCTION: plane stress requires an explicit PlaneStressReduction declaration."
+    elif reduction is not None:
+        return "AFM-USER-FINITE-REDUCTION: PlaneStressReduction requires a 2D plane-stress Study."
+    elif domain.geometry.dim == 2 and getattr(model.study, "assumption", None) != "plane_strain":
+        return "AFM-USER-FINITE-REDUCTION: declare plane strain or an admitted plane-stress reduction."
     if model.boundary_models:
         return "AFM-USER-FINITE-BOUNDARY: generic history materials do not yet compose with weak/contact boundaries."
     if len(model.materials) > 1 or any(item.region is not None for item in model.materials):
@@ -1857,7 +1864,7 @@ register_step_provider(
         description="Experimental serial history-material equilibrium with reference dP/dF and physical duration.",
         procedure="standard/newton/stateful",
         option_contract=_option_contract("duration", "incrementation", "quadrature_degree",
-                                         "amplitude", "properties", "progress", "time_unit", required=("duration",)),
+                                         "amplitude", "properties", "progress", "time_unit", "plane_stress", "checkpoint", required=("duration",)),
     )
 )
 register_step_provider(
