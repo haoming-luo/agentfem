@@ -55,6 +55,28 @@ same package path as its parent, for both source and installed-wheel CI. No
 HDF5 integrity or partial-index assertions were relaxed. The failed run is not
 counted as a passing expanded suite; final rerun/CI must close that gate.
 
+The 2026-11-01 continuation found the same unbound child-package risk in the
+live-output interruption test. That child now also asserts the parent's exact
+package path; a startup timeout includes captured output rather than discarding
+the diagnostic. The first retry passed 559 tests but timed out at that child;
+MPI finalization also reported an OFI error on VPN interface `utun4`. It is not
+counted as a pass, and the timeout alone does not establish a writer defect.
+With package binding fixed and process-local `FI_PROVIDER=tcp` (no global MPI
+configuration change), the output-only regression passed 67 tests in 3.19 s.
+The complete affected regression plus documentation tests then passed **604
+tests**, with the same three explicit two-rank skips, in **77.45 s**. Numerical
+thread limits were one; deprecation warnings were errors. No assertion or
+scientific tolerance was relaxed. This closes the local regression gate, not
+the final PR CI gate or distributed history-material admission.
+
+PRs #133 and #134 were already merged. After fresh latest-head CI and dependency
+checks, #135 and #136 were merged on 2026-10-31 UTC (2026-11-01 locally); the
+main tree at `7e6e8216` exactly matches the reviewed #136 source tree. The output
+slice still requires its own CI before merging. The working checkout was moved
+from temporary storage into the persistent development workspace after restoring
+missing tracked files from its committed index; existing file contents were
+not overwritten.
+
 Packaging and CI-scope checks passed 77 tests; repository correctness lint,
 generated documentation and 58 scientific function cards validate. Local
 sandbox MPI initialization failures and intermittent execution-approval timeouts
