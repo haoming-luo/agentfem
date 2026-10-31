@@ -400,6 +400,20 @@ class ImplicitCreepStep:
                                     for item in self.material_points],
                 "point_history_units": None if self.unit_system is None else self.unit_system.summary()}
 
+    def _validate_point_history(self):
+        if self._point_history is None:
+            if self.material_points:
+                raise ValueError("Declare material_points when constructing the Step, not during continuation.")
+            return
+        self._point_history.validate_reference()
+        current = json.loads(json.dumps({
+            "step": self._portable_checkpoint_identity(),
+            "units": None if self.unit_system is None else self.unit_system.summary(),
+        }))
+        if (current != self._point_history.identity["scientific_identity"]
+                or self.time_unit != self._point_history.time_unit):
+            raise ValueError("Material point history scientific contract changed after Step construction.")
+
     @property
     def accepted_factor(self) -> float:
         return self.accepted_time / self.duration
@@ -407,8 +421,7 @@ class ImplicitCreepStep:
     def solve(self, *, until: float | None = None):
         """Advance to a physical time, or to the full step duration."""
 
-        if self._point_history is not None:
-            self._point_history.validate_reference()
+        self._validate_point_history()
         selected_until = self.duration if until is None else float(until)
         if not self.accepted_time < selected_until <= self.duration:
             raise ValueError(
@@ -1231,8 +1244,7 @@ class ImplicitCreepStep:
         return reaction
 
     def save_checkpoint(self, path, *, portable: bool | None = None) -> Path:
-        if self._point_history is not None:
-            self._point_history.validate_reference()
+        self._validate_point_history()
         comm = self.solution.function_space.mesh.comm
         selected_portable = comm.size != 1 if portable is None else bool(portable)
         if selected_portable:
@@ -1293,8 +1305,7 @@ class ImplicitCreepStep:
 
     def load_checkpoint(self, path) -> None:
         """Restore the whole accepted Step or leave every live component intact."""
-        if self._point_history is not None:
-            self._point_history.validate_reference()
+        self._validate_point_history()
         displacement = self.solution.x.array.copy()
         committed = self.state.snapshot()
         trial = {key: value.values.copy() for key, value in self.state.transaction.trial.items()}

@@ -218,3 +218,27 @@ def test_legacy_serial_checkpoint_with_thermal_history_is_compatible(tmp_path):
     resumed = _step(requests=())
     resumed.load_checkpoint(checkpoint)
     assert resumed.accepted_time == resumed.temperature.active_time == 2.
+
+
+@pytest.mark.parametrize("change", ["selection", "time_unit", "amplitude"])
+def test_mutating_point_history_contract_cannot_relabel_past_values(change):
+    step = _step()
+    step.solve(until=1.)
+    original = step._point_history.payload()
+    if change == "selection":
+        step.material_points = (results.material_point("a", cell=1),)
+    elif change == "time_unit":
+        step.time_unit = "h"
+    else:
+        step.amplitude = amplitudes.tabular([0., 4.], [0., .5])
+    with pytest.raises(ValueError, match="scientific contract changed"):
+        step.solve()
+    assert step.accepted_time == 1.
+    assert step._point_history.payload() == original
+
+
+def test_recording_cannot_be_enabled_after_construction():
+    step = _step(requests=())
+    step.material_points = (results.material_point("a", cell=0),)
+    with pytest.raises(ValueError, match="when constructing"):
+        step.solve()

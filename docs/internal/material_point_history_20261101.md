@@ -49,6 +49,10 @@ configuration.
   the final point-history plus documentation/architecture rerun passed **61
   tests** in **29.60 s**. Generated docs and 58 scientific function cards passed
   their freshness checks; correctness lint passed.
+- A subsequent continuation-identity audit refuses changed selections, time
+  units and loading paths, as well as late activation of recording. The final
+  focused suite passed **21 tests in 26.30 s**; the four additional tests check
+  these boundaries without changing constitutive equations.
 - Ordinary CLI example: **16 accepted increments / 16 attempts**, solver-reported
   **3.4 s**. Result trust stays `computed`; final temperature 900 K. This used
   the development checkout, not a new cross-platform installation claim.

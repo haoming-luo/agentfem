@@ -60,6 +60,9 @@ entire selected history, identity and integrity digest. In this consumer, v2
 does **not** imply MPI admission. Changing or removing the selection on restart
 is rejected; missing, corrupted or misaligned history rolls back the entire
 restore, including displacement, constitutive state and thermal time.
+After construction, changing the recording selection, units or scientific
+loading/material/temperature identity is also refused before advance or save;
+past values cannot be relabeled under a new contract.
 
 Sampling is every accepted increment, independent of XDMF frames. Memory and
 archive size scale with selected points and accepted increments, not with all
