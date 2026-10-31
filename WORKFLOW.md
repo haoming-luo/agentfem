@@ -191,7 +191,10 @@ For a custom finite-strain history law, first check the admitted
 [material-only workflow](docs/history_material_workflow.md). Implement the
 local `UserMaterial` update and retain ordinary `model.step(duration=...)`;
 do not duplicate Newton, quadrature transactions or output in a project Step
-provider when the existing serial 3D/plane-strain route applies. Physical time
+provider when the existing serial 3D/plane-strain route applies. For supported
+3D reflection-symmetric laws, a plane-stress Study and explicit
+`PlaneStressReduction` use that same workflow; do not truncate the 3D tangent
+or hide thickness history in the case. Physical time
 and normalized loading coordinate are distinct. Unsupported compositions
 require separate development and verification, not project-level bypasses.
 

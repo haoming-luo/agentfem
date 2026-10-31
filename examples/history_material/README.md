@@ -3,17 +3,24 @@
 This educational project keeps `case.py` as the engineering model and
 `material.py` as two local constitutive updates. There is no project Newton
 loop, quadrature manager, Step provider, mesh writer or checkpoint adapter.
-Use an AgentFEM build exposing `mechanics.FiniteStrainMaterialStep`; an older
+Use an AgentFEM build exposing `mechanics.FiniteStrainMaterialStep` and
+`constitutive.PlaneStressReduction`; an older
 development package with the same version string is not sufficient.
 
 ```sh
 agentfem check
 agentfem run --name viscous -- --material viscoelastic
 agentfem run --name damage -- --material damage
+agentfem run --name plane-stress -- --material viscoelastic --assumption plane_stress
 ```
 
 Both runs use the same finite-strain plane-strain plate, hold/reversal path,
 physical duration and framework solver. Only the local material changes.
+The optional `--assumption plane_stress` retains the same structure and local
+material, adding an explicit reflection-symmetric reduction. It solves positive
+thickness stretch from transverse equilibrium and condenses the full discrete
+material tangent. It is not a truncated plane-strain stiffness or a shell.
+Forces and energies in these 2D examples are per unit reference thickness.
 These are objective Green-strain reference laws with synthetic constants,
 not calibrated hydrogel models or robust large-strain rubber models. The
 damage law is a local demonstration, not a mesh-objective fracture model.
@@ -33,6 +40,32 @@ same-layout serial restart; a resumed run writes a new visualization segment,
 not a second copy of unavailable old fields. The core continuation view can
 join compatible segments without copying heavy data.
 
+## Pause, inspect, and continue
+
+In a fresh project copy, these two ordinary runs pause halfway and then finish:
+
+```sh
+agentfem run --name pause -- --material viscoelastic --assumption plane_stress --until 0.5
+agentfem run --name resume -- --material viscoelastic --assumption plane_stress --restart outputs/001-pause/accepted.npz
+```
+
+Use the actual numbered pause directory if other runs already exist. The first
+run publishes eight frames and `accepted.npz`; its result is explicitly
+`partial`, not a completed physical path. `0.5` is the normalized path position
+(physical time 1 s in this example), not half a second. The command itself exits
+successfully because the requested pause was reached. Inspect its `results.xdmf`
+immediately, without waiting for continuation. The second run publishes the
+remaining eight frames and `final.npz`. Keep the same material, assumption,
+parameters and mesh when restoring. Pausing on an existing station preserves
+the exact original increment partition; inserting an extra station can change
+the time-discretized response of a rate-dependent material.
+
+An unexpected numerical/output failure preserves already published frames but
+does not automatically write a checkpoint in this bounded example. Planned
+pauses save accepted state explicitly; the underlying Step's checkpoint cadence
+remains manual. To join compatible output segments without copying HDF5 data,
+use `results.join_xdmf_segments`; this does not recreate unsaved frames.
+
 ## Scientific and numerical boundaries
 
 - `duration=2.` is physical time in the user's consistent units. The amplitude
@@ -42,7 +75,14 @@ join compatible segments without copying heavy data.
   the constitutive update with fictitious time.
 - Material stress is Cauchy; the tangent is the declared reference 9×9 dP/dF,
   including the discrete history update. The driver converts stress to P.
-- No plane-stress inference, contact/MPC, MPI, temperature-history input or
+- Plane stress requires `constitutive.PlaneStressReduction` and a 3D law whose
+  history preserves the declared reflection symmetry. `F_CELL[2,2]` records
+  thickness stretch; `S_CELL` is actual 3D Cauchy stress, not thickness-scaled.
+  Positive transverse algorithmic stiffness is required. General director/
+  transverse-shear reduction, bending shells and singular softening are not
+  admitted. Scalar local solves currently use the material's `update` method;
+  no batch speedup is claimed for this reduction.
+- No automatic plane-stress inference, contact/MPC, MPI, temperature-history input or
   mixed pressure formulation is admitted by this experimental route.
 - Raw integration-point fields remain in `SimulationResult`; `*_CELL` is an
   explicitly recovered cell average, not a nodal stress or raw quadrature plot.
