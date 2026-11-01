@@ -38,6 +38,7 @@ def test_default_only_plans_one_channel_and_jit_toolchain(environment, tmp_path)
     assert command.count("--channel") == 1
     assert "--no-rc" in command and "--override-channels" in command
     assert {"c-compiler", "cxx-compiler", "python=3.11", "fenics-dolfinx=0.11"} <= set(command)
+    assert {"scipy>=1.11", "matplotlib-base", "gmsh>=4.11", "python-gmsh>=4.11"} <= set(command)
     assert command[command.index("--prefix") + 1] == str(base / "envs/agentfem-env")
     assert not base.exists() and not (tmp_path / "state").exists()
 

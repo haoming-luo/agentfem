@@ -6,6 +6,14 @@ experimental formulation to a validated one.
 
 ## [Unreleased]
 
+- Declare SciPy as a required numerical dependency, fixing upgrades into
+  environments where 0.4.4's optional-extra metadata left it absent. Make
+  Matplotlib and Gmsh standard installation defaults while retaining lazy
+  capability imports. Align online setup, agent guidance and runtime profiles.
+  Doctor now checks core imports (including SciPy's compiled linear algebra)
+  and fails readiness for missing/broken dependencies, not just a missing
+  compiler. Upgrade acceptance still requires a small solve and verification.
+
 - Add accepted-increment `output_every` sampling to the material-only finite-
   strain workflow, always retaining segment endpoints and continuation
   boundaries without changing physical integration or checkpoint retention.

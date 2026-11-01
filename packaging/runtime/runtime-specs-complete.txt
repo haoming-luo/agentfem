@@ -7,6 +7,7 @@ petsc4py
 h5py
 numpy
 scipy
+matplotlib-base
 meshio
 gmsh=4.15.2
 python-gmsh=4.15.2

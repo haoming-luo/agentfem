@@ -7,8 +7,8 @@ petsc4py
 h5py
 numpy
 scipy
+matplotlib-base
 meshio
 pip
 conda
 c-compiler
-
