@@ -1,15 +1,21 @@
 # AgentFEM Workflow
 
-For serial accepted-response histories, `results.AcceptedResponseSeries` with
-`project.RunPolicy(field_intervals=...)` streams process fields independently
-of checkpoint cadence. `completed_checkpoint_keep=1` optionally retains only
-the final owned checkpoint after successful completion/export. See
-`docs/accepted_process_output.md`; output does not change the solve time grid.
-
 AgentFEM uses a standard finite-element workflow. Application code should make
 this sequence visible unless there is a strong reason to encapsulate it.
 
-## Standard Sequence
+For ordinary installed use: **edit → check → run → view**. Use the
+[first project](docs/get_started/index.md) as a starting point. The detailed
+sequence below is a modeling reference, not a checklist to repeat before
+every operation.
+
+## Specialized entry paths
+
+Read this section for history output, restart or Abaqus migration; otherwise
+go to the [standard sequence](#standard-sequence).
+
+For serial accepted-response histories, `results.AcceptedResponseSeries` with
+`project.RunPolicy(field_intervals=...)` streams fields independently of
+checkpoint cadence. See [process output](docs/accepted_process_output.md).
 
 After a supported restart, `results.join_xdmf_segments` can publish a single
 view of existing reference-mesh output segments. Retain source HDF5 files and
@@ -26,6 +32,8 @@ If the narrow native route is eligible, `agentfem lower-abaqus` emits a draft
 only after `--reviewed-by` and `--unit-system` are explicit. Activation remains
 a separate choice; never bypass a blocked finding by editing the decision
 record.
+
+## Standard Sequence
 
 1. Define the study context: analysis type, physics, dimension, and modeling
    assumptions.
@@ -147,10 +155,10 @@ record.
     invariant, discretization, or validation claims when the result will be
     described as verified or validated.
 
-For an existing installed-use project, precede this sequence with
-`agentfem doctor`, `agentfem check`, and `agentfem upgrade`. Only deterministic
-project metadata may be migrated automatically; changes to scientific Python
-require semantic review and re-verification.
+For an existing project, use `agentfem check` before a run. Use `doctor` for
+environment setup/changes or runtime failures, and `upgrade` when investigating
+migration findings. Review changes to scientific Python and recheck the
+affected results; routine model edits do not require a migration audit.
 
 Public discovery is progressive. `agentfem.public_api("core")` is the daily
 engineering language; `"advanced"` adds campaigns, fracture, mechanics, and

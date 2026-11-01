@@ -8,14 +8,15 @@ Windows users: start with the [three-step Windows route](#windows), without
 cloning this repository. For an already downloaded compatible runtime bundle,
 see the optional offline route below.
 
-For new users who do not want to manage a scientific Python environment,
-AgentFEM's release workflow also produces self-contained offline runtime
-installers for Apple Silicon macOS and Windows through WSL2. See
-[Offline Runtime Installers](docs/runtime_installers.md). These packages embed
-the compatible finite-element stack and do not contact conda, PyPI, or GitHub
-during installation.
+Already have a working environment? Reuse it. If you want to try a model,
+use the [optional example](#smoke-test) or run your existing project.
+Offline runtime bundles are an alternative when a release lists a matching
+artifact; see [Offline Runtime Installers](docs/runtime_installers.md).
 
 ## Recommended Environment
+
+Use an existing conda/mamba environment manager, or install
+[Miniforge](https://github.com/conda-forge/miniforge#download) first.
 
 ```bash
 mamba create -n agentfem-env --override-channels -c conda-forge \
@@ -30,6 +31,11 @@ Matplotlib and Gmsh in one environment. No extra request for plotting or
 meshing tools is needed. Conda's `matplotlib-base` provides Matplotlib without
 requiring a desktop GUI toolkit; batch plots work on headless Linux/WSL.
 Gmsh remains optional to use: solving an existing mesh does not import it.
+
+Once the environment check passes, installation is complete. On WSL, also
+prepare the persistent workspace described below. An agent should report
+the version, environment location and readiness, then ask whether you want
+to try a first example. No simulation is required to finish installation.
 
 The explicit Python and DOLFINx versions are the current release-tested
 runtime contract. They also prevent an older solver stack from being selected
@@ -73,8 +79,8 @@ conda search --override-channels \
   agentfem
 ```
 
-For a reproducible run, append the required AgentFEM version, for example
-`agentfem=0.3.3`, and retain the resulting environment specification with the
+For a reproducible run, pin the reviewed AgentFEM version with
+`agentfem=VERSION`, and retain the resulting environment specification with the
 simulation evidence. When a newly published version is not yet visible, run
 `conda clean -i` and query again after the mirror has synchronized. Do not mix
 several conda mirrors or combine `defaults` and `conda-forge` packages in this
@@ -86,7 +92,7 @@ environment already exists:
 ```bash
 python -m pip install \
   --index-url https://pypi.tuna.tsinghua.edu.cn/simple \
-  agentfem
+  agentfem "scipy>=1.11" matplotlib "gmsh>=4.11"
 agentfem doctor
 ```
 
@@ -113,12 +119,13 @@ compatible FEniCSx environment:
 
 ```bash
 mamba create -n agentfem-env --override-channels -c conda-forge \
-  python=3.11 fenics-dolfinx=0.11 mpich mpi4py petsc4py h5py
+  python=3.11 fenics-dolfinx=0.11 mpich mpi4py petsc4py h5py \
+  c-compiler cxx-compiler scipy matplotlib-base gmsh python-gmsh
 mamba activate agentfem-env
 ```
 
 ```bash
-python -m pip install agentfem
+python -m pip install agentfem "scipy>=1.11" matplotlib "gmsh>=4.11"
 ```
 
 For source development, install from the repository root:
@@ -136,7 +143,7 @@ MPI libraries.
 
 **WSL → Ubuntu → AgentFEM. No GitHub clone or AgentFEM installer is required.**
 Already have working Ubuntu/WSL2? Skip straight to the
-[mirror environment command](#mirror-channel--镜像通道) and [first solve](#smoke-test).
+[mirror environment command](#mirror-channel--镜像通道) and readiness check.
 
 For a new machine using the domestic mirror route:
 
@@ -149,8 +156,8 @@ For a new machine using the domestic mirror route:
    prepare a normal account automatically; no shared password or daily root use.
 3. **Install and verify.** Reuse/install Linux Miniforge from its verified
    [TUNA mirror](https://mirrors.tuna.tsinghua.edu.cn/github-release/conda-forge/miniforge/LatestRelease/),
-   use the single-channel command above, then doctor → workspace protection →
-   [installed first solve](#smoke-test).
+   use the single-channel command above, then `agentfem doctor` and
+   `agentfem workspace --protect`. Report readiness: installation is complete.
 
 ```powershell
 wsl --install --no-distribution --web-download
@@ -199,8 +206,11 @@ native Windows FEniCSx/PETSc solver stack.
 
 ## Smoke Test
 
-For an installed environment, no repository clone or downloaded example is
-required. From a Linux/WSL terminal (or an activated macOS environment):
+**Optional: try your first model.** Installation ends after the environment
+readiness check; agents should ask before creating or running an example.
+If the user already requested an example, continue without asking again.
+No repository clone or downloaded example is required. From a Linux/WSL
+terminal (or an activated macOS environment):
 
 ```bash
 agentfem init --template static-solid ~/AgentFEMProjects/install-check
@@ -215,6 +225,8 @@ tools, prefix each command with `mamba run -n agentfem-env` using the installed
 Mamba executable. Shell activation in one tool call is not guaranteed to carry
 over to the next. A successful `doctor` alone is not a successful finite-element
 solve: report the run and verification results separately.
+
+### Developer checks (optional)
 
 For developers working from a repository checkout, the equivalent example is:
 
@@ -241,7 +253,7 @@ Static elasticity result: .../examples_output/static_elasticity_2d.xdmf
 For a two-rank smoke test:
 
 ```bash
-mpiexec -n 2 python examples/static_elasticity_2d.py
+agentfem mpi-run -n 2 --timeout 600 -- python examples/static_elasticity_2d.py
 ```
 
 The C3D10H mixed macro-control reference currently runs in serial:
@@ -270,10 +282,10 @@ Do not recreate a working environment or replace its MPI/PETSc stack blindly.
 Published 0.4.4 omitted SciPy from its required Python metadata. Environments
 without SciPy could therefore pass the old `doctor` and fail on the first
 solve after a pip upgrade. The corrected metadata applies to subsequent
-packages, not to existing 0.4.4 artifacts. A successful package installation
-or `doctor` alone is not upgrade acceptance: rerun a small known project with
-`agentfem check --runtime`, `agentfem run`, and `agentfem verify`, and compare
-its quantities against the previous run. Keep the previous outputs.
+packages, not to existing 0.4.4 artifacts. Confirm environment readiness after
+upgrading. To accept an upgrade for an existing simulation, offer a small known
+project regression: `check --runtime → run → verify`, comparing quantities
+with the previous run. Keep previous outputs and run this only when requested.
 
 ## Additional Tools
 

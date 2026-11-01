@@ -302,7 +302,7 @@ jobs:
           cd "${RUNNER_TEMP}"
           python "${GITHUB_WORKSPACE}/packaging/runtime/setup_environment.py" \
             --manager "${CONDA}/bin/conda" --prefix "${CONDA_PREFIX}" \
-            --no-protect-workspace --apply --json \
+            --no-protect-workspace --apply --first-solve --json \
             --state-root "${RUNNER_TEMP}/onboarding-acceptance"
 
       - name: Retain first-solve onboarding evidence

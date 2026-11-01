@@ -16,7 +16,9 @@ install Ubuntu or AgentFEM. Do not fetch the repository just to run this helper.
 
 The optional Linux helper `python3 packaging/runtime/setup_environment.py
 --channel tuna` plans an environment; `--apply --json` creates a missing one or
-verifies an existing one through first solve. It requires trusted Linux
+verifies an existing one and stops after readiness checks. Add `--first-solve`
+only when the user requested an example (or for explicit developer acceptance).
+It requires trusted Linux
 Miniforge, never silently upgrades an existing environment, and keeps stage
 logs in `~/.local/state/agentfem/setup/`. This helper does not prepare Windows
 or download Miniforge. Use direct installed commands when no checkout exists.
@@ -79,10 +81,10 @@ probe and inspect its code instead of inferring that WSL needs reinstallation.
 6. For a bundle/Store account prompt, let the user enter credentials privately.
    For a newly imported mirror distribution, use the short guide's non-root
    account setup instead; do not force a nonexistent OOBE prompt.
-7. Require project protection, runtime identity/doctor and the installed
-   first-solve check. The bundle runs its fresh-cache acceptance check;
-   Ubuntu/mirror users use INSTALL.md's installed-template check. Report the
-   actual distribution/version and results, not just platform readiness.
+7. For Ubuntu/mirror, finish with runtime identity, doctor and workspace
+   protection. Report readiness and offer an optional example. The current
+   Complete Runtime source installer uses readiness-only checks too. Older
+   bundles may include a packaged solve; do not add another automatically.
 
 ## State and failure handling
 

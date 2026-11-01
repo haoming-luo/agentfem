@@ -9,7 +9,9 @@
 
 - Keep temperature constraints, heat sources, heat fluxes, and convection as
   distinct engineering concepts.
-- Run `agentfem doctor`, `agentfem check`, and `agentfem run` in that order.
+- For a model change: `agentfem check` → `agentfem run` → `agentfem show latest`.
+- Use `agentfem doctor` for setup, environment changes or runtime failures.
+  For a result-only request, view the saved result without starting a new run.
 - Inspect the result manifest referenced by
   `outputs/latest.json` before interpreting the field.
 - Preserve units and sign conventions in every change.

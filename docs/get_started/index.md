@@ -5,9 +5,8 @@ description: "Set up an AgentFEM environment, create a first project and inspect
 
 # Getting started
 
-This section takes a new user from an installed numerical environment to one
-inspectable finite-element result. You do not need to understand the internal
-architecture before running the first model.
+Install once, then **edit → check → run → view**. Start with a small working
+project; learn the underlying concepts as your model needs them.
 
 ## Let your agent install it
 
@@ -15,79 +14,71 @@ Give your agent this prompt; add “use the mirror channel / 走镜像通道” 
 
 ```text
 Install AgentFEM using https://haoming-luo.github.io/agentfem/agentfem.json.
-Detect my platform and reuse a working environment. On Windows follow the
-linked short WSL/Ubuntu route; do not clone the repository first.
-Do the permitted steps. If a step fails, give me one simple manual action,
-then continue after it is resolved. Finish with one installed example and
-briefly report the version, result location and actual verification outcome.
+Detect my platform and reuse a working environment. Follow the linked route.
+Complete the permitted steps; ask me only for approval or an action you
+cannot perform. Check the installed environment, report its version, location
+and readiness, then stop. Ask whether I want to try a first example before
+creating a project or running a simulation.
 ```
 
-This is agent-assisted installation, not a promise to bypass Windows consent
-or restart. [Windows manual/agent path](../windows_agent_installation.md).
+Prefer manual setup? Use [installation](../getting_started.md), or the
+[Windows WSL/Ubuntu route](../windows_agent_installation.md). After installation,
+check the environment once with `agentfem doctor`. On WSL, prepare
+`agentfem workspace --protect` once and keep projects in `~/AgentFEMProjects`.
 
-## Recommended sequence
-
-1. Follow [Installation and first project](../getting_started.md) to create a
-   compatible FEniCSx environment and install AgentFEM.
-2. Run `agentfem doctor` to record the actual numerical stack.
-3. On WSL, run `agentfem workspace --protect` once so projects survive runtime
-   replacement or distribution removal.
-4. Create a project with the `static-solid` template.
-5. Read the generated `case.py`, then run `agentfem check` and `agentfem run`.
-6. Inspect `result.json` and the field output instead of relying only on a
-   successful process exit.
-7. Continue to the [user guide](../guide/index.md) for the nearest physical
-   problem and the [examples](../examples/index.md) for executable evidence.
+Installation is complete when the environment is ready. You can stop here.
+Your agent may offer a first example; it should wait for your choice.
 
 ## First project
 
+When you want to try a small model, run these commands from your project directory:
+
 ```bash
-cd ~/AgentFEMProjects  # recommended durable location on WSL
-mkdir beam
+agentfem init beam --template static-solid
 cd beam
-agentfem init --template static-solid .
 agentfem check
 agentfem run --name baseline
-agentfem runs
 agentfem show latest
 agentfem verify
 ```
 
-The generated project remains ordinary Python:
+`check` checks project structure; `run` executes the model; `show` summarizes
+the latest result; `verify` checks the saved record's provenance.
+The generated `case.py` defines the physics, while `agentfem.toml` holds the
+project name, entrypoint and output location.
 
-```text
-beam/
-├── agentfem.toml
-├── case.py
-├── AGENTS.md
-├── README.md
-└── outputs/
-```
+## View and change the result
 
-`case.py` is the source of modeling truth. `agentfem.toml` contains operational
-project information but does not duplicate the finite-element model.
-
-## Files produced by a run
+Open the reported XDMF file in ParaView. For displacement/stress plots, apply
+Warp By Vector to the reference geometry and color by the stress field.
+Keep the companion HDF5 file next to the XDMF.
 
 ```text
 outputs/001-baseline/
-├── execution.json       process and failure record
-├── result.json          quantities, fields, histories, trust, and artifacts
-├── summary.md           disposable human view of result.json
-├── fields.xdmf          field metadata and time-series structure
-├── fields.h5            numerical field arrays
-└── logs/                captured execution logs
+├── execution.json       run status and failure details
+├── result.json          quantities, fields, evidence and artifact locations
+├── summary.md           readable summary
+├── fields.xdmf          ParaView entrypoint for this template
+├── fields.h5            field arrays
+└── logs/                execution logs
 ```
 
-The readable directory name is not the scientific identity. Every run still
-carries an immutable, collision-resistant `run_id` in `execution.json` and
-`result.json`. Numbered names help people browse; the internal ID protects
-provenance and automation. Older `outputs/<project>/<run-id>/` projects remain
-discoverable.
+To change the load or material, edit `case.py` and repeat `check` and `run`.
+Each run gets its own folder. Use `agentfem runs` to browse earlier results,
+or `agentfem show latest --files` to list artifact paths.
+Other analyses may use different field filenames; follow the result record.
 
-The exact artifacts depend on the analysis and output request. A completed run
-is not automatically a scientifically verified result; convergence,
-verification claims, and required artifacts remain separate evidence.
+## Check what matters
+
+For the first beam, compare displacement and reaction with the expected
+physical behavior. For engineering conclusions, add the relevant reference
+comparison and mesh/time convergence checks. A provenance check confirms the
+saved record, not the physical accuracy of every model.
+
+A healthy installation does not need to be checked or rebuilt for each edit.
+Use `doctor` after environment changes or a runtime failure; use the
+[upgrade guide](../project_upgrades.md) when changing versions or migrating an
+older project.
 
 ## Where to continue
 

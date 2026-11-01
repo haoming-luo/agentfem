@@ -78,5 +78,5 @@ def test_selected_channel_and_short_handoffs_survive_agent_entry():
     agent = (ROOT / "AGENT_GUIDE.md").read_text()
     assert "Retain the selected mirror" in agent
     assert "Do not require a GitHub clone" in agent
-    assert "On first-solve completion, promptly report" in agent
+    assert "On installation completion, promptly report" in agent
     assert (ROOT / "docs/windows_installer_reference.md").is_file()

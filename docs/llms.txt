@@ -17,10 +17,21 @@ operable through ordinary Python and a machine-readable CLI.
 - [Windows short onboarding](windows_agent_installation/)
 
 Installation is agent-assisted: inspect the OS, retain the user's mirror
-choice, reuse existing environments, and complete one installed solve.
+choice, reuse existing environments, and check installation readiness.
+Stop after reporting version, environment and readiness. Offer a first
+example; create or run it only when requested. No automatic follow-on tasks.
 No repository clone is required. On Windows follow the short onboarding
 route; after one failed stage show one manual action, not a retry loop.
 Read installation.onboarding in agentfem.json for the shared contract.
+
+## Everyday use
+
+For an existing project: read its instructions and case, check, run, inspect.
+For a result-only request: show the existing result without a new solve.
+Reuse a healthy environment; doctor is for installation, environment changes
+or runtime failures. Read only the relevant physics/API references.
+Use installed capabilities when web documentation describes a newer version.
+Read task_guidance in agentfem.json for task-specific routing.
 
 ## Canonical sources
 
@@ -28,8 +39,8 @@ Read installation.onboarding in agentfem.json for the shared contract.
 - [Scientific knowledge catalog](https://raw.githubusercontent.com/haoming-luo/agentfem/main/src/agentfem/knowledge/catalog.json)
 - [AgentFEM skill](agents/skill/)
 
-## Safety and scientific contract
+## Result meaning
 
-Do not treat a completed solver call as automatically verified. Inspect the
-structured result, convergence status, requested outputs, quality policy,
-and benchmark evidence before accepting or exporting simulation data.
+A completed run supplies a computed result. Provenance verification checks
+the saved record; engineering acceptance uses relevant convergence, balance
+and reference evidence. Match the checks to the user's intended use.
