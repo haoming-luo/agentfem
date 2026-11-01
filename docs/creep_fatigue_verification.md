@@ -374,3 +374,10 @@ heat/condition scope before any calibration is admitted.
    Multiaxial and nonisothermal life, global damage feedback and regularization
    remain separate gates. ASME/RCC-MRx curves and their safety factors require
    a reviewed, versioned project input; no universal curve is silently supplied.
+
+The [P92 full-path diagnostic](internal/p92_full_path_20261101.md) is an
+executed example of this ordering: ordinary structural histories converge to
+an independent reference, while the same frozen high-stress law still misses
+a low-stress long hold. Numerical verification passes separately from material
+validation. Retain the failed transfer as evidence rather than changing the
+parameters against the held-out curve and continuing to label it independent.
