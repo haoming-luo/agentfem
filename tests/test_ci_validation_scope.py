@@ -12,6 +12,22 @@ from ci_validation_scope import (
 )
 
 
+@pytest.mark.parametrize("filename", (
+    "test.yml", "platform-acceptance.yml", "publish-pypi.yml",
+    "runtime-installers.yml",
+))
+def test_macos_acceptance_and_distribution_use_supported_arm64_runner(filename):
+    import re
+
+    workflow = Path(__file__).resolve().parents[1] / ".github/workflows" / filename
+    labels = re.findall(r"(?m)^\s*(?:runs-on|runner):\s*(macos-[\w-]+)\s*$",
+                        workflow.read_text(encoding="utf-8"))
+    # All current Mac jobs build/test ARM64 packages; do not accidentally
+    # migrate to an Intel or floating '-latest' label when retiring Sonoma.
+    assert labels
+    assert set(labels) == {"macos-15"}
+
+
 def test_core_release_job_has_bounded_runtime_and_no_nested_blas_oversubscription():
     import re
 

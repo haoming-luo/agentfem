@@ -658,7 +658,9 @@ jobs:
       - change-scope
       - fenicsx
     if: needs.change-scope.outputs.level == 'release'
-    runs-on: macos-14
+    # macOS 14 retires on 2026-11-02 (actions/runner-images#13518).
+    # Keep the ARM64 architecture and the full installed-use acceptance gate.
+    runs-on: macos-15
     timeout-minutes: 30
     concurrency:
       group: test-foundation-macos-${{ github.event.pull_request.number || github.ref }}
