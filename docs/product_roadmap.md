@@ -48,6 +48,18 @@ conditional hold response, not a full-cycle or lifetime validation. Next: review
 elastic and softening behavior, freeze a compatible local law and a new holdout,
 then validate the complete loading path through the same structural lifecycle.
 
+The [full first-cycle diagnostic](internal/p92_full_path_20261101.md) now
+executes RF and SLR without hold-start stress resets, using ordinary creep
+Steps and an independent continuous scalar reference. Three-level time
+refinement passes, but the high-stress Norton fit does not transfer to the
+long low-stress SLR hold. Measured-path and modulus sensitivity checks do not
+remove that discrepancy. Preserve this as a negative transfer benchmark;
+screen existing flow/plastic assets before adding recovery or softening, and
+freeze a new validation condition before retuning. Engineering integration
+and scientific material promotion remain separate: #137 is merged; #138's
+latest synchronized commit still requires its own acceptance. This work does
+not claim a validated P92 material, lifetime prediction or a new release.
+
 ### Material-only structural workflow sprint (2026-10-29)
 
 User feedback identified an important boundary: a local history law should not
