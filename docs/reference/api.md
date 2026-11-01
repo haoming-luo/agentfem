@@ -559,6 +559,8 @@ and evidence remain in the linked guides and scientific function reference.
 
 | Kind | Public object | Purpose |
 | --- | --- | --- |
+| class | `MaterialPointHistoryRequest` | One fixed reference integration point, not a mesh node or a probe. |
+| function | `material_point(name, *, cell, point = 0)` | Select an original input-cell ID and reference quadrature-point index. |
 | function | `join_xdmf_segments(sources, destination, *, expected_times = None, overlap = 'boundary') -> Path` | Publish one temporal index without copying or modifying heavy data. |
 | function | `consolidate_xdmf_fields(source, destination) -> Path` | Group synchronized fields on one grid per time, without copying HDF5. |
 | function | `cell_field_from_values(domain, values, *, name, cell_keys = None)` | Create a detached DG0 field from one scalar/vector/tensor per cell. |
@@ -1205,7 +1207,7 @@ and evidence remain in the linked guides and scientific function reference.
 | class | `CreepIncrementInfo` | Public AgentFEM object. |
 | class | `CreepPathInfo` | Public AgentFEM object. |
 | class | `ImplicitCreepStep` | Adaptive backward-Euler creep step with global Newton equilibrium. |
-| function | `implicit_creep_step(*, displacement, material, duration: float, external_force, constraints = (), study = None, incrementation = None, solver_options = None, quadrature_degree: int = 2, creep_strain_error_tolerance: float \| None = None, time_unit: str \| None = None, progress = True, status_file = None, amplitude = None, temperature = None, name: str = 'implicit_creep', _experimental_distributed: bool = False) -> ImplicitCreepStep` | Build global 3D or axisymmetric implicit power-law creep. |
+| function | `implicit_creep_step(*, displacement, material, duration: float, external_force, constraints = (), study = None, incrementation = None, solver_options = None, quadrature_degree: int = 2, creep_strain_error_tolerance: float \| None = None, time_unit: str \| None = None, material_points = (), unit_system = None, progress = True, status_file = None, amplitude = None, temperature = None, name: str = 'implicit_creep', _experimental_distributed: bool = False) -> ImplicitCreepStep` | Build global 3D or axisymmetric implicit power-law creep. |
 | class | `ExperimentalFiniteStrainPlasticityStep` | Stateful Total-Lagrangian J2 equilibrium with ordinary strong BCs. |
 | class | `FiniteStrainJ2AffineTransaction` | Constraint-neutral trial/commit state for finite-strain J2 Newton. |
 | class | `FiniteStrainJ2StateTransaction` | Constraint-neutral trial/commit state for finite-strain J2 Newton. |

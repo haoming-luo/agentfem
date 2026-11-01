@@ -64,6 +64,13 @@
       "title": "Classical sub-Rayleigh cohesive crack guardrail"
     },
     {
+      "id": "agentfem.benchmark.colocated_material_histories",
+      "physics": "Serial Cartesian 3D small-strain creep with physical-time temperature; homogeneous joint plasticity or regional pure creep",
+      "source": "src/agentfem/knowledge/benchmarks/colocated_material_histories.json",
+      "status": "automated_regression",
+      "title": "Co-located accepted creep/plastic/thermal histories"
+    },
+    {
       "id": "agentfem.benchmark.creep_abaqus_constant_stress",
       "physics": "three-dimensional small-strain Mises time-hardening power-law creep",
       "source": "src/agentfem/knowledge/benchmarks/creep_abaqus_constant_stress.json",
