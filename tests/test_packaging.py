@@ -28,6 +28,19 @@ def test_standard_install_declares_scientific_and_authoring_dependencies():
     assert "4.11" in required["gmsh"].specifier
     # Old projects may retain these extras; installing them remains supported.
     assert {"gmsh", "identification", "visualization"} <= project["optional-dependencies"].keys()
+    release_gate.check_dependency_boundaries()
+
+
+@pytest.mark.parametrize("missing", ["scipy", "matplotlib", "gmsh"])
+def test_release_gate_requires_standard_install_tools(tmp_path, monkeypatch, missing):
+    dependencies = [name for name in ("scipy", "matplotlib", "gmsh") if name != missing]
+    (tmp_path / "pyproject.toml").write_text(
+        "[project]\ndependencies = " + json.dumps(dependencies)
+        + '\n[project.optional-dependencies]\ngmsh = ["gmsh"]\n'
+    )
+    monkeypatch.setattr(release_gate, "ROOT", tmp_path)
+    with pytest.raises(RuntimeError, match="dependencies are missing: " + missing):
+        release_gate.check_dependency_boundaries()
 
 
 def test_unreleased_checkout_does_not_reuse_a_published_tag_version():
