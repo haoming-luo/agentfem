@@ -166,6 +166,44 @@ def test_current_accepted_result_can_be_published_without_advancing(tmp_path):
     assert step.time == 1.0
 
 
+@pytest.mark.parametrize("method", ["solve", "solve_result"])
+@pytest.mark.parametrize("until", [True, np.bool_(True), np.array(True), np.complex128(0.75 + 0.1j), np.array([0.75])])
+def test_path_endpoint_requires_a_real_scalar_without_lossy_conversion(method, until, tmp_path):
+    step, _ = build()
+    step.solve(until=0.5)
+    before = step.state.committed_state_vectors().copy()
+    kwargs = {"output": tmp_path / "invalid.xdmf"} if method == "solve_result" else {}
+    with pytest.raises(ValueError, match="until"):
+        getattr(step, method)(until=until, **kwargs)
+    assert step.accepted_load_factor == 0.5
+    np.testing.assert_array_equal(step.state.committed_state_vectors(), before)
+    assert not list(tmp_path.iterdir())
+
+
+@pytest.mark.parametrize("action", ["solve", "result", "checkpoint", "reaction", "restore"])
+@pytest.mark.parametrize("translation", [0.125, 2.0])
+def test_reference_geometry_cannot_drift_from_accepted_restart_identity(tmp_path, action, translation):
+    step, _ = build()
+    step.solve(until=0.5)
+    saved = step.save_checkpoint(tmp_path / "original")
+    before = step.solution.x.array.copy()
+    # A translation preserves the patch gradient. Checking F alone therefore
+    # cannot protect reference geometry or the checkpoint's mesh identity.
+    step.state.domain.geometry.x[:, 0] += translation
+    actions = {
+        "solve": step.solve,
+        "result": lambda: step.solve_result(output=tmp_path / "invalid.xdmf"),
+        "checkpoint": lambda: step.save_checkpoint(tmp_path / "invalid"),
+        "reaction": step.reaction_field,
+        "restore": lambda: step.load_checkpoint(saved),
+    }
+    with pytest.raises(ValueError, match="[Rr]eference geometry"):
+        actions[action]()
+    assert step.accepted_load_factor == 0.5
+    np.testing.assert_array_equal(step.solution.x.array, before)
+    assert sorted(p.name for p in tmp_path.iterdir()) == ["original.npz"]
+
+
 @pytest.mark.parametrize("mechanism", ["viscoelastic", "damage"])
 def test_scalar_only_material_has_same_accepted_history(mechanism):
     local = HistoryMaterial(mechanism=mechanism)
@@ -706,13 +744,16 @@ def test_configured_output_and_continuation(tmp_path):
     step.solve(until=0.5)
     result = step.solve_result()
     times = [float(t.get("Value")) for t in ET.parse(path).findall(".//Time")]
-    assert times == [1.5, 2.0]
+    # In-memory continuation has the same accepted-boundary contract as restart.
+    assert times == [1.0, 1.5, 2.0]
+    assert result.metadata["field_output"]["continuation_boundary_published"]
+    assert not result.metadata["field_output"]["restored_boundary_published"]
     assert result.metadata["field_output"]["output_scope"] == "continuation_segment"
     assert (
         result.checkpoint_contract["capabilities"]["rank_count_portability"]
         == "unsupported"
     )
-    assert len(result.artifacts) == 4  # index + shared mesh + two closed frames
+    assert len(result.artifacts) == 5  # index + shared mesh + three closed frames
     assert all(path.is_file() for path in result.artifacts.values())
 
 

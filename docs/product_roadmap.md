@@ -68,6 +68,31 @@ Real material requests/responses and checkpoint restoration now refuse complex
 values before conversion, instead of silently discarding imaginary components.
 This is boundary validation, not support for frequency-domain constitutive laws.
 
+The next output-control slice adds `output_every` to the same Step contract,
+with no project callbacks: accepted-increment sampling, segment endpoints and
+continuation boundaries are separate from physical-time discretization and
+checkpoint retention. Default every-increment output remains unchanged. This
+reduces recovery/storage work when fewer frames are requested; it is not a
+constitutive-solver or composite-speed claim. Admission remains experimental
+and serial. See [the output-control record](internal/history_output_cadence_20261031.md)
+for verification and measured scope.
+The same slice removes repeated serial geometry-expression preparation in
+`QuadratureField`, while evaluating current geometry every time. It does not
+cache physical weights or change MPI collective preparation. Same-frame short-
+path confirmation measures about 13.5–15.7% less total time for the two educational
+laws; this is not a composite full-run or portable performance promise.
+
+The integration checkout uses `0.4.5.dev0`, not the already published `0.4.4`
+identity. Its development contract retains every existing admission limit and
+records the new workflows as experimental. This is not a release or promotion.
+The integration gate runs the ordinary four-file example from an installed
+candidate with no source-path injection: two laws, planned pause/restart,
+continuous and sparse output, accepted-state comparison and VTK/Warp reading.
+Reference geometry remains fixed after Step construction; changed geometry and
+lossy endpoint conversion are refused before state or output mutation. See the
+[integration audit](internal/history_integration_20261031.md) for installed-use
+evidence and the distinction between passing gates and pending integration.
+
 ### Thermal–inelastic continuity sprint (2026-10-29)
 
 PR #132 maintenance is merged at `44fda9c4`; the published 0.4.4 tag remains

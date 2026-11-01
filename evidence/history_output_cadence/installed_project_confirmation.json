@@ -1,0 +1,33 @@
+{
+  "status": "passed",
+  "date_utc": "2026-10-31",
+  "package_version": "0.4.5.dev0",
+  "wheel_sha256": "fb014ccc85d7db1bbe8382977c2364c2ca5afc362fce7d9a4703556eb4086d26",
+  "material_step_sha256": "4e296dead60f208ba4126741252e4bae17ef88ff4afd8aedf668a567ce6c66eb",
+  "checker_sha256": "b6e29da55cff40200ef3077968baed3d110729556f8d9954543bccf15c067b5f",
+  "environment": "isolated system-site-packages venv sharing the existing Apple Silicon fenicsx-env numerical runtime",
+  "candidate_import": "candidate venv site-packages; not source checkout",
+  "child_source_path_injection": false,
+  "command": "python tools/check_installed_history_project.py --work-directory <fresh-directory>",
+  "scope": "same-host serial educational plane stress; not MPI, clean dependency installation, Windows, or calibrated materials",
+  "workflows": [
+    {
+      "law": "viscoelastic",
+      "runs": ["pause", "resume", "whole", "sparse"],
+      "frames": 16,
+      "sparse_frames": 4,
+      "restart_and_cadence_state_identical": true,
+      "all_common_fields_identical": true,
+      "vtk_warp_passed": true
+    },
+    {
+      "law": "damage",
+      "runs": ["pause", "resume", "whole", "sparse"],
+      "frames": 16,
+      "sparse_frames": 4,
+      "restart_and_cadence_state_identical": true,
+      "all_common_fields_identical": true,
+      "vtk_warp_passed": true
+    }
+  ]
+}

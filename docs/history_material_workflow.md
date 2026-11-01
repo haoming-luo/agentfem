@@ -20,7 +20,7 @@ subspace cannot silently discard its pressure equation. Both are rejected.
 
 [`examples/history_material`](https://github.com/haoming-luo/agentfem/tree/main/examples/history_material)
 contains four files: `case.py`, `material.py`, `agentfem.toml`, and `README.md`.
-With an installation exposing `mechanics.FiniteStrainMaterialStep(checkpoint=...)` and
+With an installation exposing `mechanics.FiniteStrainMaterialStep(checkpoint=..., output_every=...)` and
 `constitutive.PlaneStressReduction` (checked by the project manifest), run:
 
 ```sh
@@ -46,6 +46,7 @@ step = model.step(
     amplitude=cycle,
     incrementation=steps.fixed(16),
     output=run.artifact("results.xdmf"),
+    output_every=4,
     checkpoint=checkpointing.every(
         4, directory=run.artifact("checkpoints"), keep_last=2
     ),
@@ -60,6 +61,31 @@ normalized coordinate, not physical seconds. At coordinate `a`, material time
 is `duration*a`; an increment from `a0` to `a1` has physical
 `dt=duration*(a1-a0)`. Tabulated reversal/hold knots are visited exactly, even
 when a requested fixed or automatic increment would cross a knot.
+
+### Choose field output independently of the solver
+
+`output_every=4` writes fields every four **accepted** increments. The default
+is `1`; `None` writes only the requested segment endpoint and any accepted
+continuation boundary. Positive integers are required otherwise. Failed attempts
+and Newton iterations do not count. The count includes restored accepted history.
+The requested pause/completion endpoint is always included, even off cadence;
+continuation publishes its actual starting state before advancing, whether it is
+restored from disk or continued in memory. No fictitious material response is
+generated at time zero.
+
+Sampling does not insert time knots, change the accepted time partition, discard
+scalar histories, or alter checkpoint frequency. Unsampled increments skip field
+recovery and field writes, but still perform the complete constitutive and
+equilibrium update. The final `SimulationResult` still includes its full fields.
+`field_output` metadata reports the cadence, saved physical times and frame count.
+Output cadence is not part of scientific checkpoint identity: a continuation can
+choose another cadence. Unsaved past fields cannot be reconstructed without
+recomputation. Save a fresh path per continuation and join compatible segments.
+
+This bounded option does not admit the general `OutputPlan`: exact prescribed
+output times may require new integration stations, which would be a different
+time discretization for history-dependent laws. There is no claim of a solver
+speedup or a fixed frame count when adaptive cutback adds accepted increments.
 
 ## The material contract
 
@@ -221,7 +247,11 @@ displacement, committed history, stress/tangent, physical-time position or live
 loading constants through their array views. The Step detects such changes at
 continuation, reaction/output and checkpoint boundaries, including after an
 accepted-state observer. Prescribed targets and the increment policy must also
-remain consistent with the Step's construction identity. To run a different
+remain consistent with the Step's construction identity. Reference coordinates
+and geometry connectivity are fixed after construction, including rigid
+translations of the reference mesh; this bounded route does not support ALE
+or remeshing. Path endpoints must be finite real scalars, not booleans, complex
+values or single-element arrays. To run a different
 problem, construct another Step; do not reuse an old checkpoint identity.
 If external code has already corrupted live state, restore a valid checkpoint
 into a fresh compatible Step. Detection does not reconstruct overwritten arrays

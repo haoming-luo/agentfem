@@ -2,7 +2,7 @@
 name = "history_material_plate"
 entrypoint = "case.py"
 schema_version = "0.2.0"
-requires_api = ["mechanics.FiniteStrainMaterialStep(checkpoint)", "constitutive.PlaneStressReduction"]
+requires_api = ["mechanics.FiniteStrainMaterialStep(checkpoint)", "mechanics.FiniteStrainMaterialStep(output_every)", "constitutive.PlaneStressReduction"]
 
 [run]
 output_directory = "outputs"

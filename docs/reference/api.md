@@ -1229,7 +1229,7 @@ and evidence remain in the linked guides and scientific function reference.
 | class | `SmallStrainMaterialPathInfo` | Public AgentFEM object. |
 | class | `SmallStrainMaterialStep` | Implicit Newton Step driven by an ordinary small-strain material. |
 | function | `small_strain_material_step(*, displacement, material, external_force, constraints = (), study = None, incrementation = None, solver_options = None, quadrature_degree = 2, progress = True, status_file = None, amplitude = None, name = 'small_strain_material') -> SmallStrainMaterialStep` | Public AgentFEM object. |
-| class | `FiniteStrainMaterialStep(*, displacement, material, duration, external_force = None, constraints = (), study = None, incrementation = None, solver_options = None, quadrature_degree = 2, amplitude = None, properties = (), name = 'finite_strain_material', progress = True, time_unit = None, plane_stress = None, checkpoint = None)` | Experimental serial 3D/planar, strong-BC history-material Step. |
+| class | `FiniteStrainMaterialStep(*, displacement, material, duration, external_force = None, constraints = (), study = None, incrementation = None, solver_options = None, quadrature_degree = 2, amplitude = None, properties = (), name = 'finite_strain_material', progress = True, time_unit = None, plane_stress = None, checkpoint = None, output_every = 1)` | Experimental serial 3D/planar, strong-BC history-material Step. |
 | class | `DirectorShellKinematics` | Finite-rotation surface measures at one material point. |
 | class | `FiberCurveKinematics` | Objective bending measures for one material fibre curve. |
 | class | `ReconstructedFiberCurvature` | Owned-cell fibre curvatures plus neighbour reconstruction evidence. |

@@ -23,6 +23,10 @@ def main():
     )
     parser.add_argument("--restart", default=None)
     parser.add_argument(
+        "--output-every", type=int, default=1,
+        help="Save fields every N accepted increments; also save segment endpoints.",
+    )
+    parser.add_argument(
         "--until",
         type=float,
         default=1.0,
@@ -53,6 +57,7 @@ def main():
         amplitude=cycle,
         incrementation=steps.fixed(16),
         output=run.artifact("results.xdmf"),
+        output_every=args.output_every,
         checkpoint=checkpointing.every(
             4, directory=run.artifact("checkpoints"), keep_last=2
         ),

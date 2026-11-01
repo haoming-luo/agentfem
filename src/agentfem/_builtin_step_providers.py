@@ -1864,7 +1864,7 @@ register_step_provider(
         description="Experimental serial history-material equilibrium with reference dP/dF and physical duration.",
         procedure="standard/newton/stateful",
         option_contract=_option_contract("duration", "incrementation", "quadrature_degree",
-                                         "amplitude", "properties", "progress", "time_unit", "plane_stress", "checkpoint", required=("duration",)),
+                                         "amplitude", "properties", "progress", "time_unit", "plane_stress", "checkpoint", "output_every", required=("duration",)),
     )
 )
 register_step_provider(
