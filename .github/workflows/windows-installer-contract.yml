@@ -1,7 +1,7 @@
 name: Windows installer contract
 on:
   pull_request:
-    paths: ['packaging/runtime/**', 'tests/windows/**', 'tests/test_environment_setup.py', 'tests/test_windows_quickstart_docs.py', 'docs/windows_agent_installation.md', 'INSTALL.md', 'AGENT_GUIDE.md', '.github/workflows/windows-installer-contract.yml']
+    paths: ['packaging/runtime/**', 'tests/windows/**', 'tests/test_environment_setup.py', 'tests/test_runtime_readiness.py', 'tests/test_windows_quickstart_docs.py', 'docs/windows_agent_installation.md', 'INSTALL.md', 'AGENT_GUIDE.md', '.github/workflows/windows-installer-contract.yml']
   workflow_dispatch:
 permissions:
   contents: read
@@ -39,4 +39,4 @@ jobs:
         with:
           python-version: '3.11'
       - run: python -m pip install pytest
-      - run: python -m pytest -q tests/test_environment_setup.py tests/test_windows_quickstart_docs.py
+      - run: python -m pytest -q tests/test_environment_setup.py tests/test_runtime_readiness.py tests/test_windows_quickstart_docs.py

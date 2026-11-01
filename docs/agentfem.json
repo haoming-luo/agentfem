@@ -25,7 +25,7 @@
     "mirror_policy": "explicit-or-canonical-unreachable; single-source; no-location-inference",
     "health_check": "agentfem doctor --json",
     "onboarding": {
-      "schema_version": 1,
+      "schema_version": 2,
       "mode": "agent-assisted",
       "requires_repository_checkout": false,
       "detect": {
@@ -42,7 +42,7 @@
             "ubuntu",
             "ordinary_user",
             "environment",
-            "first_solve"
+            "readiness"
           ],
           "platform_only_command": "wsl --install --no-distribution --web-download",
           "platform_command_requires": "Missing platform, approved elevation, supported WSL options; not for healthy existing WSL.",
@@ -54,7 +54,7 @@
           "sequence": [
             "inspect",
             "environment",
-            "first_solve"
+            "readiness"
           ]
         },
         "macos": {
@@ -62,7 +62,7 @@
           "sequence": [
             "inspect",
             "environment",
-            "first_solve"
+            "readiness"
           ]
         }
       },
@@ -98,26 +98,35 @@
       ],
       "completion": {
         "checks": [
+          "installed_identity",
           "doctor",
-          "workspace_protection_on_wsl",
-          "init",
-          "check",
-          "run",
-          "verify"
+          "workspace_protection_on_wsl"
         ],
         "summary": [
           "installed_version",
           "environment",
-          "first_solve_status",
-          "result_path",
-          "numerical_check_with_units_where_applicable"
+          "readiness"
         ],
         "not_sufficient": [
           "download_finished",
           "platform_ready",
-          "import_success",
-          "doctor_alone"
-        ]
+          "import_success"
+        ],
+        "stop_after_readiness": true,
+        "simulation_required": false
+      },
+      "optional_next_step": {
+        "offer": "Would you like to try a small example, or work on your own model?",
+        "requires_user_request": true,
+        "example_sequence": [
+          "init",
+          "check",
+          "run",
+          "show",
+          "verify"
+        ],
+        "existing_request_is_sufficient": true,
+        "no_automatic_follow_on_tasks": true
       }
     }
   },
@@ -132,6 +141,30 @@
     "llms_txt": "llms.txt",
     "knowledge_catalog": "https://raw.githubusercontent.com/haoming-luo/agentfem/main/src/agentfem/knowledge/catalog.json",
     "skill": "agents/skill/"
+  },
+  "task_guidance": {
+    "api_authority": "Use the installed version's capabilities and provider options; web documentation may describe newer development code.",
+    "existing_project": [
+      "read project instructions and case",
+      "check",
+      "run",
+      "inspect"
+    ],
+    "view_results": [
+      "show"
+    ],
+    "environment_check_when": [
+      "first installation",
+      "environment or version change",
+      "runtime failure"
+    ],
+    "upgrade_review_when": [
+      "version migration",
+      "check reports migration findings"
+    ],
+    "reuse": "Reuse a healthy environment and known capability information within the task. Refresh after relevant changes.",
+    "reading": "Start with the relevant template or example; read architecture and extension guides when extending the solver.",
+    "completion": "Report the requested result, artifact path and relevant check. Additional benchmarks and tuning are separate tasks."
   },
   "commands": {
     "environment_check": "agentfem doctor --json",

@@ -57,6 +57,8 @@ def parser() -> argparse.ArgumentParser:
     result.add_argument("--output", required=True)
     result.add_argument("--profile", choices=("core", "complete"), required=True)
     result.add_argument("--skip-mpi", action="store_true")
+    result.add_argument("--readiness-only", action="store_true",
+                        help="Check installation without creating or running a model")
     return result
 
 
@@ -107,7 +109,12 @@ def main() -> int:
                 "passed": False,
             }
         )
-        checks.append(execute([str(executable), "doctor", "--json"], env=environment))
+        health = execute([str(executable), "doctor", "--json"], env=environment)
+        try:
+            health["passed"] = health["passed"] and json.loads(health["stdout"]).get("solver_ready") is True
+        except (ValueError, AttributeError):
+            health["passed"] = False
+        checks.append(health)
         checks.append(execute([str(executable), "--version"], env=environment))
         if args.profile == "complete":
             checks.append(
@@ -123,59 +130,60 @@ def main() -> int:
                     env=environment,
                 )
             )
-        serial_project = root / "serial"
-        checks.append(
-            execute(
-                [str(executable), "init", "--template", "static-solid", str(serial_project)],
-                env=environment,
-            )
-        )
-        checks.append(
-            execute(
-                [str(executable), "check", "--project", str(serial_project), "--json"],
-                env=environment,
-            )
-        )
-        checks.append(
-            execute(
-                [str(executable), "run", "--project", str(serial_project), "--json"],
-                env=environment,
-            )
-        )
-        checks.append(
-            execute(
-                [str(executable), "verify", "--project", str(serial_project), "--json"],
-                env=environment,
-            )
-        )
-        if not args.skip_mpi:
-            mpi_project = root / "mpi"
+        if not args.readiness_only:
+            serial_project = root / "serial"
             checks.append(
                 execute(
-                    [str(executable), "init", "--template", "static-solid", str(mpi_project)],
+                    [str(executable), "init", "--template", "static-solid", str(serial_project)],
                     env=environment,
                 )
             )
             checks.append(
                 execute(
-                    [
-                        str(executable),
-                        "run",
-                        "--project",
-                        str(mpi_project),
-                        "--mpi",
-                        "2",
-                        "--json",
-                    ],
+                    [str(executable), "check", "--project", str(serial_project), "--json"],
                     env=environment,
                 )
             )
             checks.append(
                 execute(
-                    [str(executable), "verify", "--project", str(mpi_project), "--json"],
+                    [str(executable), "run", "--project", str(serial_project), "--json"],
                     env=environment,
                 )
             )
+            checks.append(
+                execute(
+                    [str(executable), "verify", "--project", str(serial_project), "--json"],
+                    env=environment,
+                )
+            )
+            if not args.skip_mpi:
+                mpi_project = root / "mpi"
+                checks.append(
+                    execute(
+                        [str(executable), "init", "--template", "static-solid", str(mpi_project)],
+                        env=environment,
+                    )
+                )
+                checks.append(
+                    execute(
+                        [
+                            str(executable),
+                            "run",
+                            "--project",
+                            str(mpi_project),
+                            "--mpi",
+                            "2",
+                            "--json",
+                        ],
+                        env=environment,
+                    )
+                )
+                checks.append(
+                    execute(
+                        [str(executable), "verify", "--project", str(mpi_project), "--json"],
+                        env=environment,
+                    )
+                )
     runtime_record = prefix / "share" / "agentfem" / "runtime-release.json"
     checks.append(
         {
@@ -206,10 +214,11 @@ def main() -> int:
         },
         "prefix": str(prefix),
         "profile": args.profile,
+        "scope": "installation_readiness" if args.readiness_only else "first_solve",
         "toolchain": {
             "c_compiler": c_compiler,
             "cxx_compiler": cxx_compiler,
-            "fresh_jit_exercised": True,
+            "fresh_jit_exercised": not args.readiness_only and passed,
         },
         "runtime_record": (
             {"path": str(runtime_record), "sha256": digest(runtime_record)}

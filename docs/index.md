@@ -20,7 +20,7 @@
 [Installation](getting_started.md) ·
 [Examples](examples/index.md) ·
 [Python API](reference/api.md) ·
-[Release 0.3.8](release_0.3.8.md) ·
+[Release notes](https://github.com/haoming-luo/agentfem/releases) ·
 [Apache-2.0 license](licensing.md)
 
 </div>
@@ -30,7 +30,7 @@
 | I want to... | Go to... |
 | --- | --- |
 | See what I can build or try a browser demo | [Explore AgentFEM](examples/explore.md) |
-| Install AgentFEM and run one model | [Getting started](get_started/index.md) |
+| Install AgentFEM | [Getting started](get_started/index.md) |
 | Build a solid, thermal, dynamic, or creep analysis | [User guide](guide/index.md) |
 | Reproduce an executable capability | [Examples](examples/index.md) |
 | Connect Codex or another compatible agent | [AgentFEM MCP](agents/mcp.md) |
@@ -63,7 +63,7 @@ mamba activate agentfem-env
 agentfem doctor
 ```
 
-Windows users should currently use WSL2. Optional mesh, visualization, and
+This command includes SciPy, Matplotlib and Gmsh. Additional visualization and
 machine-learning integrations are described in the
 [installation and platform guide](getting_started.md). When the canonical
 source is slow, ask an agent to **"use the mirror channel"**; the documented
@@ -71,64 +71,29 @@ route does not change global conda configuration. On WSL, run
 `agentfem workspace --protect` once; the same safe project layout
 is used by both Mamba installations and the Complete Runtime.
 
+Installation is complete when the environment is ready. A first model is an
+optional next step: your agent should ask before creating or running it.
+
 ## First finite-element model
 
-The following complete example solves a two-dimensional linear-elastic
-cantilever. The left boundary is fixed and a traction is applied on the right.
-
-```python
-from mpi4py import MPI
-
-from agentfem import fields, mesh, models, studies
-from agentfem.constitutive import elasticity
-
-study = studies.static_solid(
-    dimension=2,
-    assumption="plane_stress",
-)
-domain = mesh.rectangle(
-    (0.0, 0.0),
-    (1.0, 0.2),
-    (40, 8),
-    comm=MPI.COMM_WORLD,
-    cell_type="triangle",
-)
-model = models.create(study=study, mesh=domain, name="cantilever")
-
-u = model.field(fields.displacement(domain, degree=1))
-model.material(
-    elasticity.isotropic_elastic(
-        young=210.0e9,
-        poisson=0.30,
-        density=7800.0,
-    )
-)
-
-left = mesh.face(domain, axis="x", value=0.0, name="left", tag=1)
-right = mesh.face(domain, axis="x", value=1.0, name="right", tag=2)
-model.fix(u, on=left)
-model.traction((0.0, -1.0e6), on=right)
-
-model.check()
-result = model.step(target=u).solve_result(output="cantilever.xdmf")
-result.verify("engineering").require()
-result.write_manifest("cantilever.result.json")
-
-print(model.tree())
-print(result)
-```
-
-Save the code as `cantilever.py` and run:
+Run the installed cantilever template from your project directory:
 
 ```bash
-python cantilever.py
+agentfem init beam --template static-solid
+cd beam
+agentfem check
+agentfem run --name baseline
+agentfem show latest
+agentfem verify
 ```
 
-The analysis produces displacement and standard stress/strain fields in
-XDMF/HDF5, together with a structured result manifest containing quantities,
-artifacts, solver evidence, and verification state. The repository's
-[release example](https://github.com/haoming-luo/agentfem/blob/main/examples/static_elasticity_2d.py)
-adds a Golden benchmark and explicit release-quality checks.
+Edit `case.py` to change the model. Results appear under `outputs/001-baseline/`;
+open the reported XDMF in ParaView, keeping its HDF5 companion alongside it.
+The same project runs with or without an AI agent.
+
+The [first-project guide](get_started/index.md) explains the files and next
+steps. For Python modeling details, use the
+[static elasticity example](https://github.com/haoming-luo/agentfem/blob/main/examples/static_elasticity_2d.py).
 
 ## Browse by task
 

@@ -23,7 +23,9 @@ directory to `$CODEX_HOME/skills/agentfem/` (or
 
 The main skill stays concise and routes detailed material progressively:
 workflow guidance is read for modeling tasks, while concepts, module ownership,
-validation, and extension rules are loaded only when the task requires them.
+validation, extension rules and specialized scientific notes are loaded only when
+the task requires them. Installation ends with environment readiness; the skill
+offers a first example without automatically creating or running it.
 
 ## What the skill is for
 
@@ -38,10 +40,10 @@ validation, and extension rules are loaded only when the task requires them.
 - inspect declared private extensions without automatically executing or
   installing untrusted packages.
 
-The skill does not guess API keywords. It begins with
-`agentfem.public_api("core")`, `models.model_api("core")`, and the provider
-contracts reported by `agentfem capabilities --json`. Compatibility names may
-remain executable during 0.2.x, but new cases use the canonical vocabulary.
+For modeling, start with a relevant example and capability topic, then consult
+provider options as needed. The installed API is authoritative when online
+documentation describes newer work. New cases use the canonical vocabulary;
+compatibility methods remain available for older projects.
 
 The skill complements the machine-readable `/agentfem.json` manifest and
 scientific `src/agentfem/knowledge/catalog.json`; it does not replace the public API or the

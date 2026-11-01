@@ -9,7 +9,9 @@
 
 - Keep the physical dynamics Study separate from the Newmark,
   generalized-alpha, or central-difference procedure choice.
-- Run `agentfem doctor`, `agentfem check`, and `agentfem run`.
+- For a model change: `agentfem check` → `agentfem run` → `agentfem show latest`.
+- Use `agentfem doctor` for setup, environment changes or runtime failures.
+  For a result-only request, view the saved result without starting a new run.
 - Inspect accepted increments and result artifacts in the published manifest.
 - Do not change the time increment without considering temporal resolution and
   stability or accuracy requirements.

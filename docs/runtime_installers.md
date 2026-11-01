@@ -10,6 +10,12 @@ PyPI. Runtime installers serve a different audience: a new user can install a
 complete, compatible finite-element environment without solving packages or
 cloning a repository.
 
+For a new installation, start with the [online route](getting_started.md).
+The latest published release, **0.4.4**, provides a Linux wheel and source
+archive, not a Complete Runtime ZIP or macOS PKG. Use the instructions below
+only for an existing compatible bundle; check a release's asset list before
+offering an offline download.
+
 ## Runtime targets
 
 | Host | Artifact | Status |
@@ -41,8 +47,8 @@ remove these redistribution obligations.
 
 ## macOS
 
-AgentFEM currently publishes an unsigned Preview and does not require
-Apple Developer credentials. Its filename always contains `unsigned-preview`,
+The macOS Preview format is unsigned and does not require
+Apple Developer credentials. Its filename contains `unsigned-preview`,
 and the download page preserves that wording.
 
 Verify the published SHA-256 checksum, open the package, and follow the normal
@@ -199,10 +205,11 @@ include the alternate source, official MSI, and exact `wsl --status` / `wsl
 
 First-install progress is saved under
 `%LOCALAPPDATA%\AgentFEM\Installations\<identity>` as `status.json`, `install.log`
-and the first-solve `acceptance.json`. Reopening the same installer after reboot
+and the readiness `acceptance.json`. Reopening the same installer after reboot
 or interruption checks and reuses its recorded distribution. It does not schedule
-an automatic restart or login task. A fresh-cache serial solve is required before
-completion; MPI and clean-host WorkBuddy acceptance remain separate release gates.
+an automatic restart or login task. Installation ends after identity, environment
+and workspace checks. A first example is optional; fresh-cache serial/MPI solves
+and clean-host WorkBuddy acceptance remain developer release gates.
 See [Windows agent installation](windows_agent_installation.md).
 
 The imported distribution creates a Start-menu entry and Windows Terminal

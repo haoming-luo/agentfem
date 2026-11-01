@@ -334,7 +334,8 @@ try {
     function Invoke-WslChecked {
         param($Arguments, $FailureMessage)
         if ($Arguments -contains '--output' -and $script:writeAcceptance) {
-            @{schema='agentfem.runtime-acceptance';status='accepted'} | ConvertTo-Json |
+            Assert ($Arguments -contains '--readiness-only') 'Installation must not run a model automatically'
+            @{schema='agentfem.runtime-acceptance';status='accepted';scope='installation_readiness'} | ConvertTo-Json |
                 Set-Content -LiteralPath (Join-Path $script:InstallStateDirectory 'acceptance.json') -Encoding UTF8
         }
     }

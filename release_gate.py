@@ -316,6 +316,7 @@ def check_distributions(directory: Path) -> Path:
         "skills/agentfem/SKILL.md",
         "skills/agentfem/agents/openai.yaml",
         "skills/agentfem/references/workflow.md",
+        "skills/agentfem/references/scientific_workflows.md",
         "examples/extensions/reference_material/pyproject.toml",
         "examples/extensions/reference_material/project/agentfem.toml",
         "examples/extensions/reference_material/project/case.py",

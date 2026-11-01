@@ -702,7 +702,7 @@ function Complete-NewInstallation {
         -FailureMessage "[AFM-WIN-WORKSPACE] Project protection did not complete."
     Save-InstallState -Stage "verifying_runtime"
     Test-AgentFEMDistribution -Name $Name
-    # Run as the ordinary user with a fresh JIT cache, not merely an import check.
+    # Check readiness as the ordinary user; user simulations are opt-in.
     $verifier = Convert-ToWslPath -Name $Name -WindowsPath (Join-Path $PSScriptRoot "verify_installed_runtime.py")
     $acceptancePath = Join-Path $script:InstallStateDirectory "acceptance.json"
     if (Test-Path -LiteralPath $acceptancePath) {
@@ -710,17 +710,18 @@ function Complete-NewInstallation {
     }
     $report = Convert-ToWslPath -Name $Name -WindowsPath $acceptancePath
     Invoke-WslChecked -Arguments @("--distribution", $Name, "--exec", "/opt/conda/bin/python",
-        $verifier, "--prefix", "/opt/conda", "--profile", "core", "--skip-mpi", "--output", $report) `
-        -FailureMessage "[AFM-WIN-FIRST-SOLVE] Runtime acceptance failed. Keep the log and reopen the installer after correcting the reported issue."
+        $verifier, "--prefix", "/opt/conda", "--profile", "core", "--readiness-only", "--output", $report) `
+        -FailureMessage "[AFM-WIN-READINESS] Runtime readiness failed. Keep the log and reopen the installer after correcting the reported issue."
     $acceptancePath = Join-Path $script:InstallStateDirectory "acceptance.json"
     $acceptance = Get-Content -LiteralPath $acceptancePath -Raw | ConvertFrom-Json
-    if ($acceptance.schema -ne "agentfem.runtime-acceptance" -or $acceptance.status -ne "accepted") {
-        throw "[AFM-WIN-FIRST-SOLVE] The acceptance record is missing or did not accept this runtime."
+    if ($acceptance.schema -ne "agentfem.runtime-acceptance" -or $acceptance.status -ne "accepted" -or $acceptance.scope -ne "installation_readiness") {
+        throw "[AFM-WIN-READINESS] The acceptance record is missing or did not accept this runtime."
     }
     $script:InstallState.acceptance_report = $acceptancePath
     $script:InstallState.linux_user = $user
     Save-InstallState -Stage "completed"
-    Write-Host "AgentFEM $RuntimeVersion passed its first-solve checks. Persistent projects: $Projects" -ForegroundColor Green
+    Write-Host "AgentFEM $RuntimeVersion is ready. Persistent projects: $Projects" -ForegroundColor Green
+    Write-Host "Installation complete. Would you like to try a small example next?"
 }
 
 $exitCode = 0
