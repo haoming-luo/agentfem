@@ -1,0 +1,147 @@
+{
+  "schema": "agentfem.public-relaxation-experiment.v1",
+  "source": "https://doi.org/10.5281/zenodo.7198219",
+  "attribution": "Sonntag, Juergens, Uhlemann, Skrotzki, Olbricht (2022), Zenodo v1, CC BY 4.0",
+  "scope": "conditional first-hold effective Norton baseline, not full-cycle material or life validation",
+  "split": {
+    "calibration": "RF cycle 1 tensile hold",
+    "held_out": "SLR cycle 1 compressive hold"
+  },
+  "window_policy": "first-cycle raw time 8..180 s; no fabricated endpoints or cycle interpolation",
+  "stress_measure": "nominal experimental stress approximated by small-strain axial stress",
+  "temperature_policy": "nominally isothermal; measured drift reported, not fitted",
+  "parameters": {
+    "rate_at_200_MPa_per_s": 1.5906730384477135,
+    "exponent": 9.687639096837593,
+    "bound_active": false,
+    "bounds": {
+      "rate_at_200_MPa_per_s": [
+        1e-05,
+        1000.0
+      ],
+      "exponent": [
+        1.0,
+        30.0
+      ]
+    },
+    "objective": "trapezoidal time-weighted squared stress error",
+    "identified_quantity": "E*A; E and A are not separately identified",
+    "fit_source": {
+      "family": "RF",
+      "cycle": 1,
+      "source": "https://doi.org/10.5281/zenodo.7198219",
+      "source_sha256": "128e6de1854f4633e26eced6c4ea221687cde2f232db275487ef0d1201767e0a",
+      "license": "CC-BY-4.0",
+      "samples": 96,
+      "absolute_window_s": [
+        9.254,
+        178.436
+      ],
+      "initial_nominal_stress_MPa": 208.47,
+      "strain_peak_to_peak": 5.9999999999999724e-05,
+      "temperature_range_K": [
+        892.75,
+        893.15
+      ]
+    },
+    "multi_start_costs": [
+      0.12631778679539662,
+      0.12631778679539712,
+      0.12631778679539618
+    ]
+  },
+  "calibration": {
+    "family": "RF",
+    "cycle": 1,
+    "source": "https://doi.org/10.5281/zenodo.7198219",
+    "source_sha256": "128e6de1854f4633e26eced6c4ea221687cde2f232db275487ef0d1201767e0a",
+    "license": "CC-BY-4.0",
+    "samples": 96,
+    "absolute_window_s": [
+      9.254,
+      178.436
+    ],
+    "initial_nominal_stress_MPa": 208.47,
+    "strain_peak_to_peak": 5.9999999999999724e-05,
+    "temperature_range_K": [
+      892.75,
+      893.15
+    ],
+    "time_weighted_rmse_MPa": 0.5026286637178509,
+    "maximum_absolute_error_MPa": 1.4499210818333381,
+    "endpoint_error_MPa": -1.4499210818333381,
+    "predicted_endpoint_MPa": 149.70007891816667,
+    "measured_endpoint_MPa": 151.15,
+    "initial_stress_conditioned_on_measurement": true,
+    "acceptance": "not_assigned: no independent experimental tolerance supplied"
+  },
+  "held_out": {
+    "family": "SLR",
+    "cycle": 1,
+    "source": "https://doi.org/10.5281/zenodo.7198219",
+    "source_sha256": "34e26cae1816ec4b712a4cec5811e0a0c66bad34848c10d962528085171fcabb",
+    "license": "CC-BY-4.0",
+    "samples": 108,
+    "absolute_window_s": [
+      8.077,
+      175.538
+    ],
+    "initial_nominal_stress_MPa": -210.74,
+    "strain_peak_to_peak": 2.0000000000000052e-05,
+    "temperature_range_K": [
+      891.35,
+      893.35
+    ],
+    "time_weighted_rmse_MPa": 6.496177725080264,
+    "maximum_absolute_error_MPa": 8.328164400902295,
+    "endpoint_error_MPa": -7.104699295507402,
+    "predicted_endpoint_MPa": -149.9546992955074,
+    "measured_endpoint_MPa": -142.85,
+    "initial_stress_conditioned_on_measurement": true,
+    "acceptance": "not_assigned: no independent experimental tolerance supplied"
+  },
+  "experimental_validation_passed": false,
+  "implementation": {
+    "tool_sha256": "b6df70ed0da3d0f6b9c8eca500534189788497a1669eabcc8d7899430d856182",
+    "python": "3.11.15",
+    "numpy": "2.4.6",
+    "scipy": "1.17.1",
+    "agentfem": "0.4.5.dev0"
+  },
+  "fem_verification": {
+    "scope": "homogeneous conditional relaxation; numerical E=100000 MPa, not measured P92 E",
+    "no_spatial_convergence_claim": true,
+    "runs": [
+      {
+        "increments": 32,
+        "max_abs_time_error_MPa": 2.1603186816093682,
+        "endpoint_time_error_MPa": -0.8059550587130104,
+        "lateral_stress_max_MPa": 7.896261422501993e-10,
+        "result_trust": "computed",
+        "wall_seconds": 0.6211233750218526
+      },
+      {
+        "increments": 64,
+        "max_abs_time_error_MPa": 1.1624442087992293,
+        "endpoint_time_error_MPa": -0.41131640725257057,
+        "lateral_stress_max_MPa": 6.892264536872972e-11,
+        "result_trust": "computed",
+        "wall_seconds": 0.5897370420279913
+      },
+      {
+        "increments": 128,
+        "max_abs_time_error_MPa": 0.6064175857112275,
+        "endpoint_time_error_MPa": -0.20804855823143953,
+        "lateral_stress_max_MPa": 2.7995383788947947e-12,
+        "result_trust": "computed",
+        "wall_seconds": 1.105137915990781
+      }
+    ],
+    "time_error_ratios": [
+      1.8584278413162847,
+      1.9169038566648335
+    ],
+    "criterion": "final max time error <1 MPa and consecutive error ratios between 1.5 and 2.5",
+    "numerical_verification_passed": true
+  }
+}

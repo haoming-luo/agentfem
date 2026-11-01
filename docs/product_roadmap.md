@@ -40,9 +40,13 @@ The [Alloy 617 source audit](internal/alloy617_validation_plan_20261101.md)
 selects a public report with test conditions and model parameters, but identifies
 softening/damage mechanisms incompatible with a direct parameter substitution
 into the current hardening-only model. Real-data calibration and held-out
-validation remain **open**, not replaced by synthetic test passes. Next: resolve
-source/test definitions, freeze a compatible material law and fit/holdout split,
-then validate the local law and the same ordinary structural lifecycle.
+validation remain **open**, not replaced by synthetic test passes. A separate
+[public P92 experiment](internal/p92_relaxation_validation_20261101.md) now
+executes a checksum-pinned RF fit and SLR holdout comparison through an effective
+relaxation baseline, with independent FEM time refinement and restart. This is
+conditional hold response, not a full-cycle or lifetime validation. Next: review
+elastic and softening behavior, freeze a compatible local law and a new holdout,
+then validate the complete loading path through the same structural lifecycle.
 
 ### Material-only structural workflow sprint (2026-10-29)
 
