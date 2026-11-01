@@ -37,6 +37,9 @@ dependencies = [
   "numpy",
   "mpi4py",
   "packaging>=23",
+  "scipy>=1.11",
+  "matplotlib",
+  "gmsh>=4.11",
 ]
 
 [project.urls]

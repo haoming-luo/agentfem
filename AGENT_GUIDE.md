@@ -40,6 +40,10 @@ finite-element simulation with AgentFEM.
    Retain the selected mirror and environment path in a local handoff note
    (no credentials); later optional packages use the same explicit source,
    without global configuration changes or mixed numerical channels.
+   Standard installs include SciPy, Matplotlib and Gmsh without another user
+   request. Use the manifest's full command (Conda uses `matplotlib-base` and
+   `python-gmsh`). Gmsh is optional to use, not opt-in to install. After an
+   upgrade, run a small known case and verify it; doctor alone is insufficient.
    Use `mamba run -n agentfem-env` for separate tool calls; shell activation
    does not persist between them. Send complex Linux scripts as inspected LF
    files to avoid nested PowerShell/Bash interpolation.

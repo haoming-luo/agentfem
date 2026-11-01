@@ -69,6 +69,7 @@ def test_runtime_report_is_serializable_and_names_optional_integrations():
     report = platforms.runtime_report().summary()
     assert report["schema"] == "agentfem.runtime-report"
     assert isinstance(report["solver_ready"], bool)
+    assert report["required"]["scipy"]["available"] is True
 
     assert report["python"]
     assert report["platform"]["level"]
@@ -123,6 +124,7 @@ def test_runtime_report_is_serializable_and_names_optional_integrations():
         "gmsh",
         "meshio",
         "torch",
+        "matplotlib",
     }
 
 
@@ -179,6 +181,47 @@ def test_runtime_report_fails_closed_when_dolfinx_has_no_jit_compiler(monkeypatc
     assert report.solver_ready is False
     assert report.summary()["solver_ready"] is False
     assert "Solver readiness: not ready" in report.format()
+
+
+@pytest.mark.parametrize("failure", [ModuleNotFoundError("No module named 'scipy'"),
+                                     OSError("incompatible SciPy shared library")])
+def test_doctor_rejects_missing_or_broken_scipy_despite_installed_metadata(monkeypatch, failure):
+    original = platforms.import_module
+
+    def importing(name):
+        if name == "scipy.sparse.linalg":
+            raise failure
+        return original(name)
+
+    monkeypatch.setattr(platforms, "import_module", importing)
+    report = platforms.runtime_report()
+    assert report.packages["scipy"]  # Metadata alone must not imply readiness.
+    assert not report.solver_ready
+    assert report.required["scipy"]["code"] == "AFM-RUNTIME-DEPENDENCY-UNAVAILABLE"
+    assert str(failure) in report.format()
+    json.dumps(report.summary(), allow_nan=False)
+
+
+def test_doctor_missing_dolfinx_never_reports_solver_ready():
+    from dataclasses import replace
+
+    report = platforms.runtime_report()
+    missing = replace(report, packages={**report.packages, "fenics-dolfinx": None})
+    assert not missing.solver_ready
+
+
+def test_optional_default_tools_do_not_block_existing_mesh_solves(monkeypatch):
+    original = dependencies.status
+
+    def unavailable(package, **kwargs):
+        if package in {"gmsh", "matplotlib"}:
+            return dependencies.DependencyStatus(package, kwargs["extra"], kwargs["capability"], False)
+        return original(package, **kwargs)
+
+    monkeypatch.setattr(dependencies, "status", unavailable)
+    report = platforms.runtime_report()
+    assert report.solver_ready
+    assert not any(item.available for item in report.optional if item.package in {"gmsh", "matplotlib"})
 
 
 def test_runtime_identity_detects_stale_distribution_version(monkeypatch):

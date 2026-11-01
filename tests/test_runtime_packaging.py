@@ -25,6 +25,8 @@ def test_runtime_specs_keep_heavy_optional_packs_out_of_core():
         "python",
         "pip",
         "conda",
+        "scipy",
+        "matplotlib-base",
     } <= names
     assert not ({"gmsh", "python-gmsh", "pytorch", "pyvista"} & names)
 
@@ -34,7 +36,7 @@ def test_complete_runtime_adds_gmsh_without_learning_or_visualization():
         encoding="utf-8"
     ).splitlines()
     names = {line.split("=")[0].strip() for line in specs if line.strip()}
-    assert {"gmsh", "python-gmsh"} <= names
+    assert {"gmsh", "python-gmsh", "scipy", "matplotlib-base"} <= names
     assert not ({"pytorch", "pyvista"} & names)
 
 

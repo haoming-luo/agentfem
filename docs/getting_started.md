@@ -22,7 +22,8 @@ FEniCSx/PETSc/MPI foundation from conda-forge. Then check the actual runtime:
 
 ```bash
 mamba create -n agentfem-env --override-channels -c conda-forge \
-  python=3.11 fenics-dolfinx=0.11 c-compiler cxx-compiler agentfem
+  python=3.11 fenics-dolfinx=0.11 c-compiler cxx-compiler \
+  scipy matplotlib-base gmsh python-gmsh agentfem
 mamba activate agentfem-env
 agentfem doctor
 agentfem doctor --json
@@ -38,7 +39,8 @@ does not rewrite `.condarc` or affect other environments.
 ```bash
 mamba create -n agentfem-env --no-rc --override-channels \
   -c https://mirrors.tuna.tsinghua.edu.cn/anaconda/cloud/conda-forge \
-  python=3.11 fenics-dolfinx=0.11 c-compiler cxx-compiler agentfem
+  python=3.11 fenics-dolfinx=0.11 c-compiler cxx-compiler \
+  scipy matplotlib-base gmsh python-gmsh agentfem
 mamba activate agentfem-env
 agentfem doctor
 ```

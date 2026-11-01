@@ -16,6 +16,20 @@ from agentfem import __version__, cli
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 
 
+def test_standard_install_declares_scientific_and_authoring_dependencies():
+    from packaging.requirements import Requirement
+
+    project = tomllib.loads((PROJECT_ROOT / "pyproject.toml").read_text())["project"]
+    required = {item.name: item for item in map(Requirement, project["dependencies"])}
+    for name in ("scipy", "matplotlib", "gmsh"):
+        assert name in required and required[name].marker is None
+    assert "1.11" in required["scipy"].specifier
+    assert "1.10" not in required["scipy"].specifier
+    assert "4.11" in required["gmsh"].specifier
+    # Old projects may retain these extras; installing them remains supported.
+    assert {"gmsh", "identification", "visualization"} <= project["optional-dependencies"].keys()
+
+
 def test_unreleased_checkout_does_not_reuse_a_published_tag_version():
     """Keep a moving checkout distinguishable from its latest release."""
 
