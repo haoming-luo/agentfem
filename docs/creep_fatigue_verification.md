@@ -38,6 +38,18 @@ with Alloy 617 data. A similar test protocol is not the same material.
 
 ## Executable analytical references
 
+The next experimental source gate is recorded in the
+[Alloy 617 audit](internal/alloy617_validation_plan_20261101.md). Public
+parameters are not interchangeable with another constitutive model. Local
+assessment inputs can now use [co-located accepted material histories](material_point_histories.md);
+this closes a data-lifecycle gap, not the experimental-validation gate.
+
+The [executed P92 relaxation comparison](internal/p92_relaxation_validation_20261101.md)
+uses public digital BAM records: a separate RF calibration and SLR conditional
+holdout, source hashes, physical unit conversions and ordinary FEM time
+refinement. It reports experimental errors without inventing an acceptance
+tolerance or qualifying a full cyclic material/lifetime model.
+
 Run the focused checks in the scientific environment:
 
 ```bash
@@ -362,3 +374,10 @@ heat/condition scope before any calibration is admitted.
    Multiaxial and nonisothermal life, global damage feedback and regularization
    remain separate gates. ASME/RCC-MRx curves and their safety factors require
    a reviewed, versioned project input; no universal curve is silently supplied.
+
+The [P92 full-path diagnostic](internal/p92_full_path_20261101.md) is an
+executed example of this ordering: ordinary structural histories converge to
+an independent reference, while the same frozen high-stress law still misses
+a low-stress long hold. Numerical verification passes separately from material
+validation. Retain the failed transfer as evidence rather than changing the
+parameters against the held-out curve and continuing to label it independent.

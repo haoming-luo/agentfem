@@ -19,6 +19,47 @@ or a successful run is not by itself a validated engineering capability.
 
 ## Current product phase: the 0.4 foundation
 
+### Co-located histories and real-material gate (2026-11-01)
+
+Keep the preceding output/integration PR separate from this scientific slice.
+The new opt-in `material_points` contract records selected raw integration-point
+stress, total strain, internal variables and prescribed kelvin temperature at
+accepted physical times. It reuses ordinary result histories and both existing
+creep checkpoint formats; corrupted history or changed selection rejects the
+whole restore. Serial thermal-history restart now compares the complete path
+identity, not the receiver's current temperature sample. See
+[the history contract](material_point_histories.md).
+
+The first composition tests nonuniform time-dependent temperature with regional
+pure creep, or homogeneous joint creep/plasticity. It does not broaden the
+joint material to regional, contact or MPI use, nor admit temperature fields
+on arbitrary finite-strain UserMaterial Steps. Sampling is selected-point only,
+every accepted increment, independently of visualization frames.
+
+The [Alloy 617 source audit](internal/alloy617_validation_plan_20261101.md)
+selects a public report with test conditions and model parameters, but identifies
+softening/damage mechanisms incompatible with a direct parameter substitution
+into the current hardening-only model. Real-data calibration and held-out
+validation remain **open**, not replaced by synthetic test passes. A separate
+[public P92 experiment](internal/p92_relaxation_validation_20261101.md) now
+executes a checksum-pinned RF fit and SLR holdout comparison through an effective
+relaxation baseline, with independent FEM time refinement and restart. This is
+conditional hold response, not a full-cycle or lifetime validation. Next: review
+elastic and softening behavior, freeze a compatible local law and a new holdout,
+then validate the complete loading path through the same structural lifecycle.
+
+The [full first-cycle diagnostic](internal/p92_full_path_20261101.md) now
+executes RF and SLR without hold-start stress resets, using ordinary creep
+Steps and an independent continuous scalar reference. Three-level time
+refinement passes, but the high-stress Norton fit does not transfer to the
+long low-stress SLR hold. Measured-path and modulus sensitivity checks do not
+remove that discrepancy. Preserve this as a negative transfer benchmark;
+screen existing flow/plastic assets before adding recovery or softening, and
+freeze a new validation condition before retuning. Engineering integration
+and scientific material promotion remain separate: #137 is merged; #138's
+latest synchronized commit still requires its own acceptance. This work does
+not claim a validated P92 material, lifetime prediction or a new release.
+
 ### Material-only structural workflow sprint (2026-10-29)
 
 User feedback identified an important boundary: a local history law should not

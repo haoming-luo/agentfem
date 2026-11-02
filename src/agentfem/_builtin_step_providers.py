@@ -1954,6 +1954,7 @@ register_step_provider(
             "incrementation",
             "quadrature_degree",
             "creep_strain_error_tolerance",
+            "material_points",
             "progress",
             "status_file",
             "amplitude",

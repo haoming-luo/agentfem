@@ -87,6 +87,7 @@ the compact machine-readable `agentfem/knowledge/catalog.json`.
 | `agentfem.benchmark.campaign_surrogate_pipeline` | Static-elasticity campaign to guarded surrogate pipeline | parameterized small-strain isotropic linear elasticity | executable_integration |
 | `agentfem.benchmark.chaboche_combined_hardening` | Abaqus OFHC copper and 316-steel cyclic material paths | three-dimensional and axisymmetric small-strain J2 plasticity with isotropic and Armstrong--Frederick kinematic hardening under strain, stress, or mixed control | automated_external_material_point_comparison |
 | `agentfem.benchmark.classical_sub_rayleigh_crack_v3` | Classical sub-Rayleigh cohesive crack guardrail | precracked compressible Neo-Hookean strip with a fixed-path bilinear Mode-I cohesive interface | experimental_v3_guardrail_automated |
+| `agentfem.benchmark.colocated_material_histories` | Co-located accepted creep/plastic/thermal histories | Serial Cartesian 3D small-strain creep with physical-time temperature; homogeneous joint plasticity or regional pure creep | automated_regression |
 | `agentfem.benchmark.creep_abaqus_constant_stress` | Official Abaqus time-hardening constant-stress creep case | three-dimensional small-strain Mises time-hardening power-law creep | automated_external_verification |
 | `agentfem.benchmark.creep_damage_material_paths` | Creep-damage material paths and curve projection | Mises Kachanov-Rabotnov creep damage, hyperbolic-sine creep, and modified-theta curve projection | automated_regression |
 | `agentfem.benchmark.creep_fatigue_assessment` | Source-identified engineering creep-fatigue assessment | Postprocessed creep time-fraction and stress-life fatigue damage | automated_postprocessor |
@@ -1802,6 +1803,7 @@ A declared creep_strain_error_tolerance may reject an otherwise converged increm
 
 | Name | Type | Unit role | Meaning |
 | --- | --- | --- | --- |
+| selected co-located material-point histories | accepted tensor/state/temperature HistoryResult channels | declared model stress/time units, tensor strain, kelvin | Opt-in material_points selects original cell IDs and reference quadrature indices in the serial Cartesian 3D Step. Stress, total strain, internal variables and supplied temperature share one identity and restart ledger; no initial equilibrium sample is fabricated. |
 | S and MISES | quadrature tensor and scalar fields | stress | Accepted constitutive stress and its von Mises invariant. |
 | CE and CEEQ | committed quadrature state | strain | Creep strain tensor and accumulated equivalent creep strain. |
 | time, Newton, local-update, integration-error, work and energy histories | structured histories and execution events | time, iterations, strain, and energy | Accepted times, maximum creep increment, endpoint creep-rate error estimate, local/global iterations, elastic energy, creep dissipation, natural-load work, prescribed-motion work, internal energy and mechanical residual. |
@@ -1848,6 +1850,7 @@ Create studies.creep_solid(), register constitutive.isotropic_power_law(...) or 
 
 **Tests**
 
+- `tests/test_material_point_histories.py`
 - `tests/test_p1_platform.py`
 - `tests/test_creep_elastic_followup.py`
 - `tests/test_histories.py`
