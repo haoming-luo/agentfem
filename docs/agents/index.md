@@ -10,8 +10,8 @@ agents. An agent should construct or revise the readable `case.py`, use the
 structured CLI for operations, and accept results only through their explicit
 status and scientific evidence.
 
-For a direct tool connection, install the official
-[AgentFEM MCP companion](mcp.md). It exposes seven typed lifecycle operations
+An ordinary terminal is sufficient. For a direct tool connection, the optional
+[AgentFEM MCP companion](mcp.md) exposes seven typed lifecycle operations
 to Codex, Claude, and other compatible hosts while leaving the model source,
 solver, and evidence in normal AgentFEM projects.
 
@@ -19,7 +19,7 @@ solver, and evidence in normal AgentFEM projects.
 
 For installation, use `installation.onboarding` in `/agentfem.json`. Inspect
 the host OS and retain the user's selected mirror. Windows follows
-[WSL → Ubuntu → environment → first solve](../windows_agent_installation.md);
+[WSL → Ubuntu → environment](../windows_agent_installation.md);
 Linux/macOS start at the environment. No repository checkout is a prerequisite.
 Try each permitted stage once; on failure show its exact blocker and **one**
 manual action. Resume after that blocker is resolved, not by reinstalling.
@@ -44,21 +44,35 @@ An AI chat without authorised terminal tools provides the same manual path.
 | `agentfem migrate-abaqus model.inp ./project --json` | Fail-closed Abaqus migration project |
 | `agentfem lower-abaqus ./project --reviewed-by NAME --unit-system SI --json` | Inactive reviewed native draft for the eligible subset |
 
-## Safe operating sequence
+## Use only the steps the task needs
 
 ```text
-discover → doctor → protect workspace → init/open → inspect project → edit case.py → check
-         → run → inspect structured result → verify policy → publish or revise
+Existing project: read case/instructions → edit if requested → check → run → inspect
+Existing result:  show → answer the user's question
+New installation: environment → doctor → readiness summary → offer an optional example
 ```
 
-If no environment exists, consume the installation contract from
-`/agentfem.json` or follow the installation guide. Do not infer that a PyPI
-wheel can provision DOLFINx/PETSc, and do not mix conda channels for the
-compiled numerical stack.
+Reuse the environment and capability information already checked within the
+task. Run `doctor` after environment/version changes or a runtime failure;
+`check` already reports project migration findings. Use `upgrade` when those
+findings need review, rather than adding a migration audit to every run.
+Installation and workspace setup are one-time steps, not a routine preamble.
+Stop when the environment is ready. Ask before creating or running a first
+example unless the user already requested it. Suggest one useful next step;
+do not automatically turn a suggestion into a task.
 
-An agent must not infer scientific validity from a zero exit code. It should
-inspect convergence, requested outputs, quality policy, applicability limits,
-benchmark evidence, and any explicit failure record.
+Start with the relevant example and `agentfem capabilities materials` (or
+another topic). Read the full provider contract when needed. The installed
+version's API is authoritative; online development documentation may be newer.
+Architecture and extension guides are for extending the software, not a
+prerequisite to run a beam example. See `task_guidance` in `/agentfem.json`.
+
+Summarize the requested result, its artifact path and the relevant check.
+`verify` checks provenance; numerical acceptance uses convergence, balance or
+reference evidence suited to the model. Extra benchmarks, tuning and new
+installations are separate tasks.
+
+## Specialized operations
 
 On WSL, an agent must not replace or unregister a distribution until
 `agentfem workspace --json` reports that project data is protected from

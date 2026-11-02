@@ -5,6 +5,10 @@ description: "Check installed AgentFEM project workflows and prepare a fresh-age
 
 # Agent acceptance contract
 
+This is a **developer/release validation workflow**, not a first-install
+checklist. Ordinary installation ends with environment readiness; a user
+example is opt-in. Release testing still exercises actual finite-element solves.
+
 An AI-native claim should be tested from the package that a user receives,
 not from an editable source checkout or a maintainer's memory. AgentFEM's
 deterministic acceptance route starts in a clean directory and requires the

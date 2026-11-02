@@ -1,111 +1,89 @@
 # AgentFEM Agent Guide
 
-For serial response-material process visualization, use
-`results.AcceptedResponseSeries` and `project.RunPolicy(field_intervals=...)`.
-Never reconstruct unsaved damage fields by interpolating endpoints. Keep
-checkpoint cadence separate; opt-in `completed_checkpoint_keep=1` prunes only
-owned checkpoints after successful completion/export. Read the checkpoint
-path from the result, not a guessed `accepted-final` filename.
+Help the user define, run and understand a finite-element model through the
+same public workflow they can read and edit. A prepared project runs without
+an AI service; the agent assists with setup and modeling, not the calculation.
 
-Use this guide when an AI agent is asked to build, review, extend, or debug a
-finite-element simulation with AgentFEM.
+## Choose the shortest path
 
-## First Steps
+| User task | Start with | Finish with |
+| --- | --- | --- |
+| Install | The platform route in `agentfem.json` or [INSTALL.md](INSTALL.md) | Environment readiness; offer an optional first example |
+| Run an existing project | Its `AGENTS.md`, `case.py` and `agentfem.toml` | `check → run → inspect` |
+| View a result | `agentfem show latest --json` | Requested quantities or artifact paths; no new solve |
+| Modify a model | The nearest example and installed provider options | Targeted check, run and comparison |
+| Upgrade or diagnose | `doctor --json`; `upgrade --json` for migration findings | Readiness/failure explanation; offer a relevant regression |
+| Extend the solver | `WORKFLOW.md`, `CONCEPTS.md` and the relevant module guide | Implementation and numerical evidence |
 
-1. If AgentFEM is not installed, use the repository's `INSTALL.md` rather than
-   guessing a pip-only numerical environment. The release-tested environment
-   is Python 3.11 with DOLFINx 0.11. If the user says "走镜像通道 / use the
-   mirror channel" or the canonical source is unreachable, use the documented
-   single-mirror command; do not infer location from an IP address or VPN, and
-   do not combine conda channels for PETSc/MPI/DOLFINx. Reuse healthy existing
-   WSL environments. Honour an explicitly requested Ubuntu + mirror route;
-   do not require an unpublished offline bundle. A compatible published Complete
-   Runtime is another new-user route: its installer owns WSL preparation and
-   avoids downloading a separate Ubuntu because that route supplies its own
-   distribution. This is not a prohibition on Ubuntu for the mirror route.
-   For Windows/WorkBuddy installation, follow the short path in
-   `docs/windows_agent_installation.md`: inspect/reuse WSL → import checked
-   Ubuntu from the requested mirror → Linux Miniforge/environment → first solve.
-   Do not require a GitHub clone, source helper, Windows Features GUI or offline
-   bundle. Helpers are optional, documented in `docs/windows_installer_reference.md`.
-   An installed Ubuntu Store App is not proof of a registered WSL2 distro.
-   After a distribution-metadata timeout, use the documented checked mirror
-   import rather than repeating Store/winget/network attempts.
-   Do permitted work yourself; when blocked give one specific approval, local
-   administrator command or restart request. Do not bypass host policy.
-   New imported distributions can use authorised automatic non-root account
-   creation; do not insist on a nonexistent OOBE prompt. Store/bundle passwords
-   remain private. Never recommend routine root or a shared/default password.
-   Use copy-safe paths, not angle-bracket command placeholders.
-   Retain the selected mirror and environment path in a local handoff note
-   (no credentials); later optional packages use the same explicit source,
-   without global configuration changes or mixed numerical channels.
-   Standard installs include SciPy, Matplotlib and Gmsh without another user
-   request. Use the manifest's full command (Conda uses `matplotlib-base` and
-   `python-gmsh`). Gmsh is optional to use, not opt-in to install. After an
-   upgrade, run a small known case and verify it; doctor alone is insufficient.
-   Use `mamba run -n agentfem-env` for separate tool calls; shell activation
-   does not persist between them. Send complex Linux scripts as inspected LF
-   files to avoid nested PowerShell/Bash interpolation.
-   On first-solve completion, promptly report installed version, result path,
-   one useful quantity with units, and the actual check outcome. Do not add
-   unrequested benchmarks or claim provenance verification certifies all physics.
-2. For an installed case, run `agentfem doctor --json`. On WSL, also run
-   `agentfem workspace --json`; before any runtime replacement or removal it
-   must report `protected_from_distribution_removal: true`. If it does not,
-   run `agentfem workspace --protect` before creating or moving project data.
-   Never run raw `wsl --unregister`; use the Complete Runtime's bundled
-   `Remove-AgentFEM.ps1`. Then run `agentfem check --json`. For an existing
-   case also run
-   `agentfem upgrade --json`; treat `semantic_review=true` as a requirement to
-   inspect the finite-element meaning, not as permission for blind text
-   replacement. For repository work, also read this guide.
-   Use `agentfem run --mpi N` for projects and
-   `agentfem mpi-run -n N --timeout 600 -- ...` for MPI tests or diagnostic
-   commands; never
-   guess a bare `mpiexec` because it may belong to another MPI implementation.
-   Keep unlimited execution only for an intentional long simulation.  A test
-   timeout terminates the launcher and all ranks together instead of leaving
-   an orphaned collective consuming CPU.
-   If the v0.3.6 Windows Preview reports a missing C compiler on its first
-   solve, repair that existing runtime with
-   `sudo apt-get update && sudo apt-get install -y gcc g++`, rerun
-   `agentfem doctor`, and preserve the user's project workspace.
-   A successful `doctor` may include one concise support invitation for the
-   installed major/minor release series. Do not inspect a GitHub account or
-   create a Star without the user's explicit consent. If the user agrees, run
-   `agentfem support --star --json` with their existing GitHub CLI login. This
-   is the single explicit account-changing command and records the completed
-   choice locally. Use `agentfem support --check-github --json` only when the
-   user asks for a read-only status check.
-   Never request, copy, or retain a GitHub token for this purpose.
-3. Read `WORKFLOW.md` to identify the standard finite-element sequence.
-4. Read `CONCEPTS.md` to align terminology before changing code.
-5. Identify or create the `studies.Study` before choosing constitutive laws or
-   operators.
-6. Inspect or create a mesh summary before reasoning about boundary tags,
-   material regions, or output dimensions.
-7. Inspect the target application only after mapping it to AgentFEM concepts.
-8. Prefer existing `agentfem` APIs before adding new helpers.
-9. Add reusable code only when it belongs to a standard FEM concept.
+Use `--json` when consuming CLI output. Reuse the known environment and
+capability information within a task; refresh it after an environment/version
+change or a relevant failure. `agentfem check` already includes upgrade
+findings, so a routine run does not need a separate upgrade audit.
+Read only the references needed for the current physics or failure.
 
-If an installed run repeatedly fails, use `agentfem diagnose --json`, then
-`agentfem assist --force`. Read the generated private support task without
-assuming that its sanitized evidence contains the scientific model. Do not
-upload a report or run `agentfem feedback --github` unless the user explicitly
-authorizes that external action. Basic anonymous reliability reports never
-contain model, mesh, material, source, path, or result data. Explain that this
-minimal signal improves the free, open-source software and can be disabled at
-any time. Inspect the exact contract with `agentfem telemetry status --json`.
-Keep the default `auto` delivery route: it tries only project-reviewed
-collectors, remembers the last successful route, and performs no location
-inference. If connectivity requires an explicit preference, use
-`agentfem telemetry route china|global`; this changes transport only, never the
-scientific model or result.
+## Installation and environment changes
 
-Community support is separate from anonymous reliability reporting. A Star,
-Discussion, citation, or public installation report is always voluntary and
-never changes solver access, results, verification, or update behavior.
+Follow [INSTALL.md](INSTALL.md); on Windows use
+[WSL → Ubuntu → AgentFEM](docs/windows_agent_installation.md).
+Do not require a GitHub clone. Retain the selected mirror and environment
+path in the local handoff note. Standard installation includes SciPy,
+Matplotlib and Gmsh; reuse a working environment instead of rebuilding it.
+Use the user's chosen channel, or the documented mirror if the canonical
+source is unreachable. Keep the compiled numerical stack on one channel.
+
+Do permitted work directly. If approval, restart or a private password entry
+is needed, present one specific next action and resume from the completed
+stage. Preserve projects and credentials; never bypass an agent's security
+policy. On WSL, prepare `agentfem workspace --protect` once and verify project
+custody before replacing/removing a runtime. Detailed recovery and alternate
+installation routes belong in the installation guide, not every response.
+
+For separate agent tool calls, use `mamba run -n agentfem-env ...`; activation
+in a previous shell may not persist. Use the installed manager's path if
+needed. On installation completion, promptly report the installed version,
+environment location and readiness. Then ask: “Would you like to try a small
+example, or work on your own model?” Installation is complete without either.
+Create or run a project only when requested. If the user already asked to install
+and run an example, that request is sufficient; do not ask again.
+
+Offer one relevant next step, not an automatic task queue. A suggestion does not
+authorize a solve, benchmark, tuning sweep or extra integration. Reuse the task's
+known context; do not repeat discovery or checks without a relevant change.
+When a requested example finishes, report its result path and useful checked
+quantity, then stop.
+
+## Modeling and results
+
+Start with a physical Study, named mesh regions, materials and loads, then
+`model.step(...)`. Keep physics in `case.py` and operational settings in
+`agentfem.toml`. Prefer the installed public API and its provider option
+contracts; inspect `agentfem capabilities materials` or another relevant
+topic before requesting the full JSON inventory. The installed version is
+authoritative when the website describes newer development work.
+
+Publish through the standard Result lifecycle. Use the manifest's recommended
+visualization artifact and the existing writers, rather than reconstructing
+connectivity or XDMF in the case. `agentfem verify` checks result provenance;
+numerical acceptance also needs the relevant convergence, balance or reference
+comparison. Match the depth of that check to the user's question.
+
+For accepted response-material histories and restart, read
+[process output](docs/accepted_process_output.md). Output frames and restart
+checkpoints have separate schedules; report available frames rather than
+interpolating unsaved damage states.
+
+## When more is needed
+
+- Parallel projects: `agentfem run --mpi N`; bounded MPI diagnostics:
+  `agentfem mpi-run -n N --timeout 600 -- ...`.
+- Repeated failures: `agentfem diagnose --json`, then the relevant guidance
+  from `agentfem assist --force`. Keep support reports private unless the user
+  authorizes sharing.
+- Runtime replacement: check `agentfem workspace --json`; use the documented
+  lifecycle tools for a Complete Runtime.
+- Privacy and voluntary support: `agentfem telemetry status --json` and
+  `agentfem support`. These are not prerequisites for using the solver.
+  Account actions and public reports require the user's explicit consent.
 
 ## Progressive Reading
 

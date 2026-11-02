@@ -10,7 +10,9 @@
 - Keep the finite-element sequence visible in `case.py`.
 - Use named mesh regions and existing AgentFEM materials, constraints, loads,
   steps, and result helpers before writing UFL directly.
-- Run `agentfem doctor`, then `agentfem check`, then `agentfem run`.
+- For a model change: `agentfem check` → `agentfem run` → `agentfem show latest`.
+- Use `agentfem doctor` for setup, environment changes or runtime failures.
+  For a result-only request, view the saved result without starting a new run.
 - Read `outputs/latest.json` and the referenced result manifest
   before reporting success.
 - Do not describe a completed computation as verified unless the manifest

@@ -1,10 +1,12 @@
 # Workflow Reference
 
-For an existing installed project, start with `agentfem doctor --json`. On
-WSL, also run `agentfem workspace --json` and protect the workspace before any
-runtime lifecycle operation. Then run `agentfem check --json` and
-`agentfem upgrade --json`. Automatic migration is
-limited to deterministic metadata. A finding with `semantic_review=true`
+For an existing installed project, use `check → run → inspect`.
+Use `doctor` after environment changes or runtime failures; `check` already
+includes migration findings. Use `upgrade` when those findings need review.
+On WSL, protect project storage once and recheck custody before replacing or
+removing a runtime. Installation itself ends with environment readiness;
+create and run a first example only when requested.
+Automatic migration is limited to deterministic metadata. A finding with `semantic_review=true`
 requires inspection and re-verification of the finite-element meaning.
 
 AgentFEM workflow:

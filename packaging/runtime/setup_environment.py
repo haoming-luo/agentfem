@@ -6,7 +6,8 @@
 This source-usable entry point needs only Python's standard library. It never
 installs WSL, downloads an executable bootstrapper, changes shell configuration,
 or repairs an existing environment implicitly. Package installation is opt-in;
-completion requires an installed-template solve, not an import or a version.
+completion checks the installed environment. A template solve is an explicit
+opt-in, not part of installing the software.
 """
 from __future__ import annotations
 
@@ -32,6 +33,7 @@ CHANNELS = {
     "tuna": "https://mirrors.tuna.tsinghua.edu.cn/anaconda/cloud/conda-forge",
 }
 SCHEMA = "agentfem.environment-setup"
+SCHEMA_VERSION = 2
 
 
 class SetupError(RuntimeError):
@@ -191,8 +193,9 @@ def make_plan(args):
                 "scipy>=1.11", "matplotlib-base", "gmsh>=4.11", "python-gmsh>=4.11",
                 "agentfem" + ("=" + args.version if args.version else "")]
     request = dict(manager=str(manager), prefix=str(prefix), channel=args.channel,
-                   requested_version=args.version, protect_workspace=not args.no_protect_workspace)
-    return dict(schema=SCHEMA, schema_version=1, status="planned", request=request,
+                   requested_version=args.version, protect_workspace=not args.no_protect_workspace,
+                   first_solve=args.first_solve)
+    return dict(schema=SCHEMA, schema_version=SCHEMA_VERSION, status="planned", request=request,
                 action="verify_existing" if existing else "create_then_verify",
                 package_command=None if existing else command,
                 environment_changed=False, runtime_verified=False,
@@ -317,19 +320,11 @@ class SetupRun:
                 "microsoft" not in platform.release().lower() or workspace.get("protected_from_distribution_removal") is True,
                 "AFM-SETUP-WORKSPACE", "The WSL workspace is not protected from distribution removal. Inspect the workspace report before continuing.")
             self.report["workspace"] = workspace
-            project = self.root / "first-solve"
-            self.report["first_project"] = str(project)
-            self.stage("project_create", self.command("agentfem", "init", "--template", "static-solid", str(project)))
-            checked = self.stage("project_check", self.command("agentfem", "check", "--project", str(project), "--json"), json_result=True)
-            self.require_evidence(checked.get("status") == "passed",
-                "AFM-SETUP-CHECK", "The installed template did not pass its project check.")
-            solved = self.stage("first_solve", self.command("agentfem", "run", "--project", str(project), "--name", "first-solve", "--json"), json_result=True)
-            self.require_evidence(solved.get("status") == "completed",
-                "AFM-SETUP-SOLVE", "The first solve did not complete; a paused run is not installation acceptance.")
-            verification = self.stage("result_verify", self.command("agentfem", "verify", "--project", str(project), "--json"), json_result=True)
-            self.require_evidence(verification.get("verified") is True,
-                "AFM-SETUP-VERIFY", "Result provenance verification did not pass. Preserve the first-solve project for inspection.")
-            self.report.update(first_solve_verified=True, verification=verification, status="completed")
+            if not requested["first_solve"]:
+                self.report.update(status="completed", next_action="offer_optional_first_example")
+                return
+            self.first_solve()
+            self.report.update(status="completed", next_action="use_project")
         except BaseException as exc:
             self.report.update(status="interrupted" if isinstance(exc, KeyboardInterrupt) else "failed",
                                error_code=getattr(exc, "code", "AFM-SETUP-FAILED"), message=str(exc),
@@ -339,6 +334,21 @@ class SetupRun:
             self.report["finished_at"] = datetime.now(timezone.utc).isoformat()
             self.save_finally()
 
+    def first_solve(self):
+        project = self.root / "first-solve"
+        self.report["first_project"] = str(project)
+        self.stage("project_create", self.command("agentfem", "init", "--template", "static-solid", str(project)))
+        checked = self.stage("project_check", self.command("agentfem", "check", "--project", str(project), "--json"), json_result=True)
+        self.require_evidence(checked.get("status") == "passed",
+            "AFM-SETUP-CHECK", "The installed template did not pass its project check.")
+        solved = self.stage("first_solve", self.command("agentfem", "run", "--project", str(project), "--name", "first-solve", "--json"), json_result=True)
+        self.require_evidence(solved.get("status") == "completed",
+            "AFM-SETUP-SOLVE", "The requested example did not complete; inspect the retained project.")
+        verification = self.stage("result_verify", self.command("agentfem", "verify", "--project", str(project), "--json"), json_result=True)
+        self.require_evidence(verification.get("verified") is True,
+            "AFM-SETUP-VERIFY", "Result provenance verification did not pass. Preserve the first-solve project for inspection.")
+        self.report.update(first_solve_verified=True, verification=verification)
+
 
 def parser():
     result = argparse.ArgumentParser(description=__doc__)
@@ -347,7 +357,8 @@ def parser():
     result.add_argument("--prefix", help="Explicit existing or new environment directory")
     result.add_argument("--channel", choices=CHANNELS, default="conda-forge")
     result.add_argument("--version", default="", help="Exact published AgentFEM version, if required")
-    result.add_argument("--apply", action="store_true", help="Execute the plan and first solve; default only plans")
+    result.add_argument("--apply", action="store_true", help="Install/check the environment; without this flag, only show the plan")
+    result.add_argument("--first-solve", action="store_true", help="Also create and run a small example, only when requested")
     result.add_argument("--json", action="store_true", help="One structured result; detailed subprocess output stays in logs")
     result.add_argument("--no-protect-workspace", action="store_true", help="Inspect rather than migrate the default project workspace")
     result.add_argument("--state-root", type=Path, default=Path.home() / ".local/state/agentfem/setup")
@@ -378,7 +389,7 @@ def main(argv=None):
                 run.execute()
     except (SetupError, OSError, KeyboardInterrupt) as exc:
         code = 130 if isinstance(exc, KeyboardInterrupt) else 1
-        report = dict(report or {}, schema=SCHEMA, schema_version=1,
+        report = dict(report or {}, schema=SCHEMA, schema_version=SCHEMA_VERSION,
                       status="interrupted" if code == 130 else "failed",
                       error_code=getattr(exc, "code", "AFM-SETUP-FAILED"), message=str(exc))
     if args.json:
@@ -386,7 +397,11 @@ def main(argv=None):
     elif report["status"] == "planned":
         print(f"AgentFEM setup | plan only\nEnvironment: {report['request']['prefix']}\nAction: {report['action']}\nChannel: {report['request']['channel']}\nNo packages changed. Review these settings, then rerun with --apply.")
     elif report["status"] == "completed":
-        print(f"AgentFEM {report['installed']['version']} | first solve verified\nEnvironment: {report['request']['prefix']}\nOpen project: {report['first_project']}\nRecord: {report['record']}\nUse this environment through mamba/conda run --prefix; no AI is required.")
+        print(f"AgentFEM {report['installed']['version']} | installation complete\nEnvironment: {report['request']['prefix']}\nHealth check: ready\nRecord: {report['record']}\nUse this environment through mamba/conda run --prefix; no AI is required.")
+        if report["first_solve_verified"]:
+            print(f"Requested example: verified\nOpen project: {report['first_project']}")
+        else:
+            print("No project was created or simulation run. Would you like to try a small example next?")
     else:
         print(f"AgentFEM setup | {report['status']}\n{report.get('error_code')}: {report.get('message')}\nRecord: {report.get('record', 'not created; no package operation started')}")
     return code

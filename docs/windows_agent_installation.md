@@ -1,6 +1,6 @@
 ---
 title: "Install AgentFEM on Windows with an AI assistant"
-description: "Choose a documented WSL2 installation route, reuse existing environments, and verify a first finite-element solve without replacing user projects."
+description: "Install through WSL2, reuse existing environments, and finish with a clear readiness check. Try a first example when you choose."
 ---
 
 # Windows: WSL → Ubuntu → AgentFEM
@@ -17,17 +17,14 @@ Ubuntu/WSL2? Skip platform installation and reuse it.
 
 The [web prompt](get_started/index.md#let-your-agent-install-it) and
 `installation.onboarding` in [agentfem.json](agentfem.json) share this flow.
-Detect the OS, not the user's location. Use an explicitly requested/recorded
-mirror route; do not infer it from Chinese text, IP or VPN. Try each permitted
-stage once. If it fails, stop that stage and give one manual action immediately;
-do not cycle through commands or wait silently. A new attempt needs changed
-readiness/source or user direction. Successful earlier stages stay completed.
-If the host cannot execute commands, give the same manual path directly.
+Reuse working stages and retain the user's chosen channel. If a stage fails,
+keep its error and show one next action; resume after that blocker is resolved.
+If the agent cannot execute commands, give the same manual path directly.
 
 Show a short status such as `WSL: needs approval — open Terminal (Administrator)`
 or `Environment: installing — no action needed`. Do not dump raw diagnostics
-unless asked; keep the exact error for troubleshooting. This is agent-assisted
-installation, not an unattended executable that bypasses Windows approval.
+unless asked; keep the exact error for troubleshooting. Ask for Windows
+approval only when the operation requires it.
 
 ## 1. Prepare WSL only if needed
 
@@ -51,6 +48,10 @@ or a restart request. Do not start with the Windows Features GUI; reserve
 manual component/firmware repair for a specific diagnosed failure.
 
 ## 2. Add Ubuntu from the mirror, only if absent
+
+For the standard Microsoft route, `wsl --install -d Ubuntu` installs Ubuntu;
+complete its first-launch account setup locally. For a requested mirror route,
+use the image recipe below instead. Choose one route, not both.
 
 For a requested mainland/mirror route, use the verified Ubuntu image import
 below directly. Do not first loop through Store, winget and
@@ -130,7 +131,7 @@ Imported distributions do not use `ubuntu.exe config --default-user`.
 Store/bundle OOBE is a different route: if it asks for a password, the user
 enters it privately, never in chat.
 
-## 3. Install the environment and show the first result
+## 3. Install the environment and confirm readiness
 
 Inside Ubuntu as the ordinary user, reuse working Linux Miniforge. Otherwise
 use its [TUNA release mirror](https://mirrors.tuna.tsinghua.edu.cn/github-release/conda-forge/miniforge/LatestRelease/)
@@ -160,16 +161,16 @@ Run as one Bash block; no root, shell-profile edits or existing-prefix overwrite
 )
 ```
 
-Then use [INSTALL.md's mirror command and installed smoke test](https://github.com/haoming-luo/agentfem/blob/main/INSTALL.md#mirror-channel--镜像通道).
+Then use [INSTALL.md's mirror command](https://github.com/haoming-luo/agentfem/blob/main/INSTALL.md#mirror-channel--镜像通道).
 Use `~/miniforge3/bin/mamba` if it is not on PATH. In agent tools use
 `mamba run -n agentfem-env ...` for each command; activation does not persist
 across tool calls. Query the selected mirror for a required version: an older
 package passing a basic solve does not satisfy a project's newer API needs.
 
-Finish with doctor → workspace protection → init/check/run/verify. Report
-**installed version, first-solve outcome, result path and one useful numerical
-check with units where applicable**. Provenance verification is not a general
-scientific certification. Do not append unrequested benchmarks or a long essay.
+Finish with `agentfem doctor` and `agentfem workspace --protect`. Report the
+**installed version, environment location and readiness**, then stop.
+Ask whether the user wants to try a small example. Create and run it only if
+requested; do not append benchmarks or performance tuning to installation.
 
 ## Agent handoffs: one sentence, only when needed
 
@@ -194,7 +195,7 @@ the local project/agent handoff note; do not record credentials. Read it on
 later visits and keep using that channel for optional packages unless the user
 changes it. Use explicit per-command conda/pip sources; do not rewrite global
 configuration or mix compiled package channels. No new mirror CLI is needed.
-[Optional package examples](https://github.com/haoming-luo/agentfem/blob/main/INSTALL.md#optional-tools).
+[Additional package examples](https://github.com/haoming-luo/agentfem/blob/main/INSTALL.md#additional-tools).
 
 ## Other routes and evidence
 

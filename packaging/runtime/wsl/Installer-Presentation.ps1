@@ -15,7 +15,7 @@ function Get-AgentFEMInstallStageText {
         'restart_required' { 'Paused: Windows restart required' }
         'awaiting_authorization' { 'Paused: permission required' }
         'platform_ready' { 'WSL platform prepared; AgentFEM is not installed yet' }
-        'completed' { 'Installation and first-solve checks completed' }
+        'completed' { 'Installation and readiness checks completed' }
         'failed' { 'Installation did not complete; your diagnostic record is retained' }
         default { "Recorded stage: $Stage" }
     }

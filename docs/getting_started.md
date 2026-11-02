@@ -26,7 +26,6 @@ mamba create -n agentfem-env --override-channels -c conda-forge \
   scipy matplotlib-base gmsh python-gmsh agentfem
 mamba activate agentfem-env
 agentfem doctor
-agentfem doctor --json
 ```
 
 ### Mirror channel / 镜像通道
@@ -60,10 +59,13 @@ agentfem workspace --protect
 It remains available as `~/AgentFEMProjects`, while the authoritative files
 live in Windows `Documents\AgentFEMProjects` and survive runtime replacement.
 
-The JSON form is intended for issue reports, IDE integrations, and agents. It
+Agents can use `agentfem doctor --json` instead of the human-readable form. It
 records the platform route, exact interpreter and imported package, core
-versions, and optional mesh, visualization, machine-learning, and
-distributed-MPC integrations.
+versions, standard mesh/plotting tools, and optional integrations.
+
+**Installation is complete when the environment is ready.** No project or
+simulation is required. An agent may offer a small example next; it should
+wait for your choice. The rest of this page is for when you choose to run one.
 
 `agentfem capabilities` gives people a one-screen index with progressively
 expandable topics such as `materials`, `procedures`, and an individual model
@@ -83,19 +85,17 @@ On WSL, begin below `~/AgentFEMProjects`. On Linux and macOS, projects may live
 in any user-owned directory.
 
 ```bash
-agentfem templates
-mkdir beam
+agentfem init beam --template static-solid
 cd beam
-agentfem init --template static-solid .
 agentfem check
 agentfem run --name baseline
-agentfem runs
 agentfem show latest
 agentfem verify
 ```
 
 Initial templates include `static-solid`, `steady-heat`, and
-`structural-dynamics`. The generated layout is intentionally small:
+`structural-dynamics`; use `agentfem templates` to browse others.
+The generated layout is intentionally small:
 
 ```text
 beam/
@@ -123,6 +123,9 @@ arguments are forwarded under `--mpi N`. A case's unsuccessful `SystemExit`
 (including argument-parser errors) produces a failed execution record and a
 nonzero command status. A planned pause remains `paused`, not `completed`.
 Running a prepared project requires no AI service, account, or skill.
+In a working environment, edit the case, check, run and view the result.
+Environment diagnostics and migration review are for setup, upgrades or a
+relevant failure—not a mandatory preamble to each run.
 
 For an existing Abaqus input deck, begin with migration rather than a blank
 template:

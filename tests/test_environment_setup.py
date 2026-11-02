@@ -126,6 +126,7 @@ def make_run(environment, tmp_path, **fake_args):
 
 
 def test_create_to_first_solve_records_each_stage_and_does_not_need_activation(environment, tmp_path, monkeypatch):
+    environment[0].first_solve = True
     monkeypatch.setenv("PYTHONPATH", "/wrong/source/checkout")
     run, fake = make_run(environment, tmp_path)
     run.execute()
@@ -141,6 +142,7 @@ def test_create_to_first_solve_records_each_stage_and_does_not_need_activation(e
 
 @pytest.mark.parametrize("failure", ["--dry-run", "--yes", "doctor", "workspace", "init", "check", "verify"])
 def test_failed_stage_stops_without_fallback_or_false_success(environment, tmp_path, failure):
+    environment[0].first_solve = True
     run, fake = make_run(environment, tmp_path, fail=failure)
     with pytest.raises(setup.SetupError):
         run.execute()
@@ -170,6 +172,40 @@ def test_existing_environment_has_no_package_transactions(environment, tmp_path)
     run.execute()
     assert all(cmd[1] == "run" for cmd in fake.commands)
     assert not run.report["environment_changed"]
+
+
+def test_installation_stops_after_readiness_without_project_or_simulation(environment, tmp_path):
+    run, fake = make_run(environment, tmp_path)
+    run.execute()
+    report = json.loads((run.root / "status.json").read_text())
+    assert report["status"] == "completed"
+    assert report["runtime_verified"] is True
+    assert report["request"]["first_solve"] is False
+    assert report["first_solve_verified"] is False
+    assert report["next_action"] == "offer_optional_first_example"
+    assert "first_project" not in report
+    assert not (run.root / "first-solve").exists()
+    assert [s["name"] for s in report["stages"]] == [
+        "package_plan", "environment_create", "installed_identity", "doctor", "workspace"]
+    agent_commands = [c[c.index("agentfem") + 1] for c in fake.commands if "agentfem" in c and c[1] == "run"]
+    assert agent_commands == ["doctor", "workspace"]
+
+
+@pytest.mark.parametrize("example", [False, True])
+def test_completion_message_distinguishes_installation_from_example(environment, tmp_path, monkeypatch, capsys, example):
+    args = environment[0]
+    args.first_solve = example
+    plan = setup.make_plan(args)
+    monkeypatch.setattr(setup, "make_plan", lambda _: plan)
+    monkeypatch.setattr(setup, "run_logged", FakeRuntime(plan["request"]["prefix"]))
+    flags = ["--apply", "--state-root", str(tmp_path / "main-state")]
+    if example:
+        flags.append("--first-solve")
+    assert setup.main(flags) == 0
+    message = capsys.readouterr().out
+    assert "installation complete" in message
+    assert ("Requested example: verified" in message) is example
+    assert ("Would you like to try" in message) is not example
 
 
 def test_lock_releases_after_failure_without_deleting_file(tmp_path):
@@ -225,6 +261,7 @@ def test_source_cli_help_does_not_import_numerical_stack():
 
 @pytest.mark.parametrize("stage", ["doctor", "workspace", "project_check", "first_solve", "result_verify"])
 def test_exit_zero_without_matching_evidence_is_not_acceptance(environment, tmp_path, monkeypatch, stage):
+    environment[0].first_solve = True
     monkeypatch.setattr(setup.platform, "release", lambda: "microsoft-standard-WSL2")
     run, _ = make_run(environment, tmp_path)
     original = run.stage
@@ -267,6 +304,7 @@ def test_invalid_json_evidence_stops_with_structured_failure(environment, tmp_pa
 
 
 def test_failed_solve_recheck_uses_existing_environment(environment, tmp_path):
+    environment[0].first_solve = True
     run, fake = make_run(environment, tmp_path, fail="verify")
     with pytest.raises(setup.SetupError):
         run.execute()

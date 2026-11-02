@@ -24,6 +24,11 @@ on:
 # workflow. A documentation-only follow-up must never cancel an in-flight core
 # numerical gate that the follow-up itself will not rerun.
 
+# Conda-forge pip 26.2.2 build 1 resolves its CA file against sys.prefix,
+# which has no Conda CA bundle in a PEP 517 temporary venv (pip-feedstock#151).
+# Seed isolated-build jobs with the same upstream PyPI pip wheel. Keep TLS
+# verification and build isolation enabled; this changes CI tooling only.
+
 jobs:
   change-scope:
     name: Classify validation scope
@@ -200,6 +205,7 @@ jobs:
 
       - name: Build and install the wheel under test
         run: |
+          python -m pip install --no-deps --force-reinstall "pip==26.2.2"
           python -m pip install --upgrade build
           export AGENTFEM_GMP_PREFIX="${CONDA_PREFIX}"
           test -f "${AGENTFEM_GMP_PREFIX}/include/gmp.h"
@@ -274,6 +280,7 @@ jobs:
 
       - name: Build and install the wheel users receive
         run: |
+          python -m pip install --no-deps --force-reinstall "pip==26.2.2"
           python -m pip install --upgrade build twine
           # PEP 517 builds in a temporary Python environment. Keep the reviewed
           # numerical environment's optional GMP headers/library discoverable.
@@ -302,7 +309,7 @@ jobs:
           cd "${RUNNER_TEMP}"
           python "${GITHUB_WORKSPACE}/packaging/runtime/setup_environment.py" \
             --manager "${CONDA}/bin/conda" --prefix "${CONDA_PREFIX}" \
-            --no-protect-workspace --apply --json \
+            --no-protect-workspace --apply --first-solve --json \
             --state-root "${RUNNER_TEMP}/onboarding-acceptance"
 
       - name: Retain first-solve onboarding evidence
@@ -697,7 +704,9 @@ jobs:
           path: /tmp/agentfem-foundation-fan-in/linux
 
       - name: Install optional mesh interoperability used by release smoke
-        run: python -m pip install meshio
+        run: |
+          python -m pip install --no-deps --force-reinstall "pip==26.2.2"
+          python -m pip install meshio
 
       - name: Build the macOS native wheel from the same source distribution
         run: |
@@ -802,6 +811,7 @@ jobs:
 
       - name: Install the wheel and official CPU-only PyTorch build
         run: |
+          python -m pip install --no-deps --force-reinstall "pip==26.2.2"
           python -m pip install --upgrade build
           python -m build --wheel
           python -m pip install --no-deps --force-reinstall dist/*.whl
