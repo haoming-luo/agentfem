@@ -297,6 +297,20 @@ def test_release_gate_exercises_every_installed_project_template():
     assert release_gate.INSTALLED_PROJECT_TEMPLATES == cli._templates()
 
 
+@pytest.mark.parametrize("step", [
+    "Build and install the wheel under test",
+    "Build and install the wheel users receive",
+    "Install optional mesh interoperability used by release smoke",
+    "Install the wheel and official CPU-only PyTorch build",
+])
+def test_conda_ci_builds_use_self_contained_pip_certificates(step):
+    source = (PROJECT_ROOT / ".github/workflows/test.yml").read_text()
+    block = source.split(f"- name: {step}\n", 1)[1].split("\n      - name:", 1)[0]
+    assert 'python -m pip install --no-deps --force-reinstall "pip==26.2.2"' in block
+    assert "--trusted-host" not in block
+    assert "--no-isolation" not in block
+
+
 @pytest.mark.parametrize("workflow", ["test.yml", "publish-pypi.yml"])
 def test_ci_and_publication_keep_distributed_recovery_and_rejection_gates(workflow):
     source = (PROJECT_ROOT / ".github" / "workflows" / workflow).read_text()
