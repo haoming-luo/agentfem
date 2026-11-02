@@ -252,6 +252,8 @@ class ImplicitCreepStep:
     solver_options: NewtonSolverOptions
     creep_strain_error_tolerance: float | None = None
     time_unit: str | None = None
+    material_points: tuple = ()
+    unit_system: object | None = None
     study: object | None = None
     progress: object = True
     status_file: object | None = None
@@ -266,6 +268,7 @@ class ImplicitCreepStep:
     energy_history: list[CreepEnergyFrame] = field(default_factory=list, init=False)
     next_increment_size: float | None = field(default=None, init=False)
     _strain_evaluator: object = field(init=False, repr=False)
+    _point_history: object = field(default=None, init=False, repr=False)
 
     def checkpoint_capabilities(self) -> checkpointing.CheckpointCapabilities:
         coupled = isinstance(getattr(self, "material", None), CreepPlasticityMaterial)
@@ -334,6 +337,82 @@ class ImplicitCreepStep:
         self._strain_evaluator = self.state.compile_strain(
             elasticity.strain(self.solution, study=self.study)
         )
+        self.material_points = tuple(self.material_points)
+        if self.material_points:
+            if _axisymmetric.is_axisymmetric(self.study):
+                raise NotImplementedError("Material point histories currently admit Cartesian 3D creep Steps only.")
+            from ..results.material_points import MaterialPointHistoryRequest, _MaterialPointRecorder
+
+            if not all(isinstance(item, MaterialPointHistoryRequest) for item in self.material_points):
+                raise TypeError("material_points must contain results.material_point(...) requests.")
+
+            stress_unit = getattr(self.unit_system, "stress", None)
+            channels = {
+                "S": {"shape": [3, 3], "unit": stress_unit, "measure": "Cauchy stress; Cartesian tensor"},
+                "E": {"shape": [3, 3], "unit": "1", "measure": "total infinitesimal strain; tensor shear, not engineering shear"},
+            }
+            for key, source in self.state.transaction.committed.items():
+                channels[source.function.name] = {
+                    "shape": list(source.value_shape),
+                    "unit": stress_unit if key in {"backstresses", "isotropic_hardening"} else "1",
+                    "measure": key + "; accepted constitutive state",
+                }
+            if self.temperature is not None:
+                channels["TEMP"] = {"shape": [], "unit": "K", "measure": "absolute temperature at the same integration point"}
+            self._point_history = _MaterialPointRecorder(
+                self.material_points, self.state.stress, channels=channels, time_unit=self.time_unit,
+                scientific_identity={"step": self._portable_checkpoint_identity(),
+                                     "units": None if self.unit_system is None else self.unit_system.summary()},
+            )
+
+    @property
+    def material_point_histories(self):
+        """Copies of co-located histories, including when the Step is paused."""
+        return () if self._point_history is None else self._point_history.histories()
+
+    def _prepare_point_frame(self, time):
+        if self._point_history is None:
+            return None
+        values = {"S": self.state.stress.values,
+                  "E": self.state.evaluate_strain(self._strain_evaluator)}
+        for key, source in self.state.transaction.committed.items():
+            values[source.function.name] = self.state.transaction.trial[key].values
+        if self.temperature is not None:
+            values["TEMP"] = self._temperature_values()
+        return self._point_history.prepare(time, values)
+
+    def _restore_point_history(self, payload):
+        if self._point_history is None:
+            if payload is not None:
+                raise ValueError("Checkpoint contains material point histories; declare the same requests to continue.")
+        else:
+            times = [item.end_time for item in self.accepted_increments]
+            if (times[-1] if times else 0.) != self.accepted_time:
+                raise ValueError("Material point history endpoint differs from accepted Step time.")
+            self._point_history.restore(payload, accepted_times=times)
+
+    def _point_selection_identity(self):
+        # An extra scientific key makes older readers reject a checkpoint
+        # whose accepted point histories they cannot preserve.
+        if not self.material_points:
+            return {}
+        return {"material_points": [{"name": item.name, "cell": item.cell, "point": item.point}
+                                    for item in self.material_points],
+                "point_history_units": None if self.unit_system is None else self.unit_system.summary()}
+
+    def _validate_point_history(self):
+        if self._point_history is None:
+            if self.material_points:
+                raise ValueError("Declare material_points when constructing the Step, not during continuation.")
+            return
+        self._point_history.validate_reference()
+        current = json.loads(json.dumps({
+            "step": self._portable_checkpoint_identity(),
+            "units": None if self.unit_system is None else self.unit_system.summary(),
+        }))
+        if (current != self._point_history.identity["scientific_identity"]
+                or self.time_unit != self._point_history.time_unit):
+            raise ValueError("Material point history scientific contract changed after Step construction.")
 
     @property
     def accepted_factor(self) -> float:
@@ -342,6 +421,7 @@ class ImplicitCreepStep:
     def solve(self, *, until: float | None = None):
         """Advance to a physical time, or to the full step duration."""
 
+        self._validate_point_history()
         selected_until = self.duration if until is None else float(until)
         if not self.accepted_time < selected_until <= self.duration:
             raise ValueError(
@@ -469,6 +549,20 @@ class ImplicitCreepStep:
                         f"{self.incrementation.maximum_inelastic_increment:.6g}"
                     ),
                 )
+            point_frame = None
+            if info.converged and self._point_history is not None:
+                try:
+                    point_frame = self._prepare_point_frame(end_time)
+                except Exception:
+                    self.solution.x.array[:] = displacement_snapshot
+                    self.solution.x.scatter_forward()
+                    self.state.restore(state_snapshot)
+                    self.state.stress.assign(stress_snapshot)
+                    self.state.tangent.assign(tangent_snapshot)
+                    self._apply_loading(start_time)
+                    self.accepted_increments.extend(accepted)
+                    self.attempted_increments.extend(attempts)
+                    raise
             attempts.append(info)
             if info.converged:
                 self.state.commit()
@@ -476,6 +570,8 @@ class ImplicitCreepStep:
                 accepted_size = target_factor - accepted_factor
                 accepted_factor = target_factor
                 self.accepted_time = end_time
+                if point_frame is not None:
+                    self._point_history.frames.append(point_frame)
                 self._record_energy(
                     end_time,
                     state_snapshot,
@@ -1148,6 +1244,7 @@ class ImplicitCreepStep:
         return reaction
 
     def save_checkpoint(self, path, *, portable: bool | None = None) -> Path:
+        self._validate_point_history()
         comm = self.solution.function_space.mesh.comm
         selected_portable = comm.size != 1 if portable is None else bool(portable)
         if selected_portable:
@@ -1184,6 +1281,7 @@ class ImplicitCreepStep:
             next_increment_size=(
                 np.nan if self.next_increment_size is None else self.next_increment_size
             ),
+            material_point_history=json.dumps(None if self._point_history is None else self._point_history.payload()),
         )
         from ..results import CheckpointRecord
 
@@ -1207,6 +1305,7 @@ class ImplicitCreepStep:
 
     def load_checkpoint(self, path) -> None:
         """Restore the whole accepted Step or leave every live component intact."""
+        self._validate_point_history()
         displacement = self.solution.x.array.copy()
         committed = self.state.snapshot()
         trial = {key: value.values.copy() for key, value in self.state.transaction.trial.items()}
@@ -1215,6 +1314,7 @@ class ImplicitCreepStep:
         old_time = self.accepted_time
         old_size = self.next_increment_size
         old_info = self.last_solve_info
+        old_point_frames = None if self._point_history is None else list(self._point_history.frames)
         ledgers = {
             name: list(getattr(self, name))
             for name in ("accepted_increments", "attempted_increments",
@@ -1233,6 +1333,8 @@ class ImplicitCreepStep:
             self.accepted_time = old_time
             self.next_increment_size = old_size
             self.last_solve_info = old_info
+            if self._point_history is not None:
+                self._point_history.frames = old_point_frames
             for name, values in ledgers.items():
                 getattr(self, name)[:] = values
             self._apply_loading(old_time)
@@ -1261,6 +1363,13 @@ class ImplicitCreepStep:
             if str(data["schema"]) != "agentfem.implicit-creep-checkpoint.v1":
                 raise ValueError("Unsupported implicit creep checkpoint schema.")
             stored_identity = json.loads(str(data["step_identity"]))
+            # Older v1 files mixed the active temperature sample/time with
+            # full history identity. Active samples are restart state, not
+            # compatibility: a fresh receiver starts at a different time.
+            old_temperature = stored_identity.get("temperature")
+            if isinstance(old_temperature, dict) and "history" in old_temperature:
+                stored_identity["temperature"] = {
+                    "kind": "accepted_temperature_history", "history": old_temperature["history"]}
             current_identity = json.loads(
                 json.dumps(self._checkpoint_identity(), sort_keys=True)
             )
@@ -1273,7 +1382,7 @@ class ImplicitCreepStep:
                     )
                 raise ValueError(
                     "Creep checkpoint material, duration, increment control, "
-                    "quadrature state, or mesh/function layout differs."
+                    "quadrature state, history identity, or mesh/function layout differs."
                 )
             displacement = np.asarray(data["displacement"])
             if displacement.size != self.solution.x.array.size:
@@ -1310,6 +1419,8 @@ class ImplicitCreepStep:
                 CreepEnergyFrame.from_dict(item)
                 for item in json.loads(str(data["energy_history"]))
             ]
+            self._restore_point_history(json.loads(str(data["material_point_history"]))
+                                        if "material_point_history" in data else None)
             selected_size = float(data["next_increment_size"])
             self.next_increment_size = selected_size if np.isfinite(selected_size) else None
             self._apply_loading(self.accepted_time)
@@ -1354,6 +1465,7 @@ class ImplicitCreepStep:
             "energy_history": [item.as_dict() for item in self.energy_history],
             "next_increment_size": self.next_increment_size,
             "checkpoint_capabilities": self.checkpoint_capabilities().summary(),
+            "material_point_history": None if self._point_history is None else self._point_history.payload(),
         }
         comm = self.solution.function_space.mesh.comm
         error = None
@@ -1421,6 +1533,7 @@ class ImplicitCreepStep:
         self.energy_history[:] = [
             CreepEnergyFrame.from_dict(item) for item in payload["energy_history"]
         ]
+        self._restore_point_history(payload.get("material_point_history"))
         self.next_increment_size = payload.get("next_increment_size")
         self._apply_loading(self.accepted_time)
         self.last_solve_info = CreepPathInfo(
@@ -1439,6 +1552,7 @@ class ImplicitCreepStep:
         from ..checkpointing import function_portable_identity
 
         return {
+            **self._point_selection_identity(),
             "step_name": self.name,
             "procedure": self.procedure.summary(),
             "duration": self.duration,
@@ -1475,6 +1589,7 @@ class ImplicitCreepStep:
         from ..checkpointing import function_partition_identity
 
         return {
+            **self._point_selection_identity(),
             "step_name": self.name,
             "procedure": self.procedure.summary(),
             "duration": self.duration,
@@ -1489,7 +1604,10 @@ class ImplicitCreepStep:
             "equivalent_creep_strain": function_partition_identity(
                 self.state.equivalent_creep_strain.function
             ),
-            "temperature": self._temperature_summary(),
+            "temperature": (
+                {"kind": "accepted_temperature_history", "history": self.temperature.scientific_identity()}
+                if hasattr(self.temperature, "scientific_identity") else self._temperature_summary()
+            ),
         }
 
     def solve_result(
@@ -1763,6 +1881,10 @@ class ImplicitCreepStep:
             }
         for checkpoint in self.checkpoints:
             result.add_checkpoint(checkpoint)
+        if self._point_history is not None:
+            for history in self.material_point_histories:
+                result.histories[history.name] = history
+            result.metadata["material_point_history"] = json.loads(json.dumps(self._point_history.identity))
         return complete_result(
             self,
             result,
@@ -1851,6 +1973,8 @@ def implicit_creep_step(
     quadrature_degree: int = 2,
     creep_strain_error_tolerance: float | None = None,
     time_unit: str | None = None,
+    material_points=(),
+    unit_system=None,
     progress=True,
     status_file=None,
     amplitude=None,
@@ -1963,6 +2087,8 @@ def implicit_creep_step(
         solver_options=newton() if solver_options is None else solver_options,
         creep_strain_error_tolerance=creep_strain_error_tolerance,
         time_unit=time_unit,
+        material_points=material_points,
+        unit_system=unit_system,
         study=study,
         progress=progress,
         status_file=status_file,

@@ -67,6 +67,12 @@
     ],
     "outputs": [
       {
+        "name": "selected co-located material-point histories",
+        "type": "accepted tensor/state/temperature HistoryResult channels",
+        "unit_role": "declared model stress/time units, tensor strain, kelvin",
+        "description": "Opt-in material_points selects original cell IDs and reference quadrature indices in the serial Cartesian 3D Step. Stress, total strain, internal variables and supplied temperature share one identity and restart ledger; no initial equilibrium sample is fabricated."
+      },
+      {
         "name": "S and MISES",
         "type": "quadrature tensor and scalar fields",
         "unit_role": "stress",
@@ -127,6 +133,7 @@
   },
   "verification": {
     "tests": [
+      "tests/test_material_point_histories.py",
       "tests/test_p1_platform.py",
       "tests/test_creep_elastic_followup.py",
       "tests/test_histories.py",

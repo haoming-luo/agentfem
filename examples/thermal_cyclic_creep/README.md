@@ -19,6 +19,14 @@ The uniform heat solution is `T(t)=800+25t` for the declared synthetic heat
 capacity/source. This does not calibrate a real material. The output contains separate CE/CEEQ, PE/PEEQ,
 backstress, stress and energy histories, a final visualization and checkpoint.
 
+The selected `gauge` integration point also records co-located `gauge.S`,
+`gauge.E`, `gauge.CE`, `gauge.PE`, `gauge.ALPHA` and `gauge.TEMP` histories at
+every accepted mechanical time. `cell=0, point=0` selects the original cell
+and its reference quadrature point, not its centroid or a nodal probe. This
+requires the candidate exposing `results.material_point`; the project rejects
+older packages before execution. These are synthetic response histories, not
+a calibrated creep-fatigue life prediction.
+
 The mechanical ledger excludes prescribed thermal energy transfer. No fatigue
 life, fracture, contact or MPI claim follows from a successful run. Refine the
 physical increments before drawing quantitative conclusions. Do not reinterpret

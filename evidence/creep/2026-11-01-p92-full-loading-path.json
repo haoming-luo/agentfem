@@ -1,0 +1,783 @@
+{
+  "schema": "agentfem.public-loading-path-diagnostic.v1",
+  "source": "https://doi.org/10.5281/zenodo.7198219",
+  "license": "CC-BY-4.0",
+  "attribution": "Sonntag et al. (2022), Zenodo 7198219 v1",
+  "tool_sha256": "fca7f94edcb2aeacabd6cdfa62fc5997267859445a57c3d4bf26235f4ee74929",
+  "baseline_tool_sha256": "b6df70ed0da3d0f6b9c8eca500534189788497a1669eabcc8d7899430d856182",
+  "versions": {
+    "python": "3.11.15",
+    "numpy": "2.4.6",
+    "scipy": "1.17.1",
+    "agentfem": "0.4.5.dev0"
+  },
+  "scope": "first-cycle scalar baseline through ordinary homogeneous small-strain FEM, not specimen/life validation",
+  "stress_convention": "experimental nominal stress approximated by infinitesimal axial Cauchy stress",
+  "split": "RF early ramp + frozen RF first-hold law; no SLR stress enters parameters or initial conditions",
+  "fit": {
+    "rate_at_200_MPa_per_s": 1.5906730384477135,
+    "exponent": 9.687639096837593,
+    "bound_active": false,
+    "bounds": {
+      "rate_at_200_MPa_per_s": [
+        1e-05,
+        1000.0
+      ],
+      "exponent": [
+        1.0,
+        30.0
+      ]
+    },
+    "objective": "trapezoidal time-weighted squared stress error",
+    "identified_quantity": "E*A; E and A are not separately identified",
+    "fit_source": {
+      "family": "RF",
+      "cycle": 1,
+      "source": "https://doi.org/10.5281/zenodo.7198219",
+      "source_sha256": "128e6de1854f4633e26eced6c4ea221687cde2f232db275487ef0d1201767e0a",
+      "license": "CC-BY-4.0",
+      "samples": 96,
+      "absolute_window_s": [
+        9.254,
+        178.436
+      ],
+      "initial_nominal_stress_MPa": 208.47,
+      "strain_peak_to_peak": 5.9999999999999724e-05,
+      "temperature_range_K": [
+        892.75,
+        893.15
+      ]
+    },
+    "multi_start_costs": [
+      0.12631778679539662,
+      0.12631778679539712,
+      0.12631778679539618
+    ]
+  },
+  "effective_modulus": {
+    "selected_MPa": 146259.633027523,
+    "selection": "first predeclared RF window; other windows are sensitivity, not selection",
+    "scope": "effective initial ramp slope, not independently measured elastic modulus",
+    "intercept_not_applied_as_initial_stress": true,
+    "windows": [
+      {
+        "window_s": [
+          0.15,
+          0.6
+        ],
+        "samples": 6,
+        "effective_young_MPa": 146259.633027523,
+        "intercept_MPa": -2.909749235473986,
+        "fit_rmse_MPa": 0.8129355979672693
+      },
+      {
+        "window_s": [
+          0.2,
+          0.7
+        ],
+        "samples": 6,
+        "effective_young_MPa": 148841.7763157895,
+        "intercept_MPa": -3.7039046052631903,
+        "fit_rmse_MPa": 0.9063844364895719
+      },
+      {
+        "window_s": [
+          0.3,
+          0.8
+        ],
+        "samples": 6,
+        "effective_young_MPa": 145964.89795918364,
+        "intercept_MPa": -2.295110204081619,
+        "fit_rmse_MPa": 0.7829173595193336
+      }
+    ]
+  },
+  "cycles": [
+    {
+      "source": {
+        "family": "RF",
+        "cycle": 1,
+        "source": "https://doi.org/10.5281/zenodo.7198219",
+        "source_sha256": "128e6de1854f4633e26eced6c4ea221687cde2f232db275487ef0d1201767e0a",
+        "license": "CC-BY-4.0",
+        "samples": 475,
+        "absolute_window_s": [
+          0.0,
+          368.032
+        ],
+        "initial_nominal_stress_MPa": -0.05,
+        "strain_peak_to_peak": 0.00409,
+        "temperature_range_K": [
+          891.75,
+          893.85
+        ]
+      },
+      "duration_s": 368.032,
+      "measured_path": {
+        "samples": 475,
+        "time_weighted_rmse_MPa": 3.7395206211390755,
+        "maximum_absolute_error_MPa": 40.00434349527012,
+        "predicted_stress_range_MPa": [
+          -320.33073899718426,
+          280.26014458857406
+        ],
+        "observed_stress_range_MPa": [
+          -306.93,
+          257.37
+        ],
+        "endpoint_error_MPa": 13.656205135975796,
+        "nominal_phase_errors": [
+          {
+            "nominal_window_s": [
+              0.0,
+              2.0
+            ],
+            "rmse_MPa": 7.2759705842309454,
+            "max_abs_error_MPa": 20.581218297604096
+          },
+          {
+            "nominal_window_s": [
+              2.0,
+              182.0
+            ],
+            "rmse_MPa": 2.957849208818479,
+            "max_abs_error_MPa": 22.89014458857406
+          },
+          {
+            "nominal_window_s": [
+              182.0,
+              186.0
+            ],
+            "rmse_MPa": 20.86663494674905,
+            "max_abs_error_MPa": 40.00434349527012
+          },
+          {
+            "nominal_window_s": [
+              186.0,
+              366.0
+            ],
+            "rmse_MPa": 3.0271756143441264,
+            "max_abs_error_MPa": 16.55184961885226
+          },
+          {
+            "nominal_window_s": [
+              366.0,
+              368.0
+            ],
+            "rmse_MPa": 4.65222550988601,
+            "max_abs_error_MPa": 9.491153401730145
+          }
+        ],
+        "initial_stress_conditioned_on_measurement": false,
+        "initial_stress_MPa": 0.0,
+        "measured_initial_stress_MPa": -0.05,
+        "phase_alignment": "raw physical time; no peak alignment or fitted phase shift"
+      },
+      "nominal_path": {
+        "samples": 474,
+        "time_weighted_rmse_MPa": 4.643225689584026,
+        "maximum_absolute_error_MPa": 48.87209184385628,
+        "predicted_stress_range_MPa": [
+          -317.88117793829616,
+          281.0342575967624
+        ],
+        "observed_stress_range_MPa": [
+          -306.93,
+          257.37
+        ],
+        "endpoint_error_MPa": 33.21858086370017,
+        "nominal_phase_errors": [
+          {
+            "nominal_window_s": [
+              0.0,
+              2.0
+            ],
+            "rmse_MPa": 21.52322472745015,
+            "max_abs_error_MPa": 33.723370727512076
+          },
+          {
+            "nominal_window_s": [
+              2.0,
+              182.0
+            ],
+            "rmse_MPa": 2.7269444341114597,
+            "max_abs_error_MPa": 28.37425759676242
+          },
+          {
+            "nominal_window_s": [
+              182.0,
+              186.0
+            ],
+            "rmse_MPa": 30.30589491905348,
+            "max_abs_error_MPa": 48.87209184385628
+          },
+          {
+            "nominal_window_s": [
+              186.0,
+              366.0
+            ],
+            "rmse_MPa": 2.60708070636373,
+            "max_abs_error_MPa": 12.08747711550086
+          },
+          {
+            "nominal_window_s": [
+              366.0,
+              368.0
+            ],
+            "rmse_MPa": 19.94617940353397,
+            "max_abs_error_MPa": 33.58987936133677
+          }
+        ],
+        "initial_stress_conditioned_on_measurement": false,
+        "initial_stress_MPa": 0.0,
+        "measured_initial_stress_MPa": -0.05,
+        "phase_alignment": "raw physical time; no peak alignment or fitted phase shift"
+      },
+      "strain_reference_offset_removed": 4e-05,
+      "initial_stress_or_internal_state_resets": 0,
+      "temperature_assumption_K": 893.15,
+      "temperature_drift_modeled": false,
+      "fem": {
+        "runs": [
+          {
+            "refinement": 1,
+            "increments": 474,
+            "max_scalar_reference_error_MPa": 2.2033567495778925,
+            "max_lateral_stress_MPa": 1.9247625715479444e-09,
+            "max_prescribed_strain_error": 4.336808689942018e-19,
+            "result_trust": "computed",
+            "wall_seconds": 4.241957707970869
+          },
+          {
+            "refinement": 2,
+            "increments": 948,
+            "max_scalar_reference_error_MPa": 1.1234156901795131,
+            "max_lateral_stress_MPa": 1.6585772755206563e-09,
+            "max_prescribed_strain_error": 4.336808689942018e-19,
+            "result_trust": "computed",
+            "wall_seconds": 7.77275170898065
+          },
+          {
+            "refinement": 4,
+            "increments": 1896,
+            "max_scalar_reference_error_MPa": 0.56750073438252,
+            "max_lateral_stress_MPa": 1.6767955912655452e-09,
+            "max_prescribed_strain_error": 4.336808689942018e-19,
+            "result_trust": "computed",
+            "wall_seconds": 16.036603041982744
+          }
+        ],
+        "error_ratios": [
+          1.9613013854433643,
+          1.9795845575457571
+        ],
+        "criterion": "decreasing max scalar error, finest <1 MPa; lateral <1e-6 MPa; strain <1e-10",
+        "passed": true
+      }
+    },
+    {
+      "source": {
+        "family": "SLR",
+        "cycle": 1,
+        "source": "https://doi.org/10.5281/zenodo.7198219",
+        "source_sha256": "34e26cae1816ec4b712a4cec5811e0a0c66bad34848c10d962528085171fcabb",
+        "license": "CC-BY-4.0",
+        "samples": 926,
+        "absolute_window_s": [
+          0.0,
+          2168.293
+        ],
+        "initial_nominal_stress_MPa": -0.14,
+        "strain_peak_to_peak": 0.004030000000000001,
+        "temperature_range_K": [
+          889.85,
+          896.9499999999999
+        ]
+      },
+      "duration_s": 2168.293,
+      "measured_path": {
+        "samples": 926,
+        "time_weighted_rmse_MPa": 67.06971343177234,
+        "maximum_absolute_error_MPa": 82.5621072882528,
+        "predicted_stress_range_MPa": [
+          -281.8509892671693,
+          316.52522106314353
+        ],
+        "observed_stress_range_MPa": [
+          -257.63,
+          278.32
+        ],
+        "endpoint_error_MPa": -23.11323689759358,
+        "nominal_phase_errors": [
+          {
+            "nominal_window_s": [
+              0.0,
+              2.0
+            ],
+            "rmse_MPa": 9.36513833534175,
+            "max_abs_error_MPa": 23.43986002366816
+          },
+          {
+            "nominal_window_s": [
+              2.0,
+              182.0
+            ],
+            "rmse_MPa": 7.687242566504797,
+            "max_abs_error_MPa": 26.362346628126033
+          },
+          {
+            "nominal_window_s": [
+              182.0,
+              184.0
+            ],
+            "rmse_MPa": 7.955708851692349,
+            "max_abs_error_MPa": 15.543284261993833
+          },
+          {
+            "nominal_window_s": [
+              184.0,
+              1984.0
+            ],
+            "rmse_MPa": 73.55027665484019,
+            "max_abs_error_MPa": 82.5621072882528
+          },
+          {
+            "nominal_window_s": [
+              1984.0,
+              1986.0
+            ],
+            "rmse_MPa": 65.8010128704479,
+            "max_abs_error_MPa": 69.3409615118832
+          },
+          {
+            "nominal_window_s": [
+              1986.0,
+              2166.0
+            ],
+            "rmse_MPa": 2.7838784668256653,
+            "max_abs_error_MPa": 47.78216572790552
+          },
+          {
+            "nominal_window_s": [
+              2166.0,
+              2168.0
+            ],
+            "rmse_MPa": 5.636812263837259,
+            "max_abs_error_MPa": 14.315764822044827
+          }
+        ],
+        "initial_stress_conditioned_on_measurement": false,
+        "initial_stress_MPa": 0.0,
+        "measured_initial_stress_MPa": -0.14,
+        "phase_alignment": "raw physical time; no peak alignment or fitted phase shift"
+      },
+      "nominal_path": {
+        "samples": 922,
+        "time_weighted_rmse_MPa": 67.22317257137155,
+        "maximum_absolute_error_MPa": 107.76302354143122,
+        "predicted_stress_range_MPa": [
+          -280.5658664772828,
+          316.75498875955753
+        ],
+        "observed_stress_range_MPa": [
+          -257.63,
+          278.32
+        ],
+        "endpoint_error_MPa": -64.61994464829576,
+        "nominal_phase_errors": [
+          {
+            "nominal_window_s": [
+              0.0,
+              2.0
+            ],
+            "rmse_MPa": 17.383356619534013,
+            "max_abs_error_MPa": 29.437835919570063
+          },
+          {
+            "nominal_window_s": [
+              2.0,
+              182.0
+            ],
+            "rmse_MPa": 7.598558250951395,
+            "max_abs_error_MPa": 25.277535023812362
+          },
+          {
+            "nominal_window_s": [
+              182.0,
+              184.0
+            ],
+            "rmse_MPa": 23.009036181404777,
+            "max_abs_error_MPa": 37.242014609545166
+          },
+          {
+            "nominal_window_s": [
+              184.0,
+              1984.0
+            ],
+            "rmse_MPa": 73.5861302420127,
+            "max_abs_error_MPa": 81.35980987767209
+          },
+          {
+            "nominal_window_s": [
+              1984.0,
+              1986.0
+            ],
+            "rmse_MPa": 92.68133919397938,
+            "max_abs_error_MPa": 107.76302354143122
+          },
+          {
+            "nominal_window_s": [
+              1986.0,
+              2166.0
+            ],
+            "rmse_MPa": 1.9971288771023148,
+            "max_abs_error_MPa": 41.93069567074764
+          },
+          {
+            "nominal_window_s": [
+              2166.0,
+              2168.0
+            ],
+            "rmse_MPa": 52.13636407595188,
+            "max_abs_error_MPa": 64.61994464829576
+          }
+        ],
+        "initial_stress_conditioned_on_measurement": false,
+        "initial_stress_MPa": 0.0,
+        "measured_initial_stress_MPa": -0.14,
+        "phase_alignment": "raw physical time; no peak alignment or fitted phase shift"
+      },
+      "strain_reference_offset_removed": 1e-05,
+      "initial_stress_or_internal_state_resets": 0,
+      "temperature_assumption_K": 893.15,
+      "temperature_drift_modeled": false,
+      "fem": {
+        "runs": [
+          {
+            "refinement": 1,
+            "increments": 925,
+            "max_scalar_reference_error_MPa": 2.194685194001181,
+            "max_lateral_stress_MPa": 1.6665353541611694e-09,
+            "max_prescribed_strain_error": 4.336808689942018e-19,
+            "result_trust": "computed",
+            "wall_seconds": 7.7777294999687
+          },
+          {
+            "refinement": 2,
+            "increments": 1850,
+            "max_scalar_reference_error_MPa": 1.1207068879603526,
+            "max_lateral_stress_MPa": 1.6123120616384767e-09,
+            "max_prescribed_strain_error": 4.336808689942018e-19,
+            "result_trust": "computed",
+            "wall_seconds": 15.532217625004705
+          },
+          {
+            "refinement": 4,
+            "increments": 3700,
+            "max_scalar_reference_error_MPa": 0.5666413098453518,
+            "max_lateral_stress_MPa": 1.548404071627374e-09,
+            "max_prescribed_strain_error": 4.336808689942018e-19,
+            "result_trust": "computed",
+            "wall_seconds": 31.76123991701752
+          }
+        ],
+        "error_ratios": [
+          1.9583043680541945,
+          1.9778065391424018
+        ],
+        "criterion": "decreasing max scalar error, finest <1 MPa; lateral <1e-6 MPa; strain <1e-10",
+        "passed": true
+      }
+    }
+  ],
+  "SLR_modulus_sensitivity": {
+    "scope": "diagnostic sensitivity only; SLR errors do not select parameters",
+    "article_reference": "https://doi.org/10.1016/j.ijfatigue.2022.107381",
+    "runs": [
+      {
+        "young_MPa": 145964.89795918364,
+        "time_weighted_rmse_MPa": 66.92153261854803,
+        "nominal_phase_errors": [
+          {
+            "nominal_window_s": [
+              0.0,
+              2.0
+            ],
+            "rmse_MPa": 9.10137252021674,
+            "max_abs_error_MPa": 22.98474551759844
+          },
+          {
+            "nominal_window_s": [
+              2.0,
+              182.0
+            ],
+            "rmse_MPa": 7.676198552336924,
+            "max_abs_error_MPa": 25.984974782177176
+          },
+          {
+            "nominal_window_s": [
+              182.0,
+              184.0
+            ],
+            "rmse_MPa": 7.9294470769114325,
+            "max_abs_error_MPa": 15.007889789079414
+          },
+          {
+            "nominal_window_s": [
+              184.0,
+              1984.0
+            ],
+            "rmse_MPa": 73.3876019985392,
+            "max_abs_error_MPa": 82.18805938519338
+          },
+          {
+            "nominal_window_s": [
+              1984.0,
+              1986.0
+            ],
+            "rmse_MPa": 65.56826352396757,
+            "max_abs_error_MPa": 69.02918175904335
+          },
+          {
+            "nominal_window_s": [
+              1986.0,
+              2166.0
+            ],
+            "rmse_MPa": 2.7795861070807577,
+            "max_abs_error_MPa": 47.65181288697056
+          },
+          {
+            "nominal_window_s": [
+              2166.0,
+              2168.0
+            ],
+            "rmse_MPa": 5.4284959841642815,
+            "max_abs_error_MPa": 13.835726447001264
+          }
+        ]
+      },
+      {
+        "young_MPa": 146259.633027523,
+        "time_weighted_rmse_MPa": 67.06971343177234,
+        "nominal_phase_errors": [
+          {
+            "nominal_window_s": [
+              0.0,
+              2.0
+            ],
+            "rmse_MPa": 9.36513833534175,
+            "max_abs_error_MPa": 23.43986002366816
+          },
+          {
+            "nominal_window_s": [
+              2.0,
+              182.0
+            ],
+            "rmse_MPa": 7.687242566504797,
+            "max_abs_error_MPa": 26.362346628126033
+          },
+          {
+            "nominal_window_s": [
+              182.0,
+              184.0
+            ],
+            "rmse_MPa": 7.955708851692349,
+            "max_abs_error_MPa": 15.543284261993833
+          },
+          {
+            "nominal_window_s": [
+              184.0,
+              1984.0
+            ],
+            "rmse_MPa": 73.55027665484019,
+            "max_abs_error_MPa": 82.5621072882528
+          },
+          {
+            "nominal_window_s": [
+              1984.0,
+              1986.0
+            ],
+            "rmse_MPa": 65.8010128704479,
+            "max_abs_error_MPa": 69.3409615118832
+          },
+          {
+            "nominal_window_s": [
+              1986.0,
+              2166.0
+            ],
+            "rmse_MPa": 2.7838784668256653,
+            "max_abs_error_MPa": 47.78216572790552
+          },
+          {
+            "nominal_window_s": [
+              2166.0,
+              2168.0
+            ],
+            "rmse_MPa": 5.636812263837259,
+            "max_abs_error_MPa": 14.315764822044827
+          }
+        ]
+      },
+      {
+        "young_MPa": 148841.7763157895,
+        "time_weighted_rmse_MPa": 68.2410724526576,
+        "nominal_phase_errors": [
+          {
+            "nominal_window_s": [
+              0.0,
+              2.0
+            ],
+            "rmse_MPa": 11.740524189701185,
+            "max_abs_error_MPa": 27.360131727589106
+          },
+          {
+            "nominal_window_s": [
+              2.0,
+              182.0
+            ],
+            "rmse_MPa": 7.779965114705573,
+            "max_abs_error_MPa": 29.563853038946263
+          },
+          {
+            "nominal_window_s": [
+              182.0,
+              184.0
+            ],
+            "rmse_MPa": 8.665285499450595,
+            "max_abs_error_MPa": 20.234440033434012
+          },
+          {
+            "nominal_window_s": [
+              184.0,
+              1984.0
+            ],
+            "rmse_MPa": 74.83585788884741,
+            "max_abs_error_MPa": 85.62161228721774
+          },
+          {
+            "nominal_window_s": [
+              1984.0,
+              1986.0
+            ],
+            "rmse_MPa": 67.7576263877566,
+            "max_abs_error_MPa": 71.98750241696553
+          },
+          {
+            "nominal_window_s": [
+              1986.0,
+              2166.0
+            ],
+            "rmse_MPa": 2.820075924394628,
+            "max_abs_error_MPa": 48.87410338005168
+          },
+          {
+            "nominal_window_s": [
+              2166.0,
+              2168.0
+            ],
+            "rmse_MPa": 7.659152030432536,
+            "max_abs_error_MPa": 18.52136056917925
+          }
+        ]
+      },
+      {
+        "young_MPa": 151000.0,
+        "time_weighted_rmse_MPa": 69.06370927745962,
+        "nominal_phase_errors": [
+          {
+            "nominal_window_s": [
+              0.0,
+              2.0
+            ],
+            "rmse_MPa": 13.778394442307759,
+            "max_abs_error_MPa": 30.5403215459323
+          },
+          {
+            "nominal_window_s": [
+              2.0,
+              182.0
+            ],
+            "rmse_MPa": 7.851979985292288,
+            "max_abs_error_MPa": 32.094351875987854
+          },
+          {
+            "nominal_window_s": [
+              182.0,
+              184.0
+            ],
+            "rmse_MPa": 9.80623982975825,
+            "max_abs_error_MPa": 24.156165228661678
+          },
+          {
+            "nominal_window_s": [
+              184.0,
+              1984.0
+            ],
+            "rmse_MPa": 75.73819081071872,
+            "max_abs_error_MPa": 87.87562555265092
+          },
+          {
+            "nominal_window_s": [
+              1984.0,
+              1986.0
+            ],
+            "rmse_MPa": 69.29701441059488,
+            "max_abs_error_MPa": 74.13335279757655
+          },
+          {
+            "nominal_window_s": [
+              1986.0,
+              2166.0
+            ],
+            "rmse_MPa": 2.8486208051746735,
+            "max_abs_error_MPa": 49.72607316360023
+          },
+          {
+            "nominal_window_s": [
+              2166.0,
+              2168.0
+            ],
+            "rmse_MPa": 9.505635837436788,
+            "max_abs_error_MPa": 22.03654211098376
+          }
+        ]
+      }
+    ]
+  },
+  "SLR_low_stress_diagnostic": {
+    "role": "post-hoc conditional diagnostic; not an independent validation or new fit",
+    "question": "Does the same high-stress relaxation law transfer even with measured low-stress initialization?",
+    "window_rule_s": [
+      194.0,
+      1980.0
+    ],
+    "result": {
+      "family": "SLR",
+      "cycle": 1,
+      "source": "https://doi.org/10.5281/zenodo.7198219",
+      "source_sha256": "34e26cae1816ec4b712a4cec5811e0a0c66bad34848c10d962528085171fcabb",
+      "license": "CC-BY-4.0",
+      "samples": 328,
+      "absolute_window_s": [
+        194.008,
+        1978.331
+      ],
+      "initial_nominal_stress_MPa": 84.41,
+      "strain_peak_to_peak": 2e-05,
+      "temperature_range_K": [
+        892.65,
+        893.85
+      ],
+      "time_weighted_rmse_MPa": 35.53241379309277,
+      "maximum_absolute_error_MPa": 39.945030174066524,
+      "endpoint_error_MPa": 38.46794212740478,
+      "predicted_endpoint_MPa": 83.76794212740478,
+      "measured_endpoint_MPa": 45.3,
+      "initial_stress_conditioned_on_measurement": true,
+      "acceptance": "not_assigned: no independent experimental tolerance supplied"
+    }
+  },
+  "experimental_validation_passed": false,
+  "experimental_acceptance": "unassigned; no independent tolerance or validated full-cycle law",
+  "numerical_verification_passed": true
+}
