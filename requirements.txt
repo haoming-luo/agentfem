@@ -12,15 +12,15 @@ fenics-ufl==2026.1.0
 mpi4py==4.1.2
 petsc4py==3.25.2
 numpy==2.4.6
+scipy>=1.11
 matplotlib
 
 # Optional but recommended for external CAE mesh conversion
 # (Abaqus .inp, NASTRAN .bdf/.nas, VTK, and other meshio-supported formats).
 meshio
 
-# Optional GPL-licensed Gmsh Python API. Install only for direct Gmsh model or
-# .msh import: python -m pip install 'agentfem[gmsh]'
-# gmsh==4.15.2
+# Standard-install tool, optional at runtime; separately GPL-licensed.
+gmsh>=4.11
 
 # Documentation and notebook helpers.
 mkdocs

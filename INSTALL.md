@@ -19,13 +19,17 @@ during installation.
 
 ```bash
 mamba create -n agentfem-env --override-channels -c conda-forge \
-  python=3.11 fenics-dolfinx=0.11 c-compiler cxx-compiler agentfem
+  python=3.11 fenics-dolfinx=0.11 c-compiler cxx-compiler \
+  scipy matplotlib-base gmsh python-gmsh agentfem
 mamba activate agentfem-env
 agentfem doctor
 ```
 
-This installs AgentFEM and the compatible FEniCSx/PETSc/MPI foundation in one
-environment.
+This installs AgentFEM, the compatible FEniCSx/PETSc/MPI foundation, SciPy,
+Matplotlib and Gmsh in one environment. No extra request for plotting or
+meshing tools is needed. Conda's `matplotlib-base` provides Matplotlib without
+requiring a desktop GUI toolkit; batch plots work on headless Linux/WSL.
+Gmsh remains optional to use: solving an existing mesh does not import it.
 
 The explicit Python and DOLFINx versions are the current release-tested
 runtime contract. They also prevent an older solver stack from being selected
@@ -41,7 +45,8 @@ command uses TUNA and leaves the user's global conda configuration unchanged:
 ```bash
 mamba create -n agentfem-env --no-rc --override-channels \
   -c https://mirrors.tuna.tsinghua.edu.cn/anaconda/cloud/conda-forge \
-  python=3.11 fenics-dolfinx=0.11 c-compiler cxx-compiler agentfem
+  python=3.11 fenics-dolfinx=0.11 c-compiler cxx-compiler \
+  scipy matplotlib-base gmsh python-gmsh agentfem
 mamba activate agentfem-env
 agentfem doctor
 ```
@@ -53,7 +58,8 @@ slower):
 ```bash
 conda create -n agentfem-env --override-channels \
   -c https://mirrors.tuna.tsinghua.edu.cn/anaconda/cloud/conda-forge \
-  python=3.11 fenics-dolfinx=0.11 c-compiler cxx-compiler agentfem
+  python=3.11 fenics-dolfinx=0.11 c-compiler cxx-compiler \
+  scipy matplotlib-base gmsh python-gmsh agentfem
 ```
 
 On Windows, run either command inside Ubuntu on WSL2.
@@ -252,7 +258,24 @@ The launcher and `mpi4py` must come from the same MPI implementation. On macOS,
 Homebrew Open MPI can appear before a conda MPICH launcher on `PATH`; check
 `which mpiexec` and use the environment's `bin/mpiexec` when they differ.
 
-## Optional Tools
+## Upgrading an existing environment
+
+Retain the selected channel and review the package plan before changing an
+environment. SciPy is required by the solver; Matplotlib and Gmsh are standard
+installation defaults, not prerequisites for every individual solve. If an
+older installation lacks them, add `scipy matplotlib-base gmsh python-gmsh`
+with that environment's conda/mamba/micromamba manager and recorded channel.
+Do not recreate a working environment or replace its MPI/PETSc stack blindly.
+
+Published 0.4.4 omitted SciPy from its required Python metadata. Environments
+without SciPy could therefore pass the old `doctor` and fail on the first
+solve after a pip upgrade. The corrected metadata applies to subsequent
+packages, not to existing 0.4.4 artifacts. A successful package installation
+or `doctor` alone is not upgrade acceptance: rerun a small known project with
+`agentfem check --runtime`, `agentfem run`, and `agentfem verify`, and compare
+its quantities against the previous run. Keep the previous outputs.
+
+## Additional Tools
 
 Keep the user's chosen mirror for later optional installs. Record the choice
 in a local project/agent note, not global conda/pip configuration. On the TUNA
@@ -260,7 +283,7 @@ route, for example (inspect the plan before confirming package changes):
 
 ```bash
 mamba install -n agentfem-env --no-rc --override-channels \
-  -c https://mirrors.tuna.tsinghua.edu.cn/anaconda/cloud/conda-forge matplotlib
+  -c https://mirrors.tuna.tsinghua.edu.cn/anaconda/cloud/conda-forge jupyterlab
 mamba run -n agentfem-env python -m pip install 'agentfem[mesh-formats]' \
   --index-url https://pypi.tuna.tsinghua.edu.cn/simple
 ```
@@ -270,9 +293,11 @@ are for an existing compatible solver environment, not a substitute for it.
 
 - `meshio`: `python -m pip install 'agentfem[mesh-formats]'` for external CAE
   mesh conversion, including Abaqus `.inp` and NASTRAN `.bdf/.nas` formats.
-- `gmsh`: `python -m pip install 'agentfem[gmsh]'` only for direct Gmsh model
-  or `.msh` import. Gmsh is separately licensed under GPL-2.0-or-later with
-  its published exception; it is not bundled in the Apache-2.0 AgentFEM core.
+- `gmsh`: installed by default for meshing and `.msh` import; the legacy
+  `agentfem[gmsh]` extra remains accepted. Gmsh is separately licensed under
+  GPL-2.0-or-later with its published exception, not relicensed as Apache-2.0.
+  The explicitly selected offline **Core** profile still omits Gmsh; the
+  default **Complete** profile includes it and its redistribution notices.
 - `dolfinx_mpc`: `python -m pip install 'agentfem[parallel-mpc]'` for
   distributed multi-point constraints. Its minor version must match DOLFINx.
 - `mkdocs`, `mkdocs-material`, `pymdown-extensions`: documentation site.

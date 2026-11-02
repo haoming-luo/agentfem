@@ -57,7 +57,8 @@ FEniCSx/PETSc/MPI foundation together:
 
 ```bash
 mamba create -n agentfem-env --override-channels -c conda-forge \
-  python=3.11 fenics-dolfinx=0.11 c-compiler cxx-compiler agentfem
+  python=3.11 fenics-dolfinx=0.11 c-compiler cxx-compiler \
+  scipy matplotlib-base gmsh python-gmsh agentfem
 mamba activate agentfem-env
 agentfem doctor
 ```

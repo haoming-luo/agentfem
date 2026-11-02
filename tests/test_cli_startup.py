@@ -1,5 +1,7 @@
 """Discovery must work even when the numerical runtime cannot initialize."""
 
+import json
+import os
 import subprocess
 import sys
 
@@ -48,3 +50,27 @@ def test_deferred_mpi_uses_real_module_without_guessing_rank(monkeypatch):
     monkeypatch.setattr(cli, "MPI", cli._DeferredMPI())
     assert cli.MPI.COMM_WORLD is communicator
     assert cli.MPI is runtime
+
+
+def test_doctor_cli_reports_missing_scipy_without_crashing(tmp_path):
+    code = '''
+import importlib.abc
+import sys
+class MissingScipy(importlib.abc.MetaPathFinder):
+    def find_spec(self, fullname, path=None, target=None):
+        if fullname.split(".")[0] == "scipy":
+            raise ModuleNotFoundError("No module named 'scipy'", name="scipy")
+sys.meta_path.insert(0, MissingScipy())
+from agentfem.cli import main
+raise SystemExit(main(["doctor", "--json"]))
+'''
+    result = subprocess.run(
+        [sys.executable, "-c", code], capture_output=True, text=True, timeout=30,
+        env={**os.environ, "AGENTFEM_STATE_HOME": str(tmp_path / "state")},
+    )
+    assert result.returncode == 2, result.stdout + result.stderr
+    report = json.loads(result.stdout)
+    assert report["solver_ready"] is False
+    assert report["required"]["scipy"]["available"] is False
+    assert "No module named 'scipy'" in report["required"]["scipy"]["error"]
+    assert "Traceback" not in result.stderr

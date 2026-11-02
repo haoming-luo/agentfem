@@ -86,12 +86,15 @@ AgentFEM supports **Linux**, **macOS**, and **Windows through WSL2**.
 Install AgentFEM and its compatible FEniCSx/PETSc/MPI foundation together:
 
 ```bash
-mamba create -n agentfem-env -c conda-forge agentfem
+mamba create -n agentfem-env --override-channels -c conda-forge \
+  python=3.11 fenics-dolfinx=0.11 c-compiler cxx-compiler \
+  scipy matplotlib-base gmsh python-gmsh agentfem
 mamba activate agentfem-env
 agentfem doctor
 ```
 
-Already in a conda-forge environment? Run `mamba install agentfem`.
+SciPy, Matplotlib and Gmsh are included by default. For an existing environment,
+retain its selected channel and follow the [upgrade notes](INSTALL.md#upgrading-an-existing-environment).
 
 On Windows, run these commands inside an Ubuntu WSL2 terminal, then protect
 projects and results from distribution removal:
@@ -111,7 +114,8 @@ location:
 ```bash
 mamba create -n agentfem-env --no-rc --override-channels \
   -c https://mirrors.tuna.tsinghua.edu.cn/anaconda/cloud/conda-forge \
-  python=3.11 fenics-dolfinx=0.11 c-compiler cxx-compiler agentfem
+  python=3.11 fenics-dolfinx=0.11 c-compiler cxx-compiler \
+  scipy matplotlib-base gmsh python-gmsh agentfem
 mamba activate agentfem-env
 agentfem doctor
 ```
@@ -158,19 +162,19 @@ integrity checks.
 <details>
 <summary><strong>Optional integrations</strong></summary>
 
-Optional capabilities stay separate from the core Python package:
+Additional capabilities stay separate from the standard installation:
 
 ```bash
 python -m pip install 'agentfem[mesh-formats]'   # Abaqus/NASTRAN meshes
-python -m pip install 'agentfem[gmsh]'           # Gmsh model/.msh import
 python -m pip install 'agentfem[visualization]'  # ParaView-ready helpers
 python -m pip install 'agentfem[ml]'             # PyTorch adapters
 ```
 
 </details>
 
-Gmsh is an optional, separately licensed GPL component. It is not contained in
-the Apache-2.0 Python package; the recommended offline Complete runtime may
+Gmsh is installed by default but remains optional to use and separately GPL
+licensed. Its code is not contained in the Apache-2.0 Python package; the
+recommended offline Complete runtime may
 aggregate it with its license and corresponding source for a one-click
 CAD-to-mesh workflow.
 

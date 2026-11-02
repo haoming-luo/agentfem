@@ -331,12 +331,14 @@ def test_public_installation_routes_pin_the_tested_solver_stack():
     )
     official = (
         "mamba create -n agentfem-env --override-channels -c conda-forge "
-        "python=3.11 fenics-dolfinx=0.11 c-compiler cxx-compiler agentfem"
+        "python=3.11 fenics-dolfinx=0.11 c-compiler cxx-compiler "
+        "scipy matplotlib-base gmsh python-gmsh agentfem"
     )
     mirror = (
         "mamba create -n agentfem-env --no-rc --override-channels "
         "-c https://mirrors.tuna.tsinghua.edu.cn/anaconda/cloud/conda-forge "
-        "python=3.11 fenics-dolfinx=0.11 c-compiler cxx-compiler agentfem"
+        "python=3.11 fenics-dolfinx=0.11 c-compiler cxx-compiler "
+        "scipy matplotlib-base gmsh python-gmsh agentfem"
     )
     for path in detailed_guides:
         source = " ".join(path.read_text().replace("\\", "").split())
@@ -344,8 +346,8 @@ def test_public_installation_routes_pin_the_tested_solver_stack():
 
     readme = (ROOT / "README.md").read_text()
     normalized_readme = " ".join(readme.replace("\\", "").split())
-    assert "mamba create -n agentfem-env -c conda-forge agentfem" in normalized_readme
-    assert "mamba install agentfem" in normalized_readme
+    assert official in normalized_readme
+    assert mirror in normalized_readme
 
     install = (ROOT / "INSTALL.md").read_text()
     getting_started = (ROOT / "docs" / "getting_started.md").read_text()

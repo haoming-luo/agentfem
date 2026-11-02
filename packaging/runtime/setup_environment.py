@@ -188,6 +188,7 @@ def make_plan(args):
         command.append("--no-rc")
     command += ["--override-channels", "--channel", CHANNELS[args.channel],
                 "python=3.11", "fenics-dolfinx=0.11", "c-compiler", "cxx-compiler",
+                "scipy>=1.11", "matplotlib-base", "gmsh>=4.11", "python-gmsh>=4.11",
                 "agentfem" + ("=" + args.version if args.version else "")]
     request = dict(manager=str(manager), prefix=str(prefix), channel=args.channel,
                    requested_version=args.version, protect_workspace=not args.no_protect_workspace)

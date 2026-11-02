@@ -230,14 +230,15 @@ def release_contract_path(version: str | None = None) -> Path:
 
 
 def check_dependency_boundaries() -> None:
-    """Keep GPL Gmsh integration outside the Apache-2.0 core dependency set."""
+    """Require standard tools while retaining Gmsh's legacy extra entrypoint."""
 
     record = tomllib.loads((ROOT / "pyproject.toml").read_text(encoding="utf-8"))
     project = record["project"]
     required = {_requirement_name(item) for item in project.get("dependencies", ())}
-    if "gmsh" in required:
+    missing = {"scipy", "matplotlib", "gmsh"} - required
+    if missing:
         raise RuntimeError(
-            "Gmsh must remain an optional integration, not an AgentFEM core dependency."
+            "Standard installation dependencies are missing: " + ", ".join(sorted(missing))
         )
     optional = project.get("optional-dependencies", {})
     gmsh_extra = {_requirement_name(item) for item in optional.get("gmsh", ())}

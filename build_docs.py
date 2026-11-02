@@ -35,12 +35,14 @@ TESTED_PYTHON = "3.11"
 TESTED_DOLFINX = "0.11"
 CONDAFORGE_INSTALL = (
     "mamba create -n agentfem-env --override-channels -c conda-forge "
-    f"python={TESTED_PYTHON} fenics-dolfinx={TESTED_DOLFINX} c-compiler cxx-compiler agentfem"
+    f"python={TESTED_PYTHON} fenics-dolfinx={TESTED_DOLFINX} c-compiler cxx-compiler "
+    "scipy matplotlib-base gmsh python-gmsh agentfem"
 )
 TUNA_INSTALL = (
     "mamba create -n agentfem-env --no-rc --override-channels "
     "-c https://mirrors.tuna.tsinghua.edu.cn/anaconda/cloud/conda-forge "
-    f"python={TESTED_PYTHON} fenics-dolfinx={TESTED_DOLFINX} c-compiler cxx-compiler agentfem"
+    f"python={TESTED_PYTHON} fenics-dolfinx={TESTED_DOLFINX} c-compiler cxx-compiler "
+    "scipy matplotlib-base gmsh python-gmsh agentfem"
 )
 
 

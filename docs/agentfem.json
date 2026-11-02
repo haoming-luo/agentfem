@@ -16,8 +16,8 @@
     ],
     "tested_python": "3.11",
     "tested_dolfinx": "0.11",
-    "recommended": "mamba create -n agentfem-env --override-channels -c conda-forge python=3.11 fenics-dolfinx=0.11 c-compiler cxx-compiler agentfem",
-    "mainland_china": "mamba create -n agentfem-env --no-rc --override-channels -c https://mirrors.tuna.tsinghua.edu.cn/anaconda/cloud/conda-forge python=3.11 fenics-dolfinx=0.11 c-compiler cxx-compiler agentfem",
+    "recommended": "mamba create -n agentfem-env --override-channels -c conda-forge python=3.11 fenics-dolfinx=0.11 c-compiler cxx-compiler scipy matplotlib-base gmsh python-gmsh agentfem",
+    "mainland_china": "mamba create -n agentfem-env --no-rc --override-channels -c https://mirrors.tuna.tsinghua.edu.cn/anaconda/cloud/conda-forge python=3.11 fenics-dolfinx=0.11 c-compiler cxx-compiler scipy matplotlib-base gmsh python-gmsh agentfem",
     "mirror_triggers": [
       "Use the mirror channel",
       "\u8d70\u955c\u50cf\u901a\u9053"
