@@ -102,6 +102,13 @@ record.
     optional endpoint creep-rate time-error tolerance as separate acceptance
     decisions. Declare a model unit system when time histories require a
     physical unit label.
+    For local life-assessment input, opt into `material_points` on a serial
+    Cartesian 3D creep Step. Select original cell IDs and quadrature indices,
+    not partition-local indices or a different maximum for each field. Named
+    `site.S`, `site.E`, state and `site.TEMP` histories retain full tensors and
+    accepted physical time, independently of visualization frame count. Reuse
+    the exact selection on restart; a history cannot be backfilled from the
+    last field. See [co-located material histories](docs/material_point_histories.md).
     Experimental serial finite-strain J2 Steps can consume named rigid contact
     pairs through the ordinary `RigidContactPair` asset, with fixed or
     normalized-prescribed tool motion. The strong-boundary and supported

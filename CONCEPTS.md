@@ -624,6 +624,17 @@ has been accepted, then follows the same checkpoint/restart and result
 contract as built-in energy or conservation histories. Requests must remain
 unchanged across continuation because missing past states are not fabricated.
 
+For local material assessment, a quadrature history is not a nodal probe or a
+history of spatial extrema. The serial Cartesian 3D creep Step accepts
+`material_points=(results.material_point("site", cell=..., point=...),)`.
+Original input-cell identity and reference quadrature index select one fixed
+material location. The Procedure samples stress, total tensor strain, committed
+internal variables and supplied kelvin temperature at each accepted increment;
+Result retains their shared mesh/rule/material/time identity. Checkpoint restore
+includes these histories atomically and refuses a changed selection. No missing
+initial equilibrium state or past fields are reconstructed. This first consumer
+does not admit the same option on arbitrary user-material or MPI Steps.
+
 A time input also declares what it can invalidate: right-hand side, operator,
 accepted state, or output only. The owning Procedure uses that declaration to
 select matrix reuse or refresh. Linear implicit dynamics and linear
