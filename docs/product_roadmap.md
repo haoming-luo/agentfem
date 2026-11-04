@@ -35,6 +35,13 @@ and verify any genuinely missing mechanism; then admit temperature histories
 for user materials as a separately tested composition. Keep numerical
 verification, experimental material validation and life assessment distinct.
 
+The [static-recovery discriminator](internal/static_recovery_discriminator_20261105.md)
+now isolates strength decay from stress relaxation: a strain hold relaxes only
+after yield reactivation in this bounded tensile model. Analytical activation,
+time refinement and local tangent checks pass. Keep the tool outside the core;
+next audit the complete public P92 recovery model and its own experimental
+conditions before implementing or fitting a material provider.
+
 ### Co-located histories and real-material gate (2026-11-01)
 
 Keep the preceding output/integration PR separate from this scientific slice.
