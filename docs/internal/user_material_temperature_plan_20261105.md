@@ -57,6 +57,9 @@ After adding an accepted-temperature mutation guard test and regenerating the
 knowledge reference, the temperature, CI-scope and documentation checks passed
 **87 tests** in 6.19 s. These overlap the earlier 230-test run and are not
 reported as 317 distinct tests. Ruff and `git diff --check` also passed.
+Two further checks verify both thermal example providers' tangents after a
+history-producing preload and their finite rigid-rotation objectivity. The
+final temperature-only suite passed **21 tests** in 3.70 s.
 
 The independent patch uses an isotropic Green-strain thermal shift. Free 3D
 expansion gives `Fii = sqrt(1 + 2 alpha delta_T)`; constrained axial nominal

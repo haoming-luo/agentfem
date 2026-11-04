@@ -4,6 +4,8 @@ import xml.etree.ElementTree as ET
 import json
 from pathlib import Path
 import shutil
+import importlib.util
+from dataclasses import replace
 
 import numpy as np
 import pytest
@@ -249,3 +251,33 @@ def test_thermal_example_uses_standard_project_run(tmp_path, mechanism):
     frames = ET.parse(output / "results.xdmf").findall(".//Grid[@GridType='Uniform']")
     assert len(frames) < 10
     assert all("TEMP_CELL" in {a.get("Name") for a in frame.findall("Attribute")} for frame in frames)
+
+
+@pytest.mark.parametrize("mechanism", ["viscoelastic", "damage"])
+def test_thermal_example_evolved_state_tangent_and_objectivity(mechanism):
+    spec = importlib.util.spec_from_file_location(
+        "thermal_example", Path(__file__).parents[1] / "examples/history_material/material.py")
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    material = module.HistoryMaterial(mechanism=mechanism, thermal_expansion=1.e-4)
+    size = 10 if mechanism == "viscoelastic" else 2
+    point = c.MaterialPointInput(
+        deformation_gradient_old=np.eye(3),
+        deformation_gradient_new=np.diag([1.03, 1.01, .99]),
+        time=.2, time_increment=.2, temperature=340., temperature_increment=40.,
+        properties=np.array([]), state_old=np.zeros(size), state_schema=material.state_schema)
+    preload = material.update(point)
+    following = replace(point, deformation_gradient_old=point.deformation_gradient_new,
+                        deformation_gradient_new=np.array([[1.06, .02, 0.], [0., 1.01, 0.], [0., 0., .99]]),
+                        time=.4, temperature=360., temperature_increment=20., state_old=preload.state_new)
+    assert c.check_material_tangent(material, following).accepted
+    response = material.update(following)
+    angle = .71
+    rotation = np.array([[np.cos(angle), -np.sin(angle), 0.],
+                         [np.sin(angle), np.cos(angle), 0.], [0., 0., 1.]])
+    rotated = material.update(replace(
+        following, deformation_gradient_old=rotation @ following.deformation_gradient_old,
+        deformation_gradient_new=rotation @ following.deformation_gradient_new))
+    np.testing.assert_allclose(rotated.cauchy_stress,
+                               rotation @ response.cauchy_stress @ rotation.T, atol=1e-12)
+    np.testing.assert_allclose(rotated.state_new, response.state_new, atol=1e-12)
