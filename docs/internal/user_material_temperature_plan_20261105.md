@@ -61,6 +61,28 @@ Two further checks verify both thermal example providers' tangents after a
 history-producing preload and their finite rigid-rotation objectivity. The
 final temperature-only suite passed **21 tests** in 3.70 s.
 
+## Isolated installed-use check
+
+Commit `cbddfc29` was frozen into a temporary pure-Python wheel and installed
+without changing the existing installation, in a temporary venv sharing the
+already installed FEniCSx dependencies. An isolated interpreter confirmed the
+import came from that venv's `site-packages`, not the source checkout. This is
+not a clean-OS dependency installation or native-accelerator benchmark.
+
+Ordinary `agentfem run` completed the viscoelastic thermal example and the
+plane-stress damage example. The latter was run both continuously and as
+pause-at-0.5 plus restart. All ten numeric checkpoint arrays (displacement,
+effective gradients, state, stresses, tangent, stored-energy channel and TEMP)
+matched exactly in this run. Independent VTK reads and Warp By Vector checked
+all 17 output frames across these runs; temperature and stress stayed on the
+same grid and cell counts were unchanged. Partial output remains readable;
+the resumed output starts at the restored physical time, without fabricating
+unsaved earlier fields.
+
+The generated API reference was subsequently synchronized after CI identified
+it as stale. `build_docs.py --check` and the site build passed locally; generated
+site files were not committed. No release package was distributed.
+
 The independent patch uses an isotropic Green-strain thermal shift. Free 3D
 expansion gives `Fii = sqrt(1 + 2 alpha delta_T)`; constrained axial nominal
 stress is compared with the analytical transverse-relaxation solution. This
@@ -71,3 +93,18 @@ Design reference: [MGIS state management](https://thelfer.github.io/mgis/web/bin
 separates beginning/end material states, external variables and update/revert.
 AgentFEM uses its existing corresponding material/State contracts rather than
 adding an MGIS runtime dependency.
+
+## Shared history input and reader regression
+
+The review reproduced silent complex-to-real truncation in five new history
+tests before the fix. Real-valued histories now reject complex sources,
+frames, sample coordinates and archive arrays before conversion. A corrupted
+archive cannot reuse the real-valued content hash after losing its imaginary
+part. Rejection preserves the live field and accepted history.
+
+The final combined history, temperature, CI-scope and documentation run passed
+**109 tests in 7.55 s**, including a real VTK read-and-warp regression for the
+thermal patch. These counts overlap earlier runs. The existing distributed
+temperature-history portable-archive test also passed on two ranks using
+`agentfem mpi-run` with a 180-second timeout. That test covers the shared history
+archive, not MPI support for the new temperature-dependent structural Step.

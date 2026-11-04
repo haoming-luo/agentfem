@@ -281,3 +281,28 @@ def test_thermal_example_evolved_state_tangent_and_objectivity(mechanism):
     np.testing.assert_allclose(rotated.cauchy_stress,
                                rotation @ response.cauchy_stress @ rotation.T, atol=1e-12)
     np.testing.assert_allclose(rotated.state_new, response.state_new, atol=1e-12)
+
+
+def test_thermal_fields_survive_real_vtk_warp(tmp_path):
+    vtk = pytest.importorskip("vtk")
+    from vtk.util.numpy_support import vtk_to_numpy
+
+    step, _ = build(assumption="plane_stress")
+    output = tmp_path / "results.xdmf"
+    step.solve_result(output=output)
+    reader = vtk.vtkXdmfReader()
+    reader.SetFileName(str(output))
+    reader.UpdateInformation()
+    for station in step.accepted_increments:
+        reader.UpdateTimeStep(station["time"])
+        grid = reader.GetOutputDataObject(0)
+        assert grid.IsA("vtkUnstructuredGrid")
+        expected = step._temperature_input.at(station["time"])
+        np.testing.assert_allclose(vtk_to_numpy(grid.GetCellData().GetArray("TEMP_CELL")), expected)
+        warp = vtk.vtkWarpVector()
+        warp.SetInputData(grid)
+        warp.SetInputArrayToProcess(0, 0, 0, vtk.vtkDataObject.FIELD_ASSOCIATION_POINTS, step.solution.name)
+        warp.Update()
+        assert warp.GetOutput().GetNumberOfCells() == grid.GetNumberOfCells()
+        for name in ("S_CELL", "TEMP_CELL", "F_CELL", "DELTA_T_CELL"):
+            assert warp.GetOutput().GetCellData().GetArray(name) is not None

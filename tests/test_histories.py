@@ -34,6 +34,64 @@ def test_scalar_history_interpolates_and_rejects_silent_extrapolation(tmp_path):
     assert restored.scientific_identity() == history.scientific_identity()
 
 
+def test_history_rejects_complex_source_without_silent_conversion():
+    with pytest.raises(ValueError, match="real"):
+        histories.temperature(np.array([300.+1.j]))
+
+
+@pytest.mark.parametrize("time,value", [(1., np.array([400.+1.j])), (np.complex128(1.+1.j), 400.)])
+def test_complex_record_rejection_preserves_history(time, value):
+    history = histories.temperature(300.)
+    history.record(0.)
+    before = history.scientific_identity()
+    with pytest.raises(ValueError, match="real"):
+        history.record(time, value)
+    assert history.scientific_identity() == before
+    assert history.active_time == 0.
+    np.testing.assert_array_equal(history.sample(0.), [300.])
+
+
+@pytest.mark.parametrize("key", ["times", "snapshots"])
+def test_complex_archive_cannot_reuse_real_content_hash(tmp_path, key):
+    history = histories.temperature(300.)
+    history.record(0.).record(1., 400.)
+    path = history.save(tmp_path / "original")
+    with np.load(path, allow_pickle=False) as saved:
+        payload = {k: saved[k].copy() for k in saved.files}
+    payload[key] = payload[key].astype(complex) + 1.j
+    bad = tmp_path / "complex.npz"
+    np.savez(bad, **payload)
+    with pytest.raises(ValueError, match="real"):
+        histories.FieldHistory.load(bad, source=300.)
+
+
+def test_complex_sample_coordinate_does_not_change_live_history():
+    history = histories.temperature(300.)
+    history.record(0.).record(1., 400.)
+    with pytest.raises(ValueError, match="real"):
+        history.apply(np.complex128(.5+1.j))
+    assert history.active_time == 1.
+    assert history.value == 300.
+
+
+def test_complex_portable_coordinates_reject_before_live_field_changes(tmp_path):
+    domain = mesh.rectangle((0., 0.), (1., 1.), (1, 1), comm=MPI.COMM_SELF)
+    temperature = fields.temperature(domain, value=300.)
+    history = histories.temperature(temperature)
+    history.record(0.).record(1.)
+    path = history.save(tmp_path / "nodal")
+    with np.load(path, allow_pickle=False) as archive:
+        payload = {k: archive[k].copy() for k in archive.files}
+    payload["coordinates"] = payload["coordinates"].astype(complex)+1.j
+    corrupted = tmp_path / "complex-nodal.npz"
+    np.savez(corrupted, **payload)
+    target = fields.temperature(domain, value=999.)
+    before = target.value.x.array.copy()
+    with pytest.raises(ValueError, match="coordinates must be real"):
+        histories.FieldHistory.load(corrupted, source=target)
+    np.testing.assert_array_equal(target.value.x.array, before)
+
+
 def test_finite_element_history_applies_interpolated_field():
     domain = mesh.rectangle(
         (0.0, 0.0),
