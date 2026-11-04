@@ -1457,6 +1457,11 @@ class J2PlasticityStep:
         target_factor: float,
         reporter,
     ) -> J2IncrementInfo:
+        # Keep all Newton candidates on this increment's Dirichlet space,
+        # as in the creep and finite-strain Procedures. The enclosing solve
+        # owns the accepted displacement/material snapshot for rollback.
+        fem_petsc.set_bc(self.solution.x.petsc_vec, self.bcs)
+        self.solution.x.scatter_forward()
         def evaluate():
             update_info = self.state.update(
                 self.state.evaluate_strain(self._strain_evaluator),

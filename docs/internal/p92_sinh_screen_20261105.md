@@ -95,6 +95,14 @@ followed by 54 manufactured-field, rotating-history, fatigue-reference and
 damage-history tests. CI scope checks passed 49 tests; Ruff and `git diff
 --check` passed. These are not new multi-rank or clean-install results.
 
+The adjacent small-strain J2/Chaboche Procedure had the same inadmissible
+initial-trial pattern. A new test first reproduced the missing boundary values;
+the same initialization correction then passed 17 targeted serial tests,
+including existing cutback and restart tests. A single bounded `agentfem
+mpi-run -n 2 --timeout 180` run passed all 7 selected distributed J2/creep
+tests on both ranks (7 distinct tests, not 14). This checks existing parallel
+capabilities; it does not extend the serial-only joint creep/plasticity scope.
+
 ## Next scientific decision
 
 Review whether the existing joint creep/plasticity law can change the relevant

@@ -281,6 +281,7 @@ _CORE_SOURCE_TEST_MAP = {
     "src/agentfem/mechanics/plasticity.py": (
         "tests/test_external_inelastic_benchmark.py",
         "tests/test_p1_platform.py",
+        "tests/test_creep_prescribed_trial.py",
     ),
     "src/agentfem/mechanics/creep.py": (
         "tests/test_external_inelastic_benchmark.py",

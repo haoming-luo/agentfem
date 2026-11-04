@@ -29,6 +29,35 @@ def make_step(family):
                       amplitude=amplitudes.tabular([0., .5, 1., 1.5, 2.], [0., 1., 1., -1., -1.]))
 
 
+def test_small_strain_plasticity_trials_obey_prescribed_boundary(monkeypatch):
+    domain = mesh.cuboid((0., 0., 0.), (1., 1., 1.), (1, 1, 1),
+                         cell_type="hexahedron", comm=MPI.COMM_SELF)
+    model = models.create(study=studies.static_solid(dimension=3, nonlinear=True), mesh=domain)
+    u = model.field(fields.displacement(domain))
+    model.material(constitutive.J2LinearIsotropicHardening(
+        young=200_000., poisson=.3, yield_stress=100., hardening_modulus=1000.))
+    for i, axis in enumerate(("x", "y", "z")):
+        model.fix(u, on=mesh.face(domain, axis=axis, value=0., tag=i + 1), component=i, value=0.)
+    model.fix(u, on=mesh.face(domain, axis="x", value=1., tag=4), component=0, value=.002)
+    step = model.step(target=u, progress=False, incrementation=steps.fixed(8),
+                      amplitude=amplitudes.tabular([0., .25, .5, .75, 1.], [0., 1., 1., -1., -1.]))
+    original = step.state.update
+    calls = []
+
+    def observe(*args, **kwargs):
+        actual = step.solution.x.array.copy()
+        expected = actual.copy()
+        for bc in step.bcs:
+            bc.set(expected)
+        np.testing.assert_allclose(actual, expected, atol=1.e-15, rtol=0.)
+        calls.append(True)
+        return original(*args, **kwargs)
+
+    monkeypatch.setattr(step.state, "update", observe)
+    step.solve()
+    assert calls
+
+
 @pytest.mark.parametrize("family", ["power", "sinh", "joint"])
 def test_every_material_trial_obeys_target_boundary_and_failed_step_rolls_back(monkeypatch, family):
     step = make_step(family)
