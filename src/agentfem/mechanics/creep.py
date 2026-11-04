@@ -777,6 +777,14 @@ class ImplicitCreepStep:
         end_time: float,
         reporter,
     ) -> CreepIncrementInfo:
+        # Search on the affine space of this increment's prescribed values.
+        # Otherwise the lifted RHS at an old (inadmissible) displacement can
+        # nearly cancel, while enforcing the new boundary produces a larger
+        # free residual. A valid Newton correction then looks non-descending
+        # and backtracking rejects every step. The caller already owns the
+        # accepted displacement/state snapshot and restores it on failure.
+        fem_petsc.set_bc(self.solution.x.petsc_vec, self.bcs)
+        self.solution.x.scatter_forward()
         default_update_info = {
             "creeping_points": 0,
             "maximum_creep_increment": 0.0,
