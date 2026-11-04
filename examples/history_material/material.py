@@ -21,10 +21,17 @@ class HistoryMaterial:
         branch=30.0,
         relaxation_time=0.4,
         damage_rate=2.0,
+        thermal_expansion=0.0,
+        reference_temperature=300.0,
     ):
         if mechanism not in {"viscoelastic", "damage"}:
             raise ValueError("Choose viscoelastic or damage.")
         self.name = f"educational_{mechanism}"
+        if (not np.isfinite(thermal_expansion) or thermal_expansion < 0
+                or not np.isfinite(reference_temperature) or reference_temperature <= 0):
+            raise ValueError("Use nonnegative thermal expansion and a positive kelvin reference.")
+        self.thermal_expansion = float(thermal_expansion)
+        self.reference_temperature = float(reference_temperature)
         self.mechanism = mechanism
         self.lame, self.shear, self.branch = float(lame), float(shear), float(branch)
         self.relaxation_time, self.damage_rate = (
@@ -56,6 +63,10 @@ class HistoryMaterial:
             "damage_rate": self.damage_rate,
             "state_schema": self.state_schema.summary(),
             "scope": "educational moderate strain; no experimental calibration",
+            **({"thermal_expansion": self.thermal_expansion,
+                "reference_temperature": self.reference_temperature,
+                "thermal_strain": "isotropic Green strain shift; synthetic moderate-strain example"}
+               if self.thermal_expansion else {}),
         }
 
     def update_batch(self, request):
@@ -66,6 +77,10 @@ class HistoryMaterial:
     def update(self, point):
         F = point.deformation_gradient_new
         E = 0.5 * (F.T @ F - np.eye(3))
+        if self.thermal_expansion:
+            if point.temperature is None or point.temperature <= 0:
+                raise ValueError("The thermal example requires a positive prescribed kelvin temperature.")
+            E -= self.thermal_expansion * (point.temperature - self.reference_temperature) * np.eye(3)
         identity = np.eye(3)
         sym = np.einsum("ik,jl->ijkl", identity, identity) + np.einsum(
             "il,jk->ijkl", identity, identity

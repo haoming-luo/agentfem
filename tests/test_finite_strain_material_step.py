@@ -798,7 +798,7 @@ def test_output_failure_keeps_restartable_accepted_state(tmp_path, monkeypatch):
         ("duration", [1.0], ValueError),
         ("properties", np.array([1j]), ValueError),
         ("time_unit", "", ValueError),
-        ("temperature", 300.0, TypeError),
+        ("temperature", 0.0, ValueError),
     ],
 )
 def test_invalid_or_unsupported_options_reject(option, value, error):

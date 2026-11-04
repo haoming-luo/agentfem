@@ -7,6 +7,7 @@ from agentfem import (
     checkpointing,
     constitutive,
     fields,
+    histories,
     mesh,
     models,
     project,
@@ -22,6 +23,8 @@ def main():
         "--material", choices=("viscoelastic", "damage"), default="viscoelastic"
     )
     parser.add_argument("--restart", default=None)
+    parser.add_argument("--temperature-cycle", action="store_true",
+                        help="Apply the synthetic uniform heating/cooling history (kelvin).")
     parser.add_argument(
         "--output-every", type=int, default=1,
         help="Save fields every N accepted increments; also save segment endpoints.",
@@ -46,14 +49,21 @@ def main():
         name="history_material_plate",
     )
     u = model.field(fields.displacement(domain))
-    model.material(HistoryMaterial(mechanism=args.material))
+    model.material(HistoryMaterial(mechanism=args.material,
+                                   thermal_expansion=1.e-4 if args.temperature_cycle else 0.))
     model.clamp(u, on=mesh.face(domain, axis="x", value=0.0))
     model.fix(u, on=mesh.face(domain, axis="x", value=1.0), component=0, value=0.12)
     cycle = amplitudes.tabular((0.0, 0.25, 0.5, 0.75, 1.0), (0.0, 1.0, 1.0, -0.2, 0.0))
+    temperature = None
+    if args.temperature_cycle:
+        temperature = histories.temperature(300.0)
+        for time, kelvin in ((0., 300.), (.6, 360.), (1.4, 360.), (2., 300.)):
+            temperature.record(time, kelvin)
     step = model.step(
         target=u,
         duration=2.0,
         time_unit="s",
+        temperature=temperature,
         amplitude=cycle,
         incrementation=steps.fixed(16),
         output=run.artifact("results.xdmf"),

@@ -19,6 +19,21 @@ or a successful run is not by itself a validated engineering capability.
 
 ## Current product phase: the 0.4 foundation
 
+### Prescribed thermal input for history materials (2026-11-05)
+
+This bounded composition reuses the existing finite-strain material Step:
+`temperature=` accepts a positive kelvin scalar or a frozen, uniform linear
+physical-time history. Material updates receive endpoint temperature and its
+accepted-start increment; thermal knots, cutback, output and restart use the
+same accepted-state lifecycle. The four-file example exercises either history
+law with an optional thermal cycle, without a project-level solver.
+
+Local analytical expansion/reaction, plane-strain/plane-stress, tangent,
+rollback, restart and standard project tests pass. This is prescribed thermal
+input, not a heat solver or experimental material validation. Spatial thermal
+fields, regional providers, contact and MPI compositions remain separate gates.
+See the [implementation record](internal/user_material_temperature_plan_20261105.md).
+
 ### Candidate mechanism screening and solver robustness (2026-11-05)
 
 Engineering slices #138–#141 are merged. The separate Windows-guidance PR #142
@@ -31,7 +46,7 @@ general creep Newton correction: impose the new prescribed displacement before
 line-search evaluations, while retaining accepted-state rollback.
 
 Next: discriminate joint plasticity versus physical-time recovery; specify
-and verify any genuinely missing mechanism; then admit temperature histories
+and verify any genuinely missing mechanism; then review prescribed temperature histories
 for user materials as a separately tested composition. Keep numerical
 verification, experimental material validation and life assessment distinct.
 

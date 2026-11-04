@@ -163,7 +163,11 @@ interpolating unsaved damage states.
   already owns quadrature, Newton, physical time, rollback/restart and unified
   multi-field output. Supply the local `UserMaterial` and its reference
   `dP/dF`, not a project Newton loop. Its exclusions are explicit; do not infer
-  general plane stress, MPI, contact, thermal-history or arbitrary UMAT support.
+  general plane stress, MPI, contact or arbitrary UMAT support. Prescribed
+  uniform temperature is supplied by `temperature=` as positive kelvin or a
+  scalar linear `histories.temperature` over physical time; the Step freezes
+  this input and owns accepted TEMP output. Do not infer spatial thermal
+  histories, heat conduction or two-way coupling from this option.
   The limited plane-stress option requires a 2D plane-stress Study and explicit
   `constitutive.PlaneStressReduction(symmetry="reflection_symmetric")`. The
   core solves thickness equilibrium, condenses the algorithmic tangent and

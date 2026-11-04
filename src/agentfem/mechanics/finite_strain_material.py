@@ -65,6 +65,7 @@ class FiniteStrainMaterialStep:
         plane_stress=None,
         checkpoint=None,
         output_every=1,
+        temperature=None,
     ):
         from .. import constraints as constraint_api
         from .._step_provider_support import is_standalone_h1_vector_field
@@ -124,6 +125,8 @@ class FiniteStrainMaterialStep:
         self.duration = _real_material_scalar(duration, label="Physical duration")
         if not np.isfinite(self.duration) or self.duration <= 0:
             raise ValueError("Physical duration must be finite and positive.")
+        from ._prescribed_temperature import freeze_uniform_temperature
+        self._temperature_input = freeze_uniform_temperature(temperature, self.duration)
         if output_every is not None and (
             isinstance(output_every, (bool, np.bool_))
             or not isinstance(output_every, (int, np.integer))
@@ -195,6 +198,10 @@ class FiniteStrainMaterialStep:
                 for t in self.amplitude.summary()["metadata"]["times"]
                 if 0 < t < 1
             )
+        if self._temperature_input is not None:
+            self._load_knots = tuple(sorted(set(self._load_knots) | {
+                t / self.duration for t in self._temperature_input.times if 0 < t < self.duration
+            }))
         self.progress = progress
         self._reporter_failure = None
         self.execution_events = []
@@ -231,6 +238,8 @@ class FiniteStrainMaterialStep:
                 "Stored-energy component names must be unique and not collide with response/state fields."
             )
         raw_names = ["S", "P", "SENER", *state_names, *component_names]
+        if self._temperature_input is not None:
+            raw_names.append("TEMP")
         if self.plane_stress is not None:
             raw_names.append("F")
         published_names = [
@@ -261,6 +270,14 @@ class FiniteStrainMaterialStep:
             },
         }
         self._effective_gradient_field = None
+        self._temperature_field = None
+        if self._temperature_input is not None:
+            self._temperature_field = QuadratureField.create(
+                domain, name="TEMP", degree=quadrature_degree,
+            )
+            self._temperature_field.assign(np.full_like(
+                self._temperature_field.values, self._temperature_input.at(0.)))
+            self._responses["TEMP"] = self._temperature_field.function
         if self.plane_stress is not None:
             self._effective_gradient_field = QuadratureField.create(
                 domain,
@@ -360,6 +377,8 @@ class FiniteStrainMaterialStep:
                 "amplitude": self.amplitude.summary(),
                 "incrementation": self.incrementation.summary(),
                 "load": load_identity,
+                **({"temperature": self._temperature_input.summary()}
+                   if self._temperature_input is not None else {}),
                 **(
                     {"plane_stress": self.plane_stress.summary()}
                     if self.plane_stress is not None
@@ -480,6 +499,8 @@ class FiniteStrainMaterialStep:
             != self._identity["constraints"]
             or (None if self.plane_stress is None else self.plane_stress.summary())
             != self._identity.get("plane_stress")
+            or (None if self._temperature_input is None else self._temperature_input.summary())
+            != self._identity.get("temperature")
         ):
             raise ValueError(
                 "History-material scientific inputs changed after Step construction."
@@ -570,7 +591,15 @@ class FiniteStrainMaterialStep:
             time_increment=(target - start) * self.duration,
             properties=self.properties,
             plane_stress=self.plane_stress,
+            temperature=(None if self._temperature_input is None
+                         else self._temperature_input.at(target * self.duration)),
+            temperature_increment=(None if self._temperature_input is None else
+                self._temperature_input.at(target * self.duration)
+                - self._temperature_input.at(start * self.duration)),
         )
+        if self._temperature_field is not None:
+            self._temperature_field.assign(np.full_like(
+                self._temperature_field.values, self._temperature_input.at(target * self.duration)))
         self._trial_F = (
             gradient
             if result.plane_stress is None
@@ -863,6 +892,9 @@ class FiniteStrainMaterialStep:
             residual.destroy()
 
     def _field_metadata(self, name):
+        if name == "TEMP" and self._temperature_input is not None:
+            return {"unit": "K", "role": "prescribed_temperature",
+                    "coupling": "one_way_input; no heat equation or heat balance"}
         if name == "F" and self.plane_stress is not None:
             return {
                 "kinematic_measure": "effective_3D_deformation_gradient",
@@ -913,6 +945,8 @@ class FiniteStrainMaterialStep:
         }
         if self._effective_gradient_field is not None:
             sources["F"] = self._effective_gradient_field
+        if self._temperature_field is not None:
+            sources["TEMP"] = self._temperature_field
         if include_energy and self._energy_defined:
             sources["SENER"] = self.response.strain_energy_density
             sources.update(self.response.stored_energy_density_components)
@@ -1063,6 +1097,14 @@ class FiniteStrainMaterialStep:
             abscissa_unit=self.time_unit,
             description="Normalized loading coordinate, distinct from physical time.",
         )
+        if self._temperature_input is not None:
+            result.add_history(
+                "temperature",
+                [r["time"] for r in self.accepted_increments],
+                [self._temperature_input.at(r["time"]) for r in self.accepted_increments],
+                abscissa_name="time", abscissa_unit=self.time_unit, unit="K",
+                description="Prescribed uniform temperature at accepted states; not a heat solve.",
+            )
         sources, recovered = self._visual_fields()
         for name, source in sources.items():
             result.add_field(
@@ -1135,6 +1177,8 @@ class FiniteStrainMaterialStep:
             "accepted_increments": list(self.accepted_increments),
             "attempted_increments": list(self.attempted_increments),
             "stored_energy_available": self._energy_defined,
+            "temperature": (None if self._temperature_input is None
+                            else self._temperature_input.summary()),
             "plane_stress": None
             if self.plane_stress is None
             else self.plane_stress.summary(),
@@ -1361,6 +1405,11 @@ class FiniteStrainMaterialStep:
                     "Checkpoint effective plane-stress gradient field disagrees with accepted kinematics."
                 )
             self._apply_loading(coordinate)
+            if self._temperature_field is not None and not np.allclose(
+                self._temperature_field.values,
+                self._temperature_input.at(coordinate * self.duration), rtol=1e-13, atol=0.,
+            ):
+                raise ValueError("Checkpoint temperature disagrees with its accepted physical time.")
             prescribed = self.solution.x.array.copy()
             for bc in self.bcs:
                 bc.set(prescribed)
