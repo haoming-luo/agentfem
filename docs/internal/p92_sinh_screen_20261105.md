@@ -114,6 +114,12 @@ stress relaxes inside its yield surface. In that branch it cannot change the
 autonomous creep law. This is a bounded observation, not a conclusion for all
 multiaxial histories or nonzero backstresses. Test the actual accepted state,
 yield margin and plastic activity before selecting an extension.
+The added inherited-history discriminator now passes for both isotropic J2
+and Chaboche: preload plastically, unload inside the yield surface, and hold
+through nonuniform physical time increments. Plastic strain and backstresses
+remain unchanged while the complete stress trajectory matches pure creep at
+the same elastic strain. This demonstrates the bounded mechanism distinction;
+it does not calibrate or validate the combined law against P92.
 
 For a recovery candidate, first reproduce a prescribed-backstress decay with
 zero plastic flow, then a coupled hold. Specify normalization and signs rather
