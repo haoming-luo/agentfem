@@ -2,6 +2,8 @@
 
 import numpy as np
 import pytest
+import json
+import sys
 
 from tools.p92_published_recovery_reference import (
     implicit_update, integrate_segment, published_parameters, rate_jacobian, rates, run_cycles,
@@ -105,3 +107,18 @@ def test_distinct_stiff_integrators_agree(temperature, dwell):
     for first, second in zip(radau["cycles"], bdf["cycles"], strict=True):
         np.testing.assert_allclose(first["hold_stress_samples_MPa"], second["hold_stress_samples_MPa"], atol=1.e-3)
         assert first["relaxed_stress_MPa"] > 0
+
+
+def test_cli_evidence_is_new_and_identifies_published_parameters(tmp_path, monkeypatch):
+    from tools.p92_published_recovery_reference import main, SOURCE_SHA256
+    output = tmp_path / "reference.json"
+    monkeypatch.setattr(sys, "argv", ["reference", "--cycles", "1", "--output", str(output)])
+    assert main() == 0
+    contents = output.read_bytes()
+    record = json.loads(contents)
+    assert record["source_pdf_sha256"] == SOURCE_SHA256
+    assert record["parameter_table"] == 4
+    assert len(record["cycles"]) == 1
+    with pytest.raises(SystemExit):
+        main()
+    assert output.read_bytes() == contents

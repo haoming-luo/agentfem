@@ -9,6 +9,8 @@ No fitting, temperature interpolation, life prediction or BAM transfer.
 import argparse
 from dataclasses import asdict, dataclass
 import json
+from pathlib import Path
+from time import perf_counter
 
 import numpy as np
 from scipy.integrate import solve_ivp
@@ -211,11 +213,41 @@ def main():
     parser.add_argument("--strain-range", type=float, default=.008)
     parser.add_argument("--method", choices=("Radau", "BDF"), default="Radau")
     parser.add_argument("--rtol", type=float, default=1.e-8)
+    parser.add_argument("--published-campaign", action="store_true",
+                        help="Run Table 2 conditions to their reported half-lives, not predicted lives.")
+    parser.add_argument("--output", type=Path, help="Write a new JSON evidence file; never overwrite.")
     args = parser.parse_args()
-    report = run_cycles(temperature_C=args.temperature, cycles=args.cycles,
-                        dwell=args.dwell, strain_range=args.strain_range,
-                        method=args.method, rtol=args.rtol)
-    print(json.dumps(report, indent=2, allow_nan=False))
+    if args.output is not None and args.output.exists():
+        parser.error("Output exists; choose a new evidence path.")
+    if args.published_campaign:
+        rows = []
+        conditions = ((600, .008, 60., 1303), (600, .008, 180., 1190),
+                      (600, .008, 600., 675), (600, .012, 180., 541),
+                      (650, .008, 60., 870), (650, .008, 180., 853),
+                      (650, .008, 600., 625), (650, .012, 180., 482))
+        for temperature, strain_range, dwell, reported_life in conditions:
+            started = perf_counter()
+            row = run_cycles(temperature_C=temperature, cycles=reported_life//2,
+                             dwell=dwell, strain_range=strain_range,
+                             method=args.method, rtol=args.rtol)
+            row["reported_life_used_to_select_run_length"] = reported_life
+            row["elapsed_seconds"] = perf_counter()-started
+            rows.append(row)
+            print(f"Completed {temperature} C, range={strain_range:g}, dwell={dwell:g} s, "
+                  f"cycles={reported_life//2}; {row['elapsed_seconds']:.1f} s", flush=True)
+        report = {"scope": "published-equation reproduction; not life or experimental validation",
+                  "reported_lives_are_inputs_not_predictions": True, "runs": rows}
+    else:
+        report = run_cycles(temperature_C=args.temperature, cycles=args.cycles,
+                            dwell=args.dwell, strain_range=args.strain_range,
+                            method=args.method, rtol=args.rtol)
+    serialized = json.dumps(report, indent=2, allow_nan=False)
+    if args.output is not None:
+        with args.output.open("x", encoding="utf-8") as stream:
+            stream.write(serialized+"\n")
+        print(f"Evidence: {args.output}")
+    else:
+        print(serialized)
     return 0
 
 

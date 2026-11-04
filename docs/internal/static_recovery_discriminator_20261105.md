@@ -105,3 +105,31 @@ strain differences. Hold-only and full loading/reversal/hold refinements
 converge toward the continuous reference. The published-model suite passes
 18 tests (plus 12 separate analytical-discriminator tests). This is still a
 uniaxial local reference, not an unverified automatic 3D embedding.
+
+## Long-path integration check
+
+The `--published-campaign` option runs the eight Table 2 conditions to the
+integer floor of their reported half-lives. Reported lives select duration;
+they are explicitly inputs, never predicted fatigue lives. Each integration
+method covered 3267 cycles, retaining the complete cycle-to-cycle state.
+Radau and BDF maximum sampled hold-stress differences were:
+
+| Temperature, C | Strain range | Dwell, s | Cycles | Maximum difference, MPa |
+| --- | --- | --- | --- | --- |
+| 600 | 0.008 | 60 | 651 | 1.968e-5 |
+| 600 | 0.008 | 180 | 595 | 1.366e-5 |
+| 600 | 0.008 | 600 | 337 | 1.171e-5 |
+| 600 | 0.012 | 180 | 270 | 1.038e-5 |
+| 650 | 0.008 | 60 | 435 | 1.505e-5 |
+| 650 | 0.008 | 180 | 426 | 1.029e-5 |
+| 650 | 0.008 | 600 | 312 | 8.825e-6 |
+| 650 | 0.012 | 180 | 241 | 9.560e-6 |
+
+Commands: run `python tools/p92_published_recovery_reference.py
+--published-campaign --method Radau --output <new-json-path>` and repeat with
+`--method BDF` and a different output path. Both use rtol=1e-8. The executed
+tool SHA-256 was
+`38d20a1530c9391f7a98c9e226de0c74928a820c6fb7b342a993539d0da51a55`.
+Local totals were 166.54 s and 119.16 s respectively, not FEM performance
+evidence. Including new-file-only evidence output checks, 31 targeted tests
+pass. Experimental data comparison and structural integration remain open.
