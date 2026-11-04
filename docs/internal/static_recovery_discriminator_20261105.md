@@ -69,3 +69,39 @@ material tangents and structural reactions. A paper's reported agreement is
 not AgentFEM validation; interpolating its parameters to another material batch
 and temperature is a separate modelling assumption. Keep this as a proposed
 source until those checks are executable.
+
+## Published-equation reproduction, separate from validation
+
+The version-2 PDF was subsequently downloaded and its equations (9)--(13),
+Table 4 and loading description checked against rendered pages 9--10 and
+page 3. SHA-256:
+`c00a71167969edaab6a1b52641140cb5a3f241e82a90b74b464f293f46fcd604`.
+`tools/p92_published_recovery_reference.py` transcribes the uniaxial equations
+and both parameter sets, without fitting or temperature interpolation. The
+startup is declared explicitly: zero state to positive half-range; successive
+tensile dwells are separated by compression and tension ramps.
+
+The reference remains outside the runtime package. Radau and BDF agree on
+two-cycle histories at both temperatures and 60/600 s dwells within 0.001 MPa
+at the sampled hold stresses. Seven source/equation/integrator tests plus the
+twelve analytical discriminator tests pass. Two integrators sharing one rate
+function check integration, not independent transcription or experiment.
+
+A 200-cycle, 600 C, 0.8% range, 60 s dwell run gives hold-end stresses
+239.8993, 229.4435 and 186.0506 MPa at cycles 1, 20 and 200. Figures 11--14
+were visually inspected, but no numerical experimental acceptance is claimed.
+The article does not supply a machine-readable comparison here; startup and
+plot digitization uncertainty must be resolved before declaring reproduction
+of its curves. The public reference now supplies a useful independent local
+target for a future material provider, not a substitute for that provider or
+for structural verification.
+
+The same reference now includes a local backward-Euler corrector solving all
+five variables simultaneously. Its axial algorithmic tangent comes from the
+implicit-function Jacobian, not a frozen-history elastic modulus. Analytical
+rate derivatives pass centered differences in tensile, compressive and
+inactive states at both temperatures; evolved-state tangents pass independent
+strain differences. Hold-only and full loading/reversal/hold refinements
+converge toward the continuous reference. The published-model suite passes
+18 tests (plus 12 separate analytical-discriminator tests). This is still a
+uniaxial local reference, not an unverified automatic 3D embedding.
