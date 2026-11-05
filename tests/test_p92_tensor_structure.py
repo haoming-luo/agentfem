@@ -58,7 +58,7 @@ def test_unsupported_fields_rejected(change):
         material.update(replace(point(material), **change))
 
 
-def make_step(temperature=600):
+def make_step(temperature=600, *, cyclic=False):
     domain = mesh.cuboid((0.0, 0.0, 0.0), (1.0, 1.0, 1.0), (1, 1, 1))
     model = models.create(
         study=studies.static_solid(dimension=3, nonlinear=True), mesh=domain
@@ -70,10 +70,17 @@ def make_step(temperature=600):
     model.fix(u, on=mesh.face(domain, axis="x", value=1.0), component=0, value=0.004)
     return model.step(
         target=u,
-        duration=8.0,
+        duration=24.0 if cyclic else 8.0,
         time_unit="s",
-        incrementation=steps.fixed(32),
-        amplitude=amplitudes.tabular([0.0, 0.5, 1.0], [0.0, 1.0, 1.0]),
+        incrementation=steps.fixed(96 if cyclic else 32),
+        amplitude=(
+            amplitudes.tabular(
+                [0.0, 4 / 24, 8 / 24, 16 / 24, 20 / 24, 1.0],
+                [0.0, 1.0, 1.0, -1.0, -1.0, 0.0],
+            )
+            if cyclic
+            else amplitudes.tabular([0.0, 0.5, 1.0], [0.0, 1.0, 1.0])
+        ),
     )
 
 
@@ -112,4 +119,34 @@ def test_research_structure_restart(tmp_path):
             full.state.committed[name].values,
             atol=1e-10,
             rtol=1e-10,
+        )
+
+
+@pytest.mark.parametrize("temperature", [600, 650])
+def test_cyclic_structure_matches_scalar_at_every_reversal_and_hold(temperature):
+    step = make_step(temperature, cyclic=True)
+    expected = np.zeros(5)
+    old_strain = 0.0
+    for endpoint in (4.0, 8.0, 16.0, 20.0, 24.0):
+        start = step.time
+        for time in np.arange(start + 0.25, endpoint + 0.125, 0.25):
+            strain = np.interp(
+                time, [0, 4, 8, 16, 20, 24], [0, 0.004, 0.004, -0.004, -0.004, 0]
+            )
+            expected, _ = implicit_update(
+                expected, strain - old_strain, 0.25, published_parameters(temperature)
+            )
+            old_strain = strain
+        step.solve(until=endpoint / 24)
+        np.testing.assert_allclose(
+            step.response.cauchy_stress.values[..., 0, 0],
+            expected[0],
+            rtol=3e-7,
+            atol=2e-6,
+        )
+        np.testing.assert_allclose(
+            step.state.committed["R"].values, expected[3], rtol=3e-7
+        )
+        np.testing.assert_allclose(
+            step.state.committed["P"].values, expected[4], rtol=3e-7
         )

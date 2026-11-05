@@ -72,12 +72,15 @@ not contain a global nonlinear solver. Mandel shear scaling and component
 permutation are explicitly converted to the public tensor-Voigt convention.
 Temperature fields and other external fields are rejected rather than ignored.
 
-Eight FEniCSx/provider tests verify the public tangent checker with all shear
+Ten FEniCSx/provider tests verify the public tangent checker with all shear
 components, rejection of unsupported fields, 600/650 Celsius homogeneous
 structures with free lateral contraction against the independent scalar
-backward-Euler history, and restart at the start of a hold. The combined new
-tests and CI-routing regression passed **107 tests** in the local FEniCSx
-environment. This is numerical composition evidence, not a multiaxial
+backward-Euler history, restart at the start of a hold, and all reversal/hold
+endpoints of a tension-hold-compression-hold-unload cycle. The expanded suite
+including scalar references, physical-time and atomic-restart regressions,
+and CI routing passed **171 tests**, with one dedicated two-rank admission test
+skipped in the serial run (already run separately for PR #150).
+This is numerical composition evidence, not a multiaxial
 experimental validation or a complete fatigue simulation.
 
 Structural refinement, nonproportional material data, temperature interpolation,
