@@ -34,6 +34,8 @@ _RELEASE_PREFIXES = (
     ".github/workflows/platform-acceptance",
 )
 _TARGETED_SOURCE_FILES = {
+    "tools/p92_tensor_normalization.py",
+    "tools/p92_tensor_material_reference.py",
     "promotion_gate.py",
     "tools/agent_trial_acceptance.py",
     "tools/prepare_agent_trial.py",
@@ -58,6 +60,10 @@ _TARGETED_PREFIXES = (
     "src/agentfem/surrogates/",
 )
 _SOURCE_TEST_MAP = {
+    "tools/p92_tensor_normalization.py": (
+        "tests/test_p92_tensor_normalization.py", "tests/test_p92_tensor_structure.py",
+    ),
+    "tools/p92_tensor_material_reference.py": ("tests/test_p92_tensor_structure.py",),
     "promotion_gate.py": ("tests/test_promotion_gate.py",),
     "tools/agent_trial_acceptance.py": ("tests/test_agent_trial_acceptance.py",),
     "tools/prepare_agent_trial.py": ("tests/test_prepare_agent_trial.py",),

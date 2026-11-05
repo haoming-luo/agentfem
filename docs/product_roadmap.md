@@ -1,5 +1,16 @@
 # AgentFEM Product Roadmap
 
+### Research update: P92 tensor admission (2026-11-05)
+
+The [tensor admission record](internal/p92_tensor_admission_20261105.md)
+now connects the public scalar recovery equations to an explicitly assumed
+small-strain isotropic J2 extension. Local Jacobian/tangent checks, unit and
+basis invariance, scalar reduction, and a homogeneous structural hold/restart
+pass through the ordinary physical-time consumer. The implementation stays in
+research tools, not the material catalogue: Poisson ratio and multiaxial
+extension are assumptions, and experimental multiaxial validation, temperature
+interpolation and service-life prediction remain open.
+
 ## Direction
 
 AgentFEM is building a readable, dependable, and extensible finite-element

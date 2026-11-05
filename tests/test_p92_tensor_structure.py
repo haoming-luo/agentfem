@@ -1,0 +1,115 @@
+"""Numerical composition, not experimental multiaxial P92 qualification."""
+
+import numpy as np
+import pytest
+from mpi4py import MPI
+from agentfem import amplitudes, fields, mesh, models, steps, studies
+from tools.p92_tensor_material_reference import P92TensorResearchMaterial
+from tools.p92_published_recovery_reference import implicit_update, published_parameters
+from agentfem import constitutive as c
+from dataclasses import replace
+
+pytestmark = pytest.mark.skipif(
+    MPI.COMM_WORLD.size != 1, reason="Serial physical-time route"
+)
+
+
+def point(material):
+    return c.SmallStrainMaterialPointInput(
+        strain_old=np.zeros((3, 3)),
+        strain_new=np.array(
+            [
+                [0.004, 0.0007, -0.0003],
+                [0.0007, -0.001, 0.0002],
+                [-0.0003, 0.0002, -0.001],
+            ]
+        ),
+        time=1.0,
+        time_increment=1.0,
+        parameters=material.parameters,
+        state_old=np.zeros(18),
+        state_schema=material.state_schema,
+        parameter_schema=material.parameter_schema,
+    )
+
+
+@pytest.mark.parametrize("temperature", [600, 650])
+def test_public_tangent_checker_includes_shear_conversion(temperature):
+    material = P92TensorResearchMaterial(temperature_C=temperature, poisson=0.3)
+    request = point(material)
+    evidence = c.check_small_strain_material_tangent(
+        material, request, relative_step=1e-8
+    )
+    assert evidence.accepted
+    np.testing.assert_array_equal(request.state_old, np.zeros(18))
+
+
+@pytest.mark.parametrize(
+    "change",
+    [
+        {"temperature": 600.0},
+        {"temperature_increment": 0.0},
+        {"field_variables": {"x": 1.0}},
+    ],
+)
+def test_unsupported_fields_rejected(change):
+    material = P92TensorResearchMaterial(temperature_C=600, poisson=0.3)
+    with pytest.raises(ValueError):
+        material.update(replace(point(material), **change))
+
+
+def make_step(temperature=600):
+    domain = mesh.cuboid((0.0, 0.0, 0.0), (1.0, 1.0, 1.0), (1, 1, 1))
+    model = models.create(
+        study=studies.static_solid(dimension=3, nonlinear=True), mesh=domain
+    )
+    u = model.field(fields.displacement(domain))
+    model.material(P92TensorResearchMaterial(temperature_C=temperature, poisson=0.3))
+    for axis, component in (("x", 0), ("y", 1), ("z", 2)):
+        model.fix(u, on=mesh.face(domain, axis=axis, value=0.0), component=component)
+    model.fix(u, on=mesh.face(domain, axis="x", value=1.0), component=0, value=0.004)
+    return model.step(
+        target=u,
+        duration=8.0,
+        time_unit="s",
+        incrementation=steps.fixed(32),
+        amplitude=amplitudes.tabular([0.0, 0.5, 1.0], [0.0, 1.0, 1.0]),
+    )
+
+
+@pytest.mark.parametrize("temperature", [600, 650])
+def test_structure_matches_scalar_free_lateral_history(temperature):
+    step = make_step(temperature)
+    step.solve()
+    expected = np.zeros(5)
+    for index in range(32):
+        expected, _ = implicit_update(
+            expected,
+            0.004 / 16 if index < 16 else 0.0,
+            0.25,
+            published_parameters(temperature),
+        )
+    stress = step.response.cauchy_stress.values
+    np.testing.assert_allclose(stress[..., 0, 0], expected[0], rtol=2e-7, atol=1e-6)
+    np.testing.assert_allclose(stress[..., 1, 1], 0.0, atol=1e-6)
+    np.testing.assert_allclose(stress[..., 2, 2], 0.0, atol=1e-6)
+    np.testing.assert_allclose(step.state.committed["R"].values, expected[3], rtol=2e-7)
+    np.testing.assert_allclose(step.state.committed["P"].values, expected[4], rtol=2e-7)
+
+
+def test_research_structure_restart(tmp_path):
+    full = make_step()
+    full.solve()
+    partial = make_step()
+    partial.solve(until=0.5)
+    path = partial.save_checkpoint(tmp_path / "hold_start")
+    restored = make_step()
+    restored.load_checkpoint(path)
+    restored.solve()
+    for name in ("SIGMA_M", "X1_DEV", "X2_DEV", "R", "P"):
+        np.testing.assert_allclose(
+            restored.state.committed[name].values,
+            full.state.committed[name].values,
+            atol=1e-10,
+            rtol=1e-10,
+        )
