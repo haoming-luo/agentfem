@@ -31,6 +31,14 @@ def test_held_out_life_does_not_change_calibration():
     np.testing.assert_array_equal(calibrate(data), calibrate(changed))
 
 
+def test_cross_publication_overlap_is_not_external_validation():
+    report = screen()
+    audit = report["source_overlap_audit"]
+    assert audit["matching_ids"] == [1, 2, 3]
+    assert "exclude from independent validation" in audit["decision"]
+    assert "Within-source" in report["scope"]
+
+
 def test_fixed_baseline_and_reported_holdout_error():
     report = screen()
     held = [r for r in report["predictions"] if r["role"] == "validation"]

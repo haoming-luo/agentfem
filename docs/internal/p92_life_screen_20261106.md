@@ -41,7 +41,7 @@ resplitting or refitting to the holdout is used.
 
 Reproduce with `python tools/p92_life_screen.py`. The script prints complete
 JSON with source, split, coefficients, every prediction, ratios and limitations.
-13 tests verify source transcription, fixed baseline, no holdout-label leakage,
+14 tests verify source transcription, fixed baseline, no holdout-label leakage,
 monotonicity, rank admission and rejection outside the declared input domain.
 The regression's numerical expectations do not constitute scientific acceptance
 thresholds selected before the experiment.
@@ -79,3 +79,19 @@ assessment API as a P92 material card.
 
 Status: research baseline calibrated and held-out evaluated; engineering life
 qualification remains open with explicit data requirements.
+
+## Cross-publication audit
+
+[Wang et al., Metals 9 (2019) 183](https://doi.org/10.3390/met9020183),
+Table 1 (page 4, visually checked), lists CF600S04T01/T03/T10 with lives
+1303/1190/675. At 600 C, amplitude .004 and tensile dwells 1/3/10 minutes,
+these exactly match rows 1/2/3 after amplitude-to-range and minute-to-second
+conversion. Publication independence is not specimen independence: exclude
+these observations from external validation pending specimen provenance.
+This includes the current held-out row 2; it remains a within-source holdout,
+not external evidence. The JSON report exposes this overlap warning.
+
+The same table also contains zero-dwell repetitions, compressive holds and a
+60-minute tensile hold. Those are useful future mechanism/domain tests, but
+are outside this baseline's admitted loading domain. Do not extend the domain
+just to obtain additional validation rows. No coefficients were refitted.

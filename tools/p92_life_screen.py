@@ -104,6 +104,7 @@ def screen(data=None):
         "calibration_ids": data["calibration_ids"],
         "validation_ids": data["validation_ids"],
         "scope": data["split_scope"],
+        "source_overlap_audit": data.get("source_overlap_audit"),
         "predictions": predictions,
         "engineering_qualified": False,
         "life_semantics": "Combined creep-fatigue test life; not a pure-fatigue curve for adding creep damage again",
