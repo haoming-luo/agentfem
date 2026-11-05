@@ -6,6 +6,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field, replace
+from hashlib import sha256
 import json
 from pathlib import Path
 
@@ -146,6 +147,9 @@ class SmallStrainMaterialStep:
     prescribed_values: tuple[tuple[object, np.ndarray, object], ...]
     incrementation: object
     solver_options: NewtonSolverOptions
+    duration: float | None = None
+    time_unit: str = "s"
+    external_force: object | None = None
     study: object | None = None
     progress: object = True
     status_file: object | None = None
@@ -172,7 +176,7 @@ class SmallStrainMaterialStep:
 
     def checkpoint_capabilities(self) -> checkpointing.CheckpointCapabilities:
         return checkpointing.CheckpointCapabilities(
-            schemas=("agentfem.small-strain-material-step-checkpoint.v1",),
+            schemas=(self._checkpoint_schema,),
             boundary="accepted_increment",
             payload_scope="full_restart_state",
             state_components=(
@@ -180,18 +184,31 @@ class SmallStrainMaterialStep:
                 "named user-material quadrature state",
                 "load-path ledger",
                 "solver continuation controls",
+            )
+            + (
+                ("accepted stress, tangent and declared energy response",)
+                if self.duration is not None
+                else ()
             ),
             atomic_publication=True,
-            rank_count_portability="supported",
+            rank_count_portability="supported"
+            if self.duration is None
+            else "unsupported",
             identity_scope=(
                 "mesh and function space",
                 "material parameter and state schemas",
                 "load amplitude and procedure controls",
             ),
             limitations=(
-                "provider state must implement the portable quadrature contract",
+                "provider state must implement the portable quadrature contract"
+                if self.duration is None
+                else "physical-time response restore requires the same serial quadrature layout",
             ),
-            evidence=("portable nodal and quadrature state round trip",),
+            evidence=(
+                "portable nodal and quadrature state round trip"
+                if self.duration is None
+                else "same-layout serial exact-response restart and failure rollback",
+            ),
         )
 
     def __post_init__(self) -> None:
@@ -200,8 +217,67 @@ class SmallStrainMaterialStep:
             expression, value_shape=(3, 3)
         )
         self._accepted_strain = self._evaluate_strain()
-        self._update_material(time=0.0, time_increment=1.0)
-        self.response.commit()
+        if self.duration is None:
+            self._update_material(time=0.0, time_increment=1.0)
+            self.response.commit()
+        else:
+            self._apply_loading(0.0)
+            self._physical_identity = json.dumps(
+                self._checkpoint_identity(), sort_keys=True
+            )
+
+    def _check_physical_identity(self):
+        if (
+            hasattr(self, "_physical_identity")
+            and json.dumps(self._checkpoint_identity(), sort_keys=True)
+            != self._physical_identity
+        ):
+            raise ValueError(
+                "Physical-time material scientific inputs changed; construct a new Step."
+            )
+
+    @property
+    def _checkpoint_schema(self):
+        version = 1 if self.duration is None else 2
+        return f"agentfem.small-strain-material-step-checkpoint.v{version}"
+
+    @property
+    def time(self):
+        return (
+            None if self.duration is None else self.accepted_load_factor * self.duration
+        )
+
+    def _response_fields(self):
+        fields = {
+            "stress": self.response.cauchy_stress,
+            "tangent": self.response.tangent,
+            "stored_energy": self.response.stored_energy_density,
+            "dissipation": self.response.dissipation_density_increment,
+            **{
+                f"component_{name}": value
+                for name, value in self.response.stored_energy_density_components.items()
+            },
+        }
+        return {name: value for name, value in fields.items() if value is not None}
+
+    def _response_snapshot(self):
+        return (
+            {
+                name: value.values.copy()
+                for name, value in self._response_fields().items()
+            },
+            self.response.last_diagnostics,
+            self.response.last_applicability,
+            self._trial_result,
+        )
+
+    def _restore_response(self, snapshot):
+        values, diagnostics, applicability, trial = snapshot
+        for name, value in self._response_fields().items():
+            value.assign(values[name])
+        self.response.last_diagnostics = diagnostics
+        self.response.last_applicability = applicability
+        self._trial_result = trial
 
     @property
     def state(self):
@@ -215,16 +291,22 @@ class SmallStrainMaterialStep:
         )
 
     def _update_material(self, *, time: float, time_increment: float):
+        scale = 1.0 if self.duration is None else self.duration
         self._trial_result = self.response.update(
             self.material,
             strain_old=self._accepted_strain,
             strain_new=self._evaluate_strain(),
-            time=float(time),
-            time_increment=max(float(time_increment), np.finfo(float).eps),
+            time=float(time) * scale,
+            time_increment=(
+                max(float(time_increment), np.finfo(float).eps)
+                if self.duration is None
+                else float(time_increment) * scale
+            ),
         )
         return self._trial_result
 
     def solve(self, *, until: float = 1.0):
+        self._check_physical_identity()
         selected_until = float(until)
         if not self.accepted_load_factor < selected_until <= 1.0:
             raise ValueError(
@@ -271,6 +353,12 @@ class SmallStrainMaterialStep:
                         "Fixed incrementation has no factor beyond restored state."
                     )
                 target = min(selected_until, remaining[0])
+            if self.duration is not None and self.amplitude.kind == "tabular":
+                knots = self.amplitude.summary()["metadata"]["times"]
+                target = min(
+                    target,
+                    next((float(k) for k in knots if accepted_factor < k < 1), 1.0),
+                )
             attempt = consecutive_cutbacks + 1
             self._emit(
                 reporter,
@@ -287,8 +375,11 @@ class SmallStrainMaterialStep:
             displacement = self.solution.x.array.copy()
             state = self.response.snapshot()
             old_strain = self._accepted_strain.copy()
-            self._apply_loading(target)
+            old_response = (
+                self._response_snapshot() if self.duration is not None else None
+            )
             try:
+                self._apply_loading(target)
                 info = self._solve_increment(
                     increment=increment,
                     attempt=attempt,
@@ -308,6 +399,17 @@ class SmallStrainMaterialStep:
                     float("inf"),
                     rejection_reason=str(exc),
                 )
+            except BaseException:
+                # An interrupt or assembly error is not an accepted material
+                # increment. Do not leave trial displacement beside old history.
+                if old_response is not None:
+                    self.solution.x.array[:] = displacement
+                    self.solution.x.scatter_forward()
+                    self.response.restore(state)
+                    self._accepted_strain = old_strain
+                    self._apply_loading(accepted_factor)
+                    self._restore_response(old_response)
+                raise
             if info.converged and info.minimum_suggested_time_scale < 1.0 - 1.0e-12:
                 info = replace(
                     info,
@@ -353,10 +455,13 @@ class SmallStrainMaterialStep:
             self.response.restore(state)
             self._accepted_strain = old_strain
             self._apply_loading(accepted_factor)
-            self._update_material(
-                time=accepted_factor,
-                time_increment=max(target - accepted_factor, np.finfo(float).eps),
-            )
+            if old_response is not None:
+                self._restore_response(old_response)
+            else:
+                self._update_material(
+                    time=accepted_factor,
+                    time_increment=max(target - accepted_factor, np.finfo(float).eps),
+                )
             if not isinstance(
                 self.incrementation, step_controls.AutomaticIncrementation
             ):
@@ -571,8 +676,20 @@ class SmallStrainMaterialStep:
         self.load_factor.value = PETSc.ScalarType(value)
         self._set_prescribed_factor(value)
 
-    @staticmethod
-    def _emit(reporter, event):
+    def _emit(self, reporter, event):
+        if self.duration is not None:
+            coordinate = (
+                self.accepted_load_factor
+                if event.kind == "step_started" or event.target_factor is None
+                else event.target_factor
+            )
+            event = replace(
+                event,
+                time=coordinate * self.duration,
+                coordinate_name="time",
+                coordinate_value=coordinate * self.duration,
+                coordinate_unit=self.time_unit,
+            )
         reporter.emit(event) if hasattr(reporter, "emit") else reporter(event)
 
     def _fail(self, reporter, info, message):
@@ -713,6 +830,24 @@ class SmallStrainMaterialStep:
             kind="diagnostic",
         )
         result.metadata["material"] = _material_summary(self.material)
+        if self.duration is not None:
+            result.metadata["physical_time"] = {
+                "duration": self.duration,
+                "accepted_time": self.time,
+                "unit": self.time_unit,
+                "initial_state": "stress_free_zero_history",
+            }
+            coordinates = np.asarray(
+                [0.0, *(item.load_factor for item in self.accepted_increments)]
+            )
+            result.add_history(
+                "load_amplitude",
+                coordinates * self.duration,
+                [self.amplitude(float(value)) for value in coordinates],
+                unit="1",
+                abscissa_unit=self.time_unit,
+                description="Accepted common load amplitude against physical time.",
+            )
         if hasattr(self.material, "evidence"):
             result.metadata["learned_constitutive"] = self.material.evidence(
                 runtime=_runtime_evidence(self.material),
@@ -730,10 +865,12 @@ class SmallStrainMaterialStep:
             output=output,
             fields=selected_fields,
             strict_output=strict_output,
+            time=0.0 if self.time is None else self.time,
             metadata=metadata,
         )
 
     def save_checkpoint(self, path, *, portable: bool | None = None) -> Path:
+        self._check_physical_identity()
         from ..checkpointing import (
             atomic_write_text,
             checkpoint_file_record,
@@ -741,6 +878,19 @@ class SmallStrainMaterialStep:
         )
         from ..results import CheckpointRecord
 
+        if self.duration is not None:
+            if not self.amplitude.serializable:
+                raise NotImplementedError(
+                    "Physical-time checkpoint requires a serializable amplitude identity."
+                )
+            if portable:
+                raise NotImplementedError(
+                    "Physical-time response checkpoints require the same serial quadrature layout."
+                )
+            if not self.accepted_increments:
+                raise ValueError(
+                    "A physical-time checkpoint requires at least one accepted increment."
+                )
         selected = Path(path)
         if selected.suffix:
             selected = selected.with_suffix("")
@@ -751,7 +901,7 @@ class SmallStrainMaterialStep:
             material=self.material,
         )
         payload = {
-            "schema": "agentfem.small-strain-material-step-checkpoint.v1",
+            "schema": self._checkpoint_schema,
             "step_identity": self._checkpoint_identity(),
             "coordinate": self.accepted_load_factor,
             "nodal_state": bundle["record"],
@@ -766,6 +916,24 @@ class SmallStrainMaterialStep:
             "execution_events": [item.as_dict() for item in self.execution_events],
             "next_increment_size": self.next_increment_size,
         }
+        if self.duration is not None:
+            response_path = manifest.with_name(
+                f"{selected.name}.{bundle['generation']}.response.npz"
+            )
+            checkpointing.atomic_savez(
+                response_path,
+                **{
+                    name: value.values
+                    for name, value in self._response_fields().items()
+                },
+                cell_keys=self.response.cauchy_stress.owned_cell_keys,
+                diagnostics=json.dumps(
+                    [dict(item) for item in self.response.last_diagnostics],
+                    allow_nan=False,
+                ),
+                applicability=json.dumps(self.response.last_applicability),
+            )
+            payload["accepted_response"] = checkpoint_file_record(response_path)
         comm = self.solution.function_space.mesh.comm
         problem = None
         if comm.rank == 0:
@@ -786,12 +954,22 @@ class SmallStrainMaterialStep:
             path=manifest,
             schema=payload["schema"],
             step_name=self.name,
-            coordinate_name="load_factor",
-            coordinate_value=self.accepted_load_factor,
-            portable=True,
+            coordinate_name="load_factor" if self.duration is None else "time",
+            coordinate_value=self.accepted_load_factor
+            if self.duration is None
+            else self.time,
+            portable=self.duration is None,
             metadata={
                 "state_variables": ("U", *tuple(self.state.transaction.names)),
                 "material": _material_summary(self.material),
+                **(
+                    {
+                        "normalized_coordinate": self.accepted_load_factor,
+                        "time_unit": self.time_unit,
+                    }
+                    if self.duration is not None
+                    else {}
+                ),
             },
         )
         self.checkpoints.append(record)
@@ -800,6 +978,7 @@ class SmallStrainMaterialStep:
     def load_checkpoint(self, path) -> None:
         """Restore an accepted path without exposing a partially restored step."""
 
+        self._check_physical_identity()
         response = self.response
         saved_fields = [
             *self.state.committed.values(),
@@ -867,10 +1046,7 @@ class SmallStrainMaterialStep:
         error = None
         try:
             payload = json.loads(manifest.read_text(encoding="utf-8"))
-            if (
-                payload.get("schema")
-                != "agentfem.small-strain-material-step-checkpoint.v1"
-            ):
+            if payload.get("schema") != self._checkpoint_schema:
                 raise ValueError("Unsupported small-strain material checkpoint schema.")
             if payload.get("step_identity") != identity:
                 raise ValueError(
@@ -879,6 +1055,53 @@ class SmallStrainMaterialStep:
             quadrature_path = validate_checkpoint_record(
                 manifest.parent, payload["quadrature_state"]
             )
+            response_snapshot = None
+            if self.duration is not None:
+                response_path = validate_checkpoint_record(
+                    manifest.parent, payload["accepted_response"]
+                )
+                with np.load(response_path, allow_pickle=False) as archive:
+                    if set(archive.files) != set(self._response_fields()) | {
+                        "cell_keys",
+                        "diagnostics",
+                        "applicability",
+                    }:
+                        raise ValueError("Accepted response archive fields differ.")
+                    if not np.array_equal(
+                        archive["cell_keys"],
+                        self.response.cauchy_stress.owned_cell_keys,
+                    ):
+                        raise ValueError(
+                            "Physical-time response quadrature layout differs."
+                        )
+                    values = {}
+                    for name, field in self._response_fields().items():
+                        value = archive[name]
+                        if value.shape != field.values.shape or not np.all(
+                            np.isfinite(value)
+                        ):
+                            raise ValueError(
+                                f"Invalid accepted response field: {name}."
+                            )
+                        values[name] = value.copy()
+                    diagnostics = tuple(json.loads(str(archive["diagnostics"])))
+                    applicability = tuple(json.loads(str(archive["applicability"])))
+                    count = len(values["stress"])
+                    if (
+                        len(applicability) != count
+                        or any(not isinstance(item, str) for item in applicability)
+                        or (
+                            diagnostics
+                            and (
+                                len(diagnostics) != count
+                                or any(
+                                    not isinstance(item, dict) for item in diagnostics
+                                )
+                            )
+                        )
+                    ):
+                        raise ValueError("Invalid accepted response diagnostics.")
+                    response_snapshot = (values, diagnostics, applicability, None)
             coordinate = float(payload["coordinate"])
             if not np.isfinite(coordinate) or not 0 <= coordinate <= 1:
                 raise ValueError("Checkpoint load factor must be finite and in [0, 1].")
@@ -886,6 +1109,8 @@ class SmallStrainMaterialStep:
                 SmallStrainMaterialIncrementInfo.from_dict(item)
                 for item in payload["accepted_increments"]
             ]
+            if self.duration is not None and not accepted:
+                raise ValueError("Physical-time checkpoint has no accepted increment.")
             attempted = [
                 SmallStrainMaterialIncrementInfo.from_dict(item)
                 for item in payload["attempted_increments"]
@@ -961,10 +1186,13 @@ class SmallStrainMaterialStep:
                 "Checkpoint displacement violates its accepted boundary state."
             )
         self._accepted_strain = self._evaluate_strain()
-        self._update_material(
-            time=self.accepted_load_factor,
-            time_increment=np.finfo(float).eps,
-        )
+        if response_snapshot is not None:
+            self._restore_response(response_snapshot)
+        else:
+            self._update_material(
+                time=self.accepted_load_factor,
+                time_increment=np.finfo(float).eps,
+            )
         self.last_solve_info = SmallStrainMaterialPathInfo(
             tuple(self.accepted_increments),
             tuple(self.attempted_increments),
@@ -974,6 +1202,34 @@ class SmallStrainMaterialStep:
     def _checkpoint_identity(self):
         from ..checkpointing import function_portable_identity
 
+        physical = {}
+        if self.duration is not None:
+            form = (
+                None if self.external_force is None else self.external_force.expression
+            )
+            physical = {
+                "physical_time": {
+                    "duration": self.duration,
+                    "unit": self.time_unit,
+                    "initial_state": "stress_free_zero_history",
+                },
+                "constraints": [
+                    {"dofs": bc.dof_indices()[0].tolist(), "value": value.tolist()}
+                    for _, value, bc in self.prescribed_values
+                ],
+                "load": None
+                if form is None
+                else {
+                    "signature": form.signature(),
+                    "coefficients": [
+                        sha256(np.asarray(c.x.array).tobytes()).hexdigest()
+                        for c in form.coefficients()
+                    ],
+                    "constants": [
+                        np.asarray(c.value).tolist() for c in form.constants()
+                    ],
+                },
+            }
         return {
             "step_name": self.name,
             "procedure": self.procedure.summary(),
@@ -982,6 +1238,7 @@ class SmallStrainMaterialStep:
             "incrementation": self.incrementation.summary(),
             "solution": function_portable_identity(self.solution),
             "quadrature": self.state.summary()["transaction"],
+            **physical,
         }
 
     def summary(self):
@@ -996,6 +1253,9 @@ class SmallStrainMaterialStep:
             "solver": self.solver_options.summary(),
             "num_bcs": len(self.bcs),
             "accepted_load_factor": self.accepted_load_factor,
+            "physical_time": self.time,
+            "duration": self.duration,
+            "time_unit": self.time_unit if self.duration is not None else None,
             "last_solve": None
             if self.last_solve_info is None
             else self.last_solve_info.as_dict(),
@@ -1016,19 +1276,78 @@ def small_strain_material_step(
     progress=True,
     status_file=None,
     amplitude=None,
+    duration=None,
+    time_unit="s",
     name="small_strain_material",
 ) -> SmallStrainMaterialStep:
+    """Build implicit small-strain equilibrium, optionally on a physical-time path."""
     if not isinstance(material, SmallStrainUserMaterial):
         raise TypeError(
             "small_strain_material_step requires a SmallStrainUserMaterial."
         )
-    if not bool(getattr(material, "rate_independent", False)):
+    if duration is None and not bool(getattr(material, "rate_independent", False)):
         raise NotImplementedError(
             "The first global small-strain material Step requires an explicit "
             "rate_independent=True declaration. Time/temperature-dependent "
             "providers need a physical-time procedure and restart contract."
         )
     domain = displacement.value.function_space.mesh
+    if duration is not None:
+        if (
+            isinstance(duration, (bool, np.bool_))
+            or not np.isfinite(float(duration))
+            or float(duration) <= 0
+        ):
+            raise ValueError("duration must be a finite positive physical time.")
+        duration = float(duration)
+        if not isinstance(time_unit, str) or not time_unit.strip():
+            raise ValueError("time_unit must be a nonempty physical-time unit label.")
+        if domain.comm.size != 1:
+            raise NotImplementedError(
+                "Physical-time small-strain materials currently require serial execution."
+            )
+        if getattr(material, "stress_free_initial_state", False) is not True:
+            raise NotImplementedError(
+                "Physical-time materials must declare stress_free_initial_state=True for zero strain and zero named history."
+            )
+        if any(
+            np.any(variable.initial_values() != 0)
+            for variable in material.state_schema.variables
+        ):
+            raise NotImplementedError(
+                "Physical-time initialization currently requires zero named history values."
+            )
+        if np.any(displacement.value.x.array != 0):
+            raise ValueError(
+                "Physical-time material initialization requires zero displacement; use load_checkpoint for continuation."
+            )
+        policy = step_controls.normalize(incrementation)
+        if getattr(policy, "maximum_inelastic_increment", None) is not None:
+            raise NotImplementedError(
+                "Generic materials have no universal inelastic scalar; use provider suggested_time_scale."
+            )
+        if (
+            isinstance(policy, step_controls.FixedIncrementation)
+            and policy.load_factors[-1] != 1.0
+        ):
+            raise ValueError(
+                "A physical-time fixed path must end at normalized coordinate 1."
+            )
+        if solver_options is not None:
+            if not isinstance(solver_options, NewtonSolverOptions):
+                raise TypeError(
+                    "Physical-time material equilibrium requires NewtonSolverOptions."
+                )
+            if not solver_options.error_if_not_converged:
+                raise NotImplementedError(
+                    "Physical-time material equilibrium must raise on exhausted increments."
+                )
+        if external_force is not None and any(
+            c is displacement.value for c in external_force.expression.coefficients()
+        ):
+            raise NotImplementedError(
+                "Displacement-dependent loads require a verified external tangent."
+            )
     if domain.geometry.dim != 3:
         raise NotImplementedError(
             "The first generic small-strain material Step supports 3D solids; reduced kinematics require an explicit provider contract."
@@ -1085,6 +1404,10 @@ def small_strain_material_step(
                 prescribed.append(
                     (value, np.asarray(value.value, dtype=float).copy(), constraint.bc)
                 )
+    if duration is not None and len(prescribed) != len(bcs):
+        raise NotImplementedError(
+            "Physical-time materials require inspectable strong displacement constraints."
+        )
     return SmallStrainMaterialStep(
         name=name,
         solution=displacement.value,
@@ -1098,6 +1421,9 @@ def small_strain_material_step(
         prescribed_values=tuple(prescribed),
         incrementation=step_controls.normalize(incrementation),
         solver_options=newton() if solver_options is None else solver_options,
+        duration=duration,
+        time_unit=time_unit,
+        external_force=external_force,
         study=study,
         progress=progress,
         status_file=status_file,

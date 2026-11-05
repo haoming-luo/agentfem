@@ -1,0 +1,8 @@
+[project]
+name = "small-strain-relaxation"
+entrypoint = "case.py"
+schema_version = "0.2.0"
+requires_api = ["mechanics.small_strain_material_step(duration)"]
+
+[run]
+output_directory = "outputs"

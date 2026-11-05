@@ -1850,6 +1850,8 @@ register_step_provider(
             "progress",
             "status_file",
             "amplitude",
+            "duration",
+            "time_unit",
         ),
     )
 )

@@ -44,6 +44,8 @@ def small_strain_material(
     progress=True,
     status_file=None,
     amplitude=None,
+    duration=None,
+    time_unit="s",
     name: str = "small_strain_material",
 ):
     """Build a generic 3D implicit Step for a small-strain material provider."""
@@ -123,6 +125,8 @@ def small_strain_material(
         progress=progress,
         status_file=status_file,
         amplitude=selected_amplitude,
+        duration=duration,
+        time_unit=time_unit,
         name=name,
     )
     return model.add_step(step)

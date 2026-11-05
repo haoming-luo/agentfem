@@ -5,6 +5,15 @@ description: "Use one bounded finite-strain structural workflow with replaceable
 
 # Local history materials in a structural model
 
+For a Cauchy-stress/small-strain provider, the bounded companion route is now
+`model.step(target=u, duration=..., time_unit="s", ...)`. It accepts serial,
+homogeneous 3D models with a declared stress-free zero-history initial state.
+See [the runnable relaxation project](https://github.com/haoming-luo/agentfem/tree/main/examples/small_strain_relaxation)
+and [its time/restart contract](internal/small_strain_physical_time_20261105.md).
+This does not reinterpret a small-strain tangent as a finite-strain `dP/dF`.
+Without `duration`, the existing small-strain route still requires
+`rate_independent=True` and keeps its portable checkpoint format.
+
 The experimental finite-strain history route lets a material author supply a
 local update, not another global solver. An ordinary case still uses
 `Study → Model → material/boundaries → model.step → SimulationResult`.
