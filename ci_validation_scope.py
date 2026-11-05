@@ -38,6 +38,8 @@ _TARGETED_SOURCE_FILES = {
     "evidence/creep/p92-pure-fatigue.json",
     "tools/p92_life_screen.py",
     "evidence/creep/p92-life-table.json",
+    "tools/p92_tensor_normalization.py",
+    "tools/p92_tensor_material_reference.py",
     "tools/p92_dwell_figure_screen.py",
     "tools/p92_published_recovery_reference.py",
     "evidence/creep/p92-published-figure-points.json",
@@ -69,9 +71,14 @@ _SOURCE_TEST_MAP = {
     "evidence/creep/p92-pure-fatigue.json": ("tests/test_p92_pure_fatigue_screen.py",),
     "tools/p92_life_screen.py": ("tests/test_p92_life_screen.py",),
     "evidence/creep/p92-life-table.json": ("tests/test_p92_life_screen.py",),
+    "tools/p92_tensor_normalization.py": (
+        "tests/test_p92_tensor_normalization.py", "tests/test_p92_tensor_structure.py",
+    ),
+    "tools/p92_tensor_material_reference.py": ("tests/test_p92_tensor_structure.py",),
     "tools/p92_dwell_figure_screen.py": ("tests/test_p92_dwell_figure_screen.py",),
     "tools/p92_published_recovery_reference.py": (
         "tests/test_p92_published_recovery_reference.py", "tests/test_p92_dwell_figure_screen.py",
+        "tests/test_p92_tensor_normalization.py", "tests/test_p92_tensor_structure.py",
     ),
     "evidence/creep/p92-published-figure-points.json": ("tests/test_p92_dwell_figure_screen.py",),
     "promotion_gate.py": ("tests/test_promotion_gate.py",),
