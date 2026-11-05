@@ -19,9 +19,21 @@ They cover all three consumers, including a spatial temperature field for
 creep. This is unit admission, not temperature calibration or a new P92 life law.
 
 The real `fenicsx-env` targeted group passed 161 tests in 106.77 s, including
-coupled creep/plasticity, generalized Maxwell, the four history-clock consumers
+coupled creep/plasticity, generalized Maxwell, the history-clock consumers
 and CI routing. Ruff and whitespace checks passed. The first test attempt
 incorrectly supplied a Step time-unit option and then compared a nested Maxwell
 snapshot as an array; both test-harness issues were corrected, with no change
 to physical tolerances. This run is serial; existing MPI ownership tests remain
 part of the CI selection, not a claim of a new local MPI acceptance.
+
+The producer now inherits the clock unit from the existing StepExecutionContext
+when `capture_history` is used on a Model-owned transient heat Step. No extra
+Step constructor state is introduced. Direct low-level capture can declare
+`coordinate_unit`; a conflicting Model declaration is rejected before adding
+a recorder. This closes the ordinary heat-to-mechanics transfer without asking
+the caller to duplicate the same unit label.
+
+After this producer addition, 98 history/unit/CI-routing tests passed in 17.39 s
+and 54 transient heat/operator/restart/journal tests passed in 3.12 s. Separately,
+the unchanged distributed creep equilibrium and Maxwell relaxation/checkpoint
+tests passed on two ranks (2 passed per rank, 0.74 s), with one bounded MPI job.

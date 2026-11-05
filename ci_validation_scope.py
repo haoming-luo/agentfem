@@ -177,6 +177,7 @@ _CORE_SOURCE_TEST_MAP = {
         "tests/test_p1_platform.py",
     ),
     "src/agentfem/_transient_problems.py": (
+        "tests/test_histories.py",
         "tests/test_common_workflows.py",
         "tests/test_first_order_operator_lifecycle.py",
         "tests/test_implicit_dynamics_lifecycle.py",

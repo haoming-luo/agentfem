@@ -47,6 +47,9 @@ For creep or generalized-Maxwell Steps, a temperature history declared with
 (for example `units.si()`). This is not a separate `model.step(time_unit=...)`
 option for these providers. A declared clock mismatch is rejected before
 loading; legacy histories without a coordinate unit follow the model convention.
+`heat_step.capture_history(...)` inherits the heat Model's time unit, so ordinary
+sequential transfer needs no duplicate clock declaration. Direct low-level
+transient Steps may supply `coordinate_unit` when no Model owns the clock.
 `result.metadata["material_point_history"]` retains reference position,
 original cell, quadrature index/rule, mesh identity, channel conventions and
 the material/loading/thermal-path identity. No projected or smoothed values
