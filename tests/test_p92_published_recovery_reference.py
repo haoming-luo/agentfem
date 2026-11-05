@@ -7,6 +7,7 @@ import sys
 
 from tools.p92_published_recovery_reference import (
     implicit_update, integrate_segment, published_parameters, rate_jacobian, rates, run_cycles,
+    substepped_update,
 )
 
 
@@ -66,6 +67,86 @@ def test_implicit_tangent_after_inherited_state(increment):
     assert tangent == pytest.approx(numerical, rel=2.e-5, abs=1.e-3)
     np.testing.assert_array_equal(old, before)
     assert state[4] >= old[4]
+
+
+@pytest.fixture(scope="module", params=[600, 650])
+def cyclic_old_state(request):
+    reference = run_cycles(temperature_C=request.param, cycles=20, dwell=600.)
+    return published_parameters(request.param), np.asarray(reference["final_state"])
+
+
+@pytest.mark.parametrize("increment,dt", [(0., 600.), (-.001, .2), (.001, .2)])
+def test_implicit_tangent_after_twenty_long_dwell_cycles(cyclic_old_state, increment, dt):
+    parameters, old = cyclic_old_state
+    before = old.copy()
+    updated, tangent = implicit_update(old, increment, dt, parameters)
+    h = 1.e-8
+    numerical = (implicit_update(old, increment+h, dt, parameters)[0][0]
+                 - implicit_update(old, increment-h, dt, parameters)[0][0])/(2*h)
+    assert tangent == pytest.approx(numerical, rel=2.e-5, abs=1.e-3)
+    assert updated[4] >= old[4]
+    np.testing.assert_array_equal(old, before)
+
+
+@pytest.mark.parametrize("increment", [-.001, 0., .001])
+def test_substeps_propagate_complete_history_tangent(cyclic_old_state, increment):
+    parameters, old = cyclic_old_state
+    before = old.copy()
+    updated, tangent = substepped_update(old, increment, 60., parameters, substeps=8)
+    h = 1.e-8
+    numerical = (substepped_update(old, increment+h, 60., parameters, substeps=8)[0][0]
+                 - substepped_update(old, increment-h, 60., parameters, substeps=8)[0][0])/(2*h)
+    assert tangent == pytest.approx(numerical, rel=2.e-5, abs=1.e-3)
+    assert updated[4] >= old[4]
+    np.testing.assert_array_equal(old, before)
+
+
+def test_fixed_substeps_improve_hold_accuracy_and_one_step_is_unchanged():
+    p = published_parameters(600)
+    old = integrate_segment(np.zeros(5), 4., .001, p).y[:, -1].copy()
+    one = implicit_update(old, 0., 60., p)
+    subdivided_one = substepped_update(old, 0., 60., p, substeps=1)
+    np.testing.assert_array_equal(one[0], subdivided_one[0])
+    assert one[1] == subdivided_one[1]
+    exact = integrate_segment(old, 60., 0., p).y[:, -1]
+    errors = [np.max(np.abs(substepped_update(old, 0., 60., p, substeps=n)[0][:4]-exact[:4]))
+              for n in (4, 8, 16)]
+    assert errors[2] < errors[1] < errors[0]
+
+
+def test_final_substep_tangent_is_not_the_complete_increment_tangent():
+    p = published_parameters(600)
+    old = integrate_segment(np.zeros(5), 4., .001, p).y[:, -1].copy()
+    state = old.copy()
+    for _ in range(8):
+        state, last_tangent = implicit_update(state, .001/8, 60./8, p)
+    complete, chain_tangent = substepped_update(old, .001, 60., p, substeps=8)
+    np.testing.assert_array_equal(complete, state)
+    assert abs(last_tangent-chain_tangent) > 2*abs(chain_tangent)
+
+
+def test_substep_failure_does_not_modify_caller_state(monkeypatch):
+    from tools import p92_published_recovery_reference as reference
+    old = np.zeros(5)
+    calls = []
+    original = reference.implicit_update
+
+    def fail_later(*args, **kwargs):
+        calls.append(None)
+        if len(calls) == 3:
+            raise RuntimeError("local substep failed")
+        return original(*args, **kwargs)
+
+    monkeypatch.setattr(reference, "implicit_update", fail_later)
+    with pytest.raises(RuntimeError, match="local substep failed"):
+        reference.substepped_update(old, .004, 4., published_parameters(600), substeps=8)
+    np.testing.assert_array_equal(old, np.zeros(5))
+
+
+@pytest.mark.parametrize("count", [False, 0, -1, 2.5])
+def test_invalid_substep_partition_is_rejected(count):
+    with pytest.raises(ValueError, match="positive integer"):
+        substepped_update(np.zeros(5), .001, 1., published_parameters(600), substeps=count)
 
 
 def test_implicit_hold_refines_to_continuous_reference():

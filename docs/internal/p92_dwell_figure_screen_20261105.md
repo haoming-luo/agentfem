@@ -84,3 +84,51 @@ equation, analytical-discriminator, figure-screen and CI-routing group passes
 98 tests; Ruff passes. The numerical/source checks do not assert that the
 experimental discrepancy is acceptable. Full cyclic curve comparison and a
 verified multiaxial structural provider remain separate gates.
+
+## Follow-up cyclic-state audit
+
+The local implicit corrector is also checked after twenty complete 600-second
+dwell cycles at both published temperatures. A further hold, unloading and
+reloading each compare the fixed-old-state axial tangent with independent
+strain differences, verify nondecreasing accumulated inelastic strain, and
+preserve the supplied old state. This strengthens numerical integration
+coverage; a correct tangent is not experimental cyclic validation.
+
+Colored later-cycle markers in Figure 14(b) were inspected separately. Many
+symbols overlap one another or the plotted model line. Automated connected
+components can then identify an enclosed gap instead of a complete symbol.
+No such ambiguous detections were promoted to observations, and no later-cycle
+experimental error is claimed from them. Future curve digitization needs
+individually audited symbols or author-supplied data, with its own reading
+uncertainty; the first-cycle screen remains unchanged.
+
+## Fixed-partition substeps: numerical preparation, not core admission
+
+[MOOSE's radial-return documentation](https://mooseframework.inl.gov/source/materials/RadialReturnStressUpdate.html)
+distinguishes material-local substeps from reducing the system-wide increment.
+This motivates a small reference experiment, not a claim to reproduce MOOSE's
+implementation or its runtime. No new package dependency is introduced.
+
+For N equal local steps, h=dt/N, the backward-Euler state Jacobian is
+`J_k = I - h * df/dy`. The derivative of the complete state with respect to the
+total strain increment obeys
+`B_k = solve(J_k, B_(k-1) + [E/N, 0, 0, 0, 0])`, starting at zero. The first
+component of the last B is the complete axial algorithmic tangent. The old
+state is fixed, but intermediate histories are not frozen. Substep count is
+fixed during differentiation; adaptive partition selection requires its own
+policy and verification.
+
+`substepped_update` remains in the independent local reference tool. At 600 C,
+after the initial 0.004 tensile ramp, a 60 s hold gives maximum stress-like
+state errors against Radau of 23.0603, 6.5644, 3.4565, 1.8099 and 0.9396 MPa
+for 1, 4, 8, 16 and 32 substeps. These are local integration errors, not
+experimental errors. For a further strain increment 0.001 over 60 s, eight
+substeps give a complete tangent of 14635.93 MPa, while the last substep alone
+gives 59292.42 MPa. Using that last tangent in a global Newton solve would not
+differentiate the actual update.
+
+Checks cover full-chain strain differences after twenty long dwell cycles at
+both temperatures, unchanged single-step behavior, hold refinement, invalid
+partitions and failure without mutation of the caller's old state. There is
+no structural acceleration claim; local work increases and only a measured
+global comparison can establish whether avoided cutbacks compensate for it.
