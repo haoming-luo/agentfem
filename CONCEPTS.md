@@ -638,7 +638,11 @@ internal variables and supplied kelvin temperature at each accepted increment;
 Result retains their shared mesh/rule/material/time identity. Checkpoint restore
 includes these histories atomically and refuses a changed selection. No missing
 initial equilibrium state or past fields are reconstructed. This first consumer
-does not admit the same option on arbitrary user-material or MPI Steps.
+also has a serial finite-strain UserMaterial consumer. That route records
+full `S/P/F`, total Green–Lagrange `E_GL`, state and supplied uniform `TEMP`;
+it does not relabel finite strain as infinitesimal or mechanical strain.
+Both consumers preserve selection and accepted history through their existing
+restart contracts. MPI and other Step families remain separate admission gates.
 
 A time input also declares what it can invalidate: right-hand side, operator,
 accepted state, or output only. The owning Procedure uses that declaration to

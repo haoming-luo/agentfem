@@ -35,7 +35,8 @@ The initial consumer is serial Cartesian 3D small-strain creep: homogeneous
 power-law or joint creep/plastic material, and existing regional pure-creep
 materials. Supplied scalar, FE or accepted-history temperature is sampled at
 the same constitutive point. Joint regional plasticity, arbitrary user-material
-Steps, axisymmetric point histories and MPI recording remain unadmitted.
+Steps outside the finite-strain consumer below, axisymmetric point histories
+and MPI recording remain unadmitted.
 
 Each accepted endpoint records `S`, `E`, `CE`, `CEEQ`, and supplied `TEMP`.
 Joint plasticity also records `PE`, `PEEQ`, and `ALPHA` where present. Tensor
@@ -54,8 +55,34 @@ certify time discretization or supply an empirical rupture law.
 
 ## Pause, recovery and storage
 
+### Finite-strain user materials
+
+The same `material_points=` option also works with the experimental ordinary
+finite-strain UserMaterial Step, in serial 3D, plane strain and its declared
+plane-stress reduction. It records `S` (Cauchy), `P` (first Piola), effective
+three-dimensional `F`, `E_GL = (F.T @ F - I)/2`, named constitutive state and
+supplied uniform `TEMP`. Plane-stress `F33` is the accepted thickness stretch.
+All tensor channels are full 3×3 arrays; state shapes and units follow their
+schema. Stress units follow the Model; undeclared units remain unknown.
+
+`E_GL` is total Green–Lagrange strain, including any thermal or inelastic
+deformation. It is not the infinitesimal `E` of the creep consumer and cannot
+be substituted directly into a mechanical strain-life curve. No strain
+partition or material-specific life model is inferred. State output aliases
+must not collide with the recorded kinematic or thermal channels.
+
+This consumer retains the Step's serial same-layout checkpoint format. A
+checkpoint without the same selection cannot seed its missing history. Frames
+are prepared before state commit and published only after acceptance; failed
+commit, corrupt restore and rejected trials leave the accepted history intact.
+Only selected points require derived strain arrays; tangent matrices and full
+field histories are not stored. See the `--material-point` option in
+[`examples/history_material`](https://github.com/haoming-luo/agentfem/tree/main/examples/history_material).
+
+### Shared continuation behavior
+
 `step.material_point_histories` returns ordinary `HistoryResult` copies even
-while paused. A v1 serial or v2 portable-format Step checkpoint includes the
+while paused. A creep v1 serial or v2 portable-format Step checkpoint includes the
 entire selected history, identity and integrity digest. In this consumer, v2
 does **not** imply MPI admission. Changing or removing the selection on restart
 is rejected; missing, corrupted or misaligned history rolls back the entire
@@ -77,3 +104,6 @@ temperature, two distinct material locations, regional pure creep, homogeneous
 joint plasticity, tensor association, pause/resume, old serial thermal-checkpoint
 compatibility, corruption rollback, failed-trial exclusion and existing NPZ
 result round-trip. These are integration checks, not real-material validation.
+`tests/test_finite_material_point_histories.py` covers the finite-strain
+consumer, stress/strain measures, both example laws, thermal input, plane
+stress, original-cell identity, atomic continuation and sparse field output.

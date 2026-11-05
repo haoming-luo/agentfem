@@ -142,6 +142,32 @@ def implicit_update(old, strain_increment, dt, parameters):
     return state.copy(), float(derivative[0])
 
 
+def substepped_update(old, strain_increment, dt, parameters, *, substeps):
+    """Fixed-partition local reference with the complete axial chain tangent.
+
+    Each local solve owns a detached candidate. The derivative includes every
+    intermediate history update; it is not the last substep's fixed-old-state
+    tangent. Choosing an adaptive partition and admitting a 3D provider remain
+    separate tasks. No committed caller state is modified, even on failure.
+    """
+    if (isinstance(substeps, (bool, np.bool_))
+            or not isinstance(substeps, (int, np.integer)) or substeps < 1):
+        raise ValueError("substeps must be a positive integer.")
+    if (any(isinstance(v, (bool, np.bool_)) or np.iscomplexobj(v)
+            for v in (strain_increment, dt))
+            or not np.isfinite([strain_increment, dt]).all() or dt <= 0):
+        raise ValueError("Require real finite strain increment and positive dt.")
+    current = np.asarray(old).copy()
+    h = dt/substeps
+    derivative = np.zeros(5)
+    direct = np.array([parameters.E/substeps, 0., 0., 0., 0.])
+    for _ in range(substeps):
+        current, _ = implicit_update(current, strain_increment/substeps, h, parameters)
+        derivative = np.linalg.solve(
+            np.eye(5)-h*rate_jacobian(current, parameters), derivative+direct)
+    return current.copy(), float(derivative[0])
+
+
 def integrate_segment(state, duration, strain_rate, parameters, *, method="Radau", rtol=1.e-8):
     if method not in {"Radau", "BDF"}:
         raise ValueError("Use a declared stiff integrator: Radau or BDF.")

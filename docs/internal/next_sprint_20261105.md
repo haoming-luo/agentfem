@@ -35,3 +35,35 @@ references, not completed cross-solver comparisons or regulatory certification.
 
 This record starts the work; it does not assert an eight-hour execution,
 completed material screening, or a new release.
+
+## Subsequent roadmap progress (2026-11-05)
+
+- #142/#143/#146 are integrated; prescribed uniform thermal history #144 was
+  subsequently merged after its full CI and installed-wheel checks passed.
+- #147 adds selected material-point histories to the ordinary finite-strain
+  user-material Step and preserves them through restart. It is a separate PR,
+  not yet a release claim.
+- #148 adds the pinned public P92 source-figure screen and strengthens the
+  independent local integration/tangent reference. It does not install a P92
+  engineering material card. See the [scientific record](p92_dwell_figure_screen_20261105.md).
+- #149 fixes partial small-strain checkpoint restoration and rejects
+  inconsistent accepted ledgers/boundary states. It remains a separate
+  engineering review, with serial, failure-injection and cross-rank evidence.
+
+Next keep integration and material admission distinct. Finish these reviews;
+then specify the small-strain physical-time consumer before removing its
+current rate-independent restriction. Its initialization currently calls the
+provider with a unit interval and its restore reconstructs responses with an
+epsilon interval: neither is a valid generic initialization/restart rule for
+an evolving material. Accepted response fields should be restored, not advanced
+again. Physical endpoint times, cutback subdivisions, temperature and provider
+failure must belong to the same accepted-state transaction.
+
+The first numerical gate should reuse an analytically checkable viscoelastic
+law and a second history law through the same structure path; compare holds,
+reversals, refinement and interrupted continuation. The P92 uniaxial reference
+then supplies a local target, but a multi-axial extension still needs an
+explicit model derivation and structural tests. Do not turn an axial tangent
+into a 3D tensor by padding components. Local fixed-partition substepping may
+reduce global cutbacks, provided the complete chain tangent is retained and
+an end-to-end experiment demonstrates the benefit.

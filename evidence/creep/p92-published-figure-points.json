@@ -1,0 +1,40 @@
+{
+  "schema": "agentfem.p92-figure-observations.v1",
+  "source_doi": "10.3390/met10030307",
+  "source_pdf_sha256": "c00a71167969edaab6a1b52641140cb5a3f241e82a90b74b464f293f46fcd604",
+  "source_version": "version-2 PDF, printed pages 12 and 13",
+  "attribution": "Digitized from Zhang et al., Metals 10 (2020) 307, Figures 11 and 14; source published under CC BY 4.0.",
+  "method": "Selected visually identifiable first-cycle hollow-square centres and separately identified black model dashes; pixel coordinates use the original embedded images, not resized page renders. No fitting or selection by predicted stress.",
+  "coordinate_reading_bound_px": 4.0,
+  "uncertainty_scope": "Combined plot-coordinate reading sensitivity only, not experimental measurement uncertainty or repeatability.",
+  "calibration_condition": "Authors fitted 0.008 strain range and 180 s dwell at each tabulated temperature; section 5. No refitting in this screen.",
+  "panels": [
+    {
+      "id": "figure11b", "page": 12, "temperature_C": 600, "dwell_s": 60.0,
+      "strain_range": 0.008, "cycle": 1, "image_size": [3036, 2178],
+      "image_png_sha256": "25809fc583d7c4de61d6df36d0a46fba85a6bed7a58be9b1147e02f9daf0ffb9",
+      "x_ticks_pixel_time_s": [[1956.5,10],[2157,20],[2354,30],[2554.5,40],[2755,50],[2954.5,60]],
+      "y_ticks_pixel_stress_MPa": [[71,400],[225.5,350],[688,200],[843.5,150]],
+      "experimental_square_centres_px": [[1873.73,339.41],[1985.92,411.10],[2165.53,458.71],[2282.44,481.46],[2438.72,496.77],[2606.29,504.80],[2781.96,535.63],[2888.31,535.17]],
+      "model_dash_centres_px": [[1901.93,448.65],[1976.87,473.87],[2170.84,510.25],[2366.87,531.03],[2563.05,544.94],[2760.03,555.59]]
+    },
+    {
+      "id": "figure11d", "page": 12, "temperature_C": 600, "dwell_s": 600.0,
+      "strain_range": 0.008, "cycle": 1, "image_size": [3036, 2178],
+      "image_png_sha256": "25809fc583d7c4de61d6df36d0a46fba85a6bed7a58be9b1147e02f9daf0ffb9",
+      "x_ticks_pixel_time_s": [[1962,100],[2165,200],[2367,300],[2568,400],[2769,500],[2970,600]],
+      "y_ticks_pixel_stress_MPa": [[1160,400],[1308.5,350],[1901,150],[2049,100]],
+      "experimental_square_centres_px": [[1832.98,1550.04],[1907.46,1623.95],[2073.12,1701.09],[2176.34,1715.03],[2358.87,1727.22],[2433.00,1733.00],[2701.29,1765.67],[2914.16,1771.71]],
+      "model_dash_centres_px": []
+    },
+    {
+      "id": "figure14b", "page": 13, "temperature_C": 650, "dwell_s": 600.0,
+      "strain_range": 0.008, "cycle": 1, "image_size": [3091, 2178],
+      "image_png_sha256": "ef850f223c76c13d7bdbebbd8b9fd900ce856a6c956986e57f73130a35157bd3",
+      "x_ticks_pixel_time_s": [[2003,100],[2201,200],[2397,300],[2595.5,400],[2793,500],[2991.5,600]],
+      "y_ticks_pixel_stress_MPa": [[44.5,350],[197,300],[807,100],[959.5,50]],
+      "experimental_square_centres_px": [[1854.69,481.98],[1907.56,541.94],[1982.84,570.96],[2103.79,619.62],[2325.55,629.54],[2531.64,679.80],[2760.18,684.13],[2931.26,653.78]],
+      "model_dash_centres_px": []
+    }
+  ]
+}
