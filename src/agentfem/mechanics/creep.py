@@ -1255,6 +1255,7 @@ class ImplicitCreepStep:
         return reaction
 
     def save_checkpoint(self, path, *, portable: bool | None = None) -> Path:
+        validate_temperature_time_unit(self.temperature, self.time_unit)
         self._validate_point_history()
         comm = self.solution.function_space.mesh.comm
         selected_portable = comm.size != 1 if portable is None else bool(portable)
@@ -1316,6 +1317,7 @@ class ImplicitCreepStep:
 
     def load_checkpoint(self, path) -> None:
         """Restore the whole accepted Step or leave every live component intact."""
+        validate_temperature_time_unit(self.temperature, self.time_unit)
         self._validate_point_history()
         displacement = self.solution.x.array.copy()
         committed = self.state.snapshot()
@@ -1563,6 +1565,7 @@ class ImplicitCreepStep:
         from ..checkpointing import function_portable_identity
 
         return {
+            **({} if self.time_unit is None else {"physical_time_unit": self.time_unit}),
             **self._point_selection_identity(),
             "step_name": self.name,
             "procedure": self.procedure.summary(),
@@ -1600,6 +1603,7 @@ class ImplicitCreepStep:
         from ..checkpointing import function_partition_identity
 
         return {
+            **({} if self.time_unit is None else {"physical_time_unit": self.time_unit}),
             **self._point_selection_identity(),
             "step_name": self.name,
             "procedure": self.procedure.summary(),

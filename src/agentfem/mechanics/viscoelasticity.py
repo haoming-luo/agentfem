@@ -1940,6 +1940,7 @@ class QuasistaticViscoelasticStep:
     def save_checkpoint(self, path, *, portable: bool | None = None) -> Path:
         """Save an accepted boundary, portable across MPI rank counts on request."""
 
+        validate_temperature_time_unit(self.temperature, self.time_unit)
         comm = self.state.domain.comm
         selected_portable = comm.size != 1 if portable is None else bool(portable)
         if selected_portable:
@@ -1997,6 +1998,7 @@ class QuasistaticViscoelasticStep:
         return selected
 
     def load_checkpoint(self, path) -> None:
+        validate_temperature_time_unit(self.temperature, self.time_unit)
         selected = Path(path)
         comm = self.state.domain.comm
         manifest = (
@@ -2044,6 +2046,15 @@ class QuasistaticViscoelasticStep:
             if str(data["schema"]) != "agentfem.generalized-maxwell-step-checkpoint.v1":
                 raise ValueError("Unsupported generalized-Maxwell checkpoint schema.")
             stored_identity = json.loads(str(data["step_identity"]))
+            # A history's active sample is restart state, not compatibility.
+            # Preserve the complete path identity in older v1 archives, as in
+            # the creep consumer, while discarding its time-dependent wrapper.
+            old_temperature = stored_identity.get("temperature")
+            if isinstance(old_temperature, dict) and "history" in old_temperature:
+                stored_identity["temperature"] = {
+                    "kind": "accepted_temperature_history",
+                    "history": old_temperature["history"],
+                }
             if stored_identity != json.loads(
                 json.dumps(self._checkpoint_identity(), sort_keys=True)
             ):
@@ -2249,6 +2260,7 @@ class QuasistaticViscoelasticStep:
         from ..checkpointing import function_portable_identity
 
         return {
+            **({} if self.time_unit is None else {"physical_time_unit": self.time_unit}),
             "step_name": self.name,
             "procedure": self.procedure.summary(),
             "material": self.material.as_dict(),
@@ -2287,6 +2299,7 @@ class QuasistaticViscoelasticStep:
 
     def _checkpoint_identity(self) -> dict[str, object]:
         return {
+            **({} if self.time_unit is None else {"physical_time_unit": self.time_unit}),
             "procedure": self.procedure.summary(),
             "material": self.material.as_dict(),
             "duration": self.duration,
@@ -2298,7 +2311,10 @@ class QuasistaticViscoelasticStep:
             "time_error_tolerance": self.time_error_tolerance,
             "amplitude": self.amplitude.summary(),
             "quadrature": self.state.summary()["transaction"],
-            "temperature": self._temperature_summary(),
+            "temperature": (
+                {"kind": "accepted_temperature_history", "history": self.temperature.scientific_identity()}
+                if hasattr(self.temperature, "scientific_identity") else self._temperature_summary()
+            ),
             "solution_layout": {
                 "global_size": int(
                     self.solution.function_space.dofmap.index_map.size_global

@@ -124,6 +124,12 @@ field histories are not stored. See the `--material-point` option in
 
 ### Shared continuation behavior
 
+Creep and Maxwell checkpoints retain an explicitly declared Model time unit,
+even without point recording. Resume with the same unit; no automatic seconds/
+hours conversion is performed. An older checkpoint without that declaration
+does not establish a known clock: continue it with the original software or a
+reviewed migration, rather than removing units to bypass compatibility checks.
+
 `step.material_point_histories` returns ordinary `HistoryResult` copies even
 while paused. A creep v1 serial or v2 portable-format Step checkpoint includes the
 entire selected history, identity and integrity digest. In this consumer, v2

@@ -194,6 +194,7 @@ def test_known_core_change_selects_serial_and_distributed_owner_suites():
         "tests/test_history_material_temperature.py",
         "tests/test_material_batch_evidence.py",
         "tests/test_material_stress_conversion.py",
+        "tests/test_rate_material_checkpoint_clock.py",
         "tests/test_rate_material_history_units.py",
         "tests/test_user_material.py",
         "tests/test_viscoelasticity.py",
@@ -357,6 +358,7 @@ def test_declared_mpi_drivers_are_known_to_the_workflow():
         "global-cyclic-restart",
         "mixed-finite-strain-j2-restart",
         "nonlinear-contact-restart",
+        "viscoelastic-restart",
     }
     assert all(f"{driver})" in workflow for driver in declared)
 
