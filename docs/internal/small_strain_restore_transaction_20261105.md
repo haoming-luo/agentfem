@@ -41,3 +41,8 @@ The four cases pass serially and with two ranks through the bounded
 The final targeted user-material, Step, learned-material, snapshot-ownership
 and CI-routing suite passed 147 tests. These tests cover
 the existing small-strain route, not a new finite-strain or creep capability.
+
+`tests/portable_small_strain_step_driver.py` additionally wrote a half-path
+checkpoint with one rank and continued with two, then wrote with two and
+continued with one. Both continuations matched uninterrupted displacement,
+committed material history and Cauchy stress at `rtol=1e-11, atol=1e-13`.
