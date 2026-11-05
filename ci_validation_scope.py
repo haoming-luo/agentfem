@@ -34,6 +34,10 @@ _RELEASE_PREFIXES = (
     ".github/workflows/platform-acceptance",
 )
 _TARGETED_SOURCE_FILES = {
+    "tools/p92_rupture_screen.py",
+    "evidence/creep/p92-rupture-table.json",
+    "tools/p92_cyclic_figure_screen.py",
+    "evidence/creep/p92-cyclic-figure-points.json",
     "tools/p92_pure_fatigue_screen.py",
     "evidence/creep/p92-pure-fatigue.json",
     "tools/p92_life_screen.py",
@@ -67,6 +71,10 @@ _TARGETED_PREFIXES = (
     "src/agentfem/surrogates/",
 )
 _SOURCE_TEST_MAP = {
+    "tools/p92_rupture_screen.py": ("tests/test_p92_rupture_screen.py",),
+    "evidence/creep/p92-rupture-table.json": ("tests/test_p92_rupture_screen.py",),
+    "tools/p92_cyclic_figure_screen.py": ("tests/test_p92_cyclic_figure_screen.py",),
+    "evidence/creep/p92-cyclic-figure-points.json": ("tests/test_p92_cyclic_figure_screen.py",),
     "tools/p92_pure_fatigue_screen.py": ("tests/test_p92_pure_fatigue_screen.py",),
     "evidence/creep/p92-pure-fatigue.json": ("tests/test_p92_pure_fatigue_screen.py",),
     "tools/p92_life_screen.py": ("tests/test_p92_life_screen.py",),
