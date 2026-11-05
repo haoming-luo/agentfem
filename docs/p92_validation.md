@@ -83,13 +83,17 @@ rupture observations. Access and use are through the
 [NIMS data service](https://cds.nims.go.jp/en/); the announcement alone does not
 supply the numerical curves. Different heats are not silently pooled.
 
-## Integration work, separately tracked
+## Integrated software foundation
 
 Small-strain selected histories and prescribed temperature, structural cyclic
-checks, and thermal clock/restart safeguards are being integrated through
-PRs #152, #155, #158 and #160–#163. CI and merge state are tracked independently
-of the scientific claims above. No release or engineering qualification follows
-automatically from merging these interfaces.
+checks, and thermal clock/restart safeguards are merged through
+PRs #152, #155, #158 and #160–#163. The
+[combined installed-use acceptance](internal/p92_composition_acceptance_20261106.md)
+includes restart comparison and real VTK reading. The
+[structural cycle record](internal/p92_structural_cycles_20261106.md) includes
+435 imposed cycles at 650 °C with time refinement, not a prediction of failure.
+No release or engineering qualification follows automatically from merging
+these interfaces.
 
 Stop retuning this baseline when the missing information is experimental.
 Continue useful software work on reusable material/state/result contracts;

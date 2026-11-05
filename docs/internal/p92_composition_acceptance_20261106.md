@@ -48,6 +48,22 @@ the corrected complete command produced the count above. An initial comparison
 script incorrectly indexed the manifest's history-name list; the corrected
 comparison used the actual `history_records` objects, without changing results.
 
+## Main-line integration check
+
+After PR #161 merged, main commit
+`a15f487de25ad13672cf22f5ef55138e0fe51184` has no differences from the frozen
+candidate in `src/agentfem`, `examples`, `pyproject.toml`, `tools` or `evidence`.
+The installed-use checks therefore cover the integrated runtime and scientific
+tools, rather than a different unmerged numerical implementation.
+
+The installed package also ran `python -m tools.p92_structural_cycle_screen`
+from the archived source tree with 600 °C, two cycles, a synthetic 5 s hold and
+refinement 2. It accepted 84 increments, reproduced restart histories exactly,
+and reported maximum endpoint discrepancy 10.360198210615351 MPa against the
+continuous scalar reference. This is a short numerical discriminator, not the
+published 60 s hold experiment. The module command's help path and the related
+targeted tests passed (61 tests); no project-level solver was introduced.
+
 ## Scientific boundary
 
 The installed example is a synthetic relaxation law, not P92 qualification.
