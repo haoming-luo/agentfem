@@ -261,12 +261,19 @@ _CORE_SOURCE_TEST_MAP = {
     ),
     "src/agentfem/mechanics/_prescribed_temperature.py": (
         "tests/test_history_material_temperature.py",
+        "tests/test_small_strain_temperature.py",
+        "tests/test_thermal_history_time_units.py",
+    ),
+    "src/agentfem/histories.py": (
+        "tests/test_histories.py",
+        "tests/test_thermal_history_time_units.py",
     ),
     "src/agentfem/mechanics/finite_strain_material.py": (
         "tests/test_finite_strain_material_step.py",
         "tests/test_history_plane_stress.py",
         "tests/test_history_material_temperature.py",
         "tests/test_finite_material_point_histories.py",
+        "tests/test_thermal_history_time_units.py",
     ),
     "src/agentfem/results/material_points.py": (
         "tests/test_material_point_histories.py",
@@ -317,6 +324,7 @@ _CORE_SOURCE_TEST_MAP = {
         "tests/test_small_strain_physical_time.py",
         "tests/test_small_strain_point_histories.py",
         "tests/test_small_strain_temperature.py",
+        "tests/test_thermal_history_time_units.py",
         "tests/test_learned_constitutive.py",
     ),
     "src/agentfem/mechanics/plasticity.py": (

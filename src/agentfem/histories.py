@@ -39,6 +39,9 @@ class FieldHistory:
     selected explicitly when endpoint holding is physically intended.
     Sources, frames and time coordinates are real-valued; complex data are
     rejected rather than silently truncated during conversion or restore.
+    Optional ``coordinate_unit`` declares the time unit separately from the
+    field unit. Omission retains the legacy model-unit convention; declaring
+    a label does not convert recorded numbers.
     """
 
     source: object
@@ -49,6 +52,7 @@ class FieldHistory:
     outside: str = "error"
     every: int = 1
     metadata: Mapping[str, object] = field(default_factory=dict)
+    coordinate_unit: str | None = None
     _times: list[float] = field(default_factory=list, init=False, repr=False)
     _snapshots: list[np.ndarray] = field(default_factory=list, init=False, repr=False)
     _active_time: float | None = field(default=None, init=False, repr=False)
@@ -60,6 +64,7 @@ class FieldHistory:
     )
 
     def __post_init__(self) -> None:
+        self._coordinate_unit_identity()
         self.interpolation = str(self.interpolation).lower().replace("-", "_")
         self.outside = str(self.outside).lower().replace("-", "_")
         if self.interpolation not in {"linear", "previous"}:
@@ -191,7 +196,7 @@ class FieldHistory:
         """Return a deterministic identity for the complete recorded history."""
 
         if self._identity_cache is not None:
-            return dict(self._identity_cache)
+            return {**self._identity_cache, **self._coordinate_unit_identity()}
         digest = sha256()
         digest.update(np.asarray(self._times, dtype=np.float64).tobytes())
         for snapshot in self._snapshots:
@@ -214,7 +219,14 @@ class FieldHistory:
             ),
         }
         self._identity_cache = identity
-        return dict(identity)
+        return {**identity, **self._coordinate_unit_identity()}
+
+    def _coordinate_unit_identity(self):
+        if self.coordinate_unit is None:
+            return {}
+        if not isinstance(self.coordinate_unit, str) or not self.coordinate_unit.strip():
+            raise ValueError("FieldHistory coordinate_unit must be a nonempty unit label or None.")
+        return {"coordinate_unit": self.coordinate_unit}
 
     def portable_identity(self) -> dict[str, object]:
         """Return a partition-independent identity for a nodal history.
@@ -229,7 +241,9 @@ class FieldHistory:
         if self._portable_identity_cache is None:
             _, identity = self._portable_archive()
             self._portable_identity_cache = identity
-        return dict(self._portable_identity_cache)
+        identity = dict(self._portable_identity_cache)
+        identity.pop("coordinate_unit", None)
+        return {**identity, **self._coordinate_unit_identity()}
 
     def summary(self) -> dict[str, object]:
         identity = self.scientific_identity()
@@ -308,6 +322,7 @@ class FieldHistory:
                 name=metadata["name"],
                 unit=metadata.get("unit"),
                 coordinate_name=metadata["coordinate_name"],
+                coordinate_unit=metadata.get("coordinate_unit"),
                 interpolation=metadata["interpolation"],
                 outside=metadata["outside"],
                 every=int(metadata.get("every", 1)),
@@ -436,7 +451,7 @@ class FieldHistory:
             "key": response["key_mode"],
             "field": function_portable_identity(source),
         }
-        return payload, identity
+        return payload, {**identity, **self._coordinate_unit_identity()}
 
     def _restore_portable_frames(
         self,

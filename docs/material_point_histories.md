@@ -61,6 +61,11 @@ With a physical `duration`, this Step also accepts `temperature=300.0` (kelvin)
 or a scalar `histories.temperature(...)` recorded against physical time. The
 frozen input is passed to the local material as endpoint temperature and the
 increment from the accepted start. Temperature knots are visited exactly.
+For transfer between projects, declare the history's time unit explicitly,
+for example `histories.temperature(300.0, coordinate_unit="s")` alongside
+the Step's `time_unit="s"`. Both user-material consumers reject a declared
+mismatch; no h/s conversion is implicit. Existing histories without a
+coordinate unit retain their model-unit convention.
 The material owns thermal strain and must declare a stress-free initial state
 at the initial temperature. This is prescribed thermal input, not a heat solve.
 

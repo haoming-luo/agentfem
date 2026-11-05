@@ -24,12 +24,14 @@ class UniformTemperatureInput:
                 "times": list(self.times), "values": list(self.values)}
 
 
-def freeze_uniform_temperature(source, duration):
+def freeze_uniform_temperature(source, duration, *, time_unit=None):
     if source is None:
         return None
     if isinstance(source, (bool, np.bool_)):
         raise ValueError("Temperature must be a real scalar, not a boolean.")
     if isinstance(source, FieldHistory):
+        if source.coordinate_unit is not None and source.coordinate_unit != time_unit:
+            raise ValueError("Temperature history coordinate_unit must match the Step time_unit; no implicit conversion.")
         if (source.unit != "K" or source.coordinate_name != "time"
                 or source.interpolation != "linear"):
             raise ValueError("Temperature history requires kelvin, physical time and linear interpolation.")
