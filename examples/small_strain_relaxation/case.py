@@ -1,7 +1,7 @@
 """Ramp, hold, then unload a small-strain solid over two physical seconds."""
 
 import argparse
-from agentfem import amplitudes, fields, mesh, models, project, steps, studies
+from agentfem import amplitudes, fields, mesh, models, project, results, steps, studies
 from material import StandardLinearSolid
 
 
@@ -9,6 +9,11 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument(
         "--restart", help="Accepted .checkpoint.json from this same project."
+    )
+    parser.add_argument(
+        "--material-point",
+        action="store_true",
+        help="Record one accepted integration-point history.",
     )
     args = parser.parse_args()
     run = project.current_run()
@@ -30,6 +35,9 @@ def main():
         target=u,
         duration=2.0,
         time_unit="s",
+        material_points=(results.material_point("sample", cell=0),)
+        if args.material_point
+        else (),
         incrementation=steps.fixed(16),
         amplitude=amplitudes.tabular([0.0, 0.25, 0.75, 1.0], [0.0, 1.0, 1.0, 0.0]),
     )

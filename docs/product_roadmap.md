@@ -19,6 +19,15 @@ or a successful run is not by itself a validated engineering capability.
 
 ## Current product phase: the 0.4 foundation
 
+### Small-strain accepted histories (2026-11-06 candidate)
+
+The physical-time small-strain user-material route now composes with the
+existing selected-point recorder: raw stress, total strain and named history
+share accepted time and atomic restart. See the
+[design and evidence](internal/small_strain_point_histories_20261106.md).
+This removes a data-flow gap for future life assessment; a material-specific
+rupture/fatigue law and independent validation are still separate requirements.
+
 ### Physical-time small-strain user materials (2026-11-05 candidate)
 
 The next bounded consumer reuses the ordinary small-strain Newton Step and
