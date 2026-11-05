@@ -47,6 +47,7 @@ def small_strain_material(
     duration=None,
     time_unit="s",
     material_points=(),
+    temperature=None,
     name: str = "small_strain_material",
 ):
     """Build a generic 3D implicit Step for a small-strain material provider."""
@@ -129,6 +130,7 @@ def small_strain_material(
         duration=duration,
         time_unit=time_unit,
         material_points=material_points,
+        temperature=temperature,
         unit_system=model.unit_system,
         name=name,
     )

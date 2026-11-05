@@ -57,6 +57,18 @@ certify time discretization or supply an empirical rupture law.
 
 ### Small-strain user materials
 
+With a physical `duration`, this Step also accepts `temperature=300.0` (kelvin)
+or a scalar `histories.temperature(...)` recorded against physical time. The
+frozen input is passed to the local material as endpoint temperature and the
+increment from the accepted start. Temperature knots are visited exactly.
+The material owns thermal strain and must declare a stress-free initial state
+at the initial temperature. This is prescribed thermal input, not a heat solve.
+
+Selected material points then include `TEMP` in kelvin, co-located with `S`,
+total `E` and named state. The final mesh output includes cell `TEMP` on the
+same grid as displacement and stress. Restart requires the same frozen thermal
+path; it does not invoke a fictitious material update to rebuild temperature.
+
 The physical-time small-strain UserMaterial Step accepts the same
 `material_points=` requests in its existing serial homogeneous 3D scope.
 It records raw Cauchy `S`, total infinitesimal `E`, and named material state
