@@ -50,9 +50,10 @@ class CreepDamageHistoryAssessment:
     stress_measure: str
     maximum_stress_sample_interval: float
     maximum_temperature_sample_interval: float
+    rupture_relation: dict | None = None
 
     def as_dict(self):
-        return dict(
+        record = dict(
             kind="creep_time_fraction_history_assessment", maturity="postprocessor",
             method="trapezoidal_damage_rate", input_interpolation="piecewise_linear",
             quadrature_error_certified=False, source=self.source,
@@ -64,6 +65,10 @@ class CreepDamageHistoryAssessment:
             source_interval_relative_tolerance=_SOURCE_INTERVAL_RTOL,
             intervals=[interval.as_dict() for interval in self.intervals],
         )
+        if self.rupture_relation is not None:
+            from copy import deepcopy
+            record["rupture_relation"] = deepcopy(self.rupture_relation)
+        return record
 
 
 def _scalar_history(history, *, unit, time_unit):
@@ -105,6 +110,7 @@ def creep_damage_from_result(
     maxima are not automatically a valid or conservative local-life history.
     """
     from .assessments import DwellInterval
+    from ._rupture_curve import TabulatedRuptureCurve
 
     for name, value in (("rupture_source", rupture_source), ("stress_unit", stress_unit),
                         ("time_unit", time_unit), ("stress_measure", stress_measure)):
@@ -112,6 +118,11 @@ def creep_damage_from_result(
             raise ValueError(f"{name} must be explicitly declared.")
     if not callable(rupture_time):
         raise TypeError("rupture_time must be callable(stress, temperature).")
+    relation = None
+    if isinstance(rupture_time, TabulatedRuptureCurve):
+        rupture_time.validate_usage(stress_unit=stress_unit, time_unit=time_unit,
+                                    stress_measure=stress_measure)
+        relation = rupture_time.as_dict()
     if maximum_source_interval is not None:
         maximum_source_interval = float(maximum_source_interval)
         if not isfinite(maximum_source_interval) or maximum_source_interval <= 0.:
@@ -158,7 +169,8 @@ def creep_damage_from_result(
         for time, sigma, kelvin in zip(grid, stresses, temperatures, strict=True):
             try:
                 rupture = rupture_time(float(sigma), float(kelvin))
-                if np.ndim(rupture) != 0 or np.iscomplexobj(rupture):
+                if (isinstance(rupture, (bool, np.bool_))
+                        or np.ndim(rupture) != 0 or np.iscomplexobj(rupture)):
                     raise ValueError("Rupture time must be a real scalar.")
                 rupture = float(rupture)
                 if np.isnan(rupture) or rupture <= 0.:
@@ -186,4 +198,4 @@ def creep_damage_from_result(
         raise ValueError("Total creep damage exceeds the representable range.") from exc
     return CreepDamageHistoryAssessment(
         tuple(intervals), damage, f"{result.name}:{stress_history},{temperature_history}",
-        rupture_source, stress_unit, time_unit, stress_measure, *gaps)
+        rupture_source, stress_unit, time_unit, stress_measure, *gaps, relation)
