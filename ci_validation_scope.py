@@ -34,6 +34,10 @@ _RELEASE_PREFIXES = (
     ".github/workflows/platform-acceptance",
 )
 _TARGETED_SOURCE_FILES = {
+    "tools/p92_structural_cycle_screen.py",
+    "evidence/creep/2026-11-06-p92-structural-cycles.json",
+    "evidence/creep/2026-11-06-p92-435cycles-coarse.json",
+    "evidence/creep/2026-11-06-p92-435cycles-refined.json",
     "tools/p92_rupture_screen.py",
     "evidence/creep/p92-rupture-table.json",
     "tools/p92_cyclic_figure_screen.py",
@@ -71,6 +75,10 @@ _TARGETED_PREFIXES = (
     "src/agentfem/surrogates/",
 )
 _SOURCE_TEST_MAP = {
+    "tools/p92_structural_cycle_screen.py": ("tests/test_p92_structural_cycle_screen.py",),
+    "evidence/creep/2026-11-06-p92-structural-cycles.json": ("tests/test_p92_structural_cycle_screen.py",),
+    "evidence/creep/2026-11-06-p92-435cycles-coarse.json": ("tests/test_p92_structural_cycle_screen.py",),
+    "evidence/creep/2026-11-06-p92-435cycles-refined.json": ("tests/test_p92_structural_cycle_screen.py",),
     "tools/p92_rupture_screen.py": ("tests/test_p92_rupture_screen.py",),
     "evidence/creep/p92-rupture-table.json": ("tests/test_p92_rupture_screen.py",),
     "tools/p92_cyclic_figure_screen.py": ("tests/test_p92_cyclic_figure_screen.py",),
@@ -82,9 +90,12 @@ _SOURCE_TEST_MAP = {
     "tools/p92_tensor_normalization.py": (
         "tests/test_p92_tensor_normalization.py", "tests/test_p92_tensor_structure.py",
     ),
-    "tools/p92_tensor_material_reference.py": ("tests/test_p92_tensor_structure.py",),
+    "tools/p92_tensor_material_reference.py": (
+        "tests/test_p92_tensor_structure.py", "tests/test_p92_structural_cycle_screen.py",
+    ),
     "tools/p92_dwell_figure_screen.py": ("tests/test_p92_dwell_figure_screen.py",),
     "tools/p92_published_recovery_reference.py": (
+        "tests/test_p92_structural_cycle_screen.py",
         "tests/test_p92_published_recovery_reference.py", "tests/test_p92_dwell_figure_screen.py",
         "tests/test_p92_tensor_normalization.py", "tests/test_p92_tensor_structure.py",
     ),
