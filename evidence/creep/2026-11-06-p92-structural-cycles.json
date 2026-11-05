@@ -1,0 +1,745 @@
+{
+  "scope": "Repeated homogeneous structural numerical verification; no experimental life validation",
+  "source_doi": "10.3390/met10030307",
+  "runs": [
+    {
+      "evidence_sha256": "6d474fbb8c51ddc52e2b3f9ccaa680fc3005777be8ff8f3bf81697576a18433e",
+      "record": {
+        "schema": "agentfem.research.p92-structural-cycles.v1",
+        "temperature_C": 600,
+        "cycles": 20,
+        "dwell_s": 60.0,
+        "refinement": 1,
+        "comparisons": [
+          {
+            "cycle": 1,
+            "peak_time_s": 4.0,
+            "end_time_s": 64.0,
+            "peak_error_MPa": -4.121079833007627,
+            "end_hold_error_MPa": 2.200490825884799
+          },
+          {
+            "cycle": 2,
+            "peak_time_s": 80.0,
+            "end_time_s": 140.0,
+            "peak_error_MPa": -2.940709120434292,
+            "end_hold_error_MPa": 2.401952512704071
+          },
+          {
+            "cycle": 3,
+            "peak_time_s": 156.0,
+            "end_time_s": 216.0,
+            "peak_error_MPa": -2.9551048428431272,
+            "end_hold_error_MPa": 2.3782142938262893
+          },
+          {
+            "cycle": 4,
+            "peak_time_s": 232.0,
+            "end_time_s": 292.0,
+            "peak_error_MPa": -2.970812167656277,
+            "end_hold_error_MPa": 2.350467673675354
+          },
+          {
+            "cycle": 5,
+            "peak_time_s": 308.0,
+            "end_time_s": 368.0,
+            "peak_error_MPa": -2.986861708942911,
+            "end_hold_error_MPa": 2.3190064161970554
+          },
+          {
+            "cycle": 6,
+            "peak_time_s": 384.0,
+            "end_time_s": 444.0,
+            "peak_error_MPa": -3.002716723968831,
+            "end_hold_error_MPa": 2.2840515384243076
+          },
+          {
+            "cycle": 7,
+            "peak_time_s": 460.0,
+            "end_time_s": 520.0,
+            "peak_error_MPa": -3.0179529025481315,
+            "end_hold_error_MPa": 2.2457749813408157
+          },
+          {
+            "cycle": 8,
+            "peak_time_s": 536.0,
+            "end_time_s": 596.0,
+            "peak_error_MPa": -3.0322395945669314,
+            "end_hold_error_MPa": 2.2043101579403412
+          },
+          {
+            "cycle": 9,
+            "peak_time_s": 612.0,
+            "end_time_s": 672.0,
+            "peak_error_MPa": -3.0453245891335996,
+            "end_hold_error_MPa": 2.1597610063795116
+          },
+          {
+            "cycle": 10,
+            "peak_time_s": 688.0,
+            "end_time_s": 748.0,
+            "peak_error_MPa": -3.0570215113884274,
+            "end_hold_error_MPa": 2.112209942873875
+          },
+          {
+            "cycle": 11,
+            "peak_time_s": 764.0,
+            "end_time_s": 824.0,
+            "peak_error_MPa": -3.0671992088269917,
+            "end_hold_error_MPa": 2.061724991179858
+          },
+          {
+            "cycle": 12,
+            "peak_time_s": 840.0,
+            "end_time_s": 900.0,
+            "peak_error_MPa": -3.075772701967651,
+            "end_hold_error_MPa": 2.008366276941757
+          },
+          {
+            "cycle": 13,
+            "peak_time_s": 916.0,
+            "end_time_s": 976.0,
+            "peak_error_MPa": -3.0826954120669825,
+            "end_hold_error_MPa": 1.9521920094315988
+          },
+          {
+            "cycle": 14,
+            "peak_time_s": 992.0,
+            "end_time_s": 1052.0,
+            "peak_error_MPa": -3.087952457280835,
+            "end_hold_error_MPa": 1.8932640231843436
+          },
+          {
+            "cycle": 15,
+            "peak_time_s": 1068.0,
+            "end_time_s": 1128.0,
+            "peak_error_MPa": -3.0915548629108685,
+            "end_hold_error_MPa": 1.8316529141415288
+          },
+          {
+            "cycle": 16,
+            "peak_time_s": 1144.0,
+            "end_time_s": 1204.0,
+            "peak_error_MPa": -3.093534564749689,
+            "end_hold_error_MPa": 1.7674427750701227
+          },
+          {
+            "cycle": 17,
+            "peak_time_s": 1220.0,
+            "end_time_s": 1280.0,
+            "peak_error_MPa": -3.0939401066168557,
+            "end_hold_error_MPa": 1.7007355112064033
+          },
+          {
+            "cycle": 18,
+            "peak_time_s": 1296.0,
+            "end_time_s": 1356.0,
+            "peak_error_MPa": -3.0928329611600134,
+            "end_hold_error_MPa": 1.6316546967794068
+          },
+          {
+            "cycle": 19,
+            "peak_time_s": 1372.0,
+            "end_time_s": 1432.0,
+            "peak_error_MPa": -3.0902844148328654,
+            "end_hold_error_MPa": 1.5603489161327104
+          },
+          {
+            "cycle": 20,
+            "peak_time_s": 1448.0,
+            "end_time_s": 1508.0,
+            "peak_error_MPa": -3.0863728519900633,
+            "end_hold_error_MPa": 1.4869945319323676
+          }
+        ],
+        "maximum_stress_error_MPa": 4.121079833007627,
+        "maximum_lateral_stress_MPa": 3.717833355309423e-07,
+        "maximum_prescribed_strain_error": 1.5655879370690684e-16,
+        "accepted_increments": 856,
+        "restart_histories_exact": null,
+        "elapsed_seconds": 20.989944667031523,
+        "engineering_qualified": false,
+        "scope": "homogeneous structural numerical verification; scalar reference uses same published equations; no life prediction"
+      }
+    },
+    {
+      "evidence_sha256": "145452b9425231f335e7720ce32f17a77b62f46ed2a545a49349ddc14527a70c",
+      "record": {
+        "schema": "agentfem.research.p92-structural-cycles.v1",
+        "temperature_C": 600,
+        "strain_range": 0.008,
+        "strain_rate_per_s": 0.001,
+        "poisson_assumption": 0.3,
+        "reference": {
+          "source_doi": "10.3390/met10030307",
+          "source_pdf_sha256": "c00a71167969edaab6a1b52641140cb5a3f241e82a90b74b464f293f46fcd604",
+          "parameters": {
+            "E": 161933.0,
+            "k": 180.0,
+            "Q": -111.06,
+            "b": 0.81,
+            "H": -4.0,
+            "Qr": -105.74,
+            "gamma_r1": 2.14e-08,
+            "gamma_r2": 2.01e-08,
+            "r": 5.98,
+            "mr": 2.8,
+            "a1": 27.05,
+            "C1": 25000.0,
+            "a2": 72.39,
+            "C2": 996.97,
+            "gamma1": 3e-09,
+            "gamma2": 7.47e-07,
+            "q": 10.0,
+            "m": 3.87,
+            "Z": 1028.0,
+            "n": 3.0
+          },
+          "method": "Radau",
+          "rtol": 1e-10,
+          "startup": "zero state; first ramp from zero strain to positive half-range"
+        },
+        "cycles": 20,
+        "dwell_s": 60.0,
+        "refinement": 2,
+        "comparisons": [
+          {
+            "cycle": 1,
+            "peak_time_s": 4.0,
+            "end_time_s": 64.0,
+            "peak_error_MPa": -2.147799194788263,
+            "end_hold_error_MPa": 1.1673737008341618
+          },
+          {
+            "cycle": 2,
+            "peak_time_s": 80.0,
+            "end_time_s": 140.0,
+            "peak_error_MPa": -1.4257499405342742,
+            "end_hold_error_MPa": 1.2704275928400932
+          },
+          {
+            "cycle": 3,
+            "peak_time_s": 156.0,
+            "end_time_s": 216.0,
+            "peak_error_MPa": -1.434672559379237,
+            "end_hold_error_MPa": 1.257625616102814
+          },
+          {
+            "cycle": 4,
+            "peak_time_s": 232.0,
+            "end_time_s": 292.0,
+            "peak_error_MPa": -1.4442133902835508,
+            "end_hold_error_MPa": 1.2425419403073192
+          },
+          {
+            "cycle": 5,
+            "peak_time_s": 308.0,
+            "end_time_s": 368.0,
+            "peak_error_MPa": -1.4539068738616265,
+            "end_hold_error_MPa": 1.2253541245939914
+          },
+          {
+            "cycle": 6,
+            "peak_time_s": 384.0,
+            "end_time_s": 444.0,
+            "peak_error_MPa": -1.4634500432724167,
+            "end_hold_error_MPa": 1.2062002859328231
+          },
+          {
+            "cycle": 7,
+            "peak_time_s": 460.0,
+            "end_time_s": 520.0,
+            "peak_error_MPa": -1.4726038851787848,
+            "end_hold_error_MPa": 1.1851890123858482
+          },
+          {
+            "cycle": 8,
+            "peak_time_s": 536.0,
+            "end_time_s": 596.0,
+            "peak_error_MPa": -1.48118902011106,
+            "end_hold_error_MPa": 1.162405376412579
+          },
+          {
+            "cycle": 9,
+            "peak_time_s": 612.0,
+            "end_time_s": 672.0,
+            "peak_error_MPa": -1.4890685629723066,
+            "end_hold_error_MPa": 1.13791654455909
+          },
+          {
+            "cycle": 10,
+            "peak_time_s": 688.0,
+            "end_time_s": 748.0,
+            "peak_error_MPa": -1.496136287630918,
+            "end_hold_error_MPa": 1.1117766801362734
+          },
+          {
+            "cycle": 11,
+            "peak_time_s": 764.0,
+            "end_time_s": 824.0,
+            "peak_error_MPa": -1.5023142410231003,
+            "end_hold_error_MPa": 1.0840310621928495
+          },
+          {
+            "cycle": 12,
+            "peak_time_s": 840.0,
+            "end_time_s": 900.0,
+            "peak_error_MPa": -1.5075502196002617,
+            "end_hold_error_MPa": 1.054719827634898
+          },
+          {
+            "cycle": 13,
+            "peak_time_s": 916.0,
+            "end_time_s": 976.0,
+            "peak_error_MPa": -1.511814564919007,
+            "end_hold_error_MPa": 1.0238814377026415
+          },
+          {
+            "cycle": 14,
+            "peak_time_s": 992.0,
+            "end_time_s": 1052.0,
+            "peak_error_MPa": -1.5150966947327902,
+            "end_hold_error_MPa": 0.9915559058792098
+          },
+          {
+            "cycle": 15,
+            "peak_time_s": 1068.0,
+            "end_time_s": 1128.0,
+            "peak_error_MPa": -1.5174017694931194,
+            "end_hold_error_MPa": 0.9577877960710452
+          },
+          {
+            "cycle": 16,
+            "peak_time_s": 1144.0,
+            "end_time_s": 1204.0,
+            "peak_error_MPa": -1.5187476853885187,
+            "end_hold_error_MPa": 0.9226289879046305
+          },
+          {
+            "cycle": 17,
+            "peak_time_s": 1220.0,
+            "end_time_s": 1280.0,
+            "peak_error_MPa": -1.519162445006259,
+            "end_hold_error_MPa": 0.8861411937116088
+          },
+          {
+            "cycle": 18,
+            "peak_time_s": 1296.0,
+            "end_time_s": 1356.0,
+            "peak_error_MPa": -1.5186818988719324,
+            "end_hold_error_MPa": 0.8483982050870793
+          },
+          {
+            "cycle": 19,
+            "peak_time_s": 1372.0,
+            "end_time_s": 1432.0,
+            "peak_error_MPa": -1.517347821361966,
+            "end_hold_error_MPa": 0.8094878375271719
+          },
+          {
+            "cycle": 20,
+            "peak_time_s": 1448.0,
+            "end_time_s": 1508.0,
+            "peak_error_MPa": -1.5152064095362903,
+            "end_hold_error_MPa": 0.769513523860013
+          }
+        ],
+        "maximum_stress_error_MPa": 2.147799194788263,
+        "maximum_lateral_stress_MPa": 1.4353542353751013e-07,
+        "maximum_prescribed_strain_error": 1.6219664500383146e-16,
+        "accepted_increments": 1712,
+        "restart_histories_exact": true,
+        "elapsed_seconds": 73.34872441698099,
+        "engineering_qualified": false,
+        "timing_scope": "reference integration, FEM construction/solve and optional complete restart rerun",
+        "scope": "homogeneous structural numerical verification; scalar reference uses same published equations; no life prediction"
+      }
+    },
+    {
+      "evidence_sha256": "d3ad97f0613cdd91b141773330e3669dfba7c239f2d20bad91577fab8eaabfe0",
+      "record": {
+        "schema": "agentfem.research.p92-structural-cycles.v1",
+        "temperature_C": 650,
+        "strain_range": 0.008,
+        "strain_rate_per_s": 0.001,
+        "poisson_assumption": 0.3,
+        "reference": {
+          "source_doi": "10.3390/met10030307",
+          "source_pdf_sha256": "c00a71167969edaab6a1b52641140cb5a3f241e82a90b74b464f293f46fcd604",
+          "parameters": {
+            "E": 134573.0,
+            "k": 132.0,
+            "Q": -93.31,
+            "b": 0.66,
+            "H": -4.0,
+            "Qr": -86.67,
+            "gamma_r1": 1.93e-08,
+            "gamma_r2": 9.22e-08,
+            "r": 1.05,
+            "mr": 2.46,
+            "a1": 9.89,
+            "C1": 24685.1,
+            "a2": 49.87,
+            "C2": 1055.0,
+            "gamma1": 1e-08,
+            "gamma2": 2e-06,
+            "q": 5.8,
+            "m": 3.9,
+            "Z": 700.0,
+            "n": 3.8
+          },
+          "method": "Radau",
+          "rtol": 1e-10,
+          "startup": "zero state; first ramp from zero strain to positive half-range"
+        },
+        "cycles": 20,
+        "dwell_s": 60.0,
+        "refinement": 1,
+        "comparisons": [
+          {
+            "cycle": 1,
+            "peak_time_s": 4.0,
+            "end_time_s": 64.0,
+            "peak_error_MPa": -3.018524566910685,
+            "end_hold_error_MPa": 2.0985268656002916
+          },
+          {
+            "cycle": 2,
+            "peak_time_s": 80.0,
+            "end_time_s": 140.0,
+            "peak_error_MPa": -1.7012415852945537,
+            "end_hold_error_MPa": 2.2490881399757257
+          },
+          {
+            "cycle": 3,
+            "peak_time_s": 156.0,
+            "end_time_s": 216.0,
+            "peak_error_MPa": -1.7029292719801106,
+            "end_hold_error_MPa": 2.2512154111175278
+          },
+          {
+            "cycle": 4,
+            "peak_time_s": 232.0,
+            "end_time_s": 292.0,
+            "peak_error_MPa": -1.7047869067238821,
+            "end_hold_error_MPa": 2.252197563131574
+          },
+          {
+            "cycle": 5,
+            "peak_time_s": 308.0,
+            "end_time_s": 368.0,
+            "peak_error_MPa": -1.7066805853424398,
+            "end_hold_error_MPa": 2.2520506267846088
+          },
+          {
+            "cycle": 6,
+            "peak_time_s": 384.0,
+            "end_time_s": 444.0,
+            "peak_error_MPa": -1.7085533841964207,
+            "end_hold_error_MPa": 2.2507869652339423
+          },
+          {
+            "cycle": 7,
+            "peak_time_s": 460.0,
+            "end_time_s": 520.0,
+            "peak_error_MPa": -1.7103535599723045,
+            "end_hold_error_MPa": 2.2484179224939
+          },
+          {
+            "cycle": 8,
+            "peak_time_s": 536.0,
+            "end_time_s": 596.0,
+            "peak_error_MPa": -1.7120344024707492,
+            "end_hold_error_MPa": 2.2449540634069933
+          },
+          {
+            "cycle": 9,
+            "peak_time_s": 612.0,
+            "end_time_s": 672.0,
+            "peak_error_MPa": -1.7135540647338416,
+            "end_hold_error_MPa": 2.2404054059842053
+          },
+          {
+            "cycle": 10,
+            "peak_time_s": 688.0,
+            "end_time_s": 748.0,
+            "peak_error_MPa": -1.7148753733665103,
+            "end_hold_error_MPa": 2.2347816473440787
+          },
+          {
+            "cycle": 11,
+            "peak_time_s": 764.0,
+            "end_time_s": 824.0,
+            "peak_error_MPa": -1.7159656196328115,
+            "end_hold_error_MPa": 2.2280923844268727
+          },
+          {
+            "cycle": 12,
+            "peak_time_s": 840.0,
+            "end_time_s": 900.0,
+            "peak_error_MPa": -1.7167963388292833,
+            "end_hold_error_MPa": 2.2203473301673
+          },
+          {
+            "cycle": 13,
+            "peak_time_s": 916.0,
+            "end_time_s": 976.0,
+            "peak_error_MPa": -1.7173430826921958,
+            "end_hold_error_MPa": 2.211556525756748
+          },
+          {
+            "cycle": 14,
+            "peak_time_s": 992.0,
+            "end_time_s": 1052.0,
+            "peak_error_MPa": -1.7175851866052199,
+            "end_hold_error_MPa": 2.2017305495186292
+          },
+          {
+            "cycle": 15,
+            "peak_time_s": 1068.0,
+            "end_time_s": 1128.0,
+            "peak_error_MPa": -1.7175055356730695,
+            "end_hold_error_MPa": 2.190880722536207
+          },
+          {
+            "cycle": 16,
+            "peak_time_s": 1144.0,
+            "end_time_s": 1204.0,
+            "peak_error_MPa": -1.7170903321747915,
+            "end_hold_error_MPa": 2.1790193113063197
+          },
+          {
+            "cycle": 17,
+            "peak_time_s": 1220.0,
+            "end_time_s": 1280.0,
+            "peak_error_MPa": -1.7163288657658313,
+            "end_hold_error_MPa": 2.1661597272243966
+          },
+          {
+            "cycle": 18,
+            "peak_time_s": 1296.0,
+            "end_time_s": 1356.0,
+            "peak_error_MPa": -1.715213287674544,
+            "end_hold_error_MPa": 2.152316722728415
+          },
+          {
+            "cycle": 19,
+            "peak_time_s": 1372.0,
+            "end_time_s": 1432.0,
+            "peak_error_MPa": -1.7137383901021508,
+            "end_hold_error_MPa": 2.1375065836373324
+          },
+          {
+            "cycle": 20,
+            "peak_time_s": 1448.0,
+            "end_time_s": 1508.0,
+            "peak_error_MPa": -1.7119013913194294,
+            "end_hold_error_MPa": 2.1217473170203505
+          }
+        ],
+        "maximum_stress_error_MPa": 3.018524566910685,
+        "maximum_lateral_stress_MPa": 2.2734942657773393e-07,
+        "maximum_prescribed_strain_error": 1.5655879370690684e-16,
+        "accepted_increments": 856,
+        "restart_histories_exact": null,
+        "elapsed_seconds": 20.97887016698951,
+        "engineering_qualified": false,
+        "timing_scope": "reference integration, FEM construction/solve and optional complete restart rerun",
+        "scope": "homogeneous structural numerical verification; scalar reference uses same published equations; no life prediction"
+      }
+    },
+    {
+      "evidence_sha256": "5a1ce76c37f80215506842703bfa36a2c96dd93913bf562a39475a696bd563fe",
+      "record": {
+        "schema": "agentfem.research.p92-structural-cycles.v1",
+        "temperature_C": 650,
+        "strain_range": 0.008,
+        "strain_rate_per_s": 0.001,
+        "poisson_assumption": 0.3,
+        "reference": {
+          "source_doi": "10.3390/met10030307",
+          "source_pdf_sha256": "c00a71167969edaab6a1b52641140cb5a3f241e82a90b74b464f293f46fcd604",
+          "parameters": {
+            "E": 134573.0,
+            "k": 132.0,
+            "Q": -93.31,
+            "b": 0.66,
+            "H": -4.0,
+            "Qr": -86.67,
+            "gamma_r1": 1.93e-08,
+            "gamma_r2": 9.22e-08,
+            "r": 1.05,
+            "mr": 2.46,
+            "a1": 9.89,
+            "C1": 24685.1,
+            "a2": 49.87,
+            "C2": 1055.0,
+            "gamma1": 1e-08,
+            "gamma2": 2e-06,
+            "q": 5.8,
+            "m": 3.9,
+            "Z": 700.0,
+            "n": 3.8
+          },
+          "method": "Radau",
+          "rtol": 1e-10,
+          "startup": "zero state; first ramp from zero strain to positive half-range"
+        },
+        "cycles": 20,
+        "dwell_s": 60.0,
+        "refinement": 2,
+        "comparisons": [
+          {
+            "cycle": 1,
+            "peak_time_s": 4.0,
+            "end_time_s": 64.0,
+            "peak_error_MPa": -1.5587881334704434,
+            "end_hold_error_MPa": 1.1077208583012634
+          },
+          {
+            "cycle": 2,
+            "peak_time_s": 80.0,
+            "end_time_s": 140.0,
+            "peak_error_MPa": -0.7914569115790755,
+            "end_hold_error_MPa": 1.1837291937124803
+          },
+          {
+            "cycle": 3,
+            "peak_time_s": 156.0,
+            "end_time_s": 216.0,
+            "peak_error_MPa": -0.7922203714895772,
+            "end_hold_error_MPa": 1.1855228588842976
+          },
+          {
+            "cycle": 4,
+            "peak_time_s": 232.0,
+            "end_time_s": 292.0,
+            "peak_error_MPa": -0.7930616283908307,
+            "end_hold_error_MPa": 1.1866556474902836
+          },
+          {
+            "cycle": 5,
+            "peak_time_s": 308.0,
+            "end_time_s": 368.0,
+            "peak_error_MPa": -0.793927239748939,
+            "end_hold_error_MPa": 1.187137152241064
+          },
+          {
+            "cycle": 6,
+            "peak_time_s": 384.0,
+            "end_time_s": 444.0,
+            "peak_error_MPa": -0.7947846450537668,
+            "end_hold_error_MPa": 1.1869757370401999
+          },
+          {
+            "cycle": 7,
+            "peak_time_s": 460.0,
+            "end_time_s": 520.0,
+            "peak_error_MPa": -0.7956044098605162,
+            "end_hold_error_MPa": 1.1861791280990701
+          },
+          {
+            "cycle": 8,
+            "peak_time_s": 536.0,
+            "end_time_s": 596.0,
+            "peak_error_MPa": -0.7963601287176516,
+            "end_hold_error_MPa": 1.1847545570789748
+          },
+          {
+            "cycle": 9,
+            "peak_time_s": 612.0,
+            "end_time_s": 672.0,
+            "peak_error_MPa": -0.7970282379250762,
+            "end_hold_error_MPa": 1.1827089015371826
+          },
+          {
+            "cycle": 10,
+            "peak_time_s": 688.0,
+            "end_time_s": 748.0,
+            "peak_error_MPa": -0.7975878461322168,
+            "end_hold_error_MPa": 1.1800488207598505
+          },
+          {
+            "cycle": 11,
+            "peak_time_s": 764.0,
+            "end_time_s": 824.0,
+            "peak_error_MPa": -0.7980205771352757,
+            "end_hold_error_MPa": 1.1767808877108905
+          },
+          {
+            "cycle": 12,
+            "peak_time_s": 840.0,
+            "end_time_s": 900.0,
+            "peak_error_MPa": -0.7983104209517933,
+            "end_hold_error_MPa": 1.1729117178076365
+          },
+          {
+            "cycle": 13,
+            "peak_time_s": 916.0,
+            "end_time_s": 976.0,
+            "peak_error_MPa": -0.7984435907597458,
+            "end_hold_error_MPa": 1.168448094780473
+          },
+          {
+            "cycle": 14,
+            "peak_time_s": 992.0,
+            "end_time_s": 1052.0,
+            "peak_error_MPa": -0.7984083856206325,
+            "end_hold_error_MPa": 1.1633970943316285
+          },
+          {
+            "cycle": 15,
+            "peak_time_s": 1068.0,
+            "end_time_s": 1128.0,
+            "peak_error_MPa": -0.7981950585471509,
+            "end_hold_error_MPa": 1.157766205497154
+          },
+          {
+            "cycle": 16,
+            "peak_time_s": 1144.0,
+            "end_time_s": 1204.0,
+            "peak_error_MPa": -0.7977956895050511,
+            "end_hold_error_MPa": 1.1515634496969085
+          },
+          {
+            "cycle": 17,
+            "peak_time_s": 1220.0,
+            "end_time_s": 1280.0,
+            "peak_error_MPa": -0.7972040630604624,
+            "end_hold_error_MPa": 1.1447974983439906
+          },
+          {
+            "cycle": 18,
+            "peak_time_s": 1296.0,
+            "end_time_s": 1356.0,
+            "peak_error_MPa": -0.7964155499782919,
+            "end_hold_error_MPa": 1.1374777876511644
+          },
+          {
+            "cycle": 19,
+            "peak_time_s": 1372.0,
+            "end_time_s": 1432.0,
+            "peak_error_MPa": -0.7954269923200741,
+            "end_hold_error_MPa": 1.129614631397999
+          },
+          {
+            "cycle": 20,
+            "peak_time_s": 1448.0,
+            "end_time_s": 1508.0,
+            "peak_error_MPa": -0.7942365918249266,
+            "end_hold_error_MPa": 1.1212193308845144
+          }
+        ],
+        "maximum_stress_error_MPa": 1.5587881334704434,
+        "maximum_lateral_stress_MPa": 1.8791284139910893e-07,
+        "maximum_prescribed_strain_error": 1.6219664500383146e-16,
+        "accepted_increments": 1712,
+        "restart_histories_exact": true,
+        "elapsed_seconds": 72.17273725004634,
+        "engineering_qualified": false,
+        "timing_scope": "reference integration, FEM construction/solve and optional complete restart rerun",
+        "scope": "homogeneous structural numerical verification; scalar reference uses same published equations; no life prediction"
+      }
+    }
+  ]
+}
