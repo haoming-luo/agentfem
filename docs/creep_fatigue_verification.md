@@ -2,6 +2,9 @@
 
 ## Evidence levels
 
+For the current P92 commands, data boundaries and next engineering gates, start
+with the [P92 evidence map](p92_validation.md).
+
 Keep four decisions separate: (1) constitutive equations and their discrete
 updates, (2) finite-element equilibrium and refinement, (3) material prediction
 against independent tests, and (4) acceptance under an explicitly selected

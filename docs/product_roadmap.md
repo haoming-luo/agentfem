@@ -2,6 +2,12 @@
 
 ### P92 engineering admission checkpoint (2026-11-06)
 
+The [current P92 evidence map](p92_validation.md) separates executable response
+and life baselines from engineering admission, and defines the minimum next
+data package. Generic tabulated rupture curves and the reviewed public rupture
+nodes are merged (#157/#159). Preserve their material-condition and stress-
+measure boundaries; do not combine them with a different fatigue cohort by name.
+
 The published tensor reference, within-source life holdout and long-cycle
 response screen are integrated as research evidence. The next step is not
 another fit to the same labels: compatible independent rupture/fatigue/dwell
@@ -10,12 +16,23 @@ thesis supplies useful alternative cohorts but also inconsistent parameter
 tables; neither is silently promoted. See the
 [source admission audit](internal/p92_external_source_admission_20261106.md).
 
-Generic small-strain point histories (#152) and prescribed-temperature
-composition (#155) are in CI review, not yet released. These reuse one accepted
-clock, material transaction and result contract. They advance the reusable
-platform without claiming P92 service-life validation. Next, complete their
-CI/installed-use acceptance, then assess independent material data with frozen
-calibration choices and explicit out-of-domain rejection.
+Generic small-strain point histories (#152), prescribed-temperature composition
+(#155), thermal clock guards (#160/#162), restart identity (#163), and structural
+cycle evidence (#161) are merged. These reuse one accepted clock, material
+transaction and result contract. The combined candidate passed targeted tests,
+isolated installed use, continuous/restarted result comparison and real VTK
+reading; see the [integration acceptance record](internal/p92_composition_acceptance_20261106.md).
+This is source integration, not a new release or P92 service-life qualification.
+
+| Next gate | Work | Completion evidence |
+| --- | --- | --- |
+| Engineering life | Select an application, compatible independent observations and a failure criterion before further calibration | Frozen calibration/holdout split, prediction errors and scatter, justified application-specific acceptance criteria |
+| Component assessment | Use co-located accepted histories in a nonuniform component within the admitted material scope | Spatial/time refinement, boundary-condition checks and material/structure agreement |
+| Further combinations | Prioritize temperature-dependent laws, regional materials, contact or MPI only against a concrete need | Separate capability contract, rollback/restart and numerical validation for each admitted combination |
+
+Do not repeat fits to the same eight life observations to fill the independent
+data gap, or expand all combinations at once. The current software foundation
+is ready for the next evidence-backed material study.
 
 ### Research update: P92 tensor admission (2026-11-05)
 
@@ -51,9 +68,13 @@ Study -> Model -> scientific assets -> model.step(...) -> SimulationResult
 Capability claims are promoted by executable evidence. A formula, an example,
 or a successful run is not by itself a validated engineering capability.
 
-## Current product phase: the 0.4 foundation
+## Foundation evidence log
 
-### Small-strain accepted histories (2026-11-06 candidate)
+The dated entries below preserve the development sequence. The admission
+checkpoint above defines current priorities; historical next steps are not
+additional release requirements.
+
+### Small-strain accepted histories (2026-11-06, integrated)
 
 The physical-time small-strain user-material route now composes with the
 existing selected-point recorder: raw stress, total strain and named history
@@ -62,7 +83,7 @@ share accepted time and atomic restart. See the
 This removes a data-flow gap for future life assessment; a material-specific
 rupture/fatigue law and independent validation are still separate requirements.
 
-### P92 long-cycle response screen (2026-11-06 candidate)
+### P92 long-cycle response screen (2026-11-06, integrated research)
 
 Fixed published parameters were compared with sparse long-cycle experimental
 peak markers, reusing existing Radau/BDF campaigns. Reading sensitivity,
@@ -81,9 +102,9 @@ This is not an engineering material card. Prioritize independent compatible
 life evidence and same-point structural histories over further tuning of the
 same eight rows; do not add creep damage to an already combined life relation.
 
-### Physical-time small-strain user materials (2026-11-05 candidate)
+### Physical-time small-strain user materials (2026-11-05, integrated)
 
-The next bounded consumer reuses the ordinary small-strain Newton Step and
+The bounded consumer reuses the ordinary small-strain Newton Step and
 quadrature transaction. Explicit duration separates normalized loading from
 physical time; initialization, failed trials and restart do not advance the
 material clock. Exact accepted stress/tangent/state restoration uses a v2
@@ -93,11 +114,11 @@ time refinement, cutback and corrupt-checkpoint tests are the promotion gates.
 The [design record](internal/small_strain_physical_time_20261105.md) and
 `examples/small_strain_relaxation` retain the exact scope.
 
-Next: independently audit and validate a real multiaxial material provider before
-promoting it into structural use. Selected-point histories are covered by the
-candidate above; prescribed temperature, regional materials, contact and MPI
-remain separate composition gates. This candidate
-is not a P92 qualification, service-life prediction, or a release announcement.
+Selected-point histories and prescribed temperature are now integrated.
+Regional materials, contact and MPI remain separate composition gates. The P92
+tensor reference has bounded homogeneous structural verification, but independent
+multiaxial experimental validation remains open. This source integration is not
+a P92 qualification, service-life prediction, or a release announcement.
 
 ### Published P92 figure screen (2026-11-05)
 
