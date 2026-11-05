@@ -2,8 +2,23 @@ import numpy as np
 import pytest
 import json
 from pathlib import Path
+import subprocess
+import sys
 
 from tools.p92_structural_cycle_screen import waveform, run
+
+
+def test_module_entrypoint_describes_options_without_starting_a_run():
+    completed = subprocess.run(
+        [sys.executable, "-m", "tools.p92_structural_cycle_screen", "--help"],
+        cwd=Path(__file__).resolve().parents[1],
+        capture_output=True,
+        text=True,
+        timeout=60,
+    )
+    assert completed.returncode == 0, completed.stderr
+    assert "--checkpoint-dir" in completed.stdout
+    assert "--refinement" in completed.stdout
 
 
 @pytest.mark.parametrize("cycles", [1, 2, 20])

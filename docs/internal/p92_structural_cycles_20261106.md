@@ -18,6 +18,25 @@ experimental life validation. Report wall time, increment count, numerical
 stress discrepancies, lateral stress and strain-boundary errors. The point
 history is verification evidence, not a multiaxial fatigue equivalent strain.
 
+From the repository root with AgentFEM installed, use the module entry point
+so sibling research tools are available without editing `sys.path`:
+
+```bash
+python -m tools.p92_structural_cycle_screen --temperature 600 --cycles 2 --dwell 5 --refinement 2 --checkpoint-dir p92-smoke-restart --output p92-smoke.json
+```
+
+The output/checkpoint paths must be new. This is the short numerical
+discriminator below, not the published 60 s dwell experiment. For a published
+waveform use `--dwell 60`; only request long cycle counts deliberately. Existing
+435-cycle evidence can be inspected without rerunning that computation.
+
+The documented short command was also executed from an archived source tree
+against an isolated installed candidate (not the checkout's runtime package):
+84 accepted increments, maximum stress error 10.360198 MPa and exactly equal
+restarted point histories. Wall time was 3.85 s including the continuous
+reference and complete restart rerun. The ordinary library still owns the
+structural solver; the repository tool supplies the research law and protocol.
+
 ## Initial discriminator
 
 The 600 C, two-cycle, 5 s short-hold smoke first failed the preselected 15 MPa
