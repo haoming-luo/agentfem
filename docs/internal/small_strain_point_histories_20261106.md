@@ -26,5 +26,12 @@ continuous versus restarted history, rejected increments, corrupt/missing
 payloads, selection changes, and failures before/after constitutive commit.
 The ordinary relaxation example has an opt-in `--material-point` flag.
 
+The ordinary CLI was also exercised in an isolated copy of that example using
+the candidate source package and real FEniCSx: `agentfem run --name full --
+--material-point`, followed by a second run loading the midpoint checkpoint.
+Both completed; all 16 times and all values in `sample.S`, `sample.E` and
+`sample.EV` were exactly equal across continuous and resumed execution.
+This is source-candidate CLI evidence, not a clean-machine installation claim.
+
 This is a data/lifecycle capability, not P92 calibration. Further physical
 validation must retain the recorded strain measure and original material point.

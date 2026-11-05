@@ -41,8 +41,9 @@ The [design record](internal/small_strain_physical_time_20261105.md) and
 `examples/small_strain_relaxation` retain the exact scope.
 
 Next: independently audit and validate a real multiaxial material provider before
-promoting it into structural use. Prescribed temperature, selected-point histories,
-regional materials, contact and MPI are separate composition gates. This candidate
+promoting it into structural use. Selected-point histories are covered by the
+candidate above; prescribed temperature, regional materials, contact and MPI
+remain separate composition gates. This candidate
 is not a P92 qualification, service-life prediction, or a release announcement.
 
 ### Published P92 figure screen (2026-11-05)
