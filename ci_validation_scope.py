@@ -243,6 +243,11 @@ _CORE_SOURCE_TEST_MAP = {
         "tests/test_finite_strain_material_step.py",
         "tests/test_history_plane_stress.py",
         "tests/test_history_material_temperature.py",
+        "tests/test_finite_material_point_histories.py",
+    ),
+    "src/agentfem/results/material_points.py": (
+        "tests/test_material_point_histories.py",
+        "tests/test_finite_material_point_histories.py",
     ),
     "src/agentfem/mechanics/_incremental_runtime.py": (
         "tests/test_incremental_runtime.py",

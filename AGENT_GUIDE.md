@@ -180,6 +180,10 @@ interpolating unsaved damage states.
   scalar linear `histories.temperature` over physical time; the Step freezes
   this input and owns accepted TEMP output. Do not infer spatial thermal
   histories, heat conduction or two-way coupling from this option.
+  Use `material_points=(results.material_point("site", cell=..., point=...),)`
+  for selected raw histories through this same Step. `site.E_GL` is total
+  Green–Lagrange strain; do not treat it as infinitesimal or mechanical strain
+  for life assessment. No project sampling loop or XML edits are needed.
   The limited plane-stress option requires a 2D plane-stress Study and explicit
   `constitutive.PlaneStressReduction(symmetry="reflection_symmetric")`. The
   core solves thickness equilibrium, condenses the algorithmic tangent and
