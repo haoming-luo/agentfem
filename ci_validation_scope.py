@@ -343,6 +343,7 @@ _CORE_SOURCE_TEST_MAP = {
         "tests/test_creep_prescribed_trial.py",
     ),
     "src/agentfem/mechanics/creep.py": (
+        "tests/test_rate_material_checkpoint_clock.py",
         "tests/test_rate_material_history_units.py",
         "tests/test_external_inelastic_benchmark.py",
         "tests/test_p1_platform.py",
@@ -350,6 +351,7 @@ _CORE_SOURCE_TEST_MAP = {
         "tests/test_p92_sinh_screen.py",
     ),
     "src/agentfem/mechanics/viscoelasticity.py": (
+        "tests/test_rate_material_checkpoint_clock.py",
         "tests/test_viscoelasticity.py", "tests/test_rate_material_history_units.py",
     ),
     "src/agentfem/mechanics/finite_strain_plasticity.py": (
@@ -591,6 +593,8 @@ _CORE_SOURCE_MPI_TEST_MAP = {
     "src/agentfem/results": ("tests/test_parallel_results.py",),
 }
 _CORE_SOURCE_MPI_DRIVER_MAP = {
+    "src/agentfem/mechanics/viscoelasticity.py": ("viscoelastic-restart",),
+    "tests/portable_viscoelastic_step_driver.py": ("viscoelastic-restart",),
     "src/agentfem/_nonlinear_problems.py": ("nonlinear-contact-restart",),
     "src/agentfem/_step_builders_contact.py": ("nonlinear-contact-restart",),
     "src/agentfem/boundary_models/mechanical.py": (
