@@ -45,3 +45,12 @@ dwell-life observations. Calibration and validation must remain separate. The
 2019/2020 duplicated observations already identified in the life-screen audit
 do not supply an independent validation cohort. A local source-access failure
 or a paid standard does not justify inventing missing numeric data.
+
+## Calibration entry audit
+
+The research life screen now validates in-memory inputs as well as file reads.
+Duplicate/overlapping split IDs, a missing holdout, and invalid observed lives
+cannot bypass the data gate through `screen(data)` or `calibrate(data)`.
+The existing held-out predictions remain unchanged. The life, pure-fatigue,
+cyclic-reference and CI-routing regression passed 87 tests; this is software
+verification, not 87 new experimental observations.
