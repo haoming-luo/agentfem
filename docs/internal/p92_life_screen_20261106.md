@@ -95,3 +95,27 @@ The same table also contains zero-dwell repetitions, compressive holds and a
 60-minute tensile hold. Those are useful future mechanism/domain tests, but
 are outside this baseline's admitted loading domain. Do not extend the domain
 just to obtain additional validation rows. No coefficients were refitted.
+
+## Published pure-fatigue interface check
+
+`tools/p92_pure_fatigue_screen.py` reuses the public
+`CoffinMansonBasquinCurve` with the 2019 paper's Table 2 coefficients at
+600/650 C and Table 1 no-dwell observations. All replicate lives remain
+separate. These observations contributed to the authors' fit: this is a
+reproduction check, not a new holdout. The table's failure criterion has not
+been independently resolved and is not borrowed from the 2020 paper.
+
+For this screen only, admissible life is bounded by observed life extrema at
+each temperature. These are our conservative numerical admission limits,
+not published design allowables. The .002/.008 amplitude endpoint queries
+fall outside the corresponding fitted amplitude bounds and are explicitly
+reported as rejected; they are not silently extrapolated or discarded.
+This does not mean those experimental points or the published formula are
+invalid. Interior .004-amplitude predictions are 1800.22 and 1090.80 cycles.
+At 600 C the four observed repetitions span 1426-2186 cycles; a single curve
+does not eliminate this scatter. Three tests cover the published coefficients,
+replicates, domain decisions and direct-equation roundtrip.
+
+Together these screens supply a traceable starting dataset and demonstrate
+existing software interfaces. They do not yet supply a jointly validated
+creep-rupture curve, interaction envelope or component-life material card.
