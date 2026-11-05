@@ -89,28 +89,37 @@ class _MaterialPointRecorder:
                 or not np.array_equal(sampling.weights, self._reference_weights)):
             raise ValueError("Material point histories require unchanged reference geometry and quadrature.")
 
-    def prepare(self, time, values):
+    def prepare(self, time, values, *, selected=False):
+        """Detach one candidate; selected arrays follow the request order."""
         if not np.isfinite(time) or time <= 0 or (self.frames and time <= self.frames[-1]["time"]):
             raise ValueError("Material point history requires increasing positive accepted physical time.")
         if set(values) != set(self.channels):
             raise ValueError("Material point history channels changed during the Step.")
-        selected = {}
+        frame_values = {}
         for name, data in values.items():
             array = np.asarray(data)
             shape = tuple(self.channels[name]["shape"])
-            if np.iscomplexobj(array) or array.shape[1:] != shape:
+            if array.ndim == 0 or np.iscomplexobj(array) or array.shape[1:] != shape:
                 raise ValueError(f"Material point channel {name} has invalid shape or complex values.")
-            array = array[self.indices]
+            if selected:
+                if array.shape[0] != len(self.indices):
+                    raise ValueError(f"Material point channel {name} has the wrong selected point count.")
+            else:
+                array = array[self.indices]
             if not np.all(np.isfinite(array)):
                 raise ValueError(f"Material point channel {name} must be finite.")
-            selected[name] = array.tolist()
-        return {"time": float(time), "values": selected}
+            frame_values[name] = array.tolist()
+        return {"time": float(time), "values": frame_values}
 
     def payload(self):
         body = {"identity": self.identity, "frames": self.frames}
         return {**json.loads(_canonical(body)), "sha256": sha256(_canonical(body).encode()).hexdigest()}
 
     def restore(self, payload, *, accepted_times):
+        self.frames = self.validated_frames(payload, accepted_times=accepted_times)
+
+    def validated_frames(self, payload, *, accepted_times):
+        """Validate and detach a candidate without changing accepted history."""
         if not isinstance(payload, dict) or payload.get("identity") != self.identity:
             raise ValueError("Material point checkpoint identity differs or history is missing.")
         body = {"identity": payload["identity"], "frames": payload.get("frames")}
@@ -131,7 +140,7 @@ class _MaterialPointRecorder:
                 if (array.shape != (len(self.indices), *channel["shape"])
                         or np.iscomplexobj(array) or not np.all(np.isfinite(array))):
                     raise ValueError(f"Material point checkpoint channel {name} has invalid values.")
-        self.frames = json.loads(_canonical(frames))
+        return json.loads(_canonical(frames))
 
     def histories(self):
         from .core import HistoryResult

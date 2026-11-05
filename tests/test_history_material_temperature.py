@@ -65,14 +65,15 @@ def history(values=(300., 360., 340., 400.)):
     return result
 
 
-def build(temperature=None, *, assumption=None, constrain=False, increments=None, limit=np.inf):
+def build(temperature=None, *, assumption=None, constrain=False, increments=None, limit=np.inf,
+          material_points=(), unit_system=None):
     dimension = 3 if assumption is None else 2
     domain = (mesh.cuboid((0., 0., 0.), (1., 1., 1.), (1, 1, 1),
                          cell_type="hexahedron", comm=MPI.COMM_SELF) if dimension == 3 else
               mesh.rectangle((0., 0.), (1., 1.), (1, 1), cell_type="quadrilateral", comm=MPI.COMM_SELF))
     study = studies.static_solid(dimension=dimension, nonlinear=True,
                                 **({"assumption": assumption} if assumption else {}))
-    model = models.create(study=study, mesh=domain)
+    model = models.create(study=study, mesh=domain, units=unit_system)
     u = model.field(fields.displacement(domain))
     material = ThermalHistory(limit)
     model.material(material)
@@ -82,6 +83,7 @@ def build(temperature=None, *, assumption=None, constrain=False, increments=None
         model.fix(u, on=mesh.face(domain, axis="x", value=1., tag=4), component=0, value=0.)
     options = {"plane_stress": c.PlaneStressReduction(symmetry="reflection_symmetric")} if assumption == "plane_stress" else {}
     return model.step(target=u, duration=2., time_unit="s", progress=False,
+                      material_points=material_points,
                       temperature=history() if temperature is None else temperature,
                       amplitude=amplitudes.tabular([0., .5, 1.], [0., 1., 0.]),
                       incrementation=steps.fixed(4) if increments is None else increments,
