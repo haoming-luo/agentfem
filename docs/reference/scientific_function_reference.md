@@ -4136,6 +4136,7 @@ Standard-neutral postprocessing of source-identified creep time fractions, resol
 
 ### Public API
 
+- `agentfem.assessments.TabulatedRuptureCurve`
 - `agentfem.assessments.CreepDamageBlock`
 - `agentfem.assessments.DwellInterval`
 - `agentfem.assessments.creep_blocks_from_result`
@@ -4199,6 +4200,7 @@ The allowable boundary is a declared piecewise-linear scientific input.
 
 #### Conventions
 
+- A TabulatedRuptureCurve uses explicit isothermal log-log interpolation of a reviewed monotone curve, retains material condition and failure definition, and rejects extrapolation or mismatched assessment units/stress measure.
 - Creep damage is horizontal and allowable fatigue damage is vertical in an interaction diagram.
 - AgentFEM provides a transparent linear reference but no design-code or material-specific curve.
 - An assessment is a postprocessor and does not weaken stiffness or advance constitutive state.
@@ -4227,6 +4229,7 @@ For existing result histories, declare DwellInterval records and call assessment
 
 **Tests**
 
+- `tests/test_tabulated_rupture_curve.py`
 - `tests/test_assessments.py`
 - `tests/test_creep_damage_history.py`
 - `tests/test_creep_fatigue_references.py`

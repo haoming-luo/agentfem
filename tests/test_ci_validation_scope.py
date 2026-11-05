@@ -12,6 +12,15 @@ from ci_validation_scope import (
 )
 
 
+@pytest.mark.parametrize("path", (
+    "tools/p92_rupture_screen.py", "evidence/creep/p92-rupture-table.json",
+))
+def test_p92_rupture_sources_select_their_reproduction_test(path):
+    scope = classify_changes([path])
+    assert scope.level == "targeted"
+    assert "tests/test_p92_rupture_screen.py" in scope.tests
+
+
 def test_p92_scalar_reference_changes_cover_tensor_consumers():
     selected = _SOURCE_TEST_MAP["tools/p92_published_recovery_reference.py"]
     assert "tests/test_p92_tensor_normalization.py" in selected

@@ -20,8 +20,10 @@ import numpy as np
 from .constitutive.fatigue import FatigueAssessment
 from .constitutive.strain_life import StrainLifeAssessment
 from ._creep_damage_history import CreepDamageHistoryAssessment, creep_damage_from_result
+from ._rupture_curve import TabulatedRuptureCurve
 
 _DOCUMENTED_REEXPORTS = {
+    "TabulatedRuptureCurve": "_rupture_curve",
     "CreepDamageHistoryAssessment": "_creep_damage_history",
     "creep_damage_from_result": "_creep_damage_history",
 }
@@ -563,6 +565,7 @@ def creep_fatigue_from_result(
 
 
 __all__ = [
+    "TabulatedRuptureCurve",
     "CreepDamageAssessment",
     "CreepDamageHistoryAssessment",
     "CreepDamageBlock",
