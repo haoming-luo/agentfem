@@ -29,8 +29,8 @@ history. No new solver or file format is introduced. Total Green–Lagrange
 strain is not automatically a mechanical strain-life input. See the
 [design and evidence record](internal/finite_material_point_histories_20261105.md).
 
-Engineering PRs #142, #143 and #146 are merged. The uniform-temperature PR #144
-is in final integration CI. Published recovery equations remain a numerical
+Engineering PRs #142, #143, #144 and #146 are merged. The uniform-temperature
+composition passed full FEniCSx and macOS installed-use CI. Published recovery equations remain a numerical
 reference; quantitative experimental agreement and a verified multiaxial
 provider remain open scientific gates. Do not infer either from history output.
 
