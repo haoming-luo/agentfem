@@ -5,6 +5,7 @@
 These are documentation contracts, not a Windows installation acceptance.
 """
 from pathlib import Path
+import json
 import re
 import shutil
 import subprocess
@@ -26,6 +27,21 @@ def test_front_door_does_not_require_repository_or_windows_features():
     install = (ROOT / "INSTALL.md").read_text().split("## Windows\n", 1)[1]
     assert install.index("WSL → Ubuntu → AgentFEM") < install.index("Optional tools")
     assert "wsl --install --no-distribution --web-download" in install
+
+
+def test_guided_handoffs_keep_progress_and_installation_boundaries():
+    assert "1/3 WSL" in GUIDE and "3/3 AgentFEM" in GUIDE
+    assert "Agent execution reference, not a novice copy-and-paste task" in GUIDE
+    assert "Do not send every user a legacy kernel installer" in GUIDE
+    assert "Keep download, verification and import separate" in GUIDE
+    assert "Installation is complete without that example" in GUIDE
+    onboarding = json.loads((ROOT / "docs/agentfem.json").read_text())["installation"]["onboarding"]
+    assert onboarding["progress"]["windows_milestones"] == [
+        "1/3 WSL", "2/3 Ubuntu and account", "3/3 AgentFEM"
+    ]
+    assert onboarding["progress"]["max_user_actions_at_once"] == 1
+    assert "legacy" in onboarding["handoffs"]["kernel"]
+    assert onboarding["completion"]["simulation_required"] is False
 
 
 def test_powershell_examples_are_copy_safe_and_fail_closed():

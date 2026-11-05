@@ -81,9 +81,16 @@ def onboarding_contract() -> dict[str, object]:
             "elevation": "Open Terminal (Administrator), run the displayed platform command, and restart only if requested.",
             "restart": "Save your work and restart. Continue from the installed state; do not reinstall.",
             "download": "Show the failing source and the verified manual download/import route; do not repeat the same download.",
-            "account": "Use authorised non-root preparation for a new import; enter Store/bundle credentials privately if prompted.",
+            "account": "Agent prepares an ordinary account for an authorised new import; reuse existing users, no shared password. Enter Store/bundle credentials privately if prompted.",
+            "kernel": "Distinguish legacy missing kernel from modern WSL update. If automatic download fails, give one verified architecture-matched Microsoft link, filename and double-click action; check readiness afterward.",
         },
-        "progress": {"format": "stage: status — next action", "max_user_actions_at_once": 1},
+        "progress": {
+            "format": "stage: status — next action",
+            "max_user_actions_at_once": 1,
+            "windows_milestones": ["1/3 WSL", "2/3 Ubuntu and account", "3/3 AgentFEM"],
+            "manual_commands": "Only the current short block in the correct shell; separate download, verification and import. Keep integrity checks; check success before continuing.",
+            "agent_execution": "Perform permitted commands directly; report completed stage, next stage and whether user action is needed. No invented percentages or duration promises.",
+        },
         "remember": ["selected_channel", "distribution", "ordinary_user", "environment_path", "installed_version", "last_successful_stage"],
         "never_record": ["passwords", "tokens"],
         "completion": {
