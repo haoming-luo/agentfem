@@ -89,6 +89,19 @@ def test_test_only_fix_returns_stable_target_list_without_requesting_full_ci():
     )
 
 
+@pytest.mark.parametrize("path", (
+    "tools/p92_dwell_figure_screen.py", "tools/p92_published_recovery_reference.py",
+    "evidence/creep/p92-published-figure-points.json",
+))
+def test_published_figure_screen_selects_its_numerical_tests_without_full_fem(path):
+    scope = classify_changes([path])
+    assert scope.level == "targeted"
+    assert "tests/test_p92_dwell_figure_screen.py" in scope.tests
+    assert scope.mpi_tests == scope.mpi_drivers == ()
+    # Do not treat unreviewed evidence/ or tools/ inputs as documentation.
+    assert classify_changes(["evidence/creep/unknown.json"]).level == "core"
+
+
 def test_targeted_source_change_selects_stable_owner_tests():
     scope = classify_changes(
         [
