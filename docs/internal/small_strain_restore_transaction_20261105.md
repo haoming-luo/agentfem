@@ -21,6 +21,12 @@ Manifest/identity/payload-digest and path-metadata validation is coordinated
 before distributed field restoration. Existing portable nodal and quadrature
 loaders are reused; the checkpoint format is unchanged.
 
+Further review reproduced a second defect: a manifest load coordinate could
+disagree with both the accepted ledger and the loaded displacement yet still
+be accepted. Restore now checks the accepted subset of the attempt ledger,
+its terminal coordinate, and actual prescribed boundary values collectively.
+Initial checkpoints and checkpoints following a rejected attempt remain valid.
+
 This does not admit rate-dependent materials. The current small-strain factory
 still requires `rate_independent=True`. A physical-time consumer must separately
 define initial response evaluation, accepted endpoint time, cutback subdivisions,
@@ -36,10 +42,12 @@ rank-zero-only provider failure, and rank-zero-only manifest read failure.
 It checks exact restoration and then retries the valid checkpoint and completes
 the path against uninterrupted execution.
 
-The four cases pass serially and with two ranks through the bounded
+The failure-injection cases pass serially and with two ranks through the bounded
 `agentfem mpi-run -n 2 --timeout 120` launcher, one numerical thread per process.
 The final targeted user-material, Step, learned-material, snapshot-ownership
-and CI-routing suite passed 147 tests. These tests cover
+and CI-routing suite passed 153 tests. All ten restore cases also passed with
+two ranks, including ledger/boundary rejection and valid rejected-path continuation.
+These tests cover
 the existing small-strain route, not a new finite-strain or creep capability.
 
 `tests/portable_small_strain_step_driver.py` additionally wrote a half-path

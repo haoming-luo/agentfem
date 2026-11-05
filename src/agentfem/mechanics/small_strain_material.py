@@ -838,7 +838,7 @@ class SmallStrainMaterialStep:
         applicability = response.last_applicability
         try:
             self._load_checkpoint(path)
-        except Exception:
+        except BaseException:
             # Restore saved fields directly: calling the provider again could
             # fail for the same reason that interrupted checkpoint loading.
             self.solution.x.array[:] = displacement
@@ -890,6 +890,35 @@ class SmallStrainMaterialStep:
                 SmallStrainMaterialIncrementInfo.from_dict(item)
                 for item in payload["attempted_increments"]
             ]
+            previous = 0.0
+            completed = []
+            for record, info in zip(payload["attempted_increments"], attempted):
+                if (
+                    type(record["converged"]) is not bool
+                    or type(record["increment"]) is not int
+                    or info.increment != len(completed) + 1
+                    or type(record["attempt"]) is not int
+                    or info.attempt < 1
+                    or type(record["iterations"]) is not int
+                    or info.iterations < 0
+                    or info.start_load_factor != previous
+                    or not previous < info.load_factor <= 1
+                    or (
+                        info.converged
+                        and (
+                            not np.isfinite(info.residual_norm)
+                            or info.residual_norm < 0
+                        )
+                    )
+                ):
+                    raise ValueError("Invalid checkpoint attempt ledger.")
+                if info.converged:
+                    completed.append(record)
+                    previous = info.load_factor
+            if completed != payload["accepted_increments"] or previous != coordinate:
+                raise ValueError(
+                    "Checkpoint ledger does not end at the accepted state."
+                )
             events = [
                 SolveEvent.from_dict(item)
                 for item in payload.get("execution_events", ())
@@ -921,6 +950,16 @@ class SmallStrainMaterialStep:
         self.execution_events[:] = events
         self.next_increment_size = next_size
         self._apply_loading(self.accepted_load_factor)
+        prescribed = self.solution.x.array.copy()
+        for bc in self.bcs:
+            bc.set(prescribed)
+        boundary_matches = np.allclose(
+            prescribed, self.solution.x.array, rtol=1e-12, atol=1e-13
+        )
+        if not all(comm.allgather(bool(boundary_matches))):
+            raise ValueError(
+                "Checkpoint displacement violates its accepted boundary state."
+            )
         self._accepted_strain = self._evaluate_strain()
         self._update_material(
             time=self.accepted_load_factor,
