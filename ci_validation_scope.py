@@ -36,6 +36,8 @@ _RELEASE_PREFIXES = (
 _TARGETED_SOURCE_FILES = {
     "tools/p92_structural_cycle_screen.py",
     "evidence/creep/2026-11-06-p92-structural-cycles.json",
+    "evidence/creep/2026-11-06-p92-435cycles-coarse.json",
+    "evidence/creep/2026-11-06-p92-435cycles-refined.json",
     "tools/p92_pure_fatigue_screen.py",
     "evidence/creep/p92-pure-fatigue.json",
     "tools/p92_life_screen.py",
@@ -71,6 +73,8 @@ _TARGETED_PREFIXES = (
 _SOURCE_TEST_MAP = {
     "tools/p92_structural_cycle_screen.py": ("tests/test_p92_structural_cycle_screen.py",),
     "evidence/creep/2026-11-06-p92-structural-cycles.json": ("tests/test_p92_structural_cycle_screen.py",),
+    "evidence/creep/2026-11-06-p92-435cycles-coarse.json": ("tests/test_p92_structural_cycle_screen.py",),
+    "evidence/creep/2026-11-06-p92-435cycles-refined.json": ("tests/test_p92_structural_cycle_screen.py",),
     "tools/p92_pure_fatigue_screen.py": ("tests/test_p92_pure_fatigue_screen.py",),
     "evidence/creep/p92-pure-fatigue.json": ("tests/test_p92_pure_fatigue_screen.py",),
     "tools/p92_life_screen.py": ("tests/test_p92_life_screen.py",),

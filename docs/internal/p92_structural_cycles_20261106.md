@@ -50,3 +50,29 @@ The raw numerical reports are preserved in
 the tool, tensor structural consumer and CI routing passed 85 tests in 24.70 s.
 Experimental cyclic discrepancies and independent lifetime qualification remain
 separate gates; the integration check does not erase either.
+
+## Long-cycle discriminator
+
+At frozen source commit `cf55d6f652733f36f62dbf7cf4a57802aa6eb3a2`, the
+650 C / 60 s hold path was continued for 435 cycles, half the published
+870-cycle experimental life. That cycle count is a prescribed verification
+endpoint, not a predicted life. Both runs used one MPI rank and one numerical
+thread, with explicit wall-clock limits and no concurrent numerical job.
+
+| Resolution | Accepted increments | Maximum endpoint stress error (MPa) | Wall time (s) |
+| --- | ---: | ---: | ---: |
+| Coarse | 19116 | 3.018525 | 535.46 |
+| Halved ramp/hold increments | 38232 | 1.558788 | 941.19 |
+
+The maximum error remained the early-cycle maximum observed in the 20-cycle
+screen; it did not grow above that value over this longer path. The refined
+maximum lateral stress was 1.96e-7 MPa or less and the prescribed strain error
+below 3.7e-15. Timing includes the independent scalar Radau reference and FEM
+solve. These long runs did not repeat checkpoint recovery: the exact-restart
+evidence remains the separately executed 20-cycle paths above.
+
+The complete endpoint comparison records are retained in
+`evidence/creep/2026-11-06-p92-435cycles-coarse.json` and
+`evidence/creep/2026-11-06-p92-435cycles-refined.json`. This establishes a
+longer numerical path, not independent experimental accuracy, damage-to-failure,
+multiaxial qualification or engineering design life.
