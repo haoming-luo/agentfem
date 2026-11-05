@@ -1856,6 +1856,7 @@ register_step_provider(
             "duration",
             "time_unit",
             "material_points",
+            "temperature",
         ),
     )
 )

@@ -149,6 +149,7 @@ class SmallStrainMaterialStep:
     solver_options: NewtonSolverOptions
     duration: float | None = None
     time_unit: str = "s"
+    temperature: object | None = None
     material_points: tuple = ()
     unit_system: object | None = None
     external_force: object | None = None
@@ -214,6 +215,18 @@ class SmallStrainMaterialStep:
         )
 
     def __post_init__(self) -> None:
+        from ._prescribed_temperature import freeze_uniform_temperature
+
+        if self.temperature is not None and self.duration is None:
+            raise ValueError("Prescribed temperature requires a physical duration.")
+        self._temperature_input = freeze_uniform_temperature(
+            self.temperature, self.duration
+        )
+        if self._temperature_input is not None and any(
+            (variable.output_name or variable.name) == "TEMP"
+            for variable in self.material.state_schema.variables
+        ):
+            raise ValueError("Material state alias TEMP is reserved for prescribed temperature.")
         self.material_points = tuple(self.material_points)
         self._point_history = None
         if self.material_points and self.duration is None:
@@ -248,6 +261,12 @@ class SmallStrainMaterialStep:
                     "measure": "total infinitesimal strain; tensor shear, not mechanical strain",
                 },
             }
+            if self._temperature_input is not None:
+                channels["TEMP"] = {
+                    "shape": [],
+                    "unit": "K",
+                    "measure": "prescribed uniform temperature; no heat solve",
+                }
             for variable in self.material.state_schema.variables:
                 name = variable.output_name or variable.name
                 if name in channels or name == "TEMP":
@@ -301,6 +320,8 @@ class SmallStrainMaterialStep:
             "S": self.response.cauchy_stress.values[indices],
             "E": strain[indices],
         }
+        if self._temperature_input is not None:
+            values["TEMP"] = np.full(len(indices), self._temperature_input.at(time))
         for variable in self.material.state_schema.variables:
             values[variable.output_name or variable.name] = self.state.trial[
                 variable.name
@@ -375,6 +396,14 @@ class SmallStrainMaterialStep:
 
     def _update_material(self, *, time: float, time_increment: float):
         scale = 1.0 if self.duration is None else self.duration
+        thermal = {}
+        if self._temperature_input is not None:
+            endpoint = self._temperature_input.at(float(time) * scale)
+            start = self._temperature_input.at(self.accepted_load_factor * scale)
+            thermal = {
+                "temperature": endpoint,
+                "temperature_increment": endpoint - start,
+            }
         self._trial_result = self.response.update(
             self.material,
             strain_old=self._accepted_strain,
@@ -385,6 +414,7 @@ class SmallStrainMaterialStep:
                 if self.duration is None
                 else float(time_increment) * scale
             ),
+            **thermal,
         )
         return self._trial_result
 
@@ -441,6 +471,17 @@ class SmallStrainMaterialStep:
                 target = min(
                     target,
                     next((float(k) for k in knots if accepted_factor < k < 1), 1.0),
+                )
+            if self._temperature_input is not None:
+                thermal_knots = (
+                    t / self.duration for t in self._temperature_input.times
+                )
+                target = min(
+                    target,
+                    next(
+                        (k for k in thermal_knots if accepted_factor + 1e-12 < k < 1),
+                        1.0,
+                    ),
                 )
             attempt = consecutive_cutbacks + 1
             self._emit(
@@ -859,6 +900,24 @@ class SmallStrainMaterialStep:
             },
         )
         add_execution_trace(result, self.execution_events)
+        if self._temperature_input is not None:
+            thermal_field = fem.Function(
+                fem.functionspace(self.solution.function_space.mesh, ("DG", 0)),
+                name="TEMP",
+            )
+            thermal_field.x.array[:] = self._temperature_input.at(self.time)
+            thermal_field.x.scatter_forward()
+            result.add_field(
+                "TEMP",
+                thermal_field,
+                unit="K",
+                location="cells",
+                description="Accepted prescribed uniform temperature; no heat solve.",
+                processing={"method": "prescribed_uniform_input", "committed": True},
+            )
+            result.metadata["prescribed_temperature"] = (
+                self._temperature_input.summary()
+            )
         sources = [
             (
                 "S",
@@ -1350,6 +1409,8 @@ class SmallStrainMaterialStep:
                     ],
                 },
             }
+        if self._temperature_input is not None:
+            physical["temperature"] = self._temperature_input.summary()
         return {
             "step_name": self.name,
             "procedure": self.procedure.summary(),
@@ -1377,6 +1438,9 @@ class SmallStrainMaterialStep:
             "physical_time": self.time,
             "duration": self.duration,
             "time_unit": self.time_unit if self.duration is not None else None,
+            "prescribed_temperature": None
+            if self._temperature_input is None
+            else self._temperature_input.summary(),
             "last_solve": None
             if self.last_solve_info is None
             else self.last_solve_info.as_dict(),
@@ -1399,6 +1463,7 @@ def small_strain_material_step(
     amplitude=None,
     duration=None,
     time_unit="s",
+    temperature=None,
     material_points=(),
     unit_system=None,
     name="small_strain_material",
@@ -1546,6 +1611,7 @@ def small_strain_material_step(
         solver_options=newton() if solver_options is None else solver_options,
         duration=duration,
         time_unit=time_unit,
+        temperature=temperature,
         material_points=material_points,
         unit_system=unit_system,
         external_force=external_force,
