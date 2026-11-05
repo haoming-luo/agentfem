@@ -35,6 +35,11 @@ The combined candidate is not an alternative path around branch protection.
   exact equality. All seven datasets in final `results.h5` were exactly equal.
   `agentfem verify` verified the resumed manifest's provenance seal; this seal
   is not experimental verification of the material law.
+- Read both final XDMF files with VTK's real XDMF reader, applied displacement
+  `U` through `vtkWarpVector`, and verified one unstructured grid, 16 cells,
+  correct warped coordinates and retained `S_CELL`/`EV_CELL` arrays. The first
+  probe used the display label `Displacement`; inspection identified the actual
+  exported array name `U`, and the corrected probe passed without editing output.
 
 Numerical checks used `FI_PROVIDER=tcp`, `OMP_NUM_THREADS=1` and
 `OPENBLAS_NUM_THREADS=1`. No user installation or original project was changed.
