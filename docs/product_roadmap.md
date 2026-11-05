@@ -2,6 +2,12 @@
 
 ### P92 engineering admission checkpoint (2026-11-06)
 
+The [current P92 evidence map](p92_validation.md) separates executable response
+and life baselines from engineering admission, and defines the minimum next
+data package. Generic tabulated rupture curves and the reviewed public rupture
+nodes are merged (#157/#159). Preserve their material-condition and stress-
+measure boundaries; do not combine them with a different fatigue cohort by name.
+
 The published tensor reference, within-source life holdout and long-cycle
 response screen are integrated as research evidence. The next step is not
 another fit to the same labels: compatible independent rupture/fatigue/dwell
