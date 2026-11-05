@@ -19,6 +19,22 @@ or a successful run is not by itself a validated engineering capability.
 
 ## Current product phase: the 0.4 foundation
 
+### Published P92 figure screen (2026-11-05)
+
+The unchanged published-parameter reference now has a quantitative, traceable
+source-figure screen. Six authors' model-dash samples agree inside pixel-reading
+sensitivity; 24 first-cycle experimental markers across three held-out dwell
+conditions show about 5-6% sampled mean absolute relative error and local
+differences up to 33 MPa. These sparse samples are not a full-curve validation,
+a general material admission or a life model. Source coordinates, calibration,
+uncertainty scope, reproducible code and disagreement are retained in the
+[figure-screen record](internal/p92_dwell_figure_screen_20261105.md).
+
+PRs #142, #143, #144 and #146 are merged; #144 passed full FEniCSx and macOS
+installed-use CI. Co-located finite-strain histories are isolated in PR #147.
+Next scientific gates remain full cyclic response and explicit multiaxial
+formulation/structural verification, not repeated refitting of a failed holdout.
+
 ### Prescribed thermal input for history materials (2026-11-05)
 
 This bounded composition reuses the existing finite-strain material Step:

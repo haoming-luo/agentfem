@@ -34,6 +34,9 @@ _RELEASE_PREFIXES = (
     ".github/workflows/platform-acceptance",
 )
 _TARGETED_SOURCE_FILES = {
+    "tools/p92_dwell_figure_screen.py",
+    "tools/p92_published_recovery_reference.py",
+    "evidence/creep/p92-published-figure-points.json",
     "promotion_gate.py",
     "tools/agent_trial_acceptance.py",
     "tools/prepare_agent_trial.py",
@@ -58,6 +61,11 @@ _TARGETED_PREFIXES = (
     "src/agentfem/surrogates/",
 )
 _SOURCE_TEST_MAP = {
+    "tools/p92_dwell_figure_screen.py": ("tests/test_p92_dwell_figure_screen.py",),
+    "tools/p92_published_recovery_reference.py": (
+        "tests/test_p92_published_recovery_reference.py", "tests/test_p92_dwell_figure_screen.py",
+    ),
+    "evidence/creep/p92-published-figure-points.json": ("tests/test_p92_dwell_figure_screen.py",),
     "promotion_gate.py": ("tests/test_promotion_gate.py",),
     "tools/agent_trial_acceptance.py": ("tests/test_agent_trial_acceptance.py",),
     "tools/prepare_agent_trial.py": ("tests/test_prepare_agent_trial.py",),
