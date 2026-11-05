@@ -15,6 +15,11 @@ SOURCE = Path(__file__).resolve().parents[1] / "evidence/creep/p92-life-table.js
 
 def load_table(path=SOURCE):
     data = json.loads(Path(path).read_text())
+    validate_table(data)
+    return data
+
+
+def validate_table(data):
     if data.get("schema") != "agentfem.research.p92-life-table.v1":
         raise ValueError("Unknown life table schema.")
     rows = data["rows"]
@@ -22,15 +27,22 @@ def load_table(path=SOURCE):
     train, test = data["calibration_ids"], data["validation_ids"]
     if (
         len(ids) != len(set(ids))
+        or len(train) != len(set(train))
+        or len(test) != len(set(test))
+        or not test
         or set(train) & set(test)
         or set(train + test) != set(ids)
     ):
         raise ValueError("Calibration/validation IDs must partition unique specimens.")
     for row in rows:
         features(row)
-        if not np.isfinite(row["cycles"]) or row["cycles"] <= 0:
+        if (
+            isinstance(row["cycles"], (bool, np.bool_))
+            or np.iscomplexobj(row["cycles"])
+            or not np.isfinite(row["cycles"])
+            or row["cycles"] <= 0
+        ):
             raise ValueError("Observed cycles must be finite and positive.")
-    return data
 
 
 def features(row):
@@ -61,6 +73,7 @@ def features(row):
 
 
 def calibrate(data):
+    validate_table(data)
     selected = [row for row in data["rows"] if row["id"] in data["calibration_ids"]]
     design = np.array([features(row) for row in selected])
     response = np.log([row["cycles"] for row in selected])
