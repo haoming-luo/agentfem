@@ -220,7 +220,7 @@ class SmallStrainMaterialStep:
         if self.temperature is not None and self.duration is None:
             raise ValueError("Prescribed temperature requires a physical duration.")
         self._temperature_input = freeze_uniform_temperature(
-            self.temperature, self.duration
+            self.temperature, self.duration, time_unit=self.time_unit
         )
         if self._temperature_input is not None and any(
             (variable.output_name or variable.name) == "TEMP"
