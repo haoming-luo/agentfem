@@ -102,9 +102,45 @@ and `MaterialPointOutput`; there is no second neural-material interface.
 
 Inputs contain committed `F_n`, trial `F`, committed state, endpoint physical
 time, positive `dt` and the Step's optional material-property vector. The local
-contract also has optional thermal/external fields, but this initial structural
-route does **not** supply their histories; requests are rejected rather than
-silently ignored.
+contract also has optional thermal/external fields. This structural route now
+supplies the bounded prescribed temperature input below; arbitrary external
+fields and spatial temperature histories remain separate capabilities.
+
+### Prescribed temperature, without a second solver
+
+Pass a constant kelvin value as `temperature=300.0`, or reuse a scalar history:
+
+```python
+temperature = histories.temperature(300.0)
+for time, kelvin in [(0.0, 300.0), (0.6, 360.0), (1.4, 340.0), (2.0, 400.0)]:
+    temperature.record(time, kelvin)
+step = model.step(target=u, duration=2.0, time_unit="s", temperature=temperature)
+```
+
+The material receives endpoint `temperature` and `temperature_increment`
+relative to the attempted increment's accepted start. Temperature times are
+physical, unlike the normalized mechanical amplitude. The Step visits both
+histories' knots and recomputes the temperature increment after cutback. The
+material's `dP/dF` holds prescribed temperature fixed.
+
+The Step freezes the scalar, piecewise-linear input at construction. Editing
+the source history afterward does not change this Step; construct a new Step
+for a changed problem. Kelvin values must be positive, the coordinate must be
+`time`, and the recorded interval must cover the full duration. Time numbers
+use the Step's `time_unit`; no conversion is inferred. The live source is not
+modified. Spatial histories and previous-value/discontinuous interpolation
+are not admitted by this first consumer.
+
+Accepted output includes `TEMP`, recovered `TEMP_CELL` and a compact
+`temperature` history. Restart binds the frozen thermal schedule and checks
+the saved temperature against accepted time. The material must start from a
+reference state consistent with its initial temperature; initialization does
+not invent an equilibrium or material time increment.
+
+This is one-way prescribed thermal input, not heat conduction or two-way
+coupling. Temperature dependence and thermal expansion belong to the local
+material update; the framework does not add thermal strain again. Stored
+energy output alone is not a thermomechanical first-law audit.
 
 The existing neutral output contract returns **Cauchy stress** and an explicitly
 declared **9×9 algorithmic `dP/dF`**, in row-major `iJ,kL` order. The quadrature
@@ -329,7 +365,7 @@ local reduction and real VTK/Warp reading of stress and `F_CELL`.
 None of these tests calibrates a user material or promotes arbitrary laws.
 
 Unsupported combinations fail explicitly: MPI, contact/weak boundaries, MPC,
-regional materials, mixed pressure, undeclared/general plane stress, temperature histories,
+regional materials, mixed pressure, undeclared/general plane stress, spatial temperature histories,
 undeclared/spatial tangents, arbitrary UMAT conversion and declarative
 `OutputPlan`. The required Newton policy raises on exhausted increments;
 non-raising failure mode is not admitted yet. Nearly incompressible materials
@@ -427,6 +463,13 @@ substituting a continuum modulus, is also established in
 and [their plane-stress return mapping](https://doi.org/10.1002/nme.1620220310).
 Those papers motivate the consistency requirement; they do not certify this
 generic finite-strain adapter or arbitrary user laws.
+
+Prescribed thermal input follows the existing old/new material-state separation
+also used by [MGIS](https://thelfer.github.io/mgis/web/bindings-cxx.html).
+`tests/test_history_material_temperature.py` checks independent thermal patches,
+fixed-temperature tangents, scalar/batch/plane-stress transport, physical-time
+knots, cutback, atomic restart and unified output. These are numerical contract
+checks with synthetic coefficients, not a high-temperature alloy validation.
 
 The observer transformations follow the
 [Sierra/SM frame-indifference theory](https://www.sandia.gov/files/sierra/SM_Theory_5_20/main/frame_indifference.html):

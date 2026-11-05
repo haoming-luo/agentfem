@@ -234,6 +234,15 @@ _CORE_SOURCE_TEST_MAP = {
         "tests/test_material_stress_conversion.py",
         "tests/test_finite_strain_plasticity.py",
         "tests/test_finite_strain_j2_material_map.py",
+        "tests/test_history_material_temperature.py",
+    ),
+    "src/agentfem/mechanics/_prescribed_temperature.py": (
+        "tests/test_history_material_temperature.py",
+    ),
+    "src/agentfem/mechanics/finite_strain_material.py": (
+        "tests/test_finite_strain_material_step.py",
+        "tests/test_history_plane_stress.py",
+        "tests/test_history_material_temperature.py",
     ),
     "src/agentfem/mechanics/_incremental_runtime.py": (
         "tests/test_incremental_runtime.py",

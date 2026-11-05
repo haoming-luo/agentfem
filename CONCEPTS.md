@@ -337,6 +337,11 @@ belongs to State, not a hidden material or case cache. It is not a shell or
 an automatic multiaxial extension of a one-dimensional experiment.
 No new material-specific Model or Solver API is introduced. See
 `docs/history_material_workflow.md` for limits and executable evidence.
+An optional prescribed uniform kelvin temperature, constant or a frozen scalar
+physical-time history, supplies endpoint temperature and its increment to
+that same local update. The Procedure owns knot alignment, cutback and accepted
+TEMP output/restart. It does not solve a heat equation, add thermal strain
+outside the material, or infer a thermomechanical energy balance.
 
 ### Material stability envelope
 

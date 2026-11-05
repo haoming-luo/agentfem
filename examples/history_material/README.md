@@ -3,7 +3,7 @@
 This educational project keeps `case.py` as the engineering model and
 `material.py` as two local constitutive updates. There is no project Newton
 loop, quadrature manager, Step provider, mesh writer or checkpoint adapter.
-Use an AgentFEM build exposing `mechanics.FiniteStrainMaterialStep(checkpoint=..., output_every=...)` and
+Use an AgentFEM build exposing `mechanics.FiniteStrainMaterialStep(checkpoint=..., output_every=..., temperature=...)` and
 `constitutive.PlaneStressReduction`; an older
 development package with the same version string is not sufficient.
 
@@ -12,6 +12,7 @@ agentfem check
 agentfem run --name viscous -- --material viscoelastic
 agentfem run --name damage -- --material damage
 agentfem run --name plane-stress -- --material viscoelastic --assumption plane_stress
+agentfem run --name heating -- --material viscoelastic --temperature-cycle
 ```
 
 Both runs use the same finite-strain plane-strain plate, hold/reversal path,
@@ -24,6 +25,15 @@ Forces and energies in these 2D examples are per unit reference thickness.
 These are objective Green-strain reference laws with synthetic constants,
 not calibrated hydrogel models or robust large-strain rubber models. The
 damage law is a local demonstration, not a mesh-objective fracture model.
+
+`--temperature-cycle` adds a uniform 300→360→300 K history, with physical-time
+knots at 0, 0.6, 1.4 and 2 s. The example material then includes a synthetic
+isotropic thermal Green-strain shift; it is not a calibrated high-temperature
+law. The same option works with the damage or plane-stress choices. The core
+supplies endpoint temperature/increment and visits thermal knots; it does not
+run a heat solve or add a second thermal strain. `TEMP_CELL` appears beside
+stress in the saved frames, and `temperature` is a compact accepted history.
+Keep this flag unchanged when restarting a thermal run.
 
 Open the run's `results.xdmf` in ParaView. Choose `Displacement` in Warp By
 Vector (scale 1) and color by `S_CELL` or a state field. The reference mesh,
@@ -146,7 +156,7 @@ structural references. They add no checks to each production integration point.
   transverse-shear reduction, bending shells and singular softening are not
   admitted. Scalar local solves currently use the material's `update` method;
   no batch speedup is claimed for this reduction.
-- No automatic plane-stress inference, contact/MPC, MPI, temperature-history input or
+- No automatic plane-stress inference, contact/MPC, MPI, spatial temperature-history input or
   mixed pressure formulation is admitted by this experimental route.
 - Raw integration-point fields remain in `SimulationResult`; `*_CELL` is an
   explicitly recovered cell average, not a nodal stress or raw quadrature plot.

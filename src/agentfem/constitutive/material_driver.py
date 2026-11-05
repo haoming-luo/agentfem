@@ -298,6 +298,8 @@ class MaterialQuadratureResponse:
         commit: bool = False,
         max_batch_points: int = 1024,
         plane_stress: PlaneStressReduction | None = None,
+        temperature=None,
+        temperature_increment=None,
     ) -> MaterialPointBatchResult:
         comm = self.domain.comm
         contract_problem = None
@@ -335,6 +337,8 @@ class MaterialQuadratureResponse:
             time_increment=time_increment,
             properties=properties,
             max_batch_points=max_batch_points,
+            temperature=temperature,
+            temperature_increment=temperature_increment,
             # Commit only after all derived response fields have been built.
             # Otherwise a postprocessing failure could commit the internal
             # variables while leaving P/S/DPDF at the previous boundary.

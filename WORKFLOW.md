@@ -212,6 +212,10 @@ provider when the existing serial 3D/plane-strain route applies. For supported
 or hide thickness history in the case. Physical time
 and normalized loading coordinate are distinct. Unsupported compositions
 require separate development and verification, not project-level bypasses.
+For prescribed uniform temperature, use `temperature=` with a positive kelvin
+scalar or an existing scalar `histories.temperature` covering the physical
+duration. This frozen one-way input shares the material trial/commit/restart
+lifecycle; spatial fields and a heat solve are not implied.
 
 ## Module Map
 
