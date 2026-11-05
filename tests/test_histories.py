@@ -13,6 +13,7 @@ from agentfem import (
     models,
     solvers,
     studies,
+    units,
 )
 
 
@@ -141,7 +142,8 @@ def test_nodal_history_roundtrips_through_portable_coordinate_archive(tmp_path):
         assert payload["snapshots"].shape[0] == 2
 
 
-def test_transient_heat_step_captures_accepted_temperature_history(tmp_path):
+@pytest.mark.parametrize("model_units", [None, units.si(), units.consistent(length="m", mass="kg", time="h")])
+def test_transient_heat_step_captures_accepted_temperature_history(tmp_path, model_units):
     domain = mesh.rectangle(
         (0.0, 0.0),
         (1.0, 0.2),
@@ -152,6 +154,7 @@ def test_transient_heat_step_captures_accepted_temperature_history(tmp_path):
     model = models.create(
         study=studies.transient_heat_transfer(dimension=2),
         mesh=domain,
+        units=model_units,
     )
     temperature = model.field(fields.temperature(domain, value=400.0))
     model.material(
@@ -172,6 +175,13 @@ def test_transient_heat_step_captures_accepted_temperature_history(tmp_path):
     )
     step = model.step(target=temperature, dt=0.5, steps=2, progress=False)
     thermal_history = step.capture_history(name="temperature", unit="K")
+    expected_unit = None if model_units is None else model_units.time
+    assert thermal_history.coordinate_unit == expected_unit
+    if model_units is not None:
+        before = len(step.captured_histories)
+        with pytest.raises(ValueError, match="coordinate_unit.*Model time"):
+            step.capture_history(unit="K", coordinate_unit="ms")
+        assert len(step.captured_histories) == before
 
     step.run()
 
@@ -191,6 +201,7 @@ def test_transient_heat_step_captures_accepted_temperature_history(tmp_path):
         source=fields.temperature(domain, value=0.0),
     )
     assert restored.metadata == thermal_history.metadata
+    assert restored.coordinate_unit == expected_unit
 
 
 def test_temperature_property_table_is_bounded_and_inspectable():

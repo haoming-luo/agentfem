@@ -42,6 +42,16 @@ Each accepted endpoint records `S`, `E`, `CE`, `CEEQ`, and supplied `TEMP`.
 Joint plasticity also records `PE`, `PEEQ`, and `ALPHA` where present. Tensor
 shear is not engineering shear. Stress is Cauchy; temperature is kelvin. Stress
 and time units come from the model; absent unit declarations stay unknown.
+For creep or generalized-Maxwell Steps, a temperature history declared with
+`coordinate_unit="s"` requires a Model unit system whose time unit is seconds
+(for example `units.si()`). This is not a separate `model.step(time_unit=...)`
+option for these providers. A declared clock mismatch is rejected before
+loading; legacy histories without a coordinate unit follow the model convention.
+Temperature histories must identify kelvin (`unit="K"`) and physical time
+(`coordinate_name="time"`); Celsius values are not silently relabelled as kelvin.
+`heat_step.capture_history(...)` inherits the heat Model's time unit, so ordinary
+sequential transfer needs no duplicate clock declaration. Direct low-level
+transient Steps may supply `coordinate_unit` when no Model owns the clock.
 `result.metadata["material_point_history"]` retains reference position,
 original cell, quadrature index/rule, mesh identity, channel conventions and
 the material/loading/thermal-path identity. No projected or smoothed values

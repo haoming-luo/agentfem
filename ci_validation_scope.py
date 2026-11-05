@@ -185,6 +185,7 @@ _CORE_SOURCE_TEST_MAP = {
         "tests/test_p1_platform.py",
     ),
     "src/agentfem/_transient_problems.py": (
+        "tests/test_histories.py",
         "tests/test_common_workflows.py",
         "tests/test_first_order_operator_lifecycle.py",
         "tests/test_implicit_dynamics_lifecycle.py",
@@ -268,6 +269,7 @@ _CORE_SOURCE_TEST_MAP = {
         "tests/test_history_material_temperature.py",
     ),
     "src/agentfem/mechanics/_prescribed_temperature.py": (
+        "tests/test_rate_material_history_units.py",
         "tests/test_history_material_temperature.py",
         "tests/test_small_strain_temperature.py",
         "tests/test_thermal_history_time_units.py",
@@ -341,12 +343,15 @@ _CORE_SOURCE_TEST_MAP = {
         "tests/test_creep_prescribed_trial.py",
     ),
     "src/agentfem/mechanics/creep.py": (
+        "tests/test_rate_material_history_units.py",
         "tests/test_external_inelastic_benchmark.py",
         "tests/test_p1_platform.py",
         "tests/test_creep_prescribed_trial.py",
         "tests/test_p92_sinh_screen.py",
     ),
-    "src/agentfem/mechanics/viscoelasticity.py": ("tests/test_viscoelasticity.py",),
+    "src/agentfem/mechanics/viscoelasticity.py": (
+        "tests/test_viscoelasticity.py", "tests/test_rate_material_history_units.py",
+    ),
     "src/agentfem/mechanics/finite_strain_plasticity.py": (
         "tests/test_finite_strain_j2_mixed.py",
         "tests/test_finite_strain_j2_periodic.py",

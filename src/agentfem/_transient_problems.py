@@ -1065,6 +1065,7 @@ class FirstOrderTransientStep:
         *,
         name: str | None = None,
         unit: str | None = None,
+        coordinate_unit: str | None = None,
         every: int = 1,
         interpolation: str = "linear",
         outside: str = "error",
@@ -1073,15 +1074,24 @@ class FirstOrderTransientStep:
 
         The returned :class:`agentfem.histories.FieldHistory` can be passed
         directly to a later thermo-mechanical or creep step.
+        The physical clock unit is inherited from the owning Model. Direct
+        low-level Steps may declare it explicitly; no conversion is performed.
         """
 
         from . import histories
 
+        context = getattr(self, "execution_context", None)
+        model = getattr(context, "model", None)
+        model_time_unit = getattr(getattr(model, "unit_system", None), "time", None)
+        if (coordinate_unit is not None and model_time_unit is not None
+                and coordinate_unit != model_time_unit):
+            raise ValueError("Captured history coordinate_unit must match the Model time unit; no implicit conversion.")
         selected = self.current if source is None else source
         recorder = histories.FieldHistory(
             selected,
             name=name or getattr(getattr(selected, "value", selected), "name", "field"),
             unit=unit,
+            coordinate_unit=model_time_unit if coordinate_unit is None else coordinate_unit,
             every=every,
             interpolation=interpolation,
             outside=outside,
