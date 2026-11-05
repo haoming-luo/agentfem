@@ -27,6 +27,12 @@ open-source FEM platform. Its longer-term vision is to make finite-element
 simulation an accessible scientific workspace connecting engineering,
 computation, data, and AI.
 
+**Explore before installing:** [Browser demos, datasets & models](https://lab.haoming-luo.com/open-science/)
+· [Six classroom exercises](https://lab.haoming-luo.com/learn/en.html)
+([中文](https://lab.haoming-luo.com/learn/) · [Français](https://lab.haoming-luo.com/learn/fr.html)).
+The exercises include prompts, reference results, and downloadable handouts;
+running your own FEM cases requires the AgentFEM runtime below.
+
 ## All You Need Is an Agent
 
 > [!TIP]
