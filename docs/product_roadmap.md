@@ -11,6 +11,12 @@ research tools, not the material catalogue: Poisson ratio and multiaxial
 extension are assumptions, and experimental multiaxial validation, temperature
 interpolation and service-life prediction remain open.
 
+Integration checkpoint: #147–#150 are merged. The tensor research candidate
+additionally passes structural time refinement toward an independent continuous
+reference at both published temperatures. Next prioritize additional fixed-
+parameter cyclic experimental comparisons and co-located small-strain histories;
+do not infer lifetime or multiaxial calibration from the homogeneous patch tests.
+
 ## Direction
 
 AgentFEM is building a readable, dependable, and extensible finite-element
@@ -46,6 +52,37 @@ Next: independently audit and validate a real multiaxial material provider befor
 promoting it into structural use. Prescribed temperature, selected-point histories,
 regional materials, contact and MPI are separate composition gates. This candidate
 is not a P92 qualification, service-life prediction, or a release announcement.
+
+### Published P92 figure screen (2026-11-05)
+
+The unchanged published-parameter reference now has a quantitative, traceable
+source-figure screen. Six authors' model-dash samples agree inside pixel-reading
+sensitivity; 24 first-cycle experimental markers across three held-out dwell
+conditions show about 5-6% sampled mean absolute relative error and local
+differences up to 33 MPa. These sparse samples are not a full-curve validation,
+a general material admission or a life model. Source coordinates, calibration,
+uncertainty scope, reproducible code and disagreement are retained in the
+[figure-screen record](internal/p92_dwell_figure_screen_20261105.md).
+
+PRs #142, #143, #144 and #146 are merged; #144 passed full FEniCSx and macOS
+installed-use CI. Co-located finite-strain histories are merged in PR #147.
+Next scientific gates remain full cyclic response and explicit multiaxial
+formulation/structural verification, not repeated refitting of a failed holdout.
+
+### Co-located finite-strain user-material histories (2026-11-05)
+
+The next bounded consumer reuses `results.material_point` in ordinary
+finite-strain UserMaterial Steps. Raw `S/P/F/E_GL`, state and supplied uniform
+temperature share each accepted time and existing checkpoint/result contracts.
+Only selected points are recorded; sparse visualization does not decimate the
+history. No new solver or file format is introduced. Total Green–Lagrange
+strain is not automatically a mechanical strain-life input. See the
+[design and evidence record](internal/finite_material_point_histories_20261105.md).
+
+Engineering PRs #142, #143, #144 and #146 are merged. The uniform-temperature
+composition passed full FEniCSx and macOS installed-use CI. Published recovery equations remain a numerical
+reference; quantitative experimental agreement and a verified multiaxial
+provider remain open scientific gates. Do not infer either from history output.
 
 ### Prescribed thermal input for history materials (2026-11-05)
 

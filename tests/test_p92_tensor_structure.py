@@ -58,7 +58,7 @@ def test_unsupported_fields_rejected(change):
         material.update(replace(point(material), **change))
 
 
-def make_step(temperature=600, *, cyclic=False):
+def make_step(temperature=600, *, cyclic=False, increments=None):
     domain = mesh.cuboid((0.0, 0.0, 0.0), (1.0, 1.0, 1.0), (1, 1, 1))
     model = models.create(
         study=studies.static_solid(dimension=3, nonlinear=True), mesh=domain
@@ -72,7 +72,7 @@ def make_step(temperature=600, *, cyclic=False):
         target=u,
         duration=24.0 if cyclic else 8.0,
         time_unit="s",
-        incrementation=steps.fixed(96 if cyclic else 32),
+        incrementation=steps.fixed(increments or (96 if cyclic else 32)),
         amplitude=(
             amplitudes.tabular(
                 [0.0, 4 / 24, 8 / 24, 16 / 24, 20 / 24, 1.0],
@@ -120,6 +120,31 @@ def test_research_structure_restart(tmp_path):
             atol=1e-10,
             rtol=1e-10,
         )
+
+
+@pytest.mark.parametrize(
+    "poisson", [True, False, 0.3 + 0j, [0.3], float("nan"), 0.5, -1.0]
+)
+def test_reference_rejects_ambiguous_elastic_assumption(poisson):
+    with pytest.raises(ValueError):
+        P92TensorResearchMaterial(temperature_C=600, poisson=poisson)
+
+
+@pytest.mark.parametrize("temperature", [600, 650])
+def test_structural_time_refinement_toward_continuous_scalar_reference(temperature):
+    from tools.p92_published_recovery_reference import integrate_segment
+
+    parameters = published_parameters(temperature)
+    loaded = integrate_segment(np.zeros(5), 4.0, 0.001, parameters, rtol=1e-10).y[:, -1]
+    reference = integrate_segment(loaded, 4.0, 0.0, parameters, rtol=1e-10).y[:, -1]
+    errors = []
+    for count in (16, 32, 64):
+        step = make_step(temperature, increments=count)
+        step.solve()
+        observed = float(np.mean(step.response.cauchy_stress.values[..., 0, 0]))
+        errors.append(abs(observed - reference[0]))
+    assert errors[1] < 0.7 * errors[0], errors
+    assert errors[2] < 0.7 * errors[1], errors
 
 
 @pytest.mark.parametrize("temperature", [600, 650])

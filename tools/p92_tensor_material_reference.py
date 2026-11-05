@@ -20,7 +20,13 @@ class P92TensorResearchMaterial:
 
     def __init__(self, *, temperature_C, poisson):
         self.reference = published_parameters(temperature_C)
-        if not np.isfinite(poisson) or not -1 < poisson < 0.5:
+        if (
+            isinstance(poisson, (bool, np.bool_))
+            or np.iscomplexobj(poisson)
+            or np.asarray(poisson).ndim != 0
+            or not np.isfinite(poisson)
+            or not -1 < poisson < 0.5
+        ):
             raise ValueError("Supply a finite Poisson ratio in (-1, 0.5).")
         self.parameters = {"temperature_C": temperature_C, "poisson": poisson}
         self.parameter_schema = c.MaterialParameterSchema(

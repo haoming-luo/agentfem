@@ -66,6 +66,8 @@ class FiniteStrainMaterialStep:
         checkpoint=None,
         output_every=1,
         temperature=None,
+        material_points=(),
+        unit_system=None,
     ):
         from .. import constraints as constraint_api
         from .._step_provider_support import is_standalone_h1_vector_field
@@ -137,6 +139,8 @@ class FiniteStrainMaterialStep:
             )
         self._output_every = None if output_every is None else int(output_every)
         self.time_unit = None if time_unit is None else str(time_unit).strip()
+        self.material_points = tuple(material_points)
+        self.unit_system = unit_system
         if self.time_unit == "":
             raise ValueError("time_unit must be nonempty when declared.")
         if np.any(self.solution.x.array != 0):
@@ -379,6 +383,7 @@ class FiniteStrainMaterialStep:
                 "load": load_identity,
                 **({"temperature": self._temperature_input.summary()}
                    if self._temperature_input is not None else {}),
+                **self._point_selection_identity(),
                 **(
                     {"plane_stress": self.plane_stress.summary()}
                     if self.plane_stress is not None
@@ -392,6 +397,61 @@ class FiniteStrainMaterialStep:
         )
         self._reference_geometry_signature = self._geometry_signature()
         self._accepted_field_signature = self._field_signature()
+        self._point_history = None
+        if self.material_points:
+            from ..results.material_points import _MaterialPointRecorder
+
+            if set(state_names) & {"F", "E_GL", "TEMP"}:
+                raise ValueError("Material point history state names collide with F, E_GL or TEMP.")
+            stress_unit = getattr(self.unit_system, "stress", None)
+            channels = {
+                "S": {"shape": [3, 3], "unit": stress_unit, "measure": "Cauchy stress; current Cartesian tensor"},
+                "P": {"shape": [3, 3], "unit": stress_unit, "measure": "first Piola stress; reference area, spatial force"},
+                "F": {"shape": [3, 3], "unit": "1", "measure": "effective three-dimensional deformation gradient"},
+                "E_GL": {"shape": [3, 3], "unit": "1", "measure": "total Green-Lagrange strain; reference tensor, not mechanical strain"},
+            }
+            for variable in material.state_schema.variables:
+                channels[variable.output_name or variable.name] = {
+                    "shape": list(variable.shape), "unit": variable.unit,
+                    "measure": variable.description + "; accepted constitutive state",
+                }
+            if self._temperature_input is not None:
+                channels["TEMP"] = {"shape": [], "unit": "K", "measure": "prescribed absolute temperature"}
+            self._point_history = _MaterialPointRecorder(
+                self.material_points, self.response.cauchy_stress, channels=channels,
+                time_unit=self.time_unit, scientific_identity=self._identity,
+            )
+
+    def _point_selection_identity(self):
+        from ..results.material_points import MaterialPointHistoryRequest
+
+        if not self.material_points:
+            return {}
+        if not all(isinstance(item, MaterialPointHistoryRequest) for item in self.material_points):
+            raise TypeError("material_points must contain results.material_point(...) requests.")
+        return {"material_points": [
+            {"name": item.name, "cell": item.cell, "point": item.point}
+            for item in self.material_points
+        ], "point_history_units": None if self.unit_system is None else self.unit_system.summary()}
+
+    @property
+    def material_point_histories(self):
+        """Detached raw point histories from accepted increments only."""
+        return () if self._point_history is None else self._point_history.histories()
+
+    def _prepare_point_frame(self, time):
+        if self._point_history is None:
+            return None
+        indices = self._point_history.indices
+        F = self._trial_F[indices]
+        values = {"S": self.response.cauchy_stress.values[indices],
+                  "P": self.response.first_piola_stress.values[indices],
+                  "F": F, "E_GL": .5 * (np.einsum("nki,nkj->nij", F, F) - np.eye(3))}
+        for variable in self.material.state_schema.variables:
+            values[variable.output_name or variable.name] = self.state.trial[variable.name].values[indices]
+        if self._temperature_field is not None:
+            values["TEMP"] = self._temperature_field.values[indices]
+        return self._point_history.prepare(time, values, selected=True)
 
     @property
     def time(self):
@@ -474,6 +534,12 @@ class FiniteStrainMaterialStep:
         )
 
     def _check_input_identity(self):
+        selection = self._point_selection_identity()
+        if any(selection.get(key) != self._identity.get(key)
+               for key in ("material_points", "point_history_units")):
+            raise ValueError("Material point history selection or units changed after construction.")
+        if self._point_history is not None:
+            self._point_history.validate_reference()
         if self._geometry_signature() != self._reference_geometry_signature:
             raise ValueError(
                 "Reference geometry changed after Step construction; construct a new Step."
@@ -782,6 +848,7 @@ class FiniteStrainMaterialStep:
                 if accepted:
                     try:
                         new_F = self._trial_F.copy()
+                        point_frame = self._prepare_point_frame(record["time"])
                         self.response.commit()
                     except BaseException:
                         self._restore(snapshot)
@@ -795,6 +862,8 @@ class FiniteStrainMaterialStep:
                     )
                     self.accepted_load_factor = target
                     self.accepted_increments.append(record.copy())
+                    if point_frame is not None:
+                        self._point_history.frames.append(point_frame)
                     self._at_accepted = True
                     self._accepted_field_signature = self._field_signature()
                     successful_attempt = cutbacks + 1
@@ -1106,6 +1175,10 @@ class FiniteStrainMaterialStep:
                 description="Prescribed uniform temperature at accepted states; not a heat solve.",
             )
         sources, recovered = self._visual_fields()
+        if self._point_history is not None:
+            for history in self.material_point_histories:
+                result.histories[history.name] = history
+            result.metadata["material_point_history"] = _json(self._point_history.identity)
         for name, source in sources.items():
             result.add_field(
                 name,
@@ -1239,6 +1312,8 @@ class FiniteStrainMaterialStep:
                 allow_nan=False,
             ),
             **arrays,
+            **({"material_point_history": json.dumps(self._point_history.payload(), allow_nan=False)}
+               if self._point_history is not None else {}),
         )
         self.checkpoints.append(self._checkpoint_record(selected))
         return selected
@@ -1365,6 +1440,15 @@ class FiniteStrainMaterialStep:
                 )
             ledger = json.loads(str(data["ledger"].item()))
             coordinate, next_size = self._validate_ledger(ledger)
+            point_frames = None
+            if self._point_history is not None:
+                payload = (json.loads(str(data["material_point_history"].item()))
+                           if "material_point_history" in data else None)
+                point_frames = self._point_history.validated_frames(
+                    payload, accepted_times=[record["time"] for record in ledger["accepted"]],
+                )
+            elif "material_point_history" in data:
+                raise ValueError("Checkpoint contains undeclared material point histories.")
             candidate = {
                 "U": data["U"].copy(),
                 "F": data["F"].copy(),
@@ -1423,6 +1507,8 @@ class FiniteStrainMaterialStep:
             self._restore(snapshot)
             raise
         self.accepted_load_factor = coordinate
+        if point_frames is not None:
+            self._point_history.frames = point_frames
         self.accepted_increments = ledger["accepted"]
         self.attempted_increments = ledger["attempted"]
         self.next_increment_size = next_size

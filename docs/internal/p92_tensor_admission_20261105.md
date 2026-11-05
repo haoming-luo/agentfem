@@ -87,3 +87,30 @@ Structural refinement, nonproportional material data, temperature interpolation,
 cyclic-life prediction and a production material catalogue entry remain
 separate. The source does not supply a unique multiaxial model or Poisson ratio;
 no claim of calibrated three-dimensional P92 behavior follows from this gate.
+
+## Integration follow-up
+
+PR #150 is merged. This research branch is now based on that verified main,
+including the independent scalar figure screen and co-located finite-strain
+history consumer; the latter is not automatically available on this small-strain
+route. CI changes to the upstream scalar reference now also select the tensor
+and structural tests, preventing an unnoticed dependency regression.
+
+At both published temperatures, structural runs with 16, 32 and 64 increments
+approach an independently integrated continuous-time scalar Radau reference.
+Each refinement reduces final axial-stress error by at least 30% in the tested
+ramp/hold path. This is time-discretization evidence for a homogeneous patch,
+not spatial convergence or experimental multiaxial validation. Invalid complex,
+boolean, array-valued and out-of-range Poisson assumptions are rejected at
+construction.
+
+The integrated local regression is **243 passed, 1 skipped** (the serial run
+skips the dedicated two-rank admission check). Generated documentation and
+targeted lint checks pass. No new release or material maturity promotion is
+made by this integration.
+
+Next gate: retain fixed published parameters and test additional full cyclic
+experimental histories with explicit digitization uncertainty. Separately,
+extend co-located accepted histories to the small-strain consumer before using
+structural paths as life-assessment inputs. Temperature interpolation and
+multiaxial calibration need independent evidence, not inferred constants.

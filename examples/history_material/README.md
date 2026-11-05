@@ -3,7 +3,7 @@
 This educational project keeps `case.py` as the engineering model and
 `material.py` as two local constitutive updates. There is no project Newton
 loop, quadrature manager, Step provider, mesh writer or checkpoint adapter.
-Use an AgentFEM build exposing `mechanics.FiniteStrainMaterialStep(checkpoint=..., output_every=..., temperature=...)` and
+Use an AgentFEM build exposing `mechanics.FiniteStrainMaterialStep(checkpoint=..., output_every=..., temperature=..., material_points=...)` and
 `constitutive.PlaneStressReduction`; an older
 development package with the same version string is not sufficient.
 
@@ -34,6 +34,19 @@ supplies endpoint temperature/increment and visits thermal knots; it does not
 run a heat solve or add a second thermal strain. `TEMP_CELL` appears beside
 stress in the saved frames, and `temperature` is a compact accepted history.
 Keep this flag unchanged when restarting a thermal run.
+
+For a compact raw history at one fixed integration point:
+
+```sh
+agentfem run --name history -- --temperature-cycle --material-point --output-every 4
+```
+
+This adds `sample.S`, `sample.P`, `sample.F`, `sample.E_GL`, named internal
+variables and supplied `sample.TEMP` to ordinary result histories. They share
+each accepted physical time, independently of saved field frames. The example
+selects original cell 0, quadrature point 0; choose a scientifically meaningful
+location for your model. `E_GL` is total Green–Lagrange strain, not mechanical
+strain for direct life assessment. Keep the same selection when restarting.
 
 Open the run's `results.xdmf` in ParaView. Choose `Displacement` in Warp By
 Vector (scale 1) and color by `S_CELL` or a state field. The reference mesh,

@@ -98,6 +98,13 @@ speedup or a fixed frame count when adaptive cutback adds accepted increments.
 
 ## The material contract
 
+For selected raw material histories, add
+`material_points=(results.material_point("site", cell=0, point=0),)` to the
+same Step. It records accepted `site.S/P/F/E_GL`, state and supplied temperature
+independently of field cadence, with complete same-layout restart. See
+[co-located histories](material_point_histories.md) for measures and units.
+This is not a nodal probe or a history of spatial maxima.
+
 Reuse `constitutive.UserMaterial`, `MaterialStateSchema`, `MaterialPointInput`
 and `MaterialPointOutput`; there is no second neural-material interface.
 

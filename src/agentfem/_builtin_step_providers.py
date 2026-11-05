@@ -427,6 +427,9 @@ def _lower_finite_strain_user_material(model, request: StepRequest):
         model.loads, options.pop("amplitude", None), label="finite-strain user material", physical_time=False,
     )
     constraints = options.pop("constraints", None)
+    if options.get("material_points"):
+        options["unit_system"] = model.unit_system
+        options.setdefault("time_unit", getattr(model.unit_system, "time", None))
     step = FiniteStrainMaterialStep(
         displacement=request.target, material=_selected_material(model, request),
         external_force=model.external_force(request.target, loads=selected_loads) if selected_loads else None,
@@ -1866,7 +1869,7 @@ register_step_provider(
         description="Experimental serial history-material equilibrium with reference dP/dF and physical duration.",
         procedure="standard/newton/stateful",
         option_contract=_option_contract("duration", "incrementation", "quadrature_degree",
-                                         "amplitude", "properties", "progress", "time_unit", "plane_stress", "checkpoint", "output_every", "temperature", required=("duration",)),
+                                         "amplitude", "properties", "progress", "time_unit", "plane_stress", "checkpoint", "output_every", "temperature", "material_points", required=("duration",)),
     )
 )
 register_step_provider(
