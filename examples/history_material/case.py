@@ -11,6 +11,7 @@ from agentfem import (
     mesh,
     models,
     project,
+    results,
     steps,
     studies,
 )
@@ -25,6 +26,8 @@ def main():
     parser.add_argument("--restart", default=None)
     parser.add_argument("--temperature-cycle", action="store_true",
                         help="Apply the synthetic uniform heating/cooling history (kelvin).")
+    parser.add_argument("--material-point", action="store_true",
+                        help="Record raw accepted tensors and state at original cell 0, quadrature point 0.")
     parser.add_argument(
         "--output-every", type=int, default=1,
         help="Save fields every N accepted increments; also save segment endpoints.",
@@ -64,6 +67,7 @@ def main():
         duration=2.0,
         time_unit="s",
         temperature=temperature,
+        material_points=(results.material_point("sample", cell=0),) if args.material_point else (),
         amplitude=cycle,
         incrementation=steps.fixed(16),
         output=run.artifact("results.xdmf"),

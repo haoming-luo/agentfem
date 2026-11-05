@@ -2605,6 +2605,7 @@ response = constitutive.validated_material_update(material, point)
 - `tests/test_history_output_cadence.py`
 - `tests/test_material_verification_inputs.py`
 - `tests/test_material_rotation.py`
+- `tests/test_finite_material_point_histories.py`
 
 **Benchmarks**
 
@@ -2624,6 +2625,7 @@ response = constitutive.validated_material_update(material, point)
 - Reject observable provider input mutation while preserving caller requests, including failed providers; normalize tensor symmetry independently per point.
 - Check reference/spatial history covariance, changing endpoint rotations, anisotropy and component permutations; retain a negative control that passes rotation covariance but fails differentiation.
 - Keep undeclared legacy outputs ineligible for global Newton consumption.
+- Selected raw S/P/F/E_GL, named state and supplied TEMP histories share original cell/quadrature identity and accepted physical time. Preserve the complete history through same-layout restart; do not relabel total Green-Lagrange strain as mechanical strain for life assessment.
 - Compare two history laws against material points, check global tangent directions, physical-time cutback, atomic same-layout restart and real multi-field VTK/Warp output.
 
 ### References

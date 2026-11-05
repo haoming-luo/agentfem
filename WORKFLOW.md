@@ -216,6 +216,11 @@ For prescribed uniform temperature, use `temperature=` with a positive kelvin
 scalar or an existing scalar `histories.temperature` covering the physical
 duration. This frozen one-way input shares the material trial/commit/restart
 lifecycle; spatial fields and a heat solve are not implied.
+The same Step accepts opt-in `material_points` for raw co-located `S/P/F/E_GL`,
+state and prescribed-temperature histories. These are accepted-increment
+observations, independent of field output cadence, using the existing Result
+and restart contracts. `E_GL` denotes total Green–Lagrange strain, not a
+mechanical strain-life input. See `docs/material_point_histories.md`.
 
 ## Module Map
 

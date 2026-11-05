@@ -19,6 +19,21 @@ or a successful run is not by itself a validated engineering capability.
 
 ## Current product phase: the 0.4 foundation
 
+### Co-located finite-strain user-material histories (2026-11-05)
+
+The next bounded consumer reuses `results.material_point` in ordinary
+finite-strain UserMaterial Steps. Raw `S/P/F/E_GL`, state and supplied uniform
+temperature share each accepted time and existing checkpoint/result contracts.
+Only selected points are recorded; sparse visualization does not decimate the
+history. No new solver or file format is introduced. Total Green–Lagrange
+strain is not automatically a mechanical strain-life input. See the
+[design and evidence record](internal/finite_material_point_histories_20261105.md).
+
+Engineering PRs #142, #143 and #146 are merged. The uniform-temperature PR #144
+is in final integration CI. Published recovery equations remain a numerical
+reference; quantitative experimental agreement and a verified multiaxial
+provider remain open scientific gates. Do not infer either from history output.
+
 ### Prescribed thermal input for history materials (2026-11-05)
 
 This bounded composition reuses the existing finite-strain material Step:
