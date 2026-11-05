@@ -24,7 +24,7 @@ def temperature_field(*, value: float = 0.0):
 
 def write(path: Path) -> None:
     temperature = temperature_field()
-    history = histories.temperature(temperature)
+    history = histories.temperature(temperature, coordinate_unit="s")
     temperature.value.interpolate(lambda x: 300.0 + 50.0 * x[0])
     history.record(0.0)
     temperature.value.interpolate(lambda x: 500.0 + 50.0 * x[0])
@@ -46,6 +46,8 @@ def read(path: Path) -> None:
         atol=1.0e-12,
     )
     assert history.portable_identity()["layout"] == "portable_nodal"
+    assert history.coordinate_unit == "s"
+    assert history.portable_identity()["coordinate_unit"] == "s"
 
 
 def main() -> None:

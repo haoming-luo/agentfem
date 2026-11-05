@@ -222,6 +222,11 @@ observations, independent of field output cadence, using the existing Result
 and restart contracts. `E_GL` denotes total Green–Lagrange strain, not a
 mechanical strain-life input. See `docs/material_point_histories.md`.
 
+The physical-time small-strain UserMaterial Step also accepts `material_points`
+for raw co-located `S/E` and named state, with the same accepted-history and
+restart semantics. Total infinitesimal `E` does not imply a mechanical-strain
+partition; this bounded route remains serial homogeneous 3D.
+
 ## Module Map
 
 Package paths below are relative to `src/agentfem/`.

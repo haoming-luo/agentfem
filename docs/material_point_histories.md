@@ -35,13 +35,23 @@ The initial consumer is serial Cartesian 3D small-strain creep: homogeneous
 power-law or joint creep/plastic material, and existing regional pure-creep
 materials. Supplied scalar, FE or accepted-history temperature is sampled at
 the same constitutive point. Joint regional plasticity, arbitrary user-material
-Steps outside the finite-strain consumer below, axisymmetric point histories
+Steps outside the bounded consumers below, axisymmetric point histories
 and MPI recording remain unadmitted.
 
 Each accepted endpoint records `S`, `E`, `CE`, `CEEQ`, and supplied `TEMP`.
 Joint plasticity also records `PE`, `PEEQ`, and `ALPHA` where present. Tensor
 shear is not engineering shear. Stress is Cauchy; temperature is kelvin. Stress
 and time units come from the model; absent unit declarations stay unknown.
+For creep or generalized-Maxwell Steps, a temperature history declared with
+`coordinate_unit="s"` requires a Model unit system whose time unit is seconds
+(for example `units.si()`). This is not a separate `model.step(time_unit=...)`
+option for these providers. A declared clock mismatch is rejected before
+loading; legacy histories without a coordinate unit follow the model convention.
+Temperature histories must identify kelvin (`unit="K"`) and physical time
+(`coordinate_name="time"`); Celsius values are not silently relabelled as kelvin.
+`heat_step.capture_history(...)` inherits the heat Model's time unit, so ordinary
+sequential transfer needs no duplicate clock declaration. Direct low-level
+transient Steps may supply `coordinate_unit` when no Model owns the clock.
 `result.metadata["material_point_history"]` retains reference position,
 original cell, quadrature index/rule, mesh identity, channel conventions and
 the material/loading/thermal-path identity. No projected or smoothed values
@@ -54,6 +64,39 @@ reversals with adequate physical increments. The history itself does not
 certify time discretization or supply an empirical rupture law.
 
 ## Pause, recovery and storage
+
+### Small-strain user materials
+
+With a physical `duration`, this Step also accepts `temperature=300.0` (kelvin)
+or a scalar `histories.temperature(...)` recorded against physical time. The
+frozen input is passed to the local material as endpoint temperature and the
+increment from the accepted start. Temperature knots are visited exactly.
+For transfer between projects, declare the history's time unit explicitly,
+for example `histories.temperature(300.0, coordinate_unit="s")` alongside
+the Step's `time_unit="s"`. Both user-material consumers reject a declared
+mismatch; no h/s conversion is implicit. Existing histories without a
+coordinate unit retain their model-unit convention.
+The material owns thermal strain and must declare a stress-free initial state
+at the initial temperature. This is prescribed thermal input, not a heat solve.
+
+Selected material points then include `TEMP` in kelvin, co-located with `S`,
+total `E` and named state. The final mesh output includes cell `TEMP` on the
+same grid as displacement and stress. Restart requires the same frozen thermal
+path; it does not invoke a fictitious material update to rebuild temperature.
+
+The physical-time small-strain UserMaterial Step accepts the same
+`material_points=` requests in its existing serial homogeneous 3D scope.
+It records raw Cauchy `S`, total infinitesimal `E`, and named material state
+at each accepted physical time. Tensor shear is retained; no thermal or
+inelastic strain partition is invented. This option requires `duration` and
+does not change the legacy rate-independent checkpoint route.
+
+Selection, units, material and loading identity are frozen together. The v2
+checkpoint includes the complete selected history and integrity digest;
+missing history cannot be reconstructed from final fields. Failure during
+frame preparation or state commit restores the previous accepted displacement,
+constitutive response and history. `examples/small_strain_relaxation` offers
+`--material-point` for ordinary run/restart use.
 
 ### Finite-strain user materials
 
@@ -80,6 +123,12 @@ field histories are not stored. See the `--material-point` option in
 [`examples/history_material`](https://github.com/haoming-luo/agentfem/tree/main/examples/history_material).
 
 ### Shared continuation behavior
+
+Creep and Maxwell checkpoints retain an explicitly declared Model time unit,
+even without point recording. Resume with the same unit; no automatic seconds/
+hours conversion is performed. An older checkpoint without that declaration
+does not establish a known clock: continue it with the original software or a
+reviewed migration, rather than removing units to bypass compatibility checks.
 
 `step.material_point_histories` returns ordinary `HistoryResult` copies even
 while paused. A creep v1 serial or v2 portable-format Step checkpoint includes the

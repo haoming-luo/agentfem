@@ -59,6 +59,15 @@ or a successful run is not by itself a validated engineering capability.
 
 ## Current product phase: the 0.4 foundation
 
+### Small-strain accepted histories (2026-11-06 candidate)
+
+The physical-time small-strain user-material route now composes with the
+existing selected-point recorder: raw stress, total strain and named history
+share accepted time and atomic restart. See the
+[design and evidence](internal/small_strain_point_histories_20261106.md).
+This removes a data-flow gap for future life assessment; a material-specific
+rupture/fatigue law and independent validation are still separate requirements.
+
 ### P92 long-cycle response screen (2026-11-06 candidate)
 
 Fixed published parameters were compared with sparse long-cycle experimental
@@ -91,8 +100,9 @@ The [design record](internal/small_strain_physical_time_20261105.md) and
 `examples/small_strain_relaxation` retain the exact scope.
 
 Next: independently audit and validate a real multiaxial material provider before
-promoting it into structural use. Prescribed temperature, selected-point histories,
-regional materials, contact and MPI are separate composition gates. This candidate
+promoting it into structural use. Selected-point histories are covered by the
+candidate above; prescribed temperature, regional materials, contact and MPI
+remain separate composition gates. This candidate
 is not a P92 qualification, service-life prediction, or a release announcement.
 
 ### Published P92 figure screen (2026-11-05)

@@ -9,10 +9,10 @@ import numpy as np
 from dolfinx import mesh as dolfinx_mesh
 from mpi4py import MPI
 
-from agentfem import amplitudes, constitutive, fields, mesh, models, solvers, studies
+from agentfem import amplitudes, constitutive, fields, mesh, models, solvers, studies, units
 
 
-def _step():
+def _step(*, time_unit="s"):
     domain = dolfinx_mesh.create_box(
         MPI.COMM_WORLD,
         [np.zeros(3), np.asarray((1.0, 0.2, 0.2))],
@@ -23,6 +23,7 @@ def _step():
         study=studies.viscoelastic_solid(dimension=3),
         mesh=domain,
         name="portable_viscoelastic_step",
+        units=units.consistent(length="m", mass="kg", time=time_unit),
     )
     displacement = model.field(fields.displacement(domain))
     material = model.material(
@@ -91,6 +92,7 @@ def main() -> None:
     restarted = _step()
     restarted.load_checkpoint(arguments.root)
     assert restarted.accepted_time == 1.0
+    assert restarted._portable_checkpoint_identity()["physical_time_unit"] == "s"
     restarted.solve()
     assert restarted.last_solve_info.completed_step
     np.testing.assert_allclose(
@@ -118,6 +120,17 @@ def main() -> None:
         rtol=2.0e-9,
         atol=2.0e-11,
     )
+    incompatible = _step(time_unit="h")
+    before = incompatible.solution.x.array.copy()
+    try:
+        incompatible.load_checkpoint(arguments.root)
+    except ValueError:
+        rejected = True
+    else:
+        rejected = False
+    assert all(MPI.COMM_WORLD.allgather(rejected))
+    assert incompatible.accepted_time == 0.
+    np.testing.assert_array_equal(incompatible.solution.x.array, before)
 
 
 if __name__ == "__main__":

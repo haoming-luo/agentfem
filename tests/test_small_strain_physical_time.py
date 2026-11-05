@@ -127,6 +127,7 @@ def make_step(
     increments=None,
     amplitude=None,
     traction=None,
+    time_unit="s",
     **options,
 ):
     domain = dm.create_box(
@@ -159,7 +160,7 @@ def make_step(
     return model.step(
         target=u,
         duration=duration,
-        time_unit="s",
+        time_unit=time_unit,
         progress=False,
         incrementation=steps.fixed(8) if increments is None else increments,
         amplitude=amplitude,

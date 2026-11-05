@@ -149,6 +149,9 @@ class SmallStrainMaterialStep:
     solver_options: NewtonSolverOptions
     duration: float | None = None
     time_unit: str = "s"
+    temperature: object | None = None
+    material_points: tuple = ()
+    unit_system: object | None = None
     external_force: object | None = None
     study: object | None = None
     progress: object = True
@@ -212,6 +215,24 @@ class SmallStrainMaterialStep:
         )
 
     def __post_init__(self) -> None:
+        from ._prescribed_temperature import freeze_uniform_temperature
+
+        if self.temperature is not None and self.duration is None:
+            raise ValueError("Prescribed temperature requires a physical duration.")
+        self._temperature_input = freeze_uniform_temperature(
+            self.temperature, self.duration, time_unit=self.time_unit
+        )
+        if self._temperature_input is not None and any(
+            (variable.output_name or variable.name) == "TEMP"
+            for variable in self.material.state_schema.variables
+        ):
+            raise ValueError("Material state alias TEMP is reserved for prescribed temperature.")
+        self.material_points = tuple(self.material_points)
+        self._point_history = None
+        if self.material_points and self.duration is None:
+            raise NotImplementedError(
+                "Material-point histories require a physical duration."
+            )
         expression = elasticity.strain(self.solution, study=self.study)
         self._strain_evaluator = self.response.state.compile_expression(
             expression, value_shape=(3, 3)
@@ -225,8 +246,91 @@ class SmallStrainMaterialStep:
             self._physical_identity = json.dumps(
                 self._checkpoint_identity(), sort_keys=True
             )
+        if self.material_points:
+            from ..results.material_points import _MaterialPointRecorder
+
+            channels = {
+                "S": {
+                    "shape": [3, 3],
+                    "unit": getattr(self.unit_system, "stress", None),
+                    "measure": "Cauchy stress; Cartesian tensor",
+                },
+                "E": {
+                    "shape": [3, 3],
+                    "unit": "1",
+                    "measure": "total infinitesimal strain; tensor shear, not mechanical strain",
+                },
+            }
+            if self._temperature_input is not None:
+                channels["TEMP"] = {
+                    "shape": [],
+                    "unit": "K",
+                    "measure": "prescribed uniform temperature; no heat solve",
+                }
+            for variable in self.material.state_schema.variables:
+                name = variable.output_name or variable.name
+                if name in channels or name == "TEMP":
+                    raise ValueError(
+                        "Material history state aliases collide with reserved channels."
+                    )
+                channels[name] = {
+                    "shape": list(variable.shape),
+                    "unit": variable.unit,
+                    "measure": variable.description + "; accepted constitutive state",
+                }
+            self._point_history = _MaterialPointRecorder(
+                self.material_points,
+                self.response.cauchy_stress,
+                channels=channels,
+                time_unit=self.time_unit,
+                scientific_identity=self._checkpoint_identity(),
+            )
+
+    def _point_selection_identity(self):
+        from ..results.material_points import MaterialPointHistoryRequest
+
+        if not self.material_points:
+            return {}
+        if not all(
+            isinstance(item, MaterialPointHistoryRequest)
+            for item in self.material_points
+        ):
+            raise TypeError(
+                "material_points must contain results.material_point requests."
+            )
+        return {
+            "material_points": [
+                {"name": item.name, "cell": item.cell, "point": item.point}
+                for item in self.material_points
+            ],
+            "point_history_units": None
+            if self.unit_system is None
+            else self.unit_system.summary(),
+        }
+
+    @property
+    def material_point_histories(self):
+        return () if self._point_history is None else self._point_history.histories()
+
+    def _prepare_point_frame(self, time, strain):
+        if self._point_history is None:
+            return None
+        indices = self._point_history.indices
+        values = {
+            "S": self.response.cauchy_stress.values[indices],
+            "E": strain[indices],
+        }
+        if self._temperature_input is not None:
+            values["TEMP"] = np.full(len(indices), self._temperature_input.at(time))
+        for variable in self.material.state_schema.variables:
+            values[variable.output_name or variable.name] = self.state.trial[
+                variable.name
+            ].values[indices]
+        return self._point_history.prepare(time, values, selected=True)
 
     def _check_physical_identity(self):
+        if self._point_history is not None:
+            self._point_history.validate_reference()
         if (
             hasattr(self, "_physical_identity")
             and json.dumps(self._checkpoint_identity(), sort_keys=True)
@@ -292,6 +396,14 @@ class SmallStrainMaterialStep:
 
     def _update_material(self, *, time: float, time_increment: float):
         scale = 1.0 if self.duration is None else self.duration
+        thermal = {}
+        if self._temperature_input is not None:
+            endpoint = self._temperature_input.at(float(time) * scale)
+            start = self._temperature_input.at(self.accepted_load_factor * scale)
+            thermal = {
+                "temperature": endpoint,
+                "temperature_increment": endpoint - start,
+            }
         self._trial_result = self.response.update(
             self.material,
             strain_old=self._accepted_strain,
@@ -302,6 +414,7 @@ class SmallStrainMaterialStep:
                 if self.duration is None
                 else float(time_increment) * scale
             ),
+            **thermal,
         )
         return self._trial_result
 
@@ -358,6 +471,17 @@ class SmallStrainMaterialStep:
                 target = min(
                     target,
                     next((float(k) for k in knots if accepted_factor < k < 1), 1.0),
+                )
+            if self._temperature_input is not None:
+                thermal_knots = (
+                    t / self.duration for t in self._temperature_input.times
+                )
+                target = min(
+                    target,
+                    next(
+                        (k for k in thermal_knots if accepted_factor + 1e-12 < k < 1),
+                        1.0,
+                    ),
                 )
             attempt = consecutive_cutbacks + 1
             self._emit(
@@ -421,8 +545,26 @@ class SmallStrainMaterialStep:
                 )
             self.attempted_increments.append(info)
             if info.converged:
-                self.response.commit()
-                self._accepted_strain = self._evaluate_strain()
+                try:
+                    accepted_strain = self._evaluate_strain()
+                    point_frame = self._prepare_point_frame(
+                        target * self.duration if self.duration is not None else target,
+                        accepted_strain,
+                    )
+                    self.response.commit()
+                except BaseException:
+                    if old_response is not None:
+                        self.solution.x.array[:] = displacement
+                        self.solution.x.scatter_forward()
+                        self.response.restore(state)
+                        self._accepted_strain = old_strain
+                        self._apply_loading(accepted_factor)
+                        self._restore_response(old_response)
+                        self.attempted_increments.pop()
+                    raise
+                self._accepted_strain = accepted_strain
+                if point_frame is not None:
+                    self._point_history.frames.append(point_frame)
                 self.accepted_increments.append(info)
                 accepted_size = target - accepted_factor
                 accepted_factor = target
@@ -734,6 +876,7 @@ class SmallStrainMaterialStep:
         strict_output=False,
         metadata=None,
     ):
+        self._check_physical_identity()
         from ..results import (
             add_execution_trace,
             complete_result,
@@ -757,6 +900,24 @@ class SmallStrainMaterialStep:
             },
         )
         add_execution_trace(result, self.execution_events)
+        if self._temperature_input is not None:
+            thermal_field = fem.Function(
+                fem.functionspace(self.solution.function_space.mesh, ("DG", 0)),
+                name="TEMP",
+            )
+            thermal_field.x.array[:] = self._temperature_input.at(self.time)
+            thermal_field.x.scatter_forward()
+            result.add_field(
+                "TEMP",
+                thermal_field,
+                unit="K",
+                location="cells",
+                description="Accepted prescribed uniform temperature; no heat solve.",
+                processing={"method": "prescribed_uniform_input", "committed": True},
+            )
+            result.metadata["prescribed_temperature"] = (
+                self._temperature_input.summary()
+            )
         sources = [
             (
                 "S",
@@ -830,6 +991,12 @@ class SmallStrainMaterialStep:
             kind="diagnostic",
         )
         result.metadata["material"] = _material_summary(self.material)
+        if self._point_history is not None:
+            for history in self.material_point_histories:
+                result.histories[history.name] = history
+            result.metadata["material_point_history"] = json.loads(
+                json.dumps(self._point_history.identity)
+            )
         if self.duration is not None:
             result.metadata["physical_time"] = {
                 "duration": self.duration,
@@ -916,6 +1083,8 @@ class SmallStrainMaterialStep:
             "execution_events": [item.as_dict() for item in self.execution_events],
             "next_increment_size": self.next_increment_size,
         }
+        if self._point_history is not None:
+            payload["material_point_history"] = self._point_history.payload()
         if self.duration is not None:
             response_path = manifest.with_name(
                 f"{selected.name}.{bundle['generation']}.response.npz"
@@ -1144,6 +1313,14 @@ class SmallStrainMaterialStep:
                 raise ValueError(
                     "Checkpoint ledger does not end at the accepted state."
                 )
+            point_frames = None
+            if self._point_history is not None:
+                point_frames = self._point_history.validated_frames(
+                    payload.get("material_point_history"),
+                    accepted_times=[
+                        item.load_factor * self.duration for item in accepted
+                    ],
+                )
             events = [
                 SolveEvent.from_dict(item)
                 for item in payload.get("execution_events", ())
@@ -1198,6 +1375,8 @@ class SmallStrainMaterialStep:
             tuple(self.attempted_increments),
             self.incrementation,
         )
+        if self._point_history is not None:
+            self._point_history.frames = point_frames
 
     def _checkpoint_identity(self):
         from ..checkpointing import function_portable_identity
@@ -1230,6 +1409,8 @@ class SmallStrainMaterialStep:
                     ],
                 },
             }
+        if self._temperature_input is not None:
+            physical["temperature"] = self._temperature_input.summary()
         return {
             "step_name": self.name,
             "procedure": self.procedure.summary(),
@@ -1239,6 +1420,7 @@ class SmallStrainMaterialStep:
             "solution": function_portable_identity(self.solution),
             "quadrature": self.state.summary()["transaction"],
             **physical,
+            **self._point_selection_identity(),
         }
 
     def summary(self):
@@ -1256,6 +1438,9 @@ class SmallStrainMaterialStep:
             "physical_time": self.time,
             "duration": self.duration,
             "time_unit": self.time_unit if self.duration is not None else None,
+            "prescribed_temperature": None
+            if self._temperature_input is None
+            else self._temperature_input.summary(),
             "last_solve": None
             if self.last_solve_info is None
             else self.last_solve_info.as_dict(),
@@ -1278,6 +1463,9 @@ def small_strain_material_step(
     amplitude=None,
     duration=None,
     time_unit="s",
+    temperature=None,
+    material_points=(),
+    unit_system=None,
     name="small_strain_material",
 ) -> SmallStrainMaterialStep:
     """Build implicit small-strain equilibrium, optionally on a physical-time path."""
@@ -1423,6 +1611,9 @@ def small_strain_material_step(
         solver_options=newton() if solver_options is None else solver_options,
         duration=duration,
         time_unit=time_unit,
+        temperature=temperature,
+        material_points=material_points,
+        unit_system=unit_system,
         external_force=external_force,
         study=study,
         progress=progress,
