@@ -33,5 +33,12 @@ Both completed; all 16 times and all values in `sample.S`, `sample.E` and
 `sample.EV` were exactly equal across continuous and resumed execution.
 This is source-candidate CLI evidence, not a clean-machine installation claim.
 
+After integrating the independently tested P92 tensor reference, the selected
+history path also passes a real reference-material ramp/hold/restart check.
+Raw `S` agrees with the material's Mandel-stress state after conversion;
+all selected frames match continuous execution exactly and end at 8 seconds.
+The combined structural/history/CI-routing suite passes 88 tests. Accumulated
+inelastic `P` remains a state variable, not a signed strain-life input.
+
 This is a data/lifecycle capability, not P92 calibration. Further physical
 validation must retain the recorded strain measure and original material point.
