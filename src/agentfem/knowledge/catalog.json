@@ -1164,6 +1164,7 @@
       "id": "agentfem.workflow.creep_fatigue_assessment",
       "kind": "workflow",
       "public_api": [
+        "agentfem.assessments.TabulatedRuptureCurve",
         "agentfem.assessments.CreepDamageBlock",
         "agentfem.assessments.DwellInterval",
         "agentfem.assessments.creep_blocks_from_result",

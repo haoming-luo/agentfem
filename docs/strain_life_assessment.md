@@ -62,7 +62,32 @@ print(assessment.as_dict())
 
 ## Composition and evidence
 
-Pass this assessment explicitly as `fatigue=` to `assessments.creep_fatigue`,
+For a reviewed isothermal tensile rupture table, use
+`assessments.TabulatedRuptureCurve` instead of writing an interpolation callback:
+
+```python
+from agentfem import assessments
+
+# Synthetic illustration, not P92 or design data.
+rupture = assessments.TabulatedRuptureCurve(
+    stresses=(40.0, 100.0), rupture_times=(2500.0, 1000.0),
+    temperature=800.0, stress_unit="MPa", time_unit="s",
+    stress_measure="signed_axial", material_condition="synthetic",
+    failure_definition="synthetic rupture", source="analytic t=100000/sigma",
+)
+print(rupture(60.0, 800.0))
+```
+
+Supply this as `rupture_time=` to `assessments.creep_damage_from_result`, with
+the same units and stress measure and `rupture_source=rupture.source`. The
+assessment retains the complete curve. Interpolation is linear in log stress
+and log life; temperature is fixed in kelvin. Stress outside the table or a
+different temperature is rejected. Tables must already be reviewed into a
+monotone curve: repeated tests and scatter are not silently averaged. This
+does not fit a creep mechanism, interpolate between temperatures or supply
+an engineering allowable. Existing user-owned rupture callables remain valid.
+
+Pass the strain-life assessment explicitly as `fatigue=` to `assessments.creep_fatigue`,
 together with source-identified creep time fractions and the intended
 interaction diagram. `assessments.creep_damage_from_result` provides
 time-resolved creep fractions for declared, nonoverlapping dwell intervals;
