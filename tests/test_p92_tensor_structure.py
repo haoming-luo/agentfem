@@ -3,7 +3,17 @@
 import numpy as np
 import pytest
 from mpi4py import MPI
-from agentfem import amplitudes, fields, loads, mesh, models, results, steps, studies
+from agentfem import (
+    amplitudes,
+    fields,
+    loads,
+    mesh,
+    models,
+    results,
+    steps,
+    studies,
+    units,
+)
 from tools.p92_tensor_material_reference import P92TensorResearchMaterial
 from tools.p92_published_recovery_reference import implicit_update, published_parameters
 from agentfem import constitutive as c
@@ -49,6 +59,8 @@ def test_public_tangent_checker_includes_shear_conversion(temperature):
     [
         {"temperature": 600.0},
         {"temperature_increment": 0.0},
+        {"temperature": 873.15, "temperature_increment": 1.0},
+        {"temperature": 923.15, "temperature_increment": 0.0},
         {"field_variables": {"x": 1.0}},
     ],
 )
@@ -58,11 +70,65 @@ def test_unsupported_fields_rejected(change):
         material.update(replace(point(material), **change))
 
 
-def make_step(temperature=600, *, cyclic=False, increments=None, traction=None,
-              material_points=()):
+@pytest.mark.parametrize("temperature", [600, 650])
+def test_matching_kelvin_input_does_not_change_reference_update(temperature):
+    material = P92TensorResearchMaterial(temperature_C=temperature, poisson=0.3)
+    request = point(material)
+    expected = material.update(request)
+    actual = material.update(
+        replace(request, temperature=temperature + 273.15, temperature_increment=0.0)
+    )
+    np.testing.assert_array_equal(actual.cauchy_stress, expected.cauchy_stress)
+    np.testing.assert_array_equal(actual.state_new, expected.state_new)
+    np.testing.assert_array_equal(
+        actual.consistent_tangent, expected.consistent_tangent
+    )
+
+
+@pytest.mark.parametrize("temperature", [600, 650])
+def test_fixed_kelvin_point_history_is_exact_across_restart(temperature, tmp_path):
+    from agentfem import results
+
+    points = (results.material_point("specimen", cell=0),)
+    options = dict(material_points=points, thermal_input=temperature + 273.15)
+    full = make_step(temperature, **options)
+    full.solve()
+    partial = make_step(temperature, **options)
+    partial.solve(until=0.5)
+    checkpoint = partial.save_checkpoint(tmp_path / "mid")
+    resumed = make_step(temperature, **options)
+    resumed.load_checkpoint(checkpoint)
+    resumed.solve()
+    for expected, actual in zip(
+        full.material_point_histories, resumed.material_point_histories, strict=True
+    ):
+        np.testing.assert_array_equal(actual.abscissa, expected.abscissa)
+        np.testing.assert_array_equal(actual.values, expected.values)
+    thermal = next(
+        h for h in full.material_point_histories if h.name == "specimen.TEMP"
+    )
+    np.testing.assert_array_equal(
+        thermal.values, np.full(thermal.values.shape, temperature + 273.15)
+    )
+    assert thermal.unit == "K"
+    stress = next(h for h in full.material_point_histories if h.name == "specimen.S")
+    assert stress.unit == units.n_mm_mpa().stress
+
+
+def make_step(
+    temperature=600,
+    *,
+    cyclic=False,
+    increments=None,
+    traction=None,
+    material_points=(),
+    thermal_input=None,
+):
     domain = mesh.cuboid((0.0, 0.0, 0.0), (1.0, 1.0, 1.0), (1, 1, 1))
     model = models.create(
-        study=studies.static_solid(dimension=3, nonlinear=True), mesh=domain
+        study=studies.static_solid(dimension=3, nonlinear=True),
+        mesh=domain,
+        units=units.n_mm_mpa(),
     )
     u = model.field(fields.displacement(domain))
     model.material(P92TensorResearchMaterial(temperature_C=temperature, poisson=0.3))
@@ -78,6 +144,7 @@ def make_step(temperature=600, *, cyclic=False, increments=None, traction=None,
         duration=24.0 if cyclic else 8.0,
         time_unit="s",
         material_points=material_points,
+        temperature=thermal_input,
         incrementation=steps.fixed(increments or (96 if cyclic else 32)),
         amplitude=(
             amplitudes.tabular(
@@ -135,7 +202,7 @@ def test_research_point_history_restores_without_resetting_material_clock(tmp_pa
     full = make_step(material_points=selection)
     full.solve()
     partial = make_step(material_points=selection)
-    partial.solve(until=.5)
+    partial.solve(until=0.5)
     path = partial.save_checkpoint(tmp_path / "selected_hold")
     resumed = make_step(material_points=selection)
     resumed.load_checkpoint(path)

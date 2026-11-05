@@ -62,11 +62,21 @@ class P92TensorResearchMaterial:
             "state_schema": self.state_schema.summary(),
             "scope": "research-only isotropic J2 extension; supplied Poisson ratio",
             "integration": "coupled_backward_euler",
+            "thermal_input": "optional fixed kelvin matching the selected published temperature; zero increment",
         }
 
     def update(self, point):
         if point.temperature is not None or point.temperature_increment is not None:
-            raise ValueError("This research reference is fixed-temperature only.")
+            expected = self.parameters["temperature_C"] + 273.15
+            if (
+                point.temperature is None
+                or point.temperature_increment is None
+                or not np.isclose(point.temperature, expected, rtol=1e-12, atol=0.0)
+                or point.temperature_increment != 0.0
+            ):
+                raise ValueError(
+                    "This research reference requires its fixed kelvin temperature and zero temperature increment."
+                )
         if point.field_variables:
             raise ValueError("External fields are not supported by this reference.")
         if dict(point.parameters) != self.parameters:
