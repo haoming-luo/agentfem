@@ -3,7 +3,7 @@
   "source": "https://doi.org/10.3390/met10030307",
   "location": "Table 2; section 2 failure definition",
   "material_scope": "Single reported pipe stock, normalized 1040 C for 20 min; tempered 780 C for 120 min",
-  "failure_definition": "Author-defined 10 percent drop of peak stress (Figure 2); not assumed rupture or a specified crack size",
+  "failure_definition": "Author-defined 10 percent drop from the extrapolated intermediate peak-stress softening trend (Figure 2), not the first-cycle peak; not assumed rupture or a specified crack size",
   "strain_measure": "total axial strain range, not amplitude",
   "strain_rate_per_s": 0.001,
   "environment": "air",

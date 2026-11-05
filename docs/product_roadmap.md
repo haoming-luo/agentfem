@@ -36,6 +36,16 @@ or a successful run is not by itself a validated engineering capability.
 
 ## Current product phase: the 0.4 foundation
 
+### P92 long-cycle response screen (2026-11-06 candidate)
+
+Fixed published parameters were compared with sparse long-cycle experimental
+peak markers, reusing existing Radau/BDF campaigns. Reading sensitivity,
+solver agreement and nonzero response discrepancy remain visible in the
+[cyclic screen record](internal/p92_cyclic_screen_20261106.md). Observed life
+normalizes the source figure; it is not predicted life. The next engineering
+gate is compatible, independently validated life data, not repeated tolerance
+tightening or refitting the validation markers.
+
 ### P92 life-data gate (2026-11-06 research)
 
 A fixed six-calibration/two-held-out baseline now evaluates the published
