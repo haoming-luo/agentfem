@@ -33,6 +33,16 @@ Step constructor state is introduced. Direct low-level capture can declare
 a recorder. This closes the ordinary heat-to-mechanics transfer without asking
 the caller to duplicate the same unit label.
 
+The same check also rejects a FieldHistory labelled in Celsius, with no
+temperature unit, or against load factor rather than physical time. The old
+rate-dependent consumers unwrapped the numerical values and reported kelvin;
+explicitly incompatible metadata must not silently enter those equations.
+Raw scalar temperatures retain their documented kelvin convention.
+The final thermal-label/unit/history regression group passed 88 tests in
+23.35 s; it includes all three live rate-dependent consumers and both frozen
+user-material temperature consumers. No material parameters or physical
+tolerances were altered.
+
 After this producer addition, 98 history/unit/CI-routing tests passed in 17.39 s
 and 54 transient heat/operator/restart/journal tests passed in 3.12 s. Separately,
 the unchanged distributed creep equilibrium and Maxwell relaxation/checkpoint

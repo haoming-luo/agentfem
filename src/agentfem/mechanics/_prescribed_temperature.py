@@ -25,8 +25,10 @@ class UniformTemperatureInput:
 
 
 def validate_temperature_time_unit(source, time_unit):
-    """Check declared history clocks without converting or mutating the source."""
+    """Check thermal history units without converting or mutating the source."""
     if isinstance(source, FieldHistory):
+        if source.unit != "K" or source.coordinate_name != "time":
+            raise ValueError("Temperature history requires kelvin (K) and a physical time coordinate.")
         declared = source._coordinate_unit_identity().get("coordinate_unit")
         if declared is not None and declared != time_unit:
             raise ValueError("Temperature history coordinate_unit must match the Step time_unit; no implicit conversion.")

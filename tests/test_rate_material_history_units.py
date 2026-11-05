@@ -56,3 +56,16 @@ def test_mutated_live_history_rejected_before_loading(family):
         step._apply_loading(1.)
     np.testing.assert_array_equal(step.solution.x.array, before)
     assert_same_state(step.state.snapshot(), state)
+
+
+@pytest.mark.parametrize("family", ["creep", "joint", "viscoelastic"])
+@pytest.mark.parametrize("attribute,value", [("unit", "degC"), ("unit", None), ("coordinate_name", "load_factor")])
+def test_temperature_labels_cannot_silently_change_physics(family, attribute, value):
+    step = build(family, "s", "s")
+    setattr(step.temperature, attribute, value)
+    before = step.solution.x.array.copy()
+    state = step.state.snapshot()
+    with pytest.raises(ValueError, match="kelvin.*physical time"):
+        step._apply_loading(1.)
+    np.testing.assert_array_equal(step.solution.x.array, before)
+    assert_same_state(step.state.snapshot(), state)

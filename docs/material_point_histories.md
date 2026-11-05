@@ -47,6 +47,8 @@ For creep or generalized-Maxwell Steps, a temperature history declared with
 (for example `units.si()`). This is not a separate `model.step(time_unit=...)`
 option for these providers. A declared clock mismatch is rejected before
 loading; legacy histories without a coordinate unit follow the model convention.
+Temperature histories must identify kelvin (`unit="K"`) and physical time
+(`coordinate_name="time"`); Celsius values are not silently relabelled as kelvin.
 `heat_step.capture_history(...)` inherits the heat Model's time unit, so ordinary
 sequential transfer needs no duplicate clock declaration. Direct low-level
 transient Steps may supply `coordinate_unit` when no Model owns the clock.
