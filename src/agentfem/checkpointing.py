@@ -18,6 +18,7 @@ from datetime import datetime, timezone
 from hashlib import sha256
 import json
 import os
+import operator
 from pathlib import Path
 import tempfile
 from uuid import uuid4
@@ -291,17 +292,25 @@ class CheckpointPolicy:
     portable: bool = False
 
     def __post_init__(self) -> None:
-        interval = int(self.every)
-        if interval <= 0:
-            raise ValueError("CheckpointPolicy.every must be positive.")
+        interval = _checkpoint_count(self.every, "every")
         object.__setattr__(self, "every", interval)
         object.__setattr__(self, "directory", Path(self.directory))
-        if self.prefix is not None and not str(self.prefix).strip():
-            raise ValueError("CheckpointPolicy.prefix must be non-empty when supplied.")
+        if self.prefix is not None and (
+            not isinstance(self.prefix, str)
+            or not self.prefix.strip()
+            or self.prefix in {".", ".."}
+            or "/" in self.prefix
+            or "\\" in self.prefix
+            or "\x00" in self.prefix
+        ):
+            raise ValueError(
+                "CheckpointPolicy.prefix must be a non-empty filename prefix, not a path."
+            )
+        for name in ("final", "portable"):
+            if type(getattr(self, name)) is not bool:
+                raise ValueError(f"CheckpointPolicy.{name} must be a boolean.")
         if self.keep_last is not None:
-            selected = int(self.keep_last)
-            if selected <= 0:
-                raise ValueError("CheckpointPolicy.keep_last must be positive.")
+            selected = _checkpoint_count(self.keep_last, "keep_last")
             object.__setattr__(self, "keep_last", selected)
 
     def due(self, increment: int, total: int) -> bool:
@@ -328,6 +337,20 @@ class CheckpointPolicy:
                 else f"latest_{self.keep_last}_scheduled_checkpoints"
             ),
         }
+
+
+def _checkpoint_count(value, name):
+    try:
+        if isinstance(value, (bool, np.bool_)):
+            raise TypeError
+        selected = operator.index(value)
+    except TypeError:
+        raise ValueError(
+            f"CheckpointPolicy.{name} must be a positive integer."
+        ) from None
+    if selected <= 0:
+        raise ValueError(f"CheckpointPolicy.{name} must be a positive integer.")
+    return selected
 
 
 def every(
@@ -1916,6 +1939,27 @@ def remove_serial_checkpoint(path, *, comm, expected_schema: str) -> None:
     comm.barrier()
 
 
+def _prune_scheduled_serial_records(records, *, keep_last, comm) -> None:
+    """Prune only in-memory scheduled records after a new durable publication.
+
+    Manual archives, restart sources and files from previous processes are not
+    discovered or adopted. Removal reuses the schema-checked serial contract.
+    """
+    if keep_last is None:
+        return
+    keep_last = _checkpoint_count(keep_last, "keep_last")
+    scheduled = [
+        record
+        for record in records
+        if record.metadata.get("role") == "scheduled_checkpoint"
+    ]
+    for record in scheduled[: -int(keep_last)]:
+        if record.portable:
+            raise ValueError("Serial retention cannot remove a portable checkpoint.")
+        remove_serial_checkpoint(record.path, comm=comm, expected_schema=record.schema)
+        records[:] = [item for item in records if item is not record]
+
+
 def _manifest_path(path) -> Path:
     selected = Path(path)
     text = selected.name
@@ -2042,6 +2086,15 @@ def _legacy_function_partition_identity(function) -> dict[str, object]:
 
 def atomic_savez(path, **arrays) -> Path:
     """Atomically publish one NumPy archive in its destination directory."""
+    return _publish_savez(path, arrays, overwrite=True)
+
+
+def _atomic_savez_exclusive(path, **arrays) -> Path:
+    """Publish a fresh archive without overwriting even a racing writer."""
+    return _publish_savez(path, arrays, overwrite=False)
+
+
+def _publish_savez(path, arrays, *, overwrite) -> Path:
 
     selected = Path(path)
     selected.parent.mkdir(parents=True, exist_ok=True)
@@ -2057,7 +2110,14 @@ def atomic_savez(path, **arrays) -> Path:
             np.savez(stream, **arrays)
             stream.flush()
             os.fsync(stream.fileno())
-        temporary.replace(selected)
+        if overwrite:
+            temporary.replace(selected)
+        else:
+            # The closed/fsynced temporary is on the same filesystem. link()
+            # publishes the complete file and atomically refuses an existing
+            # destination; exists()+replace() would have an overwrite race.
+            os.link(temporary, selected)
+            temporary.unlink()
     except Exception:
         if temporary is not None:
             temporary.unlink(missing_ok=True)

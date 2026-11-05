@@ -1,3 +1,8 @@
+---
+title: "Build private extensions on AgentFEM"
+description: "Keep confidential models and optional dependencies in separate extension packages while using AgentFEM's public workflow contracts."
+---
+
 # Extension packages and private products
 
 AgentFEM's Apache-2.0 core and an organization-specific product should share a

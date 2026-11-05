@@ -18,8 +18,6 @@ import sys
 import time
 import traceback
 
-from mpi4py import MPI
-
 from . import __version__
 from . import extensions
 from . import platforms
@@ -40,6 +38,23 @@ from .project import (
 
 
 TEMPLATE_PACKAGE = "agentfem.templates"
+
+
+class _DeferredMPI:
+    """Keep help/version/argument parsing independent of MPI initialization.
+
+    The first actual communicator operation still imports the real MPI module;
+    no rank is guessed and no initialization error is suppressed.
+    """
+
+    def __getattr__(self, name):
+        from mpi4py import MPI as runtime
+
+        globals()["MPI"] = runtime
+        return getattr(runtime, name)
+
+
+MPI = _DeferredMPI()
 
 
 def _json(record) -> str:

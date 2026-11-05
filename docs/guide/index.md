@@ -1,3 +1,8 @@
+---
+title: "AgentFEM user guide: models, studies and results"
+description: "Find task-oriented guidance for solid mechanics, heat transfer, dynamics, material models and scientific result inspection."
+---
+
 # User guide
 
 The user guide is organized by engineering task rather than by Python module.

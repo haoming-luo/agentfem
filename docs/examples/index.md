@@ -1,3 +1,8 @@
+---
+title: "Finite-element examples for mechanics, heat and learning"
+description: "Explore executable AgentFEM examples for elasticity, heat transfer, vibration, creep and simulation-to-learning, with sources and verification records."
+---
+
 # Examples
 
 New to AgentFEM? [Explore three practical starting points](explore.md):

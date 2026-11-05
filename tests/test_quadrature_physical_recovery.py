@@ -82,6 +82,77 @@ def test_recovery_does_not_reuse_measure_after_mesh_geometry_changes():
     np.testing.assert_array_equal(source.values, ordinate)
 
 
+def test_recovery_reuses_only_expression_not_geometry_or_output(monkeypatch):
+    domain = mesh.create_unit_square(MPI.COMM_SELF, 1, 1, cell_type=mesh.CellType.quadrilateral)
+    source = constitutive.QuadratureField.create(domain, name="IP", degree=4)
+    ordinate = np.asarray(fem.Expression(ufl.SpatialCoordinate(domain)[1], source.points)
+                          .eval(domain, np.array([0], dtype=np.int32))).reshape(-1)
+    source.assign(ordinate)
+    original = fem.Expression
+    preparations = []
+
+    def prepare(*args, **kwargs):
+        preparations.append(True)
+        return original(*args, **kwargs)
+
+    monkeypatch.setattr(fem, "Expression", prepare)
+    first = source.cell_average(name="FIRST")
+    first_values = first.x.array.copy()
+    domain.geometry.x[:, 0] *= 1. + domain.geometry.x[:, 1]
+    second = source.cell_average(name="SECOND")
+    assert len(preparations) == 1
+    np.testing.assert_allclose(second.x.array, 5./9., atol=2e-14)
+    np.testing.assert_array_equal(first.x.array, first_values)
+    assert first.name == "FIRST" and second.name == "SECOND"
+    source.assign(2 * ordinate)
+    third = source.cell_average()
+    assert len(preparations) == 1
+    np.testing.assert_allclose(third.x.array, 10./9., atol=4e-14)
+    np.testing.assert_allclose(second.x.array, 5./9., atol=2e-14)
+
+
+def test_measure_preparation_invalidates_on_points_or_mesh(monkeypatch):
+    domain = mesh.create_unit_square(MPI.COMM_SELF, 1, 1, cell_type=mesh.CellType.quadrilateral)
+    domain.geometry.x[:, 0] *= 1. + domain.geometry.x[:, 1]
+    source = constitutive.QuadratureField.create(domain, name="IP", degree=4)
+    original = fem.Expression
+    preparations = []
+
+    def prepare(*args, **kwargs):
+        preparations.append(True)
+        return original(*args, **kwargs)
+
+    monkeypatch.setattr(fem, "Expression", prepare)
+    source.owned_physical_weights()
+    source.points[:] *= 0.8
+    actual = source.owned_physical_weights()
+    assert len(preparations) == 2
+    expected = np.abs(np.asarray(original(ufl.JacobianDeterminant(domain), source.points)
+                                .eval(domain, np.array([0], dtype=np.int32))).reshape(-1)) * source.weights
+    np.testing.assert_array_equal(actual, expected)
+    other = mesh.create_unit_square(MPI.COMM_SELF, 1, 1, cell_type=mesh.CellType.quadrilateral)
+    other.geometry.x[:, 0] *= 3
+    source.function = constitutive.QuadratureField.create(other, name="OTHER", degree=4).function
+    changed = source.owned_physical_weights()
+    assert len(preparations) == 3
+    np.testing.assert_allclose(changed, 3 * source.weights, rtol=2e-14)
+    source.weights[:] *= 2
+    np.testing.assert_allclose(source.owned_physical_weights(), 2 * changed, rtol=2e-14)
+    assert len(preparations) == 3
+
+
+def test_measure_preparation_returns_detached_weights():
+    domain = mesh.create_unit_square(MPI.COMM_SELF, 1, 1)
+    source = constitutive.QuadratureField.create(domain, name="IP", degree=2)
+    initial = source.owned_physical_weights()
+    damaged = source.owned_physical_weights()
+    damaged[:] = 0
+    np.testing.assert_array_equal(source.owned_physical_weights(), initial)
+    np.testing.assert_array_equal(source.owned_physical_weights(multipliers=np.full(initial.size, 2)), 2 * initial)
+    source._measure_expression_cache = None
+    np.testing.assert_array_equal(source.owned_physical_weights(), initial)
+
+
 @pytest.mark.parametrize("cells", [1, 4])
 def test_distributed_physical_average_preserves_integral_and_empty_rank(cells):
     comm = MPI.COMM_WORLD
@@ -112,6 +183,7 @@ def test_distributed_physical_average_preserves_integral_and_empty_rank(cells):
     assert not any(errors), errors
     source.assign(ordinate)
     recovered = source.cell_average()
+    assert source._measure_expression_cache is None  # no rank-local JIT decision
     integral = comm.allreduce(fem.assemble_scalar(fem.form(recovered * ufl.dx)), op=MPI.SUM)
     assert integral == pytest.approx(5./6., rel=2e-14)
     if cells == 1:

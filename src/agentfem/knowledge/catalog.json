@@ -64,6 +64,13 @@
       "title": "Classical sub-Rayleigh cohesive crack guardrail"
     },
     {
+      "id": "agentfem.benchmark.colocated_material_histories",
+      "physics": "Serial Cartesian 3D small-strain creep with physical-time temperature; homogeneous joint plasticity or regional pure creep",
+      "source": "src/agentfem/knowledge/benchmarks/colocated_material_histories.json",
+      "status": "automated_regression",
+      "title": "Co-located accepted creep/plastic/thermal histories"
+    },
+    {
       "id": "agentfem.benchmark.creep_abaqus_constant_stress",
       "physics": "three-dimensional small-strain Mises time-hardening power-law creep",
       "source": "src/agentfem/knowledge/benchmarks/creep_abaqus_constant_stress.json",
@@ -514,6 +521,29 @@
       "title": "Material-axis composite ply failure assessment"
     },
     {
+      "id": "agentfem.material.coupled_creep_plasticity",
+      "kind": "material",
+      "public_api": [
+        "agentfem.constitutive.CreepPlasticityMaterial",
+        "agentfem.constitutive.CreepPlasticityState",
+        "agentfem.constitutive.isotropic_power_law",
+        "agentfem.constitutive.isotropic_arrhenius_power_law",
+        "agentfem.constitutive.isotropic_sinh",
+        "agentfem.constitutive.J2LinearIsotropicHardening",
+        "agentfem.constitutive.ChabocheCombinedHardening",
+        "agentfem.studies.creep_solid",
+        "agentfem.models.Model.step"
+      ],
+      "related_cards": [
+        "agentfem.material.global_implicit_creep",
+        "agentfem.material.creep_damage_assessment"
+      ],
+      "source": "src/agentfem/knowledge/cards/coupled_creep_plasticity.json",
+      "status": "experimental",
+      "summary": "One fixed-old-state simultaneous creep/J2 or creep/Chaboche update, lowered through the ordinary physical-time implicit creep Step. The bounded serial 3D composition preserves separate creep/plastic histories, consistent tangent, accepted-temperature input, cutback, energy channels and joint checkpoint continuation.",
+      "title": "Simultaneous small-strain creep and cyclic plasticity"
+    },
+    {
       "id": "agentfem.material.creep_damage_assessment",
       "kind": "material",
       "public_api": [
@@ -529,7 +559,7 @@
       ],
       "source": "src/agentfem/knowledge/cards/creep_damage_assessment.json",
       "status": "supported",
-      "summary": "Verified material-point Kachanov-Rabotnov and hyperbolic-sine creep relations plus a deterministic modified-theta curve projection, kept distinct from the implemented global isothermal/Arrhenius power-law creep route.",
+      "summary": "Verified material-point Kachanov-Rabotnov and hyperbolic-sine creep relations plus a deterministic modified-theta curve projection. K-R damage and curve projection remain separate from global equilibrium; Sinh has a separately tested implicit consumer with its own bounded scope.",
       "title": "Creep damage and modified-theta assessment"
     },
     {
@@ -703,7 +733,8 @@
         "agentfem.formulation.axisymmetric_solid",
         "agentfem.material.j2_global_plasticity",
         "agentfem.material.creep_damage_assessment",
-        "agentfem.workflow.solution_procedures"
+        "agentfem.workflow.solution_procedures",
+        "agentfem.material.coupled_creep_plasticity"
       ],
       "source": "src/agentfem/knowledge/cards/global_implicit_creep.json",
       "status": "supported",
@@ -826,15 +857,23 @@
         "agentfem.constitutive.MaterialTangentCheck",
         "agentfem.constitutive.UserMaterial",
         "agentfem.constitutive.check_material_tangent",
-        "agentfem.constitutive.validated_material_update"
+        "agentfem.constitutive.check_material_rotation",
+        "agentfem.constitutive.MaterialRotationCheck",
+        "agentfem.constitutive.validated_material_update",
+        "agentfem.mechanics.FiniteStrainMaterialStep",
+        "agentfem.constitutive.PlaneStressReduction",
+        "agentfem.constitutive.PlaneStressPointResponse",
+        "agentfem.constitutive.reduce_plane_stress",
+        "agentfem.constitutive.check_plane_stress_tangent",
+        "agentfem.constitutive.PlaneStressTangentCheck"
       ],
       "related_cards": [
         "agentfem.workflow.physical_field_statistics",
         "agentfem.workflow.scientific_verification"
       ],
       "source": "src/agentfem/knowledge/cards/solver_neutral_user_material_contract.json",
-      "status": "contract_only",
-      "summary": "Defines versioned named internal variables and explicit stress/kinematic tangent conventions shared by native materials and future industrial adapters, with a fail-closed validated update boundary before global Newton integration.",
+      "status": "experimental",
+      "summary": "Versioned internal variables and explicit stress/tangent conventions, with a bounded serial 3D/plane-strain or declared reflection-symmetric plane-stress global Newton consumer, physical-time cutback, atomic same-layout restart and single-grid accepted output.",
       "title": "Solver-neutral finite-strain user-material contract"
     },
     {
@@ -1129,6 +1168,10 @@
         "agentfem.assessments.DwellInterval",
         "agentfem.assessments.creep_blocks_from_result",
         "agentfem.assessments.creep_time_fraction",
+        "agentfem.assessments.CreepDamageHistoryAssessment",
+        "agentfem.assessments.creep_damage_from_result",
+        "agentfem.constitutive.CoffinMansonBasquinCurve",
+        "agentfem.constitutive.assess_strain_history",
         "agentfem.assessments.interaction_diagram",
         "agentfem.assessments.creep_fatigue",
         "agentfem.assessments.creep_fatigue_from_result"
@@ -1140,7 +1183,7 @@
       ],
       "source": "src/agentfem/knowledge/cards/creep_fatigue_assessment.json",
       "status": "supported",
-      "summary": "A standard-neutral postprocessing contract for source-identified creep time fractions, declared dwell extraction from named stress/temperature histories, existing stress-life fatigue assessments, explicit interaction diagrams, and structured result evidence.",
+      "summary": "Standard-neutral postprocessing of source-identified creep time fractions, resolved stress/temperature dwell histories, scalar stress- or strain-life fatigue, and explicit interaction diagrams; no constitutive damage or automatic design-code approval.",
       "title": "Engineering creep-fatigue assessment"
     },
     {

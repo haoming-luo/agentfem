@@ -1,3 +1,8 @@
+---
+title: "Nonlinear materials: capabilities and maturity"
+description: "Review AgentFEM's hyperelastic and plastic material routes, constitutive state, tangent requirements and experimental boundaries."
+---
+
 # Nonlinear Materials and Maturity
 
 ## Design Boundary
@@ -15,6 +20,21 @@ solver until quadrature state, consistent tangents, increment control,
 convergence evidence, and restart are present.
 
 Use `constitutive.capabilities()` before selecting a nonlinear law.
+
+## Custom finite-strain history materials
+
+The experimental `UserMaterial` route now supplies bounded global equilibrium
+through ordinary `model.step(target=u, duration=..., ...)`: serial homogeneous
+3D, explicit plane strain or declared reflection-symmetric plane stress,
+strong displacement constraints/reference dead
+loads, declared reference `dP/dF`, physical time, transactional history and
+same-layout restart. The complete two-law example needs no project Newton
+loop or Step provider. See [history-material workflow](history_material_workflow.md)
+for the exact contract, output behavior and rejection boundaries. This does
+not promote arbitrary user laws or add general anisotropic plane stress,
+shells, contact, MPI or UMAT conversion to that route. The limited
+`PlaneStressReduction` solves transverse equilibrium and consistently
+condenses the full discrete 3D update; it does not truncate a stiffness matrix.
 
 ## Compressible Neo-Hookean Hyperelasticity
 
@@ -368,9 +388,11 @@ duration give the closed-form equivalent creep strain 0.1. The versioned
 100-increment contract declares its expected backward-Euler error instead of
 freezing a solver-specific number as physical truth.
 
-The next milestone is nonuniform multi-element and high-temperature component
-evidence, followed by accepted temperature-field coupling and portable
-quadrature state. A new creep-law name alone is not that milestone.
+Accepted temperature histories, regional state and portable restart are already
+implemented. The native axisymmetric route includes NAFEMS R0027 Test 7 evidence.
+See [the current scope](guide/creep_and_inelasticity.md) for the distinction
+between these routes and distributed structural or combined creep/plasticity
+promotion. A new creep-law name alone is not a global verification milestone.
 
 ## Creep Damage, Sinh Flow, and Modified Theta
 
@@ -402,8 +424,9 @@ The release demo `examples/creep_hot_wall_assessment.py` connects an implicit
 heat-transfer solve, sequential thermoelastic stress, the governing sampled
 equivalent stress, K-R damage history, and modified-theta projection through
 one `SimulationResult`. Its material constants are explicitly illustrative.
-It demonstrates the power-component workflow and data contract while the
-global quadrature creep step remains a visible next gate.
+It demonstrates the power-component workflow and data contract. The global
+power-law quadrature Step is implemented separately; this demo's K-R damage
+postprocessing does not turn it into a coupled global damage calculation.
 
 ## Stress-Life Fatigue
 

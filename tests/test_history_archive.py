@@ -1,6 +1,7 @@
 # SPDX-FileCopyrightText: 2026 Haoming Luo and AgentFEM contributors
 # SPDX-License-Identifier: Apache-2.0
 import json
+import os
 from pathlib import Path
 import subprocess
 import sys
@@ -189,23 +190,29 @@ def test_shared_axes_reduce_storage_without_decimating(tmp_path):
 
 
 def test_read_histories_without_finite_element_runtime(tmp_path):
+    import agentfem
+
     path = histories().write_manifest(tmp_path / "result.json", include_histories=True,
                                       history_storage="npz")
     code = '''
 import importlib.abc, sys
+from pathlib import Path
 class NoSolver(importlib.abc.MetaPathFinder):
     def find_spec(self, fullname, path=None, target=None):
         if fullname.split('.')[0] in {'dolfinx', 'petsc4py', 'mpi4py', 'ufl', 'basix'}:
             raise RuntimeError('unexpected solver import: ' + fullname)
 sys.meta_path.insert(0, NoSolver())
 from agentfem import results
+import agentfem
+assert Path(agentfem.__file__).resolve() == Path(sys.argv[2]), agentfem.__file__
 assert len(results.read_histories(sys.argv[1])) == 3
 assert results.HistoryResult.__module__ == 'agentfem.results.core'
 assert 'read_histories' in dir(results)
 assert not {'dolfinx', 'petsc4py', 'mpi4py', 'ufl', 'basix'} & set(sys.modules)
 '''
-    completed = subprocess.run([sys.executable, "-c", code, str(path)],
-                               capture_output=True, text=True, timeout=30)
+    completed = subprocess.run([sys.executable, "-c", code, str(path), str(Path(agentfem.__file__).resolve())],
+                               capture_output=True, text=True, timeout=30,
+                               env={**os.environ, "PYTHONPATH": str(Path(agentfem.__file__).resolve().parents[1])})
     assert completed.returncode == 0, completed.stderr
 
 

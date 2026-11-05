@@ -1,3 +1,8 @@
+---
+title: "Inspect and migrate supported Abaqus input decks"
+description: "Inventory Abaqus input files, preserve source dependencies and review eligible native conversions before running an AgentFEM model."
+---
+
 # Migrating Abaqus Projects
 
 AgentFEM treats an Abaqus input deck as an engineering asset, not merely a

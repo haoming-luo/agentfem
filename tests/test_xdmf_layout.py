@@ -190,11 +190,16 @@ def test_completed_frame_storage_survives_exit_between_frames(tmp_path):
     import sys
     import textwrap
     import h5py
+    from pathlib import Path
+    import agentfem
 
     path = tmp_path / "interrupted.xdmf"
     script = textwrap.dedent("""
         import os
         import sys
+        from pathlib import Path
+        import agentfem
+        assert Path(agentfem.__file__).resolve() == Path(sys.argv[2]), agentfem.__file__
         from dolfinx import fem, mesh
         from mpi4py import MPI
         from agentfem.results import UnifiedXDMFTimeSeries
@@ -211,8 +216,12 @@ def test_completed_frame_storage_survives_exit_between_frames(tmp_path):
             os._exit(23)  # No context exit, destructor, or MPI finalization.
     """)
     child = subprocess.run(
-        [sys.executable, "-c", script, str(path)],
-        env={**os.environ, "OMP_NUM_THREADS": "1", "OPENBLAS_NUM_THREADS": "1"},
+        [sys.executable, "-c", script, str(path), str(Path(agentfem.__file__).resolve())],
+        # Pytest's configured source path is not inherited by a new Python.
+        # Exercise the same package as this test (also for installed-wheel CI),
+        # never an unrelated older package from the numerical environment.
+        env={**os.environ, "OMP_NUM_THREADS": "1", "OPENBLAS_NUM_THREADS": "1",
+             "PYTHONPATH": str(Path(agentfem.__file__).resolve().parents[1])},
         capture_output=True, text=True, timeout=45,
     )
     assert child.returncode == 23, child.stderr

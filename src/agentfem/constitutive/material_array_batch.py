@@ -25,6 +25,8 @@ from .user_material import (
     MaterialTangentConvention,
     UserMaterial,
     _STATE_NAME,
+    _symmetric_tensors,
+    _real_material_scalar,
 )
 
 
@@ -99,12 +101,12 @@ class MaterialPointArrayBatchInput:
             "state_old",
             _array(self.state_old, (count, self.state_schema.size), "state_old"),
         )
-        if (
-            not np.isfinite(self.time)
-            or not np.isfinite(self.time_increment)
-            or self.time_increment <= 0
-        ):
+        time = _real_material_scalar(self.time, label="time")
+        increment = _real_material_scalar(self.time_increment, label="time_increment")
+        if increment <= 0:
             raise ValueError("Material time must be finite and increment positive.")
+        object.__setattr__(self, "time", time)
+        object.__setattr__(self, "time_increment", increment)
         if np.iscomplexobj(self.properties):
             raise ValueError("properties must be real; complex values are not supported.")
         properties = np.asarray(self.properties, dtype=float).reshape(-1)
@@ -157,11 +159,7 @@ class MaterialPointArrayBatchOutput:
             raise ValueError("An array response requires a batch of stress tensors.")
         count = len(stress)
         stress = _array(stress, (count, 3, 3), "cauchy_stress")
-        scale = np.maximum(np.linalg.norm(stress, axis=(1, 2)), np.finfo(float).tiny)
-        if np.any(
-            np.max(np.abs(stress - stress.transpose(0, 2, 1)), axis=(1, 2))
-            > 1e-10 * scale
-        ):
+        if not _symmetric_tensors(stress):
             raise ValueError("cauchy_stress must be symmetric at every point.")
         object.__setattr__(self, "cauchy_stress", stress)
         object.__setattr__(

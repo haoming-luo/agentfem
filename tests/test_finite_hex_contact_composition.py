@@ -96,7 +96,7 @@ def test_private_finite_material_moving_contact_restart_and_energy(tmp_path):
     resumed.run()
     np.testing.assert_array_equal(resumed.state.u.value.x.array, full.state.u.value.x.array)
     np.testing.assert_array_equal(resumed.state.v.value.x.array, full.state.v.value.x.array)
-    assert resumed.history_records == pytest.approx(full.history_records)
+    assert resumed.history_records == full.history_records
     row = full.history_records[-1]
     assert row["contact_motion_work"] > 0
     assert row["bulk_stored_energy"] > 0
@@ -215,7 +215,7 @@ def test_ordinary_finite_contact_matches_private_composition_and_restarts(tmp_pa
     resumed.load_checkpoint(checkpoint)
     resumed.run()
     np.testing.assert_array_equal(resumed.state.u.value.x.array, step.state.u.value.x.array)
-    assert resumed.history_records == pytest.approx(step.history_records)
+    assert resumed.history_records == step.history_records
 
 
 def test_ordinary_contact_auto_increment_composes_body_and_contact_once():

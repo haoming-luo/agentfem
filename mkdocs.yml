@@ -130,6 +130,7 @@ nav:
       - Strain-History Materials: strain_history_runtime.md
       - Offline Runtime Installers: runtime_installers.md
       - Windows and AI-Assisted Installation: windows_agent_installation.md
+      - Optional Windows Installer Reference: windows_installer_reference.md
       - For AI Agents: agents/index.md
       - Connect with MCP: agents/mcp.md
       - Agent Acceptance: agents/acceptance.md
@@ -163,8 +164,11 @@ nav:
           - UFL Integration: guide/ufl_adoption.md
           - Numerical Controls: guide/incremental_numerical_controls.md
           - Nonlinear Materials: nonlinear_materials.md
+          - Local History Materials: history_material_workflow.md
           - Composite Materials and Forming: composite_materials_and_forming.md
           - Thermal Stress and Creep: solution_procedures_and_thermal_creep.md
+          - Strain-Life Assessment: strain_life_assessment.md
+          - Creep-Fatigue Verification: creep_fatigue_verification.md
           - Cohesive Fracture: dynamic_cohesive_fracture_architecture.md
           - Cyclic Cohesive Fatigue: cyclic_cohesive_fatigue_architecture.md
           - Nonlinear Architecture: nonlinear_solid_architecture.md
@@ -218,6 +222,7 @@ nav:
           - Project Compatibility and Upgrades: project_upgrades.md
           - Platform and Optional Dependencies: platform_support.md
       - Licensing: licensing.md
+      - Release 0.4.4: release_0.4.4.md
       - Release 0.4.3: release_0.4.3.md
       - Release 0.4.2: release_0.4.2.md
       - Release 0.4.1: release_0.4.1.md

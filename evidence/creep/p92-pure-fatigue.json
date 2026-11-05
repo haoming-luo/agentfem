@@ -1,0 +1,42 @@
+{
+  "schema": "agentfem.research.p92-pure-fatigue.v1",
+  "source": "https://doi.org/10.3390/met9020183",
+  "location": "Tables 1 and 2, printed pages 4 and 7, visually checked",
+  "strain_measure": "total axial strain amplitude, dimensionless",
+  "loading": "fully reversed, strain controlled, no dwell, air, strain rate 0.001/s",
+  "failure_definition": "Not independently resolved from experimental description; do not equate to 2020 paper's criterion",
+  "validation_role": "Authors' calibration data, not independent holdout",
+  "temperatures": [
+    {
+      "temperature_C": 600,
+      "young_MPa": 134509,
+      "sigma_f_MPa": 397,
+      "b": -0.068,
+      "epsilon_f": 0.341,
+      "c": -0.61,
+      "observations": [
+        {"amplitude": 0.002, "cycles": [9078]},
+        {"amplitude": 0.003, "cycles": [4861]},
+        {"amplitude": 0.004, "cycles": [2045, 2120, 2186, 1426]},
+        {"amplitude": 0.006, "cycles": [447, 506]},
+        {"amplitude": 0.008, "cycles": [473, 422]}
+      ]
+    },
+    {
+      "temperature_C": 650,
+      "young_MPa": 132150,
+      "sigma_f_MPa": 319,
+      "b": -0.080,
+      "epsilon_f": 1.170,
+      "c": -0.79,
+      "observations": [
+        {"amplitude": 0.002, "cycles": [4124]},
+        {"amplitude": 0.003, "cycles": [2232]},
+        {"amplitude": 0.004, "cycles": [1102, 918]},
+        {"amplitude": 0.006, "cycles": [480, 568]},
+        {"amplitude": 0.007, "cycles": [444]},
+        {"amplitude": 0.008, "cycles": [381]}
+      ]
+    }
+  ]
+}

@@ -25,6 +25,8 @@ def test_runtime_specs_keep_heavy_optional_packs_out_of_core():
         "python",
         "pip",
         "conda",
+        "scipy",
+        "matplotlib-base",
     } <= names
     assert not ({"gmsh", "python-gmsh", "pytorch", "pyvista"} & names)
 
@@ -34,7 +36,7 @@ def test_complete_runtime_adds_gmsh_without_learning_or_visualization():
         encoding="utf-8"
     ).splitlines()
     names = {line.split("=")[0].strip() for line in specs if line.strip()}
-    assert {"gmsh", "python-gmsh"} <= names
+    assert {"gmsh", "python-gmsh", "scipy", "matplotlib-base"} <= names
     assert not ({"pytorch", "pyvista"} & names)
 
 
@@ -65,7 +67,7 @@ def test_wsl_rootfs_owns_a_jit_toolchain_independent_of_docker_environment():
     assert 'export CXX="${CXX:-/usr/bin/g++}"' in profile
     assert 'shutil.which("gcc"' in verifier
     assert 'shutil.which("g++"' in verifier
-    assert '"fresh_jit_exercised": True' in verifier
+    assert '"fresh_jit_exercised": not args.readiness_only and passed' in verifier
     assert "docker import" in workflow
     assert "/usr/bin/env -i" in workflow
     assert "agentfem-wsl-rootfs:" in workflow
@@ -497,6 +499,6 @@ def test_windows_bundle_includes_recovery_and_real_solve_verifier():
     assert '"Installer-Presentation.ps1"' in builder
     assert '*companion_files' in builder
     assert 'RUNTIME / "verify_installed_runtime.py"' in builder
-    assert '"--skip-mpi", "--output", $report' in installer
+    assert '"--readiness-only", "--output", $report' in installer
     assert installer.index('SHA-256 mismatch') < installer.index('$installedWslVersion = Require-WslPlatform')
     assert '"--exec", "/usr/lib/agentfem/oobe.sh"' in installer

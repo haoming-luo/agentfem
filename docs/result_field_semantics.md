@@ -1,3 +1,8 @@
+---
+title: "Finite-element stress contours: raw fields and smoothing"
+description: "Understand AgentFEM displacement, stress and strain outputs, cell projection, optional smoothing and material-boundary semantics before interpreting contours."
+---
+
 # Result-field semantics: raw values, projection, and smoothing
 
 Finite-element result names are incomplete without a location and a processing

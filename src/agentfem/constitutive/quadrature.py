@@ -24,7 +24,7 @@ from .plasticity import (
     J2LinearIsotropicHardening,
     J2PlasticState,
 )
-from .creep import ImplicitCreepState, IsotropicPowerLawCreepMaterial
+from .creep import ImplicitCreepState, IsotropicCreepMaterial
 
 
 @dataclass(frozen=True)
@@ -676,6 +676,11 @@ class QuadratureField:
         default=None,
         repr=False,
     )
+    _measure_expression_cache: tuple[object, np.ndarray, object] | None = field(
+        init=False,
+        default=None,
+        repr=False,
+    )
 
     @classmethod
     def create(
@@ -786,11 +791,26 @@ class QuadratureField:
         cell_map = domain.topology.index_map(domain.topology.dim)
         owned = int(cell_map.size_local)
         cells = np.arange(owned, dtype=np.int32)
+        # Reuse preparation, never evaluated geometry weights. eval() reads
+        # current mesh coordinates. Points/domain changes invalidate preparation;
+        # MPI keeps its existing collective JIT path, without rank-local cache
+        # decisions that could strand another rank in compilation.
+        cached = self._measure_expression_cache if domain.comm.size == 1 else None
+        if (
+            cached is not None
+            and cached[0] is domain
+            and np.array_equal(cached[1], self.points)
+        ):
+            expression = cached[2]
+        else:
+            expression = fem.Expression(ufl.JacobianDeterminant(domain), self.points)
+            if domain.comm.size == 1:
+                self._measure_expression_cache = (
+                    domain, np.asarray(self.points).copy(), expression
+                )
         determinants = np.abs(
             np.asarray(
-                fem.Expression(ufl.JacobianDeterminant(domain), self.points).eval(
-                    domain, cells
-                ),
+                expression.eval(domain, cells),
                 dtype=float,
             ).reshape(-1)
         )
@@ -1931,7 +1951,7 @@ class CreepQuadratureState:
     def update(
         self,
         strain_values,
-        material: IsotropicPowerLawCreepMaterial | QuadratureMaterialMap,
+        material: IsotropicCreepMaterial | QuadratureMaterialMap,
         *,
         time_start: float,
         time_end: float,
@@ -2111,7 +2131,7 @@ class CreepQuadratureState:
     def refresh_response(
         self,
         strain_values,
-        material: IsotropicPowerLawCreepMaterial | QuadratureMaterialMap,
+        material: IsotropicCreepMaterial | QuadratureMaterialMap,
         *,
         temperature_values=None,
     ) -> None:

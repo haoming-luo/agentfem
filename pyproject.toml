@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "agentfem"
-version = "0.4.4.dev0"
+version = "0.4.5.dev0"
 description = "AI-native finite-element workflows for humans and agents."
 readme = "README.md"
 requires-python = ">=3.11"
@@ -37,6 +37,9 @@ dependencies = [
   "numpy",
   "mpi4py",
   "packaging>=23",
+  "scipy>=1.11",
+  "matplotlib",
+  "gmsh>=4.11",
 ]
 
 [project.urls]

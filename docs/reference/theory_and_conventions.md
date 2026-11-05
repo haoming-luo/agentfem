@@ -1,4 +1,6 @@
 ---
+title: Finite-element theory, units and conventions | AgentFEM
+description: "Check AgentFEM's kinematics, weak forms, stress measures and unit conventions before interpreting a finite-element result."
 hide:
   - toc
 ---

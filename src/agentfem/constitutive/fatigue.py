@@ -70,7 +70,13 @@ class FatigueAssessment:
                 sum(cycle.count for cycle in self.cycles)
             ),
             "damage": self.damage,
-            "repeated_history_life": self.repeated_history_life,
+            "repeated_history_life": (
+                self.repeated_history_life if isfinite(self.repeated_history_life) else None
+            ),
+            "life_status": (
+                "finite" if isfinite(self.repeated_history_life) else
+                "no_counted_damage" if self.damage == 0.0 else "outside_numeric_range"
+            ),
             "mean_stress_correction": self.mean_stress_correction,
             "cycles": [
                 {
@@ -234,20 +240,24 @@ def turning_points(history) -> np.ndarray:
     counting; time values are intentionally irrelevant to cycle counting.
     """
 
+    if np.iscomplexobj(history):
+        raise ValueError("stress history must be real.")
     values = np.asarray(history, dtype=float)
     if values.ndim != 1 or values.size < 2:
         raise ValueError("stress history must be a one-dimensional array of length >= 2.")
     if not np.all(np.isfinite(values)):
         raise ValueError("stress history must contain only finite values.")
-    keep = np.concatenate(([True], np.diff(values) != 0.0))
+    keep = np.concatenate(([True], values[1:] != values[:-1]))
     selected = values[keep]
     if selected.size == 1:
         return selected.copy()
-    slopes = np.diff(selected)
+    # Compare directions, not products of slopes: the latter can underflow
+    # and erase reversals (or overflow) under a change of numeric scale.
+    rising = selected[1:] > selected[:-1]
     reversals = np.concatenate(
         (
             [0],
-            np.flatnonzero(slopes[:-1] * slopes[1:] < 0.0) + 1,
+            np.flatnonzero(rising[:-1] != rising[1:]) + 1,
             [selected.size - 1],
         )
     )
@@ -274,7 +284,7 @@ def rainflow_cycles(history) -> tuple[StressCycle, ...]:
             newer_range = abs(stack[-1] - stack[-2])
             if newer_range < older_range:
                 break
-            mean = 0.5 * (stack[-3] + stack[-2])
+            mean = 0.5 * stack[-3] + 0.5 * stack[-2]
             if len(stack) == 3:
                 cycles.append(StressCycle(older_range, mean, 0.5))
                 stack.pop(0)
@@ -288,7 +298,7 @@ def rainflow_cycles(history) -> tuple[StressCycle, ...]:
         cycles.append(
             StressCycle(
                 abs(second - first),
-                0.5 * (first + second),
+                0.5 * first + 0.5 * second,
                 0.5,
             )
         )
@@ -362,6 +372,8 @@ def assess_history(
     """
 
     values = getattr(history, "values", history)
+    if np.iscomplexobj(values):
+        raise ValueError("Stress-life assessment requires a real stress history.")
     selected = np.asarray(values, dtype=float)
     if selected.ndim != 1:
         raise ValueError(

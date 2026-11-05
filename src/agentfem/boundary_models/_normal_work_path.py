@@ -19,6 +19,7 @@ from .contact_work import _fixed_normal_work_increment
 
 class AcceptedNormalContactWork:
     schema = "agentfem.accepted-fixed-normal-work.v1"
+    requires_field_snapshot = False
 
     def __init__(self, provider):
         if not isinstance(provider, DolfinxAugmentedPlaneTrialProvider):

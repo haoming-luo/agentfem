@@ -18,7 +18,7 @@ jobs:
           - platform: linux
             runner: ubuntu-latest
           - platform: macos
-            runner: macos-14
+            runner: macos-15
     runs-on: ${{ matrix.runner }}
     env:
       UCX_TLS: tcp,sm,self

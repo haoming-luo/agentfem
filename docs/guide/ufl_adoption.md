@@ -1,3 +1,8 @@
+---
+title: "Reuse FEniCSx and UFL formulations in AgentFEM"
+description: "Adopt an existing FEniCSx formulation incrementally while preserving its physics and adding AgentFEM projects, output and verification."
+---
+
 # Reuse working FEniCSx formulations in AgentFEM
 
 A working Python/UFL solver is a reusable numerical asset. Adopt it incrementally:

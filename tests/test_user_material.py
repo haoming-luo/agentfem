@@ -472,3 +472,71 @@ def test_material_tangent_check_does_not_relabel_spatial_umat_tangent():
     )
     with pytest.raises(ValueError, match="Spatial UMAT tangents"):
         check_material_tangent(SpatialMaterial(), point)
+
+
+@pytest.mark.parametrize("scale", [1e-200, 1e-12, 1.0, 1e12, 1e200])
+@pytest.mark.parametrize("correct", [True, False])
+def test_material_tangent_verdict_is_stress_unit_invariant(scale, correct):
+    schema = MaterialStateSchema("empty")
+
+    class LinearPiola:
+        name = "linear_reference_fixture"
+        state_schema = schema
+        tangent_convention = (
+            MaterialTangentConvention.first_piola_deformation_gradient()
+        )
+
+        def update(self, point):
+            F = point.deformation_gradient_new
+            return MaterialPointOutput(
+                cauchy_stress=scale * (F @ F.T) / np.linalg.det(F),
+                consistent_tangent=scale * np.eye(9) * (1 if correct else 1.2),
+                state_new=[],
+                state_schema=schema,
+                tangent_convention=self.tangent_convention,
+            )
+
+    point = MaterialPointInput(
+        np.eye(3),
+        np.diag([1.1, 0.9, 1.02]),
+        0.1,
+        0.1,
+        [],
+        [],
+        schema,
+    )
+    evidence = check_material_tangent(LinearPiola(), point, relative_step=1e-6)
+    assert bool(evidence.accepted) == correct
+    assert np.isfinite(evidence.relative_error)
+    assert evidence.relative_error == pytest.approx(0 if correct else 0.2, abs=1e-8)
+
+
+def test_tangent_check_reports_its_one_sided_columns():
+    schema = MaterialStateSchema("empty")
+
+    class LinearPiola:
+        name = "linear_reference_fixture"
+        state_schema = schema
+        tangent_convention = (
+            MaterialTangentConvention.first_piola_deformation_gradient()
+        )
+
+        def update(self, point):
+            F = point.deformation_gradient_new
+            return MaterialPointOutput(
+                cauchy_stress=(F @ F.T) / np.linalg.det(F),
+                consistent_tangent=np.eye(9),
+                state_new=[],
+                state_schema=schema,
+                tangent_convention=self.tangent_convention,
+            )
+
+    point = MaterialPointInput(
+        np.eye(3), np.diag([1e-8, 1, 1]), 0.1, 0.1, [], [], schema
+    )
+    check = check_material_tangent(LinearPiola(), point)
+    assert check.accepted
+    assert check.summary()["method"] == "mixed_difference_fixed_old_state"
+    assert check.summary()["one_sided_components"] == ["11"]
+    with pytest.raises(ValueError, match="perturbation is not representable"):
+        check_material_tangent(LinearPiola(), point, relative_step=1e-30)

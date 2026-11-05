@@ -1,3 +1,8 @@
+---
+title: "Linear buckling and periodic elastic homogenization"
+description: "Compute elastic buckling factors and periodic effective properties with AgentFEM. Review reference loads, perturbation supports and experimental scope."
+---
+
 # Solid stability and periodic elastic properties
 
 These experimental public workflows add linear initial-stress buckling and

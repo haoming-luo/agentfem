@@ -1,5 +1,22 @@
 # AgentFEM Product Roadmap
 
+### Research update: P92 tensor admission (2026-11-05)
+
+The [tensor admission record](internal/p92_tensor_admission_20261105.md)
+now connects the public scalar recovery equations to an explicitly assumed
+small-strain isotropic J2 extension. Local Jacobian/tangent checks, unit and
+basis invariance, scalar reduction, and a homogeneous structural hold/restart
+pass through the ordinary physical-time consumer. The implementation stays in
+research tools, not the material catalogue: Poisson ratio and multiaxial
+extension are assumptions, and experimental multiaxial validation, temperature
+interpolation and service-life prediction remain open.
+
+Integration checkpoint: #147–#150 are merged. The tensor research candidate
+additionally passes structural time refinement toward an independent continuous
+reference at both published temperatures. Next prioritize additional fixed-
+parameter cyclic experimental comparisons and co-located small-strain histories;
+do not infer lifetime or multiaxial calibration from the homogeneous patch tests.
+
 ## Direction
 
 AgentFEM is building a readable, dependable, and extensible finite-element
@@ -19,20 +36,370 @@ or a successful run is not by itself a validated engineering capability.
 
 ## Current product phase: the 0.4 foundation
 
-### Active sprint decision board (2026-10-25)
+### P92 long-cycle response screen (2026-11-06 candidate)
 
-The current follow-up starts from merged main `6227b926` (PRs #118 and #121
-integrated). It prioritizes bounded diagnostic and execution improvements,
+Fixed published parameters were compared with sparse long-cycle experimental
+peak markers, reusing existing Radau/BDF campaigns. Reading sensitivity,
+solver agreement and nonzero response discrepancy remain visible in the
+[cyclic screen record](internal/p92_cyclic_screen_20261106.md). Observed life
+normalizes the source figure; it is not predicted life. The next engineering
+gate is compatible, independently validated life data, not repeated tolerance
+tightening or refitting the validation markers.
+
+### P92 life-data gate (2026-11-06 research)
+
+A fixed six-calibration/two-held-out baseline now evaluates the published
+combined creep-fatigue life table without reusing held-out labels. See the
+[source, results and stop conditions](internal/p92_life_screen_20261106.md).
+This is not an engineering material card. Prioritize independent compatible
+life evidence and same-point structural histories over further tuning of the
+same eight rows; do not add creep damage to an already combined life relation.
+
+### Physical-time small-strain user materials (2026-11-05 candidate)
+
+The next bounded consumer reuses the ordinary small-strain Newton Step and
+quadrature transaction. Explicit duration separates normalized loading from
+physical time; initialization, failed trials and restart do not advance the
+material clock. Exact accepted stress/tangent/state restoration uses a v2
+same-layout serial checkpoint, leaving the rate-independent v1 route intact.
+Two local rate laws share this consumer; independent relaxation/creep responses,
+time refinement, cutback and corrupt-checkpoint tests are the promotion gates.
+The [design record](internal/small_strain_physical_time_20261105.md) and
+`examples/small_strain_relaxation` retain the exact scope.
+
+Next: independently audit and validate a real multiaxial material provider before
+promoting it into structural use. Prescribed temperature, selected-point histories,
+regional materials, contact and MPI are separate composition gates. This candidate
+is not a P92 qualification, service-life prediction, or a release announcement.
+
+### Published P92 figure screen (2026-11-05)
+
+The unchanged published-parameter reference now has a quantitative, traceable
+source-figure screen. Six authors' model-dash samples agree inside pixel-reading
+sensitivity; 24 first-cycle experimental markers across three held-out dwell
+conditions show about 5-6% sampled mean absolute relative error and local
+differences up to 33 MPa. These sparse samples are not a full-curve validation,
+a general material admission or a life model. Source coordinates, calibration,
+uncertainty scope, reproducible code and disagreement are retained in the
+[figure-screen record](internal/p92_dwell_figure_screen_20261105.md).
+
+PRs #142, #143, #144 and #146 are merged; #144 passed full FEniCSx and macOS
+installed-use CI. Co-located finite-strain histories are merged in PR #147.
+Next scientific gates remain full cyclic response and explicit multiaxial
+formulation/structural verification, not repeated refitting of a failed holdout.
+
+### Co-located finite-strain user-material histories (2026-11-05)
+
+The next bounded consumer reuses `results.material_point` in ordinary
+finite-strain UserMaterial Steps. Raw `S/P/F/E_GL`, state and supplied uniform
+temperature share each accepted time and existing checkpoint/result contracts.
+Only selected points are recorded; sparse visualization does not decimate the
+history. No new solver or file format is introduced. Total Green–Lagrange
+strain is not automatically a mechanical strain-life input. See the
+[design and evidence record](internal/finite_material_point_histories_20261105.md).
+
+Engineering PRs #142, #143, #144 and #146 are merged. The uniform-temperature
+composition passed full FEniCSx and macOS installed-use CI. Published recovery equations remain a numerical
+reference; quantitative experimental agreement and a verified multiaxial
+provider remain open scientific gates. Do not infer either from history output.
+
+### Prescribed thermal input for history materials (2026-11-05)
+
+This bounded composition reuses the existing finite-strain material Step:
+`temperature=` accepts a positive kelvin scalar or a frozen, uniform linear
+physical-time history. Material updates receive endpoint temperature and its
+accepted-start increment; thermal knots, cutback, output and restart use the
+same accepted-state lifecycle. The four-file example exercises either history
+law with an optional thermal cycle, without a project-level solver.
+
+Local analytical expansion/reaction, plane-strain/plane-stress, tangent,
+rollback, restart and standard project tests pass. This is prescribed thermal
+input, not a heat solver or experimental material validation. Spatial thermal
+fields, regional providers, contact and MPI compositions remain separate gates.
+See the [implementation record](internal/user_material_temperature_plan_20261105.md).
+
+### Candidate mechanism screening and solver robustness (2026-11-05)
+
+Engineering slices #138–#141 are merged. The separate Windows-guidance PR #142
+has passed its scoped CI; it is not a new clean-host installation trial.
+The [P92 sinh screen](internal/p92_sinh_screen_20261105.md) tests existing
+flow laws before introducing new material mechanisms. Four RF-only candidate
+fits still miss the long low-stress SLR hold; SLR remains diagnostic rather
+than blind validation. Full-path FEM time refinement now passes after a
+general creep Newton correction: impose the new prescribed displacement before
+line-search evaluations, while retaining accepted-state rollback.
+
+Next: discriminate joint plasticity versus physical-time recovery; specify
+and verify any genuinely missing mechanism; then review prescribed temperature histories
+for user materials as a separately tested composition. Keep numerical
+verification, experimental material validation and life assessment distinct.
+
+The [static-recovery discriminator](internal/static_recovery_discriminator_20261105.md)
+now isolates strength decay from stress relaxation: a strain hold relaxes only
+after yield reactivation in this bounded tensile model. Analytical activation,
+time refinement and local tangent checks pass. Keep the tool outside the core;
+next audit the complete public P92 recovery model and its own experimental
+conditions before implementing or fitting a material provider.
+
+### Co-located histories and real-material gate (2026-11-01)
+
+Keep the preceding output/integration PR separate from this scientific slice.
+The new opt-in `material_points` contract records selected raw integration-point
+stress, total strain, internal variables and prescribed kelvin temperature at
+accepted physical times. It reuses ordinary result histories and both existing
+creep checkpoint formats; corrupted history or changed selection rejects the
+whole restore. Serial thermal-history restart now compares the complete path
+identity, not the receiver's current temperature sample. See
+[the history contract](material_point_histories.md).
+
+The first composition tests nonuniform time-dependent temperature with regional
+pure creep, or homogeneous joint creep/plasticity. It does not broaden the
+joint material to regional, contact or MPI use, nor admit temperature fields
+on arbitrary finite-strain UserMaterial Steps. Sampling is selected-point only,
+every accepted increment, independently of visualization frames.
+
+The [Alloy 617 source audit](internal/alloy617_validation_plan_20261101.md)
+selects a public report with test conditions and model parameters, but identifies
+softening/damage mechanisms incompatible with a direct parameter substitution
+into the current hardening-only model. Real-data calibration and held-out
+validation remain **open**, not replaced by synthetic test passes. A separate
+[public P92 experiment](internal/p92_relaxation_validation_20261101.md) now
+executes a checksum-pinned RF fit and SLR holdout comparison through an effective
+relaxation baseline, with independent FEM time refinement and restart. This is
+conditional hold response, not a full-cycle or lifetime validation. Next: review
+elastic and softening behavior, freeze a compatible local law and a new holdout,
+then validate the complete loading path through the same structural lifecycle.
+
+The [full first-cycle diagnostic](internal/p92_full_path_20261101.md) now
+executes RF and SLR without hold-start stress resets, using ordinary creep
+Steps and an independent continuous scalar reference. Three-level time
+refinement passes, but the high-stress Norton fit does not transfer to the
+long low-stress SLR hold. Measured-path and modulus sensitivity checks do not
+remove that discrepancy. Preserve this as a negative transfer benchmark;
+screen existing flow/plastic assets before adding recovery or softening, and
+freeze a new validation condition before retuning. Engineering integration
+and scientific material promotion remain separate: #137 and #138 are merged.
+This work does
+not claim a validated P92 material, lifetime prediction or a new release.
+
+### Material-only structural workflow sprint (2026-10-29)
+
+User feedback identified an important boundary: a local history law should not
+force each project to implement Newton, quadrature transactions and XDMF layout.
+The [bounded workflow](history_material_workflow.md) reuses the existing
+finite-strain `UserMaterial` protocol, shared Newton/PETSc integration and
+committed/trial quadrature storage. It adds no hydrogel-specific model family
+and does not infer multiaxial physics from a one-dimensional fit.
+
+| Priority | Deliverable | Admission boundary |
+| --- | --- | --- |
+| P0 | One ordinary `model.step` workflow for two replaceable history laws; positive physical duration, cutback and same-layout restart | Experimental serial homogeneous 3D/plane strain, strong BCs/reference dead loads; fixed-old-state `dP/dF` is mandatory |
+| P0 | Single-grid accepted multi-field output, readable closed frame files, explicit recovery and restart provenance | Real VTK/Warp and interruption checks; no fabricated unsaved fields, energy, or independent validation |
+| P0 | Extension-aware upgrade guidance and a four-file runnable example | Recognize explicit Step lowerers, not entire extension directories; local materials do not need project Step providers |
+| P1 | Bounded condensed plane-stress adaptation, in the same material-only workflow | Explicit reflection-symmetric 3D law; positive transverse stiffness; scalar thickness equilibrium and full-update Schur tangent; independent local/structural, rollback/restart and real VTK checks |
+| Next | Extend independent scientific coverage before wider admission | Synthetic nonuniform damage space and viscous time convergence are covered; next validate selected real provider laws with their owners. No arbitrary anisotropy, shells, hidden 1D-to-3D inference or batch speedup claim |
+| Later | Temperature/external-field histories, regional materials and distributed global equilibrium | Add each composition with atomic failure/restart and independent scientific evidence, not by relaxing admission checks |
+
+This sprint complements thermal/cyclic-creep work below; it does not replace
+its physical-time semantics or introduce another state/output framework. It
+does not close the outstanding nonuniform plastic-contact spatial gate or
+promise a composite performance improvement. Precise evidence is recorded in
+[the sprint record](internal/history_material_workflow_20261029.md).
+The bounded reduction's design and evidence are recorded in
+[the plane-stress record](internal/history_plane_stress_20261029.md).
+The example also covers ordinary CLI pause/restart/whole-run comparison with
+explicit partial-result trust, rather than requiring a project-managed output
+loop. Accepted-state ownership guards and unit-robust tangent evidence are
+engineering hardening, not additional material validation or wider admission.
+Automatic accepted-state persistence now reuses `checkpointing.every` through
+the same Step option contract. The four-file example retains two scheduled
+archives; failure, pause and restart do not need project checkpoint callbacks.
+Cadence is based on the restored accepted ledger; only newly published scheduled
+records are eligible for retention. Manual and previous-run files stay outside
+that policy. Disk/reporting failure is not numerical cutback or material failure.
+The follow-up verification audit also rejects observable provider input mutation
+without modifying the caller's request. Full/reduced finite-strain and small-strain
+tangent evidence now share unit-robust error arithmetic; scalar/batch stress
+symmetry retains point-local scales. This is verification infrastructure, not
+experimental validation of any user law. Reusable local rotation evidence now
+requires explicit invariant/spatial-vector/spatial-tensor declarations for every
+history variable and rejects undeclared external fields. It checks each channel
+independently, including two different endpoint rotations; it does not replace
+derivative, thermodynamic, path-wide or experimental checks. The existing J2
+material is included as a local cross-check, not a wider structural admission.
+Real material requests/responses and checkpoint restoration now refuse complex
+values before conversion, instead of silently discarding imaginary components.
+This is boundary validation, not support for frequency-domain constitutive laws.
+
+The next output-control slice adds `output_every` to the same Step contract,
+with no project callbacks: accepted-increment sampling, segment endpoints and
+continuation boundaries are separate from physical-time discretization and
+checkpoint retention. Default every-increment output remains unchanged. This
+reduces recovery/storage work when fewer frames are requested; it is not a
+constitutive-solver or composite-speed claim. Admission remains experimental
+and serial. See [the output-control record](internal/history_output_cadence_20261031.md)
+for verification and measured scope.
+The same slice removes repeated serial geometry-expression preparation in
+`QuadratureField`, while evaluating current geometry every time. It does not
+cache physical weights or change MPI collective preparation. Same-frame short-
+path confirmation measures about 13.5–15.7% less total time for the two educational
+laws; this is not a composite full-run or portable performance promise.
+
+The integration checkout uses `0.4.5.dev0`, not the already published `0.4.4`
+identity. Its development contract retains every existing admission limit and
+records the new workflows as experimental. This is not a release or promotion.
+The integration gate runs the ordinary four-file example from an installed
+candidate with no source-path injection: two laws, planned pause/restart,
+continuous and sparse output, accepted-state comparison and VTK/Warp reading.
+Reference geometry remains fixed after Step construction; changed geometry and
+lossy endpoint conversion are refused before state or output mutation. See the
+[integration audit](internal/history_integration_20261031.md) for installed-use
+evidence and the distinction between passing gates and pending integration.
+
+### Thermal–inelastic continuity sprint (2026-10-29)
+
+PR #132 maintenance is merged at `44fda9c4`; the published 0.4.4 tag remains
+unchanged. The next bounded sequence is reliability → thermal/cyclic-creep
+integration → damage/life assessment. It does not reopen packaging, claim
+commercial contact parity, or replace the earlier open spatial-accuracy gates.
+
+| Stage | Implemented slice | Remaining promotion gate |
+| --- | --- | --- |
+| Reliable results and restart | Validated zero-copy XDMF continuation views; atomic late-failure creep checkpoint restoration | Installed-use regression; a joined view alone does not prove physical restart continuity |
+| Thermal–cyclic plasticity–creep | Shared implicit Sinh flow; simultaneous J2/Chaboche + creep update, consistent tangent, ordinary `model.step`, temperature history, cutback, separate energy channels and serial restart; analytical time checks and a nonuniform active-plastic/creep spatial reference | Independent material calibration and nonproportional thermal spatial references; MPI, contact, regional materials and temperature-dependent plastic properties remain unsupported for the new composition |
+| Damage/life | Bounded scalar strain-life and time-resolved creep-damage assessments reuse rainflow and the existing interaction envelope; explicit units, source sampling and domain rejection | Paired mean-stress/multiaxial/nonisothermal life and global damage feedback need their own contracts and independent validation; no material calibration is implied |
+
+The initial joint-material gate is a homogeneous 3D small-strain hold/reverse
+fixture, including an independent uniaxial stress solution. It is not an
+industrial lifetime prediction, two-way heat generation, or a performance
+benchmark. The [design and evidence record](internal/thermo_inelastic_continuity_20261029.md)
+tracks exact scope. The ordinary `examples/thermal_cyclic_creep` project uses
+synthetic parameters, not confidential calibration data.
+
+The [creep/fatigue verification ladder](creep_fatigue_verification.md) now ties
+the next gate to independent Norton relaxation, cyclic loop work and
+time-fraction references, followed by compatible held-out material test data.
+ASTM catalogue references identify test families, not software certification;
+the generic linear interaction is not a qualified design-code envelope.
+The first open rupture-data audit found missing test metadata and a material
+label discrepancy; it is recorded as a candidate, not admitted as a validated
+alloy. Use independently documented deformation, cyclic and dwell tests to
+decide whether static recovery or cyclic softening must be added next; do not
+silently fit those mechanisms with the currently hardening-only plastic asset.
+The prescribed nonuniform-temperature joint field now also has an independent
+spatial-refinement reference. It isolates Arrhenius rate dependence with zero
+thermal expansion, not a full thermal-cyclic component qualification. Future
+material comparison must distinguish ordinary strain-controlled tests from
+elastic-follow-up/SMT tests; the ANL-ART-168 reference provides that distinction.
+Before nonuniform component-life productization, preserve co-located accepted
+stress/strain/temperature histories with point identity through restart; separate
+spatial maxima are not a replacement. Reuse result/state sampling contracts,
+not a second simulation or sensor framework.
+An independent rotating-stress material reference now also checks nonproportional
+J2/Chaboche plus creep under heating/cooling, including distinct plastic/creep
+directions and first-order time convergence. This strengthens local integration
+evidence; the nonuniform structural/experimental promotion gate remains open.
+The existing regional pure-creep route now has an independent elastic-follow-up
+series-shear reference. This verifies structural restraint effects without
+adding a case-specific correction factor or admitting regional joint plasticity.
+
+### 0.4.4 published; bounded maintenance (2026-10-27)
+
+[0.4.4 is published](https://github.com/haoming-luo/agentfem/releases/tag/v0.4.4)
+at immutable commit `7dbf936df18997bd8785a72f27ff230bcad68581`.
+The [publication workflow](https://github.com/haoming-luo/agentfem/actions/runs/40486982823)
+completed successfully. The [release scope](release_0.4.4.md) continues to
+separate admitted experimental compositions from stable engineering changes.
+Follow-up maintenance reviews the changed assembly, state and output paths;
+it does not replace the published tag or reopen installer/package development.
+Do not start another large spatial sweep or a full composite run merely to
+close a maintenance review.
+
+The graded-cycle path study is complete within its recorded scope. Spatial
+plastic-contact accuracy and an independent same-input nonlinear reference
+remain open promotion gates; they must not be relabeled as passed. Correctness
+regressions in admitted routes still block release. Fresh Windows/WorkBuddy
+field acceptance remains separate from installer-contract CI. The current
+historical release board and evidence are in the
+[release decision record](internal/release_0_4_4_candidate_gate_20261027.md).
+Earlier dated boards below are historical evidence, not simultaneous tasks.
+
+The short post-release review found a bounded assembly-validation gap:
+individually finite duplicate contact stiffness entries can overflow when
+summed, and complex inputs could lose their imaginary part during conversion.
+Reject both before PETSc mutation; retain the existing batched insertion and
+test joint rollback/continuation. This is reliability hardening, not a new
+speedup or promotion of experimental contact accuracy.
+
+### Windows onboarding simplification (2026-10-26)
+
+The new user field report identifies Ubuntu distribution metadata download,
+not the numerical stack, as the main installation blocker. Promote the
+already reported TUNA image/import route to the short onboarding path:
+WSL platform → checked Ubuntu image → ordinary account → mirrored environment
+and installed first solve. No checkout, optional helper or Windows Features
+checklist is a prerequisite. Retain mirror choice in local handoff notes and
+offer a one-action manual fallback only when the agent lacks permission.
+Detailed installer recovery remains available separately. The report's root
+installation and older package success are evidence, not recommended defaults
+or proof of current-release/project compatibility. New non-root quickstart
+needs clean Windows/WorkBuddy acceptance; local documentation checks and
+PowerShell parser CI do not substitute for it. This work does not change
+solver algorithms, contact maturity or simulation performance claims.
+
+PR #125 is merged at `5e6cba5b` after all applicable checks passed for
+`11accb3b`, including PowerShell 5.1/7, Linux/FEniCSx and macOS installed-wheel
+acceptance. This is engineering integration, not a new Windows host field trial.
+
+### Active sprint decision board (2026-10-26)
+
+The numerical follow-up starts from merged main `a862e123` (including PR #123).
+It prioritizes bounded diagnostic and execution improvements,
 not another capability expansion. CI establishes source/installation
 regressions, not nonuniform spatial accuracy or commercial parity.
 
 | Order | Work | Decision gate |
 | --- | --- | --- |
 | P0 | Keep engineering integration separate from scientific maturity | The release contract names periodic J2/contact as experimental; no general contact or mesh-independence promotion |
-| P0 | Locate the nonuniform spatial discrepancy | Fixed physical patch, common accepted station, reference-area pressure moments, and unchanged MPC equations; no blind larger-mesh sweep |
-| P1 | Integrate repeated contact stencils before sparse insertion | Retain all current integration points and constrained-row semantics; compare complete cyclic paths, rollback/restart and fresh whole-path timing |
+| P0 | Separate path-work error from spatial contact error | Independent elastic assembly/MPC audit, per-increment work/energy accounting, then one graded plastic path refinement at common stations |
+| P1 | Remove redundant observation work | Scalar energy/feature histories must not assemble unused global tangents or copy whole fields; retain current geometry, accepted-state transactions and legacy observers |
 | P1 | Preserve ordinary-use acceptance | Reuse unaffected installed output/restart evidence explicitly; validate changed assembly paths without AI-provided executable glue |
 | Exit | Commit tested improvements and retain open science gates | No release tag or commercial-parity claim on partial validation; reuse unaffected full composite evidence |
+
+Current progress: the independent discrete elastic audit agrees with production
+force/energy on uniform and graded 8/12-cell meshes. A primal affine J2 energy
+ledger now distinguishes stored energy, plastic/friction loss, penalty energy
+and accepted external work. Portable two-phase 1↔2-rank checkpoint checks retain
+its complete scalar history; this does not admit distributed implicit contact.
+Scalar contact-energy observation no longer needs full residual/tangent assembly.
+
+The initial-yield diagnostic explains almost all first-station work imbalance
+before contact in the tested graded fixture. A same-source small full-cycle
+control reduces the initial increment alone, with 232 → 237 accepted increments:
+final relative energy residual falls from 0.2106% to 0.0298%, while final force
+changes about 0.0014%. This is an accuracy diagnostic, not a runtime-speed claim
+or justification for a new universal default. The graded full cycle now also
+completes: joint initial-step and plastic-cap refinement lowers the final
+relative work/energy residual from 0.2046% to 0.00625%, with a 0.1137% final-force
+change. This separates path accounting error from spatial sensitivity; it does
+not close the spatial or independent same-input reference gate. Details,
+raw evidence and exact limits are maintained in the
+[contact sprint ledger](internal/contact_0_4_4_local_parity.md).
+
+The observation optimization has a separate 64-increment ABBA confirmation:
+4.73% less solve/observe time within the energy-enabled candidate. A net
+comparison against merged main measures 3.68% less time, including the new
+energy history, with identical physical arrays and common accepted histories.
+These are bounded serial implicit-fixture results, not additive percentages
+or explicit-composite speed claims. The final merged-main candidate also passes
+163 installed regressions and the ordinary `init → check → run` workflow;
+CLI discovery no longer initializes MPI merely to display help or version.
+
+Windows onboarding is a separate bounded engineering change, merged in PR #125:
+reuse WSL/Ubuntu, honor an explicitly chosen mirror, remove the mandatory
+source checkout, and give one manual action when permission/download blocks a
+stage. A fresh Windows/WorkBuddy machine remains a user acceptance check;
+PowerShell contract CI alone is not such a test.
 
 The fixed-width edge-belt diagnostic must also record its sampled area: a
 discontinuous indicator has mesh-dependent quadrature error. Complement it
@@ -349,6 +716,14 @@ floating-point fields, or automatic admission of every triangulated tool.
 
 The ordered nine-gate task and technical bibliography are maintained in
 [the 0.4.4 contact sprint record](internal/contact_0_4_4_local_parity.md).
+The October 26 independent elastic assembly audit now passes uniform and
+graded 8/12-cell controls, including periodic virtual work. This narrows the
+spatial investigation but does not certify the plastic full cycle. The next
+bounded checks remain graded plastic increment sensitivity and loading/unloading
+histories. The primal affine J2 result now records restartable accepted energy
+components and combines existing affine/tool work, with explicit unavailable
+status for incomplete historical evidence; this is diagnostics, not automatic
+scientific promotion.
 Promote only combinations that pass independent same-input comparison,
 mesh/increment/enforcement convergence, residual--tangent and lifecycle
 checks. A failed nonconvex sharp-feature gate narrows the release statement;
@@ -548,6 +923,17 @@ acceptance. Local contract tests and documentation checks are complete; the
 Windows 5.1/7 and Linux installed-entry CI gates are required before integration.
 These checks do not establish clean-machine WSL/UAC, WorkBuddy or domestic
 network acceptance, and do not promote experimental contact physics.
+
+Integration on 2026-10-26: PR #123 merged at `a862e123` after candidate
+`67940f6f` passed Windows PowerShell 5.1/7 contracts, Linux installed-entry
+and FEniCSx acceptance, and macOS installed-wheel acceptance. The development
+branch was removed remotely; local generated website changes were preserved.
+Clean Windows/WorkBuddy and domestic-network feedback remain separate gates.
+Development now returns to bounded contact verification: separate normal and
+in-plane edge resolution before another plastic mesh/path run, then obtain an
+independent same-input reference. Call-local J2 spectral reuse is already
+implemented and evidenced in the 2026-10-19 record; do not schedule it again
+as a missing feature or transfer its speedup to the explicit composite case.
 
 ### Lean project boundary (2026-10-15)
 

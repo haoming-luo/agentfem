@@ -1,3 +1,8 @@
+---
+title: "AgentFEM verification, provenance and operations"
+description: "Find convergence guidance, scientific verification evidence and provenance tools for reviewing how a simulation result was produced."
+---
+
 # Trust and operations
 
 AgentFEM distinguishes a completed computation from an accepted scientific

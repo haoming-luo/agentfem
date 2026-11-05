@@ -1,3 +1,8 @@
+---
+title: "Cyclic cohesive fatigue: architecture and scope"
+description: "Review the experimental declared-interface fatigue route, including cyclic cohesive state, cycle counting and crack-path limitations."
+---
+
 # Cyclic Cohesive Fatigue Architecture
 
 ## Scope

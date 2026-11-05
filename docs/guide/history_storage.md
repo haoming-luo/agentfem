@@ -1,3 +1,8 @@
+---
+title: "Store and read long simulation histories with AgentFEM"
+description: "Use lossless NPZ history companions alongside compact result manifests. Read complete time histories without initializing the finite-element runtime."
+---
+
 # Complete histories without oversized JSON
 
 `SimulationResult` separates scientific histories from their file encoding.

@@ -2,7 +2,7 @@
   "schema": "agentfem.documentation-entry",
   "schema_version": "1.0",
   "project": "AgentFEM",
-  "version": "0.4.4.dev0",
+  "version": "0.4.5.dev0",
   "maturity": "early-release",
   "description": "AI-native finite-element computing for humans and agents.",
   "documentation": "https://haoming-luo.github.io/agentfem/",
@@ -16,14 +16,127 @@
     ],
     "tested_python": "3.11",
     "tested_dolfinx": "0.11",
-    "recommended": "mamba create -n agentfem-env --override-channels -c conda-forge python=3.11 fenics-dolfinx=0.11 agentfem",
-    "mainland_china": "mamba create -n agentfem-env --no-rc --override-channels -c https://mirrors.tuna.tsinghua.edu.cn/anaconda/cloud/conda-forge python=3.11 fenics-dolfinx=0.11 agentfem",
+    "recommended": "mamba create -n agentfem-env --override-channels -c conda-forge python=3.11 fenics-dolfinx=0.11 c-compiler cxx-compiler scipy matplotlib-base gmsh python-gmsh agentfem",
+    "mainland_china": "mamba create -n agentfem-env --no-rc --override-channels -c https://mirrors.tuna.tsinghua.edu.cn/anaconda/cloud/conda-forge python=3.11 fenics-dolfinx=0.11 c-compiler cxx-compiler scipy matplotlib-base gmsh python-gmsh agentfem",
     "mirror_triggers": [
       "Use the mirror channel",
       "\u8d70\u955c\u50cf\u901a\u9053"
     ],
     "mirror_policy": "explicit-or-canonical-unreachable; single-source; no-location-inference",
-    "health_check": "agentfem doctor --json"
+    "health_check": "agentfem doctor --json",
+    "onboarding": {
+      "schema_version": 2,
+      "mode": "agent-assisted",
+      "requires_repository_checkout": false,
+      "detect": {
+        "platform": "Inspect host OS and current shell; Windows uses WSL2. Reuse working Linux/WSL environments.",
+        "channel": "Use the user's requested or recorded mirror choice; do not infer location from IP, language or VPN.",
+        "unknown": "Ask only for the missing choice; do not guess installed platform state from a blocked probe."
+      },
+      "routes": {
+        "windows-wsl2": {
+          "guide": "windows_agent_installation/",
+          "sequence": [
+            "inspect",
+            "wsl_platform",
+            "ubuntu",
+            "ordinary_user",
+            "environment",
+            "readiness"
+          ],
+          "platform_only_command": "wsl --install --no-distribution --web-download",
+          "platform_command_requires": "Missing platform, approved elevation, supported WSL options; not for healthy existing WSL.",
+          "mirror_distribution": "Verified TUNA Ubuntu image import; do not depend on GitHub distribution metadata.",
+          "existing_environment": "Reuse; no automatic overwrite, unregister, conversion or package upgrade."
+        },
+        "linux": {
+          "guide": "getting_started/",
+          "sequence": [
+            "inspect",
+            "environment",
+            "readiness"
+          ]
+        },
+        "macos": {
+          "guide": "getting_started/",
+          "sequence": [
+            "inspect",
+            "environment",
+            "readiness"
+          ]
+        }
+      },
+      "failure_policy": {
+        "automatic_attempts_per_stage": 1,
+        "on_failure": "Stop this stage, retain its exact error, show one manual action; continue after readiness is verified.",
+        "retry_requires": "Changed readiness, source or explicit user direction; never repeat a blocked command unchanged.",
+        "no_policy_bypass": true,
+        "no_global_security_or_proxy_changes": true
+      },
+      "handoffs": {
+        "permission": "Approve this specific operation in your agent, or run the displayed command in your own terminal.",
+        "elevation": "Open Terminal (Administrator), run the displayed platform command, and restart only if requested.",
+        "restart": "Save your work and restart. Continue from the installed state; do not reinstall.",
+        "download": "Show the failing source and the verified manual download/import route; do not repeat the same download.",
+        "account": "Agent prepares an ordinary account for an authorised new import; reuse existing users, no shared password. Enter Store/bundle credentials privately if prompted.",
+        "kernel": "Distinguish legacy missing kernel from modern WSL update. If automatic download fails, give one verified architecture-matched Microsoft link, filename and double-click action; check readiness afterward."
+      },
+      "progress": {
+        "format": "stage: status \u2014 next action",
+        "max_user_actions_at_once": 1,
+        "windows_milestones": [
+          "1/3 WSL",
+          "2/3 Ubuntu and account",
+          "3/3 AgentFEM"
+        ],
+        "manual_commands": "Only the current short block in the correct shell; separate download, verification and import. Keep integrity checks; check success before continuing.",
+        "agent_execution": "Perform permitted commands directly; report completed stage, next stage and whether user action is needed. No invented percentages or duration promises."
+      },
+      "remember": [
+        "selected_channel",
+        "distribution",
+        "ordinary_user",
+        "environment_path",
+        "installed_version",
+        "last_successful_stage"
+      ],
+      "never_record": [
+        "passwords",
+        "tokens"
+      ],
+      "completion": {
+        "checks": [
+          "installed_identity",
+          "doctor",
+          "workspace_protection_on_wsl"
+        ],
+        "summary": [
+          "installed_version",
+          "environment",
+          "readiness"
+        ],
+        "not_sufficient": [
+          "download_finished",
+          "platform_ready",
+          "import_success"
+        ],
+        "stop_after_readiness": true,
+        "simulation_required": false
+      },
+      "optional_next_step": {
+        "offer": "Would you like to try a small example, or work on your own model?",
+        "requires_user_request": true,
+        "example_sequence": [
+          "init",
+          "check",
+          "run",
+          "show",
+          "verify"
+        ],
+        "existing_request_is_sufficient": true,
+        "no_automatic_follow_on_tasks": true
+      }
+    }
   },
   "human_entrypoints": {
     "start": "get_started/",
@@ -36,6 +149,30 @@
     "llms_txt": "llms.txt",
     "knowledge_catalog": "https://raw.githubusercontent.com/haoming-luo/agentfem/main/src/agentfem/knowledge/catalog.json",
     "skill": "agents/skill/"
+  },
+  "task_guidance": {
+    "api_authority": "Use the installed version's capabilities and provider options; web documentation may describe newer development code.",
+    "existing_project": [
+      "read project instructions and case",
+      "check",
+      "run",
+      "inspect"
+    ],
+    "view_results": [
+      "show"
+    ],
+    "environment_check_when": [
+      "first installation",
+      "environment or version change",
+      "runtime failure"
+    ],
+    "upgrade_review_when": [
+      "version migration",
+      "check reports migration findings"
+    ],
+    "reuse": "Reuse a healthy environment and known capability information within the task. Refresh after relevant changes.",
+    "reading": "Start with the relevant template or example; read architecture and extension guides when extending the solver.",
+    "completion": "Report the requested result, artifact path and relevant check. Additional benchmarks and tuning are separate tasks."
   },
   "commands": {
     "environment_check": "agentfem doctor --json",

@@ -6,6 +6,174 @@ experimental formulation to a validated one.
 
 ## [Unreleased]
 
+- Finish installation at environment readiness without creating a project or
+  running a simulation. Offer a first example afterward; the setup helper's
+  `--first-solve` explicitly opts in. Keep real installed solves in developer
+  CI. Align homepage, Windows guidance, machine entrypoints and the shipped
+  skill around task-specific, progressively loaded instructions.
+
+- Declare SciPy as a required numerical dependency, fixing upgrades into
+  environments where 0.4.4's optional-extra metadata left it absent. Make
+  Matplotlib and Gmsh standard installation defaults while retaining lazy
+  capability imports. Align online setup, agent guidance and runtime profiles.
+  Doctor now checks core imports (including SciPy's compiled linear algebra)
+  and fails readiness for missing/broken dependencies, not just a missing
+  compiler. Developer upgrade acceptance includes a small solve and verification;
+  ordinary installation stops at readiness and offers that example separately.
+
+- Add accepted-increment `output_every` sampling to the material-only finite-
+  strain workflow, always retaining segment endpoints and continuation
+  boundaries without changing physical integration or checkpoint retention.
+  Reuse serial quadrature geometry-expression preparation while evaluating
+  current coordinates on each recovery; keep MPI preparation unchanged.
+
+- Distinguish this moving development checkout as `0.4.5.dev0`, with its own
+  experimental capability contract; leave the published `0.4.4` tag unchanged.
+  Validate release identity with full tag history in the numerical CI gate.
+- Reject changed reference geometry and lossy path endpoint conversions before
+  advancing, publishing or restoring a finite-strain history Step. Exercise the
+  ordinary installed two-material example through pause, restart, continuous
+  and sparse-output runs, including independent VTK/Warp reading.
+
+- Connect the bounded finite-strain history Step to the existing automatic
+  checkpoint policy. Count only accepted increments, save planned segment
+  endpoints, preserve earlier archives on write failure, and prune only this
+  Step's scheduled records after successful publication. Do not overwrite
+  existing scheduled files or reinterpret I/O failure as numerical cutback.
+  Validate checkpoint counts/flags/prefixes without silent truncation or paths.
+  Republish a restored history boundary before advancing so a process exit
+  between checkpoint and field publication does not lose that frame. Extend
+  the checked XDMF continuation view with explicit `overlap="identical"` for
+  exactly matching recomputed intervals; preserve strict default behavior and
+  reject conflicting solution branches without modifying source data.
+
+- Guard accepted history-material fields, time and loading against external
+  mutation before continuation, output or checkpoint publication. Preserve
+  increment/constraint identity. Add ordinary planned pause/result publication
+  and a tested four-file CLI pause/restart example; partial paths stay explicit.
+- Make material tangent-check verdicts robust to stress-unit scaling. Reject
+  unrepresentable perturbations and identify one-sided differences at the
+  positive-determinant boundary instead of labeling them central differences.
+
+- Extend that material-only workflow with explicit reflection-symmetric
+  plane-stress reduction: solve positive thickness stretch from `P33=0`,
+  check transverse shear/coupling, and use a separately condensed in-plane
+  algorithmic tangent. Preserve original full 3D material stress and tangent,
+  accepted thickness history, rollback and restart. Include independent
+  force-controlled history checks and actual VTK/Warp field validation.
+  This is serial and per unit reference thickness, not shells or general
+  anisotropic plane stress; no scalar-reduction batching speedup is claimed.
+  Keep built-in J2 rejection contracts authoritative rather than allowing the
+  generic material provider to bypass an unsupported solver policy.
+
+- Add an experimental material-only finite-strain structural route through
+  `model.step`: reuse the neutral `UserMaterial` contract, reference `dP/dF`,
+  shared Newton runtime and committed/trial quadrature state. First admission
+  is serial homogeneous 3D or plane strain with reference dead loads and strong
+  displacement constraints. Physical-time cutback and atomic same-layout
+  restart do not imply contact, MPI or arbitrary UMAT support. The explicit
+  limited plane-stress option is described above.
+  Include two replaceable educational history laws in one four-file project.
+  Require a standalone H1 displacement space; reject DG and mixed subfields
+  rather than omitting their interface or pressure equations.
+- Publish this route's accepted displacement/stress/state frames on one mesh,
+  with explicit quadrature-to-cell recovery and closed HDF5 frame files.
+  Inventory only the index's referenced data; reject output-name collisions.
+  Check actual VTK reading and warping, not just file existence. Optional
+  stored energy remains distinct from work or a general energy balance.
+- Recognize explicitly declared Step lowerers in project upgrade advice.
+  Do not recommend recursive `model.step` inside `add_step` registration;
+  retain scientific warnings and recommend the shared writer for custom loops.
+
+- Add explicit-unit, time-resolved creep-damage integration over declared
+  dwell intervals, retaining source sampling and interval contributions.
+  Reject extrapolation, double-counted holds and invalid rupture relations;
+  preserve the existing block/interaction APIs and constitutive state.
+  Check published rainflow counting and fix small-range reversal loss from
+  slope-product underflow without changing normal engineering conventions.
+  Zero-fatigue JSON records use an explicit no-counted-damage status rather
+  than a nonstandard infinity token or an infinite-life claim.
+  Add independent nonuniform shear references with simultaneous active
+  plasticity/creep, separating spatial convergence from time-integration bias.
+  Include a prescribed spatial-temperature reference and reject invalid
+  coupled quadrature inputs/returned arrays before publishing trial or response.
+  Reuse the existing residual-only plastic update during local backtracking
+  instead of calculating unused tangents; retain the complete accepted tangent.
+
+- Require creep/fatigue damage points to lie within the supplied interaction
+  diagram's domain, including the zero-fatigue creep-axis case. Reject invalid
+  imported damage and expose the limited acceptance scope in result metadata.
+  Add independent structural relaxation, cyclic-loop and time-fraction checks.
+
+- Reject history materials from inferred stateless linear elasticity/dynamics
+  dispatch even when they expose elastic moduli. Preserve explicitly supplied
+  operators and the dedicated stateful providers.
+
+- Add bounded scalar Coffin-Manson-Basquin strain-life assessment with required
+  calibration range/provenance and explicit uncorrected-mean assumption;
+  reuse existing rainflow and creep/fatigue assessment without altering FEM state.
+
+- Add an experimental simultaneous creep/J2-or-Chaboche material on the existing
+  physical-time implicit Step. Keep joint history, consistent tangent, thermal
+  input, cutback and restart together; expose separate plastic work/storage/
+  dissipation channels. First admission is serial homogeneous 3D small strain,
+  not contact, MPI, damage or industrial-life validation.
+
+- Restore the entire live creep Step after a failed checkpoint load, including
+  displacement, trial/accepted state and time/energy ledgers. Preserve the
+  nonzero flow derivative in the zero-stress linear-creep tangent.
+
+- Reuse the implicit creep lifecycle for an experimental hyperbolic-sine flow
+  branch, including a safeguarded local corrector, analytical tangent and
+  scalar/batch parity. Preserve the power-law constructor and archive identity;
+  this does not add coupled plasticity, damage or contact admission.
+
+- Add `results.join_xdmf_segments` for a checked, lightweight reference-mesh
+  continuation view without copying heavy data. Reject conflicting overlap,
+  mesh/schema changes and missing declared stations before publication.
+  Visualization coverage remains distinct from physical/restart continuity.
+
+- Reject non-real contact tangent payloads and overflow during duplicate COO
+  accumulation before flushing or modifying the bulk PETSc matrix. Preserve
+  the existing single-call sparse insertion, joint rollback and continuation;
+  no contact law, tolerance or default solver policy changes.
+
+## [0.4.4] - 2026-10-27
+
+- Publish a bounded contact and reliability update, not a promotion to general
+  commercial contact parity. Keep periodic J2/contact, selected faceted Coulomb
+  contact and plane augmentation experimental, with one geometry/friction/MPC
+  admission matrix and explicit unsupported combinations.
+
+- Publish selected accepted response frames through immutable per-frame HDF5
+  files and an atomically replaced XDMF index. Readers can inspect completed
+  frames during a run; restart writes a new time-continuous segment and preserves
+  the original files. Recover a validated partial index from supported interrupted legacy
+  output. Missing historical fields cannot be reconstructed from scalar history.
+
+- Add the affine J2 accepted energy ledger: distinguish elastic/hardening
+  storage, plastic/friction loss, penalty potential and external work. Reduce
+  unused tangent assembly and whole-field copies in scalar observers while
+  preserving legacy observers and accepted-state ownership. A bounded path
+  refinement diagnoses work-integration error; it does not establish spatial
+  independence or general first-law closure.
+
+- Simplify Windows onboarding to WSL, a checked Ubuntu distribution and the
+  numerical environment. Honor explicit mirror selection, retain existing
+  installations and provide one manual action at a blocked stage. Help and
+  version discovery no longer initialize MPI. Script/platform CI is separate
+  from fresh Windows/WorkBuddy field acceptance.
+
+- Verify release-contract contents against package metadata even without a
+  supplied tag; a correctly named file cannot disguise a stale target version.
+  Report which checks actually ran rather than implying installed-use
+  acceptance from a source-only check.
+
+- Offer lossless binary history companions for long runs, with checked
+  inventory/hash/shape and lazy data-only readers. Keep scalar histories,
+  field frames and restart state separate; storage savings do not imply a
+  whole-simulation speedup.
+
 - Reject unassembled weak/contact boundary models for small-strain J2,
   Chaboche, power-law creep, quasistatic/harmonic Maxwell and provider-neutral
   small-strain Steps during both capability inspection and execution,
@@ -86,8 +254,6 @@ experimental formulation to a validated one.
 - Supply opt-in GMRES/GAMG with reference rigid-body near-nullspace modes on
   the compatible serial displacement/contact route. Preserve the direct solver
   default and report the actual preconditioner attachment in Step evidence.
-- Advance the unreleased package identity to `0.4.4.dev0`; the published
-  `0.4.3` citation and release remain unchanged.
 - Report the underlying finite-J2 Newton, linear-solve, line-search or
   non-finite-residual rejection when a fixed increment fails or automatic
   cutbacks are exhausted, while preserving the accepted-state rollback.

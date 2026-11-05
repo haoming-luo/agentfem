@@ -1,3 +1,8 @@
+---
+title: "Experimental strain-history material runtime in AgentFEM"
+description: "Understand the bounded bridge from a reviewed 3D VUMAT to AgentFEM response materials, including declarations, state identity and explicit trust requirements."
+---
+
 # Declared strain-history materials (experimental)
 
 `constitutive.StrainHistoryRuntime` lowers a reviewed legacy 3D VUMAT to the

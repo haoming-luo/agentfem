@@ -5,6 +5,14 @@ $ErrorActionPreference = 'Stop'
 $root = (Resolve-Path (Join-Path $PSScriptRoot '../..')).Path
 . (Join-Path $root 'packaging/runtime/wsl/Installer-Presentation.ps1')
 function Assert($Condition, $Message) { if (-not $Condition) { throw $Message } }
+# Parse copyable quickstart blocks on both supported PowerShell versions.
+# Never execute them: these tests must not download or modify a Windows host.
+$quickstart = Get-Content -LiteralPath (Join-Path $root 'docs/windows_agent_installation.md') -Raw
+foreach ($block in [regex]::Matches($quickstart, '(?s)```powershell\r?\n(.*?)\r?\n```')) {
+    $parseTokens = $null; $parseErrors = $null
+    [System.Management.Automation.Language.Parser]::ParseInput($block.Groups[1].Value, [ref]$parseTokens, [ref]$parseErrors) | Out-Null
+    Assert ($parseErrors.Count -eq 0) 'Quickstart PowerShell block is not copyable on this version'
+}
 $record = [pscustomobject]@{
     stage='restart_required'; activity='recorded'; distribution='Ubuntu [test]'
     error_code='AFM-WIN-RESTART-REQUIRED'; state_file='C:\User [test]\status.json'
@@ -35,7 +43,10 @@ Assert ((Format-AgentFEMInstallStatus -Report $report) -match 'No saved installa
 foreach ($route in @('UbuntuMirror', 'CompleteRuntime')) {
     $hostReport = @{route=$route; status='no_distribution'; distributions=@(); errors=@(); wsl_version='2.5.0'}
     $text = Format-AgentFEMWindowsHost -Report $hostReport
-    if ($route -eq 'UbuntuMirror') { Assert ($text -match 'named Ubuntu') 'Mirror route lost its distribution handoff' }
+    if ($route -eq 'UbuntuMirror') {
+        Assert ($text -match 'verified Ubuntu mirror image' -and $text -match 'no repository clone') 'Mirror route lost its direct import handoff'
+        Assert ($text -notmatch 'private account prompt') 'Imported distribution incorrectly requires Store OOBE'
+    }
     else { Assert ($text -match 'does not need a separate Ubuntu') 'Bundle route downloads an unnecessary distribution' }
     $hostReport.status='blocked'
     Assert ((Format-AgentFEMWindowsHost -Report $hostReport) -match 'Do not switch launchers') 'Blocked host suggests policy bypass'
@@ -45,6 +56,9 @@ foreach ($route in @('UbuntuMirror', 'CompleteRuntime')) {
     $text = Format-AgentFEMWindowsHost -Report $hostReport
     Assert ($text.Contains($localName + ' (WSL 2)')) 'Localised distribution identity lost'
     Assert ($text -match 'not an AgentFEM first-solve check') 'Inventory presented as runtime acceptance'
+    $hostReport.status='component_required'
+    $text = Format-AgentFEMWindowsHost -Report $hostReport
+    Assert ($text -match 'Terminal \(Administrator\)' -and $text -match 'restart only when requested') 'Manual fallback requires an unavailable installer or unconditional reboot'
 }
 Write-Host 'Installer presentation passed (no Windows changes).'
 exit 0

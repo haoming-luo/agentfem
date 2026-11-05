@@ -2,6 +2,7 @@ import io
 import json
 from pathlib import Path
 import subprocess
+import sys
 import tarfile
 import tomllib
 import zipfile
@@ -13,6 +14,33 @@ from agentfem import __version__, cli
 
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
+
+
+def test_standard_install_declares_scientific_and_authoring_dependencies():
+    from packaging.requirements import Requirement
+
+    project = tomllib.loads((PROJECT_ROOT / "pyproject.toml").read_text())["project"]
+    required = {item.name: item for item in map(Requirement, project["dependencies"])}
+    for name in ("scipy", "matplotlib", "gmsh"):
+        assert name in required and required[name].marker is None
+    assert "1.11" in required["scipy"].specifier
+    assert "1.10" not in required["scipy"].specifier
+    assert "4.11" in required["gmsh"].specifier
+    # Old projects may retain these extras; installing them remains supported.
+    assert {"gmsh", "identification", "visualization"} <= project["optional-dependencies"].keys()
+    release_gate.check_dependency_boundaries()
+
+
+@pytest.mark.parametrize("missing", ["scipy", "matplotlib", "gmsh"])
+def test_release_gate_requires_standard_install_tools(tmp_path, monkeypatch, missing):
+    dependencies = [name for name in ("scipy", "matplotlib", "gmsh") if name != missing]
+    (tmp_path / "pyproject.toml").write_text(
+        "[project]\ndependencies = " + json.dumps(dependencies)
+        + '\n[project.optional-dependencies]\ngmsh = ["gmsh"]\n'
+    )
+    monkeypatch.setattr(release_gate, "ROOT", tmp_path)
+    with pytest.raises(RuntimeError, match="dependencies are missing: " + missing):
+        release_gate.check_dependency_boundaries()
 
 
 def test_unreleased_checkout_does_not_reuse_a_published_tag_version():
@@ -122,7 +150,7 @@ def test_release_contract_is_complete_and_references_real_workflows():
     } <= workflow_ids
     assert workflow_maturity["structural-direct-harmonic"] == "engineering"
     assert workflow_maturity["generalized-maxwell-harmonic"] == "experimental"
-    if contract["target_version"].startswith("0.4.4"):
+    if "bounded-serial-periodic-j2-contact" in workflow_maturity:
         assert workflow_maturity["bounded-serial-periodic-j2-contact"] == "experimental"
         assert "mesh-independent nonuniform periodic plastic-contact response without spatial and path convergence" in contract["not_release_claims"]
     assert {
@@ -187,6 +215,63 @@ def test_release_contract_is_complete_and_references_real_workflows():
     } <= set(contract["not_release_claims"])
 
 
+@pytest.mark.parametrize("tag", [None, f"v{__version__}"])
+def test_release_gate_rejects_stale_contract_content_without_relying_on_filename(
+    tmp_path, monkeypatch, tag,
+):
+    record = json.loads(release_gate.release_contract_path().read_text())
+    record["target_version"] = "0.0.0"
+    path = tmp_path / f"{__version__}.json"
+    path.write_text(json.dumps(record), encoding="utf-8")
+    monkeypatch.setattr(release_gate, "release_contract_path", lambda: path)
+
+    with pytest.raises(RuntimeError, match="not package version"):
+        release_gate.check_release_contract(tag=tag)
+
+
+@pytest.mark.parametrize("payload, message", [
+    ([], "must be a JSON object"),
+    (None, "must be a JSON object"),
+    ({"workflows": [None]}, "workflow must be a JSON object"),
+])
+def test_release_gate_reports_invalid_contract_structure(
+    tmp_path, monkeypatch, payload, message,
+):
+    if isinstance(payload, dict):
+        record = json.loads(release_gate.release_contract_path().read_text())
+        record.update(payload)
+        payload = record
+    path = tmp_path / f"{__version__}.json"
+    path.write_text(json.dumps(payload), encoding="utf-8")
+    monkeypatch.setattr(release_gate, "release_contract_path", lambda: path)
+
+    with pytest.raises(RuntimeError, match=message):
+        release_gate.check_release_contract()
+
+
+@pytest.mark.parametrize("arguments, scope", [
+    ([], "source"),
+    (["--dist", "candidate"], "source and distribution"),
+    (["--smoke"], "source and installed-use smoke"),
+    (["--dist", "candidate", "--smoke"], "source, distribution and installed-use smoke"),
+])
+def test_release_gate_reports_only_the_checks_actually_requested(
+    monkeypatch, capsys, arguments, scope,
+):
+    monkeypatch.setattr(sys, "argv", ["release_gate.py", *arguments])
+    monkeypatch.setattr(release_gate, "check_versions", lambda **_: __version__)
+    monkeypatch.setattr(release_gate, "check_dependency_boundaries", lambda: None)
+    monkeypatch.setattr(release_gate, "check_release_contract", lambda **_: {})
+    monkeypatch.setattr(release_gate, "check_distributions", lambda _: Path("candidate.whl"))
+    monkeypatch.setattr(release_gate, "run_smoke", lambda **_: {})
+
+    release_gate.main()
+
+    assert capsys.readouterr().out.strip() == (
+        f"AgentFEM {__version__} release gate passed ({scope} checks only)."
+    )
+
+
 def test_release_wheel_requires_the_direct_harmonic_evidence_chain():
     assert {
         "agentfem/backends/_harmonic.py",
@@ -210,6 +295,31 @@ def test_release_wheel_requires_the_direct_harmonic_evidence_chain():
 
 def test_release_gate_exercises_every_installed_project_template():
     assert release_gate.INSTALLED_PROJECT_TEMPLATES == cli._templates()
+
+
+@pytest.mark.parametrize("step", [
+    "Build and install the wheel under test",
+    "Build and install the wheel users receive",
+    "Install optional mesh interoperability used by release smoke",
+    "Install the wheel and official CPU-only PyTorch build",
+])
+def test_conda_ci_builds_use_self_contained_pip_certificates(step):
+    source = (PROJECT_ROOT / ".github/workflows/test.yml").read_text()
+    block = source.split(f"- name: {step}\n", 1)[1].split("\n      - name:", 1)[0]
+    assert 'python -m pip install --no-deps --force-reinstall "pip==26.2.2"' in block
+    assert "--trusted-host" not in block
+    assert "--no-isolation" not in block
+
+
+@pytest.mark.parametrize("workflow", ["test.yml", "publish-pypi.yml"])
+def test_ci_and_publication_keep_distributed_recovery_and_rejection_gates(workflow):
+    source = (PROJECT_ROOT / ".github" / "workflows" / workflow).read_text()
+    for gate in (
+        "tests/test_quadrature_physical_recovery.py",
+        "tests/test_finite_strain_j2_contact_mpi_boundary.py",
+        "tests/test_affine_adaptive_preconditioner.py::test_distributed_reuse_rejected_before_mutation",
+    ):
+        assert gate in source, f"{workflow} omits the distributed gate {gate}"
 
 
 def test_release_smoke_includes_both_global_viscoelastic_routes():
@@ -380,6 +490,25 @@ def test_release_facing_examples_never_insert_the_checkout_into_sys_path():
         source = (PROJECT_ROOT / relative).read_text(encoding="utf-8")
         assert "sys.path.insert" not in source, relative
         assert "SOURCE_PARENT" not in source, relative
+
+
+def test_history_integration_checks_installed_project_and_release_tag_history():
+    workflow = (PROJECT_ROOT / ".github/workflows/test.yml").read_text()
+    numerical = workflow.split("  fenicsx:\n", 1)[1].split("  macos", 1)[0]
+    assert "fetch-depth: 0" in numerical
+    assert "tools/check_installed_history_project.py" in numerical
+    checker = (PROJECT_ROOT / "tools/check_installed_history_project.py").read_text()
+    assert 'environment.pop("PYTHONPATH", None)' in checker
+    assert '"-m", "agentfem._cli_entry"' in checker
+    assert "sys.path.insert" not in checker
+    record = release_gate.check_release_contract(source_root=PROJECT_ROOT)
+    workflows = {item["id"]: item for item in record["workflows"]}
+    for name in (
+        "bounded-finite-strain-history-material",
+        "bounded-thermal-cyclic-creep",
+        "bounded-strain-life-creep-assessment",
+    ):
+        assert workflows[name]["maturity"] == "experimental"
 
 
 def test_publish_workflow_verifies_the_same_artifacts_it_builds_once():

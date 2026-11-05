@@ -1,3 +1,8 @@
+---
+title: "Extend AgentFEM: materials, procedures and integrations"
+description: "Find development contracts for adding materials, loads, solution procedures and integrations without bypassing the public model workflow."
+---
+
 # Develop and extend AgentFEM
 
 AgentFEM keeps a concise engineering surface without closing the finite-element

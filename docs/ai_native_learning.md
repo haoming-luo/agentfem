@@ -119,13 +119,16 @@ report = campaign.run(
 )
 ```
 
-The first runner is intentionally serial across cases. When an MPI
+The serial execution policy runs cases sequentially. When an MPI
 communicator is provided, all ranks cooperate on each FEniCSx solve while rank
 zero alone writes evidence. This is **within-case parallelism**.
 Case completion is agreed across ranks: a failure reported by any rank becomes
 a failed campaign record rather than being hidden by rank zero's outcome.
 
-For **case-level parallelism**, `CampaignPlan.shard(index, count)` creates
+For **case-level parallelism**, `campaigns.local_processes(workers=...)` uses
+independent spawned workers; see [scientific experiments](scientific_experiments.md).
+Do not nest that policy inside a within-case MPI communicator.
+`CampaignPlan.shard(index, count)` also creates
 deterministic disjoint plans for separate MPI jobs, scheduler allocations, or
 services. AgentFEM does not use Python threads as an implicit FEM executor.
 MPI communicators, PETSc state, JIT compilation, and filesystem output make

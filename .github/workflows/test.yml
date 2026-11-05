@@ -24,6 +24,11 @@ on:
 # workflow. A documentation-only follow-up must never cancel an in-flight core
 # numerical gate that the follow-up itself will not rerun.
 
+# Conda-forge pip 26.2.2 build 1 resolves its CA file against sys.prefix,
+# which has no Conda CA bundle in a PEP 517 temporary venv (pip-feedstock#151).
+# Seed isolated-build jobs with the same upstream PyPI pip wheel. Keep TLS
+# verification and build isolation enabled; this changes CI tooling only.
+
 jobs:
   change-scope:
     name: Classify validation scope
@@ -200,6 +205,7 @@ jobs:
 
       - name: Build and install the wheel under test
         run: |
+          python -m pip install --no-deps --force-reinstall "pip==26.2.2"
           python -m pip install --upgrade build
           export AGENTFEM_GMP_PREFIX="${CONDA_PREFIX}"
           test -f "${AGENTFEM_GMP_PREFIX}/include/gmp.h"
@@ -230,10 +236,12 @@ jobs:
       needs.change-scope.outputs.level == 'core' ||
       needs.change-scope.outputs.level == 'release'
     runs-on: ubuntu-latest
-    # The release tier includes the full serial suite, MPI restart checks and
-    # installed demos. Successful tests previously exhausted 30 min before
-    # the demo gate finished; allow bounded runner variance without skipping it.
-    timeout-minutes: 45
+    # The release tier includes serial scientific-refinement references, MPI
+    # restart checks and installed demos. Run 41218586594 passed 5909 serial
+    # tests in 49m09s plus MPI and release demos, then hit the 60-minute job
+    # limit while preparing the final fresh-agent trial artifact.
+    # Retain every gate and a bounded budget; print slow tests for diagnosis.
+    timeout-minutes: 90
     concurrency:
       group: test-core-${{ github.event.pull_request.number || github.ref }}
       cancel-in-progress: true
@@ -255,6 +263,10 @@ jobs:
     steps:
       - name: Check out repository
         uses: actions/checkout@v6
+        with:
+          # Version identity acceptance must see the actual release tags;
+          # a shallow checkout silently skips that regression.
+          fetch-depth: 0
 
       - name: Create FEniCSx environment
         uses: conda-incubator/setup-miniconda@v4
@@ -268,6 +280,7 @@ jobs:
 
       - name: Build and install the wheel users receive
         run: |
+          python -m pip install --no-deps --force-reinstall "pip==26.2.2"
           python -m pip install --upgrade build twine
           # PEP 517 builds in a temporary Python environment. Keep the reviewed
           # numerical environment's optional GMP headers/library discoverable.
@@ -296,7 +309,7 @@ jobs:
           cd "${RUNNER_TEMP}"
           python "${GITHUB_WORKSPACE}/packaging/runtime/setup_environment.py" \
             --manager "${CONDA}/bin/conda" --prefix "${CONDA_PREFIX}" \
-            --no-protect-workspace --apply --json \
+            --no-protect-workspace --apply --first-solve --json \
             --state-root "${RUNNER_TEMP}/onboarding-acceptance"
 
       - name: Retain first-solve onboarding evidence
@@ -319,13 +332,18 @@ jobs:
             tests/test_xdmf_cell_ordering.py tests/test_xdmf_layout.py \
             tests/test_paraview_warp_tool.py
 
+      - name: Verify installed ordinary history-material project
+        run: |
+          cd "${RUNNER_TEMP}"
+          python "${GITHUB_WORKSPACE}/tools/check_installed_history_project.py"
+
       - name: Run unit and interface tests
         run: |
           if [[ "${VALIDATION_LEVEL}" == "core" && -n "${CHANGED_TESTS}" ]]; then
             read -r -a selected <<< "${CHANGED_TESTS}"
-            python -m pytest -q "${selected[@]}"
+            python -m pytest -q --durations=20 "${selected[@]}"
           else
-            python -m pytest
+            python -m pytest --durations=20
           fi
 
       - name: Verify the optional stateless native kernels from an installed wheel
@@ -428,6 +446,8 @@ jobs:
           tests/test_parallel_modal.py
           tests/test_parallel_results.py
           tests/test_quadrature_physical_recovery.py
+          tests/test_finite_strain_j2_contact_mpi_boundary.py
+          tests/test_affine_adaptive_preconditioner.py::test_distributed_reuse_rejected_before_mutation
           tests/test_inelastic_increment_prediction.py::test_distributed_prediction_is_rejected_before_material_allocation
           tests/test_parallel_transient.py
           tests/test_parallel_uniform_hex.py
@@ -645,7 +665,9 @@ jobs:
       - change-scope
       - fenicsx
     if: needs.change-scope.outputs.level == 'release'
-    runs-on: macos-14
+    # macOS 14 retires on 2026-11-02 (actions/runner-images#13518).
+    # Keep the ARM64 architecture and the full installed-use acceptance gate.
+    runs-on: macos-15
     timeout-minutes: 30
     concurrency:
       group: test-foundation-macos-${{ github.event.pull_request.number || github.ref }}
@@ -682,7 +704,9 @@ jobs:
           path: /tmp/agentfem-foundation-fan-in/linux
 
       - name: Install optional mesh interoperability used by release smoke
-        run: python -m pip install meshio
+        run: |
+          python -m pip install --no-deps --force-reinstall "pip==26.2.2"
+          python -m pip install meshio
 
       - name: Build the macOS native wheel from the same source distribution
         run: |
@@ -787,6 +811,7 @@ jobs:
 
       - name: Install the wheel and official CPU-only PyTorch build
         run: |
+          python -m pip install --no-deps --force-reinstall "pip==26.2.2"
           python -m pip install --upgrade build
           python -m build --wheel
           python -m pip install --no-deps --force-reinstall dist/*.whl

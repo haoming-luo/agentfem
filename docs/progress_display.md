@@ -1,3 +1,8 @@
+---
+title: "Monitor finite-element simulation progress in the terminal"
+description: "Display accepted increments, physical quantities, elapsed time and result paths with AgentFEM, while retaining full-precision machine-readable records."
+---
+
 <!-- SPDX-FileCopyrightText: 2026 Haoming Luo and AgentFEM contributors -->
 <!-- SPDX-License-Identifier: Apache-2.0 -->
 

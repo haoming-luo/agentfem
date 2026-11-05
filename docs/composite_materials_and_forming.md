@@ -1,3 +1,8 @@
+---
+title: "Composite materials and forming in AgentFEM"
+description: "Explore orthotropic materials, ply orientation and laminate stiffness, with explicit limits on AgentFEM's experimental forming workflows."
+---
+
 # Composite materials and forming
 
 AgentFEM treats composite mechanics as independent assets:

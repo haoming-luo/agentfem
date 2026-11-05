@@ -18,6 +18,13 @@ from typing import Callable, Iterable
 import numpy as np
 
 from .constitutive.fatigue import FatigueAssessment
+from .constitutive.strain_life import StrainLifeAssessment
+from ._creep_damage_history import CreepDamageHistoryAssessment, creep_damage_from_result
+
+_DOCUMENTED_REEXPORTS = {
+    "CreepDamageHistoryAssessment": "_creep_damage_history",
+    "creep_damage_from_result": "_creep_damage_history",
+}
 
 
 @dataclass(frozen=True)
@@ -389,8 +396,8 @@ class InteractionDiagram:
 class CreepFatigueAssessment:
     """Combined engineering assessment from independent damage consumers."""
 
-    fatigue: FatigueAssessment
-    creep: CreepDamageAssessment
+    fatigue: FatigueAssessment | StrainLifeAssessment
+    creep: CreepDamageAssessment | CreepDamageHistoryAssessment
     interaction: InteractionDiagram
     allowable_fatigue_damage: float
     margin: float
@@ -409,6 +416,11 @@ class CreepFatigueAssessment:
             "kind": "creep_fatigue_engineering_assessment",
             "maturity": "postprocessor",
             "acceptable": bool(self.acceptable),
+            "within_interaction_domain": bool(
+                self.interaction.points[0][0]
+                <= self.creep_damage <= self.interaction.points[-1][0]
+            ),
+            "acceptance_scope": "declared_interaction_diagram_only",
             "creep_damage": self.creep_damage,
             "fatigue_damage": self.fatigue_damage,
             "allowable_fatigue_damage": float(self.allowable_fatigue_damage),
@@ -472,16 +484,19 @@ def linear_interaction() -> InteractionDiagram:
 
 def creep_fatigue(
     *,
-    fatigue: FatigueAssessment,
-    creep: CreepDamageAssessment,
+    fatigue: FatigueAssessment | StrainLifeAssessment,
+    creep: CreepDamageAssessment | CreepDamageHistoryAssessment,
     interaction: InteractionDiagram | None = None,
 ) -> CreepFatigueAssessment:
     """Combine existing fatigue and creep assessments against one boundary."""
 
-    if not isinstance(fatigue, FatigueAssessment):
-        raise TypeError("fatigue must be a constitutive.fatigue.FatigueAssessment.")
-    if not isinstance(creep, CreepDamageAssessment):
-        raise TypeError("creep must be a CreepDamageAssessment.")
+    if not isinstance(fatigue, (FatigueAssessment, StrainLifeAssessment)):
+        raise TypeError("fatigue must be a FatigueAssessment or StrainLifeAssessment.")
+    if not isinstance(creep, (CreepDamageAssessment, CreepDamageHistoryAssessment)):
+        raise TypeError("creep must be a CreepDamageAssessment or CreepDamageHistoryAssessment.")
+    for name, value in (("fatigue", fatigue.damage), ("creep", creep.damage)):
+        if not isfinite(float(value)) or value < 0.0:
+            raise ValueError(f"{name} damage must be finite and nonnegative.")
     selected = linear_interaction() if interaction is None else interaction
     if not isinstance(selected, InteractionDiagram):
         raise TypeError("interaction must be an InteractionDiagram.")
@@ -494,7 +509,12 @@ def creep_fatigue(
         interaction=selected,
         allowable_fatigue_damage=allowable,
         margin=margin,
-        acceptable=bool(margin >= -tolerance),
+        # A zero ordinate beyond the curve is not an admissible continuation
+        # along the creep axis. Do not certify missing diagram coverage either.
+        acceptable=bool(
+            selected.points[0][0] <= creep.damage <= selected.points[-1][0]
+            and margin >= -tolerance
+        ),
     )
 
 
@@ -544,6 +564,7 @@ def creep_fatigue_from_result(
 
 __all__ = [
     "CreepDamageAssessment",
+    "CreepDamageHistoryAssessment",
     "CreepDamageBlock",
     "CreepFatigueAssessment",
     "DwellInterval",
@@ -553,6 +574,7 @@ __all__ = [
     "creep_fatigue_from_result",
     "creep_blocks_from_result",
     "creep_time_fraction",
+    "creep_damage_from_result",
     "interaction_diagram",
     "linear_interaction",
     "sequential_energy_ledger",

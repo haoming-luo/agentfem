@@ -24,6 +24,12 @@ def _unwrap(value):
     return getattr(value, "value", getattr(value, "function", value))
 
 
+def _real_history_array(value, *, label):
+    if np.iscomplexobj(value):
+        raise ValueError(f"FieldHistory {label} must be real; complex values are not converted.")
+    return np.asarray(value, dtype=float)
+
+
 @dataclass
 class FieldHistory:
     """A sampled scalar or finite-element field over physical time.
@@ -31,6 +37,8 @@ class FieldHistory:
     ``interpolation`` may be ``"linear"`` or ``"previous"``.  Values outside
     the recorded interval raise by default; ``outside="clamp"`` must be
     selected explicitly when endpoint holding is physically intended.
+    Sources, frames and time coordinates are real-valued; complex data are
+    rejected rather than silently truncated during conversion or restore.
     """
 
     source: object
@@ -75,8 +83,9 @@ class FieldHistory:
                 raise ValueError(
                     "FieldHistory currently records scalar finite-element fields."
                 )
+            _real_history_array(selected.x.array, label="source")
         else:
-            values = np.asarray(selected, dtype=float)
+            values = _real_history_array(selected, label="source")
             if values.size != 1:
                 raise ValueError(
                     "FieldHistory source must be a scalar or scalar finite-element field."
@@ -103,14 +112,16 @@ class FieldHistory:
     def record(self, time: float, source=None) -> "FieldHistory":
         """Record a copy at ``time``; an equal last time replaces that frame."""
 
+        if np.iscomplexobj(time):
+            raise ValueError("FieldHistory time must be real.")
         selected_time = float(time)
         if not np.isfinite(selected_time):
             raise ValueError("FieldHistory time must be finite.")
         selected = _unwrap(self.source if source is None else source)
         if hasattr(selected, "function_space"):
-            values = np.asarray(selected.x.array, dtype=float).copy()
+            values = _real_history_array(selected.x.array, label="frame").copy()
         else:
-            values = np.asarray(selected, dtype=float).reshape(-1).copy()
+            values = _real_history_array(selected, label="frame").reshape(-1).copy()
         if self._times and selected_time < self._times[-1] - 1.0e-14:
             raise ValueError("FieldHistory records must have increasing physical time.")
         if self._times and np.isclose(selected_time, self._times[-1], rtol=0.0, atol=1.0e-14):
@@ -129,6 +140,8 @@ class FieldHistory:
 
         if not self._times:
             raise RuntimeError(f"FieldHistory {self.name!r} has no recorded frames.")
+        if np.iscomplexobj(time):
+            raise ValueError("FieldHistory sample time must be real.")
         selected_time = float(time)
         if not np.isfinite(selected_time):
             raise ValueError("FieldHistory sample time must be finite.")
@@ -300,12 +313,15 @@ class FieldHistory:
                 every=int(metadata.get("every", 1)),
                 metadata=metadata.get("metadata", {}),
             )
-            times = np.asarray(data["times"], dtype=float)
-            snapshots = np.asarray(data["snapshots"], dtype=float)
+            times = _real_history_array(data["times"], label="archive times")
+            snapshots = _real_history_array(data["snapshots"], label="archive frames")
+            raw_coordinates = None if schema == "agentfem.field-history.v1" else data["coordinates"]
+            if np.iscomplexobj(raw_coordinates):
+                raise ValueError("FieldHistory archive coordinates must be real.")
             coordinates = (
                 None
-                if schema == "agentfem.field-history.v1"
-                else np.asarray(data["coordinates"], dtype=np.int64)
+                if raw_coordinates is None
+                else np.asarray(raw_coordinates, dtype=np.int64)
             )
         _validate_loaded_series(times, snapshots, metadata)
         if schema == "agentfem.field-history.v2":

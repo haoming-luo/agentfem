@@ -18,6 +18,7 @@ from . import small_strain_user_material
 from . import user_material
 from . import viscoelasticity
 from .catalog import ConstitutiveCapability, capabilities, capability
+from ._creep_plasticity import CreepPlasticityMaterial, CreepPlasticityState, CreepPlasticityUpdate
 from .corotational import (
     CorotationalIncrement,
     polar_strain_increment,
@@ -45,12 +46,14 @@ from .creep import (
     ImplicitCreepState,
     ImplicitCreepUpdate,
     IsotropicPowerLawCreepMaterial,
+    IsotropicCreepMaterial,
     KachanovRabotnovCreep,
     ModifiedThetaProjection,
     PowerLawCreep,
     SinhCreep,
     integrate_stress_history,
     isotropic_power_law,
+    isotropic_sinh,
     isotropic_arrhenius_power_law,
 )
 from .elasticity import (
@@ -129,6 +132,12 @@ from .fatigue import (
     miner_damage,
     rainflow_cycles,
     turning_points,
+)
+from .strain_life import (
+    CoffinMansonBasquinCurve,
+    StrainCycle,
+    StrainLifeAssessment,
+    assess_strain_history,
 )
 from .finite_strain_plasticity import (
     FiniteStrainJ2Logarithmic,
@@ -209,6 +218,11 @@ from .material_array_batch import (
     MaterialPointArrayBatchOutput,
     validated_material_array_batch_update,
 )
+from .plane_stress import (
+    PlaneStressReduction, PlaneStressPointResponse, PlaneStressTangentCheck,
+    reduce_plane_stress, check_plane_stress_tangent,
+)
+from .material_rotation import MaterialRotationCheck, check_material_rotation
 from .small_strain_user_material import (
     MaterialApplicabilityError,
     MaterialParameter,
@@ -248,6 +262,9 @@ from .._material_history import (
 )
 
 __all__ = [
+    "CreepPlasticityMaterial",
+    "CreepPlasticityState",
+    "CreepPlasticityUpdate",
     "CompiledCorotationalIncrement",
     "StrainHistoryRuntime",
     "NativeLibraryBundle",
@@ -279,11 +296,20 @@ __all__ = [
     "viscoelasticity",
     "AbaqusUserMaterialBridge",
     "BatchedUserMaterial",
+    "PlaneStressReduction",
+    "PlaneStressPointResponse",
+    "PlaneStressTangentCheck",
+    "reduce_plane_stress",
+    "check_plane_stress_tangent",
     "ArrheniusPowerLawCreep",
     "ArrheniusShift",
     "AnisotropicElasticMaterial2D",
     "ConstitutiveCapability",
     "BasquinCurve",
+    "CoffinMansonBasquinCurve",
+    "StrainCycle",
+    "StrainLifeAssessment",
+    "assess_strain_history",
     "CreepHistory",
     "ChabocheCombinedHardening",
     "ChabocheQuadratureState",
@@ -294,6 +320,7 @@ __all__ = [
     "ImplicitCreepState",
     "ImplicitCreepUpdate",
     "IsotropicPowerLawCreepMaterial",
+    "IsotropicCreepMaterial",
     "CreepDamageState",
     "CreepDamageUpdate",
     "ElasticAnisotropic2DProperties",
@@ -338,6 +365,7 @@ __all__ = [
     "MaterialStateSchema",
     "MaterialStateVariable",
     "MaterialTangentCheck",
+    "MaterialRotationCheck",
     "MaterialTangentConvention",
     "SmallStrainMaterialPointBatchInput",
     "SmallStrainMaterialPointBatchOutput",
@@ -371,6 +399,7 @@ __all__ = [
     "validated_material_array_batch_update",
     "update_material_points",
     "check_material_tangent",
+    "check_material_rotation",
     "check_small_strain_material_tangent",
     "anisotropic_stress_2d",
     "anisotropic_stress_3d",
@@ -429,6 +458,7 @@ __all__ = [
     "thermoelastic_stress",
     "integrate_stress_history",
     "isotropic_power_law",
+    "isotropic_sinh",
     "isotropic_arrhenius_power_law",
     "life_scale_factor",
     "damage_from_history",

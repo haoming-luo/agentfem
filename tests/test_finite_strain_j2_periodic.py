@@ -614,6 +614,9 @@ def test_periodic_j2_moving_smooth_certified_face_matches_plane_and_restarts(tmp
     assert result.metadata["rigid_contact_face_path"]["complete"] is True
     assert result.quantity("maximum_equivalent_plastic_strain") > 0.0
     assert result.quantity("rigid_contact_pair_path_work") != 0.0
+    ledger = result.metadata["mechanical_energy_ledger"]
+    assert ledger["status"] == "complete", ledger
+    assert ledger["tool_work"] == pytest.approx(result.quantity("rigid_contact_pair_path_work"))
     total = face.assemble_full_residual()
     reduction = periodicity.reduction(1.0).matrix(fixture.domain.comm)
     reduced = reduction.createVecRight()
@@ -867,6 +870,9 @@ def test_periodic_j2_reviewed_open_facet_patch_reduces_total_residual():
     evidence = step.contact_provider.current_point_diagnostics()
     assert evidence["feature_transition_integral_certified"] is True
     assert evidence["active_point_count"] > 0
+    assert step.contact_provider.current_energy_components()["contact_potential"] == pytest.approx(
+        step.contact_provider.evaluate().potential_energy, rel=1e-12,
+    )
     total = step.assemble_full_residual()
     reduction = periodicity.reduction(1.0).matrix(fixture.domain.comm)
     reduced = reduction.createVecRight()
@@ -1435,6 +1441,13 @@ def test_periodic_j2_moving_plane_friction_commits_and_restarts(tmp_path):
     assert result.quantity("friction_dissipation") > 0.0
     assert result.metadata["affine_operator_path_work"]["status"] == "complete"
     assert result.quantity("rigid_contact_pair_path_work") != 0.0
+    ledger = result.metadata["mechanical_energy_ledger"]
+    assert ledger["status"] == "complete", ledger
+    assert ledger["tool_work"] == pytest.approx(result.quantity("rigid_contact_pair_path_work"))
+    contribution = continuous.contact_provider.evaluate()
+    assert contribution.friction_assembly.recoverable_penalty_energy > 0.
+    assert result.quantity("contact_potential") == pytest.approx(contribution.potential_energy)
+    assert ledger["component_changes"]["friction_dissipation"] > 0.
     assert result.histories[
         "rigid_contact_pair_generalized_force"
     ].abscissa_unit is None
@@ -2876,6 +2889,155 @@ def test_public_finite_strain_j2_periodic_checkpoint_restart_is_equivalent(
     ] == pytest.approx([0.25, 0.5, 0.75, 1.0])
     assert restarted.constraint_dual_history == reference.constraint_dual_history
     assert restarted.state_transaction.accepted_factor == pytest.approx(1.0)
+    expected_energy = reference.accepted_history_recorders["material_energy"]
+    resumed_energy = restarted.accepted_history_recorders["material_energy"]
+    assert resumed_energy.complete
+    np.testing.assert_allclose(
+        [f.values for f in resumed_energy.frames],
+        [f.values for f in expected_energy.frames], rtol=2e-8, atol=2e-10,
+    )
+
+
+def test_periodic_j2_result_has_accepted_material_energy_ledger():
+    step = _periodic_j2_step()
+    result = step.solve_result()
+    ledger = result.metadata["mechanical_energy_ledger"]
+    assert ledger["status"] == "complete", ledger
+    assert ledger["sample_count"] == 5
+    assert not ledger["automatic_energy_verification"]
+    assert ledger["component_changes"]["plastic_dissipation"] > 0.
+    assert ledger["component_changes"]["stored_energy"] > 0.
+    assert ledger["external_work"] > 0.
+    assert ledger["mechanical_energy_residual"] == pytest.approx(
+        ledger["external_work"] - ledger["internal_energy_change"]
+    )
+
+
+def test_periodic_j2_scalar_energy_does_not_copy_fields_every_increment():
+    step = _periodic_j2_step()
+    original = step.snapshot_field_factory
+    calls = []
+
+    def count_snapshots():
+        calls.append(step.accepted_load_factor)
+        return original()
+
+    step.snapshot_field_factory = count_snapshots
+    step.solve()
+    assert len(calls) == 2  # only initial/final fields; five scalar stations
+    assert len(step.accepted_history_recorders["material_energy"].frames) == 5
+
+
+@pytest.mark.parametrize("kind", ["convex", "certified_face", "reviewed_open"])
+def test_periodic_contact_diagnostics_do_not_copy_unused_fields(kind):
+    if kind == "convex":
+        options = dict(surface=_rotated_convex_periodic_tool(),
+                       contact_integration="convex_feature_partition")
+    elif kind == "certified_face":
+        options = dict(surface=_periodic_wide_triangular_prism_tool(),
+                       contact_integration="certified_closed_two_feature_research")
+    else:
+        options = dict(surface=boundary_models.triangulated_rigid_surface(
+            vertices=((0.95, -2., -2.), (0.95, -2., 2.),
+                      (0.95, 2., 2.), (0.95, 2., -2.)),
+            triangles=((0, 1, 2), (0, 2, 3))),
+            contact_integration="reviewed_planar_branch_partition")
+    _, _, dense = _periodic_j2_contact_step(**options)
+    dense.output_every = 1
+    dense.solve()
+    _, _, sparse = _periodic_j2_contact_step(**options)
+    sparse.output_every = None
+    original = sparse.snapshot_field_factory
+    calls = []
+    def capture_fields():
+        calls.append(sparse.accepted_load_factor)
+        return original()
+    sparse.snapshot_field_factory = capture_fields
+    sparse.solve()
+    assert len(calls) == 2
+    assert len(sparse.snapshots) == 2 and len(dense.snapshots) == 4
+    np.testing.assert_array_equal(sparse.solution.x.array, dense.solution.x.array)
+    assert set(sparse.accepted_history_recorders) == set(dense.accepted_history_recorders)
+    for name, recorder in sparse.accepted_history_recorders.items():
+        assert recorder.checkpoint_state() == dense.accepted_history_recorders[name].checkpoint_state()
+
+
+def test_periodic_j2_legacy_observer_still_receives_copied_fields():
+    step = _periodic_j2_step()
+
+    class FieldObserver:
+        def reset(self, snapshot):
+            self.records = [snapshot]
+
+        def accept(self, snapshot):
+            assert snapshot.solution is not step.solution
+            assert snapshot.fields
+            self.records.append(snapshot)
+
+        def snapshot_runtime_state(self):
+            return tuple(self.records)
+
+        def restore_runtime_state(self, records):
+            self.records = list(records)
+
+        def summary(self):
+            return {"kind": "legacy_test_field_observer"}
+
+    observer = FieldObserver()
+    observer.records = []
+    step.accepted_observers = (*step.accepted_observers, observer)
+    step.solve()
+    assert len(observer.records) == 5
+    np.testing.assert_array_equal(observer.records[0].solution.x.array, 0.)
+
+
+def test_periodic_j2_contact_result_has_initial_potential_subtraction():
+    _, _, step = _periodic_j2_contact_step()
+    result = step.solve_result()
+    ledger = result.metadata["mechanical_energy_ledger"]
+    assert ledger["status"] == "complete", ledger
+    assert ledger["initial_components"]["contact_potential"] > 0.
+    frames = step.accepted_history_recorders["material_energy"].frames
+    column = tuple(ledger["roles"]).index("contact_potential")
+    assert ledger["component_changes"]["contact_potential"] == pytest.approx(
+        frames[-1].values[column] - frames[0].values[column]
+    )
+
+
+def test_periodic_j2_legacy_energy_history_is_not_fabricated(tmp_path):
+    source = _periodic_j2_step()
+    observer = source.accepted_history_recorders.pop("material_energy")
+    source.accepted_observers = tuple(o for o in source.accepted_observers if o is not observer)
+    source.solve(until=0.5)
+    checkpoint = source.save_checkpoint(tmp_path / "legacy_energy")
+    target = _periodic_j2_step()
+    target.load_checkpoint(checkpoint)
+    result = target.solve_result()
+    ledger = result.metadata["mechanical_energy_ledger"]
+    assert ledger["status"] == "unavailable"
+    assert "earlier accepted energy" in ledger["reason"]
+    assert "mechanical_energy_residual" not in ledger
+    assert not target.accepted_history_recorders["material_energy"].complete
+
+
+def test_periodic_j2_corrupt_energy_checkpoint_is_atomic(tmp_path):
+    source = _periodic_j2_step()
+    source.solve(until=0.5)
+    checkpoint = source.save_checkpoint(tmp_path / "corrupt_energy")
+    payload = json.loads(checkpoint.read_text(encoding="utf-8"))
+    payload["accepted_observer_state"]["material_energy"]["frames"][-1]["values"]["stored_energy"] += 1.
+    checkpoint.write_text(json.dumps(payload), encoding="utf-8")
+    target = _periodic_j2_step()
+    target.solve(until=0.25)
+    solution = target.solution.x.array.copy()
+    material = target.response.state.committed_state_vectors().copy()
+    energy = target.accepted_history_recorders["material_energy"].checkpoint_state()
+    with pytest.raises(ValueError, match="Energy checkpoint endpoint"):
+        target.load_checkpoint(checkpoint)
+    np.testing.assert_array_equal(target.solution.x.array, solution)
+    np.testing.assert_array_equal(target.response.state.committed_state_vectors(), material)
+    assert target.accepted_history_recorders["material_energy"].checkpoint_state() == energy
+    assert target.accepted_load_factor == pytest.approx(0.25)
 
 
 def test_affine_checkpoint_refuses_mutated_constraint_identity(tmp_path):
@@ -3142,6 +3304,8 @@ def test_post_commit_checkpoint_failure_restores_complete_accepted_boundary(
     assert step.accepted_increments == []
     assert step.attempted_increments == []
     assert step.checkpoints == []
+
+    assert len(step.accepted_history_recorders["material_energy"].frames) == 1
 
     step.save_checkpoint = save_checkpoint
     step.solve()

@@ -336,6 +336,109 @@ def _accept_small_strain_material(model, request: StepRequest) -> bool:
     )
 
 
+def _finite_strain_user_material_preconditions(model, request: StepRequest) -> bool:
+    from .constitutive import FiniteStrainJ2Logarithmic
+    from .constitutive.user_material import UserMaterial, MaterialTangentConvention
+
+    study = getattr(model, "study", None)
+    material = _selected_material(model, request)
+    return (
+        getattr(study, "analysis", None) == "nonlinear_static"
+        and getattr(study, "physics", None) == "solid_mechanics"
+        and _is_vector_target(request.target)
+        and isinstance(material, UserMaterial)
+        # Built-in J2 has its own procedure and rejection contracts. A generic
+        # fallback must not bypass those contracts when its options are refused.
+        and not isinstance(material, FiniteStrainJ2Logarithmic)
+        # Runtime protocols share attribute names with small-strain providers;
+        # their physical tangent declarations, not Python duck typing alone,
+        # distinguish the two contracts.
+        and isinstance(material.tangent_convention, MaterialTangentConvention)
+        and material.tangent_convention.kinematic_measure != "small_strain"
+    )
+
+
+def _finite_strain_user_material_rejection(model, request: StepRequest):
+    if not _finite_strain_user_material_preconditions(model, request):
+        return None
+    from . import constraints as constraint_api, loads as load_api
+    from .constitutive.user_material import MaterialTangentConvention
+
+    material = _selected_material(model, request)
+    if material.tangent_convention != MaterialTangentConvention.first_piola_deformation_gradient():
+        return "AFM-USER-FINITE-TANGENT: the implicit route requires reference 9x9 dP/dF."
+    domain = getattr(getattr(getattr(request.target, "value", None), "function_space", None), "mesh", None)
+    if domain is None:
+        return "AFM-USER-FINITE-TARGET: register a displacement Field before selecting a Step."
+    from ._step_provider_support import is_standalone_h1_vector_field
+    if not is_standalone_h1_vector_field(request.target) or request.target.value.ufl_shape != (domain.geometry.dim,):
+        return "AFM-USER-FINITE-SPACE: use a standalone H1-conforming displacement with one component per spatial dimension."
+    if domain.comm.size != 1:
+        return "AFM-USER-FINITE-MPI: implicit user-material MPI is not verified."
+    if domain.geometry.dim not in (2, 3) or domain.topology.dim != domain.geometry.dim:
+        return "AFM-USER-FINITE-DIMENSION: use a 3D solid or 2D plane strain."
+    from .constitutive.plane_stress import PlaneStressReduction
+    reduction = request.option("plane_stress")
+    if domain.geometry.dim == 2 and getattr(model.study, "assumption", None) == "plane_stress":
+        if not isinstance(reduction, PlaneStressReduction):
+            return "AFM-USER-FINITE-REDUCTION: plane stress requires an explicit PlaneStressReduction declaration."
+    elif reduction is not None:
+        return "AFM-USER-FINITE-REDUCTION: PlaneStressReduction requires a 2D plane-stress Study."
+    elif domain.geometry.dim == 2 and getattr(model.study, "assumption", None) != "plane_strain":
+        return "AFM-USER-FINITE-REDUCTION: declare plane strain or an admitted plane-stress reduction."
+    if model.boundary_models:
+        return "AFM-USER-FINITE-BOUNDARY: generic history materials do not yet compose with weak/contact boundaries."
+    if len(model.materials) > 1 or any(item.region is not None for item in model.materials):
+        return "AFM-USER-FINITE-REGIONS: one global material is required."
+    constraints = request.option("constraints")
+    if constraints is None:
+        constraints = model.constraints
+    if any(not isinstance(item, (constraint_api.DirichletConstraint, constraint_api.RemoteDisplacementConstraint))
+           for item in constraint_api.constraint_assets(constraints)):
+        return "AFM-USER-FINITE-BC: only strong displacement constraints are admitted."
+    if any(not hasattr(getattr(item, "value", None), "value")
+           for item in constraint_api.dirichlet_constraints(constraints)):
+        return "AFM-USER-FINITE-BC: use constant end-displacement data and one normalized amplitude."
+    if any(getattr(load, "configuration", "reference") != "reference"
+           for load in load_api.load_assets(model.loads, unwrap_amplitudes=True)):
+        return "AFM-USER-FINITE-FOLLOWER: only reference dead loads are admitted."
+    return None
+
+
+def _accept_finite_strain_user_material(model, request: StepRequest) -> bool:
+    return (_finite_strain_user_material_preconditions(model, request)
+            and _finite_strain_user_material_rejection(model, request) is None)
+
+
+def _lower_finite_strain_user_material(model, request: StepRequest):
+    from ._step_builders_inelastic import _single_shared_amplitude_loads
+    from .mechanics.finite_strain_material import FiniteStrainMaterialStep
+
+    rejection = _finite_strain_user_material_rejection(model, request)
+    if rejection is not None:
+        raise NotImplementedError(rejection)
+    options = dict(request.options)
+    for key in ("K", "F"):
+        if options.pop(key, None) is not None:
+            raise ValueError("Generic history-material equilibrium owns its operators; use registered reference loads.")
+    options.pop("material", None)
+    options.pop("output", None)
+    selected_loads, options["amplitude"] = _single_shared_amplitude_loads(
+        model.loads, options.pop("amplitude", None), label="finite-strain user material", physical_time=False,
+    )
+    constraints = options.pop("constraints", None)
+    if options.get("material_points"):
+        options["unit_system"] = model.unit_system
+        options.setdefault("time_unit", getattr(model.unit_system, "time", None))
+    step = FiniteStrainMaterialStep(
+        displacement=request.target, material=_selected_material(model, request),
+        external_force=model.external_force(request.target, loads=selected_loads) if selected_loads else None,
+        constraints=model.constraints if constraints is None else constraints,
+        study=model.study, **options,
+    )
+    return model.add_step(step)
+
+
 def _unsupported_small_strain_boundary(model) -> str | None:
     from ._step_builders_inelastic import small_strain_boundary_rejection
 
@@ -1104,7 +1207,8 @@ def _lower_small_strain_material(model, request: StepRequest):
 
 
 def _implicit_creep_preconditions(model, request: StepRequest) -> bool:
-    from .constitutive.creep import IsotropicPowerLawCreepMaterial
+    from .constitutive.creep import IsotropicCreepMaterial
+    from .constitutive._creep_plasticity import CreepPlasticityMaterial
 
     study = getattr(model, "study", None)
     method = _procedure_method(model, request)
@@ -1124,17 +1228,35 @@ def _implicit_creep_preconditions(model, request: StepRequest) -> bool:
         and _all_materials_support(
             model,
             request,
-            lambda item: isinstance(item, IsotropicPowerLawCreepMaterial),
+            lambda item: isinstance(item, (IsotropicCreepMaterial, CreepPlasticityMaterial)),
         )
     )
 
 
 def _accept_implicit_creep(model, request: StepRequest) -> bool:
-    return _implicit_creep_preconditions(model, request) and not getattr(model, "boundary_models", ())
+    return _implicit_creep_preconditions(model, request) and _implicit_creep_boundary_rejection(model, request) is None
 
 
 def _implicit_creep_boundary_rejection(model, request: StepRequest) -> str | None:
-    return _unsupported_small_strain_boundary(model) if _implicit_creep_preconditions(model, request) else None
+    if not _implicit_creep_preconditions(model, request):
+        return None
+    boundary = _unsupported_small_strain_boundary(model)
+    if boundary:
+        return boundary
+    from .constitutive._creep_plasticity import CreepPlasticityMaterial
+
+    materials = _registered_materials(model, request)
+    if any(isinstance(item, CreepPlasticityMaterial) for item in materials):
+        if getattr(model.study, "dimension", None) != 3:
+            return "Coupled creep/plasticity currently admits three-dimensional small strain only."
+        domain = request.target.value.function_space.mesh
+        if domain.comm.size != 1:
+            return "Coupled creep/plasticity currently admits serial execution only."
+        if len(materials) != 1 or (request.material is None and any(
+            record.region is not None for record in model.materials
+        )):
+            return "Regional coupled creep/plasticity is not admitted yet."
+    return None
 
 
 def _lower_implicit_creep(model, request: StepRequest):
@@ -1731,7 +1853,23 @@ register_step_provider(
             "progress",
             "status_file",
             "amplitude",
+            "duration",
+            "time_unit",
         ),
+    )
+)
+register_step_provider(
+    StepProvider(
+        name="finite_strain_user_material_static",
+        analyses=("nonlinear_static",),
+        accepts=_accept_finite_strain_user_material,
+        lower=_lower_finite_strain_user_material,
+        rejection_reason=_finite_strain_user_material_rejection,
+        priority=1,
+        description="Experimental serial history-material equilibrium with reference dP/dF and physical duration.",
+        procedure="standard/newton/stateful",
+        option_contract=_option_contract("duration", "incrementation", "quadrature_degree",
+                                         "amplitude", "properties", "progress", "time_unit", "plane_stress", "checkpoint", "output_every", "temperature", "material_points", required=("duration",)),
     )
 )
 register_step_provider(
@@ -1811,8 +1949,8 @@ register_step_provider(
         lower=_lower_implicit_creep,
         priority=120,
         description=(
-            "Lower isotropic power-law creep to backward-Euler quadrature "
-            "state, consistent-tangent Newton equilibrium, and cutback."
+            "Lower supported isotropic creep and bounded creep/plasticity to "
+            "backward-Euler quadrature state, consistent-tangent Newton and cutback."
         ),
         procedure="standard/backward_euler/stateful",
         option_contract=_option_contract(
@@ -1821,6 +1959,7 @@ register_step_provider(
             "incrementation",
             "quadrature_degree",
             "creep_strain_error_tolerance",
+            "material_points",
             "progress",
             "status_file",
             "amplitude",

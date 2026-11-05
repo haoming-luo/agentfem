@@ -1,3 +1,8 @@
+---
+title: "Dynamic cohesive fracture: architecture and scope"
+description: "Understand AgentFEM's declared-path dynamic cohesive fracture architecture, numerical contracts and scientific verification targets."
+---
+
 # Dynamic Cohesive Fracture Architecture
 
 This document fixes the first AgentFEM fracture scope before implementation is

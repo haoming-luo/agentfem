@@ -1,3 +1,8 @@
+---
+title: "RVE homogenization and volume-weighted statistics"
+description: "Compute macroscopic RVE averages, handle porous-cell volume conventions and check Hill–Mandel consistency with AgentFEM."
+---
+
 # RVE homogenization and physical field statistics
 
 This page defines the scientific meaning of AgentFEM's periodic-cell histories

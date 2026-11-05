@@ -51,6 +51,9 @@ def add_contact_coo_tangent(
     raw_rows = np.asarray(rows)
     raw_columns = np.asarray(columns)
     raw_constrained = np.asarray(constrained_dofs)
+    raw_entries = np.asarray(values)
+    if raw_entries.dtype.kind not in "fiu":
+        raise ValueError("Contact tangent needs real finite scalar values.")
     if (
         raw_rows.dtype.kind not in "iu"
         or raw_columns.dtype.kind not in "iu"
@@ -61,7 +64,7 @@ def add_contact_coo_tangent(
         )
     row_ids = np.asarray(raw_rows, dtype=np.int64)
     column_ids = np.asarray(raw_columns, dtype=np.int64)
-    entries = np.asarray(values, dtype=float)
+    entries = np.asarray(raw_entries, dtype=float)
     size = matrix.getSize()
     local_size = matrix.getLocalSize()
     if (
@@ -91,9 +94,6 @@ def add_contact_coo_tangent(
         )
     if not len(row_ids):
         return
-    # DOLFINx inserted UFL entries first; PETSc requires a flush before
-    # switching this same matrix to additive contact values.
-    matrix.assemble(PETSc.Mat.AssemblyType.FLUSH)
     order = np.lexsort((column_ids, row_ids))
     row_ids, column_ids, entries = (
         row_ids[order],
@@ -107,8 +107,15 @@ def add_contact_coo_tangent(
     first = np.r_[True, (np.diff(row_ids) != 0) | (np.diff(column_ids) != 0)]
     groups = np.cumsum(first) - 1
     summed = np.bincount(groups, weights=entries)
+    # Individually finite contributions can overflow when duplicates merge.
+    # Reject before flushing or inserting into the caller-owned bulk matrix.
+    if not np.all(np.isfinite(summed)):
+        raise ValueError("Contact tangent duplicate accumulation produced nonfinite entries.")
     distinct_rows, distinct_columns = row_ids[first], column_ids[first]
     row_offsets = np.r_[0, np.flatnonzero(np.diff(distinct_rows)) + 1, len(distinct_rows)]
+    # DOLFINx inserted UFL entries first; PETSc requires a flush before
+    # switching this same matrix to additive contact values.
+    matrix.assemble(PETSc.Mat.AssemblyType.FLUSH)
     matrix.setValuesIJV(
         row_offsets.astype(PETSc.IntType),
         distinct_columns.astype(PETSc.IntType),

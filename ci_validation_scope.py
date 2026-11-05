@@ -34,6 +34,17 @@ _RELEASE_PREFIXES = (
     ".github/workflows/platform-acceptance",
 )
 _TARGETED_SOURCE_FILES = {
+    "tools/p92_cyclic_figure_screen.py",
+    "evidence/creep/p92-cyclic-figure-points.json",
+    "tools/p92_pure_fatigue_screen.py",
+    "evidence/creep/p92-pure-fatigue.json",
+    "tools/p92_life_screen.py",
+    "evidence/creep/p92-life-table.json",
+    "tools/p92_tensor_normalization.py",
+    "tools/p92_tensor_material_reference.py",
+    "tools/p92_dwell_figure_screen.py",
+    "tools/p92_published_recovery_reference.py",
+    "evidence/creep/p92-published-figure-points.json",
     "promotion_gate.py",
     "tools/agent_trial_acceptance.py",
     "tools/prepare_agent_trial.py",
@@ -58,6 +69,22 @@ _TARGETED_PREFIXES = (
     "src/agentfem/surrogates/",
 )
 _SOURCE_TEST_MAP = {
+    "tools/p92_cyclic_figure_screen.py": ("tests/test_p92_cyclic_figure_screen.py",),
+    "evidence/creep/p92-cyclic-figure-points.json": ("tests/test_p92_cyclic_figure_screen.py",),
+    "tools/p92_pure_fatigue_screen.py": ("tests/test_p92_pure_fatigue_screen.py",),
+    "evidence/creep/p92-pure-fatigue.json": ("tests/test_p92_pure_fatigue_screen.py",),
+    "tools/p92_life_screen.py": ("tests/test_p92_life_screen.py",),
+    "evidence/creep/p92-life-table.json": ("tests/test_p92_life_screen.py",),
+    "tools/p92_tensor_normalization.py": (
+        "tests/test_p92_tensor_normalization.py", "tests/test_p92_tensor_structure.py",
+    ),
+    "tools/p92_tensor_material_reference.py": ("tests/test_p92_tensor_structure.py",),
+    "tools/p92_dwell_figure_screen.py": ("tests/test_p92_dwell_figure_screen.py",),
+    "tools/p92_published_recovery_reference.py": (
+        "tests/test_p92_published_recovery_reference.py", "tests/test_p92_dwell_figure_screen.py",
+        "tests/test_p92_tensor_normalization.py", "tests/test_p92_tensor_structure.py",
+    ),
+    "evidence/creep/p92-published-figure-points.json": ("tests/test_p92_dwell_figure_screen.py",),
     "promotion_gate.py": ("tests/test_promotion_gate.py",),
     "tools/agent_trial_acceptance.py": ("tests/test_agent_trial_acceptance.py",),
     "tools/prepare_agent_trial.py": ("tests/test_prepare_agent_trial.py",),
@@ -234,6 +261,20 @@ _CORE_SOURCE_TEST_MAP = {
         "tests/test_material_stress_conversion.py",
         "tests/test_finite_strain_plasticity.py",
         "tests/test_finite_strain_j2_material_map.py",
+        "tests/test_history_material_temperature.py",
+    ),
+    "src/agentfem/mechanics/_prescribed_temperature.py": (
+        "tests/test_history_material_temperature.py",
+    ),
+    "src/agentfem/mechanics/finite_strain_material.py": (
+        "tests/test_finite_strain_material_step.py",
+        "tests/test_history_plane_stress.py",
+        "tests/test_history_material_temperature.py",
+        "tests/test_finite_material_point_histories.py",
+    ),
+    "src/agentfem/results/material_points.py": (
+        "tests/test_material_point_histories.py",
+        "tests/test_finite_material_point_histories.py",
     ),
     "src/agentfem/mechanics/_incremental_runtime.py": (
         "tests/test_incremental_runtime.py",
@@ -276,15 +317,20 @@ _CORE_SOURCE_TEST_MAP = {
     ),
     "src/agentfem/mechanics/small_strain_material.py": (
         "tests/test_small_strain_material_step.py",
+        "tests/test_small_strain_restore_transaction.py",
+        "tests/test_small_strain_physical_time.py",
         "tests/test_learned_constitutive.py",
     ),
     "src/agentfem/mechanics/plasticity.py": (
         "tests/test_external_inelastic_benchmark.py",
         "tests/test_p1_platform.py",
+        "tests/test_creep_prescribed_trial.py",
     ),
     "src/agentfem/mechanics/creep.py": (
         "tests/test_external_inelastic_benchmark.py",
         "tests/test_p1_platform.py",
+        "tests/test_creep_prescribed_trial.py",
+        "tests/test_p92_sinh_screen.py",
     ),
     "src/agentfem/mechanics/viscoelasticity.py": ("tests/test_viscoelasticity.py",),
     "src/agentfem/mechanics/finite_strain_plasticity.py": (

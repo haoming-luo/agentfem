@@ -1,3 +1,8 @@
+---
+title: "AgentFEM source map for scientific contributors"
+description: "Map finite-element concepts to AgentFEM's Python modules so contributions land in the correct reusable layer."
+---
+
 # AgentFEM Module Map
 
 This map links FEM concepts to the current Python modules.

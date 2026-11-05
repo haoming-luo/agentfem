@@ -5,7 +5,7 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from hashlib import sha256
 from importlib import import_module, metadata
 import json
@@ -72,13 +72,18 @@ class RuntimeReport:
     optional: tuple[dependencies.DependencyStatus, ...]
     execution: dict[str, object]
     workspace: dict[str, object]
+    required: dict[str, dict[str, object]] = field(default_factory=dict)
 
     @property
     def solver_ready(self) -> bool:
-        """Whether this runtime can compile the forms needed by a new solve."""
+        """Whether core imports and the JIT compiler are available (not a solve)."""
 
-        dolfinx_available = bool(self.packages.get("fenics-dolfinx"))
-        return bool(self.toolchain["jit_ready"] or not dolfinx_available)
+        return bool(
+            self.toolchain["jit_ready"]
+            and self.packages.get("fenics-dolfinx")
+            and self.required
+            and all(item["available"] for item in self.required.values())
+        )
 
     def summary(self) -> dict[str, object]:
         return {
@@ -90,6 +95,7 @@ class RuntimeReport:
             "machine": self.machine,
             "operating_system": dict(self.operating_system),
             "packages": dict(self.packages),
+            "required": {name: dict(item) for name, item in self.required.items()},
             "mpi": dict(self.mpi),
             "numerics": dict(self.numerics),
             "toolchain": dict(self.toolchain),
@@ -111,6 +117,14 @@ class RuntimeReport:
             f"  {name}: {version or 'not installed'}"
             for name, version in self.packages.items()
         )
+        for name, item in self.required.items():
+            if not item["available"]:
+                lines.append(f"  error: {item['code']}: {name}: {item['error']}")
+        if any(not item["available"] for item in self.required.values()):
+            lines.append(
+                "  Repair missing/broken dependencies in this active environment "
+                "using its selected package channel; then rerun doctor and a first solve."
+            )
         lines.append(f"  MPI vendor: {self.mpi['vendor']}")
         lines.append(f"  MPI ranks: {self.mpi['rank_count']}")
         lines.append(f"  PETSc scalar: {self.numerics['petsc_scalar_type']}")
@@ -274,6 +288,8 @@ def runtime_report() -> RuntimeReport:
         "mpi4py",
         "petsc4py",
         "h5py",
+        "scipy",
+        "packaging",
     )
     return RuntimeReport(
         platform=current_support(),
@@ -303,6 +319,11 @@ def runtime_report() -> RuntimeReport:
                 capability="Gmsh model and .msh import",
             ),
             dependencies.status(
+                "matplotlib",
+                extra="visualization",
+                capability="Plotting (installed by default; optional at runtime)",
+            ),
+            dependencies.status(
                 "pyvista",
                 extra="visualization",
                 capability="In-process visualisation",
@@ -320,7 +341,39 @@ def runtime_report() -> RuntimeReport:
         ),
         execution=_execution_identity(runtime_version=runtime_version),
         workspace=workspace_report().summary(),
+        required=_required_runtime(),
     )
+
+
+def _required_runtime() -> dict[str, dict[str, object]]:
+    """Probe actual imports, not just distribution metadata or an installed wheel."""
+
+    modules = {
+        "fenics-dolfinx": ("dolfinx",),
+        "fenics-ufl": ("ufl",),
+        "fenics-basix": ("basix",),
+        "fenics-ffcx": ("ffcx",),
+        "numpy": ("numpy",),
+        "mpi4py": ("mpi4py.MPI",),
+        "petsc4py": ("petsc4py.PETSc",),
+        "h5py": ("h5py",),
+        "scipy": ("scipy.linalg", "scipy.sparse.linalg"),
+        "packaging": ("packaging.version",),
+    }
+    records = {}
+    for package, imports in modules.items():
+        try:
+            for module in imports:
+                import_module(module)
+        except Exception as exc:
+            records[package] = {
+                "available": False,
+                "code": "AFM-RUNTIME-DEPENDENCY-UNAVAILABLE",
+                "error": f"{type(exc).__name__}: {exc}",
+            }
+        else:
+            records[package] = {"available": True, "code": "AFM-RUNTIME-DEPENDENCY-READY", "error": None}
+    return records
 
 
 def _execution_identity(*, runtime_version: str | None = None) -> dict[str, object]:
@@ -416,7 +469,16 @@ def _mpi_runtime() -> dict[str, object]:
 def _numeric_runtime() -> dict[str, object]:
     """Return the scalar and floating-point contract used by this process."""
 
-    import numpy as np
+    try:
+        import numpy as np
+    except Exception:
+        return {
+            "python_float_mantissa_bits": int(sys.float_info.mant_dig),
+            "numpy_default_float": "unavailable",
+            "petsc_scalar_type": "unavailable",
+            "petsc_real_type": "unavailable",
+            "petsc_complex": None,
+        }
 
     petsc_scalar = "unavailable"
     petsc_real = "unavailable"

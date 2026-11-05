@@ -5,7 +5,7 @@
   "title": "Creep damage and modified-theta assessment",
   "kind": "material",
   "status": "supported",
-  "summary": "Verified material-point Kachanov-Rabotnov and hyperbolic-sine creep relations plus a deterministic modified-theta curve projection, kept distinct from the implemented global isothermal/Arrhenius power-law creep route.",
+  "summary": "Verified material-point Kachanov-Rabotnov and hyperbolic-sine creep relations plus a deterministic modified-theta curve projection. K-R damage and curve projection remain separate from global equilibrium; Sinh has a separately tested implicit consumer with its own bounded scope.",
   "public_api": [
     "agentfem.constitutive.KachanovRabotnovCreep",
     "agentfem.constitutive.CreepDamageState",
@@ -88,10 +88,10 @@
     "applicability": [
       "Material calibration checks and constant-stress creep screening.",
       "Sequential thermoelastic-to-creep hotspot workflows with explicit scope labels.",
-      "Reference updates for future global damage and Sinh consumers."
+      "Reference material updates; consult the separate implicit-creep contract for the bounded global Sinh consumer."
     ],
     "limitations": [
-      "K-R damage and Sinh flow do not yet enter global equilibrium, adaptive time stepping, or restartable quadrature state; the separate isothermal/Arrhenius power-law model does.",
+      "K-R damage does not enter global equilibrium, adaptive time stepping, or restartable quadrature state. The separate implicit Sinh consumer does not promote K-R damage or modified-theta projection into global constitutive laws.",
       "Local softening/damage is not mesh regularized.",
       "No Liu-Murakami multiaxial damage law is claimed in this release."
     ]
@@ -113,7 +113,7 @@
     "validation_rules": [
       "Reject nonfinite parameters, invalid reference scales, and damage outside [0, 1).",
       "Clamp a failed update at the declared failure damage and report failed=True.",
-      "Do not promote K-R, Sinh, or modified-theta beyond their declared local/curve maturity merely because power-law creep has a global state consumer."
+      "Do not promote K-R or modified-theta beyond local/curve maturity. Global Sinh admission requires its own update, tangent and restart evidence, not inference from power-law support."
     ]
   },
   "references": [

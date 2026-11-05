@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 from pathlib import Path
 import re
+import shlex
 import subprocess
 import sys
 
@@ -46,12 +47,48 @@ def test_documentation_machine_entrypoints_are_current():
     assert installation["health_check"] == "agentfem doctor --json"
 
 
+def test_installation_onboarding_has_platform_routes_and_bounded_handoffs():
+    installation = json.loads(build_docs.render_agent_manifest())["installation"]
+    onboarding = installation["onboarding"]
+    assert onboarding["mode"] == "agent-assisted"
+    assert onboarding["requires_repository_checkout"] is False
+    assert set(onboarding["routes"]) == set(installation["platforms"])
+    windows = onboarding["routes"]["windows-wsl2"]
+    assert windows["sequence"][0] == "inspect"
+    assert all(route["sequence"][-1] == "readiness" for route in onboarding["routes"].values())
+    assert "--no-distribution" in windows["platform_only_command"]
+    assert onboarding["failure_policy"]["automatic_attempts_per_stage"] == 1
+    assert onboarding["failure_policy"]["no_policy_bypass"]
+    assert onboarding["progress"]["max_user_actions_at_once"] == 1
+    assert "selected_channel" in onboarding["remember"]
+    assert "tokens" in onboarding["never_record"]
+    assert onboarding["schema_version"] == 2
+    assert onboarding["completion"]["stop_after_readiness"] is True
+    assert onboarding["completion"]["simulation_required"] is False
+    assert not {"init", "run", "verify"} & set(onboarding["completion"]["checks"])
+    assert onboarding["optional_next_step"]["requires_user_request"] is True
+    assert onboarding["optional_next_step"]["existing_request_is_sufficient"] is True
+    assert "No repository clone" in build_docs.render_llms_entry()
+
+
 def test_cli_and_documentation_share_one_product_contract():
     parser = build_parser()
     subparsers = next(
         action for action in parser._actions if getattr(action, "choices", None)
     )
     assert tuple(subparsers.choices) == CLI_COMMANDS
+
+
+def test_first_project_commands_use_the_same_parseable_public_workflow():
+    sequences = []
+    for name in ("README.md", "docs/index.md", "docs/get_started/index.md", "docs/getting_started.md"):
+        blocks = re.findall(r"```bash\n(.*?)```", (ROOT / name).read_text(), re.S)
+        block, = [b for b in blocks if b.startswith("agentfem init beam ")]
+        commands = [shlex.split(line) for line in block.splitlines() if line.startswith("agentfem ")]
+        for command in commands:
+            build_parser().parse_args(command[1:])
+        sequences.append(commands)
+    assert all(commands == sequences[0] for commands in sequences)
 
 
 def test_agentfem_skill_is_installable_and_routes_context_progressively():
@@ -64,6 +101,7 @@ def test_agentfem_skill_is_installable_and_routes_context_progressively():
     assert "## Reference Routing" in skill
     for reference in (
         "workflow.md",
+        "scientific_workflows.md",
         "concepts.md",
         "module_map.md",
         "validation.md",
@@ -312,12 +350,14 @@ def test_public_installation_routes_pin_the_tested_solver_stack():
     )
     official = (
         "mamba create -n agentfem-env --override-channels -c conda-forge "
-        "python=3.11 fenics-dolfinx=0.11 agentfem"
+        "python=3.11 fenics-dolfinx=0.11 c-compiler cxx-compiler "
+        "scipy matplotlib-base gmsh python-gmsh agentfem"
     )
     mirror = (
         "mamba create -n agentfem-env --no-rc --override-channels "
         "-c https://mirrors.tuna.tsinghua.edu.cn/anaconda/cloud/conda-forge "
-        "python=3.11 fenics-dolfinx=0.11 agentfem"
+        "python=3.11 fenics-dolfinx=0.11 c-compiler cxx-compiler "
+        "scipy matplotlib-base gmsh python-gmsh agentfem"
     )
     for path in detailed_guides:
         source = " ".join(path.read_text().replace("\\", "").split())
@@ -325,8 +365,8 @@ def test_public_installation_routes_pin_the_tested_solver_stack():
 
     readme = (ROOT / "README.md").read_text()
     normalized_readme = " ".join(readme.replace("\\", "").split())
-    assert "mamba create -n agentfem-env -c conda-forge agentfem" in normalized_readme
-    assert "mamba install agentfem" in normalized_readme
+    assert official in normalized_readme
+    assert mirror in normalized_readme
 
     install = (ROOT / "INSTALL.md").read_text()
     getting_started = (ROOT / "docs" / "getting_started.md").read_text()

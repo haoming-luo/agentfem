@@ -72,7 +72,7 @@ def test_ordinary_finite_step_body_force_result_fields_and_restart(tmp_path):
     np.testing.assert_array_equal(
         resumed.state.u.value.x.array, step.state.u.value.x.array
     )
-    assert resumed.history_records == pytest.approx(step.history_records)
+    assert resumed.history_records == step.history_records
     wrong_load = make_step(force=3)
     with pytest.raises(ValueError, match="identity"):
         wrong_load.load_checkpoint(checkpoint)

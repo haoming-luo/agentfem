@@ -27,6 +27,12 @@ open-source FEM platform. Its longer-term vision is to make finite-element
 simulation an accessible scientific workspace connecting engineering,
 computation, data, and AI.
 
+**Explore before installing:** [Browser demos, datasets & models](https://lab.haoming-luo.com/open-science/)
+· [Six classroom exercises](https://lab.haoming-luo.com/learn/en.html)
+([中文](https://lab.haoming-luo.com/learn/) · [Français](https://lab.haoming-luo.com/learn/fr.html)).
+The exercises include prompts, reference results, and downloadable handouts;
+running your own FEM cases requires the AgentFEM runtime below.
+
 ## All You Need Is an Agent
 
 > [!TIP]
@@ -35,12 +41,14 @@ computation, data, and AI.
 ```text
 Bring AgentFEM to life.
 
-Use https://github.com/haoming-luo/agentfem as the guide. Follow the tested
-route in INSTALL.md; if I say "走镜像通道 / use the mirror channel", use its
-single verified mirror route. Read AGENT_GUIDE.md and run `agentfem doctor`.
-
-When it is ready, reply briefly with the environment, AgentFEM
-version, and health-check result.
+Use https://haoming-luo.github.io/agentfem/agentfem.json as the guide.
+Detect my platform and reuse a working environment. If I say
+"走镜像通道 / use the mirror channel", retain that choice for later installs.
+On Windows use the linked short WSL/Ubuntu route, without cloning the repo.
+Do every permitted step; if one fails, give me one simple manual action and
+continue after it is resolved. Finish after checking the installed environment:
+report the version, environment location and readiness. Ask whether I want to
+try a first example; do not create a project or run a simulation until I agree.
 ```
 
 AgentFEM includes the guidance and machine-readable interfaces an agent needs.
@@ -79,18 +87,26 @@ Prefer manual setup? Continue to [Install](#install).
 ## Install
 
 AgentFEM supports **Linux**, **macOS**, and **Windows through WSL2**.
+Already installed? Go straight to [your first model](#run-your-first-model).
 
 ### Recommended: conda-forge
 
-Install AgentFEM and its compatible FEniCSx/PETSc/MPI foundation together:
+In a [Miniforge](https://github.com/conda-forge/miniforge#download) terminal,
+install AgentFEM and its numerical tools together:
 
 ```bash
-mamba create -n agentfem-env -c conda-forge agentfem
+mamba create -n agentfem-env --override-channels -c conda-forge \
+  python=3.11 fenics-dolfinx=0.11 c-compiler cxx-compiler \
+  scipy matplotlib-base gmsh python-gmsh agentfem
 mamba activate agentfem-env
 agentfem doctor
 ```
 
-Already in a conda-forge environment? Run `mamba install agentfem`.
+This command includes SciPy, Matplotlib and Gmsh. For an existing environment,
+retain its selected channel and follow the [upgrade notes](INSTALL.md#upgrading-an-existing-environment).
+
+Installation ends after the environment is ready. Try the example below when
+you choose; your agent should ask before creating or running it.
 
 On Windows, run these commands inside an Ubuntu WSL2 terminal, then protect
 projects and results from distribution removal:
@@ -110,7 +126,8 @@ location:
 ```bash
 mamba create -n agentfem-env --no-rc --override-channels \
   -c https://mirrors.tuna.tsinghua.edu.cn/anaconda/cloud/conda-forge \
-  python=3.11 fenics-dolfinx=0.11 agentfem
+  python=3.11 fenics-dolfinx=0.11 c-compiler cxx-compiler \
+  scipy matplotlib-base gmsh python-gmsh agentfem
 mamba activate agentfem-env
 agentfem doctor
 ```
@@ -121,28 +138,12 @@ for verification, fallback, and cache-refresh commands.
 
 </details>
 
-### Optional: Complete Runtime Preview
-
-For offline setup without managing an environment, preview bundles are
-available for Apple Silicon macOS and Windows 10/11 through WSL2.
-
-[**Download the latest Complete Runtime →**](https://github.com/haoming-luo/agentfem/releases/latest)
-
-On Windows, extract the ZIP and run in PowerShell:
-
-```powershell
-powershell -ExecutionPolicy Bypass -File .\Install-AgentFEM.ps1
-```
-
-See the [runtime guide](docs/runtime_installers.md) for upgrades, durable
-project storage, removal, and Preview-specific troubleshooting.
-
 ### Existing FEniCSx environment: PyPI
 
 If you already maintain a compatible FEniCSx environment:
 
 ```bash
-python -m pip install agentfem
+python -m pip install agentfem "scipy>=1.11" matplotlib "gmsh>=4.11"
 agentfem doctor
 ```
 
@@ -152,24 +153,26 @@ environment.
 
 See [`INSTALL.md`](INSTALL.md) for platform and MPI details, or the
 [runtime guide](docs/runtime_installers.md) for Preview installation and
-integrity checks.
+integrity checks. Offline bundles are an alternative only when the chosen
+release lists a matching artifact; the online route above is always the
+starting point for this guide.
 
 <details>
 <summary><strong>Optional integrations</strong></summary>
 
-Optional capabilities stay separate from the core Python package:
+Additional capabilities stay separate from the standard installation:
 
 ```bash
 python -m pip install 'agentfem[mesh-formats]'   # Abaqus/NASTRAN meshes
-python -m pip install 'agentfem[gmsh]'           # Gmsh model/.msh import
 python -m pip install 'agentfem[visualization]'  # ParaView-ready helpers
 python -m pip install 'agentfem[ml]'             # PyTorch adapters
 ```
 
 </details>
 
-Gmsh is an optional, separately licensed GPL component. It is not contained in
-the Apache-2.0 Python package; the recommended offline Complete runtime may
+Gmsh is installed by default but remains optional to use and separately GPL
+licensed. Its code is not contained in the Apache-2.0 Python package; the
+recommended offline Complete runtime may
 aggregate it with its license and corresponding source for a one-click
 CAD-to-mesh workflow.
 
@@ -180,18 +183,21 @@ never included. Inspect or disable it with `agentfem telemetry status|off`. See 
 
 ## Run Your First Model
 
-Create and run a complete static-solid project in any directory:
+From a directory where you keep projects (on WSL,
+`~/AgentFEMProjects` after workspace preparation):
 
 ```bash
-mkdir first-agentfem-model && cd first-agentfem-model
-agentfem init --template static-solid .
+agentfem init beam --template static-solid
+cd beam
 agentfem check
 agentfem run --name baseline
 agentfem show latest
+agentfem verify
 ```
 
-The generated `case.py` is ordinary, editable Python. Its public workflow reads
-like an engineering analysis:
+Open the reported XDMF in ParaView to view the fields. `show` summarizes the
+result; `verify` checks its provenance. The generated `case.py` is ordinary,
+editable Python. The core modeling portion reads like an engineering analysis:
 
 ```python
 study = studies.static_solid(dimension=2, assumption="plane_strain")
@@ -211,7 +217,9 @@ The CLI gives the same model a readable run folder such as
 summary, an MPI launch path, and a machine-readable interface. Use
 `agentfem runs` to find earlier runs and `--json` when an agent or GUI needs the
 complete record.
-You can also run `case.py` directly with Python.
+You can also run `case.py` directly with Python. Once the environment works,
+daily use is **edit → check → run → view**. Run `doctor` after environment
+changes or to diagnose a runtime problem, not before every model edit.
 
 ## What Works Today
 
@@ -222,7 +230,7 @@ You can also run `case.py` directly with Python.
 | Dynamics and vibration | Newmark and generalized-alpha dynamics; central-difference explicit dynamics; engineering linear modal and direct harmonic procedures |
 | Time-dependent materials | Global power-law creep and generalized-Maxwell relaxation plus material-point Arrhenius, Kachanov--Rabotnov, Sinh, and fatigue assessment tools; generalized-Maxwell harmonic coupling remains experimental |
 | Fracture interfaces | Fixed-path cohesive interfaces, cyclic cohesive fatigue, mixed-mode driving, cycle jump, rollback, and restart; advanced routes remain experimental |
-| Meshes and constraints | Structured/XDMF meshes, optional Gmsh and meshio, reviewed Abaqus project migration, direct C3D10H import, equation constraints, and distributed periodic workflows |
+| Meshes and constraints | Structured/XDMF meshes, Gmsh, optional meshio, reviewed Abaqus project migration, direct C3D10H import, equation constraints, and distributed periodic workflows |
 | Results and automation | Unified fields and histories, progress, checkpoints, Golden benchmarks, campaigns, scientific datasets, surrogate validation, and FEM fallback |
 | External PDE breadth | One public, case-independent adapter executes all 645 cases across all 11 PDEAgent-Bench families; every family exceeds 60% and the local fixed-solver snapshot passes 558 official accuracy/time gates ([method and evidence](docs/pdeagent_bench.md)) |
 
@@ -321,12 +329,12 @@ Please cite the AgentFEM version used. GitHub's **Cite this repository** uses
 [`CITATION.cff`](CITATION.cff).
 
 ```bibtex
-@software{luo2026agentfem043,
+@software{luo2026agentfem044,
   author  = {Luo, Haoming},
   title   = {AgentFEM},
   year    = {2026},
-  version = {0.4.3},
-  url     = {https://github.com/haoming-luo/agentfem/releases/tag/v0.4.3}
+  version = {0.4.4},
+  url     = {https://github.com/haoming-luo/agentfem/releases/tag/v0.4.4}
 }
 ```
 

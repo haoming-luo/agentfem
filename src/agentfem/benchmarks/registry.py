@@ -872,6 +872,50 @@ _BENCHMARKS = (
         ),
     ),
     BenchmarkSpec(
+        identifier="coupled_creep_plasticity_cycle",
+        capability="coupled_creep_plasticity",
+        level="material_point_and_finite_element",
+        reference="docs/creep_fatigue_verification.md",
+        criterion=(
+            "simultaneous equations and fixed-old-state tangent hold on nonproportional "
+            "paths; 3D cycle agrees with independent uniaxial equations; joint-state "
+            "cutback, thermal-history restart and corrupted restart rejection pass; "
+            "independent rotating thermal paths and nonuniform fields refine in time/space"
+        ),
+        automated_test=(
+            "tests/test_coupled_creep_plasticity.py "
+            "tests/test_creep_plasticity_rotating_reference.py "
+            "tests/test_creep_manufactured_field.py"
+        ),
+        status="automated_experimental_global_patch",
+    ),
+    BenchmarkSpec(
+        identifier="creep_elastic_followup",
+        capability="power_law_creep",
+        level="finite_element",
+        reference="docs/creep_fatigue_verification.md",
+        criterion=(
+            "ordinary regional creep reproduces independent series-shear relaxation "
+            "with elastic follow-up ratios 2 and 5, first-order time convergence, "
+            "interface traction balance and zero creep in the elastic region"
+        ),
+        automated_test="tests/test_creep_elastic_followup.py",
+        status="automated_analytical_reference",
+    ),
+    BenchmarkSpec(
+        identifier="sinh_creep_update_and_hold",
+        capability="sinh_creep",
+        level="material_point_and_finite_element",
+        reference="docs/solution_procedures_and_thermal_creep.md",
+        criterion=(
+            "independent n=1 relaxation has first-order time convergence; "
+            "fixed-old-state tangent, scalar/batch histories, serial held "
+            "stress and complete checkpoint continuation agree"
+        ),
+        automated_test="tests/test_sinh_creep.py",
+        status="automated_experimental_global_patch",
+    ),
+    BenchmarkSpec(
         identifier="implicit_creep_relaxation",
         capability="power_law_creep",
         level="finite_element",
@@ -936,6 +980,18 @@ _BENCHMARKS = (
             "source-identified interaction boundary"
         ),
         automated_test="tests/test_assessments.py",
+    ),
+    BenchmarkSpec(
+        identifier="calibrated_strain_life_assessment",
+        capability="strain_life_fatigue",
+        level="postprocessor",
+        reference="docs/strain_life_assessment.md",
+        criterion=(
+            "closed-form equal-exponent inversion, cycle/reversal convention, "
+            "calibration-domain rejection, scalar half-cycle counting and "
+            "source-preserving creep/fatigue composition"
+        ),
+        automated_test="tests/test_strain_life.py",
     ),
     BenchmarkSpec(
         identifier="creep_damage_material_paths",

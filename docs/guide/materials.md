@@ -1,3 +1,8 @@
+---
+title: "Materials and constitutive behaviors in AgentFEM"
+description: "Define reusable material identities and assign mechanical or thermal behaviors to regions, keeping physical properties separate from analysis procedures."
+---
+
 # Materials and Constitutive Behaviors
 
 A material name, a constitutive equation, and an analysis procedure are not

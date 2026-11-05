@@ -44,6 +44,8 @@ def small_strain_material(
     progress=True,
     status_file=None,
     amplitude=None,
+    duration=None,
+    time_unit="s",
     name: str = "small_strain_material",
 ):
     """Build a generic 3D implicit Step for a small-strain material provider."""
@@ -123,6 +125,8 @@ def small_strain_material(
         progress=progress,
         status_file=status_file,
         amplitude=selected_amplitude,
+        duration=duration,
+        time_unit=time_unit,
         name=name,
     )
     return model.add_step(step)
@@ -578,12 +582,14 @@ def creep(
     status_file=None,
     amplitude=None,
     temperature=None,
+    material_points=(),
     name: str = "implicit_creep",
 ):
     """Build and register a global 3D implicit power-law creep Step."""
 
     from . import mechanics
-    from .constitutive.creep import IsotropicPowerLawCreepMaterial
+    from .constitutive.creep import IsotropicCreepMaterial
+    from .constitutive._creep_plasticity import CreepPlasticityMaterial
     from .constitutive.quadrature import QuadratureMaterialMap
 
     _require_small_strain_boundary_support(model)
@@ -597,14 +603,14 @@ def creep(
         model,
         target,
         material,
-        material_type=IsotropicPowerLawCreepMaterial,
+        material_type=(IsotropicCreepMaterial, CreepPlasticityMaterial),
         label="model.step with implicit creep",
     )
     if not isinstance(
         material,
-        (IsotropicPowerLawCreepMaterial, QuadratureMaterialMap),
+        (IsotropicCreepMaterial, CreepPlasticityMaterial, QuadratureMaterialMap),
     ):
-        raise TypeError("model.step requires IsotropicPowerLawCreepMaterial here.")
+        raise TypeError("model.step requires IsotropicCreepMaterial here.")
 
     selected_loads, amplitude = _single_shared_amplitude_loads(
         model.loads,
@@ -628,6 +634,8 @@ def creep(
         quadrature_degree=quadrature_degree,
         creep_strain_error_tolerance=creep_strain_error_tolerance,
         time_unit=getattr(model.unit_system, "time", None),
+        material_points=material_points,
+        unit_system=model.unit_system,
         progress=progress,
         status_file=status_file,
         amplitude=amplitude,

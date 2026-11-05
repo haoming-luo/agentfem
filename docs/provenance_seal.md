@@ -1,3 +1,8 @@
+---
+title: "Trace AgentFEM results with provenance seals"
+description: "Link result artifacts to recorded execution evidence and verify their identity; understand why integrity checks are not scientific validation."
+---
+
 # Result Provenance Seal
 
 Every `SimulationResult.write_manifest(...)` now adds a lightweight provenance

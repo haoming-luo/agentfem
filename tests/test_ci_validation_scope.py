@@ -12,6 +12,28 @@ from ci_validation_scope import (
 )
 
 
+def test_p92_scalar_reference_changes_cover_tensor_consumers():
+    selected = _SOURCE_TEST_MAP["tools/p92_published_recovery_reference.py"]
+    assert "tests/test_p92_tensor_normalization.py" in selected
+    assert "tests/test_p92_tensor_structure.py" in selected
+
+
+@pytest.mark.parametrize("filename", (
+    "test.yml", "platform-acceptance.yml", "publish-pypi.yml",
+    "runtime-installers.yml",
+))
+def test_macos_acceptance_and_distribution_use_supported_arm64_runner(filename):
+    import re
+
+    workflow = Path(__file__).resolve().parents[1] / ".github/workflows" / filename
+    labels = re.findall(r"(?m)^\s*(?:runs-on|runner):\s*(macos-[\w-]+)\s*$",
+                        workflow.read_text(encoding="utf-8"))
+    # All current Mac jobs build/test ARM64 packages; do not accidentally
+    # migrate to an Intel or floating '-latest' label when retiring Sonoma.
+    assert labels
+    assert set(labels) == {"macos-15"}
+
+
 def test_core_release_job_has_bounded_runtime_and_no_nested_blas_oversubscription():
     import re
 
@@ -23,7 +45,8 @@ def test_core_release_job_has_bounded_runtime_and_no_nested_blas_oversubscriptio
     match = re.search(r"(?ms)^  fenicsx:\n(.*?)(?=^  [\w-]+:\s*$|\Z)", text)
     assert match is not None
     job = match.group(1)
-    assert re.search(r"(?m)^    timeout-minutes: 45$", job)
+    assert re.search(r"(?m)^    timeout-minutes: 90$", job)
+    assert "python -m pytest --durations=20" in job
     environment = re.search(r"(?m)^    env:\n((?:      .*\n)+)", job)
     assert environment is not None
     for name in ("OMP_NUM_THREADS", "OPENBLAS_NUM_THREADS", "MKL_NUM_THREADS"):
@@ -70,6 +93,19 @@ def test_test_only_fix_returns_stable_target_list_without_requesting_full_ci():
             "tests/test_p1_platform.py",
         ),
     )
+
+
+@pytest.mark.parametrize("path", (
+    "tools/p92_dwell_figure_screen.py", "tools/p92_published_recovery_reference.py",
+    "evidence/creep/p92-published-figure-points.json",
+))
+def test_published_figure_screen_selects_its_numerical_tests_without_full_fem(path):
+    scope = classify_changes([path])
+    assert scope.level == "targeted"
+    assert "tests/test_p92_dwell_figure_screen.py" in scope.tests
+    assert scope.mpi_tests == scope.mpi_drivers == ()
+    # Do not treat unreviewed evidence/ or tools/ inputs as documentation.
+    assert classify_changes(["evidence/creep/unknown.json"]).level == "core"
 
 
 def test_targeted_source_change_selects_stable_owner_tests():
@@ -155,6 +191,7 @@ def test_known_core_change_selects_serial_and_distributed_owner_suites():
     assert scope.tests == (
         "tests/test_finite_strain_j2_material_map.py",
         "tests/test_finite_strain_plasticity.py",
+        "tests/test_history_material_temperature.py",
         "tests/test_material_batch_evidence.py",
         "tests/test_material_stress_conversion.py",
         "tests/test_user_material.py",

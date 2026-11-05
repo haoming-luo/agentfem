@@ -225,7 +225,14 @@ def format_result(record: Mapping[str, object], path: Path, *, maximum_quantitie
     ]
     if accepted is not None:
         suffix = f" ({policy})" if policy else ""
-        lines.append(f"  verification: {'accepted' if accepted else 'not accepted'}{suffix}")
+        unassessed = (
+            accepted is False
+            and verification.get("claims") == []
+            and not policy
+            and not verification.get("minimum_trust_level")
+        )
+        decision = "not assessed" if unassessed else "accepted" if accepted else "not accepted"
+        lines.append(f"  verification: {decision}{suffix}")
 
     quantities = tuple(record.get("quantity_records", ()))
     scalar = [item for item in quantities if item.get("shape") in (None, [], ())]

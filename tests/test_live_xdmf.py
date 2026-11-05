@@ -14,6 +14,7 @@ import xml.etree.ElementTree as ET
 import numpy as np
 import pytest
 
+import agentfem
 from agentfem.io import ResultWriter
 from test_xdmf_layout import fields, check_warp
 
@@ -64,10 +65,32 @@ def test_live_vtk_single_volume_and_warp(tmp_path):
         check_warp(path)
 
 
+@pytest.mark.parametrize("storage", ["single_file", "frame_files"])
+def test_writer_artifacts_follow_only_current_published_view(tmp_path, storage):
+    domain, u, damage = fields()
+    path = tmp_path / "results.xdmf"
+    with ResultWriter(path, domain, (u, damage), storage=storage) as writer:
+        assert writer.artifacts() == {}
+        writer.write(0.)
+        first = writer.artifacts()
+        assert first["field_output"].is_file()
+        assert len(first) == (2 if storage == "single_file" else 3)
+        # Unreferenced junk is not included in the delivery inventory.
+        (tmp_path / "unrelated.h5").touch()
+        assert writer.artifacts() == first
+    final = writer.artifacts()
+    assert final["field_output"] == path
+    assert all(file.is_file() for file in final.values())
+    idle = ResultWriter(path, domain, (u, damage), storage=storage)
+    assert idle.artifacts() == {}  # Not this writer's prior run.
+
+
 def test_kill_during_next_frame_preserves_published_view(tmp_path):
     script = textwrap.dedent("""
         import os, sys, time
         from pathlib import Path
+        import agentfem
+        assert Path(agentfem.__file__).resolve() == Path(sys.argv[2]), agentfem.__file__
         from dolfinx import fem, mesh
         from mpi4py import MPI
         from agentfem.io import ResultWriter
@@ -93,8 +116,12 @@ def test_kill_during_next_frame_preserves_published_view(tmp_path):
             u.x.array[:] *= 2
             writer.write(1.)
     """)
-    child = subprocess.Popen([sys.executable, "-c", script, str(tmp_path)],
-        env={**os.environ, "OMP_NUM_THREADS": "1", "OPENBLAS_NUM_THREADS": "1"},
+    child = subprocess.Popen(
+        [sys.executable, "-c", script, str(tmp_path), str(Path(agentfem.__file__).resolve())],
+        # A fresh interpreter must test the parent's package, not an older
+        # globally installed writer. This also holds for installed-wheel CI.
+        env={**os.environ, "OMP_NUM_THREADS": "1", "OPENBLAS_NUM_THREADS": "1",
+             "PYTHONPATH": str(Path(agentfem.__file__).resolve().parents[1])},
         stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
     try:
         deadline = time.monotonic() + 35
@@ -102,7 +129,9 @@ def test_kill_during_next_frame_preserves_published_view(tmp_path):
             if child.poll() is not None:
                 pytest.fail(child.communicate()[0])
             if time.monotonic() > deadline:
-                pytest.fail("Child did not publish its first frame.")
+                child.kill()
+                output, _ = child.communicate(timeout=10)
+                pytest.fail(f"Child did not publish its first frame.\n{output}")
             time.sleep(.02)
         assert child.poll() is None
         path = tmp_path / "results.xdmf"

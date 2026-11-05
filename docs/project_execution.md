@@ -1,3 +1,8 @@
+---
+title: "Run, pause and export AgentFEM simulation projects"
+description: "Keep models in case.py while AgentFEM manages accepted-step execution, checkpoints, histories and a single ParaView visualization entry point."
+---
+
 # Lean projects and trusted user materials
 
 `case.py` owns the engineering problem. A project does not need its own compiler

@@ -1,3 +1,8 @@
+---
+title: "AgentFEM steps and compact field output"
+description: "Understand the shared model.step interface, provider contracts and increment output used across AgentFEM solution procedures."
+---
+
 # Stable Steps and Compact Field Output
 
 This note records two architectural decisions made while turning the Abaqus

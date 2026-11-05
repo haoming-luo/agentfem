@@ -445,7 +445,14 @@ def test_displacement_frame_thinning_does_not_thin_accepted_normal_work():
     dense.solve()
     sparse = _research_path()
     sparse.output_every = None
+    original = sparse.snapshot_field_factory
+    calls = []
+    def capture_fields():
+        calls.append(sparse.accepted_load_factor)
+        return original()
+    sparse.snapshot_field_factory = capture_fields
     sparse.solve()
+    assert len(calls) == 2
     assert len(dense.snapshots) == 5
     assert len(sparse.snapshots) == 2
     key = "normal_contact_work:interior_plane"

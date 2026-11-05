@@ -162,6 +162,38 @@ class ResultWriter:
             self._series.primary_name = field_api.unwrap(selected[0]).name
         self._series.write_fields(time, *(field_api.unwrap(field) for field in selected))
 
+    def artifacts(self) -> dict[str, Path]:
+        """Inventory an emitted serial unified XDMF view and its heavy data.
+
+        This is byte-delivery metadata, not scientific verification. During a
+        run the published partial/closed-frame index is returned; only files
+        actually referenced by that index are included, never a directory glob.
+        PVD and legacy distributed archives retain their existing publication
+        routes and are not silently given an incomplete artifact inventory.
+        """
+        import xml.etree.ElementTree as ET
+
+        if not self._unified:
+            raise NotImplementedError("ResultWriter.artifacts currently inventories unified serial XDMF only.")
+        if not self._series._frame_count:
+            return {}
+        # A previous final index may still exist while a replacement writer
+        # owns a new partial index. Never inventory that stale final view.
+        index = self._series.partial_path if self._series._partial_owned else self.path
+        if not index.is_file():
+            return {}
+        files = set()
+        for item in ET.parse(index).iter("DataItem"):
+            if item.get("Format") == "HDF":
+                filename, separator, dataset = (item.text or "").strip().partition(":")
+                if not separator or not dataset.startswith("/"):
+                    raise ValueError("Malformed emitted HDF reference.")
+                path = (index.parent / filename).resolve()
+                if not path.is_file():
+                    raise FileNotFoundError(path)
+                files.add(path)
+        return {"field_output": index, **{f"field_data_{i}": path for i, path in enumerate(sorted(files))}}
+
 
 def interpolate_for_xdmf(field, *, degree: int = 1, name: str | None = None):
     """Interpolate a field to an XDMF-friendly Lagrange output space.

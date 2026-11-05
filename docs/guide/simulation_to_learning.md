@@ -1,3 +1,8 @@
+---
+title: "From finite-element simulation to machine-learning data"
+description: "Turn parameterized AgentFEM analyses into traceable datasets, use NumPy or PyTorch adapters, and evaluate surrogates with applicability checks."
+---
+
 # Simulation to learning
 
 AgentFEM does not replace PyTorch or a user's neural-network stack. It makes the

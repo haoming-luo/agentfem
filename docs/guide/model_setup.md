@@ -1,3 +1,8 @@
+---
+title: "Finite-element meshes, loads and constraints in AgentFEM"
+description: "Build models with named regions, mesh imports, pressure, gravity, prescribed displacement and elastic foundations using the public Python interface."
+---
+
 # Meshes, loads, and constraints
 
 Model setup is where a finite-element tool becomes practically useful. AgentFEM

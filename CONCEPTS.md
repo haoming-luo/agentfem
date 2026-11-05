@@ -250,6 +250,11 @@ first creep--fatigue contract keeps creep time fractions, stress-life fatigue
 damage, and an interaction diagram as separate inspectable assets. Every
 rupture relation and nontrivial interaction curve retains its source;
 AgentFEM does not embed licensed or material-specific allowable data.
+The scalar strain-life option uses a calibrated Coffin-Manson-Basquin curve
+and an explicitly declared signed total mechanical strain history. It reuses
+rainflow and the same interaction assessment without converting PEEQ into a
+cycle amplitude or feeding assessed damage back into equilibrium. See
+`docs/strain_life_assessment.md` for the calibration and mean-stress boundary.
 
 ## Constitutive Law
 
@@ -277,7 +282,13 @@ quadrature state, shared E(T)/nu(T)/alpha(T) thermoelastic properties, an
 analytical algorithmic tangent, atomic cutback/restart, prescribed temperature
 histories, mechanical work/energy evidence, and serial external structural
 evidence. Its distributed state is MPI-safe, while distributed global
-equilibrium retains an explicit experimental boundary. Other creep
+equilibrium retains an explicit experimental boundary. `isotropic_sinh` reuses
+that implicit lifecycle with a separate experimental global-patch gate.
+`CreepPlasticityMaterial(creep=..., plastic=...)` solves simultaneous creep
+and J2/Chaboche evolution with a joint state and consistent tangent; its current
+global scope is serial homogeneous 3D small strain with constant elastic and
+plastic parameters, optionally prescribed temperature/Arrhenius creep. Neither
+composition implies heat generation, contact or distributed admission. Other creep
 families remain local or assessment capabilities unless their own catalog
 evidence says otherwise. Path-dependent material FEM integration additionally
 requires quadrature state, a consistent tangent or documented alternative,
@@ -309,6 +320,28 @@ supports physical scalar force control, strong-constraint reactions, serial
 and sparse-owner MPI assembly, while leaving cohesive state commit/rollback to
 the owning monotonic or cyclic Step. A converged Newton correction therefore
 does not silently advance crack history.
+
+An experimental generic implicit `UserMaterial` consumer now integrates
+declared reference `dP/dF` and named history through ordinary `model.step`.
+The local contract supplies Cauchy stress; the driver transforms it to first
+Piola for total-Lagrangian assembly. A positive physical duration maps the
+normalized path to material time. Candidate evaluations never commit history;
+accepted response fields are restored directly rather than reconstructed with
+an invented time increment. The scope is serial homogeneous 3D, plane strain,
+or explicitly declared reflection-symmetric plane stress, with strong
+constraints/reference dead loads and same-layout restart. The bounded
+`PlaneStressReduction` solves positive thickness stretch from transverse
+equilibrium and supplies a separate Schur-condensed in-plane tangent; the
+material retains its full 3D Cauchy response and `dP/dF`. Effective thickness
+belongs to State, not a hidden material or case cache. It is not a shell or
+an automatic multiaxial extension of a one-dimensional experiment.
+No new material-specific Model or Solver API is introduced. See
+`docs/history_material_workflow.md` for limits and executable evidence.
+An optional prescribed uniform kelvin temperature, constant or a frozen scalar
+physical-time history, supplies endpoint temperature and its increment to
+that same local update. The Procedure owns knot alignment, cutback and accepted
+TEMP output/restart. It does not solve a heat equation, add thermal strain
+outside the material, or infer a thermomechanical energy balance.
 
 ### Material stability envelope
 
@@ -478,9 +511,12 @@ admit non-smooth edges or distributed contact assembly.
 For one normalized prescribed motion, its BVH searches in the rigid reference
 frame and publishes accepted-path tool force, moment and work. It rejects
 active free or noncoplanar features of an open patch. A selected face-interior
-planar branch now has bounded serial penalty-Coulomb evidence, while the
-affine-periodic J2 route accepts only frictionless pairs. Distributed implicit
-assembly remains rejected. A separately certified closed-convex tool has a
+planar branch has bounded serial penalty-Coulomb evidence. The affine-periodic
+J2 route also admits selected locally planar Coulomb branches, with total
+bulk/contact assembly before MPC reduction and joint trial history. This is
+not general frictional feature traversal; the current geometry/friction/MPC
+matrix in `docs/guide/model_setup.md` defines the admitted combinations.
+Distributed implicit assembly remains rejected. A separately certified closed-convex tool has a
 one-sided selected-feature branch; none of these routes certifies general
 faceted die forming.
 
@@ -593,6 +629,21 @@ has been accepted, then follows the same checkpoint/restart and result
 contract as built-in energy or conservation histories. Requests must remain
 unchanged across continuation because missing past states are not fabricated.
 
+For local material assessment, a quadrature history is not a nodal probe or a
+history of spatial extrema. The serial Cartesian 3D creep Step accepts
+`material_points=(results.material_point("site", cell=..., point=...),)`.
+Original input-cell identity and reference quadrature index select one fixed
+material location. The Procedure samples stress, total tensor strain, committed
+internal variables and supplied kelvin temperature at each accepted increment;
+Result retains their shared mesh/rule/material/time identity. Checkpoint restore
+includes these histories atomically and refuses a changed selection. No missing
+initial equilibrium state or past fields are reconstructed. This first consumer
+also has a serial finite-strain UserMaterial consumer. That route records
+full `S/P/F`, total Green–Lagrange `E_GL`, state and supplied uniform `TEMP`;
+it does not relabel finite strain as infinitesimal or mechanical strain.
+Both consumers preserve selection and accepted history through their existing
+restart contracts. MPI and other Step families remain separate admission gates.
+
 A time input also declares what it can invalidate: right-hand side, operator,
 accepted state, or output only. The owning Procedure uses that declaration to
 select matrix reuse or refresh. Linear implicit dynamics and linear
@@ -641,6 +692,15 @@ residual and the magnitude of the accepted CEEQ increment; failure of any one
 criterion rolls back the same complete transaction.
 
 ## Output Interval and Frame
+
+A continuation view is a presentation index over existing frame segments, not
+a new result or checkpoint. `results.join_xdmf_segments` checks reference mesh,
+schema, order and shared-boundary values without copying heavy data. Requested
+stations can be audited explicitly; no interpolation or scientific continuity
+is inferred from an ordered visualization.
+An explicit `overlap="identical"` policy can verify and deduplicate an interval
+recomputed from an older checkpoint. It does not select between conflicting
+solution branches or relax exact field equality; the default is boundary-only.
 
 A visualization frame owns one geometry and the point/cell attributes attached
 to that geometry. Element node ordering is a backend output responsibility,

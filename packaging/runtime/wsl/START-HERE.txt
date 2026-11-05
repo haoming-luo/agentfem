@@ -14,8 +14,9 @@ the installer never reboots your PC automatically or asks for passwords in chat.
    reopen the same launcher. Existing imported runtime state is checked and reused.
 5. Complete the ordinary Linux account/password prompt if shown. Keep the password.
 
-The installer protects project storage and runs a fresh-cache finite-element
-acceptance check automatically. Completion means those checks passed.
+The installer protects project storage and checks the installed environment.
+Installation is complete when these checks pass. No simulation runs automatically;
+ask your agent for a small example whenever you are ready.
 Logs, acceptance results and status.json are in:
    %LOCALAPPDATA%\AgentFEM\Installations\<installation-id>
 

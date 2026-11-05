@@ -410,6 +410,7 @@ def _python_findings(path: Path) -> Iterable[UpgradeFinding]:
     except SyntaxError:
         return ()
     findings = []
+    lowering_calls = _step_lowering_calls(tree)
     for node in ast.walk(tree):
         if not isinstance(node, ast.Call):
             continue
@@ -421,13 +422,20 @@ def _python_findings(path: Path) -> Iterable[UpgradeFinding]:
                     "advisory",
                     (
                         "Low-level XDMF writing remains supported, but ordinary static and "
-                        "transient cases should use the Step result lifecycle so fields, "
-                        "artifacts, and evidence stay in one contract."
+                        "transient cases should use the Step result lifecycle. Within "
+                        "a provider or custom accepted-state loop, use io.ResultWriter "
+                        "to keep synchronized fields on one visualization mesh; do not "
+                        "recursively call the enclosing Step's solve_result."
                     ),
                     path,
                     line=node.lineno,
                     column=node.col_offset + 1,
-                    replacement='step.solve_result(output=run.artifact("fields.xdmf"))',
+                    replacement=(
+                        'io.ResultWriter(run.artifact("results.xdmf"), domain, fields)'
+                        if node in lowering_calls else
+                        'step.solve_result(output=run.artifact("results.xdmf")); '
+                        'provider/custom loops: io.ResultWriter(...)'
+                    ),
                     semantic_review=True,
                 )
             )
@@ -465,6 +473,10 @@ def _python_findings(path: Path) -> Iterable[UpgradeFinding]:
             )
         method = name.rsplit(".", 1)[-1]
         replacement = COMPATIBILITY_MODEL_REPLACEMENTS.get(method)
+        # add_step is the registration primitive of a lowering function, not
+        # an old spelling of model.step there (which would dispatch recursively).
+        if method == "add_step" and node in lowering_calls:
+            continue
         if replacement is not None and method.endswith("_step"):
             preferred = (
                 f"model.{replacement}(...)"
@@ -487,6 +499,64 @@ def _python_findings(path: Path) -> Iterable[UpgradeFinding]:
                 )
             )
     return tuple(findings)
+
+
+def _step_lowering_calls(tree: ast.Module) -> set[ast.Call]:
+    """Recognize directly declared module-level lowerers without importing code.
+
+    Only the AgentFEM StepProvider constructor and its explicit ``lower=``
+    reference establish context. Directory names, unrelated classes named
+    StepProvider and other functions in the same module grant no exemption.
+    Indirect/dynamic registration retains an advisory requiring human review.
+    """
+    aliases = {}
+    functions = {}
+    for statement in tree.body:
+        if isinstance(statement, ast.ImportFrom) and statement.module:
+            for item in statement.names:
+                aliases[item.asname or item.name] = f"{statement.module}.{item.name}"
+        elif isinstance(statement, ast.Import):
+            for item in statement.names:
+                aliases[item.asname or item.name.split('.')[0]] = (
+                    item.name if item.asname else item.name.split('.')[0]
+                )
+        elif isinstance(statement, (ast.FunctionDef, ast.AsyncFunctionDef)):
+            functions[statement.name] = statement
+    lowerers = set()
+    # Do not infer a global binding through reassignment or an argument with
+    # the same name. False negatives remain reviewable; false exemptions do not.
+    shadowed = {node.id for node in ast.walk(tree)
+                if isinstance(node, ast.Name) and isinstance(node.ctx, (ast.Store, ast.Del))}
+    shadowed.update(node.arg for node in ast.walk(tree) if isinstance(node, ast.arg))
+    definitions = [node.name for node in ast.walk(tree)
+                   if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef))]
+    shadowed.update(name for name in definitions if name in aliases or definitions.count(name) > 1)
+    for node in ast.walk(tree):
+        if not isinstance(node, ast.Call):
+            continue
+        name = _call_name(node.func)
+        head, separator, tail = name.partition('.')
+        if head in shadowed:
+            continue
+        resolved = aliases.get(head, head) + (separator + tail if separator else '')
+        if resolved != "agentfem.step_providers.StepProvider":
+            continue
+        for keyword in node.keywords:
+            if keyword.arg == "lower" and isinstance(keyword.value, ast.Name):
+                if keyword.value.id in functions and keyword.value.id not in shadowed:
+                    lowerers.add(functions[keyword.value.id])
+    calls = set()
+    for lowerer in lowerers:
+        # A nested function/class has its own role, not the enclosing lowerer's.
+        pending = list(lowerer.body)
+        while pending:
+            node = pending.pop()
+            if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
+                continue
+            if isinstance(node, ast.Call):
+                calls.add(node)
+            pending.extend(ast.iter_child_nodes(node))
+    return calls
 
 
 def _uses_region_measure(node: ast.Call) -> bool:
