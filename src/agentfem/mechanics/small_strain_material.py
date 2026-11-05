@@ -455,9 +455,7 @@ class SmallStrainMaterialStep:
                 target_factor - start_factor,
             )
             next_evaluation = (
-                None
-                if accepted_trial is None
-                else NewtonEvaluation(*accepted_trial)
+                None if accepted_trial is None else NewtonEvaluation(*accepted_trial)
             )
             return NewtonCorrection(
                 alpha > 0.0,
@@ -800,44 +798,128 @@ class SmallStrainMaterialStep:
         return manifest
 
     def load_checkpoint(self, path) -> None:
+        """Restore an accepted path without exposing a partially restored step."""
+
+        response = self.response
+        saved_fields = [
+            *self.state.committed.values(),
+            *self.state.trial.values(),
+            response.cauchy_stress,
+            response.tangent,
+            response.stored_energy_density,
+            response.dissipation_density_increment,
+            *response.stored_energy_density_components.values(),
+        ]
+        arrays = [
+            (field, field.values.copy()) for field in saved_fields if field is not None
+        ]
+        displacement = self.solution.x.array.copy()
+        constants = [self.load_factor, *(item[0] for item in self.prescribed_values)]
+        constant_values = [np.array(item.value, copy=True) for item in constants]
+        attributes = {
+            name: getattr(self, name)
+            for name in (
+                "accepted_load_factor",
+                "next_increment_size",
+                "last_solve_info",
+                "_accepted_strain",
+                "_trial_result",
+            )
+        }
+        histories = {
+            name: list(getattr(self, name))
+            for name in (
+                "accepted_increments",
+                "attempted_increments",
+                "execution_events",
+            )
+        }
+        diagnostics = response.last_diagnostics
+        applicability = response.last_applicability
+        try:
+            self._load_checkpoint(path)
+        except Exception:
+            # Restore saved fields directly: calling the provider again could
+            # fail for the same reason that interrupted checkpoint loading.
+            self.solution.x.array[:] = displacement
+            self.solution.x.scatter_forward()
+            for field, values in arrays:
+                field.assign(values)
+            for constant, values in zip(constants, constant_values):
+                constant.value = values
+            for name, value in attributes.items():
+                setattr(self, name, value)
+            for name, values in histories.items():
+                getattr(self, name)[:] = values
+            response.last_diagnostics = diagnostics
+            response.last_applicability = applicability
+            raise
+
+    def _load_checkpoint(self, path) -> None:
         from ..checkpointing import (
             load_portable_state_bundle,
             validate_checkpoint_record,
         )
 
         manifest = Path(path)
-        payload = json.loads(manifest.read_text(encoding="utf-8"))
-        if payload.get("schema") != "agentfem.small-strain-material-step-checkpoint.v1":
-            raise ValueError("Unsupported small-strain material checkpoint schema.")
-        if payload.get("step_identity") != json.loads(
-            json.dumps(self._checkpoint_identity(), sort_keys=True)
-        ):
-            raise ValueError(
-                "Small-strain material checkpoint scientific identity differs."
+        comm = self.solution.function_space.mesh.comm
+        identity = json.loads(json.dumps(self._checkpoint_identity(), sort_keys=True))
+        error = None
+        try:
+            payload = json.loads(manifest.read_text(encoding="utf-8"))
+            if (
+                payload.get("schema")
+                != "agentfem.small-strain-material-step-checkpoint.v1"
+            ):
+                raise ValueError("Unsupported small-strain material checkpoint schema.")
+            if payload.get("step_identity") != identity:
+                raise ValueError(
+                    "Small-strain material checkpoint scientific identity differs."
+                )
+            quadrature_path = validate_checkpoint_record(
+                manifest.parent, payload["quadrature_state"]
             )
+            coordinate = float(payload["coordinate"])
+            if not np.isfinite(coordinate) or not 0 <= coordinate <= 1:
+                raise ValueError("Checkpoint load factor must be finite and in [0, 1].")
+            accepted = [
+                SmallStrainMaterialIncrementInfo.from_dict(item)
+                for item in payload["accepted_increments"]
+            ]
+            attempted = [
+                SmallStrainMaterialIncrementInfo.from_dict(item)
+                for item in payload["attempted_increments"]
+            ]
+            events = [
+                SolveEvent.from_dict(item)
+                for item in payload.get("execution_events", ())
+            ]
+            nodal_state = payload["nodal_state"]
+            nodal_identity = payload["nodal_identity"]
+            next_size = payload.get("next_increment_size")
+            if next_size is not None:
+                next_size = float(next_size)
+                if not np.isfinite(next_size) or next_size <= 0:
+                    raise ValueError(
+                        "Checkpoint next increment must be finite and positive."
+                    )
+        except Exception as exc:
+            error = f"{type(exc).__name__}: {exc}"
+        errors = [item for item in comm.allgather(error) if item]
+        if errors:
+            raise ValueError("Small-strain checkpoint validation failed: " + errors[0])
         load_portable_state_bundle(
             manifest,
             state={"U": self.solution},
-            record=payload["nodal_state"],
-            identities=payload["nodal_identity"],
+            record=nodal_state,
+            identities=nodal_identity,
         )
-        self.state.load(
-            validate_checkpoint_record(manifest.parent, payload["quadrature_state"]),
-            material=self.material,
-        )
-        self.accepted_load_factor = float(payload["coordinate"])
-        self.accepted_increments[:] = [
-            SmallStrainMaterialIncrementInfo.from_dict(item)
-            for item in payload["accepted_increments"]
-        ]
-        self.attempted_increments[:] = [
-            SmallStrainMaterialIncrementInfo.from_dict(item)
-            for item in payload["attempted_increments"]
-        ]
-        self.execution_events[:] = [
-            SolveEvent.from_dict(item) for item in payload.get("execution_events", ())
-        ]
-        self.next_increment_size = payload.get("next_increment_size")
+        self.state.load(quadrature_path, material=self.material)
+        self.accepted_load_factor = coordinate
+        self.accepted_increments[:] = accepted
+        self.attempted_increments[:] = attempted
+        self.execution_events[:] = events
+        self.next_increment_size = next_size
         self._apply_loading(self.accepted_load_factor)
         self._accepted_strain = self._evaluate_strain()
         self._update_material(

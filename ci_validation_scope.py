@@ -285,6 +285,7 @@ _CORE_SOURCE_TEST_MAP = {
     ),
     "src/agentfem/mechanics/small_strain_material.py": (
         "tests/test_small_strain_material_step.py",
+        "tests/test_small_strain_restore_transaction.py",
         "tests/test_learned_constitutive.py",
     ),
     "src/agentfem/mechanics/plasticity.py": (
