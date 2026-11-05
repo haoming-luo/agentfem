@@ -15,6 +15,19 @@ Ubuntu/WSL2? Skip platform installation and reuse it.
 
 ## One prompt, one visible next step
 
+Start with three visible stages: **1/3 WSL → 2/3 Ubuntu and account →
+3/3 AgentFEM**. Mark already working stages complete. Do not promise a duration
+or a percentage while a download is running. After each stage, say what is
+complete, what remains, and whether the user needs to act.
+
+For example: “WSL is ready (1/3). Next I will prepare Ubuntu and your working
+account. No action needed.” At completion: “AgentFEM is ready (3/3). Would you
+like to try a small example?” Installation is complete without that example.
+
+中文交接示例：“第 1/3 步：WSL 已准备好。接下来我会安装 Ubuntu 并配置工作账户，
+你暂时不用操作。”只有需要提权、重启或本地密码输入时，才交给用户。
+不要把智能体能执行的下载、校验、账户配置和检查，变成用户的复制粘贴任务。
+
 The [web prompt](get_started/index.md#let-your-agent-install-it) and
 `installation.onboarding` in [agentfem.json](agentfem.json) share this flow.
 Reuse working stages and retain the user's chosen channel. If a stage fails,
@@ -47,6 +60,26 @@ speed guarantee. If its download fails, an approved Store route is
 or a restart request. Do not start with the Windows Features GUI; reserve
 manual component/firmware repair for a specific diagnosed failure.
 
+### If the kernel update is missing
+
+Distinguish an older inbox WSL missing its WSL2 kernel update from a modern
+WSL installation needing an update. Inspect the actual error and host
+architecture first. For modern WSL, try `wsl --update --web-download` when
+permitted. Do not send every user a legacy kernel installer.
+
+If automatic download fails, offer one browser handoff with the exact
+architecture-matched Microsoft link, expected filename and installation action.
+Use [Microsoft's manual installation page, step 4](https://learn.microsoft.com/en-us/windows/wsl/install-manual#step-4---download-the-linux-kernel-update-package)
+for the legacy kernel package, or the official WSL release route for modern WSL.
+Check the current download size before describing it as small; do not invent a
+size or speed guarantee. Keep publisher/signature checks in the agent's work.
+
+Suggested handoff: “WSL needs its kernel update. Automatic download failed.
+Open this Microsoft download link, save the installer, then double-click it
+and approve the Microsoft installer. Tell me when it finishes; I will check
+it and continue. You do not need to reinstall Ubuntu.” Present the actual
+verified link, not instructions to search for a package. Resume from this stage.
+
 ## 2. Add Ubuntu from the mirror, only if absent
 
 For the standard Microsoft route, `wsl --install -d Ubuntu` installs Ubuntu;
@@ -59,6 +92,19 @@ below directly. Do not first loop through Store, winget and
 local image avoids that metadata download; it does not bypass permissions.
 
 ### Copy-safe x64 mirror recipe (PowerShell)
+
+**Agent execution reference, not a novice copy-and-paste task.** The agent
+should execute and check each stage itself. If command execution is unavailable,
+provide only the next short command block in the correct shell, with resolved
+paths and filenames. Keep download, verification and import separate; wait for
+each outcome before showing the next block. Do not give two download commands
+and imply installation is complete, or remove checksum validation to shorten
+the instructions. Explain success in ordinary language after checking it.
+
+Keep the full recipe collapsed when reading this page:
+
+<details>
+<summary>Agent reference: verified Ubuntu download and import</summary>
 
 For a new distribution only. Reuse an existing compatible one instead of
 running this block. It uses a user-owned directory, checks every native
@@ -109,12 +155,19 @@ skip a failed checksum. The 24.04 directory tracks its maintenance release;
 do not guess a filename or use a desktop ISO. See the
 [TUNA image directory](https://mirrors.tuna.tsinghua.edu.cn/ubuntu-releases/24.04/).
 
+</details>
+
 ### Account: automate setup, not a shared password
 
 Imported distributions normally start as root. This is useful for initial
 setup, **not** a reason to run the solver as root. With permission to prepare
 this new distribution, the agent can create a normal account without asking
 the user to choose a password:
+
+Do this as part of the requested setup when permitted; do not ask a novice to
+paste account-management commands. First check for an existing ordinary user
+and reuse it. Explain that the proposed `afm` name is a local working account,
+not a registration or online identity. Honour a requested name instead.
 
 ```powershell
 wsl.exe -d Ubuntu-24.04 -u root -- useradd --create-home --shell /bin/bash afm

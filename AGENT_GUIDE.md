@@ -38,6 +38,18 @@ policy. On WSL, prepare `agentfem workspace --protect` once and verify project
 custody before replacing/removing a runtime. Detailed recovery and alternate
 installation routes belong in the installation guide, not every response.
 
+On Windows, show three milestones: `1/3 WSL`, `2/3 Ubuntu and account`,
+`3/3 AgentFEM`. Say what is ready and whether any user action is needed.
+For a new imported Ubuntu, prepare the ordinary working account directly
+when authorised; no online registration or shared password is required.
+If a download needs a manual handoff, provide the verified architecture-matched
+link and one action (for example, download and double-click the Microsoft
+kernel installer). Distinguish legacy kernel repair from modern WSL updates.
+Keep long download/check/import recipes as agent references. A novice receives
+only the current short command block in the correct shell, then a checked
+success message before the next step. Preserve checksum checks behind this
+simple presentation.
+
 For separate agent tool calls, use `mamba run -n agentfem-env ...`; activation
 in a previous shell may not persist. Use the installed manager's path if
 needed. On installation completion, promptly report the installed version,
