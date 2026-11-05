@@ -104,7 +104,14 @@ not spatial convergence or experimental multiaxial validation. Invalid complex,
 boolean, array-valued and out-of-range Poisson assumptions are rejected at
 construction.
 
-The integrated local regression is **243 passed, 1 skipped** (the serial run
+Force-controlled 300 MPa ramp/hold structures at both temperatures also show
+continued inelastic accumulation during the hold. The accumulated strain
+approaches an independently integrated stress-controlled scalar Radau history
+under 16/32/64 increments, with at least 25% error reduction on each refinement.
+This complements the displacement-controlled relaxation checks; it is not
+experimental creep-life validation.
+
+The integrated local regression is **245 passed, 1 skipped** (the serial run
 skips the dedicated two-rank admission check). Generated documentation and
 targeted lint checks pass. No new release or material maturity promotion is
 made by this integration.

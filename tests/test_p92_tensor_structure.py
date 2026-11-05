@@ -3,7 +3,7 @@
 import numpy as np
 import pytest
 from mpi4py import MPI
-from agentfem import amplitudes, fields, mesh, models, steps, studies
+from agentfem import amplitudes, fields, loads, mesh, models, steps, studies
 from tools.p92_tensor_material_reference import P92TensorResearchMaterial
 from tools.p92_published_recovery_reference import implicit_update, published_parameters
 from agentfem import constitutive as c
@@ -58,7 +58,7 @@ def test_unsupported_fields_rejected(change):
         material.update(replace(point(material), **change))
 
 
-def make_step(temperature=600, *, cyclic=False, increments=None):
+def make_step(temperature=600, *, cyclic=False, increments=None, traction=None):
     domain = mesh.cuboid((0.0, 0.0, 0.0), (1.0, 1.0, 1.0), (1, 1, 1))
     model = models.create(
         study=studies.static_solid(dimension=3, nonlinear=True), mesh=domain
@@ -67,7 +67,11 @@ def make_step(temperature=600, *, cyclic=False, increments=None):
     model.material(P92TensorResearchMaterial(temperature_C=temperature, poisson=0.3))
     for axis, component in (("x", 0), ("y", 1), ("z", 2)):
         model.fix(u, on=mesh.face(domain, axis=axis, value=0.0), component=component)
-    model.fix(u, on=mesh.face(domain, axis="x", value=1.0), component=0, value=0.004)
+    end = mesh.face(domain, axis="x", value=1.0)
+    if traction is None:
+        model.fix(u, on=end, component=0, value=0.004)
+    else:
+        model.load(loads.traction((traction, 0.0, 0.0), on=end))
     return model.step(
         target=u,
         duration=24.0 if cyclic else 8.0,
@@ -175,3 +179,37 @@ def test_cyclic_structure_matches_scalar_at_every_reversal_and_hold(temperature)
         np.testing.assert_allclose(
             step.state.committed["P"].values, expected[4], rtol=3e-7
         )
+
+
+@pytest.mark.parametrize("temperature", [600, 650])
+def test_force_controlled_creep_refines_to_independent_time_integrator(temperature):
+    from scipy.integrate import solve_ivp
+    from tools.p92_published_recovery_reference import rates
+
+    parameters = published_parameters(temperature)
+    old = np.zeros(4)
+    for start, end in ((0.0, 4.0), (4.0, 8.0)):
+
+        def rhs(time, history):
+            stress = 300.0 * min(time / 4.0, 1.0)
+            return rates(np.r_[stress, history], 0.0, parameters)[1:]
+
+        solved = solve_ivp(
+            rhs, (start, end), old, method="Radau", rtol=1e-10, atol=1e-12
+        )
+        assert solved.success
+        old = solved.y[:, -1]
+    errors = []
+    for count in (16, 32, 64):
+        step = make_step(temperature, increments=count, traction=300.0)
+        step.solve(until=0.5)
+        before_hold = step.state.committed["P"].values.copy()
+        step.solve()
+        accumulated = step.state.committed["P"].values
+        assert np.all(accumulated > before_hold)
+        np.testing.assert_allclose(
+            step.response.cauchy_stress.values[..., 0, 0], 300.0, rtol=1e-8, atol=1e-6
+        )
+        errors.append(abs(float(np.mean(accumulated)) - old[-1]))
+    assert errors[1] < 0.75 * errors[0], errors
+    assert errors[2] < 0.75 * errors[1], errors
