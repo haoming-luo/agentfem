@@ -12,6 +12,12 @@ from ci_validation_scope import (
 )
 
 
+def test_p92_scalar_reference_changes_cover_tensor_consumers():
+    selected = _SOURCE_TEST_MAP["tools/p92_published_recovery_reference.py"]
+    assert "tests/test_p92_tensor_normalization.py" in selected
+    assert "tests/test_p92_tensor_structure.py" in selected
+
+
 @pytest.mark.parametrize("filename", (
     "test.yml", "platform-acceptance.yml", "publish-pypi.yml",
     "runtime-installers.yml",
