@@ -1,5 +1,22 @@
 # AgentFEM Product Roadmap
 
+### P92 engineering admission checkpoint (2026-11-06)
+
+The published tensor reference, within-source life holdout and long-cycle
+response screen are integrated as research evidence. The next step is not
+another fit to the same labels: compatible independent rupture/fatigue/dwell
+data are the remaining engineering calibration gate. A newly reviewed open
+thesis supplies useful alternative cohorts but also inconsistent parameter
+tables; neither is silently promoted. See the
+[source admission audit](internal/p92_external_source_admission_20261106.md).
+
+Generic small-strain point histories (#152) and prescribed-temperature
+composition (#155) are in CI review, not yet released. These reuse one accepted
+clock, material transaction and result contract. They advance the reusable
+platform without claiming P92 service-life validation. Next, complete their
+CI/installed-use acceptance, then assess independent material data with frozen
+calibration choices and explicit out-of-domain rejection.
+
 ### Research update: P92 tensor admission (2026-11-05)
 
 The [tensor admission record](internal/p92_tensor_admission_20261105.md)
@@ -44,6 +61,16 @@ share accepted time and atomic restart. See the
 [design and evidence](internal/small_strain_point_histories_20261106.md).
 This removes a data-flow gap for future life assessment; a material-specific
 rupture/fatigue law and independent validation are still separate requirements.
+
+### P92 long-cycle response screen (2026-11-06 candidate)
+
+Fixed published parameters were compared with sparse long-cycle experimental
+peak markers, reusing existing Radau/BDF campaigns. Reading sensitivity,
+solver agreement and nonzero response discrepancy remain visible in the
+[cyclic screen record](internal/p92_cyclic_screen_20261106.md). Observed life
+normalizes the source figure; it is not predicted life. The next engineering
+gate is compatible, independently validated life data, not repeated tolerance
+tightening or refitting the validation markers.
 
 ### P92 life-data gate (2026-11-06 research)
 
