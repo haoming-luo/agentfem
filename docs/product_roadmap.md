@@ -45,6 +45,15 @@ share accepted time and atomic restart. See the
 This removes a data-flow gap for future life assessment; a material-specific
 rupture/fatigue law and independent validation are still separate requirements.
 
+### P92 life-data gate (2026-11-06 research)
+
+A fixed six-calibration/two-held-out baseline now evaluates the published
+combined creep-fatigue life table without reusing held-out labels. See the
+[source, results and stop conditions](internal/p92_life_screen_20261106.md).
+This is not an engineering material card. Prioritize independent compatible
+life evidence and same-point structural histories over further tuning of the
+same eight rows; do not add creep damage to an already combined life relation.
+
 ### Physical-time small-strain user materials (2026-11-05 candidate)
 
 The next bounded consumer reuses the ordinary small-strain Newton Step and
