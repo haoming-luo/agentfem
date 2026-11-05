@@ -194,6 +194,7 @@ def test_known_core_change_selects_serial_and_distributed_owner_suites():
         "tests/test_history_material_temperature.py",
         "tests/test_material_batch_evidence.py",
         "tests/test_material_stress_conversion.py",
+        "tests/test_rate_material_history_units.py",
         "tests/test_user_material.py",
         "tests/test_viscoelasticity.py",
     )

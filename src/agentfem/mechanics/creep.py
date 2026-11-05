@@ -45,6 +45,7 @@ from ._incremental_runtime import (
     NewtonEvaluationRejection,
     run_newton_attempt,
 )
+from ._prescribed_temperature import validate_temperature_time_unit
 
 
 @dataclass(frozen=True)
@@ -319,6 +320,7 @@ class ImplicitCreepStep:
             self.time_unit = str(self.time_unit).strip()
             if not self.time_unit:
                 raise ValueError("time_unit must be nonempty when declared.")
+        validate_temperature_time_unit(self.temperature, self.time_unit)
         materials = (
             tuple(self.material.materials.values())
             if isinstance(self.material, QuadratureMaterialMap)
@@ -967,6 +969,7 @@ class ImplicitCreepStep:
         return residual, float(residual.norm())
 
     def _apply_loading(self, physical_time: float) -> None:
+        validate_temperature_time_unit(self.temperature, self.time_unit)
         if self.temperature is not None and hasattr(self.temperature, "apply"):
             self.temperature.apply(physical_time)
         value = self.amplitude(physical_time)

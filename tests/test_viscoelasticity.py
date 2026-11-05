@@ -1013,13 +1013,14 @@ def test_isotropic_tensor_maxwell_algorithmic_tangent_matches_fixed_state_differ
 
 
 def _global_viscoelastic_relaxation_patch(
-    *, shift=None, temperature=None, step_options=None
+    *, shift=None, temperature=None, step_options=None, model_units=None
 ):
     domain = dolfinx_mesh.create_unit_cube(MPI.COMM_SELF, 1, 1, 1)
     model = models.create(
         study=studies.viscoelastic_solid(dimension=3),
         mesh=domain,
         name="generalized_maxwell_relaxation",
+        units=model_units,
     )
     displacement = model.field(fields.displacement(domain))
     material = model.material(

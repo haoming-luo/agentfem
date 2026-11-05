@@ -48,6 +48,7 @@ from ._incremental_runtime import (
     NewtonEvaluation,
     run_newton_attempt,
 )
+from ._prescribed_temperature import validate_temperature_time_unit
 
 
 @dataclass(frozen=True)
@@ -1116,6 +1117,7 @@ class QuasistaticViscoelasticStep:
         self.duration = float(self.duration)
         if not np.isfinite(self.duration) or self.duration <= 0.0:
             raise ValueError("Viscoelastic duration must be finite and positive.")
+        validate_temperature_time_unit(self.temperature, self.time_unit)
         automatic = isinstance(
             self.incrementation, step_controls.AutomaticIncrementation
         )
@@ -1760,6 +1762,7 @@ class QuasistaticViscoelasticStep:
         return residual, float(residual.norm())
 
     def _apply_loading(self, time: float) -> None:
+        validate_temperature_time_unit(self.temperature, self.time_unit)
         if self.temperature is not None and hasattr(self.temperature, "apply"):
             self.temperature.apply(time)
         factor = self.amplitude(time)
