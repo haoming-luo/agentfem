@@ -402,6 +402,12 @@ jobs:
           read -r -a selected <<< "${CHANGED_MPI_DRIVERS}"
           for driver in "${selected[@]}"; do
             case "${driver}" in
+              viscoelastic-restart)
+                python tests/portable_viscoelastic_step_driver.py write /tmp/agentfem-targeted-viscoelastic
+                agentfem mpi-run -n 2 --timeout 180 -- python tests/portable_viscoelastic_step_driver.py read /tmp/agentfem-targeted-viscoelastic
+                agentfem mpi-run -n 2 --timeout 180 -- python tests/portable_viscoelastic_step_driver.py write /tmp/agentfem-targeted-viscoelastic-reverse
+                python tests/portable_viscoelastic_step_driver.py read /tmp/agentfem-targeted-viscoelastic-reverse
+                ;;
               cyclic-field-restart)
                 python tests/portable_cyclic_field_driver.py write /tmp/agentfem-targeted-cyclic-field
                 mpirun -n 2 python tests/portable_cyclic_field_driver.py read /tmp/agentfem-targeted-cyclic-field

@@ -128,7 +128,10 @@ class FiniteStrainMaterialStep:
         if not np.isfinite(self.duration) or self.duration <= 0:
             raise ValueError("Physical duration must be finite and positive.")
         from ._prescribed_temperature import freeze_uniform_temperature
-        self._temperature_input = freeze_uniform_temperature(temperature, self.duration)
+        self.time_unit = None if time_unit is None else str(time_unit).strip()
+        self._temperature_input = freeze_uniform_temperature(
+            temperature, self.duration, time_unit=self.time_unit
+        )
         if output_every is not None and (
             isinstance(output_every, (bool, np.bool_))
             or not isinstance(output_every, (int, np.integer))
@@ -138,7 +141,6 @@ class FiniteStrainMaterialStep:
                 "output_every must be a positive integer or None (endpoint only)."
             )
         self._output_every = None if output_every is None else int(output_every)
-        self.time_unit = None if time_unit is None else str(time_unit).strip()
         self.material_points = tuple(material_points)
         self.unit_system = unit_system
         if self.time_unit == "":

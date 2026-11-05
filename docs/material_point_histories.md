@@ -42,6 +42,16 @@ Each accepted endpoint records `S`, `E`, `CE`, `CEEQ`, and supplied `TEMP`.
 Joint plasticity also records `PE`, `PEEQ`, and `ALPHA` where present. Tensor
 shear is not engineering shear. Stress is Cauchy; temperature is kelvin. Stress
 and time units come from the model; absent unit declarations stay unknown.
+For creep or generalized-Maxwell Steps, a temperature history declared with
+`coordinate_unit="s"` requires a Model unit system whose time unit is seconds
+(for example `units.si()`). This is not a separate `model.step(time_unit=...)`
+option for these providers. A declared clock mismatch is rejected before
+loading; legacy histories without a coordinate unit follow the model convention.
+Temperature histories must identify kelvin (`unit="K"`) and physical time
+(`coordinate_name="time"`); Celsius values are not silently relabelled as kelvin.
+`heat_step.capture_history(...)` inherits the heat Model's time unit, so ordinary
+sequential transfer needs no duplicate clock declaration. Direct low-level
+transient Steps may supply `coordinate_unit` when no Model owns the clock.
 `result.metadata["material_point_history"]` retains reference position,
 original cell, quadrature index/rule, mesh identity, channel conventions and
 the material/loading/thermal-path identity. No projected or smoothed values
@@ -61,6 +71,11 @@ With a physical `duration`, this Step also accepts `temperature=300.0` (kelvin)
 or a scalar `histories.temperature(...)` recorded against physical time. The
 frozen input is passed to the local material as endpoint temperature and the
 increment from the accepted start. Temperature knots are visited exactly.
+For transfer between projects, declare the history's time unit explicitly,
+for example `histories.temperature(300.0, coordinate_unit="s")` alongside
+the Step's `time_unit="s"`. Both user-material consumers reject a declared
+mismatch; no h/s conversion is implicit. Existing histories without a
+coordinate unit retain their model-unit convention.
 The material owns thermal strain and must declare a stress-free initial state
 at the initial temperature. This is prescribed thermal input, not a heat solve.
 
@@ -108,6 +123,12 @@ field histories are not stored. See the `--material-point` option in
 [`examples/history_material`](https://github.com/haoming-luo/agentfem/tree/main/examples/history_material).
 
 ### Shared continuation behavior
+
+Creep and Maxwell checkpoints retain an explicitly declared Model time unit,
+even without point recording. Resume with the same unit; no automatic seconds/
+hours conversion is performed. An older checkpoint without that declaration
+does not establish a known clock: continue it with the original software or a
+reviewed migration, rather than removing units to bypass compatibility checks.
 
 `step.material_point_histories` returns ordinary `HistoryResult` copies even
 while paused. A creep v1 serial or v2 portable-format Step checkpoint includes the

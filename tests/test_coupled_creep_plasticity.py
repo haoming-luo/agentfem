@@ -171,13 +171,15 @@ def test_combined_isotropic_solution_matches_independent_scalar_equations():
     assert update.plastic_increment == pytest.approx((expected_q - yield_stress) / hardening, rel=1.e-9)
 
 
-def _structure(*, chaboche=True, incrementation=None, thermal=False):
+def _structure(*, chaboche=True, incrementation=None, thermal=False,
+               temperature_time_unit=None, time_unit=None, pure_creep=False):
     from dolfinx import mesh as dmesh
     from mpi4py import MPI
-    from agentfem import amplitudes, fields, histories, mesh, models, solvers, steps, studies
+    from agentfem import amplitudes, fields, histories, mesh, models, solvers, steps, studies, units
 
     domain = dmesh.create_unit_cube(MPI.COMM_SELF, 1, 1, 1)
-    model = models.create(study=studies.creep_solid(), mesh=domain, name="coupled_hold")
+    model_units = None if time_unit is None else units.consistent(length="mm", mass="tonne", time=time_unit)
+    model = models.create(study=studies.creep_solid(), mesh=domain, name="coupled_hold", units=model_units)
     u = model.field(fields.displacement(domain))
     law = _material(chaboche=chaboche, coefficient=1.e-6)
     temperature = None
@@ -190,12 +192,12 @@ def _structure(*, chaboche=True, incrementation=None, thermal=False):
                 elastic=properties, coefficient=1.e-6, stress_exponent=3., reference_stress=100.,
                 activation_energy=120_000., reference_temperature=800.), plastic=law.plastic)
         field = model.field(fields.temperature(domain, value=800.))
-        temperature = histories.temperature(field)
+        temperature = histories.temperature(field, coordinate_unit=temperature_time_unit)
         temperature.record(0.)
         field.value.x.array[:] = 900.
         field.value.x.scatter_forward()
         temperature.record(4.)
-    selected = model.material(law)
+    selected = model.material(law.creep if pure_creep else law)
     for component, axis in enumerate(("x", "y", "z")):
         model.fix(u, on=mesh.face(domain, axis=axis, value=0., tag=component + 1),
                   component=component, value=0.)
