@@ -83,6 +83,41 @@ def test_inactive_plasticity_reduces_to_existing_creep():
     assert update.plastic_increment == 0.
 
 
+@pytest.mark.parametrize("chaboche", [False, True])
+def test_subyield_hold_with_inherited_plastic_history_has_no_static_recovery(chaboche):
+    """A hardening branch is not an implicit physical-time recovery model.
+
+    Start from real nonzero plastic history, then unload inside the yield
+    surface. Compare the whole hold against the existing pure-creep law at
+    the same elastic strain; do not reset history at each time increment.
+    This bounded test does not exclude renewed plasticity on other paths.
+    """
+    from agentfem.constitutive._creep_plasticity import CreepPlasticityState
+
+    law = _material(chaboche=chaboche)
+    preload = law.plastic.update(np.diag([.004, -.002, -.002])).state
+    assert preload.equivalent_plastic_strain > 0.
+    mechanical = np.diag([.0004, -.0002, -.0002])
+    total = preload.plastic_strain + mechanical
+    state = CreepPlasticityState(plastic=preload)
+    pure_state = state.creep
+    times = np.array([0., .1, 1., 10., 100.])
+    initial_stress = law.stress_from_state(total, state)
+    for start, end in zip(times[:-1], times[1:], strict=True):
+        update = law.update(total, state=state, time_start=start, time_end=end)
+        expected = law.creep.update(mechanical, state=pure_state,
+                                    time_start=start, time_end=end)
+        assert update.plastic_increment == 0.
+        np.testing.assert_allclose(update.stress, expected.stress, rtol=1.e-9, atol=1.e-8)
+        np.testing.assert_array_equal(update.state.plastic.plastic_strain, preload.plastic_strain)
+        assert update.state.plastic.equivalent_plastic_strain == preload.equivalent_plastic_strain
+        if chaboche:
+            np.testing.assert_array_equal(update.state.plastic.backstresses, preload.backstresses)
+        state, pure_state = update.state, expected.state
+    assert von_mises(update.stress) < von_mises(initial_stress)
+    assert state.creep.equivalent_creep_strain > 0.
+
+
 def test_failure_does_not_mutate_old_state():
     law = _material(chaboche=True)
     state = law.initial_state()

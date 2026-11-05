@@ -45,10 +45,14 @@ assessment inputs can now use [co-located accepted material histories](material_
 this closes a data-lifecycle gap, not the experimental-validation gate.
 
 The [executed P92 relaxation comparison](internal/p92_relaxation_validation_20261101.md)
-uses public digital BAM records: a separate RF calibration and SLR conditional
-holdout, source hashes, physical unit conversions and ordinary FEM time
+uses public digital BAM records: a separate RF calibration and an initially
+held-out SLR condition, source hashes, physical unit conversions and ordinary FEM time
 refinement. It reports experimental errors without inventing an acceptance
 tolerance or qualifying a full cyclic material/lifetime model.
+The subsequent [sinh mechanism screen](internal/p92_sinh_screen_20261105.md)
+retains SLR as diagnostic data, not a new blind holdout. Its independent
+continuous integration and full-path FEM refinement pass numerical checks,
+but the tested candidates still miss the long low-stress hold.
 
 Run the focused checks in the scientific environment:
 

@@ -19,6 +19,22 @@ or a successful run is not by itself a validated engineering capability.
 
 ## Current product phase: the 0.4 foundation
 
+### Candidate mechanism screening and solver robustness (2026-11-05)
+
+Engineering slices #138–#141 are merged. The separate Windows-guidance PR #142
+has passed its scoped CI; it is not a new clean-host installation trial.
+The [P92 sinh screen](internal/p92_sinh_screen_20261105.md) tests existing
+flow laws before introducing new material mechanisms. Four RF-only candidate
+fits still miss the long low-stress SLR hold; SLR remains diagnostic rather
+than blind validation. Full-path FEM time refinement now passes after a
+general creep Newton correction: impose the new prescribed displacement before
+line-search evaluations, while retaining accepted-state rollback.
+
+Next: discriminate joint plasticity versus physical-time recovery; specify
+and verify any genuinely missing mechanism; then admit temperature histories
+for user materials as a separately tested composition. Keep numerical
+verification, experimental material validation and life assessment distinct.
+
 ### Co-located histories and real-material gate (2026-11-01)
 
 Keep the preceding output/integration PR separate from this scientific slice.
@@ -56,8 +72,8 @@ long low-stress SLR hold. Measured-path and modulus sensitivity checks do not
 remove that discrepancy. Preserve this as a negative transfer benchmark;
 screen existing flow/plastic assets before adding recovery or softening, and
 freeze a new validation condition before retuning. Engineering integration
-and scientific material promotion remain separate: #137 is merged; #138's
-latest synchronized commit still requires its own acceptance. This work does
+and scientific material promotion remain separate: #137 and #138 are merged.
+This work does
 not claim a validated P92 material, lifetime prediction or a new release.
 
 ### Material-only structural workflow sprint (2026-10-29)
