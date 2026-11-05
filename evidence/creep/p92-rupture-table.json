@@ -1,0 +1,31 @@
+{
+  "schema": "agentfem.research.p92-rupture-table.v1",
+  "source": "https://strathprints.strath.ac.uk/62915/1/Khayatzadeh_etal_MSEA_2017_Influence_of_thermal_ageing_on_the_creep_behaviour.pdf",
+  "source_sha256": "7abf1fe6555897b3e81e9838852d40eaf199cdeb5c0e4561aa2054772e2e8085",
+  "source_location": "Table 2, page 4; material preparation page 3",
+  "temperature_K": 923.15,
+  "stress_unit": "MPa",
+  "time_unit": "h",
+  "stress_measure": "nominal_axial_tensile",
+  "failure_definition": "Specimen rupture under constant-load uniaxial creep",
+  "conditions": [
+    {
+      "name": "unaged",
+      "material_condition": "P92 parent pipe remote from weld; normalized, tempered and post-weld heat treated; no additional ageing",
+      "rows": [
+        {"id": "P92-T2", "stress": 120.0, "rupture_time": 807.0},
+        {"id": "P92-T1", "stress": 170.0, "rupture_time": 7.2}
+      ]
+    },
+    {
+      "name": "aged",
+      "material_condition": "Same parent pipe preparation plus 1000 h ageing at 650 C",
+      "rows": [
+        {"id": "P92-TA2", "stress": 120.0, "rupture_time": 330.0},
+        {"id": "P92-TA1", "stress": 170.0, "rupture_time": 7.4}
+      ]
+    }
+  ],
+  "excluded_interrupted_test_ids": ["P92-T3", "P92-T4", "P92-T5", "P92-T6", "P92-TA3", "P92-TA4", "P92-TA5"],
+  "engineering_qualified": false
+}
