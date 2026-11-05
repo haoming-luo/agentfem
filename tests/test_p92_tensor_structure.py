@@ -3,7 +3,7 @@
 import numpy as np
 import pytest
 from mpi4py import MPI
-from agentfem import amplitudes, fields, loads, mesh, models, steps, studies
+from agentfem import amplitudes, fields, loads, mesh, models, results, steps, studies
 from tools.p92_tensor_material_reference import P92TensorResearchMaterial
 from tools.p92_published_recovery_reference import implicit_update, published_parameters
 from agentfem import constitutive as c
@@ -58,7 +58,8 @@ def test_unsupported_fields_rejected(change):
         material.update(replace(point(material), **change))
 
 
-def make_step(temperature=600, *, cyclic=False, increments=None, traction=None):
+def make_step(temperature=600, *, cyclic=False, increments=None, traction=None,
+              material_points=()):
     domain = mesh.cuboid((0.0, 0.0, 0.0), (1.0, 1.0, 1.0), (1, 1, 1))
     model = models.create(
         study=studies.static_solid(dimension=3, nonlinear=True), mesh=domain
@@ -76,6 +77,7 @@ def make_step(temperature=600, *, cyclic=False, increments=None, traction=None):
         target=u,
         duration=24.0 if cyclic else 8.0,
         time_unit="s",
+        material_points=material_points,
         incrementation=steps.fixed(increments or (96 if cyclic else 32)),
         amplitude=(
             amplitudes.tabular(
@@ -124,6 +126,34 @@ def test_research_structure_restart(tmp_path):
             atol=1e-10,
             rtol=1e-10,
         )
+
+
+def test_research_point_history_restores_without_resetting_material_clock(tmp_path):
+    from tools.p92_tensor_normalization import tensor
+
+    selection = (results.material_point("specimen", cell=0),)
+    full = make_step(material_points=selection)
+    full.solve()
+    partial = make_step(material_points=selection)
+    partial.solve(until=.5)
+    path = partial.save_checkpoint(tmp_path / "selected_hold")
+    resumed = make_step(material_points=selection)
+    resumed.load_checkpoint(path)
+    resumed.solve()
+    reference = {h.name: h for h in full.material_point_histories}
+    actual = {h.name: h for h in resumed.material_point_histories}
+    assert reference.keys() == actual.keys()
+    for name, history in reference.items():
+        np.testing.assert_array_equal(history.abscissa, actual[name].abscissa)
+        np.testing.assert_array_equal(history.values, actual[name].values)
+    np.testing.assert_allclose(
+        actual["specimen.S"].values,
+        [tensor(v) for v in actual["specimen.SIGMA_M"].values],
+        atol=1e-10,
+    )
+    assert actual["specimen.S"].abscissa[-1] == 8.0
+    # P is accumulated inelastic strain, not a signed fatigue strain input.
+    assert np.all(np.diff(actual["specimen.P"].values) >= -1e-12)
 
 
 @pytest.mark.parametrize(

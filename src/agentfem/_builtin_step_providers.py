@@ -1855,6 +1855,7 @@ register_step_provider(
             "amplitude",
             "duration",
             "time_unit",
+            "material_points",
         ),
     )
 )

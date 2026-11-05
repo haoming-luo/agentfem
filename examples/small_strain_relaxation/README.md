@@ -18,6 +18,12 @@ and its H5 data, and the accepted load-amplitude/time history in `result.json`.
 This small example writes the final field, not an animation. In ParaView use
 `U` for Warp By Vector and `S_CELL` for cell-averaged stress coloring.
 
+Add `-- --material-point` to record raw `sample.S`, `sample.E` and `sample.EV`
+at every accepted increment. These compact tensor histories are independent of
+field frames. Use the same option when restarting that run; history cannot be
+backfilled from a final field. `E` is total strain, not a mechanical strain-life
+input inferred from the material law.
+
 To test continuation, pass the previous run's midpoint manifest:
 
 ```bash

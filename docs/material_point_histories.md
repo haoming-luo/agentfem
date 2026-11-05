@@ -35,7 +35,7 @@ The initial consumer is serial Cartesian 3D small-strain creep: homogeneous
 power-law or joint creep/plastic material, and existing regional pure-creep
 materials. Supplied scalar, FE or accepted-history temperature is sampled at
 the same constitutive point. Joint regional plasticity, arbitrary user-material
-Steps outside the finite-strain consumer below, axisymmetric point histories
+Steps outside the bounded consumers below, axisymmetric point histories
 and MPI recording remain unadmitted.
 
 Each accepted endpoint records `S`, `E`, `CE`, `CEEQ`, and supplied `TEMP`.
@@ -54,6 +54,22 @@ reversals with adequate physical increments. The history itself does not
 certify time discretization or supply an empirical rupture law.
 
 ## Pause, recovery and storage
+
+### Small-strain user materials
+
+The physical-time small-strain UserMaterial Step accepts the same
+`material_points=` requests in its existing serial homogeneous 3D scope.
+It records raw Cauchy `S`, total infinitesimal `E`, and named material state
+at each accepted physical time. Tensor shear is retained; no thermal or
+inelastic strain partition is invented. This option requires `duration` and
+does not change the legacy rate-independent checkpoint route.
+
+Selection, units, material and loading identity are frozen together. The v2
+checkpoint includes the complete selected history and integrity digest;
+missing history cannot be reconstructed from final fields. Failure during
+frame preparation or state commit restores the previous accepted displacement,
+constitutive response and history. `examples/small_strain_relaxation` offers
+`--material-point` for ordinary run/restart use.
 
 ### Finite-strain user materials
 
