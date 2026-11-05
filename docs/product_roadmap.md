@@ -19,6 +19,23 @@ or a successful run is not by itself a validated engineering capability.
 
 ## Current product phase: the 0.4 foundation
 
+### Physical-time small-strain user materials (2026-11-05 candidate)
+
+The next bounded consumer reuses the ordinary small-strain Newton Step and
+quadrature transaction. Explicit duration separates normalized loading from
+physical time; initialization, failed trials and restart do not advance the
+material clock. Exact accepted stress/tangent/state restoration uses a v2
+same-layout serial checkpoint, leaving the rate-independent v1 route intact.
+Two local rate laws share this consumer; independent relaxation/creep responses,
+time refinement, cutback and corrupt-checkpoint tests are the promotion gates.
+The [design record](internal/small_strain_physical_time_20261105.md) and
+`examples/small_strain_relaxation` retain the exact scope.
+
+Next: independently audit and validate a real multiaxial material provider before
+promoting it into structural use. Prescribed temperature, selected-point histories,
+regional materials, contact and MPI are separate composition gates. This candidate
+is not a P92 qualification, service-life prediction, or a release announcement.
+
 ### Published P92 figure screen (2026-11-05)
 
 The unchanged published-parameter reference now has a quantitative, traceable
