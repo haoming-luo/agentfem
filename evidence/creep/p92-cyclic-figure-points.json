@@ -1,0 +1,25 @@
+{
+  "schema": "agentfem.research.p92-cyclic-figure.v1",
+  "source": "https://doi.org/10.3390/met10030307",
+  "source_pdf_sha256": "c00a71167969edaab6a1b52641140cb5a3f241e82a90b74b464f293f46fcd604",
+  "figure": "10, printed page 11; peak experimental square markers only",
+  "render": "pdftoppm -f 11 -l 11 -scale-to 3600 -x 500 -y 1650 -W 1600 -H 600 -png -singlefile",
+  "coordinate_reading_bound_px": 5,
+  "observation_scope": "Manually read sparse marker centres in dense curves; sensitivity bound is not a statistical confidence interval",
+  "panels": [
+    {
+      "id": "10a", "temperature_C": 600, "strain_range": 0.008,
+      "dwell_s": 60, "reported_life_cycles": 1303,
+      "x_ticks_pixel_normalized_cycle": [[28,0],[150,0.2],[271,0.4],[393,0.6],[515,0.8],[636,1]],
+      "y_ticks_pixel_stress_MPa": [[80,400],[143,350],[206,300],[269,250],[332,200],[394,150],[457,100],[519,50]],
+      "experimental_peak_centres_px": [[151,199],[271,218],[393,229],[515,236],[605,239]]
+    },
+    {
+      "id": "10b", "temperature_C": 600, "strain_range": 0.008,
+      "dwell_s": 600, "reported_life_cycles": 675,
+      "x_ticks_pixel_normalized_cycle": [[874,0],[996,0.2],[1117,0.4],[1239,0.6],[1360,0.8],[1482,1]],
+      "y_ticks_pixel_stress_MPa": [[81,400],[143,350],[206,300],[269,250],[332,200],[394,150],[457,100],[519,50]],
+      "experimental_peak_centres_px": [[996,214],[1117,233],[1239,245],[1360,253],[1450,258]]
+    }
+  ]
+}

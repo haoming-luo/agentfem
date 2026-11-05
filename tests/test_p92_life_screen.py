@@ -76,6 +76,7 @@ def test_no_interpolation_or_extrapolation(field, value):
 def test_missing_calibration_information_rejected():
     data = load_table()
     data["calibration_ids"] = [1, 3, 5, 7]
+    data["validation_ids"] = [2, 4, 6, 8]
     with pytest.raises(ValueError, match="rank"):
         calibrate(data)
 
@@ -83,3 +84,27 @@ def test_missing_calibration_information_rejected():
 def test_baseline_monotone_within_declared_loading_family():
     coefficients = calibrate(load_table())
     assert np.all(coefficients[1:] <= 0)
+
+
+@pytest.mark.parametrize("mutation", ["overlap", "duplicate", "missing", "empty"])
+def test_in_memory_input_cannot_bypass_partition_validation(mutation):
+    data = load_table()
+    if mutation == "overlap":
+        data["calibration_ids"].append(2)
+    elif mutation == "duplicate":
+        data["validation_ids"].append(2)
+    elif mutation == "missing":
+        data["validation_ids"].pop()
+    else:
+        data["calibration_ids"] += data["validation_ids"]
+        data["validation_ids"] = []
+    with pytest.raises(ValueError, match="partition"):
+        screen(data)
+
+
+@pytest.mark.parametrize("cycles", [True, 0, -1, np.inf, np.nan, 100 + 0j])
+def test_in_memory_life_values_are_validated(cycles):
+    data = load_table()
+    data["rows"][0]["cycles"] = cycles
+    with pytest.raises(ValueError, match="cycles"):
+        calibrate(data)
