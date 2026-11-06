@@ -15,6 +15,7 @@ Each command emits JSON, keeps source identity and states its validation role.
 python tools/p92_life_screen.py
 python tools/p92_pure_fatigue_screen.py
 python tools/p92_rupture_screen.py
+python tools/p92_prior_damage_audit.py
 ```
 
 The cyclic figure screen additionally needs an existing continuous-reference
@@ -37,6 +38,11 @@ The generic `assessments.TabulatedRuptureCurve` retains stress/time units,
 stress measure, material condition, temperature and failure definition. It
 interpolates only within its declared stress interval at its supplied
 temperature; it does not select a P92 curve for the user.
+
+The [prior-damage audit](internal/p92_prior_damage_20261106.md) adds a traceable
+remaining-creep-life dataset and audits published predictions, including their
+large high-damage errors. It is not a newly executed material model. This offers
+a concrete next reproduction route without pooling unrelated P92 conditions.
 
 ## Two life routes, not one mixed formula
 
