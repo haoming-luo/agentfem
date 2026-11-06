@@ -87,8 +87,8 @@ and evidence remain in the linked guides and scientific function reference.
 | function | `region_marker(location)` | Return a region's marker or pass through a marker callable. |
 | function | `cells(domain, *, name: str, where, tag: int = 1) -> CellRegion` | Create a named cell region from a selector. |
 | function | `partition_cells(domain, **regions) -> RegionSet` | Partition mesh cells into named cell regions. |
-| function | `partition_boundaries(domain, **regions) -> RegionSet` | Create disjoint exterior regions sharing one facet-tag table. |
-| function | `locate_cells(domain, marker, *, by = "vertices")` | Locate cells by vertices or owned-cell centroids. |
+| function | `partition_boundaries(domain, **regions) -> RegionSet` | Create disjoint named exterior regions sharing one facet-tag table. |
+| function | `locate_cells(domain, marker, *, by = 'vertices')` | Locate cells by all vertices (default) or by owned-cell centroids. |
 | function | `mark_cells(domain, cells, tag: int)` | Create cell meshtags for a set of cells. |
 | function | `mark_cell_regions(domain, tag_to_marker: dict[int, object])` | Create cell meshtags from several geometric cell markers. |
 | function | `tag_field(domain, tags, *, name: str = 'Tag')` | Create a DG0 visualization field from cell tags. |
@@ -100,7 +100,7 @@ and evidence remain in the linked guides and scientific function reference.
 | function | `facet_normal(domain)` | Return the outward facet normal for boundary models. |
 | function | `tagged_boundary_measure(domain, marker, tag: int)` | Locate/tag exterior facets and return ``(ds, facet_tags)``. |
 | function | `from_arrays(*, cells, coordinates, coordinate_element = None, cell_type = None, geometry_degree = 1, comm = None, partitioner = None)` | Create a DOLFINx mesh through explicit topology/geometry keywords. |
-| function | `mapped_grid(*, axes, mapping = None, cell_type = "hexahedron", geometry_degree = 1, comm = MPI.COMM_WORLD)` | Map explicit parameter axes to Q1/Q2 quads/hexes or Q1 simplices. |
+| function | `mapped_grid(*, axes, mapping = None, cell_type = 'hexahedron', geometry_degree = 1, comm = MPI.COMM_WORLD)` | Map a structured parameter grid into a 2D/3D physical domain. |
 | function | `reentrant_honeycomb(*, angle = -30.0, ligament = 1.0, vertical = 1.5, thickness = 0.12, repeats = (1, 1), mesh_size = 0.06, comm = MPI.COMM_WORLD, connected_specimen = False)` | Mesh a rectangular cut of a periodic rounded-joint honeycomb. |
 | class | `CellCompatibility` | One meshio-style source cell mapped to an AgentFEM solver topology. |
 | class | `TopologyCapability` | One narrowly scoped, evidence-bearing runtime topology capability. |
@@ -1146,6 +1146,7 @@ and evidence remain in the linked guides and scientific function reference.
 | class | `ModeICohesiveSurfaceAssembler(topology: PairedSurfaceFacets, law, *, number_of_nodes: int, tangential: str = 'free', tangential_stiffness: float \| None = None)` | Three-point integration of linear triangular interfaces in 3D. |
 | function | `pair_coincident_surface_facets(coordinates, negative_facets, positive_facets, *, normal_hint, tolerance: float = 1e-10) -> PairedSurfaceFacets` | Pair coincident three-node triangular facets in 3D. |
 | function | `pair_coincident_line_facets(coordinates, negative_facets, positive_facets, *, normal_hint, tolerance: float = 1e-10) -> PairedLineFacets` | Pair coincident two-node line facets with a declared normal direction. |
+| function | `split_rectangle(*, length, lower_height, upper_height, cells_along, cells_below, cells_above)` | Build a Q1 rectangle with a split horizontal interface at y=0. |
 | function | `split_conforming_line_interface(coordinates, cells, interface_facets, *, positive_cells) -> SplitInterfaceMesh` | Duplicate nodes on a declared conforming 2D cell interface. |
 | function | `split_conforming_surface_interface(coordinates, cells, interface_facets, *, positive_cells) -> SplitInterfaceMesh` | Duplicate nodes on a declared conforming triangular surface in 3D. |
 | function | `split_conforming_named_interfaces(coordinates, cells, named_interfaces) -> NamedSplitInterfaceMesh` | Atomically split several disjoint conforming cohesive manifolds. |
