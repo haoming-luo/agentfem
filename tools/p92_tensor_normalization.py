@@ -166,18 +166,31 @@ def implicit_tensor_update(old, strain_increment, dt, parameters, *, poisson):
     increment = mandel(strain_increment)
     elastic = _elastic_matrix(parameters, poisson)
     scale = np.concatenate((np.full(17, parameters.k), [1.0]))
+    strain_rate = increment / dt
+    identity = np.eye(18)
+    cached_candidate = None
+    cached_evaluation = None
+
+    def evaluate(candidate):
+        nonlocal cached_candidate, cached_evaluation
+        # Residual, Jacobian and final tangent often request the exact same
+        # candidate. Cache only inside this one fixed-old-state local update;
+        # MINPACK can reuse its input buffer, so retain an owned key copy.
+        if cached_candidate is None or not np.array_equal(candidate, cached_candidate):
+            value = packed_rates_and_jacobian(
+                candidate, strain_rate, parameters, poisson=poisson
+            )
+            cached_candidate = candidate.copy()
+            cached_evaluation = value
+        return cached_evaluation
 
     def residual(candidate):
-        rate, _ = packed_rates_and_jacobian(
-            candidate, increment / dt, parameters, poisson=poisson
-        )
+        rate, _ = evaluate(candidate)
         return (candidate - old - dt * rate) / scale
 
     def jacobian(candidate):
-        _, derivative = packed_rates_and_jacobian(
-            candidate, increment / dt, parameters, poisson=poisson
-        )
-        return (np.eye(18) - dt * derivative) / scale[:, None]
+        _, derivative = evaluate(candidate)
+        return (identity - dt * derivative) / scale[:, None]
 
     guess = old.copy()
     guess[:6] += elastic @ increment
@@ -193,12 +206,10 @@ def implicit_tensor_update(old, strain_increment, dt, parameters, *, poisson):
         or state[16] + parameters.k <= 0
     ):
         raise RuntimeError(f"Candidate tensor update failed: {solved.message}")
-    _, derivative = packed_rates_and_jacobian(
-        state, increment / dt, parameters, poisson=poisson
-    )
+    _, derivative = evaluate(state)
     forcing = np.zeros((18, 6))
     forcing[:6] = elastic
-    sensitivity = np.linalg.solve(np.eye(18) - dt * derivative, forcing)
+    sensitivity = np.linalg.solve(identity - dt * derivative, forcing)
     return state.copy(), sensitivity[:6].copy()
 
 

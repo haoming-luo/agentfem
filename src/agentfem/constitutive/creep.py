@@ -6,7 +6,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from math import exp, isfinite, log
+from math import exp, expm1, isfinite, log, log1p
 from typing import ClassVar
 
 import numpy as np
@@ -780,18 +780,34 @@ class KachanovRabotnovCreep:
             / self.reference_time
         )
         power = self.damage_power + 1.0
-        remaining = old_integrity**power - power * damage_scale
-        failed = remaining <= (1.0 - self.failure_damage) ** power
-        new_integrity = max(
-            1.0 - self.failure_damage,
-            max(0.0, remaining) ** (1.0 / power),
+        if old.damage >= self.failure_damage:
+            # A terminal state cannot heal when it is presented again.
+            return CreepDamageUpdate(old, 0.0, 0.0, failed=True)
+        integrity_power = old_integrity**power
+        # A zero damage rate is independent of phi, including when I**p
+        # underflows. Any positive representable damage_scale then exhausts
+        # an underflowed integrity power, so the terminal branch applies.
+        fraction = (
+            0.0 if damage_scale == 0.0
+            else (float("inf") if integrity_power == 0.0
+                  else power * damage_scale / integrity_power)
         )
-        new_damage = 1.0 - new_integrity
+        failure_log_ratio = log1p(-(self.failure_damage - old.damage) / old_integrity)
+        failed = fraction >= -expm1(power * failure_log_ratio)
+        if failed:
+            log_integrity_ratio = failure_log_ratio
+            new_damage = self.failure_damage
+        else:
+            # Keep the small decrement rather than subtracting two numbers
+            # near one. The log ratio also preserves a nonzero strain increment
+            # when the change in total stored damage is below one ulp.
+            log_integrity_ratio = log1p(-fraction) / power
+            new_damage = old.damage - old_integrity * expm1(log_integrity_ratio)
 
         equivalent_increment = self._creep_increment(
             normalized,
             old_integrity,
-            new_integrity,
+            log_integrity_ratio,
             dt,
         )
         tensor = old.creep_strain
@@ -818,10 +834,9 @@ class KachanovRabotnovCreep:
         rate = self.damage_coefficient * normalized**self.damage_exponent
         if rate == 0.0:
             return float("inf")
-        integrity = 1.0 - self.failure_damage
         return float(
             self.reference_time
-            * (1.0 - integrity ** (self.damage_power + 1.0))
+            * (-expm1((self.damage_power + 1.0) * log1p(-self.failure_damage)))
             / ((self.damage_power + 1.0) * rate)
         )
 
@@ -829,7 +844,7 @@ class KachanovRabotnovCreep:
         self,
         normalized_stress: float,
         old_integrity: float,
-        new_integrity: float,
+        log_integrity_ratio: float,
         duration: float,
     ) -> float:
         if normalized_stress == 0.0 or self.creep_coefficient == 0.0:
@@ -850,11 +865,12 @@ class KachanovRabotnovCreep:
             ** (self.creep_exponent - self.damage_exponent)
         )
         if abs(exponent) <= 1.0e-12:
-            integral = log(old_integrity / new_integrity)
+            integral = -log_integrity_ratio
         else:
             integral = (
-                old_integrity**exponent - new_integrity**exponent
-            ) / exponent
+                old_integrity**exponent
+                * (-expm1(exponent * log_integrity_ratio)) / exponent
+            )
         return float(prefactor * integral)
 
     def as_dict(self) -> dict[str, object]:
@@ -1139,12 +1155,33 @@ class PowerLawCreep:
         time_start: float,
         time_end: float,
     ) -> float:
-        if time_end < time_start:
-            raise ValueError("time_end must be greater than or equal to time_start.")
-        return self.constant_stress_strain(
-            equivalent_stress,
-            time_end,
-        ) - self.constant_stress_strain(equivalent_stress, time_start)
+        start, end = float(time_start), float(time_end)
+        stress = abs(float(equivalent_stress))
+        if not all(isfinite(value) for value in (start, end, stress)):
+            raise ValueError("stress and interval times must be finite.")
+        if start < 0.0 or end < start:
+            raise ValueError("Require 0 <= time_start <= time_end.")
+        duration = end - start
+        if duration == 0.0 or stress == 0.0 or self.coefficient == 0.0:
+            return 0.0
+        stress_factor = (stress / self.reference_stress) ** self.stress_exponent
+        if self.time_exponent == 0.0:
+            return float(self.coefficient * stress_factor * duration)
+        if start == 0.0:
+            return self.constant_stress_strain(stress, end)
+        power = self.time_exponent + 1.0
+        log_ratio = (
+            log1p(duration / start) if duration <= start
+            else log(end) - log(start)
+        )
+        # Factor around the upper endpoint. The fractional power difference
+        # stays in [0, 1], without subtracting two nearly equal accumulated
+        # strains or overflowing expm1 for widely separated endpoints.
+        return float(
+            self.coefficient * self.reference_time * stress_factor
+            * (end / self.reference_time) ** power
+            * (-expm1(-power * log_ratio)) / power
+        )
 
     def tensor_increment(
         self,

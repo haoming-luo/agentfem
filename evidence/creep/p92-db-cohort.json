@@ -1,0 +1,30 @@
+{
+  "schema": "agentfem.research.p92-db-cohort.v1",
+  "source": "https://repository.nottingham.ac.uk/handle/123456789/30506",
+  "download": "https://repository.nottingham.ac.uk/server/api/core/bitstreams/1b84116c-eef3-49d4-91d2-489ecb5e5113/content",
+  "source_sha256": "87db5240927faf09049ea4c9258c54ac5e392f15070ea4f005447e2d2e2cddb3",
+  "citation": "Hoey (2016), Evaluation of High Temperature Performance of Co-Cr-C Coated P92 Steel",
+  "material_condition": "Uncoated DB P92, one supplied pipe section; austenitised approximately 1070 C, tempered approximately 775 C; approximately 2 h pre-test warm-up",
+  "locations": {"cohort": "Section 3.2.1, PDF 85", "protocol": "Sections 3.4.3-3.4.4, PDF 101-103", "creep": "Table 5.3, PDF 177", "fatigue": "Table 5.4, PDF 180", "dwell": "Table 5.5, PDF 181", "equations": "Equations 5.3-5.7, PDF 183-184", "constants": "Table 5.6, PDF 185"},
+  "creep_columns": ["temperature_C", "stress_MPa", "rupture_h", "approximate_failure_strain_percent"],
+  "creep": [
+    [650, 105, 3647, 9.9], [650, 110, 2139, 5.3], [650, 120, 1219, 6.8],
+    [650, 130, 435, 7.7], [650, 140, 165, 9.0],
+    [675, 80, 2280, 6.9], [675, 90, 838, 8.0], [675, 100, 538, 9.0],
+    [700, 65, 1260, 8.6], [700, 70, 728, 9.4], [700, 75, 530, 11.4], [700, 80, 177, 14.0]
+  ],
+  "fatigue_protocol": {
+    "temperature_C": 650, "environment": "air", "minimum_strain": 0.0,
+    "strain_rate_per_s": 0.001, "waveform": "zero-to-positive triangular strain; tensile dwell at peak when specified",
+    "failure_definition": "fracture or stress drop greater than 50 percent",
+    "source_strain_semantics": "peak equals range; amplitude and mean are half the reported percent strain",
+    "columns": ["peak_strain_percent", "dwell_s", "period_s", "cycles", "reported_duration_h"]
+  },
+  "fatigue": [[0.3, 0, 6, 2496, 4.2], [0.4, 0, 8, 1368, 3.0], [0.5, 0, 10, 1325, 3.7]],
+  "dwell": [[0.3, 600, 606, 1811, 304], [0.3, 1200, 1206, 1109, 372], [0.3, 2400, 2406, 1002, 670]],
+  "constants_columns": ["temperature_C", "A", "n", "chi", "B", "phi"],
+  "constants": [[650, 1.6e-31, 12.7, 10.3, 2.6e-26, 16.0], [675, 2.2e-17, 7.3, 6.5, 2.2e-17, 8.0], [700, 2.1e-21, 10.0, 8.9, 3.6e-21, 14.0]],
+  "constants_units": "stress in MPa, time in hours; strain interpretation must be audited, not silently rescaled",
+  "validation_role": "Visually checked numerical transcription and fixed published coefficient reproduction; not independent validation or an engineering allowable",
+  "limitations": ["No raw within-hold relaxation history admitted", "No replicate scatter estimate", "Do not substitute fully reversed fatigue coefficients", "Source constants fitted these creep observations; not held out", "Coated specimens excluded"]
+}
