@@ -1,5 +1,24 @@
 # AgentFEM Product Roadmap
 
+### P92 source, precision and runtime checkpoint (2026-11-07)
+
+The original DB P92 source now supplies a coherent pipe cohort with rupture,
+fatigue and tensile-dwell observations; the
+[fixed-parameter audit](internal/p92_db_cohort_candidate_20261107.md) retains
+the published discrepancies rather than fitting them away. Generic creep
+increments now have [small-increment precision evidence](internal/creep_increment_precision_20261107.md).
+The research material provider also removes duplicate local evaluations:
+[complete bounded trajectories](internal/p92_local_evaluation_20261107.md)
+take about 34% less wall time on two tested meshes with unchanged accepted
+arrays. This is not a composite-contact runtime claim.
+
+Next close the integrated software candidate, then resolve one specific life
+study: the DB cohort needs within-hold stress response and an applicable
+rupture-stress range before time-fraction coupling. Keep the observed
+nonuniform reaction convergence separate from unresolved clamp/relaxation
+spatial errors. Do not expand the material catalogue or fit the existing life
+labels again as a substitute for those measurements.
+
 ### Data-admission refinement (2026-11-07)
 
 Continue explicit cross-source research when same-heat P92 data are unavailable;

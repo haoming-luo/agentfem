@@ -64,3 +64,16 @@ do not provide that missing time history. Do not extrapolate the 650 C
 
 This advances source admission, not engineering qualification. Retain
 observational scatter and outcome definitions when deciding the next model.
+
+## Application boundary from the source discussion
+
+The later discussion (PDF pages 186–190, sections 5.9.1–5.9.2) reinforces this
+boundary: the cyclic tests deliberately use stresses above the creep-test
+regime, and the high-temperature/high-stress tests are accelerated laboratory
+conditions. A shared pipe source therefore does not by itself make a rupture
+curve applicable to the cyclic peaks or to long-service extrapolation.
+At 650 C the author reports one repeat each at 110 and 120 MPa, with 10% and
+14% scatter. Those two repeat summaries are useful pedigree information, not
+a statistical confidence interval for all temperatures or a universal
+acceptance tolerance. No additional coupled-life formula or within-dwell
+relaxation history is supplied by that discussion.
