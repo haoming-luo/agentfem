@@ -117,6 +117,9 @@ record.
     accepted physical time, independently of visualization frame count. Reuse
     the exact selection on restart; a history cannot be backfilled from the
     last field. See [co-located material histories](docs/material_point_histories.md).
+    Convert reviewed rupture tables explicitly with `curve.in_units(...)`
+    when their stress/time units differ from recorded histories; keep the
+    histories unchanged and preserve the table's conversion evidence.
     Experimental serial finite-strain J2 Steps can consume named rigid contact
     pairs through the ordinary `RigidContactPair` asset, with fixed or
     normalized-prescribed tool motion. The strong-boundary and supported
@@ -221,6 +224,9 @@ state and prescribed-temperature histories. These are accepted-increment
 observations, independent of field output cadence, using the existing Result
 and restart contracts. `E_GL` denotes total Green–Lagrange strain, not a
 mechanical strain-life input. See `docs/material_point_histories.md`.
+For scalar fatigue postprocessing, declare a reviewed cycle or mechanical
+strain-amplitude domain on `CoffinMansonBasquinCurve`; the latter uses
+`from_strain_domain` and derives cycle endpoints without fitting parameters.
 
 The physical-time small-strain UserMaterial Step also accepts `material_points`
 for raw co-located `S/E` and named state, with the same accepted-history and
@@ -253,6 +259,8 @@ Package paths below are relative to `src/agentfem/`.
   experimental global woven membrane remains a Step provider, not a Model
   special case
 - Engineering damage and life-assessment consumers: `assessments.py`
+  (`creep_damage_from_result` separates optional quadrature subdivision from
+  original-history sampling limits).
 - Material library, assignment frames, plies, and laminate sections:
   `materials/`
 - Boundary models: `boundary_models/`; solver-neutral analytical rigid

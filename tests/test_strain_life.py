@@ -26,6 +26,59 @@ def _assess(values, curve=None, **kwargs):
     return constitutive.assess_strain_history(values, _curve() if curve is None else curve, **arguments)
 
 
+def _amplitude_curve(**changes):
+    arguments = dict(young=200_000., fatigue_strength_coefficient=1000.,
+                     fatigue_strength_exponent=-.5, fatigue_ductility_coefficient=.5,
+                     fatigue_ductility_exponent=-.5, stress_unit="MPa",
+                     source="synthetic amplitude-domain verification",
+                     calibrated_strain_amplitudes=(.001, .1))
+    arguments.update(changes)
+    return constitutive.CoffinMansonBasquinCurve.from_strain_domain(**arguments)
+
+
+def test_amplitude_domain_has_independent_closed_form_endpoints_and_inverse():
+    curve = _amplitude_curve()
+    expected = [.5 * (a / .505) ** -2 for a in (.1, .001)]
+    np.testing.assert_allclose(curve.calibrated_cycles, expected, rtol=2.e-13)
+    for amplitude in np.geomspace(.001, .1, 31):
+        cycles = curve.cycles_to_failure(amplitude)
+        assert cycles == pytest.approx(.5 * (amplitude / .505) ** -2, rel=2.e-13)
+        assert curve.strain_amplitude(cycles) == pytest.approx(amplitude, rel=2.e-13)
+    for amplitude in (np.nextafter(.001, 0.), np.nextafter(.1, np.inf)):
+        with pytest.raises(ValueError, match="outside"):
+            curve.cycles_to_failure(amplitude)
+
+
+@pytest.mark.parametrize("bounds", [None, .01, (), (.01,), (0., .1), (.1, .01),
+                                    (.01, .01), (.01, np.inf), (.01, np.nan),
+                                    (True, 2.), (".001", ".1")])
+def test_invalid_amplitude_domain_is_rejected(bounds):
+    with pytest.raises(ValueError, match="amplitudes"):
+        _amplitude_curve(calibrated_strain_amplitudes=bounds)
+
+
+def test_amplitude_domain_records_are_detached_and_units_do_not_change_life():
+    bounds = [.001, .1]
+    curve = _amplitude_curve(calibrated_strain_amplitudes=bounds)
+    bounds[0] = .05
+    pascals = replace(curve, young=2.e11, fatigue_strength_coefficient=1.e9, stress_unit="Pa")
+    assert pascals.cycles_to_failure(.01) == pytest.approx(curve.cycles_to_failure(.01))
+    record = json.loads(json.dumps(curve.as_dict(), allow_nan=False))
+    assert record["calibration_domain"] == "total_mechanical_strain_amplitude"
+    assert record["cycle_bounds_role"] == "model_implied_from_declared_amplitude_domain"
+    record["calibrated_strain_amplitudes"][0] = .05
+    assert curve.calibrated_strain_amplitudes == (.001, .1)
+    with pytest.raises(ValueError, match="inconsistent"):
+        replace(curve, fatigue_ductility_coefficient=.6)
+    assert "calibration_domain" not in _curve().as_dict()
+
+
+def test_amplitude_domain_rejects_unrepresentable_life():
+    with pytest.raises(ValueError, match="representable"):
+        _amplitude_curve(fatigue_strength_exponent=-.00001,
+                         fatigue_ductility_exponent=-.00001)
+
+
 def test_strain_life_inverse_matches_equal_exponent_closed_form():
     curve = replace(_curve(), fatigue_strength_exponent=-0.5, fatigue_ductility_exponent=-0.5)
     for amplitude in (0.1, 0.02, 0.001):

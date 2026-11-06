@@ -32,6 +32,7 @@ class CoffinMansonBasquinCurve:
     calibrated_cycles: tuple[float, float]
     stress_unit: str
     source: str
+    calibrated_strain_amplitudes: tuple[float, float] | None = None
 
     def __post_init__(self):
         for name in ("young", "fatigue_strength_coefficient", "fatigue_ductility_coefficient"):
@@ -53,6 +54,63 @@ class CoffinMansonBasquinCurve:
             if not isinstance(value, str) or not value.strip():
                 raise ValueError(f"{name} must be a nonempty string.")
             object.__setattr__(self, name, value.strip())
+        if self.calibrated_strain_amplitudes is not None:
+            amplitudes = self._amplitude_bounds(self.calibrated_strain_amplitudes)
+            # Explicit amplitude-domain construction must agree with the
+            # model-implied cycle endpoints, including after dataclass replace.
+            actual = [self._log_amplitude(log(bounds[1])), self._log_amplitude(log(bounds[0]))]
+            if not np.allclose(actual, np.log(amplitudes), rtol=0., atol=2.e-12):
+                raise ValueError("Cycle bounds and declared strain-amplitude bounds are inconsistent.")
+            object.__setattr__(self, "calibrated_strain_amplitudes", amplitudes)
+
+    @staticmethod
+    def _amplitude_bounds(values):
+        from numbers import Real
+
+        try:
+            selected = tuple(values)
+        except TypeError as exc:
+            raise ValueError("calibrated_strain_amplitudes must contain two amplitudes.") from exc
+        if (len(selected) != 2 or any(isinstance(v, (bool, np.bool_)) or not isinstance(v, Real)
+                                     or not isfinite(v) or v <= 0. for v in selected)
+                or selected[0] >= selected[1]):
+            raise ValueError("calibrated_strain_amplitudes must be two increasing positive finite amplitudes.")
+        return tuple(map(float, selected))
+
+    @classmethod
+    def from_strain_domain(
+        cls, *, calibrated_strain_amplitudes, young, fatigue_strength_coefficient,
+        fatigue_strength_exponent, fatigue_ductility_coefficient,
+        fatigue_ductility_exponent, stress_unit, source,
+    ):
+        """Use a declared total-mechanical-strain amplitude calibration domain.
+
+        Derive its model-implied cycle bounds without fitting or widening the
+        amplitude domain. Observed life extrema are not required to equal the
+        fitted curve's endpoint predictions. This does not qualify parameters.
+        """
+        from dataclasses import replace
+
+        amplitudes = cls._amplitude_bounds(calibrated_strain_amplitudes)
+        prototype = cls(
+            young, fatigue_strength_coefficient, fatigue_strength_exponent,
+            fatigue_ductility_coefficient, fatigue_ductility_exponent,
+            (1., 2.), stress_unit, source,
+        )
+        bounds = []
+        for amplitude in reversed(amplitudes):
+            left, right, target = log(float(np.nextafter(0., 1.))), log(np.finfo(float).max), log(amplitude)
+            if not prototype._log_amplitude(right) <= target <= prototype._log_amplitude(left):
+                raise ValueError("Amplitude domain implies life outside the representable cycle range.")
+            for _ in range(100):
+                middle = .5 * (left + right)
+                if prototype._log_amplitude(middle) > target:
+                    left = middle
+                else:
+                    right = middle
+            bounds.append(exp(.5 * (left + right)))
+        return replace(prototype, calibrated_cycles=tuple(bounds),
+                       calibrated_strain_amplitudes=amplitudes)
 
     def _log_amplitude(self, log_cycles: float) -> float:
         log_reversals = log(2.0) + log_cycles
@@ -68,6 +126,11 @@ class CoffinMansonBasquinCurve:
         low, high = self.calibrated_cycles
         if not isfinite(cycles) or not low <= cycles <= high:
             raise ValueError("cycles_to_failure lies outside calibrated_cycles.")
+        if self.calibrated_strain_amplitudes is not None:
+            if cycles == low:
+                return self.calibrated_strain_amplitudes[1]
+            if cycles == high:
+                return self.calibrated_strain_amplitudes[0]
         value = exp(self._log_amplitude(log(cycles)))
         if not isfinite(value) or value <= 0.0:
             raise ValueError("Strain amplitude is not representable for this calibration.")
@@ -78,7 +141,9 @@ class CoffinMansonBasquinCurve:
         if not isfinite(amplitude) or amplitude <= 0.0:
             raise ValueError("strain_amplitude must be finite and positive.")
         low, high = self.calibrated_cycles
-        smallest, largest = self.strain_amplitude(high), self.strain_amplitude(low)
+        smallest, largest = (self.calibrated_strain_amplitudes
+                             if self.calibrated_strain_amplitudes is not None
+                             else (self.strain_amplitude(high), self.strain_amplitude(low)))
         if not smallest <= amplitude <= largest:
             raise ValueError("strain_amplitude lies outside the calibrated range; extrapolation is disabled.")
         if amplitude == largest:
@@ -97,7 +162,7 @@ class CoffinMansonBasquinCurve:
         return min(high, max(low, exp(0.5 * (left + right))))
 
     def as_dict(self):
-        return dict(
+        record = dict(
             model="coffin_manson_basquin", maturity="postprocessor",
             young=self.young, fatigue_strength_coefficient=self.fatigue_strength_coefficient,
             fatigue_strength_exponent=self.fatigue_strength_exponent,
@@ -107,6 +172,11 @@ class CoffinMansonBasquinCurve:
             strain_unit="1", life_unit="full_cycles", source=self.source,
             extrapolation="error", mean_stress_correction="none",
         )
+        if self.calibrated_strain_amplitudes is not None:
+            record.update(calibration_domain="total_mechanical_strain_amplitude",
+                          calibrated_strain_amplitudes=list(self.calibrated_strain_amplitudes),
+                          cycle_bounds_role="model_implied_from_declared_amplitude_domain")
+        return record
 
 
 @dataclass(frozen=True)

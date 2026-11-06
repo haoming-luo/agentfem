@@ -115,12 +115,7 @@ def test_explicit_unit_conversion_preserves_damage():
             values=history.values * (1e6 if name == "stress" else 1),
             unit="Pa" if name == "stress" else "K",
         )
-    converted = curve(
-        stresses=(40e6, 100e6),
-        rupture_times=(2500.0 / 3600.0, 1000.0 / 3600.0),
-        stress_unit="Pa",
-        time_unit="h",
-    )
+    converted = curve().in_units(stress_unit="Pa", time_unit="h")
     actual = _integrate(
         result,
         rupture_time=converted,
@@ -129,6 +124,46 @@ def test_explicit_unit_conversion_preserves_damage():
         dwells=(assessments.DwellInterval(0.0, 3.0 / 3600.0),),
     )
     assert actual.damage == pytest.approx(baseline.damage)
+
+
+def test_conversion_is_immutable_traceable_and_preserves_scientific_identity():
+    original = curve(time_unit="h")
+    converted = original.in_units(stress_unit="tonne/(mm*s^2)", time_unit="s")
+    assert converted.stresses == original.stresses
+    assert converted(60., 800.) == pytest.approx(original(60., 800.) * 3600)
+    assert original.time_unit == "h"
+    assert "unit_conversions" not in original.as_dict()
+    for key in ("source", "temperature", "stress_measure", "material_condition", "failure_definition"):
+        assert getattr(converted, key) == getattr(original, key)
+    evidence = converted.as_dict()
+    assert evidence["unit_conversions"][0]["time_factor"] == 3600
+    evidence["unit_conversions"][0]["time_factor"] = -1
+    assert converted.as_dict()["unit_conversions"][0]["time_factor"] == 3600
+    roundtrip = converted.in_units(stress_unit="MPa", time_unit="h")
+    assert roundtrip.rupture_times == pytest.approx(original.rupture_times)
+    assert len(roundtrip.as_dict()["unit_conversions"]) == 2
+
+
+@pytest.mark.parametrize("unit,scale", [("Pa", 1e6), ("kPa", 1e3), ("GPa", 1e-3),
+                                      ("kg/(m*s^2)", 1e6)])
+def test_supported_stress_conversion(unit, scale):
+    relation = curve().in_units(stress_unit=unit, time_unit="min")
+    assert relation.stresses == pytest.approx(np.array([40, 100]) * scale)
+    assert relation(60 * scale, 800) == pytest.approx((100000 / 60) / 60)
+
+
+@pytest.mark.parametrize("options", [dict(stress_unit="psi", time_unit="s"),
+                                     dict(stress_unit="MPa", time_unit="fortnight"),
+                                     dict(stress_unit=[], time_unit="s")])
+def test_unsupported_conversion_rejects(options):
+    with pytest.raises(ValueError, match="Unsupported"):
+        curve().in_units(**options)
+
+
+def test_unrepresentable_converted_nodes_reject():
+    with pytest.raises(ValueError, match="finite positive"):
+        curve(stresses=(1e302, 1e303), stress_unit="GPa").in_units(
+            stress_unit="Pa", time_unit="s")
 
 
 @pytest.mark.parametrize("value", [True, np.bool_(True)])

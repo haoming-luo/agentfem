@@ -14,7 +14,7 @@ from agentfem import amplitudes, constitutive, fields, histories, mesh, models, 
 from agentfem import assessments
 
 
-def _step(*, requests=None, joint=False, regional=False, automatic=False):
+def _step(*, requests=None, joint=False, regional=False, automatic=False, isothermal=False):
     domain = mesh.cuboid((0., 0., 0.), (2., 1., 1.), (2, 1, 1),
                          cell_type="hexahedron", comm=MPI.COMM_SELF)
     model = models.create(study=studies.creep_solid(), mesh=domain, units=units.n_mm_mpa())
@@ -22,7 +22,7 @@ def _step(*, requests=None, joint=False, regional=False, automatic=False):
     temperature = model.field(fields.temperature(domain))
     path = histories.temperature(temperature)
     for time in (0., 4.):
-        temperature.value.interpolate(lambda x, current=time: 800. + 20. * x[0] + 10. * current)
+        temperature.value.interpolate(lambda x, current=time: 800. + (0. if isothermal else 1.) * (20. * x[0] + 10. * current))
         temperature.value.x.scatter_forward()
         path.record(time)
     elastic = constitutive.thermoelastic(
@@ -78,6 +78,26 @@ def test_colocated_fields_use_original_cell_keys_and_physical_time(joint, region
             assert result.histories[prefix + ".ALPHA"].value_shape == (2, 3, 3)
     assert not np.array_equal(result.histories["a.TEMP"].values, result.histories["b.TEMP"].values)
     assert len(result.histories["a.S"].abscissa) == len(step.accepted_increments) == 8
+
+
+def test_converted_rupture_table_consumes_unmodified_structural_history():
+    result = _step(isothermal=True).solve_result()
+    stress = result.histories["a.S"]
+    original = stress.values.copy()
+    table = assessments.TabulatedRuptureCurve(
+        stresses=(1., 1.e5), rupture_times=(5., 5.), temperature=800.,
+        stress_unit="MPa", time_unit="h", stress_measure="signed Cauchy 11",
+        material_condition="synthetic", failure_definition="synthetic rupture",
+        source="constant 5 hour test curve")
+    converted = table.in_units(stress_unit=stress.unit, time_unit=stress.abscissa_unit)
+    assessment = assessments.creep_damage_from_result(
+        result, stress_history="a.S", temperature_history="a.TEMP", stress_component=(0, 0),
+        dwells=(assessments.DwellInterval(.5, 1.),), rupture_time=converted,
+        rupture_source=table.source, stress_unit=stress.unit, time_unit=stress.abscissa_unit,
+        stress_measure=table.stress_measure)
+    assert assessment.damage == pytest.approx(.5 / (5 * 3600))
+    assert assessment.as_dict()["rupture_relation"]["unit_conversions"][0]["time_factor"] == 3600
+    np.testing.assert_array_equal(stress.values, original)
 
 
 def test_assessment_consumes_raw_tensor_without_project_glue():

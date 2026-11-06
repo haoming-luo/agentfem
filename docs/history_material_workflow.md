@@ -319,6 +319,13 @@ visualization displacement and compatible cell fields. In ParaView, use
 XML, Extract Block operation, node merge or connectivity code belongs in the
 case.
 
+The small-strain user-material result preserves declared state units on both
+integration-point fields and their `_CELL` averages. Stress and energy-density
+units come from the model unit system, as does the reaction-force unit; an
+unspecified model unit system remains unspecified, not silently assumed SI.
+State aliases must not replace solver fields or another state's `_CELL` field.
+Conflicts are rejected when constructing the Step, before material evaluation.
+
 This route uses immutable closed frame files under `results-data/` and updates
 the small `results.xdmf` index atomically. The index is readable during the run;
 refresh the reader to see new frames. Reference geometry and topology are
