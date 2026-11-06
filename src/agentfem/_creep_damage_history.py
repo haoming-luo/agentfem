@@ -53,6 +53,7 @@ class CreepDamageHistoryAssessment:
     rupture_relation: dict | None = None
     stress_component: tuple[int, int] | None = None
     material_point_source: dict | None = None
+    quadrature_subdivisions: int = 1
 
     def as_dict(self):
         record = dict(
@@ -65,6 +66,7 @@ class CreepDamageHistoryAssessment:
             maximum_stress_sample_interval=self.maximum_stress_sample_interval,
             maximum_temperature_sample_interval=self.maximum_temperature_sample_interval,
             source_interval_relative_tolerance=_SOURCE_INTERVAL_RTOL,
+            quadrature_subdivisions=self.quadrature_subdivisions,
             intervals=[interval.as_dict() for interval in self.intervals],
         )
         if self.rupture_relation is not None:
@@ -157,6 +159,7 @@ def creep_damage_from_result(
     rupture_time, rupture_source: str, stress_unit: str, time_unit: str,
     stress_measure: str, maximum_source_interval: float | None = None,
     stress_component: tuple[int, int] | None = None,
+    quadrature_subdivisions: int = 1,
 ) -> CreepDamageHistoryAssessment:
     """Integrate ``dt / rupture_time(stress, temperature)`` over explicit dwells.
 
@@ -168,6 +171,10 @@ def creep_damage_from_result(
     endpoints define the trapezoidal quadrature. Source sampling, not just the
     union grid, is checked by optional ``maximum_source_interval``, with a
     relative 1e-12 roundoff allowance and no absolute/time-origin allowance.
+    ``quadrature_subdivisions`` (integer 1 through 1024) refines each union-grid
+    interval for integration of the interpolated inputs. It does not refine
+    the source history or certify its accuracy. Compare successive subdivisions
+    to study quadrature separately from source sampling; the default is unchanged.
 
     Dwells must be ordered, disjoint and covered by both histories. A repeated
     dwell represents an explicitly assumed repeated response; it does not
@@ -182,6 +189,11 @@ def creep_damage_from_result(
     from .assessments import DwellInterval
     from ._rupture_curve import TabulatedRuptureCurve
 
+    if (isinstance(quadrature_subdivisions, (bool, np.bool_))
+            or not isinstance(quadrature_subdivisions, (int, np.integer))
+            or not 1 <= quadrature_subdivisions <= 1024):
+        raise ValueError("quadrature_subdivisions must be an integer from 1 through 1024.")
+    quadrature_subdivisions = int(quadrature_subdivisions)
     for name, value in (("rupture_source", rupture_source), ("stress_unit", stress_unit),
                         ("time_unit", time_unit), ("stress_measure", stress_measure)):
         if not isinstance(value, str) or not value.strip():
@@ -236,6 +248,15 @@ def creep_damage_from_result(
     for dwell, (stress_slice, temperature_slice) in zip(selected_dwells, dwell_slices, strict=True):
         grid = np.unique(np.concatenate(([dwell.start, dwell.end],
             sx[stress_slice], tx[temperature_slice])))
+        if quadrature_subdivisions > 1:
+            # Preserve every original knot; never span a slope discontinuity.
+            grid = np.concatenate([
+                *(np.linspace(left, right, quadrature_subdivisions + 1)[:-1]
+                  for left, right in zip(grid[:-1], grid[1:], strict=True)),
+                grid[-1:],
+            ])
+            if np.any(np.diff(grid) <= 0.):
+                raise ValueError("Quadrature subdivision times are not distinguishable at this time origin.")
         stresses, temperatures = np.interp(grid, sx, sy), np.interp(grid, tx, ty)
         rates = []
         for time, sigma, kelvin in zip(grid, stresses, temperatures, strict=True):
@@ -271,4 +292,4 @@ def creep_damage_from_result(
     return CreepDamageHistoryAssessment(
         tuple(intervals), damage, f"{result.name}:{stress_history},{temperature_history}",
         rupture_source, stress_unit, time_unit, stress_measure, *gaps, relation,
-        component, point_source)
+        component, point_source, quadrature_subdivisions)

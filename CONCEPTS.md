@@ -255,6 +255,8 @@ and an explicitly declared signed total mechanical strain history. It reuses
 rainflow and the same interaction assessment without converting PEEQ into a
 cycle amplitude or feeding assessed damage back into equilibrium. See
 `docs/strain_life_assessment.md` for the calibration and mean-stress boundary.
+Time-fraction quadrature may explicitly subdivide interpolated input intervals;
+this is not extra physical sampling or an integration-error certificate.
 
 ## Constitutive Law
 

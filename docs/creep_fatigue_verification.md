@@ -170,6 +170,14 @@ so ordinary equal time increments are not rejected by subtraction noise. There
 is no absolute or time-origin-scaled tolerance; large time offsets and very
 small intervals cannot conceal a genuinely undersampled history.
 
+Optional `quadrature_subdivisions` separates quadrature refinement from source
+sampling. A synthetic linear stress path with cubic reciprocal rupture time
+has an independent polynomial integral: successive 1/2/4/8 subdivisions reduce
+trapezoidal error by four while the original source gaps remain unchanged.
+Refinement retains every original union-grid knot. It cannot bypass source-gap
+limits or recover unrecorded stress transients; unrepresentable time refinements
+are rejected rather than silently collapsed.
+
 ### Independent rainflow counting
 
 `tests/test_rainflow_references.py` checks the nine published count/range/mean

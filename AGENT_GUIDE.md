@@ -300,6 +300,9 @@ interpolating unsaved damage states.
   strain. Never substitute accumulated PEEQ or sparse visualization frames.
   The result can be passed to `assessments.creep_fatigue`; it is not a
   stiffness-damage law or a certified service-life prediction.
+  Use `creep_damage_from_result(..., quadrature_subdivisions=...)` only for
+  explicit quadrature refinement; source-gap checks still apply to recorded
+  history, not interpolated points. Keep this separate from FE time refinement.
 - Multi-Step activation: use `model.stage(...)` and pass its result as
   `configuration=` to `model.step(...)`; keep asset inheritance separate from
   incrementation and nonlinear solver controls.

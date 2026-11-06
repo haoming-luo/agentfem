@@ -100,6 +100,15 @@ design-code acceptance curve. A combined assessment does not feed damage back
 into equilibrium, and does not prove absence of double-counting when the
 supplied strain-life calibration already includes dwell effects.
 
+For a nonlinear rupture relation, compare `quadrature_subdivisions=1, 2, 4`
+in `creep_damage_from_result` to check integration sensitivity on the same
+piecewise-linear stress/temperature histories. This explicitly refines every
+union-grid interval, preserves original knots, and records the subdivision
+count. It does not add physical samples or reduce the reported source gaps;
+`maximum_source_interval` still checks the original histories. The supported
+integer range is 1–1024 per interval. Numerical time resolution must permit the
+requested subdivision. No automatic error certificate is inferred.
+
 The current tests cover equal-exponent closed-form inversion, round trips,
 stress-unit invariance, full/half-cycle conventions, calibration rejection,
 source retention and composition. They do not validate a material's fitted
