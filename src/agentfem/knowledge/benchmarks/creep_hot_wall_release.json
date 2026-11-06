@@ -12,7 +12,7 @@
     "evidence": "Four heat increments, one thermoelastic solve, and forty exact K-R material-point updates must complete and produce the versioned governing stress, rupture estimate, and end damage."
   },
   "observables": [
-    "Maximum sampled thermoelastic von Mises stress driving the local assessment.",
+    "Maximum cell-average three-dimensional thermoelastic von Mises stress driving the local assessment.",
     "K-R rupture-time estimate for the declared illustrative parameters.",
     "Damage at ninety percent of the analytical rupture time.",
     "Material-point strain, damage, and modified-theta histories plus FEM field artifacts."
@@ -24,19 +24,19 @@
     "The manifest states that K-R damage is a governing-point assessment rather than the separate global isothermal power-law creep field solve."
   ],
   "golden": {
-    "reference_version": "q1-6x10-heat4-kr40-1",
+    "reference_version": "q1-6x10-heat4-kr40-plane-strain-mises-2",
     "quantities": [
       {
         "name": "governing_von_mises_stress",
-        "expected": 331321497.13443035,
+        "expected": 554397427.2293957,
         "relative_tolerance": 2e-7,
         "absolute_tolerance": 5.0,
         "unit": "Pa",
-        "description": "Maximum quadrature-sampled plane-strain thermoelastic von Mises stress on the reduced release mesh."
+        "description": "Maximum DG0 cell-average three-dimensional von Mises invariant, including constrained out-of-plane stress, on the reduced release mesh."
       },
       {
         "name": "predicted_rupture_time",
-        "expected": 31308.280996458638,
+        "expected": 2386.718875046755,
         "relative_tolerance": 1e-6,
         "absolute_tolerance": 0.01,
         "unit": "h",
@@ -53,6 +53,8 @@
     ]
   },
   "limitations": [
+    "Version 2 replaces the erroneous two-dimensional deviator in version 1; the old stress and rupture-time regression values are superseded, not experimental observations.",
+    "Cell-average maxima do not certify a converged local hotspot; spatial refinement remains necessary for component assessment.",
     "This is a versioned implementation regression, not material calibration or experimental validation.",
     "Creep and damage are evaluated at one governing sampled stress; no global stress redistribution is solved.",
     "The parameters are illustrative and must not be used for component-life decisions."

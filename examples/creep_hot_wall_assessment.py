@@ -13,13 +13,12 @@ from pathlib import Path
 import os
 
 import numpy as np
-import ufl
 from mpi4py import MPI
 
-from agentfem import benchmarks, constitutive, fields, mesh, models, results, studies
+from agentfem import benchmarks, constitutive, diagnostics, fields, mesh, models, results, studies
 
 
-def main() -> None:
+def main(*, output=None) -> None:
     smoke = os.environ.get("AGENTFEM_RELEASE_SMOKE") == "1"
     domain = mesh.rectangle(
         (0.0, 0.0),
@@ -41,7 +40,8 @@ def main() -> None:
     hot = mesh.boundary(domain, lambda x: np.isclose(x[0], 0.0), name="hot_face", tag=1)
     cold = mesh.boundary(domain, lambda x: np.isclose(x[0], 0.12), name="cold_face", tag=2)
     bottom = mesh.boundary(domain, lambda x: np.isclose(x[1], 0.0), name="bottom", tag=3)
-    output = Path(__file__).resolve().parents[1] / "examples_output" / "creep_hot_wall"
+    output = (Path(__file__).resolve().parents[1] / "examples_output" / "creep_hot_wall"
+              if output is None else Path(output))
 
     heat = models.create(
         study=studies.transient_heat_transfer(dimension=2),
@@ -85,15 +85,9 @@ def main() -> None:
     mechanics_result = mechanics_step.solve_result()
     mechanics_result.verify("engineering").require()
 
-    stress = constitutive.thermoelastic_stress(
-        displacement,
-        temperature,
-        steel,
-        study=mechanics.study,
-    )
-    deviator = stress - ufl.tr(stress) / 2.0 * ufl.Identity(2)
-    mises = ufl.sqrt(1.5 * ufl.inner(deviator, deviator))
-    _, governing_stress = results.quadrature_extrema(mises, domain, degree=4)
+    # Standard output owns the plane-strain out-of-plane stress reconstruction.
+    # This is the maximum cell-average invariant, not a converged hotspot.
+    governing_stress = diagnostics.max_magnitude(mechanics_result.fields["MISES"].field)
     mechanics_result.add_field(
         "TEMP",
         temperature.value,
@@ -103,7 +97,7 @@ def main() -> None:
     results.write_result_fields(
         mechanics_result,
         output / "thermoelastic_state.xdmf",
-        names=("Displacement", "TEMP"),
+        names=("Displacement", "TEMP", "S", "MISES"),
         time=1.0,
     )
 
@@ -136,6 +130,7 @@ def main() -> None:
         metadata={
             "workflow": "sequential_thermoelastic_then_material_point_creep",
             "creep_scope": "governing sampled stress; not a global creep field solve",
+            "governing_stress_sampling": "maximum DG0 cell-average three-dimensional von Mises invariant",
             "calibration": "illustrative parameters; replace with traceable material data",
             "material": creep.as_dict(),
             "theta_projection": theta.as_dict(),
