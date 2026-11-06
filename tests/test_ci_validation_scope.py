@@ -13,6 +13,15 @@ from ci_validation_scope import (
 
 
 @pytest.mark.parametrize("path", (
+    "tools/p92_db_cohort_screen.py", "evidence/creep/p92-db-cohort.json",
+))
+def test_db_cohort_sources_select_their_reference(path):
+    scope = classify_changes([path])
+    assert scope.level == "targeted"
+    assert "tests/test_p92_db_cohort_screen.py" in scope.tests
+
+
+@pytest.mark.parametrize("path", (
     "tools/p92_rate_fatigue_screen.py", "evidence/creep/p92-service-aged-fatigue.json",
 ))
 def test_rate_fatigue_sources_select_their_reference(path):
