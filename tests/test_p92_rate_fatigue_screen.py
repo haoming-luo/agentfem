@@ -62,10 +62,10 @@ def test_explicit_tested_amplitude_domain_preserves_coefficients_and_matches_ind
                     "fatigue_ductility_coefficient", "fatigue_ductility_exponent"):
             assert p[key] == old["curve"][key]
         for row in new["comparisons"]:
-            def residual(cycles):
+            def residual(cycles, p=p, amplitude=row["amplitude"]):
                 return (p["fatigue_strength_coefficient"] * (2 * cycles)**p["fatigue_strength_exponent"]
                         + p["fatigue_ductility_coefficient"] * (2 * cycles)**p["fatigue_ductility_exponent"]
-                        - row["amplitude"])
+                        - amplitude)
             expected = brentq(residual, 1., 1.e6, xtol=1.e-10)
             np.testing.assert_allclose(row["predicted_cycles"], expected, rtol=1.e-12)
     assert not explicit["engineering_qualified"]
