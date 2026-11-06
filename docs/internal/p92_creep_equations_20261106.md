@@ -67,6 +67,12 @@ endpoint refinement are checked. At endpoints 0.15/0.24/0.3 the times are
 1172.7345/1187.3871/1187.9839 h; endpoints 0.5 through near-one approach
 1188.04323 h. Stopping the integration earlier is not used to force agreement.
 
+The near-one numerical endpoint implies strain about 0.667 in this reduction,
+not the stated ductility parameter 0.2. At strain 0.2 the damage variable is
+0.3 and elapsed time is already 1187.9839 h. Nearly identical endpoint times
+therefore do **not** establish the failure strain or a physical rupture
+criterion. Keep the numerical asymptote and source failure definition separate.
+
 Run from the source root in fenicsx-env:
 
 ```bash

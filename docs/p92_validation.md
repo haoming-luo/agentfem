@@ -96,6 +96,20 @@ rupture observations. Access and use are through the
 [NIMS data service](https://cds.nims.go.jp/en/); the announcement alone does not
 supply the numerical curves. Different heats are not silently pooled.
 
+### Compatible does not mean necessarily the same heat
+
+Same-heat tests are useful, not an absolute software admission rule. A
+cross-heat research assessment may proceed with explicit transfer assumptions,
+stratified validation and reported scatter. It must not be labelled same-heat
+validation or a component allowable. Preserve individual source identities
+instead of rewriting their material-condition labels to make a combination fit.
+
+The public [EPRI report 1019778 (2010)](https://restservice.epri.com/publicdownload/000000000001019778/0/Product),
+Table 5-1 and sections 5.2–5.3, calls for pedigree/distribution/scatter review
+and distinguishes deformation interaction from damage interaction. Our
+cross-heat research policy is an implementation decision informed by that
+guidance, not a claim that the report supplies P92 design curves.
+
 ## Integrated software foundation
 
 The [nonuniform bending screen](internal/p92_nonuniform_structure_20261107.md)
