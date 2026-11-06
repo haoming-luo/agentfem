@@ -6,7 +6,7 @@ from dataclasses import replace
 import numpy as np
 import pytest
 
-from agentfem.constitutive import CreepDamageState, KachanovRabotnovCreep
+from agentfem.constitutive import CreepDamageState, KachanovRabotnovCreep, PowerLawCreep
 
 
 def decimal_reference(law, stress, duration, damage):
@@ -108,3 +108,45 @@ def test_reference_scales_preserve_same_physical_interval():
         assert second.equivalent_increment == pytest.approx(first.equivalent_increment, rel=1e-14, abs=0)
         assert second.state.damage == pytest.approx(first.state.damage, rel=1e-14, abs=0)
     assert seconds_pa.rupture_time(110e6) == pytest.approx(hours.rupture_time(110.) * 3600.)
+
+
+@pytest.mark.parametrize("exponent", [-.999999, -.5, 0., .5, 2.])
+@pytest.mark.parametrize("interval", [(0., 3.), (1., 4.), (1e10, 1e10 + 1e-5), (1e-100, 1e100)])
+def test_power_law_short_and_wide_intervals(exponent, interval):
+    law = PowerLawCreep(1e-12, 3., time_exponent=exponent, reference_time=3600.)
+    start, end = interval
+    with localcontext() as ctx:
+        ctx.prec = 90
+        # Use the actually representable endpoints, not a reconstructed decimal
+        # duration: a solver cannot recover time digits absent from its inputs.
+        d = Decimal.from_float
+        p = d(exponent) + 1
+        reference = (d(law.coefficient) * 100**3 * d(law.reference_time)
+                     * ((d(end) / d(law.reference_time))**p
+                        - (d(start) / d(law.reference_time))**p) / p)
+    actual = law.constant_stress_increment(100., start, end)
+    assert actual == pytest.approx(float(reference), rel=3e-14, abs=0)
+
+
+def test_power_law_large_clock_tensor_direction_and_subdivision():
+    law = PowerLawCreep(1e-12, 3.)
+    start, end = 1e10, 1e10 + 1e-5
+    expected = law.coefficient * 100**3 * (end - start)
+    middle = start + (end - start) / 2
+    split = (law.constant_stress_increment(100., start, middle)
+             + law.constant_stress_increment(100., middle, end))
+    assert split == pytest.approx(expected, rel=1e-14, abs=0)
+    np.testing.assert_allclose(
+        law.tensor_increment(np.diag([100., 0., 0.]), start, end),
+        expected * np.diag([1., -.5, -.5]), rtol=1e-14, atol=0,
+    )
+
+
+@pytest.mark.parametrize("start,end", [(-1., 0.), (2., 1.), (float("nan"), 1.), (0., float("inf"))])
+def test_power_law_interval_rejects_invalid_clock(start, end):
+    with pytest.raises(ValueError):
+        PowerLawCreep(1., 2.).constant_stress_increment(1., start, end)
+
+
+def test_power_law_zero_interval_is_identity_at_singular_initial_rate():
+    assert PowerLawCreep(1., 2., time_exponent=-.5).constant_stress_increment(1., 0., 0.) == 0.

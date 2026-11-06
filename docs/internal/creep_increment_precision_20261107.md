@@ -16,6 +16,19 @@ between powers near one. These are standard cancellation-resistant primitives;
 see the [Python math reference](https://docs.python.org/3/library/math.html#math.expm1).
 No coefficients, exponent, stress measure or time unit change.
 
+The same audit found cancellation in `PowerLawCreep.constant_stress_increment`:
+at a stored start time of `1e10`, end time `start + 1e-5`, coefficient
+`1e-12`, stress exponent 3 and stress 100, subtracting accumulated strains
+underestimates the interval increment by 4.63%. The actual representable
+duration is `9.5367431640625e-6`; this is the reference interval, not an
+assumption that floating-point time has retained all requested decimal digits.
+For time-independent rates, integrate rate times duration directly. Otherwise,
+factor the power difference around the upper endpoint and use a bounded
+`-expm1(-p*log(end/start))` fraction with `log1p` for nearby endpoints.
+Zero-origin and zero-duration paths remain explicit; invalid clocks are rejected.
+This avoids cancellation without changing the power-law integral or resetting
+the physical clock.
+
 The same expression stabilizes the prescribed failure threshold and rupture
 time. A supplied terminal state remains terminal instead of losing damage
 when the configured threshold is lower than its existing damage. This remains
@@ -28,7 +41,11 @@ ordinary increments, positive/negative/zero integral exponents, nonzero prior
 damage, tensor direction, repeated subdivision, explicit stress/time reference
 scales, tiny failure thresholds, and terminal-state monotonicity. Existing
 constitutive, analytical structural references and release golden contracts
-are also checked: 76 targeted tests passed, including the actual thermal-wall
-example, with lint and generated-document checks passing. This numerical
+are also checked. After adding the power-law repair, 184 targeted tests passed,
+including the actual thermal-wall example, creep history, manufactured field,
+elastic follow-up and prescribed-trial paths. The 46 dedicated precision tests
+also cover wide time intervals, nearly singular integrable initial rates,
+zero duration and the distinction between requested and representable clocks.
+Critical lint passes. This numerical
 repair does not resolve discrepancies in
 published material coefficients or qualify P92 engineering life.

@@ -1147,12 +1147,33 @@ class PowerLawCreep:
         time_start: float,
         time_end: float,
     ) -> float:
-        if time_end < time_start:
-            raise ValueError("time_end must be greater than or equal to time_start.")
-        return self.constant_stress_strain(
-            equivalent_stress,
-            time_end,
-        ) - self.constant_stress_strain(equivalent_stress, time_start)
+        start, end = float(time_start), float(time_end)
+        stress = abs(float(equivalent_stress))
+        if not all(isfinite(value) for value in (start, end, stress)):
+            raise ValueError("stress and interval times must be finite.")
+        if start < 0.0 or end < start:
+            raise ValueError("Require 0 <= time_start <= time_end.")
+        duration = end - start
+        if duration == 0.0 or stress == 0.0 or self.coefficient == 0.0:
+            return 0.0
+        stress_factor = (stress / self.reference_stress) ** self.stress_exponent
+        if self.time_exponent == 0.0:
+            return float(self.coefficient * stress_factor * duration)
+        if start == 0.0:
+            return self.constant_stress_strain(stress, end)
+        power = self.time_exponent + 1.0
+        log_ratio = (
+            log1p(duration / start) if duration <= start
+            else log(end) - log(start)
+        )
+        # Factor around the upper endpoint. The fractional power difference
+        # stays in [0, 1], without subtracting two nearly equal accumulated
+        # strains or overflowing expm1 for widely separated endpoints.
+        return float(
+            self.coefficient * self.reference_time * stress_factor
+            * (end / self.reference_time) ** power
+            * (-expm1(-power * log_ratio)) / power
+        )
 
     def tensor_increment(
         self,
