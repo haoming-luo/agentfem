@@ -88,7 +88,7 @@ and evidence remain in the linked guides and scientific function reference.
 | function | `cells(domain, *, name: str, where, tag: int = 1) -> CellRegion` | Create a named cell region from a selector. |
 | function | `partition_cells(domain, **regions) -> RegionSet` | Partition mesh cells into named cell regions. |
 | function | `partition_boundaries(domain, **regions) -> RegionSet` | Create disjoint exterior regions sharing one facet-tag table. |
-| function | `locate_cells(domain, marker)` | Locate cells using a geometrical marker. |
+| function | `locate_cells(domain, marker, *, by = "vertices")` | Locate cells by vertices or owned-cell centroids. |
 | function | `mark_cells(domain, cells, tag: int)` | Create cell meshtags for a set of cells. |
 | function | `mark_cell_regions(domain, tag_to_marker: dict[int, object])` | Create cell meshtags from several geometric cell markers. |
 | function | `tag_field(domain, tags, *, name: str = 'Tag')` | Create a DG0 visualization field from cell tags. |
@@ -99,7 +99,8 @@ and evidence remain in the linked guides and scientific function reference.
 | function | `cell_measure(domain, cell_tags = None)` | Create a domain integration measure. |
 | function | `facet_normal(domain)` | Return the outward facet normal for boundary models. |
 | function | `tagged_boundary_measure(domain, marker, tag: int)` | Locate/tag exterior facets and return ``(ds, facet_tags)``. |
-| function | `from_arrays(*, cells, coordinates, coordinate_element, comm = None, partitioner = None)` | Create a DOLFINx mesh through explicit topology/geometry keywords. |
+| function | `from_arrays(*, cells, coordinates, coordinate_element = None, cell_type = None, geometry_degree = 1, comm = None, partitioner = None)` | Create a DOLFINx mesh through explicit topology/geometry keywords. |
+| function | `mapped_grid(*, axes, mapping = None, cell_type = "hexahedron", geometry_degree = 1, comm = MPI.COMM_WORLD)` | Map explicit parameter axes to Q1/Q2 quads/hexes or Q1 simplices. |
 | function | `reentrant_honeycomb(*, angle = -30.0, ligament = 1.0, vertical = 1.5, thickness = 0.12, repeats = (1, 1), mesh_size = 0.06, comm = MPI.COMM_WORLD, connected_specimen = False)` | Mesh a rectangular cut of a periodic rounded-joint honeycomb. |
 | class | `CellCompatibility` | One meshio-style source cell mapped to an AgentFEM solver topology. |
 | class | `TopologyCapability` | One narrowly scoped, evidence-bearing runtime topology capability. |

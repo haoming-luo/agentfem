@@ -15,12 +15,8 @@ from __future__ import annotations
 from dataclasses import dataclass
 from math import pi
 
-import basix.ufl
-from dolfinx import fem
-from dolfinx import mesh as dolfinx_mesh
 from mpi4py import MPI
 import numpy as np
-import ufl
 
 from .. import (
     constitutive,
@@ -86,52 +82,15 @@ def thick_cylinder_sector_mesh(
     if selected_cell not in {"tetrahedron", "hexahedron"}:
         raise ValueError("cell_type must be 'tetrahedron' or 'hexahedron'.")
 
-    if comm.rank == 0:
-        radii = np.linspace(inner, outer, nr + 1)
-        angles = np.linspace(0.0, 0.5 * pi, nt + 1)
-        coordinates = np.asarray(
-            [
-                (radius * np.cos(angle), radius * np.sin(angle), z)
-                for z in (0.0, height)
-                for angle in angles
-                for radius in radii
-            ],
-            dtype=float,
-        )
+    def cylindrical_coordinates(parameters):
+        radius, angle, elevation = parameters
+        return np.asarray((radius * np.cos(angle), radius * np.sin(angle), elevation))
 
-        def node(i: int, j: int, k: int) -> int:
-            return k * (nt + 1) * (nr + 1) + j * (nr + 1) + i
-
-        cells = []
-        for j in range(nt):
-            for i in range(nr):
-                a, b = node(i, j, 0), node(i + 1, j, 0)
-                c, d = node(i, j + 1, 0), node(i + 1, j + 1, 0)
-                e, f = node(i, j, 1), node(i + 1, j, 1)
-                g, h = node(i, j + 1, 1), node(i + 1, j + 1, 1)
-                if selected_cell == "hexahedron":
-                    cells.append((a, b, c, d, e, f, g, h))
-                else:
-                    cells.extend(
-                        (
-                            (a, b, d, h),
-                            (a, d, c, h),
-                            (a, c, g, h),
-                            (a, g, e, h),
-                            (a, e, f, h),
-                            (a, f, b, h),
-                        )
-                    )
-        topology = np.asarray(cells, dtype=np.int64)
-    else:
-        coordinates = np.empty((0, 3), dtype=float)
-        vertices = 8 if selected_cell == "hexahedron" else 4
-        topology = np.empty((0, vertices), dtype=np.int64)
-
-    coordinate_element = ufl.Mesh(
-        basix.ufl.element("Lagrange", selected_cell, 1, shape=(3,))
+    return mesh.mapped_grid(
+        axes=(np.linspace(inner, outer, nr + 1),
+              np.linspace(0.0, 0.5 * pi, nt + 1), (0.0, height)),
+        mapping=cylindrical_coordinates, cell_type=selected_cell, comm=comm,
     )
-    return dolfinx_mesh.create_mesh(comm, topology, coordinate_element, coordinates)
 
 
 def j2_plane_strain_first_yield_pressure(
@@ -599,19 +558,8 @@ def creep_thick_cylinder_benchmark(
     # benchmark therefore integrates the error directly at the same physical
     # quadrature points used by the creep update.
     stress = step.state.stress
-    cell_map = domain.topology.index_map(domain.topology.dim)
-    owned = int(cell_map.size_local)
-    cells = np.arange(owned, dtype=np.int32)
-    geometric_dimension = domain.geometry.dim
-    coordinates = fem.Expression(
-        ufl.SpatialCoordinate(domain), stress.points
-    ).eval(domain, cells).reshape((-1, geometric_dimension))
-    determinants = np.abs(
-        fem.Expression(
-            ufl.JacobianDeterminant(domain), stress.points
-        ).eval(domain, cells).reshape(-1)
-    )
-    weights = determinants * np.tile(stress.weights, owned)
+    coordinates = stress.owned_physical_points.reshape((-1, domain.geometry.dim))
+    weights = stress.owned_physical_weights()
     if normalized_formulation == "axisymmetric":
         radius = coordinates[:, 0]
         weights *= 2.0 * pi * radius

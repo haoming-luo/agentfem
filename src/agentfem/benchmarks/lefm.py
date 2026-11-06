@@ -8,8 +8,6 @@ from __future__ import annotations
 from dataclasses import dataclass
 from math import isfinite
 
-import basix
-from dolfinx import mesh as dolfinx_mesh
 from mpi4py import MPI
 import numpy as np
 import ufl
@@ -29,7 +27,7 @@ from ..fracture_geometry import (
     segment,
     verify_stress_intensity,
 )
-from ..mesh import face
+from ..mesh import face, from_arrays
 from ..models import create
 from ..studies import static_solid
 
@@ -143,14 +141,9 @@ def center_crack_lefm_mesh(
             n11 = node(i + 1, j + 1, lower=lower)
             cells.extend(((n00, n10, n11), (n00, n11, n01)))
 
-    coordinate_element = ufl.Mesh(
-        basix.ufl.element("Lagrange", "triangle", 1, shape=(2,))
-    )
-    return dolfinx_mesh.create_mesh(
-        comm,
-        np.asarray(cells, dtype=np.int64),
-        coordinate_element,
-        np.asarray(coordinates, dtype=float),
+    return from_arrays(
+        comm=comm, cells=np.asarray(cells, dtype=np.int64),
+        coordinates=np.asarray(coordinates, dtype=float), cell_type="triangle",
     )
 
 

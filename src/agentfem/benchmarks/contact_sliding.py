@@ -618,7 +618,7 @@ def finite_sliding_solid_protocol_bridge(
         penalty=penalty,
         name="normal_contact",
     )
-    stability_probe = preload_model.finite_strain_explicit_dynamics_step(
+    stability_probe = preload_model.step(
         target=displacement,
         material=preload_material,
         contact_pairs=(normal_pair,),
@@ -640,7 +640,7 @@ def finite_sliding_solid_protocol_bridge(
         ),
         name="normal_load",
     )
-    preload = preload_model.finite_strain_explicit_dynamics_step(
+    preload = preload_model.step(
         target=displacement,
         material=preload_material,
         contact_pairs=(normal_pair,),
@@ -719,7 +719,7 @@ def finite_sliding_solid_protocol_bridge(
         )
 
     sliding_probe_pair = sliding_pair(1.0, name="sliding_stability_contact")
-    sliding_probe = sliding_model.finite_strain_explicit_dynamics_step(
+    sliding_probe = sliding_model.step(
         target=sliding_displacement,
         material=sliding_material,
         contact_pairs=(sliding_probe_pair,),
@@ -736,7 +736,7 @@ def finite_sliding_solid_protocol_bridge(
         selected_sliding_steps * selected_stage_dt,
         name="finite_sliding_contact",
     )
-    sliding = sliding_model.finite_strain_explicit_dynamics_step(
+    sliding = sliding_model.step(
         target=sliding_displacement,
         material=sliding_material,
         contact_pairs=(active_pair,),
