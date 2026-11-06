@@ -1,0 +1,33 @@
+{
+  "schema": "agentfem.research.p92-service-aged-fatigue.v1",
+  "source": "https://doi.org/10.25560/60640",
+  "source_sha256": "57abdf756ac1198b3aab53d6b9ebe2e5043976401b49cb8e54d90e53d783c273",
+  "locations": {"observations": "Table 4-3, PDF page 94", "coefficients": "Table 4-4, PDF page 101", "failure": "Section 3.7.2.1, PDF page 80"},
+  "material_condition": "Mat02: ex-service P92 parent material, 540 C for 22000 h",
+  "temperature_K": 873.15,
+  "environment": "laboratory air",
+  "waveform": "fully reversed triangular mechanical strain, no dwell",
+  "strain_unit": "1",
+  "strain_rate_unit": "1/s",
+  "life_unit": "full_cycles",
+  "failure_definition": "10% y-intercept stress drop relative to extrapolated stage-II trend; not final machine stop or complete rupture",
+  "observations": [
+    {"id": "LCF_2.4e-3_0.4", "rate": 0.0024, "amplitude": 0.004, "cycles": 2233},
+    {"id": "LCF_2.4e-3_0.6", "rate": 0.0024, "amplitude": 0.006, "cycles": 965},
+    {"id": "LCF_2.4e-3_0.8", "rate": 0.0024, "amplitude": 0.008, "cycles": 543},
+    {"id": "LCF_2.4e-4_0.6", "rate": 0.00024, "amplitude": 0.006, "cycles": 851},
+    {"id": "LCF_2.4e-5_0.4", "rate": 0.000024, "amplitude": 0.004, "cycles": 1640},
+    {"id": "LCF_2.4e-5_0.6", "rate": 0.000024, "amplitude": 0.006, "cycles": 771},
+    {"id": "LCF_2.4e-5_0.8", "rate": 0.000024, "amplitude": 0.008, "cycles": 534}
+  ],
+  "excluded": [
+    {"id": "LCF_2.4e-4_0.4", "reason": "thermocouple detached; invalid temperature/loading history"},
+    {"id": "LCF_2.4e-4_0.8", "reason": "thermocouple detached; invalid temperature/loading history"}
+  ],
+  "curves": [
+    {"rate": 0.0024, "sigma_f_over_E": 0.0021, "epsilon_f": 0.57, "b": -0.055, "c": -0.64},
+    {"rate": 0.000024, "sigma_f_over_E": 0.0041, "epsilon_f": 1.01, "b": -0.16, "c": -0.73}
+  ],
+  "not_selected": "The author's alternative epsilon_f=0.42 fits pooled literature points; not substituted for the high-rate cohort coefficients.",
+  "validation_role": "Published coefficient reproduction and within-source cross-rate diagnostic, not blind holdout or engineering qualification"
+}

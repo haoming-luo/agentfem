@@ -16,6 +16,7 @@ python tools/p92_life_screen.py
 python tools/p92_pure_fatigue_screen.py
 python tools/p92_rupture_screen.py
 python tools/p92_prior_damage_audit.py
+python tools/p92_rate_fatigue_screen.py
 ```
 
 The cyclic figure screen additionally needs an existing continuous-reference
@@ -52,6 +53,11 @@ by approximately 3.67%. This is numerical research evidence, not a promoted
 P92 material card or engineering lifetime validation.
 
 ## Two life routes, not one mixed formula
+
+The [service-aged rate screen](internal/p92_rate_fatigue_20261107.md) adds a
+separate 600 C cohort and reproduces published fatigue coefficients without
+refitting. Cross-rate errors remain visible (up to +32.56% among the cited
+admitted high-to-low-rate comparisons); no blind validation is claimed.
 
 **Combined test-life route:** a fitted creep-fatigue life relation predicts
 the source-defined combined test outcome for an admitted waveform. Do not
