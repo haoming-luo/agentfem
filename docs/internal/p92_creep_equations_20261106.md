@@ -111,3 +111,45 @@ smooth mathematical extension inside the integrator, with no clipping; all
 accepted times must still be nonnegative and nondecreasing. Public physical
 state queries retain nonnegative-time checks. The failed trial was numerical,
 not evidence of a negative physical duration or material rupture.
+
+## Full-table conditional reconstruction
+
+Although per-specimen densities are not tabulated, Figure 5 supplies predicted
+density curves at the relevant amplitudes and holds. They were rendered,
+visually identified and read independently of the lifetime labels. Coordinates,
+axis calibration and two-pixel reading perturbations are retained in
+`evidence/creep/p92-prior-density-figure.json`. These are **author-model inputs**,
+not new measured microstructure data or an independent validation dataset.
+
+```bash
+python -m tools.p92_prior_equation_screen
+```
+
+All 15 rows run with fixed Table 2 parameters and equation 9. Approximate
+computed/published-prediction times in hours are:
+
+| Table row | Computed | Published prediction |
+| --- | ---: | ---: |
+| 1 | 1188.04 | 1146 |
+| 2 | 1046.43 | 1039 |
+| 3 | 715.59 | 695 |
+| 4 | 514.04 | 489 |
+| 5 | 493.76 | 468 |
+| 6 | 1096.72 | 1089 |
+| 7 | 841.50 | 820 |
+| 8 | 578.45 | 550 |
+| 9 | 496.10 | 463 |
+| 10 | 1183.09 | 1076 |
+| 11 | 942.39 | 940 |
+| 12 | 557.99 | 550 |
+| 13 | 490.96 | 479 |
+| 14 | 830.30 | 832 |
+| 15 | 820.89 | 810 |
+
+The largest discrepancy from the paper's prediction is approximately 9.95%
+(row 10); no tolerance is invented to declare reproduction complete. Rows 12
+and 13 remain strongly nonconservative against observed 129 and 186 h.
+Reading sensitivity is reported for each row, not used as a statistical
+confidence interval or an excuse for source inconsistencies. The useful next
+physical question is crack-sensitive degradation in the failed regime, not
+another unconstrained fit of the same coefficients to these known outcomes.
