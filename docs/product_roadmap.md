@@ -1,5 +1,15 @@
 # AgentFEM Product Roadmap
 
+### P92 nonuniform structure checkpoint (2026-11-07)
+
+The [bounded bending screen](internal/p92_nonuniform_structure_20261107.md)
+records four mesh levels, time refinement and a small-model exact restart.
+Total ramp/hold reactions meet the predeclared numerical screens; the
+relaxation drop and clamp hotspot do not yet have spatial convergence evidence.
+Keep those limitations visible instead of expanding the mesh ladder without
+an engineering validation dataset. Same-point tensor histories now connect to
+creep assessment through the existing Result contract (PR #167).
+
 ### P92 sequential-loading research checkpoint (2026-11-06)
 
 The prior-damage dataset audit is merged (#165). The next bounded
