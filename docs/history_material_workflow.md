@@ -122,6 +122,16 @@ contract also has optional thermal/external fields. This structural route now
 supplies the bounded prescribed temperature input below; arbitrary external
 fields and spatial temperature histories remain separate capabilities.
 
+For an expensive local Newton solve, compute shared rate/Jacobian quantities
+once when both callbacks request the identical candidate. Keep this reuse
+inside one update with fixed committed state, time and parameters; copy the
+candidate key because numerical solvers may reuse their input buffer. Do not
+reuse a previous increment's material response. The optional batch interface
+can reduce call overhead separately. Verify both changes on evolving accepted
+paths, not only repeated evaluation of one frozen material point. The
+[P92 evaluation audit](internal/p92_local_evaluation_20261107.md) gives a bounded
+example without changing the framework's material or state contracts.
+
 ### Prescribed temperature, without a second solver
 
 Pass a constant kelvin value as `temperature=300.0`, or reuse a scalar history:

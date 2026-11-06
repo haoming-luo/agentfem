@@ -356,3 +356,40 @@ def test_invalid_elastic_extension_rejected(poisson):
             published_parameters(600),
             poisson=poisson,
         )
+
+
+def test_local_evaluation_reuses_only_identical_owned_candidates(monkeypatch):
+    from tools import p92_tensor_normalization as reference
+
+    original = reference.packed_rates_and_jacobian
+    evaluated = []
+
+    def counted(candidate, *args, **kwargs):
+        evaluated.append(candidate.copy())
+        return original(candidate, *args, **kwargs)
+
+    def probe_root(residual, guess, *, jac, **kwargs):
+        candidate = guess.copy()
+        first = residual(candidate)
+        np.testing.assert_array_equal(residual(candidate.copy()), first)
+        jac(candidate)
+        assert len(evaluated) == 1
+        # A reused MINPACK buffer changes value: object identity is not a key.
+        candidate[0] += 1.
+        residual(candidate)
+        jac(candidate)
+        assert len(evaluated) == 2
+        np.testing.assert_array_equal(evaluated[0], guess)
+        candidate[0] -= 1.
+        residual(candidate)
+        assert len(evaluated) == 3
+        raise RuntimeError("probe complete")
+
+    monkeypatch.setattr(reference, "packed_rates_and_jacobian", counted)
+    monkeypatch.setattr(reference, "root", probe_root)
+    for _ in range(2):
+        evaluated.clear()
+        with pytest.raises(RuntimeError, match="probe complete"):
+            reference.implicit_tensor_update(np.zeros(18), np.zeros((3, 3)), .1,
+                                             published_parameters(650), poisson=.3)
+        assert len(evaluated) == 3  # No cache crosses a new local update.

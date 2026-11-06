@@ -36,6 +36,8 @@ _RELEASE_PREFIXES = (
 _TARGETED_SOURCE_FILES = {
     "tools/p92_db_cohort_screen.py",
     "evidence/creep/p92-db-cohort.json",
+    "tools/p92_local_evaluation_benchmark.py",
+    "evidence/creep/2026-11-07-p92-local-evaluation.json",
     "tools/p92_rate_fatigue_screen.py",
     "evidence/creep/p92-service-aged-fatigue.json",
     "tools/p92_nonuniform_structure.py",
@@ -87,6 +89,8 @@ _TARGETED_PREFIXES = (
 _SOURCE_TEST_MAP = {
     "tools/p92_db_cohort_screen.py": ("tests/test_p92_db_cohort_screen.py",),
     "evidence/creep/p92-db-cohort.json": ("tests/test_p92_db_cohort_screen.py",),
+    "tools/p92_local_evaluation_benchmark.py": ("tests/test_p92_tensor_normalization.py",),
+    "evidence/creep/2026-11-07-p92-local-evaluation.json": ("tests/test_p92_tensor_normalization.py",),
     "tools/p92_rate_fatigue_screen.py": ("tests/test_p92_rate_fatigue_screen.py",),
     "evidence/creep/p92-service-aged-fatigue.json": ("tests/test_p92_rate_fatigue_screen.py",),
     "evidence/creep/2026-11-07-p92-nonuniform.json": ("tests/test_p92_nonuniform_structure.py",),
