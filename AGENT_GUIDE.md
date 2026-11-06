@@ -298,6 +298,10 @@ interpolating unsaved damage states.
   For scalar strain-life instead, explicitly call `assess_strain_history`
   with a calibrated `CoffinMansonBasquinCurve` and signed total mechanical
   strain. Never substitute accumulated PEEQ or sparse visualization frames.
+  For a reviewed strain-amplitude applicability interval, use the curve's
+  `from_strain_domain` constructor; do not widen observed cycle extrema merely
+  to make an endpoint fit evaluate. This declares a different input domain,
+  not a newly validated material model.
   The result can be passed to `assessments.creep_fatigue`; it is not a
   stiffness-damage law or a certified service-life prediction.
 - Multi-Step activation: use `model.stage(...)` and pass its result as

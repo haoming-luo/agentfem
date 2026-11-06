@@ -221,6 +221,9 @@ state and prescribed-temperature histories. These are accepted-increment
 observations, independent of field output cadence, using the existing Result
 and restart contracts. `E_GL` denotes total Green–Lagrange strain, not a
 mechanical strain-life input. See `docs/material_point_histories.md`.
+For scalar fatigue postprocessing, declare a reviewed cycle or mechanical
+strain-amplitude domain on `CoffinMansonBasquinCurve`; the latter uses
+`from_strain_domain` and derives cycle endpoints without fitting parameters.
 
 The physical-time small-strain UserMaterial Step also accepts `material_points`
 for raw co-located `S/E` and named state, with the same accepted-history and

@@ -39,6 +39,23 @@ assessment = constitutive.assess_strain_history(
 print(assessment.as_dict())
 ```
 
+### Declaring the calibration domain
+
+The constructor above declares a cycle-count domain. For strain-controlled
+data whose reviewed applicability is an amplitude interval, use
+`CoffinMansonBasquinCurve.from_strain_domain(...)` with the same coefficients,
+unit and source, replacing `calibrated_cycles` with
+`calibrated_strain_amplitudes=(minimum_amplitude, maximum_amplitude)`.
+These are total mechanical strain amplitudes in dimensionless units.
+
+This explicit alternative derives the corresponding cycle endpoints from the
+curve. Observed life extrema need not equal fitted endpoint predictions:
+experimental scatter is not itself an extrapolation boundary. The declared
+amplitude interval must still be justified by the material data; the software
+does not infer or widen it. Output records distinguish the declared amplitude
+domain from model-implied cycle bounds. Changing coefficients requires
+rebuilding this curve so its derived bounds remain consistent.
+
 ## Input and failure contract
 
 - Supply a signed mechanical strain history with enough accepted samples to
@@ -48,7 +65,7 @@ print(assessment.as_dict())
   for a reversing signed component. The caller declares the measure; the
   software cannot recover a missing tensor or infer physical semantics from
   unlabeled numbers.
-- Calibration-cycle bounds and provenance are mandatory. A counted amplitude
+- An explicit calibration domain and provenance are mandatory. A counted amplitude
   outside those bounds raises an error; there is no hidden clipping,
   extrapolation, or endurance-limit inference.
 - The caller must explicitly select `mean_stress_correction="none"`. Means
