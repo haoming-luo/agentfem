@@ -1,0 +1,38 @@
+{
+  "schema": "agentfem.research.figure-inputs.v1",
+  "source": "https://strathprints.strath.ac.uk/68319/1/Zhang_etal_TAFM_2019_Microstructural_damage_mechanics_based_model_for_creep_fracture.pdf",
+  "sha256": "fe858d8ed1c4173fcd89220010c1a977a8785ecac446b282ae8f29c7edcdb01b",
+  "page": 10,
+  "figure": "5",
+  "reading": "Author-predicted density curves, not measured specimen densities; rendered with pdftoppm -scale-to 1400, 991 x 1400 pixels; color center within x +/-4 px and visual check",
+  "rho0_m2": 160000000000000,
+  "density_unit_m2": 100000000000000,
+  "reading_uncertainty_px": 2,
+  "panels": {
+    "a": {"x_zero": 191, "x_100percent": 458, "y_density_one": 673, "y_density_one_point_five": 614},
+    "b": {"x_zero": 567, "x_100percent": 831, "y_density_one": 672, "y_density_one_point_five": 613}
+  },
+  "columns": ["table_id", "panel", "curve", "x_px", "y_px"],
+  "rows": [
+    [2, "a", "blue_0.25percent_LCF", 244, 658],
+    [3, "a", "blue_0.25percent_LCF", 324, 664],
+    [4, "a", "blue_0.25percent_LCF", 378, 666],
+    [5, "a", "blue_0.25percent_LCF", 405, 666.5],
+    [6, "a", "red_0.4percent_LCF", 218, 658],
+    [7, "a", "red_0.4percent_LCF", 244, 664],
+    [8, "a", "red_0.4percent_LCF", 324, 670],
+    [9, "a", "red_0.4percent_LCF", 378, 671.5],
+    [10, "b", "blue_180s_CF", 593, 650],
+    [11, "b", "blue_180s_CF", 620, 653],
+    [12, "b", "blue_180s_CF", 699, 655.5],
+    [13, "b", "blue_180s_CF", 752, 656.5],
+    [14, "b", "green_30s_CF", 620, 649],
+    [15, "b", "red_600s_CF", 620, 656]
+  ],
+  "limitations": [
+    "Curve readings quantify a source reconstruction, not independent microstructure validation.",
+    "Two-pixel perturbations are reading sensitivity, not statistical confidence intervals.",
+    "The source density model transfers P91 400-600 C parameters to P92 650 C.",
+    "No observed creep lifetime is used to select density values."
+  ]
+}

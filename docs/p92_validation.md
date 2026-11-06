@@ -44,6 +44,13 @@ remaining-creep-life dataset and audits published predictions, including their
 large high-damage errors. It is not a newly executed material model. This offers
 a concrete next reproduction route without pooling unrelated P92 conditions.
 
+The [equation reference](internal/p92_creep_equations_20261106.md) now executes
+the bounded as-received creep law and agrees with an independent time-domain
+integration. The published backstress equations are inconsistent, and the
+dimensionally consistent reading still differs from the tabulated prediction
+by approximately 3.67%. This is numerical research evidence, not a promoted
+P92 material card or engineering lifetime validation.
+
 ## Two life routes, not one mixed formula
 
 **Combined test-life route:** a fitted creep-fatigue life relation predicts

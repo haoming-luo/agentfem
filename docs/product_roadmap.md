@@ -1,5 +1,17 @@
 # AgentFEM Product Roadmap
 
+### P92 sequential-loading research checkpoint (2026-11-06)
+
+The prior-damage dataset audit is merged (#165). The next bounded
+[equation reference](internal/p92_creep_equations_20261106.md) has independently
+checked time-domain and strain-domain integration, while retaining the source
+backstress inconsistency and a 3.67% as-received prediction discrepancy.
+Prior-state microstructure inputs remain explicit; the cited cyclic model was
+validated for P91 at 400–600 C, not this P92 cohort at 650 C. Resolve or bound
+that transfer before promoting a material law. Continue reusable software
+work without calling a numerically solved research reference an engineering
+life qualification.
+
 ### P92 engineering admission checkpoint (2026-11-06)
 
 The [current P92 evidence map](p92_validation.md) separates executable response
