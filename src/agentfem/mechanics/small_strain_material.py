@@ -217,6 +217,13 @@ class SmallStrainMaterialStep:
     def __post_init__(self) -> None:
         from ._prescribed_temperature import freeze_uniform_temperature
 
+        state_names = [v.output_name or v.name for v in self.material.state_schema.variables]
+        reserved = {"S", "E", "RF", "TEMP", "SENER", "DENER_INC", self.solution.name}
+        published = [*reserved, *(f"{name}_CELL" for name in ("S", "SENER", "DENER_INC"))]
+        for name in state_names:
+            if name in published or f"{name}_CELL" in published:
+                raise ValueError("Material state output names collide with reserved or recovered fields.")
+            published.extend((name, f"{name}_CELL"))
         if self.temperature is not None and self.duration is None:
             raise ValueError("Prescribed temperature requires a physical duration.")
         self._temperature_input = freeze_uniform_temperature(
@@ -923,6 +930,7 @@ class SmallStrainMaterialStep:
                 "S",
                 self.response.cauchy_stress,
                 "Cauchy stress at constitutive integration points.",
+                getattr(self.unit_system, "stress", None),
             )
         ]
         for variable in self.state.state_schema.variables:
@@ -931,11 +939,13 @@ class SmallStrainMaterialStep:
                     variable.output_name or variable.name,
                     self.state.committed[variable.name],
                     variable.description,
+                    variable.unit,
                 )
             )
         if self.response.stored_energy_density is not None:
             sources.append(
-                ("SENER", self.response.stored_energy_density, "Stored energy density.")
+                ("SENER", self.response.stored_energy_density, "Stored energy density.",
+                 getattr(self.unit_system, "stress", None))
             )
         if self.response.dissipation_density_increment is not None:
             sources.append(
@@ -943,12 +953,14 @@ class SmallStrainMaterialStep:
                     "DENER_INC",
                     self.response.dissipation_density_increment,
                     "Accepted-increment dissipation density.",
+                    getattr(self.unit_system, "stress", None),
                 )
             )
-        for name, source, description in sources:
+        for name, source, description, unit in sources:
             result.add_field(
                 name,
                 source.function,
+                unit=unit,
                 location="quadrature_points",
                 description=description,
                 processing={
@@ -965,6 +977,7 @@ class SmallStrainMaterialStep:
             recovered = recover_integration_point_field(
                 source,
                 name=f"{name}_CELL",
+                unit=unit,
                 description=f"Cell average of {name} preserving material discontinuities.",
             )
             result.add_field(
@@ -978,6 +991,7 @@ class SmallStrainMaterialStep:
         result.add_field(
             "RF",
             self.reaction_field(),
+            unit=getattr(self.unit_system, "force", None),
             description="Full nodal equilibrium residual for reaction extraction.",
             processing={
                 "method": "assembled_equilibrium_residual",

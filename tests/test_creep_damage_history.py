@@ -48,6 +48,52 @@ def test_union_grid_integrates_linear_rate_exactly_and_keeps_provenance():
     np.testing.assert_array_equal(result.histories["stress"].values, original)
 
 
+def test_quadrature_refines_nonlinear_rate_without_inventing_source_samples():
+    result = _result(stress_times=(0., 3.), stress=(100., 40.))
+    original = result.histories["stress"].values.copy()
+    # Stress is exactly 100-20*t; integral sigma**3 / 1e9 is elementary.
+    exact = (100.**4 - 40.**4) / (80. * 1.e9)
+    errors = []
+    for subdivisions in (1, 2, 4, 8):
+        assessment = _integrate(
+            result, rupture_time=lambda s, t: 1.e9 / s**3,
+            quadrature_subdivisions=subdivisions,
+        )
+        errors.append(abs(assessment.damage - exact))
+        assert assessment.maximum_stress_sample_interval == 3.
+        assert assessment.as_dict()["quadrature_subdivisions"] == subdivisions
+        assert not assessment.as_dict()["quadrature_error_certified"]
+        assert any(interval.end == 2. for interval in assessment.intervals)
+    np.testing.assert_allclose(np.asarray(errors[:-1]) / errors[1:], 4., rtol=1e-10)
+    np.testing.assert_array_equal(result.histories["stress"].values, original)
+
+
+@pytest.mark.parametrize("subdivisions", [True, False, 0, -1, 1.5, 2., "2", 1025, None])
+def test_invalid_quadrature_option_fails_before_callback(subdivisions):
+    calls = []
+    with pytest.raises(ValueError, match="quadrature_subdivisions"):
+        _integrate(quadrature_subdivisions=subdivisions,
+                   rupture_time=lambda s, t: calls.append((s, t)))
+    assert not calls
+
+
+def test_quadrature_does_not_bypass_source_gap_limit():
+    calls = []
+    with pytest.raises(ValueError, match="Source history"):
+        _integrate(quadrature_subdivisions=100, maximum_source_interval=1.,
+                   rupture_time=lambda s, t: calls.append((s, t)))
+    assert not calls
+
+
+def test_quadrature_rejects_unrepresentable_refinement():
+    start = 1.e16
+    result = _result(stress_times=(start, start + 2.), stress=(100., 90.),
+                     temperature_times=(start, start + 2.), temperature=(800., 800.))
+    with pytest.raises(ValueError, match="not distinguishable"):
+        _integrate(result, dwells=(assessments.DwellInterval(start, start + 2.),),
+                   quadrature_subdivisions=2)
+
+
 def _point_result():
     result = _result()
     times = (0., 1., 3.)

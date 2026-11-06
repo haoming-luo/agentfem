@@ -295,11 +295,21 @@ interpolating unsaved damage states.
   residuals separate. For engineering creep--fatigue from result histories,
   declare `DwellInterval` objects and pass a source-identified project rupture
   relation to `creep_fatigue_from_result(...)`; do not embed normative curves.
+  For tabulated rupture data in different units, explicitly call
+  `curve.in_units(stress_unit=..., time_unit=...)`; keep accepted histories
+  unchanged. Conversion preserves provenance, not experimental applicability.
   For scalar strain-life instead, explicitly call `assess_strain_history`
   with a calibrated `CoffinMansonBasquinCurve` and signed total mechanical
   strain. Never substitute accumulated PEEQ or sparse visualization frames.
+  For a reviewed strain-amplitude applicability interval, use the curve's
+  `from_strain_domain` constructor; do not widen observed cycle extrema merely
+  to make an endpoint fit evaluate. This declares a different input domain,
+  not a newly validated material model.
   The result can be passed to `assessments.creep_fatigue`; it is not a
   stiffness-damage law or a certified service-life prediction.
+  Use `creep_damage_from_result(..., quadrature_subdivisions=...)` only for
+  explicit quadrature refinement; source-gap checks still apply to recorded
+  history, not interpolated points. Keep this separate from FE time refinement.
 - Multi-Step activation: use `model.stage(...)` and pass its result as
   `configuration=` to `model.step(...)`; keep asset inheritance separate from
   incrementation and nonlinear solver controls.

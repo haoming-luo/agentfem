@@ -11,7 +11,10 @@ agentfem run --name relaxation
 `material.py` provides only a local standard-linear-solid stress, viscous
 history and algorithmic tangent. AgentFEM owns assembly, Newton iteration,
 accepted history, rollback, results and restart. Coefficients are synthetic,
-in Pa and seconds; the declared initial state is stress-free with zero history.
+in Pa and seconds; the Model explicitly declares SI (geometry in metres).
+The declared initial state is stress-free with zero history.
+The SI declaration is part of restart identity: checkpoints from an older copy
+without declared Model units must not be reused with this updated case.
 
 The run writes a midpoint checkpoint, a final checkpoint, final `results.xdmf`
 and its H5 data, and the accepted load-amplitude/time history in `result.json`.
