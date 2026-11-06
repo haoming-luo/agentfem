@@ -48,8 +48,12 @@ comparison, with portable repository discovery and restoration of the selected
 provider on exit. Run it manually from a full checkout:
 
 ```bash
-OMP_NUM_THREADS=1 OPENBLAS_NUM_THREADS=1 python -m tools.p92_local_evaluation_benchmark --resolution 2 --output new-timing.json
+OMP_NUM_THREADS=1 OPENBLAS_NUM_THREADS=1 PYTHONPATH=src python -m tools.p92_local_evaluation_benchmark --resolution 2 --output new-timing.json
 ```
+
+The retained command verifies that AgentFEM is imported from this checkout and
+records its commit; it will not silently time an unrelated installed package.
+This is source-benchmark provenance, not a requirement for ordinary projects.
 
 Correctness tests cover reused/mutated candidate buffers, fresh update lifetime,
 independent local Jacobians, full material tangents, evolving nonuniform

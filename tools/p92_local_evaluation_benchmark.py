@@ -16,6 +16,7 @@ import types
 
 import numpy as np
 import scipy
+import agentfem
 
 from tools import p92_tensor_material_reference as provider
 from tools.p92_nonuniform_structure import build, observation
@@ -37,6 +38,15 @@ def snapshot(step):
 def run(*, resolution):
     if type(resolution) is not int or resolution < 1:
         raise ValueError("resolution must be a positive integer")
+    if not Path(agentfem.__file__).resolve().is_relative_to(ROOT / "src"):
+        raise RuntimeError(
+            "This source benchmark requires this checkout's AgentFEM. "
+            "Use an editable installation or PYTHONPATH=src."
+        )
+    checkout = subprocess.run(
+        ["git", "rev-parse", "HEAD"], cwd=ROOT, check=True,
+        capture_output=True, text=True, timeout=30,
+    ).stdout.strip()
     source = subprocess.run(
         ["git", "show", BASELINE + ":tools/p92_tensor_normalization.py"], cwd=ROOT,
         check=True, capture_output=True, text=True, timeout=30,
@@ -76,6 +86,8 @@ def run(*, resolution):
     finally:
         provider.implicit_tensor_update = candidate
     return dict(
+        framework_checkout_commit=checkout,
+        framework_source_mode="verified_checkout",
         baseline_commit=BASELINE, resolution=resolution, cells=4 * resolution**3,
         baseline_source_sha256=hashlib.sha256(source.encode()).hexdigest(),
         candidate_source_sha256=hashlib.sha256((ROOT / "tools/p92_tensor_normalization.py").read_bytes()).hexdigest(),
