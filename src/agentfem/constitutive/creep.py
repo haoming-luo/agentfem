@@ -6,7 +6,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from math import exp, isfinite, log
+from math import exp, expm1, isfinite, log, log1p
 from typing import ClassVar
 
 import numpy as np
@@ -780,18 +780,26 @@ class KachanovRabotnovCreep:
             / self.reference_time
         )
         power = self.damage_power + 1.0
-        remaining = old_integrity**power - power * damage_scale
-        failed = remaining <= (1.0 - self.failure_damage) ** power
-        new_integrity = max(
-            1.0 - self.failure_damage,
-            max(0.0, remaining) ** (1.0 / power),
-        )
-        new_damage = 1.0 - new_integrity
+        if old.damage >= self.failure_damage:
+            # A terminal state cannot heal when it is presented again.
+            return CreepDamageUpdate(old, 0.0, 0.0, failed=True)
+        fraction = power * damage_scale / old_integrity**power
+        failure_log_ratio = log1p(-(self.failure_damage - old.damage) / old_integrity)
+        failed = fraction >= -expm1(power * failure_log_ratio)
+        if failed:
+            log_integrity_ratio = failure_log_ratio
+            new_damage = self.failure_damage
+        else:
+            # Keep the small decrement rather than subtracting two numbers
+            # near one. The log ratio also preserves a nonzero strain increment
+            # when the change in total stored damage is below one ulp.
+            log_integrity_ratio = log1p(-fraction) / power
+            new_damage = old.damage - old_integrity * expm1(log_integrity_ratio)
 
         equivalent_increment = self._creep_increment(
             normalized,
             old_integrity,
-            new_integrity,
+            log_integrity_ratio,
             dt,
         )
         tensor = old.creep_strain
@@ -818,10 +826,9 @@ class KachanovRabotnovCreep:
         rate = self.damage_coefficient * normalized**self.damage_exponent
         if rate == 0.0:
             return float("inf")
-        integrity = 1.0 - self.failure_damage
         return float(
             self.reference_time
-            * (1.0 - integrity ** (self.damage_power + 1.0))
+            * (-expm1((self.damage_power + 1.0) * log1p(-self.failure_damage)))
             / ((self.damage_power + 1.0) * rate)
         )
 
@@ -829,7 +836,7 @@ class KachanovRabotnovCreep:
         self,
         normalized_stress: float,
         old_integrity: float,
-        new_integrity: float,
+        log_integrity_ratio: float,
         duration: float,
     ) -> float:
         if normalized_stress == 0.0 or self.creep_coefficient == 0.0:
@@ -850,11 +857,12 @@ class KachanovRabotnovCreep:
             ** (self.creep_exponent - self.damage_exponent)
         )
         if abs(exponent) <= 1.0e-12:
-            integral = log(old_integrity / new_integrity)
+            integral = -log_integrity_ratio
         else:
             integral = (
-                old_integrity**exponent - new_integrity**exponent
-            ) / exponent
+                old_integrity**exponent
+                * (-expm1(exponent * log_integrity_ratio)) / exponent
+            )
         return float(prefactor * integral)
 
     def as_dict(self) -> dict[str, object]:
