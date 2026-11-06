@@ -5,6 +5,9 @@ assessment infrastructure. The remaining engineering task is to establish
 prediction on compatible independent material data and define the intended
 component assessment. More solver iterations cannot substitute for that data.
 
+A [coherent-cohort source lead](internal/p92_db_cohort_candidate_20261107.md)
+is retained for follow-up; its original tables are not yet admitted.
+
 ## What can be reproduced now
 
 These are repository research tools, not installed material cards. Run them
