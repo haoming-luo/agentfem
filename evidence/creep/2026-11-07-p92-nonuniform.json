@@ -1,0 +1,467 @@
+{
+  "schema": "agentfem.research.p92-nonuniform-screen.v1",
+  "tool_commit": "670e27bb",
+  "runs": [
+    {
+      "schema": "agentfem.research.p92-nonuniform-structure.v1",
+      "resolution": 1,
+      "tool_sha256": "b27f0fa25c23851e36a3c5708348a9d192dccc60ffa641a1fa06cddb816635f1",
+      "refinement": 1,
+      "cells": 4,
+      "loaded": {
+        "time_s": 4,
+        "tip_reaction_N": 15.8379495020625,
+        "support_reaction_N": [
+          -4.618527782440651e-14,
+          -15.83794950068239,
+          2.6645352591003757e-15
+        ],
+        "global_force_residual_N": [
+          -2.4504703821648377e-14,
+          -1.6431300764452317e-14,
+          2.3037127760972e-15
+        ],
+        "constraint_force_balance_N": [
+          -4.618527782440651e-14,
+          1.3801102483057548e-9,
+          2.6645352591003757e-15
+        ],
+        "relative_force_balance": 8.713945254727545e-11,
+        "accepted_equilibrium_residual_norm": 7.060122880939402e-10,
+        "maximum_accumulated_inelastic_strain": 6.841054170515152e-8,
+        "sampled_axial_stress_range_MPa": [
+          -153.9403327276908,
+          153.94033272769084
+        ]
+      },
+      "held": {
+        "time_s": 64,
+        "tip_reaction_N": 15.817882799814864,
+        "support_reaction_N": [
+          -7.105427357601002e-15,
+          -15.817882799814893,
+          2.6645352591003757e-15
+        ],
+        "global_force_residual_N": [
+          -2.1094237467877943e-15,
+          -2.6645352591003757e-15,
+          -8.187894806610533e-16
+        ],
+        "constraint_force_balance_N": [
+          -7.105427357601002e-15,
+          -2.842170943040401e-14,
+          2.6645352591003757e-15
+        ],
+        "relative_force_balance": 1.859752611433428e-15,
+        "accepted_equilibrium_residual_norm": 2.439338215671888e-13,
+        "maximum_accumulated_inelastic_strain": 0.000005683980144413747,
+        "sampled_axial_stress_range_MPa": [
+          -153.66453364050693,
+          153.66453364050693
+        ]
+      },
+      "geometry_mm": [
+        4,
+        1,
+        1
+      ],
+      "tip_displacement_mm": 0.02,
+      "ramp_s": 4,
+      "hold_s": 60,
+      "temperature_c": 650,
+      "poisson_assumption": 0.3,
+      "source_doi": "10.3390/met10030307",
+      "accepted_increments": 20,
+      "restart_exact": true,
+      "elapsed_seconds": 1.5111400000751019,
+      "engineering_qualified": false,
+      "scope": "small-strain research tensor extension; nonuniform numerical screen, not component life",
+      "point_comparison": "cell 0 records one reference point per mesh; no cross-mesh point-stress comparison"
+    },
+    {
+      "schema": "agentfem.research.p92-nonuniform-structure.v1",
+      "resolution": 2,
+      "tool_sha256": "b27f0fa25c23851e36a3c5708348a9d192dccc60ffa641a1fa06cddb816635f1",
+      "refinement": 1,
+      "cells": 32,
+      "loaded": {
+        "time_s": 4,
+        "tip_reaction_N": 11.787592425415387,
+        "support_reaction_N": [
+          -2.842170943040401e-14,
+          -11.787592425415408,
+          2.220446049250313e-15
+        ],
+        "global_force_residual_N": [
+          -2.4335730913066505e-14,
+          -1.3211653993039363e-14,
+          4.063855616534042e-15
+        ],
+        "constraint_force_balance_N": [
+          -2.842170943040401e-14,
+          -2.1316282072803006e-14,
+          2.220446049250313e-15
+        ],
+        "relative_force_balance": 3.0198243043833922e-15,
+        "accepted_equilibrium_residual_norm": 4.870835004875874e-13,
+        "maximum_accumulated_inelastic_strain": 0.000007603238097502837,
+        "sampled_axial_stress_range_MPa": [
+          -213.71233634728338,
+          213.71233634728338
+        ]
+      },
+      "held": {
+        "time_s": 64,
+        "tip_reaction_N": 11.575750637992007,
+        "support_reaction_N": [
+          -3.197442310920451e-14,
+          -11.575750637992,
+          4.440892098500626e-15
+        ],
+        "global_force_residual_N": [
+          -8.56259507742152e-15,
+          -8.548717289613705e-15,
+          4.122148854438561e-15
+        ],
+        "constraint_force_balance_N": [
+          -3.197442310920451e-14,
+          7.105427357601002e-15,
+          4.440892098500626e-15
+        ],
+        "relative_force_balance": 2.855459078971404e-15,
+        "accepted_equilibrium_residual_norm": 1.7534265315675258e-12,
+        "maximum_accumulated_inelastic_strain": 0.00010526606525179169,
+        "sampled_axial_stress_range_MPa": [
+          -212.0035306704388,
+          212.00353067043892
+        ]
+      },
+      "geometry_mm": [
+        4,
+        1,
+        1
+      ],
+      "tip_displacement_mm": 0.02,
+      "ramp_s": 4,
+      "hold_s": 60,
+      "temperature_c": 650,
+      "poisson_assumption": 0.3,
+      "source_doi": "10.3390/met10030307",
+      "accepted_increments": 20,
+      "restart_exact": null,
+      "elapsed_seconds": 6.396505167009309,
+      "engineering_qualified": false,
+      "scope": "small-strain research tensor extension; nonuniform numerical screen, not component life",
+      "point_comparison": "cell 0 records one reference point per mesh; no cross-mesh point-stress comparison"
+    },
+    {
+      "schema": "agentfem.research.p92-nonuniform-structure.v1",
+      "resolution": 4,
+      "tool_sha256": "b27f0fa25c23851e36a3c5708348a9d192dccc60ffa641a1fa06cddb816635f1",
+      "refinement": 1,
+      "cells": 256,
+      "loaded": {
+        "time_s": 4,
+        "tip_reaction_N": 10.596422795795887,
+        "support_reaction_N": [
+          -1.4210854715202004e-14,
+          -10.596422795795675,
+          4.440892098500626e-15
+        ],
+        "global_force_residual_N": [
+          -2.067990856917673e-14,
+          6.938893903907228e-16,
+          5.896331700042859e-15
+        ],
+        "constraint_force_balance_N": [
+          -1.4210854715202004e-14,
+          2.113864638886298e-13,
+          4.440892098500626e-15
+        ],
+        "relative_force_balance": 1.999827140987744e-14,
+        "accepted_equilibrium_residual_norm": 2.628404160706607e-11,
+        "maximum_accumulated_inelastic_strain": 0.000042078450389351674,
+        "sampled_axial_stress_range_MPa": [
+          -253.94898141131694,
+          253.9489814113169
+        ]
+      },
+      "held": {
+        "time_s": 64,
+        "tip_reaction_N": 10.236817340687741,
+        "support_reaction_N": [
+          -3.9968028886505635e-15,
+          -10.236817340687649,
+          3.552713678800501e-15
+        ],
+        "global_force_residual_N": [
+          5.1745026396907045e-15,
+          -1.472433286409114e-14,
+          2.3990723532992255e-15
+        ],
+        "constraint_force_balance_N": [
+          -3.9968028886505635e-15,
+          9.237055564881302e-14,
+          3.552713678800501e-15
+        ],
+        "relative_force_balance": 9.038474928355981e-15,
+        "accepted_equilibrium_residual_norm": 3.812595569254227e-11,
+        "maximum_accumulated_inelastic_strain": 0.0002869575840713901,
+        "sampled_axial_stress_range_MPa": [
+          -243.49337756387374,
+          243.49337756387365
+        ]
+      },
+      "geometry_mm": [
+        4,
+        1,
+        1
+      ],
+      "tip_displacement_mm": 0.02,
+      "ramp_s": 4,
+      "hold_s": 60,
+      "temperature_c": 650,
+      "poisson_assumption": 0.3,
+      "source_doi": "10.3390/met10030307",
+      "accepted_increments": 20,
+      "restart_exact": null,
+      "elapsed_seconds": 55.939508000039496,
+      "engineering_qualified": false,
+      "scope": "small-strain research tensor extension; nonuniform numerical screen, not component life",
+      "point_comparison": "cell 0 records one reference point per mesh; no cross-mesh point-stress comparison"
+    },
+    {
+      "schema": "agentfem.research.p92-nonuniform-structure.v1",
+      "resolution": 8,
+      "tool_sha256": "b27f0fa25c23851e36a3c5708348a9d192dccc60ffa641a1fa06cddb816635f1",
+      "refinement": 1,
+      "cells": 2048,
+      "loaded": {
+        "time_s": 4,
+        "tip_reaction_N": 10.262700660242391,
+        "support_reaction_N": [
+          7.993605777301127e-15,
+          -10.2627006602391,
+          3.0531133177191805e-15
+        ],
+        "global_force_residual_N": [
+          2.626088200419216e-15,
+          -3.0199800993280235e-14,
+          1.9030027653502758e-15
+        ],
+        "constraint_force_balance_N": [
+          7.993605777301127e-15,
+          3.291589223408664e-12,
+          3.0531133177191805e-15
+        ],
+        "relative_force_balance": 3.2073432272191037e-13,
+        "accepted_equilibrium_residual_norm": 1.013049454115707e-10,
+        "maximum_accumulated_inelastic_strain": 0.000131502666730759,
+        "sampled_axial_stress_range_MPa": [
+          -293.0693913174063,
+          293.06939131740626
+        ]
+      },
+      "held": {
+        "time_s": 64,
+        "tip_reaction_N": 9.854164796457326,
+        "support_reaction_N": [
+          2.220446049250313e-15,
+          -9.854164796456352,
+          2.3869795029440866e-15
+        ],
+        "global_force_residual_N": [
+          7.18921606786106e-16,
+          1.1015494072452725e-14,
+          4.121607870285921e-15
+        ],
+        "constraint_force_balance_N": [
+          2.220446049250313e-15,
+          9.734435479913373e-13,
+          2.3869795029440866e-15
+        ],
+        "relative_force_balance": 9.878554165478371e-14,
+        "accepted_equilibrium_residual_norm": 1.823434942027508e-10,
+        "maximum_accumulated_inelastic_strain": 0.0004934373603545089,
+        "sampled_axial_stress_range_MPa": [
+          -268.7295290489866,
+          268.7295290489866
+        ]
+      },
+      "geometry_mm": [
+        4,
+        1,
+        1
+      ],
+      "tip_displacement_mm": 0.02,
+      "ramp_s": 4,
+      "hold_s": 60,
+      "temperature_c": 650,
+      "poisson_assumption": 0.3,
+      "source_doi": "10.3390/met10030307",
+      "accepted_increments": 20,
+      "restart_exact": null,
+      "elapsed_seconds": 504.1868885830045,
+      "engineering_qualified": false,
+      "scope": "small-strain research tensor extension; nonuniform numerical screen, not component life",
+      "point_comparison": "cell 0 records one reference point per mesh; no cross-mesh point-stress comparison"
+    },
+    {
+      "schema": "agentfem.research.p92-nonuniform-structure.v1",
+      "resolution": 4,
+      "tool_sha256": "b27f0fa25c23851e36a3c5708348a9d192dccc60ffa641a1fa06cddb816635f1",
+      "refinement": 2,
+      "cells": 256,
+      "loaded": {
+        "time_s": 4,
+        "tip_reaction_N": 10.60580919666106,
+        "support_reaction_N": [
+          -3.9968028886505635e-15,
+          -10.605809196661092,
+          3.3306690738754696e-15
+        ],
+        "global_force_residual_N": [
+          1.9526695677388853e-14,
+          -1.1338152638984411e-14,
+          -2.571919650306626e-16
+        ],
+        "constraint_force_balance_N": [
+          -3.9968028886505635e-15,
+          -3.197442310920451e-14,
+          3.3306690738754696e-15
+        ],
+        "relative_force_balance": 3.0544515663863397e-15,
+        "accepted_equilibrium_residual_norm": 5.865186715682762e-13,
+        "maximum_accumulated_inelastic_strain": 0.000034816820253186716,
+        "sampled_axial_stress_range_MPa": [
+          -254.21593276320243,
+          254.21593276320237
+        ]
+      },
+      "held": {
+        "time_s": 64,
+        "tip_reaction_N": 10.234115474612526,
+        "support_reaction_N": [
+          -2.398081733190338e-14,
+          -10.234115474612501,
+          2.6645352591003757e-15
+        ],
+        "global_force_residual_N": [
+          -4.5917789892339364e-15,
+          -1.2850831510036187e-14,
+          3.285483306551519e-15
+        ],
+        "constraint_force_balance_N": [
+          -2.398081733190338e-14,
+          2.4868995751603507e-14,
+          2.6645352591003757e-15
+        ],
+        "relative_force_balance": 3.3857682655700073e-15,
+        "accepted_equilibrium_residual_norm": 7.085499300454574e-13,
+        "maximum_accumulated_inelastic_strain": 0.0002889457418215802,
+        "sampled_axial_stress_range_MPa": [
+          -243.4187308192338,
+          243.41873081923382
+        ]
+      },
+      "geometry_mm": [
+        4,
+        1,
+        1
+      ],
+      "tip_displacement_mm": 0.02,
+      "ramp_s": 4,
+      "hold_s": 60,
+      "temperature_c": 650,
+      "poisson_assumption": 0.3,
+      "source_doi": "10.3390/met10030307",
+      "accepted_increments": 40,
+      "restart_exact": null,
+      "elapsed_seconds": 98.49431174993515,
+      "engineering_qualified": false,
+      "scope": "small-strain research tensor extension; nonuniform numerical screen, not component life",
+      "point_comparison": "cell 0 records one reference point per mesh; no cross-mesh point-stress comparison"
+    },
+    {
+      "schema": "agentfem.research.p92-nonuniform-structure.v1",
+      "resolution": 8,
+      "tool_sha256": "b27f0fa25c23851e36a3c5708348a9d192dccc60ffa641a1fa06cddb816635f1",
+      "refinement": 2,
+      "cells": 2048,
+      "loaded": {
+        "time_s": 4,
+        "tip_reaction_N": 10.273500696412766,
+        "support_reaction_N": [
+          5.10702591327572e-15,
+          -10.273500696412766,
+          2.0539125955565396e-15
+        ],
+        "global_force_residual_N": [
+          2.754101269091717e-15,
+          -4.625640148692156e-14,
+          -2.8784596761967727e-16
+        ],
+        "constraint_force_balance_N": [
+          5.10702591327572e-15,
+          0,
+          2.0539125955565396e-15
+        ],
+        "relative_force_balance": 5.358025781815669e-16,
+        "accepted_equilibrium_residual_norm": 8.203170606555776e-13,
+        "maximum_accumulated_inelastic_strain": 0.00011903654797439544,
+        "sampled_axial_stress_range_MPa": [
+          -293.9106741590231,
+          293.91067415902313
+        ]
+      },
+      "held": {
+        "time_s": 64,
+        "tip_reaction_N": 9.851033847352397,
+        "support_reaction_N": [
+          3.1086244689504383e-15,
+          -9.851033847352351,
+          3.552713678800501e-15
+        ],
+        "global_force_residual_N": [
+          -2.2399306059774803e-15,
+          -4.033405553993674e-14,
+          -3.6869830036085796e-15
+        ],
+        "constraint_force_balance_N": [
+          3.1086244689504383e-15,
+          4.618527782440651e-14,
+          3.552713678800501e-15
+        ],
+        "relative_force_balance": 4.712795801689884e-15,
+        "accepted_equilibrium_residual_norm": 2.5031418093685757e-12,
+        "maximum_accumulated_inelastic_strain": 0.0004962464384897948,
+        "sampled_axial_stress_range_MPa": [
+          -268.5488508184614,
+          268.54885081846135
+        ]
+      },
+      "geometry_mm": [
+        4,
+        1,
+        1
+      ],
+      "tip_displacement_mm": 0.02,
+      "ramp_s": 4,
+      "hold_s": 60,
+      "temperature_c": 650,
+      "poisson_assumption": 0.3,
+      "source_doi": "10.3390/met10030307",
+      "accepted_increments": 40,
+      "restart_exact": null,
+      "elapsed_seconds": 817.3526242080843,
+      "engineering_qualified": false,
+      "scope": "small-strain research tensor extension; nonuniform numerical screen, not component life",
+      "point_comparison": "cell 0 records one reference point per mesh; no cross-mesh point-stress comparison"
+    }
+  ],
+  "limitations": [
+    "Total reaction screening is not hotspot or relaxation-drop spatial convergence.",
+    "Only the four-cell run includes restart equality.",
+    "No experimental multiaxial or component-life qualification."
+  ]
+}

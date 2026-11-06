@@ -54,3 +54,26 @@ cannot bypass the data gate through `screen(data)` or `calibrate(data)`.
 The existing held-out predictions remain unchanged. The life, pure-fatigue,
 cyclic-reference and CI-routing regression passed 87 tests; this is software
 verification, not 87 new experimental observations.
+
+## Two-rate follow-up (2026-11-07)
+
+[Seifert, Schlayer and Maier, FVWHT 2025, pp. 36-47](https://opus.hs-offenburg.de/files/11628/SeifertSchlayerMaier_PlastCrpFat_FVWHT_2025.pdf)
+is openly licensed CC BY 4.0. The retrieved PDF SHA256 is
+`3db99ebff289aa4ec91c67320b6d957d23f0776db23672375856e4f20ac256af`.
+Equations on printed pp. 37-38 and the scope on p. 39 were visually checked.
+
+The two-rate Chaboche-Jiang formulation distinguishes long and short response
+times, with kinematic recovery and ratcheting control. It offers a mechanism
+candidate for paths that a single creep law misses. However, its reported
+600 C cohort is BED/519n, not the BAM 620 C cohort; complete numerical
+parameters are not supplied in this contribution. The law describes primary
+and secondary creep, not tertiary rupture. Do not invent coefficients or call
+its response curves an independent lifetime prediction.
+
+The same contribution compares full viscoplastic FEM with elastic-FEM-driven
+local postprocessing, including a Neuber approximation. That is an alternative
+approximate assessment route, not an equivalent faster solver. Before adopting
+it, use co-located histories and compare stress redistribution and accumulated
+strain against nonlinear FEM. Missing parameters, source normalization and
+applicability remain explicit gates; no new production material follows from
+this literature review.

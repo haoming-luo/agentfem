@@ -98,6 +98,12 @@ supply the numerical curves. Different heats are not silently pooled.
 
 ## Integrated software foundation
 
+The [nonuniform bending screen](internal/p92_nonuniform_structure_20261107.md)
+adds four mesh levels and two time grids using the ordinary structural
+workflow. Total-reaction screening and a small-model restart pass; relaxation
+drop and clamp hotspot spatial convergence remain open. This separates a
+useful numerical composition test from experimental multiaxial validation.
+
 Small-strain selected histories and prescribed temperature, structural cyclic
 checks, and thermal clock/restart safeguards are merged through
 PRs #152, #155, #158 and #160–#163. The

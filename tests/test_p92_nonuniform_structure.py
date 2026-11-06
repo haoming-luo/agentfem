@@ -1,10 +1,32 @@
 import numpy as np
+import json
+from pathlib import Path
 import pytest
 from mpi4py import MPI
 
 from tools.p92_nonuniform_structure import build, observation, run
 
 pytestmark = pytest.mark.skipif(MPI.COMM_WORLD.size != 1, reason="Serial research composition")
+
+
+def test_archived_screen_has_bounded_reaction_evidence():
+    path = Path(__file__).parents[1] / "evidence/creep/2026-11-07-p92-nonuniform.json"
+    archive = json.loads(path.read_text())
+    runs = {(r["resolution"], r["refinement"]): r for r in archive["runs"]}
+    for stage in ("loaded", "held"):
+        coarse = runs[4, 1][stage]["tip_reaction_N"]
+        fine = runs[8, 1][stage]["tip_reaction_N"]
+        refined = runs[8, 2][stage]["tip_reaction_N"]
+        assert abs(coarse - fine) / abs(fine) < .05
+        assert abs(fine - refined) / abs(refined) < .01
+    drops = [runs[r, 1]["loaded"]["tip_reaction_N"] -
+             runs[r, 1]["held"]["tip_reaction_N"] for r in (4, 8)]
+    assert abs(drops[0] - drops[1]) / abs(drops[1]) > .1
+    assert runs[1, 1]["restart_exact"] is True
+    for report in runs.values():
+        assert report["engineering_qualified"] is False
+        for stage in ("loaded", "held"):
+            assert report[stage]["relative_force_balance"] < 1e-7
 
 
 def test_nonuniform_hold_and_restart(tmp_path):

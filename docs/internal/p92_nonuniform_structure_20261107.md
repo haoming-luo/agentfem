@@ -66,5 +66,30 @@ loading tests, and distinguishes stable integration from time accuracy. This
 screen follows that separation: existing independent scalar/local checks are
 retained; mesh refinement here does not replace experimental validation.
 
-Numerical results will be recorded after the separate mesh and time screens
-complete. Engineering multiaxial material validation remains a separate gate.
+## Recorded numerical evidence
+
+The six raw reports are retained in
+`evidence/creep/2026-11-07-p92-nonuniform.json`, including tool identity,
+constraint reactions, accepted residuals and wall times.
+
+| Cells | Increments | Ramp-end reaction (N) | Hold-end reaction (N) |
+| --- | --- | --- | --- |
+| 4 | 20 | 15.837950 | 15.817883 |
+| 32 | 20 | 11.787592 | 11.575751 |
+| 256 | 20 | 10.596423 | 10.236817 |
+| 2048 | 20 | 10.262701 | 9.854165 |
+| 256 | 40 | 10.605809 | 10.234115 |
+| 2048 | 40 | 10.273501 | 9.851034 |
+
+Relative differences use the finer result as denominator. The last mesh
+doubling changes total reactions by 3.25% and 3.88%; time refinement at
+2048 cells changes them by 0.105% and 0.032%. These pass the stated bounded
+total-reaction screens. The four-cell interrupted run reproduces selected
+histories and endpoint observables exactly; other runs did not test restart.
+
+The relaxation drop itself changes by about 12% between the last two meshes
+at 20 increments (fine-drop denominator), so its spatial convergence remains
+open. The maximum sampled clamp stress also continues to grow. Neither
+quantity is certified by the total-reaction screen. Stop this mesh ladder
+here rather than treating progressively larger solves as experimental
+validation. Engineering multiaxial material validation remains a separate gate.
