@@ -1,5 +1,24 @@
 # AgentFEM Product Roadmap
 
+### Data-admission refinement (2026-11-07)
+
+Continue explicit cross-source research when same-heat P92 data are unavailable;
+retain pedigree, transfer assumptions and scatter rather than treating a
+preferred dataset as an absolute software gate. Do not convert that research
+into a component allowable. The [evidence map](p92_validation.md) records the
+industry-guidance basis and distinguishes numerical endpoint time from physical
+failure strain. No additional fit to existing life labels is planned.
+
+### P92 nonuniform structure checkpoint (2026-11-07)
+
+The [bounded bending screen](internal/p92_nonuniform_structure_20261107.md)
+records four mesh levels, time refinement and a small-model exact restart.
+Total ramp/hold reactions meet the predeclared numerical screens; the
+relaxation drop and clamp hotspot do not yet have spatial convergence evidence.
+Keep those limitations visible instead of expanding the mesh ladder without
+an engineering validation dataset. Same-point tensor histories now connect to
+creep assessment through the existing Result contract (PR #167).
+
 ### P92 sequential-loading research checkpoint (2026-11-06)
 
 The prior-damage dataset audit is merged (#165). The next bounded

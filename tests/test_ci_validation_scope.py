@@ -13,6 +13,15 @@ from ci_validation_scope import (
 
 
 @pytest.mark.parametrize("path", (
+    "tools/p92_rate_fatigue_screen.py", "evidence/creep/p92-service-aged-fatigue.json",
+))
+def test_rate_fatigue_sources_select_their_reference(path):
+    scope = classify_changes([path])
+    assert scope.level == "targeted"
+    assert "tests/test_p92_rate_fatigue_screen.py" in scope.tests
+
+
+@pytest.mark.parametrize("path", (
     "tools/p92_rupture_screen.py", "evidence/creep/p92-rupture-table.json",
 ))
 def test_p92_rupture_sources_select_their_reproduction_test(path):
@@ -25,6 +34,17 @@ def test_p92_scalar_reference_changes_cover_tensor_consumers():
     selected = _SOURCE_TEST_MAP["tools/p92_published_recovery_reference.py"]
     assert "tests/test_p92_tensor_normalization.py" in selected
     assert "tests/test_p92_tensor_structure.py" in selected
+    assert "tests/test_p92_nonuniform_structure.py" in selected
+
+
+@pytest.mark.parametrize("path", (
+    "tools/p92_nonuniform_structure.py", "tools/p92_tensor_material_reference.py",
+    "tools/p92_tensor_normalization.py",
+))
+def test_p92_nonuniform_sources_select_bounded_composition_test(path):
+    scope = classify_changes([path])
+    assert scope.level == "targeted"
+    assert "tests/test_p92_nonuniform_structure.py" in scope.tests
 
 
 @pytest.mark.parametrize("filename", (

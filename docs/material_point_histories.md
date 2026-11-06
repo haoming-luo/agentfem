@@ -63,6 +63,41 @@ inserted. Restrict assessments to recorded time coverage; resolve holds and
 reversals with adequate physical increments. The history itself does not
 certify time discretization or supply an empirical rupture law.
 
+### Use the tensor history directly in a creep assessment
+
+The existing time-fraction consumer can select a component without copying
+arrays into project-defined histories:
+
+```python
+assessment = assessments.creep_damage_from_result(
+    result,
+    stress_history="hot_spot.S", temperature_history="hot_spot.TEMP",
+    stress_component=(0, 0),  # zero-based, signed Cauchy 11 component
+    dwells=(assessments.DwellInterval(hold_start, hold_end),),
+    rupture_time=reviewed_curve, rupture_source="reviewed material curve",
+    stress_unit=result.histories["hot_spot.S"].unit,
+    time_unit=result.histories["hot_spot.S"].abscissa_unit,
+    stress_measure="signed Cauchy 11",
+)
+```
+
+Choose units and stress measure that match the model and supplied rupture
+relation; the selected history carries the Model's derived unit label (for
+example `tonne/(mm*s^2)` for `units.n_mm_mpa()`), not a rewritten alias. No
+absolute value, equivalent-stress criterion or nominal/true stress
+conversion is implicit. `hold_start` and `hold_end` must lie inside recorded
+coverage. `reviewed_curve` is a caller-supplied rupture relation, not a built-in
+P92 default.
+
+When the result identifies recorded material-point channels, both inputs must
+belong to the same point, share the accepted clock, and match the recorded
+shapes and units. The assessment retains the selected component, reference
+point, mesh, quadrature rule, channel measures and scientific identity. A
+temperature history from a different recorded point is rejected before the
+rupture callback runs. Ordinary caller-supplied scalar histories still work;
+their physical co-location remains the caller's responsibility. This checks
+declared result identity, not an independent authentication of edited arrays.
+
 ## Pause, recovery and storage
 
 ### Small-strain user materials

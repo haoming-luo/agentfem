@@ -34,6 +34,10 @@ _RELEASE_PREFIXES = (
     ".github/workflows/platform-acceptance",
 )
 _TARGETED_SOURCE_FILES = {
+    "tools/p92_rate_fatigue_screen.py",
+    "evidence/creep/p92-service-aged-fatigue.json",
+    "tools/p92_nonuniform_structure.py",
+    "evidence/creep/2026-11-07-p92-nonuniform.json",
     "tools/p92_structural_cycle_screen.py",
     "evidence/creep/2026-11-06-p92-structural-cycles.json",
     "evidence/creep/2026-11-06-p92-435cycles-coarse.json",
@@ -79,6 +83,10 @@ _TARGETED_PREFIXES = (
     "src/agentfem/surrogates/",
 )
 _SOURCE_TEST_MAP = {
+    "tools/p92_rate_fatigue_screen.py": ("tests/test_p92_rate_fatigue_screen.py",),
+    "evidence/creep/p92-service-aged-fatigue.json": ("tests/test_p92_rate_fatigue_screen.py",),
+    "evidence/creep/2026-11-07-p92-nonuniform.json": ("tests/test_p92_nonuniform_structure.py",),
+    "tools/p92_nonuniform_structure.py": ("tests/test_p92_nonuniform_structure.py",),
     "tools/p92_structural_cycle_screen.py": ("tests/test_p92_structural_cycle_screen.py",),
     "evidence/creep/2026-11-06-p92-structural-cycles.json": ("tests/test_p92_structural_cycle_screen.py",),
     "evidence/creep/2026-11-06-p92-435cycles-coarse.json": ("tests/test_p92_structural_cycle_screen.py",),
@@ -98,12 +106,15 @@ _SOURCE_TEST_MAP = {
     "evidence/creep/p92-life-table.json": ("tests/test_p92_life_screen.py",),
     "tools/p92_tensor_normalization.py": (
         "tests/test_p92_tensor_normalization.py", "tests/test_p92_tensor_structure.py",
+        "tests/test_p92_nonuniform_structure.py",
     ),
     "tools/p92_tensor_material_reference.py": (
         "tests/test_p92_tensor_structure.py", "tests/test_p92_structural_cycle_screen.py",
+        "tests/test_p92_nonuniform_structure.py",
     ),
     "tools/p92_dwell_figure_screen.py": ("tests/test_p92_dwell_figure_screen.py",),
     "tools/p92_published_recovery_reference.py": (
+        "tests/test_p92_nonuniform_structure.py",
         "tests/test_p92_structural_cycle_screen.py",
         "tests/test_p92_published_recovery_reference.py", "tests/test_p92_dwell_figure_screen.py",
         "tests/test_p92_tensor_normalization.py", "tests/test_p92_tensor_structure.py",
