@@ -716,9 +716,6 @@ def dcb_cohesive_propagation_curve(
     damage image alone.
     """
 
-    import ufl
-    from dolfinx import fem
-    from dolfinx import mesh as dolfinx_mesh
     from mpi4py import MPI
 
     from agentfem import (
@@ -774,28 +771,9 @@ def dcb_cohesive_propagation_curve(
         raise ValueError("DCB assumption must be plane_stress or plane_strain.")
 
     h = float(spec.arm_thickness)
-    x_values = np.linspace(0.0, length, nx + 1)
-    y_values = np.linspace(-h, h, 2 * ny_arm + 1)
-    coordinates = np.asarray([(x, y) for y in y_values for x in x_values])
-
-    def node(i, j):
-        return j * (nx + 1) + i
-
-    cells = np.asarray(
-        [
-            [node(i, j), node(i + 1, j), node(i + 1, j + 1), node(i, j + 1)]
-            for j in range(2 * ny_arm)
-            for i in range(nx)
-        ],
-        dtype=np.int64,
-    )
-    mid = ny_arm
-    interface_facets = np.asarray(
-        [[node(i, mid), node(i + 1, mid)] for i in range(nx)], dtype=np.int64
-    )
-    upper_cells = np.arange(ny_arm * nx, 2 * ny_arm * nx, dtype=np.int64)
-    split = interfaces.split_conforming_line_interface(
-        coordinates, cells, interface_facets, positive_cells=upper_cells
+    split = interfaces.split_rectangle(
+        length=length, lower_height=h, upper_height=h,
+        cells_along=nx, cells_below=ny_arm, cells_above=ny_arm,
     )
     domain = interfaces.create_dolfinx_split_mesh(
         split, comm=MPI.COMM_SELF, cell_type="quadrilateral"
@@ -808,13 +786,11 @@ def dcb_cohesive_propagation_curve(
         density=1.0,
         name="DCB isotropic elastic",
     )
-    measure = ufl.Measure("dx", domain=domain)
     internal = spec.width * operators.internal_force_vector(
         displacement.value,
         displacement.test,
         material,
         study=study,
-        measure=measure,
     )
     bulk = operators.residual_operator(
         internal.expression,
@@ -905,37 +881,9 @@ def dcb_cohesive_propagation_curve(
         * operators.dual_product(internal, function),
     )
     records = []
-    previous_opening = 0.0
-    previous_reaction = 0.0
-    external_work = 0.0
     initial_failed_length = represented_crack
-    initial_cohesive_dissipation = None
 
-    def accept_trial(imposed):
-        nonlocal previous_opening
-        nonlocal previous_reaction
-        nonlocal external_work
-        nonlocal initial_cohesive_dissipation
-
-        try:
-            solved = equilibrium(load=float(imposed), branch="monotonic", cycle=0)
-        except RuntimeError:
-            if equilibrium.last_info is None or equilibrium.last_info.converged:
-                raise
-            return None
-        if not solved["converged"]:
-            return None
-        response = cohesive.begin()
-        reaction = abs(float(solved["reaction"]))
-        external_work += 0.5 * (previous_reaction + reaction) * (
-            float(imposed) - previous_opening
-        )
-        bulk_energy = float(solved["bulk_strain_energy"])
-        stored = float(response.stored_energy)
-        raw_dissipation = float(response.dissipated_energy)
-        if initial_cohesive_dissipation is None:
-            initial_cohesive_dissipation = raw_dissipation
-        dissipated = raw_dissipation - initial_cohesive_dissipation
+    def observe_damage(response):
         damage = np.max(np.asarray(response.damage, dtype=float), axis=1)
         damaged_mask = damage > 1.0e-10
         failed_mask = damage >= 1.0 - 1.0e-8
@@ -943,27 +891,22 @@ def dcb_cohesive_propagation_curve(
         damaged_length = float(np.count_nonzero(damaged_mask) * dx)
         failed_length = float(np.count_nonzero(failed_mask) * dx)
         process_length = float(np.count_nonzero(process_mask) * dx)
-        residual.commit()
-        previous_opening = float(imposed)
-        previous_reaction = reaction
         return {
-            "solved": solved,
-            "response": response,
-            "reaction": reaction,
-            "bulk_energy": bulk_energy,
-            "stored": stored,
-            "dissipated": dissipated,
             "damage": damage,
             "damaged_length": damaged_length,
             "failed_length": failed_length,
             "process_length": process_length,
         }
 
+    path = fracture.MonotonicCohesivePath(
+        equilibrium, residual, cohesive, observe=observe_damage,
+    )
+
     for increment, imposed in enumerate(openings):
         advance = steps.advance_monotonic_targets(
             (float(imposed),),
-            try_accept=accept_trial,
-            initial_coordinate=previous_opening,
+            try_accept=path.try_accept,
+            initial_coordinate=path.coordinate,
             minimum_increment=minimum_increment,
             maximum_cutbacks=cutback_limit,
             coordinate_name="DCB opening",
@@ -985,8 +928,8 @@ def dcb_cohesive_propagation_curve(
         failed_length = accepted["failed_length"]
         process_length = accepted["process_length"]
         accounted = bulk_energy + stored + dissipated
-        balance = external_work - accounted
-        scale = max(abs(external_work), abs(accounted), np.finfo(float).eps)
+        balance = path.external_work - accounted
+        scale = max(abs(path.external_work), abs(accounted), np.finfo(float).eps)
         records.append(
             DCBCohesivePropagationPoint(
                 increment=increment,
@@ -995,7 +938,7 @@ def dcb_cohesive_propagation_curve(
                 bulk_strain_energy=bulk_energy,
                 cohesive_stored_energy=stored,
                 cohesive_dissipation=dissipated,
-                external_work=external_work,
+                external_work=path.external_work,
                 energy_balance_error=balance,
                 relative_energy_balance_error=float(abs(balance) / scale),
                 maximum_damage=float(
@@ -1044,9 +987,6 @@ def _dcb_point(
 ) -> DCBFiniteElementPoint:
     # Heavy numerical imports remain local so benchmark metadata and analytical
     # oracles stay usable in lightweight documentation environments.
-    import ufl
-    from dolfinx import fem
-    from dolfinx import mesh as dolfinx_mesh
     from mpi4py import MPI
 
     from agentfem import (
@@ -1055,6 +995,8 @@ def _dcb_point(
         fields,
         fracture,
         interfaces,
+        loads,
+        mesh,
         operators,
         results,
         solvers,
@@ -1069,35 +1011,9 @@ def _dcb_point(
     h = float(spec.arm_thickness)
     nx = int(elements_along)
     ny_arm = int(elements_per_arm)
-    x_values = np.linspace(0.0, float(specimen_length), nx + 1)
-    y_values = np.linspace(-h, h, 2 * ny_arm + 1)
-    points = np.asarray(
-        [(x, y) for y in y_values for x in x_values],
-        dtype=float,
-    )
-
-    def node(i, j):
-        return j * (nx + 1) + i
-
-    cells = np.asarray(
-        [
-            [node(i, j), node(i + 1, j), node(i + 1, j + 1), node(i, j + 1)]
-            for j in range(2 * ny_arm)
-            for i in range(nx)
-        ],
-        dtype=np.int64,
-    )
-    mid = ny_arm
-    interface_facets = np.asarray(
-        [[node(i, mid), node(i + 1, mid)] for i in range(nx)],
-        dtype=np.int64,
-    )
-    upper_cells = np.arange(ny_arm * nx, 2 * ny_arm * nx, dtype=np.int64)
-    split = interfaces.split_conforming_line_interface(
-        points,
-        cells,
-        interface_facets,
-        positive_cells=upper_cells,
+    split = interfaces.split_rectangle(
+        length=float(specimen_length), lower_height=h, upper_height=h,
+        cells_along=nx, cells_below=ny_arm, cells_above=ny_arm,
     )
     domain = interfaces.create_dolfinx_split_mesh(
         split,
@@ -1112,55 +1028,34 @@ def _dcb_point(
         density=1.0,
         name="DCB isotropic elastic",
     )
-    bulk_measure = ufl.Measure("dx", domain=domain)
     internal = spec.width * operators.internal_force_vector(
         displacement.value,
         displacement.test,
         material,
         study=study,
-        measure=bulk_measure,
     )
 
-    facet_dimension = domain.topology.dim - 1
-    upper_left = dolfinx_mesh.locate_entities_boundary(
+    mouths = mesh.partition_boundaries(
         domain,
-        facet_dimension,
-        lambda x: np.isclose(x[0], 0.0) & (x[1] >= -1.0e-12),
+        upper=lambda x: np.isclose(x[0], 0.0) & (x[1] >= -1.0e-12),
+        lower=lambda x: np.isclose(x[0], 0.0) & (x[1] <= 1.0e-12),
     )
-    lower_left = dolfinx_mesh.locate_entities_boundary(
-        domain,
-        facet_dimension,
-        lambda x: np.isclose(x[0], 0.0) & (x[1] <= 1.0e-12),
+    # Equal and opposite resultants; each mouth edge has length h.
+    upper_load = loads.with_amplitude(
+        loads.traction((0.0, 1.0 / h), on=mouths["upper"]), lambda value: value,
     )
-    tagged_facets = np.concatenate((upper_left, lower_left))
-    tagged_values = np.concatenate(
-        (
-            np.full(upper_left.size, 1, dtype=np.int32),
-            np.full(lower_left.size, 2, dtype=np.int32),
-        )
+    lower_load = loads.with_amplitude(
+        loads.traction((0.0, -1.0 / h), on=mouths["lower"]), lambda value: value,
     )
-    if np.unique(tagged_facets).size != tagged_facets.size:
-        raise RuntimeError("DCB crack-mouth facet sets must not overlap.")
-    order = np.argsort(tagged_facets)
-    tags = dolfinx_mesh.meshtags(
-        domain,
-        facet_dimension,
-        tagged_facets[order],
-        tagged_values[order],
+    external = (
+        operators.boundary_load_vector(upper_load, target=displacement)
+        + operators.boundary_load_vector(lower_load, target=displacement)
     )
-    ds = ufl.Measure("ds", domain=domain, subdomain_data=tags)
-    load_parameter = fem.Constant(domain, 0.0)
-    traction = load_parameter / h
-    external = operators.OperatorForm(
-        name="DCB crack-mouth load",
-        expression=(
-            traction * displacement.test[1] * ds(1)
-            - traction * displacement.test[1] * ds(2)
-        ),
-        kind="surface_force",
-        role="vector",
-        family="dcb_mode_i",
-    )
+
+    def set_force(value):
+        upper_load.update(value)
+        lower_load.update(value)
+
     bulk = operators.residual_operator(
         (internal - external).expression,
         name="R_DCB_bulk",
@@ -1231,7 +1126,7 @@ def _dcb_point(
         tangent,
         displacement,
         bcs=bcs,
-        load_parameter=load_parameter,
+        set_load=set_force,
         solver_options=solver_options
         or solvers.newton(
             relative_tolerance=1.0e-10,

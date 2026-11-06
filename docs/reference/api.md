@@ -87,7 +87,7 @@ and evidence remain in the linked guides and scientific function reference.
 | function | `region_marker(location)` | Return a region's marker or pass through a marker callable. |
 | function | `cells(domain, *, name: str, where, tag: int = 1) -> CellRegion` | Create a named cell region from a selector. |
 | function | `partition_cells(domain, **regions) -> RegionSet` | Partition mesh cells into named cell regions. |
-| function | `partition_boundaries(domain, **regions) -> RegionSet` | Create named exterior boundary regions from selectors. |
+| function | `partition_boundaries(domain, **regions) -> RegionSet` | Create disjoint exterior regions sharing one facet-tag table. |
 | function | `locate_cells(domain, marker)` | Locate cells using a geometrical marker. |
 | function | `mark_cells(domain, cells, tag: int)` | Create cell meshtags for a set of cells. |
 | function | `mark_cell_regions(domain, tag_to_marker: dict[int, object])` | Create cell meshtags from several geometric cell markers. |

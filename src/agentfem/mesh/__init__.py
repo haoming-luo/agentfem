@@ -1055,19 +1055,30 @@ def partition_cells(domain, **regions) -> RegionSet:
 
 
 def partition_boundaries(domain, **regions) -> RegionSet:
-    """Create named exterior boundary regions from selectors."""
+    """Create disjoint named exterior regions sharing one facet-tag table.
 
+    A common table allows loads on several regions to appear in one UFL
+    form. Selectors may share vertices, but must not select the same facet.
+    """
     if not regions:
         raise ValueError("partition_boundaries requires at least one named boundary.")
-    region_objects = {}
-    for tag, (name, selector) in enumerate(regions.items(), start=1):
-        region_objects[name] = boundary(
-            domain,
-            where(selector, name=name),
-            name=name,
-            tag=tag,
-        )
-    return RegionSet(domain=domain, regions=region_objects, tags=None, kind="boundary")
+    selectors = {name: where(selector, name=name) for name, selector in regions.items()}
+    facets = [locate_boundary_facets(domain, selector) for selector in selectors.values()]
+    indices = np.concatenate(facets).astype(np.int32)
+    overlap = np.unique(indices).size != indices.size
+    if domain.comm.allreduce(int(overlap), op=MPI.MAX):
+        raise ValueError("Boundary partitions must not overlap on any facet.")
+    values = np.concatenate([np.full(f.size, tag, dtype=np.int32)
+                             for tag, f in enumerate(facets, start=1)])
+    order = np.argsort(indices)
+    tags = mesh.meshtags(domain, domain.topology.dim - 1, indices[order], values[order])
+    ds = boundary_measure(domain, tags)
+    region_objects = {
+        name: BoundaryRegion(name=name, domain=domain, marker=selector, tag=tag,
+                             facet_tags=tags, ds=ds, selection="geometric")
+        for tag, (name, selector) in enumerate(selectors.items(), start=1)
+    }
+    return RegionSet(domain=domain, regions=region_objects, tags=tags, kind="boundary")
 
 
 def locate_cells(domain, marker):
