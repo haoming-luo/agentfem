@@ -75,6 +75,18 @@ def test_terminal_state_does_not_heal_or_accumulate_more_strain():
         assert update.damage_increment == update.equivalent_increment == 0
 
 
+def test_underflowed_integrity_power_keeps_zero_damage_branch():
+    law = KachanovRabotnovCreep(1., 1., 0., 1., 1000.)
+    state = CreepDamageState(damage=.8)
+    update = law.update(1., .01, state)
+    assert not update.failed and update.state.damage == state.damage
+    assert update.equivalent_increment == pytest.approx(.05)
+    # With no creep and a positive representable damage interval, exhaustion
+    # of the underflowed integrity power is terminal, not division by zero.
+    damaging = replace(law, creep_coefficient=0., damage_coefficient=1.)
+    assert damaging.update(1., .01, state).failed
+
+
 def test_small_declared_failure_damage_has_nonzero_life_and_zero_duration_is_identity():
     law = KachanovRabotnovCreep(2., 1., 1., 1., 0., failure_damage=1e-20)
     assert law.rupture_time(1.) == pytest.approx(1e-20, rel=1e-14, abs=0)

@@ -43,9 +43,12 @@ scales, tiny failure thresholds, and terminal-state monotonicity. Existing
 constitutive, analytical structural references and release golden contracts
 are also checked. After adding the power-law repair, 184 targeted tests passed,
 including the actual thermal-wall example, creep history, manufactured field,
-elastic follow-up and prescribed-trial paths. The 46 dedicated precision tests
+elastic follow-up and prescribed-trial paths. The 47 dedicated precision tests
 also cover wide time intervals, nearly singular integrable initial rates,
 zero duration and the distinction between requested and representable clocks.
+An additional zero-damage/high-power underflow regression passes in a 92-test
+material-reference run. It keeps the zero-damage branch independent of the
+unused damage exponent and avoids dividing by an underflowed integrity power.
 Critical lint passes. This numerical
 repair does not resolve discrepancies in
 published material coefficients or qualify P92 engineering life.

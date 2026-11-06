@@ -783,7 +783,15 @@ class KachanovRabotnovCreep:
         if old.damage >= self.failure_damage:
             # A terminal state cannot heal when it is presented again.
             return CreepDamageUpdate(old, 0.0, 0.0, failed=True)
-        fraction = power * damage_scale / old_integrity**power
+        integrity_power = old_integrity**power
+        # A zero damage rate is independent of phi, including when I**p
+        # underflows. Any positive representable damage_scale then exhausts
+        # an underflowed integrity power, so the terminal branch applies.
+        fraction = (
+            0.0 if damage_scale == 0.0
+            else (float("inf") if integrity_power == 0.0
+                  else power * damage_scale / integrity_power)
+        )
         failure_log_ratio = log1p(-(self.failure_damage - old.damage) / old_integrity)
         failed = fraction >= -expm1(power * failure_log_ratio)
         if failed:
