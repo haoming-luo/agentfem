@@ -250,6 +250,9 @@ first creep--fatigue contract keeps creep time fractions, stress-life fatigue
 damage, and an interaction diagram as separate inspectable assets. Every
 rupture relation and nontrivial interaction curve retains its source;
 AgentFEM does not embed licensed or material-specific allowable data.
+An explicit rupture-table `in_units` transformation changes only numerical
+unit representation and retains its source and conversion factors. It does
+not relabel accepted histories or alter the material's scientific meaning.
 The scalar strain-life option uses a calibrated Coffin-Manson-Basquin curve
 and an explicitly declared signed total mechanical strain history. It reuses
 rainflow and the same interaction assessment without converting PEEQ into a

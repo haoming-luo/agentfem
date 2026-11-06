@@ -295,6 +295,9 @@ interpolating unsaved damage states.
   residuals separate. For engineering creep--fatigue from result histories,
   declare `DwellInterval` objects and pass a source-identified project rupture
   relation to `creep_fatigue_from_result(...)`; do not embed normative curves.
+  For tabulated rupture data in different units, explicitly call
+  `curve.in_units(stress_unit=..., time_unit=...)`; keep accepted histories
+  unchanged. Conversion preserves provenance, not experimental applicability.
   For scalar strain-life instead, explicitly call `assess_strain_history`
   with a calibrated `CoffinMansonBasquinCurve` and signed total mechanical
   strain. Never substitute accumulated PEEQ or sparse visualization frames.

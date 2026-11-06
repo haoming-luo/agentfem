@@ -2,11 +2,16 @@
 # SPDX-License-Identifier: Apache-2.0
 """Reviewed rupture tables; no fitting, alloy defaults or constitutive damage."""
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field, replace
 from math import isclose
 from numbers import Real
 
 import numpy as np
+
+
+_STRESS_SCALES = {"Pa": 1.0, "kPa": 1e3, "MPa": 1e6, "GPa": 1e9,
+                  "kg/(m*s^2)": 1.0, "tonne/(mm*s^2)": 1e6}
+_TIME_SCALES = {"s": 1.0, "min": 60.0, "h": 3600.0}
 
 
 def _positive(value, label):
@@ -41,6 +46,7 @@ class TabulatedRuptureCurve:
     material_condition: str
     failure_definition: str
     source: str
+    _conversions: tuple = field(default=(), init=False, repr=False)
 
     def __post_init__(self):
         stresses = tuple(_positive(v, "Stress node") for v in self.stresses)
@@ -97,6 +103,31 @@ class TabulatedRuptureCurve:
             )
         return result
 
+    def in_units(self, *, stress_unit, time_unit):
+        """Return an explicitly converted table without changing its physics.
+
+        Stress units: Pa, kPa, MPa, GPa, kg/(m*s^2), tonne/(mm*s^2).
+        Time units: s, min, h. Temperature remains kelvin. Conversion evidence
+        accompanies the new curve; simulation histories are never relabelled.
+        """
+        factors = []
+        for label, source, target, scales in (
+            ("stress", self.stress_unit, stress_unit, _STRESS_SCALES),
+            ("time", self.time_unit, time_unit, _TIME_SCALES),
+        ):
+            if not isinstance(target, str) or source not in scales or target not in scales:
+                raise ValueError(f"Unsupported {label} unit conversion: {source!r} to {target!r}.")
+            factors.append(scales[source] / scales[target])
+        converted = replace(
+            self, stresses=tuple(v * factors[0] for v in self.stresses),
+            rupture_times=tuple(v * factors[1] for v in self.rupture_times),
+            stress_unit=stress_unit, time_unit=time_unit,
+        )
+        record = (self.stress_unit, stress_unit, factors[0],
+                  self.time_unit, time_unit, factors[1])
+        object.__setattr__(converted, "_conversions", self._conversions + (record,))
+        return converted
+
     def validate_usage(self, *, stress_unit, time_unit, stress_measure):
         for name, value in (
             ("stress_unit", stress_unit),
@@ -109,7 +140,7 @@ class TabulatedRuptureCurve:
                 )
 
     def as_dict(self):
-        return dict(
+        record = dict(
             kind="tabulated_isothermal_rupture_curve",
             interpolation="log_log",
             stresses=list(self.stresses),
@@ -125,3 +156,9 @@ class TabulatedRuptureCurve:
             extrapolation=False,
             engineering_qualified=False,
         )
+        if self._conversions:
+            record["unit_conversions"] = [dict(zip(
+                ("from_stress_unit", "to_stress_unit", "stress_factor",
+                 "from_time_unit", "to_time_unit", "time_factor"), item
+            )) for item in self._conversions]
+        return record

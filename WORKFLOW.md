@@ -117,6 +117,9 @@ record.
     accepted physical time, independently of visualization frame count. Reuse
     the exact selection on restart; a history cannot be backfilled from the
     last field. See [co-located material histories](docs/material_point_histories.md).
+    Convert reviewed rupture tables explicitly with `curve.in_units(...)`
+    when their stress/time units differ from recorded histories; keep the
+    histories unchanged and preserve the table's conversion evidence.
     Experimental serial finite-strain J2 Steps can consume named rigid contact
     pairs through the ordinary `RigidContactPair` asset, with fixed or
     normalized-prescribed tool motion. The strong-boundary and supported
