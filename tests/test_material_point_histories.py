@@ -11,6 +11,7 @@ import pytest
 from mpi4py import MPI
 
 from agentfem import amplitudes, constitutive, fields, histories, mesh, models, results, solvers, steps, studies, units
+from agentfem import assessments
 
 
 def _step(*, requests=None, joint=False, regional=False, automatic=False):
@@ -77,6 +78,22 @@ def test_colocated_fields_use_original_cell_keys_and_physical_time(joint, region
             assert result.histories[prefix + ".ALPHA"].value_shape == (2, 3, 3)
     assert not np.array_equal(result.histories["a.TEMP"].values, result.histories["b.TEMP"].values)
     assert len(result.histories["a.S"].abscissa) == len(step.accepted_increments) == 8
+
+
+def test_assessment_consumes_raw_tensor_without_project_glue():
+    result = _step(regional=True).solve_result()
+    stress = result.histories["a.S"]
+    options = dict(stress_history="a.S", temperature_history="a.TEMP", stress_component=(0, 0),
+                   dwells=(assessments.DwellInterval(float(stress.abscissa[0]), float(stress.abscissa[-1])),),
+                   rupture_time=lambda s, t: 1000., rupture_source="synthetic constant 1000 s",
+                   stress_unit=stress.unit, time_unit="s", stress_measure="signed Cauchy 11")
+    assessment = assessments.creep_damage_from_result(result, **options)
+    assert assessment.damage == pytest.approx((stress.abscissa[-1] - stress.abscissa[0]) / 1000.)
+    point = assessment.as_dict()["material_point_source"]["point"]
+    assert point["cell"] == 0 and point["point"] == 0
+    assert point["reference_position"] == result.metadata["material_point_history"]["points"][0]["reference_position"]
+    with pytest.raises(ValueError, match="same recorded material point"):
+        assessments.creep_damage_from_result(result, **{**options, "temperature_history": "b.TEMP"})
 
 
 @pytest.mark.parametrize("portable", [False, True])

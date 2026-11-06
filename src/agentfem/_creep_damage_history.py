@@ -51,6 +51,8 @@ class CreepDamageHistoryAssessment:
     maximum_stress_sample_interval: float
     maximum_temperature_sample_interval: float
     rupture_relation: dict | None = None
+    stress_component: tuple[int, int] | None = None
+    material_point_source: dict | None = None
 
     def as_dict(self):
         record = dict(
@@ -68,7 +70,71 @@ class CreepDamageHistoryAssessment:
         if self.rupture_relation is not None:
             from copy import deepcopy
             record["rupture_relation"] = deepcopy(self.rupture_relation)
+        if self.stress_component is not None:
+            record["stress_component"] = list(self.stress_component)
+        if self.material_point_source is not None:
+            from copy import deepcopy
+            record["material_point_source"] = deepcopy(self.material_point_source)
         return record
+
+
+def _point_source(result, stress_name, temperature_name):
+    """Check recorded identities, without inferring location from name syntax."""
+    from copy import deepcopy
+
+    identity = result.metadata.get("material_point_history")
+    if identity is None:
+        return None
+    if not isinstance(identity, dict) or identity.get("schema") != "agentfem.material-point-history.v1":
+        raise ValueError("Unrecognized material-point history identity.")
+    associations = {}
+    for point in identity["points"]:
+        for channel in identity["channels"]:
+            name = f"{point['name']}.{channel}"
+            if name in associations:
+                raise ValueError("Duplicate material-point history identity.")
+            associations[name] = (point, channel)
+    selected = [associations.get(name) for name in (stress_name, temperature_name)]
+    if not any(item is not None for item in selected):
+        return None  # Ordinary caller-supplied scalar histories retain their contract.
+    if any(item is None for item in selected):
+        raise ValueError("Stress and temperature must identify the same recorded material point.")
+    # Two user-facing names may intentionally select the same integration point.
+    location_keys = ("cell", "point", "reference_position")
+    if any(selected[0][0][key] != selected[1][0][key] for key in location_keys):
+        raise ValueError("Stress and temperature must identify the same recorded material point.")
+    stress, temperature = result.histories[stress_name], result.histories[temperature_name]
+    if (not np.array_equal(stress.abscissa, temperature.abscissa)
+            or stress.abscissa_unit != identity["time_unit"]
+            or temperature.abscissa_unit != identity["time_unit"]):
+        raise ValueError("Recorded material-point channels must share their accepted physical clock.")
+    for history, (_, channel) in zip((stress, temperature), selected, strict=True):
+        description = identity["channels"][channel]
+        if history.value_shape != tuple(description["shape"]) or history.unit != description["unit"]:
+            raise ValueError("Material-point channel differs from its recorded shape or unit.")
+    return deepcopy(dict(point=selected[0][0], mesh=identity["mesh"],
+                         histories={"stress": stress_name, "temperature": temperature_name},
+                         quadrature_rule=identity["quadrature_rule"],
+                         scientific_identity=identity["scientific_identity"],
+                         channels={item[1]: identity["channels"][item[1]] for item in selected},
+                         time_unit=identity["time_unit"]))
+
+
+def _stress_component(history, component):
+    from dataclasses import replace
+
+    if component is None:
+        if len(history.value_shape) == 2:
+            raise ValueError("Tensor stress history requires explicit stress_component=(i, j).")
+        return history, None
+    if (not isinstance(component, tuple) or len(component) != 2
+            or any(isinstance(i, (bool, np.bool_)) or not isinstance(i, (int, np.integer)) for i in component)):
+        raise ValueError("stress_component must be a pair of zero-based tensor indices.")
+    shape = history.value_shape
+    if len(shape) != 2 or shape[0] != shape[1] or any(i < 0 or i >= n for i, n in zip(component, shape, strict=True)):
+        raise ValueError("stress_component lies outside the recorded square stress tensor.")
+    indices = tuple(map(int, component))
+    return replace(history, values=history.values[(slice(None), *indices)]), indices
 
 
 def _scalar_history(history, *, unit, time_unit):
@@ -90,6 +156,7 @@ def creep_damage_from_result(
     result, *, stress_history: str, temperature_history: str, dwells,
     rupture_time, rupture_source: str, stress_unit: str, time_unit: str,
     stress_measure: str, maximum_source_interval: float | None = None,
+    stress_component: tuple[int, int] | None = None,
 ) -> CreepDamageHistoryAssessment:
     """Integrate ``dt / rupture_time(stress, temperature)`` over explicit dwells.
 
@@ -108,6 +175,9 @@ def creep_damage_from_result(
     rupture relation and calibration domain. Its callable owns domain rejection.
     Inputs must describe the same material location/path; separate spatial
     maxima are not automatically a valid or conservative local-life history.
+    ``stress_component=(i, j)`` selects a zero-based tensor component without
+    absolute values or a multiaxial criterion. Recorded material-point channels
+    must identify the same point and accepted clock; that identity is retained.
     """
     from .assessments import DwellInterval
     from ._rupture_curve import TabulatedRuptureCurve
@@ -129,6 +199,8 @@ def creep_damage_from_result(
             raise ValueError("maximum_source_interval must be finite and positive.")
     stress = result.histories[stress_history]
     temperature = result.histories[temperature_history]
+    point_source = _point_source(result, stress_history, temperature_history)
+    stress, component = _stress_component(stress, stress_component)
     sx, sy = _scalar_history(stress, unit=stress_unit, time_unit=time_unit)
     tx, ty = _scalar_history(temperature, unit="K", time_unit=time_unit)
     if np.any(ty <= 0.):
@@ -198,4 +270,5 @@ def creep_damage_from_result(
         raise ValueError("Total creep damage exceeds the representable range.") from exc
     return CreepDamageHistoryAssessment(
         tuple(intervals), damage, f"{result.name}:{stress_history},{temperature_history}",
-        rupture_source, stress_unit, time_unit, stress_measure, *gaps, relation)
+        rupture_source, stress_unit, time_unit, stress_measure, *gaps, relation,
+        component, point_source)

@@ -48,6 +48,93 @@ def test_union_grid_integrates_linear_rate_exactly_and_keeps_provenance():
     np.testing.assert_array_equal(result.histories["stress"].values, original)
 
 
+def _point_result():
+    result = _result()
+    times = (0., 1., 3.)
+    tensor = np.zeros((3, 3, 3))
+    tensor[:, 0, 0] = (100., 80., 40.)
+    tensor[:, 1, 1] = (-100., -80., -40.)
+    result.add_history("a.S", times, tensor, unit="MPa")
+    result.add_history("a.TEMP", times, (800., 800., 800.), unit="K")
+    result.add_history("b.TEMP", times, (900., 900., 900.), unit="K")
+    result.metadata["material_point_history"] = dict(
+        schema="agentfem.material-point-history.v1", mesh={"identity": "fixture"},
+        quadrature_rule="fixture-rule", time_unit="s", scientific_identity={"material": "synthetic"},
+        points=[dict(name="a", cell=0, point=0, reference_position=[0, 0, 0]),
+                dict(name="b", cell=1, point=0, reference_position=[1, 0, 0])],
+        channels={"S": dict(shape=[3, 3], unit="MPa", measure="Cauchy stress"),
+                  "TEMP": dict(shape=[], unit="K", measure="absolute temperature")})
+    return result
+
+
+def test_tensor_component_from_colocated_history_retains_identity():
+    result = _point_result()
+    assessment = _integrate(result, stress_history="a.S", temperature_history="a.TEMP",
+                            stress_component=(0, 0))
+    assert assessment.damage == pytest.approx(_integrate().damage)
+    record = assessment.as_dict()
+    assert record["stress_component"] == [0, 0]
+    assert record["material_point_source"]["point"]["cell"] == 0
+    assert record["material_point_source"]["channels"]["S"]["measure"] == "Cauchy stress"
+    result.metadata["material_point_history"]["points"][0]["cell"] = 99
+    assert assessment.as_dict()["material_point_source"]["point"]["cell"] == 0
+    record["material_point_source"]["point"]["cell"] = 44
+    assert assessment.as_dict()["material_point_source"]["point"]["cell"] == 0
+    assert result.histories["a.S"].value_shape == (3, 3)
+
+
+@pytest.mark.parametrize("temperature", ["b.TEMP", "temperature"])
+def test_mixed_material_locations_fail_before_rupture_callback(temperature):
+    calls = []
+    with pytest.raises(ValueError, match="same recorded material point"):
+        _integrate(_point_result(), stress_history="a.S", temperature_history=temperature,
+                   stress_component=(0, 0), rupture_time=lambda s, t: calls.append((s, t)))
+    assert not calls
+
+
+@pytest.mark.parametrize("component", [(True, 0), (0,), [0, 0], (3, 0), (-1, 0), (0., 0)])
+def test_invalid_stress_component_is_rejected(component):
+    with pytest.raises(ValueError, match="stress_component"):
+        _integrate(_point_result(), stress_history="a.S", temperature_history="a.TEMP",
+                   stress_component=component)
+
+
+def test_tensor_input_explains_component_selection():
+    with pytest.raises(ValueError, match="explicit stress_component"):
+        _integrate(_point_result(), stress_history="a.S", temperature_history="a.TEMP")
+
+
+def test_component_selection_preserves_sign():
+    calls = []
+    def relation(stress, temperature):
+        calls.append(stress)
+        return 1000.
+    _integrate(_point_result(), stress_history="a.S", temperature_history="a.TEMP",
+               stress_component=(1, 1), rupture_time=relation)
+    assert calls == [-100., -80., -40.]
+
+
+def test_two_names_for_same_reference_point_are_not_a_false_mismatch():
+    result = _point_result()
+    identity = result.metadata["material_point_history"]
+    identity["points"][1] = {**identity["points"][0], "name": "b"}
+    result.histories["b.TEMP"] = replace(result.histories["a.TEMP"], name="b.TEMP")
+    assessment = _integrate(result, stress_history="a.S", temperature_history="b.TEMP", stress_component=(0, 0))
+    assert assessment.as_dict()["material_point_source"]["histories"]["temperature"] == "b.TEMP"
+    assert assessment.damage == pytest.approx(_integrate().damage)
+
+
+@pytest.mark.parametrize("mutation", ["clock", "unit", "shape"])
+def test_recorded_point_contract_cannot_be_relabelled(mutation):
+    result = _point_result()
+    history = result.histories["a.TEMP"]
+    changes = {"clock": dict(abscissa=(0., 1.1, 3.)), "unit": dict(unit="degC"),
+               "shape": dict(values=np.full((3, 1), 800.))}[mutation]
+    result.histories["a.TEMP"] = replace(history, **changes)
+    with pytest.raises(ValueError, match="clock|shape or unit"):
+        _integrate(result, stress_history="a.S", temperature_history="a.TEMP", stress_component=(0, 0))
+
+
 def test_clipped_dwell_endpoints_and_repetitions():
     assessment = _integrate(dwells=(assessments.DwellInterval(.5, 2.5, repetitions=3.),))
     assert assessment.damage == pytest.approx(3. * 2. * 70. / 100_000.)
