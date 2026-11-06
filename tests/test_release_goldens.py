@@ -306,7 +306,7 @@ def test_golden_contracts_become_explicit_release_claims():
     assert all(item.status == "passed" for item in claims)
     assert all(item.kind == "verification" for item in claims)
     assert all(
-        item.evidence["reference_version"] == "q1-6x10-heat4-kr40-1"
+        item.evidence["reference_version"] == "q1-6x10-heat4-kr40-plane-strain-mises-2"
         for item in claims
     )
 

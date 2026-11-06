@@ -2,6 +2,11 @@
 
 ## Evidence levels
 
+The older hot-wall demonstration now uses standard three-dimensional Mises
+output, including plane-strain out-of-plane stress. Its former hand-written
+two-dimensional deviator and associated Golden values are superseded; see the
+[correction and independent checks](internal/thermal_mises_audit_20261107.md).
+
 For the current P92 commands, data boundaries and next engineering gates, start
 with the [P92 evidence map](p92_validation.md).
 
