@@ -1,0 +1,185 @@
+{
+  "schema": "agentfem.research.p92-local-evaluation.v1",
+  "machine": "Apple M5 arm64",
+  "python": "3.11.15",
+  "numpy": "2.4.6",
+  "scipy": "1.17.1",
+  "threads": {
+    "OMP_NUM_THREADS": 1,
+    "OPENBLAS_NUM_THREADS": 1
+  },
+  "mpi_ranks": 1,
+  "profile": {
+    "baseline_cells": 32,
+    "constitutive_updates": 14336,
+    "rate_jacobian_evaluations": 153613,
+    "note": "cProfile diagnostic timings are not used as the A/B speed comparison"
+  },
+  "scientific_scope": "Fixed P92 research tensor law and time grid; exact within-update candidate reuse only. No experimental qualification or composite-contact speed claim.",
+  "runs": [
+    {
+      "baseline_commit": "8d77c6887cc6d7c0ceab8b3e3fa817df2e95c9e7",
+      "resolution": 2,
+      "cells": 32,
+      "baseline_source_sha256": "fe516e492b22169153491112d1f3782fcdb297e6a207676953168943f19e2722",
+      "candidate_source_sha256": "3e848dc2c1a94301f693fb64879906289dc926b9d68aa556c180cbf49e966093",
+      "timing_scope": "full build, ramp and hold, including observations; no visualization files; one serial worker",
+      "rows": [
+        {
+          "mode": "baseline",
+          "total_seconds": 6.244797124993056,
+          "solve_seconds": 6.215994625003077,
+          "build_seconds": 0.02880249998997897,
+          "exact": true,
+          "maximum_absolute_difference": 0,
+          "arrays": 23,
+          "increments": 20,
+          "loaded_reaction_N": 11.787592425415387,
+          "held_reaction_N": 11.575750637992007
+        },
+        {
+          "mode": "candidate",
+          "total_seconds": 4.162765249959193,
+          "solve_seconds": 4.122954291990027,
+          "build_seconds": 0.03981095796916634,
+          "exact": true,
+          "maximum_absolute_difference": 0,
+          "arrays": 23,
+          "increments": 20,
+          "loaded_reaction_N": 11.787592425415387,
+          "held_reaction_N": 11.575750637992007
+        },
+        {
+          "mode": "candidate",
+          "total_seconds": 4.151282583945431,
+          "solve_seconds": 4.12372058397159,
+          "build_seconds": 0.02756199997384101,
+          "exact": true,
+          "maximum_absolute_difference": 0,
+          "arrays": 23,
+          "increments": 20,
+          "loaded_reaction_N": 11.787592425415387,
+          "held_reaction_N": 11.575750637992007
+        },
+        {
+          "mode": "baseline",
+          "total_seconds": 6.286089750006795,
+          "solve_seconds": 6.256998791010119,
+          "build_seconds": 0.02909095899667591,
+          "exact": true,
+          "maximum_absolute_difference": 0,
+          "arrays": 23,
+          "increments": 20,
+          "loaded_reaction_N": 11.787592425415387,
+          "held_reaction_N": 11.575750637992007
+        },
+        {
+          "mode": "baseline",
+          "total_seconds": 6.335871167015284,
+          "solve_seconds": 6.29649016703479,
+          "build_seconds": 0.03938099998049438,
+          "exact": true,
+          "maximum_absolute_difference": 0,
+          "arrays": 23,
+          "increments": 20,
+          "loaded_reaction_N": 11.787592425415387,
+          "held_reaction_N": 11.575750637992007
+        },
+        {
+          "mode": "candidate",
+          "total_seconds": 4.209039332927205,
+          "solve_seconds": 4.180172040942125,
+          "build_seconds": 0.028867291985079646,
+          "exact": true,
+          "maximum_absolute_difference": 0,
+          "arrays": 23,
+          "increments": 20,
+          "loaded_reaction_N": 11.787592425415387,
+          "held_reaction_N": 11.575750637992007
+        }
+      ]
+    },
+    {
+      "baseline_commit": "8d77c6887cc6d7c0ceab8b3e3fa817df2e95c9e7",
+      "resolution": 4,
+      "cells": 256,
+      "baseline_source_sha256": "fe516e492b22169153491112d1f3782fcdb297e6a207676953168943f19e2722",
+      "candidate_source_sha256": "3e848dc2c1a94301f693fb64879906289dc926b9d68aa556c180cbf49e966093",
+      "timing_scope": "full build, ramp and hold, including observations; no visualization files; one serial worker",
+      "rows": [
+        {
+          "mode": "baseline",
+          "total_seconds": 55.43233916698955,
+          "solve_seconds": 55.397691208985634,
+          "build_seconds": 0.034647958003915846,
+          "exact": true,
+          "maximum_absolute_difference": 0,
+          "arrays": 23,
+          "increments": 20,
+          "loaded_reaction_N": 10.596422795795887,
+          "held_reaction_N": 10.236817340687741
+        },
+        {
+          "mode": "candidate",
+          "total_seconds": 37.52952766697854,
+          "solve_seconds": 37.485119374934584,
+          "build_seconds": 0.044408292043954134,
+          "exact": true,
+          "maximum_absolute_difference": 0,
+          "arrays": 23,
+          "increments": 20,
+          "loaded_reaction_N": 10.596422795795887,
+          "held_reaction_N": 10.236817340687741
+        },
+        {
+          "mode": "candidate",
+          "total_seconds": 37.69052733306307,
+          "solve_seconds": 37.65667016606312,
+          "build_seconds": 0.033857166999951005,
+          "exact": true,
+          "maximum_absolute_difference": 0,
+          "arrays": 23,
+          "increments": 20,
+          "loaded_reaction_N": 10.596422795795887,
+          "held_reaction_N": 10.236817340687741
+        },
+        {
+          "mode": "baseline",
+          "total_seconds": 57.03570495801978,
+          "solve_seconds": 56.99086854106281,
+          "build_seconds": 0.044836416956968606,
+          "exact": true,
+          "maximum_absolute_difference": 0,
+          "arrays": 23,
+          "increments": 20,
+          "loaded_reaction_N": 10.596422795795887,
+          "held_reaction_N": 10.236817340687741
+        },
+        {
+          "mode": "baseline",
+          "total_seconds": 57.17641495796852,
+          "solve_seconds": 57.14222699997481,
+          "build_seconds": 0.03418795799370855,
+          "exact": true,
+          "maximum_absolute_difference": 0,
+          "arrays": 23,
+          "increments": 20,
+          "loaded_reaction_N": 10.596422795795887,
+          "held_reaction_N": 10.236817340687741
+        },
+        {
+          "mode": "candidate",
+          "total_seconds": 37.976439416990615,
+          "solve_seconds": 37.943141166935675,
+          "build_seconds": 0.03329825005494058,
+          "exact": true,
+          "maximum_absolute_difference": 0,
+          "arrays": 23,
+          "increments": 20,
+          "loaded_reaction_N": 10.596422795795887,
+          "held_reaction_N": 10.236817340687741
+        }
+      ]
+    }
+  ]
+}
