@@ -18,6 +18,7 @@ from petsc4py import PETSc
 
 from . import fields as field_api
 from . import interfaces as interface_api
+from .cohesive_path import MonotonicCohesivePath
 from . import operators
 from .constitutive import hyperelasticity
 from .operators.core import OperatorForm
@@ -5376,6 +5377,7 @@ def minimum_cell_nodal_spacing(domain) -> float:
 
 
 __all__ = [
+    "MonotonicCohesivePath",
     "CrackSegment2D",
     "CrackSet2D",
     "CrackTip2D",

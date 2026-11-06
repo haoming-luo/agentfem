@@ -18,6 +18,7 @@ from mpi4py import MPI
 
 from agentfem import dependencies
 
+from .mapped import mapped_grid
 from .honeycomb import reentrant_honeycomb
 from . import formats
 from . import quality
@@ -1055,25 +1056,53 @@ def partition_cells(domain, **regions) -> RegionSet:
 
 
 def partition_boundaries(domain, **regions) -> RegionSet:
-    """Create named exterior boundary regions from selectors."""
+    """Create disjoint named exterior regions sharing one facet-tag table.
 
+    A common table allows loads on several regions to appear in one UFL
+    form. Selectors may share vertices, but must not select the same facet.
+    """
     if not regions:
         raise ValueError("partition_boundaries requires at least one named boundary.")
-    region_objects = {}
-    for tag, (name, selector) in enumerate(regions.items(), start=1):
-        region_objects[name] = boundary(
-            domain,
-            where(selector, name=name),
-            name=name,
-            tag=tag,
-        )
-    return RegionSet(domain=domain, regions=region_objects, tags=None, kind="boundary")
+    selectors = {name: where(selector, name=name) for name, selector in regions.items()}
+    facets = [locate_boundary_facets(domain, selector) for selector in selectors.values()]
+    indices = np.concatenate(facets).astype(np.int32)
+    overlap = np.unique(indices).size != indices.size
+    if domain.comm.allreduce(int(overlap), op=MPI.MAX):
+        raise ValueError("Boundary partitions must not overlap on any facet.")
+    values = np.concatenate([np.full(f.size, tag, dtype=np.int32)
+                             for tag, f in enumerate(facets, start=1)])
+    order = np.argsort(indices)
+    tags = mesh.meshtags(domain, domain.topology.dim - 1, indices[order], values[order])
+    ds = boundary_measure(domain, tags)
+    region_objects = {
+        name: BoundaryRegion(name=name, domain=domain, marker=selector, tag=tag,
+                             facet_tags=tags, ds=ds, selection="geometric")
+        for tag, (name, selector) in enumerate(selectors.items(), start=1)
+    }
+    return RegionSet(domain=domain, regions=region_objects, tags=tags, kind="boundary")
 
 
-def locate_cells(domain, marker):
-    """Locate cells using a geometrical marker."""
+def locate_cells(domain, marker, *, by="vertices"):
+    """Locate cells by all vertices (default) or by owned-cell centroids.
 
-    return mesh.locate_entities(domain, domain.topology.dim, where(marker))
+    ``by="centroid"`` selects a physical sampling window even if no whole
+    element lies inside it. It returns owned cells only, avoiding duplicate
+    contributions when averaging integration-point data across MPI ranks.
+    The default retains DOLFINx entity-location semantics, including ghosts.
+    """
+    selector = where(marker)
+    if by == "vertices":
+        return mesh.locate_entities(domain, domain.topology.dim, selector)
+    if by != "centroid":
+        raise ValueError("Cell selection by must be 'vertices' or 'centroid'.")
+    dimension = domain.topology.dim
+    owned = domain.topology.index_map(dimension).size_local
+    cells = np.arange(owned, dtype=np.int32)
+    points = mesh.compute_midpoints(domain, dimension, cells)
+    selected = np.asarray(selector(points.T), dtype=bool)
+    if selected.shape != (owned,):
+        raise ValueError("A centroid selector must return one boolean per owned cell.")
+    return cells[selected]
 
 
 def mark_cells(domain, cells, tag: int):
@@ -1225,13 +1254,14 @@ def _coordinate_tolerance(domain) -> float:
     return max(1.0, span) * 1.0e-12
 
 
-def from_arrays(*, cells, coordinates, coordinate_element, comm=None,
-                partitioner=None):
+def from_arrays(*, cells, coordinates, coordinate_element=None, cell_type=None,
+                geometry_degree=1, comm=None, partitioner=None):
     """Create a DOLFINx mesh through explicit topology/geometry keywords.
 
     Coordinates and cell connectivity follow DOLFINx conventions, including
-    global geometry indices in distributed input. The caller supplies the
-    coordinate element (and ordering), so high-order geometry is preserved.
+    global geometry indices in distributed input. Pass an explicit
+    coordinate element or declare cell_type and geometry_degree (1 or 2).
+    Connectivity always uses Basix ordering; no VTK reordering is inferred.
     Return the ordinary DOLFINx mesh used by AgentFEM's field/region workflow.
     """
     selected_comm = MPI.COMM_WORLD if comm is None else comm
@@ -1251,6 +1281,22 @@ def from_arrays(*, cells, coordinates, coordinate_element, comm=None,
             points = points.astype(np.float64)
         if points.dtype not in (np.dtype(np.float32), np.dtype(np.float64)):
             raise ValueError("coordinates must use float32 or float64 precision.")
+        if coordinate_element is not None and cell_type is not None:
+            raise ValueError("Specify coordinate_element or cell_type, not both.")
+        if coordinate_element is None:
+            import basix
+            import basix.ufl
+            if cell_type not in {"interval", "triangle", "quadrilateral", "tetrahedron", "hexahedron"}:
+                raise ValueError("Specify a supported cell_type or an explicit coordinate_element.")
+            if isinstance(geometry_degree, bool) or geometry_degree not in (1, 2):
+                raise ValueError("geometry_degree must be 1 or 2 for the cell_type shortcut.")
+            element = basix.ufl.element("Lagrange", cell_type, int(geometry_degree),
+                                       shape=(points.shape[1],),
+                                       lagrange_variant=basix.LagrangeVariant.equispaced)
+            expected = element.dim // points.shape[1]
+            if topology.shape[1] != expected:
+                raise ValueError("Cell connectivity width does not match the coordinate element.")
+            coordinate_element = ufl.Mesh(element)
     except (TypeError, ValueError) as exc:
         error = str(exc)
     # Fail collectively before entering collective DOLFINx mesh construction.
