@@ -4136,6 +4136,8 @@ Standard-neutral postprocessing of creep time fractions, resolved dwell historie
 
 ### Public API
 
+- `agentfem.assessments.FixedHorizonReliability`
+- `agentfem.assessments.fixed_horizon_reliability`
 - `agentfem.assessments.LifeObservation`
 - `agentfem.assessments.LifeSurvival`
 - `agentfem.assessments.life_survival`
@@ -4203,6 +4205,7 @@ The allowable boundary is a declared piecewise-linear scientific input.
 
 #### Conventions
 
+- fixed_horizon_reliability uses exact two-sided binomial confidence limits only for declared fixed sample-size/horizon tests with all outcomes known at that horizon; it rejects early censoring instead of dropping specimens.
 - LifeObservation represents one measured specimen, not a simulation frame. life_survival requires explicitly declared independent specimens and non-informative right censoring within one exact condition/batch group.
 - Kaplan-Meier pointwise exponential Greenwood limits describe survival probability uncertainty, not prediction intervals, simultaneous bands or confidence-qualified design lives; undefined endpoint limits remain null.
 - A TabulatedRuptureCurve uses explicit isothermal log-log interpolation of a reviewed monotone curve, retains material condition and failure definition, and rejects extrapolation or mismatched assessment units/stress measure.
@@ -4234,6 +4237,7 @@ For existing result histories, declare DwellInterval records and call assessment
 
 **Tests**
 
+- `tests/test_fixed_horizon_reliability.py`
 - `tests/test_life_observations.py`
 - `tests/test_p92_life_observations.py`
 - `tests/test_tabulated_rupture_curve.py`

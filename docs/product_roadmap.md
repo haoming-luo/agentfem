@@ -1,5 +1,13 @@
 # AgentFEM Product Roadmap
 
+### Fixed-horizon uncertainty and data gate (2026-11-08)
+
+The bounded specimen workflow now handles fixed-plan zero-failure tests using
+exact two-sided binomial intervals. It shares record validation with survival
+analysis and rejects early censoring. Public P92 data search has not yet admitted
+a compatible replicate/run-out cohort; do not fit a scatter model just to fill
+that gap. See the [source and acceptance note](internal/life_reliability_20261108.md).
+
 ### Specimen life evidence: bounded first slice (2026-11-07)
 
 `LifeObservation` and `life_survival` now separate experimental failures and

@@ -748,6 +748,8 @@ and evidence remain in the linked guides and scientific function reference.
 | function | `linear_interaction() -> InteractionDiagram` | Return the transparent reference boundary ``Dc + Df = 1``. |
 | function | `creep_fatigue(*, fatigue: FatigueAssessment \| StrainLifeAssessment, creep: CreepDamageAssessment \| CreepDamageHistoryAssessment, interaction: InteractionDiagram \| None = None) -> CreepFatigueAssessment` | Combine existing fatigue and creep assessments against one boundary. |
 | function | `creep_fatigue_from_result(result, *, fatigue_history: str, fatigue_curve, stress_history: str, temperature_history: str, dwells: Iterable[DwellInterval], rupture_time: Callable[[float, float], float], rupture_source: str, interaction: InteractionDiagram \| None = None, ultimate_strength: float \| None = None, stress_reducer: str = 'maximum_absolute', temperature_reducer: str = 'maximum') -> CreepFatigueAssessment` | Build the engineering V1 assessment from named result histories. |
+| class | `FixedHorizonReliability` | Exact two-sided binomial confidence interval at one prespecified horizon. |
+| function | `fixed_horizon_reliability(observations, *, horizon, independent_specimens, fixed_test_plan, confidence_level = 0.95)` | Evaluate reliability at a fixed test horizon without a life-distribution fit. |
 | class | `LifeObservation` | One specimen outcome. Conditions use explicit unit-bearing keys. |
 | class | `LifeSurvival` | Kaplan–Meier estimates and pointwise, asymptotic survival confidence limits. |
 | function | `life_survival(observations, *, independent_specimens, noninformative_censoring, confidence_level = 0.95)` | Analyze one declared population/batch/condition using SciPy's KM estimator. |

@@ -1164,6 +1164,8 @@
       "id": "agentfem.workflow.creep_fatigue_assessment",
       "kind": "workflow",
       "public_api": [
+        "agentfem.assessments.FixedHorizonReliability",
+        "agentfem.assessments.fixed_horizon_reliability",
         "agentfem.assessments.LifeObservation",
         "agentfem.assessments.LifeSurvival",
         "agentfem.assessments.life_survival",

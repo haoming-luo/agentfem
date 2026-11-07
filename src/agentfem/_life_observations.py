@@ -147,16 +147,7 @@ class LifeSurvival:
         }
 
 
-def life_survival(observations, *, independent_specimens, noninformative_censoring,
-                  confidence_level=.95):
-    """Analyze one declared population/batch/condition using SciPy's KM estimator.
-
-    Both assumptions must explicitly be True. The function checks identity and
-    condition consistency, not the truth of experimental independence. Invalid
-    input is rejected before estimation; input observations are never mutated.
-    """
-    if independent_specimens is not True or noninformative_censoring is not True:
-        raise ValueError("Explicit independent specimens and non-informative censoring are required.")
+def _sample(observations, confidence_level):
     level = _real(confidence_level, "confidence_level")
     if not 0 < level < 1:
         raise ValueError("confidence_level must lie strictly between zero and one.")
@@ -168,6 +159,20 @@ def life_survival(observations, *, independent_specimens, noninformative_censori
     if any(row.cohort_key != rows[0].cohort_key for row in rows[1:]):
         raise ValueError("Mixed population, batch, failure definition, units or test conditions; group explicitly.")
     rows = tuple(sorted(rows, key=lambda row: (row.life, row.specimen_id)))
+    return rows, level
+
+
+def life_survival(observations, *, independent_specimens, noninformative_censoring,
+                  confidence_level=.95):
+    """Analyze one declared population/batch/condition using SciPy's KM estimator.
+
+    Both assumptions must explicitly be True. The function checks identity and
+    condition consistency, not the truth of experimental independence. Invalid
+    input is rejected before estimation; input observations are never mutated.
+    """
+    if independent_specimens is not True or noninformative_censoring is not True:
+        raise ValueError("Explicit independent specimens and non-informative censoring are required.")
+    rows, level = _sample(observations, confidence_level)
     from scipy.stats import CensoredData, ecdf
 
     lives = np.array([row.life for row in rows])
@@ -194,3 +199,70 @@ def life_survival(observations, *, independent_specimens, noninformative_censori
         tuple(float(v) if ok else None for v, ok in zip(high, valid, strict=True)),
         tuple(map(int, risk)), tuple(map(int, deaths)), tuple(map(int, withdrawals)),
     )
+
+
+@dataclass(frozen=True)
+class FixedHorizonReliability:
+    """Exact two-sided binomial confidence interval at one prespecified horizon."""
+
+    observations: tuple[LifeObservation, ...]
+    horizon: float
+    survivors: int
+    confidence_level: float
+    lower: float
+    upper: float
+
+    @property
+    def reliability(self):
+        return self.survivors / len(self.observations)
+
+    def as_dict(self):
+        return {
+            "schema": "agentfem.fixed-horizon-reliability.v1",
+            "method": "clopper_pearson_exact_binomial",
+            "interval_kind": "two_sided_fixed_horizon_survival_confidence",
+            "horizon": self.horizon, "life_unit": self.observations[0].life_unit,
+            "specimens": len(self.observations), "survivors": self.survivors,
+            "failures_by_horizon": len(self.observations) - self.survivors,
+            "reliability": self.reliability, "confidence_level": self.confidence_level,
+            "lower": self.lower, "upper": self.upper,
+            "independence_assumption": "distinct_independent_specimens",
+            "test_plan_assumption": "sample_size_and_horizon_fixed_before_outcomes",
+            "survival_definition": "failure_time_strictly_greater_than_horizon",
+            "engineering_qualified": False,
+            "observations": [row.as_dict() for row in self.observations],
+            "limitations": [
+                "Not a life distribution, individual-life prediction interval or design allowable.",
+                "No early censoring, adaptive stopping or post-selected horizon inference.",
+                "Intervals at multiple horizons are not a simultaneous confidence band.",
+            ],
+        }
+
+
+def fixed_horizon_reliability(observations, *, horizon, independent_specimens,
+                              fixed_test_plan, confidence_level=.95):
+    """Evaluate reliability at a fixed test horizon without a life-distribution fit.
+
+    Declare independent specimens and a sample size/horizon fixed before outcomes.
+    All specimens must have a known binary outcome at the horizon: failure on or
+    before it, or survival through it. Early censoring is rejected, not discarded.
+    Uses exact two-sided Clopper-Pearson limits; no sequential stopping correction.
+    """
+    if independent_specimens is not True or fixed_test_plan is not True:
+        raise ValueError("Explicit independent specimens and a fixed test plan are required.")
+    rows, level = _sample(observations, confidence_level)
+    horizon = _real(horizon, "horizon")
+    if horizon <= 0:
+        raise ValueError("horizon must be positive and use the observation life_unit.")
+    early = [row.specimen_id for row in rows
+             if row.status == "right_censored" and row.life < horizon]
+    if early:
+        raise ValueError(f"Unknown outcome at horizon for early-censored specimens {early}; "
+                         "use life_survival with appropriate censoring assumptions instead.")
+    survivors = sum(not (row.status == "failure" and row.life <= horizon) for row in rows)
+    from scipy.stats import binomtest
+
+    bounds = binomtest(survivors, len(rows)).proportion_ci(
+        confidence_level=level, method="exact")
+    return FixedHorizonReliability(rows, horizon, survivors, level,
+                                   float(bounds.low), float(bounds.high))

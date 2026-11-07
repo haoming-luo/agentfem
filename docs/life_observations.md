@@ -78,6 +78,42 @@ This slice does not fit Weibull/lognormal distributions, pool batches, model
 stress/temperature covariates, or claim to propagate FE/model uncertainty.
 Such models need an explicit calibration and held-out validation design.
 
+## Fixed-horizon tests, including zero failures
+
+If sample size and a test horizon were specified before observing outcomes,
+`fixed_horizon_reliability` gives an exact two-sided Clopper–Pearson confidence
+interval for the probability of surviving that horizon. It reuses the same
+specimen records and exact-condition checks:
+
+```python
+from agentfem import assessments
+
+records = [assessments.LifeObservation(
+    specimen_id=f"coupon-{i}", life=100, status="right_censored",
+    life_unit="cycles", population="synthetic demonstration", batch_id="A",
+    failure_definition="rupture", conditions={"stress_MPa": 100.},
+    source="synthetic zero-failure test",
+) for i in range(20)]
+result = assessments.fixed_horizon_reliability(
+    records, horizon=100, independent_specimens=True, fixed_test_plan=True,
+)
+assert result.reliability == 1.0
+assert 0.831 < result.lower < 0.832  # 95% two-sided interval, not certainty
+```
+
+Failure on the horizon counts as failure; a run-out on the horizon establishes
+survival through it. A known later failure also establishes survival at the
+horizon. Any censoring before the horizon makes that binary outcome unknown:
+the function names those specimens and rejects the analysis instead of dropping
+them. Use `life_survival` under its censoring assumptions for that situation.
+
+`fixed_test_plan=True` declares a predetermined sample size and horizon. It
+does not make adaptive stopping or a favorable post-selected horizon valid.
+The exact interval is generally conservative due to binomial discreteness;
+it is neither a simultaneous band across horizons nor a distribution of life.
+Its lower endpoint is a **two-sided** confidence bound, not a separately
+calculated one-sided 95% bound. No design-code approval is implied.
+
 ## P92 source check
 
 From a source checkout with AgentFEM available:
@@ -98,6 +134,7 @@ fixtures in `tests/test_life_observations.py`.
 ## References
 
 - [SciPy ECDF and Kaplan–Meier implementation](https://docs.scipy.org/doc/scipy/reference/generated/scipy.stats.ecdf.html)
+- [NIST exact binomial confidence intervals](https://www.itl.nist.gov/div898/handbook/prc/section2/prc241.htm)
 - [NIST: censored likelihood and small-failure-sample limitations](https://www.itl.nist.gov/div898/handbook/apr/section4/apr412.htm)
 - [Hoey P92 source thesis](https://repository.nottingham.ac.uk/handle/123456789/30506)
 
