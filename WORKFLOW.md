@@ -259,6 +259,10 @@ Package paths below are relative to `src/agentfem/`.
   experimental global woven membrane remains a Step provider, not a Model
   special case
 - Engineering damage and life-assessment consumers: `assessments.py`
+  Experimental specimen records and right-censored survival estimates use
+  `LifeObservation` and `life_survival`; see `docs/life_observations.md`.
+  `fixed_horizon_reliability` provides exact intervals for fixed-horizon tests
+  when every specimen's horizon outcome is known.
   (`creep_damage_from_result` separates optional quadrature subdivision from
   original-history sampling limits).
 - Material library, assignment frames, plies, and laminate sections:

@@ -307,6 +307,12 @@ interpolating unsaved damage states.
   not a newly validated material model.
   The result can be passed to `assessments.creep_fatigue`; it is not a
   stiffness-damage law or a certified service-life prediction.
+  For experimental lives/run-outs, use `assessments.LifeObservation` and
+  `life_survival` (see `docs/life_observations.md`). Keep distinct test conditions
+  separate; survival confidence limits are not individual-life prediction bounds.
+  For a predetermined sample size/horizon with known binary outcomes, use
+  `fixed_horizon_reliability`, including zero failures. It rejects early censoring;
+  do not delete such specimens or select the horizon after inspecting outcomes.
   Use `creep_damage_from_result(..., quadrature_subdivisions=...)` only for
   explicit quadrature refinement; source-gap checks still apply to recorded
   history, not interpolated points. Keep this separate from FE time refinement.

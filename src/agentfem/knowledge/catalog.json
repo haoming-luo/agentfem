@@ -1164,6 +1164,11 @@
       "id": "agentfem.workflow.creep_fatigue_assessment",
       "kind": "workflow",
       "public_api": [
+        "agentfem.assessments.FixedHorizonReliability",
+        "agentfem.assessments.fixed_horizon_reliability",
+        "agentfem.assessments.LifeObservation",
+        "agentfem.assessments.LifeSurvival",
+        "agentfem.assessments.life_survival",
         "agentfem.assessments.TabulatedRuptureCurve",
         "agentfem.assessments.CreepDamageBlock",
         "agentfem.assessments.DwellInterval",
@@ -1184,7 +1189,7 @@
       ],
       "source": "src/agentfem/knowledge/cards/creep_fatigue_assessment.json",
       "status": "supported",
-      "summary": "Standard-neutral postprocessing of source-identified creep time fractions, resolved stress/temperature dwell histories, scalar stress- or strain-life fatigue, and explicit interaction diagrams; no constitutive damage or automatic design-code approval.",
+      "summary": "Standard-neutral postprocessing of creep time fractions, resolved dwell histories, scalar fatigue and interaction diagrams. Experimental LifeObservation records separately support same-condition right-censored Kaplan-Meier estimates and pointwise confidence limits, not individual-life prediction or design allowables.",
       "title": "Engineering creep-fatigue assessment"
     },
     {
