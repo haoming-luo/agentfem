@@ -12,6 +12,10 @@ the data are not an installed material card or a qualified coupled-life model.
 
 ## What can be reproduced now
 
+The [specimen life workflow](life_observations.md) admits the 18 DB source rows
+as 18 exact-condition groups. It retains failures and provenance without
+inventing run-outs, replicate scatter or P92 confidence-qualified design lives.
+
 These are repository research tools, not installed material cards. Run them
 from a source checkout with AgentFEM and its scientific dependencies installed.
 Each command emits JSON, keeps source identity and states its validation role.

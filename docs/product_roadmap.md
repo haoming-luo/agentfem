@@ -1,5 +1,18 @@
 # AgentFEM Product Roadmap
 
+### Specimen life evidence: bounded first slice (2026-11-07)
+
+`LifeObservation` and `life_survival` now separate experimental failures and
+right-censored run-outs from simulated damage. The first slice provides exact
+condition/batch grouping, Kaplan–Meier estimates and pointwise exponential
+Greenwood confidence limits; see [the workflow](life_observations.md).
+Independent analytic fixtures verify censoring and intervals. The P92 DB adapter
+retains 18 source records in 18 conditions, not fictitious replicates.
+
+Next: admit compatible replicate or censored experimental data, then evaluate
+one justified parametric/covariate model with held-out checks. Do not expand to
+general reliability software or claim calibrated P92 tail life from this slice.
+
 ### P92 source, precision and runtime checkpoint (2026-11-07)
 
 The original DB P92 source now supplies a coherent pipe cohort with rupture,
