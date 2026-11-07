@@ -183,7 +183,6 @@ def life_survival(observations, *, independent_specimens, noninformative_censori
     # Exponential Greenwood is undefined at S=0 or S=1. Retain absence, not
     # a misleading zero-width assurance interval. Do not hide other warnings.
     with warnings.catch_warnings():
-        warnings.filterwarnings("ignore", category=RuntimeWarning, module=r"scipy\.stats\._survival")
         warnings.filterwarnings("ignore", category=RuntimeWarning,
                                 message="The confidence interval is undefined at some observations.*")
         bounds = empirical.confidence_interval(confidence_level=level, method="log-log")
