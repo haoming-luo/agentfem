@@ -83,6 +83,13 @@ data selection; it is not a claim of compliance with the full standard.
 
 ## Smallest next engineering validation package
 
+Use the [engineering-life uncertainty guide](internal/engineering_life_uncertainty_20261107.md)
+to distinguish population scatter, parameter/model uncertainty, predictive
+intervals and design margins. The target is a decision with explicit uncertainty,
+not exact agreement with every specimen or a probability band around an
+unqualified model. The guide records reusable methods and proposed next steps;
+it does not add a statistical-life API.
+
 1. Choose the application and failure outcome: parent metal or weld, temperature
    range, loading rate, tensile/compressive holds, environment and whether the
    target is specimen failure, crack initiation, or a code-based component margin.
