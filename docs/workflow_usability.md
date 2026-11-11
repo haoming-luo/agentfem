@@ -25,13 +25,16 @@ When a parameter is uncertain, inspect the installed callable directly:
 ```bash
 agentfem capabilities --api fields.displacement --json
 agentfem capabilities --api models.Model.step --json
+agentfem capabilities --api constitutive.StrainHistoryRuntime --json
 ```
 
 This reports parameter names, kinds, required inputs, simple defaults and
 declared annotations from the installed implementation. Model methods also
 retain their lifecycle status. It imports the selected public module but does
 not execute the callable, evaluate annotation expressions or run a case.
-Runtime-object defaults are identified by type rather than expanded. Step
+Runtime-object defaults are identified by type rather than expanded.
+Public classes explicitly exported by a module can be queried as constructors;
+the query does not instantiate them or compile user materials. Step
 provider-specific keywords still come from `models.step_capability`; a Python
 signature alone is not evidence that a physical combination is supported.
 

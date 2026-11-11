@@ -1140,7 +1140,7 @@ def build_parser(*, structured_errors: bool = False) -> argparse.ArgumentParser:
         nargs="?",
         help="materials, meshes, procedures, workflow, runtime, extensions, or a material name",
     )
-    capability_selection.add_argument("--api", help="Inspect MODULE.FUNCTION or models.Model.METHOD parameters.")
+    capability_selection.add_argument("--api", help="Inspect a public MODULE.CALLABLE (function or exported class) or models.Model.METHOD.")
     capabilities.add_argument("--json", action="store_true")
     extension_command = sub.add_parser(
         "extensions",

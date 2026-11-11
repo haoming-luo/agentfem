@@ -179,3 +179,11 @@ imports, but the CLI emitter still consults the real MPI rank. It is not yet a
 runtime-free command path. Do not bypass that ownership by guessing rank from
 launcher environment variables; no change to MPI emission or telemetry policy
 was included in this follow-up.
+
+Public constructor discovery uses Python's installed callable signature protocol
+(https://docs.python.org/3.11/library/inspect.html#inspect.signature), restricted
+to AgentFEM classes explicitly exported by the selected public module. It does
+not instantiate objects or compile material sources. The local coverage audit
+described 210 core exported constructors; two exception types expose no Python
+signature and remain explicit query failures instead of fabricated parameter
+lists. Ordinary functions and declared Model methods retain the same query.

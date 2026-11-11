@@ -24,7 +24,7 @@ def _annotation(value):
 
 
 def callable_record(name: str) -> dict:
-    """Describe a public module function or a declared Model method.
+    """Describe a public function, exported constructor or Model method.
 
     Imports the selected installed module only. No expression evaluation,
     arbitrary attribute chain, user case execution or dependency installation.
@@ -33,7 +33,7 @@ def callable_record(name: str) -> dict:
     selected = str(name).removeprefix("agentfem.")
     parts = selected.split(".")
     if len(parts) not in (2, 3) or any(not part.isidentifier() or part.startswith("_") for part in parts):
-        raise ValueError("Use a public MODULE.FUNCTION or models.Model.METHOD name.")
+        raise ValueError("Use a public MODULE.CALLABLE or models.Model.METHOD name.")
     module_name = parts[0]
     if module_name not in public_api():
         raise ValueError(f"{module_name!r} is not a public AgentFEM module.")
@@ -49,9 +49,16 @@ def callable_record(name: str) -> dict:
         function = inspect.getattr_static(owner, parts[-1])
     except AttributeError as exc:
         raise ValueError(f"No public callable {selected!r} in this installed version.") from exc
-    if not inspect.isfunction(function) or not function.__module__.startswith("agentfem."):
-        raise ValueError(f"{selected!r} is not an AgentFEM public function or Model method.")
-    signature = inspect.signature(function, eval_str=False)
+    is_constructor = (
+        not is_method and inspect.isclass(function)
+        and parts[-1] in getattr(module, "__all__", ())
+    )
+    if not (inspect.isfunction(function) or is_constructor) or not function.__module__.startswith("agentfem."):
+        raise ValueError(f"{selected!r} is not an AgentFEM public function, exported class or Model method.")
+    try:
+        signature = inspect.signature(function, eval_str=False)
+    except (TypeError, ValueError) as exc:
+        raise ValueError(f"Installed callable {selected!r} does not expose an inspectable signature.") from exc
     parameters = []
     for parameter in signature.parameters.values():
         if is_method and parameter.name == "self":
@@ -70,11 +77,14 @@ def callable_record(name: str) -> dict:
     record = {
         "schema": "agentfem.api-callable", "schema_version": "0.1.0",
         "agentfem_version": __version__, "callable": f"agentfem.{selected}",
+        "callable_kind": "constructor" if is_constructor else ("model_method" if is_method else "function"),
         "requires_model_instance": is_method, "parameters": parameters,
         "summary": (inspect.getdoc(function) or "").split("\n\n")[0],
         "case_executed": False,
     }
-    if signature.return_annotation is not inspect.Signature.empty:
+    if is_constructor:
+        record["returns"] = f"agentfem.{selected}"
+    elif signature.return_annotation is not inspect.Signature.empty:
         record["returns"] = _annotation(signature.return_annotation)
     if is_method:
         record["lifecycle"] = next(item for item in model_method_contract() if item["name"] == parts[-1])
