@@ -134,8 +134,9 @@ def test_distributed_ir_builds_collective_document_on_nonroot(monkeypatch, tmp_p
     class Comm:
         rank = 1
 
-        def barrier(self):
-            calls.append("barrier")
+        def bcast(self, value, root):
+            calls.append("bcast")
+            return value
 
     fake_model = SimpleNamespace(mesh=SimpleNamespace(comm=Comm()))
 
@@ -156,7 +157,56 @@ def test_distributed_ir_builds_collective_document_on_nonroot(monkeypatch, tmp_p
     )
 
     assert output == tmp_path / "distributed.afir.json"
-    assert calls == ["build", "barrier"]
+    assert calls == ["build", "bcast"]
+
+
+@pytest.mark.parametrize("rank", [0, 1])
+def test_ir_write_failure_reaches_all_ranks(monkeypatch, tmp_path, rank):
+    class Comm:
+        def bcast(self, value, root):
+            assert root == 0
+            if rank == 0:
+                assert value == "PermissionError: read-only output"
+            return "PermissionError: read-only output"
+
+    comm = Comm()
+    comm.rank = rank
+    model = SimpleNamespace(mesh=SimpleNamespace(comm=comm))
+    monkeypatch.setattr(_model_inspection, "model_to_ir", lambda *a, **kw: {})
+
+    def fail_write(*args):
+        assert rank == 0
+        raise PermissionError("read-only output")
+
+    monkeypatch.setattr(ir, "write_document", fail_write)
+    with pytest.raises(RuntimeError, match="AFM-IR-WRITE.*read-only output"):
+        _model_inspection.write_model_ir(model, tmp_path / "model.json")
+
+
+def test_inspection_views_include_declared_engineering_context():
+    from agentfem import units
+
+    model = models.create(study=studies.static_solid(dimension=3), units=units.si())
+    model.stage("loading")
+    for name in ("unit_system", "amplitudes", "engineering_steps"):
+        assert name in model.manifest()["workflow_order"]
+        assert f"  {name}:" in model.tree()
+
+
+def test_ir_write_failure_real_mpi(monkeypatch, tmp_path):
+    from mpi4py import MPI
+
+    comm = MPI.COMM_WORLD
+    if comm.size < 2:
+        pytest.skip("requires two MPI ranks")
+    model = SimpleNamespace(mesh=SimpleNamespace(comm=comm))
+    monkeypatch.setattr(_model_inspection, "model_to_ir", lambda *a, **kw: {})
+    # An existing directory is an invalid file destination on every platform.
+    destination = comm.bcast(str(tmp_path) if comm.rank == 0 else None, root=0)
+    with pytest.raises(RuntimeError, match="AFM-IR-WRITE") as caught:
+        _model_inspection.write_model_ir(model, destination)
+    errors = comm.allgather(str(caught.value))
+    assert len(set(errors)) == 1
 
 
 def test_runtime_objects_use_typed_opaque_markers():

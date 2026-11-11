@@ -57,3 +57,19 @@ benchmark.
 Next: evaluate representative agent tasks (item 3) before claiming fewer tokens,
 fewer interventions, or superiority over another CAE product. No five-hour
 continuous execution or remote CI claim is made by this checkpoint.
+
+## Inspection reliability follow-up
+
+Manifest ordering and the text tree now include units, amplitudes and engineering
+stages. No second modeling state is introduced.
+
+The distributed IR writer previously let rank zero raise an I/O error while
+other ranks waited at a barrier. The write outcome is now broadcast; every rank
+raises an addressable `AFM-IR-WRITE` error on publication failure. This addresses
+the root-owned write phase, not arbitrary rank-local failures during collective
+model validation.
+
+Evidence: 70 targeted serial tests passed. A separate two-rank regression with
+a 90-second launcher timeout used an invalid file destination and verified
+identical errors on both ranks; each rank passed. No production simulation or
+performance improvement is claimed from this reliability fix.
