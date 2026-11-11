@@ -61,6 +61,76 @@ def test_ir_rejects_non_finite_floats():
         ir.to_json_safe({"value": float("nan")})
 
 
+@pytest.mark.parametrize("value", [float("nan"), float("inf"), -float("inf")])
+def test_ir_rejects_non_finite_numpy_values_without_hiding_them(value):
+    import numpy as np
+
+    for numeric in (np.float32(value), np.array(value), np.array([0., value])):
+        with pytest.raises(ir.IRSerializationError, match="response.*non-finite"):
+            ir.to_json_safe({"response": numeric})
+
+
+def test_ir_array_conversion_preserves_valid_data():
+    import numpy as np
+
+    assert ir.to_json_safe(np.array([[1., 2.], [3., 4.]])) == [[1., 2.], [3., 4.]]
+    assert ir.to_json_safe(np.float32(2.5)) == 2.5
+
+
+@pytest.mark.parametrize("value", [float("nan"), float("inf"), -float("inf")])
+def test_coefficient_description_rejects_invalid_wrapped_values(value):
+    import numpy as np
+
+    for numeric in (np.float32(value), np.array(value), np.array([0., value])):
+        with pytest.raises(ValueError, match="must be finite"):
+            ir.describe_value(SimpleNamespace(value=numeric))
+    assert ir.describe_value(SimpleNamespace(value=np.array([1., 2.]))) == (1., 2.)
+
+
+def test_ir_self_returning_conversion_does_not_recurse_forever():
+    class RuntimeValue:
+        def item(self):
+            return self
+
+        def tolist(self):
+            return self
+
+    assert ir.to_json_safe(RuntimeValue())["serializable"] is False
+
+
+def test_ir_failed_publication_preserves_previous_document(monkeypatch, tmp_path):
+    from pathlib import Path
+
+    destination = tmp_path / "model.json"
+    ir.write_document({"revision": 1}, destination)
+    before = destination.read_bytes()
+
+    def fail_replace(self, target):
+        raise PermissionError("publication denied")
+
+    monkeypatch.setattr(Path, "replace", fail_replace)
+    with pytest.raises(PermissionError, match="publication denied"):
+        ir.write_document({"revision": 2}, destination)
+    assert destination.read_bytes() == before
+    assert list(tmp_path.iterdir()) == [destination]
+
+
+def test_standalone_ir_publication_does_not_start_numerical_runtime(tmp_path):
+    import subprocess
+    import sys
+
+    completed = subprocess.run(
+        [sys.executable, "-c",
+         "import sys; from agentfem import ir; "
+         "ir.write_document({'description': 'inspection only'}, sys.argv[1]); "
+         "assert 'mpi4py.MPI' not in sys.modules; "
+         "assert 'dolfinx' not in sys.modules",
+         str(tmp_path / "inspection.json")],
+        capture_output=True, text=True, timeout=20,
+    )
+    assert completed.returncode == 0, completed.stderr
+
+
 def test_ir_preserves_declared_units_and_engineering_stages_without_solving():
     from agentfem import units
 

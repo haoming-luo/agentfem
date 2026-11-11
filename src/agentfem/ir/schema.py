@@ -92,7 +92,9 @@ def write_document(
             ensure_ascii=False,
             allow_nan=False,
         )
-    output.write_text(text + "\n", encoding="utf-8")
+    from .._atomic_text import atomic_write_text
+
+    atomic_write_text(output, text + "\n")
     return output
 
 
@@ -141,15 +143,21 @@ def to_json_safe(value, *, path: str = "$"):
     item_method = getattr(value, "item", None)
     if callable(item_method):
         try:
-            return to_json_safe(item_method(), path=path)
+            converted = item_method()
         except (TypeError, ValueError):
             pass
+        else:
+            if converted is not value:
+                return to_json_safe(converted, path=path)
     list_method = getattr(value, "tolist", None)
     if callable(list_method):
         try:
-            return to_json_safe(list_method(), path=path)
+            converted = list_method()
         except (TypeError, ValueError):
             pass
+        else:
+            if converted is not value:
+                return to_json_safe(converted, path=path)
 
     for method_name in ("to_ir", "as_dict", "summary"):
         method = getattr(value, method_name, None)

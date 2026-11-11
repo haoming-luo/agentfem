@@ -35,15 +35,21 @@ def describe_value(value):
     item_method = getattr(value, "item", None)
     if callable(item_method):
         try:
-            return describe_value(item_method())
+            converted = item_method()
         except (TypeError, ValueError):
             pass
+        else:
+            if converted is not value:
+                return describe_value(converted)
     list_method = getattr(value, "tolist", None)
     if callable(list_method):
         try:
-            return describe_value(list_method())
+            converted = list_method()
         except (TypeError, ValueError):
             pass
+        else:
+            if converted is not value:
+                return describe_value(converted)
     summary = getattr(value, "summary", None)
     if callable(summary):
         return summary()

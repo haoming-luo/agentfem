@@ -17,7 +17,7 @@ from os import PathLike
 from types import MappingProxyType
 from typing import Callable, Mapping
 
-from ._step_provider_registry import ProviderSelectionRegistry
+from ._step_provider_registry import ProviderSelectionRegistry, StepCapabilityError as StepCapabilityError
 from ._step_provider_support import (
     COMMON_STEP_OPTIONS as _COMMON_STEP_OPTIONS,
     all_materials_support as _all_materials_support,
@@ -530,8 +530,16 @@ def step_capability(
             selected_request = request
         accepted = tuple(item for item in candidates if item.accepts(model, request))
         if accepted:
+            # Execution resolves complete contracts in priority order. Prefer
+            # that same ready candidate before reporting a partial near-match;
+            # otherwise a missing required input on a high-priority extension
+            # can hide an executable lower-priority provider.
+            ready_provider = next(
+                (item for item in accepted if not item.option_issues(request)),
+                None,
+            )
             rejected = []
-            for candidate in accepted:
+            for candidate in ((ready_provider,) if ready_provider is not None else accepted):
                 issues = (
                     ()
                     if candidate.option_contract is None

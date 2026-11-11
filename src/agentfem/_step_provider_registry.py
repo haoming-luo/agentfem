@@ -10,6 +10,25 @@ binding remains with the public Step dispatch boundary.
 
 from __future__ import annotations
 
+from copy import deepcopy
+
+
+class StepCapabilityError(NotImplementedError):
+    """Unsupported Step combination with structured provider evidence."""
+
+    def __init__(self, message, *, analysis, candidates, reasons):
+        super().__init__(message)
+        self._details = deepcopy({
+            "schema": "agentfem.step-capability-error.v1",
+            "code": "AFM-STEP-CAPABILITY-001",
+            "analysis": analysis,
+            "candidate_providers": tuple(candidates),
+            "rejection_reasons": tuple(reasons),
+        })
+
+    def details(self):
+        return deepcopy(self._details)
+
 
 class ProviderSelectionRegistry:
     """Ordered, inspectable collection of Step-lowering providers."""
@@ -87,13 +106,16 @@ class ProviderSelectionRegistry:
             if reasons
             else ""
         )
-        raise NotImplementedError(
+        raise StepCapabilityError(
             "No step provider accepted "
             f"analysis={request.analysis!r}, material="
             f"{type(material).__name__ if material is not None else None!r}, "
             f"registered_materials={registered_materials!r}. "
             f"Candidate providers={[item.name for item in candidates]!r}."
-            + detail
+            + detail,
+            analysis=request.analysis,
+            candidates=tuple(item.name for item in candidates),
+            reasons=reasons,
         )
 
 

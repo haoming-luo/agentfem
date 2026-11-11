@@ -2128,28 +2128,9 @@ def _publish_savez(path, arrays, *, overwrite) -> Path:
 def atomic_write_text(path, content: str) -> Path:
     """Atomically publish UTF-8 text in its destination directory."""
 
-    selected = Path(path)
-    selected.parent.mkdir(parents=True, exist_ok=True)
-    temporary = None
-    try:
-        with tempfile.NamedTemporaryFile(
-            mode="w",
-            encoding="utf-8",
-            dir=selected.parent,
-            prefix=f".{selected.name}.",
-            suffix=".tmp",
-            delete=False,
-        ) as stream:
-            temporary = Path(stream.name)
-            stream.write(content)
-            stream.flush()
-            os.fsync(stream.fileno())
-        temporary.replace(selected)
-    except Exception:
-        if temporary is not None:
-            temporary.unlink(missing_ok=True)
-        raise
-    return selected
+    from ._atomic_text import atomic_write_text as publish
+
+    return publish(path, content)
 
 
 def _file_sha256(path: Path) -> str:

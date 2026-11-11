@@ -3,9 +3,12 @@
 ### AI-native repair loop (2026-11-12)
 
 Preserve existing engineering semantics rather than create another model layer.
-The [bounded sprint](internal/ai_native_sprint_20261112.md) first carries provider
-option diagnostics into execution records. Next audit actual summary/AF-IR gaps,
-then measure agent task success and repair cost. Do not claim autonomy or token
+The [bounded sprint](internal/ai_native_sprint_20261112.md) carries option and
+unsupported-capability diagnostics into execution records, retains units and
+engineering stages in inspection, and aligns ready-provider discovery with
+execution. Numeric export rejects invalid wrapped values; model publication is
+atomic and root-owned write failures propagate to MPI peers.
+Next measure agent task success and repair cost. Do not claim autonomy or token
 savings merely because structured error tests pass.
 
 ### P92 source, precision and runtime checkpoint (2026-11-07)

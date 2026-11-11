@@ -73,3 +73,38 @@ Evidence: 70 targeted serial tests passed. A separate two-rank regression with
 a 90-second launcher timeout used an invalid file destination and verified
 identical errors on both ranks; each rank passed. No production simulation or
 performance improvement is claimed from this reliability fix.
+
+## Continued audit: data integrity and provider selection
+
+Reproduced and corrected a provider-selection mismatch: capability inspection
+could stop at a high-priority provider missing required inputs while execution
+selected a ready lower-priority provider. Inspection now prefers the same ready
+provider, preserving partial-input diagnostics when none is ready.
+
+Unsupported combinations retain structured candidate/rejection evidence in
+`StepCapabilityError` and CLI execution records. This remains compatible with
+`NotImplementedError`; it does not authorize changing the modeled physics.
+
+NumPy scalar/array conversion previously caught recursive serialization errors,
+hiding nonfinite numeric data as an opaque object. Conversion now separates
+conversion failure from invalid converted data. Tests cover NaN, infinities,
+valid arrays and self-returning conversion methods. IR publication reuses the
+existing atomic writer; a failed replace preserves the prior document and
+cleans its temporary file.
+
+The shared atomic text implementation is now runtime-independent; checkpointing
+keeps its public wrapper. A subprocess test proves standalone IR publication
+does not import DOLFINx or initialize MPI. The corresponding coefficient-value
+description path also rejects invalid NumPy values instead of hiding them.
+
+CLI `--json` argument errors now have an addressable error envelope before
+runtime startup. Normal commands reuse the parsed request instead of parsing
+twice; human errors and case arguments retain their existing behavior. Local
+diagnosis points Step failures to their actual contract evidence rather than
+recommending syntax-only checks for a model-level problem.
+
+Additional evidence (overlapping suites, not additive counts): 192 tests passed
+with one MPI-only skip for material, coupled and finite-strain Step lifecycles;
+181 passed with one MPI-only skip for IR, checkpoint/output and project execution;
+93 CLI/feedback/documentation checks passed after argument handling changes.
+The separate two-rank IR failure test passed after atomic publication changes.
