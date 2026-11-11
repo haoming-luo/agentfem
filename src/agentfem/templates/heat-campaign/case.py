@@ -6,7 +6,7 @@ from pathlib import Path
 
 import numpy as np
 from mpi4py import MPI
-from agentfem import campaigns, constitutive, datasets, fields, mesh, models, project, results, studies
+from agentfem import campaigns, constitutive, datasets, fields, mesh, models, project, provenance, results, studies
 from agentfem.time import ProgressPrinter
 
 
@@ -49,7 +49,9 @@ def main():
     # Stable project-local ledger enables resume across ordinary CLI run IDs.
     report = campaign.run(plan, output_directory=root / "campaign-data", comm=MPI.COMM_WORLD)
     dataset = report.require_dataset(minimum_samples=args.samples, quality="exploratory")
-    if MPI.COMM_WORLD.rank == 0:
+    def publish_campaign():
+        if MPI.COMM_WORLD.rank != 0:
+            return
         manifest = dataset.write(run.artifact("dataset"))
         audit = report.write_audit(run.artifact("campaign-audit.json"))
         result = results.SimulationResult("heat_campaign")
@@ -60,7 +62,8 @@ def main():
         run.publish(result)
         ProgressPrinter(args.samples, 0, MPI.COMM_WORLD).status(
             "Campaign completed", quantities={"Samples": (len(dataset.samples), "")})
-    MPI.COMM_WORLD.barrier()
+    provenance.collective_call(publish_campaign, comm=MPI.COMM_WORLD,
+                               label="Campaign project publication")
 
 
 if __name__ == "__main__":

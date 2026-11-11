@@ -755,27 +755,49 @@ class RunContext:
         return self.execution_path
 
     def publish(self, result, *, include_histories: bool = True,
-                history_storage: str = "inline") -> Path:
-        """Publish a ``SimulationResult`` through the stable run contract."""
+                history_storage: str = "inline", comm=None) -> Path:
+        """Publish a ``SimulationResult`` through the stable run contract.
 
-        if not hasattr(result, "write_manifest"):
-            raise TypeError("RunContext.publish requires a SimulationResult-like object.")
+        With ``comm``, every rank calls this method. The result's collective
+        manifest contract checks agreement; only rank zero writes the summary
+        and execution record, and publication failures reach all ranks.
+        The default preserves serial and explicitly root-owned callers.
+        """
+
         from .presentation import result_summary_markdown
+        from .provenance import collective_call
+        from ._atomic_text import atomic_write_text
 
-        result.metadata.setdefault("run", self.summary())
+        def prepare():
+            if not callable(getattr(result, "write_manifest", None)):
+                raise TypeError("RunContext.publish requires a SimulationResult-like object.")
+            result.metadata.setdefault("run", self.summary())
+
+        if comm is None:
+            prepare()
+        else:
+            collective_call(prepare, comm=comm, label="Run publication preparation")
         storage_options = {} if history_storage == "inline" else {"history_storage": history_storage}
+        if comm is not None:
+            storage_options["comm"] = comm
         path = result.write_manifest(
             self.manifest_path,
             include_histories=include_histories,
             relative_artifacts=True,
             **storage_options,
         )
-        record = json.loads(path.read_text(encoding="utf-8"))
-        self.artifact("summary.md").write_text(
-            result_summary_markdown(record, Path("result.json")),
-            encoding="utf-8",
-        )
-        self.write_execution("completed", result_manifest=path, structured_result=True)
+        def finish():
+            if comm is not None and comm.rank != 0:
+                return
+            record = json.loads(path.read_text(encoding="utf-8"))
+            atomic_write_text(self.artifact("summary.md"),
+                              result_summary_markdown(record, Path("result.json")))
+            self.write_execution("completed", result_manifest=path, structured_result=True)
+
+        if comm is None:
+            finish()
+        else:
+            collective_call(finish, comm=comm, label="Run publication completion")
         return path
 
     def _write_latest_pointer(self, status: str) -> None:

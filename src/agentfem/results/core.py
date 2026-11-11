@@ -45,13 +45,27 @@ def _json_value(value):
     if isinstance(value, Path):
         return str(value)
     if isinstance(value, Mapping):
-        return {str(key): _json_value(item) for key, item in value.items()}
+        record = {}
+        for key, item in value.items():
+            name = str(key)
+            if name in record:
+                raise ValueError(f"Result metadata keys collide after JSON conversion: {name!r}.")
+            record[name] = _json_value(item)
+        return record
     if isinstance(value, (tuple, list)):
         return [_json_value(item) for item in value]
     if isinstance(value, np.ndarray):
         return _json_value(value.tolist())
     if isinstance(value, np.generic):
-        return _json_value(value.item())
+        item = value.item()
+        # Extended precision has no lossless Python scalar counterpart.
+        # NumPy returns another scalar of the same type instead of narrowing.
+        if isinstance(item, type(value)):
+            raise ValueError(
+                f"Result metadata scalar {type(value).__name__} has no lossless JSON conversion; "
+                "explicitly choose a supported numeric precision or a text representation."
+            )
+        return _json_value(item)
     return str(value)
 
 

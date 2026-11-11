@@ -9,6 +9,68 @@ import pytest
 from agentfem import cli
 
 
+@pytest.mark.parametrize("template", ["static-solid", "steady-heat", "structural-dynamics", "heat-campaign"])
+def test_standard_template_publishes_one_collective_result(tmp_path, template):
+    from agentfem import provenance
+
+    comm = MPI.COMM_WORLD
+    if comm.size < 2:
+        pytest.skip("requires two MPI ranks")
+    root = Path(comm.bcast(str(tmp_path / "project") if comm.rank == 0 else None, root=0))
+    if comm.rank == 0:
+        cli._copy_template(template, root, "collective-template", force=False)
+    comm.barrier()
+    assert cli.main(["run", "--project", str(root), "--run-id", "template",
+                     "--inside-mpi", "--json"]) == 0
+    comm.barrier()
+    if comm.rank == 0:
+        output = root / "outputs" / "collective-template" / "template"
+        record = json.loads((output / "execution.json").read_text())
+        assert record["status"] == "completed"
+        assert record["structured_result"] is True
+        assert (output / "summary.md").is_file()
+        assert provenance.verify_manifest(output / "result.json").verified
+
+
+@pytest.mark.parametrize("failure", ["prepare", "summary", "execution", "divergent_result"])
+def test_collective_project_publication_reports_failure_without_false_completion(tmp_path, monkeypatch, failure):
+    from agentfem import _atomic_text, provenance, results
+    from agentfem.project import RunContext
+
+    comm = MPI.COMM_WORLD
+    if comm.size < 2:
+        pytest.skip("requires two MPI ranks")
+    root = Path(comm.bcast(str(tmp_path) if comm.rank == 0 else None, root=0))
+    context = RunContext(root, "publication-failure", "test", root,
+                         root / "result.json", root / "execution.json")
+    simulation = results.SimulationResult("collective-project")
+    simulation.add_quantity("response", float(comm.rank) if failure == "divergent_result" else 1.0)
+    original_write = _atomic_text.atomic_write_text
+
+    if failure == "prepare" and comm.rank == 1:
+        simulation.metadata = None
+    if failure == "summary":
+        def fail_summary(path, content):
+            if Path(path).name == "summary.md":
+                assert comm.rank == 0
+                raise PermissionError("injected summary failure")
+            return original_write(path, content)
+        monkeypatch.setattr(_atomic_text, "atomic_write_text", fail_summary)
+    if failure == "execution":
+        def fail_execution(*args, **kwargs):
+            assert comm.rank == 0
+            raise PermissionError("injected execution failure")
+        monkeypatch.setattr(RunContext, "write_execution", fail_execution)
+    with pytest.raises(RuntimeError) as caught:
+        context.publish(simulation, comm=comm)
+    assert len(set(comm.allgather(str(caught.value)))) == 1
+    assert not context.execution_path.exists()
+    if failure in {"summary", "execution"}:
+        assert provenance.verify_manifest(context.manifest_path).verified
+    else:
+        assert not context.manifest_path.exists()
+
+
 @pytest.mark.parametrize("stage", ["create", "prepare"])
 def test_run_directory_failure_reaches_every_rank(monkeypatch, tmp_path, stage):
     from agentfem.project import ProjectConfig, RunContext

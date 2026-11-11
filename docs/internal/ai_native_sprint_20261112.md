@@ -254,3 +254,28 @@ workflows; this is one selection, not a sum of overlapping earlier runs.
 Generated documentation remained current. PR #185 completed all its CI jobs,
 including FEniCSx and macOS installed-wheel acceptance. PR #186 still requires
 CI on its final head; neither PR has been merged or released by this sprint.
+
+## Publication ownership in ordinary cases
+
+`RunContext.publish(..., comm=...)` now reuses `SimulationResult.write_manifest`
+collective agreement and the existing `provenance.collective_call` for local
+preparation and root-owned completion. It does not introduce another parallel
+solver or infer a communicator. Serial/root-owned callers retain the default.
+Summary text also uses atomic publication. Static-solid, steady-heat and
+structural-dynamics templates no longer hand-write a root publication/barrier
+pair. The campaign template guards its existing root-only dataset export with
+the established collective-call helper instead.
+
+All four templates solved and published verified manifests with two ranks.
+Fault injection covers rank-local preparation, root summary/execution writes
+and disagreement in result values. A valid scientific manifest remains available
+if a later summary/operational write fails; no completed execution record is
+invented. The complete parallel CLI group passed 19 tests on each rank.
+
+Serial project/discovery/packaging/documentation compatibility passed 167 tests.
+Result metadata now also rejects key collisions after JSON key conversion and
+extended NumPy scalars without a lossless Python conversion. Previously the
+latter recursed until failure; values are not silently narrowed or replaced.
+Supported NumPy scalar/array metadata remains numeric. Invalid metadata leaves
+an existing manifest untouched. The Result and metadata regression passed 71
+tests; generated documentation and correctness lint remained clean.

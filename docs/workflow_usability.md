@@ -50,6 +50,12 @@ agentfem show latest
 agentfem show latest --files
 ```
 
+For a distributed case, all ranks can call
+`run.publish(simulation, comm=domain.comm)`. This reuses the Result's collective
+agreement checks and gives rank zero ownership of summary/execution output.
+Publication errors reach every rank; no case-level publication barrier is
+needed. Omitting `comm` retains serial or explicitly root-owned publication.
+
 `check` checks project structure and Python syntax without executing the case.
 `--runtime` also checks numerical runtime readiness. Neither promises that a
 particular mesh, material, boundary condition or solver combination is supported;
