@@ -38,6 +38,8 @@ An AI chat without authorised terminal tools provides the same manual path.
 | `agentfem run --json` | Addressable execution result |
 | `agentfem inspect --json` | Result and artifact discovery |
 | `agentfem telemetry status --json` | Exact privacy mode, queue and reviewed delivery routes |
+| `agentfem telemetry basic --json` | Explicitly opt in to bounded anonymous reliability reporting |
+| `agentfem telemetry off --json` | Revoke consent and delete unsent automatic events |
 | `agentfem telemetry route auto|global|china --json` | Optional transport preference without location inference |
 | `agentfem inspect-abaqus model.inp --json` | Side-effect-free legacy-deck inventory |
 | `agentfem inspect-user-material material.for --json` | Fingerprinted UMAT/UHYPER source inventory and migration route |

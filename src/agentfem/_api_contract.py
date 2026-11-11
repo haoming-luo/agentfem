@@ -229,6 +229,8 @@ MACHINE_COMMANDS = {
     ),
     "verify": "agentfem verify --json",
     "telemetry_status": "agentfem telemetry status --json",
+    "telemetry_enable": "agentfem telemetry basic --json",
+    "telemetry_disable": "agentfem telemetry off --json",
     "telemetry_route": "agentfem telemetry route auto --json",
     "diagnose": "agentfem diagnose --json",
     "community_support": "agentfem support --json",
