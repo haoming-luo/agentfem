@@ -61,6 +61,49 @@ def test_ir_rejects_non_finite_floats():
         ir.to_json_safe({"value": float("nan")})
 
 
+def test_ir_preserves_declared_units_and_engineering_stages_without_solving():
+    from agentfem import units
+
+    model = models.create(study=studies.static_solid(dimension=3),
+                          units=units.n_mm_mpa(), name="semantic-review")
+    loading = model.stage("loading", inherit_model_loads=True)
+    unloading = model.stage("unloading", previous=loading, inherit_model_loads=False)
+    record = model.to_ir(include_validation=False)
+    root = record["root"]
+    assert root["unit_system"] == model.unit_system.summary()
+    assert root["unit_system"]["base"]["length"] == "mm"
+    assert root["unit_system"]["automatic_conversion"] is False
+    assert root["engineering_steps"] == [ir.to_json_safe(loading.summary()),
+                                         ir.to_json_safe(unloading.summary())]
+    assert root["steps"] == []
+    assert "validation" not in root
+    assert list(ir.WORKFLOW_ORDER).index("engineering_steps") < list(ir.WORKFLOW_ORDER).index("steps")
+    assert record == json.loads(json.dumps(record, allow_nan=False))
+
+
+def test_ir_does_not_infer_missing_units_or_stages():
+    model = models.create(study=studies.static_solid(dimension=3))
+    root = model.to_ir(include_validation=False)["root"]
+    assert root["unit_system"] is None
+    assert root["engineering_steps"] == []
+
+
+@pytest.mark.parametrize("mapping", [{1: "numeric", "1": "text"},
+                                     {False: "boolean", "False": "text"}])
+def test_ir_rejects_lossy_mapping_key_conversion(mapping):
+    with pytest.raises(ir.IRSerializationError, match="distinct mapping keys"):
+        ir.to_json_safe(mapping, path="metadata")
+
+
+def test_ir_canonicalizes_unordered_sets_but_preserves_sequences():
+    values = {"alpha", "zeta", 4, (1, 2)}
+    converted = ir.to_json_safe(values)
+    assert converted == sorted(converted, key=lambda x: json.dumps(
+        x, sort_keys=True, ensure_ascii=False, allow_nan=False))
+    assert ir.to_json_safe(frozenset(values)) == converted
+    assert ir.to_json_safe(["zeta", "alpha"]) == ["zeta", "alpha"]
+
+
 def test_model_ir_records_scope_backend_and_validation(tmp_path):
     mesh = _Mesh()
     model = models.create(

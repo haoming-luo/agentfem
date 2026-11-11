@@ -122,9 +122,17 @@ def to_json_safe(value, *, path: str = "$"):
                 raise IRSerializationError(
                     f"{path} has unsupported mapping key type {type(key).__name__}."
                 )
+            if str(key) in result:
+                raise IRSerializationError(
+                    f"{path} has distinct mapping keys that serialize as {str(key)!r}."
+                )
             result[str(key)] = to_json_safe(value[key], path=f"{path}.{key}")
         return result
-    if isinstance(value, (tuple, list, set, frozenset)):
+    if isinstance(value, (set, frozenset)):
+        converted = [to_json_safe(item, path=f"{path}{{item}}") for item in value]
+        return sorted(converted, key=lambda item: json.dumps(
+            item, sort_keys=True, ensure_ascii=False, allow_nan=False))
+    if isinstance(value, (tuple, list)):
         return [
             to_json_safe(item, path=f"{path}[{index}]")
             for index, item in enumerate(value)

@@ -13,6 +13,7 @@ from .schema import IRDocument, to_json_safe
 
 WORKFLOW_ORDER = (
     "study",
+    "unit_system",
     "mesh",
     "regions",
     "fields",
@@ -22,6 +23,7 @@ WORKFLOW_ORDER = (
     "constraints",
     "loads",
     "boundary_models",
+    "engineering_steps",
     "steps",
 )
 
@@ -46,6 +48,7 @@ def model_document(
         "name": getattr(model, "name", "model"),
         "workflow_order": WORKFLOW_ORDER,
         "study": describe(getattr(model, "study", None)),
+        "unit_system": describe(getattr(model, "unit_system", None)),
         "mesh": describe_mesh(getattr(model, "mesh", None)),
         "regions": describe_many(getattr(model, "regions", ())),
         "fields": describe_many(getattr(model, "fields", ())),
@@ -55,6 +58,7 @@ def model_document(
         "constraints": describe_many(getattr(model, "constraints", ())),
         "loads": describe_many(getattr(model, "loads", ())),
         "boundary_models": describe_many(getattr(model, "boundary_models", ())),
+        "engineering_steps": describe_many(getattr(model, "engineering_steps", ())),
         "steps": describe_many(getattr(model, "steps", ())),
     }
     if include_validation and hasattr(model, "validate"):

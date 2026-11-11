@@ -35,5 +35,25 @@ Targeted evidence: provider/common-workflow/inelastic-control tests initially
 The CLI test confirms nonzero exit, persisted provider/issue/suggestion fields
 and that code following the rejected request is not executed.
 
-Items 2 and 3 remain next work, not completed work. No five-hour continuous
-execution or remote CI claim is made by this checkpoint.
+## Semantic inspection and real solve acceptance
+
+The AF-IR model export now retains the declared unit system and engineering
+stages, including their inheritance and previous-stage relationship. These were
+already in Model.summary but missing from the export. Missing declarations stay
+missing: exporting does not invent SI units or convert values.
+
+Serialization now orders sets deterministically and rejects distinct mapping
+keys that would collapse into the same JSON key, rather than losing data.
+AF-IR remains an inspection document, not a promise of lossless reconstruction
+of arbitrary Python callbacks or an alternative editable model.
+
+A real finite-element acceptance test inspects a cantilever, rejects a misspelled
+Step option using the same contract as capability discovery, verifies that the
+model is unchanged, applies an explicit correction, and solves. Acceptance checks
+finite nonzero displacement and relative force imbalance below 1e-10. This is a
+workflow and equilibrium regression, not a mesh-convergence study or an LLM
+benchmark.
+
+Next: evaluate representative agent tasks (item 3) before claiming fewer tokens,
+fewer interventions, or superiority over another CAE product. No five-hour
+continuous execution or remote CI claim is made by this checkpoint.
