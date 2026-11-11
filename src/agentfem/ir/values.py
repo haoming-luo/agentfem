@@ -7,6 +7,8 @@ from __future__ import annotations
 
 from math import isfinite
 
+from .schema import _is_nonfinite_number
+
 
 def describe_value(value):
     """Return a JSON-safe coefficient value or an explicit opaque marker.
@@ -26,6 +28,8 @@ def describe_value(value):
         if not isfinite(value.real) or not isfinite(value.imag):
             raise ValueError("Scientific coefficient values must be finite.")
         return {"real": value.real, "imag": value.imag}
+    if _is_nonfinite_number(value):
+        raise ValueError("Scientific coefficient values must be finite.")
     if isinstance(value, (tuple, list)):
         return tuple(describe_value(item) for item in value)
 

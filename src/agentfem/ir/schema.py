@@ -14,6 +14,7 @@ from dataclasses import dataclass, field
 from enum import Enum
 import json
 from math import isfinite
+from numbers import Complex
 from pathlib import Path
 from typing import Mapping
 
@@ -25,6 +26,15 @@ AFIR_STATUS = "experimental"
 
 class IRSerializationError(ValueError):
     """Raised when a value cannot be represented without hiding its meaning."""
+
+
+def _is_nonfinite_number(value):
+    """Check scalar numeric components without narrowing extended precision."""
+
+    return isinstance(value, Complex) and any(
+        component != component or component == float("inf") or component == -float("inf")
+        for component in (value.real, value.imag)
+    )
 
 
 @dataclass(frozen=True)
@@ -113,6 +123,8 @@ def to_json_safe(value, *, path: str = "$"):
         if not isfinite(value):
             raise IRSerializationError(f"{path} contains non-finite float {value!r}.")
         return value
+    if _is_nonfinite_number(value):
+        raise IRSerializationError(f"{path} contains a non-finite numeric scalar.")
     if isinstance(value, Enum):
         return to_json_safe(value.value, path=path)
     if isinstance(value, Path):

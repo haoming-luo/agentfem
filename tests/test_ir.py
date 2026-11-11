@@ -344,6 +344,22 @@ def test_extended_precision_scalars_do_not_recurse_or_silently_narrow():
             assert describe(np.array([value])) == record
 
 
+def test_extended_precision_invalid_values_are_not_hidden_as_opaque():
+    import numpy as np
+    from agentfem.ir.schema import to_json_safe
+
+    values = [np.longdouble("nan"), np.longdouble("inf"), np.longdouble("-inf"),
+              np.clongdouble(complex(1, float("inf")))]
+    for value in values:
+        for describe in (to_json_safe, ir.describe_value):
+            for wrapped in (value, np.array([value]), np.array([1, value])):
+                with pytest.raises(ValueError, match="finite"):
+                    describe(wrapped)
+    # The largest finite extended scalar must not be cast through Python float.
+    for describe in (to_json_safe, ir.describe_value):
+        assert describe(np.longdouble(np.finfo(np.longdouble).max))["serializable"] is False
+
+
 def test_public_inspection_modules_are_discoverable():
     assert {"diagnostics", "ir", "validation"}.issubset(public_api())
 
