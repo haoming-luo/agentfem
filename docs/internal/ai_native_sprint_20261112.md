@@ -187,3 +187,40 @@ not instantiate objects or compile material sources. The local coverage audit
 described 210 core exported constructors; two exception types expose no Python
 signature and remain explicit query failures instead of fabricated parameter
 lists. Ordinary functions and declared Model methods retain the same query.
+
+## Operational record integrity
+
+`execution.json` and `latest.json` now reuse the shared atomic text publisher
+with unique temporary files. Two concurrent writers previously used the same
+`.tmp` pathname; a forced simultaneous-replace regression exercises that race.
+The last successfully published latest pointer may refer to either concurrent
+run, but it must contain one complete record. This is per-file publication,
+not a claim of a multi-file transaction or power-loss durability.
+
+Operational JSON refuses nonfinite values, matching Result manifests and CLI
+JSON. Tests preserve the prior record on encoding/replace failure and clean
+temporary files. Extended numeric checks also avoid narrowing `longdouble` to
+Python float, so invalid extended scalars are rejected without falsely rejecting
+the largest finite value. A platform-specific test initially assumed NumPy's
+`finfo.max` itself had longdouble type; the test now explicitly constructs that
+type without changing the software policy.
+
+Artifact resolution also checks containment after resolving links: a linked run
+root (including protected WSL storage) and links within that root remain valid,
+but a nested link cannot redirect an artifact outside it. This is path validation,
+not a sandbox against hostile concurrent filesystem changes. The targeted
+project/path/CLI suite passed 52 tests. A separate 106-test run covered records,
+project execution, structured Step failures and Result publication before the
+additional path regression. Counts overlap and are not a cumulative total.
+
+## External design cross-check
+
+- [MCP tool results](https://github.com/modelcontextprotocol/modelcontextprotocol/blob/main/docs/specification/2025-06-18/server/tools.mdx)
+  separate structured result data and tool execution failures. AgentFEM keeps
+  those distinctions in its existing CLI/Result contracts; this sprint does not
+  introduce or claim an MCP server.
+- [JSON Schema annotations](https://json-schema.org/understanding-json-schema/reference/annotations)
+  distinguish defaults from validation-driven value insertion. Our signature
+  defaults describe installed callables, not permission to infer material values,
+  change physics or auto-fill a case. Type annotations alone are not a full
+  scientific admission schema.

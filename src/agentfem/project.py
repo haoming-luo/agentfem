@@ -685,7 +685,10 @@ class RunContext:
         relative = Path(name)
         if relative.is_absolute() or ".." in relative.parts:
             raise ValueError("Run artifacts must be relative paths inside the run directory.")
-        path = (self.output_directory / relative).resolve()
+        root = self.output_directory.resolve()
+        path = (root / relative).resolve()
+        if not path.is_relative_to(root):
+            raise ValueError("Run artifacts must remain inside the run directory after resolving symbolic links.")
         path.parent.mkdir(parents=True, exist_ok=True)
         return path
 
@@ -822,13 +825,10 @@ def current_run(
 
 
 def _write_json(path: Path, record: Mapping[str, object]) -> None:
-    path.parent.mkdir(parents=True, exist_ok=True)
-    temporary = path.with_suffix(path.suffix + ".tmp")
-    temporary.write_text(
-        json.dumps(record, indent=2, sort_keys=True, ensure_ascii=False) + "\n",
-        encoding="utf-8",
-    )
-    temporary.replace(path)
+    from ._atomic_text import atomic_write_text
+
+    text = json.dumps(record, indent=2, sort_keys=True, ensure_ascii=False, allow_nan=False)
+    atomic_write_text(path, text + "\n")
 
 
 __all__ = [
