@@ -24,6 +24,8 @@ With `--json`, invalid CLI arguments return an `agentfem.cli-error` record and
 exit code 2 before runtime initialization. The stage is `argument_parsing` and
 the code is `AFM-CLI-ARGUMENT`. Arguments after `--` remain the case's arguments;
 a case-level `--json` does not change AgentFEM's output mode.
+JSON output rejects nonfinite numbers rather than emitting nonstandard
+`NaN`/`Infinity` tokens or silently replacing scientific values with null.
 
 `show --files` lists recorded artifacts and reports missing files with exit code
 2. Keep an XDMF file together with its referenced HDF5 files. This command checks

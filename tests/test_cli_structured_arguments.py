@@ -7,6 +7,19 @@ import pytest
 from agentfem import cli
 
 
+@pytest.mark.parametrize("value", [float("nan"), float("inf"), -float("inf")])
+def test_json_output_never_publishes_nonstandard_numeric_tokens(value, monkeypatch, capsys):
+    from types import SimpleNamespace
+
+    monkeypatch.setattr(cli, "MPI", SimpleNamespace(COMM_WORLD=SimpleNamespace(rank=0)))
+    monkeypatch.setattr(cli, "_templates", lambda: (value,))
+    assert cli._dispatch(["templates", "--json"]) == 2
+    record = json.loads(capsys.readouterr().out)
+    assert record["schema"] == "agentfem.cli-error"
+    assert record["status"] == "failed"
+    assert record["error"]["type"] == "ValueError"
+
+
 @pytest.mark.parametrize("arguments", [
     ["check", "--json", "--does-not-exist"],
     ["unknown-command", "--json"],

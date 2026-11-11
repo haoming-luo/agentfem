@@ -108,3 +108,17 @@ with one MPI-only skip for material, coupled and finite-strain Step lifecycles;
 181 passed with one MPI-only skip for IR, checkpoint/output and project execution;
 93 CLI/feedback/documentation checks passed after argument handling changes.
 The separate two-rank IR failure test passed after atomic publication changes.
+
+## Independent integration branch
+
+The AI workflow changes are isolated on `feat/ai-native-workflow-contracts`
+from verified main `10ab18b0`, without the pending P92/life-observation commits.
+The combined inspection, CLI, project, feedback and workflow acceptance on that
+base passed 246 tests with one intentional MPI-only skip; generated documentation
+was current. Four complete history-material CLI examples also passed on the
+updated command entry point before isolation.
+
+The CLI JSON encoder now refuses nonstandard NaN/Infinity tokens. Invalid
+numeric output produces a failed CLI record rather than a successful malformed
+JSON response or an invented null value. The focused follow-up passed 129 tests.
+These suite counts overlap; they are not a cumulative total.

@@ -58,7 +58,7 @@ MPI = _DeferredMPI()
 
 
 def _json(record) -> str:
-    return json.dumps(record, indent=2, sort_keys=True, ensure_ascii=False)
+    return json.dumps(record, indent=2, sort_keys=True, ensure_ascii=False, allow_nan=False)
 
 
 def _emit(record, *, as_json: bool, human: str | None = None) -> None:
