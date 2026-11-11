@@ -165,3 +165,17 @@ https://numpy.org/doc/stable/reference/generated/numpy.ndarray.item.html.
 The focused semantic/CLI/discovery regression passed 82 tests after this fix;
 generated documentation and correctness lint also passed. CI remains separately
 tracked on the pull requests; local counts do not imply CI completion.
+
+Model tree and manifest now reuse AF-IR's workflow ordering, avoiding divergent
+human/machine presentation catalogs. A second real workflow exercises missing
+thermal material admission, preserves addressable validation evidence and the
+unchanged model, then explicitly supplies the material/boundaries and checks
+the solved temperature against linear steady conduction. The combined semantic,
+validation and engineering-workflow regression passed 89 tests. CLI startup,
+project, documentation and architecture regression separately passed 86 tests.
+
+Boundary found during review: topic construction avoids unrelated numerical
+imports, but the CLI emitter still consults the real MPI rank. It is not yet a
+runtime-free command path. Do not bypass that ownership by guessing rank from
+launcher environment variables; no change to MPI emission or telemetry policy
+was included in this follow-up.

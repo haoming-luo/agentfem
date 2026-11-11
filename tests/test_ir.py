@@ -258,6 +258,11 @@ def test_inspection_views_include_declared_engineering_context():
 
     model = models.create(study=studies.static_solid(dimension=3), units=units.si())
     model.stage("loading")
+    assert model.manifest()["workflow_order"] == ir.WORKFLOW_ORDER
+    assert tuple(model.to_ir(include_validation=False)["root"]["workflow_order"]) == ir.WORKFLOW_ORDER
+    headings = tuple(line.strip().removesuffix(":") for line in model.tree().splitlines()
+                     if line.startswith("  ") and not line.startswith("    "))
+    assert headings == ir.WORKFLOW_ORDER
     for name in ("unit_system", "amplitudes", "engineering_steps"):
         assert name in model.manifest()["workflow_order"]
         assert f"  {name}:" in model.tree()
