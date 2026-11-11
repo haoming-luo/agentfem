@@ -24,7 +24,6 @@ from . import platforms
 from . import presentation
 from . import provenance
 from . import upgrades
-from ._api_contract import CAPABILITIES_SCHEMA_VERSION, CLI_COMMANDS
 from .mpi_runtime import audit_mpi_runtime, mpi_command, run_mpi_command
 from .project import (
     PROJECT_FILENAME,
@@ -1133,13 +1132,15 @@ def build_parser(*, structured_errors: bool = False) -> argparse.ArgumentParser:
 
     capabilities = sub.add_parser(
         "capabilities",
-        help="Summarize capabilities for people; use --json for the complete contract.",
+        help="Inspect capabilities; --json keeps the full contract unless a topic is selected.",
     )
-    capabilities.add_argument(
+    capability_selection = capabilities.add_mutually_exclusive_group()
+    capability_selection.add_argument(
         "topic",
         nargs="?",
-        help="materials, procedures, workflow, runtime, extensions, or a material name",
+        help="materials, meshes, procedures, workflow, runtime, extensions, or a material name",
     )
+    capability_selection.add_argument("--api", help="Inspect MODULE.FUNCTION or models.Model.METHOD parameters.")
     capabilities.add_argument("--json", action="store_true")
     extension_command = sub.add_parser(
         "extensions",
@@ -1312,48 +1313,19 @@ def _dispatch(argv: list[str] | None = None, *, parsed=None) -> int:
             _emit(record, as_json=args.json, human=human)
             return 0
         if args.command == "capabilities":
-            from . import benchmarks, constitutive, mesh, models, public_api
-            from ._architecture_contract import ownership_contract
-            public_modules = {
-                level: public_api(level)
-                for level in ("core", "advanced", "expert")
-            }
-            record = {
-                "schema": "agentfem.capabilities",
-                "schema_version": CAPABILITIES_SCHEMA_VERSION,
-                "agentfem_version": __version__,
-                "commands": CLI_COMMANDS,
-                # Keep the flat inventory for 0.2.0 clients while offering a
-                # progressive contract to new CLIs, GUIs, and agents.
-                "public_modules": public_api(),
-                "public_api": public_modules,
-                "model_api": {
-                    level: models.model_api(level)
-                    for level in ("core", "advanced", "compatibility")
-                },
-                "model_api_contract": models.model_api_contract(),
-                "ownership_contract": ownership_contract(),
-                "templates": _templates(),
-                "runtime": platforms.runtime_report().summary(),
-                "constitutive": tuple(
-                    item.as_dict() for item in constitutive.capabilities()
-                ),
-                "constitutive_evidence": tuple(
-                    item.as_dict()
-                    for item in benchmarks.audit_capability_evidence()
-                ),
-                "mesh_cells": tuple(
-                    item.summary() for item in mesh.compatibility_matrix()
-                ),
-                "step_providers": tuple(
-                    item.summary() for item in models.step_providers()
-                ),
-                "extensions": extensions.extension_status(),
-            }
+            if args.api is not None:
+                from ._api_discovery import callable_record, format_callable
+
+                record = callable_record(args.api)
+                _emit(record, as_json=args.json, human=format_callable(record))
+                return 0
+            from ._capability_discovery import build_capability_record
+
+            record = build_capability_record(args.topic, templates=_templates)
             _emit(
-                record,
+                presentation.capability_record(record, args.topic) if args.json else record,
                 as_json=args.json,
-                human=presentation.format_capabilities(record, args.topic),
+                human=None if args.json else presentation.format_capabilities(record, args.topic),
             )
             return 0
     except (OSError, FileExistsError, ValueError, RuntimeError) as exc:

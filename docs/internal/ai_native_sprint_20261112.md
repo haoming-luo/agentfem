@@ -122,3 +122,28 @@ The CLI JSON encoder now refuses nonstandard NaN/Infinity tokens. Invalid
 numeric output produces a failed CLI record rather than a successful malformed
 JSON response or an invented null value. The focused follow-up passed 129 tests.
 These suite counts overlap; they are not a cumulative total.
+
+## Scoped discovery follow-up
+
+Before the change, `capabilities materials --json` still returned the full
+record (about 94.5 KB). Human topics existed but machine topics did not select
+sections. Topic JSON now preserves the same selected evidence and declares
+`scope.complete=false`; no-topic JSON retains its full historical shape.
+Only requested sections are built from their existing owners. Workflow discovery
+does not probe the numerical runtime or import the solver merely to list methods.
+
+Measured UTF-8 output in this checkout: full 94,531 bytes, workflow 20,521,
+materials 28,423, named `abaqus_user_material_bridge` 1,092. Runtime version
+strings can change the full size. This is a payload-size observation, not a
+claim about LLM tokens, accuracy or simulation speed. Exact evidence equality,
+scope markers, unknown topics, no unrelated runtime probe and standalone
+workflow imports are covered by tests; the targeted suite passed 100 tests.
+
+An optional `capabilities --api MODULE.FUNCTION --json` query addresses another
+observed gap: knowing module names does not reveal accepted keywords. It reads
+the installed Python signature instead of maintaining a second parameter catalog.
+Declared `models.Model` methods retain lifecycle evidence and omit the implicit
+`self` argument. No callable, annotation expression, default-object repr, case or
+installation is executed. Public functions may import their numerical module;
+this is not a claim of dependency-free inspection of every scientific function.
+Provider-specific keywords still require the existing Step option contract.

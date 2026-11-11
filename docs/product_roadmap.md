@@ -8,6 +8,8 @@ unsupported-capability diagnostics into execution records, retains units and
 engineering stages in inspection, and aligns ready-provider discovery with
 execution. Numeric export rejects invalid wrapped values; model publication is
 atomic and root-owned write failures propagate to MPI peers.
+Scoped capability queries and installed-callable signatures reduce unnecessary
+catalog reading and keyword guessing without a second API specification.
 Next measure agent task success and repair cost. Do not claim autonomy or token
 savings merely because structured error tests pass.
 
