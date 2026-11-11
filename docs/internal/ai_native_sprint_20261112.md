@@ -245,3 +245,12 @@ every rank just to display a summary. Finalization failures carry
 limit, including injected selection/preparation/write errors and malformed
 records. These tests cover known root-owned phases, not arbitrary failure within
 a user's own collective solver. The latest MPI run had no cleanup warning.
+
+Final-record admission additionally rejects a different run identity or a
+missing/invalid status rather than treating parseable JSON as completion.
+The expanded two-rank group passed 11 tests on each rank. The final combined
+local selection passed 312 tests in 49.77 seconds, including the eight complete
+workflows; this is one selection, not a sum of overlapping earlier runs.
+Generated documentation remained current. PR #185 completed all its CI jobs,
+including FEniCSx and macOS installed-wheel acceptance. PR #186 still requires
+CI on its final head; neither PR has been merged or released by this sprint.

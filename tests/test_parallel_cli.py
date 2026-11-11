@@ -47,7 +47,11 @@ def test_ir_write_failure_real_mpi(monkeypatch, tmp_path):
     assert len(set(errors)) == 1
 
 
-@pytest.mark.parametrize("contents", ["{broken json", "[]"])
+@pytest.mark.parametrize("contents", [
+    "{broken json", "[]", "{}",
+    '{"schema":"agentfem.run","run_id":"another-run","status":"completed"}',
+    '{"schema":"agentfem.run","run_id":"test","status":null}',
+])
 def test_invalid_execution_record_reaches_every_rank(tmp_path, contents):
     from agentfem.project import RunContext
 

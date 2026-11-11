@@ -10,6 +10,8 @@ execution. Numeric export rejects invalid wrapped values; model publication is
 atomic and root-owned write failures propagate to MPI peers.
 Scoped capability queries and installed-callable signatures reduce unnecessary
 catalog reading and keyword guessing without a second API specification.
+Operational records share atomic publication; run preparation/finalization
+failures reach MPI peers, and final records must belong to the current run.
 Next measure agent task success and repair cost. Do not claim autonomy or token
 savings merely because structured error tests pass.
 

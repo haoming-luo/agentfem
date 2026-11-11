@@ -28,6 +28,7 @@ from ._cli_entry import _positive_int
 from .mpi_runtime import audit_mpi_runtime, mpi_command, run_mpi_command
 from .project import (
     PROJECT_FILENAME,
+    RUN_SCHEMA,
     ProjectConfig,
     RunContext,
     discover,
@@ -362,6 +363,10 @@ def _completed_execution_record(context):
             record = json.loads(context.execution_path.read_text(encoding="utf-8"))
             if not isinstance(record, dict):
                 raise ValueError("Execution record must be a JSON object.")
+            if record.get("schema") != RUN_SCHEMA or record.get("run_id") != context.run_id:
+                raise ValueError("Execution record does not match the current run identity.")
+            if not isinstance(record.get("status"), str) or not record["status"].strip():
+                raise ValueError("Execution record requires a nonempty status.")
             outcome = {"status": record.get("status"), "error": None}
         except Exception as exc:
             outcome = {"error": f"{type(exc).__name__}: {exc}"}
