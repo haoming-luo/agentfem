@@ -224,3 +224,24 @@ additional path regression. Counts overlap and are not a cumulative total.
   defaults describe installed callables, not permission to infer material values,
   change physics or auto-fill a case. Type annotations alone are not a full
   scientific admission schema.
+
+The installed MPI supervisor now rejects nonpositive rank counts and nonfinite
+or nonpositive timeouts during argument parsing, before probing a vendor or
+starting a launcher. Its rank parser is shared with ordinary `run --mpi` rather
+than duplicated. No new MPI JSON mode or environment-rank inference was added.
+After the operational-record changes, eight complete workflow checks passed:
+four material/kinematic example combinations, two pause/restart comparisons,
+sparse field output, and sequential thermal-stage reuse. They are bounded
+regressions, not a full composite simulation or new physical validation claim.
+
+## Distributed command lifecycle review
+
+The root-owned run phase had two further asymmetric failure paths: directory
+selection could raise before the first broadcast, and final execution-record
+write/read could raise before status broadcast. Both phases now broadcast their
+outcome before peers continue. Root still owns I/O; records are not copied to
+every rank just to display a summary. Finalization failures carry
+`AFM-RUN-RECORD`. Eight tests passed on each of two ranks with a 90-second launch
+limit, including injected selection/preparation/write errors and malformed
+records. These tests cover known root-owned phases, not arbitrary failure within
+a user's own collective solver. The latest MPI run had no cleanup warning.

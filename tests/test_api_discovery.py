@@ -160,7 +160,7 @@ def test_actual_cli_discovery_never_executes_the_adjacent_case(tmp_path, argumen
     )
     original = {path.name for path in tmp_path.iterdir()}
     completed = subprocess.run(
-        [sys.executable, "-m", "agentfem.cli", "capabilities", *arguments, "--json"],
+        [sys.executable, "-m", "agentfem._cli_entry", "capabilities", *arguments, "--json"],
         cwd=tmp_path, capture_output=True, text=True, timeout=30,
         env={**os.environ, "PYTHONPATH": str(Path(cli.__file__).resolve().parents[1]),
              "AGENTFEM_STATE_HOME": str(tmp_path / "state"), "AGENTFEM_TELEMETRY": "off"},

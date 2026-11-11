@@ -24,6 +24,7 @@ from . import platforms
 from . import presentation
 from . import provenance
 from . import upgrades
+from ._cli_entry import _positive_int
 from .mpi_runtime import audit_mpi_runtime, mpi_command, run_mpi_command
 from .project import (
     PROJECT_FILENAME,
@@ -262,22 +263,37 @@ def _run_context(
     comm = MPI.COMM_WORLD
     payload = None
     if comm.rank == 0:
-        selected = RunContext.create(
-            project,
-            run_id=run_id or new_run_id(),
-            run_name=run_name,
-            output_directory=output,
-            human_layout=run_id is None,
-        )
-        payload = {
-            "run_id": selected.run_id,
-            "run_name": selected.run_name,
-            "run_number": selected.run_number,
-            "output_directory": str(selected.output_directory),
-            "manifest_path": str(selected.manifest_path),
-            "execution_path": str(selected.execution_path),
-        }
+        try:
+            selected = RunContext.create(
+                project,
+                run_id=run_id or new_run_id(),
+                run_name=run_name,
+                output_directory=output,
+                human_layout=run_id is None,
+            ).prepare()
+            payload = {
+                "run_id": selected.run_id,
+                "run_name": selected.run_name,
+                "run_number": selected.run_number,
+                "output_directory": str(selected.output_directory),
+                "manifest_path": str(selected.manifest_path),
+                "execution_path": str(selected.execution_path),
+                "error": None,
+            }
+        except Exception as exc:
+            payload = {"error": {
+                "type": f"{type(exc).__module__}.{type(exc).__qualname__}",
+                "message": str(exc),
+            }}
+    # Directory selection can fail too (invalid names, unreadable output root).
+    # Keep the complete root-owned phase inside one collective outcome.
     payload = comm.bcast(payload, root=0)
+    if payload["error"] is not None:
+        error = payload["error"]
+        raise RuntimeError(
+            "Could not prepare the shared run directory: "
+            f"{error['type']}: {error['message']}"
+        )
     context = RunContext(
         project_root=project.root,
         project_name=project.name,
@@ -288,21 +304,6 @@ def _run_context(
         run_name=payload["run_name"],
         run_number=payload["run_number"],
     )
-    prepare_error = None
-    if comm.rank == 0:
-        try:
-            context.prepare()
-        except Exception as exc:
-            prepare_error = {
-                "type": f"{type(exc).__module__}.{type(exc).__qualname__}",
-                "message": str(exc),
-            }
-    prepare_error = comm.bcast(prepare_error, root=0)
-    if prepare_error is not None:
-        raise RuntimeError(
-            "Could not prepare the shared run directory: "
-            f"{prepare_error['type']}: {prepare_error['message']}"
-        )
     return context
 
 
@@ -346,6 +347,28 @@ def _collect_rank_errors(comm, local_error) -> tuple[dict[str, object], ...]:
     """Collect per-rank failures before any rank can report completion."""
 
     return tuple(item for item in comm.allgather(local_error) if item is not None)
+
+
+def _completed_execution_record(context):
+    """Finish root-owned operational I/O before publishing a shared status."""
+
+    comm = MPI.COMM_WORLD
+    record = {}
+    outcome = None
+    if comm.rank == 0:
+        try:
+            if not context.execution_path.is_file():
+                context.write_execution("completed", structured_result=context.manifest_path.is_file())
+            record = json.loads(context.execution_path.read_text(encoding="utf-8"))
+            if not isinstance(record, dict):
+                raise ValueError("Execution record must be a JSON object.")
+            outcome = {"status": record.get("status"), "error": None}
+        except Exception as exc:
+            outcome = {"error": f"{type(exc).__name__}: {exc}"}
+    outcome = comm.bcast(outcome, root=0)
+    if outcome["error"] is not None:
+        raise RuntimeError(f"AFM-RUN-RECORD: Could not finalize {context.execution_path}: {outcome['error']}")
+    return record, outcome["status"]
 
 
 def _launch_mpi(args) -> int:
@@ -516,17 +539,7 @@ def _command_run(args) -> int:
         )
         return 1
 
-    if MPI.COMM_WORLD.rank == 0 and not context.execution_path.is_file():
-        context.write_execution(
-            "completed",
-            structured_result=context.manifest_path.is_file(),
-        )
-    record = (
-        json.loads(context.execution_path.read_text(encoding="utf-8"))
-        if MPI.COMM_WORLD.rank == 0
-        else {}
-    )
-    status = MPI.COMM_WORLD.bcast(record.get("status"), root=0)
+    record, status = _completed_execution_record(context)
     result_status = ("paused; no completed scientific result published" if status == "paused"
                      else "script completed without a published SimulationResult")
     human = (
@@ -953,13 +966,6 @@ class _CLIArgumentError(ValueError):
 class _StructuredArgumentParser(argparse.ArgumentParser):
     def error(self, message):
         raise _CLIArgumentError(message)
-
-
-def _positive_int(value):
-    number = int(value)
-    if number <= 0:
-        raise argparse.ArgumentTypeError("must be a positive integer")
-    return number
 
 
 def build_parser(*, structured_errors: bool = False) -> argparse.ArgumentParser:

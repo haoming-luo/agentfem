@@ -9,6 +9,27 @@ import pytest
 from agentfem import cli
 
 
+@pytest.mark.parametrize("stage", ["create", "prepare"])
+def test_run_directory_failure_reaches_every_rank(monkeypatch, tmp_path, stage):
+    from agentfem.project import ProjectConfig, RunContext
+
+    comm = MPI.COMM_WORLD
+    if comm.size < 2:
+        pytest.skip("requires two MPI ranks")
+    root = Path(comm.bcast(str(tmp_path) if comm.rank == 0 else None, root=0))
+    config = ProjectConfig(root=root, name="prepare-failure", entrypoint=root / "case.py",
+                           output_directory=root / "outputs")
+
+    def fail(*args, **kwargs):
+        assert comm.rank == 0
+        raise PermissionError(f"injected {stage} failure")
+
+    monkeypatch.setattr(RunContext, stage, fail)
+    with pytest.raises(RuntimeError, match=f"injected {stage} failure") as caught:
+        cli._run_context(config, None, "test", None)
+    assert len(set(comm.allgather(str(caught.value)))) == 1
+
+
 def test_ir_write_failure_real_mpi(monkeypatch, tmp_path):
     from types import SimpleNamespace
     from agentfem import _model_inspection
@@ -24,6 +45,44 @@ def test_ir_write_failure_real_mpi(monkeypatch, tmp_path):
         _model_inspection.write_model_ir(model, destination)
     errors = comm.allgather(str(caught.value))
     assert len(set(errors)) == 1
+
+
+@pytest.mark.parametrize("contents", ["{broken json", "[]"])
+def test_invalid_execution_record_reaches_every_rank(tmp_path, contents):
+    from agentfem.project import RunContext
+
+    comm = MPI.COMM_WORLD
+    if comm.size < 2:
+        pytest.skip("requires two MPI ranks")
+    root = Path(comm.bcast(str(tmp_path) if comm.rank == 0 else None, root=0))
+    context = RunContext(root, "record-failure", "test", root,
+                         root / "result.json", root / "execution.json")
+    if comm.rank == 0:
+        context.execution_path.write_text(contents)
+    comm.barrier()
+    with pytest.raises(RuntimeError, match="AFM-RUN-RECORD") as caught:
+        cli._completed_execution_record(context)
+    assert len(set(comm.allgather(str(caught.value)))) == 1
+
+
+def test_execution_record_write_failure_reaches_every_rank(tmp_path, monkeypatch):
+    from agentfem.project import RunContext
+
+    comm = MPI.COMM_WORLD
+    if comm.size < 2:
+        pytest.skip("requires two MPI ranks")
+    root = Path(comm.bcast(str(tmp_path) if comm.rank == 0 else None, root=0))
+    context = RunContext(root, "write-failure", "test", root,
+                         root / "result.json", root / "execution.json")
+
+    def fail(*args, **kwargs):
+        assert comm.rank == 0
+        raise PermissionError("injected record write failure")
+
+    monkeypatch.setattr(RunContext, "write_execution", fail)
+    with pytest.raises(RuntimeError, match="AFM-RUN-RECORD.*injected") as caught:
+        cli._completed_execution_record(context)
+    assert len(set(comm.allgather(str(caught.value)))) == 1
 
 
 @pytest.mark.parametrize("failure", ["RuntimeError('injected rank-one failure')", "SystemExit(2)"])
