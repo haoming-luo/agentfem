@@ -1,5 +1,13 @@
 # AgentFEM Product Roadmap
 
+### AI-native repair loop (2026-11-12)
+
+Preserve existing engineering semantics rather than create another model layer.
+The [bounded sprint](internal/ai_native_sprint_20261112.md) first carries provider
+option diagnostics into execution records. Next audit actual summary/AF-IR gaps,
+then measure agent task success and repair cost. Do not claim autonomy or token
+savings merely because structured error tests pass.
+
 ### P92 source, precision and runtime checkpoint (2026-11-07)
 
 The original DB P92 source now supplies a coherent pipe cohort with rupture,

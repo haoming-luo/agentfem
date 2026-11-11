@@ -319,6 +319,14 @@ def _rank_error(exc: BaseException | None, *, rank: int) -> dict[str, object] | 
     }
     if isinstance(exc, SystemExit):
         record["exit_code"] = exc.code if isinstance(exc.code, int) else 1
+    from .step_providers import StepOptionError
+
+    if isinstance(exc, StepOptionError):
+        record["stage"] = "step_options"
+        record["details"] = exc.details()
+        issues = record["details"]["issues"]
+        if issues:
+            record["code"] = issues[0]["code"]
     report = getattr(exc, "report", None)
     if report is not None and hasattr(report, "as_dict"):
         validation = report.as_dict()
@@ -489,6 +497,8 @@ def _command_run(args) -> int:
         }
         if "exit_code" in primary:
             error["exit_code"] = primary["exit_code"]
+        if "details" in primary:
+            error["details"] = primary["details"]
         if MPI.COMM_WORLD.rank == 0:
             context.write_execution("failed", error=error, structured_result=False)
         _emit(

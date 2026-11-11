@@ -25,6 +25,25 @@ the model's own preflight remains authoritative.
 recorded paths, not the internal contents of visualization files. Normal `show`
 keeps the file list short; JSON and `--files` retain the complete list.
 
+## Repair Step option errors
+
+The selected provider checks `model.step` keywords against the same
+`StepOptionContract` exposed by capability inspection. In Python, catch
+`agentfem.step_providers.StepOptionError` (also a `TypeError`) and call
+`error.details()` for provider, issue codes, option names, suggestions and
+accepted option names. Details do not contain supplied values or material state.
+
+During `agentfem run`, the same record is retained in `execution.json` under
+`error.details`, with stage `step_options`. The command still exits nonzero;
+no automatic correction or rerun is performed. An agent can propose a precise
+change without parsing the traceback. Ordinary tracebacks remain diagnostic
+artifacts and are not a privacy-filtered export.
+
+Suggestions are possible spelling repairs, not approval of physical meaning.
+For example, two mutually exclusive frequency inputs require a modeling choice,
+not blindly deleting one. This contract checks provider options, not all units,
+mesh/material combinations or scientific validity.
+
 ## Compare selected results
 
 ```bash

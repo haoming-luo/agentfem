@@ -11,6 +11,7 @@ keeps case-specific choices out of user scripts and out of ``Model.step``.
 from __future__ import annotations
 
 from dataclasses import dataclass
+from copy import deepcopy
 from difflib import get_close_matches
 from os import PathLike
 from types import MappingProxyType
@@ -63,6 +64,26 @@ class StepExecutionPolicy:
             "progress": _policy_value_summary(self.progress),
             "checkpoint": _policy_value_summary(self.checkpoint),
         }
+
+
+class StepOptionError(TypeError):
+    """Repairable Step request failure, retaining the enforcing contract's issues.
+
+    This remains a TypeError for existing callers. Details contain option names
+    and diagnostics, never the supplied values or material state.
+    """
+
+    def __init__(self, message, *, provider, issues, accepted):
+        super().__init__(message)
+        self._details = deepcopy({
+            "schema": "agentfem.step-option-error.v1",
+            "provider": provider,
+            "issues": tuple(issues),
+            "accepted_options": tuple(accepted),
+        })
+
+    def details(self):
+        return deepcopy(self._details)
 
 
 @dataclass(frozen=True)
@@ -198,10 +219,11 @@ class StepOptionContract:
                     + "?"
                 )
             details.append(message)
-        raise TypeError(
+        raise StepOptionError(
             f"model.step request for provider {provider!r} is invalid: "
             + " ".join(details)
-            + f" Accepted options are {self.accepted!r}."
+            + f" Accepted options are {self.accepted!r}.",
+            provider=provider, issues=issues, accepted=self.accepted,
         )
 
     def summary(self) -> dict[str, object]:
