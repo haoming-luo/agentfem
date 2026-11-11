@@ -39,7 +39,9 @@ def describe_value(value):
         except (TypeError, ValueError):
             pass
         else:
-            if converted is not value:
+            # Do not narrow extended precision merely to obtain a Python
+            # scalar, or recurse on fresh same-type scalar copies.
+            if converted is not value and type(converted) is not type(value):
                 return describe_value(converted)
     list_method = getattr(value, "tolist", None)
     if callable(list_method):
@@ -48,7 +50,7 @@ def describe_value(value):
         except (TypeError, ValueError):
             pass
         else:
-            if converted is not value:
+            if converted is not value and type(converted) is not type(value):
                 return describe_value(converted)
     summary = getattr(value, "summary", None)
     if callable(summary):

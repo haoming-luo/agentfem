@@ -147,7 +147,9 @@ def to_json_safe(value, *, path: str = "$"):
         except (TypeError, ValueError):
             pass
         else:
-            if converted is not value:
+            # Extended NumPy scalars can return a fresh scalar of the same
+            # type. That is not progress toward a JSON representation.
+            if converted is not value and type(converted) is not type(value):
                 return to_json_safe(converted, path=path)
     list_method = getattr(value, "tolist", None)
     if callable(list_method):
@@ -156,7 +158,7 @@ def to_json_safe(value, *, path: str = "$"):
         except (TypeError, ValueError):
             pass
         else:
-            if converted is not value:
+            if converted is not value and type(converted) is not type(value):
                 return to_json_safe(converted, path=path)
 
     for method_name in ("to_ir", "as_dict", "summary"):

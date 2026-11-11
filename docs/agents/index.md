@@ -34,6 +34,8 @@ An AI chat without authorised terminal tools provides the same manual path.
 | `agentfem doctor --json` | Environment capability check |
 | `agentfem workspace --json` | Runtime-independent project custody check |
 | `agentfem capabilities --json` | Public API, providers, maturity, and benchmark evidence |
+| `agentfem capabilities workflow --json` | Focused workflow vocabulary without unrelated catalogs |
+| `agentfem capabilities --api fields.displacement --json` | Installed parameter contract when a call is uncertain |
 | `agentfem check --json` | Static project and upgrade check |
 | `agentfem run --json` | Addressable execution result |
 | `agentfem inspect --json` | Result and artifact discovery |

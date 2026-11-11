@@ -147,3 +147,21 @@ Declared `models.Model` methods retain lifecycle evidence and omit the implicit
 installation is executed. Public functions may import their numerical module;
 this is not a claim of dependency-free inspection of every scientific function.
 Provider-specific keywords still require the existing Step option contract.
+
+Coverage audit: all 477 current core function call paths and declared Model
+methods produced strict-JSON descriptions. This counts inspected call paths,
+not 477 scientific validation cases. A regression now enumerates the current
+contract rather than freezing that count. The real MPI publication-failure test
+was moved into the existing `test_parallel_cli.py` CI group; all three tests
+passed on both local ranks with a 90-second launcher timeout.
+
+Inspection robustness follow-up: named assets no longer evaluate `repr()`
+unnecessarily, and non-callable summary metadata is not treated as a method.
+Scientific summary failures still propagate. Extended-precision NumPy scalars
+can return fresh same-type objects from both `item()` and `tolist()`; those
+conversions now terminate with the existing explicit unsupported-value marker,
+without silently narrowing precision. NumPy documents this behavior at
+https://numpy.org/doc/stable/reference/generated/numpy.ndarray.item.html.
+The focused semantic/CLI/discovery regression passed 82 tests after this fix;
+generated documentation and correctness lint also passed. CI remains separately
+tracked on the pull requests; local counts do not imply CI completion.

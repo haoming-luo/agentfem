@@ -471,9 +471,9 @@ interpolating unsaved damage states.
   integrate them through the versioned extension API.
 - AF-IR and repair: inspect `ir/` and `validation.py`. Treat AF-IR 0.1 as an
   experimental record, not as proof of backend-neutral executability.
-- API lifecycle: inspect `models.model_api_contract()` or
-  `agentfem capabilities --json` before generating a Model call. Run
-  `agentfem upgrade` before adapting an older project. Compatibility findings
+- API lifecycle: consult `models.model_api_contract()` or
+  `agentfem capabilities workflow --json` when a method's status is uncertain.
+  Run `agentfem upgrade` for version migration or reported migration findings. Compatibility findings
   that require semantic review are guidance, not permission for blind textual
   replacement.
 - Backend work: inspect `backends/` and

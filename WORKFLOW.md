@@ -179,7 +179,10 @@ engineering verbs, while `"advanced"` discloses deliberate lower-layer seams
 and `"compatibility"` identifies historical aliases that remain executable but
 should not be generated in new cases. Built-in Step providers publish their
 accepted and required keyword contracts through `models.step_providers()` and
-`agentfem capabilities --json`.
+`agentfem capabilities procedures --json`. For an uncertain public call,
+`agentfem capabilities --api fields.displacement --json` reads its installed
+parameters. The complete discovery record remains available through
+`agentfem capabilities --json`; routine known calls do not require repeating it.
 
 For a collection of related cases, continue with:
 

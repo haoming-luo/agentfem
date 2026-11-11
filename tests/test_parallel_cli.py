@@ -9,6 +9,23 @@ import pytest
 from agentfem import cli
 
 
+def test_ir_write_failure_real_mpi(monkeypatch, tmp_path):
+    from types import SimpleNamespace
+    from agentfem import _model_inspection
+
+    comm = MPI.COMM_WORLD
+    if comm.size < 2:
+        pytest.skip("requires two MPI ranks")
+    model = SimpleNamespace(mesh=SimpleNamespace(comm=comm))
+    monkeypatch.setattr(_model_inspection, "model_to_ir", lambda *a, **kw: {})
+    # An existing directory is an invalid file destination on every platform.
+    destination = comm.bcast(str(tmp_path) if comm.rank == 0 else None, root=0)
+    with pytest.raises(RuntimeError, match="AFM-IR-WRITE") as caught:
+        _model_inspection.write_model_ir(model, destination)
+    errors = comm.allgather(str(caught.value))
+    assert len(set(errors)) == 1
+
+
 @pytest.mark.parametrize("failure", ["RuntimeError('injected rank-one failure')", "SystemExit(2)"])
 def test_cli_collectively_reports_a_single_rank_failure(tmp_path, failure):
     if MPI.COMM_WORLD.size < 2:

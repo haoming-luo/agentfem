@@ -1,6 +1,7 @@
 """Installed callable introspection, not guessed or separately maintained APIs."""
 
 import inspect
+import importlib
 import json
 
 import pytest
@@ -80,3 +81,20 @@ def test_introspection_does_not_call_function_evaluate_annotations_or_repr_defau
     assert record["parameters"][0]["annotation"] == "must_not_be_evaluated()"
     assert record["parameters"][1]["default"]["kind"] == "runtime_default"
     assert callable_record("fields.displacement") == record
+
+
+def test_core_call_paths_and_declared_model_methods_have_json_safe_descriptions():
+    from agentfem import public_api
+
+    names = [f"models.Model.{name}" for name in models.model_api("all")]
+    for module_name in public_api("core"):
+        module = importlib.import_module(f"agentfem.{module_name}")
+        names.extend(
+            f"{module_name}.{name}" for name, function in inspect.getmembers(module, inspect.isfunction)
+            if not name.startswith("_") and function.__module__.startswith("agentfem.")
+        )
+    assert names
+    for name in names:
+        record = callable_record(name)
+        assert record["callable"] == f"agentfem.{name}"
+        json.dumps(record, allow_nan=False)

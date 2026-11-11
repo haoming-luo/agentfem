@@ -211,6 +211,8 @@ MACHINE_COMMANDS = {
     "environment_check": "agentfem doctor --json",
     "workspace_check": "agentfem workspace --json",
     "capabilities": "agentfem capabilities --json",
+    "workflow_capabilities": "agentfem capabilities workflow --json",
+    "api_signature": "agentfem capabilities --api fields.displacement --json",
     "project_check": "agentfem check --json",
     "run": "agentfem run --json",
     "mpi_run": "agentfem mpi-run -n 2 -- python case.py",
