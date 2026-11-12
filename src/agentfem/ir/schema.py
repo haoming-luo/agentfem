@@ -14,6 +14,7 @@ from dataclasses import dataclass, field
 from enum import Enum
 import json
 from math import isfinite
+from numbers import Complex
 from pathlib import Path
 from typing import Mapping
 
@@ -25,6 +26,15 @@ AFIR_STATUS = "experimental"
 
 class IRSerializationError(ValueError):
     """Raised when a value cannot be represented without hiding its meaning."""
+
+
+def _is_nonfinite_number(value):
+    """Check scalar numeric components without narrowing extended precision."""
+
+    return isinstance(value, Complex) and any(
+        component != component or component == float("inf") or component == -float("inf")
+        for component in (value.real, value.imag)
+    )
 
 
 @dataclass(frozen=True)
@@ -92,7 +102,9 @@ def write_document(
             ensure_ascii=False,
             allow_nan=False,
         )
-    output.write_text(text + "\n", encoding="utf-8")
+    from .._atomic_text import atomic_write_text
+
+    atomic_write_text(output, text + "\n")
     return output
 
 
@@ -111,6 +123,8 @@ def to_json_safe(value, *, path: str = "$"):
         if not isfinite(value):
             raise IRSerializationError(f"{path} contains non-finite float {value!r}.")
         return value
+    if _is_nonfinite_number(value):
+        raise IRSerializationError(f"{path} contains a non-finite numeric scalar.")
     if isinstance(value, Enum):
         return to_json_safe(value.value, path=path)
     if isinstance(value, Path):
@@ -122,9 +136,17 @@ def to_json_safe(value, *, path: str = "$"):
                 raise IRSerializationError(
                     f"{path} has unsupported mapping key type {type(key).__name__}."
                 )
+            if str(key) in result:
+                raise IRSerializationError(
+                    f"{path} has distinct mapping keys that serialize as {str(key)!r}."
+                )
             result[str(key)] = to_json_safe(value[key], path=f"{path}.{key}")
         return result
-    if isinstance(value, (tuple, list, set, frozenset)):
+    if isinstance(value, (set, frozenset)):
+        converted = [to_json_safe(item, path=f"{path}{{item}}") for item in value]
+        return sorted(converted, key=lambda item: json.dumps(
+            item, sort_keys=True, ensure_ascii=False, allow_nan=False))
+    if isinstance(value, (tuple, list)):
         return [
             to_json_safe(item, path=f"{path}[{index}]")
             for index, item in enumerate(value)
@@ -133,15 +155,23 @@ def to_json_safe(value, *, path: str = "$"):
     item_method = getattr(value, "item", None)
     if callable(item_method):
         try:
-            return to_json_safe(item_method(), path=path)
+            converted = item_method()
         except (TypeError, ValueError):
             pass
+        else:
+            # Extended NumPy scalars can return a fresh scalar of the same
+            # type. That is not progress toward a JSON representation.
+            if converted is not value and type(converted) is not type(value):
+                return to_json_safe(converted, path=path)
     list_method = getattr(value, "tolist", None)
     if callable(list_method):
         try:
-            return to_json_safe(list_method(), path=path)
+            converted = list_method()
         except (TypeError, ValueError):
             pass
+        else:
+            if converted is not value and type(converted) is not type(value):
+                return to_json_safe(converted, path=path)
 
     for method_name in ("to_ir", "as_dict", "summary"):
         method = getattr(value, method_name, None)

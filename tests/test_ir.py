@@ -61,6 +61,119 @@ def test_ir_rejects_non_finite_floats():
         ir.to_json_safe({"value": float("nan")})
 
 
+@pytest.mark.parametrize("value", [float("nan"), float("inf"), -float("inf")])
+def test_ir_rejects_non_finite_numpy_values_without_hiding_them(value):
+    import numpy as np
+
+    for numeric in (np.float32(value), np.array(value), np.array([0., value])):
+        with pytest.raises(ir.IRSerializationError, match="response.*non-finite"):
+            ir.to_json_safe({"response": numeric})
+
+
+def test_ir_array_conversion_preserves_valid_data():
+    import numpy as np
+
+    assert ir.to_json_safe(np.array([[1., 2.], [3., 4.]])) == [[1., 2.], [3., 4.]]
+    assert ir.to_json_safe(np.float32(2.5)) == 2.5
+
+
+@pytest.mark.parametrize("value", [float("nan"), float("inf"), -float("inf")])
+def test_coefficient_description_rejects_invalid_wrapped_values(value):
+    import numpy as np
+
+    for numeric in (np.float32(value), np.array(value), np.array([0., value])):
+        with pytest.raises(ValueError, match="must be finite"):
+            ir.describe_value(SimpleNamespace(value=numeric))
+    assert ir.describe_value(SimpleNamespace(value=np.array([1., 2.]))) == (1., 2.)
+
+
+def test_ir_self_returning_conversion_does_not_recurse_forever():
+    class RuntimeValue:
+        def item(self):
+            return self
+
+        def tolist(self):
+            return self
+
+    assert ir.to_json_safe(RuntimeValue())["serializable"] is False
+
+
+def test_ir_failed_publication_preserves_previous_document(monkeypatch, tmp_path):
+    from pathlib import Path
+
+    destination = tmp_path / "model.json"
+    ir.write_document({"revision": 1}, destination)
+    before = destination.read_bytes()
+
+    def fail_replace(self, target):
+        raise PermissionError("publication denied")
+
+    monkeypatch.setattr(Path, "replace", fail_replace)
+    with pytest.raises(PermissionError, match="publication denied"):
+        ir.write_document({"revision": 2}, destination)
+    assert destination.read_bytes() == before
+    assert list(tmp_path.iterdir()) == [destination]
+
+
+def test_standalone_ir_publication_does_not_start_numerical_runtime(tmp_path):
+    import subprocess
+    import sys
+
+    completed = subprocess.run(
+        [sys.executable, "-c",
+         "import sys; from agentfem import ir; "
+         "ir.write_document({'description': 'inspection only'}, sys.argv[1]); "
+         "assert 'mpi4py.MPI' not in sys.modules; "
+         "assert 'dolfinx' not in sys.modules",
+         str(tmp_path / "inspection.json")],
+        capture_output=True, text=True, timeout=20,
+    )
+    assert completed.returncode == 0, completed.stderr
+
+
+def test_ir_preserves_declared_units_and_engineering_stages_without_solving():
+    from agentfem import units
+
+    model = models.create(study=studies.static_solid(dimension=3),
+                          units=units.n_mm_mpa(), name="semantic-review")
+    loading = model.stage("loading", inherit_model_loads=True)
+    unloading = model.stage("unloading", previous=loading, inherit_model_loads=False)
+    record = model.to_ir(include_validation=False)
+    root = record["root"]
+    assert root["unit_system"] == model.unit_system.summary()
+    assert root["unit_system"]["base"]["length"] == "mm"
+    assert root["unit_system"]["automatic_conversion"] is False
+    assert root["engineering_steps"] == [ir.to_json_safe(loading.summary()),
+                                         ir.to_json_safe(unloading.summary())]
+    assert root["steps"] == []
+    assert "validation" not in root
+    assert list(ir.WORKFLOW_ORDER).index("engineering_steps") < list(ir.WORKFLOW_ORDER).index("steps")
+    assert record == json.loads(json.dumps(record, allow_nan=False))
+
+
+def test_ir_does_not_infer_missing_units_or_stages():
+    model = models.create(study=studies.static_solid(dimension=3))
+    root = model.to_ir(include_validation=False)["root"]
+    assert root["unit_system"] is None
+    assert root["engineering_steps"] == []
+
+
+@pytest.mark.parametrize("mapping", [{1: "numeric", "1": "text"},
+                                     {False: "boolean", "False": "text"}])
+def test_ir_rejects_lossy_mapping_key_conversion(mapping):
+    with pytest.raises(ir.IRSerializationError, match="distinct mapping keys"):
+        ir.to_json_safe(mapping, path="metadata")
+
+
+def test_ir_canonicalizes_unordered_sets_but_preserves_sequences():
+    values = {"alpha", "zeta", 4, (1, 2)}
+    converted = ir.to_json_safe(values)
+    assert converted == sorted(converted, key=lambda x: json.dumps(
+        x, sort_keys=True, ensure_ascii=False, allow_nan=False))
+    assert ir.to_json_safe(frozenset(values)) == converted
+    assert ir.to_json_safe(["zeta", "alpha"]) == ["zeta", "alpha"]
+
+
 def test_model_ir_records_scope_backend_and_validation(tmp_path):
     mesh = _Mesh()
     model = models.create(
@@ -91,8 +204,9 @@ def test_distributed_ir_builds_collective_document_on_nonroot(monkeypatch, tmp_p
     class Comm:
         rank = 1
 
-        def barrier(self):
-            calls.append("barrier")
+        def bcast(self, value, root):
+            calls.append("bcast")
+            return value
 
     fake_model = SimpleNamespace(mesh=SimpleNamespace(comm=Comm()))
 
@@ -113,7 +227,45 @@ def test_distributed_ir_builds_collective_document_on_nonroot(monkeypatch, tmp_p
     )
 
     assert output == tmp_path / "distributed.afir.json"
-    assert calls == ["build", "barrier"]
+    assert calls == ["build", "bcast"]
+
+
+@pytest.mark.parametrize("rank", [0, 1])
+def test_ir_write_failure_reaches_all_ranks(monkeypatch, tmp_path, rank):
+    class Comm:
+        def bcast(self, value, root):
+            assert root == 0
+            if rank == 0:
+                assert value == "PermissionError: read-only output"
+            return "PermissionError: read-only output"
+
+    comm = Comm()
+    comm.rank = rank
+    model = SimpleNamespace(mesh=SimpleNamespace(comm=comm))
+    monkeypatch.setattr(_model_inspection, "model_to_ir", lambda *a, **kw: {})
+
+    def fail_write(*args):
+        assert rank == 0
+        raise PermissionError("read-only output")
+
+    monkeypatch.setattr(ir, "write_document", fail_write)
+    with pytest.raises(RuntimeError, match="AFM-IR-WRITE.*read-only output"):
+        _model_inspection.write_model_ir(model, tmp_path / "model.json")
+
+
+def test_inspection_views_include_declared_engineering_context():
+    from agentfem import units
+
+    model = models.create(study=studies.static_solid(dimension=3), units=units.si())
+    model.stage("loading")
+    assert model.manifest()["workflow_order"] == ir.WORKFLOW_ORDER
+    assert tuple(model.to_ir(include_validation=False)["root"]["workflow_order"]) == ir.WORKFLOW_ORDER
+    headings = tuple(line.strip().removesuffix(":") for line in model.tree().splitlines()
+                     if line.startswith("  ") and not line.startswith("    "))
+    assert headings == ir.WORKFLOW_ORDER
+    for name in ("unit_system", "amplitudes", "engineering_steps"):
+        assert name in model.manifest()["workflow_order"]
+        assert f"  {name}:" in model.tree()
 
 
 def test_runtime_objects_use_typed_opaque_markers():
@@ -127,11 +279,85 @@ def test_runtime_objects_use_typed_opaque_markers():
     assert "BackendOnlyObject" in record["python_type"]
 
 
+def test_model_summary_uses_explicit_name_without_runtime_repr():
+    from agentfem._model_support import describe
+
+    class NamedAsset:
+        name = "named-asset"
+
+        def __repr__(self):
+            pytest.fail("Explicitly named assets must not evaluate runtime repr")
+
+    assert describe(NamedAsset()) == "named-asset"
+    assert describe(SimpleNamespace(name=None)) is None
+
+
+def test_model_summary_uses_callable_protocol_without_hiding_errors():
+    from agentfem._model_support import describe
+
+    class Asset:
+        summary = "non-callable metadata"
+
+        def as_dict(self):
+            return {"name": "asset"}
+
+    class InvalidAsset:
+        def summary(self):
+            raise ValueError("invalid scientific data")
+
+    assert describe(Asset()) == {"name": "asset"}
+    with pytest.raises(ValueError, match="invalid scientific data"):
+        describe(InvalidAsset())
+
+
 def test_scientific_values_are_retained_from_backend_constant_wrappers():
     class Constant:
         value = [1.0, -2.5]
 
     assert ir.describe_value(Constant()) == (1.0, -2.5)
+
+
+def test_nonprogressing_scalar_conversions_remain_explicitly_opaque():
+    from agentfem.ir.schema import to_json_safe
+
+    class Scalar:
+        def item(self):
+            return Scalar()
+
+        def tolist(self):
+            return Scalar()
+
+    for describe in (to_json_safe, ir.describe_value):
+        assert describe(Scalar())["serializable"] is False
+
+
+def test_extended_precision_scalars_do_not_recurse_or_silently_narrow():
+    import numpy as np
+    from agentfem.ir.schema import to_json_safe
+
+    for dtype in (np.longdouble, np.clongdouble):
+        value = dtype("1.25")
+        for describe in (to_json_safe, ir.describe_value):
+            record = describe(value)
+            assert record["serializable"] is False
+            assert record["python_type"].startswith("numpy.")
+            assert describe(np.array([value])) == record
+
+
+def test_extended_precision_invalid_values_are_not_hidden_as_opaque():
+    import numpy as np
+    from agentfem.ir.schema import to_json_safe
+
+    values = [np.longdouble("nan"), np.longdouble("inf"), np.longdouble("-inf"),
+              np.clongdouble(complex(1, float("inf")))]
+    for value in values:
+        for describe in (to_json_safe, ir.describe_value):
+            for wrapped in (value, np.array([value]), np.array([1, value])):
+                with pytest.raises(ValueError, match="finite"):
+                    describe(wrapped)
+    # The largest finite extended scalar must not be cast through Python float.
+    for describe in (to_json_safe, ir.describe_value):
+        assert describe(np.longdouble(np.finfo(np.longdouble).max))["serializable"] is False
 
 
 def test_public_inspection_modules_are_discoverable():

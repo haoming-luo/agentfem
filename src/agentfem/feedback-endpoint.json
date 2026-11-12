@@ -1,6 +1,7 @@
 {
   "schema": "agentfem.feedback-endpoint",
   "schema_version": "0.2.0",
+  "activation": "explicit-consent-only",
   "endpoints": [
     {
       "name": "global",

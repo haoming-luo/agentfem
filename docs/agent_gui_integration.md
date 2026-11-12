@@ -38,10 +38,12 @@ The surrounding agent performs five visible stages:
    constraints, loads, outputs, and missing decisions.
 2. **Case construction** — create or edit a normal AgentFEM `case.py` from a
    version-matched template.
-3. **Preflight** — call `agentfem capabilities --json` and
-   `agentfem check --json`; for an existing case also call
-   `agentfem upgrade --json`. Present unsupported assumptions and semantic
-   migration findings instead of silently replacing them.
+3. **Preflight** — reuse known capability information; query a relevant topic
+   or installed API signature when uncertain. `agentfem check --json` checks
+   project structure and syntax; model validation owns scientific admission.
+   Use `agentfem upgrade --json` for version migration or reported migration
+   findings, not every ordinary edit. Present unsupported assumptions and
+   semantic findings instead of silently replacing them.
 4. **Deterministic execution** — call `agentfem run --json`, optionally with
    MPI, and monitor the execution artifacts.
 5. **Result explanation** — read `execution.json`, `result.json`, fields,
@@ -61,7 +63,8 @@ The first stable boundary is intentionally process based:
 agentfem doctor --json
 agentfem workspace --json
 agentfem templates --json
-agentfem capabilities --json
+agentfem capabilities workflow --json
+agentfem capabilities --api fields.displacement --json
 agentfem init --template static-solid ./case --json
 agentfem check --project ./case --json
 agentfem upgrade --project ./case --json
@@ -84,6 +87,12 @@ The contracts are versioned independently:
 - `agentfem.solve-events` — solver progress and increment evidence;
 - `agentfem.simulation-result` — scientific outputs and trust evidence;
 - `agentfem.capabilities` — queryable installed functionality.
+- `agentfem.api-callable` — installed public function or Model method parameters.
+
+Topic capability records explicitly declare their partial scope and retain the
+selected limitations and evidence. `capabilities --json` without a topic still
+returns the complete record. These are discovery operations, not a prerequisite
+to repeat before every already-known call.
 
 GUI code should switch on `schema` and `schema_version`, not on prose printed by
 an example.

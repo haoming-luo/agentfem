@@ -1,9 +1,9 @@
 # Reliability Feedback and Private Support
 
-AgentFEM uses a minimal anonymous reliability signal to improve the free,
-open-source software. It learns which platforms and workflows succeed or fail
-in real use while remaining independent of the finite-element model and
-numerical result lifecycle.
+AgentFEM offers an optional minimal anonymous reliability signal to improve the
+free, open-source software. Telemetry is off by default. No CLI outcome is
+collected, queued, retried, or uploaded unless the user explicitly opts in.
+Finite-element and AI workflows remain fully independent of this service.
 
 ## Voluntary community support
 
@@ -65,17 +65,27 @@ participation.
 
 ## What basic reporting contains
 
-Basic reporting is on by default and can be disabled at any time:
+Basic reporting requires explicit consent:
 
 ```bash
 agentfem telemetry status
+agentfem telemetry basic            # explicit opt-in
+agentfem telemetry on               # compatible alias
 agentfem telemetry off
-agentfem telemetry on
 agentfem telemetry route auto       # or: global / china
 ```
 
-Turning reporting off also deletes every unsent automatic event. Local
-scientific results and user-created support bundles are unaffected.
+Selecting a route does not enable telemetry. Turning reporting off revokes
+consent and deletes every unsent automatic event, retry/backoff record and
+local event preview. Local scientific results, failure diagnosis and
+user-created support bundles are unaffected.
+
+An upgrade does not treat a historical `mode=basic` setting as consent because
+older releases did not record whether that value came from a user or the old
+default. Such configurations migrate to `off`, and their unsent events are
+discarded. A current explicit-consent record is retained. Operators may also
+opt in for a process by setting `AGENTFEM_TELEMETRY=basic`; endpoint or route
+environment variables alone never authorize reporting.
 
 One event contains only:
 
@@ -95,13 +105,15 @@ backoff. Network failure never fails a simulation. The event does not
 contain the client's activity timestamp; the collector supplies only the UTC
 day used for aggregate reliability counts.
 
-Use `agentfem telemetry show-last` to inspect the exact latest event, including
+After opt-in, use `agentfem telemetry show-last` to inspect the exact latest event, including
 after successful delivery. This local snapshot follows the same strict schema;
 `agentfem telemetry off` deletes it together with every unsent event. If the
 first project-owned endpoint is temporarily unavailable, AgentFEM tries the
 next reviewed route within the same bounded delivery budget. It sends an event
 through the first successful route only. If all routes are unavailable,
 AgentFEM keeps only the bounded local queue and never fails a simulation.
+There is no background sender: delivery is attempted only from an opted-in CLI
+process or an explicit `agentfem telemetry flush` command.
 
 ## Repeated failure and Agent assistance
 

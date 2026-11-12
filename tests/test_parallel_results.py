@@ -35,16 +35,19 @@ def test_collective_manifest_failed_replacement_is_atomic(tmp_path, monkeypatch)
     replace = Path.replace
 
     def fail_replace(path, target):
-        if path == manifest.with_suffix(".json.tmp"):
+        if Path(target) == manifest:
+            assert comm.rank == 0
             raise OSError("injected collective replacement failure")
         return replace(path, target)
 
     monkeypatch.setattr(Path, "replace", fail_replace)
     simulation.add_quantity("new-response", 2.0)
-    with pytest.raises(RuntimeError, match="injected collective replacement failure"):
+    with pytest.raises(RuntimeError, match="injected collective replacement failure") as caught:
         simulation.write_manifest(manifest, comm=comm)
+    assert len(set(comm.allgather(str(caught.value)))) == 1
     assert all(comm.allgather(manifest.read_bytes() == original))
     assert all(comm.allgather(provenance.verify_manifest(manifest).verified))
+    assert all(comm.allgather(not list(directory.glob("*.tmp"))))
 
 
 def test_collective_manifest_self_reference_and_external_integrity(tmp_path):

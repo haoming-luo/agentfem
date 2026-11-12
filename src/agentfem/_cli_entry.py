@@ -4,6 +4,7 @@
 
 import argparse
 import json
+import math
 import os
 import subprocess
 import sys
@@ -32,12 +33,26 @@ def _probe_vendor():
     return name, tuple(int(item) for item in version)
 
 
+def _positive_int(value):
+    number = int(value)
+    if number <= 0:
+        raise argparse.ArgumentTypeError("must be a positive integer")
+    return number
+
+
+def _positive_finite_float(value):
+    number = float(value)
+    if not math.isfinite(number) or number <= 0:
+        raise argparse.ArgumentTypeError("must be finite and positive")
+    return number
+
+
 def configure_mpi_parser(parser):
     """One parser contract shared with full CLI discovery."""
-    parser.add_argument("-n", "--ranks", type=int, required=True)
+    parser.add_argument("-n", "--ranks", type=_positive_int, required=True)
     parser.add_argument(
         "--timeout",
-        type=float,
+        type=_positive_finite_float,
         help="Stop the complete MPI process group after this many seconds.",
     )
     parser.add_argument("child_command", nargs=argparse.REMAINDER)

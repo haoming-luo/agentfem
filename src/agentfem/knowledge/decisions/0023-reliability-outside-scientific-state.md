@@ -23,8 +23,9 @@ without making scientific state an analytics payload.
 
 ## Consequences
 
-- basic reporting is transparent, bounded, inspectable and permanently
-  opt-out;
+- basic reporting is transparent, bounded, inspectable and explicit opt-in;
+- missing, invalid or legacy preferences fail closed to `off`; ambiguous old
+  `basic` state and its unsent queue are not accepted as consent;
 - a release without a reviewed project-owned collector keeps only a bounded
   local queue and says delivery is unavailable;
 - the collector stores daily aggregates, not raw events or source IPs;
@@ -39,6 +40,7 @@ without making scientific state an analytics payload.
 
 - strict client and collector schema validators;
 - tests that inject secret messages, paths, source lines and material names;
-- queue, opt-out, repetition and sanitized bundle regression tests;
+- queue, opt-in, revocation, migration, repetition and sanitized bundle
+  regression tests;
 - collector and mainland-relay rejection/failover contract tests;
 - installed-wheel CLI and documentation release gates.

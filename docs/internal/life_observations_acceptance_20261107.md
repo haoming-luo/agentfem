@@ -68,3 +68,12 @@ The P92 source and checked transcription are linked in `docs/p92_validation.md`.
 Next admit compatible replicate/run-out records. Fit at most one motivated
 conditional-life model, retain all censoring and batch identities, and evaluate
 held-out predictions before reporting P92 statistical life bounds.
+
+## Mainline integration, 2026-11-12
+
+Integrated main `156db1f0` without changing estimators, source observations or
+acceptance tolerances. Kept the concise agent entry and moved the life-assessment
+guidance into its scientific reference. The combined targeted suite, including
+fixed-horizon tests and current documentation tests, passed **214 tests** in
+`fenicsx-env` with RuntimeWarnings treated as errors. Generated documentation
+and focused lint passed. Remote CI remains the merge gate.

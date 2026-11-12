@@ -58,7 +58,7 @@ def test_old_manifest_survives_failed_republication(tmp_path, monkeypatch):
     replace = Path.replace
 
     def fail_manifest(source, destination):
-        if source == path.with_suffix(".json.tmp"):
+        if Path(destination) == path:
             raise OSError("injected publication failure")
         return replace(source, destination)
 

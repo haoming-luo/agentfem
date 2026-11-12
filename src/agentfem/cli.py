@@ -24,10 +24,11 @@ from . import platforms
 from . import presentation
 from . import provenance
 from . import upgrades
-from ._api_contract import CAPABILITIES_SCHEMA_VERSION, CLI_COMMANDS
+from ._cli_entry import _positive_int
 from .mpi_runtime import audit_mpi_runtime, mpi_command, run_mpi_command
 from .project import (
     PROJECT_FILENAME,
+    RUN_SCHEMA,
     ProjectConfig,
     RunContext,
     discover,
@@ -58,7 +59,7 @@ MPI = _DeferredMPI()
 
 
 def _json(record) -> str:
-    return json.dumps(record, indent=2, sort_keys=True, ensure_ascii=False)
+    return json.dumps(record, indent=2, sort_keys=True, ensure_ascii=False, allow_nan=False)
 
 
 def _emit(record, *, as_json: bool, human: str | None = None) -> None:
@@ -263,22 +264,37 @@ def _run_context(
     comm = MPI.COMM_WORLD
     payload = None
     if comm.rank == 0:
-        selected = RunContext.create(
-            project,
-            run_id=run_id or new_run_id(),
-            run_name=run_name,
-            output_directory=output,
-            human_layout=run_id is None,
-        )
-        payload = {
-            "run_id": selected.run_id,
-            "run_name": selected.run_name,
-            "run_number": selected.run_number,
-            "output_directory": str(selected.output_directory),
-            "manifest_path": str(selected.manifest_path),
-            "execution_path": str(selected.execution_path),
-        }
+        try:
+            selected = RunContext.create(
+                project,
+                run_id=run_id or new_run_id(),
+                run_name=run_name,
+                output_directory=output,
+                human_layout=run_id is None,
+            ).prepare()
+            payload = {
+                "run_id": selected.run_id,
+                "run_name": selected.run_name,
+                "run_number": selected.run_number,
+                "output_directory": str(selected.output_directory),
+                "manifest_path": str(selected.manifest_path),
+                "execution_path": str(selected.execution_path),
+                "error": None,
+            }
+        except Exception as exc:
+            payload = {"error": {
+                "type": f"{type(exc).__module__}.{type(exc).__qualname__}",
+                "message": str(exc),
+            }}
+    # Directory selection can fail too (invalid names, unreadable output root).
+    # Keep the complete root-owned phase inside one collective outcome.
     payload = comm.bcast(payload, root=0)
+    if payload["error"] is not None:
+        error = payload["error"]
+        raise RuntimeError(
+            "Could not prepare the shared run directory: "
+            f"{error['type']}: {error['message']}"
+        )
     context = RunContext(
         project_root=project.root,
         project_name=project.name,
@@ -289,21 +305,6 @@ def _run_context(
         run_name=payload["run_name"],
         run_number=payload["run_number"],
     )
-    prepare_error = None
-    if comm.rank == 0:
-        try:
-            context.prepare()
-        except Exception as exc:
-            prepare_error = {
-                "type": f"{type(exc).__module__}.{type(exc).__qualname__}",
-                "message": str(exc),
-            }
-    prepare_error = comm.bcast(prepare_error, root=0)
-    if prepare_error is not None:
-        raise RuntimeError(
-            "Could not prepare the shared run directory: "
-            f"{prepare_error['type']}: {prepare_error['message']}"
-        )
     return context
 
 
@@ -319,6 +320,19 @@ def _rank_error(exc: BaseException | None, *, rank: int) -> dict[str, object] | 
     }
     if isinstance(exc, SystemExit):
         record["exit_code"] = exc.code if isinstance(exc.code, int) else 1
+    from .step_providers import StepCapabilityError, StepOptionError
+
+    if isinstance(exc, StepCapabilityError):
+        record["stage"] = "step_capability"
+        record["details"] = exc.details()
+        record["code"] = record["details"]["code"]
+
+    if isinstance(exc, StepOptionError):
+        record["stage"] = "step_options"
+        record["details"] = exc.details()
+        issues = record["details"]["issues"]
+        if issues:
+            record["code"] = issues[0]["code"]
     report = getattr(exc, "report", None)
     if report is not None and hasattr(report, "as_dict"):
         validation = report.as_dict()
@@ -334,6 +348,32 @@ def _collect_rank_errors(comm, local_error) -> tuple[dict[str, object], ...]:
     """Collect per-rank failures before any rank can report completion."""
 
     return tuple(item for item in comm.allgather(local_error) if item is not None)
+
+
+def _completed_execution_record(context):
+    """Finish root-owned operational I/O before publishing a shared status."""
+
+    comm = MPI.COMM_WORLD
+    record = {}
+    outcome = None
+    if comm.rank == 0:
+        try:
+            if not context.execution_path.is_file():
+                context.write_execution("completed", structured_result=context.manifest_path.is_file())
+            record = json.loads(context.execution_path.read_text(encoding="utf-8"))
+            if not isinstance(record, dict):
+                raise ValueError("Execution record must be a JSON object.")
+            if record.get("schema") != RUN_SCHEMA or record.get("run_id") != context.run_id:
+                raise ValueError("Execution record does not match the current run identity.")
+            if not isinstance(record.get("status"), str) or not record["status"].strip():
+                raise ValueError("Execution record requires a nonempty status.")
+            outcome = {"status": record.get("status"), "error": None}
+        except Exception as exc:
+            outcome = {"error": f"{type(exc).__name__}: {exc}"}
+    outcome = comm.bcast(outcome, root=0)
+    if outcome["error"] is not None:
+        raise RuntimeError(f"AFM-RUN-RECORD: Could not finalize {context.execution_path}: {outcome['error']}")
+    return record, outcome["status"]
 
 
 def _launch_mpi(args) -> int:
@@ -489,6 +529,8 @@ def _command_run(args) -> int:
         }
         if "exit_code" in primary:
             error["exit_code"] = primary["exit_code"]
+        if "details" in primary:
+            error["details"] = primary["details"]
         if MPI.COMM_WORLD.rank == 0:
             context.write_execution("failed", error=error, structured_result=False)
         _emit(
@@ -502,17 +544,7 @@ def _command_run(args) -> int:
         )
         return 1
 
-    if MPI.COMM_WORLD.rank == 0 and not context.execution_path.is_file():
-        context.write_execution(
-            "completed",
-            structured_result=context.manifest_path.is_file(),
-        )
-    record = (
-        json.loads(context.execution_path.read_text(encoding="utf-8"))
-        if MPI.COMM_WORLD.rank == 0
-        else {}
-    )
-    status = MPI.COMM_WORLD.bcast(record.get("status"), root=0)
+    record, status = _completed_execution_record(context)
     result_status = ("paused; no completed scientific result published" if status == "paused"
                      else "script completed without a published SimulationResult")
     human = (
@@ -819,21 +851,26 @@ def _command_verify(args) -> int:
 def _command_telemetry(args) -> int:
     from . import feedback as reliability
 
+    current = reliability._ensure_privacy_state()
     if args.action == "route":
         if args.route is None:
             raise ValueError("Use `agentfem telemetry route auto|global|china`.")
-        selected = reliability.configure("basic", route=args.route)
+        selected = reliability.configure(
+            current.mode,
+            route=args.route,
+            consent_source=current.consent_source or "cli",
+        )
         record = selected.summary()
         human = f"Reliability route preference: {selected.route}."
-    elif args.action == "on":
-        selected = reliability.configure("basic")
+    elif args.action in {"on", "basic"}:
+        selected = reliability.configure("basic", consent_source="cli")
         record = selected.summary()
         human = (
-            "Anonymous reliability reporting is on. Models, meshes, parameters, "
+            "Anonymous reliability reporting is explicitly enabled. Models, meshes, parameters, "
             "source code, paths, and results are never included."
         )
     elif args.action == "off":
-        selected = reliability.configure("off")
+        selected = reliability.configure("off", consent_source="cli")
         record = selected.summary()
         human = "Anonymous reliability reporting is off."
     elif args.action == "flush":
@@ -848,9 +885,10 @@ def _command_telemetry(args) -> int:
         }
         human = _json(record) if event else "No queued reliability event."
     else:
-        record = reliability.preferences().summary()
+        record = current.summary()
         human = (
             f"Anonymous reliability reporting: {record['mode']}\n"
+            f"Explicit consent: {record['consent']['granted']}\n"
             f"Route preference: {record['route']}\n"
             f"Delivery available: {record['delivery_available']}\n"
             f"Queued reports: {record['queue_size']}"
@@ -932,8 +970,18 @@ def _command_support(args) -> int:
     return 0
 
 
-def build_parser() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(prog="agentfem", description=__doc__)
+class _CLIArgumentError(ValueError):
+    pass
+
+
+class _StructuredArgumentParser(argparse.ArgumentParser):
+    def error(self, message):
+        raise _CLIArgumentError(message)
+
+
+def build_parser(*, structured_errors: bool = False) -> argparse.ArgumentParser:
+    parser_type = _StructuredArgumentParser if structured_errors else argparse.ArgumentParser
+    parser = parser_type(prog="agentfem", description=__doc__)
     parser.add_argument("--version", action="version", version=f"AgentFEM {__version__}")
     sub = parser.add_subparsers(dest="command", required=True)
 
@@ -981,7 +1029,7 @@ def build_parser() -> argparse.ArgumentParser:
     run.add_argument("--run-id")
     run.add_argument("--name", help="Short human name for this run, such as baseline or fine-mesh.")
     run.add_argument("--output")
-    run.add_argument("--mpi", type=int, default=1)
+    run.add_argument("--mpi", type=_positive_int, default=1)
     run.add_argument(
         "-v",
         "--verbose",
@@ -1027,7 +1075,7 @@ def build_parser() -> argparse.ArgumentParser:
 
     runs = sub.add_parser("runs", help="List recent runs for the current project.")
     runs.add_argument("--project")
-    runs.add_argument("--limit", type=int, default=20)
+    runs.add_argument("--limit", type=_positive_int, default=20)
     runs.add_argument("--json", action="store_true")
 
     inspect_abaqus = sub.add_parser(
@@ -1101,13 +1149,15 @@ def build_parser() -> argparse.ArgumentParser:
 
     capabilities = sub.add_parser(
         "capabilities",
-        help="Summarize capabilities for people; use --json for the complete contract.",
+        help="Inspect capabilities; --json keeps the full contract unless a topic is selected.",
     )
-    capabilities.add_argument(
+    capability_selection = capabilities.add_mutually_exclusive_group()
+    capability_selection.add_argument(
         "topic",
         nargs="?",
-        help="materials, procedures, workflow, runtime, extensions, or a material name",
+        help="materials, meshes, procedures, workflow, runtime, extensions, or a material name",
     )
+    capability_selection.add_argument("--api", help="Inspect a public MODULE.CALLABLE (function or exported class) or models.Model.METHOD.")
     capabilities.add_argument("--json", action="store_true")
     extension_command = sub.add_parser(
         "extensions",
@@ -1124,7 +1174,8 @@ def build_parser() -> argparse.ArgumentParser:
         "action",
         nargs="?",
         default="status",
-        choices=("status", "on", "off", "route", "show-last", "flush"),
+        choices=("status", "basic", "on", "off", "route", "show-last", "flush"),
+        help="Telemetry is off by default; 'basic' and the compatible 'on' alias explicitly opt in.",
     )
     telemetry.add_argument(
         "route",
@@ -1186,9 +1237,8 @@ def build_parser() -> argparse.ArgumentParser:
     return parser
 
 
-def _dispatch(argv: list[str] | None = None) -> int:
-    parser = build_parser()
-    args = parser.parse_args(argv)
+def _dispatch(argv: list[str] | None = None, *, parsed=None) -> int:
+    args = build_parser().parse_args(argv) if parsed is None else parsed
     try:
         if args.command == "doctor":
             from . import community
@@ -1227,11 +1277,11 @@ def _dispatch(argv: list[str] | None = None) -> int:
             return _command_upgrade(args)
         if args.command == "run":
             if args.mpi <= 0:
-                parser.error("--mpi must be positive")
+                raise ValueError("--mpi must be positive")
             return _command_run(args)
         if args.command == "mpi-run":
             if args.ranks <= 0:
-                parser.error("--ranks must be positive")
+                raise ValueError("--ranks must be positive")
             return _command_mpi_run(args)
         if args.command == "inspect":
             return _command_inspect(args)
@@ -1241,7 +1291,7 @@ def _dispatch(argv: list[str] | None = None) -> int:
             return _command_compare(args)
         if args.command == "runs":
             if args.limit <= 0:
-                parser.error("--limit must be positive")
+                raise ValueError("--limit must be positive")
             return _command_runs(args)
         if args.command == "inspect-abaqus":
             return _command_inspect_abaqus(args)
@@ -1281,48 +1331,19 @@ def _dispatch(argv: list[str] | None = None) -> int:
             _emit(record, as_json=args.json, human=human)
             return 0
         if args.command == "capabilities":
-            from . import benchmarks, constitutive, mesh, models, public_api
-            from ._architecture_contract import ownership_contract
-            public_modules = {
-                level: public_api(level)
-                for level in ("core", "advanced", "expert")
-            }
-            record = {
-                "schema": "agentfem.capabilities",
-                "schema_version": CAPABILITIES_SCHEMA_VERSION,
-                "agentfem_version": __version__,
-                "commands": CLI_COMMANDS,
-                # Keep the flat inventory for 0.2.0 clients while offering a
-                # progressive contract to new CLIs, GUIs, and agents.
-                "public_modules": public_api(),
-                "public_api": public_modules,
-                "model_api": {
-                    level: models.model_api(level)
-                    for level in ("core", "advanced", "compatibility")
-                },
-                "model_api_contract": models.model_api_contract(),
-                "ownership_contract": ownership_contract(),
-                "templates": _templates(),
-                "runtime": platforms.runtime_report().summary(),
-                "constitutive": tuple(
-                    item.as_dict() for item in constitutive.capabilities()
-                ),
-                "constitutive_evidence": tuple(
-                    item.as_dict()
-                    for item in benchmarks.audit_capability_evidence()
-                ),
-                "mesh_cells": tuple(
-                    item.summary() for item in mesh.compatibility_matrix()
-                ),
-                "step_providers": tuple(
-                    item.summary() for item in models.step_providers()
-                ),
-                "extensions": extensions.extension_status(),
-            }
+            if args.api is not None:
+                from ._api_discovery import callable_record, format_callable
+
+                record = callable_record(args.api)
+                _emit(record, as_json=args.json, human=format_callable(record))
+                return 0
+            from ._capability_discovery import build_capability_record
+
+            record = build_capability_record(args.topic, templates=_templates)
             _emit(
-                record,
+                presentation.capability_record(record, args.topic) if args.json else record,
                 as_json=args.json,
-                human=presentation.format_capabilities(record, args.topic),
+                human=None if args.json else presentation.format_capabilities(record, args.topic),
             )
             return 0
     except (OSError, FileExistsError, ValueError, RuntimeError) as exc:
@@ -1345,12 +1366,25 @@ def _dispatch(argv: list[str] | None = None) -> int:
 
 
 def main(argv: list[str] | None = None) -> int:
-    """Run the product shell and observe reliability without owning the solve."""
+    """Run the product shell with optional consent-gated reliability reporting."""
 
     from . import feedback as reliability
 
     selected_argv = list(sys.argv[1:] if argv is None else argv)
-    parsed = build_parser().parse_args(selected_argv)
+    # Case arguments after -- belong to the user's program, not this shell.
+    shell_arguments = selected_argv[:selected_argv.index("--")] if "--" in selected_argv else selected_argv
+    try:
+        parsed = build_parser(structured_errors="--json" in shell_arguments).parse_args(selected_argv)
+    except _CLIArgumentError as exc:
+        # Argument diagnostics must work before any MPI/runtime initialization.
+        print(_json({
+            "schema": "agentfem.cli-error",
+            "schema_version": "0.1.0",
+            "status": "failed",
+            "stage": "argument_parsing",
+            "error": {"type": "ArgumentError", "code": "AFM-CLI-ARGUMENT", "message": str(exc)},
+        }), flush=True)
+        return 2
     as_json = bool(getattr(parsed, "json", False))
     if parsed.command not in {
         "telemetry",
@@ -1361,7 +1395,7 @@ def main(argv: list[str] | None = None) -> int:
     }:
         reliability.show_notice_once(as_json=as_json)
     started = time.monotonic()
-    exit_code = _dispatch(selected_argv)
+    exit_code = _dispatch(parsed=parsed)
     # ``agentfem run --mpi N`` is a launcher. The rank-zero child records the
     # actual solve, preventing one user action from producing two events.
     launcher_only = (

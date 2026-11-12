@@ -17,11 +17,16 @@ def describe(item):
 
     if item is None:
         return None
-    if hasattr(item, "summary"):
-        return item.summary()
-    if hasattr(item, "as_dict"):
-        return item.as_dict()
-    return getattr(item, "name", repr(item))
+    for method_name in ("summary", "as_dict"):
+        method = getattr(item, method_name, None)
+        if callable(method):
+            return method()
+    # A getattr default is evaluated eagerly. Do not call a runtime object's
+    # potentially expensive/failing repr when its explicit name is available.
+    try:
+        return item.name
+    except AttributeError:
+        return repr(item)
 
 
 def short_description(item) -> str:
