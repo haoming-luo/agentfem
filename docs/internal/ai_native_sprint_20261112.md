@@ -308,3 +308,12 @@ no issues for its result manifest. This verifies artifact integrity, not a new
 independent scientific benchmark. The preceding remote head `27fa2721` also
 completed all relevant CI, including Linux FEniCSx and macOS installed-wheel
 acceptance; follow-up commits still require their own latest-head CI.
+
+CI on `4c1a35e3` found one missed migration in the distributed publication
+fault-injection test: it still intercepted the old fixed `.json.tmp` source,
+so it no longer injected a replacement failure. The test now intercepts the
+manifest destination, as the serial counterpart does. It additionally checks
+identical errors on every rank and temporary-file cleanup. The full CI
+distributed constraint/result selection was reproduced locally: 153 passed on
+each of two ranks. No product behavior or acceptance requirement was relaxed;
+the subsequent CI run must still pass on this corrected head.
