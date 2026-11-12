@@ -2,7 +2,7 @@
 
 Read only for a relevant numerical implementation or scientific question.
 Ordinary installation, result viewing and routine execution use
-[the short agent guide](../../AGENT_GUIDE.md). Code paths below are relative
+[the short agent guide](https://github.com/haoming-luo/agentfem/blob/main/AGENT_GUIDE.md). Code paths below are relative
 to the repository root; this is a topic index, not a mandatory checklist.
 
 ## Progressive Reading

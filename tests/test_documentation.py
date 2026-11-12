@@ -123,7 +123,7 @@ def test_progressive_guidance_references_are_complete():
     reference = ROOT / "docs/agents/scientific_reference.md"
     assert "docs/agents/scientific_reference.md" in guide
     assert reference.is_file()
-    assert "../../AGENT_GUIDE.md" in reference.read_text()
+    assert "https://github.com/haoming-luo/agentfem/blob/main/AGENT_GUIDE.md" in reference.read_text()
     for skill_name in ("agentfem", "agentfem-performance"):
         directory = ROOT / "skills" / skill_name
         for path in directory.rglob("*.md"):
