@@ -132,6 +132,7 @@ nav:
       - Windows and AI-Assisted Installation: windows_agent_installation.md
       - Optional Windows Installer Reference: windows_installer_reference.md
       - For AI Agents: agents/index.md
+      - Scientific Agent Reference: agents/scientific_reference.md
       - Connect with MCP: agents/mcp.md
       - Agent Acceptance: agents/acceptance.md
 

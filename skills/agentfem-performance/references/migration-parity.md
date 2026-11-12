@@ -22,7 +22,8 @@ Inventory both frozen versions before optimizing another arithmetic kernel:
 
 Record runtime identity and the capabilities actually selected. An option in a
 manifest does not prove that the installed wheel executes that fast path.
-Confirm optional native sources/headers survive sdist-to-wheel packaging.
+At installed migration acceptance, confirm optional native sources/headers
+survive sdist-to-wheel packaging; not every exploratory edit needs repackaging.
 
 ## Keep equivalent computation equivalent
 
@@ -30,15 +31,22 @@ Confirm optional native sources/headers survive sdist-to-wheel packaging.
   it. Share the same implementation and thresholds with the reference screen;
   retain the exact fallback for unresolved cells. Skipping validation is not
   optimization.
-- Prefer disjoint worker slices and immutable published outputs. Join all
-  workers, including on failure, before releasing buffers or publishing state.
-  Do not expose a solver's writable live arrays to an unrestricted callback.
+- Prefer disjoint worker slices and immutable published outputs. Join or otherwise
+  establish completion of all operations accessing a buffer before releasing it,
+  including on failure. Commit accepted state only after its dependencies succeed;
+  sealed intermediate chunks may safely pipeline with explicit ownership and
+  failure containment. Do not expose a solver's writable live arrays to an
+  unrestricted callback.
 - Separate material, auxiliary and contact worker budgets where their costs
   differ. Inspect physical cores, heterogeneous core layout and memory pressure;
   do not transplant a successful thread count into a global default.
 - Count gathers, copies, allocations and fallback calls over the whole
   kinematics-to-force pipeline. A faster material kernel alone may not improve
   the Step. Avoid a second state owner solely to enable a fast path.
+- Reuse validation only with a valid ownership/invalidation proof; a cached
+  address or writable alias does not prove the bytes remain checked. Where
+  pointwise repair is supported, compare repairing rejected points with whole
+  batch fallback, including dispatch cost and join-before-publication behavior.
 
 ## Select measurements for the decision
 
@@ -53,8 +61,10 @@ measurement stations explicit. Compare equal accepted increments and report
 both elapsed process time and the chosen steady segment. Do not select only
 the fastest trial. Extend or reverse the sequence if variation is comparable
 to the claimed improvement. Keep competing numerical work out of a comparative
-timing window; disclose unavoidable background interference. Do not require
-this full sequence merely to discard an obviously slower or incorrect idea.
+timing window; disclose unavoidable background interference. An incorrect
+implementation can be rejected immediately. An uncertain timing can justify
+withholding promotion, but not a claim that the algorithmic idea is disproved.
+See [Experiments](experiments.md) for uncertainty and interacting changes.
 
 Separately replay immutable accepted states from early, nonlinear/damaged and
 late stages when investigating equivalent execution. Reuse the same displacement, velocity, material history and step
@@ -65,9 +75,11 @@ bypass restart identity checks merely to load another implementation: use a
 read-only, hash-checked replay harness instead.
 
 Compare every relevant output, including stress, history, work, damage and
-contact evidence. Unchanged operation ordering can justify bitwise parity;
-otherwise state justified numerical tolerances and test sensitivity. Never
-relax tolerances simply to pass a faster implementation.
+contact evidence. Bitwise parity can be useful when arithmetic and environment
+support it; otherwise state justified tolerances and test sensitivity. Never
+relax a criterion merely to pass a faster implementation. A demonstrably wrong
+inherited criterion may be revised transparently, preserving the original failure
+and independently confirming the corrected criterion.
 
 This execution-parity route is not the admission rule for a new numerical
 method. Adaptive stepping, spatial adaptivity or an alternative Procedure must
@@ -84,15 +96,22 @@ scientific comparisons and the measurement's exclusions.
 
 Report time reduction as `1 - candidate_time / baseline_time`; report speedup
 as `baseline_time / candidate_time`. They are different quantities. A pipeline
-accounting for fraction `f` of runtime and accelerated by factor `s` gives only
-an idealized total factor `1 / ((1-f) + f/s)`; verify it in the real Step.
+accounting for non-overlapping fraction `f` of runtime and accelerated by factor
+`s` gives only an idealized total factor `1 / ((1-f) + f/s)`. Overlapping work,
+contention and changing work counts require a different cost model. Verify the
+combined result in the real Step.
 
 An early short segment cannot establish full-run time or late contact cost.
-After equivalent-physics and relevant failure-path checks pass, freeze the installed
-candidate and measure a complete run with startup, export and worker shutdown.
-Retain the prior reference, including regressions. Treat mass scaling, larger
-increments, contact simplification or less output as separate experiments,
-not as evidence for an unchanged-physics implementation speedup.
+When the requested claim or acceptance specifically needs a complete trajectory,
+after the relevant scientific and failure-path checks pass, freeze the installed
+candidate and measure the complete run with startup, export and worker shutdown.
+This is not an exploration prerequisite or a requirement for every small release.
+Retain a reconstructable reference and regression evidence. Separate physical
+approximations (mass scaling or contact simplification), numerical-method changes
+(larger increments), and service-level changes (less output). Each may be worth
+studying with its appropriate accuracy or usability criterion; none is evidence
+for a same-workload execution-only speedup. A different time step does not by
+itself mean a different physical model.
 
 Once the delivery gate passes, stop optimizing for this release unless a known
 defect or agreed runtime target requires another change. Record the next

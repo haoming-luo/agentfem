@@ -62,6 +62,8 @@ refresh local copies deliberately when updating, preserving local changes.
 It distinguishes unchanged-algorithm comparisons from new-method accuracy
 studies and hardware tuning. Past worker counts, step counts and timings are
 not universal requirements. It contains no private meshes or material laws.
+Experimental design, migration parity and delivery checks have separate references:
+load the one relevant to the task, not a release checklist for every optimization.
 
 Both skills are development guidance distributed under the repository's
 Apache-2.0 license, not numerical libraries or runtime dependencies. An ordinary

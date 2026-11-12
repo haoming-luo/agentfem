@@ -118,6 +118,20 @@ def test_agentfem_skill_is_installable_and_routes_context_progressively():
     assert "recursive-include skills *.md *.yaml" in manifest
 
 
+def test_progressive_guidance_references_are_complete():
+    guide = (ROOT / "AGENT_GUIDE.md").read_text()
+    reference = ROOT / "docs/agents/scientific_reference.md"
+    assert "docs/agents/scientific_reference.md" in guide
+    assert reference.is_file()
+    assert "../../AGENT_GUIDE.md" in reference.read_text()
+    for skill_name in ("agentfem", "agentfem-performance"):
+        directory = ROOT / "skills" / skill_name
+        for path in directory.rglob("*.md"):
+            for target in re.findall(r"\]\(([^)#]+)(?:#[^)]*)?\)", path.read_text()):
+                if "://" not in target:
+                    assert (path.parent / target).resolve().is_file(), (path, target)
+
+
 def test_knowledge_import_check_uses_the_current_checkout():
     completed = subprocess.run(
         [sys.executable, "build_knowledge.py", "--check", "--check-imports"],
