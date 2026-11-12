@@ -1,157 +1,122 @@
 ---
 name: agentfem-performance
-description: Optimize and package reproducible AgentFEM simulations using phase timing, accepted-state replay, rollback checks and full-run evidence. Use for AgentFEM runtime bottlenecks and reproducible case delivery, not general website performance or claims based solely on short microbenchmarks.
+description: Improve AgentFEM runtime and performance portability through profiling, algorithm and architecture experiments, and proportional evidence. Use for simulation bottlenecks, acceleration research, fast-path migration and reproducible case delivery.
 license: Apache-2.0
 ---
 
-# AgentFEM performance and reproducible cases
+# AgentFEM performance engineering
 
 <!-- SPDX-FileCopyrightText: 2026 Haoming Luo and AgentFEM contributors -->
 <!-- SPDX-License-Identifier: Apache-2.0 -->
 
-This is optional development guidance, not a solver or runtime dependency.
-A delivered project must execute its declared model and installed providers
-without an agent generating code, repairing inputs or making scientific
-choices during the run. Skills help prepare and review it; they do not supply
-missing executable behavior or prove that its results are valid.
+This is revisable development guidance—not a solver, runtime
+dependency, architecture mandate or proof of correctness. A project must run
+without an AI supplying missing executable behavior. Follow the user's scope
+and repository instructions; explain when a local convention no longer fits.
 
-Read the target repository's AGENTS.md and focused architecture/performance
-documents. Inspect running numerical jobs before launching another. Preserve
-private meshes and user laws outside the public library.
+Read AGENTS.md and the relevant existing evidence. Inspect numerical processes
+before launching work; preserve private assets and unrelated changes. Reuse
+trustworthy measurements rather than repeatedly rebuilding the same baseline.
 
-When promoting a private fast path into core, or diagnosing a regression after
-that migration, read [Migration parity](references/migration-parity.md).
-This is an evolving engineering playbook, not a fixed optimization recipe.
-Past worker counts, test lengths and architecture choices are observations,
-not defaults for the next problem. Reusable execution and export correctness
-belong in the library, not in agent-written case workarounds.
+## Select the work, not a ritual
 
-## Choose work by expected whole-run benefit
+Start with the requested outcome and time budget. Optimization-only work does
+not require a delivery bundle, release checklist or full simulation. Read only
+the references needed for the current decision:
 
-Start with the user's outcome: runtime, memory, case simplicity or release
-readiness. Use existing trustworthy evidence before collecting more. Separate
-total increments, cost per accepted increment, rejected work, and one-off I/O;
-a fast kernel does not address an excessive increment count. Inspect the actual
-execution route, concurrency and data movement before tuning arithmetic.
+- [Experiments](references/experiments.md): noisy timings, concurrent execution,
+  architectural hypotheses, or a new numerical method.
+- [Migration parity](references/migration-parity.md): private-to-core execution
+  migration or an unexplained regression after migration.
+- [Delivery](references/delivery.md): installed release, project portability,
+  checkpoint/export changes, or a completed-run performance claim.
 
-Pick the largest plausible bottleneck, estimate its ceiling on total savings,
-and state what measurement would change the decision. Consider algorithmic
-work reduction, conservative search/certificate reuse, batching, fused passes,
-ownership and memory layout—not just small kernel substitutions. Such changes
-still need their relevant invalidation, failure and accuracy checks. Change
-scientific inputs only as an explicitly scoped, sensitivity-tested experiment.
+Identify the actual route and the dominant source of elapsed time: increment
+count, cost per increment, rejected work, initialization, or output. In parallel
+paths distinguish work from waits, exclusive from inclusive timing, and the
+critical path from the sum of overlapping timers. A costly function is not
+necessarily the place where an optimization will shorten the solve.
 
-Use risk-proportionate gates:
+For the leading hypothesis, state compactly: the mechanism, supporting evidence,
+plausible end-to-end benefit and assumptions, cheapest discriminating experiment,
+and what would change the decision. Unknown benefit is a reason for a bounded
+probe, not an automatic rejection. Do not invent a success probability.
 
-- Exploration: one focused correctness check and a representative timing can
-  reject a bad idea; they cannot establish a release or whole-run speed claim.
-- Candidate: test the changed boundary and relevant failure paths; compare
-  stages that exercise it. Increase repetitions only when uncertainty could
-  change the decision. Do not cycle indefinitely around noisy small wins.
-- Delivery: freeze the selected installed candidate, run the relevant release
-  gates, and measure a complete run if full-run performance is being claimed.
-  Do not repeat that expensive gate after every local edit or unrelated fix.
+Consider work reduction and execution/dataflow redesign before polishing a
+minor kernel. Large changes may need a coherent prototype: two overlapping
+branches can require improvement together. A component with no standalone gain
+may still enable the combined design; verify that dependency rather than using
+it to justify indefinite complexity. Do not add isolated speedup percentages.
 
-Set a bounded investigation budget appropriate to the requested sprint. Stop
-or reprioritize when measured cost is too small, savings are not repeatable,
-or complexity outweighs expected benefit. Preserve a compact finding so the
-same failed experiment is not repeatedly rediscovered.
+## Choose the comparison that fits the change
 
-## Identify the expensive boundary
+| Change | Appropriate comparison |
+| --- | --- |
+| Equivalent execution | Same scientific inputs and relevant accepted state; compare affected fields, history, work and failures. Byte equality is optional diagnostic evidence when arithmetic and environment support it. |
+| New algorithm, precision or discretization | Common physical problem, declared accuracy targets and physical stations; assess convergence, events and path-dependent history. Different steps, meshes and operation order are allowed. |
+| Hardware/backend/scheduling | Reselect operational budgets; report capabilities and runtime provenance. Do not make one machine's worker count a scientific requirement. |
 
-Measure preparation, kinematics, material update, force assembly, contact,
-state transactions, reporting, checkpoint and export separately. Repeated
-copy/validation of large state arrays and rewriting an expanding JSON history
-can dominate a fast material kernel. Follow data ownership, not only FLOPs.
-Prefer one immutable accepted owner with explicit publication boundaries;
-never leave callbacks observing stale fields. An optimization requiring
-exclusive ownership must declare and test that restriction.
-This is a preferred implementation, not a ban on a better transaction design.
-The invariant is that readers see valid accepted state and failed trials do
-not corrupt it. Repeated validation may be fused or removed when a checked,
-immutable owner proves the same invariant across consumers. A pointer/address
-cache or an unchecked writable alias is not that proof.
+An intentionally altered mass, penalty, contact scope or loading history is a
+separate scientific approximation study, not an unchanged-model speedup. It may
+be researched within scope, but must not silently replace the production model.
+Stable execution alone does not establish adequate accuracy. Numerical parity
+with an old implementation does not independently validate its physical model.
 
-Guarded native fast paths may reject individual points and repair them with the
-unchanged reference algorithm before publishing a batch. Do not fall back the
-entire batch unnecessarily; do not accept half-repaired trial state. Preserve
-validation coverage, requested cutbacks and source-law diagnostics, not every
-historical scan, copy or call boundary.
-Native callbacks and function pointers are trusted code, not data assets.
+If a checkpoint rejects a changed implementation, do not bypass its identity.
+Use a read-only replay with validated input or a common initial problem when
+appropriate, and separately design versioned compatibility. An overly broad
+identity contract must not become a permanent ban on operational tuning.
 
-## Evidence before speed claims
+## Scale evidence to the decision
 
-Choose the comparison before choosing the gate:
+1. Explore: inspect code, model the cost, or run a bounded diagnostic/prototype.
+   Check the scientific boundary the experiment touches before trusting its
+   output. A clear correctness defect can reject this implementation immediately;
+   one noisy timing cannot establish that an algorithmic direction is useless.
+2. Select: exercise representative states and affected failure paths. Use enough
+   timing evidence to distinguish a useful effect from uncertainty. Classify the
+   result as supported, unfavorable for the tested scope, or inconclusive.
+   Inconclusive candidates need not ship or receive endless repetitions.
+3. Promote: test the selected combined route and its relevant installed use.
+   Full-run timing is needed for a full-run claim, not every exploratory edit.
+   Reuse unaffected evidence with its tested identity and scope stated.
 
-- Same discretization/algorithm: fix scientific inputs and compare equivalent
-  accepted states. Bitwise equality is useful when arithmetic order is unchanged.
-- New algorithm/discretization: compare time-to-solution at a declared accuracy
-  target using common physical times, quantities and admissible field mappings.
-  Different step counts, meshes and reduction order are allowed; justify error,
-  convergence, path history and event handling instead of requiring byte equality.
-- New hardware/backend: reselect operational budgets from capabilities and
-  representative work. Keep scientific inputs separate from execution evidence;
-  a missing optional accelerator need not invalidate the physical Model.
+Stop a line when its plausible payoff is too small for the task, its measured
+mechanism fails, or its complexity is unjustified. Preserve a compact finding
+including the tested scope and conditions for reconsideration. A failed local
+implementation does not disprove fusion, caching, parallelism or another entire
+family of methods. A cheap repeatable small improvement can be worthwhile, but
+must not displace the user's major bottleneck indefinitely.
 
-Freeze the selected candidate for its comparison, not the product forever.
-For a same-algorithm comparison fix mesh, inertia, time grid, contact and output
-cadence. For a method study name every intentionally varied choice and preserve
-the reference. Do not require replay from the same checkpoint when the methods
-have incompatible states; use a common initial problem and physical stations.
-Do not patch a running reference or replace its loaded runtime. If unrelated
-builds or tests overlap it, record that interference in the timing report.
-Choose stages that exercise the change; damage/contact changes usually need
-early, nonlinear and late evidence. A 5% short-run change may be noise, but no
-fixed percentage makes a repeatable, cheap improvement worthless. Check the
-affected scientific quantities and lifecycle, not just final force or checksum.
-Bitwise parity is strong evidence for unchanged arithmetic, not a universal
-requirement for a different valid algorithm. Predeclare appropriate tolerances
-and sensitivity checks; do not loosen them after a failure to admit a speedup.
-State explicitly when numerical replay is verified but independent physical
-validation is missing. Internal work is not automatically stored energy.
+Choose scientific tolerances from physical/numerical reasoning, not the desired
+speedup. If an inherited gate is demonstrably inappropriate, document the old
+failure, justify a revised criterion independently, then confirm it on fresh
+evidence. Do not silently relabel a failed comparison as passing.
 
-Test worker budgets on the actual machine; more threads or dynamic scheduling
-can regress. Avoid BLAS/OpenMP oversubscription using process-local settings,
-not global shell changes. Keep comparative timing isolated from competing
-numerical jobs. An active frozen run does not prohibit independent source
-review, design or lightweight work; record material resource interference.
-Do not change mass scaling, contact scope, penalty or horizon merely to meet a
-runtime target. Any scientific change needs separate sensitivity evidence.
+## Preserve invariants, not historical implementation boundaries
 
-## Deliver a stable project
+Model expresses the problem; Operator contributes physics; Procedure controls
+execution; State owns acceptance/rollback; Result exposes evidence. Their
+contracts do not require a separate array copy, scan, Python call or traversal
+at every boundary. Replace redundant work when ownership and invalidation prove
+the same invariant. A preferred immutable-buffer implementation is not the only
+valid transaction design.
 
-Keep case.py as modeling truth, private material implementation as a separate
-provider, and operational settings separate from physics. Pin/hash the runtime,
-source law and mesh. Use an installed package, not development-tree path
-insertion. Verify the project from outside its directory before a full run.
-Hash scientific inputs and executables separately from generated timings and
-audit reports; running a diagnostic must not invalidate the model identity.
-Preserve accepted checkpoints and unambiguous output status on interruption.
-Append-only reporting can reduce growing-history write cost; its journal is
-not a checkpoint. Preserve the final digest tip externally if suffix loss must
-be detectable.
+At promotion, reusable execution belongs in the owning library/backend, not
+duplicated solver logic in case.py. Keep confidential material and geometry
+outside public core; a local prototype does not require premature generalization.
 
-Separate reproducibility of one frozen run from portability of the software.
-Thread counts, timing thresholds, hardware names, case-specific final counters
-and experimental comparison tolerances are not scientific defaults. Check
-whether implementation caps or operational fields unnecessarily enter restart
-identity. Propose versioned, tested compatibility for operational changes;
-never obtain portability by deleting identity checks from an existing archive.
-An autotuning cache should be optional, capability/workload-scoped and fall
-back when stale. It must not tune mass, material, penalty or accuracy silently.
+Readers must see valid state and failed trials must not corrupt accepted state.
+Acceptance awaits successful completion of its dependencies; buffers cannot be
+released/reused while another operation owns them. Completed immutable chunks
+may feed downstream work before global acceptance when dependencies and failure
+containment are explicit: safety does not mandate a barrier after every stage.
+Cached geometric candidates are not cached forces; justify coverage, current
+geometry and invalidation. Preserve required diagnostics and material semantics. Trusted
+native callbacks are executable code, not passive model data. Unsupported
+providers need an explicit fallback or capability rejection, not silent misuse.
 
-Use the supported result writer and declared cell-order/field-layout contracts,
-not hand-written connectivity or inferred nodal ordering. For visualization
-delivery or writer changes, check with an independent reader: volume topology, complete
-displacement, field association, and Warp coordinates. Keep unwarped coordinates
-as the source geometry; presentation repair must not alter scientific arrays.
-
-Report measured end-to-end time only after a complete run, including startup
-and final export. Until then report the current accepted station and label all
-whole-run estimates. Compare the completed run against the earlier frozen
-reference and retain limitations. Never infer a transferable default thread
-count, time increment or mass scaling from one successful project.
-
-Maintain this skill when experience contradicts it: distinguish a scientific
-invariant from a local convention, remove redundant ritual, and record only
-decision-changing lessons. The skill itself is not evidence that a run passed.
+Retain only decision-relevant evidence and reconstructable references; ask
+before destructive cleanup. Do not accumulate full archives and delivery bundles
+for every failed experiment. End a sprint with an implemented improvement,
+a discriminating result, or a narrowed uncertainty—not another unchanged plan.
