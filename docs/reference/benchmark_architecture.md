@@ -115,3 +115,22 @@ Reproduction groups:
 No analytical references, acceptance tolerances, loading histories or material
 parameters were relaxed. This is a benchmark/platform refactor, not a change to
 the mechanical models or a claim of new numerical accuracy.
+
+### Mainline integration follow-up (2026-11-13)
+
+The current `fenicsx-env` run with process-local `FI_PROVIDER=tcp` and single
+BLAS/OpenMP threads completes normally; no teardown bypass is used. Four
+two-rank Q1/Q2 mapped-grid tests verify root-owned input, global area/volume,
+boundary measures, owned centroid selection and collective invalid-input
+rejection. Both ranks report four passes and the bounded `agentfem mpi-run`
+launcher exits with status zero. These tests are in the existing distributed
+mesh CI suite, so clean exit is now an executable regression rather than an
+uncommitted local assertion. This does not certify every MPI backend.
+
+The affected serial geometry, cohesive-path and benchmark suite passes 143
+tests, with three explicit skips: the separate two-rank contact case, the
+unavailable optional SIMULIA deck and the opt-in full three-level vibration
+study. Public API generation, focused Ruff and diff checks also pass. Existing
+before/after reference evidence above is retained; no new full-composite speed
+or scientific accuracy claim is made. Remote macOS acceptance remains required
+before merge.
