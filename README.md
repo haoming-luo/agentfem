@@ -176,9 +176,10 @@ recommended offline Complete runtime may
 aggregate it with its license and corresponding source for a one-click
 CAD-to-mesh workflow.
 
-AgentFEM can share a minimal anonymous reliability signal to improve the free,
-open-source software; models, meshes, parameters, code, paths, and results are
-never included. Inspect or disable it with `agentfem telemetry status|off`. See the
+Optional anonymous reliability telemetry is **off by default**. AgentFEM does
+not collect, queue, or upload CLI usage unless the user explicitly enables it
+with `agentfem telemetry basic`; `agentfem telemetry off` revokes consent and
+deletes unsent events. See the
 [feedback and privacy contract](docs/feedback_and_privacy.md).
 
 ## Run Your First Model
