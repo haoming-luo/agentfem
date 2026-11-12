@@ -24,10 +24,11 @@ from . import platforms
 from . import presentation
 from . import provenance
 from . import upgrades
-from ._api_contract import CAPABILITIES_SCHEMA_VERSION, CLI_COMMANDS
+from ._cli_entry import _positive_int
 from .mpi_runtime import audit_mpi_runtime, mpi_command, run_mpi_command
 from .project import (
     PROJECT_FILENAME,
+    RUN_SCHEMA,
     ProjectConfig,
     RunContext,
     discover,
@@ -263,22 +264,37 @@ def _run_context(
     comm = MPI.COMM_WORLD
     payload = None
     if comm.rank == 0:
-        selected = RunContext.create(
-            project,
-            run_id=run_id or new_run_id(),
-            run_name=run_name,
-            output_directory=output,
-            human_layout=run_id is None,
-        )
-        payload = {
-            "run_id": selected.run_id,
-            "run_name": selected.run_name,
-            "run_number": selected.run_number,
-            "output_directory": str(selected.output_directory),
-            "manifest_path": str(selected.manifest_path),
-            "execution_path": str(selected.execution_path),
-        }
+        try:
+            selected = RunContext.create(
+                project,
+                run_id=run_id or new_run_id(),
+                run_name=run_name,
+                output_directory=output,
+                human_layout=run_id is None,
+            ).prepare()
+            payload = {
+                "run_id": selected.run_id,
+                "run_name": selected.run_name,
+                "run_number": selected.run_number,
+                "output_directory": str(selected.output_directory),
+                "manifest_path": str(selected.manifest_path),
+                "execution_path": str(selected.execution_path),
+                "error": None,
+            }
+        except Exception as exc:
+            payload = {"error": {
+                "type": f"{type(exc).__module__}.{type(exc).__qualname__}",
+                "message": str(exc),
+            }}
+    # Directory selection can fail too (invalid names, unreadable output root).
+    # Keep the complete root-owned phase inside one collective outcome.
     payload = comm.bcast(payload, root=0)
+    if payload["error"] is not None:
+        error = payload["error"]
+        raise RuntimeError(
+            "Could not prepare the shared run directory: "
+            f"{error['type']}: {error['message']}"
+        )
     context = RunContext(
         project_root=project.root,
         project_name=project.name,
@@ -289,21 +305,6 @@ def _run_context(
         run_name=payload["run_name"],
         run_number=payload["run_number"],
     )
-    prepare_error = None
-    if comm.rank == 0:
-        try:
-            context.prepare()
-        except Exception as exc:
-            prepare_error = {
-                "type": f"{type(exc).__module__}.{type(exc).__qualname__}",
-                "message": str(exc),
-            }
-    prepare_error = comm.bcast(prepare_error, root=0)
-    if prepare_error is not None:
-        raise RuntimeError(
-            "Could not prepare the shared run directory: "
-            f"{prepare_error['type']}: {prepare_error['message']}"
-        )
     return context
 
 
@@ -347,6 +348,32 @@ def _collect_rank_errors(comm, local_error) -> tuple[dict[str, object], ...]:
     """Collect per-rank failures before any rank can report completion."""
 
     return tuple(item for item in comm.allgather(local_error) if item is not None)
+
+
+def _completed_execution_record(context):
+    """Finish root-owned operational I/O before publishing a shared status."""
+
+    comm = MPI.COMM_WORLD
+    record = {}
+    outcome = None
+    if comm.rank == 0:
+        try:
+            if not context.execution_path.is_file():
+                context.write_execution("completed", structured_result=context.manifest_path.is_file())
+            record = json.loads(context.execution_path.read_text(encoding="utf-8"))
+            if not isinstance(record, dict):
+                raise ValueError("Execution record must be a JSON object.")
+            if record.get("schema") != RUN_SCHEMA or record.get("run_id") != context.run_id:
+                raise ValueError("Execution record does not match the current run identity.")
+            if not isinstance(record.get("status"), str) or not record["status"].strip():
+                raise ValueError("Execution record requires a nonempty status.")
+            outcome = {"status": record.get("status"), "error": None}
+        except Exception as exc:
+            outcome = {"error": f"{type(exc).__name__}: {exc}"}
+    outcome = comm.bcast(outcome, root=0)
+    if outcome["error"] is not None:
+        raise RuntimeError(f"AFM-RUN-RECORD: Could not finalize {context.execution_path}: {outcome['error']}")
+    return record, outcome["status"]
 
 
 def _launch_mpi(args) -> int:
@@ -517,17 +544,7 @@ def _command_run(args) -> int:
         )
         return 1
 
-    if MPI.COMM_WORLD.rank == 0 and not context.execution_path.is_file():
-        context.write_execution(
-            "completed",
-            structured_result=context.manifest_path.is_file(),
-        )
-    record = (
-        json.loads(context.execution_path.read_text(encoding="utf-8"))
-        if MPI.COMM_WORLD.rank == 0
-        else {}
-    )
-    status = MPI.COMM_WORLD.bcast(record.get("status"), root=0)
+    record, status = _completed_execution_record(context)
     result_status = ("paused; no completed scientific result published" if status == "paused"
                      else "script completed without a published SimulationResult")
     human = (
@@ -962,13 +979,6 @@ class _StructuredArgumentParser(argparse.ArgumentParser):
         raise _CLIArgumentError(message)
 
 
-def _positive_int(value):
-    number = int(value)
-    if number <= 0:
-        raise argparse.ArgumentTypeError("must be a positive integer")
-    return number
-
-
 def build_parser(*, structured_errors: bool = False) -> argparse.ArgumentParser:
     parser_type = _StructuredArgumentParser if structured_errors else argparse.ArgumentParser
     parser = parser_type(prog="agentfem", description=__doc__)
@@ -1139,13 +1149,15 @@ def build_parser(*, structured_errors: bool = False) -> argparse.ArgumentParser:
 
     capabilities = sub.add_parser(
         "capabilities",
-        help="Summarize capabilities for people; use --json for the complete contract.",
+        help="Inspect capabilities; --json keeps the full contract unless a topic is selected.",
     )
-    capabilities.add_argument(
+    capability_selection = capabilities.add_mutually_exclusive_group()
+    capability_selection.add_argument(
         "topic",
         nargs="?",
-        help="materials, procedures, workflow, runtime, extensions, or a material name",
+        help="materials, meshes, procedures, workflow, runtime, extensions, or a material name",
     )
+    capability_selection.add_argument("--api", help="Inspect a public MODULE.CALLABLE (function or exported class) or models.Model.METHOD.")
     capabilities.add_argument("--json", action="store_true")
     extension_command = sub.add_parser(
         "extensions",
@@ -1319,48 +1331,19 @@ def _dispatch(argv: list[str] | None = None, *, parsed=None) -> int:
             _emit(record, as_json=args.json, human=human)
             return 0
         if args.command == "capabilities":
-            from . import benchmarks, constitutive, mesh, models, public_api
-            from ._architecture_contract import ownership_contract
-            public_modules = {
-                level: public_api(level)
-                for level in ("core", "advanced", "expert")
-            }
-            record = {
-                "schema": "agentfem.capabilities",
-                "schema_version": CAPABILITIES_SCHEMA_VERSION,
-                "agentfem_version": __version__,
-                "commands": CLI_COMMANDS,
-                # Keep the flat inventory for 0.2.0 clients while offering a
-                # progressive contract to new CLIs, GUIs, and agents.
-                "public_modules": public_api(),
-                "public_api": public_modules,
-                "model_api": {
-                    level: models.model_api(level)
-                    for level in ("core", "advanced", "compatibility")
-                },
-                "model_api_contract": models.model_api_contract(),
-                "ownership_contract": ownership_contract(),
-                "templates": _templates(),
-                "runtime": platforms.runtime_report().summary(),
-                "constitutive": tuple(
-                    item.as_dict() for item in constitutive.capabilities()
-                ),
-                "constitutive_evidence": tuple(
-                    item.as_dict()
-                    for item in benchmarks.audit_capability_evidence()
-                ),
-                "mesh_cells": tuple(
-                    item.summary() for item in mesh.compatibility_matrix()
-                ),
-                "step_providers": tuple(
-                    item.summary() for item in models.step_providers()
-                ),
-                "extensions": extensions.extension_status(),
-            }
+            if args.api is not None:
+                from ._api_discovery import callable_record, format_callable
+
+                record = callable_record(args.api)
+                _emit(record, as_json=args.json, human=format_callable(record))
+                return 0
+            from ._capability_discovery import build_capability_record
+
+            record = build_capability_record(args.topic, templates=_templates)
             _emit(
-                record,
+                presentation.capability_record(record, args.topic) if args.json else record,
                 as_json=args.json,
-                human=presentation.format_capabilities(record, args.topic),
+                human=None if args.json else presentation.format_capabilities(record, args.topic),
             )
             return 0
     except (OSError, FileExistsError, ValueError, RuntimeError) as exc:

@@ -1,11 +1,12 @@
 # SPDX-FileCopyrightText: 2026 Haoming Luo and AgentFEM contributors
 # SPDX-License-Identifier: Apache-2.0
 
-"""Human-facing views of AgentFEM's machine-readable records.
+"""Human and scoped machine views of AgentFEM's records.
 
 This module owns presentation only.  It does not decide capability, mutate a
 result, or weaken verification.  The same records remain available in full to
-agents, GUIs, and automation through ``--json``.
+agents, GUIs, and automation through ``capabilities --json``. Topic queries
+select existing record sections; they do not infer new scientific capability.
 """
 
 from __future__ import annotations
@@ -24,6 +25,64 @@ _CAPABILITY_TOPICS = {
     "runtime": "Current numerical runtime",
     "extensions": "Installed extension packages",
 }
+
+_CAPABILITY_SECTIONS = {
+    "materials": ("constitutive", "constitutive_evidence"),
+    "meshes": ("mesh_cells",),
+    "procedures": ("step_providers",),
+    "workflow": ("commands", "templates", "public_api", "model_api",
+                 "model_api_contract", "ownership_contract"),
+    "runtime": ("runtime",),
+    "extensions": ("extensions",),
+}
+
+
+def capability_sections(topic: str | None = None) -> tuple[str, ...]:
+    """Sections needed to build a view; material names use the material catalog."""
+
+    if topic is None:
+        return ("public_modules", *(key for keys in _CAPABILITY_SECTIONS.values() for key in keys))
+    selected = str(topic).strip().lower().replace("-", "_")
+    return _CAPABILITY_SECTIONS.get(selected, _CAPABILITY_SECTIONS["materials"])
+
+
+def _capability_topic(record, topic):
+    selected = None if topic is None else str(topic).strip().lower().replace("-", "_")
+    materials = tuple(record.get("constitutive", ()))
+    names = {str(item.get("name", "")).lower().replace("-", "_") for item in materials}
+    if selected is not None and selected not in _CAPABILITY_TOPICS and selected not in names:
+        available = ", ".join(sorted(str(item.get("name")) for item in materials))
+        raise ValueError(
+            f"Unknown capability topic {topic!r}. Use one of "
+            f"{tuple(_CAPABILITY_TOPICS)} or a material name: {available}."
+        )
+    return selected
+
+
+def capability_record(record: Mapping[str, object], topic: str | None = None) -> dict:
+    """Select existing capability evidence without changing its meaning.
+
+    No topic retains the full historical JSON contract. Scoped records explicitly
+    declare their scope; missing unrelated sections do not mean unsupported.
+    """
+
+    selected = _capability_topic(record, topic)
+    if selected is None:
+        return dict(record)
+    result = {key: record[key] for key in ("schema", "schema_version", "agentfem_version")}
+    result["scope"] = {"topic": selected, "complete": False}
+    if selected in _CAPABILITY_SECTIONS:
+        result.update({key: record[key] for key in _CAPABILITY_SECTIONS[selected]})
+    else:
+        result["constitutive"] = tuple(
+            item for item in record["constitutive"]
+            if str(item.get("name", "")).lower().replace("-", "_") == selected
+        )
+        result["constitutive_evidence"] = tuple(
+            item for item in record["constitutive_evidence"]
+            if str(item.get("capability", "")).lower().replace("-", "_") == selected
+        )
+    return result
 
 
 def _compact(text: object, *, width: int = 92) -> str:
@@ -50,7 +109,7 @@ def _value(value: object) -> str:
 def format_capabilities(record: Mapping[str, object], topic: str | None = None) -> str:
     """Return a progressive human view of the full capability record."""
 
-    selected = None if topic is None else str(topic).strip().lower().replace("-", "_")
+    selected = _capability_topic(record, topic)
     materials = tuple(record.get("constitutive", ()))
     providers = tuple(record.get("step_providers", ()))
     mesh_cells = tuple(record.get("mesh_cells", ()))
@@ -155,7 +214,7 @@ def format_capabilities(record: Mapping[str, object], topic: str | None = None) 
         return "\n".join(lines)
 
     for item in materials:
-        if str(item.get("name", "")).lower() != selected:
+        if str(item.get("name", "")).lower().replace("-", "_") != selected:
             continue
         lines = [
             str(item["name"]),

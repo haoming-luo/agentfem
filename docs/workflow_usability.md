@@ -5,6 +5,41 @@ description: "Use the AgentFEM CLI to inspect projects, run cases, locate output
 
 # Check, run, inspect, compare
 
+## Discover only what you need
+
+```bash
+agentfem capabilities workflow --json
+agentfem capabilities materials --json
+agentfem capabilities abaqus_user_material_bridge --json
+```
+
+Topic queries retain the selected contract, limitations and evidence while
+omitting unrelated sections. Their `scope.complete` is false: an omitted
+section is not a statement that the capability is unsupported. Workflow queries
+do not probe unrelated numerical runtime or material catalogs. Use
+`agentfem capabilities --json` for the unchanged complete record, and
+`models.step_capability(model, target=..., options=...)` for a particular model.
+
+When a parameter is uncertain, inspect the installed callable directly:
+
+```bash
+agentfem capabilities --api fields.displacement --json
+agentfem capabilities --api models.Model.step --json
+agentfem capabilities --api constitutive.StrainHistoryRuntime --json
+```
+
+This reports parameter names, kinds, required inputs, simple defaults and
+declared annotations from the installed implementation. Model methods also
+retain their lifecycle status. It imports the selected public module but does
+not execute the callable, evaluate annotation expressions or run a case.
+Runtime-object defaults are identified by type rather than expanded.
+Public classes explicitly exported by a module can be queried as constructors;
+the query does not instantiate them or compile user materials. Step
+provider-specific keywords still come from `models.step_capability`; a Python
+signature alone is not evidence that a physical combination is supported.
+
+## Run a project
+
 One project remains one readable `case.py`, with operational metadata in
 `agentfem.toml`. These commands do not require an AI assistant.
 
@@ -14,6 +49,12 @@ agentfem run --name baseline
 agentfem show latest
 agentfem show latest --files
 ```
+
+For a distributed case, all ranks can call
+`run.publish(simulation, comm=domain.comm)`. This reuses the Result's collective
+agreement checks and gives rank zero ownership of summary/execution output.
+Publication errors reach every rank; no case-level publication barrier is
+needed. Omitting `comm` retains serial or explicitly root-owned publication.
 
 `check` checks project structure and Python syntax without executing the case.
 `--runtime` also checks numerical runtime readiness. Neither promises that a

@@ -8,6 +8,7 @@ from __future__ import annotations
 from pathlib import Path
 
 from ._model_support import describe, domain, mesh_summary, short_description
+from .ir import WORKFLOW_ORDER
 
 
 def model_summary(model) -> dict[str, object]:
@@ -41,21 +42,7 @@ def model_manifest(model) -> dict[str, object]:
         "schema_version": "0.1.0",
         "status": "experimental",
         "model": model_summary(model),
-        "workflow_order": (
-            "study",
-            "unit_system",
-            "mesh",
-            "regions",
-            "fields",
-            "amplitudes",
-            "materials",
-            "eigenstrains",
-            "constraints",
-            "loads",
-            "boundary_models",
-            "engineering_steps",
-            "steps",
-        ),
+        "workflow_order": WORKFLOW_ORDER,
     }
 
 
@@ -127,23 +114,16 @@ def write_model_ir(
 def model_tree(model) -> str:
     """Return a compact text model tree for logs, notebooks, and agents."""
 
-    sections = [
-        ("study", (model.study,)),
-        ("unit_system", (model.unit_system,) if model.unit_system is not None else ()),
-        ("mesh", (model.mesh,) if model.mesh is not None else ()),
-        ("regions", model.regions),
-        ("fields", model.fields),
-        ("amplitudes", model.amplitudes),
-        ("materials", model.materials),
-        ("eigenstrains", model.eigenstrains),
-        ("constraints", model.constraints),
-        ("loads", model.loads),
-        ("boundary_models", model.boundary_models),
-        ("engineering_steps", model.engineering_steps),
-        ("steps", model.steps),
-    ]
+    sections = {
+        "study": (model.study,),
+        "unit_system": (model.unit_system,) if model.unit_system is not None else (),
+        "mesh": (model.mesh,) if model.mesh is not None else (),
+        **{name: getattr(model, name) for name in WORKFLOW_ORDER
+           if name not in {"study", "unit_system", "mesh"}},
+    }
     lines = [f"Model: {model.name}"]
-    for title, items in sections:
+    for title in WORKFLOW_ORDER:
+        items = sections[title]
         lines.append(f"  {title}:")
         if not items:
             lines.append("    - <empty>")

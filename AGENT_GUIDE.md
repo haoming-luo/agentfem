@@ -146,11 +146,17 @@ interpolating unsaved damage states.
   rejection reasons to propose a targeted correction; syntax-only `check` does
   not validate these physical inputs. Do not automatically rerun or change physics.
 - API discovery: begin with `agentfem.public_api("core")` or the
-  `public_api.core` section of `agentfem capabilities --json`. Escalate to the
+  `public_api.core` section of `agentfem capabilities workflow --json`. Escalate to the
   advanced or expert layer only when the task requires it; the flat
   `public_modules` inventory remains a compatibility contract. These generated
   views share one product contract; never reconstruct a competing vocabulary
   from one example or an old compatibility method.
+  Use a relevant topic/material name for focused discovery. Scoped views omit unrelated sections, not
+  capability limitations or verification gaps; use the complete record only
+  when needed.
+  For an uncertain parameter, use `agentfem capabilities --api fields.displacement --json`
+  (or `models.Model.step`) to read the installed signature. Do not repeat
+  discovery for every already-known call; provider options still use the Step contract.
 - Model registration: use `model.field(...)`, `model.material(...)`,
   `model.fix(...)`, `model.traction(...)`, `model.surface_force(...)`,
   `model.distributing_coupling(...)`, and `model.elastic_foundation(...)` in
@@ -465,9 +471,9 @@ interpolating unsaved damage states.
   integrate them through the versioned extension API.
 - AF-IR and repair: inspect `ir/` and `validation.py`. Treat AF-IR 0.1 as an
   experimental record, not as proof of backend-neutral executability.
-- API lifecycle: inspect `models.model_api_contract()` or
-  `agentfem capabilities --json` before generating a Model call. Run
-  `agentfem upgrade` before adapting an older project. Compatibility findings
+- API lifecycle: consult `models.model_api_contract()` or
+  `agentfem capabilities workflow --json` when a method's status is uncertain.
+  Run `agentfem upgrade` for version migration or reported migration findings. Compatibility findings
   that require semantic review are guidance, not permission for blind textual
   replacement.
 - Backend work: inspect `backends/` and

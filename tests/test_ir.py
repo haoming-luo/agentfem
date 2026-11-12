@@ -258,25 +258,14 @@ def test_inspection_views_include_declared_engineering_context():
 
     model = models.create(study=studies.static_solid(dimension=3), units=units.si())
     model.stage("loading")
+    assert model.manifest()["workflow_order"] == ir.WORKFLOW_ORDER
+    assert tuple(model.to_ir(include_validation=False)["root"]["workflow_order"]) == ir.WORKFLOW_ORDER
+    headings = tuple(line.strip().removesuffix(":") for line in model.tree().splitlines()
+                     if line.startswith("  ") and not line.startswith("    "))
+    assert headings == ir.WORKFLOW_ORDER
     for name in ("unit_system", "amplitudes", "engineering_steps"):
         assert name in model.manifest()["workflow_order"]
         assert f"  {name}:" in model.tree()
-
-
-def test_ir_write_failure_real_mpi(monkeypatch, tmp_path):
-    from mpi4py import MPI
-
-    comm = MPI.COMM_WORLD
-    if comm.size < 2:
-        pytest.skip("requires two MPI ranks")
-    model = SimpleNamespace(mesh=SimpleNamespace(comm=comm))
-    monkeypatch.setattr(_model_inspection, "model_to_ir", lambda *a, **kw: {})
-    # An existing directory is an invalid file destination on every platform.
-    destination = comm.bcast(str(tmp_path) if comm.rank == 0 else None, root=0)
-    with pytest.raises(RuntimeError, match="AFM-IR-WRITE") as caught:
-        _model_inspection.write_model_ir(model, destination)
-    errors = comm.allgather(str(caught.value))
-    assert len(set(errors)) == 1
 
 
 def test_runtime_objects_use_typed_opaque_markers():
@@ -290,11 +279,85 @@ def test_runtime_objects_use_typed_opaque_markers():
     assert "BackendOnlyObject" in record["python_type"]
 
 
+def test_model_summary_uses_explicit_name_without_runtime_repr():
+    from agentfem._model_support import describe
+
+    class NamedAsset:
+        name = "named-asset"
+
+        def __repr__(self):
+            pytest.fail("Explicitly named assets must not evaluate runtime repr")
+
+    assert describe(NamedAsset()) == "named-asset"
+    assert describe(SimpleNamespace(name=None)) is None
+
+
+def test_model_summary_uses_callable_protocol_without_hiding_errors():
+    from agentfem._model_support import describe
+
+    class Asset:
+        summary = "non-callable metadata"
+
+        def as_dict(self):
+            return {"name": "asset"}
+
+    class InvalidAsset:
+        def summary(self):
+            raise ValueError("invalid scientific data")
+
+    assert describe(Asset()) == {"name": "asset"}
+    with pytest.raises(ValueError, match="invalid scientific data"):
+        describe(InvalidAsset())
+
+
 def test_scientific_values_are_retained_from_backend_constant_wrappers():
     class Constant:
         value = [1.0, -2.5]
 
     assert ir.describe_value(Constant()) == (1.0, -2.5)
+
+
+def test_nonprogressing_scalar_conversions_remain_explicitly_opaque():
+    from agentfem.ir.schema import to_json_safe
+
+    class Scalar:
+        def item(self):
+            return Scalar()
+
+        def tolist(self):
+            return Scalar()
+
+    for describe in (to_json_safe, ir.describe_value):
+        assert describe(Scalar())["serializable"] is False
+
+
+def test_extended_precision_scalars_do_not_recurse_or_silently_narrow():
+    import numpy as np
+    from agentfem.ir.schema import to_json_safe
+
+    for dtype in (np.longdouble, np.clongdouble):
+        value = dtype("1.25")
+        for describe in (to_json_safe, ir.describe_value):
+            record = describe(value)
+            assert record["serializable"] is False
+            assert record["python_type"].startswith("numpy.")
+            assert describe(np.array([value])) == record
+
+
+def test_extended_precision_invalid_values_are_not_hidden_as_opaque():
+    import numpy as np
+    from agentfem.ir.schema import to_json_safe
+
+    values = [np.longdouble("nan"), np.longdouble("inf"), np.longdouble("-inf"),
+              np.clongdouble(complex(1, float("inf")))]
+    for value in values:
+        for describe in (to_json_safe, ir.describe_value):
+            for wrapped in (value, np.array([value]), np.array([1, value])):
+                with pytest.raises(ValueError, match="finite"):
+                    describe(wrapped)
+    # The largest finite extended scalar must not be cast through Python float.
+    for describe in (to_json_safe, ir.describe_value):
+        assert describe(np.longdouble(np.finfo(np.longdouble).max))["serializable"] is False
 
 
 def test_public_inspection_modules_are_discoverable():

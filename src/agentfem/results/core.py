@@ -45,13 +45,27 @@ def _json_value(value):
     if isinstance(value, Path):
         return str(value)
     if isinstance(value, Mapping):
-        return {str(key): _json_value(item) for key, item in value.items()}
+        record = {}
+        for key, item in value.items():
+            name = str(key)
+            if name in record:
+                raise ValueError(f"Result metadata keys collide after JSON conversion: {name!r}.")
+            record[name] = _json_value(item)
+        return record
     if isinstance(value, (tuple, list)):
         return [_json_value(item) for item in value]
     if isinstance(value, np.ndarray):
         return _json_value(value.tolist())
     if isinstance(value, np.generic):
-        return _json_value(value.item())
+        item = value.item()
+        # Extended precision has no lossless Python scalar counterpart.
+        # NumPy returns another scalar of the same type instead of narrowing.
+        if isinstance(item, type(value)):
+            raise ValueError(
+                f"Result metadata scalar {type(value).__name__} has no lossless JSON conversion; "
+                "explicitly choose a supported numeric precision or a text representation."
+            )
+        return _json_value(item)
     return str(value)
 
 
@@ -230,20 +244,22 @@ class CheckpointRecord:
         }
 
     def write_manifest(self, path: str | Path | None = None) -> Path:
+        from .._atomic_text import atomic_write_text
+
         output = (
             self.path.with_suffix(self.path.suffix + ".checkpoint.json")
             if path is None
             else Path(path)
         )
-        output.parent.mkdir(parents=True, exist_ok=True)
-        output.write_text(
+        atomic_write_text(
+            output,
             json.dumps(
                 self.as_dict(artifact_base=output.parent),
                 indent=2,
                 sort_keys=True,
+                allow_nan=False,
             )
             + "\n",
-            encoding="utf-8",
         )
         return output
 
@@ -818,6 +834,7 @@ class SimulationResult:
                 artifact_base=artifact_base,
             )
         from .. import __version__
+        from .._atomic_text import atomic_write_text
         from ..provenance import runtime_manifest, seal_manifest
 
         write_error = None
@@ -849,8 +866,8 @@ class SimulationResult:
                     base=output.parent,
                     producer_version=__version__,
                 )
-                temporary = output.with_suffix(output.suffix + ".tmp")
-                temporary.write_text(
+                atomic_write_text(
+                    output,
                     json.dumps(
                         record,
                         indent=2,
@@ -859,9 +876,7 @@ class SimulationResult:
                         allow_nan=False,
                     )
                     + "\n",
-                    encoding="utf-8",
                 )
-                temporary.replace(output)
             except Exception as exc:
                 write_error = f"{type(exc).__name__}: {exc}"
         if comm is not None:

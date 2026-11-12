@@ -75,6 +75,19 @@ def test_nested_launch_rejected_without_vendor_probe(monkeypatch):
     assert _cli_entry.main(["mpi-run", "-n", "2", "--", "python"]) == 1
 
 
+@pytest.mark.parametrize("arguments", [
+    ["-n", "0"], ["-n", "-1"],
+    *[["-n", "2", f"--timeout={value}"] for value in ("0", "-1", "nan", "inf", "-inf")],
+])
+def test_invalid_launch_numbers_rejected_before_vendor_probe(monkeypatch, arguments, capsys):
+    monkeypatch.setattr(_cli_entry, "_probe_vendor", lambda: pytest.fail("unexpected vendor probe"))
+    monkeypatch.setattr(mpi_runtime, "run_mpi_command", lambda *a, **kw: pytest.fail("unexpected launch"))
+    with pytest.raises(SystemExit) as caught:
+        _cli_entry.main(["mpi-run", *arguments, "--", "python", "case.py"])
+    assert caught.value.code == 2
+    assert "positive" in capsys.readouterr().err
+
+
 def test_interrupt_terminates_owned_process_group(monkeypatch):
     process = SimpleNamespace(
         wait=lambda **kwargs: (_ for _ in ()).throw(KeyboardInterrupt())
