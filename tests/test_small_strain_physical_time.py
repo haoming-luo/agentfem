@@ -448,6 +448,30 @@ def test_scalar_example_material_checkpoint_and_batch_equivalence(tmp_path):
     )
 
 
+def test_ordinary_relaxation_case_records_declared_si_units(tmp_path, monkeypatch):
+    import sys
+    from types import SimpleNamespace
+    from agentfem import project, units
+
+    directory = Path(__file__).resolve().parents[1] / "examples/small_strain_relaxation"
+    published = []
+    monkeypatch.syspath_prepend(str(directory))
+    monkeypatch.delitem(sys.modules, "material", raising=False)
+    monkeypatch.setattr(sys, "argv", ["case.py", "--material-point"])
+    monkeypatch.setattr(project, "current_run", lambda: SimpleNamespace(
+        artifact=lambda name: tmp_path / name, publish=published.append))
+    try:
+        runpy.run_path(str(directory / "case.py"), run_name="__main__")
+    finally:
+        sys.modules.pop("material", None)
+    assert len(published) == 1
+    result = published[0]
+    assert result.histories["sample.S"].unit == units.si().stress
+    assert result.histories["sample.S"].abscissa_unit == "s"
+    assert result.histories["sample.EV"].unit == "1"
+    assert len(result.histories["sample.S"].abscissa) == 16
+
+
 @pytest.mark.parametrize("exception", [KeyboardInterrupt, ValueError])
 def test_interrupted_trial_restores_accepted_state(tmp_path, monkeypatch, exception):
     step = make_step()

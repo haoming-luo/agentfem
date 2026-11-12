@@ -34,10 +34,14 @@ An AI chat without authorised terminal tools provides the same manual path.
 | `agentfem doctor --json` | Environment capability check |
 | `agentfem workspace --json` | Runtime-independent project custody check |
 | `agentfem capabilities --json` | Public API, providers, maturity, and benchmark evidence |
+| `agentfem capabilities workflow --json` | Focused workflow vocabulary without unrelated catalogs |
+| `agentfem capabilities --api fields.displacement --json` | Installed parameter contract when a call is uncertain |
 | `agentfem check --json` | Static project and upgrade check |
 | `agentfem run --json` | Addressable execution result |
 | `agentfem inspect --json` | Result and artifact discovery |
 | `agentfem telemetry status --json` | Exact privacy mode, queue and reviewed delivery routes |
+| `agentfem telemetry basic --json` | Explicitly opt in to bounded anonymous reliability reporting |
+| `agentfem telemetry off --json` | Revoke consent and delete unsent automatic events |
 | `agentfem telemetry route auto|global|china --json` | Optional transport preference without location inference |
 | `agentfem inspect-abaqus model.inp --json` | Side-effect-free legacy-deck inventory |
 | `agentfem inspect-user-material material.for --json` | Fingerprinted UMAT/UHYPER source inventory and migration route |

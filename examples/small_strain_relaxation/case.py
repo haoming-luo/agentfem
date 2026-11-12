@@ -1,7 +1,7 @@
 """Ramp, hold, then unload a small-strain solid over two physical seconds."""
 
 import argparse
-from agentfem import amplitudes, fields, mesh, models, project, results, steps, studies
+from agentfem import amplitudes, fields, mesh, models, project, results, steps, studies, units
 from material import StandardLinearSolid
 
 
@@ -19,7 +19,8 @@ def main():
     run = project.current_run()
     domain = mesh.cuboid((0.0, 0.0, 0.0), (1.0, 0.2, 0.2), (4, 2, 2))
     model = models.create(
-        study=studies.static_solid(dimension=3, nonlinear=True), mesh=domain
+        study=studies.static_solid(dimension=3, nonlinear=True), mesh=domain,
+        units=units.si(),
     )
     u = model.field(fields.displacement(domain))
     model.material(StandardLinearSolid())

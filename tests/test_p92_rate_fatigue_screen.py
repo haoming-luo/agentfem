@@ -3,6 +3,7 @@
 import json
 
 import numpy as np
+from scipy.optimize import brentq
 
 from tools.p92_rate_fatigue_screen import SOURCE, screen
 
@@ -49,3 +50,22 @@ def test_cross_rate_error_is_not_hidden_by_retuning():
     assert .32 < rows["LCF_2.4e-5_0.4"]["life_relative_error"] < .33
     assert .20 < rows["LCF_2.4e-5_0.6"]["life_relative_error"] < .21
     assert rows["LCF_2.4e-5_0.4"]["role"] == "cross_rate_diagnostic"
+
+
+def test_explicit_tested_amplitude_domain_preserves_coefficients_and_matches_independent_root():
+    legacy = screen()
+    explicit = screen(domain="tested_amplitudes")
+    for old, new in zip(legacy["records"], explicit["records"], strict=True):
+        p = new["curve"]
+        assert p["calibrated_strain_amplitudes"] == [.004, .008]
+        for key in ("young", "fatigue_strength_coefficient", "fatigue_strength_exponent",
+                    "fatigue_ductility_coefficient", "fatigue_ductility_exponent"):
+            assert p[key] == old["curve"][key]
+        for row in new["comparisons"]:
+            def residual(cycles, p=p, amplitude=row["amplitude"]):
+                return (p["fatigue_strength_coefficient"] * (2 * cycles)**p["fatigue_strength_exponent"]
+                        + p["fatigue_ductility_coefficient"] * (2 * cycles)**p["fatigue_ductility_exponent"]
+                        - amplitude)
+            expected = brentq(residual, 1., 1.e6, xtol=1.e-10)
+            np.testing.assert_allclose(row["predicted_cycles"], expected, rtol=1.e-12)
+    assert not explicit["engineering_qualified"]

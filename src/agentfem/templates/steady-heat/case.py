@@ -48,12 +48,11 @@ def main():
         output=run.artifact("temperature.xdmf"),
     ).solve_result()
     simulation.add_dof_statistics(temperature, prefix="temperature", unit="K")
+    run.publish(simulation, comm=MPI.COMM_WORLD)
     if MPI.COMM_WORLD.rank == 0:
-        run.publish(simulation)
         if not os.environ.get("AGENTFEM_CLI_MANAGED"):
             print(simulation.format())
             print(f"Result manifest: {run.manifest_path}")
-    MPI.COMM_WORLD.barrier()
     return simulation
 
 

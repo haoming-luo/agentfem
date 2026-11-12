@@ -5,6 +5,11 @@ assessment infrastructure. The remaining engineering task is to establish
 prediction on compatible independent material data and define the intended
 component assessment. More solver iterations cannot substitute for that data.
 
+A [coherent-cohort source audit](internal/p92_db_cohort_candidate_20261107.md)
+now includes visually checked creep, fatigue and dwell observations. Fixed
+printed creep coefficients have unresolved strain-scale discrepancies;
+the data are not an installed material card or a qualified coupled-life model.
+
 ## What can be reproduced now
 
 These are repository research tools, not installed material cards. Run them
@@ -17,6 +22,7 @@ python tools/p92_pure_fatigue_screen.py
 python tools/p92_rupture_screen.py
 python tools/p92_prior_damage_audit.py
 python tools/p92_rate_fatigue_screen.py
+python tools/p92_db_cohort_screen.py
 ```
 
 The cyclic figure screen additionally needs an existing continuous-reference

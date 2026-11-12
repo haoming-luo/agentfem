@@ -1,5 +1,42 @@
 # AgentFEM Product Roadmap
 
+### AI-native repair loop (2026-11-12)
+
+Preserve existing engineering semantics rather than create another model layer.
+The [bounded sprint](internal/ai_native_sprint_20261112.md) carries option and
+unsupported-capability diagnostics into execution records, retains units and
+engineering stages in inspection, and aligns ready-provider discovery with
+execution. Numeric export rejects invalid wrapped values; model publication is
+atomic and root-owned write failures propagate to MPI peers.
+Scoped capability queries and installed-callable signatures reduce unnecessary
+catalog reading and keyword guessing without a second API specification.
+Operational records share atomic publication; run preparation/finalization
+failures reach MPI peers, and final records must belong to the current run.
+The same publisher now owns Result manifests and checkpoint sidecars. Installed
+run/restart, corrupt-input rejection and VTK time-series checks close this bounded
+engineering slice; the sprint record retains both failures and acceptance evidence.
+Next measure agent task success and repair cost. Do not claim autonomy or token
+savings merely because structured error tests pass.
+
+### P92 source, precision and runtime checkpoint (2026-11-07)
+
+The original DB P92 source now supplies a coherent pipe cohort with rupture,
+fatigue and tensile-dwell observations; the
+[fixed-parameter audit](internal/p92_db_cohort_candidate_20261107.md) retains
+the published discrepancies rather than fitting them away. Generic creep
+increments now have [small-increment precision evidence](internal/creep_increment_precision_20261107.md).
+The research material provider also removes duplicate local evaluations:
+[complete bounded trajectories](internal/p92_local_evaluation_20261107.md)
+take about 34% less wall time on two tested meshes with unchanged accepted
+arrays. This is not a composite-contact runtime claim.
+
+Next close the integrated software candidate, then resolve one specific life
+study: the DB cohort needs within-hold stress response and an applicable
+rupture-stress range before time-fraction coupling. Keep the observed
+nonuniform reaction convergence separate from unresolved clamp/relaxation
+spatial errors. Do not expand the material catalogue or fit the existing life
+labels again as a substitute for those measurements.
+
 ### Data-admission refinement (2026-11-07)
 
 Continue explicit cross-source research when same-heat P92 data are unavailable;

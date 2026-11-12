@@ -751,7 +751,7 @@ and evidence remain in the linked guides and scientific function reference.
 | function | `creep_fatigue_from_result(result, *, fatigue_history: str, fatigue_curve, stress_history: str, temperature_history: str, dwells: Iterable[DwellInterval], rupture_time: Callable[[float, float], float], rupture_source: str, interaction: InteractionDiagram \| None = None, ultimate_strength: float \| None = None, stress_reducer: str = 'maximum_absolute', temperature_reducer: str = 'maximum') -> CreepFatigueAssessment` | Build the engineering V1 assessment from named result histories. |
 | class | `TabulatedRuptureCurve` | Isothermal tensile rupture life, interpolated in log stress/log time. |
 | class | `CreepDamageHistoryAssessment` | Trapezoidal time fractions on sampled stress/temperature histories. |
-| function | `creep_damage_from_result(result, *, stress_history: str, temperature_history: str, dwells, rupture_time, rupture_source: str, stress_unit: str, time_unit: str, stress_measure: str, maximum_source_interval: float \| None = None, stress_component: tuple[int, int] \| None = None) -> CreepDamageHistoryAssessment` | Integrate ``dt / rupture_time(stress, temperature)`` over explicit dwells. |
+| function | `creep_damage_from_result(result, *, stress_history: str, temperature_history: str, dwells, rupture_time, rupture_source: str, stress_unit: str, time_unit: str, stress_measure: str, maximum_source_interval: float \| None = None, stress_component: tuple[int, int] \| None = None, quadrature_subdivisions: int = 1) -> CreepDamageHistoryAssessment` | Integrate ``dt / rupture_time(stress, temperature)`` over explicit dwells. |
 
 ## `agentfem.boundary_models`
 
@@ -1680,7 +1680,7 @@ and evidence remain in the linked guides and scientific function reference.
 | class | `FeedbackEndpoint` | One reviewed collector route; never inferred from the user's address. |
 | class | `FeedbackPreferences` | Persistent, user-controllable reliability-report preferences. |
 | function | `preferences() -> FeedbackPreferences` | Return the effective preferences without creating local state. |
-| function | `configure(mode: str, *, route: str \| None = None, endpoint: str \| None = None, notice_shown: bool \| None = None) -> FeedbackPreferences` | Persist ``basic`` or ``off`` and return the effective preferences. |
+| function | `configure(mode: str, *, route: str \| None = None, endpoint: str \| None = None, notice_shown: bool \| None = None, consent_source: str = 'api') -> FeedbackPreferences` | Persist an explicit ``basic`` opt-in or ``off`` revocation. |
 | function | `notice_text() -> str` | Public AgentFEM object. |
 | function | `show_notice_once(*, as_json: bool = False, stream = None) -> bool` | Show the one-time reliability notice on an interactive human route. |
 | function | `failure_fingerprint(error: Mapping[str, object] \| None, *, command: str = 'run') -> str \| None` | Return a message/path-free identity for one class of failure. |
@@ -1691,7 +1691,7 @@ and evidence remain in the linked guides and scientific function reference.
 | function | `enqueue(record: Mapping[str, object]) -> Path \| None` | Queue one event atomically; never write when reporting is disabled. |
 | function | `last_event() -> dict[str, object] \| None` | Public AgentFEM object. |
 | function | `flush(*, timeout: float = DEFAULT_TIMEOUT_SECONDS) -> dict[str, object]` | Send a bounded batch and return status without raising into a solve. |
-| function | `observe_cli(command: str \| None, exit_code: int, *, duration_seconds: float \| None = None, project: str \| Path \| None = None) -> dict[str, object] \| None` | Record one CLI outcome; this function is deliberately fail-open. |
+| function | `observe_cli(command: str \| None, exit_code: int, *, duration_seconds: float \| None = None, project: str \| Path \| None = None) -> dict[str, object] \| None` | Observe one CLI outcome locally and report it only after opt-in. |
 | function | `record_failure(error: Mapping[str, object], *, command: str = 'run') -> dict[str, object]` | Update a local, version-scoped repetition counter for one failure class. |
 | function | `diagnose(path: str \| Path \| None = None, *, project: str \| Path \| None = None) -> dict[str, object]` | Explain one execution locally without uploading or modifying the case. |
 | function | `format_diagnosis(record: Mapping[str, object]) -> str` | Public AgentFEM object. |

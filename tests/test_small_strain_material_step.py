@@ -16,6 +16,7 @@ from agentfem import (
     solvers,
     steps,
     studies,
+    units,
 )
 
 
@@ -199,6 +200,51 @@ def test_public_model_step_dispatches_small_strain_material():
     assert isinstance(step, mechanics.SmallStrainMaterialStep)
     step.solve()
     assert step.last_solve_info.completed_step
+
+
+def test_material_output_units_survive_cell_recovery():
+    model, displacement, material = _problem()
+    system = units.n_mm_mpa()
+    step = mechanics.small_strain_material_step(
+        displacement=displacement, material=material, external_force=None,
+        constraints=model.constraints, study=model.study, unit_system=system,
+        incrementation=steps.fixed(2), progress=False,
+    )
+    result = step.solve_result()
+    for name in ("S", "S_CELL"):
+        assert result.fields[name].unit == system.stress
+    for name in ("history", "history_CELL"):
+        assert result.fields[name].unit == "1"
+    assert result.fields["RF"].unit == system.force
+
+
+@pytest.mark.parametrize("alias", ["S", "S_CELL", "RF", "TEMP", "E", "SENER", "DENER_INC_CELL"])
+def test_state_alias_cannot_replace_solver_output_without_point_recorder(alias):
+    model, displacement, material = _problem()
+    material.state_schema = constitutive.MaterialStateSchema(
+        "test.colliding", (constitutive.MaterialStateVariable("history", output_name=alias),)
+    )
+    with pytest.raises(ValueError, match="output names collide"):
+        mechanics.small_strain_material_step(
+            displacement=displacement, material=material, external_force=None,
+            constraints=model.constraints, study=model.study, progress=False,
+        )
+    assert material.batch_calls == 0
+
+
+@pytest.mark.parametrize("names", [("damage", "damage_CELL"), ("damage_CELL", "damage")])
+def test_state_alias_cannot_replace_another_states_recovered_field(names):
+    model, displacement, material = _problem()
+    material.state_schema = constitutive.MaterialStateSchema(
+        "test.cross_collision",
+        tuple(constitutive.MaterialStateVariable(name) for name in names),
+    )
+    with pytest.raises(ValueError, match="output names collide"):
+        mechanics.small_strain_material_step(
+            displacement=displacement, material=material, external_force=None,
+            constraints=model.constraints, study=model.study, progress=False,
+        )
+    assert material.batch_calls == 0
 
 
 @pytest.mark.parametrize("kind", ["j2", "chaboche", "provider", "creep", "maxwell", "maxwell_harmonic"])

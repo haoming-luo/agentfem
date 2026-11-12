@@ -29,6 +29,9 @@ project runs without AI. Choose the shortest path that satisfies the request.
 Reuse context already checked within the task. Read one relevant capability
 topic before requesting the full inventory. The installed API/options are
 authoritative when online documentation describes a newer version.
+For an uncertain keyword, query `agentfem capabilities --api MODULE.CALLABLE --json`;
+for a concrete Step use `models.step_capability(...)`. Missing query
+support in an older install calls for its installed help, not an automatic upgrade.
 
 ## Reference Routing
 

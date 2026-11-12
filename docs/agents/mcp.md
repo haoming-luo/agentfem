@@ -51,6 +51,28 @@ it, set `AGENTFEM_COMMAND` to the absolute executable path.
 
 ## Why the surface is small
 
+### Focused discovery (development adapter)
+
+The next adapter supports `describe_system(topic="workflow")` and
+`describe_system(api="fields.displacement")`. These read one installed contract
+without running a case or repeating environment checks. The default remains a
+compact runtime summary; request `detail="full"` only for a full audit. Missing
+items in a scoped reply do not mean unsupported physics. Concrete Step options
+are checked by AgentFEM's provider contract when building the model.
+
+These arguments are not in the published 0.1.0 bundle. Inspect the connected
+tool schema first. If the runtime lacks scoped queries, consult its installed
+help or explicitly request full discovery; do not upgrade it automatically.
+Tool failures carry MCP `isError` and structured error details. A successfully
+read run record may itself report a failed simulation; that is still useful
+status evidence, not a reason to resubmit automatically.
+
+`submit_run` already performs preflight. Use `validate_project` for an editing
+check, not as a compulsory duplicate immediately before every submission.
+Reading existing results does not require creating or running a project.
+
+### One workflow
+
 The adapter exposes seven lifecycle tools: describe the runtime, create a
 project, validate it, inspect it, submit a run, read run status, and read a
 result. The surrounding agent already has normal file-editing ability; MCP

@@ -16,6 +16,15 @@ properties for a structural material. The alternative pooled-fit coefficient
 0.42 is not substituted for 0.57. Each curve retains its own observed cycle
 bounds; out-of-domain inversions are reported, not silently admitted.
 
+An explicit alternative, `--domain tested_amplitudes`, declares the tested
+0.004–0.008 mechanical strain-amplitude interval through `from_strain_domain`.
+It derives cycle bounds from the unchanged coefficients instead of using
+observed failure-life extrema. Both screens are retained: this is a reviewed
+change of applicability-domain representation, not parameter fitting or an
+automatic response to a rejected prediction. An independent Brent root solve
+checks every amplitude-domain inverse against the printed equation. The
+failure definition, rate-transfer limitation and non-blind status are unchanged.
+
 ## Computed diagnostics
 
 At amplitude 0.006, the high-rate curve predicts 928.368 cycles: its own-rate

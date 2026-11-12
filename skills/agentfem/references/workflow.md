@@ -13,17 +13,20 @@ AgentFEM workflow:
 
 Public discovery is progressive. Begin with `agentfem.public_api("core")` and
 `models.model_api("core")`. Methods reported by
-`models.model_api("compatibility")` remain executable during 0.2.x but are not
+`models.model_api("compatibility")` remain compatibility entrypoints but are not
 the language for new cases. Built-in Step providers publish accepted and
 required keyword names and mutually exclusive scientific-coordinate aliases
 through `StepOptionContract`; inspect the same contracts with
-`agentfem capabilities --json` before generating a Step call. Treat
+`models.step_capability(model, target=..., options=...)` when constructing a
+concrete Step. Query `agentfem capabilities workflow --json` for workflow
+vocabulary or `agentfem capabilities --api MODULE.CALLABLE --json` for an
+uncertain signature; do not load every catalog before every call. Treat
 `supported=true` as provider availability and `ready=true` as confirmation
 that the concrete request has all required inputs.
 The CLI capability record and `/agentfem.json` documentation manifest are
 generated views of the same dependency-free product contract; do not infer a
 parallel workflow language from one example.
-Read `ownership_contract` from `agentfem capabilities --json` when deciding
+Read `ownership_contract` from `agentfem capabilities workflow --json` when deciding
 where an extension belongs. Model describes the engineering problem; State
 owns accepted/trial history; Operator owns mathematical contributions;
 Procedure owns evolution; Backend owns execution; Result/Verification owns
@@ -95,7 +98,10 @@ evidence.
 21. Optional runtime lock before a frozen or blind experiment
 
 If execution fails, read the structured execution record with
-`agentfem diagnose --json`. A repeated unresolved failure may be lowered to a
+`agentfem diagnose --json`. Step errors retain provider, issue codes and
+suggestions in `error.details`; suggestions do not authorize changing physics.
+On older runtimes without these queries, consult installed help rather than
+silently upgrading. A repeated unresolved failure may be lowered to a
 private, sanitized Agent task with `agentfem assist --force`. This does not
 upload the model or result. Creating a public issue remains a separate
 user-authorized action.

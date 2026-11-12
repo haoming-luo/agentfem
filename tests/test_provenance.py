@@ -39,7 +39,7 @@ def test_failed_manifest_replacement_preserves_previous(tmp_path, monkeypatch, c
     replace = Path.replace
 
     def fail_replace(path, target):
-        if path == manifest.with_suffix(".json.tmp"):
+        if Path(target) == manifest:
             raise OSError("injected replacement failure")
         return replace(path, target)
 
@@ -48,6 +48,7 @@ def test_failed_manifest_replacement_preserves_previous(tmp_path, monkeypatch, c
     with pytest.raises(RuntimeError, match="injected replacement failure"):
         result.write_manifest(manifest, comm=comm)
     assert manifest.read_bytes() == original
+    assert not list(tmp_path.glob("*.tmp"))
     assert provenance.verify_manifest(manifest).verified
 
 

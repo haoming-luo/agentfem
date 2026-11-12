@@ -89,6 +89,23 @@ conversion is implicit. `hold_start` and `hold_end` must lie inside recorded
 coverage. `reviewed_curve` is a caller-supplied rupture relation, not a built-in
 P92 default.
 
+For a reviewed `TabulatedRuptureCurve` in MPa and hours, explicitly convert
+the table rather than editing the simulation histories:
+
+```python
+reviewed_curve = literature_curve.in_units(
+    stress_unit=result.histories["hot_spot.S"].unit,
+    time_unit=result.histories["hot_spot.S"].abscissa_unit,
+)
+```
+
+This returns a new table with conversion factors in its evidence; the source,
+material condition, failure definition and stress measure are unchanged.
+Supported stress labels are `Pa`, `kPa`, `MPa`, `GPa`, `kg/(m*s^2)` and
+`tonne/(mm*s^2)`; supported time labels are `s`, `min` and `h`.
+Temperature remains kelvin. Unsupported units require a separately reviewed
+table; there is no implicit solver or history conversion.
+
 When the result identifies recorded material-point channels, both inputs must
 belong to the same point, share the accepted clock, and match the recorded
 shapes and units. The assessment retains the selected component, reference

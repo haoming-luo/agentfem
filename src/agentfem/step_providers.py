@@ -11,12 +11,13 @@ keeps case-specific choices out of user scripts and out of ``Model.step``.
 from __future__ import annotations
 
 from dataclasses import dataclass
+from copy import deepcopy
 from difflib import get_close_matches
 from os import PathLike
 from types import MappingProxyType
 from typing import Callable, Mapping
 
-from ._step_provider_registry import ProviderSelectionRegistry
+from ._step_provider_registry import ProviderSelectionRegistry, StepCapabilityError as StepCapabilityError
 from ._step_provider_support import (
     COMMON_STEP_OPTIONS as _COMMON_STEP_OPTIONS,
     all_materials_support as _all_materials_support,
@@ -63,6 +64,26 @@ class StepExecutionPolicy:
             "progress": _policy_value_summary(self.progress),
             "checkpoint": _policy_value_summary(self.checkpoint),
         }
+
+
+class StepOptionError(TypeError):
+    """Repairable Step request failure, retaining the enforcing contract's issues.
+
+    This remains a TypeError for existing callers. Details contain option names
+    and diagnostics, never the supplied values or material state.
+    """
+
+    def __init__(self, message, *, provider, issues, accepted):
+        super().__init__(message)
+        self._details = deepcopy({
+            "schema": "agentfem.step-option-error.v1",
+            "provider": provider,
+            "issues": tuple(issues),
+            "accepted_options": tuple(accepted),
+        })
+
+    def details(self):
+        return deepcopy(self._details)
 
 
 @dataclass(frozen=True)
@@ -198,10 +219,11 @@ class StepOptionContract:
                     + "?"
                 )
             details.append(message)
-        raise TypeError(
+        raise StepOptionError(
             f"model.step request for provider {provider!r} is invalid: "
             + " ".join(details)
-            + f" Accepted options are {self.accepted!r}."
+            + f" Accepted options are {self.accepted!r}.",
+            provider=provider, issues=issues, accepted=self.accepted,
         )
 
     def summary(self) -> dict[str, object]:
@@ -508,8 +530,16 @@ def step_capability(
             selected_request = request
         accepted = tuple(item for item in candidates if item.accepts(model, request))
         if accepted:
+            # Execution resolves complete contracts in priority order. Prefer
+            # that same ready candidate before reporting a partial near-match;
+            # otherwise a missing required input on a high-priority extension
+            # can hide an executable lower-priority provider.
+            ready_provider = next(
+                (item for item in accepted if not item.option_issues(request)),
+                None,
+            )
             rejected = []
-            for candidate in accepted:
+            for candidate in ((ready_provider,) if ready_provider is not None else accepted):
                 issues = (
                     ()
                     if candidate.option_contract is None

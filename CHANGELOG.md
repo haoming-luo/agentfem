@@ -6,6 +6,12 @@ experimental formulation to a validated one.
 
 ## [Unreleased]
 
+- Make anonymous reliability telemetry explicit opt-in. Fresh, missing,
+  invalid and ambiguous legacy preferences now fail closed to `off`; old
+  default-enabled queues are discarded before any delivery. Preserve the
+  compatible `telemetry on|off` commands, add `telemetry basic`, keep route
+  selection non-authorizing, and record consent provenance in local settings.
+
 - Finish installation at environment readiness without creating a project or
   running a simulation. Offer a first example afterward; the setup helper's
   `--first-solve` explicitly opts in. Keep real installed solves in developer
