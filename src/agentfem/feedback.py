@@ -3,11 +3,12 @@
 
 """Privacy-bounded reliability feedback and support escalation.
 
-The reliability channel deliberately accepts only a small, schema-checked
-event.  It never serializes a Model, mesh, material parameter, source file,
-result field, project name, path, traceback, or exception message.  Richer
-support evidence is generated locally and leaves the machine only through an
-explicit user action such as ``agentfem feedback --github``.
+The reliability channel is off by default and requires explicit consent. When
+enabled, it accepts only a small, schema-checked event. It never serializes a
+Model, mesh, material parameter, source file, result field, project name, path,
+traceback, or exception message. Richer support evidence is generated locally
+and leaves the machine only through an explicit user action such as
+``agentfem feedback --github``.
 """
 
 from __future__ import annotations
@@ -39,7 +40,9 @@ BATCH_SCHEMA = "agentfem.reliability-batch"
 DIAGNOSIS_SCHEMA = "agentfem.support-diagnosis"
 SUPPORT_BUNDLE_SCHEMA = "agentfem.support-bundle"
 SCHEMA_VERSION = "0.1.0"
-DEFAULT_MODE = "basic"
+PREFERENCES_SCHEMA_VERSION = "0.2.0"
+CONSENT_VERSION = 1
+DEFAULT_MODE = "off"
 REPOSITORY = "haoming-luo/agentfem"
 ISSUES_URL = f"https://github.com/{REPOSITORY}/issues"
 MAX_QUEUED_EVENTS = 64
@@ -52,6 +55,7 @@ DEFAULT_TIMEOUT_SECONDS = 1.5
 FAILURE_ESCALATION_COUNT = 3
 
 _MODES = ("basic", "off")
+_CONSENT_SOURCES = ("api", "cli", "environment")
 _ROUTES = ("auto", "global", "china")
 _OUTCOMES = ("completed", "failed", "cancelled")
 _DURATION_BUCKETS = (
@@ -164,6 +168,8 @@ def _endpoint_records_from_package() -> tuple[FeedbackEndpoint, ...]:
         record = json.loads(path.read_text(encoding="utf-8"))
     except (FileNotFoundError, json.JSONDecodeError, TypeError):
         return ()
+    if record.get("activation") != "explicit-consent-only":
+        return ()
     declared = record.get("endpoints")
     if declared is None:
         value = record.get("endpoint")
@@ -222,6 +228,8 @@ class FeedbackPreferences:
     fallback_endpoints: tuple[str, ...] = ()
     route: str = "auto"
     route_names: tuple[str, ...] = ()
+    consent_granted: bool = False
+    consent_source: str | None = None
 
     @property
     def endpoints(self) -> tuple[str, ...]:
@@ -236,8 +244,14 @@ class FeedbackPreferences:
     def summary(self) -> dict[str, object]:
         return {
             "schema": PREFERENCES_SCHEMA,
-            "schema_version": SCHEMA_VERSION,
+            "schema_version": PREFERENCES_SCHEMA_VERSION,
             "mode": self.mode,
+            "default_mode": DEFAULT_MODE,
+            "consent": {
+                "required": True,
+                "granted": self.consent_granted,
+                "source": self.consent_source,
+            },
             "route": self.route,
             "notice_shown": self.notice_shown,
             "endpoint": self.endpoint,
@@ -257,6 +271,54 @@ class FeedbackPreferences:
         }
 
 
+def _read_preferences_record() -> dict[str, object]:
+    try:
+        record = json.loads(_preferences_path().read_text(encoding="utf-8"))
+    except (FileNotFoundError, json.JSONDecodeError, OSError):
+        return {}
+    return dict(record) if isinstance(record, Mapping) else {}
+
+
+def _explicit_stored_consent(record: Mapping[str, object]) -> tuple[bool, str | None]:
+    """Return only consent recorded by the opt-in preferences schema."""
+
+    if (
+        record.get("schema") != PREFERENCES_SCHEMA
+        or record.get("schema_version") != PREFERENCES_SCHEMA_VERSION
+        or record.get("mode") != "basic"
+    ):
+        return False, None
+    consent = record.get("consent")
+    if not isinstance(consent, Mapping):
+        return False, None
+    source = str(consent.get("source", "")).strip().lower()
+    granted = (
+        consent.get("granted") is True
+        and consent.get("version") == CONSENT_VERSION
+        and source in _CONSENT_SOURCES
+    )
+    return granted, source if granted else None
+
+
+def _current_preferences_record(record: Mapping[str, object]) -> bool:
+    """Return whether persisted state follows the explicit-consent schema."""
+
+    if (
+        record.get("schema") != PREFERENCES_SCHEMA
+        or record.get("schema_version") != PREFERENCES_SCHEMA_VERSION
+        or record.get("mode") not in _MODES
+    ):
+        return False
+    consent = record.get("consent")
+    if not isinstance(consent, Mapping) or consent.get("version") != CONSENT_VERSION:
+        return False
+    granted = consent.get("granted") is True
+    if record.get("mode") == "basic":
+        source = str(consent.get("source", "")).strip().lower()
+        return granted and source in _CONSENT_SOURCES
+    return not granted
+
+
 def preferences() -> FeedbackPreferences:
     """Return the effective preferences without creating local state."""
 
@@ -264,21 +326,27 @@ def preferences() -> FeedbackPreferences:
     endpoint_override = os.environ.get("AGENTFEM_FEEDBACK_ENDPOINT")
     endpoints_override = os.environ.get("AGENTFEM_FEEDBACK_ENDPOINTS")
     route_override = os.environ.get("AGENTFEM_FEEDBACK_ROUTE")
-    record: dict[str, object] = {}
-    path = _preferences_path()
-    try:
-        record = json.loads(path.read_text(encoding="utf-8"))
-    except (FileNotFoundError, json.JSONDecodeError, OSError):
-        pass
-    mode = str(mode_override or record.get("mode", DEFAULT_MODE)).strip().lower()
-    if mode not in _MODES:
-        mode = DEFAULT_MODE
+    record = _read_preferences_record()
+    stored_consent, stored_source = _explicit_stored_consent(record)
+    override = str(mode_override or "").strip().lower()
+    if override == "on":
+        override = "basic"
+    if mode_override is not None:
+        mode = override if override in _MODES else DEFAULT_MODE
+        consent_granted = mode == "basic"
+        consent_source = "environment" if consent_granted else None
+    else:
+        mode = "basic" if stored_consent else DEFAULT_MODE
+        consent_granted = stored_consent
+        consent_source = stored_source
     route = str(route_override or record.get("route", "auto")).strip().lower()
     if route not in _ROUTES:
         route = "auto"
     declared = ()
     recorded_endpoints = record.get("endpoints")
-    if endpoints_override:
+    if not consent_granted:
+        declared = ()
+    elif endpoints_override:
         declared = tuple(item.strip() for item in endpoints_override.split(",") if item.strip())
     elif endpoint_override:
         declared = (endpoint_override,)
@@ -311,7 +379,37 @@ def preferences() -> FeedbackPreferences:
         fallback_endpoints=tuple(accepted[1:]),
         route=route,
         route_names=route_names,
+        consent_granted=consent_granted,
+        consent_source=consent_source,
     )
+
+
+def _ensure_privacy_state() -> FeedbackPreferences:
+    """Migrate ambiguous legacy state to opt-out and remove unsent events."""
+
+    record = _read_preferences_record()
+    if not _current_preferences_record(record):
+        route = str(record.get("route", "auto")).strip().lower()
+        if route not in _ROUTES:
+            route = "auto"
+        clear_queue()
+        _atomic_json(
+            _preferences_path(),
+            {
+                "schema": PREFERENCES_SCHEMA,
+                "schema_version": PREFERENCES_SCHEMA_VERSION,
+                "mode": "off",
+                "route": route,
+                "notice_shown": False,
+                "endpoints": [],
+                "consent": {
+                    "version": CONSENT_VERSION,
+                    "granted": False,
+                    "source": "migration",
+                },
+            },
+        )
+    return preferences()
 
 
 def configure(
@@ -320,30 +418,55 @@ def configure(
     route: str | None = None,
     endpoint: str | None = None,
     notice_shown: bool | None = None,
+    consent_source: str = "api",
 ) -> FeedbackPreferences:
-    """Persist ``basic`` or ``off`` and return the effective preferences."""
+    """Persist an explicit ``basic`` opt-in or ``off`` revocation."""
 
     selected = str(mode).strip().lower()
+    if selected == "on":
+        selected = "basic"
     if selected not in _MODES:
         raise ValueError(f"Feedback mode must be one of {_MODES}; received {mode!r}.")
-    previous = preferences()
+    source = str(consent_source).strip().lower()
+    if source not in _CONSENT_SOURCES:
+        raise ValueError(
+            f"Consent source must be one of {_CONSENT_SOURCES}; received {consent_source!r}."
+        )
+    previous = _ensure_privacy_state()
     selected_route = previous.route if route is None else str(route).strip().lower()
     if selected_route not in _ROUTES:
         raise ValueError(f"Feedback route must be one of {_ROUTES}; received {route!r}.")
+    stored_endpoints = _read_preferences_record().get("endpoints")
+    preserved_endpoints = []
+    if isinstance(stored_endpoints, list):
+        for value in stored_endpoints:
+            try:
+                candidate = _validated_endpoint(value)
+            except (TypeError, ValueError):
+                continue
+            if candidate not in preserved_endpoints:
+                preserved_endpoints.append(candidate)
     selected_endpoints = (
-        previous.endpoints
-        if endpoint is None and any(name.startswith("custom-") for name in previous.route_names)
-        else () if endpoint is None
+        tuple(preserved_endpoints)
+        if endpoint is None
         else (_validated_endpoint(endpoint),)
     )
     record = {
         "schema": PREFERENCES_SCHEMA,
-        "schema_version": SCHEMA_VERSION,
+        "schema_version": PREFERENCES_SCHEMA_VERSION,
         "mode": selected,
         "route": selected_route,
         "notice_shown": previous.notice_shown if notice_shown is None else bool(notice_shown),
         "endpoints": list(selected_endpoints),
+        "consent": {
+            "version": CONSENT_VERSION,
+            "granted": selected == "basic",
+            "source": source if selected == "basic" else "revoked",
+        },
     }
+    if selected == "basic" and not previous.consent_granted:
+        # Pre-opt-in events cannot be distinguished from legacy automatic data.
+        clear_queue()
     _atomic_json(_preferences_path(), record)
     if selected == "off":
         clear_queue()
@@ -351,16 +474,10 @@ def configure(
 
 
 def notice_text() -> str:
-    opening = (
-        "AgentFEM shares a minimal anonymous reliability signal to improve this "
-        "free, open-source software."
-        if preferences().endpoint
-        else "AgentFEM records anonymous error and reliability reports locally; "
-        "online delivery is not configured in this build."
-    )
     return (
-        f"{opening} Models, meshes, parameters, code, paths, and results are never included.\n"
-        "Turn off anytime: agentfem telemetry off"
+        "AgentFEM anonymous reliability telemetry is off by default. Nothing is "
+        "collected or uploaded unless you explicitly enable it.\n"
+        "Optional opt-in: agentfem telemetry basic"
     )
 
 
@@ -378,13 +495,17 @@ def show_notice_once(*, as_json: bool = False, stream=None) -> bool:
         )
     ):
         return False
-    selected = preferences()
+    selected = _ensure_privacy_state()
     if selected.notice_shown:
         return False
     target = stream or sys.stderr
     print(notice_text(), file=target, flush=True)
     try:
-        configure(selected.mode, notice_shown=True)
+        configure(
+            selected.mode,
+            notice_shown=True,
+            consent_source=selected.consent_source or "api",
+        )
     except OSError:
         # A read-only home directory must never block doctor/check/run.
         pass
@@ -556,6 +677,7 @@ def clear_queue() -> int:
             pass
     for path in (
         _backoff_path(),
+        _route_preference_path(),
         _feedback_home() / "success-sample.json",
         _last_event_path(),
     ):
@@ -576,7 +698,8 @@ def _queued_paths() -> tuple[Path, ...]:
 def enqueue(record: Mapping[str, object]) -> Path | None:
     """Queue one event atomically; never write when reporting is disabled."""
 
-    if preferences().mode != "basic":
+    selected = _ensure_privacy_state()
+    if not selected.consent_granted or selected.mode != "basic":
         return None
     validate_event(record)
     queue = _spool_directory()
@@ -595,6 +718,8 @@ def enqueue(record: Mapping[str, object]) -> Path | None:
 
 
 def last_event() -> dict[str, object] | None:
+    if not _ensure_privacy_state().consent_granted:
+        return None
     paths = _queued_paths()
     selected = paths[-1] if paths else _last_event_path()
     try:
@@ -660,10 +785,11 @@ def _delivery_success(route: str) -> None:
 def flush(*, timeout: float = DEFAULT_TIMEOUT_SECONDS) -> dict[str, object]:
     """Send a bounded batch and return status without raising into a solve."""
 
-    selected = preferences()
+    selected = _ensure_privacy_state()
     paths = _queued_paths()[:MAX_BATCH_EVENTS]
-    if selected.mode != "basic":
-        return {"status": "disabled", "sent": 0, "remaining": len(paths)}
+    if not selected.consent_granted or selected.mode != "basic":
+        clear_queue()
+        return {"status": "disabled", "sent": 0, "remaining": 0}
     if not selected.endpoints:
         return {"status": "endpoint_unavailable", "sent": 0, "remaining": queue_size()}
     if not paths:
@@ -774,19 +900,30 @@ def observe_cli(
     duration_seconds: float | None = None,
     project: str | Path | None = None,
 ) -> dict[str, object] | None:
-    """Record one CLI outcome; this function is deliberately fail-open."""
+    """Observe one CLI outcome locally and report it only after opt-in."""
 
-    if (
-        preferences().mode != "basic"
-        or not command
-        or command in {"telemetry", "diagnose", "assist", "feedback"}
-    ):
+    if not command or command in {"telemetry", "diagnose", "assist", "feedback"}:
         return None
     if (
         (os.environ.get("CI") or os.environ.get("PYTEST_CURRENT_TEST"))
         and not os.environ.get("AGENTFEM_TELEMETRY_TESTING")
     ):
         return None
+    selected = _ensure_privacy_state()
+    outcome = "completed" if int(exit_code) == 0 else "failed"
+    if not selected.consent_granted or selected.mode != "basic":
+        if outcome != "failed" or command != "run":
+            return None
+        execution = _load_execution_for_project(project)
+        error = execution.get("error") if execution else None
+        if not isinstance(error, Mapping):
+            return None
+        return {
+            "event": None,
+            "queued": None,
+            "delivery": {"status": "disabled", "sent": 0, "remaining": 0},
+            "escalation": record_failure(error, command=command),
+        }
     try:
         from mpi4py import MPI
 
@@ -794,9 +931,12 @@ def observe_cli(
             return None
     except Exception:
         pass
-    outcome = "completed" if int(exit_code) == 0 else "failed"
     execution = _load_execution_for_project(project) if command == "run" else None
     error = execution.get("error") if execution and outcome == "failed" else None
+    if outcome == "failed" and isinstance(error, Mapping):
+        escalation = record_failure(error, command=command)
+    else:
+        escalation = None
     if outcome == "completed" and not _success_sample_allowed():
         return None
     try:
@@ -807,10 +947,6 @@ def observe_cli(
             error=error if isinstance(error, Mapping) else None,
         )
         path = enqueue(event)
-        if outcome == "failed" and isinstance(error, Mapping):
-            escalation = record_failure(error, command=command)
-        else:
-            escalation = None
         delivery = flush()
         return {
             "event": event,

@@ -834,21 +834,26 @@ def _command_verify(args) -> int:
 def _command_telemetry(args) -> int:
     from . import feedback as reliability
 
+    current = reliability._ensure_privacy_state()
     if args.action == "route":
         if args.route is None:
             raise ValueError("Use `agentfem telemetry route auto|global|china`.")
-        selected = reliability.configure("basic", route=args.route)
+        selected = reliability.configure(
+            current.mode,
+            route=args.route,
+            consent_source=current.consent_source or "cli",
+        )
         record = selected.summary()
         human = f"Reliability route preference: {selected.route}."
-    elif args.action == "on":
-        selected = reliability.configure("basic")
+    elif args.action in {"on", "basic"}:
+        selected = reliability.configure("basic", consent_source="cli")
         record = selected.summary()
         human = (
-            "Anonymous reliability reporting is on. Models, meshes, parameters, "
+            "Anonymous reliability reporting is explicitly enabled. Models, meshes, parameters, "
             "source code, paths, and results are never included."
         )
     elif args.action == "off":
-        selected = reliability.configure("off")
+        selected = reliability.configure("off", consent_source="cli")
         record = selected.summary()
         human = "Anonymous reliability reporting is off."
     elif args.action == "flush":
@@ -863,9 +868,10 @@ def _command_telemetry(args) -> int:
         }
         human = _json(record) if event else "No queued reliability event."
     else:
-        record = reliability.preferences().summary()
+        record = current.summary()
         human = (
             f"Anonymous reliability reporting: {record['mode']}\n"
+            f"Explicit consent: {record['consent']['granted']}\n"
             f"Route preference: {record['route']}\n"
             f"Delivery available: {record['delivery_available']}\n"
             f"Queued reports: {record['queue_size']}"
@@ -1156,7 +1162,8 @@ def build_parser(*, structured_errors: bool = False) -> argparse.ArgumentParser:
         "action",
         nargs="?",
         default="status",
-        choices=("status", "on", "off", "route", "show-last", "flush"),
+        choices=("status", "basic", "on", "off", "route", "show-last", "flush"),
+        help="Telemetry is off by default; 'basic' and the compatible 'on' alias explicitly opt in.",
     )
     telemetry.add_argument(
         "route",
@@ -1376,7 +1383,7 @@ def _dispatch(argv: list[str] | None = None, *, parsed=None) -> int:
 
 
 def main(argv: list[str] | None = None) -> int:
-    """Run the product shell and observe reliability without owning the solve."""
+    """Run the product shell with optional consent-gated reliability reporting."""
 
     from . import feedback as reliability
 
