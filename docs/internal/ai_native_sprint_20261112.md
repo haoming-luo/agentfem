@@ -1,5 +1,39 @@
 # AI-native workflow: choose existing contracts over new abstractions
 
+## Phase closeout review (2026-11-12)
+
+The atomic-publication work was completed, not abandoned at the progress update.
+The scope below is implemented on the stacked #185 → #186 branches. The
+engineering review is closed; merge/release and broader product claims remain
+separate decisions.
+
+| Outcome | Evidence |
+| --- | --- |
+| Query installed parameters instead of guessing | Public function/constructor/Model-method signatures; scoped capability contracts; no case execution |
+| Preserve actionable failure information | Step option/capability issues survive CLI execution and retain provider-owned semantics |
+| Keep one inspectable model | Units and engineering stages retained; common presentation order; no second executable DSL |
+| Publish existing accepted results reliably | Shared atomic text owner for operational records, result manifests and checkpoint sidecars; coordinated root-owned MPI errors |
+| Run and recover without an AI runtime | Isolated installed examples; corrupt restart rejection; independent CLI restart/continuous comparison; 16 joined frames read and warped by VTK |
+
+Latest implementation head `a5b3f0ab` passed all applicable CI, including Linux
+FEniCSx and macOS installed-wheel acceptance. #185's `19548cda` also passed.
+The distributed fault-injection correction and its original failed CI are
+recorded below, rather than erased from the evidence history.
+
+Closeout adds seven shared-writer regressions: partial write, flush and fsync
+failure, each with/without an existing destination, plus UTF-8 success. The
+combined publication/provenance/history selection passed 83 tests; its one
+MPI-only test was skipped in this serial run and had passed in prior actual
+two-rank acceptance. This adds tests, not a new product abstraction or changed
+solver. Per-file atomic replacement is not an all-files transaction or proof
+of survival under arbitrary power loss/network-filesystem behavior.
+
+Remaining: integrate #185 before #186 after checking their current base;
+measure actual agent repair success/cost before claiming token or productivity
+gains; resume the separate P92 evidence roadmap without equating software
+recovery tests with engineering life validation. No new simulation-speed,
+commercial-parity or fully autonomous-engineering claim is made.
+
 ## Priorities and acceptance
 
 1. Preserve structured repair diagnostics through execution. The existing

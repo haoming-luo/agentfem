@@ -12,6 +12,9 @@ Scoped capability queries and installed-callable signatures reduce unnecessary
 catalog reading and keyword guessing without a second API specification.
 Operational records share atomic publication; run preparation/finalization
 failures reach MPI peers, and final records must belong to the current run.
+The same publisher now owns Result manifests and checkpoint sidecars. Installed
+run/restart, corrupt-input rejection and VTK time-series checks close this bounded
+engineering slice; the sprint record retains both failures and acceptance evidence.
 Next measure agent task success and repair cost. Do not claim autonomy or token
 savings merely because structured error tests pass.
 
