@@ -279,3 +279,32 @@ latter recursed until failure; values are not silently narrowed or replaced.
 Supported NumPy scalar/array metadata remains numeric. Invalid metadata leaves
 an existing manifest untouched. The Result and metadata regression passed 71
 tests; generated documentation and correctness lint remained clean.
+
+Result manifests and checkpoint sidecars now use that same atomic text owner,
+instead of shared `.tmp` names or direct overwrites. Existing replacement-failure
+tests inject by destination, preserving their failure semantics with unique
+temporary filenames. The provenance/history/Result group passed 127 tests with
+one MPI-only skip; the actual two-rank CLI plus archive agreement group passed
+20 tests on each rank. Checkpoint-sidecar failure retention is also covered.
+
+## Isolated installed-use acceptance
+
+A wheel was installed into a temporary venv reusing the existing numerical
+dependencies, without replacing the user's installed AgentFEM. Imports were
+confirmed under the venv's site-packages, outside the repository and without
+PYTHONPATH or pytest's source-path configuration. This is installed-code
+acceptance, not a clean-machine dependency installation or native-speed claim.
+
+31 tests passed against that installed wheel: complete history-material CLI
+examples, pause/restart versus continuous histories, rejected material updates,
+atomic rejection of corrupt checkpoints, operational record retention and
+metadata publication. Pytest emitted only a cache-location warning from the
+temporary `/dev/null` configuration; future isolated runs should disable its
+cache provider or choose a writable cache path.
+
+The installed console command additionally created and solved a static-solid
+project outside the repository. `agentfem verify` returned `verified: true` with
+no issues for its result manifest. This verifies artifact integrity, not a new
+independent scientific benchmark. The preceding remote head `27fa2721` also
+completed all relevant CI, including Linux FEniCSx and macOS installed-wheel
+acceptance; follow-up commits still require their own latest-head CI.

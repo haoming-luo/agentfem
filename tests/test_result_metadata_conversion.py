@@ -1,11 +1,12 @@
 """Metadata publication must neither silently lose keys nor recurse on NumPy scalars."""
 
 import json
+from pathlib import Path
 
 import numpy as np
 import pytest
 
-from agentfem.results import SimulationResult
+from agentfem.results import CheckpointRecord, SimulationResult
 
 
 @pytest.mark.parametrize("container", [lambda x: x, lambda x: [x], lambda x: np.array([x])])
@@ -44,3 +45,24 @@ def test_invalid_metadata_preserves_existing_manifest(tmp_path):
         result.write_manifest(path)
     assert path.read_bytes() == previous
     assert not path.with_suffix(".json.tmp").exists()
+
+
+def test_checkpoint_sidecar_failure_keeps_previous_and_cleans_temporary(tmp_path, monkeypatch):
+    checkpoint = CheckpointRecord(
+        name="accepted", path=tmp_path / "state.npz", schema="test.state.v1",
+        step_name="loading", coordinate_name="time", coordinate_value=1.0,
+    )
+    path = checkpoint.write_manifest()
+    original = path.read_bytes()
+    replace = Path.replace
+
+    def fail_replace(source, target):
+        if Path(target) == path:
+            raise PermissionError("injected sidecar replacement failure")
+        return replace(source, target)
+
+    monkeypatch.setattr(Path, "replace", fail_replace)
+    with pytest.raises(PermissionError, match="sidecar replacement"):
+        checkpoint.write_manifest()
+    assert path.read_bytes() == original
+    assert not list(tmp_path.glob("*.tmp"))
