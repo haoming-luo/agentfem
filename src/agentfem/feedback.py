@@ -1033,7 +1033,19 @@ def _support_suggestions(error: Mapping[str, object] | None) -> tuple[str, ...]:
     stage = str(error.get("stage") or "")
     kind = _safe_error_kind(error.get("type"))
     suggestions = []
-    if stage == "model_preflight" or code.startswith("AFM-STEP") or code.startswith("AFM-CONSTRAINT"):
+    if code.startswith("AFM-STEP-OPTION") or stage == "step_options":
+        suggestions.append(
+            "Read error.details in the local execution.json for option names and suggestions; "
+            "compare with models.step_capability(model, target=..., options=...). "
+            "Confirm the intended inputs before editing or rerunning."
+        )
+    elif code.startswith("AFM-STEP-CAPABILITY") or stage == "step_capability":
+        suggestions.append(
+            "Read error.details in the local execution.json for candidate providers and rejection reasons; "
+            "inspect models.step_capability(model, target=..., options=...). "
+            "Do not substitute another physical model to bypass an unsupported combination."
+        )
+    elif stage == "model_preflight" or code.startswith("AFM-STEP") or code.startswith("AFM-CONSTRAINT"):
         suggestions.append("Run `agentfem check --json` and resolve every addressable validation issue before solving.")
     if "MPI" in code or "MPI" in kind:
         suggestions.append("Run `agentfem doctor` and use `agentfem run --mpi N` so the launcher matches mpi4py.")

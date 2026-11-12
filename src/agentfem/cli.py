@@ -58,7 +58,7 @@ MPI = _DeferredMPI()
 
 
 def _json(record) -> str:
-    return json.dumps(record, indent=2, sort_keys=True, ensure_ascii=False)
+    return json.dumps(record, indent=2, sort_keys=True, ensure_ascii=False, allow_nan=False)
 
 
 def _emit(record, *, as_json: bool, human: str | None = None) -> None:
@@ -319,6 +319,19 @@ def _rank_error(exc: BaseException | None, *, rank: int) -> dict[str, object] | 
     }
     if isinstance(exc, SystemExit):
         record["exit_code"] = exc.code if isinstance(exc.code, int) else 1
+    from .step_providers import StepCapabilityError, StepOptionError
+
+    if isinstance(exc, StepCapabilityError):
+        record["stage"] = "step_capability"
+        record["details"] = exc.details()
+        record["code"] = record["details"]["code"]
+
+    if isinstance(exc, StepOptionError):
+        record["stage"] = "step_options"
+        record["details"] = exc.details()
+        issues = record["details"]["issues"]
+        if issues:
+            record["code"] = issues[0]["code"]
     report = getattr(exc, "report", None)
     if report is not None and hasattr(report, "as_dict"):
         validation = report.as_dict()
@@ -489,6 +502,8 @@ def _command_run(args) -> int:
         }
         if "exit_code" in primary:
             error["exit_code"] = primary["exit_code"]
+        if "details" in primary:
+            error["details"] = primary["details"]
         if MPI.COMM_WORLD.rank == 0:
             context.write_execution("failed", error=error, structured_result=False)
         _emit(
@@ -938,8 +953,25 @@ def _command_support(args) -> int:
     return 0
 
 
-def build_parser() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(prog="agentfem", description=__doc__)
+class _CLIArgumentError(ValueError):
+    pass
+
+
+class _StructuredArgumentParser(argparse.ArgumentParser):
+    def error(self, message):
+        raise _CLIArgumentError(message)
+
+
+def _positive_int(value):
+    number = int(value)
+    if number <= 0:
+        raise argparse.ArgumentTypeError("must be a positive integer")
+    return number
+
+
+def build_parser(*, structured_errors: bool = False) -> argparse.ArgumentParser:
+    parser_type = _StructuredArgumentParser if structured_errors else argparse.ArgumentParser
+    parser = parser_type(prog="agentfem", description=__doc__)
     parser.add_argument("--version", action="version", version=f"AgentFEM {__version__}")
     sub = parser.add_subparsers(dest="command", required=True)
 
@@ -987,7 +1019,7 @@ def build_parser() -> argparse.ArgumentParser:
     run.add_argument("--run-id")
     run.add_argument("--name", help="Short human name for this run, such as baseline or fine-mesh.")
     run.add_argument("--output")
-    run.add_argument("--mpi", type=int, default=1)
+    run.add_argument("--mpi", type=_positive_int, default=1)
     run.add_argument(
         "-v",
         "--verbose",
@@ -1033,7 +1065,7 @@ def build_parser() -> argparse.ArgumentParser:
 
     runs = sub.add_parser("runs", help="List recent runs for the current project.")
     runs.add_argument("--project")
-    runs.add_argument("--limit", type=int, default=20)
+    runs.add_argument("--limit", type=_positive_int, default=20)
     runs.add_argument("--json", action="store_true")
 
     inspect_abaqus = sub.add_parser(
@@ -1193,9 +1225,8 @@ def build_parser() -> argparse.ArgumentParser:
     return parser
 
 
-def _dispatch(argv: list[str] | None = None) -> int:
-    parser = build_parser()
-    args = parser.parse_args(argv)
+def _dispatch(argv: list[str] | None = None, *, parsed=None) -> int:
+    args = build_parser().parse_args(argv) if parsed is None else parsed
     try:
         if args.command == "doctor":
             from . import community
@@ -1234,11 +1265,11 @@ def _dispatch(argv: list[str] | None = None) -> int:
             return _command_upgrade(args)
         if args.command == "run":
             if args.mpi <= 0:
-                parser.error("--mpi must be positive")
+                raise ValueError("--mpi must be positive")
             return _command_run(args)
         if args.command == "mpi-run":
             if args.ranks <= 0:
-                parser.error("--ranks must be positive")
+                raise ValueError("--ranks must be positive")
             return _command_mpi_run(args)
         if args.command == "inspect":
             return _command_inspect(args)
@@ -1248,7 +1279,7 @@ def _dispatch(argv: list[str] | None = None) -> int:
             return _command_compare(args)
         if args.command == "runs":
             if args.limit <= 0:
-                parser.error("--limit must be positive")
+                raise ValueError("--limit must be positive")
             return _command_runs(args)
         if args.command == "inspect-abaqus":
             return _command_inspect_abaqus(args)
@@ -1357,7 +1388,20 @@ def main(argv: list[str] | None = None) -> int:
     from . import feedback as reliability
 
     selected_argv = list(sys.argv[1:] if argv is None else argv)
-    parsed = build_parser().parse_args(selected_argv)
+    # Case arguments after -- belong to the user's program, not this shell.
+    shell_arguments = selected_argv[:selected_argv.index("--")] if "--" in selected_argv else selected_argv
+    try:
+        parsed = build_parser(structured_errors="--json" in shell_arguments).parse_args(selected_argv)
+    except _CLIArgumentError as exc:
+        # Argument diagnostics must work before any MPI/runtime initialization.
+        print(_json({
+            "schema": "agentfem.cli-error",
+            "schema_version": "0.1.0",
+            "status": "failed",
+            "stage": "argument_parsing",
+            "error": {"type": "ArgumentError", "code": "AFM-CLI-ARGUMENT", "message": str(exc)},
+        }), flush=True)
+        return 2
     as_json = bool(getattr(parsed, "json", False))
     if parsed.command not in {
         "telemetry",
@@ -1368,7 +1412,7 @@ def main(argv: list[str] | None = None) -> int:
     }:
         reliability.show_notice_once(as_json=as_json)
     started = time.monotonic()
-    exit_code = _dispatch(selected_argv)
+    exit_code = _dispatch(parsed=parsed)
     # ``agentfem run --mpi N`` is a launcher. The rank-zero child records the
     # actual solve, preventing one user action from producing two events.
     launcher_only = (

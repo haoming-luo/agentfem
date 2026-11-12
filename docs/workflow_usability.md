@@ -20,10 +20,46 @@ agentfem show latest --files
 particular mesh, material, boundary condition or solver combination is supported;
 the model's own preflight remains authoritative.
 
+With `--json`, invalid CLI arguments return an `agentfem.cli-error` record and
+exit code 2 before runtime initialization. The stage is `argument_parsing` and
+the code is `AFM-CLI-ARGUMENT`. Arguments after `--` remain the case's arguments;
+a case-level `--json` does not change AgentFEM's output mode.
+JSON output rejects nonfinite numbers rather than emitting nonstandard
+`NaN`/`Infinity` tokens or silently replacing scientific values with null.
+
 `show --files` lists recorded artifacts and reports missing files with exit code
 2. Keep an XDMF file together with its referenced HDF5 files. This command checks
 recorded paths, not the internal contents of visualization files. Normal `show`
 keeps the file list short; JSON and `--files` retain the complete list.
+
+## Repair Step option errors
+
+The selected provider checks `model.step` keywords against the same
+`StepOptionContract` exposed by capability inspection. In Python, catch
+`agentfem.step_providers.StepOptionError` (also a `TypeError`) and call
+`error.details()` for provider, issue codes, option names, suggestions and
+accepted option names. Details do not contain supplied values or material state.
+
+During `agentfem run`, the same record is retained in `execution.json` under
+`error.details`, with stage `step_options`. The command still exits nonzero;
+no automatic correction or rerun is performed. An agent can propose a precise
+change without parsing the traceback. Ordinary tracebacks remain diagnostic
+artifacts and are not a privacy-filtered export.
+
+Suggestions are possible spelling repairs, not approval of physical meaning.
+For example, two mutually exclusive frequency inputs require a modeling choice,
+not blindly deleting one. This contract checks provider options, not all units,
+mesh/material combinations or scientific validity.
+
+For an unsupported analysis combination, `StepCapabilityError` remains a
+`NotImplementedError` and exposes `details()` with the analysis, candidate
+providers and their rejection reasons. `agentfem run` retains these under stage
+`step_capability`. No alternate physics or numerical route is selected as a
+repair. Missing explanations remain empty rather than invented.
+
+Capability inspection prefers the same fully satisfied provider as execution.
+If only a partial contract matches, `supported` may be true while `ready` is
+false; inspect `readiness_issues` to identify missing inputs.
 
 ## Compare selected results
 

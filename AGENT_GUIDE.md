@@ -141,6 +141,10 @@ interpolating unsaved damage states.
   `model.step(...)`, including target-field shape and the material protocol
   needed by the default lowering; never work around `AFM-STUDY-002` by
   silently changing the Study.
+- Step failures: read `error.details` in the local execution record for
+  `step_options` or `step_capability` failures. Use the recorded suggestions or
+  rejection reasons to propose a targeted correction; syntax-only `check` does
+  not validate these physical inputs. Do not automatically rerun or change physics.
 - API discovery: begin with `agentfem.public_api("core")` or the
   `public_api.core` section of `agentfem capabilities --json`. Escalate to the
   advanced or expert layer only when the task requires it; the flat

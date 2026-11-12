@@ -92,7 +92,9 @@ def write_document(
             ensure_ascii=False,
             allow_nan=False,
         )
-    output.write_text(text + "\n", encoding="utf-8")
+    from .._atomic_text import atomic_write_text
+
+    atomic_write_text(output, text + "\n")
     return output
 
 
@@ -122,9 +124,17 @@ def to_json_safe(value, *, path: str = "$"):
                 raise IRSerializationError(
                     f"{path} has unsupported mapping key type {type(key).__name__}."
                 )
+            if str(key) in result:
+                raise IRSerializationError(
+                    f"{path} has distinct mapping keys that serialize as {str(key)!r}."
+                )
             result[str(key)] = to_json_safe(value[key], path=f"{path}.{key}")
         return result
-    if isinstance(value, (tuple, list, set, frozenset)):
+    if isinstance(value, (set, frozenset)):
+        converted = [to_json_safe(item, path=f"{path}{{item}}") for item in value]
+        return sorted(converted, key=lambda item: json.dumps(
+            item, sort_keys=True, ensure_ascii=False, allow_nan=False))
+    if isinstance(value, (tuple, list)):
         return [
             to_json_safe(item, path=f"{path}[{index}]")
             for index, item in enumerate(value)
@@ -133,15 +143,21 @@ def to_json_safe(value, *, path: str = "$"):
     item_method = getattr(value, "item", None)
     if callable(item_method):
         try:
-            return to_json_safe(item_method(), path=path)
+            converted = item_method()
         except (TypeError, ValueError):
             pass
+        else:
+            if converted is not value:
+                return to_json_safe(converted, path=path)
     list_method = getattr(value, "tolist", None)
     if callable(list_method):
         try:
-            return to_json_safe(list_method(), path=path)
+            converted = list_method()
         except (TypeError, ValueError):
             pass
+        else:
+            if converted is not value:
+                return to_json_safe(converted, path=path)
 
     for method_name in ("to_ir", "as_dict", "summary"):
         method = getattr(value, method_name, None)

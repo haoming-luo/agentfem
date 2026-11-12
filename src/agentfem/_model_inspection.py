@@ -43,9 +43,11 @@ def model_manifest(model) -> dict[str, object]:
         "model": model_summary(model),
         "workflow_order": (
             "study",
+            "unit_system",
             "mesh",
             "regions",
             "fields",
+            "amplitudes",
             "materials",
             "eigenstrains",
             "constraints",
@@ -105,10 +107,20 @@ def write_model_ir(
         include_validation=include_validation,
         metadata=metadata,
     )
-    if rank == 0:
+    if comm is None:
         write_document(document, output)
-    if comm is not None and hasattr(comm, "barrier"):
-        comm.barrier()
+        return output
+    write_error = None
+    if rank == 0:
+        try:
+            write_document(document, output)
+        except Exception as exc:
+            write_error = f"{type(exc).__name__}: {exc}"
+    # Every rank must leave the write phase together even when rank zero
+    # cannot publish the file. A barrier alone strands peers on I/O failure.
+    write_error = comm.bcast(write_error, root=0)
+    if write_error is not None:
+        raise RuntimeError(f"AFM-IR-WRITE: Could not write {output}: {write_error}")
     return output
 
 
@@ -117,14 +129,17 @@ def model_tree(model) -> str:
 
     sections = [
         ("study", (model.study,)),
+        ("unit_system", (model.unit_system,) if model.unit_system is not None else ()),
         ("mesh", (model.mesh,) if model.mesh is not None else ()),
         ("regions", model.regions),
         ("fields", model.fields),
+        ("amplitudes", model.amplitudes),
         ("materials", model.materials),
         ("eigenstrains", model.eigenstrains),
         ("constraints", model.constraints),
         ("loads", model.loads),
         ("boundary_models", model.boundary_models),
+        ("engineering_steps", model.engineering_steps),
         ("steps", model.steps),
     ]
     lines = [f"Model: {model.name}"]
