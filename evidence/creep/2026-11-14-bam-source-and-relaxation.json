@@ -13,17 +13,17 @@
       "history_rows": 178211,
       "recorded_cycle_count": 376,
       "max_extrema_discrepancy_MPa_MPa_percent_percent_C_C": [
-        0.0,
-        0.0,
+        0,
+        0,
         2.7755575615628914e-17,
         2.7755575615628914e-17,
-        0.0,
-        0.0
+        0,
+        0
       ],
       "engineering_qualified": false,
       "life_observation": {
         "specimen_id": "BAM-7198219-8d",
-        "life": 2054.0,
+        "life": 2054,
         "status": "failure",
         "life_unit": "cycles",
         "population": "P92 virgin pipe parent metal",
@@ -54,17 +54,17 @@
       "history_rows": 255301,
       "recorded_cycle_count": 276,
       "max_extrema_discrepancy_MPa_MPa_percent_percent_C_C": [
-        0.0,
-        0.0,
+        0,
+        0,
         2.7755575615628914e-17,
-        0.0,
-        0.0,
-        0.0
+        0,
+        0,
+        0
       ],
       "engineering_qualified": false,
       "life_observation": {
         "specimen_id": "BAM-7198219-9d",
-        "life": 1484.0,
+        "life": 1484,
         "status": "failure",
         "life_unit": "cycles",
         "population": "P92 virgin pipe parent metal",
@@ -95,17 +95,17 @@
       "history_rows": 197070,
       "recorded_cycle_count": 216,
       "max_extrema_discrepancy_MPa_MPa_percent_percent_C_C": [
-        0.0,
-        0.0,
+        0,
+        0,
         2.7755575615628914e-17,
-        0.0,
-        0.0,
-        0.0
+        0,
+        0,
+        0
       ],
       "engineering_qualified": false,
       "life_observation": {
         "specimen_id": "BAM-7198219-11d",
-        "life": 1370.0,
+        "life": 1370,
         "status": "failure",
         "life_unit": "cycles",
         "population": "P92 virgin pipe parent metal",
@@ -146,6 +146,11 @@
         "end_s": 181.933
       }
     },
+    "first_hold_observed_control_ranges": {
+      "strain": 0.000059999999999999724,
+      "temperature_K": 0.39999999999997726
+    },
+    "control_assumption": "Nominal fixed strain and temperature; observed excursions are reported, not fitted away",
     "active_parameter_bounds": [
       0,
       0
@@ -159,6 +164,10 @@
         "cycle": 10,
         "available": true,
         "initial_stress_MPa": 228.94,
+        "observed_control_ranges": {
+          "strain": 0.000040000000000000105,
+          "temperature_K": 0.5
+        },
         "rmse_MPa": 1.2595847310973474,
         "max_abs_error_MPa": 2.525254147864757
       },
@@ -166,6 +175,10 @@
         "cycle": 100,
         "available": true,
         "initial_stress_MPa": 197.59,
+        "observed_control_ranges": {
+          "strain": 0.00005000000000000013,
+          "temperature_K": 0.6000000000000227
+        },
         "rmse_MPa": 11.690932376637088,
         "max_abs_error_MPa": 14.51548292364032
       },
@@ -173,6 +186,10 @@
         "cycle": 1000,
         "available": true,
         "initial_stress_MPa": 149.56,
+        "observed_control_ranges": {
+          "strain": 0.000040000000000000105,
+          "temperature_K": 0.7000000000000455
+        },
         "rmse_MPa": 31.697217146202586,
         "max_abs_error_MPa": 38.69654750680354
       }

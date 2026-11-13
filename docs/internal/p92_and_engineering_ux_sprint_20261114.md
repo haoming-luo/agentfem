@@ -140,6 +140,11 @@ provide independent replicate uncertainty.
 Repeated printed timestamps in later evaluation holds are retained, not
 averaged or interpreted as independent replicates; the calibration interval
 requires strictly increasing times for its quadrature weights.
+The actual strain ranges within these nominal holds are 4e-5 to 6e-5;
+temperature ranges are 0.4--0.7 K. Reports retain both. A constant-strain,
+constant-temperature effective model neglects those excursions; its mismatch
+cannot be assigned entirely to constitutive error without a controlled-input
+replay. This is another reason not to promote the first-hold fit.
 
 The original [service-like experiments paper](https://doi.org/10.1016/j.ijfatigue.2022.107381)
 also reports limited transfer between strain-controlled relaxation and
@@ -170,3 +175,7 @@ wheel was installed into an isolated target and imported from outside the
 checkout: public error comparison and censored survival both passed. This
 checks packaging of the new Python API, not native accelerators or a fresh
 operating-system installation. The existing environment was not replaced.
+An additional 128 structural, coupled creep/plasticity, rotating-reference and
+increment-precision regression tests passed in 100.57 s, including selected
+history and checkpoint restoration. These verify numerical composition, not
+experimental qualification at 620 C.

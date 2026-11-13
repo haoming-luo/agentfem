@@ -35,6 +35,21 @@ def screen(data):
             or np.any(cycles < 1) or np.any(cycles != np.floor(cycles))):
         raise ValueError("Require aligned finite histories, nondecreasing time and positive integer cycles")
     selected = (cycles == 1) & (t >= 5) & (t <= 182)
+
+    def control_ranges(mask):
+        # Experimental holds are nominal: keep actual control excursions.
+        ranges = {}
+        for name in ("strain", "temperature_K"):
+            if name not in data:
+                ranges[name] = None
+                continue
+            values = np.asarray(data[name], dtype=float)
+            if values.shape != cycles.shape or not np.isfinite(values).all():
+                raise ValueError("Control histories must be aligned and finite")
+            ranges[name] = float(np.ptp(values[mask]))
+        return ranges
+
+    first_control_ranges = control_ranges(selected)
     t, s = t[selected], s[selected]
     if len(t) < 10 or not np.isfinite(s).all() or np.any(s <= 0) or np.any(np.diff(t) <= 0):
         raise ValueError("Require a resolved, ordered positive tensile hold")
@@ -68,6 +83,7 @@ def screen(data):
         ct = ct-ct[0]
         cs = np.asarray(data["stress_Pa"])[mask]/1e6
         hold = (ct >= 5) & (ct <= 182)
+        original_indices = np.flatnonzero(mask)[hold]
         ct, cs = ct[hold], cs[hold]
         # Printed timestamps can repeat. These are evaluation samples, not
         # integration intervals or independent statistical observations.
@@ -78,11 +94,14 @@ def screen(data):
         prediction = relaxation(ct-ct[0], cs[0], rate, fit.x[1])
         later.append({"cycle": cycle, "available": True,
                       "initial_stress_MPa": float(cs[0]),
+                      "observed_control_ranges": control_ranges(original_indices),
                       "rmse_MPa": float(np.sqrt(np.mean((prediction-cs)**2))),
                       "max_abs_error_MPa": float(np.max(abs(prediction-cs)))})
     return {"schema": "agentfem.research.bam-rf-relaxation.v1", "source_sha256": data["sha256"],
             "initial_stress_MPa": float(ss[0]), "initial_rate_MPa_per_s": float(np.exp(fit.x[0])),
             "exponent": float(fit.x[1]), "reports": reports,
+            "first_hold_observed_control_ranges": first_control_ranges,
+            "control_assumption": "Nominal fixed strain and temperature; observed excursions are reported, not fitted away",
             "active_parameter_bounds": fit.active_mask.tolist(),
             "jacobian_singular_values": singular.tolist(),
             "later_conditional_holds": later,

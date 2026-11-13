@@ -16,7 +16,8 @@ def test_analytic_relaxation_against_independent_ode(exponent):
 def test_holdout_cannot_change_fit():
     t = np.linspace(5, 182, 400)
     data = {"protocol": "RF", "time_s": t, "cycle": np.ones(len(t)),
-            "stress_Pa": relaxation(t-5, 200, 2, 5)*1e6, "sha256": "synthetic"}
+            "stress_Pa": relaxation(t-5, 200, 2, 5)*1e6, "sha256": "synthetic",
+            "strain": np.linspace(.002, .00201, len(t)), "temperature_K": np.full(len(t), 893.15)}
     original = screen(data)
     changed = dict(data, stress_Pa=data["stress_Pa"].copy())
     changed["stress_Pa"][t > 60] *= 1.5
@@ -25,6 +26,8 @@ def test_holdout_cannot_change_fit():
     assert original["initial_rate_MPa_per_s"] == altered["initial_rate_MPa_per_s"]
     assert original["exponent"] == pytest.approx(5, rel=1e-6)
     assert altered["reports"]["within_path_holdout"]["rmse_MPa"] > 1
+    assert original["first_hold_observed_control_ranges"]["strain"] == pytest.approx(.00001)
+    assert original["first_hold_observed_control_ranges"]["temperature_K"] == 0
 
 
 def test_later_hold_is_prediction_not_refit():
