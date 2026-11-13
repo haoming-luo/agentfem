@@ -409,21 +409,9 @@ def simulia_316_shouldered_ratcheting_benchmark(
     # Select the same 3 mm center band by cell centroid. ``locate_entities``
     # requires every vertex of a cell to satisfy a predicate and therefore
     # makes a physical averaging window disappear on a coarse mesh.
-    from dolfinx import mesh as dolfinx_mesh
-
-    topological_dimension = domain.topology.dim
-    local_cells = np.arange(
-        domain.topology.index_map(topological_dimension).size_local,
-        dtype=np.int32,
+    center_cells = mesh.locate_cells(
+        domain, lambda x: (x[1] >= 35.9) & (x[1] <= 38.9), by="centroid",
     )
-    cell_midpoints = dolfinx_mesh.compute_midpoints(
-        domain,
-        topological_dimension,
-        local_cells,
-    )
-    center_cells = local_cells[
-        (cell_midpoints[:, 1] >= 35.9) & (cell_midpoints[:, 1] <= 38.9)
-    ]
     global_center_cell_count = domain.comm.allreduce(
         int(center_cells.size),
         op=MPI.SUM,

@@ -9,9 +9,7 @@ from dataclasses import dataclass
 from math import ceil, isfinite
 
 import numpy as np
-from dolfinx import fem
 from mpi4py import MPI
-import ufl
 
 from .. import amplitudes
 from .. import constitutive
@@ -401,18 +399,9 @@ def plane_stress_thin_3d_crosscheck(
         displacement.value,
         bulk,
     )
-    volume = float(fem.assemble_scalar(fem.form(1.0 * ufl.dx(domain=domain))))
-    average = np.asarray(
-        [
-            fem.assemble_scalar(fem.form(P[i, j] * ufl.dx(domain=domain))) / volume
-            for i in range(3)
-            for j in range(3)
-        ],
-        dtype=float,
-    ).reshape((3, 3))
-    average_energy = float(
-        fem.assemble_scalar(fem.form(energy * ufl.dx(domain=domain))) / volume
-    )
+    measure = mesh.cell_measure(domain)
+    average = np.asarray(results.average(P, measure=measure), dtype=float)
+    average_energy = float(results.average(energy, measure=measure))
     condensed = constitutive.plane_stress_first_piola_value(F2, membrane)
     condensed_energy = constitutive.hyperelasticity.principal_energy_density(
         np.diag(F3),
@@ -560,7 +549,7 @@ def finite_strain_wave_arrival(
             )
         )
     )
-    step = model.finite_strain_explicit_dynamics_step(
+    step = model.step(
         target=displacement,
         material=material,
         state=state,
@@ -701,7 +690,7 @@ def cohesive_energy_balance(
     )
     increments = int(ceil(selected_loading_time / selected_dt))
     actual_dt = selected_loading_time / increments
-    step = model.finite_strain_explicit_dynamics_step(
+    step = model.step(
         target=displacement,
         material=material,
         cohesive_force=cohesive,
@@ -856,7 +845,7 @@ def classical_cohesive_crack(
     facet_centers = np.mean(split.coordinates[split.negative_facets, 0], axis=1)
     precracked = np.flatnonzero(facet_centers <= float(precrack_length))
     cohesive.assembler.initialize_precrack(precracked)
-    provisional = model.finite_strain_explicit_dynamics_step(
+    provisional = model.step(
         target=displacement,
         material=material,
         cohesive_force=cohesive,
@@ -870,7 +859,7 @@ def classical_cohesive_crack(
     total_time = float(loading_time) + float(hold_time)
     increments = int(ceil(total_time / dt))
     dt = total_time / increments
-    step = model.finite_strain_explicit_dynamics_step(
+    step = model.step(
         target=displacement,
         material=material,
         cohesive_force=cohesive,
@@ -1192,7 +1181,7 @@ def prestressed_weak_interface_separation(
     facet_centers = np.mean(split.coordinates[split.negative_facets, 0], axis=1)
     precracked = facet_centers <= selected_precrack
     cohesive.assembler.initialize_precrack(np.flatnonzero(precracked))
-    provisional = model.finite_strain_explicit_dynamics_step(
+    provisional = model.step(
         target=displacement,
         material=material,
         cohesive_force=cohesive,
@@ -1205,7 +1194,7 @@ def prestressed_weak_interface_separation(
     dt = float(time_step_scale) * provisional.dt
     increments = int(ceil(selected_time / dt))
     dt = selected_time / increments
-    step = model.finite_strain_explicit_dynamics_step(
+    step = model.step(
         target=displacement,
         material=material,
         cohesive_force=cohesive,

@@ -689,7 +689,6 @@ def enf_cohesive_propagation_curve(
     convergence; failed increments are transactionally bisected.
     """
 
-    import ufl
     from mpi4py import MPI
 
     from agentfem import (
@@ -746,27 +745,9 @@ def enf_cohesive_propagation_curve(
         raise ValueError("ENF assumption must be plane_stress or plane_strain.")
 
     h = float(spec.arm_thickness)
-    x_values = np.linspace(0.0, length, nx + 1)
-    y_values = np.linspace(-h, h, 2 * ny + 1)
-    coordinates = np.asarray([(x, y) for y in y_values for x in x_values])
-
-    def node(i, j):
-        return j * (nx + 1) + i
-
-    cells = np.asarray(
-        [
-            [node(i, j), node(i + 1, j), node(i + 1, j + 1), node(i, j + 1)]
-            for j in range(2 * ny)
-            for i in range(nx)
-        ],
-        dtype=np.int64,
-    )
-    interface_facets = np.asarray(
-        [[node(i, ny), node(i + 1, ny)] for i in range(nx)], dtype=np.int64
-    )
-    upper_cells = np.arange(ny * nx, 2 * ny * nx, dtype=np.int64)
-    split = interfaces.split_conforming_line_interface(
-        coordinates, cells, interface_facets, positive_cells=upper_cells
+    split = interfaces.split_rectangle(
+        length=length, lower_height=h, upper_height=h,
+        cells_along=nx, cells_below=ny, cells_above=ny,
     )
     domain = interfaces.create_dolfinx_split_mesh(
         split, comm=MPI.COMM_SELF, cell_type="quadrilateral"
@@ -784,7 +765,6 @@ def enf_cohesive_propagation_curve(
         displacement_field.test,
         material,
         study=study,
-        measure=ufl.Measure("dx", domain=domain),
     )
     bulk = operators.residual_operator(
         internal.expression,
@@ -867,37 +847,9 @@ def enf_cohesive_propagation_curve(
         * operators.dual_product(internal, function),
     )
     records = []
-    previous_displacement = 0.0
-    previous_reaction = 0.0
-    external_work = 0.0
     initial_failed_length = represented_crack
-    initial_cohesive_dissipation = None
 
-    def accept_trial(imposed):
-        nonlocal previous_displacement
-        nonlocal previous_reaction
-        nonlocal external_work
-        nonlocal initial_cohesive_dissipation
-
-        try:
-            solved = equilibrium(load=float(imposed), branch="monotonic", cycle=0)
-        except RuntimeError:
-            if equilibrium.last_info is None or equilibrium.last_info.converged:
-                raise
-            return None
-        if not solved["converged"]:
-            return None
-        response = cohesive.begin()
-        reaction = abs(float(solved["reaction"]))
-        external_work += 0.5 * (previous_reaction + reaction) * (
-            float(imposed) - previous_displacement
-        )
-        bulk_energy = float(solved["bulk_strain_energy"])
-        stored = float(response.stored_energy)
-        raw_dissipation = float(response.dissipated_energy)
-        if initial_cohesive_dissipation is None:
-            initial_cohesive_dissipation = raw_dissipation
-        dissipated = raw_dissipation - initial_cohesive_dissipation
+    def observe_damage(response):
         damage_at_points = np.asarray(response.damage, dtype=float)
         damage = np.max(damage_at_points, axis=1)
         damaged_mask = damage > 1.0e-10
@@ -911,15 +863,7 @@ def enf_cohesive_propagation_curve(
             if weight_sum > np.finfo(float).eps
             else 0.0
         )
-        residual.commit()
-        previous_displacement = float(imposed)
-        previous_reaction = reaction
         return {
-            "solved": solved,
-            "reaction": reaction,
-            "bulk_energy": bulk_energy,
-            "stored": stored,
-            "dissipated": dissipated,
             "damage": damage,
             "damaged_length": float(np.count_nonzero(damaged_mask) * dx),
             "failed_length": float(np.count_nonzero(failed_mask) * dx),
@@ -927,11 +871,15 @@ def enf_cohesive_propagation_curve(
             "mode_ii_fraction": mode_ii_fraction,
         }
 
+    path = fracture.MonotonicCohesivePath(
+        equilibrium, residual, cohesive, observe=observe_damage,
+    )
+
     for increment, imposed in enumerate(displacements):
         advance = steps.advance_monotonic_targets(
             (float(imposed),),
-            try_accept=accept_trial,
-            initial_coordinate=previous_displacement,
+            try_accept=path.try_accept,
+            initial_coordinate=path.coordinate,
             minimum_increment=minimum_increment,
             maximum_cutbacks=cutback_limit,
             coordinate_name="ENF mid-span displacement",
@@ -948,8 +896,8 @@ def enf_cohesive_propagation_curve(
             + accepted["stored"]
             + accepted["dissipated"]
         )
-        balance = external_work - accounted
-        scale = max(abs(external_work), abs(accounted), np.finfo(float).eps)
+        balance = path.external_work - accounted
+        scale = max(abs(path.external_work), abs(accounted), np.finfo(float).eps)
         records.append(
             ENFCohesivePropagationPoint(
                 increment=increment,
@@ -958,7 +906,7 @@ def enf_cohesive_propagation_curve(
                 bulk_strain_energy=accepted["bulk_energy"],
                 cohesive_stored_energy=accepted["stored"],
                 cohesive_dissipation=accepted["dissipated"],
-                external_work=external_work,
+                external_work=path.external_work,
                 energy_balance_error=balance,
                 relative_energy_balance_error=float(abs(balance) / scale),
                 maximum_damage=float(
@@ -1010,7 +958,6 @@ def _enf_point(
     interface_stiffness,
     solver_options,
 ) -> ENFFiniteElementPoint:
-    import ufl
     from mpi4py import MPI
 
     from agentfem import (
@@ -1031,27 +978,9 @@ def _enf_point(
     h = float(spec.arm_thickness)
     nx = int(elements_along)
     ny = int(elements_per_arm)
-    x_values = np.linspace(0.0, length, nx + 1)
-    y_values = np.linspace(-h, h, 2 * ny + 1)
-    coordinates = np.asarray([(x, y) for y in y_values for x in x_values])
-
-    def node(i, j):
-        return j * (nx + 1) + i
-
-    cells = np.asarray(
-        [
-            [node(i, j), node(i + 1, j), node(i + 1, j + 1), node(i, j + 1)]
-            for j in range(2 * ny)
-            for i in range(nx)
-        ],
-        dtype=np.int64,
-    )
-    interface = np.asarray(
-        [[node(i, ny), node(i + 1, ny)] for i in range(nx)], dtype=np.int64
-    )
-    upper_cells = np.arange(ny * nx, 2 * ny * nx, dtype=np.int64)
-    split = interfaces.split_conforming_line_interface(
-        coordinates, cells, interface, positive_cells=upper_cells
+    split = interfaces.split_rectangle(
+        length=length, lower_height=h, upper_height=h,
+        cells_along=nx, cells_below=ny, cells_above=ny,
     )
     domain = interfaces.create_dolfinx_split_mesh(
         split, comm=MPI.COMM_SELF, cell_type="quadrilateral"
@@ -1069,7 +998,6 @@ def _enf_point(
         displacement.test,
         material,
         study=study,
-        measure=ufl.Measure("dx", domain=domain),
     )
     bulk = operators.residual_operator(
         internal.expression,

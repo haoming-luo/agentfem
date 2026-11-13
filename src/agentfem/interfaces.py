@@ -2546,6 +2546,41 @@ def pair_coincident_line_facets(
     )
 
 
+def split_rectangle(*, length, lower_height, upper_height, cells_along,
+                    cells_below, cells_above):
+    """Build a Q1 rectangle with a split horizontal interface at y=0.
+
+    Returns array-level topology, independent of any solver or specimen.
+    The upper layer owns duplicated interface nodes. Dimensions must be
+    positive; counts must be positive integers. No crack or material is set.
+    """
+    dimensions = (length, lower_height, upper_height)
+    if any(not np.isfinite(v) or v <= 0 for v in dimensions):
+        raise ValueError("Rectangle dimensions must be finite and positive.")
+    counts = (cells_along, cells_below, cells_above)
+    if any(isinstance(v, (bool, np.bool_)) or int(v) != v or v < 1 for v in counts):
+        raise ValueError("Rectangle cell counts must be positive integers.")
+    nx, nb, na = map(int, counts)
+    x = np.linspace(0.0, float(length), nx + 1)
+    # Preserve the symmetric-grid coordinates used by existing benchmarks.
+    if lower_height == upper_height and nb == na:
+        y = np.linspace(-float(lower_height), float(upper_height), nb + na + 1)
+    else:
+        y = np.concatenate((np.linspace(-float(lower_height), 0.0, nb + 1),
+                            np.linspace(0.0, float(upper_height), na + 1)[1:]))
+    coordinates = np.asarray([(xi, yi) for yi in y for xi in x])
+    def node(i, j):
+        return j * (nx + 1) + i
+    cells = np.asarray([[node(i, j), node(i + 1, j),
+                         node(i + 1, j + 1), node(i, j + 1)]
+                        for j in range(nb + na) for i in range(nx)], dtype=np.int64)
+    interface = np.asarray([[node(i, nb), node(i + 1, nb)]
+                            for i in range(nx)], dtype=np.int64)
+    return split_conforming_line_interface(
+        coordinates, cells, interface,
+        positive_cells=np.arange(nb * nx, (nb + na) * nx, dtype=np.int64))
+
+
 def split_conforming_line_interface(
     coordinates,
     cells,
@@ -3221,6 +3256,7 @@ __all__ = [
     "pair_coincident_line_facets",
     "pair_coincident_surface_facets",
     "save_portable_cohesive_state",
+    "split_rectangle",
     "split_conforming_line_interface",
     "split_conforming_named_interfaces",
     "split_conforming_surface_interface",

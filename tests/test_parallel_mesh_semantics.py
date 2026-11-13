@@ -26,6 +26,40 @@ from agentfem import (
 )
 
 
+@pytest.mark.parametrize("dimension,degree", [(2, 1), (2, 2), (3, 1), (3, 2)])
+def test_mapped_grid_root_input_preserves_measure_and_owned_selection(dimension, degree):
+    comm = MPI.COMM_WORLD
+    if comm.size < 2:
+        pytest.skip("root-owned mapped geometry requires two ranks")
+    axis = np.linspace(0.0, 1.0, 2 * degree + 1)
+    scale = np.arange(2, 2 + dimension)
+    domain = mesh.mapped_grid(
+        axes=(axis,) * dimension if comm.rank == 0 else None,
+        mapping=(lambda x: scale[:, None] * x) if comm.rank == 0 else None,
+        cell_type="quadrilateral" if dimension == 2 else "hexahedron",
+        geometry_degree=degree, comm=comm,
+    )
+    assert results.integral(1.0, measure=mesh.cell_measure(domain)) == pytest.approx(
+        float(np.prod(scale))
+    )
+    selected = mesh.locate_cells(domain, lambda x: x[0] >= 0.0, by="centroid")
+    owned = domain.topology.index_map(dimension).size_local
+    assert np.all((selected >= 0) & (selected < owned))
+    assert comm.allreduce(selected.size, op=MPI.SUM) == 2 ** dimension
+    right = mesh.partition_boundaries(
+        domain, right=lambda x: np.isclose(x[0], scale[0])
+    )["right"]
+    assert results.integral(1.0, measure=right.measure) == pytest.approx(
+        float(np.prod(scale[1:]))
+    )
+    # A root-side input error must reach every rank before backend collectives.
+    with pytest.raises(ValueError, match="strictly monotone"):
+        mesh.mapped_grid(
+            axes=([0.0, 0.0, 1.0],) * 2 if comm.rank == 0 else None,
+            cell_type="quadrilateral", comm=comm,
+        )
+
+
 def test_distributed_additive_tangent_uses_local_preconditioner():
     comm = MPI.COMM_WORLD
     if comm.size < 2:

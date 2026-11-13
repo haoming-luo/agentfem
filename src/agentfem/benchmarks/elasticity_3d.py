@@ -16,12 +16,8 @@ from __future__ import annotations
 from dataclasses import dataclass
 from math import pi
 
-import basix
-import basix.ufl
-from dolfinx import mesh as dolfinx_mesh
 from mpi4py import MPI
 import numpy as np
-import ufl
 
 from .. import fields, mesh, models, results, studies
 from ..constitutive import elasticity
@@ -91,67 +87,17 @@ def nafems_le10_mesh(
     if geometry_order not in {1, 2}:
         raise ValueError("geometry_degree must be 1 or 2.")
 
-    if comm.rank == 0:
-        radial = np.linspace(0.0, 1.0, geometry_order * nr + 1)
-        angles = np.linspace(0.5 * pi, 0.0, geometry_order * nt + 1)
-        elevations = np.linspace(0.0, 0.6, geometry_order * nz + 1)
-        coordinates = np.asarray(
-            [
-                (
-                    (2.0 + 1.25 * s) * np.cos(theta),
-                    (1.0 + 1.75 * s) * np.sin(theta),
-                    z,
-                )
-                for z in elevations
-                for theta in angles
-                for s in radial
-            ],
-            dtype=float,
-        )
+    def elliptical_plate(parameters):
+        radial, angle, elevation = parameters
+        return np.asarray(((2.0 + 1.25 * radial) * np.cos(angle),
+                           (1.0 + 1.75 * radial) * np.sin(angle), elevation))
 
-        radial_nodes = geometry_order * nr + 1
-        angular_nodes = geometry_order * nt + 1
-
-        def node(i: int, j: int, k: int) -> int:
-            return k * angular_nodes * radial_nodes + j * radial_nodes + i
-
-        coordinate_basis = basix.create_element(
-            basix.ElementFamily.P,
-            basix.CellType.hexahedron,
-            geometry_order,
-            basix.LagrangeVariant.equispaced,
-        )
-        local_offsets = np.rint(
-            geometry_order * np.asarray(coordinate_basis.points)
-        ).astype(np.int64)
-
-        cells = []
-        for k in range(nz):
-            for j in range(nt):
-                for i in range(nr):
-                    base = geometry_order * np.asarray((i, j, k), dtype=np.int64)
-                    cells.append(
-                        tuple(
-                            node(*(base + offset))
-                            for offset in local_offsets
-                        )
-                    )
-        topology = np.asarray(cells, dtype=np.int64)
-    else:
-        coordinates = np.empty((0, 3), dtype=float)
-        topology = np.empty((0, (geometry_order + 1) ** 3), dtype=np.int64)
-
-    coordinate_element = ufl.Mesh(
-        basix.ufl.element(
-            "Lagrange",
-            "hexahedron",
-            geometry_order,
-            shape=(3,),
-            lagrange_variant=basix.LagrangeVariant.equispaced,
-        )
-    )
-    return dolfinx_mesh.create_mesh(
-        comm, topology, coordinate_element, coordinates
+    return mesh.mapped_grid(
+        axes=(np.linspace(0.0, 1.0, geometry_order * nr + 1),
+              np.linspace(0.5 * pi, 0.0, geometry_order * nt + 1),
+              np.linspace(0.0, 0.6, geometry_order * nz + 1)),
+        mapping=elliptical_plate, cell_type="hexahedron",
+        geometry_degree=geometry_order, comm=comm,
     )
 
 
