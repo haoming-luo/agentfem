@@ -131,6 +131,24 @@ No run-outs or replicate measurements are fabricated. Numerical censoring and
 confidence-limit verification instead uses independently computed synthetic
 fixtures in `tests/test_life_observations.py`.
 
+## Comparing a frozen model with specimen observations
+
+`assessments.life_prediction_errors(records, predictions, life_unit="h",
+model_source="reviewed model identity")` compares a specimen-ID keyed mapping
+of positive point predictions with existing `LifeObservation` records. Units
+and failure definitions must agree. No fitting or automatic conversion occurs.
+It reports signed natural-log prediction errors on failures, their mean/RMS,
+and keeps every specimen's source and conditions. Positive log error means
+overprediction of the measured failure life. Calibration and validation records
+should be submitted separately; this function cannot establish independence.
+
+For run-outs, the exact error is unavailable. The report only notes whether a
+point prediction is below the observed censoring bound; this is not a failed
+statistical prediction or an error to include in the failure-only mean.
+Failure-only statistics are conditional on observed failures and can be biased
+for censored samples. They are not a censor-aware model score, uncertainty
+interval or engineering allowable. No universal acceptable factor is imposed.
+
 ## References
 
 - [SciPy ECDF and Kaplan–Meier implementation](https://docs.scipy.org/doc/scipy/reference/generated/scipy.stats.ecdf.html)

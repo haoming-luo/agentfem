@@ -1,0 +1,186 @@
+{
+  "source_audits": [
+    {
+      "schema": "agentfem.research.bam-source-audit.v1",
+      "source": "https://doi.org/10.5281/zenodo.7198219",
+      "protocol": "RF",
+      "sha256": "128e6de1854f4633e26eced6c4ea221687cde2f232db275487ef0d1201767e0a",
+      "metadata": {
+        "specimen_id": "8d",
+        "failure_cycles": "2054",
+        "total_test_cycles": "2547"
+      },
+      "history_rows": 178211,
+      "recorded_cycle_count": 376,
+      "max_extrema_discrepancy_MPa_MPa_percent_percent_C_C": [
+        0.0,
+        0.0,
+        2.7755575615628914e-17,
+        2.7755575615628914e-17,
+        0.0,
+        0.0
+      ],
+      "engineering_qualified": false,
+      "life_observation": {
+        "specimen_id": "BAM-7198219-8d",
+        "life": 2054.0,
+        "status": "failure",
+        "life_unit": "cycles",
+        "population": "P92 virgin pipe parent metal",
+        "batch_id": "BAM-7198219 source pipe cohort; heat number not supplied",
+        "failure_definition": "10% maximum peak load drop relative to stabilized cyclic deformation trend",
+        "conditions": {
+          "control": "strain-controlled symmetric 180 s peak holds",
+          "environment": "air",
+          "mechanical_strain_amplitude": 0.002,
+          "protocol": "RF",
+          "temperature_K": 893.15
+        },
+        "source": "https://doi.org/10.5281/zenodo.7198219; RF; sha256:128e6de1854f4633e26eced6c4ea221687cde2f232db275487ef0d1201767e0a"
+      },
+      "scope": "Source consistency and sampled nominal axial path work; no material prediction",
+      "work_scope": "No endpoint closure, omitted-cycle integration or dissipation interpretation"
+    },
+    {
+      "schema": "agentfem.research.bam-source-audit.v1",
+      "source": "https://doi.org/10.5281/zenodo.7198219",
+      "protocol": "SLR",
+      "sha256": "34e26cae1816ec4b712a4cec5811e0a0c66bad34848c10d962528085171fcabb",
+      "metadata": {
+        "specimen_id": "9d",
+        "failure_cycles": "1484",
+        "total_test_cycles": "1754"
+      },
+      "history_rows": 255301,
+      "recorded_cycle_count": 276,
+      "max_extrema_discrepancy_MPa_MPa_percent_percent_C_C": [
+        0.0,
+        0.0,
+        2.7755575615628914e-17,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "engineering_qualified": false,
+      "life_observation": {
+        "specimen_id": "BAM-7198219-9d",
+        "life": 1484.0,
+        "status": "failure",
+        "life_unit": "cycles",
+        "population": "P92 virgin pipe parent metal",
+        "batch_id": "BAM-7198219 source pipe cohort; heat number not supplied",
+        "failure_definition": "10% maximum peak load drop relative to stabilized cyclic deformation trend",
+        "conditions": {
+          "control": "RF plus 1800 s zero-strain hold",
+          "environment": "air",
+          "mechanical_strain_amplitude": 0.002,
+          "protocol": "SLR",
+          "temperature_K": 893.15
+        },
+        "source": "https://doi.org/10.5281/zenodo.7198219; SLR; sha256:34e26cae1816ec4b712a4cec5811e0a0c66bad34848c10d962528085171fcabb"
+      },
+      "scope": "Source consistency and sampled nominal axial path work; no material prediction",
+      "work_scope": "No endpoint closure, omitted-cycle integration or dissipation interpretation"
+    },
+    {
+      "schema": "agentfem.research.bam-source-audit.v1",
+      "source": "https://doi.org/10.5281/zenodo.7198219",
+      "protocol": "SLC",
+      "sha256": "ab2953c0cfa6335619c8b699728aa73233f8d2209af39b709916ab3fd392683e",
+      "metadata": {
+        "specimen_id": "11d",
+        "failure_cycles": "1370",
+        "total_test_cycles": "1437"
+      },
+      "history_rows": 197070,
+      "recorded_cycle_count": 216,
+      "max_extrema_discrepancy_MPa_MPa_percent_percent_C_C": [
+        0.0,
+        0.0,
+        2.7755575615628914e-17,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "engineering_qualified": false,
+      "life_observation": {
+        "specimen_id": "BAM-7198219-11d",
+        "life": 1370.0,
+        "status": "failure",
+        "life_unit": "cycles",
+        "population": "P92 virgin pipe parent metal",
+        "batch_id": "BAM-7198219 source pipe cohort; heat number not supplied",
+        "failure_definition": "10% maximum peak load drop relative to stabilized cyclic deformation trend",
+        "conditions": {
+          "control": "RF plus 1800 s stress-controlled hold",
+          "environment": "air",
+          "mechanical_strain_amplitude": 0.002,
+          "protocol": "SLC",
+          "temperature_K": 893.15
+        },
+        "source": "https://doi.org/10.5281/zenodo.7198219; SLC; sha256:ab2953c0cfa6335619c8b699728aa73233f8d2209af39b709916ab3fd392683e"
+      },
+      "scope": "Source consistency and sampled nominal axial path work; no material prediction",
+      "work_scope": "No endpoint closure, omitted-cycle integration or dissipation interpretation"
+    }
+  ],
+  "rf_relaxation": {
+    "schema": "agentfem.research.bam-rf-relaxation.v1",
+    "source_sha256": "128e6de1854f4633e26eced6c4ea221687cde2f232db275487ef0d1201767e0a",
+    "initial_stress_MPa": 222.1,
+    "initial_rate_MPa_per_s": 4.54833678643001,
+    "exponent": 9.920744066366343,
+    "reports": {
+      "calibration": {
+        "samples": 45,
+        "max_abs_error_MPa": 1.644613319069407,
+        "rmse_MPa": 0.5795686074772665,
+        "start_s": 5.079,
+        "end_s": 59.648
+      },
+      "within_path_holdout": {
+        "samples": 88,
+        "max_abs_error_MPa": 1.5176759605554935,
+        "rmse_MPa": 0.6479430052532378,
+        "start_s": 61.448,
+        "end_s": 181.933
+      }
+    },
+    "active_parameter_bounds": [
+      0,
+      0
+    ],
+    "jacobian_singular_values": [
+      15.986595791355516,
+      0.6088647904617333
+    ],
+    "later_conditional_holds": [
+      {
+        "cycle": 10,
+        "available": true,
+        "initial_stress_MPa": 228.94,
+        "rmse_MPa": 1.2595847310973474,
+        "max_abs_error_MPa": 2.525254147864757
+      },
+      {
+        "cycle": 100,
+        "available": true,
+        "initial_stress_MPa": 197.59,
+        "rmse_MPa": 11.690932376637088,
+        "max_abs_error_MPa": 14.51548292364032
+      },
+      {
+        "cycle": 1000,
+        "available": true,
+        "initial_stress_MPa": 149.56,
+        "rmse_MPa": 31.697217146202586,
+        "max_abs_error_MPa": 38.69654750680354
+      }
+    ],
+    "later_hold_alignment": "5--182 s from first recorded sample in each selected cycle; measured initial stress, no refitting",
+    "engineering_qualified": false,
+    "scope": "First RF tensile hold only; no cyclic softening, multiaxial, temperature or life prediction",
+    "identifiability": "Effective stress-relaxation rate; E and creep coefficient are not separately inferred",
+    "uncertainty": "No probability interval inferred from correlated within-specimen samples"
+  }
+}

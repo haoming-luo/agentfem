@@ -96,7 +96,77 @@ timed out and was resumed; the checksum was verified only after completion.
 Pa/dimensionless/K. It retains only selected scientific header metadata, not
 operator names. Seven focused importer tests pass; the combined importer and
 existing survival/reliability suite passed 64 tests before the metadata addition,
-followed by seven focused passes. SLR/SLC full-file admission is still pending.
+followed by seven focused passes.
 
-No new runtime speedup, fitted model, interactive viewer or industrial
-qualification has been verified yet. Existing generated site files are preserved.
+SLC admission subsequently passed: SHA256
+`ab2953c0cfa6335619c8b699728aa73233f8d2209af39b709916ab3fd392683e`,
+197070 rows, 216 recorded cycles, specimen 11d, failure at 1370 cycles versus
+1437 total. Source extrema agree to printed precision. A truncated download
+was resumed before its checksum could be accepted. SLR also passed: SHA256
+`34e26cae1816ec4b712a4cec5811e0a0c66bad34848c10d962528085171fcabb`,
+255301 rows, 276 recorded cycles, specimen 9d, failure at 1484 versus 1754
+total cycles. All three audits are recorded in
+`evidence/creep/2026-11-14-bam-source-and-relaxation.json`, without personal
+header metadata. Their LifeObservation records use separate protocol cohorts;
+they must not be pooled as three identical-condition survival replicates.
+
+## Frozen first-hold response screen
+
+`tools/p92_bam_relaxation_screen.py` tests an effective positive axial law
+`ds/dt = -r0 (s/s0)^n`, not a general P92 constitutive model. The declared RF
+split is 5--60 s of the first tensile hold for calibration, 60--182 s for
+within-path holdout. Time-quadrature weights prevent densely sampled intervals
+from dominating the fit; they are not statistical inverse-variance weights.
+The fitted rate is 4.54833678643 MPa/s at s0 = 222.1 MPa, exponent 9.92074406637.
+Calibration RMSE is 0.579569 MPa; held-out RMSE is 0.647943 MPa (maximum error
+1.517676 MPa). These are sample-wise errors, not confidence bounds.
+
+With this same coefficient and exponent, later holds are predicted conditional
+on their measured initial stresses, without refitting:
+
+| RF cycle | Initial stress (MPa) | RMSE (MPa) | Maximum absolute error (MPa) |
+| --- | ---: | ---: | ---: |
+| 10 | 228.94 | 1.259585 | 2.525254 |
+| 100 | 197.59 | 11.690932 | 14.515483 |
+| 1000 | 149.56 | 31.697217 | 38.696548 |
+
+This is a negative transfer result: the simple first-hold fit is insufficient
+for later cyclic response. It does not predict cyclic peak stresses, failure
+life, or the other two protocols. The analytic solution is independently
+checked against DOP853; changing held-out observations cannot change its fitted
+parameters. E and a creep coefficient are not separately identifiable from
+this effective relaxation rate. Correlated samples within one specimen do not
+provide independent replicate uncertainty.
+Repeated printed timestamps in later evaluation holds are retained, not
+averaged or interpreted as independent replicates; the calibration interval
+requires strictly increasing times for its quadrature weights.
+
+The original [service-like experiments paper](https://doi.org/10.1016/j.ijfatigue.2022.107381)
+also reports limited transfer between strain-controlled relaxation and
+stress-controlled creep dwell protocols. Next model work therefore requires
+history-dependent cyclic response, explicit control modes and validation
+across the full path, not more first-hold curve fitting. Existing 600/650 C
+coefficients remain separate from this 620 C cohort.
+
+## Reusable software improvement
+
+`assessments.life_prediction_errors` compares frozen specimen predictions with
+observations, retaining identities, units and failure definitions. Run-outs
+give descriptive bounds, not invented exact errors. Failure-only log errors
+are explicitly conditional and must not be used as censor-aware reliability
+scores. The existing six-training/two-held-out P92 baseline now uses this
+public interface without changing its fit or predictions. API documentation,
+workflow guidance and generated knowledge were synchronized.
+
+No new runtime speedup, interactive viewer or industrial qualification has
+been verified. Existing generated site files are preserved.
+
+## Software acceptance checkpoint
+
+149 focused tests passed (life comparison, specimen survival/reliability,
+P92 source/response screens, assessments and documentation). Ruff, generated
+documentation and whitespace checks passed. A separately built pure-Python
+wheel was installed into an isolated target and imported from outside the
+checkout: public error comparison and censored survival both passed. This
+checks packaging of the new Python API, not native accelerators or a fresh
+operating-system installation. The existing environment was not replaced.

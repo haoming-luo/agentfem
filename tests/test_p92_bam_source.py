@@ -1,4 +1,5 @@
 import hashlib
+import json
 
 import numpy as np
 import pytest
@@ -60,3 +61,36 @@ def test_unexpected_units_are_not_guessed(tmp_path, monkeypatch):
                         units="s No Pa % °C")
     with pytest.raises(ValueError, match="units"):
         read_source(path, protocol="RF")
+
+
+def test_audit_integrates_only_recorded_path_without_closing_it(tmp_path, monkeypatch):
+    raw = ("Specimen Designation (Internal)\tfixture\nCycles to Failure, Nf\t2\n"
+           "Total No. of Cycles, N\t3\n"
+           "[MAX-MIN]\nCycle Stress-Max Stress-Min Strain-Max Strain-Min Temperature-Max Temperature-Min\n"
+           "No MPa MPa % % °C °C\n1 2 0 1 0 620 620\n3 2 0 1 0 620 620\n"
+           "[Data]\nTime Cycle Stress Strain Temperature\ns No MPa % °C\n"
+           "0 1 0 0 620\n1 1 2 1 620\n100 3 2 1 620\n101 3 0 0 620\n").encode("latin-1")
+    path = tmp_path / "fixture.lis"
+    path.write_bytes(raw)
+    monkeypatch.setitem(p92_bam_source.CHECKSUMS, "RF",
+                        hashlib.md5(raw, usedforsecurity=False).hexdigest())
+    report = p92_bam_source.audit_source(path, protocol="RF")
+    json.dumps(report, allow_nan=False)
+    assert [r["cycle"] for r in report["records"]] == [1, 3]
+    assert [r["sampled_path_work_J_per_m3"] for r in report["records"]] == [10000, -10000]
+    assert report["records"][0]["endpoint_strain_difference"] == .01
+    assert report["life_observation"]["life"] == 2
+
+
+def test_protocols_are_separate_life_cohorts_not_cycle_replicates():
+    from agentfem.assessments import life_survival
+
+    data = {"metadata": {"specimen_id": "fixture", "failure_cycles": "20",
+                          "total_test_cycles": "25"}, "sha256": "fixture"}
+    rf = p92_bam_source.life_observation(dict(data, protocol="RF"))
+    slr = p92_bam_source.life_observation(dict(data, protocol="SLR",
+        metadata=dict(data["metadata"], specimen_id="other")))
+    assert rf.life == 20
+    assert rf.cohort_key != slr.cohort_key
+    with pytest.raises(ValueError, match="Mixed population"):
+        life_survival([rf, slr], independent_specimens=True, noninformative_censoring=True)
