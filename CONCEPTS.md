@@ -244,6 +244,14 @@ equilibrium solution.
 
 ## Engineering Assessment
 
+Measured specimen lives are separate from simulated damage: `LifeObservation`
+and `life_survival` retain source, exact test conditions and right censoring.
+Pointwise survival confidence limits are not design-life allowables. See
+`docs/life_observations.md` for the bounded statistical contract.
+For a fixed test plan with known outcomes at a prespecified horizon,
+`fixed_horizon_reliability` also handles zero failures with exact two-sided
+binomial limits; early censoring is not silently discarded.
+
 An engineering assessment consumes simulation histories and reviewed project
 data without changing finite-element equilibrium or constitutive state. The
 first creep--fatigue contract keeps creep time fractions, stress-life fatigue

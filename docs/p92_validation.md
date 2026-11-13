@@ -12,6 +12,10 @@ the data are not an installed material card or a qualified coupled-life model.
 
 ## What can be reproduced now
 
+The [specimen life workflow](life_observations.md) admits the 18 DB source rows
+as 18 exact-condition groups. It retains failures and provenance without
+inventing run-outs, replicate scatter or P92 confidence-qualified design lives.
+
 These are repository research tools, not installed material cards. Run them
 from a source checkout with AgentFEM and its scientific dependencies installed.
 Each command emits JSON, keeps source identity and states its validation role.
@@ -82,6 +86,13 @@ the published P92 paper's peak-stress-drop criterion. This reference guides
 data selection; it is not a claim of compliance with the full standard.
 
 ## Smallest next engineering validation package
+
+Use the [engineering-life uncertainty guide](internal/engineering_life_uncertainty_20261107.md)
+to distinguish population scatter, parameter/model uncertainty, predictive
+intervals and design margins. The target is a decision with explicit uncertainty,
+not exact agreement with every specimen or a probability band around an
+unqualified model. The guide records reusable methods and proposed next steps;
+it does not add a statistical-life API.
 
 1. Choose the application and failure outcome: parent metal or weld, temperature
    range, loading rate, tensile/compressive holds, environment and whether the

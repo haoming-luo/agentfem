@@ -21,8 +21,17 @@ from .constitutive.fatigue import FatigueAssessment
 from .constitutive.strain_life import StrainLifeAssessment
 from ._creep_damage_history import CreepDamageHistoryAssessment, creep_damage_from_result
 from ._rupture_curve import TabulatedRuptureCurve
+from ._life_observations import (
+    LifeObservation, LifeSurvival, life_survival,
+    FixedHorizonReliability, fixed_horizon_reliability,
+)
 
 _DOCUMENTED_REEXPORTS = {
+    "FixedHorizonReliability": "_life_observations",
+    "fixed_horizon_reliability": "_life_observations",
+    "LifeObservation": "_life_observations",
+    "LifeSurvival": "_life_observations",
+    "life_survival": "_life_observations",
     "TabulatedRuptureCurve": "_rupture_curve",
     "CreepDamageHistoryAssessment": "_creep_damage_history",
     "creep_damage_from_result": "_creep_damage_history",
