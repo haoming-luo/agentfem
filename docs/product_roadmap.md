@@ -18,6 +18,27 @@ engineering slice; the sprint record retains both failures and acceptance eviden
 Next measure agent task success and repair cost. Do not claim autonomy or token
 savings merely because structured error tests pass.
 
+### Fixed-horizon uncertainty and data gate (2026-11-08)
+
+The bounded specimen workflow now handles fixed-plan zero-failure tests using
+exact two-sided binomial intervals. It shares record validation with survival
+analysis and rejects early censoring. Public P92 data search has not yet admitted
+a compatible replicate/run-out cohort; do not fit a scatter model just to fill
+that gap. See the [source and acceptance note](internal/life_reliability_20261108.md).
+
+### Specimen life evidence: bounded first slice (2026-11-07)
+
+`LifeObservation` and `life_survival` now separate experimental failures and
+right-censored run-outs from simulated damage. The first slice provides exact
+condition/batch grouping, Kaplan–Meier estimates and pointwise exponential
+Greenwood confidence limits; see [the workflow](life_observations.md).
+Independent analytic fixtures verify censoring and intervals. The P92 DB adapter
+retains 18 source records in 18 conditions, not fictitious replicates.
+
+Next: admit compatible replicate or censored experimental data, then evaluate
+one justified parametric/covariate model with held-out checks. Do not expand to
+general reliability software or claim calibrated P92 tail life from this slice.
+
 ### P92 source, precision and runtime checkpoint (2026-11-07)
 
 The original DB P92 source now supplies a coherent pipe cohort with rupture,

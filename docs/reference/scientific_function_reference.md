@@ -4132,10 +4132,15 @@ local = coordinates.cartesian(x=(0,1), y=(-1,0)); rp = coordinates.reference_poi
 **Status:** `supported`<br>
 **Source card:** `src/agentfem/knowledge/cards/creep_fatigue_assessment.json`
 
-Standard-neutral postprocessing of source-identified creep time fractions, resolved stress/temperature dwell histories, scalar stress- or strain-life fatigue, and explicit interaction diagrams; no constitutive damage or automatic design-code approval.
+Standard-neutral postprocessing of creep time fractions, resolved dwell histories, scalar fatigue and interaction diagrams. Experimental LifeObservation records separately support same-condition right-censored Kaplan-Meier estimates and pointwise confidence limits, not individual-life prediction or design allowables.
 
 ### Public API
 
+- `agentfem.assessments.FixedHorizonReliability`
+- `agentfem.assessments.fixed_horizon_reliability`
+- `agentfem.assessments.LifeObservation`
+- `agentfem.assessments.LifeSurvival`
+- `agentfem.assessments.life_survival`
 - `agentfem.assessments.TabulatedRuptureCurve`
 - `agentfem.assessments.CreepDamageBlock`
 - `agentfem.assessments.DwellInterval`
@@ -4200,6 +4205,9 @@ The allowable boundary is a declared piecewise-linear scientific input.
 
 #### Conventions
 
+- fixed_horizon_reliability uses exact two-sided binomial confidence limits only for declared fixed sample-size/horizon tests with all outcomes known at that horizon; it rejects early censoring instead of dropping specimens.
+- LifeObservation represents one measured specimen, not a simulation frame. life_survival requires explicitly declared independent specimens and non-informative right censoring within one exact condition/batch group.
+- Kaplan-Meier pointwise exponential Greenwood limits describe survival probability uncertainty, not prediction intervals, simultaneous bands or confidence-qualified design lives; undefined endpoint limits remain null.
 - A TabulatedRuptureCurve uses explicit isothermal log-log interpolation of a reviewed monotone curve, retains material condition and failure definition, and rejects extrapolation or mismatched assessment units/stress measure.
 - Creep damage is horizontal and allowable fatigue damage is vertical in an interaction diagram.
 - AgentFEM provides a transparent linear reference but no design-code or material-specific curve.
@@ -4229,6 +4237,9 @@ For existing result histories, declare DwellInterval records and call assessment
 
 **Tests**
 
+- `tests/test_fixed_horizon_reliability.py`
+- `tests/test_life_observations.py`
+- `tests/test_p92_life_observations.py`
 - `tests/test_tabulated_rupture_curve.py`
 - `tests/test_assessments.py`
 - `tests/test_creep_damage_history.py`
@@ -4251,6 +4262,7 @@ For existing result histories, declare DwellInterval records and call assessment
 
 ### References
 
+- SciPy Kaplan-Meier and exponential Greenwood survival intervals: `https://docs.scipy.org/doc/scipy/reference/generated/scipy.stats.ecdf.html`
 - ASTM E1049 cycle counting in fatigue analysis: `https://store.astm.org/standards/e1049`
 - ASME high-temperature structural design technology report: `https://www.asme.org/getmedia/4e4e3227-b157-4614-8172-572ade1c7e1d/20533.pdf`
 
