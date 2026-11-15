@@ -194,3 +194,28 @@ An additional 128 structural, coupled creep/plasticity, rotating-reference and
 increment-precision regression tests passed in 100.57 s, including selected
 history and checkpoint restoration. These verify numerical composition, not
 experimental qualification at 620 C.
+
+## Recorded-input replay admission
+
+The next bounded response problem is the first ten consecutive BAM RF cycles,
+not a synthetic reconstruction of all 2547 cycles. `replay_window` admits
+4739 observations over 0--3680.637 s, with maximum recorded interval
+1.800000000000182 s under an explicit 2 s admission limit. It returns existing
+HistoryResult objects for measured strain, stress and temperature. Missing
+cycles, repeated timestamps, unresolved intervals and SLC's mixed stress-control
+path are rejected rather than silently converted into prescribed strain.
+
+This gate does not establish the material initial state: the first observation
+is strain 4e-5 and stress -50000 Pa, not exactly virgin zero. The full RF record
+has 1623 equal adjacent printed timestamps, including 1256 with different strain
+values. These cannot directly define a unique physical strain rate. Early
+continuous-cycle response therefore has usable input evidence, while late
+history replay needs the original controller path or an explicitly assessed
+reconstruction assumption. No late-cycle state reset is permitted.
+
+The isolated installed-wheel check also passed for `history_errors`, imported
+outside the checkout: the linear-ramp weighted RMS equals 2/sqrt(3). This is
+Python API packaging evidence, not a native performance claim. The 48 focused
+source, replay, relaxation and history-comparison tests passed; an initial
+restricted-environment run terminated during runtime initialization and was
+rerun successfully with local communication permitted.

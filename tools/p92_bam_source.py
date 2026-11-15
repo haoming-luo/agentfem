@@ -3,6 +3,7 @@
 import hashlib
 import argparse
 import json
+from numbers import Real
 from pathlib import Path
 
 import numpy as np
@@ -14,6 +15,60 @@ CHECKSUMS = {
     "SLC": "e3b828fe33fcb68cb0c222842055d855",
     "SLR": "5214e2becfe6c797584e1f158c9a1f14",
 }
+
+
+def replay_window(data, *, first_cycle, last_cycle, max_interval_s):
+    """Admit measured strain control without inventing missing material history.
+
+    This is an input window, not an initial-state prescription. The caller must
+    supply and justify the material state at the first observation; neither
+    zero stress nor a virgin state follows from the recorded starting time.
+    Stress-controlled SLC requires a different loading driver.
+    """
+    from agentfem.results import HistoryResult
+
+    if data["protocol"] not in {"RF", "SLR"}:
+        raise ValueError("Strain replay requires RF or SLR; SLC includes stress control.")
+    if (any(isinstance(v, (bool, np.bool_)) or not isinstance(v, (int, np.integer))
+            for v in (first_cycle, last_cycle)) or first_cycle < 1 or last_cycle < first_cycle):
+        raise ValueError("Require an ordered positive integer cycle window.")
+    if (isinstance(max_interval_s, (bool, np.bool_))
+            or not isinstance(max_interval_s, Real)
+            or not np.isfinite(max_interval_s) or max_interval_s <= 0):
+        raise ValueError("max_interval_s must be finite and positive.")
+    cycles = np.asarray(data["cycle"])
+    if (cycles.ndim != 1 or not np.isfinite(cycles).all()
+            or np.any(cycles != np.floor(cycles)) or np.any(np.diff(cycles) < 0)):
+        raise ValueError("Replay cycles must be ordered finite integers.")
+    selected = (cycles >= first_cycle) & (cycles <= last_cycle)
+    recorded = np.unique(cycles[selected])
+    if (len(recorded) != last_cycle - first_cycle + 1
+            or np.any(np.diff(recorded) != 1)):
+        raise ValueError("Missing requested cycles; do not bridge unrecorded history.")
+    raw_time = np.asarray(data["time_s"], dtype=float)
+    if raw_time.shape != cycles.shape:
+        raise ValueError("Replay time and cycles must be aligned.")
+    t = raw_time[selected].copy()
+    if len(t) < 2 or not np.isfinite(t).all():
+        raise ValueError("Require at least two finite time samples.")
+    dt = np.diff(t)
+    if np.any(dt <= 0):
+        raise ValueError("Repeated or reversed timestamps cannot prescribe a unique strain rate.")
+    if np.any(dt > max_interval_s):
+        raise ValueError("Recorded interval exceeds max_interval_s; no automatic gap filling.")
+    fields = {}
+    for key, unit in (("strain", "1"), ("stress_Pa", "Pa"), ("temperature_K", "K")):
+        values = np.asarray(data[key], dtype=float)
+        if values.shape != cycles.shape or not np.isfinite(values).all():
+            raise ValueError("Replay histories must be aligned and finite.")
+        fields[key] = HistoryResult(key, t.copy(), values[selected].copy(), unit=unit)
+    return {
+        "source_sha256": data["sha256"], "protocol": data["protocol"],
+        "cycle_window": [int(first_cycle), int(last_cycle)], "histories": fields,
+        "maximum_recorded_interval_s": float(dt.max()),
+        "initial_state": "Must be supplied independently; not inferred or reset from observations",
+        "scope": "Recorded strain-controlled input window; no missing-cycle reconstruction or validation claim",
+    }
 
 
 def life_observation(data):

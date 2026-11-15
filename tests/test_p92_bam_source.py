@@ -94,3 +94,40 @@ def test_protocols_are_separate_life_cohorts_not_cycle_replicates():
     assert rf.cohort_key != slr.cohort_key
     with pytest.raises(ValueError, match="Mixed population"):
         life_survival([rf, slr], independent_specimens=True, noninformative_censoring=True)
+
+
+def replay_fixture():
+    return {"protocol": "RF", "cycle": np.array([1, 1, 2, 2]),
+            "time_s": np.array([0., 1., 2., 3.]), "strain": np.array([.01, .02, .01, 0.]),
+            "stress_Pa": np.array([10., 20., 5., -5.]),
+            "temperature_K": np.full(4, 893.15), "sha256": "fixture"}
+
+
+def test_replay_preserves_initial_stress_and_detaches_observations():
+    data = replay_fixture()
+    report = p92_bam_source.replay_window(data, first_cycle=1, last_cycle=2, max_interval_s=1)
+    assert report["histories"]["stress_Pa"].values[0] == 10
+    assert report["maximum_recorded_interval_s"] == 1
+    data["strain"][:] = 0
+    assert report["histories"]["strain"].values[0] == .01
+    assert "independently" in report["initial_state"]
+
+
+@pytest.mark.parametrize("change,reason", [
+    ({"cycle": np.array([1, 1, 3, 3])}, "Missing"),
+    ({"time_s": np.array([0., 1., 1., 2.])}, "timestamps"),
+    ({"time_s": np.array([0., 1., 3., 4.])}, "interval"),
+    ({"protocol": "SLC"}, "stress control"),
+    ({"strain": np.array([0., np.nan, 0., 0.])}, "finite"),
+])
+def test_replay_rejects_ambiguous_or_unrecorded_inputs(change, reason):
+    with pytest.raises(ValueError, match=reason):
+        p92_bam_source.replay_window(dict(replay_fixture(), **change),
+                                    first_cycle=1, last_cycle=2, max_interval_s=1)
+
+
+@pytest.mark.parametrize("limit", [0, -1, True, "1", 1j, float("nan")])
+def test_replay_requires_explicit_physical_interval(limit):
+    with pytest.raises(ValueError, match="max_interval_s"):
+        p92_bam_source.replay_window(replay_fixture(), first_cycle=1,
+                                    last_cycle=2, max_interval_s=limit)
