@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 Haoming Luo and AgentFEM contributors
+# SPDX-License-Identifier: Apache-2.0
+
 """Identity-preserving comparisons, separate from fitting and qualification."""
 
 from collections.abc import Mapping
