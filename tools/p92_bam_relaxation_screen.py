@@ -9,6 +9,8 @@ import numpy as np
 import argparse
 import json
 from scipy.optimize import least_squares
+from agentfem.results import HistoryResult
+from agentfem.verification import history_errors
 
 
 def relaxation(t, initial_stress, initial_rate, exponent):
@@ -69,9 +71,16 @@ def screen(data):
     reports = {}
     for name, mask in (("calibration", train), ("within_path_holdout", ~train)):
         error = predicted[mask]-s[mask]
+        comparison = history_errors(
+            HistoryResult("predicted axial stress", t[mask], predicted[mask], unit="MPa"),
+            HistoryResult("measured axial stress", t[mask], s[mask], unit="MPa"),
+            reference_source=f"BAM RF sha256:{data['sha256']}; cycle 1; {name}",
+            max_interval=5.,
+        )
         reports[name] = {"samples": int(mask.sum()), "max_abs_error_MPa": float(abs(error).max()),
                          "rmse_MPa": float(np.sqrt(np.mean(error**2))),
-                         "start_s": float(t[mask][0]), "end_s": float(t[mask][-1])}
+                         "start_s": float(t[mask][0]), "end_s": float(t[mask][-1]),
+                         "history_comparison": comparison}
     singular = np.linalg.svd(fit.jac, compute_uv=False)
     later = []
     for cycle in (10, 100, 1000):

@@ -136,14 +136,90 @@
         "max_abs_error_MPa": 1.644613319069407,
         "rmse_MPa": 0.5795686074772665,
         "start_s": 5.079,
-        "end_s": 59.648
+        "end_s": 59.648,
+        "history_comparison": {
+          "schema": "agentfem.history-errors.v1",
+          "reference_source": "BAM RF sha256:128e6de1854f4633e26eced6c4ea221687cde2f232db275487ef0d1201767e0a; cycle 1; calibration",
+          "actual": {
+            "name": "predicted axial stress",
+            "unit": "MPa",
+            "abscissa_name": "time",
+            "abscissa_unit": "s",
+            "sample_count": 45,
+            "value_shape": [],
+            "description": "",
+            "numeric_sha256": "d33db8b3191b43d9d8372de6f179eda09433e92c8414673ac5ecbdd672bd6fd2"
+          },
+          "reference": {
+            "name": "measured axial stress",
+            "unit": "MPa",
+            "abscissa_name": "time",
+            "abscissa_unit": "s",
+            "sample_count": 45,
+            "value_shape": [],
+            "description": "",
+            "numeric_sha256": "3ecc6fe04e7a23216da19021d5eff81709998353d96908910f9729ccb11c1b80"
+          },
+          "unit": "MPa",
+          "abscissa_unit": "s",
+          "interval": [
+            5.079,
+            59.648
+          ],
+          "max_interval": 5,
+          "maximum_absolute_error": 1.644613319069407,
+          "sample_rms_error": 0.5795686074772666,
+          "coordinate_weighted_mean_error": -0.026349977088638194,
+          "coordinate_weighted_rms_error": 0.3000474295350583,
+          "alignment": "exact",
+          "integration": "exact integral of piecewise-linear error and its square",
+          "scope": "Component-wise descriptive errors; no uncertainty, independence or automatic scientific acceptance"
+        }
       },
       "within_path_holdout": {
         "samples": 88,
         "max_abs_error_MPa": 1.5176759605554935,
         "rmse_MPa": 0.6479430052532378,
         "start_s": 61.448,
-        "end_s": 181.933
+        "end_s": 181.933,
+        "history_comparison": {
+          "schema": "agentfem.history-errors.v1",
+          "reference_source": "BAM RF sha256:128e6de1854f4633e26eced6c4ea221687cde2f232db275487ef0d1201767e0a; cycle 1; within_path_holdout",
+          "actual": {
+            "name": "predicted axial stress",
+            "unit": "MPa",
+            "abscissa_name": "time",
+            "abscissa_unit": "s",
+            "sample_count": 88,
+            "value_shape": [],
+            "description": "",
+            "numeric_sha256": "8e66dc34d38526593a7eea3608a4be49c874ae568b8770f09fd5e54b239f932e"
+          },
+          "reference": {
+            "name": "measured axial stress",
+            "unit": "MPa",
+            "abscissa_name": "time",
+            "abscissa_unit": "s",
+            "sample_count": 88,
+            "value_shape": [],
+            "description": "",
+            "numeric_sha256": "a94ae7e2e72d600c9b5849148882e36bc8cb9cfdda9ab7210aea154cc2e2b581"
+          },
+          "unit": "MPa",
+          "abscissa_unit": "s",
+          "interval": [
+            61.448,
+            181.933
+          ],
+          "max_interval": 5,
+          "maximum_absolute_error": 1.5176759605554935,
+          "sample_rms_error": 0.6479430052532378,
+          "coordinate_weighted_mean_error": 0.37372050939159435,
+          "coordinate_weighted_rms_error": 0.6462385798475015,
+          "alignment": "exact",
+          "integration": "exact integral of piecewise-linear error and its square",
+          "scope": "Component-wise descriptive errors; no uncertainty, independence or automatic scientific acceptance"
+        }
       }
     },
     "first_hold_observed_control_ranges": {

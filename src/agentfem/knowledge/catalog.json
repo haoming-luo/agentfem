@@ -1518,6 +1518,7 @@
         "agentfem.verification.VerificationReport",
         "agentfem.verification.QualityPolicy",
         "agentfem.verification.assess",
+        "agentfem.verification.history_errors",
         "agentfem.verification.ConvergenceStudy",
         "agentfem.results.SimulationResult.verify",
         "agentfem.results.SimulationResult.add_verification",

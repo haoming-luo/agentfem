@@ -847,6 +847,11 @@ damage, contact, or active-set changes.
 
 ## Verification Claim and Trust Level
 
+Aligned history errors are descriptive observations, not acceptance decisions.
+Coordinate-weighted errors integrate a declared piecewise-linear sampled path;
+they do not infer unsampled peaks, uncertainty or independence. The existing
+VerificationClaim remains the owner of the criterion and scientific decision.
+
 Numerical constraint work is distinct from stored energy and irreversible
 dissipation. In bounded constant-normal plane augmented contact, accepted pressure/gap
 endpoints define signed normal work and a non-cancelling discrete work bound.

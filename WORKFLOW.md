@@ -345,6 +345,8 @@ Package paths below are relative to `src/agentfem/`.
 - Structured validation reports and issue codes: `validation.py`
 - Scientific claims, trust levels, and mesh/time convergence evidence:
   `verification.py`
+  `history_errors` compares explicitly aligned histories, preserving units and
+  source identity without fitting, resampling or bridging inadmissible gaps.
 - Backend capabilities and compilation adapters: `backends/`
 - Parameter spaces, sampling, case identity, and resumable execution:
   `campaigns/`

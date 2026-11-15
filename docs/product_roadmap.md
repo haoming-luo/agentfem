@@ -1,5 +1,25 @@
 # AgentFEM Product Roadmap
 
+### Response and life comparison checkpoint (2026-11-16)
+
+The [P92 service-like audit](internal/p92_and_engineering_ux_sprint_20261114.md)
+admits three checksum-verified BAM histories at 620 C. They are distinct
+protocols, not replicate lives. A frozen first-hold relaxation model does not
+transfer reliably to later cycles; retain this negative result and actual
+control excursions instead of promoting a new material card.
+
+Reusable `life_prediction_errors` retains specimen outcomes and censoring;
+`verification.history_errors` compares explicitly aligned response histories
+with units, source identity and component-wise coordinate-weighted errors.
+Neither tool supplies a design allowable. Next scientific work must use a
+history-dependent response model with an explicit calibration/validation split
+and measured loading, not another fit to the same life labels.
+
+Pre/postprocessing will remain a separate development branch: audit Gmsh
+regions, element/formulation compatibility and quality; prototype a read-only
+lightweight viewer consuming existing published result artifacts. Do not put
+web rendering dependencies into the solver installation or add a second Model.
+
 ### AI-native repair loop (2026-11-12)
 
 Preserve existing engineering semantics rather than create another model layer.

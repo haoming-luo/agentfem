@@ -22,6 +22,37 @@ cannot establish `verified`. Failed and inconclusive claims both prevent that
 promotion; they remain distinct so an inapplicable reference theory is not
 misreported as a numerical failure.
 
+## Aligned history errors
+
+Use existing `HistoryResult` objects to compare a simulation with a reference:
+
+```python
+from agentfem import results, verification
+
+predicted = results.HistoryResult("axial stress", [0, 1, 2], [0, 102, 82], unit="MPa")
+observed = results.HistoryResult("measured stress", [0, 1, 2], [0, 100, 80], unit="MPa")
+errors = verification.history_errors(
+    predicted, observed, reference_source="synthetic documentation example",
+    max_interval=1.0,
+)
+assert errors["maximum_absolute_error"] == 2.0
+```
+
+Coordinates, component shapes and explicit units must match. Align different
+grids deliberately before comparing: this function does not interpolate,
+extrapolate, smooth or turn tensor components into an equivalent scalar.
+`max_interval` is the largest admitted sampling gap in the coordinate unit;
+compare separated experimental segments independently rather than bridging
+unrecorded cycles. Use only coordinates whose interpolation is meaningful.
+
+The report retains source identity and hashes of the numerical inputs. It gives
+component-wise maximum error, sample RMS, and coordinate-weighted mean/RMS.
+The latter exactly integrate a piecewise-linear error and its square between
+samples; for time histories, densely sampled portions therefore do not acquire
+extra weight merely from their sample count. This does not recover unsampled
+peaks, establish experimental independence, or estimate measurement uncertainty.
+Choose acceptance criteria separately through the usual `VerificationClaim`.
+
 ## Quality presets: the ordinary user path
 
 Most users should not assemble every runtime claim manually. A solved result

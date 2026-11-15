@@ -168,6 +168,21 @@ been verified. Existing generated site files are preserved.
 
 ## Software acceptance checkpoint
 
+2026-11-16 continuation: the earlier CI had one failure, the missing SPDX header
+on the new module (6789 other tests passed); fixed and rechecked locally before
+resubmission. Distributed and macOS stages had not run, so that CI was not a pass.
+
+The new `verification.history_errors` uses ordinary HistoryResult objects and
+requires exact coordinate/unit/component alignment plus an explicit admitted
+sampling interval. No interpolation or gap filling is automatic. It integrates
+piecewise-linear error and squared error analytically, retaining source hashes.
+The RF first-hold calibration coordinate-weighted RMS is 0.300047 MPa versus
+0.579569 MPa sample RMS; held-out weighted RMS is 0.646239 MPa versus 0.647943
+MPa sample RMS. The fit and predictions are unchanged. Later repeated-timestamp
+samples retain their existing point-wise report; they are not silently merged
+to enter the strictly ordered HistoryResult contract. 121 targeted tests pass,
+including independent analytic history integrals and executable documentation.
+
 149 focused tests passed (life comparison, specimen survival/reliability,
 P92 source/response screens, assessments and documentation). Ruff, generated
 documentation and whitespace checks passed. A separately built pure-Python

@@ -722,6 +722,7 @@ and evidence remain in the linked guides and scientific function reference.
 | Kind | Public object | Purpose |
 | --- | --- | --- |
 | function | `trust_rank(level: str) -> int` | Return the ordered rank of one public trust level. |
+| function | `history_errors(actual, reference, *, reference_source: str, max_interval: float)` | Compare explicitly aligned HistoryResults without resampling or fitting. |
 | class | `VerificationClaim` | One explicit, machine-readable scientific acceptance claim. |
 | class | `VerificationReport` | Trust decision derived from execution state and scientific claims. |
 | class | `QualityPolicy` | Low-ceremony acceptance policy for one result or dataset boundary. |
