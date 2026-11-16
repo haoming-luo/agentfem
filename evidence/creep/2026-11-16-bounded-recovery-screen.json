@@ -30,6 +30,7 @@
   "coarse_rtol": 1e-08,
   "fine_rtol": 1e-10,
   "peak_refinement_max_MPa": 1.8405359014650458e-08,
+  "valley_refinement_max_MPa": 2.074898475257214e-08,
   "state_refinement_max_abs": [
     1.648925262998091e-08,
     4.797731767425262e-09,
@@ -39,6 +40,7 @@
   ],
   "numerical_refinement_passed": true,
   "numerical_stress_tolerance_MPa": 0.0001,
+  "numerical_accumulated_strain_tolerance": 1e-08,
   "comparison": {
     "source_sha256": "128e6de1854f4633e26eced6c4ea221687cde2f232db275487ef0d1201767e0a",
     "source_failure_cycle": 2054.0,
@@ -1520,7 +1522,7 @@
   ],
   "scope": "Mechanism-selection experiment on inspected data; no fresh holdout or failure prediction",
   "input_artifact_sha256": {
-    "coarse": "5a215c25d9cf98469dc1c73ba626f2a3a254c66d86ad65ffc347e83749a44974",
+    "coarse": "763e78d67294b581becb051ac0cbc786ef64d497721acaa6dd43e3c214bec6c8",
     "fine": "6fe5ab7ac1bcc6e766f3c11db6481dadeaab548f677bb19b19ab49c99d93aeb9"
   }
 }

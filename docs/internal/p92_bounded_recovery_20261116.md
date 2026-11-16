@@ -48,6 +48,14 @@ peak by 1.84054e-8 MPa. This numerical discrepancy is negligible compared with
 the experimental residual. An exploratory 2054-cycle run also completed, but
 completion at the observed failure count is not predicted life.
 
+The refinement audit also checks compressive valleys (maximum change
+2.07490e-8 MPa) and accumulated inelastic strain (1.35572e-11). Its predeclared
+numerical limits are 1e-4 MPa and 1e-8 strain, respectively, not experimental
+acceptance bands. Loading-segment times, protocol, parameters and frozen
+initial-state/calibration identity must match. An early coarse artifact lacked
+these identity fields; it was rerun from the frozen input rather than repaired
+by inventing metadata. The replacement coarse file hash is recorded.
+
 SLR fails the transfer screen: at cycle 10, the predicted tensile peak is
 231.1517 MPa versus 263.33 MPa (-12.22%). Across cycles 1–10, peak/valley RMS
 error is 23.6777 MPa. The first nominal zero-strain hold ends at 110.3334 MPa;
@@ -137,6 +145,20 @@ experiment rejects simply retuning this parameter subset as the next product
 step; it does not prove that every possible parameterization fails. A separate
 time-scale mechanism needs its own equations, identifiable calibration data and
 multi-protocol validation before core integration.
+
+For an independent implementation reference, [NEML's Chaboche formulation](https://neml.readthedocs.io/en/dev/hardening/non/chaboche.html)
+explicitly separates strain-driven and time-driven recovery. Its hardening
+stress sign convention differs from this reproduction and must be mapped,
+not copied. [MOOSE's multiple-inelastic update](https://mooseframework.inl.gov/source/materials/ComputeMultipleInelasticStress.html)
+iterates coupled mechanisms to a common stress and constructs the combined
+tangent; appending independently evaluated strain increments is not equivalent.
+[NEML damage models](https://neml.readthedocs.io/en/latest/damage.html) separately
+evolve damage history on top of a base material. These are public algorithmic
+references, not calibrated P92 parameter sets or substitute experimental evidence.
+The next bounded experiment is to identify response time scales from the
+measured rapid ramps and long holds together, before selecting a rupture or
+crack-initiation law with compatible outcomes. No new damage variable is used
+to disguise the present low-stress relaxation error.
 
 ```sh
 python -m tools.p92_joint_protocol_fit /path/Data_RF.lis /path/Data_SLR.lis --max-nfev 120 --output joint-time.json
