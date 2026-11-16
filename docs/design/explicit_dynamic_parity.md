@@ -203,3 +203,13 @@ separate engineering decisions. This statement is not evidence that either
 AgentFEM alternative matches Abaqus C3D10 or C3D10M. Retain the original
 reference for parity and compare alternative formulations as separately named
 methods on a common physical problem.
+
+## Composite-tetrahedron development increment
+
+The public `elements.composite_tet10` local-operator API and its independent
+[derivation](../theory/composite_tetrahedron.md) implement affine piecewise-linear
+interpolation, parent gradient projection, positive mass and stabilized
+mean-dilatation stiffness. This is not a whole-mesh Step and does not change the
+unsupported C3D10M import status. Unit regressions explicitly preserve the
+unstabilized mean-dilatation zero-mode failure. No blade simulation is required
+for these formulation and software checks.

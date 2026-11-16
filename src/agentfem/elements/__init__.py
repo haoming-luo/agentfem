@@ -533,3 +533,12 @@ def tet15_mass_lumped(*, shape=(3,)):
     """Published enriched degree-two positive-mass tetrahedron; not C3D10M."""
     from .tet15_mass import tet15_mass_lumped as create
     return create(shape=shape)
+
+
+def composite_tet10(coordinates):
+    """Affine composite Tet10 local operators; not a whole-mesh Step or C3D10M."""
+    from .composite_tet import composite_tet10 as create
+    return create(coordinates)
+
+
+__all__.append("composite_tet10")
