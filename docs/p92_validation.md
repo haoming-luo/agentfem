@@ -12,6 +12,35 @@ the data are not an installed material card or a qualified coupled-life model.
 
 ## What can be reproduced now
 
+The [BAM service-like response audit](internal/p92_and_engineering_ux_sprint_20261114.md)
+adds checksum-verified 620 C experimental histories with explicit recorded-cycle
+gaps. Its first-hold relaxation fit predicts the first held-out interval closely
+but degrades on later cycles. That negative transfer result is retained; the
+fit is not a general P92 material card or a life model. Run the source audit as
+`python -m tools.p92_bam_source Data_RF.lis --protocol RF`, and the frozen
+response screen as `python -m tools.p92_bam_relaxation_screen Data_RF.lis`.
+
+The continuous-input screen now calibrates only RF cycles 1--3 and carries the
+same internal state into cycles 4--10. Time-weighted stress RMS rises from
+3.37--5.86 MPa in training to 23.30 MPa in cycle 10. A separate SLR specimen,
+predicted with the frozen RF coefficients, has 28.14--56.62 MPa RMS error.
+Time refinement is much smaller than these discrepancies. These failed
+transfer screens rule out promoting this particular coefficient set as an
+engineering material card; they do not rule out the full constitutive family.
+
+The reproducible commands are:
+
+```bash
+python -m tools.p92_bam_cyclic_screen Data_RF.lis --radau
+python -m tools.p92_bam_cyclic_screen Data_SLR.lis --frozen-rf evidence/creep/2026-11-16-bam-continuous-cycles.json
+```
+
+Calibration failure stops prediction. Input shape checks prevent a column
+vector from silently broadcasting into a different fitting objective. The
+frozen-coefficient sensitivity record perturbs ten constants individually by
+1%; it is a deterministic diagnostic, not a probability distribution or a
+life prediction interval. No held-out stresses enter that calculation.
+
 The [specimen life workflow](life_observations.md) admits the 18 DB source rows
 as 18 exact-condition groups. It retains failures and provenance without
 inventing run-outs, replicate scatter or P92 confidence-qualified design lives.

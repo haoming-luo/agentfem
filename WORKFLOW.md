@@ -266,6 +266,8 @@ Package paths below are relative to `src/agentfem/`.
   `LifeObservation` and `life_survival`; see `docs/life_observations.md`.
   `fixed_horizon_reliability` provides exact intervals for fixed-horizon tests
   when every specimen's horizon outcome is known.
+  Compare frozen predictions using `life_prediction_errors`, submitting
+  calibration and validation specimens separately and retaining model identity.
   (`creep_damage_from_result` separates optional quadrature subdivision from
   original-history sampling limits).
 - Material library, assignment frames, plies, and laminate sections:
@@ -343,6 +345,8 @@ Package paths below are relative to `src/agentfem/`.
 - Structured validation reports and issue codes: `validation.py`
 - Scientific claims, trust levels, and mesh/time convergence evidence:
   `verification.py`
+  `history_errors` compares explicitly aligned histories, preserving units and
+  source identity without fitting, resampling or bridging inadmissible gaps.
 - Backend capabilities and compilation adapters: `backends/`
 - Parameter spaces, sampling, case identity, and resumable execution:
   `campaigns/`

@@ -51,6 +51,10 @@ def test_fixed_baseline_and_reported_holdout_error():
     assert report["calibration_ids"] == [1, 3, 4, 5, 7, 8]
     assert report["validation_ids"] == [2, 6]
     assert max(r["error_factor"] for r in held) < 1.24
+    comparison = report["error_reports"]["validation"]
+    assert comparison["failure_count"] == 2
+    assert {r["observation"]["specimen_id"] for r in comparison["records"]} == {"2", "6"}
+    assert report["error_reports"]["calibration"]["failure_count"] == 6
 
 
 @pytest.mark.parametrize(

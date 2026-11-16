@@ -1,0 +1,884 @@
+{
+  "schema": "agentfem.research.p92-local-sensitivity.v1",
+  "source_sha256": "128e6de1854f4633e26eced6c4ea221687cde2f232db275487ef0d1201767e0a",
+  "parameters": {
+    "E": 146410.23798190424,
+    "k": 108.23149217400956,
+    "Q": -111.06,
+    "b": 0.81,
+    "H": -4,
+    "Qr": -105.74,
+    "gamma_r1": 2.14e-8,
+    "gamma_r2": 2.01e-8,
+    "r": 5.98,
+    "mr": 2.8,
+    "a1": 27.05,
+    "C1": 25000,
+    "a2": 72.39,
+    "C2": 996.97,
+    "gamma1": 3e-9,
+    "gamma2": 7.47e-7,
+    "q": 10,
+    "m": 3.87,
+    "Z": 1499.9999999999977,
+    "n": 3
+  },
+  "records": [
+    {
+      "parameter": "E",
+      "factor": 0.99,
+      "response_change": {
+        "schema": "agentfem.history-errors.v1",
+        "reference_source": "Frozen RF prediction; 128e6de1854f4633e26eced6c4ea221687cde2f232db275487ef0d1201767e0a",
+        "actual": {
+          "name": "perturbed",
+          "unit": "MPa",
+          "abscissa_name": "time",
+          "abscissa_unit": "s",
+          "sample_count": 4739,
+          "value_shape": [],
+          "description": "",
+          "numeric_sha256": "69a85b317cf6b78c94c0bb0b5e3e1eb1f622c0ecc4f0d1b480d322a2a8354eca"
+        },
+        "reference": {
+          "name": "baseline",
+          "unit": "MPa",
+          "abscissa_name": "time",
+          "abscissa_unit": "s",
+          "sample_count": 4739,
+          "value_shape": [],
+          "description": "",
+          "numeric_sha256": "e59c068f5592f5f346902b4f524214d47955b532765bd8a5f67f9ad494a9b398"
+        },
+        "unit": "MPa",
+        "abscissa_unit": "s",
+        "interval": [
+          0,
+          3680.637
+        ],
+        "max_interval": 2,
+        "maximum_absolute_error": 2.9707306055011315,
+        "sample_rms_error": 0.8546620319122565,
+        "coordinate_weighted_mean_error": -0.004413972577042295,
+        "coordinate_weighted_rms_error": 0.2840761073787665,
+        "alignment": "exact",
+        "integration": "exact integral of piecewise-linear error and its square",
+        "scope": "Component-wise descriptive errors; no uncertainty, independence or automatic scientific acceptance"
+      }
+    },
+    {
+      "parameter": "E",
+      "factor": 1.01,
+      "response_change": {
+        "schema": "agentfem.history-errors.v1",
+        "reference_source": "Frozen RF prediction; 128e6de1854f4633e26eced6c4ea221687cde2f232db275487ef0d1201767e0a",
+        "actual": {
+          "name": "perturbed",
+          "unit": "MPa",
+          "abscissa_name": "time",
+          "abscissa_unit": "s",
+          "sample_count": 4739,
+          "value_shape": [],
+          "description": "",
+          "numeric_sha256": "110082a9d91de706dc85004fa030077ebf019466a838668d2af3845224ac5e5b"
+        },
+        "reference": {
+          "name": "baseline",
+          "unit": "MPa",
+          "abscissa_name": "time",
+          "abscissa_unit": "s",
+          "sample_count": 4739,
+          "value_shape": [],
+          "description": "",
+          "numeric_sha256": "e59c068f5592f5f346902b4f524214d47955b532765bd8a5f67f9ad494a9b398"
+        },
+        "unit": "MPa",
+        "abscissa_unit": "s",
+        "interval": [
+          0,
+          3680.637
+        ],
+        "max_interval": 2,
+        "maximum_absolute_error": 2.938771701337032,
+        "sample_rms_error": 0.8405686912280627,
+        "coordinate_weighted_mean_error": 0.004246133620934682,
+        "coordinate_weighted_rms_error": 0.2796744006548318,
+        "alignment": "exact",
+        "integration": "exact integral of piecewise-linear error and its square",
+        "scope": "Component-wise descriptive errors; no uncertainty, independence or automatic scientific acceptance"
+      }
+    },
+    {
+      "parameter": "k",
+      "factor": 0.99,
+      "response_change": {
+        "schema": "agentfem.history-errors.v1",
+        "reference_source": "Frozen RF prediction; 128e6de1854f4633e26eced6c4ea221687cde2f232db275487ef0d1201767e0a",
+        "actual": {
+          "name": "perturbed",
+          "unit": "MPa",
+          "abscissa_name": "time",
+          "abscissa_unit": "s",
+          "sample_count": 4739,
+          "value_shape": [],
+          "description": "",
+          "numeric_sha256": "031b407db1397354f6768bb9f35d6165d37bae6685e182bc368e537e9f479f48"
+        },
+        "reference": {
+          "name": "baseline",
+          "unit": "MPa",
+          "abscissa_name": "time",
+          "abscissa_unit": "s",
+          "sample_count": 4739,
+          "value_shape": [],
+          "description": "",
+          "numeric_sha256": "e59c068f5592f5f346902b4f524214d47955b532765bd8a5f67f9ad494a9b398"
+        },
+        "unit": "MPa",
+        "abscissa_unit": "s",
+        "interval": [
+          0,
+          3680.637
+        ],
+        "max_interval": 2,
+        "maximum_absolute_error": 1.0749807681001755,
+        "sample_rms_error": 0.9392141077318109,
+        "coordinate_weighted_mean_error": 0.0017717479571809469,
+        "coordinate_weighted_rms_error": 1.0375021000763647,
+        "alignment": "exact",
+        "integration": "exact integral of piecewise-linear error and its square",
+        "scope": "Component-wise descriptive errors; no uncertainty, independence or automatic scientific acceptance"
+      }
+    },
+    {
+      "parameter": "k",
+      "factor": 1.01,
+      "response_change": {
+        "schema": "agentfem.history-errors.v1",
+        "reference_source": "Frozen RF prediction; 128e6de1854f4633e26eced6c4ea221687cde2f232db275487ef0d1201767e0a",
+        "actual": {
+          "name": "perturbed",
+          "unit": "MPa",
+          "abscissa_name": "time",
+          "abscissa_unit": "s",
+          "sample_count": 4739,
+          "value_shape": [],
+          "description": "",
+          "numeric_sha256": "73340e491db570717c2fe0e1550f35457b8c5300ee0e3f0b58479ff1e249bf09"
+        },
+        "reference": {
+          "name": "baseline",
+          "unit": "MPa",
+          "abscissa_name": "time",
+          "abscissa_unit": "s",
+          "sample_count": 4739,
+          "value_shape": [],
+          "description": "",
+          "numeric_sha256": "e59c068f5592f5f346902b4f524214d47955b532765bd8a5f67f9ad494a9b398"
+        },
+        "unit": "MPa",
+        "abscissa_unit": "s",
+        "interval": [
+          0,
+          3680.637
+        ],
+        "max_interval": 2,
+        "maximum_absolute_error": 1.0747777524491369,
+        "sample_rms_error": 0.9384246547930669,
+        "coordinate_weighted_mean_error": -0.0017922682114464748,
+        "coordinate_weighted_rms_error": 1.0369445699749358,
+        "alignment": "exact",
+        "integration": "exact integral of piecewise-linear error and its square",
+        "scope": "Component-wise descriptive errors; no uncertainty, independence or automatic scientific acceptance"
+      }
+    },
+    {
+      "parameter": "Z",
+      "factor": 0.99,
+      "response_change": {
+        "schema": "agentfem.history-errors.v1",
+        "reference_source": "Frozen RF prediction; 128e6de1854f4633e26eced6c4ea221687cde2f232db275487ef0d1201767e0a",
+        "actual": {
+          "name": "perturbed",
+          "unit": "MPa",
+          "abscissa_name": "time",
+          "abscissa_unit": "s",
+          "sample_count": 4739,
+          "value_shape": [],
+          "description": "",
+          "numeric_sha256": "51bff5cf1d8bbdae27466ecc24184d9094ecd9e1490c838b44d6233913d0d21c"
+        },
+        "reference": {
+          "name": "baseline",
+          "unit": "MPa",
+          "abscissa_name": "time",
+          "abscissa_unit": "s",
+          "sample_count": 4739,
+          "value_shape": [],
+          "description": "",
+          "numeric_sha256": "e59c068f5592f5f346902b4f524214d47955b532765bd8a5f67f9ad494a9b398"
+        },
+        "unit": "MPa",
+        "abscissa_unit": "s",
+        "interval": [
+          0,
+          3680.637
+        ],
+        "max_interval": 2,
+        "maximum_absolute_error": 1.090281672362039,
+        "sample_rms_error": 0.4802044121522346,
+        "coordinate_weighted_mean_error": 0.0016542309884006474,
+        "coordinate_weighted_rms_error": 0.27916935696205986,
+        "alignment": "exact",
+        "integration": "exact integral of piecewise-linear error and its square",
+        "scope": "Component-wise descriptive errors; no uncertainty, independence or automatic scientific acceptance"
+      }
+    },
+    {
+      "parameter": "Z",
+      "factor": 1.01,
+      "response_change": {
+        "schema": "agentfem.history-errors.v1",
+        "reference_source": "Frozen RF prediction; 128e6de1854f4633e26eced6c4ea221687cde2f232db275487ef0d1201767e0a",
+        "actual": {
+          "name": "perturbed",
+          "unit": "MPa",
+          "abscissa_name": "time",
+          "abscissa_unit": "s",
+          "sample_count": 4739,
+          "value_shape": [],
+          "description": "",
+          "numeric_sha256": "2363b48d48785e7e295f273cf6cbf2856e706d7bd5179decbf18194e5f74d70f"
+        },
+        "reference": {
+          "name": "baseline",
+          "unit": "MPa",
+          "abscissa_name": "time",
+          "abscissa_unit": "s",
+          "sample_count": 4739,
+          "value_shape": [],
+          "description": "",
+          "numeric_sha256": "e59c068f5592f5f346902b4f524214d47955b532765bd8a5f67f9ad494a9b398"
+        },
+        "unit": "MPa",
+        "abscissa_unit": "s",
+        "interval": [
+          0,
+          3680.637
+        ],
+        "max_interval": 2,
+        "maximum_absolute_error": 1.0861177749416129,
+        "sample_rms_error": 0.4794136739801851,
+        "coordinate_weighted_mean_error": -0.0016673133586274722,
+        "coordinate_weighted_rms_error": 0.27949555857201114,
+        "alignment": "exact",
+        "integration": "exact integral of piecewise-linear error and its square",
+        "scope": "Component-wise descriptive errors; no uncertainty, independence or automatic scientific acceptance"
+      }
+    },
+    {
+      "parameter": "Q",
+      "factor": 0.99,
+      "response_change": {
+        "schema": "agentfem.history-errors.v1",
+        "reference_source": "Frozen RF prediction; 128e6de1854f4633e26eced6c4ea221687cde2f232db275487ef0d1201767e0a",
+        "actual": {
+          "name": "perturbed",
+          "unit": "MPa",
+          "abscissa_name": "time",
+          "abscissa_unit": "s",
+          "sample_count": 4739,
+          "value_shape": [],
+          "description": "",
+          "numeric_sha256": "f794480cf39557f5e05e53ce26a60754aa337a1a1e4aa27e705c01447ba1c352"
+        },
+        "reference": {
+          "name": "baseline",
+          "unit": "MPa",
+          "abscissa_name": "time",
+          "abscissa_unit": "s",
+          "sample_count": 4739,
+          "value_shape": [],
+          "description": "",
+          "numeric_sha256": "e59c068f5592f5f346902b4f524214d47955b532765bd8a5f67f9ad494a9b398"
+        },
+        "unit": "MPa",
+        "abscissa_unit": "s",
+        "interval": [
+          0,
+          3680.637
+        ],
+        "max_interval": 2,
+        "maximum_absolute_error": 0.023720300417238604,
+        "sample_rms_error": 0.01288466474024846,
+        "coordinate_weighted_mean_error": -0.0005987575518016012,
+        "coordinate_weighted_rms_error": 0.014260036185173302,
+        "alignment": "exact",
+        "integration": "exact integral of piecewise-linear error and its square",
+        "scope": "Component-wise descriptive errors; no uncertainty, independence or automatic scientific acceptance"
+      }
+    },
+    {
+      "parameter": "Q",
+      "factor": 1.01,
+      "response_change": {
+        "schema": "agentfem.history-errors.v1",
+        "reference_source": "Frozen RF prediction; 128e6de1854f4633e26eced6c4ea221687cde2f232db275487ef0d1201767e0a",
+        "actual": {
+          "name": "perturbed",
+          "unit": "MPa",
+          "abscissa_name": "time",
+          "abscissa_unit": "s",
+          "sample_count": 4739,
+          "value_shape": [],
+          "description": "",
+          "numeric_sha256": "033b9efc028d56e63aed79d052c7be3d3f13b5d84118399b196079d0db2c5f0f"
+        },
+        "reference": {
+          "name": "baseline",
+          "unit": "MPa",
+          "abscissa_name": "time",
+          "abscissa_unit": "s",
+          "sample_count": 4739,
+          "value_shape": [],
+          "description": "",
+          "numeric_sha256": "e59c068f5592f5f346902b4f524214d47955b532765bd8a5f67f9ad494a9b398"
+        },
+        "unit": "MPa",
+        "abscissa_unit": "s",
+        "interval": [
+          0,
+          3680.637
+        ],
+        "max_interval": 2,
+        "maximum_absolute_error": 0.023728339675500365,
+        "sample_rms_error": 0.012887974812486576,
+        "coordinate_weighted_mean_error": 0.0005989678051616609,
+        "coordinate_weighted_rms_error": 0.014263606584537541,
+        "alignment": "exact",
+        "integration": "exact integral of piecewise-linear error and its square",
+        "scope": "Component-wise descriptive errors; no uncertainty, independence or automatic scientific acceptance"
+      }
+    },
+    {
+      "parameter": "b",
+      "factor": 0.99,
+      "response_change": {
+        "schema": "agentfem.history-errors.v1",
+        "reference_source": "Frozen RF prediction; 128e6de1854f4633e26eced6c4ea221687cde2f232db275487ef0d1201767e0a",
+        "actual": {
+          "name": "perturbed",
+          "unit": "MPa",
+          "abscissa_name": "time",
+          "abscissa_unit": "s",
+          "sample_count": 4739,
+          "value_shape": [],
+          "description": "",
+          "numeric_sha256": "68e478ba05e9a2840b5634ab254b2edf75d80dfe47fb62736df0d9887d7cc6f2"
+        },
+        "reference": {
+          "name": "baseline",
+          "unit": "MPa",
+          "abscissa_name": "time",
+          "abscissa_unit": "s",
+          "sample_count": 4739,
+          "value_shape": [],
+          "description": "",
+          "numeric_sha256": "e59c068f5592f5f346902b4f524214d47955b532765bd8a5f67f9ad494a9b398"
+        },
+        "unit": "MPa",
+        "abscissa_unit": "s",
+        "interval": [
+          0,
+          3680.637
+        ],
+        "max_interval": 2,
+        "maximum_absolute_error": 0.01798856114243108,
+        "sample_rms_error": 0.010409585147253167,
+        "coordinate_weighted_mean_error": -0.00045281880548634214,
+        "coordinate_weighted_rms_error": 0.011521120807508394,
+        "alignment": "exact",
+        "integration": "exact integral of piecewise-linear error and its square",
+        "scope": "Component-wise descriptive errors; no uncertainty, independence or automatic scientific acceptance"
+      }
+    },
+    {
+      "parameter": "b",
+      "factor": 1.01,
+      "response_change": {
+        "schema": "agentfem.history-errors.v1",
+        "reference_source": "Frozen RF prediction; 128e6de1854f4633e26eced6c4ea221687cde2f232db275487ef0d1201767e0a",
+        "actual": {
+          "name": "perturbed",
+          "unit": "MPa",
+          "abscissa_name": "time",
+          "abscissa_unit": "s",
+          "sample_count": 4739,
+          "value_shape": [],
+          "description": "",
+          "numeric_sha256": "56ef55b04bd26b91bb2a7273f7dbac8aa2c88a0f0318eaed36d504ee280b75af"
+        },
+        "reference": {
+          "name": "baseline",
+          "unit": "MPa",
+          "abscissa_name": "time",
+          "abscissa_unit": "s",
+          "sample_count": 4739,
+          "value_shape": [],
+          "description": "",
+          "numeric_sha256": "e59c068f5592f5f346902b4f524214d47955b532765bd8a5f67f9ad494a9b398"
+        },
+        "unit": "MPa",
+        "abscissa_unit": "s",
+        "interval": [
+          0,
+          3680.637
+        ],
+        "max_interval": 2,
+        "maximum_absolute_error": 0.017988221802909266,
+        "sample_rms_error": 0.010409528958400522,
+        "coordinate_weighted_mean_error": 0.0004528121892508938,
+        "coordinate_weighted_rms_error": 0.01152099909590575,
+        "alignment": "exact",
+        "integration": "exact integral of piecewise-linear error and its square",
+        "scope": "Component-wise descriptive errors; no uncertainty, independence or automatic scientific acceptance"
+      }
+    },
+    {
+      "parameter": "Qr",
+      "factor": 0.99,
+      "response_change": {
+        "schema": "agentfem.history-errors.v1",
+        "reference_source": "Frozen RF prediction; 128e6de1854f4633e26eced6c4ea221687cde2f232db275487ef0d1201767e0a",
+        "actual": {
+          "name": "perturbed",
+          "unit": "MPa",
+          "abscissa_name": "time",
+          "abscissa_unit": "s",
+          "sample_count": 4739,
+          "value_shape": [],
+          "description": "",
+          "numeric_sha256": "a2ea3e83090f2f26055f2b720a4366669d7a990229829159341b59f4c3a6939a"
+        },
+        "reference": {
+          "name": "baseline",
+          "unit": "MPa",
+          "abscissa_name": "time",
+          "abscissa_unit": "s",
+          "sample_count": 4739,
+          "value_shape": [],
+          "description": "",
+          "numeric_sha256": "e59c068f5592f5f346902b4f524214d47955b532765bd8a5f67f9ad494a9b398"
+        },
+        "unit": "MPa",
+        "abscissa_unit": "s",
+        "interval": [
+          0,
+          3680.637
+        ],
+        "max_interval": 2,
+        "maximum_absolute_error": 0.696893176634859,
+        "sample_rms_error": 0.44694540521069676,
+        "coordinate_weighted_mean_error": -0.017472272287644596,
+        "coordinate_weighted_rms_error": 0.49247199543444875,
+        "alignment": "exact",
+        "integration": "exact integral of piecewise-linear error and its square",
+        "scope": "Component-wise descriptive errors; no uncertainty, independence or automatic scientific acceptance"
+      }
+    },
+    {
+      "parameter": "Qr",
+      "factor": 1.01,
+      "response_change": {
+        "schema": "agentfem.history-errors.v1",
+        "reference_source": "Frozen RF prediction; 128e6de1854f4633e26eced6c4ea221687cde2f232db275487ef0d1201767e0a",
+        "actual": {
+          "name": "perturbed",
+          "unit": "MPa",
+          "abscissa_name": "time",
+          "abscissa_unit": "s",
+          "sample_count": 4739,
+          "value_shape": [],
+          "description": "",
+          "numeric_sha256": "ab58ed3f3d3c3f03886de47e2e072fdb5971341fb57cfd837393bb93ef0363c4"
+        },
+        "reference": {
+          "name": "baseline",
+          "unit": "MPa",
+          "abscissa_name": "time",
+          "abscissa_unit": "s",
+          "sample_count": 4739,
+          "value_shape": [],
+          "description": "",
+          "numeric_sha256": "e59c068f5592f5f346902b4f524214d47955b532765bd8a5f67f9ad494a9b398"
+        },
+        "unit": "MPa",
+        "abscissa_unit": "s",
+        "interval": [
+          0,
+          3680.637
+        ],
+        "max_interval": 2,
+        "maximum_absolute_error": 0.701575607105454,
+        "sample_rms_error": 0.45106823770947896,
+        "coordinate_weighted_mean_error": 0.017597487538080214,
+        "coordinate_weighted_rms_error": 0.49694189738433786,
+        "alignment": "exact",
+        "integration": "exact integral of piecewise-linear error and its square",
+        "scope": "Component-wise descriptive errors; no uncertainty, independence or automatic scientific acceptance"
+      }
+    },
+    {
+      "parameter": "gamma_r1",
+      "factor": 0.99,
+      "response_change": {
+        "schema": "agentfem.history-errors.v1",
+        "reference_source": "Frozen RF prediction; 128e6de1854f4633e26eced6c4ea221687cde2f232db275487ef0d1201767e0a",
+        "actual": {
+          "name": "perturbed",
+          "unit": "MPa",
+          "abscissa_name": "time",
+          "abscissa_unit": "s",
+          "sample_count": 4739,
+          "value_shape": [],
+          "description": "",
+          "numeric_sha256": "a61fa09d4a85290ca879ec066771060ec3bb12c8790e67d0a1b793ddc9e5e4e1"
+        },
+        "reference": {
+          "name": "baseline",
+          "unit": "MPa",
+          "abscissa_name": "time",
+          "abscissa_unit": "s",
+          "sample_count": 4739,
+          "value_shape": [],
+          "description": "",
+          "numeric_sha256": "e59c068f5592f5f346902b4f524214d47955b532765bd8a5f67f9ad494a9b398"
+        },
+        "unit": "MPa",
+        "abscissa_unit": "s",
+        "interval": [
+          0,
+          3680.637
+        ],
+        "max_interval": 2,
+        "maximum_absolute_error": 0.10542719955238056,
+        "sample_rms_error": 0.07144732098285347,
+        "coordinate_weighted_mean_error": -0.002655402806379041,
+        "coordinate_weighted_rms_error": 0.07873827802730564,
+        "alignment": "exact",
+        "integration": "exact integral of piecewise-linear error and its square",
+        "scope": "Component-wise descriptive errors; no uncertainty, independence or automatic scientific acceptance"
+      }
+    },
+    {
+      "parameter": "gamma_r1",
+      "factor": 1.01,
+      "response_change": {
+        "schema": "agentfem.history-errors.v1",
+        "reference_source": "Frozen RF prediction; 128e6de1854f4633e26eced6c4ea221687cde2f232db275487ef0d1201767e0a",
+        "actual": {
+          "name": "perturbed",
+          "unit": "MPa",
+          "abscissa_name": "time",
+          "abscissa_unit": "s",
+          "sample_count": 4739,
+          "value_shape": [],
+          "description": "",
+          "numeric_sha256": "073644d807191be7e5d6fe4a47ccde546d56595b2f7dab62d0aa223688f712b3"
+        },
+        "reference": {
+          "name": "baseline",
+          "unit": "MPa",
+          "abscissa_name": "time",
+          "abscissa_unit": "s",
+          "sample_count": 4739,
+          "value_shape": [],
+          "description": "",
+          "numeric_sha256": "e59c068f5592f5f346902b4f524214d47955b532765bd8a5f67f9ad494a9b398"
+        },
+        "unit": "MPa",
+        "abscissa_unit": "s",
+        "interval": [
+          0,
+          3680.637
+        ],
+        "max_interval": 2,
+        "maximum_absolute_error": 0.10496068278123971,
+        "sample_rms_error": 0.07120579736167204,
+        "coordinate_weighted_mean_error": 0.0026440212116670887,
+        "coordinate_weighted_rms_error": 0.07847049366656678,
+        "alignment": "exact",
+        "integration": "exact integral of piecewise-linear error and its square",
+        "scope": "Component-wise descriptive errors; no uncertainty, independence or automatic scientific acceptance"
+      }
+    },
+    {
+      "parameter": "gamma_r2",
+      "factor": 0.99,
+      "response_change": {
+        "schema": "agentfem.history-errors.v1",
+        "reference_source": "Frozen RF prediction; 128e6de1854f4633e26eced6c4ea221687cde2f232db275487ef0d1201767e0a",
+        "actual": {
+          "name": "perturbed",
+          "unit": "MPa",
+          "abscissa_name": "time",
+          "abscissa_unit": "s",
+          "sample_count": 4739,
+          "value_shape": [],
+          "description": "",
+          "numeric_sha256": "5bbb5187fee94488c4b36bdbcb087898713eb033c27e449af5717f9334260fd1"
+        },
+        "reference": {
+          "name": "baseline",
+          "unit": "MPa",
+          "abscissa_name": "time",
+          "abscissa_unit": "s",
+          "sample_count": 4739,
+          "value_shape": [],
+          "description": "",
+          "numeric_sha256": "e59c068f5592f5f346902b4f524214d47955b532765bd8a5f67f9ad494a9b398"
+        },
+        "unit": "MPa",
+        "abscissa_unit": "s",
+        "interval": [
+          0,
+          3680.637
+        ],
+        "max_interval": 2,
+        "maximum_absolute_error": 0.0881955708823341,
+        "sample_rms_error": 0.06229089363170217,
+        "coordinate_weighted_mean_error": -0.0022281319355415647,
+        "coordinate_weighted_rms_error": 0.0686569926098053,
+        "alignment": "exact",
+        "integration": "exact integral of piecewise-linear error and its square",
+        "scope": "Component-wise descriptive errors; no uncertainty, independence or automatic scientific acceptance"
+      }
+    },
+    {
+      "parameter": "gamma_r2",
+      "factor": 1.01,
+      "response_change": {
+        "schema": "agentfem.history-errors.v1",
+        "reference_source": "Frozen RF prediction; 128e6de1854f4633e26eced6c4ea221687cde2f232db275487ef0d1201767e0a",
+        "actual": {
+          "name": "perturbed",
+          "unit": "MPa",
+          "abscissa_name": "time",
+          "abscissa_unit": "s",
+          "sample_count": 4739,
+          "value_shape": [],
+          "description": "",
+          "numeric_sha256": "79c29f93b94d7b22420489921be39622b04f7e8ea5fd837b3464b20b0c869506"
+        },
+        "reference": {
+          "name": "baseline",
+          "unit": "MPa",
+          "abscissa_name": "time",
+          "abscissa_unit": "s",
+          "sample_count": 4739,
+          "value_shape": [],
+          "description": "",
+          "numeric_sha256": "e59c068f5592f5f346902b4f524214d47955b532765bd8a5f67f9ad494a9b398"
+        },
+        "unit": "MPa",
+        "abscissa_unit": "s",
+        "interval": [
+          0,
+          3680.637
+        ],
+        "max_interval": 2,
+        "maximum_absolute_error": 0.08786152164582006,
+        "sample_rms_error": 0.062107792555143336,
+        "coordinate_weighted_mean_error": 0.002219982427830551,
+        "coordinate_weighted_rms_error": 0.0684539305097633,
+        "alignment": "exact",
+        "integration": "exact integral of piecewise-linear error and its square",
+        "scope": "Component-wise descriptive errors; no uncertainty, independence or automatic scientific acceptance"
+      }
+    },
+    {
+      "parameter": "a2",
+      "factor": 0.99,
+      "response_change": {
+        "schema": "agentfem.history-errors.v1",
+        "reference_source": "Frozen RF prediction; 128e6de1854f4633e26eced6c4ea221687cde2f232db275487ef0d1201767e0a",
+        "actual": {
+          "name": "perturbed",
+          "unit": "MPa",
+          "abscissa_name": "time",
+          "abscissa_unit": "s",
+          "sample_count": 4739,
+          "value_shape": [],
+          "description": "",
+          "numeric_sha256": "d6bea372ac4bbe6cf975be7d1e4a78e2ca11eb06c9241c97885d3b565454e656"
+        },
+        "reference": {
+          "name": "baseline",
+          "unit": "MPa",
+          "abscissa_name": "time",
+          "abscissa_unit": "s",
+          "sample_count": 4739,
+          "value_shape": [],
+          "description": "",
+          "numeric_sha256": "e59c068f5592f5f346902b4f524214d47955b532765bd8a5f67f9ad494a9b398"
+        },
+        "unit": "MPa",
+        "abscissa_unit": "s",
+        "interval": [
+          0,
+          3680.637
+        ],
+        "max_interval": 2,
+        "maximum_absolute_error": 0.4160050125754253,
+        "sample_rms_error": 0.2120221683744157,
+        "coordinate_weighted_mean_error": -0.000020637381213670818,
+        "coordinate_weighted_rms_error": 0.12903314448287384,
+        "alignment": "exact",
+        "integration": "exact integral of piecewise-linear error and its square",
+        "scope": "Component-wise descriptive errors; no uncertainty, independence or automatic scientific acceptance"
+      }
+    },
+    {
+      "parameter": "a2",
+      "factor": 1.01,
+      "response_change": {
+        "schema": "agentfem.history-errors.v1",
+        "reference_source": "Frozen RF prediction; 128e6de1854f4633e26eced6c4ea221687cde2f232db275487ef0d1201767e0a",
+        "actual": {
+          "name": "perturbed",
+          "unit": "MPa",
+          "abscissa_name": "time",
+          "abscissa_unit": "s",
+          "sample_count": 4739,
+          "value_shape": [],
+          "description": "",
+          "numeric_sha256": "cdad73fc66f66bb6e205c759f8e9668906812ecb5b9f21acb8a8707e35812a22"
+        },
+        "reference": {
+          "name": "baseline",
+          "unit": "MPa",
+          "abscissa_name": "time",
+          "abscissa_unit": "s",
+          "sample_count": 4739,
+          "value_shape": [],
+          "description": "",
+          "numeric_sha256": "e59c068f5592f5f346902b4f524214d47955b532765bd8a5f67f9ad494a9b398"
+        },
+        "unit": "MPa",
+        "abscissa_unit": "s",
+        "interval": [
+          0,
+          3680.637
+        ],
+        "max_interval": 2,
+        "maximum_absolute_error": 0.41398656041062054,
+        "sample_rms_error": 0.21057748816893004,
+        "coordinate_weighted_mean_error": 0.00002392634825517806,
+        "coordinate_weighted_rms_error": 0.1276184992089502,
+        "alignment": "exact",
+        "integration": "exact integral of piecewise-linear error and its square",
+        "scope": "Component-wise descriptive errors; no uncertainty, independence or automatic scientific acceptance"
+      }
+    },
+    {
+      "parameter": "C2",
+      "factor": 0.99,
+      "response_change": {
+        "schema": "agentfem.history-errors.v1",
+        "reference_source": "Frozen RF prediction; 128e6de1854f4633e26eced6c4ea221687cde2f232db275487ef0d1201767e0a",
+        "actual": {
+          "name": "perturbed",
+          "unit": "MPa",
+          "abscissa_name": "time",
+          "abscissa_unit": "s",
+          "sample_count": 4739,
+          "value_shape": [],
+          "description": "",
+          "numeric_sha256": "9496a14a918700f4a6a4a2f910e634bad54abd607c866fc1a71a82a3816600a3"
+        },
+        "reference": {
+          "name": "baseline",
+          "unit": "MPa",
+          "abscissa_name": "time",
+          "abscissa_unit": "s",
+          "sample_count": 4739,
+          "value_shape": [],
+          "description": "",
+          "numeric_sha256": "e59c068f5592f5f346902b4f524214d47955b532765bd8a5f67f9ad494a9b398"
+        },
+        "unit": "MPa",
+        "abscissa_unit": "s",
+        "interval": [
+          0,
+          3680.637
+        ],
+        "max_interval": 2,
+        "maximum_absolute_error": 0.2522005501985234,
+        "sample_rms_error": 0.12934947672632294,
+        "coordinate_weighted_mean_error": -0.0009484239479527017,
+        "coordinate_weighted_rms_error": 0.07078248479069256,
+        "alignment": "exact",
+        "integration": "exact integral of piecewise-linear error and its square",
+        "scope": "Component-wise descriptive errors; no uncertainty, independence or automatic scientific acceptance"
+      }
+    },
+    {
+      "parameter": "C2",
+      "factor": 1.01,
+      "response_change": {
+        "schema": "agentfem.history-errors.v1",
+        "reference_source": "Frozen RF prediction; 128e6de1854f4633e26eced6c4ea221687cde2f232db275487ef0d1201767e0a",
+        "actual": {
+          "name": "perturbed",
+          "unit": "MPa",
+          "abscissa_name": "time",
+          "abscissa_unit": "s",
+          "sample_count": 4739,
+          "value_shape": [],
+          "description": "",
+          "numeric_sha256": "94a854e32cba9e8de56f19654a900dc7aabe887ae8a19b3da1a4b80319f3c515"
+        },
+        "reference": {
+          "name": "baseline",
+          "unit": "MPa",
+          "abscissa_name": "time",
+          "abscissa_unit": "s",
+          "sample_count": 4739,
+          "value_shape": [],
+          "description": "",
+          "numeric_sha256": "e59c068f5592f5f346902b4f524214d47955b532765bd8a5f67f9ad494a9b398"
+        },
+        "unit": "MPa",
+        "abscissa_unit": "s",
+        "interval": [
+          0,
+          3680.637
+        ],
+        "max_interval": 2,
+        "maximum_absolute_error": 0.2492399230280853,
+        "sample_rms_error": 0.12761220769984993,
+        "coordinate_weighted_mean_error": 0.0009410688548984913,
+        "coordinate_weighted_rms_error": 0.06972287599422756,
+        "alignment": "exact",
+        "integration": "exact integral of piecewise-linear error and its square",
+        "scope": "Component-wise descriptive errors; no uncertainty, independence or automatic scientific acceptance"
+      }
+    }
+  ],
+  "training_relative_parameter_sensitivity_singular_values_MPa": [
+    109.16512789038984,
+    30.873538906196377,
+    12.226355918662296,
+    10.866892538868521,
+    2.514453886822219,
+    0.6012395161306262,
+    0.06036517470224332,
+    0.019329515885876173,
+    0.0006397671891514356,
+    0.0002522519623965615
+  ],
+  "sensitivity_coordinates": "Dimensionless fractional parameter changes, central +/-1%; cycles 1--3 time weights",
+  "identifiability_scope": "Local conditioning only; no observation-noise model, global uniqueness or covariance inference",
+  "scope": "Deterministic one-at-a-time sensitivity at the frozen fit; no refit, covariance, or predictive interval",
+  "engineering_qualified": false
+}

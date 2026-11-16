@@ -9,6 +9,7 @@ import json
 from pathlib import Path
 import numpy as np
 from scipy.optimize import lsq_linear
+from agentfem.assessments import LifeObservation, life_prediction_errors
 
 SOURCE = Path(__file__).resolve().parents[1] / "evidence/creep/p92-life-table.json"
 
@@ -108,6 +109,21 @@ def screen(data=None):
                 "error_factor": max(ratio, 1 / ratio),
             }
         )
+    error_reports = {}
+    for role, key in (("calibration", "calibration_ids"), ("validation", "validation_ids")):
+        selected = [row for row in data["rows"] if row["id"] in data[key]]
+        observations = [LifeObservation(
+            specimen_id=str(row["id"]), life=row["cycles"], status="failure",
+            life_unit="cycles", population=data["material_scope"],
+            batch_id="reported pipe stock; heat identifier not resolved",
+            failure_definition=data["failure_definition"], source=data["source"],
+            conditions={k: row[k] for k in ("temperature_C", "strain_range", "dwell_s")},
+        ) for row in selected]
+        error_reports[role] = life_prediction_errors(
+            observations, {str(row["id"]): row["predicted_cycles"] for row in predictions
+                           if row["role"] == role}, life_unit="cycles",
+            model_source="Fixed monotone empirical baseline; six designated training rows",
+        )
     return {
         "schema": "agentfem.research.p92-life-screen.v1",
         "source": data["source"],
@@ -119,6 +135,7 @@ def screen(data=None):
         "scope": data["split_scope"],
         "source_overlap_audit": data.get("source_overlap_audit"),
         "predictions": predictions,
+        "error_reports": error_reports,
         "engineering_qualified": False,
         "life_semantics": "Combined creep-fatigue test life; not a pure-fatigue curve for adding creep damage again",
         "limitations": [

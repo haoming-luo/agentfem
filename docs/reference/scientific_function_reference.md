@@ -4141,6 +4141,7 @@ Standard-neutral postprocessing of creep time fractions, resolved dwell historie
 - `agentfem.assessments.LifeObservation`
 - `agentfem.assessments.LifeSurvival`
 - `agentfem.assessments.life_survival`
+- `agentfem.assessments.life_prediction_errors`
 - `agentfem.assessments.TabulatedRuptureCurve`
 - `agentfem.assessments.CreepDamageBlock`
 - `agentfem.assessments.DwellInterval`
@@ -5995,6 +5996,7 @@ Separates computed, converged, verified, and validated results while providing e
 - `agentfem.verification.VerificationReport`
 - `agentfem.verification.QualityPolicy`
 - `agentfem.verification.assess`
+- `agentfem.verification.history_errors`
 - `agentfem.verification.ConvergenceStudy`
 - `agentfem.results.SimulationResult.verify`
 - `agentfem.results.SimulationResult.add_verification`
@@ -6064,6 +6066,7 @@ result.verify('engineering', required_quantities=('response',)).require(); datas
 **Tests**
 
 - `tests/test_verification.py`
+- `tests/test_history_errors.py`
 - `tests/test_results.py`
 - `tests/test_campaigns.py`
 - `tests/test_release_goldens.py`

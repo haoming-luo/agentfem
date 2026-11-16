@@ -722,6 +722,7 @@ and evidence remain in the linked guides and scientific function reference.
 | Kind | Public object | Purpose |
 | --- | --- | --- |
 | function | `trust_rank(level: str) -> int` | Return the ordered rank of one public trust level. |
+| function | `history_errors(actual, reference, *, reference_source: str, max_interval: float)` | Compare explicitly aligned HistoryResults without resampling or fitting. |
 | class | `VerificationClaim` | One explicit, machine-readable scientific acceptance claim. |
 | class | `VerificationReport` | Trust decision derived from execution state and scientific claims. |
 | class | `QualityPolicy` | Low-ceremony acceptance policy for one result or dataset boundary. |
@@ -749,6 +750,7 @@ and evidence remain in the linked guides and scientific function reference.
 | function | `linear_interaction() -> InteractionDiagram` | Return the transparent reference boundary ``Dc + Df = 1``. |
 | function | `creep_fatigue(*, fatigue: FatigueAssessment \| StrainLifeAssessment, creep: CreepDamageAssessment \| CreepDamageHistoryAssessment, interaction: InteractionDiagram \| None = None) -> CreepFatigueAssessment` | Combine existing fatigue and creep assessments against one boundary. |
 | function | `creep_fatigue_from_result(result, *, fatigue_history: str, fatigue_curve, stress_history: str, temperature_history: str, dwells: Iterable[DwellInterval], rupture_time: Callable[[float, float], float], rupture_source: str, interaction: InteractionDiagram \| None = None, ultimate_strength: float \| None = None, stress_reducer: str = 'maximum_absolute', temperature_reducer: str = 'maximum') -> CreepFatigueAssessment` | Build the engineering V1 assessment from named result histories. |
+| function | `life_prediction_errors(observations, predictions, *, life_unit, model_source)` | Compare point predictions with specimen outcomes in one explicit unit. |
 | class | `FixedHorizonReliability` | Exact two-sided binomial confidence interval at one prespecified horizon. |
 | function | `fixed_horizon_reliability(observations, *, horizon, independent_specimens, fixed_test_plan, confidence_level = 0.95)` | Evaluate reliability at a fixed test horizon without a life-distribution fit. |
 | class | `LifeObservation` | One specimen outcome. Conditions use explicit unit-bearing keys. |

@@ -228,6 +228,9 @@ to the repository root; this is a topic index, not a mandatory checklist.
   For experimental lives/run-outs, use `assessments.LifeObservation` and
   `life_survival` (see `docs/life_observations.md`). Keep distinct test conditions
   separate; survival confidence limits are not individual-life prediction bounds.
+  Compare frozen point predictions with `life_prediction_errors`; submit
+  calibration and held-out observations separately. Run-outs have no exact
+  prediction error, and failure-only averages are not censor-aware model scores.
   For a predetermined sample size/horizon with known binary outcomes, use
   `fixed_horizon_reliability`, including zero failures. It rejects early censoring;
   do not delete such specimens or select the horizon after inspecting outcomes.

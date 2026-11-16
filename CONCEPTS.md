@@ -251,6 +251,9 @@ Pointwise survival confidence limits are not design-life allowables. See
 For a fixed test plan with known outcomes at a prespecified horizon,
 `fixed_horizon_reliability` also handles zero failures with exact two-sided
 binomial limits; early censoring is not silently discarded.
+`life_prediction_errors` compares an already frozen point prediction with each
+specimen outcome. It preserves right-censoring bounds, reports exact errors
+only on failures and does not infer validation independence or an allowable.
 
 An engineering assessment consumes simulation histories and reviewed project
 data without changing finite-element equilibrium or constitutive state. The
@@ -843,6 +846,11 @@ continuous monitored response, not an exact event solve for discontinuous
 damage, contact, or active-set changes.
 
 ## Verification Claim and Trust Level
+
+Aligned history errors are descriptive observations, not acceptance decisions.
+Coordinate-weighted errors integrate a declared piecewise-linear sampled path;
+they do not infer unsampled peaks, uncertainty or independence. The existing
+VerificationClaim remains the owner of the criterion and scientific decision.
 
 Numerical constraint work is distinct from stored energy and irreversible
 dissipation. In bounded constant-normal plane augmented contact, accepted pressure/gap

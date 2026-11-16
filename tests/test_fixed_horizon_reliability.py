@@ -5,6 +5,7 @@ import json
 from math import comb
 from pathlib import Path
 
+import numpy as np
 import pytest
 
 from agentfem.assessments import LifeObservation, fixed_horizon_reliability
@@ -95,3 +96,20 @@ def test_documented_example():
     guide = Path(__file__).resolve().parents[1] / "docs/life_observations.md"
     code = guide.read_text().split("```python\n")[2].split("```", 1)[0]
     exec(compile(code, str(guide), "exec"), {})
+
+
+@pytest.mark.parametrize("n", [1, 3, 10, 30])
+@pytest.mark.parametrize("level", [.90, .95, .99])
+def test_finite_sample_coverage_by_exhaustive_binomial_enumeration(n, level):
+    # Every possible outcome count, not Monte Carlo or reuse of beta quantiles.
+    intervals = []
+    for survivors in range(n+1):
+        result = assess([row(i, status="right_censored" if i < survivors else "failure")
+                         for i in range(n)], confidence_level=level)
+        intervals.append((result.lower, result.upper))
+    for probability in np.r_[0., np.geomspace(1e-5, .1, 12), np.linspace(.1, .9, 21),
+                              1-np.geomspace(1e-5, .1, 12), 1.]:
+        coverage = sum(comb(n, k)*probability**k*(1-probability)**(n-k)
+                       for k, (low, high) in enumerate(intervals)
+                       if low <= probability <= high)
+        assert coverage >= level-2e-13

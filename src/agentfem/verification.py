@@ -49,6 +49,84 @@ def trust_rank(level: str) -> int:
         ) from exc
 
 
+def history_errors(actual, reference, *, reference_source: str, max_interval: float):
+    """Compare explicitly aligned HistoryResults without resampling or fitting.
+
+    Metrics are component-wise; no tensor invariant or automatic unit conversion
+    is inferred. Weighted metrics integrate the piecewise-linear error over the
+    declared abscissa, not over sample indices. ``max_interval`` rejects gaps
+    larger than the caller's admitted sampling interval. Process each separated
+    experimental segment independently. This is descriptive evidence, not an
+    automatic validation claim or uncertainty interval.
+    """
+    from hashlib import sha256
+    from numbers import Real
+    from .results.core import HistoryResult
+
+    if not isinstance(actual, HistoryResult) or not isinstance(reference, HistoryResult):
+        raise TypeError("Provide two HistoryResult objects.")
+    if not isinstance(reference_source, str) or not reference_source.strip():
+        raise ValueError("reference_source must identify the comparison reference.")
+    if (isinstance(max_interval, (bool, np.bool_)) or not isinstance(max_interval, Real)
+            or not isfinite(max_interval) or max_interval <= 0):
+        raise ValueError("max_interval must be finite and positive in the abscissa unit.")
+    for key in ("unit", "abscissa_unit", "abscissa_name"):
+        value = getattr(actual, key)
+        if not isinstance(value, str) or not value.strip() or value != getattr(reference, key):
+            raise ValueError(f"History {key} must be explicit and identical; convert explicitly.")
+    # HistoryResult arrays can be reused by callers: revalidate and detach now.
+    arrays = []
+    for h in (actual, reference):
+        x, y = np.asarray(h.abscissa), np.asarray(h.values)
+        if (np.iscomplexobj(x) or np.iscomplexobj(y) or np.ma.isMaskedArray(h.values)
+                or np.ma.isMaskedArray(h.abscissa)):
+            raise ValueError("Histories must contain real, unmasked samples.")
+        x, y = x.astype(float, copy=True), y.astype(float, copy=True)
+        if (x.ndim != 1 or x.size < 2 or y.ndim < 1 or y.size == 0 or y.shape[0] != x.size
+                or not np.isfinite(x).all() or not np.isfinite(y).all()
+                or np.any(np.diff(x) <= 0)):
+            raise ValueError("Require at least two finite, strictly ordered, aligned history samples.")
+        if np.any(np.diff(x) > max_interval):
+            raise ValueError("History contains an interval above max_interval; compare separate segments.")
+        arrays.append((x, y))
+    (x, av), (rx, rv) = arrays
+    if av.shape != rv.shape or not np.array_equal(x, rx):
+        raise ValueError("History coordinates and component shapes must match exactly; align explicitly.")
+    with np.errstate(over="raise", invalid="raise"):
+        try:
+            error = av-rv
+            scale = np.max(np.abs(error), axis=0)
+            normalized = np.divide(error, scale, out=np.zeros_like(error), where=scale != 0)
+            dt = np.diff(x)
+            weights = (dt / dt.sum()).reshape((-1,) + (1,)*(error.ndim-1))
+            left, right = normalized[:-1], normalized[1:]
+            weighted_mean = scale*np.sum(weights*(left+right)/2, axis=0)
+            weighted_rms = scale*np.sqrt(np.sum(weights*(left*left+left*right+right*right)/3, axis=0))
+            sample_rms = scale*np.sqrt(np.mean(normalized**2, axis=0))
+        except FloatingPointError as exc:
+            raise ValueError("History error or coordinate span is not representable.") from exc
+
+    def identity(h, pair):
+        digest = sha256()
+        for values in pair:
+            digest.update(str(values.shape).encode("ascii"))
+            digest.update(np.ascontiguousarray(values, dtype="<f8").tobytes())
+        return dict(h.as_dict(include_values=False), numeric_sha256=digest.hexdigest())
+
+    return {
+        "schema": "agentfem.history-errors.v1", "reference_source": reference_source.strip(),
+        "actual": identity(actual, arrays[0]), "reference": identity(reference, arrays[1]),
+        "unit": actual.unit, "abscissa_unit": actual.abscissa_unit,
+        "interval": [float(x[0]), float(x[-1])], "max_interval": float(max_interval),
+        "maximum_absolute_error": np.asarray(scale).tolist(),
+        "sample_rms_error": np.asarray(sample_rms).tolist(),
+        "coordinate_weighted_mean_error": np.asarray(weighted_mean).tolist(),
+        "coordinate_weighted_rms_error": np.asarray(weighted_rms).tolist(),
+        "alignment": "exact", "integration": "exact integral of piecewise-linear error and its square",
+        "scope": "Component-wise descriptive errors; no uncertainty, independence or automatic scientific acceptance",
+    }
+
+
 def _json_value(value):
     if value is None or isinstance(value, (str, bool, int)):
         return value
@@ -1266,6 +1344,7 @@ __all__ = [
     "VerificationReport",
     "assess",
     "convergence_study",
+    "history_errors",
     "report",
     "quality_policy",
     "trust_rank",

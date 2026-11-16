@@ -114,6 +114,12 @@ it is neither a simultaneous band across horizons nor a distribution of life.
 Its lower endpoint is a **two-sided** confidence bound, not a separately
 calculated one-sided 95% bound. No design-code approval is implied.
 
+Verification includes direct binomial-tail equations and enumeration of every
+possible survivor count at selected sample sizes and probability grids. These
+checks test statistical coverage without Monte Carlo sampling noise. They do
+not establish that a particular experiment meets the independence, censoring
+or fixed-plan assumptions.
+
 ## P92 source check
 
 From a source checkout with AgentFEM available:
@@ -130,6 +136,24 @@ source admission, unit retention and grouping, **not P92 scatter calibration**.
 No run-outs or replicate measurements are fabricated. Numerical censoring and
 confidence-limit verification instead uses independently computed synthetic
 fixtures in `tests/test_life_observations.py`.
+
+## Comparing a frozen model with specimen observations
+
+`assessments.life_prediction_errors(records, predictions, life_unit="h",
+model_source="reviewed model identity")` compares a specimen-ID keyed mapping
+of positive point predictions with existing `LifeObservation` records. Units
+and failure definitions must agree. No fitting or automatic conversion occurs.
+It reports signed natural-log prediction errors on failures, their mean/RMS,
+and keeps every specimen's source and conditions. Positive log error means
+overprediction of the measured failure life. Calibration and validation records
+should be submitted separately; this function cannot establish independence.
+
+For run-outs, the exact error is unavailable. The report only notes whether a
+point prediction is below the observed censoring bound; this is not a failed
+statistical prediction or an error to include in the failure-only mean.
+Failure-only statistics are conditional on observed failures and can be biased
+for censored samples. They are not a censor-aware model score, uncertainty
+interval or engineering allowable. No universal acceptable factor is imposed.
 
 ## References
 

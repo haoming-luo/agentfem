@@ -11,6 +11,7 @@
     "agentfem.verification.VerificationReport",
     "agentfem.verification.QualityPolicy",
     "agentfem.verification.assess",
+    "agentfem.verification.history_errors",
     "agentfem.verification.ConvergenceStudy",
     "agentfem.results.SimulationResult.verify",
     "agentfem.results.SimulationResult.add_verification",
@@ -79,12 +80,14 @@
     "minimal_example": "result.verify('engineering', required_quantities=('response',)).require(); dataset = report.require_dataset(quality='engineering').",
     "examples": [
       "tests/test_verification.py",
+      "tests/test_history_errors.py",
       "tests/test_release_goldens.py"
     ]
   },
   "verification": {
     "tests": [
       "tests/test_verification.py",
+      "tests/test_history_errors.py",
       "tests/test_results.py",
       "tests/test_campaigns.py",
       "tests/test_release_goldens.py"
