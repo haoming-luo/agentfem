@@ -18,7 +18,7 @@ Independent branch: `feat/mesh-result-inspection`, based on merged main
 3. Keep the browser UI an optional consumer. First implement and test the
    data/warp boundary independently of a UI; then connect a small local Trame
    view. No server, network upload or browser launch during installation/solve.
-   Default local-only service, one dataset, no filesystem browser or Python
+   Default local-only service, one dataset, explicitly scoped local browsing, no Python
    execution endpoint. ParaView remains the full-featured interchange route.
 4. A standalone HTML scene is useful for sharing a selected view, but does not
    by itself provide dynamic time/field selection. Do not label a camera-only
@@ -50,11 +50,11 @@ Independent branch: `feat/mesh-result-inspection`, based on merged main
 
 ## Run the experimental viewer
 
-From this source checkout, in an environment with AgentFEM and PyVista:
+In an environment containing this branch's installed AgentFEM:
 
 ```sh
-python -m pip install trame trame-vtk trame-vuetify
-python -m tools.result_viewer /path/to/results.xdmf
+python -m pip install 'agentfem[viewer]'
+agentfem-view /path/to/project/outputs
 ```
 
 The optional dependencies belong to the viewing environment, not the solver
@@ -63,15 +63,32 @@ Use only trusted local result files. It does not run `case.py` or upload data.
 For an artifact explicitly stored on reference geometry:
 
 ```sh
-python -m tools.result_viewer /path/to/results.xdmf --reference-geometry --displacement displacement
+agentfem-view /path/to/results.xdmf --reference-geometry --displacement displacement
 ```
 
 Select a saved frame, field/component and deformation scale. Cell fields stay
-cell-associated. Scalar ranges are recalculated per frame; changing colors
+cell-associated. Scalar ranges default to per-frame; changing colors
 across frames therefore does not alone establish damage evolution. Units and
 tensor conventions remain those of the source result. No unsaved frames are
-reconstructed. There is no live-file refresh, slicing, probing, browser-only
-offline bundle, or installed `agentfem` viewer command in this first slice.
+reconstructed. The current follow-up adds directory selection, saved-frame
+playback, fixed color bounds and published-index refresh. Slicing, probing and
+browser-only offline bundles remain later slices.
+
+The browser exposed `vtkOpenGLProperty` being constructed as a backend object
+without `getOpacity()` in vtk.js. The viewer maps this ordinary surface-property
+contract to `vtkProperty` through Trame's serializer registry. This is a
+display-only compatibility fix, covered by a registry assertion and real-browser
+damage/warp/frame checks; it does not alter field data or mesh connectivity.
+
+Installed follow-up acceptance (2026-11-16): a wheel built from the branch was
+installed into an isolated viewing environment sharing the numerical runtime.
+From outside the checkout, `agentfem-view` opened the real ResultWriter restart
+fixture without an extra refresh. The application browser displayed the 27-node,
+8-cell mesh; field selection, warp, fixed color bounds and playback to the last
+saved frame were exercised. Installed-package regression passed 143 targeted
+tests covering readers, writers, continuation, cell ordering and mesh inventory.
+This is not an isolated clean operating-system installation or Windows rendering
+acceptance. The small fixture is not a P92 scientific result.
 
 Local acceptance: 15 reader/warp tests passed, including real DOLFINx output
 for triangle, quadrilateral, tetrahedron and hexahedron at degrees 1 and 2.

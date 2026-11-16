@@ -326,12 +326,13 @@ jobs:
           # A release must not silently skip connectivity/Warp checks simply
           # because the solver environment does not otherwise need VTK.
           # No renderer or display server is involved; runtime stays optional.
-          python -m pip install "vtk>=9.3,<10" "pyvista>=0.48,<0.50"
+          python -m pip install "vtk>=9.3,<10" "pyvista>=0.48,<0.50" "trame>=3.12,<4" "trame-vtk>=2.10,<3" "trame-vuetify>=3,<4"
           python -c "import vtk; assert hasattr(vtk, 'vtkXdmfReader')"
+          agentfem-view --help
           python -m pytest -q -o pythonpath= \
             tests/test_xdmf_cell_ordering.py tests/test_xdmf_layout.py \
             tests/test_paraview_warp_tool.py tests/test_result_inspection.py \
-            tests/test_result_viewer.py
+            tests/test_result_viewer.py tests/test_viewer_files.py
 
       - name: Verify installed ordinary history-material project
         run: |

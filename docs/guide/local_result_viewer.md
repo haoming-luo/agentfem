@@ -1,7 +1,7 @@
 # Local result viewer (experimental)
 
 View saved results in a local browser without executing a case. This optional
-source-checkout tool uses PyVista/VTK and Trame; ParaView remains available for
+installed viewer uses PyVista/VTK and Trame; ParaView remains available for
 full post-processing. The solver and its output formats are unchanged.
 
 ## Open a result
@@ -9,20 +9,23 @@ full post-processing. The solver and its output formats are unchanged.
 In your viewing environment, install the optional dependencies once:
 
 ```sh
-python -m pip install pyvista trame trame-vtk trame-vuetify
+python -m pip install 'agentfem[viewer]'
 ```
 
-From the AgentFEM source checkout, with this version of AgentFEM available:
+Open a result file or a directory containing your results:
 
 ```sh
-python -m tools.result_viewer /path/to/results.xdmf
+agentfem-view /path/to/project/outputs
 ```
 
 Use the recommended visualization artifact reported by the run. Supported
 reader inputs are XDMF, VTU, legacy VTK and PVD. The viewer accepts one dataset
 per saved time; it does not merge distinct physical blocks or coincident nodes.
 Use trusted local files. The service listens only on `127.0.0.1`; Ctrl+C stops
-it. This first version is not an installed `agentfem` command or a hosted service.
+it. It does not upload results or execute a case. No AI is needed to use it.
+Choose **Local result or folder**, then **Open**; **Up** returns to the parent.
+The selected root limits browsing and XML companion references. For continuation
+indexes referencing sibling runs, open their common parent directory.
 
 ## Controls
 
@@ -30,6 +33,10 @@ it. This first version is not an installed `agentfem` command or a hosted servic
   and node fields distinct. No cell-to-node smoothing or tensor invariant is
   invented.
 - **Saved frame** selects an actual output station, not an interpolated time.
+- **Play** advances through saved frames; **Pause** stops. It does not imply a
+  uniform physical sampling interval.
+- **Fixed color range** keeps the same minimum and maximum across frames.
+  Without it, each frame has its own range; colors alone cannot compare damage.
 - **Refresh frames** reopens the published index, preserving the selected
   station if it still exists. New frames become selectable; old H5 files are
   neither duplicated nor edited. Refresh an atomically published frame-file
@@ -40,14 +47,13 @@ it. This first version is not an installed `agentfem` command or a hosted servic
 To enable deformation, the source must explicitly be on reference geometry:
 
 ```sh
-python -m tools.result_viewer /path/to/results.xdmf --reference-geometry --displacement displacement
+agentfem-view /path/to/results.xdmf --reference-geometry --displacement displacement
 ```
 
 Warp starts from the saved frame every time, so changing the scale does not
 accumulate deformation. Do not enable it for geometry already deformed in the
 output. Displacement must be a three-component nodal field. Units and component
-conventions come from the result. The color range is **per frame**, not a fixed
-range across the history.
+conventions come from the result. The viewer does not infer missing units.
 
 ## Continuation results
 
@@ -62,7 +68,7 @@ results.join_xdmf_segments(
 )
 ```
 
-Open `combined/results.xdmf`. Joining checks compatible meshes and fields and
+Open the common parent directory and select `combined/results.xdmf`. Joining checks compatible meshes and fields and
 references original H5 data rather than copying it. Conflicting overlap is
 rejected. Missing output stations are not reconstructed. Incomplete and
 uncertified-coverage markers are displayed when present in the index. A joined

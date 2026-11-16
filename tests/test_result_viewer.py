@@ -7,7 +7,7 @@ import pytest
 
 pv = pytest.importorskip("pyvista")
 
-from tools.result_viewer import scalar_choices
+from agentfem.viewer import scalar_choices
 
 
 def test_scalar_choices_preserve_duplicate_names_and_components():
@@ -24,3 +24,44 @@ def test_scalar_choices_preserve_duplicate_names_and_components():
     ]
     assert all(choice[1] != "label" for choice in choices)
     assert set(grid.cell_data) == {"damage", "stress"}
+
+
+def test_browser_open_switch_and_failed_open_preserves_current(tmp_path):
+    pytest.importorskip("trame")
+    from trame.app import get_server
+    from agentfem.viewer import build_viewer
+
+    grid = pv.ImageData(dimensions=(2, 2, 2)).cast_to_unstructured_grid()
+    grid.cell_data["damage"] = [0.5]
+    grid.save(tmp_path / "first.vtu")
+    grid.cell_data["damage"] = [0.75]
+    grid.save(tmp_path / "second.vtu")
+    (tmp_path / "nested").mkdir()
+    server = get_server(f"test-{tmp_path.name}", client_type="vue3")
+    build_viewer(tmp_path, server=server)
+    # The actual browser exposed a backend-class mismatch missed by file tests.
+    from trame_vtk.modules.vtk.serializers.registry import class_name
+    assert class_name(pv.Property()) == "vtkProperty"
+    state, ctrl = server.state, server.controller
+    state.ready()
+    try:
+        state.file_selection = "first.vtu"
+        ctrl.open_result()
+        assert state.error == ""
+        assert state.result_name == "first.vtu"
+        assert state.frame_count == 1
+        state.file_selection = "second.vtu"
+        ctrl.open_result()
+        assert state.result_name == "second.vtu"
+        assert state.error == ""
+        state.file_selection = "missing.vtu"
+        ctrl.open_result()
+        assert state.error
+        assert state.result_name == "second.vtu"
+        state.file_selection = "nested"
+        ctrl.open_result()
+        assert state.folder == "nested"
+        ctrl.parent_folder()
+        assert state.folder == "."
+    finally:
+        ctrl.on_server_exited()
