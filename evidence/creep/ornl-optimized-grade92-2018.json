@@ -1,0 +1,60 @@
+{
+  "schema": "agentfem.research.creep-observations.v1",
+  "source": "https://info.ornl.gov/sites/publications/Files/Pub115771.pdf",
+  "report": "ORNL/TM-2018/972",
+  "date": "2018-09-07",
+  "pdf_sha256": "92b9877bcba2f2979a935419eb42fb02a2976ad06ed8bf035169abb439766ab6",
+  "location": "Tables 2 and 3, printed pages 3 and 5 (PDF pages 15 and 17), visually verified 2026-11-16",
+  "population": "Optimized Grade 92; not the BAM P92 cohort",
+  "failure_definition": "Specimen creep rupture, not fatigue crack initiation",
+  "test_standard_reported": "ASTM E139-11; compliance not independently audited",
+  "units": {"stress": "MPa", "temperature": "degC", "life": "h"},
+  "censoring": "The three greater-than values are ongoing tests at report cutoff, not failures; later outcomes were not retrieved",
+  "processing": {
+    "TMT-2013": "1150C/1h + hot forging at 1050C/water quench + 750C/1h/air cool",
+    "TMT-2014": "Hot forging from 1130C + 1130C/0.5h/water quench + 600C/1h/air cool + 750C/4h/air cool",
+    "ReNT": "Re-normalized and tempered: 1130C/0.5h/water quench + 750C/2h/air cool"
+  },
+  "plates": {
+    "64-2": {"heat": "011364", "processing": "TMT-2013"},
+    "65-5": {"heat": "011365", "processing": "TMT-2013"},
+    "41A2": {"heat": "011441", "processing": "TMT-2014"},
+    "48A2": {"heat": "011448", "processing": "TMT-2014"},
+    "48A1": {"heat": "011448", "processing": "TMT-2014"},
+    "49X2": {"heat": "011449", "processing": "ReNT"}
+  },
+  "columns": ["specimen", "test_id", "plate", "laboratory", "stress_MPa", "temperature_C", "life_h", "status"],
+  "observations": [
+    ["64-2-01", "TN32194", "64-2", "ORNL", 280, 550, 1024.9, "failure"],
+    ["64-2-02", "TN32195", "64-2", "ORNL", 220, 600, 474.5, "failure"],
+    ["64-2-03", "TN32196", "64-2", "ORNL", 140, 650, 742.7, "failure"],
+    ["64-2-04", "TN32243", "64-2", "ORNL", 200, 600, 1210.5, "failure"],
+    ["64-2-05", "TN32242", "64-2", "ORNL", 130, 650, 344.8, "failure"],
+    ["64-2-06", "TN32244", "64-2", "ORNL", 260, 550, 4411.9, "failure"],
+    ["64-2-07", "TN32250", "64-2", "ORNL", 110, 650, 3341.2, "failure"],
+    ["64-2-08", "TN32260", "64-2", "ORNL", 230, 550, 39863, "right_censored"],
+    ["64-2-09", "TN32261", "64-2", "ORNL", 180, 600, 4902.9, "failure"],
+    ["64-2-10", "TN32262", "64-2", "ORNL", 120, 650, 1950.5, "failure"],
+    ["64-2-11", "TN32330", "64-2", "ORNL", 90, 650, 10815.3, "failure"],
+    ["65-5-01", "TN32346", "65-5", "ORNL", 100, 650, 4147.5, "failure"],
+    ["41A2-4", "TN32345", "41A2", "ORNL", 90, 650, 15864, "failure"],
+    ["48A2-4", "TN32344", "48A2", "ORNL", 90, 650, 19700.2, "failure"],
+    ["41A2-5", "TN32342", "41A2", "ORNL", 90, 650, 16769.3, "failure"],
+    ["48A2-5", "TN32343", "48A2", "ORNL", 90, 650, 24229.5, "failure"],
+    ["48A2-26", "TN32352", "48A2", "ORNL", 90, 650, 23143.8, "failure"],
+    ["48A2-12", "TN32354", "48A2", "ORNL", 190, 600, 4282, "failure"],
+    ["48A2-23", "TN32532", "48A2", "ORNL", 270, 550, 7606.5, "failure"],
+    ["48A2-24", "TN32416", "48A2", "ORNL", 260, 550, 28988, "right_censored"],
+    ["49NT01", "TN32533", "49X2", "ORNL", 230, 550, 22246, "right_censored"],
+    ["48A1R-1", null, "48A1", "INL", 280, 550, 182.1, "failure"],
+    ["48A1R-2", null, "48A1", "INL", 190, 600, 1304.1, "failure"],
+    ["48A1R-3", null, "48A1", "INL", 270, 550, 440.5, "failure"],
+    ["48A1R-4", null, "48A1", "INL", 200, 600, 652.7, "failure"]
+  ],
+  "notes": [
+    "49NT01 is explicitly ReNT in Table 3; R in the INL specimen identifiers is not interpreted as ReNT.",
+    "The nonmonotonic 64-2-05 life at 130 MPa is retained exactly as printed.",
+    "Laboratory and plate are retained as conditions; equal heat alone does not imply exchangeability.",
+    "Numeric facts only are transcribed; no curves digitized, missing values imputed or licensed PDF redistributed."
+  ]
+}

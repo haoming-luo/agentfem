@@ -15,6 +15,12 @@ Neither tool supplies a design allowable. Next scientific work must use a
 history-dependent response model with an explicit calibration/validation split
 and measured loading, not another fit to the same life labels.
 
+The bounded 2026-11-16 follow-up includes real ORNL optimized Grade 92 rupture
+and runout observations, preserving distinct heats/treatments. It strengthens
+the generic life-data pipeline, not the qualification of the BAM P92 model.
+Joint RF/SLR calibration experiments remain research evidence: numerical
+convergence and a smaller RF peak error do not resolve hold-response transfer.
+
 Pre/postprocessing will remain a separate development branch: audit Gmsh
 regions, element/formulation compatibility and quality; prototype a read-only
 lightweight viewer consuming existing published result artifacts. Do not put

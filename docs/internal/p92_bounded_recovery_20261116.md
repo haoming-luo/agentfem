@@ -159,3 +159,36 @@ Model admission therefore requires an explicit intended use and compatible
 failure definition, test-condition coverage, independent specimens, integration
 error below experimental/model error, and reported prediction/scatter limits.
 A good stress peak does not by itself qualify crack-initiation or rupture life.
+
+## Real rupture and ongoing-test observations
+
+The official [ORNL/TM-2018/972 report](https://info.ornl.gov/sites/publications/Files/Pub115771.pdf)
+provides 25 optimized Grade 92 specimens in Table 3: 22 ruptures and three
+ongoing tests. Tables 2 and 3 were checked against rendered PDF pages 15 and 17.
+The source hash, numeric transcription, heat/plate identity and processing are
+retained in `evidence/creep/ornl-optimized-grade92-2018.json`.
+
+`tools/grade92_creep_observations.py` uses the existing public life APIs. Exact
+heat, plate, laboratory, treatment, temperature and stress grouping yields 22
+cohorts, including two replicated cohorts of size two and three. The 650 C,
+90 MPa, plate 48A2 group has an empirical median of 23143.8 h; this is not a
+lower design life. Ongoing bounds 22246, 28988 and 39863 h remain right-censored,
+with no estimated median in their singleton cohorts. They are not reclassified
+using the current date. Tests check counts, original nonmonotonic values,
+processing identity, mixed-cohort rejection and absence of false failure events.
+
+This is real-data verification of censoring and provenance, **not** BAM P92
+validation: thermomechanical processing and heat identity differ materially.
+It does not supply creep-fatigue interaction observations or justify combining
+optimized Grade 92 rupture with another source's fatigue curve without an
+explicit transfer model and validation.
+
+```sh
+python -m tools.grade92_creep_observations
+```
+
+The [2026 nuclear structural materials database](https://github.com/avakanski/Dataset-of-Creep-Properties-for-Nuclear-Structural-Materials)
+was also screened at commit `a2abdeb01f2385ea43d1872db15ae84bae33bea3`.
+Its 1583 numeric rows include Grade 91, MARBN and other alloys, but no P92/Grade
+92 identity in the material columns. It was not admitted as P92 evidence. A
+large public database is not automatically a compatible validation population.
