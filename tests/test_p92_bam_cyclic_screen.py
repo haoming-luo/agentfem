@@ -71,3 +71,47 @@ def test_screen_never_sends_holdout_observations_to_calibration(monkeypatch):
     assert first["parameters"] == second["parameters"]
     assert first["final_state"] == second["final_state"]
     assert second["cycles"][-1]["stress_errors"]["coordinate_weighted_rms_error"] > 90
+
+
+def test_independent_protocol_transfer_never_fits_observations():
+    from dataclasses import asdict
+    from tools.p92_bam_cyclic_screen import transfer_screen
+    t = np.arange(21, dtype=float)
+    cycles = np.minimum(t.astype(int)//2+1, 10)
+    data = {"protocol": "SLR", "time_s": t, "cycle": cycles, "strain": .001*np.sin(t),
+            "stress_Pa": np.zeros(len(t)), "temperature_K": np.full(len(t), 893.15),
+            "sha256": "synthetic-SLR"}
+    calibration = {"schema": "agentfem.research.p92-bam-cyclic.v1", "fit": {"success": True},
+                   "parameters": asdict(published_parameters(600)), "source_sha256": "synthetic-RF"}
+    first = transfer_screen(data, calibration)
+    data["stress_Pa"][1:] = 1e8
+    second = transfer_screen(data, calibration)
+    assert first["parameters"] == second["parameters"] == calibration["parameters"]
+    assert first["final_state"] == second["final_state"]
+    assert first["calibration_record_sha256"] == second["calibration_record_sha256"]
+    assert first["cycles"][-1]["stress_errors"] != second["cycles"][-1]["stress_errors"]
+    calibration["fit"]["success"] = False
+    with pytest.raises(ValueError, match="converge"):
+        transfer_screen(data, calibration)
+
+
+def test_roundoff_stagnation_in_elastic_recovery_is_checked_by_equations():
+    from dataclasses import replace
+    from tools.p92_published_recovery_reference import implicit_update, rates
+    p = replace(published_parameters(600), E=146410.23798190424,
+                k=108.23149217400956, Z=1499.9999999999977)
+    old = np.array([-63.09640233221885, 0., 0., -.010139502168748472, 0.])
+    dt, de = .01999999999999999, -2.2499999999999978e-5
+    new, tangent = implicit_update(old, de, dt, p)
+    np.testing.assert_allclose(new-old-dt*rates(new, de/dt, p), 0., atol=1e-12)
+    assert new[0] == pytest.approx(old[0]+p.E*de)
+    assert tangent == pytest.approx(p.E)
+
+
+def test_bad_root_with_success_status_is_still_rejected(monkeypatch):
+    from types import SimpleNamespace
+    from tools import p92_published_recovery_reference as reference
+    monkeypatch.setattr(reference, "root", lambda *a, **k:
+                        SimpleNamespace(success=True, x=np.zeros(5), message="mock success"))
+    with pytest.raises(RuntimeError, match="failed"):
+        reference.implicit_update(np.zeros(5), .001, .1, published_parameters(600))

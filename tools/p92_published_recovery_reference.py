@@ -133,10 +133,16 @@ def implicit_update(old, strain_increment, dt, parameters):
     guess[0] += parameters.E*strain_increment
     solution = root(residual, guess, jac=jacobian, method="hybr", options={"xtol": 1.e-10})
     state = solution.x
-    if (not solution.success or not np.isfinite(state).all()
+    # MINPACK may report stagnation at a roundoff-level root (e.g. elastic
+    # stress with a small static-recovery update). Acceptance belongs to the
+    # equations and state domain, not solely its progress-status flag.
+    if (not np.isfinite(state).all()
             or np.max(np.abs(residual(state))) > 1.e-8
             or state[4] < old[4]-1.e-12 or state[3]+parameters.k <= 0):
         raise RuntimeError(f"Local implicit recovery update failed: {solution.message}")
+    correction = np.linalg.solve(jacobian(state), residual(state))
+    if not np.isfinite(correction).all() or np.max(np.abs(correction/scale)) > 1.e-8:
+        raise RuntimeError("Local implicit recovery update has an unresolved Newton correction.")
     derivative = np.linalg.solve(np.eye(5)-dt*rate_jacobian(state, parameters),
                                  np.array([parameters.E, 0., 0., 0., 0.]))
     return state.copy(), float(derivative[0])

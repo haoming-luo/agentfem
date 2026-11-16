@@ -33,12 +33,17 @@ def replay(times, strains, parameters, initial_state, *, subdivisions=1, method=
     if old.shape != (5,) or not np.isfinite(old).all() or old[4] < 0:
         raise ValueError("Provide explicit five-component initial state.")
     states = [old.copy()]
-    for dt, de in zip(np.diff(t), np.diff(e), strict=True):
+    for index, (dt, de) in enumerate(zip(np.diff(t), np.diff(e), strict=True)):
         if method == "Radau":
             old = integrate_segment(old, dt, de/dt, parameters, rtol=1e-8).y[:, -1].copy()
         else:
-            for _ in range(subdivisions):
-                old, _ = implicit_update(old, de/subdivisions, dt/subdivisions, parameters)
+            for substep in range(subdivisions):
+                try:
+                    old, _ = implicit_update(old, de/subdivisions, dt/subdivisions, parameters)
+                except RuntimeError as exc:
+                    raise RuntimeError(f"Replay interval {index}, time={t[index]:.17g}, "
+                                       f"substep={substep}, dt={dt/subdivisions:.17g}, "
+                                       f"de={de/subdivisions:.17g}, old={old.tolist()}: {exc}") from exc
         states.append(old.copy())
     return np.asarray(states)
 
@@ -109,11 +114,56 @@ def screen(data, *, max_nfev=30, include_radau=False):
     return report
 
 
+def transfer_screen(data, calibrated):
+    """Freeze the RF fit and predict a distinct SLR specimen without refitting."""
+    from hashlib import sha256
+    from tools.p92_published_recovery_reference import Parameters
+
+    if data["protocol"] != "SLR" or calibrated.get("schema") != "agentfem.research.p92-bam-cyclic.v1":
+        raise ValueError("Provide SLR observations and the frozen RF cyclic screen.")
+    if not calibrated["fit"]["success"]:
+        raise ValueError("RF calibration did not converge.")
+    window = replay_window(data, first_cycle=1, last_cycle=10, max_interval_s=6.)
+    h = window["histories"]
+    t, e, s = h["strain"].abscissa, h["strain"].values, h["stress_Pa"].values/1e6
+    p = Parameters(**calibrated["parameters"])
+    initial = np.array([s[0], 0., 0., 0., 0.])
+    baseline = replay(t, e, p, initial, subdivisions=2)
+    refined = replay(t, e, p, initial, subdivisions=4)
+    cycles = data["cycle"][(data["cycle"] >= 1) & (data["cycle"] <= 10)]
+    records = []
+    for cycle in range(1, 11):
+        mask = cycles == cycle
+        errors = history_errors(HistoryResult("predicted", t[mask], refined[mask, 0], unit="MPa"),
+            HistoryResult("measured", t[mask], s[mask], unit="MPa"),
+            reference_source=f"BAM SLR sha256:{data['sha256']}; cycle {cycle}", max_interval=6.)
+        records.append({"cycle": cycle, "stress_errors": errors,
+                        "refinement_max_stress_change_MPa": float(np.max(abs(baseline[mask, 0]-refined[mask, 0])))})
+    return {"schema": "agentfem.research.p92-bam-slr-transfer.v1",
+            "source_sha256": data["sha256"], "calibration_source_sha256": calibrated["source_sha256"],
+            "calibration_record_sha256": sha256(json.dumps(calibrated, sort_keys=True, allow_nan=False).encode()).hexdigest(),
+            "parameters": asdict(p), "initial_state": initial.tolist(), "cycles": records,
+            "final_state": refined[-1].tolist(), "engineering_qualified": False,
+            "scope": "Distinct SLR specimen/protocol prediction with frozen RF parameters; no refitting or life inference",
+            "initial_state_assumption": "Measured initial stress and zero hidden history; no cycle reset",
+            "temperature_assumption": "Nominal isothermal 620 C; measured excursions not modeled",
+            "measured_temperature_range_K": float(np.ptp(h["temperature_K"].values))}
+
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("source", type=Path)
     parser.add_argument("--max-nfev", type=int, default=30)
     parser.add_argument("--radau", action="store_true")
+    parser.add_argument("--frozen-rf", type=Path,
+                        help="Predict SLR using this completed RF JSON record without fitting")
     args = parser.parse_args()
-    print(json.dumps(screen(read_source(args.source, protocol="RF"), max_nfev=args.max_nfev,
-                            include_radau=args.radau), indent=2, allow_nan=False))
+    if args.frozen_rf:
+        if args.radau:
+            parser.error("--radau applies to the RF screen, not the frozen SLR transfer")
+        report = transfer_screen(read_source(args.source, protocol="SLR"),
+                                 json.loads(args.frozen_rf.read_text()))
+    else:
+        report = screen(read_source(args.source, protocol="RF"), max_nfev=args.max_nfev,
+                        include_radau=args.radau)
+    print(json.dumps(report, indent=2, allow_nan=False))

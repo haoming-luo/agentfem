@@ -262,6 +262,32 @@ states laboratory data are available on request; small-punch results would
 also need a separate mechanics mapping, not direct uniaxial-life pooling.
 NIMS Grade 92 data remain a candidate subject to actual access/use conditions.
 
+### Frozen cross-protocol prediction
+
+SLR cycles 1--10 (9251 samples, through 21682.805 s) were then predicted with
+the exact frozen RF parameter record. There is no fitting on SLR stress and
+no hidden-state reset between cycles. A declared 6 s source-interval limit
+admits the recorded maximum interval 5.981 s. Two versus four backward-Euler
+subdivisions change stress by at most 0.470 MPa; time-weighted prediction RMS
+remains 56.617 MPa in cycle 1 and 28.136 MPa in cycle 10. This separate-specimen,
+changed-protocol transfer fails to support an engineering material claim.
+It does not prove the complete constitutive family incapable: most coefficients
+remain transferred from another temperature/source, Z hit its fit bound and
+initial hidden state and isothermal assumptions remain unverified.
+
+This test exposed an actual local numerical defect in the research reference:
+MINPACK reported stagnation at an elastic/static-recovery root with normalized
+residual 5.334e-17 and a stress correction 5.77e-15 MPa. The reference now accepts
+only when residual, Newton correction and material-domain checks all pass,
+rather than requiring a solver progress flag in addition to a solved equation.
+Residual tolerance was not enlarged. A falsely successful status with a bad
+root is tested and still rejected. 109 reference, replay, structural-material
+and fixed-horizon tests passed after this correction.
+
+Reproduce with `python -m tools.p92_bam_cyclic_screen Data_SLR.lis --frozen-rf
+evidence/creep/2026-11-16-bam-continuous-cycles.json` (one command).
+Evidence: `evidence/creep/2026-11-16-bam-slr-transfer.json`.
+
 The next bounded response problem is the first ten consecutive BAM RF cycles,
 not a synthetic reconstruction of all 2547 cycles. `replay_window` admits
 4739 observations over 0--3680.637 s, with maximum recorded interval
