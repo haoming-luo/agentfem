@@ -80,11 +80,19 @@ damage and reference displacement warp worked together. This is UI evidence,
 not a material or structural validation result. Cross-platform browser and
 large-result memory measurements remain pending.
 
-Subsequent acceptance note: the standalone field-choice test passed (1 test).
-Repeated combined FEniCSx/reader reruns terminated with exit 143 after partial
-progress, with no assertion traceback. The earlier 15-test result is retained
-as historical evidence, not substituted for this incomplete rerun. Broader
-writer/reader regression and investigation of termination remain release gates.
+Follow-up acceptance: restricted-environment runs terminated with exit 143 at
+the first DOLFINx test. The same 16-test command passed in the normal host
+environment without source changes. The expanded normal-host regression then
+passed 155 tests (readers, writers, live/restarted output, mesh formats/quality,
+and API discovery). A new incomplete-status assertion first exposed a mismatch
+in the viewer's recognized metadata name; it now also recognizes the writer's
+actual `agentfem_output_status` key. Browser checks on the real ResultWriter
+continuation fixture passed: saved stations 0/0.5/1, cell damage coloring,
+reference warp, edges, refresh preserving selection, and camera reset.
+
+No numerical MPI claim follows from this serial acceptance. The test-process
+termination was environment-dependent; no pytest timeout or assertion was
+disabled to obtain passing results.
 
 ## Primary references consulted
 

@@ -26,6 +26,7 @@ def test_vtu_inspection_and_warp_leave_scientific_data_unchanged(tmp_path):
     info = inspect_visualization(path)
     assert info["frame_count"] == 1 and info["time"] is None
     assert info["cells"] == 2
+    assert info["cell_types"] == [{"vtk_id": 11, "count": 2}]
     assert info["point_fields"][0]["name"] == "U"
     assert info["cell_fields"][0]["name"] == "damage"
     grid = read_visualization_frame(path)
@@ -89,3 +90,34 @@ def test_real_output_cell_order_and_selected_times(tmp_path, cell_name, degree):
     np.testing.assert_allclose(grid.point_data["U"], .1*grid.points, atol=1e-14)
     warped = deform_visualization_frame(grid, "U", reference_geometry=True)
     np.testing.assert_allclose(warped.points, 1.1*grid.points, atol=1e-14)
+
+
+def test_joined_restart_frames_retain_fields_and_sparse_times(tmp_path):
+    from agentfem import results
+    from test_xdmf_segments import segment
+    a = segment(tmp_path / "initial", [0., 1.])
+    b = segment(tmp_path / "restart", [1., 3.])
+    joined = results.join_xdmf_segments([a, b], tmp_path / "view.xdmf")
+    assert inspect_visualization(joined)["saved_times"] == [0., 1., 3.]
+    for index, time in enumerate([0., 1., 3.]):
+        grid = read_visualization_frame(joined, frame=index)
+        assert grid.n_cells == 1
+        np.testing.assert_allclose(grid.point_data["u"], time)
+
+
+def test_reopen_published_index_finds_new_frames_before_writer_close(tmp_path):
+    from agentfem.io import ResultWriter
+    from test_xdmf_layout import fields
+    domain, u, damage = fields()
+    path = tmp_path / "results.xdmf"
+    with ResultWriter(path, domain, (u, damage), storage="frame_files") as writer:
+        writer.write(0.)
+        assert inspect_visualization(path)["frame_count"] == 1
+        assert {"name": "agentfem_output_status", "value": "incomplete"} in inspect_visualization(path)["information"]
+        u.x.array[:] *= 2
+        writer.write(1.)
+        assert inspect_visualization(path)["saved_times"] == [0., 1.]
+        grid = read_visualization_frame(path)
+        assert "damage" in grid.cell_data
+        warped = deform_visualization_frame(grid, "displacement", reference_geometry=True)
+        np.testing.assert_allclose(warped.points, 1.2 * grid.points)

@@ -47,6 +47,8 @@ def build_viewer(path, *, displacement=None, reference_geometry=False):
     state.error = ""
     state.field_items = [{"title": "Solid color", "value": -1}]
     state.coordinate = ""
+    state.source_status = ""
+    state.frame_count = info["frame_count"]
     warp_enabled = reference_geometry and displacement is not None
 
     def update(**_):
@@ -97,8 +99,29 @@ def build_viewer(path, *, displacement=None, reference_geometry=False):
                 state.field = selected
                 time = info["saved_times"][index] if info["saved_times"] else None
                 state.coordinate = f"Frame {index+1}/{info['frame_count']}" + (f" · saved coordinate {time:.6g}" if time is not None else "")
+                notices = [f"{item['name']}: {item['value']}" for item in info["information"]
+                           if item["name"] in {"status", "agentfem_output_status", "source_status", "temporal_coverage"}]
+                state.source_status = " · ".join(notices)
                 state.error = ""
             ctrl.view_update()
+        except (ValueError, IndexError, TypeError, OSError) as exc:
+            state.error = str(exc)
+
+    def refresh(**_):
+        # Reopen only the atomically published index; never inspect a writer's
+        # temporary files or interpolate across a restart gap.
+        try:
+            latest = inspect_visualization(path)
+            current_time = (info["saved_times"][int(state.frame)]
+                            if info["saved_times"] else None)
+            index = (latest["saved_times"].index(current_time)
+                     if current_time in latest["saved_times"] else latest["frame"])
+            info.update(latest)
+            cache["frame"] = None
+            with state:
+                state.frame_count = info["frame_count"]
+                state.frame = index
+            update()
         except (ValueError, IndexError, TypeError, OSError) as exc:
             state.error = str(exc)
 
@@ -106,23 +129,25 @@ def build_viewer(path, *, displacement=None, reference_geometry=False):
         ui.title.set_text(f"AgentFEM · {path.name}")
         with ui.toolbar:
             v3.VSpacer()
+            v3.VBtn("Refresh frames", click=refresh)
             v3.VBtn("Reset view", click=lambda: ctrl.view_reset())
         with ui.content:
             with v3.VContainer(fluid=True, classes="pa-0 fill-height d-flex flex-column"):
                 with v3.VRow(classes="ma-0 pa-3", style="flex: 0 0 auto; width:100%"):
-                    with v3.VCol(cols=12, md=5):
+                    with v3.VCol(cols=12, md=4):
                         v3.VSelect(v_model=("field", -1), items=("field_items",), label="Field · association", hide_details=True)
                     with v3.VCol(cols=8, md=4):
                         v3.VSlider(v_model=("frame", info["frame"]), min=0,
-                                   max=info["frame_count"]-1, step=1, label="Saved frame",
-                                   disabled=info["frame_count"] == 1, hide_details=True)
+                                   max=("frame_count - 1",), step=1, label="Saved frame",
+                                   disabled=("frame_count <= 1",), hide_details=True)
                     with v3.VCol(cols=4, md=2):
                         v3.VTextField(v_model=("scale", 0.), label="Warp scale", type="number",
                                       disabled=not warp_enabled, hide_details=True)
-                    with v3.VCol(cols=12, md=1):
+                    with v3.VCol(cols=12, md=2):
                         v3.VCheckbox(v_model=("edges", False), label="Edges", hide_details=True)
                 v3.VAlert("{{ error }}", v_if="error", type="error", density="compact")
                 v3.VLabel("{{ coordinate }}", classes="px-4")
+                v3.VLabel("{{ source_status }}", v_if="source_status", classes="px-4")
                 view = vtk.VtkLocalView(plotter.ren_win, style="flex: 1; min-height:400px; width:100%")
                 ctrl.view_update = view.update
                 ctrl.view_reset = view.reset_camera
@@ -143,6 +168,13 @@ if __name__ == "__main__":
     args = parser.parse_args()
     if not 1 <= args.port <= 65535:
         parser.error("port must be between 1 and 65535")
-    app = build_viewer(args.path, displacement=args.displacement,
-                       reference_geometry=args.reference_geometry)
+    if bool(args.displacement) != args.reference_geometry:
+        parser.error("Use --displacement and --reference-geometry together to enable warp.")
+    try:
+        app = build_viewer(args.path, displacement=args.displacement,
+                           reference_geometry=args.reference_geometry)
+    except ImportError as exc:
+        parser.error(f"Viewing requires optional pyvista, trame, trame-vtk and trame-vuetify ({exc}).")
+    except (ValueError, OSError) as exc:
+        parser.error(str(exc))
     app.start(host="127.0.0.1", port=args.port, open_browser=not args.no_browser)

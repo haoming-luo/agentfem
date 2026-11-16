@@ -4,6 +4,7 @@
 
 from numbers import Integral, Real
 from pathlib import Path
+import xml.etree.ElementTree as ET
 
 import numpy as np
 
@@ -68,11 +69,21 @@ def inspect_visualization(path, *, frame=-1):
     def arrays(data):
         return [{"name": name, "shape": list(data[name].shape),
                  "dtype": str(data[name].dtype)} for name in data.keys()]
+    # VTK, not a second connectivity table, owns display cell identities.
+    unstructured = grid.cast_to_unstructured_grid()
+    cell_types, counts = np.unique(unstructured.celltypes, return_counts=True)
+    information = []
+    if Path(path).suffix.lower() in {".xdmf", ".xmf"}:
+        information = [{"name": item.get("Name"), "value": item.get("Value")}
+                       for item in ET.parse(path).findall("Domain/Information")]
     return {"schema": "agentfem.visualization-inspection.v1", "source": str(Path(path)),
             "frame_count": len(times) or 1, "frame": index,
             "saved_times": list(times), "time": times[index] if times else None,
             "points": grid.n_points, "cells": grid.n_cells,
             "dataset_type": grid.GetClassName(),
+            "information": information,
+            "cell_types": [{"vtk_id": int(kind), "count": int(count)}
+                           for kind, count in zip(cell_types, counts)],
             "point_fields": arrays(grid.point_data), "cell_fields": arrays(grid.cell_data),
             "scope": "Saved visualization data only; no solver support or scientific validation inferred"}
 
