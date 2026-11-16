@@ -197,6 +197,71 @@ experimental qualification at 620 C.
 
 ## Recorded-input replay admission
 
+### Frozen continuous-response experiment, 2026-11-16
+
+Before calibration: use RF cycles 1--3 only; predict cycles 4--10 with the
+same parameters and continuous inherited state. Use the existing five-state
+uniaxial published recovery equations. Fit only E, k and Z (positive bounded
+ranges 100000--200000 MPa, 50--250 MPa and 300--1500 MPa respectively); retain
+the other 600 C published coefficients as an explicit transfer hypothesis,
+not as measured 620 C properties. Initialize the measured first stress and
+zero backstresses/isotropic history/accumulated inelastic strain; this initial
+hidden-state assumption must remain visible. Replay measured mechanical strain
+piecewise linearly, keeping the model isothermal at nominal 620 C and reporting
+the measured temperature excursion. Minimize time-weighted axial stress error,
+not sample-count weighted error. Limit optimization evaluations; retain failure.
+Compare frozen predictions with refined backward-Euler subdivisions and an
+independent stiff ODE method. Report per-cycle peak, valley, sampled work and
+stress error. No reset at holdout entry, fitted late-cycle initial stress,
+confidence interval from within-specimen samples, or life claim is allowed.
+
+This is a bounded test of a transfer hypothesis. Failure requires improving
+the material/loading evidence, not broadening parameters until the holdout fits.
+
+Result: the frozen fit converged in nine evaluations, but Z reached the
+predeclared 1500 MPa upper bound. E=146410.238 MPa and k=108.231492 MPa.
+Calibration cycles 1--3 have time-weighted RMS errors 5.859, 3.368 and
+4.988 MPa. Held-out cycles 4--10 increase from 8.683 to 23.302 MPa.
+Doubling backward-Euler subdivisions changes stresses by at most 0.891 MPa
+within these cycles. Independent Radau differs from baseline BE by at most
+1.818582 MPa; refined BE reduces that difference to 0.927110 MPa. Consequently,
+integration error does not explain the observed progressive mismatch. Retain
+this as a failed transfer screen, not a validated 620 C material. The measured
+temperature range is 2.7 K and the model remains isothermal; the screen does
+not uniquely attribute mismatch to one constitutive parameter.
+
+Reproduce with `python -m tools.p92_bam_cyclic_screen Data_RF.lis --radau`.
+The compact evidence is `evidence/creep/2026-11-16-bam-continuous-cycles.json`.
+The same replay split at a recorded time reproduces the uninterrupted state
+exactly in tests; no experimental observations reset the holdout state.
+
+Uncertainty verification now exhaustively enumerates binomial outcome counts
+at sample sizes 1, 3, 10 and 30 and confidence levels 90%, 95% and 99%, checking
+coverage at declared probability grids including near-zero/one probabilities.
+This verifies the existing exact fixed-horizon interval computation against
+direct probability sums, not a new P92 scatter estimate. The combined cyclic,
+survival, fixed-horizon and P92 life suites passed 99 tests.
+
+PR #188 at cee54865 passed FEniCSx, macOS installed-wheel, native distribution,
+lint, documentation and optional PyTorch CI. Pages deployment and targeted
+FEniCSx were skipped by workflow selection. New changes require fresh CI.
+
+The extended local run passed 162 tests (published recovery reference, measured
+replay, source admission, uncertainty, P92 life and attribution), including a
+held-out-data mutation test: changing cycle 4--10 observations changes reported
+errors but cannot change calibrated input, parameters or final predicted state.
+
+Additional source search: the 2026 nuclear-material creep compilation
+([paper](https://doi.org/10.1038/s41597-026-07563-y),
+[public repository](https://github.com/avakanski/Dataset-of-Creep-Properties-for-Nuclear-Structural-Materials))
+provides traceable creep records, but searches of its current data for P92/T92
+did not locate those names. It is not admitted as P92 scatter evidence.
+The P92 small-punch round-robin
+[paper record](https://iss-cronfa.swansea.ac.uk/Record/cronfa40645/Details)
+states laboratory data are available on request; small-punch results would
+also need a separate mechanics mapping, not direct uniaxial-life pooling.
+NIMS Grade 92 data remain a candidate subject to actual access/use conditions.
+
 The next bounded response problem is the first ten consecutive BAM RF cycles,
 not a synthetic reconstruction of all 2547 cycles. `replay_window` admits
 4739 observations over 0--3680.637 s, with maximum recorded interval
