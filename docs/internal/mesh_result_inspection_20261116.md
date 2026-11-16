@@ -118,6 +118,39 @@ silently disappear because the optional reader is absent.
 
 ## Primary references consulted
 
+### Installed large-result follow-up
+
+The final 2026-11-16 viewer candidate was installed outside the checkout and
+passed all 30 focused reader/controller/path tests without skips. Its wheel
+SHA-256 is `0c494ce0dc38f0e747087474f1edb964b13e5f4aa63a1ade376836420b52491b`;
+native solver extensions were not built for this viewer-only check. An older
+installed candidate first failed the new error-clearing assertion, confirming
+that the acceptance command was actually exercising the installed package.
+Reinstalling the current candidate passed without weakening the test.
+
+From a folder-only launch in the Codex in-app browser, the user controls opened
+a real 255,041-cell, 296,074-point composite XDMF with 25 saved frames. Cell
+matrix damage, a fixed 0–1 range, reference-geometry displacement warp and
+mouse rotation worked together. The collapsible side panel preserves canvas
+space. The original data was not uploaded or modified. This is display
+acceptance, not renewed scientific qualification of the composite calculation.
+
+Refresh preflights the selected historical frame before accepting new navigation
+metadata, even if the newest frame is readable. A failure retains the previous
+frame count/selection; the next successful refresh recovers. VTK read failures
+become addressable input errors rather than uncaught runtime exceptions.
+
+### Codex integration boundary
+
+The [official built-in browser guide](https://learn.chatgpt.com/docs/browser)
+supports local web-app inspection. This is the integration exercised here:
+one ordinary local viewer also usable without an agent. The
+[official MCP UI guide](https://developers.openai.com/plugins/build/chatgpt-ui)
+describes a separate tool/resource and isolated-frame contract. This branch
+does not claim to implement that host integration. A later adapter should
+expose an explicitly selected result through the same reader, not duplicate
+the mesh/field model or automatically upload local H5 files.
+
 - [Gmsh manual](https://gmsh.info/doc/texinfo/): physical groups, element
   properties/order, local mesh sizing and sampled Jacobian quality.
 - [PyVista XdmfReader](https://docs.pyvista.org/api/readers/_autosummary/pyvista.xdmfreader):

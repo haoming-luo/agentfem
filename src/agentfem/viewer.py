@@ -164,7 +164,7 @@ def build_viewer(path, *, displacement=None, reference_geometry=False, server=No
             if first_view:
                 ctrl.view_camera()
                 ctrl.view_reset()
-        except (ValueError, IndexError, TypeError, OSError) as exc:
+        except (ValueError, IndexError, TypeError, OSError, ET.ParseError) as exc:
             state.error = str(exc)
             state.playing = False
 
@@ -259,6 +259,13 @@ def build_viewer(path, *, displacement=None, reference_geometry=False, server=No
                             if info["saved_times"] else None)
             index = (latest["saved_times"].index(current_time)
                      if current_time in latest["saved_times"] else latest["frame"])
+            # Inspect reads the latest frame, which may be valid even when the
+            # user's selected older frame has become unreadable. Preflight that
+            # frame before publishing new navigation metadata. Refresh is an
+            # explicit action, so one extra frame read is preferable to losing
+            # the last usable view after a partially available continuation.
+            if index != latest["frame"]:
+                read_visualization_frame(path, frame=index)
             info.update(latest)
             cache["frame"] = None
             with state:

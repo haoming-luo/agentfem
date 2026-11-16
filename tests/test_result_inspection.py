@@ -68,6 +68,18 @@ def test_multiple_blocks_are_not_silently_merged(tmp_path, monkeypatch):
         read_visualization_frame("anything")
 
 
+def test_native_reader_failure_is_an_addressable_input_error(monkeypatch):
+    from agentfem.results import inspection
+    from types import SimpleNamespace
+
+    def fail():
+        raise RuntimeError("unavailable HDF dataset")
+
+    monkeypatch.setattr(inspection, "_reader", lambda p: (pv, SimpleNamespace(read=fail), ()))
+    with pytest.raises(ValueError, match="VTK could not read"):
+        read_visualization_frame("anything")
+
+
 @pytest.mark.parametrize("cell_name", ["triangle", "quadrilateral", "tetrahedron", "hexahedron"])
 @pytest.mark.parametrize("degree", [1, 2])
 def test_real_output_cell_order_and_selected_times(tmp_path, cell_name, degree):

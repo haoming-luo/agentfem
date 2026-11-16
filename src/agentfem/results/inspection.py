@@ -36,7 +36,10 @@ def _read(path, frame):
         raise IndexError(f"Saved-frame index {frame} is outside {count} available frames.")
     if times:
         reader.set_active_time_point(index)
-    grid = reader.read()
+    try:
+        grid = reader.read()
+    except RuntimeError as exc:
+        raise ValueError(f"VTK could not read the selected result frame: {exc}") from exc
     while isinstance(grid, pv.MultiBlock):
         if len(grid) != 1 or grid[0] is None:
             raise ValueError("Expected one dataset per time; select the recommended combined-field artifact. Blocks are not merged automatically.")

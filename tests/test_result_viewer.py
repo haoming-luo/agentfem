@@ -78,7 +78,7 @@ def test_browser_open_switch_and_failed_open_preserves_current(tmp_path):
         ctrl.on_server_exited(trame__scripts=[], arbitrary_state="ignored")
 
 
-def test_refresh_continuation_preserves_station_and_field(tmp_path):
+def test_refresh_continuation_preserves_station_and_field(tmp_path, monkeypatch):
     pytest.importorskip("trame")
     from trame.app import get_server
     from agentfem.viewer import build_viewer
@@ -112,6 +112,19 @@ def test_refresh_continuation_preserves_station_and_field(tmp_path):
             state.fixed_range = True
         assert state.error == ""
         publish(3)
+        from agentfem import viewer
+        original_read = viewer.read_visualization_frame
+
+        def unavailable_selected_frame(path, *, frame):
+            if frame == 0:
+                raise ValueError("selected historical frame is unavailable")
+            return original_read(path, frame=frame)
+
+        with monkeypatch.context() as patched:
+            patched.setattr(viewer, "read_visualization_frame", unavailable_selected_frame)
+            ctrl.refresh_result()
+        assert "unavailable" in state.error
+        assert state.frame_count == 2 and state.frame == 0 and state.field == 0
         ctrl.refresh_result()
         assert state.frame_count == 3
         assert state.frame == 0 and state.field == 0
