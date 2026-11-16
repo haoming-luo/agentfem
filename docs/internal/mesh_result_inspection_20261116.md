@@ -83,7 +83,7 @@ large-result memory measurements remain pending.
 Follow-up acceptance: restricted-environment runs terminated with exit 143 at
 the first DOLFINx test. The same 16-test command passed in the normal host
 environment without source changes. The expanded normal-host regression then
-passed 155 tests (readers, writers, live/restarted output, mesh formats/quality,
+passed 157 tests (readers, writers, live/restarted output, mesh formats/quality,
 and API discovery). A new incomplete-status assertion first exposed a mismatch
 in the viewer's recognized metadata name; it now also recognizes the writer's
 actual `agentfem_output_status` key. Browser checks on the real ResultWriter
@@ -93,6 +93,11 @@ reference warp, edges, refresh preserving selection, and camera reset.
 No numerical MPI claim follows from this serial acceptance. The test-process
 termination was environment-dependent; no pytest timeout or assertion was
 disabled to obtain passing results.
+
+Format audit caught a PyVista extension-dispatch gap: `.xmf` is now explicitly
+routed to the XDMF reader. XMF aliases and sparse PVD saved frames have separate
+tests. CI installs PyVista for the installed-reader gate so these tests cannot
+silently disappear because the optional reader is absent.
 
 ## Primary references consulted
 

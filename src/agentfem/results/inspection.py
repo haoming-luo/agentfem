@@ -19,7 +19,7 @@ def _reader(path):
         raise ValueError("Select a local XDMF, VTU, VTK or PVD visualization artifact.")
     if not source.is_file():
         raise FileNotFoundError(source)
-    reader = pv.get_reader(source)
+    reader = pv.get_reader(source, force_ext=".xdmf" if source.suffix.lower() == ".xmf" else None)
     times = tuple(float(value) for value in getattr(reader, "time_values", ()))
     if times and (not np.isfinite(times).all() or np.any(np.diff(times) <= 0)):
         raise ValueError("Saved frame times must be finite and strictly increasing.")

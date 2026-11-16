@@ -107,6 +107,31 @@ def test_joined_restart_frames_retain_fields_and_sparse_times(tmp_path):
         np.testing.assert_allclose(grid.point_data["u"], time)
 
 
+def test_xmf_alias_uses_xdmf_reader(tmp_path):
+    from test_xdmf_segments import segment
+    path = segment(tmp_path / "source", [0., 1.])
+    alias = path.with_suffix(".xmf")
+    alias.write_bytes(path.read_bytes())
+    assert inspect_visualization(alias)["saved_times"] == [0., 1.]
+
+
+def test_pvd_reads_only_saved_frames_and_preserves_cell_fields(tmp_path):
+    import xml.etree.ElementTree as ET
+    path, grid = fixture(tmp_path)
+    second = tmp_path / "second.vtu"
+    grid.cell_data["damage"] *= 2
+    grid.save(second)
+    root = ET.Element("VTKFile", type="Collection", version="0.1", byte_order="LittleEndian")
+    collection = ET.SubElement(root, "Collection")
+    for time, frame in ((0., path), (3., second)):
+        ET.SubElement(collection, "DataSet", timestep=str(time), group="", part="0", file=frame.name)
+    index = tmp_path / "results.pvd"
+    ET.ElementTree(root).write(index)
+    assert inspect_visualization(index)["saved_times"] == [0., 3.]
+    np.testing.assert_allclose(read_visualization_frame(index, frame=0).cell_data["damage"], [.2, .8])
+    np.testing.assert_allclose(read_visualization_frame(index, frame=1).cell_data["damage"], [.4, 1.6])
+
+
 def test_reopen_published_index_finds_new_frames_before_writer_close(tmp_path):
     from agentfem.io import ResultWriter
     from test_xdmf_layout import fields
