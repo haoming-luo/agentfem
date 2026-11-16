@@ -300,6 +300,16 @@ The reproducible callable is `sensitivity_screen(data, frozen_rf_record)` in
 `tools.p92_bam_cyclic_screen`; the record is
 `evidence/creep/2026-11-16-bam-local-sensitivity.json`.
 
+The training-only, time-weighted sensitivity matrix in fractional parameter
+coordinates has singular values from 109.165 to 0.000252252 MPa (ratio about
+4.33e5). This is a local conditioning diagnostic, not proof of global
+non-identifiability or a covariance estimate. It argues against adding all
+ten free parameters to the same short-path fit. A prospective RF 1--20 replay
+was rejected by the existing admission gate: recorded cycles jump from 10 to
+12, then 15 and 18. Unrecorded cycles cannot be manufactured to create a new
+continuous-state holdout. A new model-selection campaign needs additional
+loading evidence or a separately reviewed reconstruction assumption.
+
 The [2019 P92 study](https://www.mdpi.com/2075-4701/9/1/99)
 reports a matrix of temperature/strain/dwell conditions, not a matched set of
 replicates in Table 3. Its 620 C, 0.2% amplitude, three-minute hold life (2050)
@@ -313,6 +323,11 @@ Input/broadcasting and unsuccessful-fit gates were added before prediction.
 tests pass. Sensitivity tests prove that replacing observed stresses cannot
 alter its output and that it never calls calibration. Existing generated site
 files remain untouched.
+
+The final local P92 sweep passed 374 tests in 31.47 s, covering all existing
+`test_p92_*` modules plus specimen survival, fixed-horizon reliability and
+life-prediction errors. This is software/numerical regression evidence; the
+experimental transfer failures above remain failures.
 
 The next bounded response problem is the first ten consecutive BAM RF cycles,
 not a synthetic reconstruction of all 2547 cycles. `replay_window` admits

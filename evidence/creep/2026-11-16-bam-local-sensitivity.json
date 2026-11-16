@@ -865,6 +865,20 @@
       }
     }
   ],
+  "training_relative_parameter_sensitivity_singular_values_MPa": [
+    109.16512789038984,
+    30.873538906196377,
+    12.226355918662296,
+    10.866892538868521,
+    2.514453886822219,
+    0.6012395161306262,
+    0.06036517470224332,
+    0.019329515885876173,
+    0.0006397671891514356,
+    0.0002522519623965615
+  ],
+  "sensitivity_coordinates": "Dimensionless fractional parameter changes, central +/-1%; cycles 1--3 time weights",
+  "identifiability_scope": "Local conditioning only; no observation-noise model, global uniqueness or covariance inference",
   "scope": "Deterministic one-at-a-time sensitivity at the frozen fit; no refit, covariance, or predictive interval",
   "engineering_qualified": false
 }

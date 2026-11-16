@@ -175,19 +175,31 @@ def sensitivity_screen(data, calibrated):
     if data["sha256"] != calibrated["source_sha256"]:
         raise ValueError("Sensitivity inputs must match the frozen calibration source.")
     baseline = replay(t, e, p, initial, subdivisions=2)[:, 0]
-    records = []
+    records, columns = [], []
     # One-at-a-time relative perturbations diagnose influence, not uncertainty.
     for name in ("E", "k", "Z", "Q", "b", "Qr", "gamma_r1", "gamma_r2", "a2", "C2"):
         value = getattr(p, name)
+        pair = []
         for factor in (.99, 1.01):
             modified = replace(p, **{name: value*factor})
             stress = replay(t, e, modified, initial, subdivisions=2)[:, 0]
+            pair.append(stress)
             comparison = history_errors(HistoryResult("perturbed", t, stress, unit="MPa"),
                 HistoryResult("baseline", t, baseline, unit="MPa"),
                 reference_source=f"Frozen RF prediction; {data['sha256']}", max_interval=2.)
             records.append({"parameter": name, "factor": factor, "response_change": comparison})
+        columns.append((pair[1]-pair[0])/.02)
+    cycles = data["cycle"][(data["cycle"] >= 1) & (data["cycle"] <= 10)]
+    training = cycles <= 3
+    dt = np.diff(t[training])
+    weights = np.r_[dt[0]/2, (dt[:-1]+dt[1:])/2, dt[-1]/2]
+    weighted = np.column_stack(columns)[training]*np.sqrt(weights/weights.sum())[:, None]
+    singular = np.linalg.svd(weighted, compute_uv=False)
     return {"schema": "agentfem.research.p92-local-sensitivity.v1",
             "source_sha256": data["sha256"], "parameters": asdict(p), "records": records,
+            "training_relative_parameter_sensitivity_singular_values_MPa": singular.tolist(),
+            "sensitivity_coordinates": "Dimensionless fractional parameter changes, central +/-1%; cycles 1--3 time weights",
+            "identifiability_scope": "Local conditioning only; no observation-noise model, global uniqueness or covariance inference",
             "scope": "Deterministic one-at-a-time sensitivity at the frozen fit; no refit, covariance, or predictive interval",
             "engineering_qualified": False}
 
