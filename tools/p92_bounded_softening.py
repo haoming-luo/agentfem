@@ -8,6 +8,7 @@ calibrated separately; numerical admissibility is not experimental validation.
 
 import argparse
 from dataclasses import asdict
+from hashlib import sha256
 import json
 from pathlib import Path
 
@@ -17,6 +18,7 @@ from scipy.integrate import solve_ivp
 from tools.p92_published_recovery_reference import (
     Parameters, rates, rate_jacobian, isotropic_strength_lower_bound,
 )
+from tools.validate_p92_loading_path import nominal_path
 
 
 def multiplier(accumulated, *, limit, rate):
@@ -80,31 +82,84 @@ def integrate_bounded(old, duration, strain_rate, parameters, *, limit, rate, rt
     return solution
 
 
-def run_candidate(calibration, *, cycles, limit, rate, rtol=1e-8):
+def run_candidate(calibration, *, cycles, limit, rate, rtol=1e-8, protocol="RF"):
     if isinstance(cycles, bool) or not isinstance(cycles, int) or cycles < 1:
         raise ValueError("Require positive integer cycles")
     if not calibration["fit"]["success"]:
         raise ValueError("Require converged frozen base calibration")
     p = Parameters(**calibration["parameters"])
     state = np.asarray(calibration["initial_state"], dtype=float).copy()
+    times, strain = nominal_path(protocol)
+    durations = np.diff(times)
+    strain_rates = np.diff(strain)/durations
     records = []
     for cycle in range(1, cycles+1):
         trial = state.copy()
         peak, valley = float(trial[0]), float(trial[0])
-        for duration, strain_rate in ((2., .001), (180., 0.), (4., -.001), (180., 0.), (2., .001)):
+        endpoints = []
+        for duration, strain_rate in zip(durations, strain_rates, strict=True):
             solution = integrate_bounded(trial, duration, strain_rate, p,
                                          limit=limit, rate=rate, rtol=rtol)
             trial = solution.y[:, -1].copy()
             peak = max(peak, float(solution.y[0].max()))
             valley = min(valley, float(solution.y[0].min()))
+            endpoints.append(trial.tolist())
         state = trial
         records.append(dict(cycle=cycle, sampled_peak_MPa=peak,
-                            sampled_valley_MPa=valley, end_state=state.tolist()))
+                            sampled_valley_MPa=valley, end_state=state.tolist(),
+                            segment_end_states=endpoints))
     return dict(schema="agentfem.research.p92-bounded-recovery.v1", parameters=asdict(p),
+                calibration_sha256=sha256(json.dumps(calibration, sort_keys=True,
+                                          allow_nan=False).encode()).hexdigest(),
+                protocol=protocol, segment_end_times_s=times[1:].tolist(),
                 limit=limit, rate=rate, rtol=rtol, cycles=records,
                 sufficient_strength_lower_bound_MPa=isotropic_strength_lower_bound(p),
                 engineering_qualified=False, life_qualified=False,
-                scope="Continuous nominal RF, bounded-recovery hypothesis; no refit, no life law")
+                scope="Continuous nominal loading, bounded-recovery hypothesis; no refit, no life law")
+
+
+def compare_candidate(data, report):
+    """Retain all available cycle extrema; missing measured paths stay missing.
+
+    Nominal simulation cycles are not reconstructed experimental histories.
+    Previously inspected records cannot become independent holdouts by renaming
+    them. Post-failure response is reported separately, never silently dropped.
+    """
+    if data["protocol"] != report["protocol"]:
+        raise ValueError("Candidate and observations must have the same protocol")
+    predictions = {r["cycle"]: r for r in report["cycles"]}
+    if len(predictions) != len(report["cycles"]):
+        raise ValueError("Duplicate candidate cycle identities")
+    failure = float(data["metadata"]["failure_cycles"])
+    records = []
+    for cycle in data["recorded_cycles"]:
+        if int(cycle) not in predictions:
+            continue
+        values = data["stress_Pa"][data["cycle"] == cycle]/1e6
+        predicted = predictions[int(cycle)]
+        peak, valley = float(values.max()), float(values.min())
+        peak_error = predicted["sampled_peak_MPa"]-peak
+        valley_error = predicted["sampled_valley_MPa"]-valley
+        records.append(dict(cycle=int(cycle), observed_peak_MPa=peak,
+                            observed_valley_MPa=valley, peak_error_MPa=peak_error,
+                            valley_error_MPa=valley_error,
+                            peak_relative_error=peak_error/abs(peak) if peak else None,
+                            role=("after_source_failure" if cycle > failure else
+                                  "base_calibration" if data["protocol"] == "RF" and cycle <= 3
+                                  else "inspected_development")))
+    if not records:
+        raise ValueError("No common recorded/predicted cycles")
+    groups = {}
+    for role in sorted({r["role"] for r in records}):
+        errors = np.array([[r["peak_error_MPa"], r["valley_error_MPa"]]
+                           for r in records if r["role"] == role])
+        groups[role] = dict(cycles=len(errors),
+                           extrema_RMSE_MPa=float(np.sqrt(np.mean(errors**2))),
+                           extrema_max_abs_error_MPa=float(np.max(np.abs(errors))))
+    return dict(source_sha256=data["sha256"], source_failure_cycle=failure,
+                records=records, groups=groups, independent_validation=False,
+                engineering_qualified=False,
+                scope="All available sampled extrema; nominal vs measured inputs, no time-history reconstruction")
 
 
 if __name__ == "__main__":
@@ -114,9 +169,15 @@ if __name__ == "__main__":
     parser.add_argument("--limit", type=float, required=True)
     parser.add_argument("--rate", type=float, required=True)
     parser.add_argument("--rtol", type=float, default=1e-8)
+    parser.add_argument("--protocol", choices=("RF", "SLR"), default="RF")
     parser.add_argument("--output", type=Path, required=True)
+    parser.add_argument("--source", type=Path, help="Optional checksum-pinned BAM record")
     args = parser.parse_args()
     report = run_candidate(json.loads(args.calibration.read_text()), cycles=args.cycles,
-                           limit=args.limit, rate=args.rate, rtol=args.rtol)
+                           limit=args.limit, rate=args.rate, rtol=args.rtol,
+                           protocol=args.protocol)
+    if args.source:
+        from tools.p92_bam_source import read_source
+        report["comparison"] = compare_candidate(read_source(args.source, protocol=args.protocol), report)
     args.output.write_text(json.dumps(report, indent=2, allow_nan=False)+"\n")
     print(json.dumps(report["cycles"][-1]))

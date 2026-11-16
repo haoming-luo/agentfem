@@ -1,0 +1,96 @@
+{
+  "schema": "agentfem.research.p92-isothermal-dwell-life.v1",
+  "source": "https://doi.org/10.3390/met9020183",
+  "temperature_C": 600,
+  "strain_amplitude": 0.004,
+  "strain_rate_per_s": 0.001,
+  "records": [
+    {
+      "specimen": "CF600S04T01",
+      "observed_cycles": 1303,
+      "tensile_minutes": 1.0,
+      "compressive_minutes": 0.0,
+      "prediction_ratio": 1.2912193714482787,
+      "cycles": 1682.458840997107,
+      "base_cycles": 1800.219766506373,
+      "tensile_factor": 0.934585250256528,
+      "compressive_factor": 1.0
+    },
+    {
+      "specimen": "CF600S04T03",
+      "observed_cycles": 1190,
+      "tensile_minutes": 3.0,
+      "compressive_minutes": 0.0,
+      "prediction_ratio": 1.247103990437584,
+      "cycles": 1484.053748620725,
+      "base_cycles": 1800.219766506373,
+      "tensile_factor": 0.8243736549459064,
+      "compressive_factor": 1.0
+    },
+    {
+      "specimen": "CF600S04T10",
+      "observed_cycles": 675,
+      "tensile_minutes": 10.0,
+      "compressive_minutes": 0.0,
+      "prediction_ratio": 1.5712609453181459,
+      "cycles": 1060.6011380897485,
+      "base_cycles": 1800.219766506373,
+      "tensile_factor": 0.5891509235830813,
+      "compressive_factor": 1.0
+    },
+    {
+      "specimen": "CF600S04T60",
+      "observed_cycles": 748,
+      "tensile_minutes": 60.0,
+      "compressive_minutes": 0.0,
+      "prediction_ratio": 0.964101852120776,
+      "cycles": 721.1481853863405,
+      "base_cycles": 1800.219766506373,
+      "tensile_factor": 0.4005889718597241,
+      "compressive_factor": 1.0
+    },
+    {
+      "specimen": "CF600S04C01",
+      "observed_cycles": 652,
+      "tensile_minutes": 0.0,
+      "compressive_minutes": 1.0,
+      "prediction_ratio": 1.075671678768579,
+      "cycles": 701.3379345571135,
+      "base_cycles": 1800.219766506373,
+      "tensile_factor": 1.0,
+      "compressive_factor": 0.3895846205034049
+    },
+    {
+      "specimen": "CF600S04C03",
+      "observed_cycles": 416,
+      "tensile_minutes": 0.0,
+      "compressive_minutes": 3.0,
+      "prediction_ratio": 1.1822989965020803,
+      "cycles": 491.8363825448654,
+      "base_cycles": 1800.219766506373,
+      "tensile_factor": 1.0,
+      "compressive_factor": 0.2732090779668285
+    },
+    {
+      "specimen": "CF600S04C10",
+      "observed_cycles": 567,
+      "tensile_minutes": 0.0,
+      "compressive_minutes": 10.0,
+      "prediction_ratio": 0.8572475401146561,
+      "cycles": 486.05935524501,
+      "base_cycles": 1800.219766506373,
+      "tensile_factor": 1.0,
+      "compressive_factor": 0.2700000101589204
+    }
+  ],
+  "validation_role": "same-paper parameter reproduction",
+  "independent_validation": false,
+  "engineering_qualified": false,
+  "failure_definition": "Not explicitly resolved in source experimental description",
+  "scope": "Table 2 at 600 C plus equations 10/11; not the temperature-polynomial model",
+  "limitations": [
+    "Table 5 also fitted P91 data; not a universal P92 law",
+    "No stress-controlled dwell or evolving structural damage",
+    "No reliability interval inferred from seven different hold conditions"
+  ]
+}

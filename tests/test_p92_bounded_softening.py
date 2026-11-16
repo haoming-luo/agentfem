@@ -55,3 +55,44 @@ def test_restart_preserves_history():
     resumed = integrate_bounded(half, 4., .001, p, limit=2., rate=.1, rtol=1e-10).y[:, -1]
     np.testing.assert_allclose(whole, resumed, rtol=2e-8, atol=2e-7)
     np.testing.assert_array_equal(old, np.zeros(5))
+
+
+def test_nominal_slr_preserves_zero_strain_hold_and_cycle_state(monkeypatch):
+    from dataclasses import asdict
+    from types import SimpleNamespace
+    from tools import p92_bounded_softening as module
+    calls = []
+
+    def integrate(old, duration, strain_rate, parameters, **kwargs):
+        calls.append((old.copy(), duration, strain_rate))
+        updated = old.copy()
+        updated[4] += .01
+        return SimpleNamespace(y=np.column_stack((old, updated)))
+
+    monkeypatch.setattr(module, "integrate_bounded", integrate)
+    calibration = dict(fit={"success": True}, parameters=asdict(published_parameters(600)),
+                       initial_state=[0.]*5)
+    report = module.run_candidate(calibration, cycles=2, limit=2., rate=.1, protocol="SLR")
+    assert [c[1] for c in calls[:7]] == [2, 180, 2, 1800, 2, 180, 2]
+    assert [c[2] for c in calls[:7]] == [-.001, 0., .001, 0., .001, 0., -.001]
+    assert calls[7][0][4] == pytest.approx(.07)
+    assert report["cycles"][-1]["end_state"][4] == pytest.approx(.14)
+    assert calibration["initial_state"] == [0.]*5
+    with pytest.raises(ValueError, match="strain-control"):
+        module.run_candidate(calibration, cycles=1, limit=2., rate=.1, protocol="SLC")
+
+
+def test_comparison_keeps_post_failure_and_missing_cycles_explicit():
+    from tools.p92_bounded_softening import compare_candidate
+    data = dict(protocol="RF", metadata={"failure_cycles": 4}, sha256="fixture",
+                cycle=np.array([1, 1, 4, 4, 5, 5]), recorded_cycles=[1, 4, 5],
+                stress_Pa=1e6*np.array([-100, 100, -80, 80, -70, 70]))
+    report = dict(protocol="RF", cycles=[dict(cycle=i, sampled_peak_MPa=90.,
+                                             sampled_valley_MPa=-90.) for i in range(1, 6)])
+    compared = compare_candidate(data, report)
+    assert [r["cycle"] for r in compared["records"]] == [1, 4, 5]
+    assert compared["groups"]["after_source_failure"]["extrema_max_abs_error_MPa"] == 20
+    assert compared["groups"]["inspected_development"]["extrema_RMSE_MPa"] == 10
+    assert not compared["independent_validation"]
+    with pytest.raises(ValueError, match="same protocol"):
+        compare_candidate(data, {**report, "protocol": "SLR"})

@@ -426,6 +426,15 @@ have independent risk-set, exact-binomial and seeded coverage checks. See
 [the evidence and scope](internal/p92_positive_strength_20261116.md). No
 material card or design allowable is promoted by these numerical checks.
 
+The [bounded-recovery experiment](internal/p92_bounded_recovery_20261116.md)
+reduces the inspected RF cycle-1000 peak error to +1.49%, with an independent
+tolerance-refinement check, but still misses the SLR cycle-10 peak by -12.22%.
+The complete extrema comparison is retained, not just the improved peak.
+Published hold-life reproduction and within-condition replicate survival are
+now separate checks; neither substitutes for independent engineering life
+validation. Joint RF/SLR calibration is a bounded model-discrimination task,
+not permission to keep fitting until a selected metric passes.
+
 PR #132 maintenance is merged at `44fda9c4`; the published 0.4.4 tag remains
 unchanged. The next bounded sequence is reliability → thermal/cyclic-creep
 integration → damage/life assessment. It does not reopen packaging, claim
