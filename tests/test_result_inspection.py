@@ -1,3 +1,5 @@
+# SPDX-FileCopyrightText: 2026 Haoming Luo and AgentFEM contributors
+# SPDX-License-Identifier: Apache-2.0
 """Real VTK inspection preserves volume cells and field association."""
 
 from hashlib import sha256
