@@ -15,7 +15,7 @@ from agentfem.results import HistoryResult
 from agentfem.verification import history_errors
 from tools.p92_bam_source import read_source, replay_window
 from tools.p92_published_recovery_reference import (
-    implicit_update, integrate_segment, published_parameters,
+    implicit_update, integrate_segment, published_parameters, isotropic_strength_lower_bound,
 )
 
 
@@ -48,7 +48,8 @@ def replay(times, strains, parameters, initial_state, *, subdivisions=1, method=
     return np.asarray(states)
 
 
-def calibrate(times, strains, observed, initial_state, *, max_nfev=30):
+def calibrate(times, strains, observed, initial_state, *, max_nfev=30,
+              positive_strength=False):
     """Only supplied training observations influence the three fitted constants."""
     # Reject accidental (n, 1) broadcasting before constructing an objective.
     if any(np.iscomplexobj(v) for v in (times, strains, observed, initial_state)):
@@ -61,6 +62,16 @@ def calibrate(times, strains, observed, initial_state, *, max_nfev=30):
             or not isinstance(max_nfev, (int, np.integer)) or max_nfev < 1):
         raise ValueError("max_nfev must be a positive integer.")
     base = published_parameters(600)
+    if not isinstance(positive_strength, bool):
+        raise ValueError("positive_strength must be boolean.")
+    # Keep the original research screen reproducible. The opt-in alternative
+    # changes only the admissible k lower bound, not the training/holdout split.
+    minimum_k = 50.
+    if positive_strength:
+        old = np.asarray(initial_state, dtype=float)
+        if old.shape != (5,) or not np.isfinite(old).all() or old[4] < 0:
+            raise ValueError("Provide explicit five-component initial state.")
+        minimum_k = max(minimum_k, base.k-isotropic_strength_lower_bound(base, old[3])+1.e-6)
     dt = np.diff(t)
     weights = np.r_[dt[0]/2, (dt[:-1]+dt[1:])/2, dt[-1]/2]
     weights = np.sqrt(weights/weights.sum())
@@ -69,16 +80,19 @@ def calibrate(times, strains, observed, initial_state, *, max_nfev=30):
     def residual(z):
         return weights*(replay(t, e, parameters(z), initial_state)[:, 0]-s)
     fit = least_squares(residual, [base.E/1e5, base.k/100, base.Z/1000],
-                        bounds=([1., .5, .3], [2., 2.5, 1.5]), max_nfev=max_nfev,
+                        bounds=([1., minimum_k/100, .3], [2., 2.5, 1.5]), max_nfev=max_nfev,
                         ftol=1e-6, xtol=1e-6, gtol=1e-6)
     return parameters(fit.x), {
         "success": bool(fit.success), "message": fit.message, "nfev": fit.nfev,
         "active_bounds": fit.active_mask.tolist(), "cost": float(fit.cost),
         "scaled_parameter_jacobian_singular_values": np.linalg.svd(fit.jac, compute_uv=False).tolist(),
+        "positive_strength_constraint": positive_strength,
+        "k_lower_bound_MPa": minimum_k,
+        "sufficient_strength_lower_bound_MPa": isotropic_strength_lower_bound(parameters(fit.x), initial_state[3]),
     }
 
 
-def screen(data, *, max_nfev=30, include_radau=False):
+def screen(data, *, max_nfev=30, include_radau=False, positive_strength=False):
     start = perf_counter()
     window = replay_window(data, first_cycle=1, last_cycle=10, max_interval_s=2.)
     h = window["histories"]
@@ -87,7 +101,8 @@ def screen(data, *, max_nfev=30, include_radau=False):
     cycles = data["cycle"][selected]
     training = cycles <= 3
     initial = np.array([observed[0], 0., 0., 0., 0.])
-    p, fit = calibrate(t[training], strain[training], observed[training], initial, max_nfev=max_nfev)
+    p, fit = calibrate(t[training], strain[training], observed[training], initial,
+                       max_nfev=max_nfev, positive_strength=positive_strength)
     if not fit["success"]:
         raise RuntimeError(f"RF calibration did not converge; no holdout prediction: {fit}")
     states = replay(t, strain, p, initial)
@@ -117,6 +132,11 @@ def screen(data, *, max_nfev=30, include_radau=False):
         "scope": "Uniaxial continuous-state response transfer screen, not structural or life validation",
         "work_scope": "Sampled nominal axial path work; not dissipation and no endpoint closure",
         "uncertainty": "No independent-specimen scatter inferred from within-path residuals"}
+    if positive_strength:
+        report["validation_design"] = "Model revision on previously inspected RF/SLR records, not fresh blind validation"
+        for record in reports:
+            if record["cycle"] > 3:
+                record["role"] = "previously_inspected_model_revision_check"
     if include_radau:
         independent = replay(t, strain, p, initial, method="Radau")
         report["independent_Radau_max_stress_difference_MPa"] = float(np.max(abs(independent[:, 0]-states[:, 0])))
@@ -209,15 +229,17 @@ if __name__ == "__main__":
     parser.add_argument("source", type=Path)
     parser.add_argument("--max-nfev", type=int, default=30)
     parser.add_argument("--radau", action="store_true")
+    parser.add_argument("--positive-strength", action="store_true",
+                        help="Constrain the fit using the scalar isotropic-strength invariant")
     parser.add_argument("--frozen-rf", type=Path,
                         help="Predict SLR using this completed RF JSON record without fitting")
     args = parser.parse_args()
     if args.frozen_rf:
-        if args.radau:
-            parser.error("--radau applies to the RF screen, not the frozen SLR transfer")
+        if args.radau or args.positive_strength:
+            parser.error("--radau/--positive-strength apply to RF fitting, not frozen SLR transfer")
         report = transfer_screen(read_source(args.source, protocol="SLR"),
                                  json.loads(args.frozen_rf.read_text()))
     else:
         report = screen(read_source(args.source, protocol="RF"), max_nfev=args.max_nfev,
-                        include_radau=args.radau)
+                        include_radau=args.radau, positive_strength=args.positive_strength)
     print(json.dumps(report, indent=2, allow_nan=False))

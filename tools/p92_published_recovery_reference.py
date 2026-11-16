@@ -57,6 +57,34 @@ def published_parameters(temperature_C):
     raise ValueError("Published parameters exist at 600 and 650 Celsius only.")
 
 
+def isotropic_strength_lower_bound(parameters, initial_R=0.):
+    """Sufficient continuous-path bound for k+R, not material calibration.
+
+    Write Rdot = b*(Q+H/b-R)*pdot + gamma_r(p)*|Qr-R|**mr*sign(Qr-R).
+    With pdot >= 0 and nonnegative recovery, R cannot cross below the
+    minimum of its initial value and these two target values. This scalar
+    invariant does not prove discretization stability or experimental accuracy.
+    """
+    from numbers import Real
+    values = (parameters.k, parameters.Q, parameters.H, parameters.b,
+              parameters.Qr, parameters.gamma_r1, parameters.gamma_r2,
+              parameters.r, parameters.mr, initial_R)
+    if (any(isinstance(v, (bool, np.bool_)) or not isinstance(v, Real) for v in values)
+            or not np.isfinite(values).all() or parameters.k <= 0 or parameters.b <= 0
+            or min(parameters.gamma_r1, parameters.gamma_r2, parameters.r) < 0
+            or parameters.mr < 1):
+        raise ValueError("Strength bound requires finite parameters, positive k/b and nonnegative recovery.")
+    with np.errstate(over="raise", invalid="raise", divide="raise"):
+        try:
+            target = parameters.Q + np.float64(parameters.H)/parameters.b
+            bound = parameters.k + min(float(initial_R), float(target), parameters.Qr)
+        except FloatingPointError as exc:
+            raise ValueError("Strength bound is not representable.") from exc
+    if not np.isfinite(bound):
+        raise ValueError("Strength bound is not representable.")
+    return float(bound)
+
+
 def rates(state, strain_rate, p):
     """State: sigma, chi1, chi2, R, accumulated inelastic strain.
 

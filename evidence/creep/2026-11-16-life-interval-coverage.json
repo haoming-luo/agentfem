@@ -1,0 +1,44 @@
+{
+  "schema": "agentfem.research.life-interval-coverage.v1",
+  "seed": 20261116,
+  "generator": "numpy.default_rng, sequential draws across sample sizes",
+  "numpy_version": "2.4.6",
+  "confidence_level": 0.95,
+  "failure_mean_h": 1,
+  "independent_withdrawal_mean_h": 2,
+  "horizon_h": 0.6931471805599453,
+  "true_survival": 0.5,
+  "records": [
+    {
+      "sample_size": 5,
+      "trials": 2000,
+      "finite_intervals": 1632,
+      "outside_followup": 255,
+      "undefined_boundary_intervals": 113,
+      "covered": 1632,
+      "conditional_coverage": 1,
+      "covered_fraction_of_all_trials": 0.816
+    },
+    {
+      "sample_size": 20,
+      "trials": 2000,
+      "finite_intervals": 1999,
+      "outside_followup": 1,
+      "undefined_boundary_intervals": 0,
+      "covered": 1892,
+      "conditional_coverage": 0.9464732366183092,
+      "covered_fraction_of_all_trials": 0.946
+    },
+    {
+      "sample_size": 100,
+      "trials": 2000,
+      "finite_intervals": 2000,
+      "outside_followup": 0,
+      "undefined_boundary_intervals": 0,
+      "covered": 1894,
+      "conditional_coverage": 0.947,
+      "covered_fraction_of_all_trials": 0.947
+    }
+  ],
+  "scope": "Sampling diagnostic for pointwise log-log Greenwood intervals; not an exact coverage guarantee or material validation"
+}
