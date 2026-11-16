@@ -33,7 +33,7 @@ def scalar_choices(grid):
 def build_viewer(path, *, displacement=None, reference_geometry=False, server=None):
     import pyvista as pv
     from trame.app import get_server
-    from trame.ui.vuetify3 import SinglePageLayout
+    from trame.ui.vuetify3 import SinglePageWithDrawerLayout
     from trame.widgets import vtk, vuetify3 as v3
     from trame_vtk.modules.vtk.serializers.registry import register_js_class
 
@@ -49,6 +49,7 @@ def build_viewer(path, *, displacement=None, reference_geometry=False, server=No
         "frame": 0, "frame_count": 0, "saved_times": [], "information": []}
     server = server or get_server(client_type="vue3")
     state, ctrl = server.state, server.controller
+    state.trame__title = "AgentFEM · Local results"
     plotter = pv.Plotter(off_screen=True)
     plotter.set_background("#f3f5f7")
     cache = {"frame": None, "grid": None, "choices": [], "actor": None, "bar": None}
@@ -205,6 +206,7 @@ def build_viewer(path, *, displacement=None, reference_geometry=False, server=No
                     state.file_items = directory.entries(selected)
                     state.folder = str(selected.relative_to(directory.root))
                     state.file_selection = None
+                    state.error = ""
                 return
             candidate = directory.result(selected)
             # Read before replacing the current view: failed opens preserve it.
@@ -230,21 +232,27 @@ def build_viewer(path, *, displacement=None, reference_geometry=False, server=No
             state.error = str(exc)
 
     def parent_folder(**_):
-        current = directory.resolve(state.folder)
-        if current != directory.root:
-            with state:
-                state.folder = str(current.parent.relative_to(directory.root))
-                state.file_items = directory.entries(current.parent)
-                state.file_selection = None
+        try:
+            current = directory.resolve(state.folder)
+            if current != directory.root:
+                entries = directory.entries(current.parent)
+                with state:
+                    state.folder = str(current.parent.relative_to(directory.root))
+                    state.file_items = entries
+                    state.file_selection = None
+                    state.error = ""
+        except (ValueError, OSError) as exc:
+            state.error = str(exc)
 
     def refresh(**_):
         # Reopen only the atomically published index; never inspect a writer's
         # temporary files or interpolate across a restart gap.
         stop_playback()
-        if path is None:
-            state.file_items = directory.entries(state.folder)
-            return
         try:
+            if path is None:
+                state.file_items = directory.entries(state.folder)
+                state.error = ""
+                return
             directory.result(path)
             latest = inspect_visualization(path)
             current_time = (info["saved_times"][int(state.frame)]
@@ -260,49 +268,52 @@ def build_viewer(path, *, displacement=None, reference_geometry=False, server=No
         except (ValueError, IndexError, TypeError, OSError, ET.ParseError) as exc:
             state.error = str(exc)
 
-    with SinglePageLayout(server) as ui:
+    with SinglePageWithDrawerLayout(server, width=320) as ui:
         ui.title.set_text("AgentFEM · {{ result_name }}")
+        ui.icon.title = "Show or hide result controls"
         with ui.toolbar:
             v3.VSpacer()
             v3.VBtn("Refresh frames", click=refresh)
             v3.VBtn("Reset view", click=lambda: ctrl.view_reset())
+        with ui.drawer:
+            with v3.VContainer(classes="pa-4 d-flex flex-column ga-3"):
+                v3.VLabel("LOCAL RESULTS", style="font-size:12px; letter-spacing:1px")
+                v3.VSelect(v_model=("file_selection", None), items=("file_items",),
+                           label="Result or folder", hide_details=True, density="compact")
+                with v3.VRow(classes="ma-0 ga-2"):
+                    v3.VBtn("Open", click=open_selection, color="primary", variant="tonal")
+                    v3.VBtn("Up", click=parent_folder, disabled=("folder === '.'",), variant="text")
+                v3.VLabel("Folder: {{ folder }}", style="font-size:12px; white-space:normal; overflow-wrap:anywhere")
+                v3.VDivider()
+                v3.VSelect(v_model=("field", -1), items=("field_items",),
+                           label="Field · association", hide_details=True, density="compact")
+                v3.VCheckbox(v_model=("edges", False), label="Show mesh edges", hide_details=True, density="compact")
+                v3.VCheckbox(v_model=("fixed_range", False), label="Fixed color range", hide_details=True, density="compact")
+                with v3.VRow(classes="ma-0 ga-2 flex-nowrap"):
+                    v3.VTextField(v_model=("range_min", 0.), label="Minimum", type="number",
+                                  disabled=("!fixed_range",), hide_details=True, density="compact", style="min-width:0")
+                    v3.VTextField(v_model=("range_max", 1.), label="Maximum", type="number",
+                                  disabled=("!fixed_range",), hide_details=True, density="compact", style="min-width:0")
+                v3.VDivider()
+                v3.VCheckbox(v_model=("reference_geometry", bool(reference_geometry)),
+                             label="Coordinates are undeformed", hide_details=True, density="compact")
+                v3.VSelect(v_model=("displacement_field", displacement), items=("displacement_items",),
+                           label="Displacement · point vector", disabled=("!reference_geometry",),
+                           hide_details=True, density="compact")
+                v3.VTextField(v_model=("scale", 0.), label="Warp scale", type="number",
+                              disabled=("!reference_geometry || !displacement_field",), hide_details=True, density="compact")
+                v3.VLabel("Warp changes the view, not the saved geometry.",
+                          style="font-size:12px; white-space:normal")
         with ui.content:
-            with v3.VContainer(fluid=True, classes="pa-0 fill-height d-flex flex-column"):
-                with v3.VRow(classes="ma-0 px-3 pt-3", style="flex: 0 0 auto; width:100%"):
-                    with v3.VCol(cols=8):
-                        v3.VSelect(v_model=("file_selection", None), items=("file_items",),
-                                   label="Local result or folder", hide_details=True, density="compact")
-                    with v3.VCol(cols=4, classes="d-flex align-center ga-2"):
-                        v3.VBtn("Open", click=open_selection, color="primary", variant="tonal")
-                        v3.VBtn("Up", click=parent_folder, disabled=("folder === '.'",), variant="text")
-                v3.VLabel("Folder: {{ folder }}", classes="px-6", style="font-size:12px")
-                with v3.VRow(classes="ma-0 pa-3", style="flex: 0 0 auto; width:100%"):
-                    with v3.VCol(cols=12, md=4):
-                        v3.VSelect(v_model=("field", -1), items=("field_items",), label="Field · association", hide_details=True)
-                    with v3.VCol(cols=8, md=4):
-                        v3.VSlider(v_model=("frame", info["frame"]), min=0,
-                                   max=("frame_count - 1",), step=1, label="Saved frame",
-                                   disabled=("frame_count <= 1",), hide_details=True)
-                    with v3.VCol(cols=4, md=2):
-                        v3.VTextField(v_model=("scale", 0.), label="Warp scale", type="number",
-                                      disabled=("!reference_geometry || !displacement_field",), hide_details=True)
-                    with v3.VCol(cols=12, md=2):
-                        v3.VCheckbox(v_model=("edges", False), label="Edges", hide_details=True)
-                with v3.VRow(classes="ma-0 px-4", style="flex: 0 0 auto; width:100%"):
-                    v3.VCheckbox(v_model=("reference_geometry", bool(reference_geometry)),
-                                 label="Coordinates are undeformed (enable warp)", hide_details=True, density="compact")
-                    v3.VSelect(v_model=("displacement_field", displacement), items=("displacement_items",),
-                               label="Displacement · point vector", disabled=("!reference_geometry",),
-                               hide_details=True, density="compact", style="max-width:360px")
+            with v3.VContainer(fluid=True, classes="pa-0 d-flex flex-column",
+                               style="height:calc(100vh - 96px); min-height:320px"):
                 v3.VAlert("{{ error }}", v_if="error", type="error", density="compact")
-                with v3.VRow(classes="ma-0 px-4", style="flex: 0 0 auto; width:100%"):
+                with v3.VRow(classes="ma-0 px-3 align-center ga-3", style="flex:0 0 auto; width:100%"):
                     v3.VBtn("{{ playing ? 'Pause' : 'Play' }}", click=toggle_playback,
                             disabled=("frame_count <= 1",), variant="text")
-                    v3.VCheckbox(v_model=("fixed_range", False), label="Fixed color range", hide_details=True, density="compact")
-                    v3.VTextField(v_model=("range_min", 0.), label="Minimum", type="number",
-                                  disabled=("!fixed_range",), hide_details=True, density="compact", style="max-width:160px")
-                    v3.VTextField(v_model=("range_max", 1.), label="Maximum", type="number",
-                                  disabled=("!fixed_range",), hide_details=True, density="compact", style="max-width:160px")
+                    v3.VSlider(v_model=("frame", info["frame"]), min=0,
+                               max=("frame_count - 1",), step=1, label="Saved frame",
+                               disabled=("frame_count <= 1",), hide_details=True, style="min-width:160px")
                 v3.VLabel("{{ coordinate }}", classes="px-4")
                 v3.VLabel("{{ mesh_summary }}", classes="px-4")
                 v3.VLabel("{{ source_status }}", v_if="source_status", classes="px-4")
@@ -310,7 +321,7 @@ def build_viewer(path, *, displacement=None, reference_geometry=False, server=No
                 # event is not a user change: rebuilding the scene there can
                 # form a ready -> update -> ready loop on large meshes.
                 view = vtk.VtkLocalView(plotter.ren_win,
-                                        style="flex: 1; min-height:400px; width:100%")
+                                        style="flex:1; min-height:0; width:100%")
                 ctrl.view_update = view.update
                 ctrl.view_reset = view.reset_camera
                 ctrl.view_camera = view.push_camera

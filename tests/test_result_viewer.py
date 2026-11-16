@@ -71,7 +71,59 @@ def test_browser_open_switch_and_failed_open_preserves_current(tmp_path):
         state.file_selection = "nested"
         ctrl.open_result()
         assert state.folder == "nested"
+        assert state.error == ""
         ctrl.parent_folder()
         assert state.folder == "."
     finally:
         ctrl.on_server_exited(trame__scripts=[], arbitrary_state="ignored")
+
+
+def test_refresh_continuation_preserves_station_and_field(tmp_path):
+    pytest.importorskip("trame")
+    from trame.app import get_server
+    from agentfem.viewer import build_viewer
+
+    grid = pv.ImageData(dimensions=(2, 2, 2)).cast_to_unstructured_grid()
+    for index in range(3):
+        grid.cell_data["damage"] = [index*.2]
+        grid.save(tmp_path / f"frame-{index}.vtu")
+    index_path = tmp_path / "results.pvd"
+
+    def publish(count):
+        # Same atomic-index pattern as a running solver; accepted frame files
+        # are immutable, and refresh must not manufacture intermediate times.
+        temporary = tmp_path / "pending.pvd"
+        entries = "".join(f'<DataSet timestep="{t}" file="frame-{i}.vtu"/>'
+                          for i, t in enumerate((0., .2, .7)[:count]))
+        temporary.write_text('<VTKFile type="Collection"><Collection>'+entries+
+                             '</Collection></VTKFile>')
+        temporary.replace(index_path)
+
+    publish(2)
+    server = get_server(f"continuation-{tmp_path.name}", client_type="vue3")
+    build_viewer(index_path, server=server)
+    state, ctrl = server.state, server.controller
+    state.ready()
+    try:
+        ctrl.on_server_ready()
+        with state:
+            state.frame = 0
+            state.field = 0
+            state.fixed_range = True
+        assert state.error == ""
+        publish(3)
+        ctrl.refresh_result()
+        assert state.frame_count == 3
+        assert state.frame == 0 and state.field == 0
+        assert state.fixed_range
+        assert "coordinate 0" in state.coordinate
+        with state:
+            state.frame = 2
+        assert "coordinate 0.7" in state.coordinate
+        assert state.error == ""
+        index_path.write_text("<broken")
+        ctrl.refresh_result()
+        assert state.error
+        assert state.frame_count == 3 and state.frame == 2
+    finally:
+        ctrl.on_server_exited()

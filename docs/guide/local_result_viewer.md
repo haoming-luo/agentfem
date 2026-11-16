@@ -23,11 +23,15 @@ reader inputs are XDMF, VTU, legacy VTK and PVD. The viewer accepts one dataset
 per saved time; it does not merge distinct physical blocks or coincident nodes.
 Use trusted local files. The service listens only on `127.0.0.1`; Ctrl+C stops
 it. It does not upload results or execute a case. No AI is needed to use it.
-Choose **Local result or folder**, then **Open**; **Up** returns to the parent.
+Choose **Result or folder**, then **Open**; **Up** returns to the parent.
 The selected root limits browsing and XML companion references. For continuation
 indexes referencing sibling runs, open their common parent directory.
 
 ## Controls
+
+The left panel groups file, field and deformation controls. Its top-left menu
+button hides the panel when you want more space for the model. The saved-frame
+slider stays above the canvas. Nothing here changes the stored result.
 
 - **Field · association** selects a scalar or stored component, keeping cell
   and node fields distinct. No cell-to-node smoothing or tensor invariant is
@@ -41,7 +45,7 @@ indexes referencing sibling runs, open their common parent directory.
   station if it still exists. New frames become selectable; old H5 files are
   neither duplicated nor edited. Refresh an atomically published frame-file
   series; an actively written single H5 file may be locked by its writer.
-- **Edges** and **Reset view** control the display. Drag to rotate and scroll
+- **Show mesh edges** and **Reset view** control the display. Drag to rotate and scroll
   to zoom using VTK's browser interaction.
 
 To enable deformation, select **Coordinates are undeformed**, choose the nodal
@@ -92,5 +96,8 @@ result reading/warping are covered by numerical-output tests. Displaying a VTK
 cell does not qualify a shell, reduced-integration or other element formulation.
 A local-browser check additionally exercised 25 saved frames of a 255,041-cell
 hexahedral result, cell damage coloring and nodal displacement warping. This is
+an installed optional-viewer check in the Codex in-app browser, including saved-
+frame playback, a fixed 0–1 damage range, rotation and collapsible controls;
+it is not a native Codex widget or a separate AI-dependent rendering path. It is
 not a general browser memory limit. Windows browser behavior and additional
 high-order topologies remain separate acceptance work.
