@@ -13,6 +13,7 @@ from agentfem.viewer import scalar_choices
 def test_scalar_choices_preserve_duplicate_names_and_components():
     grid = pv.ImageData(dimensions=(2, 2, 2)).cast_to_unstructured_grid()
     grid.cell_data["damage"] = [0.5]
+    grid.point_data["U"] = np.zeros((grid.n_points, 3))
     grid.point_data["damage"] = np.zeros(grid.n_points)
     grid.cell_data["stress"] = np.arange(9).reshape(1, 9)
     grid.point_data["label"] = np.array(["node"] * grid.n_points)
@@ -33,6 +34,7 @@ def test_browser_open_switch_and_failed_open_preserves_current(tmp_path):
 
     grid = pv.ImageData(dimensions=(2, 2, 2)).cast_to_unstructured_grid()
     grid.cell_data["damage"] = [0.5]
+    grid.point_data["U"] = np.zeros((grid.n_points, 3))
     grid.save(tmp_path / "first.vtu")
     grid.cell_data["damage"] = [0.75]
     grid.save(tmp_path / "second.vtu")
@@ -50,10 +52,18 @@ def test_browser_open_switch_and_failed_open_preserves_current(tmp_path):
         assert state.error == ""
         assert state.result_name == "first.vtu"
         assert state.frame_count == 1
+        assert "U" in state.displacement_items
+        with state:
+            state.reference_geometry = True
+            state.displacement_field = "U"
+            state.scale = 1.
+        assert state.error == ""
         state.file_selection = "second.vtu"
         ctrl.open_result()
         assert state.result_name == "second.vtu"
         assert state.error == ""
+        assert not state.reference_geometry
+        assert state.displacement_field is None
         state.file_selection = "missing.vtu"
         ctrl.open_result()
         assert state.error
@@ -64,4 +74,4 @@ def test_browser_open_switch_and_failed_open_preserves_current(tmp_path):
         ctrl.parent_folder()
         assert state.folder == "."
     finally:
-        ctrl.on_server_exited()
+        ctrl.on_server_exited(trame__scripts=[], arbitrary_state="ignored")

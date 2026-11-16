@@ -51,7 +51,7 @@ def build_viewer(path, *, displacement=None, reference_geometry=False, server=No
     state, ctrl = server.state, server.controller
     plotter = pv.Plotter(off_screen=True)
     plotter.set_background("#f3f5f7")
-    cache = {"frame": None, "grid": None, "choices": []}
+    cache = {"frame": None, "grid": None, "choices": [], "actor": None, "bar": None}
     state.frame = info["frame"]
     state.field = -1
     state.scale = 0.
@@ -70,8 +70,10 @@ def build_viewer(path, *, displacement=None, reference_geometry=False, server=No
     state.range_min = 0.
     state.range_max = 1.
     state.mesh_summary = ""
+    state.reference_geometry = bool(reference_geometry)
+    state.displacement_field = displacement
+    state.displacement_items = []
     playback = {"task": None}
-    warp_enabled = reference_geometry and displacement is not None
 
     def update(**_):
         if path is None:
@@ -81,6 +83,10 @@ def build_viewer(path, *, displacement=None, reference_geometry=False, server=No
             changed = cache["frame"] != index
             grid = read_visualization_frame(path, frame=index) if changed else cache["grid"]
             choices = scalar_choices(grid)
+            vectors = [name for name, values in grid.point_data.items()
+                       if np.asarray(values).ndim == 2 and np.asarray(values).shape[1] == 3
+                       and np.asarray(values).dtype.kind in "fiu"]
+            state.displacement_items = vectors
             selected = int(state.field)
             if changed:
                 # Changing schema must not silently reuse an index for another field.
@@ -88,10 +94,11 @@ def build_viewer(path, *, displacement=None, reference_geometry=False, server=No
                 selected = choices.index(previous) if previous in choices else -1
             if not -1 <= selected < len(choices):
                 raise ValueError("Select a field available in this frame.")
-            displayed = (deform_visualization_frame(grid, displacement,
+            displayed = (deform_visualization_frame(grid, state.displacement_field,
                          scale=float(state.scale), reference_geometry=True)
-                         if warp_enabled else grid.copy(deep=True))
-            options = {"color": "#648aa6"}
+                         if state.reference_geometry and float(state.scale) != 0.
+                         else grid.copy(deep=True))
+            scalar = None
             if selected >= 0:
                 association, name, component = choices[selected]
                 data = displayed.cell_data if association == "cell" else displayed.point_data
@@ -105,17 +112,35 @@ def build_viewer(path, *, displacement=None, reference_geometry=False, server=No
                     key += "_"
                 data[key] = values.copy()
                 label = name if component is None else f"{name}[{component}]"
-                options = {"scalars": key, "preference": association, "cmap": "viridis",
-                           "scalar_bar_args": {"title": f"{label} ({association})"}}
+                bounds = None
                 if state.fixed_range:
                     bounds = float(state.range_min), float(state.range_max)
                     if not np.isfinite(bounds).all() or bounds[0] >= bounds[1]:
                         raise ValueError("Color minimum must be finite and smaller than maximum.")
-                    options["clim"] = bounds
+                scalar = (values, key, association, f"{label} ({association})", bounds)
             first_view = cache["grid"] is None
             camera = plotter.camera_position
-            plotter.clear()
-            plotter.add_mesh(displayed, show_edges=bool(state.edges), **options)
+            # Keep scene identities stable across interactive updates. Repeated
+            # clear/add can recycle VTK addresses into a different object type
+            # while vtk.js still holds the old serialized identity.
+            if cache["actor"] is None:
+                cache["actor"] = plotter.add_mesh(displayed, color="#648aa6",
+                                                  show_scalar_bar=False)
+            actor = cache["actor"]
+            actor.mapper.dataset = displayed
+            actor.prop.show_edges = bool(state.edges)
+            actor.mapper.scalar_visibility = scalar is not None
+            if scalar is not None:
+                values, key, association, label, bounds = scalar
+                actor.mapper.set_scalars(values, key, preference=association,
+                                         cmap="viridis", clim=bounds)
+                if cache["bar"] is None:
+                    cache["bar"] = plotter.add_scalar_bar(label, mapper=actor.mapper)
+                cache["bar"].SetTitle(label)
+                cache["bar"].SetLookupTable(actor.mapper.lookup_table)
+                cache["bar"].SetVisibility(True)
+            elif cache["bar"] is not None:
+                cache["bar"].SetVisibility(False)
             if cache["grid"] is None:
                 plotter.view_isometric()
                 plotter.reset_camera()
@@ -194,6 +219,10 @@ def build_viewer(path, *, displacement=None, reference_geometry=False, server=No
                 state.frame = latest["frame"]
                 state.field = -1
                 state.scale = 0.
+                # Coordinate semantics belong to this file, not the previously
+                # opened file. Never accidentally warp current coordinates twice.
+                state.reference_geometry = False
+                state.displacement_field = None
                 state.fixed_range = False
                 state.error = ""
             update()
@@ -256,9 +285,15 @@ def build_viewer(path, *, displacement=None, reference_geometry=False, server=No
                                    disabled=("frame_count <= 1",), hide_details=True)
                     with v3.VCol(cols=4, md=2):
                         v3.VTextField(v_model=("scale", 0.), label="Warp scale", type="number",
-                                      disabled=not warp_enabled, hide_details=True)
+                                      disabled=("!reference_geometry || !displacement_field",), hide_details=True)
                     with v3.VCol(cols=12, md=2):
                         v3.VCheckbox(v_model=("edges", False), label="Edges", hide_details=True)
+                with v3.VRow(classes="ma-0 px-4", style="flex: 0 0 auto; width:100%"):
+                    v3.VCheckbox(v_model=("reference_geometry", bool(reference_geometry)),
+                                 label="Coordinates are undeformed (enable warp)", hide_details=True, density="compact")
+                    v3.VSelect(v_model=("displacement_field", displacement), items=("displacement_items",),
+                               label="Displacement · point vector", disabled=("!reference_geometry",),
+                               hide_details=True, density="compact", style="max-width:360px")
                 v3.VAlert("{{ error }}", v_if="error", type="error", density="compact")
                 with v3.VRow(classes="ma-0 px-4", style="flex: 0 0 auto; width:100%"):
                     v3.VBtn("{{ playing ? 'Pause' : 'Play' }}", click=toggle_playback,
@@ -271,16 +306,23 @@ def build_viewer(path, *, displacement=None, reference_geometry=False, server=No
                 v3.VLabel("{{ coordinate }}", classes="px-4")
                 v3.VLabel("{{ mesh_summary }}", classes="px-4")
                 v3.VLabel("{{ source_status }}", v_if="source_status", classes="px-4")
-                view = vtk.VtkLocalView(plotter.ren_win, on_ready=update,
+                # VtkLocalView manages its initial synchronization. Its ready
+                # event is not a user change: rebuilding the scene there can
+                # form a ready -> update -> ready loop on large meshes.
+                view = vtk.VtkLocalView(plotter.ren_win,
                                         style="flex: 1; min-height:400px; width:100%")
                 ctrl.view_update = view.update
                 ctrl.view_reset = view.reset_camera
                 ctrl.view_camera = view.push_camera
                 v3.VLabel("Local preview · original field association · no averaging · {{ fixed_range ? 'fixed range' : 'range per frame' }}", classes="px-4 pb-2")
-    state.change("frame", "field", "scale", "edges", "fixed_range", "range_min", "range_max")(update)
+    state.change("frame", "field", "scale", "edges", "fixed_range", "range_min", "range_max",
+                 "reference_geometry", "displacement_field")(update)
     ctrl.on_server_ready.add(update)
     ctrl.on_server_exited.add(stop_playback)
-    ctrl.on_server_exited.add(plotter.close)
+    def close_view(**_):
+        # Trame supplies state keyword arguments to lifecycle callbacks.
+        plotter.close()
+    ctrl.on_server_exited.add(close_view)
     # The controller callbacks are also exercised without an LLM or browser.
     ctrl.open_result = open_selection
     ctrl.refresh_result = refresh

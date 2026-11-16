@@ -44,7 +44,10 @@ indexes referencing sibling runs, open their common parent directory.
 - **Edges** and **Reset view** control the display. Drag to rotate and scroll
   to zoom using VTK's browser interaction.
 
-To enable deformation, the source must explicitly be on reference geometry:
+To enable deformation, select **Coordinates are undeformed**, choose the nodal
+displacement vector, and set **Warp scale** (1 shows the saved displacement).
+Only enable this when the output contract says the coordinates are on reference
+geometry. The same declaration can be supplied when launching:
 
 ```sh
 agentfem-view /path/to/results.xdmf --reference-geometry --displacement displacement
@@ -52,7 +55,8 @@ agentfem-view /path/to/results.xdmf --reference-geometry --displacement displace
 
 Warp starts from the saved frame every time, so changing the scale does not
 accumulate deformation. Do not enable it for geometry already deformed in the
-output. Displacement must be a three-component nodal field. Units and component
+output. Opening another file clears this declaration. Displacement must be a
+three-component nodal field. Units and component
 conventions come from the result. The viewer does not infer missing units.
 
 ## Continuation results
@@ -86,5 +90,7 @@ types stay visible; quality checks and the selected Step determine admissibility
 First- and second-order triangle, quadrilateral, tetrahedron and hexahedron
 result reading/warping are covered by numerical-output tests. Displaying a VTK
 cell does not qualify a shell, reduced-integration or other element formulation.
-Large-result browser memory, Windows browser behavior and additional high-order
-topologies are subsequent acceptance work, not implied by these tests.
+A local-browser check additionally exercised 25 saved frames of a 255,041-cell
+hexahedral result, cell damage coloring and nodal displacement warping. This is
+not a general browser memory limit. Windows browser behavior and additional
+high-order topologies remain separate acceptance work.
