@@ -72,6 +72,8 @@ def calibrate(times, strains, observed, initial_state, *, max_nfev=30,
         if old.shape != (5,) or not np.isfinite(old).all() or old[4] < 0:
             raise ValueError("Provide explicit five-component initial state.")
         minimum_k = max(minimum_k, base.k-isotropic_strength_lower_bound(base, old[3])+1.e-6)
+        if minimum_k >= 250.:
+            raise ValueError("Initial history requires strength outside the frozen calibration bounds.")
     dt = np.diff(t)
     weights = np.r_[dt[0]/2, (dt[:-1]+dt[1:])/2, dt[-1]/2]
     weights = np.sqrt(weights/weights.sum())
@@ -79,7 +81,7 @@ def calibrate(times, strains, observed, initial_state, *, max_nfev=30,
         return replace(base, E=float(z[0]*1e5), k=float(z[1]*100), Z=float(z[2]*1000))
     def residual(z):
         return weights*(replay(t, e, parameters(z), initial_state)[:, 0]-s)
-    fit = least_squares(residual, [base.E/1e5, base.k/100, base.Z/1000],
+    fit = least_squares(residual, [base.E/1e5, max(base.k, minimum_k)/100, base.Z/1000],
                         bounds=([1., minimum_k/100, .3], [2., 2.5, 1.5]), max_nfev=max_nfev,
                         ftol=1e-6, xtol=1e-6, gtol=1e-6)
     return parameters(fit.x), {

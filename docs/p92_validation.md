@@ -116,6 +116,23 @@ data selection; it is not a claim of compliance with the full standard.
 
 ## Smallest next engineering validation package
 
+### Continuous-cycle and uncertainty evidence (2026-11-16)
+
+The [positive-strength investigation](internal/p92_positive_strength_20261116.md)
+now tests continuous nominal RF loading with two independent stiff integrators.
+An early-cycle fit that looked promising fails the material domain at cycle
+422. An analytically constrained alternative completes 1000 cycles, but its
+cycle-1000 tensile peak is about 9.46% high and its separate SLR prediction
+remains poor. This is a useful correction to calibration admission, not an
+engineering P92 material card. Recorded missing cycles are not interpolated
+into an invented measured loading history.
+
+The generic [life-observation tools](life_observations.md) retain right-censored
+tests and require explicit population assumptions. Independent NIST risk-set
+checks and seeded interval-coverage experiments complement exact fixed-horizon
+binomial checks. Synthetic sampling evidence validates statistical behavior;
+it cannot replace independent P92 specimen lifetimes or create their scatter.
+
 Use the [engineering-life uncertainty guide](internal/engineering_life_uncertainty_20261107.md)
 to distinguish population scatter, parameter/model uncertainty, predictive
 intervals and design margins. The target is a decision with explicit uncertainty,

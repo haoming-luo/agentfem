@@ -1,0 +1,320 @@
+{
+  "schema": "agentfem.research.p92-nominal-comparison.v1",
+  "calibration_record": "2026-11-16-bam-positive-strength.json",
+  "source_failure_cycles": 2054,
+  "source_total_test_cycles": 2547,
+  "retained_cycles": "1,100,500,1000,1500,2000,2054,2547; all intervening cycles integrated without reset",
+  "interpretation": "Continuous nominal loading domain check only; no fatigue damage or lifetime prediction",
+  "reports": [
+    {
+      "schema": "agentfem.research.p92-nominal-rf.v1",
+      "method": "Radau",
+      "rtol": 1e-8,
+      "requested_cycles": 2547,
+      "completed_cycles": 2547,
+      "failure": null,
+      "parameters": {
+        "E": 155176.47110217228,
+        "k": 115.99827260494216,
+        "Q": -111.06,
+        "b": 0.81,
+        "H": -4,
+        "Qr": -105.74,
+        "gamma_r1": 2.14e-8,
+        "gamma_r2": 2.01e-8,
+        "r": 5.98,
+        "mr": 2.8,
+        "a1": 27.05,
+        "C1": 25000,
+        "a2": 72.39,
+        "C2": 996.97,
+        "gamma1": 3e-9,
+        "gamma2": 7.47e-7,
+        "q": 10,
+        "m": 3.87,
+        "Z": 1192.4850176796278,
+        "n": 3
+      },
+      "initial_state": [
+        -0.05,
+        0,
+        0,
+        0,
+        0
+      ],
+      "last_completed_state": [
+        127.78763696573074,
+        27.049895520787274,
+        -2.6535301009398164,
+        -115.08533912158649,
+        13.955072323055465
+      ],
+      "cycles": [
+        {
+          "cycle": 1,
+          "time_s": 368,
+          "sampled_peak_MPa": 263.4232825932375,
+          "sampled_valley_MPa": -291.8694389897287,
+          "end_state": [
+            148.6571550450863,
+            -1.276652285626279,
+            -16.46871850915699,
+            -6.711306657261323,
+            0.0029256078318883566
+          ]
+        },
+        {
+          "cycle": 100,
+          "time_s": 36800,
+          "sampled_peak_MPa": 223.9086213163945,
+          "sampled_valley_MPa": -223.81601912746606,
+          "end_state": [
+            139.4798916102405,
+            27.035768323346286,
+            -17.621670663775873,
+            -83.83198610838107,
+            0.48899735049894827
+          ]
+        },
+        {
+          "cycle": 500,
+          "time_s": 184000,
+          "sampled_peak_MPa": 202.29141554435074,
+          "sampled_valley_MPa": -202.28220196300578,
+          "end_state": [
+            129.2454591619479,
+            27.049838912967573,
+            -5.235500845006249,
+            -110.52222672917809,
+            2.5858199615311306
+          ]
+        },
+        {
+          "cycle": 1000,
+          "time_s": 368000,
+          "sampled_peak_MPa": 198.92903842542165,
+          "sampled_valley_MPa": -198.92838951220037,
+          "end_state": [
+            127.88207687145822,
+            27.049893217197397,
+            -2.8161510311501488,
+            -114.79608837744921,
+            5.3490140164253255
+          ]
+        },
+        {
+          "cycle": 1500,
+          "time_s": 552000,
+          "sampled_peak_MPa": 198.71339472499906,
+          "sampled_valley_MPa": -198.7133570535299,
+          "end_state": [
+            127.79307287657593,
+            27.049895391819106,
+            -2.6628738727285977,
+            -115.06871240021127,
+            8.129799911860834
+          ]
+        },
+        {
+          "cycle": 2000,
+          "time_s": 736000,
+          "sampled_peak_MPa": 198.70096077181773,
+          "sampled_valley_MPa": -198.70095860088298,
+          "end_state": [
+            127.78793539456197,
+            27.049895513717555,
+            -2.654043016967412,
+            -115.08442639343754,
+            10.91165516394452
+          ]
+        },
+        {
+          "cycle": 2054,
+          "time_s": 755872,
+          "sampled_peak_MPa": 198.7007600488852,
+          "sampled_valley_MPa": -198.70075845125902,
+          "end_state": [
+            127.78785245460577,
+            27.049895515683883,
+            -2.653900465648825,
+            -115.08468006162937,
+            11.212101517871403
+          ]
+        },
+        {
+          "cycle": 2547,
+          "time_s": 937296,
+          "sampled_peak_MPa": 198.70023854640593,
+          "sampled_valley_MPa": -198.70023843833815,
+          "end_state": [
+            127.78763696573074,
+            27.049895520787274,
+            -2.6535301009398164,
+            -115.08533912158649,
+            13.955072323055465
+          ]
+        }
+      ],
+      "sufficient_strength_lower_bound_MPa": 0.0000010000038912494347,
+      "source": "https://pmc.ncbi.nlm.nih.gov/articles/PMC10319173/ Table 1",
+      "initial_state_assumption": "Supplied stress/history at nominal zero strain; measured initial strain offset is not replayed",
+      "scope": "Nominal imposed waveform, not missing measured history; no damage or life prediction",
+      "engineering_qualified": false
+    },
+    {
+      "schema": "agentfem.research.p92-nominal-rf.v1",
+      "method": "BDF",
+      "rtol": 1e-8,
+      "requested_cycles": 2547,
+      "completed_cycles": 2547,
+      "failure": null,
+      "parameters": {
+        "E": 155176.47110217228,
+        "k": 115.99827260494216,
+        "Q": -111.06,
+        "b": 0.81,
+        "H": -4,
+        "Qr": -105.74,
+        "gamma_r1": 2.14e-8,
+        "gamma_r2": 2.01e-8,
+        "r": 5.98,
+        "mr": 2.8,
+        "a1": 27.05,
+        "C1": 25000,
+        "a2": 72.39,
+        "C2": 996.97,
+        "gamma1": 3e-9,
+        "gamma2": 7.47e-7,
+        "q": 10,
+        "m": 3.87,
+        "Z": 1192.4850176796278,
+        "n": 3
+      },
+      "initial_state": [
+        -0.05,
+        0,
+        0,
+        0,
+        0
+      ],
+      "last_completed_state": [
+        127.78763597964843,
+        27.049895456697918,
+        -2.6535308605472023,
+        -115.08533911050867,
+        13.955072115546194
+      ],
+      "cycles": [
+        {
+          "cycle": 1,
+          "time_s": 368,
+          "sampled_peak_MPa": 263.42328280229987,
+          "sampled_valley_MPa": -291.8694376065829,
+          "end_state": [
+            148.65715343583352,
+            -1.2766521722570348,
+            -16.468720767327042,
+            -6.711306652871748,
+            0.0029256078030355224
+          ]
+        },
+        {
+          "cycle": 100,
+          "time_s": 36800,
+          "sampled_peak_MPa": 223.90862039959714,
+          "sampled_valley_MPa": -223.81601826105464,
+          "end_state": [
+            139.47989083297446,
+            27.03576814371223,
+            -17.62167181016694,
+            -83.83198609479999,
+            0.4889973484530398
+          ]
+        },
+        {
+          "cycle": 500,
+          "time_s": 184000,
+          "sampled_peak_MPa": 202.29141540459221,
+          "sampled_valley_MPa": -202.2822017579542,
+          "end_state": [
+            129.24545879806195,
+            27.049838783900082,
+            -5.235501254228528,
+            -110.52222658880719,
+            2.5858199261572135
+          ]
+        },
+        {
+          "cycle": 1000,
+          "time_s": 368000,
+          "sampled_peak_MPa": 198.9290381882329,
+          "sampled_valley_MPa": -198.9283893372817,
+          "end_state": [
+            127.8820758603993,
+            27.049893160566498,
+            -2.81615180697857,
+            -114.79608834782255,
+            5.349013941391309
+          ]
+        },
+        {
+          "cycle": 1500,
+          "time_s": 552000,
+          "sampled_peak_MPa": 198.71339448679635,
+          "sampled_valley_MPa": -198.7133567566723,
+          "end_state": [
+            127.79307186564397,
+            27.049895319088105,
+            -2.6628746025590115,
+            -115.06871238764639,
+            8.12979979429044
+          ]
+        },
+        {
+          "cycle": 2000,
+          "time_s": 736000,
+          "sampled_peak_MPa": 198.70096053109066,
+          "sampled_valley_MPa": -198.70095830077008,
+          "end_state": [
+            127.78793437469905,
+            27.04989544133909,
+            -2.6540437557365433,
+            -115.08442638223458,
+            10.911655003445814
+          ]
+        },
+        {
+          "cycle": 2054,
+          "time_s": 755872,
+          "sampled_peak_MPa": 198.70075980797316,
+          "sampled_valley_MPa": -198.7007581512791,
+          "end_state": [
+            127.78785146911257,
+            27.049895450887778,
+            -2.6539012215676445,
+            -115.08468005045381,
+            11.212101352723819
+          ]
+        },
+        {
+          "cycle": 2547,
+          "time_s": 937296,
+          "sampled_peak_MPa": 198.70023830447604,
+          "sampled_valley_MPa": -198.70023814077223,
+          "end_state": [
+            127.78763597964843,
+            27.049895456697918,
+            -2.6535308605472023,
+            -115.08533911050867,
+            13.955072115546194
+          ]
+        }
+      ],
+      "sufficient_strength_lower_bound_MPa": 0.0000010000038912494347,
+      "source": "https://pmc.ncbi.nlm.nih.gov/articles/PMC10319173/ Table 1",
+      "initial_state_assumption": "Supplied stress/history at nominal zero strain; measured initial strain offset is not replayed",
+      "scope": "Nominal imposed waveform, not missing measured history; no damage or life prediction",
+      "engineering_qualified": false
+    }
+  ]
+}

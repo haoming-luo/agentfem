@@ -72,6 +72,13 @@ path, not agreement with experiments. Selected peak comparisons (MPa):
 | 500 | 202.2914 | 198.74 |
 | 1000 | 198.9290 | 181.74 |
 
+The extension to all 2547 nominal cycles also completes with both integrators.
+At the source-defined failure count 2054, the predicted peak is 198.7008 MPa;
+at total test count 2547 it is 198.7002 MPa. The law approaches a stable cycle,
+not failure. These two source counts must remain distinct. Continuing the
+nominal equation beyond measured failure is a mathematical domain check only,
+not a claim that the physical specimen remains intact.
+
 The cycle-1000 peak is about 9.46% high. Nominal loading differs from the
 recorded waveform, and the model contains no fatigue damage variable. Do not
 interpret this difference as a calibrated damage law or infer rupture life.
@@ -82,6 +89,8 @@ Evidence files under `evidence/creep/`:
 - `2026-11-16-bam-positive-strength-slr.json`: unchanged-parameter SLR prediction.
 - `2026-11-16-bam-positive-strength-long-cycles.json`: two independent integrators;
   all 1000 cycles integrated, seven representative cycle records retained.
+- `2026-11-16-bam-positive-strength-full-nominal.json`: extension to all 2547
+  nominal cycles, retaining eight records and the separate source failure count.
 - `2026-11-16-life-interval-coverage.json`: reproducible synthetic sampling
   diagnostic, separate from P92 evidence.
 
@@ -103,6 +112,12 @@ python -m tools.p92_nominal_cycles evidence/creep/2026-11-16-bam-positive-streng
 python -m tools.p92_nominal_cycles evidence/creep/2026-11-16-bam-positive-strength.json --cycles 1000 --method BDF
 python -m tools.life_interval_coverage
 ```
+
+Use `--cycles 2547` for the full nominal extension. Final local acceptance:
+400 targeted P92/life tests pass, correctness lint passes, generated-document
+check and strict documentation build pass. PR #188's frozen 3052bf01 head has
+all applicable CI green, including installed-wheel macOS acceptance; this
+follow-up remains a separate review and does not change release status.
 
 At 2000 synthetic repetitions, the 95% pointwise log-log interval has conditional
 coverage 94.65% for n=20 and 94.7% for n=100. At n=5, 368/2000 trials cannot

@@ -37,3 +37,15 @@ def test_nominal_long_path_numerical_agreement_is_separate_from_accuracy():
         np.testing.assert_allclose(first["end_state"], second["end_state"], atol=3e-6, rtol=0)
     # Good numerical agreement does not erase the measured peak discrepancy.
     assert abs(reports[0]["cycles"][-1]["sampled_peak_MPa"]/181.74-1) > .09
+
+
+def test_full_nominal_path_does_not_claim_a_failure_prediction():
+    evidence = read("2026-11-16-bam-positive-strength-full-nominal.json")
+    assert evidence["source_failure_cycles"] == 2054
+    assert evidence["source_total_test_cycles"] == 2547
+    for report in evidence["reports"]:
+        assert report["completed_cycles"] == 2547 and report["failure"] is None
+        assert not report["engineering_qualified"]
+    for first, second in zip(*(r["cycles"] for r in evidence["reports"]), strict=True):
+        assert first["cycle"] == second["cycle"]
+        assert first["sampled_peak_MPa"] == pytest.approx(second["sampled_peak_MPa"], abs=2e-6, rel=0)

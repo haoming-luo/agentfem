@@ -122,6 +122,14 @@ or fixed-plan assumptions.
 
 ## P92 source check
 
+For a reproducible sampling check of the pointwise interval implementation,
+run `python -m tools.life_interval_coverage` from a source checkout. It uses
+independent exponential failure/withdrawal draws with a fixed seed and known
+survival probability. The report separates finite-interval coverage from
+out-of-follow-up and undefined-boundary cases. With only five specimens, an
+apparently high conditional coverage can hide many unavailable intervals.
+This is a statistical implementation diagnostic, not P92 lifetime data.
+
 From a source checkout with AgentFEM available:
 
 ```sh

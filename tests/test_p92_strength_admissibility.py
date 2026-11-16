@@ -55,3 +55,13 @@ def test_calibration_constraint_only_changes_the_declared_lower_bound(monkeypatc
     assert captured[0][0][0::2] == captured[1][0][0::2]
     assert captured[0][1] == captured[1][1]
     assert constrained["positive_strength_constraint"]
+
+
+def test_incompatible_initial_history_is_rejected_before_fitting(monkeypatch):
+    from tools import p92_bam_cyclic_screen as module
+    def unexpected(*args, **kwargs):
+        pytest.fail("infeasible calibration must not invoke the optimizer")
+    monkeypatch.setattr(module, "least_squares", unexpected)
+    with pytest.raises(ValueError, match="outside the frozen"):
+        module.calibrate([0., 1.], [0., .001], [0., 100.],
+                         np.array([0., 0., 0., -251., 0.]), positive_strength=True)
