@@ -1,0 +1,469 @@
+{
+  "schema": "agentfem.research.p92-bam-slr-transfer.v1",
+  "source_sha256": "34e26cae1816ec4b712a4cec5811e0a0c66bad34848c10d962528085171fcabb",
+  "calibration_source_sha256": "128e6de1854f4633e26eced6c4ea221687cde2f232db275487ef0d1201767e0a",
+  "calibration_record_sha256": "e70095c61a15f76466ff7365694c1004d67ff3ef3424ae9fe0dc0847925631a9",
+  "parameters": {
+    "E": 155176.47110217228,
+    "k": 115.99827260494216,
+    "Q": -111.06,
+    "b": 0.81,
+    "H": -4,
+    "Qr": -105.74,
+    "gamma_r1": 2.14e-8,
+    "gamma_r2": 2.01e-8,
+    "r": 5.98,
+    "mr": 2.8,
+    "a1": 27.05,
+    "C1": 25000,
+    "a2": 72.39,
+    "C2": 996.97,
+    "gamma1": 3e-9,
+    "gamma2": 7.47e-7,
+    "q": 10,
+    "m": 3.87,
+    "Z": 1192.4850176796278,
+    "n": 3
+  },
+  "initial_state": [
+    -0.14,
+    0,
+    0,
+    0,
+    0
+  ],
+  "cycles": [
+    {
+      "cycle": 1,
+      "stress_errors": {
+        "schema": "agentfem.history-errors.v1",
+        "reference_source": "BAM SLR sha256:34e26cae1816ec4b712a4cec5811e0a0c66bad34848c10d962528085171fcabb; cycle 1",
+        "actual": {
+          "name": "predicted",
+          "unit": "MPa",
+          "abscissa_name": "time",
+          "abscissa_unit": "s",
+          "sample_count": 926,
+          "value_shape": [],
+          "description": "",
+          "numeric_sha256": "1f5106df255c9b1bdf07ab97c9564a04fb1483abb08f1b35d5ed3c0167f98f39"
+        },
+        "reference": {
+          "name": "measured",
+          "unit": "MPa",
+          "abscissa_name": "time",
+          "abscissa_unit": "s",
+          "sample_count": 926,
+          "value_shape": [],
+          "description": "",
+          "numeric_sha256": "5218962751fbe38d90c900242de2b14739f67757b3b1583d2dbb84f263cf9fe1"
+        },
+        "unit": "MPa",
+        "abscissa_unit": "s",
+        "interval": [
+          0,
+          2168.293
+        ],
+        "max_interval": 6,
+        "maximum_absolute_error": 75.86628339538126,
+        "sample_rms_error": 46.952429486048636,
+        "coordinate_weighted_mean_error": 55.326150076689025,
+        "coordinate_weighted_rms_error": 63.85115471676375,
+        "alignment": "exact",
+        "integration": "exact integral of piecewise-linear error and its square",
+        "scope": "Component-wise descriptive errors; no uncertainty, independence or automatic scientific acceptance"
+      },
+      "refinement_max_stress_change_MPa": 0.43764926162177176
+    },
+    {
+      "cycle": 2,
+      "stress_errors": {
+        "schema": "agentfem.history-errors.v1",
+        "reference_source": "BAM SLR sha256:34e26cae1816ec4b712a4cec5811e0a0c66bad34848c10d962528085171fcabb; cycle 2",
+        "actual": {
+          "name": "predicted",
+          "unit": "MPa",
+          "abscissa_name": "time",
+          "abscissa_unit": "s",
+          "sample_count": 925,
+          "value_shape": [],
+          "description": "",
+          "numeric_sha256": "1f9d0af312077f015e20ada2ac75a1806335187dec2980596de5ee204cdf26b2"
+        },
+        "reference": {
+          "name": "measured",
+          "unit": "MPa",
+          "abscissa_name": "time",
+          "abscissa_unit": "s",
+          "sample_count": 925,
+          "value_shape": [],
+          "description": "",
+          "numeric_sha256": "a7de54b7852140e59bec78764ee3a871bc0c9e432f23ca20094651e077834f25"
+        },
+        "unit": "MPa",
+        "abscissa_unit": "s",
+        "interval": [
+          2168.398,
+          4336.569
+        ],
+        "max_interval": 6,
+        "maximum_absolute_error": 64.42299765925772,
+        "sample_rms_error": 44.67395071459418,
+        "coordinate_weighted_mean_error": 46.682999218569826,
+        "coordinate_weighted_rms_error": 54.63626159165426,
+        "alignment": "exact",
+        "integration": "exact integral of piecewise-linear error and its square",
+        "scope": "Component-wise descriptive errors; no uncertainty, independence or automatic scientific acceptance"
+      },
+      "refinement_max_stress_change_MPa": 0.46444216067143884
+    },
+    {
+      "cycle": 3,
+      "stress_errors": {
+        "schema": "agentfem.history-errors.v1",
+        "reference_source": "BAM SLR sha256:34e26cae1816ec4b712a4cec5811e0a0c66bad34848c10d962528085171fcabb; cycle 3",
+        "actual": {
+          "name": "predicted",
+          "unit": "MPa",
+          "abscissa_name": "time",
+          "abscissa_unit": "s",
+          "sample_count": 925,
+          "value_shape": [],
+          "description": "",
+          "numeric_sha256": "f9bf666b32f111d9f6c9144e748d5e407930086cf0cb2f31463260002f627f05"
+        },
+        "reference": {
+          "name": "measured",
+          "unit": "MPa",
+          "abscissa_name": "time",
+          "abscissa_unit": "s",
+          "sample_count": 925,
+          "value_shape": [],
+          "description": "",
+          "numeric_sha256": "c98b36b6aced3fa1b671ccaa09c643b84fac69801de00323cb5aee27445528e4"
+        },
+        "unit": "MPa",
+        "abscissa_unit": "s",
+        "interval": [
+          4336.677,
+          6504.855
+        ],
+        "max_interval": 6,
+        "maximum_absolute_error": 61.15398473484517,
+        "sample_rms_error": 43.431756802167726,
+        "coordinate_weighted_mean_error": 39.48064308418148,
+        "coordinate_weighted_rms_error": 47.451787853791906,
+        "alignment": "exact",
+        "integration": "exact integral of piecewise-linear error and its square",
+        "scope": "Component-wise descriptive errors; no uncertainty, independence or automatic scientific acceptance"
+      },
+      "refinement_max_stress_change_MPa": 0.4605802954725391
+    },
+    {
+      "cycle": 4,
+      "stress_errors": {
+        "schema": "agentfem.history-errors.v1",
+        "reference_source": "BAM SLR sha256:34e26cae1816ec4b712a4cec5811e0a0c66bad34848c10d962528085171fcabb; cycle 4",
+        "actual": {
+          "name": "predicted",
+          "unit": "MPa",
+          "abscissa_name": "time",
+          "abscissa_unit": "s",
+          "sample_count": 925,
+          "value_shape": [],
+          "description": "",
+          "numeric_sha256": "9609294823ec76d578d9fe3eaa4720653014851dfcb73578d7886c518bd6f0ad"
+        },
+        "reference": {
+          "name": "measured",
+          "unit": "MPa",
+          "abscissa_name": "time",
+          "abscissa_unit": "s",
+          "sample_count": 925,
+          "value_shape": [],
+          "description": "",
+          "numeric_sha256": "ebf26b350736ea5cefcdf07bb307462f9aa4ff4d9917703eb0b0505ef289a2d2"
+        },
+        "unit": "MPa",
+        "abscissa_unit": "s",
+        "interval": [
+          6504.961,
+          8673.134
+        ],
+        "max_interval": 6,
+        "maximum_absolute_error": 64.92470758878787,
+        "sample_rms_error": 42.96783176989771,
+        "coordinate_weighted_mean_error": 33.18646517662407,
+        "coordinate_weighted_rms_error": 41.804162100417166,
+        "alignment": "exact",
+        "integration": "exact integral of piecewise-linear error and its square",
+        "scope": "Component-wise descriptive errors; no uncertainty, independence or automatic scientific acceptance"
+      },
+      "refinement_max_stress_change_MPa": 0.4574562245807101
+    },
+    {
+      "cycle": 5,
+      "stress_errors": {
+        "schema": "agentfem.history-errors.v1",
+        "reference_source": "BAM SLR sha256:34e26cae1816ec4b712a4cec5811e0a0c66bad34848c10d962528085171fcabb; cycle 5",
+        "actual": {
+          "name": "predicted",
+          "unit": "MPa",
+          "abscissa_name": "time",
+          "abscissa_unit": "s",
+          "sample_count": 925,
+          "value_shape": [],
+          "description": "",
+          "numeric_sha256": "266c368e6babd07023c14f07ef9cbecb3cf2a54060715052b4925ad8e5012a2e"
+        },
+        "reference": {
+          "name": "measured",
+          "unit": "MPa",
+          "abscissa_name": "time",
+          "abscissa_unit": "s",
+          "sample_count": 925,
+          "value_shape": [],
+          "description": "",
+          "numeric_sha256": "234c091760b09228171218801a00383a730d676fd9c95971132f5b2a96d14ee9"
+        },
+        "unit": "MPa",
+        "abscissa_unit": "s",
+        "interval": [
+          8673.24,
+          10841.411
+        ],
+        "max_interval": 6,
+        "maximum_absolute_error": 66.5067171577095,
+        "sample_rms_error": 42.95438604523637,
+        "coordinate_weighted_mean_error": 29.963789223511313,
+        "coordinate_weighted_rms_error": 39.050760004395926,
+        "alignment": "exact",
+        "integration": "exact integral of piecewise-linear error and its square",
+        "scope": "Component-wise descriptive errors; no uncertainty, independence or automatic scientific acceptance"
+      },
+      "refinement_max_stress_change_MPa": 0.4511115006722264
+    },
+    {
+      "cycle": 6,
+      "stress_errors": {
+        "schema": "agentfem.history-errors.v1",
+        "reference_source": "BAM SLR sha256:34e26cae1816ec4b712a4cec5811e0a0c66bad34848c10d962528085171fcabb; cycle 6",
+        "actual": {
+          "name": "predicted",
+          "unit": "MPa",
+          "abscissa_name": "time",
+          "abscissa_unit": "s",
+          "sample_count": 925,
+          "value_shape": [],
+          "description": "",
+          "numeric_sha256": "5aa326b9fc6c16e3e0027e056cb58cb5a86f6af70989a4c32b624e74b83d718e"
+        },
+        "reference": {
+          "name": "measured",
+          "unit": "MPa",
+          "abscissa_name": "time",
+          "abscissa_unit": "s",
+          "sample_count": 925,
+          "value_shape": [],
+          "description": "",
+          "numeric_sha256": "2722879352e0e13c0862bbe85558f7fbe6f2f2492964d84c92d5950f8385c28a"
+        },
+        "unit": "MPa",
+        "abscissa_unit": "s",
+        "interval": [
+          10841.516,
+          13009.686
+        ],
+        "max_interval": 6,
+        "maximum_absolute_error": 69.64180072208308,
+        "sample_rms_error": 42.69031916254097,
+        "coordinate_weighted_mean_error": 25.405237647239023,
+        "coordinate_weighted_rms_error": 35.85239072316619,
+        "alignment": "exact",
+        "integration": "exact integral of piecewise-linear error and its square",
+        "scope": "Component-wise descriptive errors; no uncertainty, independence or automatic scientific acceptance"
+      },
+      "refinement_max_stress_change_MPa": 0.4562960072778708
+    },
+    {
+      "cycle": 7,
+      "stress_errors": {
+        "schema": "agentfem.history-errors.v1",
+        "reference_source": "BAM SLR sha256:34e26cae1816ec4b712a4cec5811e0a0c66bad34848c10d962528085171fcabb; cycle 7",
+        "actual": {
+          "name": "predicted",
+          "unit": "MPa",
+          "abscissa_name": "time",
+          "abscissa_unit": "s",
+          "sample_count": 925,
+          "value_shape": [],
+          "description": "",
+          "numeric_sha256": "c47b0ce9730acfa7b2444b5a6d5c32fa6cc4e560b687ff80ebb131cf8632bc8d"
+        },
+        "reference": {
+          "name": "measured",
+          "unit": "MPa",
+          "abscissa_name": "time",
+          "abscissa_unit": "s",
+          "sample_count": 925,
+          "value_shape": [],
+          "description": "",
+          "numeric_sha256": "effc1c7db12f57ad96c2db924dd8ca8a68bc9358b67883a49e6ca2ffb91983cd"
+        },
+        "unit": "MPa",
+        "abscissa_unit": "s",
+        "interval": [
+          13009.795,
+          15177.971
+        ],
+        "max_interval": 6,
+        "maximum_absolute_error": 70.03655578704615,
+        "sample_rms_error": 43.385839040199045,
+        "coordinate_weighted_mean_error": 23.48228895817085,
+        "coordinate_weighted_rms_error": 34.680104723249244,
+        "alignment": "exact",
+        "integration": "exact integral of piecewise-linear error and its square",
+        "scope": "Component-wise descriptive errors; no uncertainty, independence or automatic scientific acceptance"
+      },
+      "refinement_max_stress_change_MPa": 0.4793699351024543
+    },
+    {
+      "cycle": 8,
+      "stress_errors": {
+        "schema": "agentfem.history-errors.v1",
+        "reference_source": "BAM SLR sha256:34e26cae1816ec4b712a4cec5811e0a0c66bad34848c10d962528085171fcabb; cycle 8",
+        "actual": {
+          "name": "predicted",
+          "unit": "MPa",
+          "abscissa_name": "time",
+          "abscissa_unit": "s",
+          "sample_count": 925,
+          "value_shape": [],
+          "description": "",
+          "numeric_sha256": "3433b9a7ed98d560f5c27bcaba169079b16679e95398c6672f0cf7f1466b4a4f"
+        },
+        "reference": {
+          "name": "measured",
+          "unit": "MPa",
+          "abscissa_name": "time",
+          "abscissa_unit": "s",
+          "sample_count": 925,
+          "value_shape": [],
+          "description": "",
+          "numeric_sha256": "979b0433c068b8c7a45f840b2bf14285fddb7dc14b2fe1373ec4c057ff3f7917"
+        },
+        "unit": "MPa",
+        "abscissa_unit": "s",
+        "interval": [
+          15178.077,
+          17346.249
+        ],
+        "max_interval": 6,
+        "maximum_absolute_error": 70.73589776841914,
+        "sample_rms_error": 43.337810985264454,
+        "coordinate_weighted_mean_error": 20.33867054543546,
+        "coordinate_weighted_rms_error": 32.41702435565302,
+        "alignment": "exact",
+        "integration": "exact integral of piecewise-linear error and its square",
+        "scope": "Component-wise descriptive errors; no uncertainty, independence or automatic scientific acceptance"
+      },
+      "refinement_max_stress_change_MPa": 0.5087397316227396
+    },
+    {
+      "cycle": 9,
+      "stress_errors": {
+        "schema": "agentfem.history-errors.v1",
+        "reference_source": "BAM SLR sha256:34e26cae1816ec4b712a4cec5811e0a0c66bad34848c10d962528085171fcabb; cycle 9",
+        "actual": {
+          "name": "predicted",
+          "unit": "MPa",
+          "abscissa_name": "time",
+          "abscissa_unit": "s",
+          "sample_count": 925,
+          "value_shape": [],
+          "description": "",
+          "numeric_sha256": "b9ca804879dd11bcffbed737ed8864822fc75eb796daff25b88c24861de62260"
+        },
+        "reference": {
+          "name": "measured",
+          "unit": "MPa",
+          "abscissa_name": "time",
+          "abscissa_unit": "s",
+          "sample_count": 925,
+          "value_shape": [],
+          "description": "",
+          "numeric_sha256": "390709577d89c25ce03d8c70ab41388de7677d6f918807edfdaebc3c808c751c"
+        },
+        "unit": "MPa",
+        "abscissa_unit": "s",
+        "interval": [
+          17346.354,
+          19514.522
+        ],
+        "max_interval": 6,
+        "maximum_absolute_error": 70.91903648477125,
+        "sample_rms_error": 43.32501161039997,
+        "coordinate_weighted_mean_error": 18.42090183402493,
+        "coordinate_weighted_rms_error": 31.623425842700946,
+        "alignment": "exact",
+        "integration": "exact integral of piecewise-linear error and its square",
+        "scope": "Component-wise descriptive errors; no uncertainty, independence or automatic scientific acceptance"
+      },
+      "refinement_max_stress_change_MPa": 0.4938932368708322
+    },
+    {
+      "cycle": 10,
+      "stress_errors": {
+        "schema": "agentfem.history-errors.v1",
+        "reference_source": "BAM SLR sha256:34e26cae1816ec4b712a4cec5811e0a0c66bad34848c10d962528085171fcabb; cycle 10",
+        "actual": {
+          "name": "predicted",
+          "unit": "MPa",
+          "abscissa_name": "time",
+          "abscissa_unit": "s",
+          "sample_count": 925,
+          "value_shape": [],
+          "description": "",
+          "numeric_sha256": "15a3318311674aa3caabc80d5ff45c336de351b1d65368bda741a39c057b63a1"
+        },
+        "reference": {
+          "name": "measured",
+          "unit": "MPa",
+          "abscissa_name": "time",
+          "abscissa_unit": "s",
+          "sample_count": 925,
+          "value_shape": [],
+          "description": "",
+          "numeric_sha256": "5ad7e3dc449088a4810d815be16cbc77ae9a5f372108da6186cd9e4668d1e2b1"
+        },
+        "unit": "MPa",
+        "abscissa_unit": "s",
+        "interval": [
+          19514.629,
+          21682.805
+        ],
+        "max_interval": 6,
+        "maximum_absolute_error": 71.08412908230663,
+        "sample_rms_error": 43.444868174387736,
+        "coordinate_weighted_mean_error": 16.306855160279987,
+        "coordinate_weighted_rms_error": 30.294119744491862,
+        "alignment": "exact",
+        "integration": "exact integral of piecewise-linear error and its square",
+        "scope": "Component-wise descriptive errors; no uncertainty, independence or automatic scientific acceptance"
+      },
+      "refinement_max_stress_change_MPa": 0.49292870310841863
+    }
+  ],
+  "final_state": [
+    -165.1616301847116,
+    -26.90537198980766,
+    -0.038504804357906826,
+    -72.68525417039615,
+    0.05008873787561969
+  ],
+  "engineering_qualified": false,
+  "scope": "Distinct SLR specimen/protocol prediction with frozen RF parameters; no refitting or life inference",
+  "initial_state_assumption": "Measured initial stress and zero hidden history; no cycle reset",
+  "temperature_assumption": "Nominal isothermal 620 C; measured excursions not modeled",
+  "measured_temperature_range_K": 9.599999999999909
+}

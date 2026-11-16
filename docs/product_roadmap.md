@@ -415,6 +415,17 @@ evidence and the distinction between passing gates and pending integration.
 
 ### Thermal–inelastic continuity sprint (2026-10-29)
 
+P92 follow-up (2026-11-16): continuous-state calibration now distinguishes
+short-path fit, full-path parameter admissibility, integration error and
+experimental transfer error. A sufficient isotropic-strength constraint fixes
+a late-cycle domain failure; independent 1000-cycle integrations agree, but
+RF/SLR response accuracy is not yet an engineering validation. The next gate
+is protocol-informed recovery/softening identification with independent
+specimens, not expanding an ill-conditioned fit. Generic censored-life tools
+have independent risk-set, exact-binomial and seeded coverage checks. See
+[the evidence and scope](internal/p92_positive_strength_20261116.md). No
+material card or design allowable is promoted by these numerical checks.
+
 PR #132 maintenance is merged at `44fda9c4`; the published 0.4.4 tag remains
 unchanged. The next bounded sequence is reliability → thermal/cyclic-creep
 integration → damage/life assessment. It does not reopen packaging, claim
