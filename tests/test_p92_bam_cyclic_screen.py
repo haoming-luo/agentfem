@@ -115,3 +115,53 @@ def test_bad_root_with_success_status_is_still_rejected(monkeypatch):
                         SimpleNamespace(success=True, x=np.zeros(5), message="mock success"))
     with pytest.raises(RuntimeError, match="failed"):
         reference.implicit_update(np.zeros(5), .001, .1, published_parameters(600))
+
+
+@pytest.mark.parametrize("times,strains,stress", [
+    ([0., 1.], [0., .001], [[0.], [10.]]),
+    ([0., 0.], [0., .001], [0., 10.]),
+    ([0., 1.], [0., np.nan], [0., 10.]),
+    ([0., 1.], [0., .001], [0., complex(10, 1)]),
+])
+def test_invalid_calibration_cannot_enter_optimizer(monkeypatch, times, strains, stress):
+    from tools import p92_bam_cyclic_screen as module
+    def forbidden(*args, **kwargs):
+        pytest.fail("Invalid histories reached the optimizer")
+    monkeypatch.setattr(module, "least_squares", forbidden)
+    with pytest.raises(ValueError):
+        module.calibrate(times, strains, stress, np.zeros(5))
+
+
+def test_unconverged_fit_cannot_publish_holdout(monkeypatch):
+    from tools import p92_bam_cyclic_screen as module
+    monkeypatch.setattr(module, "calibrate", lambda *a, **k:
+                        (published_parameters(600), {"success": False, "message": "evaluation limit"}))
+    t = np.arange(101, dtype=float)
+    data = {"protocol": "RF", "time_s": t, "strain": np.zeros_like(t),
+            "stress_Pa": np.zeros_like(t), "cycle": np.minimum(t.astype(int)//10+1, 10),
+            "temperature_K": np.full(len(t), 893.15), "sha256": "synthetic"}
+    with pytest.raises(RuntimeError, match="no holdout prediction"):
+        module.screen(data)
+
+
+def test_sensitivity_freezes_state_and_never_uses_measured_stress(monkeypatch):
+    from dataclasses import asdict
+    from tools import p92_bam_cyclic_screen as module
+    t = np.arange(21, dtype=float)
+    data = {"protocol": "RF", "time_s": t, "cycle": np.minimum(t.astype(int)//2+1, 10),
+            "strain": .001*np.sin(t), "stress_Pa": np.zeros(len(t)),
+            "temperature_K": np.full(len(t), 893.15), "sha256": "synthetic"}
+    calibration = {"schema": "agentfem.research.p92-bam-cyclic.v1", "fit": {"success": True},
+                   "parameters": asdict(published_parameters(600)), "source_sha256": "synthetic",
+                   "initial_state": [0., 0., 0., 0., 0.]}
+    def forbidden(*args, **kwargs):
+        pytest.fail("Sensitivity must not refit")
+    monkeypatch.setattr(module, "calibrate", forbidden)
+    first = module.sensitivity_screen(data, calibration)
+    data["stress_Pa"][:] = 1e8
+    assert first == module.sensitivity_screen(data, calibration)
+    assert len(first["records"]) == 20
+    assert not first["engineering_qualified"]
+    calibration["source_sha256"] = "different-source"
+    with pytest.raises(ValueError, match="match"):
+        module.sensitivity_screen(data, calibration)

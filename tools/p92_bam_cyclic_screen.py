@@ -50,15 +50,24 @@ def replay(times, strains, parameters, initial_state, *, subdivisions=1, method=
 
 def calibrate(times, strains, observed, initial_state, *, max_nfev=30):
     """Only supplied training observations influence the three fitted constants."""
+    # Reject accidental (n, 1) broadcasting before constructing an objective.
+    if any(np.iscomplexobj(v) for v in (times, strains, observed, initial_state)):
+        raise ValueError("Calibration requires real measured histories and state.")
+    t, e, s = (np.asarray(v, dtype=float) for v in (times, strains, observed))
+    if (t.ndim != 1 or len(t) < 2 or e.shape != t.shape or s.shape != t.shape
+            or not all(np.isfinite(v).all() for v in (t, e, s)) or np.any(np.diff(t) <= 0)):
+        raise ValueError("Require aligned finite scalar calibration histories and increasing time.")
+    if (isinstance(max_nfev, (bool, np.bool_))
+            or not isinstance(max_nfev, (int, np.integer)) or max_nfev < 1):
+        raise ValueError("max_nfev must be a positive integer.")
     base = published_parameters(600)
-    t = np.asarray(times, dtype=float)
     dt = np.diff(t)
     weights = np.r_[dt[0]/2, (dt[:-1]+dt[1:])/2, dt[-1]/2]
     weights = np.sqrt(weights/weights.sum())
     def parameters(z):
         return replace(base, E=float(z[0]*1e5), k=float(z[1]*100), Z=float(z[2]*1000))
     def residual(z):
-        return weights*(replay(t, strains, parameters(z), initial_state)[:, 0]-observed)
+        return weights*(replay(t, e, parameters(z), initial_state)[:, 0]-s)
     fit = least_squares(residual, [base.E/1e5, base.k/100, base.Z/1000],
                         bounds=([1., .5, .3], [2., 2.5, 1.5]), max_nfev=max_nfev,
                         ftol=1e-6, xtol=1e-6, gtol=1e-6)
@@ -79,6 +88,8 @@ def screen(data, *, max_nfev=30, include_radau=False):
     training = cycles <= 3
     initial = np.array([observed[0], 0., 0., 0., 0.])
     p, fit = calibrate(t[training], strain[training], observed[training], initial, max_nfev=max_nfev)
+    if not fit["success"]:
+        raise RuntimeError(f"RF calibration did not converge; no holdout prediction: {fit}")
     states = replay(t, strain, p, initial)
     refined = replay(t, strain, p, initial, subdivisions=2)
     reports = []
@@ -148,6 +159,37 @@ def transfer_screen(data, calibrated):
             "initial_state_assumption": "Measured initial stress and zero hidden history; no cycle reset",
             "temperature_assumption": "Nominal isothermal 620 C; measured excursions not modeled",
             "measured_temperature_range_K": float(np.ptp(h["temperature_K"].values))}
+
+
+def sensitivity_screen(data, calibrated):
+    """Local deterministic parameter sensitivity; no fitting or probability band."""
+    from tools.p92_published_recovery_reference import Parameters
+    if (data["protocol"] != "RF" or calibrated.get("schema") != "agentfem.research.p92-bam-cyclic.v1"
+            or not calibrated["fit"]["success"]):
+        raise ValueError("Require RF inputs and a converged frozen RF calibration.")
+    window = replay_window(data, first_cycle=1, last_cycle=10, max_interval_s=2.)
+    h = window["histories"]
+    t, e = h["strain"].abscissa, h["strain"].values
+    p = Parameters(**calibrated["parameters"])
+    initial = np.asarray(calibrated["initial_state"], dtype=float)
+    if data["sha256"] != calibrated["source_sha256"]:
+        raise ValueError("Sensitivity inputs must match the frozen calibration source.")
+    baseline = replay(t, e, p, initial, subdivisions=2)[:, 0]
+    records = []
+    # One-at-a-time relative perturbations diagnose influence, not uncertainty.
+    for name in ("E", "k", "Z", "Q", "b", "Qr", "gamma_r1", "gamma_r2", "a2", "C2"):
+        value = getattr(p, name)
+        for factor in (.99, 1.01):
+            modified = replace(p, **{name: value*factor})
+            stress = replay(t, e, modified, initial, subdivisions=2)[:, 0]
+            comparison = history_errors(HistoryResult("perturbed", t, stress, unit="MPa"),
+                HistoryResult("baseline", t, baseline, unit="MPa"),
+                reference_source=f"Frozen RF prediction; {data['sha256']}", max_interval=2.)
+            records.append({"parameter": name, "factor": factor, "response_change": comparison})
+    return {"schema": "agentfem.research.p92-local-sensitivity.v1",
+            "source_sha256": data["sha256"], "parameters": asdict(p), "records": records,
+            "scope": "Deterministic one-at-a-time sensitivity at the frozen fit; no refit, covariance, or predictive interval",
+            "engineering_qualified": False}
 
 
 if __name__ == "__main__":

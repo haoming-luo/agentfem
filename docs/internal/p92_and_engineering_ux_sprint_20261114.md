@@ -288,6 +288,32 @@ Reproduce with `python -m tools.p92_bam_cyclic_screen Data_SLR.lis --frozen-rf
 evidence/creep/2026-11-16-bam-continuous-cycles.json` (one command).
 Evidence: `evidence/creep/2026-11-16-bam-slr-transfer.json`.
 
+### Bounded sensitivity and data sufficiency
+
+After the failed transfer screens, ten constants were perturbed individually
+by +/-1%, with the fit, initial state, input strain and two-subdivision BE
+integration frozen. Full RF-window weighted RMS changes span 0.0115--1.0375
+MPa; k is largest, followed by Qr, E and Z. This local result does not bound
+large parameter changes or nonlinear interactions. It neither calibrates a
+probability distribution nor proves which mechanism causes the mismatch.
+The reproducible callable is `sensitivity_screen(data, frozen_rf_record)` in
+`tools.p92_bam_cyclic_screen`; the record is
+`evidence/creep/2026-11-16-bam-local-sensitivity.json`.
+
+The [2019 P92 study](https://www.mdpi.com/2075-4701/9/1/99)
+reports a matrix of temperature/strain/dwell conditions, not a matched set of
+replicates in Table 3. Its 620 C, 0.2% amplitude, three-minute hold life (2050)
+is close to the BAM RF endpoint (2054); without independent specimen identity,
+these must not be counted as two independent repeats. NIMS access remains
+subject to its registration and no-scraping terms. No new P92 scatter estimate
+is inferred from these searches.
+
+Input/broadcasting and unsuccessful-fit gates were added before prediction.
+83 targeted replay, sensitivity, source, prediction-error and exact-reliability
+tests pass. Sensitivity tests prove that replacing observed stresses cannot
+alter its output and that it never calls calibration. Existing generated site
+files remain untouched.
+
 The next bounded response problem is the first ten consecutive BAM RF cycles,
 not a synthetic reconstruction of all 2547 cycles. `replay_window` admits
 4739 observations over 0--3680.637 s, with maximum recorded interval
