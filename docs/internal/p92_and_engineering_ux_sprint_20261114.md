@@ -329,6 +329,15 @@ The final local P92 sweep passed 374 tests in 31.47 s, covering all existing
 life-prediction errors. This is software/numerical regression evidence; the
 experimental transfer failures above remain failures.
 
+An independent public statistical benchmark was added from the
+[NIST/SEMATECH handbook, 8.2.1.5](https://www.itl.nist.gov/div898/handbook/apr/section2/apr215.htm):
+all six risk sets and product-limit survival values of its 20-unit multicensored
+example agree, using exact rational products as the test oracle. The combined
+survival/exact-binomial suite passes 68 tests. This verifies the generic
+estimator, not P92 experimental scatter. A JRC P92 small-punch catalogue record
+was located, but its linked XML returned no data during retrieval; no numerical
+record was admitted or mapped to uniaxial creep life.
+
 The next bounded response problem is the first ten consecutive BAM RF cycles,
 not a synthetic reconstruction of all 2547 cycles. `replay_window` admits
 4739 observations over 0--3680.637 s, with maximum recorded interval

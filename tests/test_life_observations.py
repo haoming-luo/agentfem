@@ -153,3 +153,25 @@ def test_documented_example_runs_without_private_api():
     namespace = {}
     exec(compile(example, str(guide), "exec"), namespace)
     json.dumps(namespace["evidence"], allow_nan=False)
+
+
+def test_nist_multicensored_product_limit_example():
+    # NIST/SEMATECH e-Handbook 8.2.1.5, published 20-unit example.
+    # https://www.itl.nist.gov/div898/handbook/apr/section2/apr215.htm
+    failures = [10, 32, 56, 98, 122, 181]
+    withdrawals = [50, 100, 125, 150] + [200]*10
+    rows = [observation(f"failure-{i}", time) for i, time in enumerate(failures)]
+    rows += [observation(f"withdrawal-{i}", time, "right_censored")
+             for i, time in enumerate(withdrawals)]
+    result = analyze(rows)
+    # Published risk sets, independently accumulated with exact rationals.
+    from fractions import Fraction
+    expected = Fraction(1)
+    for time, risk in zip(failures, [20, 19, 17, 16, 14, 11], strict=True):
+        expected *= Fraction(risk-1, risk)
+        assert result.survival_at(time) == pytest.approx(float(expected), abs=1e-15)
+        assert result.at_risk[result.times.index(time)] == risk
+    assert result.survival_at(200) == pytest.approx(float(expected))
+    assert result.quantile(.5) is None
+    assert sum(result.censored) == 14
+    assert sum(result.failures) == 6
