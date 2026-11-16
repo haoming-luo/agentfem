@@ -214,3 +214,38 @@ was also screened at commit `a2abdeb01f2385ea43d1872db15ae84bae33bea3`.
 Its 1583 numeric rows include Grade 91, MARBN and other alloys, but no P92/Grade
 92 identity in the material columns. It was not admitted as P92 evidence. A
 large public database is not automatically a compatible validation population.
+
+## Mixed-control discrimination
+
+`tools/p92_mixed_control.py` adds a research-only constant-nominal-stress hold
+to the same local equations. Total strain evolves from the flow rule; stress
+and hidden history are carried across control switches. Tension/compression
+constant-flow analytical limits, subdivided holds, control transitions and
+failed-solve nonpublication have dedicated tests. This is not a new installed
+FEM material or a finite-strain stress-control solver.
+
+The [BAM data paper](https://doi.org/10.1016/j.dib.2023.109333) Methods prescribe
+0.001/s strain ramps, while Table 3 lists a nominal 2 s after creep. Actual
+creep strain makes those prescriptions differ. The fixed-rate path is the
+default; `--ramp-mode table_duration` exposes the alternative. Neither resets
+accumulated strain. The checksum-verified SLC record shows the first post-hold
+ramp rising from about 0.00109 at 1984.294 s to 0.00192 at 1985.095 s,
+consistent with the fixed-rate interpretation rather than a full 2 s ramp.
+
+This candidate fails decisively: its second-cycle stress hold reaches strain
+0.019001, already beyond the positive target 0.002. The first envelope exit is
+reported explicitly. Continuing back to the target is retained only as a
+diagnostic extension, not a valid nominal SLC prediction: over ten cycles,
+extrema RMS errors are 74.788 MPa (fixed rate) and 107.541 MPa (table duration).
+Both give approximately -46% tensile-peak error at cycle 10. Neither loading
+interpretation rescues transfer. The numerical data and source identity are in
+`2026-11-16-mixed-control-screen.json`. No lifetime is inferred from this failure.
+
+```sh
+python -m tools.p92_mixed_control evidence/creep/2026-11-16-bam-positive-strength.json /path/Data_SLC.lis --output slc-fixed-rate.json
+```
+
+This additional test narrows the next research task: fit the mechanisms to
+measured creep and relaxation together, rather than accepting improved RF
+cycle peaks as a transferable material card. It does not justify relaxing
+the response or life acceptance requirements.
