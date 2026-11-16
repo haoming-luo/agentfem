@@ -1,0 +1,20 @@
+{
+  "platform": "macOS-26.6.2-arm64-arm-64bit",
+  "python": "3.11.15",
+  "dolfinx": "0.11.0",
+  "basix": "0.11.0",
+  "numpy": "2.4.6",
+  "scipy": "1.17.1",
+  "PETSc": [
+    3,
+    25,
+    3
+  ],
+  "MPI": "MPICH Version:      5.0.1\nMPICH Release date: Fri Apr 10 09:45:31 AM CDT 2026\nMPICH ABI:          18:1:6\nMPICH Device:       ch4:ofi\nMPICH configure:    --prefix=/opt/homebrew/Caskroom/miniforge/base/envs/fenicsx-env --disable-doc --disable-dependency-tracking --enable-cxx --enable-fortran --enable-f08 --enable-mpi-abi --with-wrapper-dl-type=none --disable-static --with-device=ch4:ofi --with-libfabric=/opt/homebrew/Caskroom/miniforge/base/envs/fenicsx-env --with-hwloc=/opt/homebrew/Caskroom/miniforge/base/envs/fenicsx-env --with-yaksa=embedded --with-pm=hydra:gforker\nMPICH CC:           arm64-apple-darwin20.0.0-clang -I/opt/homebrew/Caskroom/miniforge/base/envs/fenicsx-env/include -ftree-vectorize -fPIC -fstack-protector-strong -O2 -pipe -isystem /opt/homebrew/Caskroom/miniforge/base/envs/fenicsx-env/include -fdebug-prefix-map=/Users/runner/miniforge3/conda-bld/bld/rattler-build_mpich_1775872292/work=/usr/local/src/conda/mpich-5.0.1 -fdebug-prefix-map=/opt/homebrew/Caskroom/miniforge/base/envs/fenicsx-env=/usr/local/src/conda-prefix -fno-common    -O2\nMPICH CXX:          arm64-apple-darwin20.0.0-clang++ -I/opt/homebrew/Caskroom/miniforge/base/envs/fenicsx-env/include -ftree-vectorize -fPIC -fstack-protector-strong -O2 -pipe -stdlib=libc++ -fvisibility-inlines-hidden -fmessage-length=0 -isystem /opt/homebrew/Caskroom/miniforge/base/envs/fenicsx-env/include -fdebug-prefix-map=/Users/runner/miniforge3/conda-bld/bld/rattler-build_mpich_1775872292/work=/usr/local/src/conda/mpich-5.0.1 -fdebug-prefix-map=/opt/homebrew/Caskroom/miniforge/base/envs/fenicsx-env=/usr/local/src/conda-prefix -O2\nMPICH F77:          arm64-apple-darwin20.0.0-gfortran -I/opt/homebrew/Caskroom/miniforge/base/envs/fenicsx-env/include -march=armv8.3-a -ftree-vectorize -fPIC -fno-stack-protector -O2 -pipe -isystem /opt/homebrew/Caskroom/miniforge/base/envs/fenicsx-env/include -fdebug-prefix-map=/Users/runner/miniforge3/conda-bld/bld/rattler-build_mpich_1775872292/work=/usr/local/src/conda/mpich-5.0.1 -fdebug-prefix-map=/opt/homebrew/Caskroom/miniforge/base/envs/fenicsx-env=/usr/local/src/conda-prefix -O2\nMPICH FC:           arm64-apple-darwin20.0.0-gfortran -I/opt/homebrew/Caskroom/miniforge/base/envs/fenicsx-env/include -march=armv8.3-a -ftree-vectorize -fPIC -fno-stack-protector -O2 -pipe -isystem /opt/homebrew/Caskroom/miniforge/base/envs/fenicsx-env/include -fdebug-prefix-map=/Users/runner/miniforge3/conda-bld/bld/rattler-build_mpich_1775872292/work=/usr/local/src/conda/mpich-5.0.1 -fdebug-prefix-map=/opt/homebrew/Caskroom/miniforge/base/envs/fenicsx-env=/usr/local/src/conda-prefix -O2\nMPICH features:     threadcomm\n",
+  "branch": "feat/explicit-dynamic-parity",
+  "base_commit": "8b629b29",
+  "local_MPI_transport": {
+    "FI_PROVIDER": "sockets",
+    "FI_SOCKETS_IFACE": "en0"
+  }
+}

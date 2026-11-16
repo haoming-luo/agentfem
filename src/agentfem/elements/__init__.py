@@ -513,6 +513,7 @@ def _normal_label(value) -> str | None:
 
 
 __all__ = [
+    "tet15_mass_lumped",
     "ExplicitHexBodyKernel", "ExplicitHexBodyOutput", "ExplicitHexGeometry", "explicit_hex_kernel",
     "native_explicit_hex_kernel",
     "BulkViscosityPolicy",
@@ -526,3 +527,9 @@ __all__ = [
     "describe_element",
     "describe_field",
 ]
+
+
+def tet15_mass_lumped(*, shape=(3,)):
+    """Published enriched degree-two positive-mass tetrahedron; not C3D10M."""
+    from .tet15_mass import tet15_mass_lumped as create
+    return create(shape=shape)

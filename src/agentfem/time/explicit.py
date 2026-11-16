@@ -110,7 +110,13 @@ class ExplicitDynamicsIntegrator:
     def solve_acceleration(self, residual) -> None:
         """Solve the explicit acceleration update ``a_next = -M^{-1} r``."""
 
-        dofs.assign_owned(self.state.a_next, -residual.array * self.inv_mass)
+        owned = dofs.owned_size(self.state.a_next)
+        inverse = np.asarray(self.inv_mass)
+        if inverse.ndim != 1 or inverse.size < owned or residual.array.size != owned:
+            raise ValueError("Explicit acceleration requires matching owned residual and inertia entries.")
+        # PETSc Vec.array contains owned entries; the diagonal may also include
+        # ghosts. Never multiply or assemble ghost contributions a second time.
+        dofs.assign_owned(self.state.a_next, -residual.array * inverse[:owned])
 
     def update_velocity(self, dt: float) -> None:
         """Update whole-step velocity ``v_next = v_mid + dt/2 a_next``."""

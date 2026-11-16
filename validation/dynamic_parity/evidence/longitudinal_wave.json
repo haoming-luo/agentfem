@@ -1,0 +1,56 @@
+[
+  {
+    "nx": 8,
+    "dt_fraction": 0.8,
+    "dt": 1.5380361749998551e-06,
+    "steps": 216,
+    "wave_speed": 6020.183016345588,
+    "relative_trace_L2": 0.020706347645138175,
+    "energy_relative_range": 0.00035652212349299595
+  },
+  {
+    "nx": 8,
+    "dt_fraction": 0.4,
+    "dt": 7.708023522041038e-07,
+    "steps": 431,
+    "wave_speed": 6020.183016345588,
+    "relative_trace_L2": 0.020780809240707927,
+    "energy_relative_range": 8.990529291046078e-05
+  },
+  {
+    "nx": 16,
+    "dt_fraction": 0.8,
+    "dt": 1.0682180508037579e-06,
+    "steps": 311,
+    "wave_speed": 6020.183016345588,
+    "relative_trace_L2": 0.01880832025002198,
+    "energy_relative_range": 0.00016516152942314772
+  },
+  {
+    "nx": 16,
+    "dt_fraction": 0.4,
+    "dt": 5.349691043477758e-07,
+    "steps": 621,
+    "wave_speed": 6020.183016345588,
+    "relative_trace_L2": 0.018838958432068547,
+    "energy_relative_range": 4.192498303640677e-05
+  },
+  {
+    "nx": 32,
+    "dt_fraction": 0.8,
+    "dt": 6.118154950275667e-07,
+    "steps": 543,
+    "wave_speed": 6020.183016345588,
+    "relative_trace_L2": 0.01772451102544467,
+    "energy_relative_range": 5.814557602579317e-05
+  },
+  {
+    "nx": 32,
+    "dt_fraction": 0.4,
+    "dt": 3.0590774751378334e-07,
+    "steps": 1086,
+    "wave_speed": 6020.183016345588,
+    "relative_trace_L2": 0.01773499961695257,
+    "energy_relative_range": 1.4665664422527563e-05
+  }
+]

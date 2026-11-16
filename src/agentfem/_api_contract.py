@@ -89,6 +89,7 @@ CORE_MODEL_API = (
     "periodic",
     "load",
     "traction",
+    "nodal_force",
     "surface_force",
     "body_force",
     "heat_flux",

@@ -1,0 +1,7 @@
+[project]
+name = "explicit_nodal_pulse"
+entrypoint = "case.py"
+schema_version = "0.2.0"
+
+[run]
+output_directory = "outputs"

@@ -1,0 +1,33 @@
+{
+  "max_absolute_difference": 2.7755575615628914e-17,
+  "serial_restart_max_abs": 0.0,
+  "mpi2_restart_max_abs": 0.0,
+  "columns": [
+    "artificial_energy",
+    "energy_balance_error",
+    "external_force_1",
+    "external_force_2",
+    "external_force_3",
+    "external_work",
+    "initial_mechanical_energy",
+    "kinetic_energy",
+    "sensor.A1",
+    "sensor.A2",
+    "sensor.A3",
+    "sensor.AMAG",
+    "sensor.AMAX",
+    "sensor.U1",
+    "sensor.U2",
+    "sensor.U3",
+    "sensor.UMAG",
+    "sensor.UMAX",
+    "sensor.V1",
+    "sensor.V2",
+    "sensor.V3",
+    "sensor.VMAG",
+    "sensor.VMAX",
+    "strain_energy",
+    "time",
+    "total_mechanical_energy"
+  ]
+}

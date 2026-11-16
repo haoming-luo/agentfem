@@ -892,3 +892,120 @@ def _as_constant(value, *, location=None, domain=None, target=None):
 
 def _is_ufl_like(value) -> bool:
     return hasattr(value, "ufl_shape") or hasattr(value, "ufl_domain")
+
+
+@dataclass
+class NodalForce:
+    """Global force per selected node; no surface-area approximation.
+
+    Initial public lowering is small-strain central difference. Other
+    providers must not interpret this object as a distributed traction.
+    """
+
+    value: tuple[float, ...]
+    nodes: object
+    amplitude: object = None
+    name: str = "nodal_force"
+    _scale: float = 1.0
+
+    def __post_init__(self):
+        self.value = tuple(float(x) for x in self.value)
+        if len(self.value) not in (2, 3) or not np.all(np.isfinite(self.value)):
+            raise ValueError("AFM-NODAL-FORCE: finite global force vector required.")
+        if self.amplitude is None:
+            self.amplitude = amplitudes.constant(1.0)
+        elif isinstance(self.amplitude, (int, float)):
+            self.amplitude = amplitudes.constant(float(self.amplitude))
+        if not isinstance(self.amplitude, amplitudes.Amplitude):
+            raise TypeError("AFM-NODAL-FORCE: use an Amplitude asset.")
+        self.update(0.0)
+
+    @property
+    def time_effects(self):
+        return ("right_hand_side",)
+
+    def update(self, time):
+        scale = self.amplitude(time)
+        if not np.isfinite(scale):
+            raise ValueError("AFM-NODAL-FORCE: nonfinite amplitude.")
+        self._scale = scale
+        return scale
+
+    def form(self, test_function):
+        raise NotImplementedError(
+            "AFM-NODAL-FORCE-PROVIDER: use small-strain central difference; nodal force is not a UFL surface load."
+        )
+
+    def bind(self, target):
+        return _BoundNodalForce(self, target)
+
+    def summary(self):
+        return {
+            "kind": "nodal_force",
+            "name": self.name,
+            "value": list(self.value),
+            "frame": "global",
+            "distribution": "force_per_node",
+            "nodes": self.nodes.summary(),
+            "amplitude": self.amplitude.summary(),
+            "time_effects": list(self.time_effects),
+        }
+
+
+class _BoundNodalForce:
+    role = "vector"
+
+    def __init__(self, load, target):
+        from . import fields
+
+        self.load = load
+        self.target = fields.unwrap(target)
+        self.space, self.indices = load.nodes.bind(target)
+        from .provenance import collective_canonical_record
+
+        collective_canonical_record(
+            load.summary(), comm=self.space.mesh.comm, label="Nodal force"
+        )
+        if self.space.dofmap.index_map_bs != len(load.value):
+            raise ValueError("AFM-NODAL-FORCE: vector dimension differs from field.")
+
+    def summary(self):
+        return self.load.summary()
+
+    def assemble_vector(self):
+        vector = self.target.x.petsc_vec.duplicate()
+        bs = self.space.dofmap.index_map_bs
+        with vector.localForm() as local:
+            local.set(0)
+            for node in self.indices:
+                if node >= 0:
+                    local.array[node * bs : (node + 1) * bs] += (
+                        np.asarray(self.load.value) * self.load._scale
+                    )
+        vector.ghostUpdate(
+            addv=PETSc.InsertMode.INSERT_VALUES, mode=PETSc.ScatterMode.FORWARD
+        )
+        return vector
+
+
+def nodal_force(
+    value,
+    *,
+    nodes=None,
+    labels=(),
+    source=None,
+    at=None,
+    tolerance=1e-10,
+    amplitude=None,
+    name="nodal_force",
+):
+    from ._nodal import nodal_selection
+
+    if nodes is not None and (at is not None or len(np.atleast_1d(labels))):
+        raise ValueError("AFM-NODAL-FORCE: provide nodes or a selector, not both.")
+    selected = (
+        nodes
+        if nodes is not None
+        else nodal_selection(labels=labels, source=source, at=at, tolerance=tolerance)
+    )
+    return NodalForce(tuple(value), selected, amplitude, name)

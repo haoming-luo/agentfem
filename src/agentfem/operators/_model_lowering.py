@@ -296,8 +296,8 @@ def lower_lumped_mass(
     """Lower registered densities into a row-sum lumped mass operator."""
 
     normalized_method = method.lower().replace("-", "_")
-    if normalized_method not in {"row_sum", "diagonal", "lumped"}:
-        raise ValueError("model.lumped_mass currently supports method='row_sum'.")
+    if normalized_method not in {"row_sum", "diagonal", "lumped", "tet10_hrz", "tet15_nodal"}:
+        raise ValueError("model.lumped_mass supports row_sum, tet10_hrz or tet15_nodal.")
 
     from .. import assembly
 
@@ -319,11 +319,20 @@ def lower_lumped_mass(
             missing.append(_describe(record.item))
             continue
         selected_measure = _measure(record, explicit=measure)
-        part = assembly.assemble_lumped_mass(
-            function_space,
-            density=material_density(record.item) * weight,
-            measure=selected_measure,
-        )
+        if normalized_method in {"tet10_hrz", "tet15_nodal"}:
+            if len(records) != 1 or record.region is not None or measure is not None or function_space.mesh.geometry.dim != 3:
+                raise ValueError("AFM-TET10-HRZ: one full-domain constant-density 3D material required.")
+            from ..elements.tet10_mass import assemble_tet10_hrz
+            if normalized_method == "tet10_hrz":
+                part = assemble_tet10_hrz(function_space, material_density(record.item))
+            else:
+                from ..elements.tet15_mass import assemble_tet15_mass
+                part = assemble_tet15_mass(function_space, material_density(record.item))
+        else:
+            part = assembly.assemble_lumped_mass(
+                function_space, density=material_density(record.item) * weight,
+                measure=selected_measure,
+            )
         mass = part if mass is None else mass + part
     if missing:
         raise ValueError(
@@ -334,6 +343,7 @@ def lower_lumped_mass(
         mass=mass,
         inv_mass=assembly.inverse_diagonal(mass, comm=function_space.mesh.comm),
         function_space=function_space,
+        scheme=normalized_method if normalized_method in {"tet10_hrz", "tet15_nodal"} else "row_sum",
     )
 
 

@@ -368,6 +368,10 @@ class Model:
 
         return self.add_load(load)
 
+    def nodal_force(self, value, **kwargs):
+        """Register global force per node for small-strain Explicit dynamics."""
+        return self.add_load(load_api.nodal_force(value, **kwargs))
+
     def traction(
         self,
         value,

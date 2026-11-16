@@ -47,6 +47,7 @@ class LumpedMassOperator:
     mass: np.ndarray
     inv_mass: np.ndarray
     function_space: object | None = field(default=None, repr=False, compare=False)
+    scheme: str = "row_sum"
 
     @classmethod
     def assemble(cls, V, density=1.0, measure=None):
@@ -273,6 +274,11 @@ def from_ufl(expression, *, name: str, kind: str = "custom_operator",
 def combine(*operators, name: str = "combined_operator", kind: str = "combined_operator") -> OperatorForm:
     """Combine operator forms or raw UFL expressions into one operator form."""
 
+    if any(not isinstance(item, OperatorForm) and hasattr(item, "assemble_vector") for item in operators):
+        from .discrete import DiscreteVectorSum
+        if any(getattr(item, "role", "vector") not in {"vector", "residual"} for item in operators):
+            raise ValueError("Discrete vector composition requires dual vectors.")
+        return DiscreteVectorSum(tuple((1.0,item) for item in operators), name)
     if len(operators) == 0:
         raise ValueError("combine requires at least one operator.")
     expression = None
@@ -311,6 +317,9 @@ def combine(*operators, name: str = "combined_operator", kind: str = "combined_o
 def scale(operator, factor, *, name: str | None = None, kind: str | None = None) -> OperatorForm:
     """Scale an operator or vector form while preserving its engineering role."""
 
+    if not isinstance(operator, OperatorForm) and hasattr(operator, "assemble_vector"):
+        from .discrete import DiscreteVectorSum
+        return DiscreteVectorSum(((float(factor),operator),), name or "scaled_vector")
     if isinstance(operator, OperatorForm):
         return OperatorForm(
             name=name or operator.name,

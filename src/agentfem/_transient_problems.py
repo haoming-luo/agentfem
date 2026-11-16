@@ -487,6 +487,7 @@ class ExplicitDynamicsStep:
             "print_every": _print_interval(self.print_every, self.steps),
             "history_every": self.history_every,
             "history_evaluation_every": 1,
+            "inertia_scheme": getattr(self.integrator.mass, "scheme", None),
             "time_inputs": time.input_summary(self.update_load),
             "operator_lifecycle": self.operator_lifecycle_summary(),
             "performance": self.performance.summary(),

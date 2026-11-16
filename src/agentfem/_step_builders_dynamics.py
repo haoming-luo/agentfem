@@ -18,7 +18,7 @@ def explicit_dynamics(
     model,
     *,
     target,
-    dt: float,
+    dt: float | str,
     steps: int,
     residual=None,
     state=None,
@@ -29,6 +29,7 @@ def explicit_dynamics(
     update_load=None,
     save_every: int | None = None,
     print_every: int | None = None,
+    history_every: int = 1,
     progress=True,
     status_file=None,
     checkpoint=None,
@@ -69,6 +70,7 @@ def explicit_dynamics(
             update_load=update_load,
             save_every=save_every,
             print_every=print_every,
+            history_every=history_every,
             progress=progress,
             status_file=status_file,
             checkpoint=checkpoint,
@@ -95,11 +97,42 @@ def explicit_dynamics(
         mass=selected_mass,
     )
     energy_stiffness = None
+    stability = None
     if residual is None:
         energy_stiffness = model.stiffness(target)
+        from .time.stability import linear_solid_stability
+
+        if hasattr(selected_mass, "mass"):
+            stability = linear_solid_stability(energy_stiffness, selected_mass)
+        if dt == "auto":
+            if stability is None:
+                raise ValueError(
+                    "Automatic dt requires an explicit mass operator, not a bare inverse diagonal."
+                )
+            dt = stability.selected
+        elif not np.isfinite(float(dt)) or float(dt) <= 0:
+            raise ValueError("Explicit dt must be positive or 'auto'.")
+        from . import operators
+
+        ordinary = [
+            item for item in model.loads if not isinstance(item, load_api.NodalForce)
+        ]
+        discrete = [
+            item.bind(target)
+            for item in model.loads
+            if isinstance(item, load_api.NodalForce)
+        ]
+        external_parts = (
+            [operators.force_vector(target, ordinary, study=model.study)]
+            if ordinary
+            else []
+        ) + discrete
+        external = (
+            operators.combine(*external_parts, name="F") if external_parts else None
+        )
         residual = model.force_balance(
             internal=model.internal_force(selected_state.u),
-            external=(model.external_force(target) if model.loads else None),
+            external=external,
         )
     selected_prescribed = tuple(_as_tuple(prescribed)) + tuple(
         constraint_api.dirichlet_constraints(selected_constraints)
@@ -109,6 +142,7 @@ def explicit_dynamics(
         integrator=integrator,
         residual=residual,
         stiffness=energy_stiffness,
+        stability=stability,
         study=model.study,
         prescribed=selected_prescribed,
         constraints=selected_constraints,
@@ -120,11 +154,56 @@ def explicit_dynamics(
         steps=steps,
         save_every=save_every,
         print_every=print_every,
+        history_every=history_every,
         progress=progress,
         status_file=status_file,
         checkpoint_policy=checkpoint,
         name=name,
     )
+    if energy_stiffness is not None and any(
+        isinstance(item, load_api.NodalForce) for item in model.loads
+    ):
+        from .diagnostics import LinearDynamicWorkMonitor
+
+        if cohesive_force is not None:
+            raise NotImplementedError(
+                "AFM-NODAL-FORCE: cohesive energy accounting is not available in this linear route."
+            )
+        # This bounded route excludes prescribed support motion: its work
+        # would need a separate reaction channel.
+        if any(hasattr(item, "update") for item in selected_prescribed):
+            raise NotImplementedError(
+                "AFM-NODAL-FORCE: moving supports require reaction-work integration."
+            )
+        support_values = np.zeros_like(selected_state.u.x.array)
+        for condition in time_api.explicit._collect_bcs(selected_prescribed, None):
+            condition.set(support_values)
+        if selected_state.u.function_space.mesh.comm.allreduce(
+            float(np.max(np.abs(support_values), initial=0.0))
+        ) > 0:
+            raise NotImplementedError(
+                "AFM-NODAL-FORCE: this energy ledger requires homogeneous stationary supports."
+            )
+        step.history_monitor = LinearDynamicWorkMonitor(
+            mass=selected_mass,
+            stiffness=energy_stiffness,
+            external=external,
+            displacement=selected_state.u,
+        )
+        # At t=0 a nonzero nodal force must seed acceleration before prediction.
+        if state is None:
+            initial = operators.assemble_vector(residual)
+            try:
+                integrator.solve_acceleration(initial)
+                integrator.state.a.x.array[:] = integrator.state.a_next.x.array
+                integrator.state.a.x.scatter_forward()
+                time_api.explicit.project_homogeneous_kinematics(
+                    integrator.state.a,
+                    prescribed=selected_prescribed,
+                    constraints=selected_constraints,
+                )
+            finally:
+                initial.destroy()
     return model.add_step(step)
 
 

@@ -1,0 +1,10 @@
+AgentFEM · explicit_nodal_pulse
+  run: 001-run
+  output: outputs/001-run
+/Users/luo/Documents/Codex/agentfem-mainline/examples/explicit_nodal_pulse/outputs/001-run
+AgentFEM result · explicit_dynamics
+  status: completed
+  trust: computed
+  fields: Displacement, Velocity, Acceleration
+  files: fields.h5, fields.xdmf
+  record: outputs/001-run/result.json

@@ -316,9 +316,19 @@ def vector_unknown(
     )
 
 
-def displacement(domain, *, degree: int = 1, dim: int | None = None, value=0.0) -> UnknownField:
+def displacement(domain, *, degree: int = 1, dim: int | None = None, value=0.0, element=None) -> UnknownField:
     """Create a displacement unknown for mechanics workflows."""
 
+    if element is not None:
+        if degree != 1 or dim is not None:
+            raise ValueError("Pass an explicit element or degree/dim, not both.")
+        from dolfinx import fem
+        V = fem.functionspace(domain, element)
+        if V.value_shape != (domain.geometry.dim,):
+            raise ValueError("Displacement element must have one component per geometric dimension.")
+        return UnknownField(name="Displacement", kind="displacement", space=V,
+            value=spaces.named_function(V,"Displacement",value=value),
+            trial=spaces.trial_function(V), test=spaces.test_function(V))
     field = vector_unknown(domain, name="Displacement", degree=degree, dim=dim, value=value)
     return UnknownField(
         name=field.name,

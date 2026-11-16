@@ -6,6 +6,17 @@ experimental formulation to a validated one.
 
 ## [Unreleased]
 
+- Add identity-preserving nodal forces and U/V/A histories to bounded small-
+  strain explicit dynamics, including MPI ownership, independent sampling,
+  work/energy records and restart. Fix owned/ghost acceleration lengths.
+  Add flat-INP dynamic inventory, matching Tet4/Tet10 zero-thickness seams,
+  independently named HRZ/Tet15 positive-mass routes, linear stable-step
+  estimation, and raw cross-solver CSV/report tools. Tet15 serial XDMF retains
+  native coefficients and labels its display subdivision. These experimental
+  routes are not Abaqus C3D10M equivalents; blade parity awaits original
+  external inputs. See `docs/design/explicit_dynamic_parity.md` and
+  `validation/dynamic_parity/REPORT.md` for verified scope and evidence.
+
 - Make anonymous reliability telemetry explicit opt-in. Fresh, missing,
   invalid and ambiguous legacy preferences now fail closed to `off`; old
   default-enabled queues are discarded before any delivery. Preserve the

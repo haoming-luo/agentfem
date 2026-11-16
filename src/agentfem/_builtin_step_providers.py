@@ -2389,6 +2389,7 @@ register_step_provider(
             "update_load",
             "save_every",
             "print_every",
+            "history_every",
             "progress",
             "status_file",
             "checkpoint",

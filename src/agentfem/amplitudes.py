@@ -597,6 +597,31 @@ def sine(
     )
 
 
+
+def half_sine(
+    duration: float,
+    *,
+    amplitude: float = 1.0,
+    start: float = 0.0,
+    name: str = "half_sine",
+) -> Amplitude:
+    """Finite-duration sine pulse, exactly zero outside its declared support."""
+    duration, amplitude, start = float(duration), float(amplitude), float(start)
+    if not np.all(np.isfinite((duration, amplitude, start))) or duration <= 0:
+        raise ValueError("half_sine requires finite parameters and positive duration.")
+
+    def evaluate(time):
+        phase = (float(time) - start) / duration
+        return amplitude * sin(pi * phase) if 0 < phase < 1 else 0.0
+
+    return Amplitude(
+        name=name,
+        value=evaluate,
+        kind="half_sine",
+        metadata={"duration": duration, "amplitude": amplitude, "start": start},
+    )
+
+
 def gaussian_modulated_sine(
     amplitude: float,
     frequency: float,
@@ -818,6 +843,7 @@ __all__ = [
     "basis",
     "constant",
     "gaussian_modulated_sine",
+    "half_sine",
     "ramp",
     "sine",
     "smooth_step",
