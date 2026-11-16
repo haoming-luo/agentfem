@@ -149,6 +149,8 @@ class UnknownField:
             "kind": self.kind,
             "element": str(element),
             "value_name": getattr(self.value, "name", self.name),
+            **({"element_policy": self.space._agentfem_element_policy.summary()}
+               if hasattr(self.space, "_agentfem_element_policy") else {}),
         }
 
     def assign_from(self, other) -> None:
@@ -316,9 +318,21 @@ def vector_unknown(
     )
 
 
-def displacement(domain, *, degree: int = 1, dim: int | None = None, value=0.0, element=None) -> UnknownField:
+def displacement(domain, *, degree: int = 1, dim: int | None = None, value=0.0, element=None, element_policy=None) -> UnknownField:
     """Create a displacement unknown for mechanics workflows."""
 
+    if element_policy is not None:
+        from .elements import CompositeTet10Policy
+        from .elements._composite_tet_dolfinx import local_order
+        if not isinstance(element_policy, CompositeTet10Policy):
+            raise TypeError("This displacement factory supports CompositeTet10Policy only.")
+        if element is not None or dim is not None or degree != 1:
+            raise ValueError("Declare element_policy without degree, dim or element overrides.")
+        field = displacement(domain, degree=2, value=value)
+        local_order(field.space)
+        field.space._agentfem_composite_tet10 = True
+        field.space._agentfem_element_policy = element_policy
+        return field
     if element is not None:
         if degree != 1 or dim is not None:
             raise ValueError("Pass an explicit element or degree/dim, not both.")

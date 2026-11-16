@@ -926,10 +926,20 @@ def sample_points(
         dtype=function.x.array.dtype,
     )
     selected = np.flatnonzero(owner == comm.rank)
+    function.x.scatter_forward()
     if selected.size:
-        evaluated = np.asarray(
-            function.eval(coordinates[selected], local_cells[selected])
-        ).reshape(selected.size, value_size)
+        from ..elements._composite_tet_dolfinx import is_composite_space, interpolation_weights
+        if is_composite_space(function.function_space):
+            V = function.function_space
+            evaluated = np.array([
+                interpolation_weights(V, int(local_cells[i]), coordinates[i])
+                @ function.x.array.reshape(-1, value_size)[V.dofmap.cell_dofs(local_cells[i])]
+                for i in selected
+            ]).reshape(selected.size, value_size)
+        else:
+            evaluated = np.asarray(
+                function.eval(coordinates[selected], local_cells[selected])
+            ).reshape(selected.size, value_size)
         local_values[selected] = evaluated
     values = np.empty_like(local_values)
     comm.Allreduce(local_values, values, op=MPI.SUM)

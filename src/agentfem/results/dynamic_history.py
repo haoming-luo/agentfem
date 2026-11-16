@@ -273,10 +273,12 @@ def _bind_spatial_point(V, at):
         reference = V.mesh.geometry.cmaps[0].pull_back(
             point, V.mesh.geometry.x[geometry_nodes]
         )
-        weights = V.element.basix_element.tabulate(0, reference)[0, 0, :, 0].copy()
+        from ..elements._composite_tet_dolfinx import is_composite_space, interpolation_weights
+        weights = (interpolation_weights(V, cell, point[0]) if is_composite_space(V)
+                   else V.element.basix_element.tabulate(0, reference)[0, 0, :, 0].copy())
         dofs = V.dofmap.cell_dofs(cell).copy()
         evidence = {
-            "method": "finite_element_interpolation",
+            "method": "composite_piecewise_linear" if is_composite_space(V) else "finite_element_interpolation",
             "coordinates": point[0].tolist(),
             "owner_rank": int(owner),
             "input_cell": int(V.mesh.topology.original_cell_index[cell]),

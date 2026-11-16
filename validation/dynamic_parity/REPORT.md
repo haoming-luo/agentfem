@@ -144,3 +144,32 @@ python examples/explicit_nodal_pulse/case.py --output /tmp/afm-pulse --element t
 
 推导、使用范围与公开来源：`docs/theory/composite_tetrahedron.md`。
 C3D10M 导入仍维持“拓扑可读、专用公式未实现”的状态，不改变原有含义。
+
+## 整网格、Step与结果交付补充（2026-11-16）
+
+本轮继续在 `feat/explicit-dynamic-parity` 开发，完成上一节局部内核至整网格工作流的接入；未运行叶片仿真，不依赖外部 INP/CSV。
+
+### 已完成的通用能力
+
+- 公开入口：`fields.displacement(..., element_policy=elements.composite_tet10_policy(...))`，通过标准 `model.step` 与 `step.solve_result` 完成显式动力学；提供可直接运行、发布的标准项目 `examples/composite_tet_dynamics`。
+- 分布式单元装配、正对角质量、自动稳定时间步、固定/给定位移约束、同分区检查点恢复；复用通用外力功与能量记录，不另造一套求解生命周期。
+- 支持材料分区和常系数各向异性线弹性；常量体力、面力、参考压力与节点力采用复合插值的一致离散。错误的求解选项及不支持的载荷明确拒绝，不能静默退回普通 P2 公式。
+- 探针、历史和科学输出均使用实际复合插值。输出 U/V/A、应力、应变、等效应力及应变能密度；XDMF/HDF5 保留原生自由度、源单元映射和分片显示网格，可由现有统一读取器读取。
+- 修正刚体运动附近能量的浮点消去问题；稳定化能量单独记录。共享显式组件提取后，已有 Hex8 路径继续通过回归。
+
+### 自动化验证
+
+- 串行相关回归：277 项通过、14 项 MPI 专用测试在串行环境跳过。包含公式、动力学、重启、架构、质量、结果输出等；原始记录见 `composite_step/serial_regression.txt`。
+- 最后输出集成回归：66 项通过，覆盖新增统一读取、标准项目运行与发布，见 `composite_step/output_integration.txt`。
+- 双进程复合单元专项：每个进程 8 项通过，覆盖并行装配、一致载荷、刚体加速度、材料分区和整体仿射补丁，见 `composite_step/mpi2_regression.txt`。
+- 公共结果双进程回归：每个进程 14 项通过，见 `composite_step/mpi2_results.txt`。
+- 八进程、六单元空分区专项：每个进程 1 项通过，见 `composite_step/mpi8_empty_partition.txt`。
+- 各批次测试存在重叠，不将数字相加作为独立测试总数。双进程 pytest 临时目录清理出现目录非空警告，不影响求解或测试结果。
+
+### 公式与交付边界
+
+本实现是独立复合 Tet10：12 个子四面体、约束中心、投影梯度和偏应变残差稳定化。它不是 Abaqus C3D10M 的直接复刻；后者的额外独立变量及专用控制未被等价实现，导入时仍不将二者互换。
+
+当前完整链路支持仿射四面体、小应变线弹性显式动力学；曲边、有限应变、塑性、接触及跨分区重启不在本轮支持范围。MPI 科学输出采用汇集到主进程后写入，已验证一致性，但主进程内存随输出规模增长，不宣称可扩展的并行 HDF5。
+
+推导与主来源见 `docs/theory/composite_tetrahedron.md`；公共使用方式见 `examples/composite_tet_dynamics/README.md`。

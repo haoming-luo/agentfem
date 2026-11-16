@@ -29,6 +29,13 @@ from . import dispatch
 from . import elasticity as elasticity_operators
 
 
+def _require_standard_interpolation(target):
+    from ..elements._composite_tet_dolfinx import is_composite_space
+    space = getattr(target, "function_space", None)
+    if space is not None and is_composite_space(space):
+        raise ValueError("AFM-COMPOSITE-TET: use the composite Step provider; ordinary P2 UFL operators do not represent this field.")
+
+
 class _MaterialAssignment(Protocol):
     """Structural view of one model-owned material assignment."""
 
@@ -48,6 +55,8 @@ def lower_stiffness(
     name: str = "K",
 ):
     """Lower registered material assignments into one stiffness operator."""
+
+    _require_standard_interpolation(target)
 
     records = _records(assignments, selected)
     if not records:
@@ -101,6 +110,8 @@ def lower_mass(
     name: str = "M",
 ):
     """Lower registered densities into one consistent mass operator."""
+
+    _require_standard_interpolation(target)
 
     records = _records(assignments, selected)
     if not records:
@@ -295,6 +306,8 @@ def lower_lumped_mass(
 ):
     """Lower registered densities into a row-sum lumped mass operator."""
 
+    _require_standard_interpolation(target)
+
     normalized_method = method.lower().replace("-", "_")
     if normalized_method not in {"row_sum", "diagonal", "lumped", "tet10_hrz", "tet15_nodal"}:
         raise ValueError("model.lumped_mass supports row_sum, tet10_hrz or tet15_nodal.")
@@ -364,6 +377,8 @@ def lower_internal_force(
     name: str = "F_internal",
 ):
     """Lower registered material assignments into an internal-force operator."""
+
+    _require_standard_interpolation(displacement)
 
     records = _records(assignments, selected)
     if not records:

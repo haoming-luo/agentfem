@@ -290,6 +290,7 @@ class ExplicitDynamicsStep:
         series, actual_output, backend, layout = _transient_result_series(
             self.last_output,
             domain,
+            primary=selected_fields[0],
         )
         self.last_output = actual_output
         self.last_output_backend = backend
@@ -707,6 +708,7 @@ class ImplicitDynamicsStep:
         series, actual_output, backend, layout = _transient_result_series(
             self.last_output,
             domain,
+            primary=output_fields[0],
         )
         self.last_output = actual_output
         self.last_output_backend = backend
@@ -2159,10 +2161,17 @@ def _transient_output_fields(selected):
     return tuple(output), tuple(live)
 
 
-def _transient_result_series(path, domain):
+def _transient_result_series(path, domain, *, primary=None):
     """Choose one ParaView-readable dataset layout for transient output."""
 
     selected = Path(path)
+    from .elements._composite_tet_dolfinx import is_composite_space
+    if primary is not None and is_composite_space(primary.function_space):
+        from .results._composite_tet import CompositeTetTimeSeries
+        if selected.suffix.lower() != ".xdmf":
+            raise ValueError("Composite Tet10 output uses XDMF/HDF5; request an .xdmf path.")
+        return (CompositeTetTimeSeries(selected, primary), selected,
+                "agentfem_composite_xdmf", "exact_piecewise_linear_subtets")
     if selected.suffix.lower() == ".pvd" or domain.comm.size > 1:
         from . import io
 

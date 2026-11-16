@@ -8,7 +8,7 @@ Mean-dilatation stiffness adds independently derived deviatoric projection-resid
 energy stabilization; it is not asserted identical to the published element.
 Reference for the composite topology/projection: Ostien et al. (2016), DOI 10.1002/nme.5218; Sierra/SM Theory 15.3.
 This formulation-development kernel is NOT an Abaqus C3D10M implementation,
-not a Basix P2 element, and not yet a registered whole-mesh Step provider.
+not a Basix P2 element. The composite_tet10_explicit provider supplies whole-mesh execution.
 """
 
 from dataclasses import dataclass

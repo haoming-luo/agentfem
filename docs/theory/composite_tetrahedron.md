@@ -8,10 +8,17 @@ and positive lumped mass, projected gradients, strain matrices, stiffness, and a
 central-difference local time-step bound. Coordinates follow Abaqus Tet10 ordering:
 vertices 0–3; edges 01, 12, 20, 03, 13, 23. Vector DOFs are node-major xyz.
 
-This is a formulation-development API, not a whole-mesh Step provider. It does
-not register `C3D10M` as executable, change INP interpretation, or replace the
-existing P2/HRZ and Tet15 routes. Curved/moved mid-edge geometry is rejected.
-The implementation is independently written from mathematical definitions.
+The local API now backs the registered `composite_tet10_explicit` whole-mesh
+Step provider. Use `fields.displacement(domain, element_policy=
+elements.composite_tet10_policy(mean_dilatation=True))`, then ordinary
+`model.step(target=u, dt="auto", steps=...)`. DOLFINx owns the mesh, DOF mapping
+and state fields; the provider supplies composite force, mass and recovery.
+P2 is used **only as the ten-node coefficient storage layout**. Generic P2
+model stiffness/mass calls reject a declared composite field.
+
+This does not register `C3D10M` as executable, change INP interpretation, or
+replace the existing P2/HRZ and Tet15 routes. Curved/moved mid-edge geometry is
+rejected. The implementation is independently written from mathematical definitions.
 
 ## What public sources establish
 
@@ -102,10 +109,15 @@ The positive lumped mass gives
     dt_critical = 2 / sqrt(lambda_max(M_lump^(-1/2) K M_lump^(-1/2))).
 
 The local bound scales with length, sqrt(density), and inverse sqrt(stiffness).
-A global driver must still apply its safety factor and include contact, constraints
-and other stiffness contributions. This API does not select a production run dt.
+The local API returns the mathematical bound without a safety factor. The
+whole-mesh provider selects 0.8 times the minimum owned-cell bound over all MPI
+ranks. Since global stiffness and positive lumped mass are assembled sums, the
+cell Rayleigh bound is conservative for the assembled linear system. Fixed
+Dirichlet elimination cannot increase the admissible Rayleigh maximum. Prescribed
+motion is handled by the existing time integrator. Contact and additional custom
+stiffness are not admitted. A supplied dt above this bound is rejected.
 
-## Verification and next integration gate
+## Verification and integration
 
 `tests/test_composite_tet.py` checks partition gradients, affine completeness,
 constant engineering strain, positive mass, exact consistent-mass inertia,
@@ -114,13 +126,71 @@ permutations, length/density/stiffness scaling, and rejection of unsupported inp
 The stabilization test also retains the failing nine-null-mode formulation as
 an explicit regression; it must never be mistaken for a usable default.
 
-Remaining implementation work is independent of external blade files: a registered
-execution provider, distributed assembly/ownership, internal-state semantics,
-and physical-field output for the piecewise interpolation. An ordinary Basix P2
-space cannot represent this displacement basis. These must be implemented before
-whole-mesh use. C3D10M equivalence additionally requires its actual internal-mode,
-integration and stabilization definitions, not just the name or connectivity.
-No application simulation was performed as part of this development increment.
+The whole-mesh implementation is tested in `tests/test_composite_tet_workflow.py`:
+public field/provider selection, MPI owned-cell force and mass assembly,
+consistent loads, patch equilibrium, distinct anisotropic shear components,
+material partitioning, moving supports, work accounting, same-partition restart,
+exact spatial interpolation and XDMF/HDF5 outputs. Tests use synthetic unit meshes;
+no blade or application simulation was performed.
+
+## Whole-mesh execution and contracts
+
+- Elastic material regions must cover owned cells exactly once. Core engineering
+  shear order xx,yy,zz,yz,xz,xy is explicitly permuted to the kernel order.
+- Nodal forces use source-node binding. Constant body loads integrate the
+  composite shape functions: vertex weights V/32 and edge weights 7V/48.
+- Constant face traction integrates the four linear face subtriangles: each
+  vertex receives A/12, each edge node A/4. Reference pressure uses geometric
+  outward normals with the declared inward sign. Scalar amplitudes reuse the
+  platform's accepted time-input lifecycle. General spatial expressions,
+  custom pressure normals and follower pressure are rejected.
+- Owned cells contribute once; PETSc reverse ghost accumulation assembles the
+  nodal arrays. No replicated global solve or separate mesh owner is introduced.
+- Explicit U/V/A updates, fixed/moving strong Dirichlet constraints, the dynamic
+  work ledger and checkpoint lifecycle reuse the existing platform mechanisms.
+  Checkpoint identity includes geometry, DOFs, stiffness, mass and initial inputs.
+  Same-partition restart is supported; repartitioned restart is not claimed.
+- `hourglass_energy` records the projection-residual stabilization contribution
+  separately. It is not material dissipation. The ordinary projected branch
+  records zero stabilization energy. A rigid translation is removed before
+  local force/energy arithmetic; this exact null-mode operation reduces loss of
+  significance. Roundoff-sized negative quadratic energies are tested against
+  an absolute-operation error scale, not a tolerance relative to a near-zero
+  final energy; larger negative energies still raise an error.
+- Per-cell quadrature scratch is discarded after preparation. Only compact
+  recovery coefficients, the fixed stiffness, mass and material data remain.
+
+## Output and physical interpolation
+
+`step.solve_result(output="fields.xdmf", field_variables=("S","E","MISES","SENER"))`
+writes U/V/A and optional cell fields. Both serial and MPI executions use the
+same collective gather-to-root XDMF/HDF5 writer. This avoids requiring parallel
+HDF5 but requires rank-zero memory for the complete output frame; it is not a
+large-scale distributed I/O claim.
+
+The output contains twelve linear tetrahedra per source cell and an auxiliary
+centre with the exact mean of the six edge-node values. It therefore represents
+the piecewise displacement field exactly, rather than visually replacing it
+with P2. HDF5 retains native ten-node coefficients, source cell DOF connectivity,
+original cell IDs and the display-to-parent map. Cell orientation is normalized
+for visualization. S/E are volume averages of the declared projected response;
+MISES is the mean of integration-point equivalent stress; SENER includes the
+separately recorded stabilization energy. These are not smoothed peak stresses.
+
+`results.probe`, `sample_points`, and dynamic-history stations use the same true
+piecewise interpolation. `results.write_result_fields` preserves this layout.
+The ordinary low-level unified P2 writer rejects composite fields instead of
+silently drawing the wrong interpolation. XDMF is directly usable in ParaView
+with Warp By Vector U; no secondary PVD is required. Existing output files and
+partial indices are not overwritten by this writer.
+
+Remaining scope: curved geometry, history-dependent/finite-strain materials,
+contact, general spatial loads, cross-partition restart, and distributed output
+without root gathering. C3D10M equivalence additionally requires its actual
+independent internal-mode, integration and stabilization definitions. None of
+these limitations blocks use of the explicitly named, tested linear composite
+Step implemented here. See `examples/composite_tet_dynamics` for the standard
+project entry point.
 
 ## Sources
 

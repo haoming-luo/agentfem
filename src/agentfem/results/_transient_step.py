@@ -149,7 +149,7 @@ def _attach_field_output(result, step, output_fields) -> None:
         if not vector_primary
         else (
             "U"
-            if backend == "agentfem_unified_xdmf"
+            if backend in {"agentfem_unified_xdmf", "agentfem_composite_xdmf"}
             else str(getattr(primary, "name", "Displacement"))
         )
     )

@@ -3,8 +3,9 @@
 
 """Finite-element identity and discretization compatibility contracts.
 
-Basix and DOLFINx continue to own basis construction, dof maps, quadrature,
-and assembly. This module owns the smaller AgentFEM boundary between an
+Basix and DOLFINx own standard basis construction, DOF maps and assembly.
+Explicit formulation policies may supply specialized local operators while
+retaining that mesh/DOF ownership. This module owns the boundary between an
 engineering field and those backend objects: what element is actually in use,
 whether it belongs to the registered mesh, and whether its value shape is
 compatible with the declared Study.
@@ -536,9 +537,13 @@ def tet15_mass_lumped(*, shape=(3,)):
 
 
 def composite_tet10(coordinates):
-    """Affine composite Tet10 local operators; not a whole-mesh Step or C3D10M."""
+    """Affine composite Tet10 local operators; select its Step using composite_tet10_policy."""
     from .composite_tet import composite_tet10 as create
     return create(coordinates)
 
 
 __all__.append("composite_tet10")
+
+from .policies import CompositeTet10Policy, composite_tet10_policy
+
+__all__ += ["CompositeTet10Policy", "composite_tet10_policy"]

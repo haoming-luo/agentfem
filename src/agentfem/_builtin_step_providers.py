@@ -1523,6 +1523,12 @@ def _lower_mixed_neo_hookean(model, request: StepRequest):
 def _accept_explicit_dynamics(model, request: StepRequest) -> bool:
     from .constitutive import hyperelasticity
 
+    from .elements import CompositeTet10Policy
+    from .elements._composite_tet_dolfinx import is_composite_space
+    if (isinstance(request.option("element_policy"), CompositeTet10Policy)
+            or is_composite_space(getattr(request.target, "function_space", None))):
+        return False  # Unsupported composite options must not fall back to P2.
+
     method = _procedure_method(model, request)
     materials = _registered_materials(model, request)
     explicit_residual = request.options.get("residual") is not None
@@ -2458,3 +2464,30 @@ register_step_provider(
         ),
     )
 )
+
+
+def _accept_composite_tet(model, request):
+    from .elements import CompositeTet10Policy
+    method = _procedure_method(model, request)
+    policy = request.option("element_policy") or getattr(getattr(request.target, "function_space", None), "_agentfem_element_policy", None)
+    return (isinstance(policy, CompositeTet10Policy)
+            and _is_vector_target(request.target)
+            and (method is None or _normalize(method) in {"central_difference", "explicit_dynamics"}))
+
+
+def _lower_composite_tet(model, request):
+    from ._step_composite_tet import lower
+    return lower(model, request)
+
+
+register_step_provider(StepProvider(
+    name="composite_tet10_explicit",
+    analyses=("explicit_dynamics", "second_order_dynamics"),
+    accepts=_accept_composite_tet,
+    lower=_lower_composite_tet,
+    priority=181,
+    description="Experimental affine composite Tet10 elastic dynamics with positive mass and piecewise-linear output; not Abaqus C3D10M.",
+    procedure="explicit/central_difference",
+    option_contract=_option_contract("element_policy", "dt", "steps", "save_every", "print_every",
+        "history_every", "progress", "status_file", "checkpoint", required=("dt", "steps")),
+))

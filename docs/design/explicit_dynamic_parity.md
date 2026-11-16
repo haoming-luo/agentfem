@@ -209,7 +209,9 @@ methods on a common physical problem.
 The public `elements.composite_tet10` local-operator API and its independent
 [derivation](../theory/composite_tetrahedron.md) implement affine piecewise-linear
 interpolation, parent gradient projection, positive mass and stabilized
-mean-dilatation stiffness. This is not a whole-mesh Step and does not change the
-unsupported C3D10M import status. Unit regressions explicitly preserve the
+mean-dilatation stiffness. The registered `composite_tet10_explicit` provider now connects those operators
+to whole-mesh MPI assembly, the standard Step lifecycle, restart and exact
+piecewise-linear XDMF/HDF5 output. It does not change the unsupported C3D10M
+import status. Unit regressions explicitly preserve the
 unstabilized mean-dilatation zero-mode failure. No blade simulation is required
 for these formulation and software checks.

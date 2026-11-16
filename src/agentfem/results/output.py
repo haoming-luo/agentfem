@@ -497,6 +497,9 @@ class UnifiedXDMFTimeSeries:
 
     def _initialize(self, primary) -> None:
         domain = primary.function_space.mesh
+        from ..elements._composite_tet_dolfinx import is_composite_space
+        if is_composite_space(primary.function_space):
+            raise ValueError("Composite Tet10 requires Step output or results.write_result_fields for its piecewise interpolation.")
         if domain.comm.size != 1:
             raise NotImplementedError(
                 "Unified compressed XDMF is a serial writer. Under MPI use "
@@ -944,7 +947,17 @@ def write_result_fields(
         storage_name = str(getattr(solution, "name", "") or primary.name)
         warp_semantic = None
     selected_path = Path(path)
-    if domain.comm.size == 1:
+    from ..elements._composite_tet_dolfinx import is_composite_space
+    if is_composite_space(solution.function_space):
+        from ._composite_tet import CompositeTetTimeSeries
+        if deformation_scale != 0:
+            raise NotImplementedError("Composite fields use reference geometry; apply Warp By Vector in ParaView.")
+        if selected_path.suffix.lower() != ".xdmf":
+            raise ValueError("Composite result output requires an .xdmf path.")
+        with CompositeTetTimeSeries(selected_path, solution) as writer:
+            writer.write_fields(float(time), solution, *auxiliary)
+        layout, backend, paraview = "exact_piecewise_linear_subtets", "agentfem_composite_xdmf", None
+    elif domain.comm.size == 1:
         write_unified_xdmf_series(
             selected_path,
             (SimpleNamespace(solution=solution, load_factor=float(time)),),
