@@ -202,7 +202,8 @@ experimental qualification at 620 C.
 Before calibration: use RF cycles 1--3 only; predict cycles 4--10 with the
 same parameters and continuous inherited state. Use the existing five-state
 uniaxial published recovery equations. Fit only E, k and Z (positive bounded
-ranges 100000--200000 MPa, 50--250 MPa and 300--1500 MPa respectively); retain
+ranges 100000--200000 MPa, 50--250 MPa and 300--1500 MPa·s^(1/n)
+respectively, with n=3 fixed); retain
 the other 600 C published coefficients as an explicit transfer hypothesis,
 not as measured 620 C properties. Initialize the measured first stress and
 zero backstresses/isotropic history/accumulated inelastic strain; this initial
@@ -219,7 +220,8 @@ This is a bounded test of a transfer hypothesis. Failure requires improving
 the material/loading evidence, not broadening parameters until the holdout fits.
 
 Result: the frozen fit converged in nine evaluations, but Z reached the
-predeclared 1500 MPa upper bound. E=146410.238 MPa and k=108.231492 MPa.
+predeclared 1500 MPa·s^(1/n) upper bound (n=3).
+E=146410.238 MPa and k=108.231492 MPa.
 Calibration cycles 1--3 have time-weighted RMS errors 5.859, 3.368 and
 4.988 MPa. Held-out cycles 4--10 increase from 8.683 to 23.302 MPa.
 Doubling backward-Euler subdivisions changes stresses by at most 0.891 MPa
