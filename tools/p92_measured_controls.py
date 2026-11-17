@@ -55,6 +55,7 @@ def measured_path(data, *, cycles, switch_bound=None):
         raise ValueError("Missing or discontinuous measured cycles")
     segments, events = [], []
     previous = 0.
+    previous_upper = 0.
     for cycle in range(1, cycles+1):
         ids = np.flatnonzero(c == cycle)
         start = t[ids[0]]
@@ -85,12 +86,16 @@ def measured_path(data, *, cycles, switch_bound=None):
             end = event["time_s"]
             if end <= previous:
                 raise ValueError("Unordered reconstructed switches")
-            observed = ids[(t[ids] > previous) & (t[ids] <= end)]
+            # Perturb the simulated switch, not the identity/control class of
+            # its observations. A bracket-end hold must not acquire ramp data.
+            support_start = previous_upper if switch_bound is not None else previous
+            support_end = event["bracket_s"][0] if switch_bound is not None else end
+            observed = ids[(t[ids] > support_start) & (t[ids] <= support_end)]
             if len(observed) < 2:
                 raise ValueError("Insufficient observations between switches")
-            desired = previous+(end-previous)*np.r_[0., np.geomspace(.001, 1., 15)]
+            desired = support_start+(support_end-support_start)*np.r_[0., np.geomspace(.001, 1., 15)]
             chosen = np.unique([observed[np.argmin(abs(t[observed]-x))] for x in desired])
-            tail = observed[t[observed] >= previous+.8*(end-previous)]
+            tail = observed[t[observed] >= support_start+.8*(support_end-support_start)]
             tail = tail[[0, -1]] if len(tail) >= 2 else np.array([], dtype=int)
             segments.append(dict(cycle=cycle, duration=end-previous, target=target,
                 stress_control=stress_control, sample_times=t[chosen]-previous,
@@ -99,6 +104,7 @@ def measured_path(data, *, cycles, switch_bound=None):
                     stress=s[tail]/1e6, strain=e[tail], source_indices=tail.tolist())))
             events.append(dict(cycle=cycle, stress_control=stress_control, **event))
             previous = end
+            previous_upper = event["bracket_s"][1]
     return dict(protocol=data["protocol"], initial_stress=float(s[0]/1e6),
                 initial_strain=float(e[0]), segments=segments, switches=events,
                 source_sha256=data["sha256"], cycles=cycles)
@@ -110,6 +116,7 @@ def timing_sensitivity(data, mechanisms, *, cycles=10):
     for side in ("lower", "upper"):
         _, result = replay(measured_path(data, cycles=cycles, switch_bound=side), mechanisms)
         records[side] = dict(cycles=result["cycles"],
+                             hold_diagnostics=result["hold_diagnostics"],
                              reversed_post_hold_ramps=result["reversed_post_hold_ramps"])
     return records
 

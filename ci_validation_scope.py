@@ -160,6 +160,7 @@ _P92_CONTROL_TESTS = (
     "tests/test_p92_two_mechanism_fit.py",
 )
 _P92_CONTROL_INPUTS = (
+    "evidence/creep/2026-11-17-kinematic-shape.json",
     "evidence/creep/2026-11-17-time-shape.json",
     "tools/p92_transient_history.py",
     "evidence/creep/2026-11-17-transient-history.json",

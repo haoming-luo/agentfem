@@ -1,7 +1,7 @@
 """Conditional early-cycle transient experiments, not admitted material laws.
 
-Freeze the seed card except two declared coordinates: fast/slow C1, or the
-fast isotropic time term's initial rate and target. Initial history is unchanged.
+Freeze the seed card except two declared kinematic or isotropic-recovery
+coordinates. Initial history is unchanged.
 Artificial entry-state probes are instantaneous diagnostics, never fed into a
 trajectory. They cannot establish experimentally observed causal mechanisms.
 """
@@ -26,10 +26,16 @@ from tools.p92_two_mechanism import Mechanism
 def decode(z, mechanisms, *, direction="C1"):
     z = np.asarray(z, dtype=float)
     if z.shape != (2,) or not np.isfinite(z).all() or len(mechanisms) != 2:
-        raise ValueError("Require two finite log10 C1 scales and two branches")
+        raise ValueError("Require two finite conditional scales and two branches")
     if direction == "C1":
         return tuple(replace(m, parameters=replace(m.parameters, C1=m.parameters.C1*10.**v))
                      for m, v in zip(mechanisms, z, strict=True))
+    if direction == "kinematic_shape":
+        # Change first-backstress saturation while preserving C1*a1, the
+        # signed hardening coefficient. No change to the elastic modulus.
+        return tuple(replace(m, parameters=replace(m.parameters,
+            a1=m.parameters.a1*10.**v, C1=m.parameters.C1/10.**v))
+            for m, v in zip(mechanisms, z, strict=True))
     if direction != "fast_time_shape":
         raise ValueError("Unknown conditional direction")
     fast, slow = mechanisms
@@ -90,9 +96,11 @@ def identify(seed, sources, *, max_nfev=40, direction="C1"):
     base = tuple(Mechanism(Parameters(**m["parameters"]), m["exponent"], m["enabled"]) for m in cards)
     paths = [measured_path(d, cycles=3) for d in sources]
     decode(np.zeros(2), base, direction=direction)
-    names = (["log10_fast_C1_scale", "log10_slow_C1_scale"] if direction == "C1"
-             else ["log10_fast_time_rate_at_R0_scale", "log10_fast_abs_Qr_scale"])
-    bounds = ([-1., -1.], [1., 1.] if direction == "C1" else [1., 0.])
+    names = {"C1": ["log10_fast_C1_scale", "log10_slow_C1_scale"],
+             "fast_time_shape": ["log10_fast_time_rate_at_R0_scale", "log10_fast_abs_Qr_scale"],
+             "kinematic_shape": ["log10_fast_a1_scale_fixed_C1a1", "log10_slow_a1_scale_fixed_C1a1"]}[direction]
+    bounds = ([-.3, -.3], [.3, .3]) if direction == "kinematic_shape" else (
+        [-1., -1.], [1., 1.] if direction == "C1" else [1., 0.])
     calls = 0
 
     def objective(z, rtol=1e-8):
@@ -112,7 +120,7 @@ def identify(seed, sources, *, max_nfev=40, direction="C1"):
     initial_residual = objective(np.zeros(2))
     # A zero vector with a bound at zero can create a vanishing initial
     # trust-region radius and a false-looking ftol stop before exploration.
-    initial = np.zeros(2) if direction == "C1" else np.array([0., -.05])
+    initial = np.array([0., -.05]) if direction == "fast_time_shape" else np.zeros(2)
     result = least_squares(objective, initial, bounds=bounds,
         jac=jacobian, x_scale="jac", max_nfev=max_nfev, ftol=1e-5, xtol=1e-5, gtol=1e-5)
     mechanisms = decode(result.x, base, direction=direction)
@@ -144,7 +152,7 @@ if __name__ == "__main__":
     parser.add_argument("seed", type=Path)
     parser.add_argument("sources", type=Path)
     parser.add_argument("output", type=Path)
-    parser.add_argument("--direction", choices=("C1", "fast_time_shape"), default="C1")
+    parser.add_argument("--direction", choices=("C1", "fast_time_shape", "kinematic_shape"), default="C1")
     parser.add_argument("--verify-frozen", type=Path, help="Recheck a frozen report without refitting")
     args = parser.parse_args()
     if args.output.exists():
@@ -160,7 +168,7 @@ if __name__ == "__main__":
         for key, cards in (("baseline_early_holds", seed["parameters"]), ("fitted_early_holds", report["parameters"])):
             mechanisms = tuple(Mechanism(Parameters(**m["parameters"]), m["exponent"], m["enabled"]) for m in cards)
             report[key] = [diagnose(measured_path(d, cycles=3), mechanisms) for d in sources]
-        report["identification_driver_sha256"] = report["driver_sha256"]
+        report.setdefault("identification_driver_sha256", report["driver_sha256"])
         report["prior_report_sha256"] = sha256(args.verify_frozen.read_bytes()).hexdigest()
     else:
         report = identify(seed, sources, direction=args.direction)

@@ -238,6 +238,17 @@ def test_late_hold_observation_does_not_change_fitting_or_history():
     assert hold["fields"]["strain"]["late_secant_predicted_per_s"] == 0.
 
 
+def test_switch_bracket_uses_common_observations_not_adjacent_ramp():
+    lower = measured_path(data(), cycles=1, switch_bound="lower")
+    upper = measured_path(data(), cycles=1, switch_bound="upper")
+    for a, b in zip(lower["segments"], upper["segments"], strict=True):
+        assert a["source_indices"] == b["source_indices"]
+        assert a["tail"]["source_indices"] == b["tail"]["source_indices"]
+        for segment in (a, b):
+            assert np.all(segment["sample_times"] > 0.)
+            assert np.all(segment["sample_times"] <= segment["duration"])
+
+
 @pytest.mark.parametrize("variant", ["slow", "both"])
 def test_archived_time_fit_retains_accuracy_gap_despite_completed_cycles(variant):
     import json

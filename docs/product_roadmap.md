@@ -2,6 +2,14 @@
 
 ### Measured mixed-control identification checkpoint (2026-11-17)
 
+The [reversal-shape test](internal/p92_reversal_shape_20261117.md) varies a1/C1
+at fixed C1*a1. Lower aggregate error does not resolve inherited SLC stress or
+later early-creep excess; this candidate is not promoted. A concrete diagnostic
+fix prevents switch-upper-bound hold comparisons from absorbing reload samples:
+both timing extremes now use common unambiguous observation indices. The
+remaining first-hold stress bias exceeds that timing perturbation. Next audit
+measured reversal-waveform controls before adding another memory parameter.
+
 The subsequent [hold-decay experiment](internal/p92_hold_decay_20261117.md)
 separates fast isotropic recovery's initial rate and target with all other
 parameters fixed. Frozen cycle-10 RF/SLR/SLC peak errors become

@@ -62,6 +62,21 @@ def test_time_shape_separates_initial_rate_from_target_without_state_reset():
         decode([0., 0.], base, direction="unknown")
 
 
+def test_kinematic_shape_preserves_hardening_coefficient_and_recovery_card():
+    base = (Mechanism(published_parameters(600)),)*2
+    assert decode([0., 0.], base, direction="kinematic_shape") == base
+    changed = decode([.3, -.3], base, direction="kinematic_shape")
+    for old, new in zip(base, changed, strict=True):
+        a, b = old.parameters, new.parameters
+        assert a.C1*a.a1 == pytest.approx(b.C1*b.a1)
+        assert a.E == b.E
+        before, after = asdict(a), asdict(b)
+        for key in ("C1", "a1"):
+            before.pop(key)
+            after.pop(key)
+        assert before == after
+
+
 def test_archived_conditional_fit_keeps_unresolved_physics_and_frozen_identity():
     import json
     from hashlib import sha256
@@ -114,3 +129,26 @@ def test_time_shape_evidence_keeps_history_gap_despite_peak_improvement():
     last = [h for h in slc["hold_diagnostics"] if h["stress_control"]][-1]
     assert len(last["late_secant_source_indices"]) == 2
     assert last["fields"]["strain"]["early_secant_predicted_per_s"] > last["fields"]["strain"]["early_secant_observed_per_s"]
+
+
+def test_reversal_shape_keeps_common_support_and_unresolved_entry_bias():
+    import json
+    from pathlib import Path
+    report = json.loads((Path(__file__).resolve().parents[1]/
+        "evidence/creep/2026-11-17-kinematic-shape.json").read_text())
+    assert report["training_cycles"] == [1, 2, 3]
+    assert report["parameter_direction"] == "kinematic_shape"
+    assert not report["engineering_qualified"] and not report["life_qualified"]
+    for p in report["frozen_predictions"]:
+        assert p["parameter_sha256"] == report["parameter_sha256"]
+        assert p["numerical_refinement_passed"]
+        assert len(p["cycles"]) == 10
+        sides = p["switch_bracket_sensitivity"]
+        for low, high in zip(sides["lower"]["hold_diagnostics"],
+                             sides["upper"]["hold_diagnostics"], strict=True):
+            assert low["source_indices"] == high["source_indices"]
+            assert low["late_secant_source_indices"] == high["late_secant_source_indices"]
+    slc = next(p for p in report["frozen_predictions"] if p["protocol"] == "SLC")
+    for side in slc["switch_bracket_sensitivity"].values():
+        h = next(h for h in side["hold_diagnostics"] if h["stress_control"])
+        assert h["fields"]["stress_MPa"]["last_predicted"] > h["fields"]["stress_MPa"]["last_observed"]+15.
