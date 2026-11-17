@@ -1,0 +1,29 @@
+{
+  "schema": "agentfem.research.p92-ratcheting-discriminator.v1",
+  "model_admitted": false,
+  "life_qualified": false,
+  "independent_validation": false,
+  "calibration_sha256": "e70095c61a15f76466ff7365694c1004d67ff3ef3424ae9fe0dc0847925631a9",
+  "source_doi": "10.5281/zenodo.7198219",
+  "source_sha256": {
+    "RF": "128e6de1854f4633e26eced6c4ea221687cde2f232db275487ef0d1201767e0a",
+    "SLR": "34e26cae1816ec4b712a4cec5811e0a0c66bad34848c10d962528085171fcabb",
+    "SLC": "ab2953c0cfa6335619c8b699728aa73233f8d2209af39b709916ab3fd392683e"
+  },
+  "scope": "Frozen-base sensitivity, not published two-mechanism reproduction or new calibration",
+  "metric_scope": {"RF": "sampled extrema cycles 4-10", "SLR": "sampled extrema cycles 1-10", "SLC": "cycle-2 constant-stress hold endpoint, outside nominal envelope"},
+  "positive_strain_target": 0.002,
+  "screens": [
+    {"exponent": 0, "RF_RMS_MPa": 9.268338296160856, "SLR_RMS_MPa": 23.67769726667998, "SLC_hold_strain": 0.019001049832407517, "first_envelope_exit_cycle": 2},
+    {"exponent": 1, "RF_RMS_MPa": 4.272435907114484, "SLR_RMS_MPa": 17.341144727295436, "SLC_hold_strain": 0.01410401873146325, "first_envelope_exit_cycle": 2},
+    {"exponent": 3, "RF_RMS_MPa": 2.4535287685872955, "SLR_RMS_MPa": 12.969341399461442, "SLC_hold_strain": 0.011615055721139496, "first_envelope_exit_cycle": 2}
+  ],
+  "refinement": {
+    "exponent": 3,
+    "rtol": [1e-8, 1e-10],
+    "maximum_cycle_end_stress_difference_MPa": {"RF": 5.663252977683442e-9, "SLR": 2.378868657615385e-9, "SLC": 2.1745449885202106e-9},
+    "maximum_cycle_end_accumulated_strain_difference": {"RF": 1.0474468514765078e-12, "SLR": 1.3155310174539636e-12, "SLC": 2.2058084525600208e-12},
+    "SLC_envelope_failure_preserved": true,
+    "scope": "Endpoint integration check, not experimental acceptance"
+  }
+}
