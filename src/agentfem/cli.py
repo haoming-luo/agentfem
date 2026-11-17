@@ -523,6 +523,9 @@ def _command_run(args) -> int:
             else:
                 os.environ[key] = value
 
+    from ._run_observation import phase
+    phase("case_failed" if local_error else "case_returned", rank=MPI.COMM_WORLD.rank,
+          directory=context.output_directory)
     rank_errors = _collect_rank_errors(MPI.COMM_WORLD, local_error)
     if rank_errors:
         primary = rank_errors[0]
@@ -1040,6 +1043,8 @@ def build_parser(*, structured_errors: bool = False) -> argparse.ArgumentParser:
 
     run = sub.add_parser("run", help="Run a project with a standard output and evidence contract.")
     run.add_argument("--project")
+    run.add_argument("--supervise", action="store_true", help="Record actual child-process exit outside the numerical runtime.")
+    run.add_argument("--timeout", type=_positive_finite_float, help="Wall-clock limit in seconds; requires --supervise.")
     run.add_argument("--local-runtime", action="store_true",
                      help="Use project-local caches and runtime records.")
     run.add_argument("--trace-after", type=_positive_finite_float,
@@ -1402,6 +1407,18 @@ def main(argv: list[str] | None = None) -> int:
             "stage": "argument_parsing",
             "error": {"type": "ArgumentError", "code": "AFM-CLI-ARGUMENT", "message": str(exc)},
         }), flush=True)
+        return 2
+    if getattr(parsed, "supervise", False):
+        from ._run_supervisor import supervise
+        try:
+            return supervise(parsed, selected_argv)
+        except (OSError, ValueError, RuntimeError) as error:
+            print(_json({"schema": "agentfem.cli-error", "status": "failed",
+                         "error": {"code": "AFM-SUPERVISE", "message": str(error)}}), flush=True)
+            return 2
+    if getattr(parsed, "timeout", None) is not None:
+        print(_json({"schema": "agentfem.cli-error", "status": "failed",
+                     "error": {"code": "AFM-SUPERVISE-REQUIRED", "message": "--timeout requires --supervise"}}), flush=True)
         return 2
     from ._project_runtime import local_runtime
     try:

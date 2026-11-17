@@ -61,6 +61,38 @@ needed. Omitting `comm` retains serial or explicitly root-owned publication.
 particular mesh, material, boundary condition or solver combination is supported;
 the model's own preflight remains authoritative.
 
+## Review a defined model before solving
+
+After defining materials, constraints and loads, review the actual model without
+starting a solver:
+
+```python
+card = model.review(target=displacement, step_options={"procedure": procedure})
+```
+
+The returned JSON-safe model card records the selected analysis capability,
+material and load semantics, boundary measures/resultants, constraint degrees of
+freedom, rigid-mode audit, and findings such as an empty boundary selection. It
+is a snapshot of the reference configuration: it does not update state, assemble
+or solve. `solver_executed` is consequently always `false`. It checks a declared
+model, not whether the material law is scientifically valid or a nonlinear
+equilibrium path will converge.
+
+For a spatially varying traction, a tuple containing UFL expressions is accepted
+and becomes a vector expression automatically:
+
+```python
+x = ufl.SpatialCoordinate(domain)
+model.traction((load0 * (1 + 0.2 * x[1]), 0.0), on=loaded_edge)
+```
+
+The card distinguishes reference-configuration and current-configuration
+pressure. Reference pressure integrates `-p N`; current (follower) pressure
+uses the deformed area vector `-p J F^{-T}N`. In a two-dimensional solid study,
+resultants are forces per declared out-of-plane thickness. These declarations
+make the physical convention inspectable; they do not replace a user-selected
+modeling assumption.
+
 With `--json`, invalid CLI arguments return an `agentfem.cli-error` record and
 exit code 2 before runtime initialization. The stage is `argument_parsing` and
 the code is `AFM-CLI-ARGUMENT`. Arguments after `--` remain the case's arguments;

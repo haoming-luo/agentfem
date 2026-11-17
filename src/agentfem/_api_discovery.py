@@ -82,6 +82,10 @@ def callable_record(name: str) -> dict:
         "summary": (inspect.getdoc(function) or "").split("\n\n")[0],
         "case_executed": False,
     }
+    from ._physical_semantics import callable_semantics
+    semantics = callable_semantics(selected)
+    if semantics is not None:
+        record["physical_semantics"] = semantics
     if is_constructor:
         record["returns"] = f"agentfem.{selected}"
     elif signature.return_annotation is not inspect.Signature.empty:
@@ -102,6 +106,9 @@ def format_callable(record):
             shown = "<runtime default>" if isinstance(item["default"], dict) else repr(item["default"])
             default = f", default={shown}"
         lines.append(f"  {item['name']}: {item['kind']}, {requirement}{default}")
+    if "physical_semantics" in record:
+        import json
+        lines.append("Physical semantics: " + json.dumps(record["physical_semantics"], ensure_ascii=False))
     if "returns" in record:
         lines.append(f"Returns: {record['returns']}")
     if "provider_options" in record:

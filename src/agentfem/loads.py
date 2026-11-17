@@ -21,6 +21,7 @@ from .constraints import time_dependent_component_dirichlet as _constraint_time_
 from . import forms
 from .ir.values import describe_value
 from .kernel import constants
+from ._physical_semantics import load_semantics, pressure_configuration
 
 
 TimeFunction = amplitudes.Amplitude
@@ -133,6 +134,7 @@ class BoundaryLoad:
         return {
             "name": self.name,
             "kind": "boundary_load",
+            "physical_semantics": load_semantics("traction"),
             "location": getattr(self.location, "name", None),
             "value": describe_value(self.value),
         }
@@ -168,6 +170,7 @@ class PressureLoad:
             "pressure": describe_value(self.pressure),
             "configuration": self.configuration,
             "sign_convention": "positive pressure acts inward",
+            "physical_semantics": load_semantics("pressure", configuration=self.configuration),
         }
 
 
@@ -583,9 +586,13 @@ def traction(
 ) -> BoundaryLoad:
     """Create a traction in global or an explicit local coordinate system."""
 
-    return boundary_load(
-        _global_vector(value, system), location=location, on=on, name=name
-    )
+    selected = _select_location(location=location, on=on)
+    vector = _global_vector(_normalize_expression(value), system)
+    owner = getattr(selected, "domain", None)
+    shape = getattr(vector, "ufl_shape", np.shape(vector))
+    if owner is not None and tuple(shape) != (owner.geometry.dim,):
+        raise ValueError(f"AFM-LOAD-SHAPE: traction requires {owner.geometry.dim} vector components, got {shape}.")
+    return boundary_load(vector, location=selected, name=name)
 
 
 def surface_force(
@@ -754,8 +761,8 @@ def pressure(
     domain = selected_location.domain
     selected_pressure = _as_constant(value, location=selected_location)
     reference_normal = normal if normal is not None else ufl.FacetNormal(domain)
-    normalized = str(configuration).lower().replace("-", "_")
-    if normalized in {"reference", "dead", "nominal"}:
+    normalized = pressure_configuration(configuration)
+    if normalized == "reference":
         traction_value = -selected_pressure * reference_normal
         normalized = "reference"
     elif normalized in {"current", "follower"}:
@@ -881,8 +888,30 @@ def _select_location(*, location=None, on=None):
     return location if location is not None else on
 
 
+def _normalize_expression(value):
+    if isinstance(value, (tuple, list)) and any(_is_ufl_like(item) for item in value):
+        try:
+            return ufl.as_vector(value)
+        except (TypeError, ValueError) as error:
+            raise ValueError("AFM-LOAD-EXPRESSION: a vector requires scalar numeric or UFL components.") from error
+    if not _is_ufl_like(value):
+        try:
+            numeric = np.asarray(value, dtype=float)
+        except (TypeError, ValueError) as error:
+            raise ValueError("AFM-LOAD-EXPRESSION: use finite numbers or scalar UFL components; arbitrary callables are not load expressions.") from error
+        if not np.all(np.isfinite(numeric)):
+            raise ValueError("AFM-LOAD-FINITE: load values must be finite.")
+    return value
+
+
 def _as_constant(value, *, location=None, domain=None, target=None):
+    value = _normalize_expression(value)
     if _is_ufl_like(value):
+        owner = getattr(location, "domain", domain)
+        if owner is not None:
+            domains = ufl.domain.extract_domains(value)
+            if any(item != owner.ufl_domain() for item in domains):
+                raise ValueError("AFM-LOAD-DOMAIN: expression and load boundary belong to different meshes.")
         return value
     owner = domain or location or target
     if owner is None:

@@ -81,3 +81,34 @@ def test_local_runtime_setup_failure_is_structured(tmp_path, capsys):
     (tmp_path / '.agentfem-runtime').write_text('blocked')
     assert cli.main(['check', '--project', str(tmp_path), '--local-runtime', '--json']) == 2
     assert json.loads(capsys.readouterr().out)['error']['code'] == 'AFM-RUNTIME-SETUP'
+
+
+def test_supervisor_records_actual_child_exit_and_result(tmp_path):
+    project(tmp_path, '''from agentfem import project, results
+run = project.current_run()
+result = results.SimulationResult('supervised')
+result.add_quantity('response', 1.0)
+run.publish(result)
+''')
+    completed = subprocess.run(
+        [sys.executable, '-m', 'agentfem.cli', 'run', '--project', str(tmp_path),
+         '--run-id', 'observed', '--local-runtime', '--supervise', '--timeout', '20', '--json'],
+        capture_output=True, text=True, timeout=30,
+    )
+    assert completed.returncode == 0, completed.stderr
+    process = json.loads((tmp_path / 'outputs/local-test/observed/process.json').read_text())
+    assert process['status'] == 'exited'
+    assert process['return_code'] == 0
+    assert process['process_exit_observed'] is True
+    assert process['manifest_exists'] is True
+    events = [json.loads(line) for line in
+              (tmp_path / 'outputs/local-test/observed/runtime-events.jsonl').read_text().splitlines()]
+    assert [event['phase'] for event in events][-2:] == ['result_saved', 'case_returned']
+    assert all(event['process_exit_observed'] is False for event in events)
+
+
+def test_timeout_requires_supervision(tmp_path, capsys):
+    project(tmp_path)
+    assert cli.main(['run', '--project', str(tmp_path), '--timeout', '1', '--json']) == 2
+    record = json.loads(capsys.readouterr().out)
+    assert record['error']['code'] == 'AFM-SUPERVISE-REQUIRED'

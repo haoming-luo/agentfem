@@ -123,11 +123,19 @@ static case without inertia or gravity.
 `--trace-after 60` writes repeated Python stack traces to standard error while a
 run remains active, including a non-daemon thread join during shutdown. It does
 not terminate the calculation or change its numerical settings. For a hard wall
-clock limit use the existing supervisor:
+clock limit and an independent observation of the child-process exit, use the
+built-in supervisor:
 
 ```bash
-agentfem mpi-run -n 1 --timeout 300 -- python -m agentfem.cli run --project . --local-runtime --trace-after 60 --json
+agentfem run --project . --local-runtime --supervise --timeout 300 --trace-after 60 --json
 ```
+
+For a distributed case, add `--mpi N` to the same command. The supervisor writes
+`outputs/<project>/<run-id>/process.json` outside the numerical child process.
+Its `status`, `return_code` and `process_exit_observed` establish whether the
+process exited; `execution.json` and the result manifest establish whether the
+case returned and result files were saved. A timeout is accepted only with
+`--supervise`, so a wall-clock policy cannot be mistaken for a numerical setting.
 
 A published result, return from `case.py`, and successful process exit are distinct.
 Do not infer successful exit from the last JSON record alone. A supervisor timeout

@@ -103,6 +103,7 @@ CORE_MODEL_API = (
     "stage",
     "step",
     "validate",
+    "review",
     "check",
     "summary",
     "tree",

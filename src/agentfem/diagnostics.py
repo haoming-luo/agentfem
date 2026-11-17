@@ -432,6 +432,8 @@ class StandardRunReporter:
 
         if self.comm.rank != 0:
             return
+        from ._run_observation import record_event
+        record_event(event.as_dict(), rank=self.comm.rank)
         elapsed = monotonic() - self._started
         kind = event.kind
         visible = bool(getattr(event, "display", True))
