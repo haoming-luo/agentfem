@@ -88,6 +88,7 @@ _TARGETED_PREFIXES = (
     "src/agentfem/surrogates/",
 )
 _SOURCE_TEST_MAP = {
+    "ci_validation_scope.py": ("tests/test_ci_validation_scope.py",),
     "tools/p92_db_cohort_screen.py": ("tests/test_p92_db_cohort_screen.py",),
     "evidence/creep/p92-db-cohort.json": ("tests/test_p92_db_cohort_screen.py",),
     "tools/p92_local_evaluation_benchmark.py": ("tests/test_p92_tensor_normalization.py",),

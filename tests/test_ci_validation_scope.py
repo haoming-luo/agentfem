@@ -21,6 +21,12 @@ def test_scalar_p92_controls_cover_transitive_consumers_without_release_matrix()
     assert classify_changes(["tools/p92_two_mechanism.py", "pyproject.toml"]).level == "release"
 
 
+def test_classifier_edit_selects_its_own_regressions():
+    scope = classify_changes(["ci_validation_scope.py", "tools/p92_recovery_discriminator.py"])
+    assert scope.level == "targeted"
+    assert "tests/test_ci_validation_scope.py" in scope.tests
+
+
 def test_published_p92_reference_keeps_structure_and_joint_fit_consumers():
     scope = classify_changes(["tools/p92_published_recovery_reference.py"])
     assert "tests/test_p92_nonuniform_structure.py" in scope.tests
