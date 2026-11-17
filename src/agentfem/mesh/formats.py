@@ -271,6 +271,21 @@ def summarize_external_mesh(
     """Summarize an already-read meshio-like mesh."""
 
     points = np.asarray(source_mesh.points)
+    if (points.ndim != 2 or points.shape[1] not in (2, 3)
+            or points.shape[0] == 0 or points.dtype.kind not in "fiu"
+            or not np.isfinite(points).all()):
+        raise ValueError("Mesh points must be a nonempty finite (N, 2) or (N, 3) numeric array.")
+    for index, block in enumerate(source_mesh.cells):
+        cells = np.asarray(block.data)
+        if cells.ndim != 2 or cells.dtype.kind not in "iu":
+            raise ValueError(f"Cell block {index} ({block.type}) requires a two-dimensional integer connectivity array.")
+        declared = describe_cell(block.type).node_count
+        if declared is not None and cells.shape[1] != declared:
+            raise ValueError(f"Cell block {index} ({block.type}) requires {declared} nodes per cell; got {cells.shape[1]}.")
+        if cells.size and (np.min(cells) < 0 or np.max(cells) >= len(points)):
+            raise ValueError(f"Cell block {index} ({block.type}) references a node outside the point array.")
+        if cells.shape[1] > 1 and np.any(np.diff(np.sort(cells, axis=1), axis=1) == 0):
+            raise ValueError(f"Cell block {index} ({block.type}) repeats a node within a cell.")
     geometric_dimension = int(points.shape[1]) if points.ndim == 2 else 0
     cell_sets: dict[str, dict[str, int]] = {}
     for name, values_by_block in getattr(source_mesh, "cell_sets", {}).items():

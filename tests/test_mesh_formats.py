@@ -76,6 +76,29 @@ def _source_mesh():
     )
 
 
+@pytest.mark.parametrize("problem, message", [
+    ("nonfinite", "finite"), ("negative", "outside"),
+    ("outside", "outside"), ("repeated", "repeats"),
+    ("width", "requires 3 nodes"), ("float", "integer connectivity"),
+])
+def test_mesh_inventory_rejects_invalid_geometry_before_conversion(problem, message):
+    source = _source_mesh()
+    if problem == "nonfinite":
+        source.points[0, 0] = np.nan
+    elif problem == "negative":
+        source.cells[1].data[0, 0] = -1
+    elif problem == "outside":
+        source.cells[1].data[0, 0] = len(source.points)
+    elif problem == "repeated":
+        source.cells[1].data[0, 0] = source.cells[1].data[0, 1]
+    elif problem == "width":
+        source.cells[1].data = source.cells[1].data[:, :2]
+    else:
+        source.cells[1].data = source.cells[1].data.astype(float)
+    with pytest.raises(ValueError, match=message):
+        formats.summarize_external_mesh("input.msh", source)
+
+
 def _high_order_external_case(cell_type):
     if cell_type == "triangle6":
         return (

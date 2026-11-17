@@ -9,6 +9,9 @@ from importlib import import_module as _import_module
 # Numerical functions retain their original implementations and import their
 # owning modules when first used, as the existing output-plan exports do.
 _LAZY_EXPORTS = {
+    "read_visualization_frame": "inspection",
+    "inspect_visualization": "inspection",
+    "deform_visualization_frame": "inspection",
     "MaterialPointHistoryRequest": "material_points",
     "material_point": "material_points",
     "join_xdmf_segments": "series_view",
@@ -269,6 +272,9 @@ __all__ = [
     "probe_history",
     "presentation",
     "read_unified_xdmf_series",
+    "read_visualization_frame",
+    "inspect_visualization",
+    "deform_visualization_frame",
     "read_integration_point_fields",
     "render_deformation_comparison",
     "render_deformation_animation",
