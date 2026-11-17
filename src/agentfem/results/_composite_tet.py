@@ -61,6 +61,12 @@ class CompositeTetCellFields:
                 strain_tensor = eps.copy()
                 strain_tensor[:, 3:] *= 0.5
                 strain_tensor = strain_tensor[:, [[0, 3, 5], [3, 1, 4], [5, 4, 2]]]
+                energy = 0.5 * uc @ op.stiffness[cell] @ uc / e.volume
+                if op.material_batch is not None:
+                    b = op.material_batch
+                    tensor = b.stress.reshape(-1, 4, 3, 3)[cell]
+                    strain_tensor = b.strain.reshape(-1, 4, 3, 3)[cell]
+                    energy = b.stored.reshape(-1, 4)[cell].mean()
                 deviator = (
                     tensor
                     - np.trace(tensor, axis1=1, axis2=2)[:, None, None] * np.eye(3) / 3
@@ -69,7 +75,7 @@ class CompositeTetCellFields:
                     "S": tensor.mean(0).ravel(),
                     "E": strain_tensor.mean(0).ravel(),
                     "MISES": np.sqrt(1.5 * np.sum(deviator**2, axis=(1, 2))).mean(),
-                    "SENER": 0.5 * uc @ op.stiffness[cell] @ uc / e.volume,
+                    "SENER": energy,
                 }
                 for field in self.fields:
                     dof = field.function_space.dofmap.cell_dofs(cell)[0]
@@ -122,6 +128,7 @@ class CompositeTetTimeSeries:
         self.last_time = None
         self.signature = None
         self.failed = False
+        self._local_layout_digest = None
 
     def __enter__(self):
         def prepare():
@@ -217,6 +224,24 @@ class CompositeTetTimeSeries:
                 )
             if len({a[0] for a in attributes}) != len(attributes):
                 raise ValueError("Output field names must be unique.")
+            from hashlib import sha256
+
+            digest = sha256()
+            for array in (
+                V.tabulate_dof_coordinates()[:n],
+                cell_ids,
+                ids,
+                domain.topology.original_cell_index[:count],
+            ):
+                digest.update(array.tobytes())
+            current = digest.digest()
+            if self._local_layout_digest is not None:
+                if current != self._local_layout_digest:
+                    raise ValueError(
+                        "Composite output geometry/layout changed between frames."
+                    )
+                return (None, None, None, attributes, None)
+            self._local_layout_digest = current
             return (
                 ids,
                 V.tabulate_dof_coordinates()[:n].copy(),
@@ -247,19 +272,27 @@ class CompositeTetTimeSeries:
         import json
         from ..elements.composite_tet import _SUBTETS
 
-        ids = np.concatenate([p[0] for p in parts])
-        permutation = np.argsort(ids)
-        if not np.array_equal(ids[permutation], np.arange(len(ids))):
-            raise ValueError("Composite output ownership must cover global DOFs once.")
-        x = np.concatenate([p[1] for p in parts])[permutation]
-        cells = np.concatenate([p[2] for p in parts])
-        centers = x[cells[:, 4:]].mean(axis=1)
-        display_x = np.vstack((x, centers))
-        expanded = np.column_stack((cells, np.arange(len(cells)) + len(x)))
-        topology = expanded[:, _SUBTETS].reshape(-1, 4)
-        points = display_x[topology]
-        negative = np.linalg.det((points[:, 1:] - points[:, :1]).transpose(0, 2, 1)) < 0
-        topology[negative, 2:4] = topology[negative, 2:4][:, ::-1]
+        if self.h5 is None:
+            ids = np.concatenate([p[0] for p in parts])
+            permutation = np.argsort(ids)
+            if not np.array_equal(ids[permutation], np.arange(len(ids))):
+                raise ValueError(
+                    "Composite output ownership must cover global DOFs once."
+                )
+            x = np.concatenate([p[1] for p in parts])[permutation]
+            cells = np.concatenate([p[2] for p in parts])
+            centers = x[cells[:, 4:]].mean(axis=1)
+            display_x = np.vstack((x, centers))
+            expanded = np.column_stack((cells, np.arange(len(cells)) + len(x)))
+            topology = expanded[:, _SUBTETS].reshape(-1, 4)
+            points = display_x[topology]
+            negative = (
+                np.linalg.det((points[:, 1:] - points[:, :1]).transpose(0, 2, 1)) < 0
+            )
+            topology[negative, 2:4] = topology[negative, 2:4][:, ::-1]
+            self._layout = (permutation, display_x, cells, topology)
+        else:
+            permutation, display_x, cells, topology = self._layout
         signature = tuple((a[0], a[1], a[2].shape[1]) for a in parts[0][3])
         if any(
             tuple((a[0], a[1], a[2].shape[1]) for a in p[3]) != signature for p in parts

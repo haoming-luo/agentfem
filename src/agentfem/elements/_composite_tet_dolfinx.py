@@ -4,7 +4,7 @@
 
 from dataclasses import dataclass
 import numpy as np
-from .composite_tet import CompositeTet10, composite_tet10, _EDGES, _SUBTETS
+from .composite_tet import CompositeTet10, composite_tet10, _EDGES, _SUBTETS, _QUAD
 from ..provenance import collective_call
 
 
@@ -81,6 +81,8 @@ class CompositeTetResidual:
         V = self.displacement.function_space
         self.comm = V.mesh.comm
         self.policy = policy
+        self.material_batch = None
+        self.trial_time = 0.0
         self.cells = None  # compatibility with shared explicit-body ledger
 
         def prepare():
@@ -155,7 +157,11 @@ class CompositeTetResidual:
                 u = (
                     u.reshape(-1, 10, 3) - u.reshape(-1, 10, 3).mean(axis=1)[:, None, :]
                 ).reshape(-1, 30)
-                force = np.einsum("cij,cj->ci", self.stiffness, u)
+                force = (
+                    np.einsum("cij,cj->ci", self.stiffness, u)
+                    if self.material_batch is None
+                    else self.material_batch.evaluate(u, self.trial_time)
+                )
                 with vector.localForm() as local:
                     local.set(0)
                     np.add.at(
@@ -175,8 +181,37 @@ class CompositeTetResidual:
             vector.destroy()
             raise
 
+    def enable_material(self, material):
+        if self.policy.mean_dilatation:
+            raise NotImplementedError(
+                "Nonlinear composite materials currently require mean_dilatation=False; elastic stabilization cannot stand in for plastic constitutive response."
+            )
+        from ._composite_material import CompositeMaterialBatch
+
+        self.material_batch = CompositeMaterialBatch(self.elements, material)
+        import json
+
+        self.identity_arrays = (
+            *self.identity_arrays,
+            np.frombuffer(
+                json.dumps(material.summary(), sort_keys=True).encode(), dtype=np.uint8
+            ),
+        )
+        self.schema = "agentfem.composite-tet10-material.v1"
+
     def energies(self):
         from mpi4py import MPI
+
+        if self.material_batch is not None:
+            b = self.material_batch
+            stored = np.sum(b.volume[:, None] / 4 * b.stored.reshape(-1, 4))
+            dissipated = np.sum(b.volume[:, None] / 4 * b.dissipation.reshape(-1, 4))
+            values = self.comm.allreduce(np.array([stored, dissipated]), op=MPI.SUM)
+            return dict(
+                strain_energy=float(values[0]),
+                hourglass_energy=0.0,
+                material_dissipation=float(values[1]),
+            )
 
         self.displacement.x.scatter_forward()
         u = self.displacement.x.array.reshape(-1, 3)[self.cell_nodes].reshape(-1, 30)
@@ -187,10 +222,41 @@ class CompositeTetResidual:
         arithmetic_scale = 0.5 * np.einsum(
             "ci,cij,cj->", np.abs(u), np.abs(self.stiffness), np.abs(u)
         )
-        physical = 0.0
-        for e, C, uc in zip(self.elements, self.materials, u):
-            strain = e.strain_matrices(mean_dilatation=self.policy.mean_dilatation) @ uc
-            physical += e.volume / 8 * np.einsum("qi,ij,qj->", strain, C, strain)
+        physical = total
+        if self.policy.mean_dilatation:
+            # Contract displacement first: no per-cell B-matrix reconstruction.
+            coefficients = np.asarray(
+                [e.gradient_coefficients for e in self.elements]
+            ).reshape(-1, 4, 10, 3)
+            grad = np.einsum(
+                "qa,caij,cik->cqkj",
+                _QUAD,
+                coefficients,
+                u.reshape(-1, 10, 3),
+                optimize=True,
+            )
+            strain = np.stack(
+                (
+                    grad[:, :, 0, 0],
+                    grad[:, :, 1, 1],
+                    grad[:, :, 2, 2],
+                    grad[:, :, 0, 1] + grad[:, :, 1, 0],
+                    grad[:, :, 1, 2] + grad[:, :, 2, 1],
+                    grad[:, :, 0, 2] + grad[:, :, 2, 0],
+                ),
+                axis=-1,
+            )
+            trace = strain[:, :, :3].sum(axis=-1)
+            strain[:, :, :3] += (trace.mean(axis=1)[:, None] - trace)[:, :, None] / 3
+            volume = np.asarray([e.volume for e in self.elements])
+            physical = np.einsum(
+                "c,cqi,cij,cqj->",
+                volume / 8,
+                strain,
+                self.materials,
+                strain,
+                optimize=True,
+            )
         physical, total, arithmetic_scale = self.comm.allreduce(
             np.array([physical, total, arithmetic_scale]), op=MPI.SUM
         )

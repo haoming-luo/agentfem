@@ -30,13 +30,42 @@ class CompositeTetStep(ExplicitDynamicsStep):
             )
         elif not fields:
             fields = (self.state.u.value, self.state.v.value, self.state.a.value)
-        return super().solve_result(fields=fields, **options)
+        result = super().solve_result(fields=fields, **options)
+        batch = self.residual.internal.material_batch
+        if batch is not None:
+            schema = batch.material.provider.state_schema
+            result.metadata["material_quadrature"] = {
+                "schema": schema.summary(),
+                "scope": "owned_cells",
+                "points_per_cell": 4,
+                "mean_dilatation": False,
+            }
+            offset = 0
+            for variable in schema.variables:
+                values = (
+                    batch.states[:, offset : offset + variable.size]
+                    .reshape((-1, 4, *variable.shape))
+                    .copy()
+                )
+                result.add_field(
+                    "STATE_" + (variable.output_name or variable.name),
+                    values,
+                    unit=variable.unit,
+                    location="quadrature",
+                    processing={
+                        "method": "accepted_material_state",
+                        "interelement_smoothing": False,
+                    },
+                    description="Native state in owned-cell/four-point composite quadrature order.",
+                )
+                offset += variable.size
+        return result
 
     def checkpoint_capabilities(self):
         return replace(
             super().checkpoint_capabilities(),
             rank_count_portability="unsupported",
-            evidence=("fixed-operator same-partition restart",),
+            evidence=("same-partition operator and accepted material-state restart",),
             limitations=("no cross-partition restore",),
         )
 
@@ -51,7 +80,11 @@ class CompositeTetStep(ExplicitDynamicsStep):
         return {
             **super().summary(),
             "element_policy": self.element_policy.summary(),
-            "execution_scope": "affine_small_strain_elastic_owned_cell_assembly",
+            "execution_scope": (
+                "affine_small_strain_material_owned_cell_assembly"
+                if self.residual.internal.material_batch is not None
+                else "affine_small_strain_elastic_owned_cell_assembly"
+            ),
             "stabilization_energy_channel": "hourglass_energy",
             "field_interpolation": "piecewise_linear_12_subtets",
         }
@@ -105,12 +138,35 @@ def lower(model, request):
     model.check(target=request.target)
     history = state.second_order_state(request.target)
     domain = history.u.function_space.mesh
-    matrices, density = collective_call(
-        lambda: _material_partition(model, domain, label="Composite Tet10"),
-        comm=domain.comm,
-        label="Composite material partition",
-    )
+    from .constitutive.small_strain_explicit import SmallStrainExplicitMaterial
+
+    material_assets = [r.item for r in model.materials]
+    nonlinear = [
+        m for m in material_assets if isinstance(m, SmallStrainExplicitMaterial)
+    ]
+    if nonlinear:
+        if len(model.materials) != 1 or model.materials[0].region is not None:
+            raise NotImplementedError(
+                "Composite nonlinear material currently supports one homogeneous provider."
+            )
+        material = nonlinear[0]
+        # Shared elastic core convention is xx yy zz yz xz xy.
+        reorder = [0, 1, 2, 4, 5, 3]
+        matrices = material.elastic_envelope[np.ix_(reorder, reorder)]
+        density = np.full(domain.topology.index_map(3).size_local, material.density)
+    else:
+        matrices, density = collective_call(
+            lambda: _material_partition(model, domain, label="Composite Tet10"),
+            comm=domain.comm,
+            label="Composite material partition",
+        )
     internal = CompositeTetResidual(history.u, matrices, density, policy)
+    if nonlinear:
+        collective_call(
+            lambda: internal.enable_material(material),
+            comm=domain.comm,
+            label="Composite material bridge",
+        )
     for name in ("u", "v", "a", "u_next", "v_next", "a_next", "v_mid"):
         getattr(history, name).function_space._agentfem_composite_tet10 = True
     from .elements._composite_tet_loads import CompositeDistributedLoad
@@ -171,6 +227,8 @@ def lower(model, request):
     try:
         constraints.apply_dirichlet_bcs(history.u, bcs)
         initial = residual.assemble_vector()
+        if nonlinear:
+            residual.commit()
         from .kernel.dofs import assign_owned
         from .time.explicit import _assign_prescribed_component, _prescribed_kinematics
 
@@ -210,7 +268,11 @@ def lower(model, request):
         stability={
             "dt_limit": stable,
             "method": "positive_cell_mass_rayleigh_bound",
-            "scope": "fixed_composite_elasticity_and_projection_stabilization",
+            "scope": (
+                "evaluated_tangents_bounded_by_declared_elastic_envelope"
+                if nonlinear
+                else "fixed_composite_elasticity_and_projection_stabilization"
+            ),
         },
         **options,
     )

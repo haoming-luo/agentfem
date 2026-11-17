@@ -396,3 +396,28 @@ def test_unified_reader_uses_true_subtet_interpolation(tmp_path):
     assert grids[-1].n_cells == 72
     assert grids[-1].n_points == 33
     assert set(("U", "V", "A")) <= set(grids[-1].point_data)
+
+
+def test_output_reuses_mesh_but_rejects_geometry_change(tmp_path):
+    from agentfem.results._composite_tet import CompositeTetTimeSeries
+
+    s = build()
+    primary = s.state.u.value
+    received = []
+    with CompositeTetTimeSeries(tmp_path / "reuse.xdmf", primary) as writer:
+        original = writer._write_root
+
+        def inspect(time, parts):
+            received.append(parts[0][0] is None)
+            return original(time, parts)
+
+        writer._write_root = inspect
+        writer.write_fields(0.0, primary)
+        primary.x.array[:] += 0.1
+        writer.write_fields(0.1, primary)
+    assert received == [False, True]
+    with pytest.raises(Exception, match="geometry/layout changed"):
+        with CompositeTetTimeSeries(tmp_path / "changed.xdmf", primary) as writer:
+            writer.write_fields(0.0, primary)
+            primary.function_space.mesh.geometry.x[0, 0] += 0.01
+            writer.write_fields(0.1, primary)

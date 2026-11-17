@@ -12,6 +12,7 @@ not a Basix P2 element. The composite_tet10_explicit provider supplies whole-mes
 """
 
 from dataclasses import dataclass
+from functools import lru_cache
 import numpy as np
 
 _EDGES = np.array([[0, 1], [1, 2], [2, 0], [0, 3], [1, 3], [2, 3]])
@@ -100,7 +101,7 @@ class CompositeTet10:
         It does not change deviatoric strain or introduce a tunable penalty.
         """
         g = self.gradients(_QUAD)
-        B = np.zeros((4, 6, 30))
+        B = np.zeros((4, 6, 3 * self.gradient_coefficients.shape[1]))
         for i in range(3):
             B[:, i, i::3] = g[:, :, i]
         for row, (i, j) in enumerate(((0, 1), (1, 2), (0, 2)), 3):
@@ -138,14 +139,16 @@ class CompositeTet10:
                 "AFM-COMPOSITE-TET: positive-definite material tangent required."
             ) from exc
         B = self.strain_matrices(mean_dilatation=mean_dilatation)
-        K = self.volume / 4 * np.einsum("qai,ab,qbj->ij", B, C, B)
+        K = self.volume / 4 * np.einsum("qai,ab,qbj->ij", B, C, B, optimize=True)
         if stabilize is None:
-            stabilize = mean_dilatation
+            stabilize = mean_dilatation or self.gradient_coefficients.shape[1] == 11
         if stabilize:
             # Positive energy of the unresolved deviatoric strain; no fitted
             # hourglass coefficient. It vanishes for every affine displacement.
             R = self.fluctuation_strains
-            K += np.einsum("q,qai,ab,qbj->ij", self.fluctuation_weights, R, C, R)
+            K += np.einsum(
+                "q,qai,ab,qbj->ij", self.fluctuation_weights, R, C, R, optimize=True
+            )
         return K
 
 
@@ -172,44 +175,99 @@ def composite_tet10(coordinates):
         raise NotImplementedError(
             "AFM-COMPOSITE-TET: affine mid-edge geometry required."
         )
-    # Reference-coordinate integration avoids conditioning on physical translation.
+    coefficients, mass, residual_gradients, weights = _reference_operators()
+    inverse = np.linalg.inv(J)
+    coefficients = coefficients @ inverse
+    delta = residual_gradients @ inverse
+    R = np.zeros((len(delta), 6, 30))
+    for i in range(3):
+        R[:, i, i::3] = delta[:, :, i]
+    for row, (i, j) in enumerate(((0, 1), (1, 2), (0, 2)), 3):
+        R[:, row, i::3] = delta[:, :, j]
+        R[:, row, j::3] = delta[:, :, i]
+    R[:, :3] -= R[:, :3].sum(axis=1)[:, None, :] / 3
+    return CompositeTet10(
+        _readonly(x),
+        abs(determinant) / 6,
+        _readonly(coefficients),
+        _readonly(mass * abs(determinant)),
+        _readonly(R),
+        _readonly(weights * abs(determinant)),
+    )
+
+
+@lru_cache(maxsize=2)
+def _reference_operators(independent_center=False):
+    """Geometry-independent integration, shared immutably across affine cells.
+
+    Projection commutes with the constant affine gradient transformation. The
+    deviatoric split is deliberately performed AFTER physical transformation.
+    """
     vertices = np.vstack((np.zeros(3), np.eye(3)))
     points = np.vstack((vertices, vertices[_EDGES].mean(axis=1), np.full(3, 0.25)))
-    T = np.vstack((np.eye(10), np.r_[np.zeros(4), np.full(6, 1 / 6)]))
+    T = (
+        np.eye(11)
+        if independent_center
+        else np.vstack((np.eye(10), np.r_[np.zeros(4), np.full(6, 1 / 6)]))
+    )
+    size = T.shape[1]
     gram = np.zeros((4, 4))
-    moments = np.zeros((4, 10, 3))
-    mass = np.zeros((10, 10))
+    moments = np.zeros((4, size, 3))
+    mass = np.zeros((size, size))
     samples = []
     for ids in _SUBTETS:
         p = points[ids]
         v = abs(np.linalg.det((p[1:] - p[0]).T)) / 6
         basis = T[ids]
-        grad = np.linalg.inv(np.column_stack((np.ones(4), p)))[1:].T
-        grad = basis.T @ grad @ np.linalg.inv(J)
+        grad = basis.T @ np.linalg.inv(np.column_stack((np.ones(4), p)))[1:].T
         q = _QUAD @ p
         lam = np.column_stack((1 - q.sum(axis=1), q))
         samples.append((v, lam, grad))
         gram += v / 4 * lam.T @ lam
         moments += v * np.einsum("a,ij->aij", lam.mean(axis=0), grad)
         mass += v / 20 * basis.T @ (np.ones((4, 4)) + np.eye(4)) @ basis
-    coefficients = np.linalg.solve(gram, moments.reshape(4, -1)).reshape(4, 10, 3)
-    residuals, weights = [], []
-    for v, lam, grad in samples:
-        delta = grad[None] - np.einsum("qa,aij->qij", lam, coefficients)
-        R = np.zeros((4, 6, 30))
-        for i in range(3):
-            R[:, i, i::3] = delta[:, :, i]
-        for row, (i, j) in enumerate(((0, 1), (1, 2), (0, 2)), 3):
-            R[:, row, i::3] = delta[:, :, j]
-            R[:, row, j::3] = delta[:, :, i]
-        R[:, :3] -= R[:, :3].sum(axis=1)[:, None, :] / 3
-        residuals.extend(R)
-        weights.extend([v * abs(determinant) / 4] * 4)
-    return CompositeTet10(
-        _readonly(x),
-        abs(determinant) / 6,
-        _readonly(coefficients),
-        _readonly(mass * abs(determinant)),
-        _readonly(residuals),
-        _readonly(weights),
+    coefficients = np.linalg.solve(gram, moments.reshape(4, -1)).reshape(4, size, 3)
+    delta = np.concatenate(
+        [
+            grad[None] - np.einsum("qa,aij->qij", lam, coefficients)
+            for _, lam, grad in samples
+        ]
+    )
+    weights = np.repeat([v / 4 for v, _, _ in samples], 4)
+    return tuple(_readonly(a) for a in (coefficients, mass, delta, weights))
+
+
+class CompositeTet11(CompositeTet10):
+    """Experimental 33-DOF composite kernel with independent interior node."""
+
+
+def composite_tet11(coordinates):
+    """Research kernel with THREE independent centre displacement DOFs.
+
+    Ten external coordinates in Tet10 order; the eleventh point is the centroid.
+    This is an independently derived enrichment, NOT the C3D10M formula. It is
+    deliberately not accepted by the production tied-centre Step. Internal
+    inertia is nonzero: static condensation does not preserve dynamic spectra.
+    """
+    base = composite_tet10(coordinates)  # shared geometry validation
+    x = base.coordinates
+    coefficients, mass, delta, weights = _reference_operators(True)
+    J = (x[1:4] - x[0]).T
+    inverse = np.linalg.inv(J)
+    delta = delta @ inverse
+    R = np.zeros((len(delta), 6, 33))
+    for i in range(3):
+        R[:, i, i::3] = delta[:, :, i]
+    for row, (i, j) in enumerate(((0, 1), (1, 2), (0, 2)), 3):
+        R[:, row, i::3] = delta[:, :, j]
+        R[:, row, j::3] = delta[:, :, i]
+    R[:, :3] -= R[:, :3].sum(axis=1)[:, None, :] / 3
+    scale = 6 * base.volume
+    return CompositeTet11(
+        _readonly(np.vstack((x, x[:4].mean(axis=0)))),
+        base.volume,
+        _readonly(coefficients @ inverse),
+        _readonly(scale * mass),
+        _readonly(R),
+        _readonly(scale * weights),
     )

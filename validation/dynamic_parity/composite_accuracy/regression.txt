@@ -1,0 +1,21 @@
+........................................................................ [ 21%]
+........................................................................ [ 43%]
+........................................................................ [ 64%]
+........................................................................ [ 86%]
+...ssssssssssssss.............................                           [100%]
+=========================== short test summary info ============================
+SKIPPED [1] tests/test_parallel_results.py:30: collective publication requires at least two ranks
+SKIPPED [1] tests/test_parallel_results.py:56: collective publication requires at least two ranks
+SKIPPED [1] tests/test_parallel_results.py:84: distributed performance evidence requires at least two ranks
+SKIPPED [1] tests/test_parallel_results.py:133: distributed Abaqus ELSET recovery requires at least two ranks
+SKIPPED [1] tests/test_parallel_results.py:155: distributed point sampling requires at least two MPI ranks
+SKIPPED [1] tests/test_parallel_results.py:206: weighted-statistics fixture requires exactly two MPI ranks
+SKIPPED [1] tests/test_parallel_results.py:231: weighted-statistics fixture requires exactly two MPI ranks
+SKIPPED [1] tests/test_parallel_results.py:245: quadrature-statistics fixture requires exactly two MPI ranks
+SKIPPED [1] tests/test_parallel_results.py:281: portable integration-point fixture requires two MPI ranks
+SKIPPED [1] tests/test_parallel_results.py:336: distributed point sampling requires at least two MPI ranks
+SKIPPED [1] tests/test_parallel_results.py:356: distributed observation sampling requires at least two MPI ranks
+SKIPPED [1] tests/test_parallel_results.py:390: distributed projection requires at least two MPI ranks
+SKIPPED [1] tests/test_parallel_results.py:430: collective ParaView output requires at least two MPI ranks
+SKIPPED [1] tests/test_parallel_results.py:466: distributed reaction extraction requires at least two MPI ranks
+320 passed, 14 skipped in 19.92s

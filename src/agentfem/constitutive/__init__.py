@@ -262,6 +262,7 @@ from .._material_history import (
 )
 
 __all__ = [
+    "SmallStrainExplicitMaterial", "explicit_small_strain_j2",
     "CreepPlasticityMaterial",
     "CreepPlasticityState",
     "CreepPlasticityUpdate",
@@ -489,3 +490,5 @@ __all__ = [
     "update_uniaxial",
     "von_mises",
 ]
+
+from .small_strain_explicit import SmallStrainExplicitMaterial, explicit_small_strain_j2

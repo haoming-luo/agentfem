@@ -184,7 +184,7 @@ silently drawing the wrong interpolation. XDMF is directly usable in ParaView
 with Warp By Vector U; no secondary PVD is required. Existing output files and
 partial indices are not overwritten by this writer.
 
-Remaining scope: curved geometry, history-dependent/finite-strain materials,
+Remaining scope: curved geometry, finite-strain materials,
 contact, general spatial loads, cross-partition restart, and distributed output
 without root gathering. C3D10M equivalence additionally requires its actual
 independent internal-mode, integration and stabilization definitions. None of
@@ -204,3 +204,94 @@ project entry point.
   https://docs.software.vt.edu/abaqusv2025/English/SIMACAEVERRefMap/simaver-c-3delem.htm
 - Abaqus solid element selection (mass and internal-mode control):
   https://docs.software.vt.edu/abaqusv2026/English/SIMACAEELMRefMap/simaelm-c-solidcont.htm
+
+
+## Whole-mesh convergence and execution improvements (2026-11-17)
+
+The independent manufactured bending field is
+
+\[
+u_x=-xy,\quad u_y=\tfrac12[x^2+\nu(y^2-z^2)],\quad u_z=\nu yz,
+\]
+
+on a centred unit cube. Its only nonzero stress is $\sigma_{xx}=-Ey$,
+$\nabla\cdot\sigma=0$, and total elastic energy is $E/24$. Exact displacement
+is prescribed on the exterior; interior DOFs are solved using assembled production
+cell stiffness and an independent sparse direct solver. The norm in the report is
+**mass-weighted nodal error**, not a claim of exact continuous L2 error. Uniform
+and perturbed meshes at 2/3/4 subdivisions test convergence. Ordinary P1/P2
+reference operators use independent Basix polynomial gradients and quadrature.
+
+At Poisson ratio 0.4999, plain projected integration still locks badly in energy.
+Mean dilatation substantially reduces this error, but does not make coarse meshes
+accurate. All error values, including unfavorable results, remain in
+`validation/dynamic_parity/composite_accuracy`.
+
+A longitudinal eigenmode with zero transverse displacement, Poisson ratio zero,
+and fixed axial ends has exact $\omega_1=\pi$ for unit length/modulus/density.
+Refinement 4/8/16 gives the spatial frequency check. The central-difference
+frequency relation $\omega_h=2\arcsin(\omega\Delta t/2)/\Delta t$ separately
+checks temporal dispersion. This is not a completed transient wave-pulse test.
+
+Affine reference integration is cached once. Physical gradients are transformed
+before the deviatoric split. Stiffness contractions use an explicit efficient
+contraction path; energy contracts gradients with displacements before forming
+strain, avoiding repeated B matrices. The mathematical operators are unchanged.
+The writer checks a local geometry/ownership fingerprint each frame and sends
+mesh metadata only once. Root gathering of field values remains a limitation;
+this improvement does not claim distributed parallel HDF5.
+
+## Independent interior variables: formulation research
+
+`agentfem.elements.composite_tet.composite_tet11` is an experimental 33-DOF
+kernel with ten boundary nodes and one independent centre. It is **not registered
+as a whole-mesh element**. With $u=[u_n,u_i]$, tying the centre to the six edge
+nodes is the linear map $u=T u_n$, giving $K_t=T^TKT$ and $M_t=T^TMT$.
+Tests recover the existing tied kernel exactly (with the same stabilization).
+Releasing the centre gives three extra zero modes under projection alone;
+positive deviatoric residual stabilization restores six rigid-body modes.
+
+Static internal equilibrium gives
+
+\[
+u_i=-K_{ii}^{-1}K_{in}u_n,\qquad
+K_{\mathrm{stat}}=K_{nn}-K_{ni}K_{ii}^{-1}K_{in}.
+\]
+
+This lowers stationary strain energy relative to imposing the tie. It is NOT an
+exact dynamic replacement: with $D(\omega)=K-\omega^2M$, elimination instead gives
+$D_{nn}-D_{ni}D_{ii}^{-1}D_{in}$. Interior positive mass must be retained or a
+separately verified reduction used. These results advance the internal-variable
+question without claiming to reproduce proprietary C3D10M hourglass equations.
+
+## Generic small-strain material updates
+
+The production **tied-centre Tet10** Step accepts `SmallStrainExplicitMaterial`,
+a wrapper around the existing `SmallStrainUserMaterial` protocol with density
+and a symmetric positive elastic tangent envelope. The envelope is engineering
+strain in xx/yy/zz/xy/yz/xz order and supplies the stability estimate. Every
+trial tangent is checked for positivity and against this bound. Rate dependence,
+multiple material regions and mean-dilatation stabilization with nonlinear
+materials are currently rejected. Supporting an arbitrary material protocol is
+not a guarantee that an arbitrary constitutive model satisfies these restrictions.
+
+A native J2 adapter reuses the existing radial-return and consistent tangent:
+
+```python
+law = constitutive.J2LinearIsotropicHardening(
+    young=210e9, poisson=0.3, yield_stress=250e6, hardening_modulus=1e9)
+model.material(constitutive.explicit_small_strain_j2(law, density=7800))
+u = model.field(fields.displacement(
+    domain, element_policy=elements.composite_tet10_policy()))
+step = model.step(target=u, dt="auto", steps=100)
+result = step.solve_result(output="plastic.xdmf", field_variables=("S", "SENER"))
+# Native accepted (owned cell, four quadrature points) values:
+peeq = result.fields["STATE_PEEQ"].field
+```
+
+Strain is evaluated at the four projected integration points. Each trial reads
+only accepted state; stress and internal variables are committed after the
+successful global increment, and restored on failure or restart. Stored energy
+and cumulative dissipation are distinct. Stress output uses accepted material
+response, never elastic reconstruction. Raw named state fields are copied into
+`SimulationResult`; checkpoint storage preserves the same-partition state.

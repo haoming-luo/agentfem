@@ -130,6 +130,11 @@ class _Residual:
             ),
             "operator_identity": self.identity,
             "cohesive": None if self.cohesive is None else self.cohesive.snapshot(),
+            **(
+                {"material": self.internal.material_batch.snapshot()}
+                if getattr(self.internal, "material_batch", None) is not None
+                else {}
+            ),
         }
 
     def summary(self):
@@ -142,18 +147,32 @@ class _Residual:
             "interface": None if self.cohesive is None else self.cohesive.summary(),
         }
 
+    def update_time(self, time):
+        if getattr(self.internal, "material_batch", None) is not None:
+            self.internal.trial_time = float(time)
+
     def restore(self, record):
-        if record != self.snapshot():
+        expected = self.snapshot()
+        if {k: v for k, v in record.items() if k != "material"} != {
+            k: v for k, v in expected.items() if k != "material"
+        } or ("material" in record) != ("material" in expected):
             raise ValueError("Explicit-body checkpoint operator identity mismatch.")
+        if "material" in expected:
+            self.internal.material_batch.restore(record["material"])
+            self.internal.trial_time = self.internal.material_batch.time
         if self.cohesive is not None:
             self.cohesive.rollback()
             self.cohesive.restore(record["cohesive"])
 
     def commit(self):
+        if getattr(self.internal, "material_batch", None) is not None:
+            self.internal.material_batch.commit()
         if self.cohesive is not None:
             self.cohesive.commit()
 
     def rollback(self):
+        if getattr(self.internal, "material_batch", None) is not None:
+            self.internal.material_batch.rollback()
         if self.cohesive is not None:
             self.cohesive.rollback()
 
@@ -182,5 +201,7 @@ class _Energy:
             "kinetic_energy": kinetic,
             "total_mechanical_energy": physical,
             "total_discrete_energy": physical + values["hourglass_energy"],
-            "accounted_internal_kinetic_energy": physical + values["hourglass_energy"],
+            "accounted_internal_kinetic_energy": physical
+            + values["hourglass_energy"]
+            + values.get("material_dissipation", 0.0),
         }
