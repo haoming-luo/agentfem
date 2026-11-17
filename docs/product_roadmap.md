@@ -1,5 +1,21 @@
 # AgentFEM Product Roadmap
 
+### Measured mixed-control identification checkpoint (2026-11-17)
+
+The [three-protocol early-cycle experiment](internal/p92_measured_controls_20261117.md)
+uses measured switching brackets, continuous material states and cycles 1–3
+for identification, followed by frozen cycles 4–10. Numerical refinement
+passes; SLC still exceeds its strain envelope in cycle 5, including both
+switch-bracket extremes. Engineering and life admission remain closed.
+Next distinguish transient recovery/softening observability from controller
+timing uncertainty before enlarging the model. Keep later inspected cycles
+labelled development checks, not independent validation.
+
+Development trials stay local and are pushed as coherent reviewed batches.
+Known research tools select their transitive regression tests; shared numerical
+owners and releases retain the appropriate broader gates. CI success does not
+replace experimental acceptance; see [testing policy](development_testing.md).
+
 ### Response and life comparison checkpoint (2026-11-16)
 
 The [P92 service-like audit](internal/p92_and_engineering_ux_sprint_20261114.md)

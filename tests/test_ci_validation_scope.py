@@ -12,6 +12,21 @@ from ci_validation_scope import (
 )
 
 
+def test_scalar_p92_controls_cover_transitive_consumers_without_release_matrix():
+    scope = classify_changes(["tools/p92_two_mechanism.py"])
+    assert scope.level == "targeted"
+    assert "tests/test_p92_two_mechanism_fit.py" in scope.tests
+    assert "tests/test_p92_ratcheting_screen.py" in scope.tests
+    assert classify_changes(["tools/p92_unknown_solver.py"]).level == "core"
+    assert classify_changes(["tools/p92_two_mechanism.py", "pyproject.toml"]).level == "release"
+
+
+def test_published_p92_reference_keeps_structure_and_joint_fit_consumers():
+    scope = classify_changes(["tools/p92_published_recovery_reference.py"])
+    assert "tests/test_p92_nonuniform_structure.py" in scope.tests
+    assert "tests/test_p92_two_mechanism_fit.py" in scope.tests
+
+
 @pytest.mark.parametrize("path", (
     "tools/p92_db_cohort_screen.py", "evidence/creep/p92-db-cohort.json",
 ))

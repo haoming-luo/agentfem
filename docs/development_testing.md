@@ -216,6 +216,27 @@ failure is recorded once rather than retried until green.
 
 ## CI resource policy
 
+The unit of remote validation is a reviewable change, not a parameter trial.
+Keep hypothesis sweeps, intermediate fixes and their targeted tests local.
+Push after the batch is ready for review; do not create one PR per failed fit.
+After a push, inspect the existing run rather than dispatching a duplicate.
+Main-branch integration checks remain useful because the merged tree can differ
+from the tested PR tree; do not suppress them by assuming equal version labels.
+
+Known scalar P92 control tools select their bounded control/model tests and
+transitive consumers through `ci_validation_scope.py`. Adding a new owner must
+include its test mapping; unknown tools retain the broader default. Core FEM,
+state transactions, restart and MPI changes are not scalar research changes.
+No change to CI scope changes the experimental error limits, data split,
+parameter freeze or independent-validation requirements.
+
+Use the latest commit and applicable job conclusions for merging. Do not use
+`[skip ci]` as a cost-control shortcut: GitHub documents that skipped workflows
+can leave required checks pending. See
+[GitHub's skip-workflow guidance](https://docs.github.com/en/actions/how-tos/manage-workflow-runs/skip-workflow-runs).
+Record selected tier, affected tests and exceptional full-run reason in the PR;
+measure job duration before claiming compute savings.
+
 Validation depth follows the evidence claim, not the number of edited files:
 
 1. use targeted local tests while developing;
