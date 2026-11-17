@@ -2,6 +2,15 @@
 
 ### Measured mixed-control identification checkpoint (2026-11-17)
 
+The [early-hold/history experiment](internal/p92_transient_history_20261117.md)
+conditionally varies two C1 scales with all other dual-time parameters fixed.
+Using only cycles 1–3, it reduces first-SLC-hold strain RMS by about 35% and
+frozen cycle-10 peak error from -22.84% to -10.87%. All ten-cycle numerical and
+timing checks complete, but first-hold creep remains low and subsequent early
+rates high. The fast C1 lower bound is active. No engineering/life admission:
+next separate hold decay from accumulated-strain-dependent reversal memory,
+without widening bounds or resetting history. PR #197 stays open.
+
 The subsequent [recovery discriminator](internal/p92_recovery_discriminator_20261117.md)
 isolates slow-branch time-isotropic evolution as an important contributor to
 the SLC envelope failure. Turning it off reaches ten cycles but worsens RF/SLR
