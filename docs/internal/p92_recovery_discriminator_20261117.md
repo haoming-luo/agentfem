@@ -104,3 +104,63 @@ source identities, all protocol comparisons, signed entry/exit rate ledgers and
 independent-integration differences. No raw personal metadata is included.
 The entire experiment is one local development batch and one targeted CI gate.
 #196 was merged after all latest applicable CI passed; no version was released.
+
+## Branch-time identification follow-up
+
+PR #197 remains open by explicit user request, even when CI is green. Work is
+batched on that PR until milestone review; no automatic merge or release.
+
+The next experiment replaces the weak fast-static-recovery coordinate with a
+slow-branch isotropic time-recovery scale. A second bounded experiment also
+fixes the weak fast strength margin and replaces that coordinate with a fast
+isotropic time-recovery scale. Both retain **six unknowns**, start from the
+same previous early-cycle parameter card, and exactly reproduce it at unit
+time scales. Neither adds later cycles to the objective. Bounds on each time
+scale are 1e-5 to 10; these are search bounds, not measured physical limits.
+All other coordinate bounds, objective weights and integration checks remain.
+
+Each hold now reports stress and strain RMS, last sampled prediction versus
+observation, and an early secant over recorded points within the first 10 s
+(or the first tenth of a shorter hold). These are finite-interval secants,
+not noise-free instantaneous rates. During imposed constant stress, observed
+stress fluctuations diagnose the controller approximation; they are not a
+constitutive stress-relaxation target. Sample indices and relative times are
+retained. The diagnostics do not change fitting weights or accept a model.
+
+The single slow-time fit converges in nine optimizer / 81 residual evaluations,
+with cost 0.02428884. Its time scale is approximately 1.045e-5 and the fast
+strength-margin coordinate hits its lower bound; weak identifiability remains.
+Frozen SLC reaches ten cycles under measured, nominal and both switch-bracket
+paths. However, at the first hold's last recorded sample its strain is 0.000407
+versus observed 0.00106, and stress is 136.52 versus 121.70 MPa. RF/SLR/SLC
+extrema RMS on cycles 4–10 are 17.24/30.92/40.50 MPa. This closes the previous
+envelope failure for that path, not the response-accuracy or engineering gate.
+
+The dual-time fit converges in 18 optimizer / 186 residual evaluations, with
+cost 0.02224865. Fast time recovery reaches its upper search bound (10), slow
+time recovery its lower bound (1e-5), and the slow second-backstress scale its
+lower bound. The Jacobian singular-value ratio falls from about 6.04e6 in the
+single-time experiment to 9.39e4, but this is not a confidence interval or proof
+of identifiability. No bounds were expanded after seeing these results.
+
+Frozen RF/SLR/SLC cycles 4–10 extrema RMS are 13.76/15.32/42.97 MPa; cycle-10
+peak errors are -4.14%/-3.38%/-22.84%. All three complete ten cycles and pass
+numerical refinement; SLC also completes the nominal and both timing-bracket
+paths. These are development checks, not an independent specimen validation.
+
+The first SLC hold remains decisive: last sampled strain is 0.000596 versus
+0.00106 observed, stress 134.07 versus 121.70 MPa, and early strain secant
+5.35e-6/s versus 3.57e-5/s. By cycle 10 the sampled strain is 0.001571 versus
+0.00087. Thus the early transient and cycle trend are still wrong despite
+removing the fifth-cycle envelope failure. Engineering and life gates remain
+closed. Next discriminate primary creep and reversal/backstress history using
+the early observations; do not silently add later data or alter acceptance.
+
+The two `2026-11-17-{slow,both}-time-identification.json` evidence files retain
+six-coordinate names, frozen cards and hashes, hold samples, failed acceptance
+flags, and numerical/timing checks. Reproduce the bounded experiments with:
+
+```sh
+python -m tools.p92_measured_fit evidence/creep/2026-11-16-bam-positive-strength.json evidence/creep/2026-11-17-measured-controls-fit.json /path/to/BAM --parameter-direction slow_time_isotropic --max-nfev 40 --output slow-time.json
+python -m tools.p92_measured_fit evidence/creep/2026-11-16-bam-positive-strength.json evidence/creep/2026-11-17-measured-controls-fit.json /path/to/BAM --parameter-direction both_time_isotropic --max-nfev 40 --output both-time.json
+```

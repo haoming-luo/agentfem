@@ -115,6 +115,7 @@ def replay(path, mechanisms, *, rtol=1e-8, method="Radau", allow_incompatible=Fa
     state = np.zeros(10)
     state[0], state[9] = path["initial_stress"], path["initial_strain"]
     residuals, records, endpoints, reversals = [], [], [], []
+    holds = []
     peak = valley = state[0]
     for i, seg in enumerate(path["segments"]):
         if (i and path["segments"][i-1]["stress_control"]
@@ -126,6 +127,22 @@ def replay(path, mechanisms, *, rtol=1e-8, method="Radau", allow_incompatible=Fa
         sol = integrate(state, seg["duration"], rate, mechanisms,
                         stress_control=seg["stress_control"], rtol=rtol, method=method)
         sample = sol.sol(seg["sample_times"])
+        if seg["stress_control"] or abs(rate) < 1e-12:
+            times = np.asarray(seg["sample_times"])
+            early = times <= min(10., .1*seg["duration"])
+            fields = {}
+            for name, predicted, observed in (("stress_MPa", sample[0], seg["measured_stress"]),
+                                               ("strain", sample[9], seg["measured_strain"])):
+                error = predicted-observed
+                fields[name] = dict(rms=float(np.sqrt(np.mean(error**2))),
+                    last_observed=float(observed[-1]), last_predicted=float(predicted[-1]))
+                if np.count_nonzero(early) >= 2:
+                    dt = times[early][-1]-times[early][0]
+                    fields[name]["early_secant_observed_per_s"] = float((observed[early][-1]-observed[early][0])/dt)
+                    fields[name]["early_secant_predicted_per_s"] = float((predicted[early][-1]-predicted[early][0])/dt)
+            holds.append(dict(cycle=seg["cycle"], segment=i, stress_control=seg["stress_control"],
+                duration_s=seg["duration"], sample_times_s=times.tolist(),
+                source_indices=seg.get("source_indices", []), fields=fields))
         state = sol.y[:, -1].copy()
         peak, valley = max(peak, float(sol.y[0].max())), min(valley, float(sol.y[0].min()))
         channels = [(sample[0]-seg["measured_stress"])/100.]
@@ -141,6 +158,7 @@ def replay(path, mechanisms, *, rtol=1e-8, method="Radau", allow_incompatible=Fa
     return np.concatenate(residuals), dict(protocol=path["protocol"], cycles=records,
         segment_endpoints=endpoints, reversed_post_hold_ramps=reversals,
         incompatible_continuation=allow_incompatible,
+        hold_diagnostics=holds,
         source_sha256=path["source_sha256"],
         scope="Measured-endpoint replay, not autonomous controller prediction",
         engineering_qualified=False, life_qualified=False, independent_validation=False)

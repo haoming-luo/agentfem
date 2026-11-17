@@ -14,6 +14,9 @@ examples, tests, and public documentation at the repository root.
   Merge only after the latest PR revision passes its impact-selected gate.
   Record scientific acceptance separately from CI success; see
   `docs/development_testing.md` for scope and evidence reuse.
+- The current P92 recovery milestone stays on PR #197. Accumulate reviewed
+  batches there; do not merge it or publish a version until the user authorizes
+  milestone closure. A green CI alone is not that authorization.
 - Run examples from the source parent or install the built wheel; do not rely
   on source-path insertion in new installed-use templates.
 - Preserve user changes in `README.md`, `CITATION.cff`, and unrelated files.

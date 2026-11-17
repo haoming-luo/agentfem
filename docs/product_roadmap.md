@@ -5,14 +5,19 @@
 The subsequent [recovery discriminator](internal/p92_recovery_discriminator_20261117.md)
 isolates slow-branch time-isotropic evolution as an important contributor to
 the SLC envelope failure. Turning it off reaches ten cycles but worsens RF/SLR
-and still misses first-hold creep: no replacement material is admitted. Next
-replace a weakly observable fit direction with this targeted recovery scale,
-not another unconstrained expansion of the parameter count.
+and still misses first-hold creep: no replacement material is admitted.
+Two subsequent six-coordinate fits replace weak directions with branch-time
+recovery scales, using only cycles 1–3. Frozen trajectories now complete ten
+cycles, including SLC switch-bracket checks. The dual-time fit improves RF/SLR
+but misses SLC cycle-10 peak by -22.84% and underpredicts first-hold early creep;
+active bounds and weak directions remain. Next isolate primary-creep and
+reversal-history response rather than widening bounds to claim acceptance.
+Keep these batches on open PR #197 until authorized milestone closure.
 
 The [three-protocol early-cycle experiment](internal/p92_measured_controls_20261117.md)
 uses measured switching brackets, continuous material states and cycles 1–3
 for identification, followed by frozen cycles 4–10. Numerical refinement
-passes; SLC still exceeds its strain envelope in cycle 5, including both
+passes; that earlier fit exceeds its SLC strain envelope in cycle 5, including both
 switch-bracket extremes. Engineering and life admission remain closed.
 Next distinguish transient recovery/softening observability from controller
 timing uncertainty before enlarging the model. Keep later inspected cycles

@@ -159,6 +159,8 @@ _P92_CONTROL_TESTS = (
     "tests/test_p92_two_mechanism_fit.py",
 )
 _P92_CONTROL_INPUTS = (
+    "evidence/creep/2026-11-17-slow-time-identification.json",
+    "evidence/creep/2026-11-17-both-time-identification.json",
     "tools/p92_recovery_discriminator.py",
     "evidence/creep/2026-11-17-recovery-discriminator.json",
     "evidence/creep/2026-11-17-measured-controls-fit.json",
