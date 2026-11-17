@@ -2,6 +2,13 @@
 
 ### Measured mixed-control identification checkpoint (2026-11-17)
 
+The subsequent [recovery discriminator](internal/p92_recovery_discriminator_20261117.md)
+isolates slow-branch time-isotropic evolution as an important contributor to
+the SLC envelope failure. Turning it off reaches ten cycles but worsens RF/SLR
+and still misses first-hold creep: no replacement material is admitted. Next
+replace a weakly observable fit direction with this targeted recovery scale,
+not another unconstrained expansion of the parameter count.
+
 The [three-protocol early-cycle experiment](internal/p92_measured_controls_20261117.md)
 uses measured switching brackets, continuous material states and cycles 1–3
 for identification, followed by frozen cycles 4–10. Numerical refinement
