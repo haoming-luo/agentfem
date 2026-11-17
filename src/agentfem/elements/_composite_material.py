@@ -10,13 +10,27 @@ from ..constitutive.small_strain_user_material import (
 
 
 class CompositeMaterialBatch:
-    def __init__(self, elements, material):
+    def __init__(
+        self, elements, material, *, mean_dilatation=False, dofs_per_cell=None
+    ):
         self.material = material
-        self.B = np.asarray([e.strain_matrices() for e in elements]).reshape(
-            -1, 4, 6, 30
+        self.dofs_per_cell = (
+            (3 * elements[0].gradient_coefficients.shape[1] if elements else 30)
+            if dofs_per_cell is None
+            else dofs_per_cell
+        )
+        self.points_per_cell = 48 if mean_dilatation or self.dofs_per_cell == 33 else 4
+        quadrature = [
+            e.material_quadrature(mean_dilatation=mean_dilatation) for e in elements
+        ]
+        self.B = np.asarray([q[0] for q in quadrature]).reshape(
+            -1, self.points_per_cell, 6, self.dofs_per_cell
+        )
+        self.weights = np.asarray([q[1] for q in quadrature]).reshape(
+            -1, self.points_per_cell
         )
         self.volume = np.array([e.volume for e in elements])
-        n = 4 * len(elements)
+        n = self.points_per_cell * len(elements)
         self.strain = np.zeros((n, 3, 3))
         self.states = np.tile(material.provider.state_schema.initial_state(), (n, 1))
         self.stress = np.zeros((n, 3, 3))
@@ -43,7 +57,7 @@ class CompositeMaterialBatch:
                 self.dissipation.copy(),
                 float(time),
             )
-            return np.zeros((0, 30))
+            return np.zeros((0, self.dofs_per_cell))
         m = self.material
         request = SmallStrainMaterialPointBatchInput(
             self.strain,
@@ -81,8 +95,8 @@ class CompositeMaterialBatch:
             raise ValueError("Material dissipation must be nonnegative.")
         stress = np.stack(
             [r.cauchy_stress[:, i, j] for i, j in self.pairs], axis=-1
-        ).reshape(-1, 4, 6)
-        force = np.einsum("c,cqij,cqi->cj", self.volume / 4, self.B, stress)
+        ).reshape(-1, self.points_per_cell, 6)
+        force = np.einsum("cq,cqij,cqi->cj", self.weights, self.B, stress)
         self.trial = (
             eps,
             r.state_new.copy(),

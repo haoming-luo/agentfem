@@ -21,7 +21,20 @@ energy and dissipation survive rollback and same-partition restart.
 - `results/_composite_tet.py`: exact display interpolation, native coefficients, mesh metadata sent once.
 - `validation/dynamic_parity/composite_accuracy/README.md`: convergence, timing and scope.
 
+## Nonlinear independent-centre extension
+
+The generic material bridge now integrates the combined projected/deviatoric
+strain at 48 positive-weight points for stabilized branches. Elastic limits
+recover the existing stiffness. Plastic yielding updates the centre response
+through the material law instead of retaining an artificial elastic correction.
+Point histories, weighted output, rollback, restart and explicit tangent-envelope
+checks use the same workflow. Ordinary tied-centre integration remains four-point.
+
 ## Validation
+
+- Nonlinear-centre regression: 266 passed.
+- Eight-rank nonlinear comparison and single-rank late-failure recovery: five passed per rank.
+- External nonlinear material energy derivative, anisotropic elastic limit, centre-only yielding and cyclic plastic history verified.
 
 - Latest independent-centre/material acceptance: 243 passed.
 - Independent-centre MPI 8 comparison passed, including empty partitions.
@@ -44,9 +57,10 @@ cannot be dropped through static condensation and relabelled as dynamic parity.
 C3D10M imported formulas remain unsupported.
 
 The material route supports homogeneous rate-independent small-strain providers,
-ordinary projected Tet10 and a checked elastic tangent envelope. Nonlinear mean-
-dilatation stabilization, finite strain, contact, curved geometry and cross-
-partition restart are not enabled. Output still gathers field values on root.
+a checked elastic tangent envelope, and tied/independent centre with optional
+mean dilatation. Stabilized nonlinear updates use 48 work-conjugate material
+points. Finite strain, contact, curved geometry and cross-partition restart
+are not enabled. Output still gathers field values on root.
 Ordinary projection locks severely in the near-incompressible test; unfavorable
 evidence is retained alongside improvements.
 

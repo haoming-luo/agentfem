@@ -208,13 +208,21 @@ class CompositeTetResidual:
             raise
 
     def enable_material(self, material):
-        if self.policy.mean_dilatation or self.policy.independent_center:
-            raise NotImplementedError(
-                "Nonlinear composite materials currently require mean_dilatation=False and independent_center=False; elastic stabilization cannot stand in for plastic constitutive response."
-            )
         from ._composite_material import CompositeMaterialBatch
 
-        self.material_batch = CompositeMaterialBatch(self.elements, material)
+        xyz = self.displacement.function_space.tabulate_dof_coordinates()
+        elements = [
+            composite_tet11(xyz[ids[:10]])
+            if self.policy.independent_center
+            else composite_tet10(xyz[ids])
+            for ids in self.cell_nodes
+        ]
+        self.material_batch = CompositeMaterialBatch(
+            elements,
+            material,
+            mean_dilatation=self.policy.mean_dilatation,
+            dofs_per_cell=self.dofs_per_cell,
+        )
         import json
 
         self.identity_arrays = (
@@ -230,8 +238,8 @@ class CompositeTetResidual:
 
         if self.material_batch is not None:
             b = self.material_batch
-            stored = np.sum(b.volume[:, None] / 4 * b.stored.reshape(-1, 4))
-            dissipated = np.sum(b.volume[:, None] / 4 * b.dissipation.reshape(-1, 4))
+            stored = np.sum(b.weights * b.stored.reshape(b.weights.shape))
+            dissipated = np.sum(b.weights * b.dissipation.reshape(b.weights.shape))
             values = self.comm.allreduce(np.array([stored, dissipated]), op=MPI.SUM)
             return dict(
                 strain_energy=float(values[0]),

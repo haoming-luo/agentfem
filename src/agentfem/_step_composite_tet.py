@@ -37,14 +37,15 @@ class CompositeTetStep(ExplicitDynamicsStep):
             result.metadata["material_quadrature"] = {
                 "schema": schema.summary(),
                 "scope": "owned_cells",
-                "points_per_cell": 4,
-                "mean_dilatation": False,
+                "points_per_cell": batch.points_per_cell,
+                "weights": batch.weights.tolist(),
+                "mean_dilatation": self.element_policy.mean_dilatation,
             }
             offset = 0
             for variable in schema.variables:
                 values = (
                     batch.states[:, offset : offset + variable.size]
-                    .reshape((-1, 4, *variable.shape))
+                    .reshape((-1, batch.points_per_cell, *variable.shape))
                     .copy()
                 )
                 result.add_field(
@@ -56,7 +57,7 @@ class CompositeTetStep(ExplicitDynamicsStep):
                         "method": "accepted_material_state",
                         "interelement_smoothing": False,
                     },
-                    description="Native state in owned-cell/four-point composite quadrature order.",
+                    description="Native state in owned-cell/material-quadrature order.",
                 )
                 offset += variable.size
         return result
@@ -85,7 +86,11 @@ class CompositeTetStep(ExplicitDynamicsStep):
                 if self.residual.internal.material_batch is not None
                 else "affine_small_strain_elastic_owned_cell_assembly"
             ),
-            "stabilization_energy_channel": "hourglass_energy",
+            "stabilization_energy_channel": (
+                "included_in_material_stored_energy"
+                if self.residual.internal.material_batch is not None
+                else "hourglass_energy"
+            ),
             "field_interpolation": "piecewise_linear_12_subtets",
         }
 
@@ -181,7 +186,7 @@ def lower(model, request):
             "formulation": "composite_tet10",
             "interpolation": "piecewise_linear_12_subtets",
             "independent_center": policy.independent_center,
-            "coefficient_storage": "P2_nodal_layout_only",
+            "coefficient_storage": policy.summary()["coefficient_layout"],
             "abaqus_c3d10m_equivalent": False,
         }
     parts = [

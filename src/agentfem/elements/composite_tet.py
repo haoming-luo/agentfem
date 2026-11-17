@@ -112,6 +112,34 @@ class CompositeTet10:
             B[:, :3] += (trace.mean(axis=0) - trace)[:, None, :] / 3
         return B
 
+    def material_quadrature(self, *, mean_dilatation=False):
+        """Work-conjugate B matrices and physical-volume weights.
+
+        Ordinary tied-centre interpolation uses four projected points. Released
+        centre/B-bar uses 48 subcell points with projected volumetric strain and
+        piecewise deviatoric strain. The same constitutive law sees their SUM;
+        no independent elastic penalty is added after a nonlinear update.
+        """
+        if not mean_dilatation and self.gradient_coefficients.shape[1] == 10:
+            return self.strain_matrices(), np.full(4, self.volume / 4)
+        vertices = np.vstack((np.zeros(3), np.eye(3)))
+        points = np.vstack((vertices, vertices[_EDGES].mean(axis=1), np.full(3, 0.25)))
+        q = np.concatenate([_QUAD @ points[ids] for ids in _SUBTETS])
+        lam = np.column_stack((1 - q.sum(axis=1), q))
+        g = self.gradients(lam)
+        B = np.zeros((48, 6, 3 * g.shape[1]))
+        for i in range(3):
+            B[:, i, i::3] = g[:, :, i]
+        for row, (i, j) in enumerate(((0, 1), (1, 2), (0, 2)), 3):
+            B[:, row, i::3] = g[:, :, j]
+            B[:, row, j::3] = g[:, :, i]
+        weights = self.fluctuation_weights
+        if mean_dilatation:
+            trace = B[:, :3].sum(axis=1)
+            mean = np.einsum("q,qi->i", weights / self.volume, trace)
+            B[:, :3] += (mean - trace)[:, None, :] / 3
+        return B + self.fluctuation_strains, weights.copy()
+
     def stiffness(self, constitutive, *, mean_dilatation=False, stabilize=None):
         """Small-strain stiffness for constant symmetric positive-definite C.
 
@@ -246,7 +274,7 @@ def composite_tet11(coordinates):
 
     Ten external coordinates in Tet10 order; the eleventh point is the centroid.
     This is an independently derived enrichment, NOT the C3D10M formula. It is
-    deliberately not accepted by the production tied-centre Step. Internal
+    supported by an explicitly selected independent-centre Step. Internal
     inertia is nonzero: static condensation does not preserve dynamic spectra.
     """
     base = composite_tet10(coordinates)  # shared geometry validation

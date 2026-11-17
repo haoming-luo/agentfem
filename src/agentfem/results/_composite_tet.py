@@ -41,10 +41,15 @@ class CompositeTetCellFields:
             f._agentfem_processing = {
                 "formulation": "composite_tet10",
                 "representation": "cell_volume_average",
-                "source": "projected_strain_and_declared_material",
+                "source": "accepted_constitutive_quadrature"
+                if operator.material_batch is not None
+                else "projected_strain_and_declared_material",
                 "interelement_smoothing": False,
                 "shear_convention": "tensor",
-                "stabilization_stress_included": False,
+                "stabilization_stress_included": (
+                    operator.material_batch is not None
+                    and operator.material_batch.points_per_cell == 48
+                ),
             }
 
     def update(self):
@@ -67,19 +72,21 @@ class CompositeTetCellFields:
                 strain_tensor[:, 3:] *= 0.5
                 strain_tensor = strain_tensor[:, [[0, 3, 5], [3, 1, 4], [5, 4, 2]]]
                 energy = 0.5 * uc @ op.stiffness[cell] @ uc / e.volume
+                weights = np.full(4, 0.25)
                 if op.material_batch is not None:
                     b = op.material_batch
-                    tensor = b.stress.reshape(-1, 4, 3, 3)[cell]
-                    strain_tensor = b.strain.reshape(-1, 4, 3, 3)[cell]
-                    energy = b.stored.reshape(-1, 4)[cell].mean()
+                    tensor = b.stress.reshape(-1, b.points_per_cell, 3, 3)[cell]
+                    strain_tensor = b.strain.reshape(-1, b.points_per_cell, 3, 3)[cell]
+                    weights = b.weights[cell] / b.volume[cell]
+                    energy = weights @ b.stored.reshape(-1, b.points_per_cell)[cell]
                 deviator = (
                     tensor
                     - np.trace(tensor, axis1=1, axis2=2)[:, None, None] * np.eye(3) / 3
                 )
                 values = {
-                    "S": tensor.mean(0).ravel(),
-                    "E": strain_tensor.mean(0).ravel(),
-                    "MISES": np.sqrt(1.5 * np.sum(deviator**2, axis=(1, 2))).mean(),
+                    "S": np.einsum("q,qij->ij", weights, tensor).ravel(),
+                    "E": np.einsum("q,qij->ij", weights, strain_tensor).ravel(),
+                    "MISES": weights @ np.sqrt(1.5 * np.sum(deviator**2, axis=(1, 2))),
                     "SENER": energy,
                 }
                 for field in self.fields:

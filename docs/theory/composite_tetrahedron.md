@@ -266,13 +266,14 @@ question without claiming to reproduce proprietary C3D10M hourglass equations.
 
 ## Generic small-strain material updates
 
-The production **tied-centre Tet10** Step accepts `SmallStrainExplicitMaterial`,
+The composite Step, with either tied or independent centre, accepts `SmallStrainExplicitMaterial`,
 a wrapper around the existing `SmallStrainUserMaterial` protocol with density
 and a symmetric positive elastic tangent envelope. The envelope is engineering
 strain in xx/yy/zz/xy/yz/xz order and supplies the stability estimate. Every
 trial tangent is checked for positivity and against this bound. Rate dependence,
-multiple material regions and mean-dilatation stabilization with nonlinear
-materials are currently rejected. Supporting an arbitrary material protocol is
+multiple material regions and negative-tangent softening are currently rejected.
+Independent-centre and mean-dilatation material updates use the work-conjugate
+quadrature described below. Supporting an arbitrary material protocol is
 not a guarantee that an arbitrary constitutive model satisfies these restrictions.
 
 A native J2 adapter reuses the existing radial-return and consistent tangent:
@@ -285,11 +286,12 @@ u = model.field(fields.displacement(
     domain, element_policy=elements.composite_tet10_policy()))
 step = model.step(target=u, dt="auto", steps=100)
 result = step.solve_result(output="plastic.xdmf", field_variables=("S", "SENER"))
-# Native accepted (owned cell, four quadrature points) values:
+# Native accepted (owned cell, material quadrature points) values:
 peeq = result.fields["STATE_PEEQ"].field
 ```
 
-Strain is evaluated at the four projected integration points. Each trial reads
+Ordinary tied-centre strain uses four projected integration points; stabilized
+branches use 48 subcell points. Each trial reads
 only accepted state; stress and internal variables are committed after the
 successful global increment, and restored on failure or restart. Stored energy
 and cumulative dissipation are distinct. Stress output uses accepted material
@@ -318,6 +320,76 @@ of numerical identity with proprietary Abaqus C3D10M.
 
 The material gate includes global cyclic tension/compression with every accepted
 stress/state compared to the established J2 law, and monotonic cumulative plastic
-dissipation. The generic nonlinear route remains on the tied-centre, non-B-bar
-formulation; extending nonlinear stabilization to the independent-centre branch
-is outside this accepted combination and is rejected explicitly.
+dissipation. The subsequent nonlinear extension below includes independent
+centre and mean-dilatation branches through the same material protocol.
+
+
+## Work-conjugate nonlinear centre update (2026-11-17)
+
+The elastic correction must not remain an elastic spring after plastic yielding.
+Instead define a single assumed-strain operator at four points in each of the
+12 subtetrahedra (48 material points). Let $B_p(x)$ be the projected operator,
+$B_s$ the piecewise-linear subcell operator, $D$ the deviatoric projection in
+engineering-strain coordinates and $R(x)=D[B_s-B_p(x)]$. Define
+
+$$B_*(x)=B_p(x)+R(x),\qquad \epsilon_q=B_*(x_q)u.$$
+
+For mean dilatation, replace the trace of $B_p$ by its volume mean before adding
+$R$. Thus the deviatoric strain is the subcell strain, while the volumetric strain
+is projected (or constant for mean dilatation). These are **assumed material
+strains**, not the unmodified gradient of the displayed displacement field.
+
+Each point owns its complete constitutive history $z_q$. The existing small-strain
+provider computes $(\sigma_q,C_q,z_q^{trial},\psi_q,\Delta d_q)$ from accepted
+history and the new strain. Positive weights $w_q$ are each subcell's volume / 4;
+they are not equal across corner and interior subtetrahedra. Force and tangent are
+
+$$f_{int}=\sum_q w_q B_{*q}^{T}\sigma_q,\qquad
+K_{alg}=\sum_q w_q B_{*q}^{T}C_q B_{*q}.$$
+
+For constant elastic $C$, projection orthogonality makes the cross terms vanish:
+
+$$\sum_qw_qB_{*q}^{T}CB_{*q}
+=K_p+\sum_qw_qR_q^TCR_q.$$
+
+This recovers the existing stabilized elastic stiffness, including anisotropic
+constant elasticity; it does not introduce a new fitted penalty. For nonlinear
+materials the law acts on the **combined** strain, so no elastic correction is
+added afterward. Stored energy and dissipation use the same quadrature:
+
+$$E_{stored}=\sum_qw_q\psi_q,\qquad
+D_{acc}=\sum_qw_q d_q.$$
+
+Their nonlinear split into projected and hourglass energies is not unique. The
+material route reports total stored energy as `strain_energy`, accumulated
+material dissipation separately, and zero **additional** `hourglass_energy`.
+Stress, assumed strain and Mises outputs are volume-weighted cell averages.
+`STATE_*` retains all 48 point histories without averaging, and result metadata
+records point count and weights. Ordering is subcell order followed by the four
+local barycentric quadrature points. Same-partition checkpoints preserve this
+ordering. All ranks roll back if one rank's material update fails.
+
+### Public workflow
+
+```python
+u = model.field(fields.displacement(domain, element_policy=
+    elements.composite_tet10_policy(independent_center=True, mean_dilatation=True)))
+model.material(constitutive.explicit_small_strain_j2(
+    constitutive.J2LinearIsotropicHardening(
+        young=210e9, poisson=0.3, yield_stress=250e6, hardening_modulus=1e9),
+    density=7800))
+# Declare ordinary model constraints and loads, then use model.step(target=u, ...).
+# Other rate-independent SmallStrainUserMaterial providers use
+# SmallStrainExplicitMaterial(provider, elastic_envelope, density, parameters).
+```
+
+Validation covers distorted affine patches; six rigid modes; elastic recovery
+against the pre-existing operator; force/energy differences with an independent
+smooth nonlinear provider; J2 force/tangent differences; centre-only yielding;
+cyclic plastic history; full Step restart/output; and single-rank late failure
+with collective rollback. The elastic envelope still bounds every accepted
+algorithmic tangent and supplies the explicit time-step estimate. This is a
+small-strain formulation: finite strain, contact and softening regularization
+are separate capabilities, not implied by this extension. No Abaqus C3D10M
+identity is claimed. Near-incompressible plastic accuracy needs application-
+specific convergence assessment; a passing patch test alone is insufficient.

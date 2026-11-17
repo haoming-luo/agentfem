@@ -64,8 +64,8 @@ do not multiply component speedups or sum overlapping tests.
   state, stored energy and dissipation enter the whole-mesh explicit Step.
 - Trial/commit/rollback, same-partition restart, accepted stress output and raw
   `STATE_PE`/`STATE_PEEQ` result fields are covered by automated tests.
-- Scope: homogeneous material, small strain, ordinary projected Tet10. Nonlinear
-  mean-dilatation stabilization and finite strain are explicitly not enabled.
+- Scope: homogeneous material, small strain, tied or independent centre. Finite strain is explicitly not enabled; nonlinear mean-dilatation and
+  independent-centre updates now use the documented work-conjugate quadrature.
 - Experimental 33-DOF local kernel releases the three centre variables.
   Stabilization restores six rigid modes; tying reproduces the existing kernel;
   static condensation satisfies internal equilibrium and energy minimization.
@@ -93,5 +93,28 @@ Theory, formulas, scope and source links:
 - Exact native/display fields, probing and same-partition restart are checked.
 - Forty-increment tension/unloading/reverse-loading checks compare accepted J2
   stresses and plastic state against the native material-point law.
-- Independent-centre nonlinear materials remain explicitly unsupported; the
-  supported plastic route uses tied-centre, ordinary projected interpolation.
+- Independent-centre nonlinear materials are supported by the subsequent
+  48-point work-conjugate update; see the nonlinear acceptance records below.
+
+## Nonlinear independent-centre acceptance (2026-11-17)
+
+The same public policy now supports generic rate-independent small-strain
+materials with a tied or independent centre, with or without mean dilatation.
+A work-conjugate 48-point assumed-strain rule combines projected strain and
+deviatoric correction before the material update; no elastic correction is added
+after yielding. The four-point ordinary tied-centre route remains unchanged.
+
+- `nonlinear_centre_regression.txt`: 266 tests passed.
+- `nonlinear_centre_mpi8.txt`: five tests passed on each of eight ranks, including
+  empty owned-cell partitions and late material failure on only one rank.
+- Elastic operator recovery tested with anisotropic matrices and distorted affine
+  geometry; patch reproduction and six rigid modes checked.
+- An external smooth nonlinear provider checks the force as the energy gradient.
+- J2 centre-only plastic flow, force/tangent differentiation, cyclic history,
+  accepted point states, weighted stress output and restart are checked.
+- Point counts, weights and accepted state output adapt to the selected rule.
+
+This closes the nonlinear independent-centre implementation gap for the stated
+small-strain, rate-independent, homogeneous-material scope. Finite-strain and
+softening extensions are not implied. The formula remains independently derived,
+not a C3D10M alias.
