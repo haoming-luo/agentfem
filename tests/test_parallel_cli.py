@@ -9,8 +9,9 @@ import pytest
 from agentfem import cli
 
 
+@pytest.mark.parametrize("local", [False, True])
 @pytest.mark.parametrize("template", ["static-solid", "steady-heat", "structural-dynamics", "heat-campaign"])
-def test_standard_template_publishes_one_collective_result(tmp_path, template):
+def test_standard_template_publishes_one_collective_result(tmp_path, template, local):
     from agentfem import provenance
 
     comm = MPI.COMM_WORLD
@@ -20,8 +21,9 @@ def test_standard_template_publishes_one_collective_result(tmp_path, template):
     if comm.rank == 0:
         cli._copy_template(template, root, "collective-template", force=False)
     comm.barrier()
+    options = ["--local-runtime"] if local else []
     assert cli.main(["run", "--project", str(root), "--run-id", "template",
-                     "--inside-mpi", "--json"]) == 0
+                     "--inside-mpi", "--json", *options]) == 0
     comm.barrier()
     if comm.rank == 0:
         output = root / "outputs" / "collective-template" / "template"
