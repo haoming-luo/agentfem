@@ -337,6 +337,22 @@ jobs:
           cd "${RUNNER_TEMP}"
           python "${GITHUB_WORKSPACE}/tools/check_installed_history_project.py"
 
+      - name: Check collective CLI templates before the long regression
+        if: env.VALIDATION_LEVEL == 'release'
+        run: |
+          mkdir -p /tmp/agentfem-mpi-debug
+          PYTEST_DEBUG_TEMPROOT=/tmp/agentfem-mpi-debug \
+            agentfem mpi-run -n 2 --timeout 180 -- python -m pytest -vv \
+            -o faulthandler_timeout=45 tests/test_parallel_affine.py tests/test_parallel_cli.py
+
+      - name: Retain collective CLI diagnostics
+        if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: collective-cli-diagnostics
+          path: /tmp/agentfem-mpi-debug/**/logs/*.log
+          if-no-files-found: ignore
+
       - name: Run unit and interface tests
         run: |
           if [[ "${VALIDATION_LEVEL}" == "core" && -n "${CHANGED_TESTS}" ]]; then
