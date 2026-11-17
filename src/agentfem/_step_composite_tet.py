@@ -180,6 +180,7 @@ def lower(model, request):
             "method": method,
             "formulation": "composite_tet10",
             "interpolation": "piecewise_linear_12_subtets",
+            "independent_center": policy.independent_center,
             "coefficient_storage": "P2_nodal_layout_only",
             "abaqus_c3d10m_equivalent": False,
         }

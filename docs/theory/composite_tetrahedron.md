@@ -244,8 +244,8 @@ this improvement does not claim distributed parallel HDF5.
 ## Independent interior variables: formulation research
 
 `agentfem.elements.composite_tet.composite_tet11` is an experimental 33-DOF
-kernel with ten boundary nodes and one independent centre. It is **not registered
-as a whole-mesh element**. With $u=[u_n,u_i]$, tying the centre to the six edge
+kernel with ten boundary nodes and one independent centre. Its whole-mesh elastic
+route is selected by `composite_tet10_policy(independent_center=True)`. With $u=[u_n,u_i]$, tying the centre to the six edge
 nodes is the linear map $u=T u_n$, giving $K_t=T^TKT$ and $M_t=T^TMT$.
 Tests recover the existing tied kernel exactly (with the same stabilization).
 Releasing the centre gives three extra zero modes under projection alone;
@@ -295,3 +295,29 @@ successful global increment, and restored on failure or restart. Stored energy
 and cumulative dissipation are distinct. Stress output uses accepted material
 response, never elastic reconstruction. Raw named state fields are copied into
 `SimulationResult`; checkpoint storage preserves the same-partition state.
+
+
+## Independent-centre whole-mesh acceptance (2026-11-17)
+
+`composite_tet10_policy(independent_center=True, mean_dilatation=True)` now keeps
+all three centre displacement, velocity and acceleration DOFs in the ordinary
+Step state. A P2+bubble Basix element supplies DOF ownership **only**; physical
+interpolation and integration remain the composite formulation. Internal-node
+positive mass participates in every explicit step and the time-step estimate.
+No static condensation is used for dynamics.
+
+Verification compares all DOFs against independent global M/K central difference,
+checks positive constrained spectra, restart equality, serial/MPI agreement and
+exact native-centre output/probes. The displayed centre is the computed internal
+node, not the mean of edge displacements. Native and display node counts coincide
+for this branch. Unsupported storage-policy combinations reject early.
+
+This closes the independent internal-variable **implementation** gate for the
+explicitly named experimental formulation. It does not close the distinct gate
+of numerical identity with proprietary Abaqus C3D10M.
+
+The material gate includes global cyclic tension/compression with every accepted
+stress/state compared to the established J2 law, and monotonic cumulative plastic
+dissipation. The generic nonlinear route remains on the tied-centre, non-B-bar
+formulation; extending nonlinear stabilization to the independent-centre branch
+is outside this accepted combination and is rejected explicitly.

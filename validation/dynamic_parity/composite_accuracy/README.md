@@ -70,8 +70,8 @@ do not multiply component speedups or sum overlapping tests.
   Stabilization restores six rigid modes; tying reproduces the existing kernel;
   static condensation satisfies internal equilibrium and energy minimization.
   Its positive internal inertia proves static condensation cannot simply replace
-  dynamic elimination. This research kernel is not a C3D10M alias or a released
-  whole-mesh 11-node provider.
+  dynamic elimination. The independent-centre elastic route now retains these variables in the
+  whole-mesh Step, restart and output. It is not a C3D10M alias.
 
 ## Validation records
 
@@ -82,3 +82,16 @@ do not multiply component speedups or sum overlapping tests.
 
 Theory, formulas, scope and source links:
 [`composite_tetrahedron.md`](../../../docs/theory/composite_tetrahedron.md).
+
+## Independent-centre and cyclic-material acceptance (2026-11-17)
+
+- `acceptance_34.txt`: 243 related regression tests passed.
+- `internal_mpi8.txt`: independent-centre serial/parallel displacement and energy
+  agreement, including empty owned-cell partitions, passed on eight ranks.
+- The independent centre retains all three inertial DOFs; a separately assembled
+  global mass/stiffness reference verifies time integration and the stability bound.
+- Exact native/display fields, probing and same-partition restart are checked.
+- Forty-increment tension/unloading/reverse-loading checks compare accepted J2
+  stresses and plastic state against the native material-point law.
+- Independent-centre nonlinear materials remain explicitly unsupported; the
+  supported plastic route uses tied-centre, ordinary projected interpolation.

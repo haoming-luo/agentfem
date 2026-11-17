@@ -52,9 +52,14 @@ class CompositeTetCellFields:
         op.displacement.x.scatter_forward()
 
         def local():
-            u = op.displacement.x.array.reshape(-1, 3)[op.cell_nodes].reshape(-1, 30)
+            u = op.displacement.x.array.reshape(-1, 3)[op.cell_nodes].reshape(
+                -1, op.dofs_per_cell
+            )
             for cell, (e, C, uc) in enumerate(zip(op.elements, op.materials, u)):
-                uc = (uc.reshape(10, 3) - uc.reshape(10, 3).mean(axis=0)).ravel()
+                uc = (
+                    uc.reshape(op.nodes_per_cell, 3)
+                    - uc.reshape(op.nodes_per_cell, 3).mean(axis=0)
+                ).ravel()
                 eps = e.strain_matrices(mean_dilatation=op.policy.mean_dilatation) @ uc
                 stress = eps @ C.T
                 tensor = stress[:, [[0, 3, 5], [3, 1, 4], [5, 4, 2]]]
@@ -91,8 +96,8 @@ class CompositeTetCellFields:
 class CompositeTetTimeSeries:
     """Collective gather-to-root scientific output, no parallel HDF5 requirement.
 
-    Native ten-node coefficients and connectivity are retained. The added centre
-    is the exact tied interpolation value; twelve linear tetrahedra represent
+    Native coefficients and connectivity are retained. The centre is either an
+    independent DOF or the exact tied value; twelve linear tetrahedra represent
     the displacement field exactly. DG0 outputs are labelled cell averages.
     This bounded writer gathers the dataset on rank zero, not a scalable HPC
     distributed writer. It never substitutes quadratic interpolation.
@@ -186,8 +191,8 @@ class CompositeTetTimeSeries:
             ids = imap.local_to_global(np.arange(n, dtype=np.int32))
             cells = np.array(
                 [V.dofmap.cell_dofs(c)[order] for c in range(count)], dtype=np.int32
-            ).reshape(-1, 10)
-            cell_ids = imap.local_to_global(cells.ravel()).reshape(-1, 10)
+            ).reshape(-1, len(order))
+            cell_ids = imap.local_to_global(cells.ravel()).reshape(-1, len(order))
             attributes = []
             for i, f in enumerate(fields):
                 if f.function_space.mesh is not domain:
@@ -281,9 +286,14 @@ class CompositeTetTimeSeries:
                 )
             x = np.concatenate([p[1] for p in parts])[permutation]
             cells = np.concatenate([p[2] for p in parts])
-            centers = x[cells[:, 4:]].mean(axis=1)
-            display_x = np.vstack((x, centers))
-            expanded = np.column_stack((cells, np.arange(len(cells)) + len(x)))
+            independent = cells.shape[1] == 11
+            centers = x[cells[:, 4:10]].mean(axis=1)
+            display_x = x if independent else np.vstack((x, centers))
+            expanded = (
+                cells
+                if independent
+                else np.column_stack((cells, np.arange(len(cells)) + len(x)))
+            )
             topology = expanded[:, _SUBTETS].reshape(-1, 4)
             points = display_x[topology]
             negative = (
@@ -316,7 +326,11 @@ class CompositeTetTimeSeries:
             self.h5.attrs["warp_compatible"] = True
             self.h5.attrs["deformation_scale"] = 0.0
             self.h5.attrs["solver_element"] = "composite_tet10"
-            self.h5.attrs["interpolation"] = "piecewise_linear_12_subtets_tied_centre"
+            self.h5.attrs["interpolation"] = (
+                "piecewise_linear_12_subtets_independent_centre"
+                if cells.shape[1] == 11
+                else "piecewise_linear_12_subtets_tied_centre"
+            )
             self.h5.attrs["assembly"] = "owned_cells_MPI_reverse_ghost"
             self.h5.attrs["writer"] = "collective_gather_to_root"
             g = self.h5.create_group("Mesh")
@@ -371,7 +385,8 @@ class CompositeTetTimeSeries:
             if center == "Node":
                 values = values[permutation]
                 group.create_dataset("Native/" + name, data=values, compression="gzip")
-                values = np.vstack((values, values[cells[:, 4:]].mean(axis=1)))
+                if cells.shape[1] == 10:
+                    values = np.vstack((values, values[cells[:, 4:10]].mean(axis=1)))
             else:
                 values = np.repeat(values, 12, axis=0)
             path = f"{frame}/{center}/{name}"

@@ -67,8 +67,11 @@ class CompositeTet10Policy:
     """Affine piecewise-linear composite tetrahedron; not Abaqus C3D10M."""
 
     mean_dilatation: bool = False
+    independent_center: bool = False
 
     def __post_init__(self):
+        if not isinstance(self.independent_center, bool):
+            raise TypeError("independent_center must be boolean.")
         if not isinstance(self.mean_dilatation, bool):
             raise TypeError("mean_dilatation must be boolean.")
 
@@ -78,12 +81,21 @@ class CompositeTet10Policy:
             "kinematics": "small_strain",
             "maturity": "experimental",
             "mean_dilatation": self.mean_dilatation,
-            "stabilization": "deviatoric_projection_residual" if self.mean_dilatation else "none",
-            "interpolation": "12_subtet_piecewise_linear_tied_centre",
-            "coefficient_layout": "P2_nodal_storage_only",
+            "independent_center": self.independent_center,
+            "stabilization": "deviatoric_projection_residual"
+            if (self.mean_dilatation or self.independent_center)
+            else "none",
+            "interpolation": "12_subtet_piecewise_linear_independent_centre"
+            if self.independent_center
+            else "12_subtet_piecewise_linear_tied_centre",
+            "coefficient_layout": "P2_plus_bubble_nodal_storage_only"
+            if self.independent_center
+            else "P2_nodal_storage_only",
             "abaqus_c3d10m_equivalent": False,
         }
 
 
-def composite_tet10_policy(*, mean_dilatation=False):
-    return CompositeTet10Policy(mean_dilatation=mean_dilatation)
+def composite_tet10_policy(*, mean_dilatation=False, independent_center=False):
+    return CompositeTet10Policy(
+        mean_dilatation=mean_dilatation, independent_center=independent_center
+    )

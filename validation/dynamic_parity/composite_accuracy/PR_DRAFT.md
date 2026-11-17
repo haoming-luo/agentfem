@@ -15,13 +15,17 @@ energy and dissipation survive rollback and same-partition restart.
 
 ## Review areas
 
-- `elements/composite_tet.py`: interpolation, mass, stabilization and research-only independent interior variables.
+- `elements/composite_tet.py`: interpolation, mass, stabilization and independent interior variables with retained whole-mesh inertia.
 - `_step_composite_tet.py`, `_linear_explicit_body.py`: public Step integration and transactions.
 - `constitutive/small_strain_explicit.py`, `elements/_composite_material.py`: generic provider bridge and native J2 adapter.
 - `results/_composite_tet.py`: exact display interpolation, native coefficients, mesh metadata sent once.
 - `validation/dynamic_parity/composite_accuracy/README.md`: convergence, timing and scope.
 
 ## Validation
+
+- Latest independent-centre/material acceptance: 243 passed.
+- Independent-centre MPI 8 comparison passed, including empty partitions.
+- Forty-step cyclic plastic loading compared against native material-point updates.
 
 - Related serial regression: 320 passed; 14 MPI-specific skips.
 - Final material gate: 10 passed.
@@ -34,8 +38,8 @@ energy and dissipation survive rollback and same-partition restart.
 
 ## Scope
 
-No C3D10M equivalence is claimed: the released mesh path has a tied centre;
-the independent-centre 33-DOF kernel is research-only. Its interior inertia
+No C3D10M equivalence is claimed. The elastic mesh path supports both a tied
+centre and an independent centre with all 33 element DOFs retained. Its interior inertia
 cannot be dropped through static condensation and relabelled as dynamic parity.
 C3D10M imported formulas remain unsupported.
 
@@ -53,5 +57,5 @@ records account for much of the diff size.
 ## Submission status
 
 Branch: `feat/explicit-dynamic-parity`. Implementation commit: `a1d25051`.
-This is a local draft; remote push and GitHub PR creation await explicit user
-authorization. Neither the main branch nor client installations were changed.
+Draft PR: https://github.com/haoming-luo/agentfem/pull/195.
+The main branch and client installations are unchanged.

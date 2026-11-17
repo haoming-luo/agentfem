@@ -328,7 +328,11 @@ def displacement(domain, *, degree: int = 1, dim: int | None = None, value=0.0, 
             raise TypeError("This displacement factory supports CompositeTet10Policy only.")
         if element is not None or dim is not None or degree != 1:
             raise ValueError("Declare element_policy without degree, dim or element overrides.")
-        field = displacement(domain, degree=2, value=value)
+        if element_policy.independent_center:
+            from .elements._composite_storage import vector_element
+            field = displacement(domain, element=vector_element(), value=value)
+        else:
+            field = displacement(domain, degree=2, value=value)
         local_order(field.space)
         field.space._agentfem_composite_tet10 = True
         field.space._agentfem_element_policy = element_policy

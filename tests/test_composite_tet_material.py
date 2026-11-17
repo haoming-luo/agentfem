@@ -245,3 +245,49 @@ def test_internal_mode_static_condensation_energy():
     assert full @ K @ full <= tied @ K @ tied + 1e-12
     # Interior inertia is real; cannot replace dynamic elimination by this K.
     assert enriched.mass(1)[30:].min() > 0
+
+
+def test_whole_mesh_cyclic_material_path():
+    from agentfem import amplitudes
+
+    d = mesh.cuboid(
+        (0, 0, 0), (1, 1, 1), (1, 1, 1), comm=MPI.COMM_SELF, cell_type="tetrahedron"
+    )
+    m = models.create(
+        study=studies.dynamic_solid(dimension=3, method="explicit"), mesh=d
+    )
+    u = m.field(
+        fields.displacement(d, element_policy=elements.composite_tet10_policy())
+    )
+    law = material()
+    m.material(law)
+    m.fix(u, on=lambda x: np.ones(x.shape[1], dtype=bool), components=(1, 2), value=0.0)
+    for xval in (0.0, 0.5, 1.0):
+        amp = amplitudes.Amplitude(
+            f"axial_{xval}",
+            lambda t, xval=xval: xval * 0.02 * np.sin(2 * np.pi * t / 0.04),
+        )
+        m.fix(
+            u, on=lambda x, xval=xval: np.isclose(x[0], xval), components=0, value=amp
+        )
+    s = m.step(target=u, dt=0.001, steps=40, progress=False)
+    old = constitutive.J2PlasticState()
+    peeq = []
+    energy = []
+    for i in range(1, 41):
+        s.run(until_step=i)
+        strain = np.diag([0.02 * np.sin(2 * np.pi * i * 0.001 / 0.04), 0, 0])
+        ref = law.provider.material.update(strain, old)
+        old = ref.state
+        b = s.residual.internal.material_batch
+        np.testing.assert_allclose(
+            b.stress, np.broadcast_to(ref.stress, b.stress.shape), atol=2e-12
+        )
+        np.testing.assert_allclose(
+            b.states[:, 9], old.equivalent_plastic_strain, atol=2e-13
+        )
+        peeq.append(b.states[:, 9].mean())
+        energy.append(b.dissipation.mean())
+    assert peeq[-1] > peeq[9] > 0
+    assert np.min(np.diff(energy)) >= -1e-14
+    assert energy[-1] > 0
