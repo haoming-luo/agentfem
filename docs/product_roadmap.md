@@ -15,6 +15,12 @@ Neither tool supplies a design allowable. Next scientific work must use a
 history-dependent response model with an explicit calibration/validation split
 and measured loading, not another fit to the same life labels.
 
+The bounded 2026-11-16 follow-up includes real ORNL optimized Grade 92 rupture
+and runout observations, preserving distinct heats/treatments. It strengthens
+the generic life-data pipeline, not the qualification of the BAM P92 model.
+Joint RF/SLR calibration experiments remain research evidence: numerical
+convergence and a smaller RF peak error do not resolve hold-response transfer.
+
 Pre/postprocessing will remain a separate development branch: audit Gmsh
 regions, element/formulation compatibility and quality; prototype a read-only
 lightweight viewer consuming existing published result artifacts. Do not put
@@ -425,6 +431,15 @@ specimens, not expanding an ill-conditioned fit. Generic censored-life tools
 have independent risk-set, exact-binomial and seeded coverage checks. See
 [the evidence and scope](internal/p92_positive_strength_20261116.md). No
 material card or design allowable is promoted by these numerical checks.
+
+The [bounded-recovery experiment](internal/p92_bounded_recovery_20261116.md)
+reduces the inspected RF cycle-1000 peak error to +1.49%, with an independent
+tolerance-refinement check, but still misses the SLR cycle-10 peak by -12.22%.
+The complete extrema comparison is retained, not just the improved peak.
+Published hold-life reproduction and within-condition replicate survival are
+now separate checks; neither substitutes for independent engineering life
+validation. Joint RF/SLR calibration is a bounded model-discrimination task,
+not permission to keep fitting until a selected metric passes.
 
 PR #132 maintenance is merged at `44fda9c4`; the published 0.4.4 tag remains
 unchanged. The next bounded sequence is reliability → thermal/cyclic-creep
