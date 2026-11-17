@@ -1,0 +1,22 @@
+{
+  "schema": "agentfem.research.p92-two-mechanism-summary.v1",
+  "model_admitted": false,
+  "life_qualified": false,
+  "independent_validation": false,
+  "calibration_sha256": "e70095c61a15f76466ff7365694c1004d67ff3ef3424ae9fe0dc0847925631a9",
+  "report_sha256": ["aab2352c3c5bcf0415ce4f49a923e7cd2e38cf80b5e9b2d17ff34900b5c9865c", "6ef4559ae99e4fd26a3927da5fa47a89db343aea1ebdd677c83c10288a917090"],
+  "methods": ["Radau rtol=1e-8", "BDF rtol=1e-10"],
+  "scope": "Unfitted mechanism sensitivities; RF cycles 4-10, SLR cycles 1-10; SLC stops on envelope exit without inventing a reverse ramp",
+  "positive_strain_target": 0.002,
+  "candidates": [
+    {"name": "single_reference", "RF_extrema_RMS_MPa": 2.453528768353146, "SLR_extrema_RMS_MPa": 12.97031446184059, "SLC_exit_cycle": 2, "SLC_exit_strain": 0.011614945960474899},
+    {"name": "added_slower_flow", "RF_extrema_RMS_MPa": 6.121840685333079, "SLR_extrema_RMS_MPa": 19.05756261746292, "SLC_exit_cycle": 2, "SLC_exit_strain": 0.015208359965606467},
+    {"name": "retained_fast_backstress", "RF_extrema_RMS_MPa": 27.49699734815155, "SLR_extrema_RMS_MPa": 34.40107341812327, "SLC_exit_cycle": 2, "SLC_exit_strain": 0.0020124463434497844},
+    {"name": "retained_fast_n6", "RF_extrema_RMS_MPa": 20.74630143251358, "SLR_extrema_RMS_MPa": 29.963313618655874, "SLC_exit_cycle": 3, "SLC_exit_strain": 0.002760030658072762},
+    {"name": "retained_fast_n12", "RF_extrema_RMS_MPa": 16.153666960348172, "SLR_extrema_RMS_MPa": 28.037179086795888, "SLC_exit_cycle": 3, "SLC_exit_strain": 0.002569098492956819}
+  ],
+  "maximum_cycle_end_stress_method_difference_MPa": 6.076139982269524e-7,
+  "maximum_cycle_end_strain_method_difference": 1.9287352270858094e-10,
+  "maximum_failed_hold_strain_method_difference": 2.543275208488627e-10,
+  "all_exit_cycles_preserved_across_methods": true
+}
