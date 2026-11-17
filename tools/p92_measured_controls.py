@@ -90,10 +90,13 @@ def measured_path(data, *, cycles, switch_bound=None):
                 raise ValueError("Insufficient observations between switches")
             desired = previous+(end-previous)*np.r_[0., np.geomspace(.001, 1., 15)]
             chosen = np.unique([observed[np.argmin(abs(t[observed]-x))] for x in desired])
+            tail = observed[t[observed] >= previous+.8*(end-previous)]
+            tail = tail[[0, -1]] if len(tail) >= 2 else np.array([], dtype=int)
             segments.append(dict(cycle=cycle, duration=end-previous, target=target,
                 stress_control=stress_control, sample_times=t[chosen]-previous,
                 measured_stress=s[chosen]/1e6, measured_strain=e[chosen],
-                source_indices=chosen.tolist()))
+                source_indices=chosen.tolist(), tail=dict(times=t[tail]-previous,
+                    stress=s[tail]/1e6, strain=e[tail], source_indices=tail.tolist())))
             events.append(dict(cycle=cycle, stress_control=stress_control, **event))
             previous = end
     return dict(protocol=data["protocol"], initial_stress=float(s[0]/1e6),
@@ -130,6 +133,11 @@ def replay(path, mechanisms, *, rtol=1e-8, method="Radau", allow_incompatible=Fa
         if seg["stress_control"] or abs(rate) < 1e-12:
             times = np.asarray(seg["sample_times"])
             early = times <= min(10., .1*seg["duration"])
+            # Last fifth, using only actual selected samples. Missing samples
+            # mean unavailable, not zero rate or an interpolated observation.
+            tail = seg.get("tail")
+            late_times = np.asarray(tail["times"]) if tail is not None else times[times >= .8*seg["duration"]]
+            late_sample = sol.sol(late_times) if len(late_times) >= 2 else None
             fields = {}
             for name, predicted, observed in (("stress_MPa", sample[0], seg["measured_stress"]),
                                                ("strain", sample[9], seg["measured_strain"])):
@@ -140,9 +148,18 @@ def replay(path, mechanisms, *, rtol=1e-8, method="Radau", allow_incompatible=Fa
                     dt = times[early][-1]-times[early][0]
                     fields[name]["early_secant_observed_per_s"] = float((observed[early][-1]-observed[early][0])/dt)
                     fields[name]["early_secant_predicted_per_s"] = float((predicted[early][-1]-predicted[early][0])/dt)
+                if late_sample is not None:
+                    late_observed = (np.asarray(tail["stress" if name == "stress_MPa" else "strain"])
+                                     if tail is not None else observed[times >= .8*seg["duration"]])
+                    late_predicted = late_sample[0 if name == "stress_MPa" else 9]
+                    dt = late_times[-1]-late_times[0]
+                    fields[name]["late_secant_observed_per_s"] = float((late_observed[-1]-late_observed[0])/dt)
+                    fields[name]["late_secant_predicted_per_s"] = float((late_predicted[-1]-late_predicted[0])/dt)
             holds.append(dict(cycle=seg["cycle"], segment=i, stress_control=seg["stress_control"],
                 duration_s=seg["duration"], sample_times_s=times.tolist(),
-                source_indices=seg.get("source_indices", []), fields=fields))
+                source_indices=seg.get("source_indices", []), fields=fields,
+                late_secant_times_s=late_times.tolist(),
+                late_secant_source_indices=tail["source_indices"] if tail is not None else []))
         state = sol.y[:, -1].copy()
         peak, valley = max(peak, float(sol.y[0].max())), min(valley, float(sol.y[0].min()))
         channels = [(sample[0]-seg["measured_stress"])/100.]

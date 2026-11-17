@@ -41,6 +41,27 @@ def test_bad_frozen_identity_rejected_before_fit():
         identify({}, [], max_nfev=0)
 
 
+def test_time_shape_separates_initial_rate_from_target_without_state_reset():
+    from tools.p92_recovery_discriminator import terms
+    from tools.p92_published_recovery_reference import isotropic_strength_lower_bound
+    base = (Mechanism(published_parameters(600)),)*2
+    assert decode([0., 0.], base, direction="fast_time_shape") == base
+    changed = decode([.5, -.7], base, direction="fast_time_shape")
+    assert changed[1] == base[1]
+    assert changed[0].parameters.C1 == base[0].parameters.C1
+    assert changed[0].parameters.Qr == pytest.approx(base[0].parameters.Qr*10**(-.7))
+    for accumulated in (0., .001, .1):
+        state = np.array([170., 2., 3., 0., accumulated])
+        before = terms(state, base[0])["isotropic_MPa_per_s"]["time_recovery"]
+        after = terms(state, changed[0])["isotropic_MPa_per_s"]["time_recovery"]
+        assert after == pytest.approx(before*10**.5)
+        state[3] = changed[0].parameters.Qr
+        assert terms(state, changed[0])["isotropic_MPa_per_s"]["time_recovery"] == 0.
+    assert isotropic_strength_lower_bound(changed[0].parameters) > 0
+    with pytest.raises(ValueError, match="Unknown"):
+        decode([0., 0.], base, direction="unknown")
+
+
 def test_archived_conditional_fit_keeps_unresolved_physics_and_frozen_identity():
     import json
     from hashlib import sha256
@@ -67,3 +88,29 @@ def test_archived_conditional_fit_keeps_unresolved_physics_and_frozen_identity()
     first = next(h for h in slc["hold_diagnostics"] if h["stress_control"])["fields"]["strain"]
     assert first["early_secant_predicted_per_s"] < first["early_secant_observed_per_s"]
     assert first["last_predicted"] < first["last_observed"]
+
+
+def test_time_shape_evidence_keeps_history_gap_despite_peak_improvement():
+    import json
+    from hashlib import sha256
+    from pathlib import Path
+    root = Path(__file__).resolve().parents[1]/"evidence/creep"
+    report = json.loads((root/"2026-11-17-time-shape.json").read_text())
+    seed = json.loads((root/"2026-11-17-transient-history.json").read_text())
+    assert report["optimizer_initial"] == [0., -.05]
+    assert report["training_cycles"] == [1, 2, 3]
+    assert report["seed_parameter_sha256"] == seed["parameter_sha256"]
+    assert report["parameter_sha256"] == sha256(json.dumps(report["parameters"], sort_keys=True).encode()).hexdigest()
+    assert report["parameters"][1] == seed["parameters"][1]
+    for key, value in seed["parameters"][0]["parameters"].items():
+        if key not in {"Qr", "gamma_r1", "gamma_r2"}:
+            assert report["parameters"][0]["parameters"][key] == value
+    assert not report["engineering_qualified"] and not report["life_qualified"]
+    for prediction in report["frozen_predictions"]:
+        assert prediction["numerical_refinement_passed"]
+        assert prediction["parameter_sha256"] == report["parameter_sha256"]
+        assert len(prediction["cycles"]) == 10
+    slc = next(p for p in report["frozen_predictions"] if p["protocol"] == "SLC")
+    last = [h for h in slc["hold_diagnostics"] if h["stress_control"]][-1]
+    assert len(last["late_secant_source_indices"]) == 2
+    assert last["fields"]["strain"]["early_secant_predicted_per_s"] > last["fields"]["strain"]["early_secant_observed_per_s"]

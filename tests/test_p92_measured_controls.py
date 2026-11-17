@@ -222,6 +222,22 @@ def test_hold_metrics_do_not_replace_stress_controlled_creep_with_measurements()
     assert hold["sample_times_s"][-1] <= hold["duration_s"]
 
 
+def test_late_hold_observation_does_not_change_fitting_or_history():
+    p = published_parameters(600)
+    path = measured_path(data(), cycles=1)
+    without_tail = dict(path, segments=[{k: v for k, v in s.items() if k != "tail"}
+                                       for s in path["segments"]])
+    mechanisms = (Mechanism(p, enabled=False),)*2
+    residual, result = replay(path, mechanisms)
+    old_residual, old = replay(without_tail, mechanisms)
+    np.testing.assert_array_equal(residual, old_residual)
+    assert result["segment_endpoints"] == old["segment_endpoints"]
+    hold = next(h for h in result["hold_diagnostics"] if h["stress_control"])
+    assert len(hold["late_secant_source_indices"]) == 2
+    assert hold["late_secant_times_s"][0] >= .8*hold["duration_s"]
+    assert hold["fields"]["strain"]["late_secant_predicted_per_s"] == 0.
+
+
 @pytest.mark.parametrize("variant", ["slow", "both"])
 def test_archived_time_fit_retains_accuracy_gap_despite_completed_cycles(variant):
     import json

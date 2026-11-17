@@ -2,6 +2,17 @@
 
 ### Measured mixed-control identification checkpoint (2026-11-17)
 
+The subsequent [hold-decay experiment](internal/p92_hold_decay_20261117.md)
+separates fast isotropic recovery's initial rate and target with all other
+parameters fixed. Frozen cycle-10 RF/SLR/SLC peak errors become
+-2.00%/+2.17%/-1.63%; all three numerical/timing checks complete. However,
+later early-hold creep remains excessive, first-hold stress bias increases,
+and the rate bound is active. Engineering/life admission stays closed.
+Next test reversal-dependent transient memory and inherited entry stress;
+keep early/late hold observations separate from peak agreement. A boundary
+initialization false-looking optimizer stop was corrected without changing
+parameter bounds, training observations or fitting weights.
+
 The [early-hold/history experiment](internal/p92_transient_history_20261117.md)
 conditionally varies two C1 scales with all other dual-time parameters fixed.
 Using only cycles 1–3, it reduces first-SLC-hold strain RMS by about 35% and
