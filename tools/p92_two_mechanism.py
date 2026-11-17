@@ -65,7 +65,7 @@ def integrate(old, duration, strain_rate, mechanisms, *, stress_control=False,
             raise ValueError("Nonpositive branch strength bound")
     sol = solve_ivp(lambda t, y: rates(y, strain_rate, mechanisms,
                                      stress_control=stress_control),
-                    (0., duration), state.copy(), method=method, rtol=rtol,
+                    (0., duration), state.copy(), method=method, rtol=rtol, dense_output=True,
                     atol=[1e-8, 1e-8, 1e-8, 1e-8, 1e-12,
                           1e-8, 1e-8, 1e-8, 1e-12, 1e-12])
     if not sol.success or not np.isfinite(sol.y).all():
