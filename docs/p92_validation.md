@@ -116,6 +116,19 @@ data selection; it is not a claim of compliance with the full standard.
 
 ## Smallest next engineering validation package
 
+The [bounded-recovery and dwell-life investigation](internal/p92_bounded_recovery_20261116.md)
+now adds a continuous 1000-cycle numerical refinement check, an explicit failed
+SLR transfer screen, published isothermal dwell-life equation reproduction and
+same-condition replicate survival analysis. Late RF peak error improves, but
+cross-protocol accuracy and engineering life qualification remain open. These
+research tools do not replace or silently modify the installed material law.
+
+The same investigation now admits 25 source-checked optimized Grade 92 creep
+observations (22 ruptures, three ongoing tests) through the existing life API.
+Heat, plate, treatment, laboratory and test conditions remain separate. This
+verifies real censoring behavior; the different material processing prevents
+calling it an independent validation of the BAM P92 model.
+
 ### Continuous-cycle and uncertainty evidence (2026-11-16)
 
 The [positive-strength investigation](internal/p92_positive_strength_20261116.md)

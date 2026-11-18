@@ -15,6 +15,7 @@ _DOCUMENTATION_FILES = {
     "README.md",
     "CONTRIBUTING.md",
     "AGENT_GUIDE.md",
+    "AGENTS.md",
     "WORKFLOW.md",
     "CONCEPTS.md",
     "CITATION.cff",
@@ -146,6 +147,30 @@ _SOURCE_TEST_MAP = {
         "tests/test_common_workflows.py",
     ),
 }
+# Research-only scalar controls have known transitive consumers. Do not use a
+# tools/* wildcard: an unknown numerical driver still needs the broader gate.
+_P92_CONTROL_TESTS = (
+    "tests/test_p92_candidate_report.py", "tests/test_p92_measured_controls.py",
+    "tests/test_p92_bam_source.py", "tests/test_p92_loading_path.py",
+    "tests/test_p92_bounded_softening.py", "tests/test_p92_mixed_control.py",
+    "tests/test_p92_ratcheting_screen.py", "tests/test_p92_two_mechanism.py",
+    "tests/test_p92_two_mechanism_fit.py",
+)
+_P92_CONTROL_INPUTS = (
+    "evidence/creep/2026-11-17-measured-controls-fit.json",
+    "tools/p92_measured_controls.py", "tools/p92_measured_fit.py",
+    "tools/p92_bounded_softening.py", "tools/p92_mixed_control.py",
+    "tools/p92_ratcheting_screen.py", "tools/p92_two_mechanism.py",
+    "tools/p92_two_mechanism_screen.py", "tools/p92_two_mechanism_fit.py",
+    "evidence/creep/2026-11-17-dual-fit-scaled.json",
+    "evidence/creep/2026-11-17-dual-fit-budget.json",
+    "evidence/creep/2026-11-17-two-mechanism.json",
+    "evidence/creep/2026-11-17-ratcheting-discriminator.json",
+)
+_TARGETED_SOURCE_FILES.update(_P92_CONTROL_INPUTS)
+_SOURCE_TEST_MAP.update(dict.fromkeys(_P92_CONTROL_INPUTS, _P92_CONTROL_TESTS))
+_SOURCE_TEST_MAP["tools/p92_published_recovery_reference.py"] += _P92_CONTROL_TESTS
+
 _CORE_SOURCE_TEST_MAP = {
     "src/agentfem/results/journal.py": (
         "tests/test_accepted_history_journal.py",

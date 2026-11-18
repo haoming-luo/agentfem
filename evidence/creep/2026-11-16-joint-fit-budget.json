@@ -1,0 +1,98 @@
+{
+  "schema": "agentfem.research.p92-joint-protocol-fit.v1",
+  "parameters": {
+    "E": 104936.12765929633,
+    "k": 105.74000299111735,
+    "Q": -104.40558036890168,
+    "b": 2.9992466705318273,
+    "H": -4.0,
+    "Qr": -105.74,
+    "gamma_r1": 2.085132435378985e-09,
+    "gamma_r2": 1.958465511734467e-09,
+    "r": 5.98,
+    "mr": 2.8,
+    "a1": 27.05,
+    "C1": 25000.0,
+    "a2": 72.39,
+    "C2": 996.97,
+    "gamma1": 3e-09,
+    "gamma2": 7.47e-07,
+    "q": 10.0,
+    "m": 3.87,
+    "Z": 1697.8077945210327,
+    "n": 3.0
+  },
+  "scaled_parameters": [
+    1.0493612765929632,
+    2.991117349172886e-08,
+    1.6978077945210328,
+    1.0440558036890168,
+    2.9992466705318273,
+    -1.0112801293258773
+  ],
+  "scaled_bounds": [
+    [
+      1.0,
+      1e-08,
+      0.3,
+      0.2,
+      0.1,
+      -2.0
+    ],
+    [
+      2.0,
+      1.0,
+      2.0,
+      1.5,
+      3.0,
+      2.0
+    ]
+  ],
+  "scaled_names": [
+    "E/1e5",
+    "strength_gap/100",
+    "Z/1000",
+    "-Q/100",
+    "b",
+    "log10_R_recovery_scale"
+  ],
+  "fit": {
+    "success": false,
+    "message": "The maximum number of function evaluations is exceeded.",
+    "cost": 65.81893528134842,
+    "nfev": 40,
+    "active_bounds": [
+      0,
+      -1,
+      0,
+      0,
+      0,
+      0
+    ],
+    "singular_values": [
+      139.89083088702213,
+      63.17636968003614,
+      4.437068022179037,
+      2.984379646275714,
+      0.2712712236448367,
+      0.0017146632735101346
+    ]
+  },
+  "sufficient_strength_lower_bound_MPa": 2.991117355577444e-06,
+  "training_cycles": [
+    1,
+    2,
+    3
+  ],
+  "source_sha256": {
+    "RF": "128e6de1854f4633e26eced6c4ea221687cde2f232db275487ef0d1201767e0a",
+    "SLR": "34e26cae1816ec4b712a4cec5811e0a0c66bad34848c10d962528085171fcabb"
+  },
+  "initial_state_assumption": "Initial measured stress, virgin hidden history separately per specimen; no later resets",
+  "objective": "Equal protocol weights; within each protocol trapezoidal physical-time weights",
+  "engineering_qualified": false,
+  "independent_validation": false,
+  "life_qualified": false,
+  "scope": "Model-family discrimination on inspected records; no new constitutive terms or life fit",
+  "elapsed_seconds": 105.8930215420005
+}

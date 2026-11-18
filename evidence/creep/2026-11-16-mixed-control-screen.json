@@ -1,0 +1,39 @@
+{
+  "schema": "agentfem.research.p92-mixed-control-screen.v1",
+  "source": "https://doi.org/10.5281/zenodo.7198219",
+  "source_sha256": "ab2953c0cfa6335619c8b699728aa73233f8d2209af39b709916ab3fd392683e",
+  "calibration_sha256": "e70095c61a15f76466ff7365694c1004d67ff3ef3424ae9fe0dc0847925631a9",
+  "limit": 2.0,
+  "rate": 0.1,
+  "model_admitted": false,
+  "engineering_qualified": false,
+  "life_qualified": false,
+  "first_envelope_exit_cycle": 2,
+  "first_hold_predicted_strain": 0.0016139610009822272,
+  "second_hold_predicted_strain": 0.01900104983799656,
+  "positive_strain_target": 0.002,
+  "observed_first_hold_sample": {
+    "time_s": 1978.331,
+    "strain": 0.00106,
+    "stress_MPa": 121.70,
+    "role": "Recorded near-end sample, not an exactly aligned endpoint"
+  },
+  "diagnostic_continuations": [
+    {
+      "ramp_mode": "fixed_rate",
+      "cycles": 10,
+      "extrema_RMSE_MPa": 74.78809731213948,
+      "extrema_max_abs_error_MPa": 121.76831143654371,
+      "cycle10_peak_relative_error": -0.461313499911137
+    },
+    {
+      "ramp_mode": "table_duration",
+      "cycles": 10,
+      "extrema_RMSE_MPa": 107.54141456714177,
+      "extrema_max_abs_error_MPa": 176.83816395454818,
+      "cycle10_peak_relative_error": -0.46106124289234407
+    }
+  ],
+  "scope": "Rejected RF-calibrated candidate. Continuations after the second-cycle overshoot reverse the return ramp and are diagnostic, not accepted SLC histories or life predictions.",
+  "loading_note": "Methods prescribe 0.001/s; Table 3 nominally lists 2 s after creep. Measured first post-creep ramp supports fixed-rate interpretation; both policies were screened without refitting."
+}

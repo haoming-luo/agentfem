@@ -1,0 +1,300 @@
+{
+  "schema": "agentfem.research.p92-joint-protocol-fit.v1",
+  "parameters": {
+    "E": 104936.21354497036,
+    "k": 105.74000714833055,
+    "Q": -104.40633593217991,
+    "b": 2.9992466749177096,
+    "H": -4.0,
+    "Qr": -105.74,
+    "gamma_r1": 2.0849614860733935e-09,
+    "gamma_r2": 1.9583049471997766e-09,
+    "r": 5.98,
+    "mr": 2.8,
+    "a1": 27.05,
+    "C1": 25000.0,
+    "a2": 72.39,
+    "C2": 996.97,
+    "gamma1": 3e-09,
+    "gamma2": 7.47e-07,
+    "q": 10.0,
+    "m": 3.87,
+    "Z": 1697.7985596117123,
+    "n": 3.0
+  },
+  "scaled_parameters": [
+    1.0493621354497036,
+    2.987574618507766e-08,
+    1.6977985596117124,
+    1.0440633593217992,
+    2.9992466749177096,
+    -1.0113157363608953
+  ],
+  "scaled_bounds": [
+    [
+      1.0,
+      1e-08,
+      0.3,
+      0.2,
+      0.1,
+      -2.0
+    ],
+    [
+      2.0,
+      1.0,
+      2.0,
+      1.5,
+      3.0,
+      2.0
+    ]
+  ],
+  "scaled_names": [
+    "E/1e5",
+    "strength_gap/100",
+    "Z/1000",
+    "-Q/100",
+    "b",
+    "log10_R_recovery_scale"
+  ],
+  "fit": {
+    "success": true,
+    "message": "`ftol` termination condition is satisfied.",
+    "cost": 65.81882251145404,
+    "nfev": 45,
+    "active_bounds": [
+      0,
+      -1,
+      0,
+      0,
+      0,
+      0
+    ],
+    "singular_values": [
+      153.40610606885147,
+      80.62965808124774,
+      4.45449474839425,
+      2.9904738618330406,
+      0.20283908108370047,
+      0.0016285696871822528
+    ]
+  },
+  "sufficient_strength_lower_bound_MPa": 2.9875746179186535e-06,
+  "training_cycles": [
+    1,
+    2,
+    3
+  ],
+  "source_sha256": {
+    "RF": "128e6de1854f4633e26eced6c4ea221687cde2f232db275487ef0d1201767e0a",
+    "SLR": "34e26cae1816ec4b712a4cec5811e0a0c66bad34848c10d962528085171fcabb"
+  },
+  "initial_state_assumption": "Initial measured stress, virgin hidden history separately per specimen; no later resets",
+  "objective": "Equal protocol weights; within each protocol trapezoidal physical-time weights",
+  "engineering_qualified": false,
+  "independent_validation": false,
+  "life_qualified": false,
+  "scope": "Model-family discrimination on inspected records; no new constitutive terms or life fit",
+  "cycles": [
+    {
+      "protocol": "RF",
+      "cycle": 1,
+      "role": "calibration",
+      "time_weighted_RMSE_MPa": 13.890540082102751,
+      "max_abs_error_MPa": 86.1785641189835,
+      "observed_peak_MPa": 257.37,
+      "predicted_peak_MPa": 204.15755114960635,
+      "BE_Radau_max_difference_MPa": 0.9267284136874991
+    },
+    {
+      "protocol": "RF",
+      "cycle": 2,
+      "role": "calibration",
+      "time_weighted_RMSE_MPa": 13.926491256039705,
+      "max_abs_error_MPa": 85.60813087506455,
+      "observed_peak_MPa": 292.91,
+      "predicted_peak_MPa": 244.0207785446132,
+      "BE_Radau_max_difference_MPa": 0.9609252937744088
+    },
+    {
+      "protocol": "RF",
+      "cycle": 3,
+      "role": "calibration",
+      "time_weighted_RMSE_MPa": 13.726663496610925,
+      "max_abs_error_MPa": 85.45546628735731,
+      "observed_peak_MPa": 290.28,
+      "predicted_peak_MPa": 244.98270327507976,
+      "BE_Radau_max_difference_MPa": 0.9604887362012278
+    },
+    {
+      "protocol": "RF",
+      "cycle": 4,
+      "role": "inspected_development",
+      "time_weighted_RMSE_MPa": 12.842710869818344,
+      "max_abs_error_MPa": 84.35283881235326,
+      "observed_peak_MPa": 287.18,
+      "predicted_peak_MPa": 244.97225113201222,
+      "BE_Radau_max_difference_MPa": 0.9832514053262003
+    },
+    {
+      "protocol": "RF",
+      "cycle": 5,
+      "role": "inspected_development",
+      "time_weighted_RMSE_MPa": 12.261822795501862,
+      "max_abs_error_MPa": 81.7645303605081,
+      "observed_peak_MPa": 284.67,
+      "predicted_peak_MPa": 246.17571280784554,
+      "BE_Radau_max_difference_MPa": 0.9934608776285359
+    },
+    {
+      "protocol": "RF",
+      "cycle": 6,
+      "role": "inspected_development",
+      "time_weighted_RMSE_MPa": 11.628085485652033,
+      "max_abs_error_MPa": 81.07564607779656,
+      "observed_peak_MPa": 282.55,
+      "predicted_peak_MPa": 245.37232042981432,
+      "BE_Radau_max_difference_MPa": 1.0415555251003354
+    },
+    {
+      "protocol": "RF",
+      "cycle": 7,
+      "role": "inspected_development",
+      "time_weighted_RMSE_MPa": 11.678212994557262,
+      "max_abs_error_MPa": 79.42843205390548,
+      "observed_peak_MPa": 281.52,
+      "predicted_peak_MPa": 245.38373758459713,
+      "BE_Radau_max_difference_MPa": 1.0665810924364507
+    },
+    {
+      "protocol": "RF",
+      "cycle": 8,
+      "role": "inspected_development",
+      "time_weighted_RMSE_MPa": 11.213239616665572,
+      "max_abs_error_MPa": 81.95674691189227,
+      "observed_peak_MPa": 280.38,
+      "predicted_peak_MPa": 244.57104768916815,
+      "BE_Radau_max_difference_MPa": 1.0121559778640687
+    },
+    {
+      "protocol": "RF",
+      "cycle": 9,
+      "role": "inspected_development",
+      "time_weighted_RMSE_MPa": 11.03529467042635,
+      "max_abs_error_MPa": 78.62916404449734,
+      "observed_peak_MPa": 277.9,
+      "predicted_peak_MPa": 245.42463855630908,
+      "BE_Radau_max_difference_MPa": 0.9964633481725684
+    },
+    {
+      "protocol": "RF",
+      "cycle": 10,
+      "role": "inspected_development",
+      "time_weighted_RMSE_MPa": 10.537919802127501,
+      "max_abs_error_MPa": 77.49072252512698,
+      "observed_peak_MPa": 276.94,
+      "predicted_peak_MPa": 244.89425697952333,
+      "BE_Radau_max_difference_MPa": 1.0584070431019086
+    },
+    {
+      "protocol": "SLR",
+      "cycle": 1,
+      "role": "calibration",
+      "time_weighted_RMSE_MPa": 8.048925963633621,
+      "max_abs_error_MPa": 69.7750102259997,
+      "observed_peak_MPa": 278.32,
+      "predicted_peak_MPa": 245.2732164710287,
+      "BE_Radau_max_difference_MPa": 0.9421262886588124
+    },
+    {
+      "protocol": "SLR",
+      "cycle": 2,
+      "role": "calibration",
+      "time_weighted_RMSE_MPa": 8.33221269092516,
+      "max_abs_error_MPa": 71.42503519346215,
+      "observed_peak_MPa": 275.4,
+      "predicted_peak_MPa": 244.94483398334378,
+      "BE_Radau_max_difference_MPa": 1.1043595861048345
+    },
+    {
+      "protocol": "SLR",
+      "cycle": 3,
+      "role": "calibration",
+      "time_weighted_RMSE_MPa": 8.676761510332362,
+      "max_abs_error_MPa": 67.72968431745471,
+      "observed_peak_MPa": 272.4,
+      "predicted_peak_MPa": 245.7404671431642,
+      "BE_Radau_max_difference_MPa": 1.142229896190571
+    },
+    {
+      "protocol": "SLR",
+      "cycle": 4,
+      "role": "inspected_development",
+      "time_weighted_RMSE_MPa": 9.303563250793529,
+      "max_abs_error_MPa": 64.17585661889194,
+      "observed_peak_MPa": 270.4,
+      "predicted_peak_MPa": 246.33304795826302,
+      "BE_Radau_max_difference_MPa": 1.212866263309536
+    },
+    {
+      "protocol": "SLR",
+      "cycle": 5,
+      "role": "inspected_development",
+      "time_weighted_RMSE_MPa": 11.17577359949592,
+      "max_abs_error_MPa": 61.406208154459044,
+      "observed_peak_MPa": 267.79,
+      "predicted_peak_MPa": 246.65672060334447,
+      "BE_Radau_max_difference_MPa": 1.1792044131333057
+    },
+    {
+      "protocol": "SLR",
+      "cycle": 6,
+      "role": "inspected_development",
+      "time_weighted_RMSE_MPa": 11.547274720450435,
+      "max_abs_error_MPa": 60.2121965236886,
+      "observed_peak_MPa": 267.02,
+      "predicted_peak_MPa": 247.8022130639546,
+      "BE_Radau_max_difference_MPa": 1.2236851074441972
+    },
+    {
+      "protocol": "SLR",
+      "cycle": 7,
+      "role": "inspected_development",
+      "time_weighted_RMSE_MPa": 13.24469473218899,
+      "max_abs_error_MPa": 56.090848900894066,
+      "observed_peak_MPa": 265.5,
+      "predicted_peak_MPa": 246.77825879433473,
+      "BE_Radau_max_difference_MPa": 1.2281603677834312
+    },
+    {
+      "protocol": "SLR",
+      "cycle": 8,
+      "role": "inspected_development",
+      "time_weighted_RMSE_MPa": 13.296841409349259,
+      "max_abs_error_MPa": 53.011291865440626,
+      "observed_peak_MPa": 265.47,
+      "predicted_peak_MPa": 248.92981203430887,
+      "BE_Radau_max_difference_MPa": 1.2167090644143457
+    },
+    {
+      "protocol": "SLR",
+      "cycle": 9,
+      "role": "inspected_development",
+      "time_weighted_RMSE_MPa": 14.536441020103592,
+      "max_abs_error_MPa": 51.101939483168216,
+      "observed_peak_MPa": 262.76,
+      "predicted_peak_MPa": 246.53876461209074,
+      "BE_Radau_max_difference_MPa": 1.2457101202318768
+    },
+    {
+      "protocol": "SLR",
+      "cycle": 10,
+      "role": "inspected_development",
+      "time_weighted_RMSE_MPa": 14.530297289423508,
+      "max_abs_error_MPa": 50.716665808732216,
+      "observed_peak_MPa": 263.33,
+      "predicted_peak_MPa": 247.62308162326104,
+      "BE_Radau_max_difference_MPa": 1.2352855034226025
+    }
+  ],
+  "elapsed_seconds": 119.68318358299803
+}

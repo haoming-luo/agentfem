@@ -90,9 +90,10 @@ dependency messages. MPI-sensitive changes should be exercised with at least
 two ranks.
 
 See [`docs/development_testing.md`](docs/development_testing.md) for the
-targeted, serial, MPI, CI, and release validation layers. Full remote CI remains
-the merge evidence for numerical changes even when targeted local tests make
-development faster.
+targeted, serial, MPI, CI, and release validation layers. The latest PR revision
+must pass its impact-selected CI tier before merging. Complete release matrices
+are not required for every research experiment; shared numerical changes still
+require their affected consumers and scientific evidence.
 
 ## Commercial Extensions
 

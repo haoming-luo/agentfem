@@ -1,5 +1,21 @@
 # AgentFEM Product Roadmap
 
+### Measured mixed-control identification checkpoint (2026-11-17)
+
+The [three-protocol early-cycle experiment](internal/p92_measured_controls_20261117.md)
+uses measured switching brackets, continuous material states and cycles 1–3
+for identification, followed by frozen cycles 4–10. Numerical refinement
+passes; SLC still exceeds its strain envelope in cycle 5, including both
+switch-bracket extremes. Engineering and life admission remain closed.
+Next distinguish transient recovery/softening observability from controller
+timing uncertainty before enlarging the model. Keep later inspected cycles
+labelled development checks, not independent validation.
+
+Development trials stay local and are pushed as coherent reviewed batches.
+Known research tools select their transitive regression tests; shared numerical
+owners and releases retain the appropriate broader gates. CI success does not
+replace experimental acceptance; see [testing policy](development_testing.md).
+
 ### Response and life comparison checkpoint (2026-11-16)
 
 The [P92 service-like audit](internal/p92_and_engineering_ux_sprint_20261114.md)
@@ -14,6 +30,12 @@ with units, source identity and component-wise coordinate-weighted errors.
 Neither tool supplies a design allowable. Next scientific work must use a
 history-dependent response model with an explicit calibration/validation split
 and measured loading, not another fit to the same life labels.
+
+The bounded 2026-11-16 follow-up includes real ORNL optimized Grade 92 rupture
+and runout observations, preserving distinct heats/treatments. It strengthens
+the generic life-data pipeline, not the qualification of the BAM P92 model.
+Joint RF/SLR calibration experiments remain research evidence: numerical
+convergence and a smaller RF peak error do not resolve hold-response transfer.
 
 Pre/postprocessing will remain a separate development branch: audit Gmsh
 regions, element/formulation compatibility and quality; prototype a read-only
@@ -425,6 +447,15 @@ specimens, not expanding an ill-conditioned fit. Generic censored-life tools
 have independent risk-set, exact-binomial and seeded coverage checks. See
 [the evidence and scope](internal/p92_positive_strength_20261116.md). No
 material card or design allowable is promoted by these numerical checks.
+
+The [bounded-recovery experiment](internal/p92_bounded_recovery_20261116.md)
+reduces the inspected RF cycle-1000 peak error to +1.49%, with an independent
+tolerance-refinement check, but still misses the SLR cycle-10 peak by -12.22%.
+The complete extrema comparison is retained, not just the improved peak.
+Published hold-life reproduction and within-condition replicate survival are
+now separate checks; neither substitutes for independent engineering life
+validation. Joint RF/SLR calibration is a bounded model-discrimination task,
+not permission to keep fitting until a selected metric passes.
 
 PR #132 maintenance is merged at `44fda9c4`; the published 0.4.4 tag remains
 unchanged. The next bounded sequence is reliability → thermal/cyclic-creep

@@ -574,6 +574,9 @@ and evidence remain in the linked guides and scientific function reference.
 | function | `compare_fields(reference, candidate, *, at, missing = 'raise', padding = 1e-10)` | Compare scalar/vector/tensor Functions on explicit physical points. |
 | function | `reaction_force_moment(problem, *, on = None, about, name = 'RF')` | Sum residual nodal forces and (X-about) cross force, without smoothing. |
 | function | `accepted_snapshot(step, *, index = None, at = None, coordinate = None, tolerance = 1e-10)` | Select one retained accepted frame by stored index or nearby coordinate. |
+| function | `read_visualization_frame(path, *, frame = -1)` | Read one saved frame as a detached PyVista dataset, without solving. |
+| function | `inspect_visualization(path, *, frame = -1)` | Describe saved times and selected-frame arrays without loading all frames. |
+| function | `deform_visualization_frame(grid, displacement, *, scale = 1.0, reference_geometry = False)` | Explicit display-only warp from a declared reference-geometry frame. |
 | class | `MaterialPointHistoryRequest` | One fixed reference integration point, not a mesh node or a probe. |
 | function | `material_point(name, *, cell, point = 0)` | Select an original input-cell ID and reference quadrature-point index. |
 | function | `join_xdmf_segments(sources, destination, *, expected_times = None, overlap = 'boundary') -> Path` | Publish one temporal index without copying or modifying heavy data. |

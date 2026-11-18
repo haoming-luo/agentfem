@@ -9,6 +9,11 @@ examples, tests, and public documentation at the repository root.
 
 - Use the `fenicsx-env` conda environment for local numerical tests.
 - Run targeted tests before the full suite.
+- Keep intermediate experiments local; batch a coherent, tested change before
+  pushing. Do not push each parameter trial or repeatedly dispatch full CI.
+  Merge only after the latest PR revision passes its impact-selected gate.
+  Record scientific acceptance separately from CI success; see
+  `docs/development_testing.md` for scope and evidence reuse.
 - Run examples from the source parent or install the built wheel; do not rely
   on source-path insertion in new installed-use templates.
 - Preserve user changes in `README.md`, `CITATION.cff`, and unrelated files.
