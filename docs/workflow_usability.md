@@ -73,8 +73,9 @@ card = model.review(target=displacement, step_options={"procedure": procedure})
 The returned JSON-safe model card records the selected analysis capability,
 material and load semantics, boundary measures/resultants, constraint degrees of
 freedom, rigid-mode audit, and findings such as an empty boundary selection. It
-is a snapshot of the reference configuration: it does not update state, assemble
-or solve. `solver_executed` is consequently always `false`. It checks a declared
+is a snapshot of the reference configuration: it does not update state or solve
+an equilibrium system. Boundary integrals may compile and assemble forms.
+`solver_executed` is consequently always `false`. It checks a declared
 model, not whether the material law is scientifically valid or a nonlinear
 equilibrium path will converge.
 

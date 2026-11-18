@@ -503,6 +503,8 @@ _CORE_SOURCE_TEST_MAP = {
     "src/agentfem/_architecture_contract.py": ("tests/test_architecture_contract.py",),
 }
 _CORE_SOURCE_MPI_TEST_MAP = {
+    "src/agentfem/results/postprocessing.py": ("tests/test_engineering_postprocessing.py",),
+    "src/agentfem/results/quantities.py": ("tests/test_engineering_postprocessing.py",),
     "src/agentfem/mechanics/_affine_normal_augmentation.py": (
         "tests/test_finite_strain_j2_contact_mpi_boundary.py",
         "tests/test_parallel_affine.py",

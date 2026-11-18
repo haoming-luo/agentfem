@@ -8,6 +8,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from hashlib import sha256
 from math import sqrt
+from operator import index as integer_index
 
 import numpy as np
 import basix
@@ -42,7 +43,7 @@ class PointSample:
 
 @dataclass(frozen=True)
 class PathSample:
-    """Values sampled along one straight physical-space path."""
+    """Values sampled along a physical-space segment or polyline."""
 
     coordinates: np.ndarray
     distance: np.ndarray
@@ -62,7 +63,7 @@ class PathSample:
 
         selected_name = name or f"{self.field_name}_path"
         selected_description = description or (
-            f"{self.field_name} sampled along a straight physical-space path."
+            f"{self.field_name} sampled along a physical-space path."
         )
         return result.add_history(
             selected_name,
@@ -955,35 +956,67 @@ def sample_points(
 def sample_path(
     field,
     *,
-    start,
-    end,
+    start=None,
+    end=None,
+    vertices=None,
     count: int = 101,
     padding: float = 1.0e-10,
     missing: str = "raise",
 ) -> PathSample:
-    """Sample a field along the straight segment from ``start`` to ``end``."""
+    """Sample a segment or polyline, with uniform cumulative arc-length spacing.
+
+    Supply either start/end or vertices. Corners are retained when they coincide
+    with a sample station; distance always follows the supplied polyline.
+    """
 
     function = field_api.unwrap(field)
     domain = function.function_space.mesh
-    selected_count = int(count)
-    if selected_count < 2:
-        raise ValueError("sample_path count must be at least two.")
-    start_point = _single_point(start, domain)[0, : domain.geometry.dim]
-    end_point = _single_point(end, domain)[0, : domain.geometry.dim]
-    coordinates = np.linspace(start_point, end_point, selected_count)
+    error = None
+    try:
+        coordinates, distance = _path_coordinates(domain, start, end, vertices, count)
+    except (TypeError, ValueError) as exc:
+        error = str(exc)
+    errors = domain.comm.allgather(error)
+    if any(errors):
+        raise ValueError("AFM-PATH-INPUT: " + "; ".join(item for item in errors if item))
     values = sample_points(
         function,
         coordinates,
         padding=padding,
         missing=missing,
     )
-    distance = np.linalg.norm(coordinates - coordinates[0], axis=1)
     return PathSample(
         coordinates=coordinates,
         distance=distance,
         values=values,
         field_name=str(getattr(function, "name", "field")),
     )
+
+
+def _path_coordinates(domain, start, end, vertices, count):
+    selected_count = integer_index(count)
+    if isinstance(count, bool):
+        raise ValueError("sample_path count must be an integer.")
+    if selected_count < 2:
+        raise ValueError("sample_path count must be at least two.")
+    if vertices is not None:
+        if start is not None or end is not None:
+            raise ValueError("AFM-PATH-INPUT: use vertices or start/end, not both.")
+        waypoints = _point_array(vertices, domain)[:, :domain.geometry.dim]
+    else:
+        if start is None or end is None:
+            raise ValueError("AFM-PATH-INPUT: supply start/end or vertices.")
+        waypoints = np.vstack((_single_point(start, domain), _single_point(end, domain)))[:, :domain.geometry.dim]
+    if len(waypoints) < 2:
+        raise ValueError("AFM-PATH-INPUT: at least two vertices are required.")
+    lengths = np.linalg.norm(np.diff(waypoints, axis=0), axis=1)
+    if np.any(lengths <= 0):
+        raise ValueError("AFM-PATH-INPUT: consecutive vertices must be distinct.")
+    stations = np.r_[0., np.cumsum(lengths)]
+    distance = np.linspace(0., stations[-1], selected_count)
+    coordinates = np.column_stack([np.interp(distance, stations, waypoints[:, axis])
+                                   for axis in range(domain.geometry.dim)])
+    return coordinates, distance
 
 
 def sample_rectilinear_grid(

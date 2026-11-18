@@ -567,6 +567,13 @@ and evidence remain in the linked guides and scientific function reference.
 
 | Kind | Public object | Purpose |
 | --- | --- | --- |
+| class | `SectionSample` | Point samples on a parametric plane; not a cut-surface quadrature rule. |
+| class | `FieldComparison` | Paired samples and candidate-minus-reference on common physical points. |
+| class | `ReactionForceMoment` | Discrete residual force and moment about a reference-mesh point. |
+| function | `sample_section(field, *, origin, axis_u, axis_v, u, v, missing = 'raise', padding = 1e-10)` | Sample x=origin+u*axis_u+v*axis_v on a three-dimensional mesh. |
+| function | `compare_fields(reference, candidate, *, at, missing = 'raise', padding = 1e-10)` | Compare scalar/vector/tensor Functions on explicit physical points. |
+| function | `reaction_force_moment(problem, *, on = None, about, name = 'RF')` | Sum residual nodal forces and (X-about) cross force, without smoothing. |
+| function | `accepted_snapshot(step, *, index = None, at = None, coordinate = None, tolerance = 1e-10)` | Select one retained accepted frame by stored index or nearby coordinate. |
 | class | `MaterialPointHistoryRequest` | One fixed reference integration point, not a mesh node or a probe. |
 | function | `material_point(name, *, cell, point = 0)` | Select an original input-cell ID and reference quadrature-point index. |
 | function | `join_xdmf_segments(sources, destination, *, expected_times = None, overlap = 'boundary') -> Path` | Publish one temporal index without copying or modifying heavy data. |
@@ -591,7 +598,7 @@ and evidence remain in the linked guides and scientific function reference.
 | function | `dof_statistics(field) -> dict[str, float \| int]` | Return global finite dof statistics for a DOLFINx-like field. |
 | function | `from_solution(solution, *, name: str = 'result', field_name: str \| None = None, unit: str \| None = None, metadata: Mapping[str, object] \| None = None, scientific_inputs: Mapping[str, object] \| None = None) -> SimulationResult` | Wrap one solved field in a :class:`SimulationResult`. |
 | class | `ForceMomentResultant` | Integrated force and moment about an explicit physical point. |
-| class | `PathSample` | Values sampled along one straight physical-space path. |
+| class | `PathSample` | Values sampled along a physical-space segment or polyline. |
 | class | `PointSample` | Point values with distinct mesh coverage and numerical validity masks. |
 | class | `RectilinearGridSample` | A finite-element field sampled on a Cartesian observation grid. |
 | class | `StaticForceBalance` | Global algebraic force equilibrium for one linear static solid. |
@@ -609,7 +616,7 @@ and evidence remain in the linked guides and scientific function reference.
 | function | `region_average(expression, *, on, study = None)` | Return a measure-weighted average over a named mesh region. |
 | function | `region_integral(expression, *, on, study = None)` | Integrate over a named region using its declared physical measure. |
 | function | `region_measure(*, on, study = None) -> float` | Return the global length, area, or volume of a named region. |
-| function | `sample_path(field, *, start, end, count: int = 101, padding: float = 1e-10, missing: str = 'raise') -> PathSample` | Sample a field along the straight segment from ``start`` to ``end``. |
+| function | `sample_path(field, *, start = None, end = None, vertices = None, count: int = 101, padding: float = 1e-10, missing: str = 'raise') -> PathSample` | Sample a segment or polyline, with uniform cumulative arc-length spacing. |
 | function | `sample_points(field, points, *, padding: float = 1e-10, missing: str = 'raise', return_info: bool = False) -> np.ndarray \| PointSample` | Evaluate a finite-element field at common physical points under MPI. |
 | function | `sample_rectilinear_grid(field, *, bbox, shape, reduction: str \| None = None, component: int \| None = None, padding: float = 1e-10) -> RectilinearGridSample` | Sample a scalar or vector field on a 2D/3D rectilinear grid. |
 | function | `section_resultant(stress, *, on, normal = None, about = None) -> ForceMomentResultant` | Integrate section force and moment from a Cauchy/nominal stress field. |
