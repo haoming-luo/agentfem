@@ -1,5 +1,25 @@
 # AgentFEM Product Roadmap
 
+### Fixed-card waveform discrimination (2026-11-21)
+
+The [waveform audit](internal/p92_waveform_20261121.md) now compares two frozen
+cards across all three BAM protocols and ten continuous cycles. Measured ramp
+shape, complete pre-first-stress-hold strain history, switch brackets and
+independent integration do not explain the remaining SLC entry-stress bias.
+No parameter reset or imposed creep response is used. Both cards still fail
+response screening; no engineering/life admission follows from numerical passes.
+
+The [milestone gates](internal/p92_milestone_gates_20261121.md) separate loading
+error, joint early-cycle identification, independent response, life uncertainty
+and installed-product admission. Conditional identification of the observable
+fast second-backstress directions is now complete: a converged,
+non-bound-limited two-coordinate fit reduces early aggregate cost by 3.9%, but
+frozen first-hold creep worsens and all response screens still fail. It is not
+promoted. Next discriminate initial-hold response from cross-cycle recovery
+before adding a memory law; retain all hold/valley errors rather than select
+by aggregate cost. PR #197 stays open;
+batch updates only, no merge or release.
+
 ### Measured mixed-control identification checkpoint (2026-11-17)
 
 The [reversal-shape test](internal/p92_reversal_shape_20261117.md) varies a1/C1

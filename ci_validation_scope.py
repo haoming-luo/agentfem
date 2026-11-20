@@ -151,6 +151,9 @@ _SOURCE_TEST_MAP = {
 # Research-only scalar controls have known transitive consumers. Do not use a
 # tools/* wildcard: an unknown numerical driver still needs the broader gate.
 _P92_CONTROL_TESTS = (
+    "tests/test_p92_reversal_sensitivity.py",
+    "tests/test_p92_response_screen.py",
+    "tests/test_p92_waveform_controls.py",
     "tests/test_p92_transient_history.py",
     "tests/test_p92_recovery_discriminator.py",
     "tests/test_p92_candidate_report.py", "tests/test_p92_measured_controls.py",
@@ -160,6 +163,15 @@ _P92_CONTROL_TESTS = (
     "tests/test_p92_two_mechanism_fit.py",
 )
 _P92_CONTROL_INPUTS = (
+    "tools/p92_reversal_sensitivity.py",
+    "tools/p92_reversal_identification.py",
+    "evidence/creep/2026-11-21-waveform-time.json",
+    "evidence/creep/2026-11-21-waveform-kinematic.json",
+    "evidence/creep/2026-11-21-reversal-sensitivity.json",
+    "evidence/creep/2026-11-21-reversal-fit.json",
+    "evidence/creep/2026-11-21-reversal-frozen.json",
+    "tools/p92_response_screen.py",
+    "tools/p92_waveform_controls.py", "tools/p92_waveform_experiment.py",
     "evidence/creep/2026-11-17-kinematic-shape.json",
     "evidence/creep/2026-11-17-time-shape.json",
     "tools/p92_transient_history.py",
