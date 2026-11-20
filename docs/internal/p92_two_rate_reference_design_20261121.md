@@ -158,6 +158,61 @@ justified by early full hysteresis histories rather than adding corrections
 to individual protocol endpoints. No engineering-life claim follows from
 any of the cost reductions reported here.
 
+## Joint identification gate
+
+The next bounded experiment combines six already discriminated directions:
+branch-A threshold (30–160 MPa), log reference flow (+/-0.5 decade), exponent
+(3–8), second saturation (+/-0.3 decade, fixed H), and the two branch-B
+recoveries (+/-1 decade). It starts from the explicit unfitted bridge, not
+from a selected late-cycle endpoint. All three protocols contribute cycles
+1–3 with unchanged weights. No saturation-memory coefficients are fitted.
+Before optimization compute the central-difference Jacobian: require smallest
+singular value >=1e-5 and condition ratio <=1e4 in these declared dimensionless
+coordinates. This is a local numerical screen, not statistical identifiability.
+If it passes, allow at most 15 iterations, retain bounds/rank/evaluation count,
+then freeze before later-cycle screening. A budget-exhausted fit is not called
+converged; a failed screen stops this batch rather than widening the domain.
+
+The six-coordinate experiment passed its local rank screen and converged in
+13 iterations (157 residual evaluations), cost 0.007893. The threshold and
+second branch-B recovery reached bounds. Frozen cycle-10 peak errors were
+RF +3.46%, SLR +9.07%, SLC -4.14%; all three response screens failed. SLC
+first hold remained 137.03 MPa versus 121.70 MPa, and its end strain was
+0.001234 versus 0.00106. Full state, independent-integration and identical
+waveform subdivision checks all passed. No fitted candidate is promoted.
+
+The frozen-reference numerical screen was strengthened after review to cover
+every backstress and accumulated-strain endpoint, work/dissipation, and
+identical-waveform knot refinement, not only plotted stress/strain samples.
+The same flow card passed the expanded checks in all protocols: maximum
+stress-state difference below 6.8e-7 MPa, strain-state below 5.5e-11,
+work/dissipation below 1.4e-7 MPa. The original field-only record remains;
+the complete-numerics record supersedes it for numerical admission. Response
+failures are unchanged. Tests deliberately perturb hidden states while
+leaving plotted fields identical to ensure the expanded gate rejects them.
+
+## Distinct low-stress creep hypothesis
+
+The original branch-B threshold is about 123 MPa, comparable to the observed
+SLC hold stress. It can suppress that branch once its effective stress falls
+below threshold. This is consistent with the earlier audit showing 93–97%
+of hold strain coming from the other branch; it does not by itself prove an
+incorrect physical mechanism. [NEML power-law creep](https://neml.readthedocs.io/en/main/creep/s_power.html)
+has rate A*sigma_eq^n without a finite threshold. This motivates a distinct
+fixed-zero-threshold branch-B test, not widening branch-A's fitted bound.
+Retain kinematic recovery, so this is not claimed to be a pure Norton-law
+transcription or a NEML numerical comparison. Freeze the joint early card
+otherwise; test branch-B rates 1e-9, 1e-8, 1e-7, 1e-6 /s at 120 MPa effective
+stress, using only cycles 1–3. Invalid control paths are explicit failures
+with no aggregate cost, not silently shortened successful simulations.
+
+This fixed experiment also failed to improve early cost: the first three
+rates gave 0.01343, 0.01319 and 0.01267 versus the joint card's 0.007893.
+The 1e-6 /s case left the declared SLC post-hold loading direction and is
+recorded as failed with no aggregate cost. Do not infer that every possible
+zero-threshold model is disproved; only these frozen conditional changes
+were tested. Stop this batch of conditional searches and retain its evidence.
+
 The initial nine tests now pass: analytic elastic/static-recovery checks,
 instantaneous signed-work identities, cycling/reversal/hold restart, independent
 Radau/BDF integration, branch permutation, invalid-domain and failed-solve

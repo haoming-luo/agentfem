@@ -32,6 +32,7 @@ def test_classifier_edit_selects_its_own_regressions():
     "tools/p92_reversal_identification.py", "tools/p92_reversal_sensitivity.py",
     "tools/p92_two_rate_controls.py", "tools/p92_two_rate_frozen.py",
     "tools/p92_two_rate_sensitivity.py", "tools/p92_two_rate_history_probe.py",
+    "tools/p92_two_rate_joint.py",
     "evidence/creep/2026-11-21-reversal-frozen.json"])
 def test_waveform_and_response_gates_keep_transitive_material_tests(path):
     scope = classify_changes([path])

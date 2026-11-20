@@ -151,6 +151,7 @@ _SOURCE_TEST_MAP = {
 # Research-only scalar controls have known transitive consumers. Do not use a
 # tools/* wildcard: an unknown numerical driver still needs the broader gate.
 _P92_CONTROL_TESTS = (
+    "tests/test_p92_two_rate_joint.py",
     "tests/test_p92_hold_observations.py",
     "tests/test_p92_two_rate_frozen.py",
     "tests/test_p92_two_rate_controls.py",
@@ -169,6 +170,11 @@ _P92_CONTROL_TESTS = (
     "tests/test_p92_two_mechanism_fit.py",
 )
 _P92_CONTROL_INPUTS = (
+    "tools/p92_two_rate_joint.py",
+    "evidence/creep/2026-11-21-two-rate-joint.json",
+    "evidence/creep/2026-11-21-two-rate-joint-frozen.json",
+    "evidence/creep/2026-11-21-two-rate-zero-threshold-probe.json",
+    "evidence/creep/2026-11-21-two-rate-flow-complete-numerics.json",
     "tools/p92_hold_observations.py",
     "tools/p92_two_rate_frozen.py",
     "evidence/creep/2026-11-21-two-rate-flow-fit.json",

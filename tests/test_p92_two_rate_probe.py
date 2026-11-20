@@ -71,3 +71,15 @@ def test_history_grid_uses_only_three_early_cycles_and_preserves_seed(monkeypatc
     assert result["training_cycles"] == [1, 2, 3]
     assert all(c["cost"] == 1.5 for c in result["candidates"])
     assert original == before
+
+    def invalid_path(path, card):
+        if path["protocol"] == "SLR":
+            raise ValueError("incompatible control path")
+        return np.array([1.]), {"synthetic": True}
+
+    monkeypatch.setattr(module, "replay", invalid_path)
+    failed = module.probe(original, Path("unused"))
+    for candidate in failed["candidates"]:
+        assert candidate["cost"] is None
+        assert candidate["failure"]["protocol"] == "SLR"
+        assert set(candidate["protocols"]) == {"RF"}

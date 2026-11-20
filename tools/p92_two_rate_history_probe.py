@@ -15,8 +15,10 @@ from tools.p92_two_rate_reference import Material, Branch
 from tools.p92_waveform_controls import attach_waveforms
 
 
-def probe(seed, source_dir, *, ratcheting=False):
-    if ratcheting:
+def probe(seed, source_dir, *, ratcheting=False, creep=False):
+    if ratcheting and creep:
+        raise ValueError("Keep mechanism experiments separate")
+    if ratcheting or creep:
         if not seed["conditional_fit"]["success"] or seed["training_cycles"] != [1, 2, 3]:
             raise ValueError("Require completed early conditional fit")
         card = seed["conditional_fit"]["parameters"]
@@ -36,17 +38,25 @@ def probe(seed, source_dir, *, ratcheting=False):
     branches = ([replace(base.branches[0], ratcheting=(chi, chi)) for chi in (0., 1., 3., 6.)]
         if ratcheting else [replace(base.branches[0], saturation_ratio=ratio, softening_rate=rate)
             for ratio, rate in ((1., 0.), (.8, 100.), (.8, 1000.), (.5, 100.), (.5, 1000.))])
-    for branch in branches:
-        card = replace(base, branches=(branch, base.branches[1]))
+    cards = ([replace(base, branches=(base.branches[0], replace(base.branches[1],
+              strength=0., reference_flow=q))) for q in (1e-9, 1e-8, 1e-7, 1e-6)] if creep else
+             [replace(base, branches=(branch, base.branches[1])) for branch in branches])
+    for card in cards:
         protocols = {}
+        failure = None
         for path in paths:
-            residual, result = replay(path, card)
+            try:
+                residual, result = replay(path, card)
+            except (ValueError, RuntimeError) as error:
+                failure = dict(protocol=path["protocol"], reason=str(error))
+                break
             protocols[path["protocol"]] = dict(cost=float(.5*residual@residual), prediction=result)
         records.append(dict(parameters=asdict(card), protocols=protocols,
-            cost=sum(p["cost"] for p in protocols.values())))
+            cost=None if failure else sum(p["cost"] for p in protocols.values()), failure=failure))
     return dict(schema="agentfem.research.two-rate-history-probe.v1", training_cycles=[1, 2, 3],
         source_sha256=seed["source_sha256"], seed_parameter_sha256=seed_identity,
-        candidates=records, scope=("Fixed fast-branch ratcheting grid" if ratcheting else
+        candidates=records, scope=("Fixed zero-threshold branch-B creep grid" if creep else
+            "Fixed fast-branch ratcheting grid" if ratcheting else
             "Fixed fast-branch saturation-memory grid")+"; no later-cycle selection",
         fitted=False, engineering_qualified=False, life_qualified=False)
 
@@ -57,8 +67,9 @@ if __name__ == "__main__":
     parser.add_argument("source_dir", type=Path)
     parser.add_argument("output", type=Path)
     parser.add_argument("--ratcheting", action="store_true")
+    parser.add_argument("--creep", action="store_true")
     args = parser.parse_args()
-    result = probe(json.loads(args.seed.read_text()), args.source_dir, ratcheting=args.ratcheting)
+    result = probe(json.loads(args.seed.read_text()), args.source_dir, ratcheting=args.ratcheting, creep=args.creep)
     write_new(args.output, result)
     print(json.dumps([dict(ratio=r["parameters"]["branches"][0]["saturation_ratio"],
         rate=r["parameters"]["branches"][0]["softening_rate"],

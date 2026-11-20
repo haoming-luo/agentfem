@@ -1,0 +1,134 @@
+{
+  "schema": "agentfem.research.two-rate-joint.v1",
+  "training_cycles": [
+    1,
+    2,
+    3
+  ],
+  "source_sha256": {
+    "RF": "128e6de1854f4633e26eced6c4ea221687cde2f232db275487ef0d1201767e0a",
+    "SLR": "34e26cae1816ec4b712a4cec5811e0a0c66bad34848c10d962528085171fcabb",
+    "SLC": "ab2953c0cfa6335619c8b699728aa73233f8d2209af39b709916ab3fd392683e"
+  },
+  "seed_parameter_sha256": "04684dd85f74341d4af1c321bbe73081ff815c50d250b5b84a18f215a7859b01",
+  "initial_singular_values": [
+    0.20900883180524082,
+    0.039048637344324455,
+    0.035585625617054306,
+    0.01809862462679927,
+    0.012808741380107399,
+    0.0028504311928142768
+  ],
+  "coordinate_names": [
+    "threshold_A_increment_per_50MPa",
+    "log10_reference_flow_A",
+    "exponent_A_increment",
+    "log10_saturation_A2_at_fixed_H2",
+    "log10_recovery_B1",
+    "log10_recovery_B2"
+  ],
+  "scope": "Joint early response identification; no memory term or later-cycle objective",
+  "engineering_qualified": false,
+  "life_qualified": false,
+  "conditional_fit": {
+    "success": true,
+    "cost": 0.00789336587683648,
+    "coordinates": [
+      -1.719964997440539,
+      -0.31605606247855256,
+      -0.7621331514260143,
+      0.12610969696345803,
+      0.4698685082820874,
+      0.9999954957955703
+    ],
+    "active_bounds": [
+      -1,
+      0,
+      0,
+      0,
+      0,
+      1
+    ],
+    "nfev": 13,
+    "residual_evaluations": 157,
+    "message": "`gtol` termination condition is satisfied.",
+    "parameters": {
+      "modulus": 155176.47110217228,
+      "branches": [
+        {
+          "strength": 30.00003695764204,
+          "reference_flow": 3.737893872956098e-05,
+          "exponent": 5.237866848573986,
+          "hardening": [
+            67625.00828363141,
+            85976.5328847262
+          ],
+          "saturation": [
+            27.05,
+            87.84002093035397
+          ],
+          "static_recovery": [
+            9.669245585100904e-08,
+            1.2346247335218733e-06
+          ],
+          "ratcheting": [
+            3.0,
+            3.0
+          ],
+          "saturation_ratio": 1.0,
+          "softening_rate": 0.0
+        },
+        {
+          "strength": 123.05513421151217,
+          "reference_flow": 6.088770390067978e-05,
+          "exponent": 3.0,
+          "hardening": [
+            895874.1262987861,
+            14400.083259539759
+          ],
+          "saturation": [
+            27.05,
+            14.443848119341363
+          ],
+          "static_recovery": [
+            0.028526588340325416,
+            0.015971537285740543
+          ],
+          "ratcheting": [
+            3.0,
+            3.0
+          ],
+          "saturation_ratio": 1.0,
+          "softening_rate": 0.0
+        }
+      ]
+    },
+    "bounds": [
+      [
+        -1.71996573659338,
+        -0.5,
+        -3.0,
+        -0.3,
+        -1.0,
+        -1.0
+      ],
+      [
+        0.88003426340662,
+        0.5,
+        2.0,
+        0.3,
+        1.0,
+        1.0
+      ]
+    ],
+    "singular_values": [
+      0.3293232082438746,
+      0.13973481246824432,
+      0.08868622695026271,
+      0.02642452115190926,
+      0.005970931228189671,
+      0.003034864932717684
+    ],
+    "parameter_sha256": "8a6c8380e0eb7473f0ae6fd2e2637ecab948a33b0113c562014ecbbb7ca57f92"
+  }
+}
