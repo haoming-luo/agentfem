@@ -14,6 +14,8 @@
     "agentfem.results.compare_fields",
     "agentfem.results.reaction_force_moment",
     "agentfem.results.accepted_snapshot",
+    "agentfem.results.gauge",
+    "agentfem.results.AcceptedMaterialFields",
     "agentfem.results.history",
     "agentfem.results.probe_history",
     "agentfem.results.PathSample.add_to"
@@ -23,6 +25,7 @@
     "results/plan.py",
     "results/core.py",
     "results/postprocessing.py",
+    "results/material_observations.py",
     "problems.py"
   ],
   "science": {

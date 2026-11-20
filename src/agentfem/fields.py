@@ -19,6 +19,12 @@ from mpi4py import MPI
 
 from . import spaces
 from .kernel import dofs
+from ._prescribed_fields import PrescribedField, prescribed
+
+_DOCUMENTED_REEXPORTS = {
+    "PrescribedField": "_prescribed_fields",
+    "prescribed": "_prescribed_fields",
+}
 
 
 @dataclass

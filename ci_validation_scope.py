@@ -143,8 +143,12 @@ _SOURCE_TEST_MAP = {
     "src/agentfem/community.py": ("tests/test_community.py",),
     "src/agentfem/project.py": ("tests/test_project_cli.py",),
     "src/agentfem/cli.py": (
+        "tests/test_api_source.py",
+        "tests/test_api_discovery.py",
+        "tests/test_cli_startup.py",
         "tests/test_project_cli.py",
         "tests/test_common_workflows.py",
+        "tests/test_project_local_runtime.py",
     ),
 }
 # Research-only scalar controls have known transitive consumers. Do not use a
@@ -172,6 +176,8 @@ _SOURCE_TEST_MAP.update(dict.fromkeys(_P92_CONTROL_INPUTS, _P92_CONTROL_TESTS))
 _SOURCE_TEST_MAP["tools/p92_published_recovery_reference.py"] += _P92_CONTROL_TESTS
 
 _CORE_SOURCE_TEST_MAP = {
+    "src/agentfem/_api_source.py": ("tests/test_api_source.py", "tests/test_api_discovery.py", "tests/test_cli_startup.py"),
+    "src/agentfem/_api_discovery.py": ("tests/test_api_source.py", "tests/test_api_discovery.py"),
     "src/agentfem/results/journal.py": (
         "tests/test_accepted_history_journal.py",
         "tests/test_transient_history_journal.py",
@@ -331,6 +337,8 @@ _CORE_SOURCE_TEST_MAP = {
         "tests/test_finite_strain_plasticity.py",
         "tests/test_finite_strain_j2_material_map.py",
         "tests/test_history_material_temperature.py",
+        "tests/test_plane_stress_array.py",
+        "tests/test_prescribed_material_fields.py",
     ),
     "src/agentfem/mechanics/_prescribed_temperature.py": (
         "tests/test_rate_material_history_units.py",
@@ -348,6 +356,15 @@ _CORE_SOURCE_TEST_MAP = {
         "tests/test_history_material_temperature.py",
         "tests/test_finite_material_point_histories.py",
         "tests/test_thermal_history_time_units.py",
+        "tests/test_plane_stress_array.py",
+        "tests/test_prescribed_material_fields.py",
+    ),
+    "src/agentfem/constitutive/plane_stress.py": (
+        "tests/test_history_plane_stress.py", "tests/test_plane_stress_array.py",
+    ),
+    "src/agentfem/_prescribed_fields.py": ("tests/test_prescribed_material_fields.py",),
+    "src/agentfem/results/material_observations.py": (
+        "tests/test_prescribed_material_fields.py", "tests/test_plane_stress_array.py",
     ),
     "src/agentfem/results/material_points.py": (
         "tests/test_material_point_histories.py",
@@ -528,6 +545,8 @@ _CORE_SOURCE_TEST_MAP = {
     "src/agentfem/_architecture_contract.py": ("tests/test_architecture_contract.py",),
 }
 _CORE_SOURCE_MPI_TEST_MAP = {
+    "src/agentfem/_prescribed_fields.py": ("tests/test_prescribed_material_fields.py",),
+    "src/agentfem/results/material_observations.py": ("tests/test_prescribed_material_fields.py",),
     "src/agentfem/results/postprocessing.py": ("tests/test_engineering_postprocessing.py",),
     "src/agentfem/results/quantities.py": ("tests/test_engineering_postprocessing.py",),
     "src/agentfem/mechanics/_affine_normal_augmentation.py": (

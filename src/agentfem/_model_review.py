@@ -19,6 +19,18 @@ def review_model(model, *, target=None, step_options=None):
     comm = mesh.comm
     validation = model.validate(target=target, step_options=step_options).as_dict()
     capability = step_capability(model, target=target, options=step_options)
+    physics = model_physics(model, options=step_options)
+    thickness = 1.
+    if ((capability.get('provider') or {}).get('name') == 'finite_strain_user_material_static'
+        and capability.get('ready') and mesh.geometry.dim == 2):
+        thickness = float((step_options or {}).get('reference_thickness') or 1.)
+        physics['section'] = {'status': 'declared', 'reference_thickness': thickness,
+            'configuration': 'reference', 'distribution': 'uniform',
+            'virtual_work_multiplier': thickness,
+            'force_convention': 'integrated through reference thickness; no second scaling'}
+        if (step_options or {}).get('reference_thickness') is None:
+            physics['section'].update(status='unit_reference_thickness', reference_thickness=None,
+                force_convention='per unit reference thickness')
     constraints = []
     findings = []
     for item in model.constraints:
@@ -52,12 +64,14 @@ def review_model(model, *, target=None, step_options=None):
             value = getattr(item, 'value', None)
             if getattr(value, 'ufl_shape', None) == (mesh.geometry.dim,):
                 entry['resultant'] = np.asarray(results.boundary_resultant(value, on=region, study=model.study)).tolist()
+                entry['reference_thickness_multiplier'] = thickness
+                entry['resultant'] = (thickness*np.asarray(entry['resultant'])).tolist()
                 # Planar/3D Cartesian moment only. Axisymmetric resultants need
                 # their own revolution semantics, not a planar cross product.
                 if getattr(model.study, 'assumption', '') != 'axisymmetric':
                     x = ufl.SpatialCoordinate(mesh)
                     moment = ufl.cross(x, value) if mesh.geometry.dim == 3 else x[0]*value[1]-x[1]*value[0]
-                    entry['moment_about_origin'] = np.asarray(results.integral(moment, measure=region.measure, comm=comm)).tolist()
+                    entry['moment_about_origin'] = (thickness*np.asarray(results.integral(moment, measure=region.measure, comm=comm))).tolist()
         loads.append(entry)
     selected = target if target is not None else (model.fields[0] if model.fields else None)
     rigid = {'status': 'not_checked', 'reason': 'not a supported displacement field/constraint combination'}
@@ -69,7 +83,7 @@ def review_model(model, *, target=None, step_options=None):
             rigid['reason'] = str(error)
     return {
         'schema': 'agentfem.model-review.v1', 'agentfem_version': __version__,
-        'model': model.summary(), 'physics': model_physics(model, options=step_options),
+        'model': model.summary(), 'physics': physics,
         'capability': capability, 'validation': validation,
         'constraints': constraints, 'loads': loads, 'rigid_modes': rigid,
         'findings': findings, 'solver_executed': False,

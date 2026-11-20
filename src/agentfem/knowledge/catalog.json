@@ -865,7 +865,11 @@
         "agentfem.constitutive.PlaneStressPointResponse",
         "agentfem.constitutive.reduce_plane_stress",
         "agentfem.constitutive.check_plane_stress_tangent",
-        "agentfem.constitutive.PlaneStressTangentCheck"
+        "agentfem.constitutive.PlaneStressTangentCheck",
+        "agentfem.fields.PrescribedField",
+        "agentfem.fields.prescribed",
+        "agentfem.results.AcceptedMaterialFields",
+        "agentfem.results.gauge"
       ],
       "related_cards": [
         "agentfem.workflow.physical_field_statistics",
@@ -1441,6 +1445,8 @@
         "agentfem.results.compare_fields",
         "agentfem.results.reaction_force_moment",
         "agentfem.results.accepted_snapshot",
+        "agentfem.results.gauge",
+        "agentfem.results.AcceptedMaterialFields",
         "agentfem.results.history",
         "agentfem.results.probe_history",
         "agentfem.results.PathSample.add_to"

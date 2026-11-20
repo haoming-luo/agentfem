@@ -6,6 +6,7 @@
 from importlib import import_module
 import inspect
 import math
+import sys
 
 from . import __version__, public_api
 from ._api_contract import model_method_contract, model_methods
@@ -26,8 +27,10 @@ def _annotation(value):
 def callable_record(name: str) -> dict:
     """Describe a public function, exported constructor or Model method.
 
-    Imports the selected installed module only. No expression evaluation,
-    arbitrary attribute chain, user case execution or dependency installation.
+    Read an exact simple signature from installed source before importing FEM.
+    Dynamic defaults/decorators and already-loaded modules use live inspection.
+    No expression evaluation, arbitrary attribute chain, case execution or
+    dependency installation is performed.
     """
 
     selected = str(name).removeprefix("agentfem.")
@@ -40,25 +43,39 @@ def callable_record(name: str) -> dict:
     is_method = len(parts) == 3
     if is_method and (parts[:2] != ["models", "Model"] or parts[2] not in model_methods("all")):
         raise ValueError("Only declared models.Model methods support nested API discovery.")
-    try:
-        module = import_module(f"agentfem.{module_name}")
-    except ImportError as exc:
-        raise RuntimeError(f"Cannot inspect installed module agentfem.{module_name}: {exc}") from exc
-    owner = module.Model if is_method else module
-    try:
-        function = inspect.getattr_static(owner, parts[-1])
-    except AttributeError as exc:
-        raise ValueError(f"No public callable {selected!r} in this installed version.") from exc
-    is_constructor = (
-        not is_method and inspect.isclass(function)
-        and parts[-1] in getattr(module, "__all__", ())
-    )
-    if not (inspect.isfunction(function) or is_constructor) or not function.__module__.startswith("agentfem."):
-        raise ValueError(f"{selected!r} is not an AgentFEM public function, exported class or Model method.")
-    try:
-        signature = inspect.signature(function, eval_str=False)
-    except (TypeError, ValueError) as exc:
-        raise ValueError(f"Installed callable {selected!r} does not expose an inspectable signature.") from exc
+    source = None
+    if f"agentfem.{module_name}" not in sys.modules:
+        from ._api_source import source_callable
+        try:
+            source = source_callable(module_name, 'Model' if is_method else parts[-1],
+                method=parts[-1] if is_method else None)
+        except LookupError as exc:
+            raise ValueError(f"No public callable {selected!r} in this installed version.") from exc
+    if source is not None:
+        signature, kind, doc = source
+        is_constructor = kind == 'constructor'
+    else:
+        try:
+            module = import_module(f"agentfem.{module_name}")
+        except ImportError as exc:
+            raise RuntimeError(f"Cannot inspect installed module agentfem.{module_name}: {exc}") from exc
+        owner = module.Model if is_method else module
+        try:
+            function = inspect.getattr_static(owner, parts[-1])
+        except AttributeError as exc:
+            raise ValueError(f"No public callable {selected!r} in this installed version.") from exc
+        is_constructor = (
+            not is_method and inspect.isclass(function)
+            and (parts[-1] in getattr(module, "__all__", ())
+                 or parts[-1] in getattr(module, "_DOCUMENTED_REEXPORTS", {}))
+        )
+        if not (inspect.isfunction(function) or is_constructor) or not function.__module__.startswith("agentfem."):
+            raise ValueError(f"{selected!r} is not an AgentFEM public function, exported class or Model method.")
+        try:
+            signature = inspect.signature(function, eval_str=False)
+        except (TypeError, ValueError) as exc:
+            raise ValueError(f"Installed callable {selected!r} does not expose an inspectable signature.") from exc
+        doc = inspect.getdoc(function) or ''
     parameters = []
     for parameter in signature.parameters.values():
         if is_method and parameter.name == "self":
@@ -79,8 +96,9 @@ def callable_record(name: str) -> dict:
         "agentfem_version": __version__, "callable": f"agentfem.{selected}",
         "callable_kind": "constructor" if is_constructor else ("model_method" if is_method else "function"),
         "requires_model_instance": is_method, "parameters": parameters,
-        "summary": (inspect.getdoc(function) or "").split("\n\n")[0],
+        "summary": doc.split("\n\n")[0],
         "case_executed": False,
+        "inspection": "installed_source" if source is not None else "live_runtime",
     }
     from ._physical_semantics import callable_semantics
     semantics = callable_semantics(selected)

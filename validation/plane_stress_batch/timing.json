@@ -1,0 +1,87 @@
+{
+  "scope": "synthetic 2D plane-stress standard Step; no customer simulation",
+  "timing": "build and completed solve; field output excluded; existing local JIT cache",
+  "runtime": {
+    "agentfem": "0.4.5.dev0",
+    "python": "3.11.15",
+    "platform": "macOS-26.6.2-arm64-arm-64bit"
+  },
+  "source_sha256": {
+    "src/agentfem/constitutive/plane_stress.py": "51f83376670df697aeefc2c46c2f66355328b32dee2d83e51fe780cb49e65fbf",
+    "src/agentfem/constitutive/material_driver.py": "f80682d96f34238223f77f3e7a75fdf4d672ddb4e6c80f0b8fde8b80079c3024",
+    "src/agentfem/mechanics/finite_strain_material.py": "ead52c8c3cea53da03cee42468608e60dc82a171325d10c3fc51fc28946a75e8",
+    "tests/test_plane_stress_array.py": "13a985c6fb605b4651dad0d067a185a2d9e8ea8ed478b7d1a70738e9f9516c0e",
+    "tests/test_prescribed_material_fields.py": "c7bc02d77048d04e2af50a2a94739b7e15420bfac04c88d00d31083410eca48f",
+    "validation/plane_stress_batch/benchmark.py": "324eb8191c8f78159a2d8ce498917dd3e0536bf9d2f53c8f407a77a8378d9125"
+  },
+  "records": [
+    {
+      "repeat": 0,
+      "mode": "scalar",
+      "build_seconds": 0.14711037499364465,
+      "solve_seconds": 4.781953040976077,
+      "build_and_solve_seconds": 4.929063415969722,
+      "accepted": 12,
+      "attempts": 12,
+      "quadrature_points": 256
+    },
+    {
+      "repeat": 0,
+      "mode": "array",
+      "build_seconds": 0.026317125011701137,
+      "solve_seconds": 0.15508033300284296,
+      "build_and_solve_seconds": 0.1813974580145441,
+      "accepted": 12,
+      "attempts": 12,
+      "quadrature_points": 256
+    },
+    {
+      "repeat": 1,
+      "mode": "array",
+      "build_seconds": 0.014594499953091145,
+      "solve_seconds": 0.15398508304497227,
+      "build_and_solve_seconds": 0.16857958299806342,
+      "accepted": 12,
+      "attempts": 12,
+      "quadrature_points": 256
+    },
+    {
+      "repeat": 1,
+      "mode": "scalar",
+      "build_seconds": 0.014349208038765937,
+      "solve_seconds": 4.7409560839878395,
+      "build_and_solve_seconds": 4.7553052920266055,
+      "accepted": 12,
+      "attempts": 12,
+      "quadrature_points": 256
+    },
+    {
+      "repeat": 2,
+      "mode": "scalar",
+      "build_seconds": 0.01977499999338761,
+      "solve_seconds": 4.813377375015989,
+      "build_and_solve_seconds": 4.8331523750093766,
+      "accepted": 12,
+      "attempts": 12,
+      "quadrature_points": 256
+    },
+    {
+      "repeat": 2,
+      "mode": "array",
+      "build_seconds": 0.015224291011691093,
+      "solve_seconds": 0.15741933399112895,
+      "build_and_solve_seconds": 0.17264362500282004,
+      "accepted": 12,
+      "attempts": 12,
+      "quadrature_points": 256
+    }
+  ],
+  "maximum_absolute_differences": {
+    "F": 0.0,
+    "P": 0.0,
+    "S": 0.0,
+    "AGE": 0.0,
+    "SENER": 0.0,
+    "MATERIAL_DPDF": 0.0
+  }
+}

@@ -112,3 +112,11 @@ def test_timeout_requires_supervision(tmp_path, capsys):
     assert cli.main(['run', '--project', str(tmp_path), '--timeout', '1', '--json']) == 2
     record = json.loads(capsys.readouterr().out)
     assert record['error']['code'] == 'AFM-SUPERVISE-REQUIRED'
+
+
+def test_mpi_timeout_reaches_launcher_without_run_supervision(monkeypatch):
+    observed = []
+    monkeypatch.setattr(cli, '_execute_cli', lambda parsed, reliability: observed.append(parsed) or 0)
+    assert cli.main(['mpi-run', '-n', '2', '--timeout', '3', '--', 'python', 'case.py']) == 0
+    assert observed[0].command == 'mpi-run'
+    assert observed[0].timeout == 3.

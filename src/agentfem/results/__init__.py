@@ -9,6 +9,9 @@ from importlib import import_module as _import_module
 # Numerical functions retain their original implementations and import their
 # owning modules when first used, as the existing output-plan exports do.
 _LAZY_EXPORTS = {
+    "AcceptedMaterialFields": "material_observations",
+    "GaugeMeasurement": "material_observations",
+    "gauge": "material_observations",
     "SectionSample": "postprocessing",
     "FieldComparison": "postprocessing",
     "ReactionForceMoment": "postprocessing",
@@ -173,6 +176,7 @@ def __dir__():
 
 
 __all__ = [
+    "AcceptedMaterialFields", "GaugeMeasurement", "gauge",
     "SectionSample", "FieldComparison", "ReactionForceMoment",
     "sample_section", "compare_fields", "reaction_force_moment", "accepted_snapshot",
     "MaterialPointHistoryRequest",

@@ -120,7 +120,7 @@ Inputs contain committed `F_n`, trial `F`, committed state, endpoint physical
 time, positive `dt` and the Step's optional material-property vector. The local
 contract also has optional thermal/external fields. This structural route now
 supplies the bounded prescribed temperature input below; arbitrary external
-fields and spatial temperature histories remain separate capabilities.
+fields can be supplied through the frozen reference-coordinate mapping below.
 
 For an expensive local Newton solve, compute shared rate/Jacobian quantities
 once when both callbacks request the identical candidate. Keep this reuse
@@ -154,8 +154,8 @@ the source history afterward does not change this Step; construct a new Step
 for a changed problem. Kelvin values must be positive, the coordinate must be
 `time`, and the recorded interval must cover the full duration. Time numbers
 use the Step's `time_unit`; no conversion is inferred. The live source is not
-modified. Spatial histories and previous-value/discontinuous interpolation
-are not admitted by this first consumer.
+modified. Previous-value/discontinuous interpolation is not admitted by this
+consumer; spatial inputs use the explicitly declared mapping below.
 
 Accepted output includes `TEMP`, recovered `TEMP_CELL` and a compact
 `temperature` history. Restart binds the frozen thermal schedule and checks
@@ -183,6 +183,73 @@ the material author must choose a compatible initial reference state.
 
 ## Explicit plane-stress reduction
 
+### Spatial prescribed inputs and accepted observations
+
+Use an explicit reference-coordinate declaration for a spatial temperature:
+
+```python
+temperature = fields.prescribed(
+    lambda X, t: 300.0 + 20.0 * X[:, 0] + 15.0 * t,
+    name="TEMP", unit="K", times=[0.0, 1.0, 2.0], time_unit="s",
+)
+humidity = fields.prescribed(
+    lambda X, t: 0.2 + 0.1 * X[:, 0],
+    name="HUMIDITY", unit="1", times=[0.0, 2.0], time_unit="s",
+)
+step = model.step(
+    target=u, duration=2.0, time_unit="s", temperature=temperature,
+    field_variables={"HUMIDITY": humidity}, reference_thickness=0.0005,
+    plane_stress=constitutive.PlaneStressReduction(symmetry="reflection_symmetric"),
+)
+step.solve()
+accepted = step.accepted_fields
+thickness_stretch = accepted["F33"]
+mean_temperature = accepted.statistics("TEMP").mean
+roi_temperature = accepted.statistics("TEMP", within=lambda X: X[:, 0] < 0.5)
+```
+
+The example coordinates, thickness and material properties must share one unit
+system. The callback receives `(point_count, geometric_dimension)` reference
+coordinates and physical time, and returns `(point_count,)` scalar samples.
+Sampling occurs once at construction, on declared time knots; later values
+are linearly interpolated without extrapolation. The Step visits interior
+knots and recalculates thermal increments after cutback. A scalar or same-mesh
+FE field may replace the callback. For independent mapping, declare a tensor
+`value_shape` and call `declaration.bind(quadrature_field)`; the structural
+`field_variables` mapping currently accepts named scalar columns only.
+
+External-field column order is the insertion order of `field_variables` and
+is recorded with each channel's name and unit. The material receives that
+ordered array in `point.field_variables`; its constitutive meaning remains
+the material author's responsibility. These are prescribed inputs, not heat,
+diffusion or current-coordinate transport solutions. Temperature dependence,
+thermal expansion and stress-free temperature belong to the material law.
+Inputs, reference quadrature layout and time interpolation are checkpoint
+identity. Changing a bound source requires constructing a new Step.
+
+`accepted_fields` returns detached immutable arrays from the last accepted
+constitutive station, also available in `on_accept` callbacks. It includes
+full 3D `F`, `P`, `S`, full material `MATERIAL_DPDF`, assembly `DPDF`, total `E_GL`, internal variables,
+temperature/prescribed channels and available stored energy. For plane stress
+it also supplies `F33`, `P33` and, when `h0` is declared, actual thickness
+`h0*F33`. Omitting thickness retains the original per-unit-thickness convention;
+an explicit thickness of one model length unit has different unit metadata.
+`DPDF` remains the
+Step's assembly field; `MATERIAL_DPDF` preserves the separate full 9×9
+material tangent, also through checkpoint/rollback. No material law is
+re-evaluated by reading these observations.
+Reading before the first accepted constitutive station is an explicit error.
+
+Coordinates, cell identities and reference-volume weights accompany the
+arrays. Statistics reuse the existing physical-weighted distribution reducer;
+select a tensor component explicitly. ROI callbacks select quadrature points,
+not exact cut-cell areas. Positive quadrature weights are needed for empirical
+distribution statistics. No nodal extrapolation, stress smoothing or history
+reset is performed. Standard output includes the actual prescribed channels
+as raw quadrature fields and recovered cell fields.
+
+### Local plane-stress equations
+
 For a compatible **three-dimensional** law, use a 2D `plane_stress` Study and
 add this option to the same `model.step(...)`:
 
@@ -206,8 +273,11 @@ assembly is `A_aa - A_a33 * A_33a / A_3333`, using the **full discrete update's*
 using the actual 3D determinant and effective `F`, not an `F33=1` surrogate.
 `constitutive.reduce_plane_stress(material, point, reduction=policy)` exposes
 the same uncommitted material-point calculation, returning the original 3D
-response and a separate 4×4 reduced tangent. Scalar local iterations currently
-call `update`; they do not imply a vectorized material-batch speedup.
+response and a separate 4×4 reduced tangent. Scalar local iterations call
+`update`. Materials implementing `update_array_batch` instead use a batched
+log-thickness solve with independent pointwise backtracking. Numerical local
+difficulty falls back to the original scalar reduction; an invalid provider
+response remains an error. Both routes read the same fixed committed history.
 
 Use `constitutive.check_material_tangent(material, point)` for the complete
 3D law, then `constitutive.check_plane_stress_tangent(material, point,
@@ -222,7 +292,12 @@ Effective 3D `F`, including accepted thickness stretch, belongs to the shared
 trial/commit/rollback and checkpoint lifecycle. The result includes raw `F`
 and recovered `F_CELL`; its `(2,2)` component is the thickness stretch. Default
 visualization remains a 2D reference surface, not an extruded thickness mesh.
-2D forces/energies are per unit reference thickness. Local relative tolerance
+2D forces/energies default to unit reference thickness. An explicit positive
+uniform `reference_thickness=h0` scales the complete virtual work, residual,
+tangent and reactions once; stress and state are not scaled. Surface resultants
+retain their documented per-unit-thickness input convention. Do not multiply
+the resulting force by `h0` again. This Step does not admit variable thickness
+or introduce inertia/mass. Local relative tolerance
 uses a physical stress scale (not an arbitrary unit-sized floor); optional
 absolute tolerance has the material's stress unit and is part of restart identity.
 

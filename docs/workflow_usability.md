@@ -30,8 +30,11 @@ agentfem capabilities --api constitutive.StrainHistoryRuntime --json
 
 This reports parameter names, kinds, required inputs, simple defaults and
 declared annotations from the installed implementation. Model methods also
-retain their lifecycle status. It imports the selected public module but does
-not execute the callable, evaluate annotation expressions or run a case.
+retain their lifecycle status. Exact simple signatures are read from installed
+source without initializing the numerical runtime. Already-loaded modules,
+dynamic defaults and decorated callables retain live inspection; the
+`inspection` field identifies the route. Neither route executes the callable,
+evaluates annotation expressions or runs a case.
 Runtime-object defaults are identified by type rather than expanded.
 Public classes explicitly exported by a module can be queried as constructors;
 the query does not instantiate them or compile user materials. Step

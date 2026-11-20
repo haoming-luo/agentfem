@@ -2519,6 +2519,10 @@ Versioned internal variables and explicit stress/tangent conventions, with a bou
 - `agentfem.constitutive.reduce_plane_stress`
 - `agentfem.constitutive.check_plane_stress_tangent`
 - `agentfem.constitutive.PlaneStressTangentCheck`
+- `agentfem.fields.PrescribedField`
+- `agentfem.fields.prescribed`
+- `agentfem.results.AcceptedMaterialFields`
+- `agentfem.results.gauge`
 
 ### Scientific contract
 
@@ -2582,8 +2586,8 @@ This adapter convention includes Abaqus component, engineering-shear, rotating-b
 - MaterialQuadratureState owns storage and atomic lifecycle, not a constitutive integration algorithm or global residual.
 - Direct numerical tangent checking currently applies to first-Piola/deformation-gradient 9x9 tangents; spatial UMAT tangents require a verified transformation.
 - Rotation checking does not infer history frames, transform mixed tensors, or admit undeclared external-field arrays. Properties remain scalar/reference parameters; meaningful characteristic scales are needed near zero responses.
-- The generic implicit Step admits prescribed uniform kelvin temperature or a frozen scalar linear physical-time history. It does not admit MPI, contact, MPC, regional materials, mixed pressure, general anisotropic plane stress, shells, spatial temperature histories or thermal feedback; its checkpoint is serial same-layout only.
-- Plane stress requires declared reflection symmetry and positive transverse algorithmic stiffness; 2D forces/energies are per unit reference thickness. Scalar reduction iterations do not imply a vectorized batch speedup.
+- The generic implicit Step admits uniform kelvin input or explicitly frozen reference-coordinate prescribed fields, piecewise linear on declared physical-time knots. Named scalar external fields retain units and material column order. No current-coordinate or discontinuous interpolation, heat/diffusion feedback, MPI structural solve, contact, MPC, regional materials, mixed pressure, general anisotropic plane stress or shells are admitted; checkpoint is serial same-layout only.
+- Plane stress requires declared reflection symmetry and positive transverse algorithmic stiffness. Array providers use batched transverse Newton with scalar numerical fallback; invalid provider responses remain errors. Full material tangent is preserved separately from the condensed assembly tangent. A uniform reference_thickness scales complete planar virtual work once; default is unit thickness, variable thickness and inertia are not supplied by this static Step.
 - Workflow evidence does not independently validate a supplied constitutive law. Optional stored energy is not total work or general energy closure.
 - Accepted fields and loading targets are read-only observations. External changes are rejected at lifecycle boundaries. Partial results are computed segments, not complete-path convergence or scientific verification. Without a checkpoint policy, saves are manual; with a policy, unsaved accepted intervals may need recomputation after failure.
 
@@ -2606,6 +2610,8 @@ response = constitutive.validated_material_update(material, point)
 - `tests/test_material_verification_inputs.py`
 - `tests/test_material_rotation.py`
 - `tests/test_finite_material_point_histories.py`
+- `tests/test_plane_stress_array.py`
+- `tests/test_prescribed_material_fields.py`
 
 **Benchmarks**
 
@@ -5570,6 +5576,8 @@ Evaluates fields at common physical points, polylines and planar sections with d
 - `agentfem.results.compare_fields`
 - `agentfem.results.reaction_force_moment`
 - `agentfem.results.accepted_snapshot`
+- `agentfem.results.gauge`
+- `agentfem.results.AcceptedMaterialFields`
 - `agentfem.results.history`
 - `agentfem.results.probe_history`
 - `agentfem.results.PathSample.add_to`

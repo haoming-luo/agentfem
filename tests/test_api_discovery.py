@@ -110,6 +110,33 @@ def test_core_call_paths_and_declared_model_methods_have_json_safe_descriptions(
         json.dumps(record, allow_nan=False)
 
 
+def test_source_supported_core_signatures_match_live_runtime_parameters():
+    from agentfem import public_api
+    from agentfem._api_source import source_callable
+    from agentfem._api_discovery import _default
+    checked = 0
+    for module_name in public_api('core'):
+        module = importlib.import_module(f'agentfem.{module_name}')
+        for name, function in inspect.getmembers(module, inspect.isfunction):
+            if name.startswith('_') or not function.__module__.startswith('agentfem.'):
+                continue
+            source = source_callable(module_name, name)
+            if source is None:
+                continue
+            expected = inspect.signature(function)
+            actual = source[0]
+            assert list(actual.parameters) == list(expected.parameters), (module_name, name)
+            for key, parameter in expected.parameters.items():
+                declared = actual.parameters[key]
+                assert declared.kind == parameter.kind, (module_name, name, key)
+                if parameter.default is inspect.Parameter.empty:
+                    assert declared.default is inspect.Parameter.empty
+                else:
+                    assert _default(declared.default) == _default(parameter.default), (module_name, name, key)
+            checked += 1
+    assert checked > 20
+
+
 def test_exported_material_constructor_reports_inputs_without_constructing(monkeypatch):
     from agentfem import constitutive
 

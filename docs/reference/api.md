@@ -175,6 +175,8 @@ and evidence remain in the linked guides and scientific function reference.
 | function | `norm(field, *, weight = None) -> float` | Return the distributed algebraic norm of a field. |
 | function | `require_same_space(left, right) -> None` | Raise if two fields/functions are not on the same function space. |
 | function | `same_space(left, right) -> bool` | Return whether two fields/functions share the same function space. |
+| class | `PrescribedField` | Sample a scalar/FE field or source(X, time) on declared physical knots. |
+| function | `prescribed(source, *, name, unit, times, value_shape = (), coordinate = 'reference', time_unit = None)` | Declare a reference-coordinate input for quadrature mapping, without solving. |
 
 ## `agentfem.materials`
 
@@ -567,6 +569,9 @@ and evidence remain in the linked guides and scientific function reference.
 
 | Kind | Public object | Purpose |
 | --- | --- | --- |
+| class | `AcceptedMaterialFields(*, time, coordinate, coordinates, weights, cell_keys, fields, metadata, comm)` | Owned integration-point snapshot; arrays cannot mutate the live Step. |
+| class | `GaugeMeasurement` | Two-point length strain and separately named axial projection. |
+| function | `gauge(displacement, *, start, end, padding = 1e-10)` | Measure two reference material points using FE displacement interpolation. |
 | class | `SectionSample` | Point samples on a parametric plane; not a cut-surface quadrature rule. |
 | class | `FieldComparison` | Paired samples and candidate-minus-reference on common physical points. |
 | class | `ReactionForceMoment` | Discrete residual force and moment about a reference-mesh point. |
@@ -1268,7 +1273,7 @@ and evidence remain in the linked guides and scientific function reference.
 | class | `SmallStrainMaterialPathInfo` | Public AgentFEM object. |
 | class | `SmallStrainMaterialStep` | Implicit Newton Step driven by an ordinary small-strain material. |
 | function | `small_strain_material_step(*, displacement, material, external_force, constraints = (), study = None, incrementation = None, solver_options = None, quadrature_degree = 2, progress = True, status_file = None, amplitude = None, duration = None, time_unit = 's', temperature = None, material_points = (), unit_system = None, name = 'small_strain_material') -> SmallStrainMaterialStep` | Build implicit small-strain equilibrium, optionally on a physical-time path. |
-| class | `FiniteStrainMaterialStep(*, displacement, material, duration, external_force = None, constraints = (), study = None, incrementation = None, solver_options = None, quadrature_degree = 2, amplitude = None, properties = (), name = 'finite_strain_material', progress = True, time_unit = None, plane_stress = None, checkpoint = None, output_every = 1, temperature = None, material_points = (), unit_system = None)` | Experimental serial 3D/planar, strong-BC history-material Step. |
+| class | `FiniteStrainMaterialStep(*, displacement, material, duration, external_force = None, constraints = (), study = None, incrementation = None, solver_options = None, quadrature_degree = 2, amplitude = None, properties = (), name = 'finite_strain_material', progress = True, time_unit = None, plane_stress = None, checkpoint = None, output_every = 1, temperature = None, material_points = (), unit_system = None, reference_thickness = None, field_variables = None)` | Experimental serial 3D/planar, strong-BC history-material Step. |
 | class | `DirectorShellKinematics` | Finite-rotation surface measures at one material point. |
 | class | `FiberCurveKinematics` | Objective bending measures for one material fibre curve. |
 | class | `ReconstructedFiberCurvature` | Owned-cell fibre curvatures plus neighbour reconstruction evidence. |

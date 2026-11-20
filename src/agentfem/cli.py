@@ -63,7 +63,13 @@ def _json(record) -> str:
 
 
 def _emit(record, *, as_json: bool, human: str | None = None) -> None:
-    if MPI.COMM_WORLD.rank != 0:
+    # Printing serial metadata does not require MPI_Init/Finalize. If a real
+    # communicator is already in use, or the CLI was explicitly launched as
+    # an MPI job, retain its actual rank rather than inventing rank metadata.
+    runtime_active = not isinstance(MPI, _DeferredMPI) or 'mpi4py.MPI' in sys.modules
+    launched = any(key in os.environ for key in (
+        'OMPI_COMM_WORLD_SIZE', 'PMI_SIZE', 'PMIX_SIZE', 'MV2_COMM_WORLD_SIZE'))
+    if (runtime_active or launched) and MPI.COMM_WORLD.rank != 0:
         return
     print(_json(record) if as_json else (human or _json(record)), flush=True)
 
@@ -1416,7 +1422,7 @@ def main(argv: list[str] | None = None) -> int:
             print(_json({"schema": "agentfem.cli-error", "status": "failed",
                          "error": {"code": "AFM-SUPERVISE", "message": str(error)}}), flush=True)
             return 2
-    if getattr(parsed, "timeout", None) is not None:
+    if parsed.command == "run" and getattr(parsed, "timeout", None) is not None:
         print(_json({"schema": "agentfem.cli-error", "status": "failed",
                      "error": {"code": "AFM-SUPERVISE-REQUIRED", "message": "--timeout requires --supervise"}}), flush=True)
         return 2

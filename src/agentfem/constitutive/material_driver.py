@@ -300,6 +300,7 @@ class MaterialQuadratureResponse:
         plane_stress: PlaneStressReduction | None = None,
         temperature=None,
         temperature_increment=None,
+        field_variables=None,
     ) -> MaterialPointBatchResult:
         comm = self.domain.comm
         contract_problem = None
@@ -339,6 +340,7 @@ class MaterialQuadratureResponse:
             max_batch_points=max_batch_points,
             temperature=temperature,
             temperature_increment=temperature_increment,
+            field_variables=field_variables,
             # Commit only after all derived response fields have been built.
             # Otherwise a postprocessing failure could commit the internal
             # variables while leaving P/S/DPDF at the previous boundary.
@@ -1002,7 +1004,7 @@ def update_material_points(
                 material_group_count += 1
                 for start in range(0, len(all_indices), max_batch_points):
                     indices = all_indices[start : start + max_batch_points]
-                    if plane_stress is None and callable(
+                    if callable(
                         getattr(selected_material, "update_array_batch", None)
                     ):
                         from .material_array_batch import (
@@ -1010,7 +1012,7 @@ def update_material_points(
                             validated_material_array_batch_update,
                         )
 
-                        provider_batch_calls += 1
+                        response = None
                         try:
                             request = MaterialPointArrayBatchInput(
                                 deformation_gradient_old=old_gradients[indices],
@@ -1024,14 +1026,30 @@ def update_material_points(
                                                        else temperature_increments[indices]),
                                 field_variables=None if fields is None else fields[indices],
                             )
-                            response = validated_material_array_batch_update(selected_material, request)
+                            if plane_stress is None:
+                                provider_batch_calls += 1
+                                response = validated_material_array_batch_update(selected_material, request)
+                            else:
+                                from .plane_stress import reduce_plane_stress_array, _PlaneStressBatchFallback
+                                try:
+                                    response, evidence, calls = reduce_plane_stress_array(
+                                        selected_material, request, reduction=plane_stress)
+                                    provider_batch_calls += calls
+                                    reduced_F[indices] = evidence.deformation_gradient
+                                    reduced_A[indices] = evidence.in_plane_tangent
+                                    reduced_iterations[indices] = evidence.iterations
+                                    reduced_residual[indices] = evidence.residual
+                                    reduced_tolerance[indices] = evidence.tolerance
+                                except _PlaneStressBatchFallback as fallback:
+                                    provider_batch_calls += fallback.calls
                         except Exception as exc:
                             raise RuntimeError(
                                 "material array batch update failed for local quadrature "
                                 f"points {indices[0]}..{indices[-1]}: {type(exc).__name__}: {exc}"
                             ) from exc
-                        yield indices, selected_material, response
-                        continue
+                        if response is not None:
+                            yield indices, selected_material, response
+                            continue
                     point_inputs = tuple(
                         MaterialPointInput(
                             deformation_gradient_old=old_gradients[index],
