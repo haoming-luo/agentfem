@@ -3,7 +3,7 @@ from dataclasses import replace
 import numpy as np
 import pytest
 
-from tools.p92_two_rate_reference import Branch, Material, integrate, rates, stored_energy
+from tools.p92_two_rate_reference import Branch, Material, integrate, rates, stored_energy, saturation_at
 
 
 def material():
@@ -94,3 +94,34 @@ def test_interior_accumulated_drawdown_cannot_hide_behind_endpoint(monkeypatch, 
                         SimpleNamespace(success=True, y=history))
     with pytest.raises(RuntimeError, match="Accumulated state decreased"):
         integrate(np.zeros(10), 1., 0., material())
+
+
+def test_positive_saturation_evolution_and_zero_softening_limit():
+    m = material()
+    b = m.branches[0]
+    soft = replace(b, saturation_ratio=.5, softening_rate=100.)
+    np.testing.assert_allclose(saturation_at(soft, .01), np.array(b.saturation)*(.5+.5/np.e))
+    old = np.zeros(10)
+    old[[0, 1, 2, 3]] = [200., 10., -5., .001]
+    base = rates(old, .001, m)
+    for branch in (replace(b, saturation_ratio=.3), replace(b, softening_rate=100.)):
+        np.testing.assert_array_equal(rates(old, .001, replace(m, branches=(branch, m.branches[1]))), base)
+    with pytest.raises(ValueError):
+        replace(b, saturation_ratio=0.)
+
+
+def test_softening_preserves_mechanical_balance_and_initial_invariant():
+    m = material()
+    m = replace(m, branches=tuple(replace(b, saturation_ratio=.4, softening_rate=300.) for b in m.branches))
+    state = np.zeros(10)
+    for duration, rate, stress in [(2., -.001, False), (180., 0., False),
+                                   (2., .001, False), (100., 0., True), (2., -.001, False)]:
+        full = integrate(state, duration, rate, m, stress_control=stress).y[:, -1]
+        half = integrate(state, duration/2, rate, m, stress_control=stress).y[:, -1]
+        split = integrate(half, duration/2, rate, m, stress_control=stress).y[:, -1]
+        bdf = integrate(state, duration, rate, m, stress_control=stress, method="BDF", rtol=1e-10).y[:, -1]
+        np.testing.assert_allclose(full, split, atol=2e-7, rtol=1e-8)
+        np.testing.assert_allclose(full, bdf, atol=2e-6, rtol=1e-7)
+        assert rates(full, rate, m, stress_control=stress)[9] >= 0.
+        state = full
+    assert state[8] == pytest.approx(stored_energy(state, m)+state[9], abs=1e-7)

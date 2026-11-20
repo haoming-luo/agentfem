@@ -24,8 +24,15 @@ The [subsequent flow-shape audit](internal/p92_flow_shape_20261121.md) closes
 the bounded conditional search: even the four-coordinate joint fit, with 36.9%
 lower early cost, fails frozen response gates and reaches its exponent bound.
 The next [two-rate reference](internal/p92_two_rate_reference_design_20261121.md)
-has explicit signed-flow and mechanical-work accounting, with six synthetic
-verification tests passed. It has not been calibrated or admitted as a P92 law.
+has explicit signed-flow, positive saturation evolution and mechanical-work
+accounting. Its synthetic verification and data/control isolation are covered
+by a 240-test targeted batch. Conditional early flow calibration and frozen
+ten-cycle independent integration complete, but all three experimental response
+screens still fail; the material is not admitted. Recovery, saturation-memory,
+ratcheting-shape and recorded reversal-slope discriminators are retained.
+No individual endpoint correction or parameter-bound expansion is promoted.
+The next gate is an identifiable joint reversal/hold response, not another
+unconstrained parameter search or an engineering-life declaration.
 
 ### Measured mixed-control identification checkpoint (2026-11-17)
 

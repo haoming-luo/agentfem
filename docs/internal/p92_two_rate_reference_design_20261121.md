@@ -48,6 +48,116 @@ Only after these pass may an explicitly identified parameter set be fitted to
 cycles 1–3. All older candidates remain unchanged. A different state layout
 gets a distinct schema; no old checkpoint is reinterpreted.
 
+## First data-facing experiment
+
+The independent driver uses the same measured switches, ramp deviations and
+observation weights. It stores strain at index 7 and mechanical accounting at
+8/9; it never routes those states through the old index-9 strain driver.
+An explicit unfitted bridge seed matches initial threshold, flow normalization,
+initial kinematic slopes and nonlinear static recovery at nominal saturation.
+It removes the old isotropic softening. This is only an initialization recipe,
+not equivalence of the models or a transferable published card.
+
+Before fitting, perturb each component's static recovery by one decade in
+either direction, using only cycles 1–3 of all three protocols. Compare costs
+and the singular values of the response differences. If these directions are
+weak or nearly dependent, do not fit four unconstrained recovery coefficients.
+Do not use later cycles to choose the new coefficients. This experiment is a
+mechanism discriminator, not a passing P92 material card.
+
+The unfitted bridge completes three protocols, with cost 0.04403. Recovery
+secants have singular values 0.06088, 0.01091, 0.0003313, 0.000005057.
+Branch-A recovery is weak at this seed; therefore the next bounded test fits
+only branch-B's two recovery rates, within the tested one-decade bounds, at
+most 15 objective iterations. Initial strength, flow and all other coefficients
+stay fixed. A bound hit is evidence against this conditional remedy, not
+permission to expand the search. Four recovery parameters are not fitted.
+
+The conditional fit reached cost 0.03938 (10.6% below the unfitted seed), with
+the second branch-B recovery at its lower bound. This does not solve the
+response mismatch and is not promoted; no boundary expansion is authorized
+by this numerical result. Both the unfitted and conditional records are retained.
+
+## Subsequent hypothesis, not yet admitted
+
+If constant-coefficient recovery does not explain the cycles, test positive
+backstress saturation evolution while keeping H fixed:
+
+    a_i(p) = a_i,infinity + (a_i,0-a_i,infinity)*exp(-b*p)
+    0 < a_i,infinity <= a_i,0, b >= 0
+
+Use each branch's own accumulated inelastic strain, not an explicit cycle
+counter or protocol label. The same free energy remains valid because H is
+constant; positive a keeps the dissipative recovery term nonnegative.
+The invariant envelope is the original a_i,0, not the shrinking a_i(p).
+Do not incorrectly reject a legitimate state merely because it lies above
+the current saturation target. This is a proposed scalar hypothesis, not an
+equation claimed from an inaccessible paper or a qualified P92 model.
+
+The primary-paper abstract on [evolving kinematic hardening in P92](https://www.sciencedirect.com/science/article/abs/pii/S0997753820305118)
+supports investigating inelastic-history-dependent recovery; its full text
+was unavailable here, so no coefficients or equations are imported.
+The [BAM service-like study](https://www.sciencedirect.com/science/article/pii/S0142112322006314)
+reports different relaxation/creep effects on subsequent load shifts. This
+motivates testing history, not assigning a different law to each protocol.
+
+Before any data fit require the zero-softening limit to reproduce the existing
+reference, nonnegative instantaneous dissipation, exact exponential saturation,
+continuous split-path agreement, and independent integration across reversal.
+Only one shared saturation ratio and one evolution rate for a selected branch
+would be considered initially; later cycles remain outside identification.
+
+The optional positive saturation evolution is now implemented in the research
+reference (model identity v2). Defaults reproduce the constant-target model.
+Its zero-evolution limit, exponential targets, continuous cycles, independent
+Radau/BDF response and integrated mechanical balance pass synthetic tests.
+It has not been calibrated to BAM or admitted as a P92 material model.
+
+The four prespecified history probes increased early cost (0.04417–0.04597,
+versus 0.04403). Do not fit the history term at this seed. This rejects only
+the conditional perturbations, not all possible calibrations of that law.
+Next establish the flow baseline: vary only branch-A's threshold (30–160 MPa)
+and reference-flow multiplier (0.1–10), retaining all other unfitted bridge
+coefficients. Use at most 20 iterations on the same early observations.
+Do not combine this with recovery or history fitting in this experiment.
+
+The conditional flow fit reduced cost to 0.009210 but reached the lower
+threshold bound (30 MPa). Frozen ten-cycle replay passed independent numerical
+checks in RF/SLR/SLC, but failed the unchanged response screens. SLC first
+hold ends at predicted strain 0.001019 versus 0.00106 measured, while its
+inherited stress is still 134.80 MPa versus 121.70 MPa. SLR cycle-10 peak
+is 8.87% high. Thus a nearly correct creep endpoint does not close reversal
+or cross-protocol response. Do not expand the threshold bound.
+
+Next test the existing dynamic-recovery shape exponent, not another flow
+parameter: common branch-A chi in {0,1,3,6}, with that conditional card frozen
+otherwise. All four values preserve positive recovery and the mechanical
+identity. Use only early three cycles to discriminate reversal curvature;
+do not select chi from the ten-cycle results. This is a fixed diagnostic grid,
+not a parameter search to continue until a desired answer appears.
+
+The chi grid costs were 0.01307, 0.01011, 0.009210, 0.009068. At chi=6 the
+first inherited SLC stress remained 132.80 MPa, versus 121.70 MPa observed.
+The approximately 1.5% cost improvement over chi=3 does not close this gap;
+no expanded chi search is justified by this discriminator.
+
+An independent recorded-ramp slope audit then checked the base elastic scale.
+First-cycle apparent slopes over a 0.0004 strain window were approximately
+149.6–159.4 GPa across the three protocols, consistent in scale with the
+155.18 GPa reference modulus. Narrower windows have very few recorded points
+and appreciable strain quantization. These slopes include viscosity/control
+effects and are not a Young's-modulus calibration or confidence interval.
+They do not support a large arbitrary modulus correction to remove the
+13 MPa reversal error. Source indices and window definitions are retained.
+
+Current outcome: loading-shape discrimination and numerical verification are
+closed for the examined scope; cross-protocol material-response admission
+remains failed. Stop these bounded conditional searches. The next milestone
+requires an identifiable joint reversal/hold model, with its parameter choices
+justified by early full hysteresis histories rather than adding corrections
+to individual protocol endpoints. No engineering-life claim follows from
+any of the cost reductions reported here.
+
 The initial nine tests now pass: analytic elastic/static-recovery checks,
 instantaneous signed-work identities, cycling/reversal/hold restart, independent
 Radau/BDF integration, branch permutation, invalid-domain and failed-solve

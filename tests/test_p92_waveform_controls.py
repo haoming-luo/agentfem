@@ -156,3 +156,19 @@ def test_recorded_prefix_uses_dwell_drift_but_never_stress_hold_strain():
         start += seg["duration"]
     _, result = replay(prefix, m)
     assert result["segment_endpoints"][3]["state"][9] == pytest.approx(0., abs=1e-12)
+
+
+def test_observed_reversal_slopes_are_local_and_source_identified():
+    from tools.p92_waveform_controls import observed_reversal_slopes
+    t = np.linspace(0., 3., 31)
+    data = dict(time_s=t, strain=.001*t, stress_Pa=150e9*.001*t, sha256="source")
+    segment = dict(cycle=1, stress_control=False, strain_hold=False)
+    path = dict(source_sha256="source", protocol="synthetic", segments=[segment, segment],
+                switches=[dict(time_s=1.), dict(time_s=2.)])
+    report = observed_reversal_slopes(path, data)
+    assert report["records"]
+    for row in report["records"]:
+        assert row["apparent_slope_MPa"] == pytest.approx(150000.)
+        assert all(1 < t[i] < 2 for i in row["source_indices"])
+    with pytest.raises(ValueError, match="identity"):
+        observed_reversal_slopes(dict(path, source_sha256="other"), data)

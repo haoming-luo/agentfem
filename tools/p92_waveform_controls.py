@@ -14,6 +14,33 @@ import numpy as np
 from tools.p92_two_mechanism import integrate
 
 
+def observed_reversal_slopes(path, data, *, strain_spans=(.0002, .0004)):
+    """Recorded local slopes, not pure elastic-modulus or uncertainty estimates."""
+    if path["source_sha256"] != data["sha256"]:
+        raise ValueError("Reversal slope source identity changed")
+    if not all(np.isfinite(x) and x > 0 for x in strain_spans):
+        raise ValueError("Require positive finite strain spans")
+    t, e, s = (np.asarray(data[k]) for k in ("time_s", "strain", "stress_Pa"))
+    rows = []
+    for i, segment in enumerate(path["segments"]):
+        if not i or segment["stress_control"] or segment["strain_hold"]:
+            continue
+        start, end = path["switches"][i-1]["time_s"], path["switches"][i]["time_s"]
+        ids = np.flatnonzero((t > start) & (t < end))
+        if not len(ids):
+            continue
+        for span in strain_spans:
+            chosen = ids[abs(e[ids]-e[ids[0]]) <= span]
+            if len(chosen) < 3 or np.ptp(e[chosen]) <= 0:
+                continue
+            slope, intercept = np.polyfit(e[chosen], s[chosen]/1e6, 1)
+            rows.append(dict(cycle=segment["cycle"], segment=i, strain_span=span,
+                source_indices=chosen.tolist(), apparent_slope_MPa=float(slope),
+                stress_fit_rms_MPa=float(np.sqrt(np.mean((s[chosen]/1e6-slope*e[chosen]-intercept)**2)))))
+    return dict(source_sha256=data["sha256"], protocol=path["protocol"], records=rows,
+        scope="Recorded ramp-local slopes include viscosity, tracking and strain quantization; not an elastic calibration")
+
+
 def attach_waveforms(path, data, *, mode="shape"):
     """Keep switches, hold controls, observations and all fit weights unchanged."""
     if mode not in {"shape", "recorded_prefix"}:

@@ -11,7 +11,7 @@ import numpy as np
 from scipy.integrate import solve_ivp
 
 
-MODEL_ID = "research.scalar-two-rate-kinematic.v1"
+MODEL_ID = "research.scalar-two-rate-kinematic.v2"
 STATE_LAYOUT = ("stress_MPa", "backstress_A1_MPa", "backstress_A2_MPa", "accumulated_A",
                 "backstress_B1_MPa", "backstress_B2_MPa", "accumulated_B", "strain",
                 "work_density_MPa", "dissipation_density_MPa")
@@ -26,15 +26,19 @@ class Branch:
     saturation: tuple[float, float]
     static_recovery: tuple[float, float]
     ratcheting: tuple[float, float] = (3., 3.)
+    saturation_ratio: float = 1.
+    softening_rate: float = 0.
 
     def __post_init__(self):
         pairs = (self.hardening, self.saturation, self.static_recovery, self.ratcheting)
         if (any(len(v) != 2 for v in pairs)
                 or not np.isfinite([self.strength, self.reference_flow, self.exponent,
+                                   self.saturation_ratio, self.softening_rate,
                                    *(x for p in pairs for x in p)]).all()
                 or self.strength < 0 or self.reference_flow <= 0 or self.exponent < 1
                 or min(*self.hardening, *self.saturation) <= 0
-                or min(*self.static_recovery, *self.ratcheting) < 0):
+                or min(*self.static_recovery, *self.ratcheting) < 0
+                or not 0 < self.saturation_ratio <= 1 or self.softening_rate < 0):
             raise ValueError("Invalid scalar two-rate branch")
 
 
@@ -55,6 +59,13 @@ def stored_energy(state, material):
     return float(value)
 
 
+def saturation_at(branch, accumulated):
+    # Protect solver trial stages below p=0 without modifying accepted history.
+    factor = branch.saturation_ratio+(1-branch.saturation_ratio)*np.exp(
+        -branch.softening_rate*max(float(accumulated), 0.))
+    return np.asarray(branch.saturation)*factor
+
+
 def rates(state, strain_rate, material, *, stress_control=False):
     result = np.zeros(10)
     total_flow = dissipation = 0.
@@ -64,7 +75,7 @@ def rates(state, strain_rate, material, *, stress_control=False):
         flow = speed*np.sign(effective)
         total_flow += flow
         dissipation += effective*flow
-        for i, (h, a, recovery, chi) in enumerate(zip(branch.hardening, branch.saturation,
+        for i, (h, a, recovery, chi) in enumerate(zip(branch.hardening, saturation_at(branch, state[offset+2]),
                                                     branch.static_recovery, branch.ratcheting, strict=True)):
             x = state[offset+i]
             decay = h/a*(abs(x)/a)**chi*speed+recovery

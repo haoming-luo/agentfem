@@ -151,6 +151,10 @@ _SOURCE_TEST_MAP = {
 # Research-only scalar controls have known transitive consumers. Do not use a
 # tools/* wildcard: an unknown numerical driver still needs the broader gate.
 _P92_CONTROL_TESTS = (
+    "tests/test_p92_hold_observations.py",
+    "tests/test_p92_two_rate_frozen.py",
+    "tests/test_p92_two_rate_controls.py",
+    "tests/test_p92_two_rate_probe.py",
     "tests/test_p92_two_rate_reference.py",
     "tests/test_p92_hold_mechanisms.py",
     "tests/test_p92_reversal_sensitivity.py",
@@ -165,6 +169,19 @@ _P92_CONTROL_TESTS = (
     "tests/test_p92_two_mechanism_fit.py",
 )
 _P92_CONTROL_INPUTS = (
+    "tools/p92_hold_observations.py",
+    "tools/p92_two_rate_frozen.py",
+    "evidence/creep/2026-11-21-two-rate-flow-fit.json",
+    "evidence/creep/2026-11-21-two-rate-flow-frozen.json",
+    "evidence/creep/2026-11-21-two-rate-ratcheting-probe.json",
+    "evidence/creep/2026-11-21-recorded-reversal-slopes.json",
+    "tools/p92_two_rate_controls.py",
+    "tools/p92_two_rate_probe.py",
+    "tools/p92_two_rate_sensitivity.py",
+    "tools/p92_two_rate_history_probe.py",
+    "evidence/creep/2026-11-21-two-rate-unfitted.json",
+    "evidence/creep/2026-11-21-two-rate-recovery-fit.json",
+    "evidence/creep/2026-11-21-two-rate-history-probe.json",
     "tools/p92_two_rate_reference.py",
     "tools/p92_hold_mechanisms.py",
     "evidence/creep/2026-11-21-hold-mechanisms.json",

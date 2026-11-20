@@ -30,6 +30,8 @@ def test_classifier_edit_selects_its_own_regressions():
 @pytest.mark.parametrize("path", ["tools/p92_waveform_controls.py",
     "tools/p92_waveform_experiment.py", "tools/p92_response_screen.py",
     "tools/p92_reversal_identification.py", "tools/p92_reversal_sensitivity.py",
+    "tools/p92_two_rate_controls.py", "tools/p92_two_rate_frozen.py",
+    "tools/p92_two_rate_sensitivity.py", "tools/p92_two_rate_history_probe.py",
     "evidence/creep/2026-11-21-reversal-frozen.json"])
 def test_waveform_and_response_gates_keep_transitive_material_tests(path):
     scope = classify_changes([path])
