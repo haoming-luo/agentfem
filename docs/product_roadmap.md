@@ -20,6 +20,13 @@ before adding a memory law; retain all hold/valley errors rather than select
 by aggregate cost. PR #197 stays open;
 batch updates only, no merge or release.
 
+The [subsequent flow-shape audit](internal/p92_flow_shape_20261121.md) closes
+the bounded conditional search: even the four-coordinate joint fit, with 36.9%
+lower early cost, fails frozen response gates and reaches its exponent bound.
+The next [two-rate reference](internal/p92_two_rate_reference_design_20261121.md)
+has explicit signed-flow and mechanical-work accounting, with six synthetic
+verification tests passed. It has not been calibrated or admitted as a P92 law.
+
 ### Measured mixed-control identification checkpoint (2026-11-17)
 
 The [reversal-shape test](internal/p92_reversal_shape_20261117.md) varies a1/C1

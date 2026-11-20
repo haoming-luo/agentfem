@@ -1,0 +1,4535 @@
+{
+  "schema": "agentfem.research.p92-hold-flow-audit.v1",
+  "records": [
+    {
+      "cycle": 1,
+      "end_state": [
+        138.0176061741837,
+        25.757624169701423,
+        28.359668829428863,
+        -68.63347544193469,
+        0.0013195060833810326,
+        12.275598426975556,
+        -4.60644751884316,
+        -0.048280323981541015,
+        0.0005098836692150934,
+        0.0008897810795555751
+      ],
+      "samples": [
+        {
+          "time_s": 0.0,
+          "branches": [
+            {
+              "signed_flow_per_s": 0.00012072665711748764,
+              "strength_MPa": 62.63452606974695,
+              "effective_stress_MPa": 191.865892711725,
+              "backstress_MPa_per_s": [
+                {
+                  "hardening": 8.164141187625232,
+                  "dynamic_recovery": 3.774701367826289,
+                  "static_recovery": 1.2337169876829534e-06
+                },
+                {
+                  "hardening": 8.712922318527463,
+                  "dynamic_recovery": 0.3141955201957684,
+                  "static_recovery": 4.71798196605129e-06
+                }
+              ],
+              "isotropic_MPa_per_s": {
+                "accumulation": -0.006124940642751347,
+                "time_recovery": -0.057431777888794326
+              }
+            },
+            {
+              "signed_flow_per_s": 2.7262610107700074e-06,
+              "strength_MPa": 123.01292352271642,
+              "effective_stress_MPa": 165.62445971470618,
+              "backstress_MPa_per_s": [
+                {
+                  "hardening": 2.442386701086026,
+                  "dynamic_recovery": 0.9433005746856671,
+                  "static_recovery": 0.10370380742542643
+                },
+                {
+                  "hardening": 0.03925838554232513,
+                  "dynamic_recovery": 0.0014062715409683567,
+                  "static_recovery": 0.0009165244118331011
+                }
+              ],
+              "isotropic_MPa_per_s": {
+                "accumulation": -0.00025606245514890255,
+                "time_recovery": -1.9269404761447508e-07
+              }
+            }
+          ]
+        },
+        {
+          "time_s": 1.0,
+          "branches": [
+            {
+              "signed_flow_per_s": 6.268171360092331e-05,
+              "strength_MPa": 62.57301491938217,
+              "effective_stress_MPa": 178.43053226766145,
+              "backstress_MPa_per_s": [
+                {
+                  "hardening": 4.23885140149465,
+                  "dynamic_recovery": 0.4191489642176567,
+                  "static_recovery": 2.77173009979805e-07
+                },
+                {
+                  "hardening": 4.523780533950698,
+                  "dynamic_recovery": 0.06692649887722595,
+                  "static_recovery": 1.9907161441090893e-06
+                }
+              ],
+              "isotropic_MPa_per_s": {
+                "accumulation": -0.0031769681052687512,
+                "time_recovery": -0.05695407697506665
+              }
+            },
+            {
+              "signed_flow_per_s": 2.1996423007470706e-06,
+              "strength_MPa": 123.01269402808578,
+              "effective_stress_MPa": 162.68207297801482,
+              "backstress_MPa_per_s": [
+                {
+                  "hardening": 1.9706026243516337,
+                  "dynamic_recovery": 0.4236521848135154,
+                  "static_recovery": 0.05883385068086663
+                },
+                {
+                  "hardening": 0.03167503227196341,
+                  "dynamic_recovery": 0.0011079230950131309,
+                  "static_recovery": 0.0008956226134820266
+                }
+              ],
+              "isotropic_MPa_per_s": {
+                "accumulation": -0.00020659969496857362,
+                "time_recovery": -1.9269151551308235e-07
+              }
+            }
+          ]
+        },
+        {
+          "time_s": 3.0,
+          "branches": [
+            {
+              "signed_flow_per_s": 3.166423379558681e-05,
+              "strength_MPa": 62.45556684627363,
+              "effective_stress_MPa": 165.84962269726043,
+              "backstress_MPa_per_s": [
+                {
+                  "hardening": 2.1412940727214,
+                  "dynamic_recovery": 0.02594103192477344,
+                  "static_recovery": 3.632296983070927e-08
+                },
+                {
+                  "hardening": 2.285228597592608,
+                  "dynamic_recovery": 0.010528160519006442,
+                  "static_recovery": 6.432923485966375e-07
+                }
+              ],
+              "isotropic_MPa_per_s": {
+                "accumulation": -0.0016018618225852696,
+                "time_recovery": -0.05606146257514908
+              }
+            },
+            {
+              "signed_flow_per_s": 1.6053355203338286e-06,
+              "strength_MPa": 123.01234225538975,
+              "effective_stress_MPa": 158.72810961540588,
+              "backstress_MPa_per_s": [
+                {
+                  "hardening": 1.438178556695476,
+                  "dynamic_recovery": 0.11948418365068514,
+                  "static_recovery": 0.023448623101146062
+                },
+                {
+                  "hardening": 0.023116965152303715,
+                  "dynamic_recovery": 0.0007792256700928697,
+                  "static_recovery": 0.0008641120799188338
+                }
+              ],
+              "isotropic_MPa_per_s": {
+                "accumulation": -0.0001507794347086483,
+                "time_recovery": -1.9268763487982284e-07
+              }
+            }
+          ]
+        },
+        {
+          "time_s": 10.0,
+          "branches": [
+            {
+              "signed_flow_per_s": 1.0727976121797328e-05,
+              "strength_MPa": 62.06705055124621,
+              "effective_stress_MPa": 148.39545367915642,
+              "backstress_MPa_per_s": [
+                {
+                  "hardening": 0.7254794741031443,
+                  "dynamic_recovery": 1.0470072098528638e-07,
+                  "static_recovery": 6.246902277256967e-13
+                },
+                {
+                  "hardening": 0.774245098936794,
+                  "dynamic_recovery": 0.0002655599521710632,
+                  "static_recovery": 5.2044442276323146e-08
+                }
+              ],
+              "isotropic_MPa_per_s": {
+                "accumulation": -0.0005393414750762236,
+                "time_recovery": -0.05319948538064898
+              }
+            },
+            {
+              "signed_flow_per_s": 7.984744027626256e-07,
+              "strength_MPa": 123.01160499774892,
+              "effective_stress_MPa": 151.30977685762576,
+              "backstress_MPa_per_s": [
+                {
+                  "hardening": 0.7153325579469123,
+                  "dynamic_recovery": 0.0036430254670817234,
+                  "static_recovery": 0.0015737886257935721
+                },
+                {
+                  "hardening": 0.011498097880393092,
+                  "dynamic_recovery": 0.0003578422303178153,
+                  "static_recovery": 0.000799824492039061
+                }
+              ],
+              "isotropic_MPa_per_s": {
+                "accumulation": -7.499538387941295e-05,
+                "time_recovery": -1.9267950521374705e-07
+              }
+            }
+          ]
+        },
+        {
+          "time_s": 30.0,
+          "branches": [
+            {
+              "signed_flow_per_s": 3.3800061956874803e-06,
+              "strength_MPa": 61.068885203075844,
+              "effective_stress_MPa": 132.28096293971706,
+              "backstress_MPa_per_s": [
+                {
+                  "hardening": 0.22857294698209135,
+                  "dynamic_recovery": -0.0011889802596837854,
+                  "static_recovery": -1.5990976038679518e-08
+                },
+                {
+                  "hardening": 0.24393727220084405,
+                  "dynamic_recovery": 4.8337694872031154e-08,
+                  "static_recovery": 3.826694604859042e-11
+                }
+              ],
+              "isotropic_MPa_per_s": {
+                "accumulation": -0.00016719465870125615,
+                "time_recovery": -0.04631220339201786
+              }
+            },
+            {
+              "signed_flow_per_s": 2.759307312628544e-07,
+              "strength_MPa": 123.01073331208117,
+              "effective_stress_MPa": 142.86885058136573,
+              "backstress_MPa_per_s": [
+                {
+                  "hardening": 0.24719920278909485,
+                  "dynamic_recovery": -5.896831742786246e-07,
+                  "static_recovery": -9.456431269738903e-07
+                },
+                {
+                  "hardening": 0.003973425504050793,
+                  "dynamic_recovery": 0.00011171645186012686,
+                  "static_recovery": 0.0007248920508673822
+                }
+              ],
+              "isotropic_MPa_per_s": {
+                "accumulation": -2.591614143258857e-05,
+                "time_recovery": -1.9266990713317854e-07
+              }
+            }
+          ]
+        },
+        {
+          "time_s": 100.0,
+          "branches": [
+            {
+              "signed_flow_per_s": 9.557156346001863e-07,
+              "strength_MPa": 58.42015939062538,
+              "effective_stress_MPa": 116.11303545605152,
+              "backstress_MPa_per_s": [
+                {
+                  "hardening": 0.06463027770663365,
+                  "dynamic_recovery": -0.0060124917523138414,
+                  "static_recovery": -2.600815375577117e-07
+                },
+                {
+                  "hardening": 0.06897462649669771,
+                  "dynamic_recovery": -5.920474658826327e-06,
+                  "static_recovery": -1.3591359426715366e-08
+                }
+              ],
+              "isotropic_MPa_per_s": {
+                "accumulation": -4.522476657550334e-05,
+                "time_recovery": -0.030908571536316324
+              }
+            },
+            {
+              "signed_flow_per_s": 6.05988163373403e-08,
+              "strength_MPa": 123.00990150230719,
+              "effective_stress_MPa": 134.99089302355964,
+              "backstress_MPa_per_s": [
+                {
+                  "hardening": 0.05428891164095535,
+                  "dynamic_recovery": -0.0005985401149448208,
+                  "static_recovery": -0.0033219434616245792
+                },
+                {
+                  "hardening": 0.0008726280006872585,
+                  "dynamic_recovery": 2.1739468650105868e-05,
+                  "static_recovery": 0.0006447765093799301
+                }
+              ],
+              "isotropic_MPa_per_s": {
+                "accumulation": -5.691559695317205e-06,
+                "time_recovery": -1.9266080682882477e-07
+              }
+            }
+          ]
+        },
+        {
+          "time_s": 300.0,
+          "branches": [
+            {
+              "signed_flow_per_s": 3.3389707899745253e-07,
+              "strength_MPa": 54.2642346721941,
+              "effective_stress_MPa": 102.68178854901348,
+              "backstress_MPa_per_s": [
+                {
+                  "hardening": 0.022579792733083057,
+                  "dynamic_recovery": -0.007711628225051006,
+                  "static_recovery": -9.142852258363622e-07
+                },
+                {
+                  "hardening": 0.02409757199569325,
+                  "dynamic_recovery": -4.054359974663481e-05,
+                  "static_recovery": -2.415829905865572e-07
+                }
+              ],
+              "isotropic_MPa_per_s": {
+                "accumulation": -1.4676118137743672e-05,
+                "time_recovery": -0.014142302767242355
+              }
+            },
+            {
+              "signed_flow_per_s": 1.95755596377459e-08,
+              "strength_MPa": 123.0092877004308,
+              "effective_stress_MPa": 131.22999987126207,
+              "backstress_MPa_per_s": [
+                {
+                  "hardening": 0.01753723738727539,
+                  "dynamic_recovery": -0.0007538221504766863,
+                  "static_recovery": -0.012390396908851062
+                },
+                {
+                  "hardening": 0.00028188968863562694,
+                  "dynamic_recovery": 6.051429729259375e-06,
+                  "static_recovery": 0.000558266463668961
+                }
+              ],
+              "isotropic_MPa_per_s": {
+                "accumulation": -1.838565226178509e-06,
+                "time_recovery": -1.9265426146340012e-07
+              }
+            }
+          ]
+        },
+        {
+          "time_s": 900.0,
+          "branches": [
+            {
+              "signed_flow_per_s": 1.211957108408765e-07,
+              "strength_MPa": 49.71905977255922,
+              "effective_stress_MPa": 90.6120262255656,
+              "backstress_MPa_per_s": [
+                {
+                  "hardening": 0.00819586094955487,
+                  "dynamic_recovery": -0.0054994927482030454,
+                  "static_recovery": -1.755229797996808e-06
+                },
+                {
+                  "hardening": 0.008746774234522503,
+                  "dynamic_recovery": -8.804397027624682e-05,
+                  "static_recovery": -1.3620792370471658e-06
+                }
+              ],
+              "isotropic_MPa_per_s": {
+                "accumulation": -4.880845306505657e-06,
+                "time_recovery": -0.004193133790260314
+              }
+            },
+            {
+              "signed_flow_per_s": 1.5205052363715682e-08,
+              "strength_MPa": 123.00825596682095,
+              "effective_stress_MPa": 130.56498797083762,
+              "backstress_MPa_per_s": [
+                {
+                  "hardening": 0.01362181300167108,
+                  "dynamic_recovery": -0.0006316708530951463,
+                  "static_recovery": -0.013332720650085852
+                },
+                {
+                  "hardening": 0.00021895402000316762,
+                  "dynamic_recovery": 3.402088755752729e-06,
+                  "static_recovery": 0.00040829509939730433
+                }
+              ],
+              "isotropic_MPa_per_s": {
+                "accumulation": -1.4280680762275647e-06,
+                "time_recovery": -1.926435614455826e-07
+              }
+            }
+          ]
+        },
+        {
+          "time_s": 1800.0,
+          "branches": [
+            {
+              "signed_flow_per_s": 6.164331863518812e-08,
+              "strength_MPa": 47.364811387734306,
+              "effective_stress_MPa": 83.90031317505341,
+              "backstress_MPa_per_s": [
+                {
+                  "hardening": 0.004168629933335127,
+                  "dynamic_recovery": -0.0034290724795355576,
+                  "static_recovery": -2.1358488390990162e-06
+                },
+                {
+                  "hardening": 0.004448838885698184,
+                  "dynamic_recovery": -0.00010484945642067598,
+                  "static_recovery": -3.099691903811131e-06
+                }
+              ],
+              "isotropic_MPa_per_s": {
+                "accumulation": -2.36497580979308e-06,
+                "time_recovery": -0.0016610859122048259
+              }
+            },
+            {
+              "signed_flow_per_s": 1.3943065242706333e-08,
+              "strength_MPa": 123.00685388753062,
+              "effective_stress_MPa": 130.3484552660513,
+              "backstress_MPa_per_s": [
+                {
+                  "hardening": 0.012491231392236509,
+                  "dynamic_recovery": -0.0005299018533995571,
+                  "static_recovery": -0.012230688091100254
+                },
+                {
+                  "hardening": 0.00020078130038816614,
+                  "dynamic_recovery": 2.0775175071102995e-06,
+                  "static_recovery": 0.00027547529750031606
+                }
+              ],
+              "isotropic_MPa_per_s": {
+                "accumulation": -1.3095256175905041e-06,
+                "time_recovery": -1.9262911828901095e-07
+              }
+            }
+          ]
+        }
+      ],
+      "signed_inelastic_strain_by_branch": [
+        0.000828848886323391,
+        6.093219323054946e-05
+      ],
+      "quadrature_error_estimates": [
+        9.202071175311493e-18,
+        6.764832386546504e-19
+      ],
+      "inelastic_increment_from_kinematics": 0.0008897810795555755,
+      "strain_closure_error": -1.6350852963253892e-15,
+      "numerical_closure_passed": true,
+      "scope": "Model branch-flow decomposition; not stored energy, damage or measured mechanism shares"
+    },
+    {
+      "cycle": 2,
+      "end_state": [
+        130.1391858818781,
+        26.72765876624389,
+        22.53720150728158,
+        -70.67851213758776,
+        0.0044444392781597805,
+        6.403450529459868,
+        -2.6509572913950583,
+        -0.11332164083409774,
+        0.001198168213637693,
+        0.0009622622228235738
+      ],
+      "samples": [
+        {
+          "time_s": 0.0,
+          "branches": [
+            {
+              "signed_flow_per_s": 0.0002694147097005322,
+              "strength_MPa": 46.759432177181,
+              "effective_stress_MPa": 194.49020117897953,
+              "backstress_MPa_per_s": [
+                {
+                  "hardening": 18.219171975230644,
+                  "dynamic_recovery": 3.8075688793775258,
+                  "static_recovery": 5.54616189995209e-07
+                },
+                {
+                  "hardening": 19.443836954790804,
+                  "dynamic_recovery": 3.1935979562077828,
+                  "static_recovery": 1.9826251804686554e-05
+                }
+              ],
+              "isotropic_MPa_per_s": {
+                "accumulation": -0.010204116542648535,
+                "time_recovery": -0.0012260465238023246
+              }
+            },
+            {
+              "signed_flow_per_s": 1.1762407023873665e-06,
+              "strength_MPa": 122.94500308429292,
+              "effective_stress_MPa": 155.14358771278623,
+              "backstress_MPa_per_s": [
+                {
+                  "hardening": 1.0537636115683524,
+                  "dynamic_recovery": 0.4489554536943609,
+                  "static_recovery": 0.11318878429465462
+                },
+                {
+                  "hardening": 0.016937964047637605,
+                  "dynamic_recovery": 3.84738347427089e-05,
+                  "static_recovery": 6.309729099359846e-05
+                }
+              ],
+              "isotropic_MPa_per_s": {
+                "accumulation": -0.00011041300168064121,
+                "time_recovery": -1.9194844948947038e-07
+              }
+            }
+          ]
+        },
+        {
+          "time_s": 1.0,
+          "branches": [
+            {
+              "signed_flow_per_s": 9.602943076842767e-05,
+              "strength_MPa": 46.75235994973532,
+              "effective_stress_MPa": 171.14694248109367,
+              "backstress_MPa_per_s": [
+                {
+                  "hardening": 6.49399105118733,
+                  "dynamic_recovery": 0.03191176451892672,
+                  "static_recovery": 1.470790291363814e-08
+                },
+                {
+                  "hardening": 6.930507234731699,
+                  "dynamic_recovery": 0.33177622520378103,
+                  "static_recovery": 6.005231927397866e-06
+                }
+              ],
+              "isotropic_MPa_per_s": {
+                "accumulation": -0.0036365768513355093,
+                "time_recovery": -0.0012210178776746864
+              }
+            },
+            {
+              "signed_flow_per_s": 1.0231521733879316e-06,
+              "strength_MPa": 122.94490003464232,
+              "effective_stress_MPa": 153.68119090438384,
+              "backstress_MPa_per_s": [
+                {
+                  "hardening": 0.9166155594046174,
+                  "dynamic_recovery": 0.2969390002328826,
+                  "static_recovery": 0.08683309598539628
+                },
+                {
+                  "hardening": 0.014733476483965275,
+                  "dynamic_recovery": 3.2797424052058826e-05,
+                  "static_recovery": 6.187583031422634e-05
+                }
+              ],
+              "isotropic_MPa_per_s": {
+                "accumulation": -9.604258886499404e-05,
+                "time_recovery": -1.9194731817835553e-07
+              }
+            }
+          ]
+        },
+        {
+          "time_s": 3.0,
+          "branches": [
+            {
+              "signed_flow_per_s": 3.95692961218938e-05,
+              "strength_MPa": 46.74536138113693,
+              "effective_stress_MPa": 154.05213289891975,
+              "backstress_MPa_per_s": [
+                {
+                  "hardening": 2.6758739780205323,
+                  "dynamic_recovery": -4.89960220183206e-06,
+                  "static_recovery": -7.074564370088982e-12
+                },
+                {
+                  "hardening": 2.8557421495847124,
+                  "dynamic_recovery": 0.04008581442197339,
+                  "static_recovery": 1.8301904224098217e-06
+                }
+              ],
+              "isotropic_MPa_per_s": {
+                "accumulation": -0.0014982411599504465,
+                "time_recovery": -0.0012161690545842998
+              }
+            },
+            {
+              "signed_flow_per_s": 8.166998858630037e-07,
+              "strength_MPa": 122.94472847899384,
+              "effective_stress_MPa": 151.45658818292483,
+              "backstress_MPa_per_s": [
+                {
+                  "hardening": 0.7316602966958368,
+                  "dynamic_recovery": 0.15023849538367126,
+                  "static_recovery": 0.055860405110362804
+                },
+                {
+                  "hardening": 0.011760546354483871,
+                  "dynamic_recovery": 2.5308114813985832e-05,
+                  "static_recovery": 5.9880920091780586e-05
+                }
+              ],
+              "isotropic_MPa_per_s": {
+                "accumulation": -7.66629415330391e-05,
+                "time_recovery": -1.9194543518379215e-07
+              }
+            }
+          ]
+        },
+        {
+          "time_s": 10.0,
+          "branches": [
+            {
+              "signed_flow_per_s": 1.1496440595263866e-05,
+              "strength_MPa": 46.73147322085899,
+              "effective_stress_MPa": 134.0610404130363,
+              "backstress_MPa_per_s": [
+                {
+                  "hardening": 0.7774468904869953,
+                  "dynamic_recovery": -0.01841432171728923,
+                  "static_recovery": -6.717602784489027e-08
+                },
+                {
+                  "hardening": 0.829705685867037,
+                  "dynamic_recovery": 0.0013486265800266586,
+                  "static_recovery": 2.269760562772471e-07
+                }
+              ],
+              "isotropic_MPa_per_s": {
+                "accumulation": -0.0004351687989338713,
+                "time_recovery": -0.0012069194155965815
+              }
+            },
+            {
+              "signed_flow_per_s": 4.788305055249505e-07,
+              "strength_MPa": 122.94432043795571,
+              "effective_stress_MPa": 146.80770192212896,
+              "backstress_MPa_per_s": [
+                {
+                  "hardening": 0.4289718607823711,
+                  "dynamic_recovery": 0.027591965402888816,
+                  "static_recovery": 0.018169816447141524
+                },
+                {
+                  "hardening": 0.006895199146766799,
+                  "dynamic_recovery": 1.367351089681097e-05,
+                  "static_recovery": 5.5325283188833355e-05
+                }
+              ],
+              "isotropic_MPa_per_s": {
+                "accumulation": -4.4947264514095565e-05,
+                "time_recovery": -1.9194095915179018e-07
+              }
+            }
+          ]
+        },
+        {
+          "time_s": 30.0,
+          "branches": [
+            {
+              "signed_flow_per_s": 3.4283057319691908e-06,
+              "strength_MPa": 46.70300145999026,
+              "effective_stress_MPa": 118.08367890136746,
+              "backstress_MPa_per_s": [
+                {
+                  "hardening": 0.23183920352323756,
+                  "dynamic_recovery": -0.04507785380330128,
+                  "static_recovery": -5.143446926185215e-07
+                },
+                {
+                  "hardening": 0.24742308152987982,
+                  "dynamic_recovery": 1.0931747667810268e-05,
+                  "static_recovery": 6.928044690411158e-09
+                }
+              ],
+              "isotropic_MPa_per_s": {
+                "accumulation": -0.00012969081348243898,
+                "time_recovery": -0.0011886968382196863
+              }
+            },
+            {
+              "signed_flow_per_s": 2.0425364971091615e-07,
+              "strength_MPa": 122.9437385643429,
+              "effective_stress_MPa": 140.90739149227238,
+              "backstress_MPa_per_s": [
+                {
+                  "hardening": 0.1829855599781053,
+                  "dynamic_recovery": 0.001272486290642263,
+                  "static_recovery": 0.002111563521665383
+                },
+                {
+                  "hardening": 0.0029412695619020616,
+                  "dynamic_recovery": 5.1744973878389126e-06,
+                  "static_recovery": 4.927040000666156e-05
+                }
+              ],
+              "isotropic_MPa_per_s": {
+                "accumulation": -1.917295706805614e-05,
+                "time_recovery": -1.9193458780546831e-07
+              }
+            }
+          ]
+        },
+        {
+          "time_s": 100.0,
+          "branches": [
+            {
+              "signed_flow_per_s": 9.601134754743164e-07,
+              "strength_MPa": 46.61720281725225,
+              "effective_stress_MPa": 104.35424107330479,
+              "backstress_MPa_per_s": [
+                {
+                  "hardening": 0.06492768173217679,
+                  "dynamic_recovery": -0.03464673254519998,
+                  "static_recovery": -1.3643527832817983e-06
+                },
+                {
+                  "hardening": 0.06929202156768231,
+                  "dynamic_recovery": -1.2946241446404532e-07,
+                  "static_recovery": -3.2429190704970256e-10
+                }
+              ],
+              "isotropic_MPa_per_s": {
+                "accumulation": -3.625380989699816e-05,
+                "time_recovery": -0.0011356656068164735
+              }
+            },
+            {
+              "signed_flow_per_s": 5.310042830230549e-08,
+              "strength_MPa": 122.94305882395703,
+              "effective_stress_MPa": 134.4079707221501,
+              "backstress_MPa_per_s": [
+                {
+                  "hardening": 0.04757129981141927,
+                  "dynamic_recovery": 3.5795506956573703e-07,
+                  "static_recovery": 2.85237372870803e-06
+                },
+                {
+                  "hardening": 0.0007646505886704205,
+                  "dynamic_recovery": 1.1632410274284922e-06,
+                  "static_recovery": 4.280348693176169e-05
+                }
+              ],
+              "isotropic_MPa_per_s": {
+                "accumulation": -4.984421389309128e-06,
+                "time_recovery": -1.9192719796615913e-07
+              }
+            }
+          ]
+        },
+        {
+          "time_s": 300.0,
+          "branches": [
+            {
+              "signed_flow_per_s": 3.184381005324963e-07,
+              "strength_MPa": 46.39928729686616,
+              "effective_stress_MPa": 94.43581185258464,
+              "backstress_MPa_per_s": [
+                {
+                  "hardening": 0.021534379186333913,
+                  "dynamic_recovery": -0.016913699535727453,
+                  "static_recovery": -1.980948118845247e-06
+                },
+                {
+                  "hardening": 0.022981887343231835,
+                  "dynamic_recovery": -9.250820416106044e-06,
+                  "static_recovery": -5.860913259549753e-08
+                }
+              ],
+              "isotropic_MPa_per_s": {
+                "accumulation": -1.1967989812440462e-05,
+                "time_recovery": -0.0010084957952309025
+              }
+            },
+            {
+              "signed_flow_per_s": 1.2047625151132907e-08,
+              "strength_MPa": 122.94255978899369,
+              "effective_stress_MPa": 129.93515726690524,
+              "backstress_MPa_per_s": [
+                {
+                  "hardening": 0.010793155656246474,
+                  "dynamic_recovery": -1.5851508103673296e-06,
+                  "static_recovery": -5.054564790565722e-05
+                },
+                {
+                  "hardening": 0.00017348680525603913,
+                  "dynamic_recovery": 2.3594566245224363e-07,
+                  "static_recovery": 3.8404087421200704e-05
+                }
+              ],
+              "isotropic_MPa_per_s": {
+                "accumulation": -1.130879426425509e-06,
+                "time_recovery": -1.9192194116198715e-07
+              }
+            }
+          ]
+        },
+        {
+          "time_s": 900.0,
+          "branches": [
+            {
+              "signed_flow_per_s": 1.0605097471828375e-07,
+              "strength_MPa": 45.87690873174837,
+              "effective_stress_MPa": 85.87014221663236,
+              "backstress_MPa_per_s": [
+                {
+                  "hardening": 0.007171698043811124,
+                  "dynamic_recovery": -0.00656862741117596,
+                  "static_recovery": -2.296033759156744e-06
+                },
+                {
+                  "hardening": 0.007653768658775195,
+                  "dynamic_recovery": -2.814309022878273e-05,
+                  "static_recovery": -4.977054808891674e-07
+                }
+              ],
+              "isotropic_MPa_per_s": {
+                "accumulation": -3.940884311507562e-06,
+                "time_recovery": -0.0007422662567991716
+              }
+            },
+            {
+              "signed_flow_per_s": 2.694958614632288e-09,
+              "strength_MPa": 122.94214256991123,
+              "effective_stress_MPa": 127.18692479288757,
+              "backstress_MPa_per_s": [
+                {
+                  "hardening": 0.0024143436942950882,
+                  "dynamic_recovery": -4.622077768511938e-06,
+                  "static_recovery": -0.0006060996667222493
+                },
+                {
+                  "hardening": 3.880762843171887e-05,
+                  "dynamic_recovery": 4.777692498354466e-08,
+                  "static_recovery": 3.487578383942684e-05
+                }
+              ],
+              "isotropic_MPa_per_s": {
+                "accumulation": -2.52967887172479e-07,
+                "time_recovery": -1.919180363715295e-07
+              }
+            }
+          ]
+        },
+        {
+          "time_s": 1800.0,
+          "branches": [
+            {
+              "signed_flow_per_s": 5.235603361631722e-08,
+              "strength_MPa": 45.31977469208124,
+              "effective_stress_MPa": 80.87432560835262,
+              "backstress_MPa_per_s": [
+                {
+                  "hardening": 0.0035405772070015366,
+                  "dynamic_recovery": -0.0033808071532875983,
+                  "static_recovery": -2.388846629395206e-06
+                },
+                {
+                  "hardening": 0.0037785694120665435,
+                  "dynamic_recovery": -3.5561885915116535e-05,
+                  "static_recovery": -1.2347313292326648e-06
+                }
+              ],
+              "isotropic_MPa_per_s": {
+                "accumulation": -1.921937908626372e-06,
+                "time_recovery": -0.0005134842013960942
+              }
+            },
+            {
+              "signed_flow_per_s": 1.4404831448421537e-09,
+              "strength_MPa": 122.94181257067807,
+              "effective_stress_MPa": 126.38669264381328,
+              "backstress_MPa_per_s": [
+                {
+                  "hardening": 0.0012904915788335923,
+                  "dynamic_recovery": -4.054622724091445e-06,
+                  "static_recovery": -0.0009788159351599766
+                },
+                {
+                  "hardening": 2.0743077219690682e-05,
+                  "dynamic_recovery": 2.3548354989929153e-08,
+                  "static_recovery": 3.224387234146234e-05
+                }
+              ],
+              "isotropic_MPa_per_s": {
+                "accumulation": -1.3521355690297642e-07,
+                "time_recovery": -1.9191542963190813e-07
+              }
+            }
+          ]
+        }
+      ],
+      "signed_inelastic_strain_by_branch": [
+        0.0009319531472705245,
+        3.0309075550909262e-05
+      ],
+      "quadrature_error_estimates": [
+        1.034675841971615e-17,
+        3.364983353172284e-19
+      ],
+      "inelastic_increment_from_kinematics": 0.0009622622228235735,
+      "strain_closure_error": -2.1397814076173916e-15,
+      "numerical_closure_passed": true,
+      "scope": "Model branch-flow decomposition; not stored energy, damage or measured mechanism shares"
+    },
+    {
+      "cycle": 3,
+      "end_state": [
+        128.95110374898235,
+        26.76897751937242,
+        22.38546180512136,
+        -71.5474189794188,
+        0.007579038499121656,
+        5.317649538073184,
+        -2.403592729220499,
+        -0.16937866115574746,
+        0.0017910902294281772,
+        0.0009695762861201854
+      ],
+      "samples": [
+        {
+          "time_s": 0.0,
+          "branches": [
+            {
+              "signed_flow_per_s": 0.0002780755679943648,
+              "strength_MPa": 45.06877247074614,
+              "effective_stress_MPa": 193.58065846727231,
+              "backstress_MPa_per_s": [
+                {
+                  "hardening": 18.804862589094427,
+                  "dynamic_recovery": 3.381657966825358,
+                  "static_recovery": 4.643150135401611e-07
+                },
+                {
+                  "hardening": 20.068896799299715,
+                  "dynamic_recovery": 3.583629996808087,
+                  "static_recovery": 2.0812348004901514e-05
+                }
+              ],
+              "isotropic_MPa_per_s": {
+                "accumulation": -0.010151341418688562,
+                "time_recovery": -0.00042486623182621196
+              }
+            },
+            {
+              "signed_flow_per_s": 1.0378925567682252e-06,
+              "strength_MPa": 122.88876770363208,
+              "effective_stress_MPa": 153.7719595684408,
+              "backstress_MPa_per_s": [
+                {
+                  "hardening": 0.929821087486747,
+                  "dynamic_recovery": 0.40444737726518676,
+                  "static_recovery": 0.11477327285825704
+                },
+                {
+                  "hardening": 0.014945739231919037,
+                  "dynamic_recovery": 2.2898146905054056e-05,
+                  "static_recovery": 4.28425144246661e-05
+                }
+              ],
+              "isotropic_MPa_per_s": {
+                "accumulation": -9.737906843058131e-05,
+                "time_recovery": -1.9133404553374565e-07
+              }
+            }
+          ]
+        },
+        {
+          "time_s": 1.0,
+          "branches": [
+            {
+              "signed_flow_per_s": 9.738076148086699e-05,
+              "strength_MPa": 45.06258500815487,
+              "effective_stress_MPa": 169.74721923096976,
+              "backstress_MPa_per_s": [
+                {
+                  "hardening": 6.585374801809965,
+                  "dynamic_recovery": 0.020083377210944744,
+                  "static_recovery": 8.975212600223247e-09
+                },
+                {
+                  "hardening": 7.028033661829453,
+                  "dynamic_recovery": 0.3611938213048348,
+                  "static_recovery": 6.227268661230194e-06
+                }
+              ],
+              "isotropic_MPa_per_s": {
+                "accumulation": -0.003554464161433586,
+                "time_recovery": -0.0004226969604353912
+              }
+            },
+            {
+              "signed_flow_per_s": 9.103038004105576e-07,
+              "strength_MPa": 122.8886764068298,
+              "effective_stress_MPa": 152.45065505773906,
+              "backstress_MPa_per_s": [
+                {
+                  "hardening": 0.8155176218592729,
+                  "dynamic_recovery": 0.2775213724331461,
+                  "static_recovery": 0.09051099536742487
+                },
+                {
+                  "hardening": 0.013108450517387493,
+                  "dynamic_recovery": 1.9691230369271956e-05,
+                  "static_recovery": 4.203271012604923e-05
+                }
+              ],
+              "isotropic_MPa_per_s": {
+                "accumulation": -8.540813365176504e-05,
+                "time_recovery": -1.9133304706188176e-07
+              }
+            }
+          ]
+        },
+        {
+          "time_s": 3.0,
+          "branches": [
+            {
+              "signed_flow_per_s": 3.9808925460223e-05,
+              "strength_MPa": 45.05730231309481,
+              "effective_stress_MPa": 152.4721087985719,
+              "backstress_MPa_per_s": [
+                {
+                  "hardening": 2.6920789140100454,
+                  "dynamic_recovery": -6.255690507610188e-05,
+                  "static_recovery": -8.003257877251249e-11
+                },
+                {
+                  "hardening": 2.873036356679924,
+                  "dynamic_recovery": 0.04365270924302331,
+                  "static_recovery": 1.9130001213797287e-06
+                }
+              ],
+              "isotropic_MPa_per_s": {
+                "accumulation": -0.0014528825683438487,
+                "time_recovery": -0.0004208668576134405
+              }
+            },
+            {
+              "signed_flow_per_s": 7.344506347926993e-07,
+              "strength_MPa": 122.88852295029822,
+              "effective_stress_MPa": 150.40918753255272,
+              "backstress_MPa_per_s": [
+                {
+                  "hardening": 0.6579753207544983,
+                  "dynamic_recovery": 0.14842365645491837,
+                  "static_recovery": 0.06080341305404574
+                },
+                {
+                  "hardening": 0.010576150291036698,
+                  "dynamic_recovery": 1.536604723212155e-05,
+                  "static_recovery": 4.069714501452544e-05
+                }
+              ],
+              "isotropic_MPa_per_s": {
+                "accumulation": -6.890883553951794e-05,
+                "time_recovery": -1.9133136914935422e-07
+              }
+            }
+          ]
+        },
+        {
+          "time_s": 10.0,
+          "branches": [
+            {
+              "signed_flow_per_s": 1.1531473328917533e-05,
+              "strength_MPa": 45.04913196813946,
+              "effective_stress_MPa": 132.42299571402023,
+              "backstress_MPa_per_s": [
+                {
+                  "hardening": 0.7798159793905228,
+                  "dynamic_recovery": -0.025559139643233225,
+                  "static_recovery": -8.905013665604247e-08
+                },
+                {
+                  "hardening": 0.8322340213168707,
+                  "dynamic_recovery": 0.0015276431881278117,
+                  "static_recovery": 2.471772431018744e-07
+                }
+              ],
+              "isotropic_MPa_per_s": {
+                "accumulation": -0.00042078097745650717,
+                "time_recovery": -0.0004181002735223941
+              }
+            },
+            {
+              "signed_flow_per_s": 4.3892838199525834e-07,
+              "strength_MPa": 122.88815238588755,
+              "effective_stress_MPa": 146.0693535157152,
+              "backstress_MPa_per_s": [
+                {
+                  "hardening": 0.3932245807277419,
+                  "dynamic_recovery": 0.031216957836432514,
+                  "static_recovery": 0.02213639218675758
+                },
+                {
+                  "hardening": 0.006320605245706792,
+                  "dynamic_recovery": 8.462542649346258e-06,
+                  "static_recovery": 3.760169440898658e-05
+                }
+              ],
+              "isotropic_MPa_per_s": {
+                "accumulation": -4.118172889187903e-05,
+                "time_recovery": -1.9132731986172142e-07
+              }
+            }
+          ]
+        },
+        {
+          "time_s": 30.0,
+          "branches": [
+            {
+              "signed_flow_per_s": 3.461638485711169e-06,
+              "strength_MPa": 45.03643016779144,
+              "effective_stress_MPa": 116.53231186275247,
+              "backstress_MPa_per_s": [
+                {
+                  "hardening": 0.2340933312711551,
+                  "dynamic_recovery": -0.053779929971995426,
+                  "static_recovery": -5.851771432547386e-07
+                },
+                {
+                  "hardening": 0.24982872831039019,
+                  "dynamic_recovery": 1.4327714763297567e-05,
+                  "static_recovery": 8.63270923368561e-09
+                }
+              ],
+              "isotropic_MPa_per_s": {
+                "accumulation": -0.0001262788276525388,
+                "time_recovery": -0.00041394477340378353
+              }
+            },
+            {
+              "signed_flow_per_s": 1.920787698678002e-07,
+              "strength_MPa": 122.88761222777016,
+              "effective_stress_MPa": 140.48701115647972,
+              "backstress_MPa_per_s": [
+                {
+                  "hardening": 0.17207840013586112,
+                  "dynamic_recovery": 0.001978944363424421,
+                  "static_recovery": 0.003414344574187208
+                },
+                {
+                  "hardening": 0.0027659502784862997,
+                  "dynamic_recovery": 3.2772645500099563e-06,
+                  "static_recovery": 3.340654778621851e-05
+                }
+              ],
+              "isotropic_MPa_per_s": {
+                "accumulation": -1.8021388599084683e-05,
+                "time_recovery": -1.9132142854949482e-07
+              }
+            }
+          ]
+        },
+        {
+          "time_s": 100.0,
+          "branches": [
+            {
+              "signed_flow_per_s": 9.80702745073306e-07,
+              "strength_MPa": 45.00343110275219,
+              "effective_stress_MPa": 102.94500744864942,
+              "backstress_MPa_per_s": [
+                {
+                  "hardening": 0.06632003125936238,
+                  "dynamic_recovery": -0.038472352748140495,
+                  "static_recovery": -1.4320036096508483e-06
+                },
+                {
+                  "hardening": 0.07077796270855756,
+                  "dynamic_recovery": -8.80985151662789e-08,
+                  "static_recovery": -2.1193538217075658e-10
+                }
+              ],
+              "isotropic_MPa_per_s": {
+                "accumulation": -3.574932852629352e-05,
+                "time_recovery": -0.00040349662718715056
+              }
+            },
+            {
+              "signed_flow_per_s": 5.157823233345376e-08,
+              "strength_MPa": 122.88696235563933,
+              "effective_stress_MPa": 134.24125800500929,
+              "backstress_MPa_per_s": [
+                {
+                  "hardening": 0.04620760382776869,
+                  "dynamic_recovery": 4.663729592568671e-06,
+                  "static_recovery": 3.4948769742170785e-05
+                },
+                {
+                  "hardening": 0.0007427308399816198,
+                  "dynamic_recovery": 7.558996384389658e-07,
+                  "static_recovery": 2.883452390495441e-05
+                }
+              ],
+              "isotropic_MPa_per_s": {
+                "accumulation": -4.839192554812181e-06,
+                "time_recovery": -1.913143925212412e-07
+              }
+            }
+          ]
+        },
+        {
+          "time_s": 300.0,
+          "branches": [
+            {
+              "signed_flow_per_s": 3.2419754780423274e-07,
+              "strength_MPa": 44.921394121897904,
+              "effective_stress_MPa": 93.10164186237616,
+              "backstress_MPa_per_s": [
+                {
+                  "hardening": 0.02192386185579423,
+                  "dynamic_recovery": -0.017904774413565264,
+                  "static_recovery": -1.9915096778652774e-06
+                },
+                {
+                  "hardening": 0.023397550444277194,
+                  "dynamic_recovery": -9.083808375822968e-06,
+                  "static_recovery": -5.478894873774078e-08
+                }
+              ],
+              "isotropic_MPa_per_s": {
+                "accumulation": -1.1796354714781592e-05,
+                "time_recovery": -0.0003784778545676235
+              }
+            },
+            {
+              "signed_flow_per_s": 1.1914187244204077e-08,
+              "strength_MPa": 122.88647241438547,
+              "effective_stress_MPa": 129.85315762615556,
+              "backstress_MPa_per_s": [
+                {
+                  "hardening": 0.01067361208796147,
+                  "dynamic_recovery": -1.3158016219863205e-07,
+                  "static_recovery": -4.570318105961307e-06
+                },
+                {
+                  "hardening": 0.00017156528828628527,
+                  "dynamic_recovery": 1.5522396676369845e-07,
+                  "static_recovery": 2.573052719527925e-05
+                }
+              ],
+              "isotropic_MPa_per_s": {
+                "accumulation": -1.1178126843354252e-06,
+                "time_recovery": -1.9130925365224054e-07
+              }
+            }
+          ]
+        },
+        {
+          "time_s": 900.0,
+          "branches": [
+            {
+              "signed_flow_per_s": 1.0503614388807007e-07,
+              "strength_MPa": 44.70931595156222,
+              "effective_stress_MPa": 84.63850925025591,
+              "backstress_MPa_per_s": [
+                {
+                  "hardening": 0.007103070100511439,
+                  "dynamic_recovery": -0.0066047892286402905,
+                  "static_recovery": -2.255469424022801e-06
+                },
+                {
+                  "hardening": 0.007580527649695538,
+                  "dynamic_recovery": -2.7607896888671663e-05,
+                  "static_recovery": -4.773718386818148e-07
+                }
+              ],
+              "isotropic_MPa_per_s": {
+                "accumulation": -3.8038349608655593e-06,
+                "time_recovery": -0.0003186576044837835
+              }
+            },
+            {
+              "signed_flow_per_s": 2.5175070283510698e-09,
+              "strength_MPa": 122.88606245013051,
+              "effective_stress_MPa": 127.03555457115343,
+              "backstress_MPa_per_s": [
+                {
+                  "hardening": 0.002255369409475068,
+                  "dynamic_recovery": -1.5236450185845706e-06,
+                  "static_recovery": -0.00021989169132875786
+                },
+                {
+                  "hardening": 3.625231081473193e-05,
+                  "dynamic_recovery": 2.9770074380220992e-08,
+                  "static_recovery": 2.342702743943363e-05
+                }
+              ],
+              "isotropic_MPa_per_s": {
+                "accumulation": -2.3619666800249189e-07,
+                "time_recovery": -1.9130543986537527e-07
+              }
+            }
+          ]
+        },
+        {
+          "time_s": 1800.0,
+          "branches": [
+            {
+              "signed_flow_per_s": 5.0538482178141974e-08,
+              "strength_MPa": 44.450867850250205,
+              "effective_stress_MPa": 79.79666442448857,
+              "backstress_MPa_per_s": [
+                {
+                  "hardening": 0.0034176652759390093,
+                  "dynamic_recovery": -0.003287783388234962,
+                  "static_recovery": -2.329318839982499e-06
+                },
+                {
+                  "hardening": 0.003647395528279324,
+                  "dynamic_recovery": -3.345402708826172e-05,
+                  "static_recovery": -1.1659034417296488e-06
+                }
+              ],
+              "isotropic_MPa_per_s": {
+                "accumulation": -1.8196476848066056e-06,
+                "time_recovery": -0.0002545044447518429
+              }
+            },
+            {
+              "signed_flow_per_s": 1.1026852043876048e-09,
+              "strength_MPa": 122.88575555035642,
+              "effective_stress_MPa": 126.03704694012967,
+              "backstress_MPa_per_s": [
+                {
+                  "hardening": 0.0009878671440633438,
+                  "dynamic_recovery": -1.476452223959806e-06,
+                  "static_recovery": -0.00047407748999902486
+                },
+                {
+                  "hardening": 1.5878758752244126e-05,
+                  "dynamic_recovery": 1.2185392234603963e-08,
+                  "static_recovery": 2.194045667313988e-05
+                }
+              ],
+              "isotropic_MPa_per_s": {
+                "accumulation": -1.0345547325666093e-07,
+                "time_recovery": -1.9130309143778423e-07
+              }
+            }
+          ]
+        }
+      ],
+      "signed_inelastic_strain_by_branch": [
+        0.0009411418016092602,
+        2.84344845087295e-05
+      ],
+      "quadrature_error_estimates": [
+        1.044877297583801e-17,
+        3.156861939493886e-19
+      ],
+      "inelastic_increment_from_kinematics": 0.0009695762861201845,
+      "strain_closure_error": -2.1947504577624066e-15,
+      "numerical_closure_passed": true,
+      "scope": "Model branch-flow decomposition; not stored energy, damage or measured mechanism shares"
+    },
+    {
+      "cycle": 4,
+      "end_state": [
+        128.5708178239338,
+        26.777785752238838,
+        22.58840491512492,
+        -72.06691807195506,
+        0.010728289841869004,
+        4.965269113941515,
+        -2.315386970426773,
+        -0.2238129269306499,
+        0.0023670085737996266,
+        0.0009714623540536582
+      ],
+      "samples": [
+        {
+          "time_s": 0.0,
+          "branches": [
+            {
+              "signed_flow_per_s": 0.00027843524345947643,
+              "strength_MPa": 44.2858061540113,
+              "effective_stress_MPa": 192.82969023710706,
+              "backstress_MPa_per_s": [
+                {
+                  "hardening": 18.82918564540202,
+                  "dynamic_recovery": 3.1361101882151123,
+                  "static_recovery": 4.173113047294449e-07
+                },
+                {
+                  "hardening": 20.094854814391184,
+                  "dynamic_recovery": 3.583302121664682,
+                  "static_recovery": 2.0118908994279657e-05
+                }
+              ],
+              "isotropic_MPa_per_s": {
+                "accumulation": -0.009987887233143665,
+                "time_recovery": -0.00021693622371194265
+              }
+            },
+            {
+              "signed_flow_per_s": 9.933986877838541e-07,
+              "strength_MPa": 122.8342782147419,
+              "effective_stress_MPa": 153.26969413546797,
+              "backstress_MPa_per_s": [
+                {
+                  "hardening": 0.889960181484721,
+                  "dynamic_recovery": 0.3858316606464598,
+                  "static_recovery": 0.11372653513457172
+                },
+                {
+                  "hardening": 0.01430502381400504,
+                  "dynamic_recovery": 1.893900131727565e-05,
+                  "static_recovery": 3.69769607620665e-05
+                }
+              ],
+              "isotropic_MPa_per_s": {
+                "accumulation": -9.316063751952961e-05,
+                "time_recovery": -1.9074093930829034e-07
+              }
+            }
+          ]
+        },
+        {
+          "time_s": 1.0,
+          "branches": [
+            {
+              "signed_flow_per_s": 9.755509103895593e-05,
+              "strength_MPa": 44.27991497830365,
+              "effective_stress_MPa": 169.00172290514422,
+              "backstress_MPa_per_s": [
+                {
+                  "hardening": 6.597163839619811,
+                  "dynamic_recovery": 0.01646616004452937,
+                  "static_recovery": 7.156742088387598e-09
+                },
+                {
+                  "hardening": 7.04061514079788,
+                  "dynamic_recovery": 0.36007324221507203,
+                  "static_recovery": 5.9993484709653865e-06
+                }
+              ],
+              "isotropic_MPa_per_s": {
+                "accumulation": -0.003498981017841076,
+                "time_recovery": -0.00021562095631899806
+              }
+            },
+            {
+              "signed_flow_per_s": 8.740861001320807e-07,
+              "strength_MPa": 122.83419071977266,
+              "effective_stress_MPa": 151.99879703722263,
+              "backstress_MPa_per_s": [
+                {
+                  "hardening": 0.7830711212657411,
+                  "dynamic_recovery": 0.2681145998714417,
+                  "static_recovery": 0.09050677817133189
+                },
+                {
+                  "hardening": 0.012586912617908369,
+                  "dynamic_recovery": 1.6340990984691564e-05,
+                  "static_recovery": 3.6282254585018386e-05
+                }
+              ],
+              "isotropic_MPa_per_s": {
+                "accumulation": -8.197147610348436e-05,
+                "time_recovery": -1.90739985869334e-07
+              }
+            }
+          ]
+        },
+        {
+          "time_s": 3.0,
+          "branches": [
+            {
+              "signed_flow_per_s": 3.984522844982556e-05,
+              "strength_MPa": 44.27511688409338,
+              "effective_stress_MPa": 151.70624298338205,
+              "backstress_MPa_per_s": [
+                {
+                  "hardening": 2.6945339039826393,
+                  "dynamic_recovery": -0.00011817828776319563,
+                  "static_recovery": -1.4322891400958877e-10
+                },
+                {
+                  "hardening": 2.875656367337799,
+                  "dynamic_recovery": 0.043313184647676285,
+                  "static_recovery": 1.8361751289888852e-06
+                }
+              ],
+              "isotropic_MPa_per_s": {
+                "accumulation": -0.0014289627476078103,
+                "time_recovery": -0.00021455811319569503
+              }
+            },
+            {
+              "signed_flow_per_s": 7.081818614723175e-07,
+              "strength_MPa": 122.83404310168011,
+              "effective_stress_MPa": 150.0226097976651,
+              "backstress_MPa_per_s": [
+                {
+                  "hardening": 0.6344418064071605,
+                  "dynamic_recovery": 0.1460824724705957,
+                  "static_recovery": 0.06165400361264719
+                },
+                {
+                  "hardening": 0.010197877768097224,
+                  "dynamic_recovery": 1.2806116186543165e-05,
+                  "static_recovery": 3.513220023200373e-05
+                }
+              ],
+              "isotropic_MPa_per_s": {
+                "accumulation": -6.641295235122307e-05,
+                "time_recovery": -1.9073837762579275e-07
+              }
+            }
+          ]
+        },
+        {
+          "time_s": 10.0,
+          "branches": [
+            {
+              "signed_flow_per_s": 1.1541544882466141e-05,
+              "strength_MPa": 44.26847274720751,
+              "effective_stress_MPa": 131.65505054461042,
+              "backstress_MPa_per_s": [
+                {
+                  "hardening": 0.7804970682826765,
+                  "dynamic_recovery": -0.028563467113211283,
+                  "static_recovery": -9.590173736162536e-08
+                },
+                {
+                  "hardening": 0.8329608919665775,
+                  "dynamic_recovery": 0.0015025020844812726,
+                  "static_recovery": 2.352510971512149e-07
+                }
+              ],
+              "isotropic_MPa_per_s": {
+                "accumulation": -0.0004138503753923015,
+                "time_recovery": -0.00021310737262241858
+              }
+            },
+            {
+              "signed_flow_per_s": 4.2625121392155554e-07,
+              "strength_MPa": 122.83368457026404,
+              "effective_stress_MPa": 145.78952814242942,
+              "backstress_MPa_per_s": [
+                {
+                  "hardening": 0.38186743385577054,
+                  "dynamic_recovery": 0.03204487644315375,
+                  "static_recovery": 0.023218306580845012
+                },
+                {
+                  "hardening": 0.006138052969950293,
+                  "dynamic_recovery": 7.101214126692438e-06,
+                  "static_recovery": 3.2451872430683026e-05
+                }
+              ],
+              "isotropic_MPa_per_s": {
+                "accumulation": -3.997350883386222e-05,
+                "time_recovery": -1.9073447401573741e-07
+              }
+            }
+          ]
+        },
+        {
+          "time_s": 30.0,
+          "branches": [
+            {
+              "signed_flow_per_s": 3.4749178091865464e-06,
+              "strength_MPa": 44.25991324487673,
+              "effective_stress_MPa": 115.8014333926803,
+              "backstress_MPa_per_s": [
+                {
+                  "hardening": 0.23499134563117852,
+                  "dynamic_recovery": -0.05715719931151317,
+                  "static_recovery": -5.985924372286324e-07
+                },
+                {
+                  "hardening": 0.25078710582738684,
+                  "dynamic_recovery": 1.3615645434384274e-05,
+                  "static_recovery": 7.924661827124003e-09
+                }
+              ],
+              "isotropic_MPa_per_s": {
+                "accumulation": -0.00012457760136901842,
+                "time_recovery": -0.00021128660459807084
+              }
+            },
+            {
+              "signed_flow_per_s": 1.881247529843114e-07,
+              "strength_MPa": 122.83315792637922,
+              "effective_stress_MPa": 140.31095507947757,
+              "backstress_MPa_per_s": [
+                {
+                  "hardening": 0.16853609871499492,
+                  "dynamic_recovery": 0.0022162316682913393,
+                  "static_recovery": 0.003864041256969735
+                },
+                {
+                  "hardening": 0.002709012106154435,
+                  "dynamic_recovery": 2.7699653848109065e-06,
+                  "static_recovery": 2.879515255468021e-05
+                }
+              ],
+              "isotropic_MPa_per_s": {
+                "accumulation": -1.7642113436366425e-05,
+                "time_recovery": -1.9072875104005572e-07
+              }
+            }
+          ]
+        },
+        {
+          "time_s": 100.0,
+          "branches": [
+            {
+              "signed_flow_per_s": 9.889166903154155e-07,
+              "strength_MPa": 44.24091426860463,
+              "effective_stress_MPa": 102.26309208148446,
+              "backstress_MPa_per_s": [
+                {
+                  "hardening": 0.06687549937440133,
+                  "dynamic_recovery": -0.03990508145801499,
+                  "static_recovery": -1.4244958448474656e-06
+                },
+                {
+                  "hardening": 0.07137076854392077,
+                  "dynamic_recovery": -1.1178548637290876e-07,
+                  "static_recovery": -2.5621995645628836e-10
+                }
+              ],
+              "isotropic_MPa_per_s": {
+                "accumulation": -3.543795640182743e-05,
+                "time_recovery": -0.00020736730941241124
+              }
+            },
+            {
+              "signed_flow_per_s": 5.1047192709840194e-08,
+              "strength_MPa": 122.83251824592239,
+              "effective_stress_MPa": 134.1477121726405,
+              "backstress_MPa_per_s": [
+                {
+                  "hardening": 0.04573185916893385,
+                  "dynamic_recovery": 7.822513381468244e-06,
+                  "static_recovery": 5.787690690787942e-05
+                },
+                {
+                  "hardening": 0.0007350838251874698,
+                  "dynamic_recovery": 6.437426764014564e-07,
+                  "static_recovery": 2.4784962841610293e-05
+                }
+              ],
+              "isotropic_MPa_per_s": {
+                "accumulation": -4.787117985669235e-06,
+                "time_recovery": -1.9072185095066382e-07
+              }
+            }
+          ]
+        },
+        {
+          "time_s": 300.0,
+          "branches": [
+            {
+              "signed_flow_per_s": 3.2665018965935244e-07,
+              "strength_MPa": 44.19648026610112,
+              "effective_stress_MPa": 92.43728682041623,
+              "backstress_MPa_per_s": [
+                {
+                  "hardening": 0.02208972178156348,
+                  "dynamic_recovery": -0.01827645342833114,
+                  "static_recovery": -1.952103814447199e-06
+                },
+                {
+                  "hardening": 0.023574559221535316,
+                  "dynamic_recovery": -9.940115654436702e-06,
+                  "static_recovery": -5.744236947605093e-08
+                }
+              ],
+              "isotropic_MPa_per_s": {
+                "accumulation": -1.169379478730963e-05,
+                "time_recovery": -0.00019848573305393972
+              }
+            },
+            {
+              "signed_flow_per_s": 1.1868763350300642e-08,
+              "strength_MPa": 122.83203173383542,
+              "effective_stress_MPa": 129.78985196844212,
+              "backstress_MPa_per_s": [
+                {
+                  "hardening": 0.010632917996697641,
+                  "dynamic_recovery": -4.007490375816526e-08,
+                  "static_recovery": -1.443530247836241e-06
+                },
+                {
+                  "hardening": 0.0001709111804321033,
+                  "dynamic_recovery": 1.327250806125382e-07,
+                  "static_recovery": 2.206328366162813e-05
+                }
+              ],
+              "isotropic_MPa_per_s": {
+                "accumulation": -1.1130275482121252e-06,
+                "time_recovery": -1.9071676691245827e-07
+              }
+            }
+          ]
+        },
+        {
+          "time_s": 900.0,
+          "branches": [
+            {
+              "signed_flow_per_s": 1.0484173052280527e-07,
+              "strength_MPa": 44.0804263755801,
+              "effective_stress_MPa": 83.99729254872896,
+              "backstress_MPa_per_s": [
+                {
+                  "hardening": 0.007089922895074959,
+                  "dynamic_recovery": -0.006626179774768349,
+                  "static_recovery": -2.193949188999687e-06
+                },
+                {
+                  "hardening": 0.007566496709142059,
+                  "dynamic_recovery": -2.9083548051336392e-05,
+                  "static_recovery": -4.868183153802985e-07
+                }
+              ],
+              "isotropic_MPa_per_s": {
+                "accumulation": -3.7433879356415673e-06,
+                "time_recovery": -0.00017654762385345367
+              }
+            },
+            {
+              "signed_flow_per_s": 2.4885161235774868e-09,
+              "strength_MPa": 122.83162358944563,
+              "effective_stress_MPa": 126.96512604588338,
+              "backstress_MPa_per_s": [
+                {
+                  "hardening": 0.002229397207990423,
+                  "dynamic_recovery": -1.0235622330939492e-06,
+                  "static_recovery": -0.00015042953819600522
+                },
+                {
+                  "hardening": 3.583483937222294e-05,
+                  "dynamic_recovery": 2.5260143357973688e-08,
+                  "static_recovery": 2.0089567929275843e-05
+                }
+              ],
+              "isotropic_MPa_per_s": {
+                "accumulation": -2.3336696112145692e-07,
+                "time_recovery": -1.9071298391366655e-07
+              }
+            }
+          ]
+        },
+        {
+          "time_s": 1799.999999999999,
+          "branches": [
+            {
+              "signed_flow_per_s": 4.991936267220618e-08,
+              "strength_MPa": 43.93136875771394,
+              "effective_stress_MPa": 79.20462715657004,
+              "backstress_MPa_per_s": [
+                {
+                  "hardening": 0.0033757973142215436,
+                  "dynamic_recovery": -0.0032558743247649074,
+                  "static_recovery": -2.2602932593257722e-06
+                },
+                {
+                  "hardening": 0.003602713265969567,
+                  "dynamic_recovery": -3.430199241639215e-05,
+                  "static_recovery": -1.1700757526605675e-06
+                }
+              ],
+              "isotropic_MPa_per_s": {
+                "accumulation": -1.7763503874520555e-06,
+                "time_recovery": -0.00015078144265425256
+              }
+            },
+            {
+              "signed_flow_per_s": 1.0391989489469378e-09,
+              "strength_MPa": 122.83132128458152,
+              "effective_stress_MPa": 125.92093568041905,
+              "backstress_MPa_per_s": [
+                {
+                  "hardening": 0.0009309914504384548,
+                  "dynamic_recovery": -1.0579347358208355e-06,
+                  "static_recovery": -0.0003615111428894923
+                },
+                {
+                  "hardening": 1.4964551388062112e-05,
+                  "dynamic_recovery": 9.890938100728866e-09,
+                  "static_recovery": 1.8876277681913782e-05
+                }
+              ],
+              "isotropic_MPa_per_s": {
+                "accumulation": -9.745328357619984e-08,
+                "time_recovery": -1.9071068999914797e-07
+              }
+            }
+          ]
+        }
+      ],
+      "signed_inelastic_strain_by_branch": [
+        0.000943591988568254,
+        2.78703654832104e-05
+      ],
+      "quadrature_error_estimates": [
+        1.047597551560313e-17,
+        3.094232146417844e-19
+      ],
+      "inelastic_increment_from_kinematics": 0.0009714623540536582,
+      "strain_closure_error": -2.1938830960244182e-15,
+      "numerical_closure_passed": true,
+      "scope": "Model branch-flow decomposition; not stored energy, damage or measured mechanism shares"
+    },
+    {
+      "cycle": 5,
+      "end_state": [
+        128.60365208937367,
+        26.78666605977066,
+        22.990888694327644,
+        -72.4293961797121,
+        0.013890769574646421,
+        4.984850947223413,
+        -2.2518368613524764,
+        -0.2775652828661865,
+        0.002935936277459315,
+        0.000977500179639437
+      ],
+      "samples": [
+        {
+          "time_s": 0.0,
+          "branches": [
+            {
+              "signed_flow_per_s": 0.00028354926980626616,
+              "strength_MPa": 43.80173324602501,
+              "effective_stress_MPa": 192.7968941038692,
+              "backstress_MPa_per_s": [
+                {
+                  "hardening": 19.175021719466386,
+                  "dynamic_recovery": 3.1243670875768768,
+                  "static_recovery": 3.9542136893356553e-07
+                },
+                {
+                  "hardening": 20.46393746240254,
+                  "dynamic_recovery": 3.6643821587888095,
+                  "static_recovery": 1.9551597133489102e-05
+                }
+              ],
+              "isotropic_MPa_per_s": {
+                "accumulation": -0.010060155580570352,
+                "time_recovery": -0.00012967163787275195
+              }
+            },
+            {
+              "signed_flow_per_s": 9.94552731678894e-07,
+              "strength_MPa": 122.78052600035375,
+              "effective_stress_MPa": 153.22772309678234,
+              "backstress_MPa_per_s": [
+                {
+                  "hardening": 0.8909940595509003,
+                  "dynamic_recovery": 0.3858356619213128,
+                  "static_recovery": 0.11293334406485116
+                },
+                {
+                  "hardening": 0.01432164214217878,
+                  "dynamic_recovery": 1.7180045189924846e-05,
+                  "static_recovery": 3.341413924031923e-05
+                }
+              ],
+              "isotropic_MPa_per_s": {
+                "accumulation": -9.322556129401981e-05,
+                "time_recovery": -1.9015795326997356e-07
+              }
+            }
+          ]
+        },
+        {
+          "time_s": 1.0,
+          "branches": [
+            {
+              "signed_flow_per_s": 9.836046537796464e-05,
+              "strength_MPa": 43.79591990237425,
+              "effective_stress_MPa": 168.68874906577616,
+              "backstress_MPa_per_s": [
+                {
+                  "hardening": 6.6516272859667,
+                  "dynamic_recovery": 0.014304132275205455,
+                  "static_recovery": 5.996965349045958e-09
+                },
+                {
+                  "hardening": 7.098739537022066,
+                  "dynamic_recovery": 0.3583250690149494,
+                  "static_recovery": 5.7334940013478315e-06
+                }
+              ],
+              "isotropic_MPa_per_s": {
+                "accumulation": -0.0034893063082510165,
+                "time_recovery": -0.0001287528751360299
+              }
+            },
+            {
+              "signed_flow_per_s": 8.751221130389539e-07,
+              "strength_MPa": 122.78043844405398,
+              "effective_stress_MPa": 151.9565626882408,
+              "backstress_MPa_per_s": [
+                {
+                  "hardening": 0.7839992584235205,
+                  "dynamic_recovery": 0.2680881146523029,
+                  "static_recovery": 0.08986399779140662
+                },
+                {
+                  "hardening": 0.012601831290025301,
+                  "dynamic_recovery": 1.4816154236833432e-05,
+                  "static_recovery": 3.277027978184953e-05
+                }
+              ],
+              "isotropic_MPa_per_s": {
+                "accumulation": -8.203053077440857e-05,
+                "time_recovery": -1.901570025129403e-07
+              }
+            }
+          ]
+        },
+        {
+          "time_s": 3.0,
+          "branches": [
+            {
+              "signed_flow_per_s": 4.000755707761573e-05,
+              "strength_MPa": 43.79131711046024,
+              "effective_stress_MPa": 151.2952650533634,
+              "backstress_MPa_per_s": [
+                {
+                  "hardening": 2.7055113787816203,
+                  "dynamic_recovery": -0.00018920803343364735,
+                  "static_recovery": -2.1771724952632174e-10
+                },
+                {
+                  "hardening": 2.8873717312663514,
+                  "dynamic_recovery": 0.042370512764677584,
+                  "static_recovery": 1.732892448380044e-06
+                }
+              ],
+              "isotropic_MPa_per_s": {
+                "accumulation": -0.0014191062378541045,
+                "time_recovery": -0.00012803017264080725
+              }
+            },
+            {
+              "signed_flow_per_s": 7.090397055731231e-07,
+              "strength_MPa": 122.78029071892595,
+              "effective_stress_MPa": 149.97983112172304,
+              "backstress_MPa_per_s": [
+                {
+                  "hardening": 0.6352103267414702,
+                  "dynamic_recovery": 0.14603239621028127,
+                  "static_recovery": 0.06120013900406181
+                },
+                {
+                  "hardening": 0.010210230794572528,
+                  "dynamic_recovery": 1.160137118793204e-05,
+                  "static_recovery": 3.170493978571271e-05
+                }
+              ],
+              "isotropic_MPa_per_s": {
+                "accumulation": -6.64625293713226e-05,
+                "time_recovery": -1.9015539875291238e-07
+              }
+            }
+          ]
+        },
+        {
+          "time_s": 10.0,
+          "branches": [
+            {
+              "signed_flow_per_s": 1.1565539612851554e-05,
+              "strength_MPa": 43.78531873619389,
+              "effective_stress_MPa": 131.2021496083486,
+              "backstress_MPa_per_s": [
+                {
+                  "hardening": 0.7821197121237535,
+                  "dynamic_recovery": -0.031541721920387546,
+                  "static_recovery": -1.0196200245898578e-07
+                },
+                {
+                  "hardening": 0.8346926074542238,
+                  "dynamic_recovery": 0.0014285608692713775,
+                  "static_recovery": 2.1640382377121688e-07
+                }
+              ],
+              "isotropic_MPa_per_s": {
+                "accumulation": -0.00041018453640027,
+                "time_recovery": -0.00012709808952460257
+              }
+            },
+            {
+              "signed_flow_per_s": 4.267643130491885e-07,
+              "strength_MPa": 122.77993192330621,
+              "effective_stress_MPa": 145.74498282041597,
+              "backstress_MPa_per_s": [
+                {
+                  "hardening": 0.3823271060884434,
+                  "dynamic_recovery": 0.032002050560476836,
+                  "static_recovery": 0.023025388718402887
+                },
+                {
+                  "hardening": 0.006145441640108604,
+                  "dynamic_recovery": 6.419234075610244e-06,
+                  "static_recovery": 2.9224952729129198e-05
+                }
+              ],
+              "isotropic_MPa_per_s": {
+                "accumulation": -4.0003045706528104e-05,
+                "time_recovery": -1.901515059684136e-07
+              }
+            }
+          ]
+        },
+        {
+          "time_s": 30.0,
+          "branches": [
+            {
+              "signed_flow_per_s": 3.4898035096835267e-06,
+              "strength_MPa": 43.778505966409384,
+              "effective_stress_MPa": 115.37101292127059,
+              "backstress_MPa_per_s": [
+                {
+                  "hardening": 0.23599799125059445,
+                  "dynamic_recovery": -0.06043559972541944,
+                  "static_recovery": -6.089453622614529e-07
+                },
+                {
+                  "hardening": 0.2518614166315105,
+                  "dynamic_recovery": 1.1824041945642283e-05,
+                  "static_recovery": 6.663650841135322e-09
+                }
+              ],
+              "isotropic_MPa_per_s": {
+                "accumulation": -0.00012375044781755596,
+                "time_recovery": -0.00012606005893631752
+              }
+            },
+            {
+              "signed_flow_per_s": 1.8831546967523064e-07,
+              "strength_MPa": 122.779404945432,
+              "effective_stress_MPa": 140.2631063044853,
+              "backstress_MPa_per_s": [
+                {
+                  "hardening": 0.1687069568638428,
+                  "dynamic_recovery": 0.002206071325661076,
+                  "static_recovery": 0.0038205778993017194
+                },
+                {
+                  "hardening": 0.002711758442382656,
+                  "dynamic_recovery": 2.4952565922283107e-06,
+                  "static_recovery": 2.58495197508245e-05
+                }
+              ],
+              "isotropic_MPa_per_s": {
+                "accumulation": -1.76517993791686e-05,
+                "time_recovery": -1.901457994018322e-07
+              }
+            }
+          ]
+        },
+        {
+          "time_s": 100.0,
+          "branches": [
+            {
+              "signed_flow_per_s": 9.974558554462596e-07,
+              "strength_MPa": 43.76542012417836,
+              "effective_stress_MPa": 101.87080139120411,
+              "backstress_MPa_per_s": [
+                {
+                  "hardening": 0.06745296048710996,
+                  "dynamic_recovery": -0.04128942637165449,
+                  "static_recovery": -1.413132570701066e-06
+                },
+                {
+                  "hardening": 0.0719870457127462,
+                  "dynamic_recovery": -1.7121967315883533e-07,
+                  "static_recovery": -3.7149728665001637e-10
+                }
+              ],
+              "isotropic_MPa_per_s": {
+                "accumulation": -3.535978810017368e-05,
+                "time_recovery": -0.00012412004127220614
+              }
+            },
+            {
+              "signed_flow_per_s": 5.107664425715521e-08,
+              "strength_MPa": 122.77876509185714,
+              "effective_stress_MPa": 134.09613469094768,
+              "backstress_MPa_per_s": [
+                {
+                  "hardening": 0.04575824404815284,
+                  "dynamic_recovery": 7.656060314460704e-06,
+                  "static_recovery": 5.632087039909413e-05
+                },
+                {
+                  "hardening": 0.0007355079299209283,
+                  "dynamic_recovery": 5.773177851130898e-07,
+                  "static_recovery": 2.2163048851941258e-05
+                }
+              ],
+              "isotropic_MPa_per_s": {
+                "accumulation": -4.7876560212616344e-06,
+                "time_recovery": -1.9013892139372424e-07
+              }
+            }
+          ]
+        },
+        {
+          "time_s": 300.0,
+          "branches": [
+            {
+              "signed_flow_per_s": 3.2956616034407225e-07,
+              "strength_MPa": 43.73714927016661,
+              "effective_stress_MPa": 92.04946371259304,
+              "backstress_MPa_per_s": [
+                {
+                  "hardening": 0.022286914323272483,
+                  "dynamic_recovery": -0.01865842577533263,
+                  "static_recovery": -1.91099878305292e-06
+                },
+                {
+                  "hardening": 0.023785006745435048,
+                  "dynamic_recovery": -1.1479987126755712e-05,
+                  "static_recovery": -6.336009373642363e-08
+                }
+              ],
+              "isotropic_MPa_per_s": {
+                "accumulation": -1.1675566258764727e-05,
+                "time_recovery": -0.0001200477538840804
+              }
+            },
+            {
+              "signed_flow_per_s": 1.1872905716943223e-08,
+              "strength_MPa": 122.77827870842874,
+              "effective_stress_MPa": 129.73690830817785,
+              "backstress_MPa_per_s": [
+                {
+                  "hardening": 0.010636629035794373,
+                  "dynamic_recovery": -4.2723147308449075e-08,
+                  "static_recovery": -1.5261969851100032e-06
+                },
+                {
+                  "hardening": 0.000170970830856648,
+                  "dynamic_recovery": 1.1869484753370115e-07,
+                  "static_recovery": 1.9679909915018616e-05
+                }
+              ],
+              "isotropic_MPa_per_s": {
+                "accumulation": -1.1128990648748673e-06,
+                "time_recovery": -1.9013385576783918e-07
+              }
+            }
+          ]
+        },
+        {
+          "time_s": 900.0,
+          "branches": [
+            {
+              "signed_flow_per_s": 1.0520503219511374e-07,
+              "strength_MPa": 43.66444579339685,
+              "effective_stress_MPa": 83.6043323323897,
+              "backstress_MPa_per_s": [
+                {
+                  "hardening": 0.007114491173674276,
+                  "dynamic_recovery": -0.006681043932760436,
+                  "static_recovery": -2.1332183469582217e-06
+                },
+                {
+                  "hardening": 0.007592716429994052,
+                  "dynamic_recovery": -3.192210758863326e-05,
+                  "static_recovery": -5.138550884666299e-07
+                }
+              ],
+              "isotropic_MPa_per_s": {
+                "accumulation": -3.720911437243841e-06,
+                "time_recovery": -0.00011002914945680525
+              }
+            },
+            {
+              "signed_flow_per_s": 2.4910340448774383e-09,
+              "strength_MPa": 122.7778709019625,
+              "effective_stress_MPa": 126.91276700359033,
+              "backstress_MPa_per_s": [
+                {
+                  "hardening": 0.002231652948535106,
+                  "dynamic_recovery": -1.0454835911733106e-06,
+                  "static_recovery": -0.00015249507986087477
+                },
+                {
+                  "hardening": 3.587109764858321e-05,
+                  "dynamic_recovery": 2.259470110716436e-08,
+                  "static_recovery": 1.7911591397639114e-05
+                }
+              ],
+              "isotropic_MPa_per_s": {
+                "accumulation": -2.3349462681079953e-07,
+                "time_recovery": -1.9013008714919574e-07
+              }
+            }
+          ]
+        },
+        {
+          "time_s": 1800.0,
+          "branches": [
+            {
+              "signed_flow_per_s": 4.9783217564873954e-08,
+              "strength_MPa": 43.5688906499569,
+              "effective_stress_MPa": 78.82609733527536,
+              "backstress_MPa_per_s": [
+                {
+                  "hardening": 0.003366590500210426,
+                  "dynamic_recovery": -0.003255409274523019,
+                  "static_recovery": -2.1930559076808638e-06
+                },
+                {
+                  "hardening": 0.003592887583949076,
+                  "dynamic_recovery": -3.675886426841102e-05,
+                  "static_recovery": -1.2140183814296742e-06
+                }
+              ],
+              "isotropic_MPa_per_s": {
+                "accumulation": -1.7568890315242494e-06,
+                "time_recovery": -9.772576157843031e-05
+              }
+            },
+            {
+              "signed_flow_per_s": 1.0426888161032646e-09,
+              "strength_MPa": 122.77756892864598,
+              "effective_stress_MPa": 125.87063800350273,
+              "backstress_MPa_per_s": [
+                {
+                  "hardening": 0.0009341179321280279,
+                  "dynamic_recovery": -1.0785771463204506e-06,
+                  "static_recovery": -0.0003649861076240478
+                },
+                {
+                  "hardening": 1.5014805765677951e-05,
+                  "dynamic_recovery": 8.88066805127553e-09,
+                  "static_recovery": 1.6853119705838804e-05
+                }
+              ],
+              "isotropic_MPa_per_s": {
+                "accumulation": -9.773515588161189e-08,
+                "time_recovery": -1.901278010102942e-07
+              }
+            }
+          ]
+        }
+      ],
+      "signed_inelastic_strain_by_branch": [
+        0.0009496041648711152,
+        2.7896014766113735e-05
+      ],
+      "quadrature_error_estimates": [
+        1.0542724081198554e-17,
+        3.097079788862284e-19
+      ],
+      "inelastic_increment_from_kinematics": 0.0009775001796394375,
+      "strain_closure_error": -2.2085198253529725e-15,
+      "numerical_closure_passed": true,
+      "scope": "Model branch-flow decomposition; not stored energy, damage or measured mechanism shares"
+    },
+    {
+      "cycle": 6,
+      "end_state": [
+        128.67670789533122,
+        26.791484349082292,
+        23.337100596765477,
+        -72.70621957593399,
+        0.017060271076129677,
+        5.0500092395382845,
+        -2.2011278714351947,
+        -0.3308694046649463,
+        0.0035003573882685123,
+        0.0009828085656840544
+      ],
+      "samples": [
+        {
+          "time_s": 0.0,
+          "branches": [
+            {
+              "signed_flow_per_s": 0.00028808621534621813,
+              "strength_MPa": 43.45779023928063,
+              "effective_stress_MPa": 192.8476619209101,
+              "backstress_MPa_per_s": [
+                {
+                  "hardening": 19.481832699188022,
+                  "dynamic_recovery": 3.1376583472745647,
+                  "static_recovery": 3.784119368798924e-07
+                },
+                {
+                  "hardening": 20.791371808692123,
+                  "dynamic_recovery": 3.7381696814590697,
+                  "static_recovery": 1.8996785048543133e-05
+                }
+              ],
+              "isotropic_MPa_per_s": {
+                "accumulation": -0.01014086460436039,
+                "time_recovery": -8.408059760448588e-05
+              }
+            },
+            {
+              "signed_flow_per_s": 1.001215543972267e-06,
+              "strength_MPa": 122.72722866738272,
+              "effective_stress_MPa": 153.2422661827131,
+              "backstress_MPa_per_s": [
+                {
+                  "hardening": 0.8969631006929186,
+                  "dynamic_recovery": 0.3880709670577884,
+                  "static_recovery": 0.11217818656327515
+                },
+                {
+                  "hardening": 0.014417587193946035,
+                  "dynamic_recovery": 1.5990202090160203e-05,
+                  "static_recovery": 3.079157761472667e-05
+                }
+              ],
+              "isotropic_MPa_per_s": {
+                "accumulation": -9.380688446640561e-05,
+                "time_recovery": -1.8958193592980867e-07
+              }
+            }
+          ]
+        },
+        {
+          "time_s": 1.0,
+          "branches": [
+            {
+              "signed_flow_per_s": 9.905071780439667e-05,
+              "strength_MPa": 43.45200544173133,
+              "effective_stress_MPa": 168.4904835428945,
+              "backstress_MPa_per_s": [
+                {
+                  "hardening": 6.698305612021962,
+                  "dynamic_recovery": 0.012839325617998772,
+                  "static_recovery": 5.19256491740976e-09
+                },
+                {
+                  "hardening": 7.148555509030838,
+                  "dynamic_recovery": 0.3569032862017762,
+                  "static_recovery": 5.490269389599447e-06
+                }
+              ],
+              "isotropic_MPa_per_s": {
+                "accumulation": -0.0034862001650290612,
+                "time_recovery": -8.339685688526135e-05
+              }
+            },
+            {
+              "signed_flow_per_s": 8.806635766384516e-07,
+              "strength_MPa": 122.72714058347381,
+              "effective_stress_MPa": 151.9647184855935,
+              "backstress_MPa_per_s": [
+                {
+                  "hardening": 0.788963712284137,
+                  "dynamic_recovery": 0.2691958921494108,
+                  "static_recovery": 0.08915189782503204
+                },
+                {
+                  "hardening": 0.012681628827237777,
+                  "dynamic_recovery": 1.3777723623928153e-05,
+                  "static_recovery": 3.0182829892787053e-05
+                }
+              ],
+              "isotropic_MPa_per_s": {
+                "accumulation": -8.251194657825948e-05,
+                "time_recovery": -1.8958098276743056e-07
+              }
+            }
+          ]
+        },
+        {
+          "time_s": 3.0,
+          "branches": [
+            {
+              "signed_flow_per_s": 4.01455986718569e-05,
+              "strength_MPa": 43.44750542899918,
+              "effective_stress_MPa": 151.01318640185,
+              "backstress_MPa_per_s": [
+                {
+                  "hardening": 2.714846442735665,
+                  "dynamic_recovery": -0.0002627937406444145,
+                  "static_recovery": -2.885788635188931e-10
+                },
+                {
+                  "hardening": 2.897334283995518,
+                  "dynamic_recovery": 0.04158544763239711,
+                  "static_recovery": 1.6415209606662068e-06
+                }
+              ],
+              "isotropic_MPa_per_s": {
+                "accumulation": -0.0014128226590823963,
+                "time_recovery": -8.286826221732621e-05
+              }
+            },
+            {
+              "signed_flow_per_s": 7.131859930451494e-07,
+              "strength_MPa": 122.72699203203167,
+              "effective_stress_MPa": 149.97944813349292,
+              "backstress_MPa_per_s": [
+                {
+                  "hardening": 0.6389248784078554,
+                  "dynamic_recovery": 0.14626511715465335,
+                  "static_recovery": 0.060594885065082336
+                },
+                {
+                  "hardening": 0.010269937679387695,
+                  "dynamic_recovery": 1.0773504733295242e-05,
+                  "static_recovery": 2.917655747945438e-05
+                }
+              ],
+              "isotropic_MPa_per_s": {
+                "accumulation": -6.682039605716441e-05,
+                "time_recovery": -1.89579375638583e-07
+              }
+            }
+          ]
+        },
+        {
+          "time_s": 10.0,
+          "branches": [
+            {
+              "signed_flow_per_s": 1.1585923742819502e-05,
+              "strength_MPa": 43.44185026376013,
+              "effective_stress_MPa": 130.88434082442575,
+              "backstress_MPa_per_s": [
+                {
+                  "hardening": 0.7834981890816907,
+                  "dynamic_recovery": -0.034015673531362464,
+                  "static_recovery": -1.0597547974726442e-07
+                },
+                {
+                  "hardening": 0.8361637435328834,
+                  "dynamic_recovery": 0.0013679553073221752,
+                  "static_recovery": 2.0048833770619137e-07
+                }
+              ],
+              "isotropic_MPa_per_s": {
+                "accumulation": -0.0004076841682883746,
+                "time_recovery": -8.220959130446921e-05
+              }
+            },
+            {
+              "signed_flow_per_s": 4.288816455049683e-07,
+              "strength_MPa": 122.72663148017956,
+              "effective_stress_MPa": 145.72959905417818,
+              "backstress_MPa_per_s": [
+                {
+                  "hardening": 0.3842239694523492,
+                  "dynamic_recovery": 0.03185420542987497,
+                  "static_recovery": 0.022680160755221696
+                },
+                {
+                  "hardening": 0.0061759314037599594,
+                  "dynamic_recovery": 5.943107127002326e-06,
+                  "static_recovery": 2.6838408390177645e-05
+                }
+              ],
+              "isotropic_MPa_per_s": {
+                "accumulation": -4.018299905585001e-05,
+                "time_recovery": -1.8957547737109827e-07
+              }
+            }
+          ]
+        },
+        {
+          "time_s": 30.0,
+          "branches": [
+            {
+              "signed_flow_per_s": 3.502107317051797e-06,
+              "strength_MPa": 43.43595480717072,
+              "effective_stress_MPa": 115.07046838660904,
+              "backstress_MPa_per_s": [
+                {
+                  "hardening": 0.23683003632579394,
+                  "dynamic_recovery": -0.06308156318196392,
+                  "static_recovery": -6.121843123118462e-07
+                },
+                {
+                  "hardening": 0.25274939050887496,
+                  "dynamic_recovery": 1.0443302486088296e-05,
+                  "static_recovery": 5.699488252541931e-09
+                }
+              ],
+              "isotropic_MPa_per_s": {
+                "accumulation": -0.00012321503068609313,
+                "time_recovery": -8.153331736498705e-05
+              }
+            },
+            {
+              "signed_flow_per_s": 1.890125092126239e-07,
+              "strength_MPa": 122.7261024817779,
+              "effective_stress_MPa": 140.231348938663,
+              "backstress_MPa_per_s": [
+                {
+                  "hardening": 0.1693314165504007,
+                  "dynamic_recovery": 0.0021650863770495865,
+                  "static_recovery": 0.0037167320887577264
+                },
+                {
+                  "hardening": 0.00272179586975631,
+                  "dynamic_recovery": 2.300000322813029e-06,
+                  "static_recovery": 2.3666121069634058e-05
+                }
+              ],
+              "isotropic_MPa_per_s": {
+                "accumulation": -1.7708975946698653e-05,
+                "time_recovery": -1.8956976872821175e-07
+              }
+            }
+          ]
+        },
+        {
+          "time_s": 100.0,
+          "branches": [
+            {
+              "signed_flow_per_s": 1.0044151576547473e-06,
+              "strength_MPa": 43.42596667339892,
+              "effective_stress_MPa": 101.59871973420172,
+              "backstress_MPa_per_s": [
+                {
+                  "hardening": 0.06792358335660723,
+                  "dynamic_recovery": -0.0423904580654951,
+                  "static_recovery": -1.3934593992609339e-06
+                },
+                {
+                  "hardening": 0.0724893031344414,
+                  "dynamic_recovery": -2.378349481480276e-07,
+                  "static_recovery": -4.907867081491421e-10
+                }
+              ],
+              "isotropic_MPa_per_s": {
+                "accumulation": -3.5330323935203384e-05,
+                "time_recovery": -8.041427507692606e-05
+              }
+            },
+            {
+              "signed_flow_per_s": 5.117494897476876e-08,
+              "strength_MPa": 122.72546118514018,
+              "effective_stress_MPa": 134.0500867935971,
+              "backstress_MPa_per_s": [
+                {
+                  "hardening": 0.045846312701155925,
+                  "dynamic_recovery": 7.03618640735787e-06,
+                  "static_recovery": 5.1504987233282205e-05
+                },
+                {
+                  "hardening": 0.000736923526039369,
+                  "dynamic_recovery": 5.292333409120481e-07,
+                  "static_recovery": 2.0218337416294092e-05
+                }
+              ],
+              "isotropic_MPa_per_s": {
+                "accumulation": -4.794661050495324e-06,
+                "time_recovery": -1.8956289877219908e-07
+              }
+            }
+          ]
+        },
+        {
+          "time_s": 300.0,
+          "branches": [
+            {
+              "signed_flow_per_s": 3.31988375979942e-07,
+              "strength_MPa": 43.40624114119419,
+              "effective_stress_MPa": 91.77755540947891,
+              "backstress_MPa_per_s": [
+                {
+                  "hardening": 0.022450716675712915,
+                  "dynamic_recovery": -0.018963334701145237,
+                  "static_recovery": -1.8653737997524002e-06
+                },
+                {
+                  "hardening": 0.02395981964242032,
+                  "dynamic_recovery": -1.2910921082956277e-05,
+                  "static_recovery": -6.821315920090604e-08
+                }
+              ],
+              "isotropic_MPa_per_s": {
+                "accumulation": -1.167239358403439e-05,
+                "time_recovery": -7.826270610640574e-05
+              }
+            },
+            {
+              "signed_flow_per_s": 1.1882864730374864e-08,
+              "strength_MPa": 122.72497452608526,
+              "effective_stress_MPa": 129.68554921885269,
+              "backstress_MPa_per_s": [
+                {
+                  "hardening": 0.010645551058251242,
+                  "dynamic_recovery": -5.3794273556517444e-08,
+                  "static_recovery": -1.8947104626849692e-06
+                },
+                {
+                  "hardening": 0.0001711142414792465,
+                  "dynamic_recovery": 1.0843891229045406e-07,
+                  "static_recovery": 1.791281043136343e-05
+                }
+              ],
+              "isotropic_MPa_per_s": {
+                "accumulation": -1.1133195073215053e-06,
+                "time_recovery": -1.8955784697158767e-07
+              }
+            }
+          ]
+        },
+        {
+          "time_s": 900.0,
+          "branches": [
+            {
+              "signed_flow_per_s": 1.0560305657989279e-07,
+              "strength_MPa": 43.35710804951758,
+              "effective_stress_MPa": 83.32213921384033,
+              "backstress_MPa_per_s": [
+                {
+                  "hardening": 0.007141407575992046,
+                  "dynamic_recovery": -0.006730597065016184,
+                  "static_recovery": -2.071678249274988e-06
+                },
+                {
+                  "hardening": 0.007621442111863008,
+                  "dynamic_recovery": -3.45174968978817e-05,
+                  "static_recovery": -5.344008380785824e-07
+                }
+              ],
+              "isotropic_MPa_per_s": {
+                "accumulation": -3.7086996366396603e-06,
+                "time_recovery": -7.310064341620614e-05
+              }
+            },
+            {
+              "signed_flow_per_s": 2.4967098017820925e-09,
+              "strength_MPa": 122.72456689984908,
+              "effective_stress_MPa": 126.86260103745644,
+              "backstress_MPa_per_s": [
+                {
+                  "hardening": 0.0022367377122931476,
+                  "dynamic_recovery": -1.1251877747487614e-06,
+                  "static_recovery": -0.00016241810465618221
+                },
+                {
+                  "hardening": 3.595282902057114e-05,
+                  "dynamic_recovery": 2.0660644911893577e-08,
+                  "static_recovery": 1.6294547726902157e-05
+                }
+              ],
+              "isotropic_MPa_per_s": {
+                "accumulation": -2.3391883975750878e-07,
+                "time_recovery": -1.8955409088891967e-07
+              }
+            }
+          ]
+        },
+        {
+          "time_s": 1800.0,
+          "branches": [
+            {
+              "signed_flow_per_s": 4.9773467168860774e-08,
+              "strength_MPa": 43.29206725373501,
+              "effective_stress_MPa": 78.54812294948344,
+              "backstress_MPa_per_s": [
+                {
+                  "hardening": 0.0033659311295992657,
+                  "dynamic_recovery": -0.003261233360747851,
+                  "static_recovery": -2.126430842636333e-06
+                },
+                {
+                  "hardening": 0.003592183891450119,
+                  "dynamic_recovery": -3.906523783988616e-05,
+                  "static_recovery": -1.2463649768908598e-06
+                }
+              ],
+              "isotropic_MPa_per_s": {
+                "accumulation": -1.7453843795739885e-06,
+                "time_recovery": -6.662720284194787e-05
+              }
+            },
+            {
+              "signed_flow_per_s": 1.0533362212660178e-09,
+              "strength_MPa": 122.72426480684722,
+              "effective_stress_MPa": 125.82782652722813,
+              "backstress_MPa_per_s": [
+                {
+                  "hardening": 0.0009436566669255586,
+                  "dynamic_recovery": -1.1479460742509624e-06,
+                  "static_recovery": -0.00038164712275976827
+                },
+                {
+                  "hardening": 1.516812928651965e-05,
+                  "dynamic_recovery": 8.191988295713968e-09,
+                  "static_recovery": 1.5344703133584056e-05
+                }
+              ],
+              "isotropic_MPa_per_s": {
+                "accumulation": -9.868769812940699e-08,
+                "time_recovery": -1.8955180758970713e-07
+              }
+            }
+          ]
+        }
+      ],
+      "signed_inelastic_strain_by_branch": [
+        0.0009548161710986092,
+        2.799239458322764e-05
+      ],
+      "quadrature_error_estimates": [
+        1.060058897438108e-17,
+        3.1077800980691854e-19
+      ],
+      "inelastic_increment_from_kinematics": 0.0009828085656840544,
+      "strain_closure_error": -2.2176271236018508e-15,
+      "numerical_closure_passed": true,
+      "scope": "Model branch-flow decomposition; not stored energy, damage or measured mechanism shares"
+    },
+    {
+      "cycle": 7,
+      "end_state": [
+        128.46139146854551,
+        26.785978056333644,
+        23.36398845346118,
+        -72.93069265404431,
+        0.020231350046048164,
+        4.87897188942114,
+        -2.1656360945585242,
+        -0.3838059917521549,
+        0.004061127232490123,
+        0.000981344007920333
+      ],
+      "samples": [
+        {
+          "time_s": 0.0,
+          "branches": [
+            {
+              "signed_flow_per_s": 0.0002850081491486591,
+              "strength_MPa": 43.19193825877309,
+              "effective_stress_MPa": 192.31459103253084,
+              "backstress_MPa_per_s": [
+                {
+                  "hardening": 19.273678447080528,
+                  "dynamic_recovery": 2.9755356852508674,
+                  "static_recovery": 3.5151521160266543e-07
+                },
+                {
+                  "hardening": 20.56922574492331,
+                  "dynamic_recovery": 3.661417694791424,
+                  "static_recovery": 1.8206822561087577e-05
+                }
+              ],
+              "isotropic_MPa_per_s": {
+                "accumulation": -0.009971140534104039,
+                "time_recovery": -5.707182880630228e-05
+              }
+            },
+            {
+              "signed_flow_per_s": 9.80792276761486e-07,
+              "strength_MPa": 122.67426538778571,
+              "effective_stress_MPa": 152.98038917803015,
+              "backstress_MPa_per_s": [
+                {
+                  "hardening": 0.8786664240242935,
+                  "dynamic_recovery": 0.3798760743357535,
+                  "static_recovery": 0.11144984622661998
+                },
+                {
+                  "hardening": 0.01412349044567896,
+                  "dynamic_recovery": 1.4707906140565234e-05,
+                  "static_recovery": 2.8803662224339704e-05
+                }
+              ],
+              "isotropic_MPa_per_s": {
+                "accumulation": -9.185129112269796e-05,
+                "time_recovery": -1.890115239390113e-07
+              }
+            }
+          ]
+        },
+        {
+          "time_s": 1.0,
+          "branches": [
+            {
+              "signed_flow_per_s": 9.86770692872237e-05,
+              "strength_MPa": 43.186252086162696,
+              "effective_stress_MPa": 168.14599266878776,
+              "backstress_MPa_per_s": [
+                {
+                  "hardening": 6.673037627952973,
+                  "dynamic_recovery": 0.01201355506881779,
+                  "static_recovery": 4.729332412565146e-09
+                },
+                {
+                  "hardening": 7.121589049573646,
+                  "dynamic_recovery": 0.35436154741607995,
+                  "static_recovery": 5.295913150541177e-06
+                }
+              ],
+              "isotropic_MPa_per_s": {
+                "accumulation": -0.003451807942494281,
+                "time_recovery": -5.655331479692049e-05
+              }
+            },
+            {
+              "signed_flow_per_s": 8.639827229644811e-07,
+              "strength_MPa": 122.67417907050475,
+              "effective_stress_MPa": 151.7259804545733,
+              "backstress_MPa_per_s": [
+                {
+                  "hardening": 0.7740197670730506,
+                  "dynamic_recovery": 0.26505816420084377,
+                  "static_recovery": 0.08894806414936333
+                },
+                {
+                  "hardening": 0.012441423145492401,
+                  "dynamic_recovery": 1.2692806164503898e-05,
+                  "static_recovery": 2.8236593043232264e-05
+                }
+              ],
+              "isotropic_MPa_per_s": {
+                "accumulation": -8.091200475928602e-05,
+                "time_recovery": -1.8901059314680137e-07
+              }
+            }
+          ]
+        },
+        {
+          "time_s": 3.0,
+          "branches": [
+            {
+              "signed_flow_per_s": 4.007492250676327e-05,
+              "strength_MPa": 43.181843556380954,
+              "effective_stress_MPa": 150.71593986117915,
+              "backstress_MPa_per_s": [
+                {
+                  "hardening": 2.710066966485753,
+                  "dynamic_recovery": -0.00029009291834097747,
+                  "static_recovery": -3.078192944046915e-10
+                },
+                {
+                  "hardening": 2.892233538634591,
+                  "dynamic_recovery": 0.041467924905446166,
+                  "static_recovery": 1.5869435490493593e-06
+                }
+              ],
+              "isotropic_MPa_per_s": {
+                "accumulation": -0.0014017118235139026,
+                "time_recovery": -5.615381338824144e-05
+              }
+            },
+            {
+              "signed_flow_per_s": 7.010411271227143e-07,
+              "strength_MPa": 122.67403324504863,
+              "effective_stress_MPa": 149.77090854500653,
+              "backstress_MPa_per_s": [
+                {
+                  "hardening": 0.6280446072605779,
+                  "dynamic_recovery": 0.14526997886573143,
+                  "static_recovery": 0.06085046390079826
+                },
+                {
+                  "hardening": 0.010095050598928682,
+                  "dynamic_recovery": 9.945375113049054e-06,
+                  "static_recovery": 2.7297544531912087e-05
+                }
+              ],
+              "isotropic_MPa_per_s": {
+                "accumulation": -6.565243721149978e-05,
+                "time_recovery": -1.8900902100608886e-07
+              }
+            }
+          ]
+        },
+        {
+          "time_s": 10.0,
+          "branches": [
+            {
+              "signed_flow_per_s": 1.1580151347563641e-05,
+              "strength_MPa": 43.176411192042224,
+              "effective_stress_MPa": 130.61163924111398,
+              "backstress_MPa_per_s": [
+                {
+                  "hardening": 0.7831078308046967,
+                  "dynamic_recovery": -0.034644182924572484,
+                  "static_recovery": -1.0444129099921091e-07
+                },
+                {
+                  "hardening": 0.8357471459673,
+                  "dynamic_recovery": 0.0013677964640144,
+                  "static_recovery": 1.9409499177382398e-07
+                }
+              ],
+              "isotropic_MPa_per_s": {
+                "accumulation": -0.000404991251954481,
+                "time_recovery": -5.566526008365423e-05
+              }
+            },
+            {
+              "signed_flow_per_s": 4.229879899776719e-07,
+              "strength_MPa": 122.6736783508171,
+              "effective_stress_MPa": 145.57079126954017,
+              "backstress_MPa_per_s": [
+                {
+                  "hardening": 0.37894399595612654,
+                  "dynamic_recovery": 0.03226584042700752,
+                  "static_recovery": 0.02313849279812797
+                },
+                {
+                  "hardening": 0.006091062273463845,
+                  "dynamic_recovery": 5.5045676895013815e-06,
+                  "static_recovery": 2.510974547825565e-05
+                }
+              ],
+              "isotropic_MPa_per_s": {
+                "accumulation": -3.961266484441379e-05,
+                "time_recovery": -1.8900519728969736e-07
+              }
+            }
+          ]
+        },
+        {
+          "time_s": 30.0,
+          "branches": [
+            {
+              "signed_flow_per_s": 3.5039386391553917e-06,
+              "strength_MPa": 43.17107041135279,
+              "effective_stress_MPa": 114.81182581807482,
+              "backstress_MPa_per_s": [
+                {
+                  "hardening": 0.23695387949821953,
+                  "dynamic_recovery": -0.06371973704266927,
+                  "static_recovery": -5.979387440220645e-07
+                },
+                {
+                  "hardening": 0.2528815582306508,
+                  "dynamic_recovery": 1.0439396629268621e-05,
+                  "static_recovery": 5.510915206195567e-09
+                }
+              ],
+              "isotropic_MPa_per_s": {
+                "accumulation": -0.00012252766997282701,
+                "time_recovery": -5.5190856779988745e-05
+              }
+            },
+            {
+              "signed_flow_per_s": 1.871578351823706e-07,
+              "strength_MPa": 122.6731557793228,
+              "effective_stress_MPa": 140.1209575362245,
+              "backstress_MPa_per_s": [
+                {
+                  "hardening": 0.1676698620739785,
+                  "dynamic_recovery": 0.002283124851358147,
+                  "static_recovery": 0.003927262336972213
+                },
+                {
+                  "hardening": 0.0026950884093013563,
+                  "dynamic_recovery": 2.1377689618463105e-06,
+                  "static_recovery": 2.2131756055572632e-05
+                }
+              ],
+              "isotropic_MPa_per_s": {
+                "accumulation": -1.7527181065037804e-05,
+                "time_recovery": -1.8899957771449642e-07
+              }
+            }
+          ]
+        },
+        {
+          "time_s": 100.0,
+          "branches": [
+            {
+              "signed_flow_per_s": 1.0059413755513505e-06,
+              "strength_MPa": 43.16293271392925,
+              "effective_stress_MPa": 101.350408793129,
+              "backstress_MPa_per_s": [
+                {
+                  "hardening": 0.06802679385450765,
+                  "dynamic_recovery": -0.0426533105880503,
+                  "static_recovery": -1.3546214100432326e-06
+                },
+                {
+                  "hardening": 0.07259945128474848,
+                  "dynamic_recovery": -2.4242551869608816e-07,
+                  "static_recovery": -4.831164763257561e-10
+                }
+              ],
+              "isotropic_MPa_per_s": {
+                "accumulation": -3.516968531943399e-05,
+                "time_recovery": -5.44823377525308e-05
+              }
+            },
+            {
+              "signed_flow_per_s": 5.092065622545512e-08,
+              "strength_MPa": 122.67251946148893,
+              "effective_stress_MPa": 133.97835623287608,
+              "backstress_MPa_per_s": [
+                {
+                  "hardening": 0.045618498406540454,
+                  "dynamic_recovery": 8.85153911429017e-06,
+                  "static_recovery": 6.424873340561894e-05
+                },
+                {
+                  "hardening": 0.0007332616892769553,
+                  "dynamic_recovery": 4.936927593793969e-07,
+                  "static_recovery": 1.8884681667189916e-05
+                }
+              ],
+              "isotropic_MPa_per_s": {
+                "accumulation": -4.768652344761344e-06,
+                "time_recovery": -1.8899278500034418e-07
+              }
+            }
+          ]
+        },
+        {
+          "time_s": 300.0,
+          "branches": [
+            {
+              "signed_flow_per_s": 3.324736738092533e-07,
+              "strength_MPa": 43.14831704590463,
+              "effective_stress_MPa": 91.53140893976851,
+              "backstress_MPa_per_s": [
+                {
+                  "hardening": 0.02248353494544012,
+                  "dynamic_recovery": -0.01903144394875511,
+                  "static_recovery": -1.8089311631807204e-06
+                },
+                {
+                  "hardening": 0.023994843906233278,
+                  "dynamic_recovery": -1.3065348710075414e-05,
+                  "static_recovery": -6.668280521793723e-08
+                }
+              ],
+              "isotropic_MPa_per_s": {
+                "accumulation": -1.1619996284344112e-05,
+                "time_recovery": -5.324100224713986e-05
+              }
+            },
+            {
+              "signed_flow_per_s": 1.1860644532069321e-08,
+              "strength_MPa": 122.67203461654414,
+              "effective_stress_MPa": 129.6282679921136,
+              "backstress_MPa_per_s": [
+                {
+                  "hardening": 0.010625644557508078,
+                  "dynamic_recovery": -2.770663997831422e-08,
+                  "static_recovery": -9.931674868736214e-07
+                },
+                {
+                  "hardening": 0.00017079426877360322,
+                  "dynamic_recovery": 1.0134841328842663e-07,
+                  "static_recovery": 1.671155556828517e-05
+                }
+              ],
+              "isotropic_MPa_per_s": {
+                "accumulation": -1.1107290707566893e-06,
+                "time_recovery": -1.8898776943435276e-07
+              }
+            }
+          ]
+        },
+        {
+          "time_s": 900.0,
+          "branches": [
+            {
+              "signed_flow_per_s": 1.0559504732751307e-07,
+              "strength_MPa": 43.11350463429817,
+              "effective_stress_MPa": 83.07803060469466,
+              "backstress_MPa_per_s": [
+                {
+                  "hardening": 0.007140865950233522,
+                  "dynamic_recovery": -0.006735738249577627,
+                  "static_recovery": -2.006495521419268e-06
+                },
+                {
+                  "hardening": 0.007620864078846274,
+                  "dynamic_recovery": -3.479222592758301e-05,
+                  "static_recovery": -5.211865640412083e-07
+                }
+              ],
+              "isotropic_MPa_per_s": {
+                "accumulation": -3.6875824732725815e-06,
+                "time_recovery": -5.038014550418642e-05
+              }
+            },
+            {
+              "signed_flow_per_s": 2.484680553066213e-09,
+              "strength_MPa": 122.6716280576013,
+              "effective_stress_MPa": 126.80300575483855,
+              "backstress_MPa_per_s": [
+                {
+                  "hardening": 0.002225961019609778,
+                  "dynamic_recovery": -9.218425314138116e-07,
+                  "static_recovery": -0.00013377946145805595
+                },
+                {
+                  "hardening": 3.577960683751276e-05,
+                  "dynamic_recovery": 1.924814171080463e-08,
+                  "static_recovery": 1.51983549855933e-05
+                }
+              ],
+              "isotropic_MPa_per_s": {
+                "accumulation": -2.3268526508441822e-07,
+                "time_recovery": -1.8898403535635098e-07
+              }
+            }
+          ]
+        },
+        {
+          "time_s": 1800.0,
+          "branches": [
+            {
+              "signed_flow_per_s": 4.9670004251409155e-08,
+              "strength_MPa": 43.06759417562469,
+              "effective_stress_MPa": 78.31142495875069,
+              "backstress_MPa_per_s": [
+                {
+                  "hardening": 0.0033589344489495516,
+                  "dynamic_recovery": -0.0032558915829345335,
+                  "static_recovery": -2.058734323756129e-06
+                },
+                {
+                  "hardening": 0.0035847169045879973,
+                  "dynamic_recovery": -3.921352993800039e-05,
+                  "static_recovery": -1.213039856234266e-06
+                }
+              ],
+              "isotropic_MPa_per_s": {
+                "accumulation": -1.7327251319669302e-06,
+                "time_recovery": -4.6771813725984865e-05
+              }
+            },
+            {
+              "signed_flow_per_s": 1.0262494542992426e-09,
+              "strength_MPa": 122.67132821976001,
+              "effective_stress_MPa": 125.7480556736829,
+              "backstress_MPa_per_s": [
+                {
+                  "hardening": 0.00091939033323494,
+                  "dynamic_recovery": -9.746514261721026e-07,
+                  "static_recovery": -0.0003321441361770292
+                },
+                {
+                  "hardening": 1.4778077586966335e-05,
+                  "dynamic_recovery": 7.480548077626115e-09,
+                  "static_recovery": 1.4328865934345581e-05
+                }
+              ],
+              "isotropic_MPa_per_s": {
+                "accumulation": -9.610591861815094e-08,
+                "time_recovery": -1.8898178052325043e-07
+              }
+            }
+          ]
+        }
+      ],
+      "signed_inelastic_strain_by_branch": [
+        0.0009536128633580949,
+        2.773114456002102e-05
+      ],
+      "quadrature_error_estimates": [
+        1.0587229574788804e-17,
+        3.0787755189744028e-19
+      ],
+      "inelastic_increment_from_kinematics": 0.000981344007920333,
+      "strain_closure_error": -2.2171934427328566e-15,
+      "numerical_closure_passed": true,
+      "scope": "Model branch-flow decomposition; not stored energy, damage or measured mechanism shares"
+    },
+    {
+      "cycle": 8,
+      "end_state": [
+        128.63110982017128,
+        26.78898068122392,
+        23.708115214967844,
+        -73.12108852660538,
+        0.023411630168190305,
+        5.040780586420842,
+        -2.129528815049721,
+        -0.4365502131596446,
+        0.004620111857788621,
+        0.0009872992795812146
+      ],
+      "samples": [
+        {
+          "time_s": 0.0,
+          "branches": [
+            {
+              "signed_flow_per_s": 0.0002905812293883249,
+              "strength_MPa": 42.97450834508848,
+              "effective_stress_MPa": 192.5792415558296,
+              "backstress_MPa_per_s": [
+                {
+                  "hardening": 19.65055804445327,
+                  "dynamic_recovery": 3.0505356931543073,
+                  "static_recovery": 3.419922810845794e-07
+                },
+                {
+                  "hardening": 20.971438614578712,
+                  "dynamic_recovery": 3.762291538074142,
+                  "static_recovery": 1.7752777696375565e-05
+                }
+              ],
+              "isotropic_MPa_per_s": {
+                "accumulation": -0.010114940645035472,
+                "time_recovery": -3.975094306190554e-05
+              }
+            },
+            {
+              "signed_flow_per_s": 9.999908309020924e-07,
+              "strength_MPa": 122.62154254752934,
+              "effective_stress_MPa": 153.12413272186689,
+              "backstress_MPa_per_s": [
+                {
+                  "hardening": 0.8958659119412092,
+                  "dynamic_recovery": 0.38799539564941654,
+                  "static_recovery": 0.11099668299279
+                },
+                {
+                  "hardening": 0.014399951223766473,
+                  "dynamic_recovery": 1.4218746365478078e-05,
+                  "static_recovery": 2.7200693329278007e-05
+                }
+              ],
+              "isotropic_MPa_per_s": {
+                "accumulation": -9.360653245684324e-05,
+                "time_recovery": -1.8844566558829288e-07
+              }
+            }
+          ]
+        },
+        {
+          "time_s": 1.0,
+          "branches": [
+            {
+              "signed_flow_per_s": 9.94826353425997e-05,
+              "strength_MPa": 42.96879503450276,
+              "effective_stress_MPa": 168.09798162863424,
+              "backstress_MPa_per_s": [
+                {
+                  "hardening": 6.727514039120788,
+                  "dynamic_recovery": 0.011060859341596199,
+                  "static_recovery": 4.191865627312709e-09
+                },
+                {
+                  "hardening": 7.179727282094266,
+                  "dynamic_recovery": 0.35389556562743624,
+                  "static_recovery": 5.078225215890449e-06
+                }
+              ],
+              "isotropic_MPa_per_s": {
+                "accumulation": -0.00346246443687493,
+                "time_recovery": -3.934184824334247e-05
+              }
+            },
+            {
+              "signed_flow_per_s": 8.79718891712041e-07,
+              "strength_MPa": 122.62145464566021,
+              "effective_stress_MPa": 151.8485744561697,
+              "backstress_MPa_per_s": [
+                {
+                  "hardening": 0.7881173935010612,
+                  "dynamic_recovery": 0.26929618420862333,
+                  "static_recovery": 0.0882484745564642
+                },
+                {
+                  "hardening": 0.012668025285643432,
+                  "dynamic_recovery": 1.2246122275142234e-05,
+                  "static_recovery": 2.6647992222369802e-05
+                }
+              ],
+              "isotropic_MPa_per_s": {
+                "accumulation": -8.234812741212113e-05,
+                "time_recovery": -1.8844472095301756e-07
+              }
+            }
+          ]
+        },
+        {
+          "time_s": 3.0,
+          "branches": [
+            {
+              "signed_flow_per_s": 4.023405414065324e-05,
+              "strength_MPa": 42.96441740905624,
+              "effective_stress_MPa": 150.56956326960497,
+              "backstress_MPa_per_s": [
+                {
+                  "hardening": 2.72082824454575,
+                  "dynamic_recovery": -0.00037331475460668646,
+                  "static_recovery": -3.787440828404743e-10
+                },
+                {
+                  "hardening": 2.9037181734087847,
+                  "dynamic_recovery": 0.04075161145409215,
+                  "static_recovery": 1.504221813058561e-06
+                }
+              ],
+              "isotropic_MPa_per_s": {
+                "accumulation": -0.001400191987720012,
+                "time_recovery": -3.903046631268524e-05
+              }
+            },
+            {
+              "signed_flow_per_s": 7.125643763725573e-07,
+              "strength_MPa": 122.62130637511362,
+              "effective_stress_MPa": 149.86584238024426,
+              "backstress_MPa_per_s": [
+                {
+                  "hardening": 0.6383679881144042,
+                  "dynamic_recovery": 0.14644284260483478,
+                  "static_recovery": 0.06001803107273477
+                },
+                {
+                  "hardening": 0.01026098634754685,
+                  "dynamic_recovery": 9.568258977362964e-06,
+                  "static_recovery": 2.5734754348140513e-05
+                }
+              ],
+              "isotropic_MPa_per_s": {
+                "accumulation": -6.670115570186448e-05,
+                "time_recovery": -1.8844312791888117e-07
+              }
+            }
+          ]
+        },
+        {
+          "time_s": 10.0,
+          "branches": [
+            {
+              "signed_flow_per_s": 1.160242183954758e-05,
+              "strength_MPa": 42.95911641447067,
+              "effective_stress_MPa": 130.4223473651375,
+              "backstress_MPa_per_s": [
+                {
+                  "hardening": 0.7846138730095911,
+                  "dynamic_recovery": -0.03695716357458892,
+                  "static_recovery": -1.0738819742960117e-07
+                },
+                {
+                  "hardening": 0.8373544220344458,
+                  "dynamic_recovery": 0.0013100342538483877,
+                  "static_recovery": 1.7980954746488656e-07
+                }
+              ],
+              "isotropic_MPa_per_s": {
+                "accumulation": -0.0004037279872194503,
+                "time_recovery": -3.865616161159394e-05
+              }
+            },
+            {
+              "signed_flow_per_s": 4.286497404214412e-07,
+              "strength_MPa": 122.62094640792407,
+              "effective_stress_MPa": 145.6197671759577,
+              "backstress_MPa_per_s": [
+                {
+                  "hardening": 0.3840162116882601,
+                  "dynamic_recovery": 0.031951192617022554,
+                  "static_recovery": 0.022496757665572954
+                },
+                {
+                  "hardening": 0.006172591951248859,
+                  "dynamic_recovery": 5.266768448921487e-06,
+                  "static_recovery": 2.3615062072392612e-05
+                }
+              ],
+              "isotropic_MPa_per_s": {
+                "accumulation": -4.012457676402725e-05,
+                "time_recovery": -1.8843926278133854e-07
+              }
+            }
+          ]
+        },
+        {
+          "time_s": 30.0,
+          "branches": [
+            {
+              "signed_flow_per_s": 3.5157052532611788e-06,
+              "strength_MPa": 42.954125669557854,
+              "effective_stress_MPa": 114.63492135339797,
+              "backstress_MPa_per_s": [
+                {
+                  "hardening": 0.23774959687459368,
+                  "dynamic_recovery": -0.06613134959715541,
+                  "static_recovery": -5.978489292545408e-07
+                },
+                {
+                  "hardening": 0.25373076251662746,
+                  "dynamic_recovery": 9.191544565085758e-06,
+                  "static_recovery": 4.699583148534831e-09
+                }
+              ],
+              "isotropic_MPa_per_s": {
+                "accumulation": -0.00012232133330943208,
+                "time_recovery": -3.830749826401242e-05
+              }
+            },
+            {
+              "signed_flow_per_s": 1.8896276338631718e-07,
+              "strength_MPa": 122.6204181152084,
+              "effective_stress_MPa": 140.12412871368153,
+              "backstress_MPa_per_s": [
+                {
+                  "hardening": 0.16928685055172116,
+                  "dynamic_recovery": 0.0021787397232353183,
+                  "static_recovery": 0.0036972806467494043
+                },
+                {
+                  "hardening": 0.0027210795257156784,
+                  "dynamic_recovery": 2.030924513872158e-06,
+                  "static_recovery": 2.0745735690125223e-05
+                }
+              ],
+              "isotropic_MPa_per_s": {
+                "accumulation": -1.7688139124484303e-05,
+                "time_recovery": -1.8843360095309694e-07
+              }
+            }
+          ]
+        },
+        {
+          "time_s": 100.0,
+          "branches": [
+            {
+              "signed_flow_per_s": 1.0123755279281472e-06,
+              "strength_MPa": 42.94716158580377,
+              "effective_stress_MPa": 101.19650230476161,
+              "backstress_MPa_per_s": [
+                {
+                  "hardening": 0.06846190346228669,
+                  "dynamic_recovery": -0.043642287922876326,
+                  "static_recovery": -1.3319928685447871e-06
+                },
+                {
+                  "hardening": 0.07306380829738442,
+                  "dynamic_recovery": -3.26258078426537e-07,
+                  "static_recovery": -6.192921470322741e-10
+                }
+              ],
+              "isotropic_MPa_per_s": {
+                "accumulation": -3.5217698375941975e-05,
+                "time_recovery": -3.7829149501167034e-05
+              }
+            },
+            {
+              "signed_flow_per_s": 5.117053039631542e-08,
+              "strength_MPa": 122.6197775777012,
+              "effective_stress_MPa": 133.94407724421495,
+              "backstress_MPa_per_s": [
+                {
+                  "hardening": 0.04584235421104455,
+                  "dynamic_recovery": 7.17893766828583e-06,
+                  "static_recovery": 5.191514714222552e-05
+                },
+                {
+                  "hardening": 0.000736859898141752,
+                  "dynamic_recovery": 4.6512553727884536e-07,
+                  "static_recovery": 1.7639910740972477e-05
+                }
+              ],
+              "isotropic_MPa_per_s": {
+                "accumulation": -4.789866679105676e-06,
+                "time_recovery": -1.8842678598170905e-07
+              }
+            }
+          ]
+        },
+        {
+          "time_s": 300.0,
+          "branches": [
+            {
+              "signed_flow_per_s": 3.3475869953550064e-07,
+              "strength_MPa": 42.935819633622074,
+              "effective_stress_MPa": 91.37417471787343,
+              "backstress_MPa_per_s": [
+                {
+                  "hardening": 0.02263805982910591,
+                  "dynamic_recovery": -0.019307074876755658,
+                  "static_recovery": -1.763251540481392e-06
+                },
+                {
+                  "hardening": 0.024159755717128983,
+                  "dynamic_recovery": -1.4593147780426347e-05,
+                  "static_recovery": -7.133971534568946e-08
+                }
+              ],
+              "isotropic_MPa_per_s": {
+                "accumulation": -1.1642238578419176e-05,
+                "time_recovery": -3.706760723192086e-05
+              }
+            },
+            {
+              "signed_flow_per_s": 1.1883900072331375e-08,
+              "strength_MPa": 122.61929156139637,
+              "effective_stress_MPa": 129.58006840423153,
+              "backstress_MPa_per_s": [
+                {
+                  "hardening": 0.010646478594321952,
+                  "dynamic_recovery": -5.136195918344837e-08,
+                  "static_recovery": -1.7907461320816325e-06
+                },
+                {
+                  "hardening": 0.00017112915048962234,
+                  "dynamic_recovery": 9.500639707026582e-08,
+                  "static_recovery": 1.5578675808438557e-05
+                }
+              ],
+              "isotropic_MPa_per_s": {
+                "accumulation": -1.1123992098301534e-06,
+                "time_recovery": -1.8842177428298745e-07
+              }
+            }
+          ]
+        },
+        {
+          "time_s": 900.0,
+          "branches": [
+            {
+              "signed_flow_per_s": 1.0607474797475718e-07,
+              "strength_MPa": 42.91033716139168,
+              "effective_stress_MPa": 82.90506470861442,
+              "backstress_MPa_per_s": [
+                {
+                  "hardening": 0.007173305710477068,
+                  "dynamic_recovery": -0.006787145003378725,
+                  "static_recovery": -1.947394516024678e-06
+                },
+                {
+                  "hardening": 0.007655484390344817,
+                  "dynamic_recovery": -3.7525349255434744e-05,
+                  "static_recovery": -5.402434277601285e-07
+                }
+              ],
+              "isotropic_MPa_per_s": {
+                "accumulation": -3.6868782838070745e-06,
+                "time_recovery": -3.540673382661778e-05
+              }
+            },
+            {
+              "signed_flow_per_s": 2.4966965755733454e-09,
+              "strength_MPa": 122.6188848425349,
+              "effective_stress_MPa": 126.75691167311231,
+              "backstress_MPa_per_s": [
+                {
+                  "hardening": 0.002236725863274942,
+                  "dynamic_recovery": -1.1108833743415803e-06,
+                  "static_recovery": -0.0001585732344888288
+                },
+                {
+                  "hardening": 3.5952638562063975e-05,
+                  "dynamic_recovery": 1.8083615147263892e-08,
+                  "static_recovery": 1.415909497309308e-05
+                }
+              ],
+              "isotropic_MPa_per_s": {
+                "accumulation": -2.337038771981123e-07,
+                "time_recovery": -1.8841804886967282e-07
+              }
+            }
+          ]
+        },
+        {
+          "time_s": 1800.0000000000018,
+          "branches": [
+            {
+              "signed_flow_per_s": 4.9779904556347415e-08,
+              "strength_MPa": 42.87719830306362,
+              "effective_stress_MPa": 78.13401392397951,
+              "backstress_MPa_per_s": [
+                {
+                  "hardening": 0.003366366457981375,
+                  "dynamic_recovery": -0.0032686964151830084,
+                  "static_recovery": -1.9954716971165394e-06
+                },
+                {
+                  "hardening": 0.003592648481942762,
+                  "dynamic_recovery": -4.172016849001928e-05,
+                  "static_recovery": -1.2436741954953914e-06
+                }
+              ],
+              "isotropic_MPa_per_s": {
+                "accumulation": -1.7288818858404014e-06,
+                "time_recovery": -3.332680919025391e-05
+              }
+            },
+            {
+              "signed_flow_per_s": 1.0510086601762828e-09,
+              "strength_MPa": 122.61858399835252,
+              "effective_stress_MPa": 125.71985804880016,
+              "backstress_MPa_per_s": [
+                {
+                  "hardening": 0.0009415714651678852,
+                  "dynamic_recovery": -1.137568641741946e-06,
+                  "static_recovery": -0.00037475287220235814
+                },
+                {
+                  "hardening": 1.5134612213035802e-05,
+                  "dynamic_recovery": 7.164336143688136e-09,
+                  "static_recovery": 1.3351674415673559e-05
+                }
+              ],
+              "isotropic_MPa_per_s": {
+                "accumulation": -9.837965967378691e-08,
+                "time_recovery": -1.8841578724680955e-07
+              }
+            }
+          ]
+        }
+      ],
+      "signed_inelastic_strain_by_branch": [
+        0.0009593161813436468,
+        2.7983098235331344e-05
+      ],
+      "quadrature_error_estimates": [
+        1.0650549124231984e-17,
+        3.1067479961212443e-19
+      ],
+      "inelastic_increment_from_kinematics": 0.0009872992795812148,
+      "strain_closure_error": -2.2367090818375956e-15,
+      "numerical_closure_passed": true,
+      "scope": "Model branch-flow decomposition; not stored energy, damage or measured mechanism shares"
+    },
+    {
+      "cycle": 9,
+      "end_state": [
+        128.54073723979184,
+        26.78429926470378,
+        23.789462047972155,
+        -73.28780756278228,
+        0.02659223397853843,
+        4.985559006925299,
+        -2.1028868279075543,
+        -0.4890703370553219,
+        0.00517696948345781,
+        0.0009875737792426338
+      ],
+      "samples": [
+        {
+          "time_s": 0.0,
+          "branches": [
+            {
+              "signed_flow_per_s": 0.00028970096400625015,
+              "strength_MPa": 42.789029115625596,
+              "effective_stress_MPa": 192.3181332155197,
+              "backstress_MPa_per_s": [
+                {
+                  "hardening": 19.59103009069867,
+                  "dynamic_recovery": 2.969982245039893,
+                  "static_recovery": 3.2342466446032127e-07
+                },
+                {
+                  "hardening": 20.90790928247568,
+                  "dynamic_recovery": 3.7348488857109623,
+                  "static_recovery": 1.7107699031938054e-05
+                }
+              ],
+              "isotropic_MPa_per_s": {
+                "accumulation": -0.01004077504418595,
+                "time_recovery": -2.8026764631003248e-05
+              }
+            },
+            {
+              "signed_flow_per_s": 9.943274375434003e-07,
+              "strength_MPa": 122.56901312730317,
+              "effective_stress_MPa": 153.01391100159339,
+              "backstress_MPa_per_s": [
+                {
+                  "hardening": 0.8907922243641045,
+                  "dynamic_recovery": 0.3865387964712437,
+                  "static_recovery": 0.11056405232379878
+                },
+                {
+                  "hardening": 0.014318397887869783,
+                  "dynamic_recovery": 1.3508007168025198e-05,
+                  "static_recovery": 2.5877246676808594e-05
+                }
+              ],
+              "isotropic_MPa_per_s": {
+                "accumulation": -9.303408951224747e-05,
+                "time_recovery": -1.8788382301136836e-07
+              }
+            }
+          ]
+        },
+        {
+          "time_s": 1.0,
+          "branches": [
+            {
+              "signed_flow_per_s": 9.939755481500244e-05,
+              "strength_MPa": 42.7833613284775,
+              "effective_stress_MPa": 167.8947058592875,
+              "backstress_MPa_per_s": [
+                {
+                  "hardening": 6.721760467737247,
+                  "dynamic_recovery": 0.010475751794530723,
+                  "static_recovery": 3.8517511691517115e-09
+                },
+                {
+                  "hardening": 7.17358696440906,
+                  "dynamic_recovery": 0.35242026254574765,
+                  "static_recovery": 4.898285458414139e-06
+                }
+              ],
+              "isotropic_MPa_per_s": {
+                "accumulation": -0.003444573591508276,
+                "time_recovery": -2.770532440736326e-05
+              }
+            },
+            {
+              "signed_flow_per_s": 8.750558693815117e-07,
+              "strength_MPa": 122.56892574595507,
+              "effective_stress_MPa": 151.7443137949983,
+              "backstress_MPa_per_s": [
+                {
+                  "hardening": 0.7839399124447866,
+                  "dynamic_recovery": 0.2687165430185703,
+                  "static_recovery": 0.08801017411499852
+                },
+                {
+                  "hardening": 0.012600877375842716,
+                  "dynamic_recovery": 1.1636784242524941e-05,
+                  "static_recovery": 2.5348386573210974e-05
+                }
+              ],
+              "isotropic_MPa_per_s": {
+                "accumulation": -8.187440215593146e-05,
+                "time_recovery": -1.8788288719756816e-07
+              }
+            }
+          ]
+        },
+        {
+          "time_s": 3.0,
+          "branches": [
+            {
+              "signed_flow_per_s": 4.021915386396875e-05,
+              "strength_MPa": 42.77902794414838,
+              "effective_stress_MPa": 150.3775310326063,
+              "backstress_MPa_per_s": [
+                {
+                  "hardening": 2.719820613211533,
+                  "dynamic_recovery": -0.00041017261972824766,
+                  "static_recovery": -4.0159876725363586e-10
+                },
+                {
+                  "hardening": 2.902642810631613,
+                  "dynamic_recovery": 0.04057355788804739,
+                  "static_recovery": 1.449959828151584e-06
+                }
+              ],
+              "isotropic_MPa_per_s": {
+                "accumulation": -0.0013936339127158573,
+                "time_recovery": -2.746130868906371e-05
+              }
+            },
+            {
+              "signed_flow_per_s": 7.091319169960799e-07,
+              "strength_MPa": 122.56877829003129,
+              "effective_stress_MPa": 149.76949775214152,
+              "backstress_MPa_per_s": [
+                {
+                  "hardening": 0.6352929365694464,
+                  "dynamic_recovery": 0.1464873598977496,
+                  "static_recovery": 0.05997031698531614
+                },
+                {
+                  "hardening": 0.010211558646740587,
+                  "dynamic_recovery": 9.094510466355099e-06,
+                  "static_recovery": 2.4474287832750716e-05
+                }
+              ],
+              "isotropic_MPa_per_s": {
+                "accumulation": -6.634968082564475e-05,
+                "time_recovery": -1.8788130836109533e-07
+              }
+            }
+          ]
+        },
+        {
+          "time_s": 10.0,
+          "branches": [
+            {
+              "signed_flow_per_s": 1.1602919730178546e-05,
+              "strength_MPa": 42.773830203187515,
+              "effective_stress_MPa": 130.2376866891267,
+              "backstress_MPa_per_s": [
+                {
+                  "hardening": 0.7846475428676345,
+                  "dynamic_recovery": -0.03776206356099951,
+                  "static_recovery": -1.0610114676909523e-07
+                },
+                {
+                  "hardening": 0.8373903551290439,
+                  "dynamic_recovery": 0.001300637550412445,
+                  "static_recovery": 1.727820154344322e-07
+                }
+              ],
+              "isotropic_MPa_per_s": {
+                "accumulation": -0.0004020039248163198,
+                "time_recovery": -2.7170786538357193e-05
+              }
+            },
+            {
+              "signed_flow_per_s": 4.269569368367071e-07,
+              "strength_MPa": 122.56842005349257,
+              "effective_stress_MPa": 145.53692558943555,
+              "backstress_MPa_per_s": [
+                {
+                  "hardening": 0.382499672755791,
+                  "dynamic_recovery": 0.03215101008281251,
+                  "static_recovery": 0.022589164531411642
+                },
+                {
+                  "hardening": 0.00614821543868664,
+                  "dynamic_recovery": 5.007207196662944e-06,
+                  "static_recovery": 2.2444733137227363e-05
+                }
+              ],
+              "isotropic_MPa_per_s": {
+                "accumulation": -3.994795319678672e-05,
+                "time_recovery": -1.8787747502558763e-07
+              }
+            }
+          ]
+        },
+        {
+          "time_s": 30.0,
+          "branches": [
+            {
+              "signed_flow_per_s": 3.518957337188743e-06,
+              "strength_MPa": 42.76908459282366,
+              "effective_stress_MPa": 114.460927001324,
+              "backstress_MPa_per_s": [
+                {
+                  "hardening": 0.23796951907713426,
+                  "dynamic_recovery": -0.06694734584428268,
+                  "static_recovery": -5.849035899867141e-07
+                },
+                {
+                  "hardening": 0.25396546755452665,
+                  "dynamic_recovery": 8.98883328630544e-06,
+                  "static_recovery": 4.446608377419935e-09
+                }
+              ],
+              "isotropic_MPa_per_s": {
+                "accumulation": -0.00012190704967064382,
+                "time_recovery": -2.6908096047357138e-05
+              }
+            },
+            {
+              "signed_flow_per_s": 1.8842524284773733e-07,
+              "strength_MPa": 122.56789379157645,
+              "effective_stress_MPa": 140.054991700343,
+              "backstress_MPa_per_s": [
+                {
+                  "hardening": 0.16880529980885328,
+                  "dynamic_recovery": 0.0022207943304882218,
+                  "static_recovery": 0.0037550059623671405
+                },
+                {
+                  "hardening": 0.002713339185206416,
+                  "dynamic_recovery": 1.9308616812672756e-06,
+                  "static_recovery": 1.969674352376231e-05
+                }
+              ],
+              "isotropic_MPa_per_s": {
+                "accumulation": -1.7629807223127602e-05,
+                "time_recovery": -1.8787185433369213e-07
+              }
+            }
+          ]
+        },
+        {
+          "time_s": 100.0,
+          "branches": [
+            {
+              "signed_flow_per_s": 1.0144764728723459e-06,
+              "strength_MPa": 42.762924939591315,
+              "effective_stress_MPa": 101.03239537138577,
+              "backstress_MPa_per_s": [
+                {
+                  "hardening": 0.06860397988154157,
+                  "dynamic_recovery": -0.04397609718049527,
+                  "static_recovery": -1.2958661131394408e-06
+                },
+                {
+                  "hardening": 0.07321543487705928,
+                  "dynamic_recovery": -3.4665899825508654e-07,
+                  "static_recovery": -6.342161482853044e-10
+                }
+              ],
+              "isotropic_MPa_per_s": {
+                "accumulation": -3.5139392312005185e-05,
+                "time_recovery": -2.6572053188179876e-05
+              }
+            },
+            {
+              "signed_flow_per_s": 5.109681077087567e-08,
+              "strength_MPa": 122.5672549270934,
+              "effective_stress_MPa": 133.8861138034699,
+              "backstress_MPa_per_s": [
+                {
+                  "hardening": 0.045776310706012645,
+                  "dynamic_recovery": 7.761681337280105e-06,
+                  "static_recovery": 5.574322355499475e-05
+                },
+                {
+                  "hardening": 0.0007357983293975576,
+                  "dynamic_recovery": 4.421374040745939e-07,
+                  "static_recovery": 1.6722563286070518e-05
+                }
+              ],
+              "isotropic_MPa_per_s": {
+                "accumulation": -4.7807922533616684e-06,
+                "time_recovery": -1.878650804162241e-07
+              }
+            }
+          ]
+        },
+        {
+          "time_s": 300.0,
+          "branches": [
+            {
+              "signed_flow_per_s": 3.354937627622465e-07,
+              "strength_MPa": 42.75381365305101,
+              "effective_stress_MPa": 91.20987936560347,
+              "backstress_MPa_per_s": [
+                {
+                  "hardening": 0.022687768485903592,
+                  "dynamic_recovery": -0.0193983173628489,
+                  "static_recovery": -1.7104104834036188e-06
+                },
+                {
+                  "hardening": 0.024212805714095356,
+                  "dynamic_recovery": -1.498700699603484e-05,
+                  "static_recovery": -7.068486839231735e-08
+                }
+              ],
+              "isotropic_MPa_per_s": {
+                "accumulation": -1.1618342492747595e-05,
+                "time_recovery": -2.6085094954471252e-05
+              }
+            },
+            {
+              "signed_flow_per_s": 1.1877754410745837e-08,
+              "strength_MPa": 122.56676965536262,
+              "effective_stress_MPa": 129.52634638838802,
+              "backstress_MPa_per_s": [
+                {
+                  "hardening": 0.01064097285511848,
+                  "dynamic_recovery": -4.165871011561348e-08,
+                  "static_recovery": -1.4546859309903173e-06
+                },
+                {
+                  "hardening": 0.00017104065245110566,
+                  "dynamic_recovery": 9.028736140424072e-08,
+                  "static_recovery": 1.4751606222121198e-05
+                }
+              ],
+              "isotropic_MPa_per_s": {
+                "accumulation": -1.1113186294262096e-06,
+                "time_recovery": -1.878600930891909e-07
+              }
+            }
+          ]
+        },
+        {
+          "time_s": 900.0,
+          "branches": [
+            {
+              "signed_flow_per_s": 1.0619696844139934e-07,
+              "strength_MPa": 42.73472353175927,
+              "effective_stress_MPa": 82.73712778692536,
+              "backstress_MPa_per_s": [
+                {
+                  "hardening": 0.007181570870546173,
+                  "dynamic_recovery": -0.00680191108366735,
+                  "static_recovery": -1.8862928960053305e-06
+                },
+                {
+                  "hardening": 0.007664305121880114,
+                  "dynamic_recovery": -3.824357542682473e-05,
+                  "static_recovery": -5.318604279197916e-07
+                }
+              ],
+              "isotropic_MPa_per_s": {
+                "accumulation": -3.6760201402414724e-06,
+                "time_recovery": -2.50921411303355e-05
+              }
+            },
+            {
+              "signed_flow_per_s": 2.4927685309969033e-09,
+              "strength_MPa": 122.56636357901637,
+              "effective_stress_MPa": 126.70221915581602,
+              "backstress_MPa_per_s": [
+                {
+                  "hardening": 0.002233206829771959,
+                  "dynamic_recovery": -1.041653974775265e-06,
+                  "static_recovery": -0.0001483723312972062
+                },
+                {
+                  "hardening": 3.5896074393116026e-05,
+                  "dynamic_recovery": 1.7161399723282885e-08,
+                  "static_recovery": 1.340298615851091e-05
+                }
+              ],
+              "isotropic_MPa_per_s": {
+                "accumulation": -2.3323014373476124e-07,
+                "time_recovery": -1.8785638489089107e-07
+              }
+            }
+          ]
+        },
+        {
+          "time_s": 1800.0,
+          "branches": [
+            {
+              "signed_flow_per_s": 4.977720253011658e-08,
+              "strength_MPa": 42.71047926688672,
+              "effective_stress_MPa": 77.96697592711591,
+              "backstress_MPa_per_s": [
+                {
+                  "hardening": 0.003366183733435132,
+                  "dynamic_recovery": -0.00327037223236339,
+                  "static_recovery": -1.932010672482306e-06
+                },
+                {
+                  "hardening": 0.0035924534749309386,
+                  "dynamic_recovery": -4.2346997567024636e-05,
+                  "static_recovery": -1.2210158133649705e-06
+                }
+              ],
+              "isotropic_MPa_per_s": {
+                "accumulation": -1.722066009213145e-06,
+                "time_recovery": -2.3871512021145137e-05
+              }
+            },
+            {
+              "signed_flow_per_s": 1.041609217467174e-09,
+              "strength_MPa": 122.56606387445684,
+              "effective_stress_MPa": 125.65806506077409,
+              "backstress_MPa_per_s": [
+                {
+                  "hardening": 0.0009331507476431668,
+                  "dynamic_recovery": -1.079038746933069e-06,
+                  "static_recovery": -0.00035712717933766673
+                },
+                {
+                  "hardening": 1.4999259455431359e-05,
+                  "dynamic_recovery": 6.7530604042881295e-09,
+                  "static_recovery": 1.2646425739930137e-05
+                }
+              ],
+              "isotropic_MPa_per_s": {
+                "accumulation": -9.745551348174727e-08,
+                "time_recovery": -1.8785413955134937e-07
+              }
+            }
+          ]
+        }
+      ],
+      "signed_inelastic_strain_by_branch": [
+        0.0009596665092279758,
+        2.7907270012450426e-05
+      ],
+      "quadrature_error_estimates": [
+        1.0654438545065497e-17,
+        3.0983293722253655e-19
+      ],
+      "inelastic_increment_from_kinematics": 0.0009875737792426336,
+      "strain_closure_error": -2.20721878274599e-15,
+      "numerical_closure_passed": true,
+      "scope": "Model branch-flow decomposition; not stored energy, damage or measured mechanism shares"
+    },
+    {
+      "cycle": 10,
+      "end_state": [
+        128.56106227907284,
+        26.78159449572779,
+        23.955700865508064,
+        -73.437814552421,
+        0.02977762228778995,
+        5.029010819742606,
+        -2.0798456797789564,
+        -0.541429026609304,
+        0.005732367130723435,
+        0.000989875942817677
+      ],
+      "samples": [
+        {
+          "time_s": 0.0,
+          "branches": [
+            {
+              "signed_flow_per_s": 0.0002912520744033578,
+              "strength_MPa": 42.625734297718594,
+              "effective_stress_MPa": 192.28797591720036,
+              "backstress_MPa_per_s": [
+                {
+                  "hardening": 19.695923944151904,
+                  "dynamic_recovery": 2.958307793706046,
+                  "static_recovery": 3.1016348822809943e-07
+                },
+                {
+                  "hardening": 21.01985394093091,
+                  "dynamic_recovery": 3.757631353162252,
+                  "static_recovery": 1.6566064230158922e-05
+                }
+              ],
+              "isotropic_MPa_per_s": {
+                "accumulation": -0.010056011573383417,
+                "time_recovery": -1.9802324708190323e-05
+              }
+            },
+            {
+              "signed_flow_per_s": 9.991053618999797e-07,
+              "strength_MPa": 122.51665849361625,
+              "effective_stress_MPa": 153.01024289404998,
+              "backstress_MPa_per_s": [
+                {
+                  "hardening": 0.8950726431725768,
+                  "dynamic_recovery": 0.3884307153427292,
+                  "static_recovery": 0.10994018881355296
+                },
+                {
+                  "hardening": 0.01438720039641231,
+                  "dynamic_recovery": 1.3083459403980106e-05,
+                  "static_recovery": 2.4830820965729383e-05
+                }
+              ],
+              "isotropic_MPa_per_s": {
+                "accumulation": -9.34387659352432e-05,
+                "time_recovery": -1.8732576885945868e-07
+              }
+            }
+          ]
+        },
+        {
+          "time_s": 1.0,
+          "branches": [
+            {
+              "signed_flow_per_s": 9.963893598405991e-05,
+              "strength_MPa": 42.6200752823144,
+              "effective_stress_MPa": 167.78200625280687,
+              "backstress_MPa_per_s": [
+                {
+                  "hardening": 6.738083871294271,
+                  "dynamic_recovery": 0.009899315616618977,
+                  "static_recovery": 3.5202334871392583e-09
+                },
+                {
+                  "hardening": 7.191007602281162,
+                  "dynamic_recovery": 0.35152996188208535,
+                  "static_recovery": 4.717106642091642e-06
+                }
+              ],
+              "isotropic_MPa_per_s": {
+                "accumulation": -0.0034397601229286387,
+                "time_recovery": -1.9547645432034378e-05
+              }
+            },
+            {
+              "signed_flow_per_s": 8.790159161304281e-07,
+              "strength_MPa": 122.51657074618898,
+              "effective_stress_MPa": 151.73590343785548,
+              "backstress_MPa_per_s": [
+                {
+                  "hardening": 0.7874876158660744,
+                  "dynamic_recovery": 0.26971016001536247,
+                  "static_recovery": 0.08743626967810487
+                },
+                {
+                  "hardening": 0.012657902378738784,
+                  "dynamic_recovery": 1.1264569529425601e-05,
+                  "static_recovery": 2.4316368659302774e-05
+                }
+              ],
+              "isotropic_MPa_per_s": {
+                "accumulation": -8.220764611246145e-05,
+                "time_recovery": -1.8732483233322963e-07
+              }
+            }
+          ]
+        },
+        {
+          "time_s": 3.0,
+          "branches": [
+            {
+              "signed_flow_per_s": 4.026755493720897e-05,
+              "strength_MPa": 42.615766985980045,
+              "effective_stress_MPa": 150.23584053301911,
+              "backstress_MPa_per_s": [
+                {
+                  "hardening": 2.7230937361903393,
+                  "dynamic_recovery": -0.0004658362624539948,
+                  "static_recovery": -4.3900571685560585e-10
+                },
+                {
+                  "hardening": 2.9061359479497866,
+                  "dynamic_recovery": 0.04023481158151506,
+                  "static_recovery": 1.3900823521468494e-06
+                }
+              ],
+              "isotropic_MPa_per_s": {
+                "accumulation": -0.0013899860214416193,
+                "time_recovery": -1.9355261674188662e-05
+              }
+            },
+            {
+              "signed_flow_per_s": 7.12081346693271e-07,
+              "strength_MPa": 122.51642272091148,
+              "effective_stress_MPa": 149.75480120323212,
+              "backstress_MPa_per_s": [
+                {
+                  "hardening": 0.6379352543224972,
+                  "dynamic_recovery": 0.1467651765917836,
+                  "static_recovery": 0.059496799594350516
+                },
+                {
+                  "hardening": 0.010254030679948298,
+                  "dynamic_recovery": 8.796046457847028e-06,
+                  "static_recovery": 2.346661072086747e-05
+                }
+              ],
+              "isotropic_MPa_per_s": {
+                "accumulation": -6.659544523441244e-05,
+                "time_recovery": -1.8732325280937236e-07
+              }
+            }
+          ]
+        },
+        {
+          "time_s": 10.0,
+          "branches": [
+            {
+              "signed_flow_per_s": 1.1611121341077476e-05,
+              "strength_MPa": 42.61064060484459,
+              "effective_stress_MPa": 130.08479813786738,
+              "backstress_MPa_per_s": [
+                {
+                  "hardening": 0.7852021768726137,
+                  "dynamic_recovery": -0.03902210386500513,
+                  "static_recovery": -1.0590759849104182e-07
+                },
+                {
+                  "hardening": 0.8379822707867403,
+                  "dynamic_recovery": 0.0012760093942911818,
+                  "static_recovery": 1.6401414889091744e-07
+                }
+              ],
+              "isotropic_MPa_per_s": {
+                "accumulation": -0.00040075328478323514,
+                "time_recovery": -1.912812643685661e-05
+              }
+            },
+            {
+              "signed_flow_per_s": 4.2845297763341606e-07,
+              "strength_MPa": 122.51606328829307,
+              "effective_stress_MPa": 145.5113644735824,
+              "backstress_MPa_per_s": [
+                {
+                  "hardening": 0.38383993699744995,
+                  "dynamic_recovery": 0.03207385260140205,
+                  "static_recovery": 0.022331913190355716
+                },
+                {
+                  "hardening": 0.0061697585507189175,
+                  "dynamic_recovery": 4.833960551386902e-06,
+                  "static_recovery": 2.149583558530975e-05
+                }
+              ],
+              "isotropic_MPa_per_s": {
+                "accumulation": -4.006975904507794e-05,
+                "time_recovery": -1.873194197870669e-07
+              }
+            }
+          ]
+        },
+        {
+          "time_s": 30.0,
+          "branches": [
+            {
+              "signed_flow_per_s": 3.524867205540145e-06,
+              "strength_MPa": 42.60606667960556,
+              "effective_stress_MPa": 114.31796205316746,
+              "backstress_MPa_per_s": [
+                {
+                  "hardening": 0.23836917397335303,
+                  "dynamic_recovery": -0.0682260692371869,
+                  "static_recovery": -5.754941778515201e-07
+                },
+                {
+                  "hardening": 0.25439198664391366,
+                  "dynamic_recovery": 8.479525126231173e-06,
+                  "static_recovery": 4.060009815449968e-09
+                }
+              ],
+              "isotropic_MPa_per_s": {
+                "accumulation": -0.00012164634555998389,
+                "time_recovery": -1.8927350727639568e-05
+              }
+            },
+            {
+              "signed_flow_per_s": 1.8891514924183426e-07,
+              "strength_MPa": 122.51553567552712,
+              "effective_stress_MPa": 140.0177759768875,
+              "backstress_MPa_per_s": [
+                {
+                  "hardening": 0.16924419427163306,
+                  "dynamic_recovery": 0.0021944626803920043,
+                  "static_recovery": 0.003681398062722613
+                },
+                {
+                  "hardening": 0.002720393878070793,
+                  "dynamic_recovery": 1.8591572365784943e-06,
+                  "static_recovery": 1.8832477653079306e-05
+                }
+              ],
+              "isotropic_MPa_per_s": {
+                "accumulation": -1.7667632887809216e-05,
+                "time_recovery": -1.8731380382081355e-07
+              }
+            }
+          ]
+        },
+        {
+          "time_s": 100.0,
+          "branches": [
+            {
+              "signed_flow_per_s": 1.017852379591671e-06,
+              "strength_MPa": 42.60046750151291,
+              "effective_stress_MPa": 100.90221075298223,
+              "backstress_MPa_per_s": [
+                {
+                  "hardening": 0.06883227560140069,
+                  "dynamic_recovery": -0.04449476742393641,
+                  "static_recovery": -1.2641582478298898e-06
+                },
+                {
+                  "hardening": 0.07345907628735238,
+                  "dynamic_recovery": -3.948466200871213e-07,
+                  "static_recovery": -6.938102312135163e-10
+                }
+              ],
+              "isotropic_MPa_per_s": {
+                "accumulation": -3.512238709449937e-05,
+                "time_recovery": -1.8684696807518244e-05
+              }
+            },
+            {
+              "signed_flow_per_s": 5.1165246351516014e-08,
+              "strength_MPa": 122.51489589482085,
+              "effective_stress_MPa": 133.83880575255137,
+              "backstress_MPa_per_s": [
+                {
+                  "hardening": 0.045837620372026565,
+                  "dynamic_recovery": 7.3430626236835764e-06,
+                  "static_recovery": 5.246124594558792e-05
+                },
+                {
+                  "hardening": 0.0007367838074566935,
+                  "dynamic_recovery": 4.2433269129150015e-07,
+                  "static_recovery": 1.595786462715818e-05
+                }
+              ],
+              "isotropic_MPa_per_s": {
+                "accumulation": -4.785025360328302e-06,
+                "time_recovery": -1.8730704301771503e-07
+              }
+            }
+          ]
+        },
+        {
+          "time_s": 300.0,
+          "branches": [
+            {
+              "signed_flow_per_s": 3.366889475224064e-07,
+              "strength_MPa": 42.59291706173019,
+              "effective_stress_MPa": 91.0777106669199,
+              "backstress_MPa_per_s": [
+                {
+                  "hardening": 0.022768592865209873,
+                  "dynamic_recovery": -0.01954148548102719,
+                  "static_recovery": -1.661133888405383e-06
+                },
+                {
+                  "hardening": 0.02429906298502622,
+                  "dynamic_recovery": -1.579225605072616e-05,
+                  "static_recovery": -7.17020517379137e-08
+                }
+              ],
+              "isotropic_MPa_per_s": {
+                "accumulation": -1.161585302605386e-05,
+                "time_recovery": -1.8363452297521326e-05
+              }
+            },
+            {
+              "signed_flow_per_s": 1.1884344584778859e-08,
+              "strength_MPa": 122.51441052754777,
+              "effective_stress_MPa": 129.47527415764284,
+              "backstress_MPa_per_s": [
+                {
+                  "hardening": 0.010646876821522471,
+                  "dynamic_recovery": -4.867851983122457e-08,
+                  "static_recovery": -1.6806396372190452e-06
+                },
+                {
+                  "hardening": 0.00017113555150587604,
+                  "dynamic_recovery": 8.647461071122426e-08,
+                  "static_recovery": 1.4059886171662449e-05
+                }
+              ],
+              "isotropic_MPa_per_s": {
+                "accumulation": -1.111431200369242e-06,
+                "time_recovery": -1.8730207092848878e-07
+              }
+            }
+          ]
+        },
+        {
+          "time_s": 900.0,
+          "branches": [
+            {
+              "signed_flow_per_s": 1.0644704363094408e-07,
+              "strength_MPa": 42.57834231796683,
+              "effective_stress_MPa": 82.59643096250547,
+              "backstress_MPa_per_s": [
+                {
+                  "hardening": 0.007198482207310668,
+                  "dynamic_recovery": -0.006828443258416458,
+                  "static_recovery": -1.8279488278035466e-06
+                },
+                {
+                  "hardening": 0.007682353212934056,
+                  "dynamic_recovery": -3.967189960058318e-05,
+                  "static_recovery": -5.320148317054094e-07
+                }
+              ],
+              "isotropic_MPa_per_s": {
+                "accumulation": -3.6711930038793128e-06,
+                "time_recovery": -1.775861042437066e-05
+              }
+            },
+            {
+              "signed_flow_per_s": 2.4960706238147708e-09,
+              "strength_MPa": 122.51400473680376,
+              "effective_stress_MPa": 126.65168572083441,
+              "backstress_MPa_per_s": [
+                {
+                  "hardening": 0.002236165089290124,
+                  "dynamic_recovery": -1.0938698437541607e-06,
+                  "static_recovery": -0.0001544732889211124
+                },
+                {
+                  "hardening": 3.5943624804624045e-05,
+                  "dynamic_recovery": 1.6442560119582946e-08,
+                  "static_recovery": 1.276941277342e-05
+                }
+              ],
+              "isotropic_MPa_per_s": {
+                "accumulation": -2.3343323643250758e-07,
+                "time_recovery": -1.8729837603299146e-07
+              }
+            }
+          ]
+        },
+        {
+          "time_s": 1800.0,
+          "branches": [
+            {
+              "signed_flow_per_s": 4.983481703521092e-08,
+              "strength_MPa": 42.560472277247996,
+              "effective_stress_MPa": 77.82376691783699,
+              "backstress_MPa_per_s": [
+                {
+                  "hardening": 0.0033700799148193945,
+                  "dynamic_recovery": -0.003276984496041733,
+                  "static_recovery": -1.8710228090074537e-06
+                },
+                {
+                  "hardening": 0.003596611551691226,
+                  "dynamic_recovery": -4.3648799028458266e-05,
+                  "static_recovery": -1.2152467511930978e-06
+                }
+              ],
+              "isotropic_MPa_per_s": {
+                "accumulation": -1.7180039980191919e-06,
+                "time_recovery": -1.7037940471752385e-05
+              }
+            },
+            {
+              "signed_flow_per_s": 1.047878245150238e-09,
+              "strength_MPa": 122.51370518490286,
+              "effective_stress_MPa": 125.61189713910919,
+              "backstress_MPa_per_s": [
+                {
+                  "hardening": 0.0009387670073414747,
+                  "dynamic_recovery": -1.1241241134411374e-06,
+                  "static_recovery": -0.0003672873188805117
+                },
+                {
+                  "hardening": 1.5089533976023841e-05,
+                  "dynamic_recovery": 6.502253068884786e-09,
+                  "static_recovery": 1.2051713341726832e-05
+                }
+              ],
+              "isotropic_MPa_per_s": {
+                "accumulation": -9.799761800916898e-08,
+                "time_recovery": -1.8729613634713036e-07
+              }
+            }
+          ]
+        }
+      ],
+      "signed_inelastic_strain_by_branch": [
+        0.0009619019092663852,
+        2.7974033549085493e-05
+      ],
+      "quadrature_error_estimates": [
+        1.0679256470984388e-17,
+        3.105741613783132e-19
+      ],
+      "inelastic_increment_from_kinematics": 0.000989875942817677,
+      "strain_closure_error": -2.2063514210080015e-15,
+      "numerical_closure_passed": true,
+      "scope": "Model branch-flow decomposition; not stored energy, damage or measured mechanism shares"
+    }
+  ],
+  "parameter_sha256": "ea4f6fb2f051171adc43bbc9b586c2c4f63313cb8aff0da4f4891c2d0bdec239",
+  "source_sha256": {
+    "RF": "128e6de1854f4633e26eced6c4ea221687cde2f232db275487ef0d1201767e0a",
+    "SLR": "34e26cae1816ec4b712a4cec5811e0a0c66bad34848c10d962528085171fcabb",
+    "SLC": "ab2953c0cfa6335619c8b699728aa73233f8d2209af39b709916ab3fd392683e"
+  },
+  "parameter_refit": false,
+  "engineering_qualified": false,
+  "life_qualified": false,
+  "frozen_report_sha256": "f4e4ecaaef666cf62712255dbce14d0d4936e42a83c8cad88d2b60920cea188a"
+}
