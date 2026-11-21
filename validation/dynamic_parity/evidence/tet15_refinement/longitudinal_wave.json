@@ -1,0 +1,62 @@
+[
+  {
+    "element": "tet15_nodal",
+    "nx": 8,
+    "dt_fraction": 0.8,
+    "dt": 1.282686539768219e-06,
+    "steps": 259,
+    "wave_speed": 6020.183016345588,
+    "relative_trace_L2": 0.00011369053336537296,
+    "energy_relative_range": 0.00014723188202764667
+  },
+  {
+    "element": "tet15_nodal",
+    "nx": 8,
+    "dt_fraction": 0.4,
+    "dt": 6.413432698841095e-07,
+    "steps": 518,
+    "wave_speed": 6020.183016345588,
+    "relative_trace_L2": 9.489514620346437e-05,
+    "energy_relative_range": 3.680343459042464e-05
+  },
+  {
+    "element": "tet15_nodal",
+    "nx": 16,
+    "dt_fraction": 0.8,
+    "dt": 6.413432698841095e-07,
+    "steps": 518,
+    "wave_speed": 6020.183016345588,
+    "relative_trace_L2": 2.3030768551695587e-05,
+    "energy_relative_range": 3.6785834078513316e-05
+  },
+  {
+    "element": "tet15_nodal",
+    "nx": 16,
+    "dt_fraction": 0.4,
+    "dt": 3.2067163494205477e-07,
+    "steps": 1036,
+    "wave_speed": 6020.183016345588,
+    "relative_trace_L2": 9.599513997223186e-06,
+    "energy_relative_range": 9.196443928120013e-06
+  },
+  {
+    "element": "tet15_nodal",
+    "nx": 32,
+    "dt_fraction": 0.8,
+    "dt": 3.2067163494205477e-07,
+    "steps": 1036,
+    "wave_speed": 6020.183016345588,
+    "relative_trace_L2": 5.571827050512242e-06,
+    "energy_relative_range": 9.195856351828376e-06
+  },
+  {
+    "element": "tet15_nodal",
+    "nx": 32,
+    "dt_fraction": 0.4,
+    "dt": 1.6033581747102738e-07,
+    "steps": 2072,
+    "wave_speed": 6020.183016345588,
+    "relative_trace_L2": 1.761814119020285e-06,
+    "energy_relative_range": 2.29895805734491e-06
+  }
+]

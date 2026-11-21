@@ -75,6 +75,102 @@ it selects current temperature. Pass a live field or callback for another
 state variable. Vector probes require `component=...` because one history
 channel has one scalar engineering meaning.
 
+## Points, paths and planar sections
+
+Use the same field samplers for displacement, recovered cell stress or scalar
+temperature. Every MPI rank calls with identical coordinates. The sampler
+evaluates the finite-element basis in an owned containing cell and returns the
+same ordered values on all ranks:
+
+```python
+tip = results.probe(displacement, at=(1.0, 0.1))
+points = results.sample_points(stress_field, [(0.2, 0.1), (0.8, 0.1)], return_info=True)
+path = results.sample_path(
+    stress_field, vertices=[(0.0, 0.1), (0.8, 0.1), (0.8, 0.2)], count=101,
+)
+path.add_to(result, name="stress_along_path", unit="Pa", distance_unit="m")
+```
+
+`start=...`, `end=...` retain the straight-path API. `vertices=...` instead
+describes a polyline: stations are uniformly spaced in cumulative arc length,
+including both endpoints. Increase `count` to resolve corners or supply explicit
+point coordinates when specific stations must be retained. A discontinuous
+field evaluated exactly on a cell interface uses the deterministic containing
+cell choice documented by `sample_points`; sample inside the desired side for
+a one-sided stress trace.
+
+On a 3D mesh, use a physical section without extracting DOLFINx cell arrays:
+
+```python
+section = results.sample_section(
+    stress_field,
+    origin=(0.5, 0.0, 0.0), axis_u=(0.0, 1.0, 0.0), axis_v=(0.0, 0.0, 1.0),
+    u=np.linspace(0.0, 0.2, 21), v=np.linspace(0.0, 0.1, 11),
+    missing="nan",
+)
+```
+
+The section maps `x=origin+u*axis_u+v*axis_v`. Its axes must be orthonormal;
+`u` and `v` are physical length coordinates. Arrays have `(len(v), len(u))`
+grid order followed by the field value shape. `located` and `finite` masks
+preserve holes and distinguish missing material from nonfinite values.
+`missing="raise"` is the default. Section samples are point observations, not
+cut-cell quadrature: use `section_resultant(stress, on=mesh_boundary, ...)`
+for an integrated mesh-boundary force and moment.
+
+## Reactions, field comparisons and accepted frames
+
+For a solved strong-Dirichlet problem, sum the discrete residual forces and
+their moment about an explicit reference point:
+
+```python
+support = results.reaction_force_moment(
+    step.problem, on=support_boundary, about=(0.0, 0.0),
+)
+support.force       # vector
+support.moment      # scalar out-of-plane in 2D, vector in 3D
+support.as_dict()
+```
+
+This uses owned nodal residual entries and reference mesh coordinates; no
+stress smoothing or boundary extrapolation enters the calculation. Scope
+matches `reaction_resultant`: converged Cartesian solid problems with strong
+constraints. Contact/MPC reaction distributions use their provider-owned
+definitions. Two-dimensional results retain the selected problem's thickness
+convention. To move the reference point from A to B,
+`M_B=M_A-(B-A) cross F`.
+
+Compare fields at common physical locations, including different meshes:
+
+```python
+comparison = results.compare_fields(reference_field, candidate_field, at=points.coordinates)
+comparison.difference  # candidate minus reference
+comparison.summary()
+```
+
+The result retains both sample arrays and a common validity mask. Reported
+maximum, RMS and relative errors refer to the requested unweighted samples,
+not a volume norm or an automatic convergence claim. A zero reference norm
+produces an unavailable (`None`) relative error; absolute errors remain
+available. `missing="nan"` explicitly permits partial coverage, which the
+summary reports. Compare matching units, components and stress measures.
+
+Select retained accepted fields by stored index or a nearby load/time value:
+
+```python
+frame = results.accepted_snapshot(step, at=0.5, coordinate="load_factor", tolerance=0.01)
+tip_at_half_load = results.probe(frame.solution, at=(1.0, 0.1))
+stored_fields = frame.fields  # when supplied by the owning procedure
+```
+
+Use `index=...` instead when a cyclic path visits the same load factor more
+than once. The returned frame is borrowed from the step and should be treated
+as read-only. Only saved fields are available: no interpolation, material
+reintegration or live-state rewind occurs. A missing frame, coordinate outside
+tolerance or ambiguous repeated coordinate raises an addressable error. Select
+field retention before solving when this analysis is required; scalar histories
+alone do not contain past spatial fields.
+
 ## Periodic plastic-contact energy evidence
 
 For the primal periodic/affine finite-strain J2 route, the result also contains

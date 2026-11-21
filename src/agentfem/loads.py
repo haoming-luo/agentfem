@@ -21,6 +21,7 @@ from .constraints import time_dependent_component_dirichlet as _constraint_time_
 from . import forms
 from .ir.values import describe_value
 from .kernel import constants
+from ._physical_semantics import load_semantics, pressure_configuration
 
 
 TimeFunction = amplitudes.Amplitude
@@ -133,6 +134,7 @@ class BoundaryLoad:
         return {
             "name": self.name,
             "kind": "boundary_load",
+            "physical_semantics": load_semantics("traction"),
             "location": getattr(self.location, "name", None),
             "value": describe_value(self.value),
         }
@@ -168,6 +170,7 @@ class PressureLoad:
             "pressure": describe_value(self.pressure),
             "configuration": self.configuration,
             "sign_convention": "positive pressure acts inward",
+            "physical_semantics": load_semantics("pressure", configuration=self.configuration),
         }
 
 
@@ -583,9 +586,13 @@ def traction(
 ) -> BoundaryLoad:
     """Create a traction in global or an explicit local coordinate system."""
 
-    return boundary_load(
-        _global_vector(value, system), location=location, on=on, name=name
-    )
+    selected = _select_location(location=location, on=on)
+    vector = _global_vector(_normalize_expression(value), system)
+    owner = getattr(selected, "domain", None)
+    shape = getattr(vector, "ufl_shape", np.shape(vector))
+    if owner is not None and tuple(shape) != (owner.geometry.dim,):
+        raise ValueError(f"AFM-LOAD-SHAPE: traction requires {owner.geometry.dim} vector components, got {shape}.")
+    return boundary_load(vector, location=selected, name=name)
 
 
 def surface_force(
@@ -598,7 +605,7 @@ def surface_force(
     system=None,
     name: str = "surface_force",
 ) -> SurfaceResultantLoad:
-    """Distribute a total reference-configuration force over a boundary.
+    """Distribute a reference-configuration force resultant over a boundary.
 
     ``resultant`` is the desired MPI-global force vector.  AgentFEM computes
     the selected edge length in planar 2D, revolved area in axisymmetric 2D,
@@ -606,6 +613,12 @@ def surface_force(
     ``resultant / reference_measure``.  Pass an explicit
     ``reference_measure`` only when the geometric measure is intentionally
     supplied by an external model.
+
+    In planar 2D, preserve the per-unit-reference-thickness convention: a
+    Step with explicit thickness h integrates h*resultant. To request total
+    force F on such a Step, supply resultant=F/h. Do not supply a thickness-
+    weighted reference_measure as well. In 3D/axisymmetry the resultant is
+    already a total force.
     """
 
     selected = _select_location(location=location, on=on)
@@ -754,8 +767,8 @@ def pressure(
     domain = selected_location.domain
     selected_pressure = _as_constant(value, location=selected_location)
     reference_normal = normal if normal is not None else ufl.FacetNormal(domain)
-    normalized = str(configuration).lower().replace("-", "_")
-    if normalized in {"reference", "dead", "nominal"}:
+    normalized = pressure_configuration(configuration)
+    if normalized == "reference":
         traction_value = -selected_pressure * reference_normal
         normalized = "reference"
     elif normalized in {"current", "follower"}:
@@ -881,8 +894,30 @@ def _select_location(*, location=None, on=None):
     return location if location is not None else on
 
 
+def _normalize_expression(value):
+    if isinstance(value, (tuple, list)) and any(_is_ufl_like(item) for item in value):
+        try:
+            return ufl.as_vector(value)
+        except (TypeError, ValueError) as error:
+            raise ValueError("AFM-LOAD-EXPRESSION: a vector requires scalar numeric or UFL components.") from error
+    if not _is_ufl_like(value):
+        try:
+            numeric = np.asarray(value, dtype=float)
+        except (TypeError, ValueError) as error:
+            raise ValueError("AFM-LOAD-EXPRESSION: use finite numbers or scalar UFL components; arbitrary callables are not load expressions.") from error
+        if not np.all(np.isfinite(numeric)):
+            raise ValueError("AFM-LOAD-FINITE: load values must be finite.")
+    return value
+
+
 def _as_constant(value, *, location=None, domain=None, target=None):
+    value = _normalize_expression(value)
     if _is_ufl_like(value):
+        owner = getattr(location, "domain", domain)
+        if owner is not None:
+            domains = ufl.domain.extract_domains(value)
+            if any(item != owner.ufl_domain() for item in domains):
+                raise ValueError("AFM-LOAD-DOMAIN: expression and load boundary belong to different meshes.")
         return value
     owner = domain or location or target
     if owner is None:
@@ -892,3 +927,120 @@ def _as_constant(value, *, location=None, domain=None, target=None):
 
 def _is_ufl_like(value) -> bool:
     return hasattr(value, "ufl_shape") or hasattr(value, "ufl_domain")
+
+
+@dataclass
+class NodalForce:
+    """Global force per selected node; no surface-area approximation.
+
+    Initial public lowering is small-strain central difference. Other
+    providers must not interpret this object as a distributed traction.
+    """
+
+    value: tuple[float, ...]
+    nodes: object
+    amplitude: object = None
+    name: str = "nodal_force"
+    _scale: float = 1.0
+
+    def __post_init__(self):
+        self.value = tuple(float(x) for x in self.value)
+        if len(self.value) not in (2, 3) or not np.all(np.isfinite(self.value)):
+            raise ValueError("AFM-NODAL-FORCE: finite global force vector required.")
+        if self.amplitude is None:
+            self.amplitude = amplitudes.constant(1.0)
+        elif isinstance(self.amplitude, (int, float)):
+            self.amplitude = amplitudes.constant(float(self.amplitude))
+        if not isinstance(self.amplitude, amplitudes.Amplitude):
+            raise TypeError("AFM-NODAL-FORCE: use an Amplitude asset.")
+        self.update(0.0)
+
+    @property
+    def time_effects(self):
+        return ("right_hand_side",)
+
+    def update(self, time):
+        scale = self.amplitude(time)
+        if not np.isfinite(scale):
+            raise ValueError("AFM-NODAL-FORCE: nonfinite amplitude.")
+        self._scale = scale
+        return scale
+
+    def form(self, test_function):
+        raise NotImplementedError(
+            "AFM-NODAL-FORCE-PROVIDER: use small-strain central difference; nodal force is not a UFL surface load."
+        )
+
+    def bind(self, target):
+        return _BoundNodalForce(self, target)
+
+    def summary(self):
+        return {
+            "kind": "nodal_force",
+            "name": self.name,
+            "value": list(self.value),
+            "frame": "global",
+            "distribution": "force_per_node",
+            "nodes": self.nodes.summary(),
+            "amplitude": self.amplitude.summary(),
+            "time_effects": list(self.time_effects),
+        }
+
+
+class _BoundNodalForce:
+    role = "vector"
+
+    def __init__(self, load, target):
+        from . import fields
+
+        self.load = load
+        self.target = fields.unwrap(target)
+        self.space, self.indices = load.nodes.bind(target)
+        from .provenance import collective_canonical_record
+
+        collective_canonical_record(
+            load.summary(), comm=self.space.mesh.comm, label="Nodal force"
+        )
+        if self.space.dofmap.index_map_bs != len(load.value):
+            raise ValueError("AFM-NODAL-FORCE: vector dimension differs from field.")
+
+    def summary(self):
+        return self.load.summary()
+
+    def assemble_vector(self):
+        vector = self.target.x.petsc_vec.duplicate()
+        bs = self.space.dofmap.index_map_bs
+        with vector.localForm() as local:
+            local.set(0)
+            for node in self.indices:
+                if node >= 0:
+                    local.array[node * bs : (node + 1) * bs] += (
+                        np.asarray(self.load.value) * self.load._scale
+                    )
+        vector.ghostUpdate(
+            addv=PETSc.InsertMode.INSERT_VALUES, mode=PETSc.ScatterMode.FORWARD
+        )
+        return vector
+
+
+def nodal_force(
+    value,
+    *,
+    nodes=None,
+    labels=(),
+    source=None,
+    at=None,
+    tolerance=1e-10,
+    amplitude=None,
+    name="nodal_force",
+):
+    from ._nodal import nodal_selection
+
+    if nodes is not None and (at is not None or len(np.atleast_1d(labels))):
+        raise ValueError("AFM-NODAL-FORCE: provide nodes or a selector, not both.")
+    selected = (
+        nodes
+        if nodes is not None
+        else nodal_selection(labels=labels, source=source, at=at, tolerance=tolerance)
+    )
+    return NodalForce(tuple(value), selected, amplitude, name)

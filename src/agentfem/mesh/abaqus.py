@@ -2120,3 +2120,9 @@ def _data_records(path: Path) -> list[tuple[int, list[str]]]:
 
 def _csv_values(line: str) -> list[str]:
     return [value.strip() for value in line.split(",") if value.strip()]
+
+
+def read_dynamic_input(path, *, unit_system):
+    """Preserve flattened dynamic INP cards and audit formulation limitations."""
+    from .abaqus_dynamics import read_dynamic_input as read
+    return read(path, unit_system=unit_system)

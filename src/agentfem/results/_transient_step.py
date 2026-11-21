@@ -86,6 +86,10 @@ def _attach_transient_output(result, step, output_fields) -> None:
         result.metadata["transient"]["history_requests"] = [
             request.summary() for request in step.history_requests
         ]
+    sampling = {request.name: dict(request._sampling) for request in step.history_requests
+                if getattr(request, "_sampling", None)}
+    if sampling:
+        result.metadata["transient"]["sampling_evidence"] = sampling
     _attach_histories(result, step)
     for checkpoint in step.checkpoints:
         result.add_checkpoint(checkpoint)
@@ -112,11 +116,15 @@ def _attach_histories(result, step) -> None:
     requests = {
         request.name: request for request in getattr(step, "history_requests", ())
     }
+    declared_time_units = {request.time_unit for request in requests.values()
+                           if getattr(request, "time_unit", None)}
+    if len(declared_time_units) > 1:
+        raise ValueError("Transient history requests declare inconsistent time units.")
     result.add_histories(
         coordinates,
         {name: [item[name] for item in step.history_records] for name in names},
         abscissa_name="time",
-        abscissa_unit="s",
+        abscissa_unit=next(iter(declared_time_units), "s"),
         units={name: getattr(requests.get(name), "unit", None) for name in names},
         descriptions={
             name: (
@@ -141,7 +149,7 @@ def _attach_field_output(result, step, output_fields) -> None:
         if not vector_primary
         else (
             "U"
-            if backend == "agentfem_unified_xdmf"
+            if backend in {"agentfem_unified_xdmf", "agentfem_composite_xdmf"}
             else str(getattr(primary, "name", "Displacement"))
         )
     )

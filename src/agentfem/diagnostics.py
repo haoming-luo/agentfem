@@ -432,6 +432,8 @@ class StandardRunReporter:
 
         if self.comm.rank != 0:
             return
+        from ._run_observation import record_event
+        record_event(event.as_dict(), rank=self.comm.rank)
         elapsed = monotonic() - self._started
         kind = event.kind
         visible = bool(getattr(event, "display", True))
@@ -1237,3 +1239,79 @@ def linear_failure_diagnostic(reason, iterations, residual_norm):
     return {"code": code, "stage": "linear_solve", "reason": reason,
             "iterations": int(iterations), "residual_norm": (float(residual_norm) if np.isfinite(residual_norm) else None),
             "suggestions": suggestions, "diagnosis": "solver evidence; root cause not yet established"}
+
+
+class LinearDynamicWorkMonitor(MechanicalEnergyMonitor):
+    """Trapezoidal external work on owned DOFs with restartable endpoint.
+
+    Applies to stationary homogeneous supports and conservative linear bulk.
+    Moving-support reaction work is not included by this monitor.
+    """
+
+    def __init__(self, *, mass, stiffness, external, displacement):
+        super().__init__(mass, stiffness)
+        self.external = external
+        self.displacement = displacement
+        self.previous_u = None
+        self.previous_f = None
+        self.work = 0.0
+        self.initial_energy = None
+
+    def _endpoint(self):
+        from . import fields, operators
+
+        f = fields.unwrap(self.displacement)
+        bs = f.function_space.dofmap.index_map_bs
+        n = f.function_space.dofmap.index_map.size_local * bs
+        u = f.x.array[:n].copy()
+        if self.external is None:
+            force = np.zeros(n)
+        else:
+            v = operators.assemble_vector(self.external)
+            try:
+                force = v.array.copy()
+            finally:
+                v.destroy()
+        return u, force, f.function_space.mesh.comm
+
+    def advance(self, *, displacement, velocity):
+        u, f, comm = self._endpoint()
+        if self.previous_u is not None:
+            self.work += float(
+                comm.allreduce(0.5 * np.dot(self.previous_f + f, u - self.previous_u))
+            )
+        self.previous_u = u
+        self.previous_f = f
+
+    def evaluate(self, *, displacement, velocity):
+        self.advance(displacement=displacement, velocity=velocity)
+        values = super().evaluate(displacement=displacement, velocity=velocity)
+        if self.initial_energy is None:
+            self.initial_energy = values["total_mechanical_energy"]
+        values.update(
+            external_work=self.work,
+            artificial_energy=0.0,  # Full-integration linear route: no stabilization.
+            initial_mechanical_energy=self.initial_energy,
+            energy_balance_error=values["total_mechanical_energy"]
+            - self.initial_energy
+            - self.work,
+        )
+        field = self.displacement
+        from .fields import unwrap
+
+        space = unwrap(field).function_space
+        resultant = space.mesh.comm.allreduce(
+            self.previous_f.reshape(-1, space.dofmap.index_map_bs).sum(axis=0)
+        )
+        values.update(
+            {
+                f"external_force_{i + 1}": float(value)
+                for i, value in enumerate(resultant)
+            }
+        )
+        return values
+
+    def restore(self, record):
+        self.work = float(record["external_work"])
+        self.initial_energy = float(record["initial_mechanical_energy"])
+        self.previous_u, self.previous_f, _ = self._endpoint()

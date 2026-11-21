@@ -1,0 +1,11 @@
+...............                                                                 [100%].                                                                 [100%]
+=============================== warnings summary ===============================
+../../../../../opt/homebrew/Caskroom/miniforge/base/envs/fenicsx-env/lib/python3.11/site-packages/_pytest/pathlib.py:95
+  /opt/homebrew/Caskroom/miniforge/base/envs/fenicsx-env/lib/python3.11/site-packages/_pytest/pathlib.py:95: PytestWarning: (rm_rf) error removing /private/var/folders/xs/8ctp4x_j11z_zww72xlg1m3c0000gn/T/pytest-of-luo/garbage-f20181e5-b2c4-4bb9-9767-5be3758ea260
+  <class 'OSError'>: [Errno 66] Directory not empty: '/private/var/folders/xs/8ctp4x_j11z_zww72xlg1m3c0000gn/T/pytest-of-luo/garbage-f20181e5-b2c4-4bb9-9767-5be3758ea260'
+    warnings.warn(
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+8 passed, 8 deselected, 1 warning in 6.22s
+
+8 passed, 8 deselected in 6.21s

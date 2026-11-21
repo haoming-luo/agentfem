@@ -356,6 +356,9 @@ def _unified_vtk_mesh(primary):
     silently sampled incorrectly.
     """
 
+    from ..elements.tet15_mass import is_tet15_space, visualization_mesh
+    if is_tet15_space(primary.function_space):
+        return visualization_mesh(primary.function_space)
     try:
         return plot.vtk_mesh(primary.function_space)
     except KeyError as exc:
@@ -494,6 +497,9 @@ class UnifiedXDMFTimeSeries:
 
     def _initialize(self, primary) -> None:
         domain = primary.function_space.mesh
+        from ..elements._composite_tet_dolfinx import is_composite_space
+        if is_composite_space(primary.function_space):
+            raise ValueError("Composite Tet10 requires Step output or results.write_result_fields for its piecewise interpolation.")
         if domain.comm.size != 1:
             raise NotImplementedError(
                 "Unified compressed XDMF is a serial writer. Under MPI use "
@@ -530,6 +536,10 @@ class UnifiedXDMFTimeSeries:
         self._primary_semantic_name = primary_semantic_name
         self._nodes_per_cell = nodes_per_cell
         self._cell_count = len(cell_types)
+        from ..elements.tet15_mass import is_tet15_space
+        self._visualization_parent_cells = None
+        if is_tet15_space(primary.function_space):
+            self._visualization_parent_cells = np.repeat(np.arange(len(primary.function_space.dofmap.list)),24)
         self._point_count = coordinates.shape[0]
         self._geometry_dimension = int(coordinates.shape[1])
         self._physical_model_dimension = int(domain.geometry.dim)
@@ -547,6 +557,9 @@ class UnifiedXDMFTimeSeries:
 
         self._root = ET.Element("Xdmf", Version="3.0")
         xml_domain = ET.SubElement(self._root, "Domain")
+        if self._visualization_parent_cells is not None:
+            ET.SubElement(xml_domain,"Information",Name="solver_element",Value="tet15_mass_lumped")
+            ET.SubElement(xml_domain,"Information",Name="visualization_interpolation",Value="24 linear sub-tetrahedra; native nodal coefficients and source cell DOFs in HDF5")
         self._temporal = ET.SubElement(
             xml_domain,
             "Grid",
@@ -582,6 +595,11 @@ class UnifiedXDMFTimeSeries:
         )
         mesh_group = self._h5.create_group("Mesh")
         mesh_group.create_dataset("Topology", data=self._connectivity, **self._h5_options)
+        if self._visualization_parent_cells is not None:
+            self._h5.attrs["solver_element"] = "tet15_mass_lumped_P2_face_interior_bubbles"
+            self._h5.attrs["visualization_interpolation"] = "24 linear sub-tetrahedra; all native nodal values retained"
+            mesh_group.create_dataset("SourceCellDofs",data=np.asarray(self._primary_space.dofmap.list))
+            mesh_group.create_dataset("VisualizationParentCell",data=self._visualization_parent_cells)
         if self.store_reference_geometry:
             mesh_group.create_dataset(
                 "ReferenceGeometry", data=self._reference_coordinates, **self._h5_options
@@ -687,8 +705,11 @@ class UnifiedXDMFTimeSeries:
                 field,
                 solution_space=primary.function_space,
                 point_count=self._point_count,
-                cell_count=self._cell_count,
+                cell_count=(self._cell_count if self._visualization_parent_cells is None
+                            else len(primary.function_space.dofmap.list)),
             )
+            if center == "Cell" and self._visualization_parent_cells is not None:
+                shaped = np.asarray(shaped)[self._visualization_parent_cells]
             shaped = _visualization_vector_values(
                 shaped,
                 field,
@@ -926,7 +947,17 @@ def write_result_fields(
         storage_name = str(getattr(solution, "name", "") or primary.name)
         warp_semantic = None
     selected_path = Path(path)
-    if domain.comm.size == 1:
+    from ..elements._composite_tet_dolfinx import is_composite_space
+    if is_composite_space(solution.function_space):
+        from ._composite_tet import CompositeTetTimeSeries
+        if deformation_scale != 0:
+            raise NotImplementedError("Composite fields use reference geometry; apply Warp By Vector in ParaView.")
+        if selected_path.suffix.lower() != ".xdmf":
+            raise ValueError("Composite result output requires an .xdmf path.")
+        with CompositeTetTimeSeries(selected_path, solution) as writer:
+            writer.write_fields(float(time), solution, *auxiliary)
+        layout, backend, paraview = "exact_piecewise_linear_subtets", "agentfem_composite_xdmf", None
+    elif domain.comm.size == 1:
         write_unified_xdmf_series(
             selected_path,
             (SimpleNamespace(solution=solution, load_factor=float(time)),),

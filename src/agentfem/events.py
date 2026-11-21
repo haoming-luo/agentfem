@@ -59,7 +59,9 @@ class SolveEvent:
             selected = float(value)
             return selected if isfinite(selected) else None
 
+        from ._run_observation import PHASES
         return {
+            "phase": PHASES.get(self.kind, "provider_event"),
             "kind": self.kind,
             "step_name": self.step_name,
             "step_number": int(self.step_number),

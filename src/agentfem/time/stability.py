@@ -216,4 +216,53 @@ __all__ = [
     "ExplicitStabilityContribution",
     "ExplicitStabilityEstimate",
     "combine_explicit_stability",
+    "linear_solid_stability",
 ]
+
+
+def linear_solid_stability(stiffness, mass, *, safety_factor=0.8):
+    """Gershgorin bound for M_lumped^-1 K; no guessed element wave length.
+
+    Free and constrained rows are both included, making the estimate
+    conservative for homogeneous fixed supports. Requires positive diagonal
+    inertia and a stationary linear-elastic stiffness.
+    """
+    import numpy as np
+    from mpi4py import MPI
+    from .. import operators
+
+    matrix = operators.assemble_matrix(stiffness)
+    try:
+        from ..provenance import collective_call
+
+        def local_bound():
+            diagonal = np.asarray(mass.mass)
+            lo, hi = matrix.getOwnershipRange()
+            if (
+                len(diagonal) < hi - lo
+                or np.any(~np.isfinite(diagonal[: hi - lo]))
+                or np.any(diagonal[: hi - lo] <= 0)
+            ):
+                raise ValueError(
+                    "AFM-EXPLICIT-STABILITY: positive finite owned diagonal required."
+                )
+            bound = 0.0
+            for row in range(lo, hi):
+                _, values = matrix.getRow(row)
+                bound = max(bound, float(np.abs(values).sum() / diagonal[row - lo]))
+            return bound
+
+        bound = collective_call(
+            local_bound, comm=matrix.comm.tompi4py(), label="Explicit stability"
+        )
+        bound = matrix.comm.tompi4py().allreduce(bound, op=MPI.MAX)
+    finally:
+        matrix.destroy()
+    return combine_explicit_stability(
+        (
+            ExplicitStabilityContribution.from_spectral_bound(
+                "body", bound, method="assembled_absolute_row_sum_MinvK"
+            ),
+        ),
+        safety_factor=safety_factor,
+    )

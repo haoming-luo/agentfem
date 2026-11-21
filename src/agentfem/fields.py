@@ -19,6 +19,12 @@ from mpi4py import MPI
 
 from . import spaces
 from .kernel import dofs
+from ._prescribed_fields import PrescribedField, prescribed
+
+_DOCUMENTED_REEXPORTS = {
+    "PrescribedField": "_prescribed_fields",
+    "prescribed": "_prescribed_fields",
+}
 
 
 @dataclass
@@ -149,6 +155,8 @@ class UnknownField:
             "kind": self.kind,
             "element": str(element),
             "value_name": getattr(self.value, "name", self.name),
+            **({"element_policy": self.space._agentfem_element_policy.summary()}
+               if hasattr(self.space, "_agentfem_element_policy") else {}),
         }
 
     def assign_from(self, other) -> None:
@@ -316,9 +324,35 @@ def vector_unknown(
     )
 
 
-def displacement(domain, *, degree: int = 1, dim: int | None = None, value=0.0) -> UnknownField:
+def displacement(domain, *, degree: int = 1, dim: int | None = None, value=0.0, element=None, element_policy=None) -> UnknownField:
     """Create a displacement unknown for mechanics workflows."""
 
+    if element_policy is not None:
+        from .elements import CompositeTet10Policy
+        from .elements._composite_tet_dolfinx import local_order
+        if not isinstance(element_policy, CompositeTet10Policy):
+            raise TypeError("This displacement factory supports CompositeTet10Policy only.")
+        if element is not None or dim is not None or degree != 1:
+            raise ValueError("Declare element_policy without degree, dim or element overrides.")
+        if element_policy.independent_center:
+            from .elements._composite_storage import vector_element
+            field = displacement(domain, element=vector_element(), value=value)
+        else:
+            field = displacement(domain, degree=2, value=value)
+        local_order(field.space)
+        field.space._agentfem_composite_tet10 = True
+        field.space._agentfem_element_policy = element_policy
+        return field
+    if element is not None:
+        if degree != 1 or dim is not None:
+            raise ValueError("Pass an explicit element or degree/dim, not both.")
+        from dolfinx import fem
+        V = fem.functionspace(domain, element)
+        if V.value_shape != (domain.geometry.dim,):
+            raise ValueError("Displacement element must have one component per geometric dimension.")
+        return UnknownField(name="Displacement", kind="displacement", space=V,
+            value=spaces.named_function(V,"Displacement",value=value),
+            trial=spaces.trial_function(V), test=spaces.test_function(V))
     field = vector_unknown(domain, name="Displacement", degree=degree, dim=dim, value=value)
     return UnknownField(
         name=field.name,

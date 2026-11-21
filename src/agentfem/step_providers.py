@@ -563,7 +563,11 @@ def step_capability(
             if provider is not None and provider.option_contract is not None:
                 readiness_issues = provider.option_contract.issues(request.options)
             break
+    from ._physical_semantics import model_physics
+    from . import __version__
     return {
+        "agentfem_version": __version__,
+        "physical_semantics": model_physics(model, options=selected_options),
         "analysis": selected_analysis,
         "physics": getattr(getattr(model, "study", None), "physics", None),
         "dimension": getattr(getattr(model, "study", None), "dimension", None),

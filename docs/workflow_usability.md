@@ -30,8 +30,11 @@ agentfem capabilities --api constitutive.StrainHistoryRuntime --json
 
 This reports parameter names, kinds, required inputs, simple defaults and
 declared annotations from the installed implementation. Model methods also
-retain their lifecycle status. It imports the selected public module but does
-not execute the callable, evaluate annotation expressions or run a case.
+retain their lifecycle status. Exact simple signatures are read from installed
+source without initializing the numerical runtime. Already-loaded modules,
+dynamic defaults and decorated callables retain live inspection; the
+`inspection` field identifies the route. Neither route executes the callable,
+evaluates annotation expressions or runs a case.
 Runtime-object defaults are identified by type rather than expanded.
 Public classes explicitly exported by a module can be queried as constructors;
 the query does not instantiate them or compile user materials. Step
@@ -60,6 +63,39 @@ needed. Omitting `comm` retains serial or explicitly root-owned publication.
 `--runtime` also checks numerical runtime readiness. Neither promises that a
 particular mesh, material, boundary condition or solver combination is supported;
 the model's own preflight remains authoritative.
+
+## Review a defined model before solving
+
+After defining materials, constraints and loads, review the actual model without
+starting a solver:
+
+```python
+card = model.review(target=displacement, step_options={"procedure": procedure})
+```
+
+The returned JSON-safe model card records the selected analysis capability,
+material and load semantics, boundary measures/resultants, constraint degrees of
+freedom, rigid-mode audit, and findings such as an empty boundary selection. It
+is a snapshot of the reference configuration: it does not update state or solve
+an equilibrium system. Boundary integrals may compile and assemble forms.
+`solver_executed` is consequently always `false`. It checks a declared
+model, not whether the material law is scientifically valid or a nonlinear
+equilibrium path will converge.
+
+For a spatially varying traction, a tuple containing UFL expressions is accepted
+and becomes a vector expression automatically:
+
+```python
+x = ufl.SpatialCoordinate(domain)
+model.traction((load0 * (1 + 0.2 * x[1]), 0.0), on=loaded_edge)
+```
+
+The card distinguishes reference-configuration and current-configuration
+pressure. Reference pressure integrates `-p N`; current (follower) pressure
+uses the deformed area vector `-p J F^{-T}N`. In a two-dimensional solid study,
+resultants are forces per declared out-of-plane thickness. These declarations
+make the physical convention inspectable; they do not replace a user-selected
+modeling assumption.
 
 With `--json`, invalid CLI arguments return an `agentfem.cli-error` record and
 exit code 2 before runtime initialization. The stage is `argument_parsing` and

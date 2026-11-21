@@ -9,6 +9,16 @@ from importlib import import_module as _import_module
 # Numerical functions retain their original implementations and import their
 # owning modules when first used, as the existing output-plan exports do.
 _LAZY_EXPORTS = {
+    "AcceptedMaterialFields": "material_observations",
+    "GaugeMeasurement": "material_observations",
+    "gauge": "material_observations",
+    "SectionSample": "postprocessing",
+    "FieldComparison": "postprocessing",
+    "ReactionForceMoment": "postprocessing",
+    "sample_section": "postprocessing",
+    "compare_fields": "postprocessing",
+    "reaction_force_moment": "postprocessing",
+    "accepted_snapshot": "postprocessing",
     "read_visualization_frame": "inspection",
     "inspect_visualization": "inspection",
     "deform_visualization_frame": "inspection",
@@ -19,6 +29,13 @@ _LAZY_EXPORTS = {
     "cell_field_from_values": "cell_data",
     "compare_records": "comparison",
     "read_histories": "history_archive",
+    "VelocityTrace": "dynamic_comparison",
+    "read_velocity_csv": "dynamic_comparison",
+    "compare_dynamic_traces": "dynamic_comparison",
+    "write_dynamic_comparison": "dynamic_comparison",
+
+    "dynamic_history": "dynamic_history",
+    "write_dynamic_history": "dynamic_history",
     "AcceptedResponseSeries": "accepted_export",
     "export_accepted_response": "accepted_export",
     "export_accepted_contact_points": "contact_points",
@@ -159,11 +176,21 @@ def __dir__():
 
 
 __all__ = [
+    "AcceptedMaterialFields", "GaugeMeasurement", "gauge",
+    "SectionSample", "FieldComparison", "ReactionForceMoment",
+    "sample_section", "compare_fields", "reaction_force_moment", "accepted_snapshot",
     "MaterialPointHistoryRequest",
     "material_point",
     "join_xdmf_segments",
     "AcceptedHistoryJournal",
     "read_accepted_history",
+    "VelocityTrace",
+    "read_velocity_csv",
+    "compare_dynamic_traces",
+    "write_dynamic_comparison",
+
+    "dynamic_history",
+    "write_dynamic_history",
     "export_accepted_contact_points",
     "export_accepted_response",
     "AcceptedResponseSeries",

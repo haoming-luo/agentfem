@@ -377,6 +377,14 @@ def _finite_strain_user_material_rejection(model, request: StepRequest):
         return "AFM-USER-FINITE-MPI: implicit user-material MPI is not verified."
     if domain.geometry.dim not in (2, 3) or domain.topology.dim != domain.geometry.dim:
         return "AFM-USER-FINITE-DIMENSION: use a 3D solid or 2D plane strain."
+    thickness = request.option("reference_thickness")
+    if thickness is not None:
+        from .constitutive.user_material import _real_material_scalar
+        try:
+            if isinstance(thickness, (bool, np.bool_)) or _real_material_scalar(thickness, label="reference_thickness") <= 0 or domain.geometry.dim != 2:
+                raise ValueError("invalid planar thickness")
+        except (ValueError, TypeError):
+            return "AFM-REFERENCE-THICKNESS: declare a positive uniform planar reference thickness."
     from .constitutive.plane_stress import PlaneStressReduction
     reduction = request.option("plane_stress")
     if domain.geometry.dim == 2 and getattr(model.study, "assumption", None) == "plane_stress":
@@ -427,8 +435,8 @@ def _lower_finite_strain_user_material(model, request: StepRequest):
         model.loads, options.pop("amplitude", None), label="finite-strain user material", physical_time=False,
     )
     constraints = options.pop("constraints", None)
+    options["unit_system"] = model.unit_system
     if options.get("material_points"):
-        options["unit_system"] = model.unit_system
         options.setdefault("time_unit", getattr(model.unit_system, "time", None))
     step = FiniteStrainMaterialStep(
         displacement=request.target, material=_selected_material(model, request),
@@ -1523,6 +1531,12 @@ def _lower_mixed_neo_hookean(model, request: StepRequest):
 def _accept_explicit_dynamics(model, request: StepRequest) -> bool:
     from .constitutive import hyperelasticity
 
+    from .elements import CompositeTet10Policy
+    from .elements._composite_tet_dolfinx import is_composite_space
+    if (isinstance(request.option("element_policy"), CompositeTet10Policy)
+            or is_composite_space(getattr(request.target, "function_space", None))):
+        return False  # Unsupported composite options must not fall back to P2.
+
     method = _procedure_method(model, request)
     materials = _registered_materials(model, request)
     explicit_residual = request.options.get("residual") is not None
@@ -1871,7 +1885,7 @@ register_step_provider(
         description="Experimental serial history-material equilibrium with reference dP/dF and physical duration.",
         procedure="standard/newton/stateful",
         option_contract=_option_contract("duration", "incrementation", "quadrature_degree",
-                                         "amplitude", "properties", "progress", "time_unit", "plane_stress", "checkpoint", "output_every", "temperature", "material_points", required=("duration",)),
+                                         "amplitude", "properties", "progress", "time_unit", "plane_stress", "checkpoint", "output_every", "temperature", "material_points", "reference_thickness", "field_variables", required=("duration",)),
     )
 )
 register_step_provider(
@@ -2389,6 +2403,7 @@ register_step_provider(
             "update_load",
             "save_every",
             "print_every",
+            "history_every",
             "progress",
             "status_file",
             "checkpoint",
@@ -2457,3 +2472,30 @@ register_step_provider(
         ),
     )
 )
+
+
+def _accept_composite_tet(model, request):
+    from .elements import CompositeTet10Policy
+    method = _procedure_method(model, request)
+    policy = request.option("element_policy") or getattr(getattr(request.target, "function_space", None), "_agentfem_element_policy", None)
+    return (isinstance(policy, CompositeTet10Policy)
+            and _is_vector_target(request.target)
+            and (method is None or _normalize(method) in {"central_difference", "explicit_dynamics"}))
+
+
+def _lower_composite_tet(model, request):
+    from ._step_composite_tet import lower
+    return lower(model, request)
+
+
+register_step_provider(StepProvider(
+    name="composite_tet10_explicit",
+    analyses=("explicit_dynamics", "second_order_dynamics"),
+    accepts=_accept_composite_tet,
+    lower=_lower_composite_tet,
+    priority=181,
+    description="Experimental affine composite Tet10 elastic dynamics with positive mass and piecewise-linear output; not Abaqus C3D10M.",
+    procedure="explicit/central_difference",
+    option_contract=_option_contract("element_policy", "dt", "steps", "save_every", "print_every",
+        "history_every", "progress", "status_file", "checkpoint", required=("dt", "steps")),
+))

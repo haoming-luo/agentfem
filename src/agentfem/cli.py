@@ -24,7 +24,7 @@ from . import platforms
 from . import presentation
 from . import provenance
 from . import upgrades
-from ._cli_entry import _positive_int
+from ._cli_entry import _positive_int, _positive_finite_float
 from .mpi_runtime import audit_mpi_runtime, mpi_command, run_mpi_command
 from .project import (
     PROJECT_FILENAME,
@@ -63,7 +63,13 @@ def _json(record) -> str:
 
 
 def _emit(record, *, as_json: bool, human: str | None = None) -> None:
-    if MPI.COMM_WORLD.rank != 0:
+    # Printing serial metadata does not require MPI_Init/Finalize. If a real
+    # communicator is already in use, or the CLI was explicitly launched as
+    # an MPI job, retain its actual rank rather than inventing rank metadata.
+    runtime_active = not isinstance(MPI, _DeferredMPI) or 'mpi4py.MPI' in sys.modules
+    launched = any(key in os.environ for key in (
+        'OMPI_COMM_WORLD_SIZE', 'PMI_SIZE', 'PMIX_SIZE', 'MV2_COMM_WORLD_SIZE'))
+    if (runtime_active or launched) and MPI.COMM_WORLD.rank != 0:
         return
     print(_json(record) if as_json else (human or _json(record)), flush=True)
 
@@ -123,7 +129,7 @@ def _copy_template(template: str, target: Path, name: str, *, force: bool) -> No
     (target / "outputs").mkdir(exist_ok=True)
     gitignore = target / ".gitignore"
     if not gitignore.exists():
-        gitignore.write_text("outputs/\n__pycache__/\n", encoding="utf-8")
+        gitignore.write_text("outputs/\n__pycache__/\n.agentfem-runtime/\n", encoding="utf-8")
 
 
 def _project(value: str | None) -> ProjectConfig:
@@ -155,7 +161,7 @@ def _record_path(value: str | None, project_path: str | None) -> Path:
     return selected
 
 
-def _check_project(project: ProjectConfig, *, runtime: bool = False) -> dict[str, object]:
+def _check_project(project: ProjectConfig, *, runtime: bool = False, writable: bool = False) -> dict[str, object]:
     from ._execution_environment import execution_environment
 
     errors = list(project.check())
@@ -177,6 +183,12 @@ def _check_project(project: ProjectConfig, *, runtime: bool = False) -> dict[str
         message = f"{item.code}: {item.message}"
         if not any(item.message in existing for existing in errors):
             errors.append(message)
+    access = None
+    if writable:
+        from ._project_runtime import check_write_access
+        access = check_write_access(project.output_directory)
+        errors.extend(f"AFM-PREFLIGHT-WRITE: {item['path']}: {item['error']}"
+                      for item in access if not item['writable'])
     runtime_record = None
     if runtime:
         runtime_report = platforms.runtime_report()
@@ -192,6 +204,7 @@ def _check_project(project: ProjectConfig, *, runtime: bool = False) -> dict[str
         "errors": errors,
         "warnings": warnings,
         "runtime": runtime_record,
+        "write_access": access,
         "execution_environment": execution,
         "scope": "structure_syntax_and_runtime" if runtime else "structure_and_syntax_only",
         "model_executed": False,
@@ -394,6 +407,8 @@ def _launch_mpi(args) -> int:
     if args.json:
         child.append("--json")
     child.extend("-v" for _ in range(args.verbose))
+    if getattr(args, "trace_after", None) is not None:
+        child.extend(("--trace-after", str(args.trace_after)))
     child.append("--inside-mpi")
     child.extend(args.case_arguments)
     command = mpi_command(args.mpi, child)
@@ -514,6 +529,9 @@ def _command_run(args) -> int:
             else:
                 os.environ[key] = value
 
+    from ._run_observation import phase
+    phase("case_failed" if local_error else "case_returned", rank=MPI.COMM_WORLD.rank,
+          directory=context.output_directory)
     rank_errors = _collect_rank_errors(MPI.COMM_WORLD, local_error)
     if rank_errors:
         primary = rank_errors[0]
@@ -1015,6 +1033,11 @@ def build_parser(*, structured_errors: bool = False) -> argparse.ArgumentParser:
     check.add_argument("--json", action="store_true")
     check.add_argument("--runtime", action="store_true", help="Also check the numerical runtime; never execute case.py.")
 
+    check.add_argument("--writable", action="store_true",
+                       help="Create required directories and test temporary-file writes; never execute the model.")
+    check.add_argument("--local-runtime", action="store_true",
+                       help="Keep managed caches and runtime records inside the project.")
+
     upgrade = sub.add_parser(
         "upgrade",
         help="Inspect legacy patterns and produce a safe, agent-readable migration plan.",
@@ -1026,6 +1049,12 @@ def build_parser(*, structured_errors: bool = False) -> argparse.ArgumentParser:
 
     run = sub.add_parser("run", help="Run a project with a standard output and evidence contract.")
     run.add_argument("--project")
+    run.add_argument("--supervise", action="store_true", help="Record actual child-process exit outside the numerical runtime.")
+    run.add_argument("--timeout", type=_positive_finite_float, help="Wall-clock limit in seconds; requires --supervise.")
+    run.add_argument("--local-runtime", action="store_true",
+                     help="Use project-local caches and runtime records.")
+    run.add_argument("--trace-after", type=_positive_finite_float,
+                     help="Dump repeated Python stack traces after this many seconds, including shutdown; does not stop the solve.")
     run.add_argument("--run-id")
     run.add_argument("--name", help="Short human name for this run, such as baseline or fine-mesh.")
     run.add_argument("--output")
@@ -1270,7 +1299,7 @@ def _dispatch(argv: list[str] | None = None, *, parsed=None) -> int:
             _emit(record, as_json=args.json, human=f"Created AgentFEM project: {target}\nNext: cd {target} && agentfem check && agentfem run")
             return 0
         if args.command == "check":
-            record = _check_project(_project(args.project), runtime=args.runtime)
+            record = _check_project(_project(args.project), runtime=args.runtime, writable=args.writable)
             _emit(record, as_json=args.json, human=_format_check(record))
             return 0 if record["status"] == "passed" else 2
         if args.command == "upgrade":
@@ -1385,7 +1414,49 @@ def main(argv: list[str] | None = None) -> int:
             "error": {"type": "ArgumentError", "code": "AFM-CLI-ARGUMENT", "message": str(exc)},
         }), flush=True)
         return 2
+    if getattr(parsed, "supervise", False):
+        from ._run_supervisor import supervise
+        try:
+            return supervise(parsed, selected_argv)
+        except (OSError, ValueError, RuntimeError) as error:
+            print(_json({"schema": "agentfem.cli-error", "status": "failed",
+                         "error": {"code": "AFM-SUPERVISE", "message": str(error)}}), flush=True)
+            return 2
+    if parsed.command == "run" and getattr(parsed, "timeout", None) is not None:
+        print(_json({"schema": "agentfem.cli-error", "status": "failed",
+                     "error": {"code": "AFM-SUPERVISE-REQUIRED", "message": "--timeout requires --supervise"}}), flush=True)
+        return 2
+    from ._project_runtime import local_runtime
+    try:
+        root = _project(parsed.project).root if getattr(parsed, "local_runtime", False) else None
+        with local_runtime(root):
+            return _execute_cli(parsed, reliability)
+    except (OSError, ValueError, RuntimeError) as error:
+        record = {"schema": "agentfem.cli-error", "schema_version": "0.1.0", "status": "failed",
+                  "error": {"code": "AFM-RUNTIME-SETUP", "type": type(error).__name__,
+                            "message": str(error)}}
+        _emit(record, as_json=bool(getattr(parsed, "json", False)), human=str(error))
+        return 2
+
+
+def _optional_observation(function, *args, **kwargs):
+    try:
+        return function(*args, **kwargs)
+    except Exception as error:
+        print(f"AgentFEM optional runtime record unavailable: {type(error).__name__}",
+              file=sys.stderr, flush=True)
+        return None
+
+
+def _execute_cli(parsed, reliability):
     as_json = bool(getattr(parsed, "json", False))
+    if getattr(parsed, "trace_after", None) is not None:
+        import faulthandler
+        import atexit
+        # Keep the watchdog through interpreter shutdown; cancellation here
+        # would miss MPI finalization and non-daemon thread joins.
+        faulthandler.dump_traceback_later(parsed.trace_after, repeat=True)
+        atexit.register(faulthandler.cancel_dump_traceback_later)
     if parsed.command not in {
         "telemetry",
         "diagnose",
@@ -1393,7 +1464,7 @@ def main(argv: list[str] | None = None) -> int:
         "feedback",
         "support",
     }:
-        reliability.show_notice_once(as_json=as_json)
+        _optional_observation(reliability.show_notice_once, as_json=as_json)
     started = time.monotonic()
     exit_code = _dispatch(parsed=parsed)
     # ``agentfem run --mpi N`` is a launcher. The rank-zero child records the
@@ -1404,7 +1475,7 @@ def main(argv: list[str] | None = None) -> int:
         and not getattr(parsed, "inside_mpi", False)
     )
     if not launcher_only:
-        observation = reliability.observe_cli(
+        observation = _optional_observation(reliability.observe_cli,
             parsed.command,
             exit_code,
             duration_seconds=time.monotonic() - started,

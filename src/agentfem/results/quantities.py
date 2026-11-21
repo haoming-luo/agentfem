@@ -8,6 +8,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from hashlib import sha256
 from math import sqrt
+from operator import index as integer_index
 
 import numpy as np
 import basix
@@ -42,7 +43,7 @@ class PointSample:
 
 @dataclass(frozen=True)
 class PathSample:
-    """Values sampled along one straight physical-space path."""
+    """Values sampled along a physical-space segment or polyline."""
 
     coordinates: np.ndarray
     distance: np.ndarray
@@ -62,7 +63,7 @@ class PathSample:
 
         selected_name = name or f"{self.field_name}_path"
         selected_description = description or (
-            f"{self.field_name} sampled along a straight physical-space path."
+            f"{self.field_name} sampled along a physical-space path."
         )
         return result.add_history(
             selected_name,
@@ -878,6 +879,10 @@ def sample_points(
         raise ValueError("sample_points: " + "; ".join(
             f"rank {rank}: {error}" for rank, error in enumerate(coordinate_errors)
             if error is not None))
+    contract = (selected_missing, selected_padding, tuple(function.ufl_shape), function.x.array.dtype.str)
+    contracts = comm.allgather(contract)
+    if any(item != contracts[0] for item in contracts):
+        raise ValueError("AFM-POINT-CONTRACT: missing policy, padding, field shape and scalar dtype must agree on every rank.")
     _require_collective_points(coordinates, comm)
     point_count = int(coordinates.shape[0])
     if point_count == 0:
@@ -887,26 +892,23 @@ def sample_points(
 
     topology = domain.topology
     owned_count = int(topology.index_map(topology.dim).size_local)
-    local_cells = np.full(point_count, -1, dtype=np.int32)
-    if owned_count:
-        owned_cells = np.arange(owned_count, dtype=np.int32)
-        tree = geometry_api.bb_tree(
-            domain,
-            topology.dim,
-            padding=selected_padding,
-            entities=owned_cells,
-        )
-        candidates = geometry_api.compute_collisions_points(tree, coordinates)
-        collisions = geometry_api.compute_colliding_cells(
-            domain,
-            candidates,
-            coordinates,
-        )
-        for index in range(point_count):
-            cells = np.asarray(collisions.links(index), dtype=np.int32)
-            cells = cells[cells < owned_count]
-            if cells.size:
-                local_cells[index] = int(np.min(cells))
+    from ..provenance import collective_call
+
+    def locate_owned():
+        local_cells = np.full(point_count, -1, dtype=np.int32)
+        if owned_count:
+            owned_cells = np.arange(owned_count, dtype=np.int32)
+            tree = geometry_api.bb_tree(domain, topology.dim, padding=selected_padding, entities=owned_cells)
+            candidates = geometry_api.compute_collisions_points(tree, coordinates)
+            collisions = geometry_api.compute_colliding_cells(domain, candidates, coordinates)
+            for index in range(point_count):
+                cells = np.asarray(collisions.links(index), dtype=np.int32)
+                cells = cells[cells < owned_count]
+                if cells.size:
+                    local_cells[index] = int(np.min(cells))
+        return local_cells
+
+    local_cells = collective_call(locate_owned, comm=comm, label="AFM-POINT-LOCATION")
 
     local_owner = np.where(local_cells >= 0, comm.rank, comm.size).astype(np.int32)
     owner = np.empty_like(local_owner)
@@ -926,11 +928,26 @@ def sample_points(
         dtype=function.x.array.dtype,
     )
     selected = np.flatnonzero(owner == comm.rank)
-    if selected.size:
-        evaluated = np.asarray(
-            function.eval(coordinates[selected], local_cells[selected])
-        ).reshape(selected.size, value_size)
+    function.x.scatter_forward()
+
+    def evaluate_owned():
+        if not selected.size:
+            return
+        from ..elements._composite_tet_dolfinx import is_composite_space, interpolation_weights
+        if is_composite_space(function.function_space):
+            V = function.function_space
+            evaluated = np.array([
+                interpolation_weights(V, int(local_cells[i]), coordinates[i])
+                @ function.x.array.reshape(-1, value_size)[V.dofmap.cell_dofs(local_cells[i])]
+                for i in selected
+            ]).reshape(selected.size, value_size)
+        else:
+            evaluated = np.asarray(
+                function.eval(coordinates[selected], local_cells[selected])
+            ).reshape(selected.size, value_size)
         local_values[selected] = evaluated
+
+    collective_call(evaluate_owned, comm=comm, label="AFM-POINT-EVALUATION")
     values = np.empty_like(local_values)
     comm.Allreduce(local_values, values, op=MPI.SUM)
     if missing_indices.size:
@@ -945,35 +962,67 @@ def sample_points(
 def sample_path(
     field,
     *,
-    start,
-    end,
+    start=None,
+    end=None,
+    vertices=None,
     count: int = 101,
     padding: float = 1.0e-10,
     missing: str = "raise",
 ) -> PathSample:
-    """Sample a field along the straight segment from ``start`` to ``end``."""
+    """Sample a segment or polyline, with uniform cumulative arc-length spacing.
+
+    Supply either start/end or vertices. Corners are retained when they coincide
+    with a sample station; distance always follows the supplied polyline.
+    """
 
     function = field_api.unwrap(field)
     domain = function.function_space.mesh
-    selected_count = int(count)
-    if selected_count < 2:
-        raise ValueError("sample_path count must be at least two.")
-    start_point = _single_point(start, domain)[0, : domain.geometry.dim]
-    end_point = _single_point(end, domain)[0, : domain.geometry.dim]
-    coordinates = np.linspace(start_point, end_point, selected_count)
+    error = None
+    try:
+        coordinates, distance = _path_coordinates(domain, start, end, vertices, count)
+    except (TypeError, ValueError) as exc:
+        error = str(exc)
+    errors = domain.comm.allgather(error)
+    if any(errors):
+        raise ValueError("AFM-PATH-INPUT: " + "; ".join(item for item in errors if item))
     values = sample_points(
         function,
         coordinates,
         padding=padding,
         missing=missing,
     )
-    distance = np.linalg.norm(coordinates - coordinates[0], axis=1)
     return PathSample(
         coordinates=coordinates,
         distance=distance,
         values=values,
         field_name=str(getattr(function, "name", "field")),
     )
+
+
+def _path_coordinates(domain, start, end, vertices, count):
+    selected_count = integer_index(count)
+    if isinstance(count, bool):
+        raise ValueError("sample_path count must be an integer.")
+    if selected_count < 2:
+        raise ValueError("sample_path count must be at least two.")
+    if vertices is not None:
+        if start is not None or end is not None:
+            raise ValueError("AFM-PATH-INPUT: use vertices or start/end, not both.")
+        waypoints = _point_array(vertices, domain)[:, :domain.geometry.dim]
+    else:
+        if start is None or end is None:
+            raise ValueError("AFM-PATH-INPUT: supply start/end or vertices.")
+        waypoints = np.vstack((_single_point(start, domain), _single_point(end, domain)))[:, :domain.geometry.dim]
+    if len(waypoints) < 2:
+        raise ValueError("AFM-PATH-INPUT: at least two vertices are required.")
+    lengths = np.linalg.norm(np.diff(waypoints, axis=0), axis=1)
+    if np.any(lengths <= 0):
+        raise ValueError("AFM-PATH-INPUT: consecutive vertices must be distinct.")
+    stations = np.r_[0., np.cumsum(lengths)]
+    distance = np.linspace(0., stations[-1], selected_count)
+    coordinates = np.column_stack([np.interp(distance, stations, waypoints[:, axis])
+                                   for axis in range(domain.geometry.dim)])
+    return coordinates, distance
 
 
 def sample_rectilinear_grid(

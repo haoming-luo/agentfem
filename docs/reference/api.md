@@ -100,6 +100,8 @@ and evidence remain in the linked guides and scientific function reference.
 | function | `facet_normal(domain)` | Return the outward facet normal for boundary models. |
 | function | `tagged_boundary_measure(domain, marker, tag: int)` | Locate/tag exterior facets and return ``(ds, facet_tags)``. |
 | function | `from_arrays(*, cells, coordinates, coordinate_element = None, cell_type = None, geometry_degree = 1, comm = None, partitioner = None)` | Create a DOLFINx mesh through explicit topology/geometry keywords. |
+| function | `nodal_selection(**kwargs)` | Select unique physical nodes by source labels or exact coordinates. |
+| function | `split_tetrahedral_seam(*args, **kwargs)` | Split a complete matching Tet4/Tet10 interface without a finite gap. |
 | function | `mapped_grid(*, axes, mapping = None, cell_type = 'hexahedron', geometry_degree = 1, comm = MPI.COMM_WORLD)` | Map a structured parameter grid into a 2D/3D physical domain. |
 | function | `reentrant_honeycomb(*, angle = -30.0, ligament = 1.0, vertical = 1.5, thickness = 0.12, repeats = (1, 1), mesh_size = 0.06, comm = MPI.COMM_WORLD, connected_specimen = False)` | Mesh a rectangular cut of a periodic rounded-joint honeycomb. |
 | class | `CellCompatibility` | One meshio-style source cell mapped to an AgentFEM solver topology. |
@@ -159,7 +161,7 @@ and evidence remain in the linked guides and scientific function reference.
 | class | `VelocityPressureUnknown` | Taylor--Hood velocity/pressure unknown for incompressible flow. |
 | function | `scalar_unknown(domain, *, name: str = 'Unknown', degree: int = 1, value = 0.0) -> UnknownField` | Create a scalar finite-element unknown. |
 | function | `vector_unknown(domain, *, name: str = 'Unknown', degree: int = 1, dim: int \| None = None, value = 0.0) -> UnknownField` | Create a vector finite-element unknown. |
-| function | `displacement(domain, *, degree: int = 1, dim: int \| None = None, value = 0.0) -> UnknownField` | Create a displacement unknown for mechanics workflows. |
+| function | `displacement(domain, *, degree: int = 1, dim: int \| None = None, value = 0.0, element = None, element_policy = None) -> UnknownField` | Create a displacement unknown for mechanics workflows. |
 | function | `displacement_pressure(domain, *, displacement_degree: int = 2, pressure_degree: int = 0, pressure_family: str = 'DG', name: str = 'DisplacementPressure') -> DisplacementPressureUnknown` | Create a mixed displacement/pressure unknown. |
 | function | `velocity_pressure(domain, *, velocity_degree: int = 2, pressure_degree: int = 1, name: str = 'VelocityPressure') -> VelocityPressureUnknown` | Create a Taylor--Hood incompressible-flow unknown. |
 | function | `temperature(domain, *, degree: int = 1, value = 0.0) -> UnknownField` | Create a temperature unknown for heat-transfer workflows. |
@@ -173,6 +175,8 @@ and evidence remain in the linked guides and scientific function reference.
 | function | `norm(field, *, weight = None) -> float` | Return the distributed algebraic norm of a field. |
 | function | `require_same_space(left, right) -> None` | Raise if two fields/functions are not on the same function space. |
 | function | `same_space(left, right) -> bool` | Return whether two fields/functions share the same function space. |
+| class | `PrescribedField` | Sample a scalar/FE field or source(X, time) on declared physical knots. |
+| function | `prescribed(source, *, name, unit, times, value_shape = (), coordinate = 'reference', time_unit = None)` | Declare a reference-coordinate input for quadrature mapping, without solving. |
 
 ## `agentfem.materials`
 
@@ -417,6 +421,8 @@ and evidence remain in the linked guides and scientific function reference.
 | function | `fit_relaxation_prony(time, modulus, relaxation_times, *, nonnegative: bool = True, name: str = 'fitted_prony_series') -> PronyFit` | Fit a relaxation spectrum for user-declared relaxation times. |
 | function | `isotropic_generalized_maxwell(**kwargs) -> IsotropicGeneralizedMaxwell` | Create an isotropic tensor Prony solid from instantaneous properties. |
 | function | `standard_linear_solid(*, equilibrium_modulus: float, relaxing_modulus: float, relaxation_time: float, shift: WLFShift \| ArrheniusShift \| None = None, name: str = 'standard_linear_solid') -> GeneralizedMaxwell` | Create a standard linear solid as one Maxwell branch in parallel. |
+| class | `SmallStrainExplicitMaterial` | Provider plus density and an upper elastic tangent for stable time steps. |
+| function | `explicit_small_strain_j2(material, *, density)` | Adapt the existing radial-return J2 model without duplicating its law. |
 
 ## `agentfem.eigenstrains`
 
@@ -500,6 +506,7 @@ and evidence remain in the linked guides and scientific function reference.
 | function | `quintic_step(start_value: float = 0.0, end_value: float = 1.0, *, start_time: float = 0.0, end_time: float = 1.0, name: str = 'quintic_step') -> Amplitude` | Clamped quintic transition with zero endpoint velocity/acceleration. |
 | function | `tabular(times, values, *, name: str = 'tabular', left: float \| None = None, right: float \| None = None) -> Amplitude` | Create a linearly interpolated tabular amplitude. |
 | function | `sine(amplitude: float = 1.0, frequency: float = 1.0, *, phase: float = 0.0, offset: float = 0.0, name: str = 'sine') -> Amplitude` | Create a sinusoidal amplitude. |
+| function | `half_sine(duration: float, *, amplitude: float = 1.0, start: float = 0.0, name: str = 'half_sine') -> Amplitude` | Finite-duration sine pulse, exactly zero outside its declared support. |
 | function | `gaussian_modulated_sine(amplitude: float, frequency: float, width: float, *, center: float \| None = None, phase: float = 0.0, name: str = 'gaussian_modulated_sine') -> Amplitude` | Create a Gaussian-windowed sinusoidal pulse. |
 | class | `AmplitudeBasis` | Named, serializable loading modes with a declared coefficient order. |
 | function | `basis(*components: Amplitude, name: str = 'amplitude_basis', coefficient_names: Sequence[str] \| None = None, coordinate_name: str = 'time', coordinate_unit: str \| None = 's', value_unit: str \| None = None) -> AmplitudeBasis` | Create a named basis for control, inverse, and transient studies. |
@@ -532,7 +539,7 @@ and evidence remain in the linked guides and scientific function reference.
 | function | `neumann(value, measure, *, name: str = 'neumann_load') -> NeumannLoad` | Create a Neumann force/flux/traction term for the weak RHS. |
 | function | `with_amplitude(load, amplitude, *, domain = None, name: str \| None = None) -> AmplitudeLoad` | Drive an existing load by a scalar amplitude multiplier. |
 | function | `traction(value, *, location = None, on = None, system = None, name: str = 'traction') -> BoundaryLoad` | Create a traction in global or an explicit local coordinate system. |
-| function | `surface_force(resultant, *, location = None, on = None, reference_measure: float \| None = None, study = None, system = None, name: str = 'surface_force') -> SurfaceResultantLoad` | Distribute a total reference-configuration force over a boundary. |
+| function | `surface_force(resultant, *, location = None, on = None, reference_measure: float \| None = None, study = None, system = None, name: str = 'surface_force') -> SurfaceResultantLoad` | Distribute a reference-configuration force resultant over a boundary. |
 | function | `distributing_coupling(force, *, moment = None, reference_point = None, location = None, on = None, system = None, name: str = 'distributing_coupling') -> DistributedCouplingLoad` | Distribute force/moment over a surface with tributary-area weighting. |
 | function | `remote_force(force, *, reference_point, moment = None, location = None, on = None, system = None, name: str = 'remote_force') -> DistributedCouplingLoad` | Apply a reference-point force/moment through a continuum surface. |
 | function | `pressure(value, *, location = None, on = None, normal = None, configuration: str = 'reference', displacement = None, name: str = 'pressure') -> PressureLoad` | Create inward pressure on a reference or current boundary. |
@@ -540,6 +547,8 @@ and evidence remain in the linked guides and scientific function reference.
 | function | `heat_flux(value, *, location = None, on = None, name: str = 'heat_flux') -> BoundaryLoad` | Create a prescribed heat flux applied on a boundary region. |
 | function | `body_force_form(force, test_function)` | Create a body-force virtual-work form. |
 | function | `boundary_traction_form(traction, test_function, ds_measure)` | Create a boundary-traction virtual-work form. |
+| class | `NodalForce` | Global force per selected node; no surface-area approximation. |
+| function | `nodal_force(value, *, nodes = None, labels = (), source = None, at = None, tolerance = 1e-10, amplitude = None, name = 'nodal_force')` | Public AgentFEM object. |
 
 ## `agentfem.project`
 
@@ -560,6 +569,16 @@ and evidence remain in the linked guides and scientific function reference.
 
 | Kind | Public object | Purpose |
 | --- | --- | --- |
+| class | `AcceptedMaterialFields(*, time, coordinate, coordinates, weights, cell_keys, fields, metadata, comm)` | Owned integration-point snapshot; arrays cannot mutate the live Step. |
+| class | `GaugeMeasurement` | Two-point length strain and separately named axial projection. |
+| function | `gauge(displacement, *, start, end, padding = 1e-10)` | Measure two reference material points using FE displacement interpolation. |
+| class | `SectionSample` | Point samples on a parametric plane; not a cut-surface quadrature rule. |
+| class | `FieldComparison` | Paired samples and candidate-minus-reference on common physical points. |
+| class | `ReactionForceMoment` | Discrete residual force and moment about a reference-mesh point. |
+| function | `sample_section(field, *, origin, axis_u, axis_v, u, v, missing = 'raise', padding = 1e-10)` | Sample x=origin+u*axis_u+v*axis_v on a three-dimensional mesh. |
+| function | `compare_fields(reference, candidate, *, at, missing = 'raise', padding = 1e-10)` | Compare scalar/vector/tensor Functions on explicit physical points. |
+| function | `reaction_force_moment(problem, *, on = None, about, name = 'RF')` | Sum residual nodal forces and (X-about) cross force, without smoothing. |
+| function | `accepted_snapshot(step, *, index = None, at = None, coordinate = None, tolerance = 1e-10)` | Select one retained accepted frame by stored index or nearby coordinate. |
 | function | `read_visualization_frame(path, *, frame = -1)` | Read one saved frame as a detached PyVista dataset, without solving. |
 | function | `inspect_visualization(path, *, frame = -1)` | Describe saved times and selected-frame arrays without loading all frames. |
 | function | `deform_visualization_frame(grid, displacement, *, scale = 1.0, reference_geometry = False)` | Explicit display-only warp from a declared reference-geometry frame. |
@@ -570,6 +589,12 @@ and evidence remain in the linked guides and scientific function reference.
 | function | `cell_field_from_values(domain, values, *, name, cell_keys = None)` | Create a detached DG0 field from one scalar/vector/tensor per cell. |
 | function | `compare_records(reference: Mapping, candidate: Mapping, *, quantities: Sequence[str] = (), histories: Sequence[str] = (), atol: float = 0.0, rtol: float = 0.0) -> dict` | Compare selected observables with explicit componentwise tolerances. |
 | function | `read_histories(manifest_path: str \| Path) -> tuple[HistoryResult, ...]` | Read complete histories from an inline or NPZ result manifest. |
+| class | `VelocityTrace` | Public AgentFEM object. |
+| function | `read_velocity_csv(path, *, time_column = 'time', velocity_columns = ('V1', 'V2', 'V3'), time_unit, velocity_unit, metadata = None)` | Public AgentFEM object. |
+| function | `compare_dynamic_traces(candidate, reference, *, arrival_threshold, align = 'exact')` | No implicit smoothing, amplitude scaling, time shifting or extrapolation. |
+| function | `write_dynamic_comparison(candidate, reference, directory, *, arrival_threshold, align = 'exact')` | Write raw traces, numerical JSON, concise Markdown and unsmoothed plots. |
+| function | `dynamic_history(name, *, nodes = None, at = None, variables = ('U', 'V', 'A'), dimension = 3, length_unit = None, time_unit = None)` | Return scalar requests consumed by Step.solve_result(history=...). |
+| function | `write_dynamic_history(result, path, *, metadata = None, names = None)` | Write a CSV and JSON sidecar from identically sampled result histories. |
 | class | `AcceptedResponseSeries(path, *, state_fields = None, velocity = False, acceleration = False, units = None, storage = 'single_file')` | Streaming accepted fields; fixed mesh stored once, never a restart archive. |
 | function | `export_accepted_response(step, directory, *, state_fields = None, velocity = False, acceleration = False, units = None, visualization = True)` | Export one accepted response, raw state and cell keys. |
 | function | `export_accepted_contact_points(step, directory, *, units = None, result = None, vtk_view = False) -> dict[str, Path]` | Archive accepted quadrature samples without smoothing or advancing State. |
@@ -581,7 +606,7 @@ and evidence remain in the linked guides and scientific function reference.
 | function | `dof_statistics(field) -> dict[str, float \| int]` | Return global finite dof statistics for a DOLFINx-like field. |
 | function | `from_solution(solution, *, name: str = 'result', field_name: str \| None = None, unit: str \| None = None, metadata: Mapping[str, object] \| None = None, scientific_inputs: Mapping[str, object] \| None = None) -> SimulationResult` | Wrap one solved field in a :class:`SimulationResult`. |
 | class | `ForceMomentResultant` | Integrated force and moment about an explicit physical point. |
-| class | `PathSample` | Values sampled along one straight physical-space path. |
+| class | `PathSample` | Values sampled along a physical-space segment or polyline. |
 | class | `PointSample` | Point values with distinct mesh coverage and numerical validity masks. |
 | class | `RectilinearGridSample` | A finite-element field sampled on a Cartesian observation grid. |
 | class | `StaticForceBalance` | Global algebraic force equilibrium for one linear static solid. |
@@ -599,7 +624,7 @@ and evidence remain in the linked guides and scientific function reference.
 | function | `region_average(expression, *, on, study = None)` | Return a measure-weighted average over a named mesh region. |
 | function | `region_integral(expression, *, on, study = None)` | Integrate over a named region using its declared physical measure. |
 | function | `region_measure(*, on, study = None) -> float` | Return the global length, area, or volume of a named region. |
-| function | `sample_path(field, *, start, end, count: int = 101, padding: float = 1e-10, missing: str = 'raise') -> PathSample` | Sample a field along the straight segment from ``start`` to ``end``. |
+| function | `sample_path(field, *, start = None, end = None, vertices = None, count: int = 101, padding: float = 1e-10, missing: str = 'raise') -> PathSample` | Sample a segment or polyline, with uniform cumulative arc-length spacing. |
 | function | `sample_points(field, points, *, padding: float = 1e-10, missing: str = 'raise', return_info: bool = False) -> np.ndarray \| PointSample` | Evaluate a finite-element field at common physical points under MPI. |
 | function | `sample_rectilinear_grid(field, *, bbox, shape, reduction: str \| None = None, component: int \| None = None, padding: float = 1e-10) -> RectilinearGridSample` | Sample a scalar or vector field on a 2D/3D rectilinear grid. |
 | function | `section_resultant(stress, *, on, normal = None, about = None) -> ForceMomentResultant` | Integrate section force and moment from a Cauchy/nominal stress field. |
@@ -998,6 +1023,8 @@ and evidence remain in the linked guides and scientific function reference.
 | function | `describe_element(element_or_space) -> ElementIdentity` | Describe a UFL element or a function space without constructing forms. |
 | function | `describe_field(field, *, registered_mesh = None) -> FieldDiscretization` | Describe the runtime discretization of one AgentFEM or DOLFINx field. |
 | function | `audit(model, *, check_quality: bool = False, quality_threshold: float = 0.1, reject_poor_quality: bool = False) -> DiscretizationAudit` | Audit mesh topology, field elements, Study shapes, and mesh quality. |
+| function | `tet15_mass_lumped(*, shape = (3,))` | Published enriched degree-two positive-mass tetrahedron; not C3D10M. |
+| function | `composite_tet10(coordinates)` | Affine composite Tet10 local operators; select its Step using composite_tet10_policy. |
 | class | `UniformStrainHex8` | Experimental uniform-gradient formulation with explicit kinematics. |
 | function | `uniform_strain_hex8(*, hourglass_modulus, hourglass_scale, chunk_size = 1024, kinematics = 'small_strain')` | Declare stabilization explicitly; not an automatic C3D8R translation. |
 | class | `BulkViscosityPolicy` | Public AgentFEM object. |
@@ -1007,6 +1034,8 @@ and evidence remain in the linked guides and scientific function reference.
 | class | `ExplicitHexGeometry` | Public AgentFEM object. |
 | function | `explicit_hex_kernel(*, backend = 'auto', cell_workers = 1)` | Use installed native arithmetic or the reference NumPy implementation. |
 | function | `native_explicit_hex_kernel(material, function, *, properties, density, identity, fallback, validate = None, workers = 1, cell_workers = 1, tile_size = None, fuse_viscosity = False)` | Bind trusted C material code, not a data-file address. |
+| class | `CompositeTet10Policy` | Affine piecewise-linear composite tetrahedron; not Abaqus C3D10M. |
+| function | `composite_tet10_policy(*, mean_dilatation = False, independent_center = False)` | Public AgentFEM object. |
 
 ## `agentfem.expressions`
 
@@ -1244,7 +1273,7 @@ and evidence remain in the linked guides and scientific function reference.
 | class | `SmallStrainMaterialPathInfo` | Public AgentFEM object. |
 | class | `SmallStrainMaterialStep` | Implicit Newton Step driven by an ordinary small-strain material. |
 | function | `small_strain_material_step(*, displacement, material, external_force, constraints = (), study = None, incrementation = None, solver_options = None, quadrature_degree = 2, progress = True, status_file = None, amplitude = None, duration = None, time_unit = 's', temperature = None, material_points = (), unit_system = None, name = 'small_strain_material') -> SmallStrainMaterialStep` | Build implicit small-strain equilibrium, optionally on a physical-time path. |
-| class | `FiniteStrainMaterialStep(*, displacement, material, duration, external_force = None, constraints = (), study = None, incrementation = None, solver_options = None, quadrature_degree = 2, amplitude = None, properties = (), name = 'finite_strain_material', progress = True, time_unit = None, plane_stress = None, checkpoint = None, output_every = 1, temperature = None, material_points = (), unit_system = None)` | Experimental serial 3D/planar, strong-BC history-material Step. |
+| class | `FiniteStrainMaterialStep(*, displacement, material, duration, external_force = None, constraints = (), study = None, incrementation = None, solver_options = None, quadrature_degree = 2, amplitude = None, properties = (), name = 'finite_strain_material', progress = True, time_unit = None, plane_stress = None, checkpoint = None, output_every = 1, temperature = None, material_points = (), unit_system = None, reference_thickness = None, field_variables = None)` | Experimental serial 3D/planar, strong-BC history-material Step. |
 | class | `DirectorShellKinematics` | Finite-rotation surface measures at one material point. |
 | class | `FiberCurveKinematics` | Objective bending measures for one material fibre curve. |
 | class | `ReconstructedFiberCurvature` | Owned-cell fibre curvatures plus neighbour reconstruction evidence. |
@@ -1665,6 +1694,7 @@ and evidence remain in the linked guides and scientific function reference.
 | function | `field_stats(function, *, on = None, name: str \| None = None) -> FieldStats` | Alias for ``magnitude_stats`` for application-level diagnostics. |
 | class | `ComputationalFailure(diagnostic, message)` | Runtime failure with a stable machine-readable diagnosis and next checks. |
 | function | `linear_failure_diagnostic(reason, iterations, residual_norm)` | Describe solver evidence without claiming an unobserved root cause. |
+| class | `LinearDynamicWorkMonitor(*, mass, stiffness, external, displacement)` | Trapezoidal external work on owned DOFs with restartable endpoint. |
 
 ## `agentfem.extensions`
 

@@ -61,7 +61,7 @@ the compact machine-readable `agentfem/knowledge/catalog.json`.
 | [`agentfem.workflow.observation_grid_learning`](#agentfem-workflow-observation_grid_learning) | Mesh-independent structured observation grids | workflow | supported |
 | [`agentfem.workflow.periodic_cell_homogenization`](#agentfem-workflow-periodic_cell_homogenization) | Finite-strain periodic-cell homogenization evidence | workflow | experimental |
 | [`agentfem.workflow.physical_field_statistics`](#agentfem-workflow-physical_field_statistics) | Physical-measure statistics for quadrature fields | workflow | supported |
-| [`agentfem.workflow.result_field_sampling`](#agentfem-workflow-result_field_sampling) | MPI-safe point and path field sampling | workflow | supported |
+| [`agentfem.workflow.result_field_sampling`](#agentfem-workflow-result_field_sampling) | MPI-safe field sampling and engineering postprocessing | workflow | supported |
 | [`agentfem.workflow.result_visualization_contract`](#agentfem-workflow-result_visualization_contract) | Single-grid results, connectivity and ParaView Warp | workflow | supported |
 | [`agentfem.workflow.scalable_campaign_evidence`](#agentfem-workflow-scalable_campaign_evidence) | Spawned campaign ensembles and convergence certificates | workflow | supported |
 | [`agentfem.workflow.scientific_response_experiments`](#agentfem-workflow-scientific_response_experiments) | Campaign-backed scientific response experiments | workflow | supported |
@@ -2519,6 +2519,10 @@ Versioned internal variables and explicit stress/tangent conventions, with a bou
 - `agentfem.constitutive.reduce_plane_stress`
 - `agentfem.constitutive.check_plane_stress_tangent`
 - `agentfem.constitutive.PlaneStressTangentCheck`
+- `agentfem.fields.PrescribedField`
+- `agentfem.fields.prescribed`
+- `agentfem.results.AcceptedMaterialFields`
+- `agentfem.results.gauge`
 
 ### Scientific contract
 
@@ -2582,8 +2586,8 @@ This adapter convention includes Abaqus component, engineering-shear, rotating-b
 - MaterialQuadratureState owns storage and atomic lifecycle, not a constitutive integration algorithm or global residual.
 - Direct numerical tangent checking currently applies to first-Piola/deformation-gradient 9x9 tangents; spatial UMAT tangents require a verified transformation.
 - Rotation checking does not infer history frames, transform mixed tensors, or admit undeclared external-field arrays. Properties remain scalar/reference parameters; meaningful characteristic scales are needed near zero responses.
-- The generic implicit Step admits prescribed uniform kelvin temperature or a frozen scalar linear physical-time history. It does not admit MPI, contact, MPC, regional materials, mixed pressure, general anisotropic plane stress, shells, spatial temperature histories or thermal feedback; its checkpoint is serial same-layout only.
-- Plane stress requires declared reflection symmetry and positive transverse algorithmic stiffness; 2D forces/energies are per unit reference thickness. Scalar reduction iterations do not imply a vectorized batch speedup.
+- The generic implicit Step admits uniform kelvin input or explicitly frozen reference-coordinate prescribed fields, piecewise linear on declared physical-time knots. Named scalar external fields retain units and material column order. No current-coordinate or discontinuous interpolation, heat/diffusion feedback, MPI structural solve, contact, MPC, regional materials, mixed pressure, general anisotropic plane stress or shells are admitted; checkpoint is serial same-layout only.
+- Plane stress requires declared reflection symmetry and positive transverse algorithmic stiffness. Array providers use batched transverse Newton with scalar numerical fallback; invalid provider responses remain errors. Full material tangent is preserved separately from the condensed assembly tangent. A uniform reference_thickness scales complete planar virtual work once; default is unit thickness, variable thickness and inertia are not supplied by this static Step.
 - Workflow evidence does not independently validate a supplied constitutive law. Optional stored energy is not total work or general energy closure.
 - Accepted fields and loading targets are read-only observations. External changes are rejected at lifecycle boundaries. Partial results are computed segments, not complete-path convergence or scientific verification. Without a checkpoint policy, saves are manual; with a policy, unsaved accepted intervals may need recomputation after failure.
 
@@ -2606,6 +2610,8 @@ response = constitutive.validated_material_update(material, point)
 - `tests/test_material_verification_inputs.py`
 - `tests/test_material_rotation.py`
 - `tests/test_finite_material_point_histories.py`
+- `tests/test_plane_stress_array.py`
+- `tests/test_prescribed_material_fields.py`
 
 **Benchmarks**
 
@@ -5552,20 +5558,26 @@ summary = state.equivalent_plastic_strain.weighted_statistics(quantiles=(0.5, 0.
 
 <a id="agentfem-workflow-result_field_sampling"></a>
 
-## MPI-safe point and path field sampling
+## MPI-safe field sampling and engineering postprocessing
 
 **Stable ID:** `agentfem.workflow.result_field_sampling`<br>
 **Kind:** `workflow`<br>
 **Status:** `supported`<br>
 **Source card:** `src/agentfem/knowledge/cards/result_field_sampling.json`
 
-Evaluates finite-element fields at named physical points and paths with deterministic MPI ownership, including shared accepted-increment probe histories for heat, Standard dynamics, and Explicit dynamics.
+Evaluates fields at common physical points, polylines and planar sections with deterministic MPI ownership; compares fields across meshes, extracts strong-constraint force/moment resultants, and selects retained accepted frames.
 
 ### Public API
 
 - `agentfem.results.probe`
 - `agentfem.results.sample_points`
 - `agentfem.results.sample_path`
+- `agentfem.results.sample_section`
+- `agentfem.results.compare_fields`
+- `agentfem.results.reaction_force_moment`
+- `agentfem.results.accepted_snapshot`
+- `agentfem.results.gauge`
+- `agentfem.results.AcceptedMaterialFields`
 - `agentfem.results.history`
 - `agentfem.results.probe_history`
 - `agentfem.results.PathSample.add_to`
@@ -5585,10 +5597,18 @@ The containing cell supplies the local basis functions and coefficients for the 
 **path coordinate**
 
 $$
-s_i=\lVert\mathbf{x}_i-\mathbf{x}_0\rVert_2
+s_k=\sum_{j=1}^{k}\lVert\mathbf{x}_j-\mathbf{x}_{j-1}\rVert_2
 $$
 
-Straight-path samples use physical distance as the standard result-history abscissa.
+Polyline vertices define cumulative arc length; samples are uniformly spaced along this coordinate.
+
+**discrete reaction moment**
+
+$$
+\mathbf{M}_{O}=\sum_a(\mathbf{X}_a-\mathbf{O})\times\mathbf{R}_a
+$$
+
+Owned discrete residual entries are paired with nodal coordinates; MPI reduction counts no ghost forces twice.
 
 #### Inputs
 
@@ -5614,7 +5634,7 @@ Straight-path samples use physical distance as the standard result-history absci
 
 - The lowest-rank owned-cell candidate evaluates a point; ties on one rank use the lowest local cell index.
 - Missing points raise by default instead of silently returning zero.
-- Path distance is measured from the first endpoint in physical coordinates.
+- Path distance is cumulative physical arc length from the first endpoint.
 - Accepted-frame history requests use physical time or normalized load factor; an unlabelled frame sequence must provide its coordinate explicitly.
 - Transient requests are evaluated only after accepted increments and are restored through the shared checkpoint history.
 - One online transient history channel is scalar; vector or tensor sensors use explicit components or separate named channels.
@@ -5625,9 +5645,12 @@ Straight-path samples use physical distance as the standard result-history absci
 
 #### Limitations
 
-- Straight paths are built in; arbitrary curves should supply explicit coordinates to sample_points.
+- Segments and polylines are built in; general curved paths should supply explicit coordinates to sample_points.
 - Interface traces of discontinuous fields require an explicit one-sided sampling location.
-- Curved paths and one-sided discontinuous traces require explicit coordinates beyond the straight-path helper.
+- Planar section samples are point observations, not cut-cell quadrature or area averages.
+- Field comparison uses explicit common physical locations; its sample norms are not volume norms.
+- Reaction moments use owned discrete residuals on Cartesian nodal spaces and the reference geometry.
+- Accepted snapshot selection reads retained fields only and does not reconstruct missing states.
 - Online transient requests store compact scalar histories, not a replacement for spatial field-output frames.
 
 ### Minimal example
@@ -5641,6 +5664,7 @@ sensor = results.probe_history('tip_U2', at=(L, H/2), component=1, unit='m'); re
 **Tests**
 
 - `tests/test_results.py`
+- `tests/test_engineering_postprocessing.py`
 - `tests/test_parallel_results.py`
 - `tests/test_transient_restart.py`
 - `tests/test_parallel_transient.py`
@@ -5653,6 +5677,9 @@ sensor = results.probe_history('tip_U2', at=(L, H/2), component=1, unit='m'); re
 
 - Reject negative geometric padding, unknown missing-point policies, and coordinates with the wrong geometric dimension.
 - Reject rank-inconsistent coordinate requests before field evaluation.
+- Check polyline arc length, scalar/vector/tensor plane samples and partial mesh coverage against exact affine fields.
+- Check support force and moment against independent equilibrium for first- and second-order cantilever meshes.
+- Check retained nonlinear frames against the independent homogeneous StVK nominal stress relation without changing the final live field.
 - Reject missing points before returning a scientific quantity unless missing='nan' is explicit.
 - Reject duplicate or conflicting transient history names and non-scalar online channels.
 - Reject continuation when the accepted-history channel schema differs from the checkpoint evidence.

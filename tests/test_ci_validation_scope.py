@@ -171,9 +171,13 @@ def test_targeted_source_change_selects_stable_owner_tests():
 
     assert scope.level == "targeted"
     assert scope.tests == (
+        "tests/test_api_discovery.py",
+        "tests/test_api_source.py",
         "tests/test_campaigns.py",
+        "tests/test_cli_startup.py",
         "tests/test_common_workflows.py",
         "tests/test_project_cli.py",
+        "tests/test_project_local_runtime.py",
     )
 
 
@@ -247,6 +251,8 @@ def test_known_core_change_selects_serial_and_distributed_owner_suites():
         "tests/test_history_material_temperature.py",
         "tests/test_material_batch_evidence.py",
         "tests/test_material_stress_conversion.py",
+        "tests/test_plane_stress_array.py",
+        "tests/test_prescribed_material_fields.py",
         "tests/test_rate_material_checkpoint_clock.py",
         "tests/test_rate_material_history_units.py",
         "tests/test_user_material.py",

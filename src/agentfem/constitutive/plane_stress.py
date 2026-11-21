@@ -199,6 +199,105 @@ def _require_planar(F):
         )
 
 
+class _PlaneStressBatchFallback(RuntimeError):
+    """Numerical batch difficulty; retry the same points with scalar reduction."""
+
+    def __init__(self, message, calls):
+        super().__init__(message)
+        self.calls = calls
+
+
+def reduce_plane_stress_array(material, request, *, reduction):
+    """Batched log-thickness Newton with independent pointwise backtracking.
+
+    Returns (full original array response, separate planar evidence, call count).
+    Every evaluation reads the same immutable accepted history. Only numerical
+    difficulties request scalar fallback; malformed provider output propagates.
+    No state is assigned here and no condensed tangent replaces the full dP/dF.
+    """
+    from .material_array_batch import validated_material_array_batch_update
+
+    if not isinstance(reduction, PlaneStressReduction):
+        raise TypeError("A PlaneStressReduction declaration is required.")
+    if material.tangent_convention != MaterialTangentConvention.first_piola_deformation_gradient():
+        raise ValueError("Plane stress requires the full reference 9x9 dP/dF material tangent.")
+    count, calls = request.point_count, 0
+
+    def norms(values):
+        flat = values.reshape(count, -1)
+        scales = np.max(np.abs(flat), axis=1)
+        return scales * np.linalg.norm(np.divide(flat, scales[:, None],
+            out=np.zeros_like(flat), where=scales[:, None] != 0), axis=1)
+
+    for gradients in (request.deformation_gradient_old, request.deformation_gradient_new):
+        shear = np.max(np.abs(gradients.reshape(count, 9)[:, _SHEAR]), axis=1)
+        scale = np.maximum(norms(gradients), np.finfo(float).tiny)
+        if np.any(shear > 64*np.finfo(float).eps*scale) or np.any(gradients[:, 2, 2] <= 0):
+            raise ValueError("Scalar plane stress requires block-diagonal planar F and positive F33.")
+
+    def evaluate(eta):
+        nonlocal calls
+        F = request.deformation_gradient_new.copy()
+        with np.errstate(over="raise", under="raise", invalid="raise"):
+            F[:, 2, 2] = np.exp(eta)
+        calls += 1
+        response = validated_material_array_batch_update(
+            material, replace(request, deformation_gradient_new=F))
+        P = np.linalg.det(F)[:, None, None] * response.cauchy_stress @ np.linalg.inv(F).transpose(0, 2, 1)
+        if not np.isfinite(P).all():
+            raise FloatingPointError("Nonfinite plane-stress nominal stress.")
+        return F, response, P
+
+    eta = np.log(request.deformation_gradient_new[:, 2, 2])
+    iterations = np.zeros(count, dtype=np.int64)
+    try:
+        F, response, P = evaluate(eta)
+        scale = np.maximum(np.maximum(norms(response.consistent_tangent), norms(P)), np.finfo(float).tiny)
+        tolerance = reduction.absolute_tolerance + reduction.relative_tolerance * scale
+        if not np.isfinite(tolerance).all() or np.any(tolerance <= 0):
+            raise ValueError("Plane-stress tolerance must be representable in the supplied units.")
+        for iteration in range(reduction.maximum_iterations + 1):
+            A = response.consistent_tangent
+            stiffness_scale = np.maximum(norms(A), np.finfo(float).tiny)
+            if np.any(A[:, 8, 8] <= 64 * np.finfo(float).eps * stiffness_scale):
+                raise _PlaneStressBatchFallback("Positive transverse stiffness required.", calls)
+            active = np.abs(P[:, 2, 2]) > tolerance
+            if not active.any():
+                shear = np.max(np.abs(P.reshape(count, 9)[:, _SHEAR]), axis=1)
+                coupling = np.maximum(
+                    np.max(np.abs(A[:, _SHEAR[:, None], _PLANAR]), axis=(1, 2)),
+                    np.max(np.abs(A[:, _PLANAR[:, None], _SHEAR]), axis=(1, 2)))
+                if np.any(shear > tolerance) or np.any(coupling > max(reduction.relative_tolerance, 1e-10) * stiffness_scale):
+                    raise ValueError("AFM-PLANE-STRESS-SYMMETRY: transverse shear/coupling violates the declared planar reduction.")
+                condensed = A[:, _IN_PLANE[:, None], _IN_PLANE] - (
+                    A[:, _IN_PLANE, 8] / A[:, 8, 8, None])[:, :, None] * A[:, 8, _IN_PLANE][:, None, :]
+                evidence = PlaneStressBatchResponse(F, condensed, iterations, P[:, 2, 2], tolerance)
+                return response, evidence, calls
+            if iteration == reduction.maximum_iterations:
+                break
+            direction = -(P[:, 2, 2] / A[:, 8, 8]) / F[:, 2, 2]
+            alpha, pending = np.ones(count), active.copy()
+            next_eta = eta.copy()
+            for _ in range(reduction.maximum_backtracks):
+                trial_eta = next_eta.copy()
+                trial_eta[pending] = eta[pending] + alpha[pending] * direction[pending]
+                _, _, candidate_P = evaluate(trial_eta)
+                improved = pending & (np.abs(candidate_P[:, 2, 2]) < np.abs(P[:, 2, 2]))
+                next_eta[improved] = trial_eta[improved]
+                pending[improved] = False
+                if not pending.any():
+                    break
+                alpha[pending] *= .5
+            if pending.any():
+                raise _PlaneStressBatchFallback("Transverse line search failed.", calls)
+            iterations[active] += 1
+            eta = next_eta
+            F, response, P = evaluate(eta)
+    except (FloatingPointError, np.linalg.LinAlgError) as error:
+        raise _PlaneStressBatchFallback(str(error), calls) from error
+    raise _PlaneStressBatchFallback("Transverse equilibrium did not converge.", calls)
+
+
 def reduce_plane_stress(
     material, point: MaterialPointInput, *, reduction: PlaneStressReduction
 ):

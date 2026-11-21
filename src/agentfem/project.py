@@ -793,6 +793,8 @@ class RunContext:
             atomic_write_text(self.artifact("summary.md"),
                               result_summary_markdown(record, Path("result.json")))
             self.write_execution("completed", result_manifest=path, structured_result=True)
+            from ._run_observation import phase
+            phase("result_saved", directory=self.output_directory)
 
         if comm is None:
             finish()

@@ -1311,3 +1311,15 @@ def from_arrays(*, cells, coordinates, coordinate_element=None, cell_type=None,
                             partitioner=partitioner)
 
 from .imperfection import apply_mode_imperfection, GeometryImperfection
+
+
+def nodal_selection(**kwargs):
+    """Select unique physical nodes by source labels or exact coordinates."""
+    from .._nodal import nodal_selection as select
+    return select(**kwargs)
+
+
+def split_tetrahedral_seam(*args, **kwargs):
+    """Split a complete matching Tet4/Tet10 interface without a finite gap."""
+    from .tet_seam import split_tetrahedral_seam as split
+    return split(*args, **kwargs)

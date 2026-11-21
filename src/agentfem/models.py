@@ -368,6 +368,10 @@ class Model:
 
         return self.add_load(load)
 
+    def nodal_force(self, value, **kwargs):
+        """Register global force per node for small-strain Explicit dynamics."""
+        return self.add_load(load_api.nodal_force(value, **kwargs))
+
     def traction(
         self,
         value,
@@ -1805,6 +1809,15 @@ class Model:
         if callback is None and not updates:
             return None
         return time_inputs.compose(*updates, callback)
+
+    def review(self, *, target=None, step_options=None):
+        """Collectively inspect physical inputs, boundaries and provider readiness without solving.
+
+        Every MPI rank must call. Boundary integration may compile forms;
+        no equilibrium solve or material history update is performed.
+        """
+        from ._model_review import review_model
+        return review_model(self, target=target, step_options=step_options)
 
     def summary(self) -> dict[str, object]:
         """Return an agent-readable model summary."""

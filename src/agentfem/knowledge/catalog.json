@@ -865,7 +865,11 @@
         "agentfem.constitutive.PlaneStressPointResponse",
         "agentfem.constitutive.reduce_plane_stress",
         "agentfem.constitutive.check_plane_stress_tangent",
-        "agentfem.constitutive.PlaneStressTangentCheck"
+        "agentfem.constitutive.PlaneStressTangentCheck",
+        "agentfem.fields.PrescribedField",
+        "agentfem.fields.prescribed",
+        "agentfem.results.AcceptedMaterialFields",
+        "agentfem.results.gauge"
       ],
       "related_cards": [
         "agentfem.workflow.physical_field_statistics",
@@ -1437,6 +1441,12 @@
         "agentfem.results.probe",
         "agentfem.results.sample_points",
         "agentfem.results.sample_path",
+        "agentfem.results.sample_section",
+        "agentfem.results.compare_fields",
+        "agentfem.results.reaction_force_moment",
+        "agentfem.results.accepted_snapshot",
+        "agentfem.results.gauge",
+        "agentfem.results.AcceptedMaterialFields",
         "agentfem.results.history",
         "agentfem.results.probe_history",
         "agentfem.results.PathSample.add_to"
@@ -1449,8 +1459,8 @@
       ],
       "source": "src/agentfem/knowledge/cards/result_field_sampling.json",
       "status": "supported",
-      "summary": "Evaluates finite-element fields at named physical points and paths with deterministic MPI ownership, including shared accepted-increment probe histories for heat, Standard dynamics, and Explicit dynamics.",
-      "title": "MPI-safe point and path field sampling"
+      "summary": "Evaluates fields at common physical points, polylines and planar sections with deterministic MPI ownership; compares fields across meshes, extracts strong-constraint force/moment resultants, and selects retained accepted frames.",
+      "title": "MPI-safe field sampling and engineering postprocessing"
     },
     {
       "id": "agentfem.workflow.result_visualization_contract",

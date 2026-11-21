@@ -2,14 +2,20 @@
   "schema": "agentfem.scientific-function-card",
   "schema_version": "0.1.0",
   "id": "agentfem.workflow.result_field_sampling",
-  "title": "MPI-safe point and path field sampling",
+  "title": "MPI-safe field sampling and engineering postprocessing",
   "kind": "workflow",
   "status": "supported",
-  "summary": "Evaluates finite-element fields at named physical points and paths with deterministic MPI ownership, including shared accepted-increment probe histories for heat, Standard dynamics, and Explicit dynamics.",
+  "summary": "Evaluates fields at common physical points, polylines and planar sections with deterministic MPI ownership; compares fields across meshes, extracts strong-constraint force/moment resultants, and selects retained accepted frames.",
   "public_api": [
     "agentfem.results.probe",
     "agentfem.results.sample_points",
     "agentfem.results.sample_path",
+    "agentfem.results.sample_section",
+    "agentfem.results.compare_fields",
+    "agentfem.results.reaction_force_moment",
+    "agentfem.results.accepted_snapshot",
+    "agentfem.results.gauge",
+    "agentfem.results.AcceptedMaterialFields",
     "agentfem.results.history",
     "agentfem.results.probe_history",
     "agentfem.results.PathSample.add_to"
@@ -18,6 +24,8 @@
     "results/quantities.py",
     "results/plan.py",
     "results/core.py",
+    "results/postprocessing.py",
+    "results/material_observations.py",
     "problems.py"
   ],
   "science": {
@@ -30,8 +38,13 @@
       },
       {
         "label": "path coordinate",
-        "expression": "s_i=\\lVert\\mathbf{x}_i-\\mathbf{x}_0\\rVert_2",
-        "description": "Straight-path samples use physical distance as the standard result-history abscissa."
+        "expression": "s_k=\\sum_{j=1}^{k}\\lVert\\mathbf{x}_j-\\mathbf{x}_{j-1}\\rVert_2",
+        "description": "Polyline vertices define cumulative arc length; samples are uniformly spaced along this coordinate."
+      },
+      {
+        "label": "discrete reaction moment",
+        "expression": "\\mathbf{M}_{O}=\\sum_a(\\mathbf{X}_a-\\mathbf{O})\\times\\mathbf{R}_a",
+        "description": "Owned discrete residual entries are paired with nodal coordinates; MPI reduction counts no ghost forces twice."
       }
     ],
     "inputs": [
@@ -70,7 +83,7 @@
     "conventions": [
       "The lowest-rank owned-cell candidate evaluates a point; ties on one rank use the lowest local cell index.",
       "Missing points raise by default instead of silently returning zero.",
-      "Path distance is measured from the first endpoint in physical coordinates.",
+      "Path distance is cumulative physical arc length from the first endpoint.",
       "Accepted-frame history requests use physical time or normalized load factor; an unlabelled frame sequence must provide its coordinate explicitly.",
       "Transient requests are evaluated only after accepted increments and are restored through the shared checkpoint history.",
       "One online transient history channel is scalar; vector or tensor sensors use explicit components or separate named channels."
@@ -79,9 +92,12 @@
       "Final-state quantities of interest, line plots, campaign outputs, sensor comparisons, compact digital-twin observations, and observation data for learned models."
     ],
     "limitations": [
-      "Straight paths are built in; arbitrary curves should supply explicit coordinates to sample_points.",
+      "Segments and polylines are built in; general curved paths should supply explicit coordinates to sample_points.",
       "Interface traces of discontinuous fields require an explicit one-sided sampling location.",
-      "Curved paths and one-sided discontinuous traces require explicit coordinates beyond the straight-path helper.",
+      "Planar section samples are point observations, not cut-cell quadrature or area averages.",
+      "Field comparison uses explicit common physical locations; its sample norms are not volume norms.",
+      "Reaction moments use owned discrete residuals on Cartesian nodal spaces and the reference geometry.",
+      "Accepted snapshot selection reads retained fields only and does not reconstruct missing states.",
       "Online transient requests store compact scalar histories, not a replacement for spatial field-output frames."
     ]
   },
@@ -95,6 +111,7 @@
   "verification": {
     "tests": [
       "tests/test_results.py",
+      "tests/test_engineering_postprocessing.py",
       "tests/test_parallel_results.py",
       "tests/test_transient_restart.py",
       "tests/test_parallel_transient.py"
@@ -103,6 +120,9 @@
     "validation_rules": [
       "Reject negative geometric padding, unknown missing-point policies, and coordinates with the wrong geometric dimension.",
       "Reject rank-inconsistent coordinate requests before field evaluation.",
+      "Check polyline arc length, scalar/vector/tensor plane samples and partial mesh coverage against exact affine fields.",
+      "Check support force and moment against independent equilibrium for first- and second-order cantilever meshes.",
+      "Check retained nonlinear frames against the independent homogeneous StVK nominal stress relation without changing the final live field.",
       "Reject missing points before returning a scientific quantity unless missing='nan' is explicit.",
       "Reject duplicate or conflicting transient history names and non-scalar online channels.",
       "Reject continuation when the accepted-history channel schema differs from the checkpoint evidence."
