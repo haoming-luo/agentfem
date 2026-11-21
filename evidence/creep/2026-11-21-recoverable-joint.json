@@ -1,0 +1,151 @@
+{
+  "schema": "agentfem.research.recoverable-joint.v1",
+  "training_cycles": [
+    1,
+    2,
+    3
+  ],
+  "source_sha256": {
+    "RF": "128e6de1854f4633e26eced6c4ea221687cde2f232db275487ef0d1201767e0a",
+    "SLR": "34e26cae1816ec4b712a4cec5811e0a0c66bad34848c10d962528085171fcabb",
+    "SLC": "ab2953c0cfa6335619c8b699728aa73233f8d2209af39b709916ab3fd392683e"
+  },
+  "initial_singular_values": [
+    0.33882191699194525,
+    0.12639444923576823,
+    0.07469459428481316,
+    0.053575895979447674,
+    0.022939898898508376,
+    0.0063438371550399095,
+    0.005295173109203279,
+    0.002640852339807824
+  ],
+  "coordinate_names": [
+    "threshold_A_per_50MPa",
+    "log10_flow_A",
+    "exponent_A",
+    "log10_saturation_A2",
+    "log10_recovery_B1",
+    "log10_recovery_B2",
+    "log10_recoverable_modulus",
+    "log10_relaxation_time"
+  ],
+  "scope": "All three early protocols; no protocol-specific parameters, later data or reset",
+  "engineering_qualified": false,
+  "life_qualified": false,
+  "fit": {
+    "success": true,
+    "message": "`gtol` termination condition is satisfied.",
+    "cost": 0.0037653927154418197,
+    "parameters": {
+      "backbone": {
+        "modulus": 155176.47110217228,
+        "branches": [
+          {
+            "strength": 29.755467094961496,
+            "reference_flow": 1.1820258304032245e-05,
+            "exponent": 4.310768874932917,
+            "hardening": [
+              67625.00828363141,
+              85976.5328847262
+            ],
+            "saturation": [
+              27.05,
+              175.2638767826592
+            ],
+            "static_recovery": [
+              9.669245585100904e-08,
+              1.2346247335218733e-06
+            ],
+            "ratcheting": [
+              3.0,
+              3.0
+            ],
+            "saturation_ratio": 1.0,
+            "softening_rate": 0.0
+          },
+          {
+            "strength": 123.05513421151217,
+            "reference_flow": 6.088770390067978e-05,
+            "exponent": 3.0,
+            "hardening": [
+              895874.1262987861,
+              14400.083259539759
+            ],
+            "saturation": [
+              27.05,
+              14.443848119341363
+            ],
+            "static_recovery": [
+              0.12377521316618482,
+              0.0015995613411752875
+            ],
+            "ratcheting": [
+              3.0,
+              3.0
+            ],
+            "saturation_ratio": 1.0,
+            "softening_rate": 0.0
+          }
+        ]
+      },
+      "recoverable_modulus": 802097.2840617748,
+      "relaxation_time": 0.6833534819144101
+    },
+    "coordinates": [
+      -0.0048913972536108585,
+      -0.49999999950388224,
+      -0.9270979736410687,
+      0.2999999833339435,
+      0.6373838479739055,
+      -0.9993458202922901,
+      -0.5876288211329006,
+      0.533615415972466
+    ],
+    "active_bounds": [
+      0,
+      -1,
+      0,
+      1,
+      0,
+      0,
+      0,
+      0
+    ],
+    "bounds": [
+      [
+        -0.5800007391528408,
+        -0.5,
+        -3.2378668485739857,
+        -0.3,
+        -1.0,
+        -1.0,
+        -0.6,
+        -1.0
+      ],
+      [
+        2.5999992608471594,
+        0.5,
+        4.762133151426014,
+        0.3,
+        1.0,
+        1.0,
+        0.6,
+        1.0
+      ]
+    ],
+    "nfev": 14,
+    "residual_evaluations": 222,
+    "singular_values": [
+      0.4954210939806733,
+      0.25075811833738026,
+      0.09071390125480648,
+      0.04366033233174337,
+      0.03305499166130237,
+      0.008811059087497256,
+      0.006385533591935658,
+      0.0016649241348951833
+    ]
+  },
+  "frozen_sha256": "f8bd2244addee5d7f8c5eddf1adca03fdec290aea37f5dd96a6c35d17aff1f37"
+}

@@ -1,0 +1,135 @@
+{
+  "schema": "agentfem.research.recoverable-joint.v1",
+  "training_cycles": [
+    1,
+    2,
+    3
+  ],
+  "source_sha256": {
+    "RF": "128e6de1854f4633e26eced6c4ea221687cde2f232db275487ef0d1201767e0a",
+    "SLR": "34e26cae1816ec4b712a4cec5811e0a0c66bad34848c10d962528085171fcabb",
+    "SLC": "ab2953c0cfa6335619c8b699728aa73233f8d2209af39b709916ab3fd392683e"
+  },
+  "initial_singular_values": [
+    104.68605317338162,
+    84.35602008319329,
+    36.02721058243067,
+    25.39937623782771,
+    13.372747589822733,
+    0.778353922910826
+  ],
+  "coordinate_names": [
+    "threshold_A_per_50MPa",
+    "log10_flow_A",
+    "exponent_A",
+    "log10_saturation_A2",
+    "log10_recovery_B1",
+    "log10_recovery_B2"
+  ],
+  "gate_objective": true,
+  "without_recoverable": true,
+  "scope": "All three early protocols; no protocol-specific parameters, later data or reset",
+  "engineering_qualified": false,
+  "life_qualified": false,
+  "fit": {
+    "success": false,
+    "message": "The maximum number of function evaluations is exceeded.",
+    "cost": 2839.768438145651,
+    "parameters": {
+      "modulus": 155176.47110217228,
+      "branches": [
+        {
+          "strength": 70.83073740252993,
+          "reference_flow": 0.0001181973913497177,
+          "exponent": 2.7440049220494807,
+          "hardening": [
+            67625.00828363141,
+            85976.5328847262
+          ],
+          "saturation": [
+            27.05,
+            154.0610697085267
+          ],
+          "static_recovery": [
+            9.669245585100904e-08,
+            1.2346247335218733e-06
+          ],
+          "ratcheting": [
+            3.0,
+            3.0
+          ],
+          "saturation_ratio": 1.0,
+          "softening_rate": 0.0
+        },
+        {
+          "strength": 123.05513421151217,
+          "reference_flow": 6.088770390067978e-05,
+          "exponent": 3.0,
+          "hardening": [
+            895874.1262987861,
+            14400.083259539759
+          ],
+          "saturation": [
+            27.05,
+            14.443848119341363
+          ],
+          "static_recovery": [
+            0.02209985531737275,
+            0.014725992324766932
+          ],
+          "ratcheting": [
+            3.0,
+            3.0
+          ],
+          "saturation_ratio": 1.0,
+          "softening_rate": 0.0
+        }
+      ]
+    },
+    "coordinates": [
+      0.8166140088977578,
+      0.499980925006896,
+      -2.493861926524505,
+      0.24400047842958594,
+      -0.11086040450484753,
+      -0.035262149896442704
+    ],
+    "active_bounds": [
+      0,
+      0,
+      0,
+      0,
+      0,
+      0
+    ],
+    "bounds": [
+      [
+        -0.5800007391528408,
+        -0.5,
+        -3.2378668485739857,
+        -0.3,
+        -1.0,
+        -1.0
+      ],
+      [
+        2.5999992608471594,
+        0.5,
+        4.762133151426014,
+        0.3,
+        1.0,
+        1.0
+      ]
+    ],
+    "nfev": 20,
+    "residual_evaluations": 248,
+    "singular_values": [
+      144.2845876344206,
+      131.59833615847387,
+      44.87965507032169,
+      37.80893989538728,
+      2.979938272933944,
+      1.2969468009257763
+    ]
+  },
+  "frozen_sha256": "f8bd2244addee5d7f8c5eddf1adca03fdec290aea37f5dd96a6c35d17aff1f37"
+}

@@ -12,6 +12,16 @@ the data are not an installed material card or a qualified coupled-life model.
 
 ## What can be reproduced now
 
+The [current waveform audit](internal/p92_waveform_20261121.md) compares
+straight ramps with recorded reversal shapes under two fixed parameter sets,
+across RF, SLR and SLC for ten continuous cycles. Independent integration
+passes, but loading approximation does not explain the remaining SLC bias.
+The [flow-shape investigation](internal/p92_flow_shape_20261121.md) separates
+branch contributions and tests jointly identifiable directions before adding
+history variables. The [milestone gates](internal/p92_milestone_gates_20261121.md)
+state what counts as response validation, independent evidence and eventual
+product admission. None of these research candidates is an installed P92 card.
+
 The [BAM service-like response audit](internal/p92_and_engineering_ux_sprint_20261114.md)
 adds checksum-verified 620 C experimental histories with explicit recorded-cycle
 gaps. Its first-hold relaxation fit predicts the first held-out interval closely

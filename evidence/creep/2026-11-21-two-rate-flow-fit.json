@@ -1,0 +1,182 @@
+{
+  "schema": "agentfem.research.two-rate-recovery-discriminator.v1",
+  "training_cycles": [
+    1,
+    2,
+    3
+  ],
+  "parameters": {
+    "modulus": 155176.47110217228,
+    "branches": [
+      {
+        "strength": 115.998286829669,
+        "reference_flow": 7.738967612027758e-05,
+        "exponent": 6.0,
+        "hardening": [
+          67625.00828363141,
+          85976.5328847262
+        ],
+        "saturation": [
+          27.05,
+          65.70262688559905
+        ],
+        "static_recovery": [
+          9.669245585100904e-08,
+          1.2346247335218733e-06
+        ],
+        "ratcheting": [
+          3.0,
+          3.0
+        ],
+        "saturation_ratio": 1.0,
+        "softening_rate": 0.0
+      },
+      {
+        "strength": 123.05513421151217,
+        "reference_flow": 6.088770390067978e-05,
+        "exponent": 3.0,
+        "hardening": [
+          895874.1262987861,
+          14400.083259539759
+        ],
+        "saturation": [
+          27.05,
+          14.443848119341363
+        ],
+        "static_recovery": [
+          0.009668994800536483,
+          0.0015971702932427389
+        ],
+        "ratcheting": [
+          3.0,
+          3.0
+        ],
+        "saturation_ratio": 1.0,
+        "softening_rate": 0.0
+      }
+    ]
+  },
+  "source_sha256": {
+    "RF": "128e6de1854f4633e26eced6c4ea221687cde2f232db275487ef0d1201767e0a",
+    "SLR": "34e26cae1816ec4b712a4cec5811e0a0c66bad34848c10d962528085171fcabb",
+    "SLC": "ab2953c0cfa6335619c8b699728aa73233f8d2209af39b709916ab3fd392683e"
+  },
+  "seed_parameter_sha256": "04684dd85f74341d4af1c321bbe73081ff815c50d250b5b84a18f215a7859b01",
+  "base_cost": 0.04402964371123684,
+  "directions": [
+    {
+      "component": 0,
+      "minus_cost": 0.044029220233353504,
+      "plus_cost": 0.04403387568993818,
+      "response_norm": 1.0866445069891266e-05,
+      "curvature_norm": 1.7778633594788897e-05
+    },
+    {
+      "component": 1,
+      "minus_cost": 0.04401752918022485,
+      "plus_cost": 0.044149498833744485,
+      "response_norm": 0.0003486798595740993,
+      "curvature_norm": 0.0005688462014429784
+    },
+    {
+      "component": 2,
+      "minus_cost": 0.044771352289371125,
+      "plus_cost": 0.04096309801475154,
+      "response_norm": 0.06058779062716615,
+      "curvature_norm": 0.09267744262651983
+    },
+    {
+      "component": 3,
+      "minus_cost": 0.04284479035058265,
+      "plus_cost": 0.044494483442924074,
+      "response_norm": 0.012422050704519228,
+      "curvature_norm": 0.03689751200823365
+    }
+  ],
+  "secant_singular_values": [
+    0.06087802174356474,
+    0.010911740668965116,
+    0.00033131721840595784,
+    5.05718964903846e-06
+  ],
+  "scope": "One-decade secants are exploratory, not a local covariance or uncertainty estimate",
+  "fitted": false,
+  "engineering_qualified": false,
+  "life_qualified": false,
+  "conditional_fit": {
+    "success": true,
+    "cost": 0.009210184531715172,
+    "coordinates": [
+      -1.7199650355667533,
+      -0.3871084341343991
+    ],
+    "active_bounds": [
+      -1,
+      0
+    ],
+    "nfev": 8,
+    "message": "`gtol` termination condition is satisfied.",
+    "parameters": {
+      "modulus": 155176.47110217228,
+      "branches": [
+        {
+          "strength": 30.000035051331338,
+          "reference_flow": 3.1737637468087415e-05,
+          "exponent": 6.0,
+          "hardening": [
+            67625.00828363141,
+            85976.5328847262
+          ],
+          "saturation": [
+            27.05,
+            65.70262688559905
+          ],
+          "static_recovery": [
+            9.669245585100904e-08,
+            1.2346247335218733e-06
+          ],
+          "ratcheting": [
+            3.0,
+            3.0
+          ],
+          "saturation_ratio": 1.0,
+          "softening_rate": 0.0
+        },
+        {
+          "strength": 123.05513421151217,
+          "reference_flow": 6.088770390067978e-05,
+          "exponent": 3.0,
+          "hardening": [
+            895874.1262987861,
+            14400.083259539759
+          ],
+          "saturation": [
+            27.05,
+            14.443848119341363
+          ],
+          "static_recovery": [
+            0.009668994800536483,
+            0.0015971702932427389
+          ],
+          "ratcheting": [
+            3.0,
+            3.0
+          ],
+          "saturation_ratio": 1.0,
+          "softening_rate": 0.0
+        }
+      ]
+    },
+    "scope": "Only branch-A threshold and reference flow; early three protocols; not admitted material",
+    "bounds": [
+      [
+        -1.71996573659338,
+        -1.0
+      ],
+      [
+        0.88003426340662,
+        1.0
+      ]
+    ]
+  }
+}

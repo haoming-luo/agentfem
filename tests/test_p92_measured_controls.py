@@ -174,3 +174,102 @@ def test_archived_measured_fit_retains_failed_cycle_not_false_qualification():
     assert slc["reversed_post_hold_ramps"][0]["cycle"] == 5
     for side in ("lower", "upper"):
         assert slc["switch_bracket_sensitivity"][side]["reversed_post_hold_ramps"][0]["cycle"] == 5
+
+
+def test_time_softening_coordinate_replacement_preserves_seed_and_fast_branch():
+    import json
+    from pathlib import Path
+    from dataclasses import asdict
+    from tools.p92_measured_fit import time_softening_coordinates
+    root = Path(__file__).resolve().parents[1]
+    seed = json.loads((root/"evidence/creep/2026-11-17-measured-controls-fit.json").read_text())
+    base = json.loads((root/"evidence/creep/2026-11-16-bam-positive-strength.json").read_text())
+    initial, decoder, fixed = time_softening_coordinates(seed, base)
+    assert initial.shape == (6,)
+    assert initial[2] == 0.
+    assert fixed == seed["scaled_parameters"][2]
+    assert [asdict(m) for m in decoder(initial)] == seed["parameters"]
+    changed = initial.copy()
+    changed[2] = -1.
+    a, b = decoder(changed)
+    original_a, original_b = decoder(initial)
+    assert a == original_a
+    assert b.parameters.gamma_r1 == pytest.approx(original_b.parameters.gamma_r1*.1)
+    assert b.parameters.gamma_r2 == pytest.approx(original_b.parameters.gamma_r2*.1)
+    assert b.parameters.k == original_b.parameters.k
+    both_initial, both_decoder, _ = time_softening_coordinates(seed, base, both=True)
+    assert [asdict(m) for m in both_decoder(both_initial)] == seed["parameters"]
+    both_changed = both_initial.copy()
+    both_changed[1:3] = [-1., -.5]
+    fast, slow = both_decoder(both_changed)
+    assert fast.parameters.k == original_a.parameters.k
+    assert fast.parameters.gamma1 == original_a.parameters.gamma1
+    assert fast.parameters.gamma_r1 == pytest.approx(original_a.parameters.gamma_r1*.1)
+    assert slow.parameters.gamma_r1 == pytest.approx(original_b.parameters.gamma_r1*10**(-.5))
+    seed["training_cycles"] = [1, 2, 3, 5]
+    with pytest.raises(ValueError, match="early-cycle"):
+        time_softening_coordinates(seed, base)
+
+
+def test_hold_metrics_do_not_replace_stress_controlled_creep_with_measurements():
+    p = published_parameters(600)
+    _, result = replay(measured_path(data(), cycles=1), (Mechanism(p, enabled=False),)*2)
+    hold = next(h for h in result["hold_diagnostics"] if h["stress_control"])
+    assert hold["fields"]["strain"]["last_observed"] == pytest.approx(.001)
+    assert hold["fields"]["strain"]["last_predicted"] == pytest.approx(0., abs=1e-14)
+    assert hold["fields"]["strain"]["rms"] > 0
+    assert hold["fields"]["strain"]["early_secant_predicted_per_s"] == pytest.approx(0.)
+    assert hold["sample_times_s"][-1] <= hold["duration_s"]
+
+
+def test_late_hold_observation_does_not_change_fitting_or_history():
+    p = published_parameters(600)
+    path = measured_path(data(), cycles=1)
+    without_tail = dict(path, segments=[{k: v for k, v in s.items() if k != "tail"}
+                                       for s in path["segments"]])
+    mechanisms = (Mechanism(p, enabled=False),)*2
+    residual, result = replay(path, mechanisms)
+    old_residual, old = replay(without_tail, mechanisms)
+    np.testing.assert_array_equal(residual, old_residual)
+    assert result["segment_endpoints"] == old["segment_endpoints"]
+    hold = next(h for h in result["hold_diagnostics"] if h["stress_control"])
+    assert len(hold["late_secant_source_indices"]) == 2
+    assert hold["late_secant_times_s"][0] >= .8*hold["duration_s"]
+    assert hold["fields"]["strain"]["late_secant_predicted_per_s"] == 0.
+
+
+def test_switch_bracket_uses_common_observations_not_adjacent_ramp():
+    lower = measured_path(data(), cycles=1, switch_bound="lower")
+    upper = measured_path(data(), cycles=1, switch_bound="upper")
+    for a, b in zip(lower["segments"], upper["segments"], strict=True):
+        assert a["source_indices"] == b["source_indices"]
+        assert a["tail"]["source_indices"] == b["tail"]["source_indices"]
+        for segment in (a, b):
+            assert np.all(segment["sample_times"] > 0.)
+            assert np.all(segment["sample_times"] <= segment["duration"])
+
+
+@pytest.mark.parametrize("variant", ["slow", "both"])
+def test_archived_time_fit_retains_accuracy_gap_despite_completed_cycles(variant):
+    import json
+    from pathlib import Path
+    from hashlib import sha256
+    from tools.p92_measured_fit import coordinate_names
+    report = json.loads((Path(__file__).resolve().parents[1] /
+        f"evidence/creep/2026-11-17-{variant}-time-identification.json").read_text())
+    assert report["training_cycles"] == [1, 2, 3]
+    assert not report["engineering_qualified"] and not report["life_qualified"]
+    assert len(report["scaled_parameters"]) == 6
+    assert report["coordinate_names"] == coordinate_names(report["parameter_direction"])
+    assert report["parameter_sha256"] == sha256(json.dumps(report["parameters"], sort_keys=True).encode()).hexdigest()
+    for prediction in report["frozen_predictions"]:
+        assert prediction["parameter_sha256"] == report["parameter_sha256"]
+        assert prediction["numerical_refinement_passed"]
+        assert [c["cycle"] for c in prediction["cycles"]] == list(range(1, 11))
+        assert not prediction["reversed_post_hold_ramps"]
+        assert not prediction["incompatible_continuation"]
+    slc = next(p for p in report["frozen_predictions"] if p["protocol"] == "SLC")
+    first = next(h for h in slc["hold_diagnostics"] if h["stress_control"])
+    strain = first["fields"]["strain"]
+    assert strain["last_predicted"] < strain["last_observed"]
+    assert strain["early_secant_predicted_per_s"] < strain["early_secant_observed_per_s"]

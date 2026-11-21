@@ -21,6 +21,27 @@ def test_scalar_p92_controls_cover_transitive_consumers_without_release_matrix()
     assert classify_changes(["tools/p92_two_mechanism.py", "pyproject.toml"]).level == "release"
 
 
+def test_classifier_edit_selects_its_own_regressions():
+    scope = classify_changes(["ci_validation_scope.py", "tools/p92_recovery_discriminator.py"])
+    assert scope.level == "targeted"
+    assert "tests/test_ci_validation_scope.py" in scope.tests
+
+
+@pytest.mark.parametrize("path", ["tools/p92_waveform_controls.py",
+    "tools/p92_waveform_experiment.py", "tools/p92_response_screen.py",
+    "tools/p92_reversal_identification.py", "tools/p92_reversal_sensitivity.py",
+    "tools/p92_two_rate_controls.py", "tools/p92_two_rate_frozen.py",
+    "tools/p92_two_rate_sensitivity.py", "tools/p92_two_rate_history_probe.py",
+    "tools/p92_two_rate_joint.py",
+    "evidence/creep/2026-11-21-reversal-frozen.json"])
+def test_waveform_and_response_gates_keep_transitive_material_tests(path):
+    scope = classify_changes([path])
+    assert scope.level == "targeted"
+    assert "tests/test_p92_waveform_controls.py" in scope.tests
+    assert "tests/test_p92_response_screen.py" in scope.tests
+    assert "tests/test_p92_two_mechanism_fit.py" in scope.tests
+
+
 def test_published_p92_reference_keeps_structure_and_joint_fit_consumers():
     scope = classify_changes(["tools/p92_published_recovery_reference.py"])
     assert "tests/test_p92_nonuniform_structure.py" in scope.tests

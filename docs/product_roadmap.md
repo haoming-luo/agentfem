@@ -1,11 +1,172 @@
 # AgentFEM Product Roadmap
 
+### Accumulated-history static recovery (2026-11-21)
+
+The [own/shared-history discriminator](internal/p92_static_memory_design_20261121.md)
+implements positive accumulated-strain-dependent static recovery without
+protocol-specific parameters. Five fixed early probes and the preselected
+own/shared ten-cycle pair are complete. Shared history improves the conflicting
+early SLR peak and SLC post-creep hold together, but only modestly; frozen
+SLR cycle-10 peak error remains 9.79%. Every path passes numerical checks,
+while all experimental response screens remain failed. Next: identifiability
+audit and matched-budget early-only identification, replacing weak directions
+rather than widening bounds. No production promotion, merge or release.
+
+### Mobility versus strength recovery (2026-11-21)
+
+The [matched-history comparison](internal/p92_resistance_recovery_design_20261121.md)
+now separates rate-scale evolution from activation-threshold evolution, with
+equal flow at a declared anchor and the same bounded history equation.
+Five early fixed-card probes and two ten-cycle frozen representatives completed.
+Small aggregate reductions concealed worse SLC post-creep holds; both frozen
+cards pass numerical checks but fail RF/SLR/SLC response screens. No additional
+fit, enlarged bound, material promotion, merge or release is justified.
+The next discriminant is accumulated-strain-dependent static backstress
+recovery, with branch-local versus shared history explicitly distinguished.
+This is an untested next hypothesis, not an improvement claim.
+
+### Matched recovery and history-interaction checkpoint (2026-11-21)
+
+The matched early-only identification is complete: nonlinear static recovery
+does not outperform the same-budget linear control (cost 0.002396 versus
+0.002361). Both frozen cards pass independent integration and refinement over
+ten continuous cycles, but fail the experimental response gates in all three
+protocols. This is numerical verification, not P92 or life validation.
+
+The [equal-stress hold audit](internal/p92_equal_stress_memory_20261121.md)
+isolates a useful missing distinction: post-creep SLC relaxes appreciably
+slower than SLR at the same stress, whereas the current card predicts similar
+rates. Endpoint quantization sensitivity is reported separately from uncertainty.
+Fixed-card [energetic coupling](internal/p92_mechanism_coupling_20261121.md)
+and [kinetic cross-drag](internal/p92_cross_drag_design_20261121.md) probes
+both worsen aggregate early response and are not promoted to production.
+
+Next gate: distinguish history-dependent drag from isotropic strength recovery
+using early holds, reverse-loading extrema and source-supported mechanism
+equations together. A new model must improve compatible observables with one
+shared card before identification, then beat a matched control and pass frozen
+continuous-path checks. Do not widen fitted bounds or use later cycles to
+declare independent validation. PR #197 remains open; no release or merge.
+
+### Shared-drag rejection and recovery-law discrimination (2026-11-21)
+
+The [shared-drag comparison](internal/p92_shared_drag_reference_20261121.md)
+does not meet response gates: SLC leaves its prescribed continuation in cycle
+6, while RF/SLR numerical agreement does not imply response accuracy. Its
+published-table transcription remains unverified and is not a material card.
+The [nonlinear static-recovery discriminator](internal/p92_nonlinear_static_recovery_20261121.md)
+uses a literature-supported structural change with unchanged parameters first.
+Some early SLR/SLC observables improve together, but aggregate error worsens.
+A matched-budget early-only identification is complete and unsuccessful as
+a model upgrade (see checkpoint above). Failed frozen paths retain structured reports, and numerical
+comparison checks material/source identity, observation alignment, finite
+arrays and every internal-state coordinate. PR #197 remains unmerged.
+
+### Reversal mechanism checkpoint (2026-11-21)
+
+The [recoverable-strain discriminator](internal/p92_recoverable_reference_20261121.md)
+adds a verified isothermal research reference, not a production material.
+Joint early identification with two recoverable times brings first SLC hold
+stress to 123.65 MPa against 121.70 MPa measured. SLR first-peak error is
+2.74%, and its long hold ends at 44.45 MPa against 45.30 MPa measured; however,
+frozen tenth-cycle peak error remains 10.18%. All response screens still fail
+despite twelve-state independent integration and waveform-refinement agreement.
+Aligned observation budgets separate input error from nonelastic increment
+error without assigning measured strain to invented mechanisms. Saturation
+and dissipative-strength memory alternatives are retained as negative controls.
+Stable early-response sensitivity directions and a second recoverable timescale
+improve the shared fit, not engineering qualification. Branchwise resistance
+and energy-consistent kinematic-modulus evolution do not improve overall cost.
+Next isolate post-hold reloading memory and cyclic evolution, rather than
+loosening parameter bounds or changing gates. Later cycles remain inspected
+development data, not independent validation. No merge,
+release, life admission or parameter transfer to other steel cohorts follows.
+
+### Fixed-card waveform discrimination (2026-11-21)
+
+The [waveform audit](internal/p92_waveform_20261121.md) now compares two frozen
+cards across all three BAM protocols and ten continuous cycles. Measured ramp
+shape, complete pre-first-stress-hold strain history, switch brackets and
+independent integration do not explain the remaining SLC entry-stress bias.
+No parameter reset or imposed creep response is used. Both cards still fail
+response screening; no engineering/life admission follows from numerical passes.
+
+The [milestone gates](internal/p92_milestone_gates_20261121.md) separate loading
+error, joint early-cycle identification, independent response, life uncertainty
+and installed-product admission. Conditional identification of the observable
+fast second-backstress directions is now complete: a converged,
+non-bound-limited two-coordinate fit reduces early aggregate cost by 3.9%, but
+frozen first-hold creep worsens and all response screens still fail. It is not
+promoted. Next discriminate initial-hold response from cross-cycle recovery
+before adding a memory law; retain all hold/valley errors rather than select
+by aggregate cost. PR #197 stays open;
+batch updates only, no merge or release.
+
+The [subsequent flow-shape audit](internal/p92_flow_shape_20261121.md) closes
+the bounded conditional search: even the four-coordinate joint fit, with 36.9%
+lower early cost, fails frozen response gates and reaches its exponent bound.
+The next [two-rate reference](internal/p92_two_rate_reference_design_20261121.md)
+has explicit signed-flow, positive saturation evolution and mechanical-work
+accounting. Its synthetic verification and data/control isolation are covered
+by a targeted regression batch. Conditional early flow calibration and frozen
+ten-cycle independent integration complete, but all three experimental response
+screens still fail; the material is not admitted. Recovery, saturation-memory,
+ratcheting-shape and recorded reversal-slope discriminators are retained.
+No individual endpoint correction or parameter-bound expansion is promoted.
+The next gate is an identifiable joint reversal/hold response, not another
+unconstrained parameter search or an engineering-life declaration. The bounded
+six-coordinate joint fit now converges but still fails frozen response screens;
+the low-stress creep-branch alternative does not improve the frozen early
+comparison either. Full hidden-state and waveform-refinement gates have been
+added and passed. These are verified research/diagnostic capabilities, not a
+new production P92 material card.
+
 ### Measured mixed-control identification checkpoint (2026-11-17)
+
+The [reversal-shape test](internal/p92_reversal_shape_20261117.md) varies a1/C1
+at fixed C1*a1. Lower aggregate error does not resolve inherited SLC stress or
+later early-creep excess; this candidate is not promoted. A concrete diagnostic
+fix prevents switch-upper-bound hold comparisons from absorbing reload samples:
+both timing extremes now use common unambiguous observation indices. The
+remaining first-hold stress bias exceeds that timing perturbation. Next audit
+measured reversal-waveform controls before adding another memory parameter.
+
+The subsequent [hold-decay experiment](internal/p92_hold_decay_20261117.md)
+separates fast isotropic recovery's initial rate and target with all other
+parameters fixed. Frozen cycle-10 RF/SLR/SLC peak errors become
+-2.00%/+2.17%/-1.63%; all three numerical/timing checks complete. However,
+later early-hold creep remains excessive, first-hold stress bias increases,
+and the rate bound is active. Engineering/life admission stays closed.
+Next test reversal-dependent transient memory and inherited entry stress;
+keep early/late hold observations separate from peak agreement. A boundary
+initialization false-looking optimizer stop was corrected without changing
+parameter bounds, training observations or fitting weights.
+
+The [early-hold/history experiment](internal/p92_transient_history_20261117.md)
+conditionally varies two C1 scales with all other dual-time parameters fixed.
+Using only cycles 1–3, it reduces first-SLC-hold strain RMS by about 35% and
+frozen cycle-10 peak error from -22.84% to -10.87%. All ten-cycle numerical and
+timing checks complete, but first-hold creep remains low and subsequent early
+rates high. The fast C1 lower bound is active. No engineering/life admission:
+next separate hold decay from accumulated-strain-dependent reversal memory,
+without widening bounds or resetting history. PR #197 stays open.
+
+The subsequent [recovery discriminator](internal/p92_recovery_discriminator_20261117.md)
+isolates slow-branch time-isotropic evolution as an important contributor to
+the SLC envelope failure. Turning it off reaches ten cycles but worsens RF/SLR
+and still misses first-hold creep: no replacement material is admitted.
+Two subsequent six-coordinate fits replace weak directions with branch-time
+recovery scales, using only cycles 1–3. Frozen trajectories now complete ten
+cycles, including SLC switch-bracket checks. The dual-time fit improves RF/SLR
+but misses SLC cycle-10 peak by -22.84% and underpredicts first-hold early creep;
+active bounds and weak directions remain. Next isolate primary-creep and
+reversal-history response rather than widening bounds to claim acceptance.
+Keep these batches on open PR #197 until authorized milestone closure.
 
 The [three-protocol early-cycle experiment](internal/p92_measured_controls_20261117.md)
 uses measured switching brackets, continuous material states and cycles 1–3
 for identification, followed by frozen cycles 4–10. Numerical refinement
-passes; SLC still exceeds its strain envelope in cycle 5, including both
+passes; that earlier fit exceeds its SLC strain envelope in cycle 5, including both
 switch-bracket extremes. Engineering and life admission remain closed.
 Next distinguish transient recovery/softening observability from controller
 timing uncertainty before enlarging the model. Keep later inspected cycles
