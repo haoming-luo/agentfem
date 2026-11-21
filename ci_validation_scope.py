@@ -151,6 +151,7 @@ _SOURCE_TEST_MAP = {
 # Research-only scalar controls have known transitive consumers. Do not use a
 # tools/* wildcard: an unknown numerical driver still needs the broader gate.
 _P92_CONTROL_TESTS = (
+    "tests/test_p92_static_memory_joint.py",
     "tests/test_p92_static_memory.py",
     "tests/test_p92_resistance_recovery_reference.py",
     "tests/test_p92_resistance_recovery_frozen.py",
@@ -182,6 +183,10 @@ _P92_CONTROL_TESTS = (
     "tests/test_p92_two_mechanism_fit.py",
 )
 _P92_CONTROL_INPUTS = (
+    "evidence/creep/2026-11-21-static-memory-matched-baseline.json",
+    "evidence/creep/2026-11-21-static-memory-matched-shared.json",
+    "evidence/creep/2026-11-21-static-memory-matched-baseline-frozen.json",
+    "evidence/creep/2026-11-21-static-memory-matched-shared-frozen.json",
     "tools/p92_static_memory_probe.py",
     "evidence/creep/2026-11-21-static-memory-probe.json",
     "evidence/creep/2026-11-21-static-memory-own-frozen.json",

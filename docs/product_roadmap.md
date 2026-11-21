@@ -1,5 +1,19 @@
 # AgentFEM Product Roadmap
 
+### Fixed-budget history substitution (2026-11-22)
+
+The [matched substitution experiment](internal/p92_static_memory_identification_20261121.md)
+replaces two weak static coefficients with two shared-history coordinates,
+retaining 22 candidate and ten fitted directions. Both local numerical audits
+pass, but the weakest new coordinate projection is close to its gate, not
+strong statistical identifiability. The early objective improves 1.75%; frozen
+SLR cycle-10 peak error changes from 8.93% to 8.62%, while SLC inherited stress
+and post-creep hold RMS worsen. Both have 135 failed response checks. All six
+paths pass integration/refinement checks; no experimental response screen
+passes. Do not promote this candidate or expand its bounds. Next: early-only
+protocol/segment residual projections to identify the physical conflict before
+another equal-budget substitution. PR #197 remains open; no release.
+
 ### Accumulated-history static recovery (2026-11-21)
 
 The [own/shared-history discriminator](internal/p92_static_memory_design_20261121.md)

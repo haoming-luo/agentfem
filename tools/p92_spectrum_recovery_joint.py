@@ -4,7 +4,7 @@ One card per hypothesis, shared by all loading protocols. Never a life card.
 """
 
 import argparse
-from dataclasses import asdict
+from dataclasses import asdict, replace
 from hashlib import sha256
 import json
 from pathlib import Path
@@ -23,13 +23,43 @@ from tools.p92_waveform_controls import attach_waveforms
 NAMES = (*BASE_NAMES, "recoverable.slow_modulus", "recoverable.slow_time")
 
 
+def decode_history(card, z):
+    z = np.asarray(z, dtype=float)
+    if z.shape != (22,) or not np.isfinite(z).all():
+        raise ValueError("Require 22 finite substituted coordinates")
+    backbone_z = z.copy()
+    backbone_z[7:9] = 0.
+    base = decode(card, backbone_z, (0., 0.))
+    ratio = 1/(1+10**(-z[7]))
+    rate = 250.*10**z[8]
+    return replace(base, static_ratios=(ratio, ratio),
+                   static_history_rates=(rate, rate), static_history="shared")
+
+
+def history_identifiability(matrix, basis):
+    other = np.delete(matrix, (7, 8), axis=1)
+    u, _, _ = np.linalg.svd(other, full_matrices=False)
+    columns = matrix[:, [7, 8]]
+    residual = columns-u[:, :8]@(u[:, :8].T@columns)
+    values = np.linalg.svd(residual, compute_uv=False)
+    gram = basis[[7, 8]]@basis[[7, 8]].T
+    eigenvalues = np.linalg.eigvalsh(gram)
+    ratio = float(values[-1]/values[0]) if values[0] > 0 else 0.
+    return dict(residualized_singular_values=values.tolist(), residualized_singular_ratio=ratio,
+        retained_coordinate_gram_eigenvalues=eigenvalues.tolist(),
+        column_norms=np.linalg.norm(columns, axis=0).tolist(),
+        passed=bool(np.isfinite([*values, *eigenvalues, ratio]).all()
+                    and eigenvalues[0] >= 1e-4 and ratio >= 1e-3),
+        scope="Local scaled numerical observability, not statistical identifiability")
+
+
 def decode(card, z, powers):
     z = np.asarray(z, dtype=float)
     if z.shape != (22,) or not np.isfinite(z).all():
         raise ValueError("Require 22 finite logarithmic coordinates")
     if any(card.get(name, default) != default and tuple(card.get(name, default)) != default
            for name, default in (("strength_ratios", (1., 1.)), ("hardening_ratios", (1., 1.)),
-                                 ("static_powers", (0., 0.)))):
+                                 ("static_powers", (0., 0.)), ("static_ratios", (1., 1.)))):
         raise ValueError("Require an unevolved baseline spectrum")
     base = decode_backbone(dict(backbone=card["backbone"],
         recoverable_modulus=card["moduli"][0], relaxation_time=card["times"][0]), z[:20])
@@ -38,9 +68,15 @@ def decode(card, z, powers):
         (base.relaxation_time, card["times"][1]*10**z[21]), static_powers=tuple(powers))
 
 
-def identify(seed, source_dir, powers):
+def identify(seed, source_dir, powers, *, shared_history=False):
     if seed["model_id"] != kernel.MODEL_ID or tuple(powers) not in {(0., 0.), (0., 1.)}:
         raise ValueError("Require predeclared matched recovery hypotheses")
+    if type(shared_history) is not bool or (shared_history and tuple(powers) != (0., 0.)):
+        raise ValueError("History comparison requires linear static powers and explicit boolean")
+    decoder = decode_history if shared_history else lambda card, z: decode(card, z, powers)
+    coordinates = list(NAMES)
+    if shared_history:
+        coordinates[7:9] = ["shared.static_fraction_log10_odds", "shared.static_history_rate"]
     paths = []
     for protocol in ("RF", "SLR", "SLC"):
         source = read_source(source_dir/f"Data_{protocol}.lis", protocol=protocol)
@@ -51,7 +87,7 @@ def identify(seed, source_dir, powers):
     def response(z):
         nonlocal calls
         calls += 1
-        mat = decode(seed["parameters"], z, powers)
+        mat = decoder(seed["parameters"], z)
         result = np.concatenate([replay(path, mat, kernel=kernel)[0] for path in paths])
         if calls % 10 == 1:
             print(json.dumps(dict(powers=powers, evaluation=calls, cost=float(result@result/2))), flush=True)
@@ -70,8 +106,21 @@ def identify(seed, source_dir, powers):
     leading = audits[1]["singular_values"][:10]
     if (not np.isfinite([relative, distance, *leading]).all() or relative > .002 or distance > .02
             or leading[-1] < 1e-5 or leading[0]/leading[-1] > 1e4):
-        raise ValueError(f"Unresolved recovery derivative audit: {relative=}, {distance=}")
+        return dict(schema="agentfem.research.spectrum-recovery-joint.v1", model_id=kernel.MODEL_ID,
+            source_sha256=seed["source_sha256"], training_cycles=[1, 2, 3],
+            coordinates=coordinates, derivative_audits=audits,
+            relative_jacobian_difference=relative, subspace_distance=distance,
+            fit=dict(success=False, message="Unresolved derivative audit; no optimization",
+                     residual_evaluations=calls), engineering_qualified=False, life_qualified=False)
     basis, bound = vb.T, .3/np.sqrt(10)
+    history_audit = history_identifiability(matrices[1], basis) if shared_history else None
+    if history_audit is not None and not history_audit["passed"]:
+        return dict(schema="agentfem.research.spectrum-recovery-joint.v1", model_id=kernel.MODEL_ID,
+            source_sha256=seed["source_sha256"], training_cycles=[1, 2, 3],
+            coordinates=coordinates, derivative_audits=audits, history_audit=history_audit,
+            relative_jacobian_difference=relative, subspace_distance=distance,
+            fit=dict(success=False, message="Unresolved history directions; no optimization",
+                     residual_evaluations=calls), engineering_qualified=False, life_qualified=False)
     def objective(z):
         try:
             return response(basis@z)
@@ -90,10 +139,11 @@ def identify(seed, source_dir, powers):
     final = response(basis@fit.x)
     return dict(schema="agentfem.research.spectrum-recovery-joint.v1", model_id=kernel.MODEL_ID,
         source_sha256=seed["source_sha256"], training_cycles=[1, 2, 3], static_powers=powers,
-        coordinates=NAMES, derivative_audits=audits, relative_jacobian_difference=relative,
+        coordinates=coordinates, derivative_audits=audits, relative_jacobian_difference=relative,
+        shared_history=shared_history, history_audit=history_audit,
         subspace_distance=distance, maximum_log_coordinate_norm=.3, basis=basis.tolist(),
         rejected_trials=rejected, fit=dict(success=bool(fit.success), message=fit.message,
-            cost=float(final@final/2), parameters=asdict(decode(seed["parameters"], basis@fit.x, powers)),
+            cost=float(final@final/2), parameters=asdict(decoder(seed["parameters"], basis@fit.x)),
             coordinates=fit.x.tolist(), log_multipliers=(basis@fit.x).tolist(),
             active_bounds=fit.active_mask.tolist(), nfev=int(fit.nfev), residual_evaluations=calls),
         engineering_qualified=False, life_qualified=False,
@@ -106,14 +156,17 @@ if __name__ == "__main__":
     parser.add_argument("source_dir", type=Path)
     parser.add_argument("output", type=Path)
     parser.add_argument("--nonlinear", action="store_true")
+    parser.add_argument("--shared-history", action="store_true")
     args = parser.parse_args()
     raw = args.seed.read_bytes()
     names = ("p92_spectrum_recovery_joint.py", "p92_recoverable_spectrum.py", "p92_two_rate_reference.py",
-             "p92_full_sensitivity.py", "p92_two_rate_controls.py")
+             "p92_full_sensitivity.py", "p92_two_rate_controls.py", "p92_bam_source.py",
+             "p92_measured_controls.py", "p92_waveform_controls.py", "p92_measured_fit.py")
     def identities():
         return {n: sha256(Path(__file__).with_name(n).read_bytes()).hexdigest() for n in names}
     before = identities()
-    result = identify(json.loads(raw), args.source_dir, (0., 1.) if args.nonlinear else (0., 0.))
+    result = identify(json.loads(raw), args.source_dir, (0., 1.) if args.nonlinear else (0., 0.),
+                      shared_history=args.shared_history)
     if identities() != before or args.seed.read_bytes() != raw:
         raise RuntimeError("Recovery comparison inputs changed during identification")
     result["driver_sha256"], result["seed_sha256"] = before, sha256(raw).hexdigest()
