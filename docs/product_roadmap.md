@@ -1,5 +1,18 @@
 # AgentFEM Product Roadmap
 
+### Mobility versus strength recovery (2026-11-21)
+
+The [matched-history comparison](internal/p92_resistance_recovery_design_20261121.md)
+now separates rate-scale evolution from activation-threshold evolution, with
+equal flow at a declared anchor and the same bounded history equation.
+Five early fixed-card probes and two ten-cycle frozen representatives completed.
+Small aggregate reductions concealed worse SLC post-creep holds; both frozen
+cards pass numerical checks but fail RF/SLR/SLC response screens. No additional
+fit, enlarged bound, material promotion, merge or release is justified.
+The next discriminant is accumulated-strain-dependent static backstress
+recovery, with branch-local versus shared history explicitly distinguished.
+This is an untested next hypothesis, not an improvement claim.
+
 ### Matched recovery and history-interaction checkpoint (2026-11-21)
 
 The matched early-only identification is complete: nonlinear static recovery
