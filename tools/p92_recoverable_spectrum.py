@@ -21,15 +21,22 @@ class Material:
     hardening_ratios: tuple[float, float] = (1., 1.)
     hardening_rates: tuple[float, float] = (0., 0.)
     static_powers: tuple[float, float] = (0., 0.)
+    static_ratios: tuple[float, float] = (1., 1.)
+    static_history_rates: tuple[float, float] = (0., 0.)
+    static_history: str = "own"
 
     def __post_init__(self):
         pairs = (self.moduli, self.times, self.strength_ratios, self.strength_rates,
-                 self.hardening_ratios, self.hardening_rates, self.static_powers)
+                 self.hardening_ratios, self.hardening_rates, self.static_powers,
+                 self.static_ratios, self.static_history_rates)
         if (any(len(v) != 2 for v in pairs)
                 or not np.isfinite([x for pair in pairs for x in pair]).all()
                 or min(*self.moduli, *self.times) <= 0 or self.times[0] > self.times[1]
                 or not all(0 < r <= 1 for r in (*self.strength_ratios, *self.hardening_ratios))
-                or min(*self.strength_rates, *self.hardening_rates, *self.static_powers) < 0):
+                or min(*self.strength_rates, *self.hardening_rates, *self.static_powers,
+                       *self.static_history_rates) < 0
+                or not all(0 < r <= 1 for r in self.static_ratios)
+                or self.static_history not in {"own", "shared"}):
             raise ValueError("Require two positive moduli and ordered positive times")
 
 
@@ -65,9 +72,13 @@ def rates(state, strain_rate, material, *, stress_control=False, dynamic_multipl
     # original linear law; every exponent agrees at nominal saturation.
     # This changes kinetics, not stored energy or a prescribed loading path.
     branches = []
-    for offset, branch, power in zip((1, 4), backbone.branches, material.static_powers, strict=True):
+    for offset, branch, power, ratio, rate in zip((1, 4), backbone.branches,
+            material.static_powers, material.static_ratios, material.static_history_rates, strict=True):
         saturation = base.saturation_at(branch, state[offset+2])
         factor = (abs(state[offset:offset+2])/saturation)**power
+        history = (sum(max(float(state[i]), 0.) for i in (3, 6))
+                   if material.static_history == "shared" else max(float(state[offset+2]), 0.))
+        factor *= ratio+(1-ratio)*np.exp(-rate*history)
         branches.append(replace(branch, static_recovery=tuple(np.asarray(branch.static_recovery)*factor)))
     backbone = replace(backbone, branches=tuple(branches))
     result = np.r_[base.rates(state[:10], strain_rate, backbone,

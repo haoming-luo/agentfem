@@ -1,5 +1,17 @@
 # AgentFEM Product Roadmap
 
+### Accumulated-history static recovery (2026-11-21)
+
+The [own/shared-history discriminator](internal/p92_static_memory_design_20261121.md)
+implements positive accumulated-strain-dependent static recovery without
+protocol-specific parameters. Five fixed early probes and the preselected
+own/shared ten-cycle pair are complete. Shared history improves the conflicting
+early SLR peak and SLC post-creep hold together, but only modestly; frozen
+SLR cycle-10 peak error remains 9.79%. Every path passes numerical checks,
+while all experimental response screens remain failed. Next: identifiability
+audit and matched-budget early-only identification, replacing weak directions
+rather than widening bounds. No production promotion, merge or release.
+
 ### Mobility versus strength recovery (2026-11-21)
 
 The [matched-history comparison](internal/p92_resistance_recovery_design_20261121.md)

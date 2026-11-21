@@ -40,16 +40,20 @@ def decode_material(card, model_id):
         mat = spectrum.Material(base, tuple(card["moduli"]), tuple(card["times"]),
             tuple(card.get("strength_ratios", (1., 1.))), tuple(card.get("strength_rates", (0., 0.))),
             tuple(card.get("hardening_ratios", (1., 1.))), tuple(card.get("hardening_rates", (0., 0.))),
-            tuple(card.get("static_powers", (0., 0.))))
+            tuple(card.get("static_powers", (0., 0.))),
+            tuple(card.get("static_ratios", (1., 1.))),
+            tuple(card.get("static_history_rates", (0., 0.))), card.get("static_history", "own"))
     else:
         raise ValueError("Unknown recoverable model identity")
     return module, mat
 
 
-def evaluate(fit, source_dir):
-    if fit["training_cycles"] != [1, 2, 3] or not fit["fit"]["success"]:
+def evaluate(fit, source_dir, *, fixed_card=False):
+    if type(fixed_card) is not bool:
+        raise ValueError("fixed_card must be explicit boolean")
+    if not fixed_card and (fit["training_cycles"] != [1, 2, 3] or not fit["fit"]["success"]):
         raise ValueError("Require converged early-only joint identification")
-    card = fit["fit"]["parameters"]
+    card = fit["parameters"] if fixed_card else fit["fit"]["parameters"]
     model_id = fit.get("model_id", kernel.MODEL_ID)
     module, mat = decode_material(card, model_id)
     extra_indices = tuple(range(10, len(module.STATE_LAYOUT)))
@@ -81,7 +85,7 @@ def evaluate(fit, source_dir):
         refinement = numerical_difference(prediction, refined, **numerical_options)
         comparison = compare_candidate(source, prediction)
         for row in comparison["records"]:
-            row["role"] = "early_calibration" if row["cycle"] <= 3 else "inspected_development"
+            row["role"] = ("early_mechanism_discrimination" if fixed_card else "early_calibration") if row["cycle"] <= 3 else "inspected_development"
         comparison.pop("groups")
         results[protocol] = dict(prediction=prediction, comparison=comparison,
             response_screen=screen(prediction, comparison, requested_cycles=10),
@@ -91,7 +95,7 @@ def evaluate(fit, source_dir):
                               numerical=results[protocol]["numerical"])), flush=True)
     return dict(schema="agentfem.research.recoverable-frozen.v1", parameters=card, model_id=model_id,
         source_sha256=fit["source_sha256"], protocols=results,
-        independent_validation=False, engineering_qualified=False, life_qualified=False,
+        fitted=not fixed_card, independent_validation=False, engineering_qualified=False, life_qualified=False,
         scope="Continuous frozen path; later cycles already inspected development data")
 
 
