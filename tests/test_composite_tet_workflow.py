@@ -177,6 +177,29 @@ def test_consistent_load_resultant_and_virtual_work(kind):
     assert s.history_records[-1]["external_work"] > 0
 
 
+def test_composite_boundary_load_ignores_tagged_interior_facets():
+    from agentfem import loads, mesh
+
+    comm = MPI.COMM_WORLD
+    domain = dm.create_unit_cube(comm, 1, 1, 1)
+    domain.topology.create_entities(2)
+    facets = np.arange(domain.topology.index_map(2).size_local, dtype=np.int32)
+    tags = dm.meshtags(domain, 2, facets, np.ones(len(facets), dtype=np.int32))
+    region = mesh.tagged_boundary_region(domain, tags, tag=1)
+    model = models.create(study=studies.dynamic_solid(dimension=3, method="explicit"), mesh=domain)
+    u = model.field(fields.displacement(domain, element_policy=elements.composite_tet10_policy()))
+    model.material(constitutive.isotropic_elastic(young=100, poisson=.25, density=2))
+    model.load(loads.traction((2., 0., 0.), on=region))
+    step = model.step(target=u, dt=.001, steps=1, progress=False)
+    vector = step.residual.external.assemble_vector()
+    try:
+        # Exterior area of unit cube is six; ds excludes all interior tags.
+        total = comm.allreduce(vector.array.reshape(-1, 3).sum(axis=0))
+        np.testing.assert_allclose(total, [12., 0., 0.], atol=1e-12)
+    finally:
+        vector.destroy()
+
+
 def test_final_result_export(tmp_path):
     s = build(mean=True)
     r = s.solve_result(field_variables=("S", "E"))
@@ -365,9 +388,13 @@ def test_standard_project_publication(tmp_path, capsys):
     import json
     from agentfem import cli
 
+    comm = MPI.COMM_WORLD
+    tmp_path = Path(comm.bcast(str(tmp_path) if comm.rank == 0 else None, root=0))
     source = Path(__file__).resolve().parents[1] / "examples/composite_tet_dynamics"
-    for name in ("case.py", "agentfem.toml"):
-        shutil.copy2(source / name, tmp_path / name)
+    if comm.rank == 0:
+        for name in ("case.py", "agentfem.toml"):
+            shutil.copy2(source / name, tmp_path / name)
+    comm.barrier()
     assert (
         cli.main(
             ["run", "--project", str(tmp_path), "--name", "composite-test", "--json"]

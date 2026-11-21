@@ -90,15 +90,19 @@ class CompositeDistributedLoad:
                         raise NotImplementedError(
                             "Composite pressure requires geometric outward normals; custom normals are not supported."
                         )
-                if region.facet_tags is None:
-                    from dolfinx import mesh
+                from dolfinx import mesh
 
+                if region.facet_tags is None:
                     facets = mesh.locate_entities_boundary(
                         self.domain, 2, region.marker
                     )
                 else:
                     facets = region.facet_tags.find(region.tag)
-                selected = set(map(int, facets))
+                # A boundary region denotes ds, not dS. Imported tag tables
+                # may include interior faces; UFL ds ignores those as well.
+                self.domain.topology.create_connectivity(2, 3)
+                exterior = mesh.exterior_facet_indices(self.domain.topology)
+                selected = set(map(int, np.intersect1d(facets, exterior)))
                 self.domain.topology.create_connectivity(3, 2)
                 faces = basix.topology(basix.CellType.tetrahedron)[2]
                 xyz = V.tabulate_dof_coordinates()

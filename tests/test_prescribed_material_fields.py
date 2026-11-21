@@ -58,6 +58,22 @@ def test_declared_field_factory_and_constructor_are_discoverable():
     assert {'source', 'name', 'unit', 'times'} <= {p['name'] for p in factory['parameters'] if p['required']}
 
 
+@pytest.mark.parametrize("name", ["DPDF", "F33", "E_GL", "P33", "THICKNESS", "TEMP", "MATERIAL_DPDF"])
+def test_prescribed_inputs_cannot_overwrite_physical_response_channels(name):
+    source = fields.prescribed(1., name=name, unit="1", times=[0., 2.], time_unit="s")
+    with pytest.raises(ValueError, match="reserved"):
+        build(temperature=None, field_variables={name: source})
+
+
+@pytest.mark.parametrize("name", ["F33", "E_GL", "THICKNESS", "MATERIAL_DPDF"])
+def test_state_channels_cannot_shadow_accepted_observations(name):
+    material = ThermalHistory()
+    material.state_schema = c.MaterialStateSchema("test.observation.collision", (
+        c.MaterialStateVariable("exposure", output_name=name),))
+    with pytest.raises(ValueError, match="reserved"):
+        build(material=material)
+
+
 def build(*, thickness=1., temperature=350., increments=4, field_variables=None, material=None, cells=(2, 2), units=None):
     domain = mesh.rectangle((0., 0.), (1., 1.), cells, cell_type="quadrilateral", comm=MPI.COMM_SELF)
     model = models.create(mesh=domain, study=studies.static_solid(dimension=2,
@@ -88,6 +104,33 @@ def test_thickness_scales_residual_reactions_and_energy_once():
     assert b.statistics("F33").total_weight == pytest.approx(2*a.statistics("F33").total_weight)
     np.testing.assert_allclose(b["THICKNESS"], 2*a["THICKNESS"])
     assert np.dot(b['SENER'], b.weights) == pytest.approx(2*np.dot(a['SENER'], a.weights))
+
+
+@pytest.mark.parametrize("kind", ["traction", "surface_force"])
+def test_thickness_weights_load_controlled_patch_with_planar_resultant_convention(kind):
+    from test_plane_stress_array import ArrayNeoHookean
+
+    gradients = []
+    for thickness in (.3, .8):
+        domain = mesh.rectangle((0., 0.), (1., 1.), (2, 2), cell_type="quadrilateral", comm=MPI.COMM_SELF)
+        model = models.create(mesh=domain, study=studies.static_solid(dimension=2,
+            assumption="plane_stress", nonlinear=True))
+        u = model.field(fields.displacement(domain))
+        model.material(ArrayNeoHookean())
+        for component, axis in enumerate(("x", "y")):
+            model.fix(u, on=mesh.face(domain, axis=axis, value=0., tag=component+1), component=component)
+        right = mesh.face(domain, axis="x", value=1., tag=3)
+        # Existing planar surface_force is a per-reference-thickness resultant.
+        getattr(model, kind)((5., 0.), on=right)
+        step = model.step(target=u, duration=1., reference_thickness=thickness,
+            plane_stress=c.PlaneStressReduction(symmetry="reflection_symmetric"),
+            incrementation=steps.fixed(2), progress=False)
+        step.solve()
+        reaction = results.reaction_force_moment(step, about=(0., 0.))
+        np.testing.assert_allclose(reaction.force, (-5*thickness, 0.), atol=1e-8)
+        np.testing.assert_allclose(step.accepted_fields["P"][:, 0, 0], 5., atol=1e-8)
+        gradients.append(step.accepted_fields["F"])
+    np.testing.assert_allclose(*gradients, atol=1e-9)
 
 
 def test_planar_reference_thickness_matches_3d_thin_uniform_patch():

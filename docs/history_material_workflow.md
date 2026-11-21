@@ -226,6 +226,11 @@ diffusion or current-coordinate transport solutions. Temperature dependence,
 thermal expansion and stress-free temperature belong to the material law.
 Inputs, reference quadrature layout and time interpolation are checkpoint
 identity. Changing a bound source requires constructing a new Step.
+Response channel names (`P`, `S`, `SENER`, `DPDF`, `RF`, `F`, `F33`,
+`E_GL`, `P33`, `THICKNESS`, `TEMP`, `MATERIAL_DPDF`) are reserved. State,
+stored-energy component and external-input names must not shadow them.
+Use the dedicated `temperature=` input for absolute temperature. Collisions
+are rejected during Step construction, before any trial state is created.
 
 `accepted_fields` returns detached immutable arrays from the last accepted
 constitutive station, also available in `on_accept` callbacks. It includes
@@ -296,7 +301,9 @@ visualization remains a 2D reference surface, not an extruded thickness mesh.
 uniform `reference_thickness=h0` scales the complete virtual work, residual,
 tangent and reactions once; stress and state are not scaled. Surface resultants
 retain their documented per-unit-thickness input convention. Do not multiply
-the resulting force by `h0` again. This Step does not admit variable thickness
+the resulting force by `h0` again. To apply total force `F_total` through
+`loads.surface_force`, supply `resultant=F_total/h0`; do not also put `h0`
+in the boundary's `reference_measure`. This Step does not admit variable thickness
 or introduce inertia/mass. Local relative tolerance
 uses a physical stress scale (not an arbitrary unit-sized floor); optional
 absolute tolerance has the material's stress unit and is part of restart identity.

@@ -78,3 +78,22 @@ def test_rebound_or_custom_signature_remains_runtime_owned(tmp_path, monkeypatch
     monkeypatch.setattr(_api_source, 'ROOT', tmp_path)
     (tmp_path/'public.py').write_text('def example(a): pass\n'+suffix+'\n')
     assert _api_source.source_callable('public', 'example') is None
+
+
+@pytest.mark.parametrize('suffix', [
+    'if flag:\n example = wrapped(example)',
+    'if flag:\n def example(b, c): pass',
+    'def example(b, c): pass',
+])
+def test_conditional_or_duplicate_bindings_require_live_inspection(tmp_path, monkeypatch, suffix):
+    monkeypatch.setattr(_api_source, 'ROOT', tmp_path)
+    (tmp_path/'public.py').write_text('def example(a): pass\n'+suffix+'\n')
+    assert _api_source.source_callable('public', 'example') is None
+
+
+def test_conditional_constructor_requires_live_inspection(tmp_path, monkeypatch):
+    monkeypatch.setattr(_api_source, 'ROOT', tmp_path)
+    (tmp_path/'public.py').write_text(
+        '__all__=["Example"]\nclass Example:\n def __init__(self, a): pass\n'
+        ' if flag:\n  def __init__(self, b, c): pass\n')
+    assert _api_source.source_callable('public', 'Example') is None

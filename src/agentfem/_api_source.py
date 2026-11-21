@@ -31,17 +31,41 @@ def _module(path):
     return None
 
 
+def _dynamic_binding(body, name):
+    """Reject multiple/conditional writes in this scope; do not enter functions.
+
+    A branch may replace a callable or its signature even when an ordinary
+    definition appears earlier. Such bindings must retain runtime inspection.
+    """
+    bindings = 0
+
+    def visit(node, direct=False):
+        nonlocal bindings
+        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
+            if node.name == name:
+                bindings += 1
+                return not direct
+            return False
+        if isinstance(node, (ast.Import, ast.ImportFrom)):
+            matches = sum((alias.asname or alias.name.split('.')[0]) == name for alias in node.names)
+            bindings += matches
+            return bool(matches and not direct)
+        if isinstance(node, ast.Name) and node.id == name and isinstance(node.ctx, (ast.Store, ast.Del)):
+            return True
+        if isinstance(node, ast.Attribute) and isinstance(node.value, ast.Name) and node.value.id == name and isinstance(node.ctx, (ast.Store, ast.Del)):
+            return True
+        return any(visit(child) for child in ast.iter_child_nodes(node))
+
+    return any(visit(node, direct=True) for node in body) or bindings > 1
+
+
 def _binding(path, name, visited):
     if (path, name) in visited or not path.is_relative_to(ROOT):
         return None
     visited.add((path, name))
     tree = ast.parse(path.read_text(encoding='utf-8'))
-    for node in tree.body:
-        targets = node.targets if isinstance(node, ast.Assign) else [node.target] if isinstance(node, ast.AnnAssign) else []
-        if any((isinstance(t, ast.Name) and t.id == name)
-               or (isinstance(t, ast.Attribute) and isinstance(t.value, ast.Name) and t.value.id == name)
-               for t in targets):
-            return None  # A rebound callable or explicit __signature__ is runtime-owned.
+    if _dynamic_binding(tree.body, name):
+        return None
     for node in tree.body:
         if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)) and node.name == name:
             return node, tree
@@ -115,6 +139,8 @@ def source_callable(module_name, object_name, *, method=None):
     if method is not None:
         if not isinstance(node, ast.ClassDef):
             raise LookupError(method)
+        if _dynamic_binding(node.body, method):
+            return None
         node = next((item for item in node.body if isinstance(item, ast.FunctionDef) and item.name == method), None)
         if node is None:
             return None  # A declared inherited/assigned method may need runtime inspection.
@@ -140,6 +166,8 @@ def source_callable(module_name, object_name, *, method=None):
         for item in node.body):
         return None
     init = next((item for item in node.body if isinstance(item, ast.FunctionDef) and item.name == '__init__'), None)
+    if _dynamic_binding(node.body, '__init__'):
+        return None
     if init is not None:
         signature = _signature(init, drop_self=True)
         return None if signature is None else (signature, 'constructor', doc)

@@ -37,6 +37,12 @@ from .._prescribed_fields import PrescribedField, FrozenPrescribedField
 from ._incremental_runtime import NewtonCorrection, NewtonEvaluation, run_newton_attempt
 
 
+_RESPONSE_CHANNELS = frozenset({
+    "P", "S", "SENER", "DPDF", "RF", "F", "F33", "E_GL", "P33",
+    "THICKNESS", "TEMP", "MATERIAL_DPDF",
+})
+
+
 def _json(value):
     return json.loads(json.dumps(value, sort_keys=True, allow_nan=False))
 
@@ -141,7 +147,9 @@ class FiniteStrainMaterialStep:
             freeze_uniform_temperature(temperature, self.duration, time_unit=self.time_unit))
         self._prescribed_inputs = dict(field_variables or {})
         for key, field in self._prescribed_inputs.items():
-            if (not re.fullmatch(r"[A-Z][A-Z0-9_]*", key) or not isinstance(field, PrescribedField)
+            if key in _RESPONSE_CHANNELS:
+                raise ValueError(f"AFM-PRESET-NAME: {key} is a reserved physical response channel; choose another input name.")
+            if (not isinstance(key, str) or not re.fullmatch(r"[A-Z][A-Z0-9_]*", key) or not isinstance(field, PrescribedField)
                 or field.name != key or field.value_shape != () or field.time_unit != self.time_unit
                 or field.times[0] > 0 or field.times[-1] < self.duration):
                 raise ValueError("AFM-PRESET-FIELDS: named scalar declarations must cover duration and match time units.")
@@ -242,15 +250,9 @@ class FiniteStrainMaterialStep:
             else compose_reporters(recorder, progress)
         )
         state_names = [v.output_name or v.name for v in material.state_schema.variables]
-        if len(set(state_names)) != len(state_names) or set(state_names) & {
-            "P",
-            "S",
-            "SENER",
-            "DPDF",
-            "RF",
-        }:
+        if len(set(state_names)) != len(state_names) or set(state_names) & _RESPONSE_CHANNELS:
             raise ValueError(
-                "State output names must be unique and not reserved stress/energy names."
+                "State output names must be unique and not reserved response names."
             )
         component_names = tuple(
             str(key).strip().upper()
@@ -260,7 +262,7 @@ class FiniteStrainMaterialStep:
             any(not re.fullmatch(r"[A-Z][A-Z0-9_]*", key) for key in component_names)
             or len(set(component_names)) != len(component_names)
             or set(component_names)
-            & (set(state_names) | {"P", "S", "SENER", "DPDF", "RF"})
+            & (set(state_names) | _RESPONSE_CHANNELS)
         ):
             raise ValueError(
                 "Stored-energy component names must be unique and not collide with response/state fields."

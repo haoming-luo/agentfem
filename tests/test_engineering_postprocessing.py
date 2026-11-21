@@ -151,3 +151,44 @@ def test_section_invalid_rank_fails_collectively():
         results.sample_section(function, origin=(0., 0., .5), axis_u=(1., 0., 0.),
                                axis_v=(1., 0., 0.) if domain.comm.rank == 0 else (0., 1., 0.),
                                u=[0., 1.], v=[0., 1.])
+
+
+@pytest.mark.parametrize("option", ["missing", "padding", "shape"])
+def test_point_sampling_rejects_rank_inconsistent_contract_before_evaluation(option):
+    comm = MPI.COMM_WORLD
+    if comm.size < 2:
+        pytest.skip("requires two MPI ranks")
+    domain = mesh.rectangle((0., 0.), (1., 1.), (2, 2), comm=comm)
+    shape = (2,) if option == "shape" and comm.rank == 0 else ()
+    function = fem.Function(fem.functionspace(domain, ("Lagrange", 1, shape)))
+    missing = "raise" if option == "missing" and comm.rank == 0 else "nan"
+    padding = 1e-5 if option == "padding" and comm.rank == 0 else 1e-10
+    with pytest.raises(ValueError, match="AFM-POINT-CONTRACT"):
+        results.sample_points(function, ((2., 2.),), missing=missing, padding=padding)
+
+
+def test_field_comparison_invalid_on_one_rank_fails_collectively():
+    comm = MPI.COMM_WORLD
+    domain = mesh.rectangle((0., 0.), (1., 1.), (2, 2), comm=comm)
+    reference = scalar_field(domain)
+    candidate = (fem.Function(fem.functionspace(domain, ("Lagrange", 1, (2,))))
+                 if comm.rank == 0 else scalar_field(domain))
+    with pytest.raises(ValueError, match="AFM-FIELD-SHAPE"):
+        results.compare_fields(reference, candidate, at=((.5, .5),))
+
+
+def test_point_evaluation_failure_is_delivered_to_all_ranks(monkeypatch):
+    from dolfinx import mesh as dm
+
+    comm = MPI.COMM_WORLD
+    domain = mesh.rectangle((0., 0.), (1., 1.), (2, 2), comm=comm)
+    function = scalar_field(domain)
+    point = (dm.compute_midpoints(domain, 2, np.array([0], dtype=np.int32))[0]
+             if comm.rank == 0 else None)
+    point = comm.bcast(point, root=0)
+    if comm.rank == 0:
+        def fail(*args):
+            raise RuntimeError("injected field evaluation failure")
+        monkeypatch.setattr(function, "eval", fail)
+    with pytest.raises(RuntimeError, match="injected field evaluation failure"):
+        results.sample_points(function, (point,))

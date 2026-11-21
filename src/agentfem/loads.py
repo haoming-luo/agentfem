@@ -605,7 +605,7 @@ def surface_force(
     system=None,
     name: str = "surface_force",
 ) -> SurfaceResultantLoad:
-    """Distribute a total reference-configuration force over a boundary.
+    """Distribute a reference-configuration force resultant over a boundary.
 
     ``resultant`` is the desired MPI-global force vector.  AgentFEM computes
     the selected edge length in planar 2D, revolved area in axisymmetric 2D,
@@ -613,6 +613,12 @@ def surface_force(
     ``resultant / reference_measure``.  Pass an explicit
     ``reference_measure`` only when the geometric measure is intentionally
     supplied by an external model.
+
+    In planar 2D, preserve the per-unit-reference-thickness convention: a
+    Step with explicit thickness h integrates h*resultant. To request total
+    force F on such a Step, supply resultant=F/h. Do not supply a thickness-
+    weighted reference_measure as well. In 3D/axisymmetry the resultant is
+    already a total force.
     """
 
     selected = _select_location(location=location, on=on)

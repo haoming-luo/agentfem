@@ -99,11 +99,20 @@ def compare_fields(reference, candidate, *, at, missing="raise", padding=1e-10):
     Metrics use only points located and finite in both fields; coverage is
     reported, including when missing='nan' is explicitly requested.
     """
-    a, b = fields.unwrap(reference), fields.unwrap(candidate)
-    if a.function_space.mesh.geometry.dim != b.function_space.mesh.geometry.dim or a.ufl_shape != b.ufl_shape:
-        raise ValueError("AFM-FIELD-SHAPE: field dimensions and value shapes must match.")
-    if MPI.Comm.Compare(a.function_space.mesh.comm, b.function_space.mesh.comm) not in (MPI.IDENT, MPI.CONGRUENT):
-        raise ValueError("AFM-FIELD-COMM: fields require congruent communicators.")
+    a = fields.unwrap(reference)
+    comm = a.function_space.mesh.comm
+    error = None
+    try:
+        b = fields.unwrap(candidate)
+        if a.function_space.mesh.geometry.dim != b.function_space.mesh.geometry.dim or a.ufl_shape != b.ufl_shape:
+            raise ValueError("AFM-FIELD-SHAPE: field dimensions and value shapes must match.")
+        if MPI.Comm.Compare(comm, b.function_space.mesh.comm) not in (MPI.IDENT, MPI.CONGRUENT):
+            raise ValueError("AFM-FIELD-COMM: fields require congruent communicators.")
+    except (ValueError, TypeError, AttributeError) as exc:
+        error = str(exc)
+    errors = comm.allgather(error)
+    if any(errors):
+        raise ValueError("AFM-FIELD-INPUT: " + "; ".join(item for item in errors if item))
     left = sample_points(a, at, missing=missing, padding=padding, return_info=True)
     right = sample_points(b, at, missing=missing, padding=padding, return_info=True)
     valid = left.located & right.located & left.finite & right.finite

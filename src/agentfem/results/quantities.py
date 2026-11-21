@@ -879,6 +879,10 @@ def sample_points(
         raise ValueError("sample_points: " + "; ".join(
             f"rank {rank}: {error}" for rank, error in enumerate(coordinate_errors)
             if error is not None))
+    contract = (selected_missing, selected_padding, tuple(function.ufl_shape), function.x.array.dtype.str)
+    contracts = comm.allgather(contract)
+    if any(item != contracts[0] for item in contracts):
+        raise ValueError("AFM-POINT-CONTRACT: missing policy, padding, field shape and scalar dtype must agree on every rank.")
     _require_collective_points(coordinates, comm)
     point_count = int(coordinates.shape[0])
     if point_count == 0:
@@ -888,26 +892,23 @@ def sample_points(
 
     topology = domain.topology
     owned_count = int(topology.index_map(topology.dim).size_local)
-    local_cells = np.full(point_count, -1, dtype=np.int32)
-    if owned_count:
-        owned_cells = np.arange(owned_count, dtype=np.int32)
-        tree = geometry_api.bb_tree(
-            domain,
-            topology.dim,
-            padding=selected_padding,
-            entities=owned_cells,
-        )
-        candidates = geometry_api.compute_collisions_points(tree, coordinates)
-        collisions = geometry_api.compute_colliding_cells(
-            domain,
-            candidates,
-            coordinates,
-        )
-        for index in range(point_count):
-            cells = np.asarray(collisions.links(index), dtype=np.int32)
-            cells = cells[cells < owned_count]
-            if cells.size:
-                local_cells[index] = int(np.min(cells))
+    from ..provenance import collective_call
+
+    def locate_owned():
+        local_cells = np.full(point_count, -1, dtype=np.int32)
+        if owned_count:
+            owned_cells = np.arange(owned_count, dtype=np.int32)
+            tree = geometry_api.bb_tree(domain, topology.dim, padding=selected_padding, entities=owned_cells)
+            candidates = geometry_api.compute_collisions_points(tree, coordinates)
+            collisions = geometry_api.compute_colliding_cells(domain, candidates, coordinates)
+            for index in range(point_count):
+                cells = np.asarray(collisions.links(index), dtype=np.int32)
+                cells = cells[cells < owned_count]
+                if cells.size:
+                    local_cells[index] = int(np.min(cells))
+        return local_cells
+
+    local_cells = collective_call(locate_owned, comm=comm, label="AFM-POINT-LOCATION")
 
     local_owner = np.where(local_cells >= 0, comm.rank, comm.size).astype(np.int32)
     owner = np.empty_like(local_owner)
@@ -928,7 +929,10 @@ def sample_points(
     )
     selected = np.flatnonzero(owner == comm.rank)
     function.x.scatter_forward()
-    if selected.size:
+
+    def evaluate_owned():
+        if not selected.size:
+            return
         from ..elements._composite_tet_dolfinx import is_composite_space, interpolation_weights
         if is_composite_space(function.function_space):
             V = function.function_space
@@ -942,6 +946,8 @@ def sample_points(
                 function.eval(coordinates[selected], local_cells[selected])
             ).reshape(selected.size, value_size)
         local_values[selected] = evaluated
+
+    collective_call(evaluate_owned, comm=comm, label="AFM-POINT-EVALUATION")
     values = np.empty_like(local_values)
     comm.Allreduce(local_values, values, op=MPI.SUM)
     if missing_indices.size:
