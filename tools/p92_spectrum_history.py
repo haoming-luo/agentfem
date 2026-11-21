@@ -22,7 +22,8 @@ from tools.p92_waveform_controls import attach_waveforms
 def probe(frozen, source_dir, *, mechanism="resistance"):
     module, base = decode_material(frozen["parameters"], frozen["model_id"])
     if (module is not spectrum or base.strength_ratios != (1., 1.)
-            or base.hardening_ratios != (1., 1.) or mechanism not in {"resistance", "hardening"}):
+            or base.hardening_ratios != (1., 1.) or base.static_powers != (0., 0.)
+            or mechanism not in {"resistance", "hardening", "static_power"}):
         raise ValueError("Require frozen spectrum without existing history evolution and known mechanism")
     paths = []
     for protocol in ("RF", "SLR", "SLC"):
@@ -31,10 +32,14 @@ def probe(frozen, source_dir, *, mechanism="resistance"):
             raise ValueError("Source identity changed")
         paths.append((source, attach_waveforms(measured_path(source, cycles=3), source)))
     records = []
-    for ratios in ((1., 1.), (.8, 1.), (1., .8), (.8, .8)):
+    probes = ((0., 0.), (1., 0.), (0., 1.), (1., 1.), (0., 2.), (2., 2.)) if mechanism == "static_power" else (
+        (1., 1.), (.8, 1.), (1., .8), (.8, .8))
+    for ratios in probes:
         updates = (dict(strength_ratios=ratios, strength_rates=(100., 100.))
                    if mechanism == "resistance" else
                    dict(hardening_ratios=ratios, hardening_rates=(100., 100.)))
+        if mechanism == "static_power":
+            updates = dict(static_powers=ratios)
         material = replace(base, **updates)
         residuals, protocols = [], {}
         for source, path in paths:
@@ -49,7 +54,9 @@ def probe(frozen, source_dir, *, mechanism="resistance"):
         print(json.dumps(dict(mechanism=mechanism, ratios=ratios, cost=cost)), flush=True)
     return dict(schema="agentfem.research.spectrum-history-discriminator.v2", mechanism=mechanism,
         training_cycles=[1, 2, 3], source_sha256=frozen["source_sha256"], records=records,
-        evolution_rates=[100., 100.], fitted=False, engineering_qualified=False,
+        evolution_rates=(None if mechanism == "static_power" else [100., 100.]),
+        coordinate_name=("static_recovery_powers" if mechanism == "static_power" else "history_ratios"),
+        fitted=False, engineering_qualified=False,
         scope="Fixed shared backbone and spectrum; branch histories, not protocol-specific corrections")
 
 
@@ -58,7 +65,7 @@ if __name__ == "__main__":
     parser.add_argument("frozen", type=Path)
     parser.add_argument("source_dir", type=Path)
     parser.add_argument("output", type=Path)
-    parser.add_argument("--mechanism", choices=("resistance", "hardening"), default="resistance")
+    parser.add_argument("--mechanism", choices=("resistance", "hardening", "static_power"), default="resistance")
     args = parser.parse_args()
     raw = args.frozen.read_bytes()
     result = probe(json.loads(raw), args.source_dir, mechanism=args.mechanism)

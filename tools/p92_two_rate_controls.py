@@ -11,9 +11,12 @@ from tools.p92_hold_observations import summarize
 
 
 def replay(path, material, *, method="Radau", rtol=1e-9, kernel=p92_two_rate_reference):
-    # Research-only alternative must preserve the first ten state coordinates.
-    if tuple(kernel.STATE_LAYOUT[:10]) != p92_two_rate_reference.STATE_LAYOUT:
-        raise ValueError("Incompatible research state layout")
+    # The replay owns observable slots, not the material's internal variables.
+    # A different kernel must keep a distinct model/state identity in its report.
+    required = {0: "stress_MPa", 7: "strain", 8: "work_density_MPa", 9: "dissipation_density_MPa"}
+    if (len(kernel.STATE_LAYOUT) < 10 or len(set(kernel.STATE_LAYOUT)) != len(kernel.STATE_LAYOUT)
+            or any(kernel.STATE_LAYOUT[i] != name for i, name in required.items())):
+        raise ValueError("Incompatible research observable state layout")
     MODEL_ID, STATE_LAYOUT = kernel.MODEL_ID, kernel.STATE_LAYOUT
     integrate, stored_energy = kernel.integrate, kernel.stored_energy
     state = np.zeros(len(STATE_LAYOUT))
@@ -26,7 +29,9 @@ def replay(path, material, *, method="Radau", rtol=1e-9, kernel=p92_two_rate_ref
         duration = segment["duration"]
         stress_control = segment["stress_control"]
         if i and path["segments"][i-1]["stress_control"] and segment["target"] < state[7]:
-            raise ValueError("Predicted creep leaves the declared subsequent ramp direction")
+            raise ValueError("Predicted creep leaves the declared subsequent ramp direction: "
+                             f"segment={i}, cycle={segment['cycle']}, predicted_strain={state[7]:.9g}, "
+                             f"next_target={segment['target']:.9g}, held_stress_MPa={state[0]:.9g}")
         if stress_control and "waveform" in segment:
             raise ValueError("Stress hold cannot prescribe a strain waveform")
         waveform = segment.get("waveform")

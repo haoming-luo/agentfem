@@ -13,6 +13,40 @@ def material():
     return spectrum.Material(Material(10000., (branch, branch)), (20000., 40000.), (.5, 10.))
 
 
+@pytest.mark.parametrize("power", [0., 1., 2.])
+def test_static_recovery_polynomial_exact_decay_and_energy(power):
+    mat = replace(material(), static_powers=(power, power))
+    old = np.zeros(12)
+    old[[1, 2, 4, 5]] = [5., -7., -3., 9.]
+    result = spectrum.integrate(old, 30., 0., mat, stress_control=True)
+    expected = []
+    for offset, branch in zip((1, 4), mat.backbone.branches):
+        for x, r, a in zip(old[offset:offset+2], branch.static_recovery, branch.saturation):
+            expected.append(x*np.exp(-r*30.) if power == 0 else
+                x/(1+power*r*(abs(x)/a)**power*30.)**(1/power))
+    np.testing.assert_allclose(result.y[[1, 2, 4, 5], -1], expected, atol=1e-9)
+    assert result.y[9, -1] == pytest.approx(
+        spectrum.stored_energy(old, mat)-spectrum.stored_energy(result.y[:, -1], mat), abs=1e-9)
+    with pytest.raises(ValueError):
+        replace(mat, static_powers=(-1., 0.))
+
+
+def test_matched_recovery_coordinates_preserve_baseline_and_do_not_mutate():
+    from dataclasses import asdict
+    from copy import deepcopy
+    from tools.p92_spectrum_recovery_joint import decode
+    card = asdict(material())
+    before = deepcopy(card)
+    state = np.array([70., 1., -2., .01, 3., -1., .02, .01, 0., 0., -.001, .002])
+    decoded = decode(card, np.zeros(22), (0., 0.))
+    np.testing.assert_array_equal(spectrum.rates(state, .003, material()), spectrum.rates(state, .003, decoded))
+    nonlinear = decode(card, np.zeros(22), (0., 1.))
+    assert nonlinear.static_powers == (0., 1.)
+    assert card == before
+    with pytest.raises(ValueError, match="22"):
+        decode(card, np.zeros(20), (0., 1.))
+
+
 def test_two_time_creep_recovery_exact_and_input_retained():
     mat = material()
     old = np.zeros(12)

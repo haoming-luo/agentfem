@@ -18,19 +18,42 @@ from tools.p92_waveform_controls import attach_waveforms
 from tools.p92_waveform_experiment import refine_knots
 
 
-def numerical_difference(a, b, *, extra_strain_indices=()):
+def numerical_difference(a, b, *, extra_strain_indices=(),
+                         stress_state_indices=(0, 1, 2, 4, 5), dimensionless_indices=()):
+    for key in ("model_id", "state_layout", "protocol", "source_sha256"):
+        left, right = a.get(key), b.get(key)
+        if key == "state_layout" and left is not None and right is not None:
+            left, right = tuple(left), tuple(right)
+        if left != right:
+            raise ValueError(f"Numerical comparison identity differs: {key}")
     pairs = list(zip(a["segments"], b["segments"], strict=True))
+    if not pairs:
+        raise ValueError("Numerical comparison requires completed segments")
+    for x, y in pairs:
+        for key in ("segment", "cycle", "stress_control", "source_indices"):
+            if x.get(key) != y.get(key):
+                raise ValueError(f"Numerical comparison observations differ: {key}")
+        for key in ("sampled_stress_MPa", "sampled_strain", "end_state"):
+            left, right = np.asarray(x[key]), np.asarray(y[key])
+            if (left.ndim != 1 or left.size == 0 or right.shape != left.shape
+                    or not np.isfinite(left).all() or not np.isfinite(right).all()):
+                raise ValueError(f"Numerical comparison requires aligned finite arrays: {key}")
     stress = max(float(np.max(abs(np.asarray(x["sampled_stress_MPa"])-y["sampled_stress_MPa"])))
                  for x, y in pairs)
     strain = max(float(np.max(abs(np.asarray(x["sampled_strain"])-y["sampled_strain"])))
                  for x, y in pairs)
     delta = np.asarray([np.asarray(x["end_state"])-y["end_state"] for x, y in pairs])
-    stress = max(stress, float(np.max(abs(delta[:, [0, 1, 2, 4, 5]]))))
+    groups = (*stress_state_indices, 3, 6, 7, *extra_strain_indices, 8, 9, *dimensionless_indices)
+    if len(groups) != delta.shape[1] or set(groups) != set(range(delta.shape[1])):
+        raise ValueError("Numerical comparison must cover each state exactly once")
+    stress = max(stress, float(np.max(abs(delta[:, list(stress_state_indices)]))))
     strain = max(strain, float(np.max(abs(delta[:, [3, 6, 7, *extra_strain_indices]]))))
     energy = float(np.max(abs(delta[:, [8, 9]])))
+    dimensionless = float(np.max(abs(delta[:, list(dimensionless_indices)]))) if dimensionless_indices else 0.
     return dict(stress_state_difference_MPa=stress, strain_state_difference=strain,
                 work_dissipation_difference_MPa=energy,
-                passed=bool(stress < 1e-4 and strain < 1e-8 and energy < 1e-6))
+                dimensionless_state_difference=dimensionless,
+                passed=bool(stress < 1e-4 and strain < 1e-8 and energy < 1e-6 and dimensionless < 1e-8))
 
 
 def evaluate(fit, source_dir):

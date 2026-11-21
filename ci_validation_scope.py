@@ -151,6 +151,7 @@ _SOURCE_TEST_MAP = {
 # Research-only scalar controls have known transitive consumers. Do not use a
 # tools/* wildcard: an unknown numerical driver still needs the broader gate.
 _P92_CONTROL_TESTS = (
+    "tests/test_p92_shared_drag_reference.py",
     "tests/test_p92_recoverable_spectrum.py",
     "tests/test_p92_reversal_memory_reference.py",
     "tests/test_p92_gate_objective.py",
@@ -175,6 +176,18 @@ _P92_CONTROL_TESTS = (
     "tests/test_p92_two_mechanism_fit.py",
 )
 _P92_CONTROL_INPUTS = (
+    "tools/p92_spectrum_recovery_joint.py",
+    "evidence/creep/2026-11-21-spectrum-static-power.json",
+    "evidence/creep/2026-11-21-shared-drag-joint.json",
+    "evidence/creep/2026-11-21-shared-drag-frozen.json",
+    "evidence/creep/2026-11-21-shared-drag-dimensional-start.json",
+    "evidence/creep/2026-11-21-shared-drag-dimensional-start-slow.json",
+    "evidence/creep/2026-11-21-shared-drag-dimensional-balanced.json",
+    "evidence/creep/2026-11-21-shared-drag-published-check.json",
+    "tools/p92_shared_drag_reference.py",
+    "tools/p92_shared_drag_benchmark.py",
+    "tools/p92_shared_drag_probe.py",
+    "tools/p92_shared_drag_joint.py",
     "tools/p92_recoverable_spectrum.py",
     "tools/p92_spectrum_probe.py",
     "tools/p92_spectrum_history.py",

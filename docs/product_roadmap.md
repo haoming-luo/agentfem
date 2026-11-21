@@ -1,5 +1,19 @@
 # AgentFEM Product Roadmap
 
+### Shared-drag rejection and recovery-law discrimination (2026-11-21)
+
+The [shared-drag comparison](internal/p92_shared_drag_reference_20261121.md)
+does not meet response gates: SLC leaves its prescribed continuation in cycle
+6, while RF/SLR numerical agreement does not imply response accuracy. Its
+published-table transcription remains unverified and is not a material card.
+The [nonlinear static-recovery discriminator](internal/p92_nonlinear_static_recovery_20261121.md)
+uses a literature-supported structural change with unchanged parameters first.
+Some early SLR/SLC observables improve together, but aggregate error worsens.
+A matched-budget early-only identification is in progress; no success is
+claimed. Failed frozen paths now retain structured reports, and numerical
+comparison checks material/source identity, observation alignment, finite
+arrays and every internal-state coordinate. PR #197 remains unmerged.
+
 ### Reversal mechanism checkpoint (2026-11-21)
 
 The [recoverable-strain discriminator](internal/p92_recoverable_reference_20261121.md)
