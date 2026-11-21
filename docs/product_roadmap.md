@@ -1,5 +1,17 @@
 # AgentFEM Product Roadmap
 
+### Problem definition and residual conflict audit (2026-11-22)
+
+The [problem re-audit](internal/p92_problem_reaudit_20261122.md) reproduces the
+matched early objective exactly and separates hold entry bias from relaxation
+shape error without modifying acceptance. The first SLC post-creep positive
+hold starts within 0.31 MPa of the observation but develops a roughly 14 MPa
+late shape discrepancy. A better peak alone cannot resolve that error.
+Literature supports explicit primary-creep and reversal-history checks, not
+another unconstrained softening fit. Next verify a directional recovery law
+before same-budget identification. Software verification, material prediction
+and life qualification remain separate; no new fit or passing material claim.
+
 ### Fixed-budget history substitution (2026-11-22)
 
 The [matched substitution experiment](internal/p92_static_memory_identification_20261121.md)
