@@ -28,7 +28,7 @@ def bam_start(source_card):
 
 def probe(seed, source_dir, *, dimensional_start=False):
     source_card = seed["parameters"]
-    material = replace(kernel.published_table2(), modulus=source_card["backbone"]["modulus"],
+    material = replace(kernel.unverified_table2_transcription(), modulus=source_card["backbone"]["modulus"],
         compliances=tuple(1/np.asarray(source_card["moduli"])), times=tuple(source_card["times"]))
     if dimensional_start:
         material = bam_start(source_card)

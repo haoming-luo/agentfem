@@ -151,6 +151,9 @@ _SOURCE_TEST_MAP = {
 # Research-only scalar controls have known transitive consumers. Do not use a
 # tools/* wildcard: an unknown numerical driver still needs the broader gate.
 _P92_CONTROL_TESTS = (
+    "tests/test_p92_cross_drag_reference.py",
+    "tests/test_p92_equal_stress_hold.py",
+    "tests/test_p92_coupled_recovery_reference.py",
     "tests/test_p92_shared_drag_reference.py",
     "tests/test_p92_recoverable_spectrum.py",
     "tests/test_p92_reversal_memory_reference.py",
@@ -176,6 +179,21 @@ _P92_CONTROL_TESTS = (
     "tests/test_p92_two_mechanism_fit.py",
 )
 _P92_CONTROL_INPUTS = (
+    "tools/p92_cross_drag_reference.py",
+    "tools/p92_cross_drag_probe.py",
+    "evidence/creep/2026-11-21-cross-drag-probe.json",
+    "evidence/creep/2026-11-21-recovery-matched-linear.json",
+    "evidence/creep/2026-11-21-recovery-matched-nonlinear.json",
+    "evidence/creep/2026-11-21-recovery-matched-linear-frozen.json",
+    "evidence/creep/2026-11-21-recovery-matched-nonlinear-frozen.json",
+    "evidence/creep/2026-11-21-equal-stress-hold.json",
+    "evidence/creep/2026-11-21-spectrum-rate-budget.json",
+    "tools/p92_equal_stress_hold.py",
+    "tools/p92_spectrum_rate_budget.py",
+    "tools/p92_coupled_recovery_reference.py",
+    "tools/p92_coupling_probe.py",
+    "evidence/creep/2026-11-21-energetic-coupling.json",
+    "evidence/creep/2026-11-21-spectrum-extrema-check.json",
     "tools/p92_spectrum_recovery_joint.py",
     "evidence/creep/2026-11-21-spectrum-static-power.json",
     "evidence/creep/2026-11-21-shared-drag-joint.json",

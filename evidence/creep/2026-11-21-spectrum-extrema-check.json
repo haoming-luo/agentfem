@@ -1,0 +1,94 @@
+{
+  "schema": "agentfem.research.frozen-extrema-check.v1",
+  "model_id": "research.scalar-two-rate-recoverable-spectrum.v1",
+  "source_sha256": {
+    "RF": "128e6de1854f4633e26eced6c4ea221687cde2f232db275487ef0d1201767e0a",
+    "SLR": "34e26cae1816ec4b712a4cec5811e0a0c66bad34848c10d962528085171fcabb",
+    "SLC": "ab2953c0cfa6335619c8b699728aa73233f8d2209af39b709916ab3fd392683e"
+  },
+  "fit_file_sha256": "5d98a839cedb6a101d7b51f850fdababb13d3dee4a706f48f0cd5a972d8dce25",
+  "driver_sha256": {
+    "p92_recoverable_reference.py": "f762e9f73b0f47347aa3c0fd67c2e89f88c9c8af1020e951f5a01ad27de2596d",
+    "p92_recoverable_spectrum.py": "e9047b03fce96e7f9d2fb55c6cd453df6a035a033c0ada39342675d6ee3985b2",
+    "p92_two_rate_reference.py": "3ad6a6a36ef9a30b342e3c8acc979e6fa9a20e366be1210790e125a3f8792a24",
+    "p92_shared_drag_reference.py": "ecf8369304ba68619118e1e21df94545b355c134d157adaec395e91b66a3ffd2",
+    "p92_reversal_memory_reference.py": "4eb6ce751d500b7b42847513b07cc74bb8d57ad873b98adf9b2cc89c10802706",
+    "p92_two_rate_controls.py": "a2f38994c108e39e210d762d7eb97c1d7c52d61b03856711c710c6eb74e5bdf1",
+    "p92_recoverable_frozen.py": "b7efc28713cc92d9ee3459c751b081effa2d90edb58473218febc21618b5232c",
+    "p92_two_rate_frozen.py": "9459fc74371b5690a94257b6d3fb67784be86cc327cda43a7e5479c80e1dbc66",
+    "p92_measured_controls.py": "803a1786932cbdd571f248f1ee3053dfdc941ea2b7aa3cfb38f01fe862ce461e",
+    "p92_waveform_controls.py": "186328be75d6ea5da030f727bce2d7feaf8b4383f86e63baee2712c7562f0870",
+    "p92_response_screen.py": "910a7e48cd0a08992dd1be7fce3024eeb4af8719dbfbacffd612e703703053b6"
+  },
+  "full_record_sha256": "252091f1c077430c5bfa9ce40eaea8cd10520ee0501de5c34e55f2662b7ec937",
+  "protocols": {
+    "RF": {
+      "numerical": {
+        "independent": {
+          "stress_state_difference_MPa": 5.528193867121445e-7,
+          "strain_state_difference": 5.840384426081258e-11,
+          "work_dissipation_difference_MPa": 1.734457200086581e-8,
+          "dimensionless_state_difference": 0,
+          "cycle_extrema_difference_MPa": 9.282302926294506e-8,
+          "passed": true
+        },
+        "refinement": {
+          "stress_state_difference_MPa": 1.6864476037881104e-8,
+          "strain_state_difference": 1.5678430775878383e-14,
+          "work_dissipation_difference_MPa": 4.6416204213528545e-12,
+          "dimensionless_state_difference": 0,
+          "cycle_extrema_difference_MPa": 1.0044232112704776e-10,
+          "passed": true
+        },
+        "passed": true
+      },
+      "response_status": "failed"
+    },
+    "SLR": {
+      "numerical": {
+        "independent": {
+          "stress_state_difference_MPa": 5.07763900259306e-7,
+          "strain_state_difference": 5.159963775702714e-11,
+          "work_dissipation_difference_MPa": 1.9844846654848425e-8,
+          "dimensionless_state_difference": 0,
+          "cycle_extrema_difference_MPa": 1.1608193517531618e-7,
+          "passed": true
+        },
+        "refinement": {
+          "stress_state_difference_MPa": 2.3638420998395304e-8,
+          "strain_state_difference": 1.3579415369946446e-14,
+          "work_dissipation_difference_MPa": 5.38857847232066e-12,
+          "dimensionless_state_difference": 0,
+          "cycle_extrema_difference_MPa": 1.5336354408646002e-10,
+          "passed": true
+        },
+        "passed": true
+      },
+      "response_status": "failed"
+    },
+    "SLC": {
+      "numerical": {
+        "independent": {
+          "stress_state_difference_MPa": 5.132169960120336e-7,
+          "strain_state_difference": 5.097764571582175e-11,
+          "work_dissipation_difference_MPa": 1.802822069407739e-8,
+          "dimensionless_state_difference": 0,
+          "cycle_extrema_difference_MPa": 4.723079314317147e-7,
+          "passed": true
+        },
+        "refinement": {
+          "stress_state_difference_MPa": 2.2446755565397325e-8,
+          "strain_state_difference": 8.984089513996985e-14,
+          "work_dissipation_difference_MPa": 3.994138353391463e-12,
+          "dimensionless_state_difference": 0,
+          "cycle_extrema_difference_MPa": 1.7627144188736565e-10,
+          "passed": true
+        },
+        "passed": true
+      },
+      "response_status": "failed"
+    }
+  },
+  "engineering_qualified": false,
+  "scope": "Strict cycle extrema, full hidden states and sampled response numerical check; no response gate relaxed."
+}

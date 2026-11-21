@@ -1,0 +1,1242 @@
+{
+  "schema": "agentfem.research.equal-stress-hold.v1",
+  "records": [
+    {
+      "protocol": "RF",
+      "cycle": 1,
+      "segment": 1,
+      "band_center_MPa": 190,
+      "source_indices": [
+        85,
+        86,
+        87,
+        88,
+        89
+      ],
+      "status": "compared",
+      "observed": {
+        "duration_s": 7.199000000000002,
+        "stress_endpoints_MPa": [
+          193.59,
+          186.63
+        ],
+        "average_nonelastic_rate_per_s": 0.000007619413887939434,
+        "one_quantum_endpoint_sensitivity_per_s": 0.000002796066886915678,
+        "samples": 5
+      },
+      "predicted": {
+        "times_s": [
+          12.400565075804126,
+          18.85170426928981
+        ],
+        "duration_s": 6.451139193485686,
+        "average_nonelastic_rate_per_s": 0.000006952595384171485
+      }
+    },
+    {
+      "protocol": "RF",
+      "cycle": 1,
+      "segment": 1,
+      "band_center_MPa": 210,
+      "source_indices": [
+        79,
+        80
+      ],
+      "status": "unresolved_sampling"
+    },
+    {
+      "protocol": "RF",
+      "cycle": 1,
+      "segment": 1,
+      "band_center_MPa": 230,
+      "source_indices": [
+        41,
+        42,
+        43,
+        44,
+        45,
+        46,
+        47,
+        48,
+        49,
+        50,
+        51,
+        52,
+        53,
+        54,
+        55,
+        56,
+        57,
+        58
+      ],
+      "status": "compared",
+      "observed": {
+        "duration_s": 1.282,
+        "stress_endpoints_MPa": [
+          234.91,
+          225.28
+        ],
+        "average_nonelastic_rate_per_s": 0.00005620778264681925,
+        "one_quantum_endpoint_sensitivity_per_s": 0.000015701158751096698,
+        "samples": 18
+      },
+      "predicted": {
+        "times_s": [
+          0.6776111194131573,
+          1.4369360376331701
+        ],
+        "duration_s": 0.7593249182200128,
+        "average_nonelastic_rate_per_s": 0.00008172835615443572
+      }
+    },
+    {
+      "protocol": "RF",
+      "cycle": 2,
+      "segment": 6,
+      "band_center_MPa": 190,
+      "source_indices": [
+        561,
+        562,
+        563,
+        564,
+        565,
+        566
+      ],
+      "status": "compared",
+      "observed": {
+        "duration_s": 8.999000000000024,
+        "stress_endpoints_MPa": [
+          194.9,
+          186.12
+        ],
+        "average_nonelastic_rate_per_s": 0.000005176213223660253,
+        "one_quantum_endpoint_sensitivity_per_s": 0.0000022367913678081914,
+        "samples": 6
+      },
+      "predicted": {
+        "times_s": [
+          21.620083128361294,
+          31.648129052999785
+        ],
+        "duration_s": 10.02804592463849,
+        "average_nonelastic_rate_per_s": 0.000005642250067953406
+      }
+    },
+    {
+      "protocol": "RF",
+      "cycle": 2,
+      "segment": 6,
+      "band_center_MPa": 210,
+      "source_indices": [
+        556,
+        557
+      ],
+      "status": "unresolved_sampling"
+    },
+    {
+      "protocol": "RF",
+      "cycle": 2,
+      "segment": 6,
+      "band_center_MPa": 230,
+      "source_indices": [
+        544,
+        545,
+        546,
+        547,
+        548,
+        549,
+        550,
+        551,
+        552,
+        553
+      ],
+      "status": "compared",
+      "observed": {
+        "duration_s": 0.6400000000000432,
+        "stress_endpoints_MPa": [
+          234.35,
+          230.12
+        ],
+        "average_nonelastic_rate_per_s": 0.000026967636325953746,
+        "one_quantum_endpoint_sensitivity_per_s": 0.00003145138362328845,
+        "samples": 10
+      },
+      "predicted": {
+        "times_s": [
+          3.8129574224155793,
+          4.620251465502304
+        ],
+        "duration_s": 0.8072940430867246,
+        "average_nonelastic_rate_per_s": 0.000033766243516901944
+      }
+    },
+    {
+      "protocol": "RF",
+      "cycle": 3,
+      "segment": 11,
+      "band_center_MPa": 190,
+      "source_indices": [
+        1035,
+        1036,
+        1037,
+        1038,
+        1039,
+        1040
+      ],
+      "status": "compared",
+      "observed": {
+        "duration_s": 8.99899999999991,
+        "stress_endpoints_MPa": [
+          194.48,
+          185.14
+        ],
+        "average_nonelastic_rate_per_s": 0.00000779970411480015,
+        "one_quantum_endpoint_sensitivity_per_s": 0.00000223679136780822,
+        "samples": 6
+      },
+      "predicted": {
+        "times_s": [
+          22.34110413957346,
+          33.44304096241133
+        ],
+        "duration_s": 11.101936822837871,
+        "average_nonelastic_rate_per_s": 0.000005421534844737153
+      }
+    },
+    {
+      "protocol": "RF",
+      "cycle": 3,
+      "segment": 11,
+      "band_center_MPa": 210,
+      "source_indices": [
+        1030,
+        1031
+      ],
+      "status": "unresolved_sampling"
+    },
+    {
+      "protocol": "RF",
+      "cycle": 3,
+      "segment": 11,
+      "band_center_MPa": 230,
+      "source_indices": [
+        1013,
+        1014,
+        1015,
+        1016,
+        1017,
+        1018,
+        1019,
+        1020,
+        1021,
+        1022,
+        1023,
+        1024,
+        1025,
+        1026,
+        1027
+      ],
+      "status": "compared",
+      "observed": {
+        "duration_s": 1.04099999999994,
+        "stress_endpoints_MPa": [
+          234.72,
+          228.33
+        ],
+        "average_nonelastic_rate_per_s": 0.000029950934957211904,
+        "one_quantum_endpoint_sensitivity_per_s": 0.000019336105205482353,
+        "samples": 15
+      },
+      "predicted": {
+        "times_s": [
+          3.8175498943028336,
+          5.095796961630539
+        ],
+        "duration_s": 1.278247067327705,
+        "average_nonelastic_rate_per_s": 0.00003221515178325042
+      }
+    },
+    {
+      "protocol": "SLR",
+      "cycle": 1,
+      "segment": 5,
+      "band_center_MPa": 190,
+      "source_indices": [
+        853,
+        854,
+        855,
+        856,
+        857,
+        858,
+        859,
+        860
+      ],
+      "status": "compared",
+      "observed": {
+        "duration_s": 10,
+        "stress_endpoints_MPa": [
+          194.28,
+          186.56
+        ],
+        "average_nonelastic_rate_per_s": 0.000004974981029770259,
+        "one_quantum_endpoint_sensitivity_per_s": 0.000002012888551890597,
+        "samples": 8
+      },
+      "predicted": {
+        "times_s": [
+          23.933544324274337,
+          35.28826908285448
+        ],
+        "duration_s": 11.35472475858014,
+        "average_nonelastic_rate_per_s": 0.000004381419308302423
+      }
+    },
+    {
+      "protocol": "SLR",
+      "cycle": 1,
+      "segment": 5,
+      "band_center_MPa": 210,
+      "source_indices": [
+        811,
+        812,
+        813,
+        814,
+        815,
+        816,
+        817,
+        818,
+        819,
+        820,
+        821,
+        822,
+        823,
+        824,
+        825,
+        826,
+        827,
+        828,
+        829,
+        830,
+        831,
+        832,
+        833,
+        834,
+        835,
+        836,
+        837,
+        838,
+        839,
+        840,
+        841,
+        842,
+        843,
+        844,
+        845,
+        846,
+        847,
+        848
+      ],
+      "status": "compared",
+      "observed": {
+        "duration_s": 4.651000000000067,
+        "stress_endpoints_MPa": [
+          214.81,
+          205.53
+        ],
+        "average_nonelastic_rate_per_s": 0.000012858069398487858,
+        "one_quantum_endpoint_sensitivity_per_s": 0.000004327861861729881,
+        "samples": 38
+      },
+      "predicted": {
+        "times_s": [
+          8.56858876008431,
+          13.617254656331276
+        ],
+        "duration_s": 5.048665896246966,
+        "average_nonelastic_rate_per_s": 0.00001184528388317869
+      }
+    },
+    {
+      "protocol": "SLR",
+      "cycle": 1,
+      "segment": 5,
+      "band_center_MPa": 230,
+      "source_indices": [
+        748,
+        749,
+        750,
+        751,
+        752,
+        753,
+        754,
+        755,
+        756,
+        757,
+        758,
+        759,
+        760,
+        761,
+        762,
+        763,
+        764,
+        765,
+        766,
+        767,
+        768,
+        769,
+        770,
+        771
+      ],
+      "status": "compared",
+      "observed": {
+        "duration_s": 1.7609999999999673,
+        "stress_endpoints_MPa": [
+          234.89,
+          225.15
+        ],
+        "average_nonelastic_rate_per_s": 0.000029964365535040275,
+        "one_quantum_endpoint_sensitivity_per_s": 0.000011430372242422681,
+        "samples": 24
+      },
+      "predicted": {
+        "times_s": [
+          3.03334731195748,
+          5.0808152601131304
+        ],
+        "duration_s": 2.0474679481556506,
+        "average_nonelastic_rate_per_s": 0.000030656034329497537
+      }
+    },
+    {
+      "protocol": "SLR",
+      "cycle": 2,
+      "segment": 12,
+      "band_center_MPa": 190,
+      "source_indices": [
+        1779,
+        1780,
+        1781,
+        1782,
+        1783,
+        1784,
+        1785,
+        1786,
+        1787
+      ],
+      "status": "compared",
+      "observed": {
+        "duration_s": 12,
+        "stress_endpoints_MPa": [
+          193.7,
+          185.5
+        ],
+        "average_nonelastic_rate_per_s": 0.000004403588562620474,
+        "one_quantum_endpoint_sensitivity_per_s": 0.0000016774071265754973,
+        "samples": 9
+      },
+      "predicted": {
+        "times_s": [
+          25.82317737754848,
+          38.8487529260988
+        ],
+        "duration_s": 13.025575548550318,
+        "average_nonelastic_rate_per_s": 0.000004056869698731009
+      }
+    },
+    {
+      "protocol": "SLR",
+      "cycle": 2,
+      "segment": 12,
+      "band_center_MPa": 210,
+      "source_indices": [
+        1740,
+        1741,
+        1742,
+        1743,
+        1744,
+        1745,
+        1746,
+        1747,
+        1748,
+        1749,
+        1750,
+        1751,
+        1752,
+        1753,
+        1754,
+        1755,
+        1756,
+        1757,
+        1758,
+        1759,
+        1760,
+        1761,
+        1762,
+        1763,
+        1764,
+        1765,
+        1766,
+        1767,
+        1768,
+        1769,
+        1770,
+        1771
+      ],
+      "status": "compared",
+      "observed": {
+        "duration_s": 2.3289999999997235,
+        "stress_endpoints_MPa": [
+          214.81,
+          209.33
+        ],
+        "average_nonelastic_rate_per_s": 0.00001516300222423298,
+        "one_quantum_endpoint_sensitivity_per_s": 0.000008642715980639054,
+        "samples": 32
+      },
+      "predicted": {
+        "times_s": [
+          9.113534786031268,
+          11.925006489174102
+        ],
+        "duration_s": 2.811471703142834,
+        "average_nonelastic_rate_per_s": 0.000012560906140637807
+      }
+    },
+    {
+      "protocol": "SLR",
+      "cycle": 2,
+      "segment": 12,
+      "band_center_MPa": 230,
+      "source_indices": [
+        1669,
+        1670,
+        1671,
+        1672,
+        1673,
+        1674,
+        1675,
+        1676,
+        1677,
+        1678,
+        1679,
+        1680,
+        1681,
+        1682,
+        1683,
+        1684,
+        1685,
+        1686,
+        1687,
+        1688,
+        1689,
+        1690
+      ],
+      "status": "compared",
+      "observed": {
+        "duration_s": 1.6810000000004948,
+        "stress_endpoints_MPa": [
+          234.99,
+          225.32
+        ],
+        "average_nonelastic_rate_per_s": 0.000037070879471157625,
+        "one_quantum_endpoint_sensitivity_per_s": 0.000011974351885127926,
+        "samples": 22
+      },
+      "predicted": {
+        "times_s": [
+          3.2964133296534968,
+          5.419545546184544
+        ],
+        "duration_s": 2.1231322165310473,
+        "average_nonelastic_rate_per_s": 0.000029351044605620837
+      }
+    },
+    {
+      "protocol": "SLR",
+      "cycle": 3,
+      "segment": 19,
+      "band_center_MPa": 190,
+      "source_indices": [
+        2704,
+        2705,
+        2706,
+        2707,
+        2708,
+        2709,
+        2710,
+        2711
+      ],
+      "status": "compared",
+      "observed": {
+        "duration_s": 10,
+        "stress_endpoints_MPa": [
+          193.62,
+          185.92
+        ],
+        "average_nonelastic_rate_per_s": 0.0000059620924778796765,
+        "one_quantum_endpoint_sensitivity_per_s": 0.000002012888551890597,
+        "samples": 8
+      },
+      "predicted": {
+        "times_s": [
+          26.17652345613001,
+          38.39223482314338
+        ],
+        "duration_s": 12.215711367013373,
+        "average_nonelastic_rate_per_s": 0.00000406205772942473
+      }
+    },
+    {
+      "protocol": "SLR",
+      "cycle": 3,
+      "segment": 19,
+      "band_center_MPa": 210,
+      "source_indices": [
+        2660,
+        2661,
+        2662,
+        2663,
+        2664,
+        2665,
+        2666,
+        2667,
+        2668,
+        2669,
+        2670,
+        2671,
+        2672,
+        2673,
+        2674,
+        2675,
+        2676,
+        2677,
+        2678,
+        2679,
+        2680,
+        2681,
+        2682,
+        2683,
+        2684,
+        2685,
+        2686,
+        2687,
+        2688,
+        2689,
+        2690,
+        2691,
+        2692,
+        2693,
+        2694,
+        2695,
+        2696,
+        2697,
+        2698
+      ],
+      "status": "compared",
+      "observed": {
+        "duration_s": 4.731000000000677,
+        "stress_endpoints_MPa": [
+          214.93,
+          205.68
+        ],
+        "average_nonelastic_rate_per_s": 0.000012599778586768212,
+        "one_quantum_endpoint_sensitivity_per_s": 0.000004254678824540919,
+        "samples": 39
+      },
+      "predicted": {
+        "times_s": [
+          9.159595107936887,
+          14.417538698800534
+        ],
+        "duration_s": 5.257943590863647,
+        "average_nonelastic_rate_per_s": 0.000011337046787186538
+      }
+    },
+    {
+      "protocol": "SLR",
+      "cycle": 3,
+      "segment": 19,
+      "band_center_MPa": 230,
+      "source_indices": [
+        2592,
+        2593,
+        2594,
+        2595,
+        2596,
+        2597,
+        2598,
+        2599,
+        2600,
+        2601,
+        2602,
+        2603,
+        2604,
+        2605,
+        2606,
+        2607,
+        2608,
+        2609,
+        2610,
+        2611,
+        2612,
+        2613,
+        2614,
+        2615
+      ],
+      "status": "compared",
+      "observed": {
+        "duration_s": 1.842000000000553,
+        "stress_endpoints_MPa": [
+          234.72,
+          225.08
+        ],
+        "average_nonelastic_rate_per_s": 0.00002829686216756759,
+        "one_quantum_endpoint_sensitivity_per_s": 0.000010927733723615596,
+        "samples": 24
+      },
+      "predicted": {
+        "times_s": [
+          3.383644898620395,
+          5.548323764647965
+        ],
+        "duration_s": 2.1646788660275704,
+        "average_nonelastic_rate_per_s": 0.00002869840006646248
+      }
+    },
+    {
+      "protocol": "SLC",
+      "cycle": 1,
+      "segment": 5,
+      "band_center_MPa": 190,
+      "source_indices": [
+        867,
+        868,
+        869,
+        870,
+        871,
+        872,
+        873
+      ],
+      "status": "compared",
+      "observed": {
+        "duration_s": 35.88299999999981,
+        "stress_endpoints_MPa": [
+          193.5,
+          185.59
+        ],
+        "average_nonelastic_rate_per_s": 8.632004773098504e-7,
+        "one_quantum_endpoint_sensitivity_per_s": 5.609588250398817e-7,
+        "samples": 7
+      },
+      "predicted": {
+        "times_s": [
+          24.79313488948906,
+          38.401245050783196
+        ],
+        "duration_s": 13.608110161294135,
+        "average_nonelastic_rate_per_s": 0.000003745870816970313
+      }
+    },
+    {
+      "protocol": "SLC",
+      "cycle": 1,
+      "segment": 5,
+      "band_center_MPa": 210,
+      "source_indices": [
+        839,
+        840,
+        841,
+        842,
+        843,
+        844,
+        845,
+        846,
+        847
+      ],
+      "status": "compared",
+      "observed": {
+        "duration_s": 12,
+        "stress_endpoints_MPa": [
+          214.31,
+          205.66
+        ],
+        "average_nonelastic_rate_per_s": 0.000004645248910569169,
+        "one_quantum_endpoint_sensitivity_per_s": 0.0000016774071265754973,
+        "samples": 9
+      },
+      "predicted": {
+        "times_s": [
+          7.52965426268466,
+          12.525694752958321
+        ],
+        "duration_s": 4.9960404902736615,
+        "average_nonelastic_rate_per_s": 0.000011157432978245378
+      }
+    },
+    {
+      "protocol": "SLC",
+      "cycle": 1,
+      "segment": 5,
+      "band_center_MPa": 230,
+      "source_indices": [
+        741,
+        742,
+        743,
+        744,
+        745,
+        746,
+        747,
+        748,
+        749,
+        750,
+        751,
+        752,
+        753,
+        754,
+        755,
+        756,
+        757,
+        758,
+        759,
+        760,
+        761,
+        762,
+        763,
+        764,
+        765,
+        766,
+        767,
+        768,
+        769,
+        770,
+        771,
+        772,
+        773,
+        774,
+        775,
+        776,
+        777,
+        778,
+        779,
+        780,
+        781,
+        782,
+        783,
+        784,
+        785,
+        786,
+        787,
+        788,
+        789,
+        790,
+        791,
+        792,
+        793,
+        794,
+        795,
+        796,
+        797,
+        798,
+        799,
+        800,
+        801,
+        802,
+        803,
+        804,
+        805,
+        806,
+        807,
+        808,
+        809,
+        810,
+        811,
+        812,
+        813,
+        814,
+        815,
+        816
+      ],
+      "status": "compared",
+      "observed": {
+        "duration_s": 5.684999999999945,
+        "stress_endpoints_MPa": [
+          234.81,
+          225.08
+        ],
+        "average_nonelastic_rate_per_s": 0.000011029517141205391,
+        "one_quantum_endpoint_sensitivity_per_s": 0.000003540701058734593,
+        "samples": 76
+      },
+      "predicted": {
+        "times_s": [
+          1.6090711888416434,
+          3.6842315811644464
+        ],
+        "duration_s": 2.075160392322803,
+        "average_nonelastic_rate_per_s": 0.00003021588363951304
+      }
+    },
+    {
+      "protocol": "SLC",
+      "cycle": 2,
+      "segment": 12,
+      "band_center_MPa": 190,
+      "source_indices": [
+        1781,
+        1782,
+        1783,
+        1784,
+        1785,
+        1786,
+        1787,
+        1788,
+        1789
+      ],
+      "status": "compared",
+      "observed": {
+        "duration_s": 47.84400000000005,
+        "stress_endpoints_MPa": [
+          193.28,
+          185.82
+        ],
+        "average_nonelastic_rate_per_s": 7.958009061099622e-7,
+        "one_quantum_endpoint_sensitivity_per_s": 4.207191187799086e-7,
+        "samples": 9
+      },
+      "predicted": {
+        "times_s": [
+          27.02546605821142,
+          40.57657002164186
+        ],
+        "duration_s": 13.551103963430435,
+        "average_nonelastic_rate_per_s": 0.000003547629675166072
+      }
+    },
+    {
+      "protocol": "SLC",
+      "cycle": 2,
+      "segment": 12,
+      "band_center_MPa": 210,
+      "source_indices": [
+        1752,
+        1753,
+        1754,
+        1755,
+        1756,
+        1757,
+        1758,
+        1759,
+        1760,
+        1761,
+        1762,
+        1763
+      ],
+      "status": "compared",
+      "observed": {
+        "duration_s": 16,
+        "stress_endpoints_MPa": [
+          214.31,
+          205.88
+        ],
+        "average_nonelastic_rate_per_s": 0.0000033953278886790255,
+        "one_quantum_endpoint_sensitivity_per_s": 0.000001258055344931623,
+        "samples": 12
+      },
+      "predicted": {
+        "times_s": [
+          8.362263080776128,
+          13.520711239909703
+        ],
+        "duration_s": 5.158448159133576,
+        "average_nonelastic_rate_per_s": 0.000010531315725771908
+      }
+    },
+    {
+      "protocol": "SLC",
+      "cycle": 2,
+      "segment": 12,
+      "band_center_MPa": 230,
+      "source_indices": [
+        1668,
+        1669,
+        1670,
+        1671,
+        1672,
+        1673,
+        1674,
+        1675,
+        1676,
+        1677,
+        1678,
+        1679,
+        1680,
+        1681,
+        1682,
+        1683,
+        1684,
+        1685,
+        1686,
+        1687,
+        1688,
+        1689,
+        1690,
+        1691,
+        1692,
+        1693,
+        1694,
+        1695,
+        1696,
+        1697,
+        1698,
+        1699,
+        1700,
+        1701,
+        1702,
+        1703,
+        1704,
+        1705,
+        1706,
+        1707,
+        1708,
+        1709,
+        1710,
+        1711,
+        1712,
+        1713,
+        1714,
+        1715,
+        1716,
+        1717,
+        1718,
+        1719,
+        1720,
+        1721,
+        1722,
+        1723,
+        1724,
+        1725,
+        1726,
+        1727,
+        1728,
+        1729,
+        1730,
+        1731,
+        1732,
+        1733,
+        1734,
+        1735,
+        1736,
+        1737,
+        1738,
+        1739,
+        1740,
+        1741,
+        1742
+      ],
+      "status": "compared",
+      "observed": {
+        "duration_s": 5.685999999999694,
+        "stress_endpoints_MPa": [
+          234.76,
+          225.06
+        ],
+        "average_nonelastic_rate_per_s": 0.00001099357662142041,
+        "one_quantum_endpoint_sensitivity_per_s": 0.0000035400783536593477,
+        "samples": 75
+      },
+      "predicted": {
+        "times_s": [
+          1.972202052333832,
+          4.246791794645377
+        ],
+        "duration_s": 2.2745897423115453,
+        "average_nonelastic_rate_per_s": 0.00002748164889105065
+      }
+    },
+    {
+      "protocol": "SLC",
+      "cycle": 3,
+      "segment": 19,
+      "band_center_MPa": 190,
+      "source_indices": [
+        2692,
+        2693,
+        2694,
+        2695,
+        2696,
+        2697,
+        2698,
+        2699,
+        2700,
+        2701
+      ],
+      "status": "compared",
+      "observed": {
+        "duration_s": 53.824000000000524,
+        "stress_endpoints_MPa": [
+          194.32,
+          185.45
+        ],
+        "average_nonelastic_rate_per_s": 0.0000012477840300757097,
+        "one_quantum_endpoint_sensitivity_per_s": 3.739760240581483e-7,
+        "samples": 10
+      },
+      "predicted": {
+        "times_s": [
+          25.97996410138046,
+          42.04276351227895
+        ],
+        "duration_s": 16.062799410898492,
+        "average_nonelastic_rate_per_s": 0.0000035585781888064776
+      }
+    },
+    {
+      "protocol": "SLC",
+      "cycle": 3,
+      "segment": 19,
+      "band_center_MPa": 210,
+      "source_indices": [
+        2663,
+        2664,
+        2665,
+        2666,
+        2667,
+        2668,
+        2669,
+        2670,
+        2671,
+        2672
+      ],
+      "status": "compared",
+      "observed": {
+        "duration_s": 14,
+        "stress_endpoints_MPa": [
+          214.28,
+          206.23
+        ],
+        "average_nonelastic_rate_per_s": 0.000002991172954260791,
+        "one_quantum_endpoint_sensitivity_per_s": 0.000001437777537064712,
+        "samples": 10
+      },
+      "predicted": {
+        "times_s": [
+          8.590081097232185,
+          13.541804910405546
+        ],
+        "duration_s": 4.951723813173361,
+        "average_nonelastic_rate_per_s": 0.000010476436755547546
+      }
+    },
+    {
+      "protocol": "SLC",
+      "cycle": 3,
+      "segment": 19,
+      "band_center_MPa": 230,
+      "source_indices": [
+        2565,
+        2566,
+        2567,
+        2568,
+        2569,
+        2570,
+        2571,
+        2572,
+        2573,
+        2574,
+        2575,
+        2576,
+        2577,
+        2578,
+        2579,
+        2580,
+        2581,
+        2582,
+        2583,
+        2584,
+        2585,
+        2586,
+        2587,
+        2588,
+        2589,
+        2590,
+        2591,
+        2592,
+        2593,
+        2594,
+        2595,
+        2596,
+        2597,
+        2598,
+        2599,
+        2600,
+        2601,
+        2602,
+        2603,
+        2604,
+        2605,
+        2606,
+        2607,
+        2608,
+        2609,
+        2610,
+        2611,
+        2612,
+        2613,
+        2614,
+        2615,
+        2616,
+        2617,
+        2618,
+        2619,
+        2620,
+        2621,
+        2622,
+        2623,
+        2624,
+        2625,
+        2626,
+        2627,
+        2628,
+        2629,
+        2630,
+        2631,
+        2632,
+        2633,
+        2634,
+        2635,
+        2636,
+        2637
+      ],
+      "status": "compared",
+      "observed": {
+        "duration_s": 5.446000000000822,
+        "stress_endpoints_MPa": [
+          234.96,
+          225.14
+        ],
+        "average_nonelastic_rate_per_s": 0.000011620049537792792,
+        "one_quantum_endpoint_sensitivity_per_s": 0.0000036960862135334062,
+        "samples": 73
+      },
+      "predicted": {
+        "times_s": [
+          2.0430217056370146,
+          4.373739240462372
+        ],
+        "duration_s": 2.3307175348253577,
+        "average_nonelastic_rate_per_s": 0.000027151634137240214
+      }
+    }
+  ],
+  "source_sha256": {
+    "RF": "128e6de1854f4633e26eced6c4ea221687cde2f232db275487ef0d1201767e0a",
+    "SLR": "34e26cae1816ec4b712a4cec5811e0a0c66bad34848c10d962528085171fcabb",
+    "SLC": "ab2953c0cfa6335619c8b699728aa73233f8d2209af39b709916ab3fd392683e"
+  },
+  "modulus_MPa": 155176.47110217228,
+  "scope": "Early positive holds at aligned stress endpoints; inferred nonelasticity, not measured mechanism shares",
+  "fitted": false,
+  "engineering_qualified": false,
+  "acceptance_thresholds_changed": false,
+  "frozen_sha256": "252091f1c077430c5bfa9ce40eaea8cd10520ee0501de5c34e55f2662b7ec937"
+}

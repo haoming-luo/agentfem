@@ -42,6 +42,15 @@ def numerical_difference(a, b, *, extra_strain_indices=(),
                  for x, y in pairs)
     strain = max(float(np.max(abs(np.asarray(x["sampled_strain"])-y["sampled_strain"])))
                  for x, y in pairs)
+    extrema = 0.
+    for x, y in zip(a.get("cycles", ()), b.get("cycles", ()), strict=True):
+        if x["cycle"] != y["cycle"]:
+            raise ValueError("Numerical comparison cycle identities differ")
+        for key in ("sampled_peak_MPa", "sampled_valley_MPa"):
+            if not np.isfinite([x[key], y[key]]).all():
+                raise ValueError("Numerical comparison requires finite cycle extrema")
+            extrema = max(extrema, abs(x[key]-y[key]))
+    stress = max(stress, extrema)
     delta = np.asarray([np.asarray(x["end_state"])-y["end_state"] for x, y in pairs])
     groups = (*stress_state_indices, 3, 6, 7, *extra_strain_indices, 8, 9, *dimensionless_indices)
     if len(groups) != delta.shape[1] or set(groups) != set(range(delta.shape[1])):
@@ -53,6 +62,7 @@ def numerical_difference(a, b, *, extra_strain_indices=(),
     return dict(stress_state_difference_MPa=stress, strain_state_difference=strain,
                 work_dissipation_difference_MPa=energy,
                 dimensionless_state_difference=dimensionless,
+                cycle_extrema_difference_MPa=extrema,
                 passed=bool(stress < 1e-4 and strain < 1e-8 and energy < 1e-6 and dimensionless < 1e-8))
 
 

@@ -54,3 +54,17 @@ def test_numerical_check_requires_same_observations_and_nonempty_segments():
         numerical_difference(a, b)
     with pytest.raises(ValueError, match="completed"):
         numerical_difference(dict(segments=[]), dict(segments=[]))
+
+
+def test_numerical_check_includes_cycle_extrema_not_just_observation_samples():
+    from copy import deepcopy
+    a = dict(cycles=[dict(cycle=1, sampled_peak_MPa=2., sampled_valley_MPa=-1.)],
+             segments=[dict(sampled_stress_MPa=[1.], sampled_strain=[.001], end_state=[0.]*10)])
+    b = deepcopy(a)
+    b["cycles"][0]["sampled_peak_MPa"] += .01
+    report = numerical_difference(a, b)
+    assert not report["passed"]
+    assert report["cycle_extrema_difference_MPa"] == pytest.approx(.01)
+    b["cycles"][0]["cycle"] = 2
+    with pytest.raises(ValueError, match="cycle identities"):
+        numerical_difference(a, b)

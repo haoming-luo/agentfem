@@ -50,3 +50,29 @@ Do not compare a refitted hypothesis solely to an unfitted baseline. No new
 cycle-dependent coefficient or condition-specific parameter is introduced.
 Freeze converged cards and retain all original response gates; any selection
 based on already inspected cycles remains development, not blind validation.
+
+## Observation and numerical cross-check
+
+A separate fixed-card audit of cycles 1, 3 and 10 found no omitted measured
+SLR extrema and no difference between SLR solver-point and observation-point
+predicted extrema. RF/SLC predicted sampling differences reach about 1.93 MPa;
+they cannot explain the dominant SLR/post-creep mismatch. The response gates
+are unchanged. Cycle peaks/valleys themselves now enter the independent
+numerical comparison. All three baseline protocols pass this strengthened
+check, with maximum independent cycle-extrema difference below 4.8e-7 MPa.
+Evidence: `evidence/creep/2026-11-21-spectrum-extrema-check.json`.
+
+## Matched-budget outcome
+
+Both fits terminated after eight optimizer iterations. Linear recovery used
+238 residual calls and reached cost 0.0023607800; nonlinear recovery used 258
+and reached 0.0023958776. The nonlinear hypothesis did not beat its matched
+control. Both derivative-scale/subspace audits passed their predeclared gates.
+
+Frozen ten-cycle continuations completed in RF, SLR and SLC. All independent
+integration and refinement checks passed, including full internal state and
+cycle extrema. All three experimental response screens still failed for each
+card. No tolerance, observation selection or late-cycle calibration was changed.
+Keep this as a negative model-discrimination result, not an accepted material.
+The four `2026-11-21-recovery-matched-*` evidence files retain identification,
+source/implementation identities, response screens and numerical comparisons.

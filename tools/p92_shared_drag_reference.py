@@ -51,8 +51,12 @@ class Material:
             raise ValueError("Invalid shared-drag reference parameters")
 
 
-def published_table2():
-    """Transcription of 10%Cr/600 C table, NOT a P92/620 C parameter card."""
+def unverified_table2_transcription():
+    """Unverified PDF-text values; exponent extraction conflicts with HTML.
+
+    Preserved to reproduce a failed diagnostic, not an approved paper card.
+    Original-table visual verification and loading units remain unresolved.
+    """
     return Material(132000., 327., (.141, 1.46e-18), (12.1, 278.),
         (82000., 21200., 10100.), (1870., 95.2, .673), (2270., 1110., 287.),
         (3760., 174., 30.9), (.0246, 6.10e-6, 5.66e-6),

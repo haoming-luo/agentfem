@@ -22,7 +22,7 @@ def elastic_stress_step(state, target, material):
 
 
 def benchmark(*, method="Radau", rtol=1e-9):
-    mat = kernel.published_table2()
+    mat = kernel.unverified_table2_transcription()
     initial = elastic_stress_step(np.zeros(12), 210., mat)
     forward = kernel.integrate(initial, 15*3600., 0., mat, stress_control=True, method=method, rtol=rtol)
     virgin_rate = kernel.rates(initial, 0., mat, stress_control=True)[6]
@@ -44,6 +44,7 @@ def benchmark(*, method="Radau", rtol=1e-9):
     return dict(schema="agentfem.research.shared-drag-ideal-stress-check.v1",
         source_doi="10.1016/j.ijmecsci.2020.106044", original_material="10%Cr at 600 C, not P92 at 620 C",
         model_id=kernel.MODEL_ID, parameters=asdict(mat), method=method, rtol=rtol, records=records,
+        table_transcription_verified=False, published_reproduction_verified=False,
         independent_experimental_validation=False, engineering_qualified=False,
         scope="Declared 210 MPa/15 h, reverse/1 h, 210 MPa/15 h ideal-step discriminator; not digitized paper curves")
 

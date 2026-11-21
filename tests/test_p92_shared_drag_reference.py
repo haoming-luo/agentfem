@@ -13,8 +13,8 @@ def material():
         (1/20000., 1/40000.), (.5, 10.))
 
 
-def test_published_card_and_exact_zero_load_drag_decay():
-    mat = shared.published_table2()
+def test_unverified_transcription_and_exact_zero_load_drag_decay():
+    mat = shared.unverified_table2_transcription()
     assert mat.modulus == 132000. and mat.initial_drag == 327.
     assert mat.exponents == (12.1, 278.)
     old = np.zeros(12)
@@ -68,7 +68,7 @@ def test_wrong_state_and_disabled_component_fail_without_mutation():
     old = np.zeros(12)
     old[10] = .001
     with pytest.raises(ValueError, match="Disabled"):
-        shared.integrate(old, 1., 0., shared.published_table2())
+        shared.integrate(old, 1., 0., shared.unverified_table2_transcription())
     with pytest.raises(ValueError):
         replace(material(), initial_drag=0.)
     old[3], old[6] = .001, .01

@@ -1,5 +1,28 @@
 # AgentFEM Product Roadmap
 
+### Matched recovery and history-interaction checkpoint (2026-11-21)
+
+The matched early-only identification is complete: nonlinear static recovery
+does not outperform the same-budget linear control (cost 0.002396 versus
+0.002361). Both frozen cards pass independent integration and refinement over
+ten continuous cycles, but fail the experimental response gates in all three
+protocols. This is numerical verification, not P92 or life validation.
+
+The [equal-stress hold audit](internal/p92_equal_stress_memory_20261121.md)
+isolates a useful missing distinction: post-creep SLC relaxes appreciably
+slower than SLR at the same stress, whereas the current card predicts similar
+rates. Endpoint quantization sensitivity is reported separately from uncertainty.
+Fixed-card [energetic coupling](internal/p92_mechanism_coupling_20261121.md)
+and [kinetic cross-drag](internal/p92_cross_drag_design_20261121.md) probes
+both worsen aggregate early response and are not promoted to production.
+
+Next gate: distinguish history-dependent drag from isotropic strength recovery
+using early holds, reverse-loading extrema and source-supported mechanism
+equations together. A new model must improve compatible observables with one
+shared card before identification, then beat a matched control and pass frozen
+continuous-path checks. Do not widen fitted bounds or use later cycles to
+declare independent validation. PR #197 remains open; no release or merge.
+
 ### Shared-drag rejection and recovery-law discrimination (2026-11-21)
 
 The [shared-drag comparison](internal/p92_shared_drag_reference_20261121.md)
@@ -9,8 +32,8 @@ published-table transcription remains unverified and is not a material card.
 The [nonlinear static-recovery discriminator](internal/p92_nonlinear_static_recovery_20261121.md)
 uses a literature-supported structural change with unchanged parameters first.
 Some early SLR/SLC observables improve together, but aggregate error worsens.
-A matched-budget early-only identification is in progress; no success is
-claimed. Failed frozen paths now retain structured reports, and numerical
+A matched-budget early-only identification is complete and unsuccessful as
+a model upgrade (see checkpoint above). Failed frozen paths retain structured reports, and numerical
 comparison checks material/source identity, observation alignment, finite
 arrays and every internal-state coordinate. PR #197 remains unmerged.
 
