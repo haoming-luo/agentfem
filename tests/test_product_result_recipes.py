@@ -102,7 +102,7 @@ def test_fresh_installed_style_discover_repair_run_show(tmp_path):
 
 def test_result_menu_keeps_missing_and_legacy_metadata_unknown(tmp_path):
     from copy import deepcopy
-    from agentfem._result_menu import result_menu
+    from agentfem._result_menu import result_menu, format_menu
     record = {'schema':'agentfem.simulation-result','status':'partial',
         'artifacts':{'fields_hdf5':'not-delivered.h5'},
         'history_records':[{'name':'old_curve','sample_count':3}]}
@@ -113,5 +113,7 @@ def test_result_menu_keeps_missing_and_legacy_metadata_unknown(tmp_path):
     assert menu['missing_files']==['fields_hdf5'] and record==before
     result = results.SimulationResult('missing-history')
     result.verify(required_histories=('required_curve',))
-    failed = result_menu(result.manifest(),tmp_path/'missing.json')['failed_requirements']
+    missing_menu = result_menu(result.manifest(),tmp_path/'missing.json')
+    failed = missing_menu['failed_requirements']
     assert any(item['name']=='required_outputs_present' for item in failed)
+    assert 'required_curve' in '\n'.join(format_menu(missing_menu))

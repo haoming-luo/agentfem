@@ -44,6 +44,9 @@ def result_menu(record, path):
 
 def format_menu(menu):
     lines = []
+    if menu["recommended_visualization"]:
+        lines.append(f"  visualization: {menu['recommended_visualization']}; "
+            f"geometry={menu['geometry'] or 'unknown'}")
     for item in menu["fields"]:
         lines.append(f"  field {item['name']}: {item['location'] or 'unknown location'}; "
             f"shape={item['value_shape']}; unit={item['unit'] or 'unknown'}")
@@ -54,4 +57,6 @@ def format_menu(menu):
     lines.append(f"  saved field frames: {menu['frame_count'] if menu['frame_count'] is not None else 'unknown'}")
     if menu['missing_files']:
         lines.append("  MISSING files: " + ", ".join(menu['missing_files']))
+    for item in menu["failed_requirements"]:
+        lines.append(f"  FAILED check {item.get('name')}: {item.get('actual')}")
     return lines
