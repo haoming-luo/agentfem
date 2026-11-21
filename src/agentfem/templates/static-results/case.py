@@ -19,9 +19,7 @@ def main():
     model.clamp(u, on=fixed)
     model.traction((0., -1e6, 0.), on=loaded)
     step = model.step(target=u)
-    result = step.solve_result()
-    for field in results.small_strain_cell_fields(u, material, study=study, variables=("S",)):
-        result.add_field(field.name, field, location="cells", unit="Pa")
+    result = step.solve_result(field_variables=("S",))
     result.add_quantity("tip_U2", results.probe(u, at=(1., .1, .1))[1], unit="m",
         description="Interpolated displacement at the specified reference point.")
     result.add_quantity("fixed_reaction", results.reaction_resultant(step, on=fixed), unit="N",
