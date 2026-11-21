@@ -1,0 +1,1721 @@
+{
+  "schema": "agentfem.research.early-gate-diagnostic.v1",
+  "protocols": {
+    "RF": {
+      "response_screen": {
+        "policy": {
+          "identity": "p92-bam-response-development-20261121",
+          "stress_absolute_MPa": 5.0,
+          "stress_relative": 0.05,
+          "strain_absolute": 2e-05,
+          "strain_excursion_relative": 0.1,
+          "secant_relative": 0.2,
+          "minimum_resolution_units": 5.0,
+          "stress_resolution_MPa": 0.01,
+          "strain_resolution": 1e-05
+        },
+        "status": "failed",
+        "checks": [
+          {
+            "name": "complete_continuous_path",
+            "status": "passed"
+          },
+          {
+            "name": "observation_coverage",
+            "status": "passed"
+          },
+          {
+            "name": "peak_stress",
+            "error": 14.371831546993235,
+            "limit": 12.868500000000001,
+            "status": "failed",
+            "cycle": 1,
+            "unit": "MPa"
+          },
+          {
+            "name": "valley_stress",
+            "error": 4.254339529677566,
+            "limit": 15.3465,
+            "status": "passed",
+            "cycle": 1,
+            "unit": "MPa"
+          },
+          {
+            "name": "peak_stress",
+            "error": 15.207517867053468,
+            "limit": 14.645500000000002,
+            "status": "failed",
+            "cycle": 2,
+            "unit": "MPa"
+          },
+          {
+            "name": "valley_stress",
+            "error": 11.244599529416007,
+            "limit": 14.905000000000001,
+            "status": "passed",
+            "cycle": 2,
+            "unit": "MPa"
+          },
+          {
+            "name": "peak_stress",
+            "error": 18.04560632031138,
+            "limit": 14.514,
+            "status": "failed",
+            "cycle": 3,
+            "unit": "MPa"
+          },
+          {
+            "name": "valley_stress",
+            "error": 13.775991150867242,
+            "limit": 14.731000000000002,
+            "status": "passed",
+            "cycle": 3,
+            "unit": "MPa"
+          },
+          {
+            "name": "hold_stress_MPa_rms",
+            "error": 7.854586543047984,
+            "limit": 12.868500000000001,
+            "status": "passed",
+            "cycle": 1,
+            "segment": 1
+          },
+          {
+            "name": "hold_stress_MPa_last",
+            "error": 10.01716682029982,
+            "limit": 12.868500000000001,
+            "status": "passed",
+            "cycle": 1,
+            "segment": 1
+          },
+          {
+            "name": "early_stress_MPa_secant",
+            "error": 0.43112455022136204,
+            "limit": 0.2,
+            "status": "failed",
+            "resolution_units": 5325.0,
+            "cycle": 1,
+            "segment": 1
+          },
+          {
+            "name": "late_stress_MPa_secant",
+            "error": 0.20829030671917897,
+            "limit": 0.2,
+            "status": "failed",
+            "resolution_units": 267.99999999999784,
+            "cycle": 1,
+            "segment": 1
+          },
+          {
+            "name": "hold_stress_MPa_rms",
+            "error": 10.378160815363037,
+            "limit": 15.3465,
+            "status": "passed",
+            "cycle": 1,
+            "segment": 3
+          },
+          {
+            "name": "hold_stress_MPa_last",
+            "error": 15.62364038575376,
+            "limit": 15.3465,
+            "status": "failed",
+            "cycle": 1,
+            "segment": 3
+          },
+          {
+            "name": "early_stress_MPa_secant",
+            "error": 0.18526672873137934,
+            "limit": 0.2,
+            "status": "passed",
+            "resolution_units": 9003.0,
+            "cycle": 1,
+            "segment": 3
+          },
+          {
+            "name": "late_stress_MPa_secant",
+            "error": 0.32855981042753585,
+            "limit": 0.2,
+            "status": "failed",
+            "resolution_units": 194.99999999999886,
+            "cycle": 1,
+            "segment": 3
+          },
+          {
+            "name": "hold_stress_MPa_rms",
+            "error": 9.197245962101045,
+            "limit": 14.645500000000002,
+            "status": "passed",
+            "cycle": 2,
+            "segment": 6
+          },
+          {
+            "name": "hold_stress_MPa_last",
+            "error": 11.4110216234794,
+            "limit": 14.645500000000002,
+            "status": "passed",
+            "cycle": 2,
+            "segment": 6
+          },
+          {
+            "name": "early_stress_MPa_secant",
+            "error": 0.3008100799573709,
+            "limit": 0.2,
+            "status": "failed",
+            "resolution_units": 8205.000000000002,
+            "cycle": 2,
+            "segment": 6
+          },
+          {
+            "name": "late_stress_MPa_secant",
+            "error": 0.02553489626736387,
+            "limit": 0.2,
+            "status": "passed",
+            "resolution_units": 242.0000000000016,
+            "cycle": 2,
+            "segment": 6
+          },
+          {
+            "name": "hold_stress_MPa_rms",
+            "error": 9.39911213422498,
+            "limit": 14.893500000000001,
+            "status": "passed",
+            "cycle": 2,
+            "segment": 8
+          },
+          {
+            "name": "hold_stress_MPa_last",
+            "error": 16.359727943813965,
+            "limit": 14.893500000000001,
+            "status": "failed",
+            "cycle": 2,
+            "segment": 8
+          },
+          {
+            "name": "early_stress_MPa_secant",
+            "error": 0.2507363972473128,
+            "limit": 0.2,
+            "status": "failed",
+            "resolution_units": 8543.0,
+            "cycle": 2,
+            "segment": 8
+          },
+          {
+            "name": "late_stress_MPa_secant",
+            "error": 0.07009331193588937,
+            "limit": 0.2,
+            "status": "passed",
+            "resolution_units": 231.00000000000023,
+            "cycle": 2,
+            "segment": 8
+          },
+          {
+            "name": "hold_stress_MPa_rms",
+            "error": 9.430570742023768,
+            "limit": 14.514,
+            "status": "passed",
+            "cycle": 3,
+            "segment": 11
+          },
+          {
+            "name": "hold_stress_MPa_last",
+            "error": 13.199022087480955,
+            "limit": 14.514,
+            "status": "passed",
+            "cycle": 3,
+            "segment": 11
+          },
+          {
+            "name": "early_stress_MPa_secant",
+            "error": 0.3387968786675438,
+            "limit": 0.2,
+            "status": "failed",
+            "resolution_units": 7922.999999999996,
+            "cycle": 3,
+            "segment": 11
+          },
+          {
+            "name": "late_stress_MPa_secant",
+            "error": 0.11600950003973297,
+            "limit": 0.2,
+            "status": "passed",
+            "resolution_units": 273.0000000000018,
+            "cycle": 3,
+            "segment": 11
+          },
+          {
+            "name": "hold_stress_MPa_rms",
+            "error": 9.41156118902966,
+            "limit": 14.731000000000002,
+            "status": "passed",
+            "cycle": 3,
+            "segment": 13
+          },
+          {
+            "name": "hold_stress_MPa_last",
+            "error": 17.25295113300257,
+            "limit": 14.731000000000002,
+            "status": "failed",
+            "cycle": 3,
+            "segment": 13
+          },
+          {
+            "name": "early_stress_MPa_secant",
+            "error": 0.2546344551952457,
+            "limit": 0.2,
+            "status": "failed",
+            "resolution_units": 8446.999999999998,
+            "cycle": 3,
+            "segment": 13
+          },
+          {
+            "name": "late_stress_MPa_secant",
+            "error": 0.3398724328850551,
+            "limit": 0.2,
+            "status": "failed",
+            "resolution_units": 369.99999999999886,
+            "cycle": 3,
+            "segment": 13
+          }
+        ],
+        "engineering_qualified": false,
+        "life_qualified": false,
+        "scope": "Project development screen; not independent validation or standards certification"
+      },
+      "summary": {
+        "keys": [
+          [
+            "peak_stress",
+            1,
+            null
+          ],
+          [
+            "valley_stress",
+            1,
+            null
+          ],
+          [
+            "peak_stress",
+            2,
+            null
+          ],
+          [
+            "valley_stress",
+            2,
+            null
+          ],
+          [
+            "peak_stress",
+            3,
+            null
+          ],
+          [
+            "valley_stress",
+            3,
+            null
+          ],
+          [
+            "hold_stress_MPa_rms",
+            1,
+            1
+          ],
+          [
+            "hold_stress_MPa_last",
+            1,
+            1
+          ],
+          [
+            "early_stress_MPa_secant",
+            1,
+            1
+          ],
+          [
+            "late_stress_MPa_secant",
+            1,
+            1
+          ],
+          [
+            "hold_stress_MPa_rms",
+            1,
+            3
+          ],
+          [
+            "hold_stress_MPa_last",
+            1,
+            3
+          ],
+          [
+            "early_stress_MPa_secant",
+            1,
+            3
+          ],
+          [
+            "late_stress_MPa_secant",
+            1,
+            3
+          ],
+          [
+            "hold_stress_MPa_rms",
+            2,
+            6
+          ],
+          [
+            "hold_stress_MPa_last",
+            2,
+            6
+          ],
+          [
+            "early_stress_MPa_secant",
+            2,
+            6
+          ],
+          [
+            "late_stress_MPa_secant",
+            2,
+            6
+          ],
+          [
+            "hold_stress_MPa_rms",
+            2,
+            8
+          ],
+          [
+            "hold_stress_MPa_last",
+            2,
+            8
+          ],
+          [
+            "early_stress_MPa_secant",
+            2,
+            8
+          ],
+          [
+            "late_stress_MPa_secant",
+            2,
+            8
+          ],
+          [
+            "hold_stress_MPa_rms",
+            3,
+            11
+          ],
+          [
+            "hold_stress_MPa_last",
+            3,
+            11
+          ],
+          [
+            "early_stress_MPa_secant",
+            3,
+            11
+          ],
+          [
+            "late_stress_MPa_secant",
+            3,
+            11
+          ],
+          [
+            "hold_stress_MPa_rms",
+            3,
+            13
+          ],
+          [
+            "hold_stress_MPa_last",
+            3,
+            13
+          ],
+          [
+            "early_stress_MPa_secant",
+            3,
+            13
+          ],
+          [
+            "late_stress_MPa_secant",
+            3,
+            13
+          ]
+        ],
+        "unresolved": [],
+        "maximum_normalized_error": 2.1556227511068102,
+        "failed_count": 14
+      }
+    },
+    "SLR": {
+      "response_screen": {
+        "policy": {
+          "identity": "p92-bam-response-development-20261121",
+          "stress_absolute_MPa": 5.0,
+          "stress_relative": 0.05,
+          "strain_absolute": 2e-05,
+          "strain_excursion_relative": 0.1,
+          "secant_relative": 0.2,
+          "minimum_resolution_units": 5.0,
+          "stress_resolution_MPa": 0.01,
+          "strain_resolution": 1e-05
+        },
+        "status": "failed",
+        "checks": [
+          {
+            "name": "complete_continuous_path",
+            "status": "passed"
+          },
+          {
+            "name": "observation_coverage",
+            "status": "passed"
+          },
+          {
+            "name": "peak_stress",
+            "error": 28.465994765484254,
+            "limit": 13.916,
+            "status": "failed",
+            "cycle": 1,
+            "unit": "MPa"
+          },
+          {
+            "name": "valley_stress",
+            "error": 17.420950526725903,
+            "limit": 12.8815,
+            "status": "failed",
+            "cycle": 1,
+            "unit": "MPa"
+          },
+          {
+            "name": "peak_stress",
+            "error": 31.517763316620005,
+            "limit": 13.77,
+            "status": "failed",
+            "cycle": 2,
+            "unit": "MPa"
+          },
+          {
+            "name": "valley_stress",
+            "error": 17.24756479480459,
+            "limit": 14.405000000000001,
+            "status": "failed",
+            "cycle": 2,
+            "unit": "MPa"
+          },
+          {
+            "name": "peak_stress",
+            "error": 32.652701639300176,
+            "limit": 13.62,
+            "status": "failed",
+            "cycle": 3,
+            "unit": "MPa"
+          },
+          {
+            "name": "valley_stress",
+            "error": 21.458545115815525,
+            "limit": 14.222999999999999,
+            "status": "failed",
+            "cycle": 3,
+            "unit": "MPa"
+          },
+          {
+            "name": "hold_stress_MPa_rms",
+            "error": 10.661020883034547,
+            "limit": 12.765,
+            "status": "passed",
+            "cycle": 1,
+            "segment": 1
+          },
+          {
+            "name": "hold_stress_MPa_last",
+            "error": 19.82318420626038,
+            "limit": 12.765,
+            "status": "failed",
+            "cycle": 1,
+            "segment": 1
+          },
+          {
+            "name": "early_stress_MPa_secant",
+            "error": 0.4404275724972155,
+            "limit": 0.2,
+            "status": "failed",
+            "resolution_units": 5314.000000000002,
+            "cycle": 1,
+            "segment": 1
+          },
+          {
+            "name": "late_stress_MPa_secant",
+            "error": 0.6066446053846882,
+            "limit": 0.2,
+            "status": "failed",
+            "resolution_units": 490.00000000000057,
+            "cycle": 1,
+            "segment": 1
+          },
+          {
+            "name": "hold_stress_MPa_rms",
+            "error": 15.465918293490232,
+            "limit": 5.9985,
+            "status": "failed",
+            "cycle": 1,
+            "segment": 3
+          },
+          {
+            "name": "hold_stress_MPa_last",
+            "error": 23.372702553672312,
+            "limit": 5.9985,
+            "status": "failed",
+            "cycle": 1,
+            "segment": 3
+          },
+          {
+            "name": "early_stress_MPa_secant",
+            "error": 0.3499610614571855,
+            "limit": 0.2,
+            "status": "failed",
+            "resolution_units": 3368.9999999999995,
+            "cycle": 1,
+            "segment": 3
+          },
+          {
+            "name": "late_stress_MPa_secant",
+            "error": 0.8678065763615929,
+            "limit": 0.2,
+            "status": "failed",
+            "resolution_units": 119.00000000000048,
+            "cycle": 1,
+            "segment": 3
+          },
+          {
+            "name": "hold_stress_MPa_rms",
+            "error": 13.967736102291681,
+            "limit": 13.751,
+            "status": "failed",
+            "cycle": 1,
+            "segment": 5
+          },
+          {
+            "name": "hold_stress_MPa_last",
+            "error": 16.38816646518592,
+            "limit": 13.751,
+            "status": "failed",
+            "cycle": 1,
+            "segment": 5
+          },
+          {
+            "name": "early_stress_MPa_secant",
+            "error": 0.5060717377960127,
+            "limit": 0.2,
+            "status": "failed",
+            "resolution_units": 6514.999999999997,
+            "cycle": 1,
+            "segment": 5
+          },
+          {
+            "name": "late_stress_MPa_secant",
+            "error": 0.3766605733897425,
+            "limit": 0.2,
+            "status": "failed",
+            "resolution_units": 365.00000000000057,
+            "cycle": 1,
+            "segment": 5
+          },
+          {
+            "name": "hold_stress_MPa_rms",
+            "error": 12.872723786409361,
+            "limit": 14.1165,
+            "status": "passed",
+            "cycle": 2,
+            "segment": 8
+          },
+          {
+            "name": "hold_stress_MPa_last",
+            "error": 25.290645992808948,
+            "limit": 14.1165,
+            "status": "failed",
+            "cycle": 2,
+            "segment": 8
+          },
+          {
+            "name": "early_stress_MPa_secant",
+            "error": 0.35654417809471184,
+            "limit": 0.2,
+            "status": "failed",
+            "resolution_units": 7369.999999999999,
+            "cycle": 2,
+            "segment": 8
+          },
+          {
+            "name": "late_stress_MPa_secant",
+            "error": 0.45275760485393746,
+            "limit": 0.2,
+            "status": "failed",
+            "resolution_units": 371.9999999999999,
+            "cycle": 2,
+            "segment": 8
+          },
+          {
+            "name": "hold_stress_MPa_rms",
+            "error": 11.961363664392408,
+            "limit": 5.846,
+            "status": "failed",
+            "cycle": 2,
+            "segment": 10
+          },
+          {
+            "name": "hold_stress_MPa_last",
+            "error": 19.775141495236262,
+            "limit": 5.846,
+            "status": "failed",
+            "cycle": 2,
+            "segment": 10
+          },
+          {
+            "name": "early_stress_MPa_secant",
+            "error": 0.5453933089172246,
+            "limit": 0.2,
+            "status": "failed",
+            "resolution_units": 2820.0,
+            "cycle": 2,
+            "segment": 10
+          },
+          {
+            "name": "late_stress_MPa_secant",
+            "error": 1.2575737735446313,
+            "limit": 0.2,
+            "status": "failed",
+            "resolution_units": 60.99999999999994,
+            "cycle": 2,
+            "segment": 10
+          },
+          {
+            "name": "hold_stress_MPa_rms",
+            "error": 14.588106585438618,
+            "limit": 13.570500000000003,
+            "status": "failed",
+            "cycle": 2,
+            "segment": 12
+          },
+          {
+            "name": "hold_stress_MPa_last",
+            "error": 10.181849539815914,
+            "limit": 13.570500000000003,
+            "status": "passed",
+            "cycle": 2,
+            "segment": 12
+          },
+          {
+            "name": "early_stress_MPa_secant",
+            "error": 0.605643498976224,
+            "limit": 0.2,
+            "status": "failed",
+            "resolution_units": 6070.000000000002,
+            "cycle": 2,
+            "segment": 12
+          },
+          {
+            "name": "late_stress_MPa_secant",
+            "error": 0.19766359025394106,
+            "limit": 0.2,
+            "status": "passed",
+            "resolution_units": 186.00000000000136,
+            "cycle": 2,
+            "segment": 12
+          },
+          {
+            "name": "hold_stress_MPa_rms",
+            "error": 13.412941261712579,
+            "limit": 13.948500000000003,
+            "status": "passed",
+            "cycle": 3,
+            "segment": 15
+          },
+          {
+            "name": "hold_stress_MPa_last",
+            "error": 24.049380060139185,
+            "limit": 13.948500000000003,
+            "status": "failed",
+            "cycle": 3,
+            "segment": 15
+          },
+          {
+            "name": "early_stress_MPa_secant",
+            "error": 0.40887244282417395,
+            "limit": 0.2,
+            "status": "failed",
+            "resolution_units": 7111.000000000001,
+            "cycle": 3,
+            "segment": 15
+          },
+          {
+            "name": "late_stress_MPa_secant",
+            "error": 0.41198359228556974,
+            "limit": 0.2,
+            "status": "failed",
+            "resolution_units": 350.0,
+            "cycle": 3,
+            "segment": 15
+          },
+          {
+            "name": "hold_stress_MPa_rms",
+            "error": 10.814165921636311,
+            "limit": 6.144,
+            "status": "failed",
+            "cycle": 3,
+            "segment": 17
+          },
+          {
+            "name": "hold_stress_MPa_last",
+            "error": 17.936917538321254,
+            "limit": 6.144,
+            "status": "failed",
+            "cycle": 3,
+            "segment": 17
+          },
+          {
+            "name": "early_stress_MPa_secant",
+            "error": 0.39854768966494003,
+            "limit": 0.2,
+            "status": "failed",
+            "resolution_units": 3261.0,
+            "cycle": 3,
+            "segment": 17
+          },
+          {
+            "name": "late_stress_MPa_secant",
+            "error": 1.1726294420564365,
+            "limit": 0.2,
+            "status": "failed",
+            "resolution_units": 90.99999999999966,
+            "cycle": 3,
+            "segment": 17
+          },
+          {
+            "name": "hold_stress_MPa_rms",
+            "error": 15.496642679971538,
+            "limit": 13.4475,
+            "status": "failed",
+            "cycle": 3,
+            "segment": 19
+          },
+          {
+            "name": "hold_stress_MPa_last",
+            "error": 9.636003715655136,
+            "limit": 13.4475,
+            "status": "passed",
+            "cycle": 3,
+            "segment": 19
+          },
+          {
+            "name": "early_stress_MPa_secant",
+            "error": 0.6648359645152673,
+            "limit": 0.2,
+            "status": "failed",
+            "resolution_units": 5847.0,
+            "cycle": 3,
+            "segment": 19
+          },
+          {
+            "name": "late_stress_MPa_secant",
+            "error": 0.41678302590958577,
+            "limit": 0.2,
+            "status": "failed",
+            "resolution_units": 379.99999999999835,
+            "cycle": 3,
+            "segment": 19
+          }
+        ],
+        "engineering_qualified": false,
+        "life_qualified": false,
+        "scope": "Project development screen; not independent validation or standards certification"
+      },
+      "summary": {
+        "keys": [
+          [
+            "peak_stress",
+            1,
+            null
+          ],
+          [
+            "valley_stress",
+            1,
+            null
+          ],
+          [
+            "peak_stress",
+            2,
+            null
+          ],
+          [
+            "valley_stress",
+            2,
+            null
+          ],
+          [
+            "peak_stress",
+            3,
+            null
+          ],
+          [
+            "valley_stress",
+            3,
+            null
+          ],
+          [
+            "hold_stress_MPa_rms",
+            1,
+            1
+          ],
+          [
+            "hold_stress_MPa_last",
+            1,
+            1
+          ],
+          [
+            "early_stress_MPa_secant",
+            1,
+            1
+          ],
+          [
+            "late_stress_MPa_secant",
+            1,
+            1
+          ],
+          [
+            "hold_stress_MPa_rms",
+            1,
+            3
+          ],
+          [
+            "hold_stress_MPa_last",
+            1,
+            3
+          ],
+          [
+            "early_stress_MPa_secant",
+            1,
+            3
+          ],
+          [
+            "late_stress_MPa_secant",
+            1,
+            3
+          ],
+          [
+            "hold_stress_MPa_rms",
+            1,
+            5
+          ],
+          [
+            "hold_stress_MPa_last",
+            1,
+            5
+          ],
+          [
+            "early_stress_MPa_secant",
+            1,
+            5
+          ],
+          [
+            "late_stress_MPa_secant",
+            1,
+            5
+          ],
+          [
+            "hold_stress_MPa_rms",
+            2,
+            8
+          ],
+          [
+            "hold_stress_MPa_last",
+            2,
+            8
+          ],
+          [
+            "early_stress_MPa_secant",
+            2,
+            8
+          ],
+          [
+            "late_stress_MPa_secant",
+            2,
+            8
+          ],
+          [
+            "hold_stress_MPa_rms",
+            2,
+            10
+          ],
+          [
+            "hold_stress_MPa_last",
+            2,
+            10
+          ],
+          [
+            "early_stress_MPa_secant",
+            2,
+            10
+          ],
+          [
+            "late_stress_MPa_secant",
+            2,
+            10
+          ],
+          [
+            "hold_stress_MPa_rms",
+            2,
+            12
+          ],
+          [
+            "hold_stress_MPa_last",
+            2,
+            12
+          ],
+          [
+            "early_stress_MPa_secant",
+            2,
+            12
+          ],
+          [
+            "late_stress_MPa_secant",
+            2,
+            12
+          ],
+          [
+            "hold_stress_MPa_rms",
+            3,
+            15
+          ],
+          [
+            "hold_stress_MPa_last",
+            3,
+            15
+          ],
+          [
+            "early_stress_MPa_secant",
+            3,
+            15
+          ],
+          [
+            "late_stress_MPa_secant",
+            3,
+            15
+          ],
+          [
+            "hold_stress_MPa_rms",
+            3,
+            17
+          ],
+          [
+            "hold_stress_MPa_last",
+            3,
+            17
+          ],
+          [
+            "early_stress_MPa_secant",
+            3,
+            17
+          ],
+          [
+            "late_stress_MPa_secant",
+            3,
+            17
+          ],
+          [
+            "hold_stress_MPa_rms",
+            3,
+            19
+          ],
+          [
+            "hold_stress_MPa_last",
+            3,
+            19
+          ],
+          [
+            "early_stress_MPa_secant",
+            3,
+            19
+          ],
+          [
+            "late_stress_MPa_secant",
+            3,
+            19
+          ]
+        ],
+        "unresolved": [],
+        "maximum_normalized_error": 6.287868867723156,
+        "failed_count": 36
+      }
+    },
+    "SLC": {
+      "response_screen": {
+        "policy": {
+          "identity": "p92-bam-response-development-20261121",
+          "stress_absolute_MPa": 5.0,
+          "stress_relative": 0.05,
+          "strain_absolute": 2e-05,
+          "strain_excursion_relative": 0.1,
+          "secant_relative": 0.2,
+          "minimum_resolution_units": 5.0,
+          "stress_resolution_MPa": 0.01,
+          "strain_resolution": 1e-05
+        },
+        "status": "failed",
+        "checks": [
+          {
+            "name": "complete_continuous_path",
+            "status": "passed"
+          },
+          {
+            "name": "observation_coverage",
+            "status": "passed"
+          },
+          {
+            "name": "peak_stress",
+            "error": 2.280233530557382,
+            "limit": 12.983000000000002,
+            "status": "passed",
+            "cycle": 1,
+            "unit": "MPa"
+          },
+          {
+            "name": "valley_stress",
+            "error": 7.7114907556764365,
+            "limit": 13.309000000000001,
+            "status": "passed",
+            "cycle": 1,
+            "unit": "MPa"
+          },
+          {
+            "name": "peak_stress",
+            "error": 5.715583731999118,
+            "limit": 13.162500000000001,
+            "status": "passed",
+            "cycle": 2,
+            "unit": "MPa"
+          },
+          {
+            "name": "valley_stress",
+            "error": 4.11473915722803,
+            "limit": 15.076,
+            "status": "passed",
+            "cycle": 2,
+            "unit": "MPa"
+          },
+          {
+            "name": "peak_stress",
+            "error": 4.287971181054331,
+            "limit": 13.106000000000002,
+            "status": "passed",
+            "cycle": 3,
+            "unit": "MPa"
+          },
+          {
+            "name": "valley_stress",
+            "error": 6.568919775768336,
+            "limit": 14.889500000000002,
+            "status": "passed",
+            "cycle": 3,
+            "unit": "MPa"
+          },
+          {
+            "name": "hold_stress_MPa_rms",
+            "error": 10.71561692966538,
+            "limit": 13.251,
+            "status": "passed",
+            "cycle": 1,
+            "segment": 1
+          },
+          {
+            "name": "hold_stress_MPa_last",
+            "error": 9.454853137804804,
+            "limit": 13.251,
+            "status": "passed",
+            "cycle": 1,
+            "segment": 1
+          },
+          {
+            "name": "early_stress_MPa_secant",
+            "error": 0.47963149819942935,
+            "limit": 0.2,
+            "status": "failed",
+            "resolution_units": 5122.999999999999,
+            "cycle": 1,
+            "segment": 1
+          },
+          {
+            "name": "late_stress_MPa_secant",
+            "error": 0.39709468659837766,
+            "limit": 0.2,
+            "status": "failed",
+            "resolution_units": 316.99999999999875,
+            "cycle": 1,
+            "segment": 1
+          },
+          {
+            "name": "hold_stress_MPa_rms",
+            "error": 16.780084979295367,
+            "limit": 6.087,
+            "status": "failed",
+            "cycle": 1,
+            "segment": 3
+          },
+          {
+            "name": "hold_stress_MPa_last",
+            "error": 16.383074476012112,
+            "limit": 6.087,
+            "status": "failed",
+            "cycle": 1,
+            "segment": 3
+          },
+          {
+            "name": "hold_strain_rms",
+            "error": 0.00017935916347534332,
+            "limit": 0.000105,
+            "status": "failed",
+            "cycle": 1,
+            "segment": 3
+          },
+          {
+            "name": "hold_strain_last",
+            "error": 0.00011197735139586431,
+            "limit": 0.000105,
+            "status": "failed",
+            "cycle": 1,
+            "segment": 3
+          },
+          {
+            "name": "early_strain_secant",
+            "error": 0.7218857360003892,
+            "limit": 0.2,
+            "status": "failed",
+            "resolution_units": 27.999999999999996,
+            "cycle": 1,
+            "segment": 3
+          },
+          {
+            "name": "late_strain_secant",
+            "status": "unresolved",
+            "resolution_units": 4.00000000000001,
+            "cycle": 1,
+            "segment": 3
+          },
+          {
+            "name": "hold_stress_MPa_rms",
+            "error": 15.030377702192041,
+            "limit": 12.983000000000002,
+            "status": "failed",
+            "cycle": 1,
+            "segment": 5
+          },
+          {
+            "name": "hold_stress_MPa_last",
+            "error": 10.517081137821094,
+            "limit": 12.983000000000002,
+            "status": "passed",
+            "cycle": 1,
+            "segment": 5
+          },
+          {
+            "name": "early_stress_MPa_secant",
+            "error": 0.5708781096822949,
+            "limit": 0.2,
+            "status": "failed",
+            "resolution_units": 3524.0000000000036,
+            "cycle": 1,
+            "segment": 5
+          },
+          {
+            "name": "late_stress_MPa_secant",
+            "error": 0.5881449229395906,
+            "limit": 0.2,
+            "status": "failed",
+            "resolution_units": 543.9999999999998,
+            "cycle": 1,
+            "segment": 5
+          },
+          {
+            "name": "hold_stress_MPa_rms",
+            "error": 18.403216308597475,
+            "limit": 14.8195,
+            "status": "failed",
+            "cycle": 2,
+            "segment": 8
+          },
+          {
+            "name": "hold_stress_MPa_last",
+            "error": 8.844239872034763,
+            "limit": 14.8195,
+            "status": "passed",
+            "cycle": 2,
+            "segment": 8
+          },
+          {
+            "name": "early_stress_MPa_secant",
+            "error": 0.49727371520051655,
+            "limit": 0.2,
+            "status": "failed",
+            "resolution_units": 6694.999999999999,
+            "cycle": 2,
+            "segment": 8
+          },
+          {
+            "name": "late_stress_MPa_secant",
+            "error": 0.4428953706973294,
+            "limit": 0.2,
+            "status": "failed",
+            "resolution_units": 366.99999999999875,
+            "cycle": 2,
+            "segment": 8
+          },
+          {
+            "name": "hold_stress_MPa_rms",
+            "error": 14.348328303416771,
+            "limit": 6.141,
+            "status": "failed",
+            "cycle": 2,
+            "segment": 10
+          },
+          {
+            "name": "hold_stress_MPa_last",
+            "error": 14.239146819162116,
+            "limit": 6.141,
+            "status": "failed",
+            "cycle": 2,
+            "segment": 10
+          },
+          {
+            "name": "hold_strain_rms",
+            "error": 0.00020638914757936417,
+            "limit": 9.900000000000001e-05,
+            "status": "failed",
+            "cycle": 2,
+            "segment": 10
+          },
+          {
+            "name": "hold_strain_last",
+            "error": 0.00015505332851100816,
+            "limit": 9.900000000000001e-05,
+            "status": "failed",
+            "cycle": 2,
+            "segment": 10
+          },
+          {
+            "name": "early_strain_secant",
+            "error": 0.7303049849912494,
+            "limit": 0.2,
+            "status": "failed",
+            "resolution_units": 27.999999999999996,
+            "cycle": 2,
+            "segment": 10
+          },
+          {
+            "name": "late_strain_secant",
+            "status": "unresolved",
+            "resolution_units": 2.999999999999997,
+            "cycle": 2,
+            "segment": 10
+          },
+          {
+            "name": "hold_stress_MPa_rms",
+            "error": 17.434677188067244,
+            "limit": 13.162500000000001,
+            "status": "failed",
+            "cycle": 2,
+            "segment": 12
+          },
+          {
+            "name": "hold_stress_MPa_last",
+            "error": 15.347414694772283,
+            "limit": 13.162500000000001,
+            "status": "failed",
+            "cycle": 2,
+            "segment": 12
+          },
+          {
+            "name": "early_stress_MPa_secant",
+            "error": 0.5076757600609763,
+            "limit": 0.2,
+            "status": "failed",
+            "resolution_units": 3725.0,
+            "cycle": 2,
+            "segment": 12
+          },
+          {
+            "name": "late_stress_MPa_secant",
+            "error": 0.30907346827506427,
+            "limit": 0.2,
+            "status": "failed",
+            "resolution_units": 321.0000000000008,
+            "cycle": 2,
+            "segment": 12
+          },
+          {
+            "name": "hold_stress_MPa_rms",
+            "error": 18.192712154767545,
+            "limit": 14.71,
+            "status": "failed",
+            "cycle": 3,
+            "segment": 15
+          },
+          {
+            "name": "hold_stress_MPa_last",
+            "error": 8.258036334633317,
+            "limit": 14.71,
+            "status": "passed",
+            "cycle": 3,
+            "segment": 15
+          },
+          {
+            "name": "early_stress_MPa_secant",
+            "error": 0.5660894565948209,
+            "limit": 0.2,
+            "status": "failed",
+            "resolution_units": 6400.0,
+            "cycle": 3,
+            "segment": 15
+          },
+          {
+            "name": "late_stress_MPa_secant",
+            "error": 0.47689984554779197,
+            "limit": 0.2,
+            "status": "failed",
+            "resolution_units": 393.0000000000007,
+            "cycle": 3,
+            "segment": 15
+          },
+          {
+            "name": "hold_stress_MPa_rms",
+            "error": 14.539017529451726,
+            "limit": 6.1105,
+            "status": "failed",
+            "cycle": 3,
+            "segment": 17
+          },
+          {
+            "name": "hold_stress_MPa_last",
+            "error": 14.230071613029637,
+            "limit": 6.1105,
+            "status": "failed",
+            "cycle": 3,
+            "segment": 17
+          },
+          {
+            "name": "hold_strain_rms",
+            "error": 0.00020502095551222616,
+            "limit": 9.8e-05,
+            "status": "failed",
+            "cycle": 3,
+            "segment": 17
+          },
+          {
+            "name": "hold_strain_last",
+            "error": 0.0001593032779966929,
+            "limit": 9.8e-05,
+            "status": "failed",
+            "cycle": 3,
+            "segment": 17
+          },
+          {
+            "name": "early_strain_secant",
+            "error": 0.7949236574742256,
+            "limit": 0.2,
+            "status": "failed",
+            "resolution_units": 26.999999999999996,
+            "cycle": 3,
+            "segment": 17
+          },
+          {
+            "name": "late_strain_secant",
+            "status": "unresolved",
+            "resolution_units": 1.9999999999999942,
+            "cycle": 3,
+            "segment": 17
+          },
+          {
+            "name": "hold_stress_MPa_rms",
+            "error": 16.148914755684693,
+            "limit": 13.106000000000002,
+            "status": "failed",
+            "cycle": 3,
+            "segment": 19
+          },
+          {
+            "name": "hold_stress_MPa_last",
+            "error": 15.252356113490663,
+            "limit": 13.106000000000002,
+            "status": "failed",
+            "cycle": 3,
+            "segment": 19
+          },
+          {
+            "name": "early_stress_MPa_secant",
+            "error": 0.48009830905582435,
+            "limit": 0.2,
+            "status": "failed",
+            "resolution_units": 3809.9999999999995,
+            "cycle": 3,
+            "segment": 19
+          },
+          {
+            "name": "late_stress_MPa_secant",
+            "error": 0.32772485747632984,
+            "limit": 0.2,
+            "status": "failed",
+            "resolution_units": 330.00000000000114,
+            "cycle": 3,
+            "segment": 19
+          }
+        ],
+        "engineering_qualified": false,
+        "life_qualified": false,
+        "scope": "Project development screen; not independent validation or standards certification"
+      },
+      "summary": {
+        "keys": [
+          [
+            "peak_stress",
+            1,
+            null
+          ],
+          [
+            "valley_stress",
+            1,
+            null
+          ],
+          [
+            "peak_stress",
+            2,
+            null
+          ],
+          [
+            "valley_stress",
+            2,
+            null
+          ],
+          [
+            "peak_stress",
+            3,
+            null
+          ],
+          [
+            "valley_stress",
+            3,
+            null
+          ],
+          [
+            "hold_stress_MPa_rms",
+            1,
+            1
+          ],
+          [
+            "hold_stress_MPa_last",
+            1,
+            1
+          ],
+          [
+            "early_stress_MPa_secant",
+            1,
+            1
+          ],
+          [
+            "late_stress_MPa_secant",
+            1,
+            1
+          ],
+          [
+            "hold_stress_MPa_rms",
+            1,
+            3
+          ],
+          [
+            "hold_stress_MPa_last",
+            1,
+            3
+          ],
+          [
+            "hold_strain_rms",
+            1,
+            3
+          ],
+          [
+            "hold_strain_last",
+            1,
+            3
+          ],
+          [
+            "early_strain_secant",
+            1,
+            3
+          ],
+          [
+            "hold_stress_MPa_rms",
+            1,
+            5
+          ],
+          [
+            "hold_stress_MPa_last",
+            1,
+            5
+          ],
+          [
+            "early_stress_MPa_secant",
+            1,
+            5
+          ],
+          [
+            "late_stress_MPa_secant",
+            1,
+            5
+          ],
+          [
+            "hold_stress_MPa_rms",
+            2,
+            8
+          ],
+          [
+            "hold_stress_MPa_last",
+            2,
+            8
+          ],
+          [
+            "early_stress_MPa_secant",
+            2,
+            8
+          ],
+          [
+            "late_stress_MPa_secant",
+            2,
+            8
+          ],
+          [
+            "hold_stress_MPa_rms",
+            2,
+            10
+          ],
+          [
+            "hold_stress_MPa_last",
+            2,
+            10
+          ],
+          [
+            "hold_strain_rms",
+            2,
+            10
+          ],
+          [
+            "hold_strain_last",
+            2,
+            10
+          ],
+          [
+            "early_strain_secant",
+            2,
+            10
+          ],
+          [
+            "hold_stress_MPa_rms",
+            2,
+            12
+          ],
+          [
+            "hold_stress_MPa_last",
+            2,
+            12
+          ],
+          [
+            "early_stress_MPa_secant",
+            2,
+            12
+          ],
+          [
+            "late_stress_MPa_secant",
+            2,
+            12
+          ],
+          [
+            "hold_stress_MPa_rms",
+            3,
+            15
+          ],
+          [
+            "hold_stress_MPa_last",
+            3,
+            15
+          ],
+          [
+            "early_stress_MPa_secant",
+            3,
+            15
+          ],
+          [
+            "late_stress_MPa_secant",
+            3,
+            15
+          ],
+          [
+            "hold_stress_MPa_rms",
+            3,
+            17
+          ],
+          [
+            "hold_stress_MPa_last",
+            3,
+            17
+          ],
+          [
+            "hold_strain_rms",
+            3,
+            17
+          ],
+          [
+            "hold_strain_last",
+            3,
+            17
+          ],
+          [
+            "early_strain_secant",
+            3,
+            17
+          ],
+          [
+            "hold_stress_MPa_rms",
+            3,
+            19
+          ],
+          [
+            "hold_stress_MPa_last",
+            3,
+            19
+          ],
+          [
+            "early_stress_MPa_secant",
+            3,
+            19
+          ],
+          [
+            "late_stress_MPa_secant",
+            3,
+            19
+          ]
+        ],
+        "unresolved": [
+          [
+            "late_strain_secant",
+            1,
+            3
+          ],
+          [
+            "late_strain_secant",
+            2,
+            10
+          ],
+          [
+            "late_strain_secant",
+            3,
+            17
+          ]
+        ],
+        "maximum_normalized_error": 3.9746182873711278,
+        "failed_count": 34
+      }
+    }
+  },
+  "optimizer_converged": false,
+  "engineering_qualified": false,
+  "independent_validation": false,
+  "scope": "Early calibration diagnostics, not frozen validation",
+  "fit_sha256": "2e79363b1e666268faf6ca85c1a51856bf3bdd38a68b7c033199ee82e9a5191b"
+}

@@ -57,3 +57,29 @@ def test_switch_bracket_excludes_ambiguous_samples_without_interpolation():
     path["switches"][0]["bracket_s"] = [1.5, 2.1]
     with pytest.raises(ValueError, match="ambiguity"):
         segment_budget(source, prediction, 1000., path=path)
+
+
+def test_slope_comparison_separates_predicted_and_recorded_strain():
+    from tools.p92_reversal_slope_comparison import compare
+    source, prediction = fixture()
+    observed = dict(source_sha256="same", records=[dict(segment=0, cycle=1,
+        source_indices=[0, 1, 2], apparent_slope_MPa=1000.)])
+    row = compare(source, prediction, observed)["records"][0]
+    assert row["predicted_slope_MPa"] == pytest.approx(24/.022)
+    assert row["predicted_on_recorded_strain_slope_MPa"] == pytest.approx(1200.)
+    assert row["apparent_slope_MPa"] == 1000.
+    prediction["segments"][0]["source_indices"] = [0, 1, 3]
+    with pytest.raises(ValueError, match="Missing"):
+        compare(source, prediction, observed)
+
+
+def test_slope_comparison_rejects_changed_source_and_duplicate_samples():
+    from tools.p92_reversal_slope_comparison import compare
+    source, prediction = fixture()
+    observed = dict(source_sha256="wrong", records=[])
+    with pytest.raises(ValueError, match="identity"):
+        compare(source, prediction, observed)
+    observed = dict(source_sha256="same", records=[dict(segment=0, source_indices=[0, 1, 2])])
+    prediction["segments"][0]["source_indices"] = [0, 0, 2]
+    with pytest.raises(ValueError, match="Duplicate"):
+        compare(source, prediction, observed)

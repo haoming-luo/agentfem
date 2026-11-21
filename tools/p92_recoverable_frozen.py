@@ -10,6 +10,7 @@ from tools.p92_bounded_softening import compare_candidate
 from tools.p92_measured_controls import measured_path
 from tools.p92_measured_fit import write_new
 from tools import p92_recoverable_reference as kernel
+from tools import p92_recoverable_spectrum as spectrum
 from tools.p92_response_screen import screen
 from tools.p92_two_rate_controls import replay
 from tools.p92_two_rate_frozen import numerical_difference
@@ -18,26 +19,43 @@ from tools.p92_waveform_controls import attach_waveforms
 from tools.p92_waveform_experiment import refine_knots
 
 
+def decode_material(card, model_id):
+    """One explicit identity decoder for research replay and diagnostics."""
+    backbone = card["backbone"]
+    base = Material(backbone["modulus"], tuple(Branch(**b) for b in backbone["branches"]))
+    if model_id == kernel.MODEL_ID:
+        module = kernel
+        mat = kernel.Material(base, card["recoverable_modulus"], card["relaxation_time"],
+            strength_ratio=card.get("strength_ratio", 1.),
+            strength_softening_rate=card.get("strength_softening_rate", 0.))
+    elif model_id == spectrum.MODEL_ID:
+        module = spectrum
+        mat = spectrum.Material(base, tuple(card["moduli"]), tuple(card["times"]),
+            tuple(card.get("strength_ratios", (1., 1.))), tuple(card.get("strength_rates", (0., 0.))),
+            tuple(card.get("hardening_ratios", (1., 1.))), tuple(card.get("hardening_rates", (0., 0.))))
+    else:
+        raise ValueError("Unknown recoverable model identity")
+    return module, mat
+
+
 def evaluate(fit, source_dir):
     if fit["training_cycles"] != [1, 2, 3] or not fit["fit"]["success"]:
         raise ValueError("Require converged early-only joint identification")
     card = fit["fit"]["parameters"]
-    backbone = card["backbone"]
-    mat = kernel.Material(Material(backbone["modulus"], tuple(Branch(**b) for b in backbone["branches"])),
-                          card["recoverable_modulus"], card["relaxation_time"],
-                          strength_ratio=card.get("strength_ratio", 1.),
-                          strength_softening_rate=card.get("strength_softening_rate", 0.))
+    model_id = fit.get("model_id", kernel.MODEL_ID)
+    module, mat = decode_material(card, model_id)
+    extra_indices = tuple(range(10, len(module.STATE_LAYOUT)))
     results = {}
     for protocol in ("RF", "SLR", "SLC"):
         source = read_source(source_dir/f"Data_{protocol}.lis", protocol=protocol)
         if source["sha256"] != fit["source_sha256"][protocol]:
             raise ValueError("Source identity changed")
         path = attach_waveforms(measured_path(source, cycles=10), source)
-        _, prediction = replay(path, mat, kernel=kernel)
-        _, bdf = replay(path, mat, kernel=kernel, method="BDF", rtol=1e-10)
-        _, refined = replay(refine_knots(path), mat, kernel=kernel, rtol=1e-10)
-        independent = numerical_difference(prediction, bdf, extra_strain_indices=(10,))
-        refinement = numerical_difference(prediction, refined, extra_strain_indices=(10,))
+        _, prediction = replay(path, mat, kernel=module)
+        _, bdf = replay(path, mat, kernel=module, method="BDF", rtol=1e-10)
+        _, refined = replay(refine_knots(path), mat, kernel=module, rtol=1e-10)
+        independent = numerical_difference(prediction, bdf, extra_strain_indices=extra_indices)
+        refinement = numerical_difference(prediction, refined, extra_strain_indices=extra_indices)
         comparison = compare_candidate(source, prediction)
         for row in comparison["records"]:
             row["role"] = "early_calibration" if row["cycle"] <= 3 else "inspected_development"
@@ -48,7 +66,7 @@ def evaluate(fit, source_dir):
                            passed=independent["passed"] and refinement["passed"]))
         print(json.dumps(dict(protocol=protocol, response=results[protocol]["response_screen"]["status"],
                               numerical=results[protocol]["numerical"])), flush=True)
-    return dict(schema="agentfem.research.recoverable-frozen.v1", parameters=card,
+    return dict(schema="agentfem.research.recoverable-frozen.v1", parameters=card, model_id=model_id,
         source_sha256=fit["source_sha256"], protocols=results,
         independent_validation=False, engineering_qualified=False, life_qualified=False,
         scope="Continuous frozen path; later cycles already inspected development data")
@@ -61,7 +79,7 @@ if __name__ == "__main__":
     parser.add_argument("output", type=Path)
     args = parser.parse_args()
     raw = args.fit.read_bytes()
-    names = ("p92_recoverable_reference.py", "p92_two_rate_reference.py",
+    names = ("p92_recoverable_reference.py", "p92_recoverable_spectrum.py", "p92_two_rate_reference.py",
              "p92_two_rate_controls.py", "p92_recoverable_frozen.py", "p92_two_rate_frozen.py",
              "p92_measured_controls.py", "p92_waveform_controls.py", "p92_response_screen.py")
     def identities():

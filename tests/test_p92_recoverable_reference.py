@@ -112,3 +112,56 @@ def test_dissipative_strength_softening_retains_power_identity():
         energy_rate += sum(old[offset+i]*rate[offset+i]/h for i, h in enumerate(branch.hardening))
     assert rate[8] == pytest.approx(energy_rate+rate[9], abs=1e-12)
     assert rate[9] >= 0
+
+
+def test_full_sensitivity_coordinates_preserve_card_and_physical_domain():
+    from dataclasses import asdict
+    from copy import deepcopy
+    from tools.p92_full_sensitivity import decode, NAMES
+    card = asdict(material())
+    before = deepcopy(card)
+    zero = decode(card, np.zeros(20))
+    assert zero == material()
+    z = np.zeros(20)
+    z[2], z[18], z[19] = -.5, .2, -.2
+    changed = decode(card, z)
+    assert changed.backbone.branches[0].exponent > 1
+    assert changed.recoverable_modulus > zero.recoverable_modulus
+    assert changed.relaxation_time < zero.relaxation_time
+    assert card == before
+    assert len(set(NAMES)) == 20
+    with pytest.raises(ValueError, match="twenty"):
+        decode(card, np.zeros(19))
+
+
+def test_sensitive_subspace_requires_stable_orthonormal_early_basis():
+    from copy import deepcopy
+    from tools.p92_sensitive_joint import sensitive_basis
+    audit = dict(training_cycles=[1, 2, 3], fitted=False,
+        relative_jacobian_difference=.0005,
+        audits=[dict(right_vectors=np.eye(20).tolist()) for _ in range(2)])
+    basis, distance = sensitive_basis(audit)
+    assert basis.shape == (20, 8)
+    assert distance == 0
+    z = np.full(8, .3/np.sqrt(8))
+    assert np.linalg.norm(basis@z) == pytest.approx(.3)
+    invalid = deepcopy(audit)
+    invalid["audits"][1]["right_vectors"][0][0] = 2.
+    with pytest.raises(ValueError, match="orthonormal"):
+        sensitive_basis(invalid)
+    invalid = deepcopy(audit)
+    rows = invalid["audits"][1]["right_vectors"]
+    rows[0], rows[10] = rows[10], rows[0]
+    with pytest.raises(ValueError, match="not stable"):
+        sensitive_basis(invalid)
+    invalid = deepcopy(audit)
+    invalid["relative_jacobian_difference"] = .01
+    with pytest.raises(ValueError, match="Unresolved"):
+        sensitive_basis(invalid)
+    invalid["relative_jacobian_difference"] = np.nan
+    with pytest.raises(ValueError, match="Unresolved"):
+        sensitive_basis(invalid)
+    invalid = deepcopy(audit)
+    invalid["audits"][0]["right_vectors"][0][0] = np.nan
+    with pytest.raises(ValueError, match="orthonormal"):
+        sensitive_basis(invalid)

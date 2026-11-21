@@ -22,3 +22,10 @@ def test_incomplete_path_is_not_a_finite_penalty():
 def test_invalid_scale_fails(error, limit):
     with pytest.raises(ValueError, match="finite"):
         residuals(dict(checks=[dict(name="stress", status="failed", error=error, limit=limit)]))
+
+
+def test_candidate_diagnostic_does_not_accept_changed_training_window():
+    from pathlib import Path
+    from tools.p92_gate_report import evaluate
+    with pytest.raises(ValueError, match="first three"):
+        evaluate(dict(training_cycles=[1, 2, 3, 4]), Path("unused"))
