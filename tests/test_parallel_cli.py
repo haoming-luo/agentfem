@@ -12,9 +12,10 @@ from agentfem import cli
 @pytest.mark.parametrize("local", [False, True])
 @pytest.mark.parametrize("template", ["static-solid", "steady-heat", "structural-dynamics", "heat-campaign",
                                       "static-results", "dynamic-results"])
-def test_standard_template_publishes_one_collective_result(tmp_path, template, local, monkeypatch):
+def test_standard_template_publishes_one_collective_result(tmp_path, template, local, monkeypatch, request):
     from agentfem import provenance
     from agentfem.results import performance
+    import gc
     import sys
 
     comm = MPI.COMM_WORLD
@@ -36,6 +37,11 @@ def test_standard_template_publishes_one_collective_result(tmp_path, template, l
         return result
 
     monkeypatch.setattr(performance, "_collective_stages", traced_stages)
+    def gc_trace(phase, info):
+        print(f"gc {phase} rank={comm.rank} generation={info['generation']}",
+              file=sys.stderr, flush=True)
+    gc.callbacks.append(gc_trace)
+    request.addfinalizer(lambda: gc.callbacks.remove(gc_trace))
     root = Path(comm.bcast(str(tmp_path / "project") if comm.rank == 0 else None, root=0))
     if comm.rank == 0:
         cli._copy_template(template, root, "collective-template", force=False)

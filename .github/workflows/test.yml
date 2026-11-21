@@ -349,9 +349,29 @@ jobs:
         if: env.VALIDATION_LEVEL == 'release'
         run: |
           mkdir -p /tmp/agentfem-mpi-debug
+          if ! command -v gdb >/dev/null; then
+            sudo apt-get update -qq
+            sudo apt-get install -y -qq gdb
+          fi
           PYTEST_DEBUG_TEMPROOT=/tmp/agentfem-mpi-debug \
             agentfem mpi-run -n 2 --timeout 180 -- python -m pytest -vv \
-            -o faulthandler_timeout=45 tests/test_parallel_affine.py tests/test_parallel_cli.py
+            -o faulthandler_timeout=45 tests/test_parallel_affine.py tests/test_parallel_cli.py &
+          mpi_pid=$!
+          (
+            sleep 60
+            if kill -0 "$mpi_pid" 2>/dev/null; then
+              for pid in $(pgrep -f 'python -m pytest -vv'); do
+                sudo gdb -batch -ex 'set pagination off' -ex 'thread apply all bt' \
+                  -p "$pid" > "/tmp/agentfem-mpi-debug/native-stack-${pid}.log" 2>&1 || true
+              done
+            fi
+          ) &
+          sampler_pid=$!
+          status=0
+          wait "$mpi_pid" || status=$?
+          kill "$sampler_pid" 2>/dev/null || true
+          wait "$sampler_pid" 2>/dev/null || true
+          exit "$status"
 
       - name: Retain collective CLI diagnostics
         if: failure()
