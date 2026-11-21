@@ -12,36 +12,12 @@ from agentfem import cli
 @pytest.mark.parametrize("local", [False, True])
 @pytest.mark.parametrize("template", ["static-solid", "steady-heat", "structural-dynamics", "heat-campaign",
                                       "static-results", "dynamic-results"])
-def test_standard_template_publishes_one_collective_result(tmp_path, template, local, monkeypatch, request):
+def test_standard_template_publishes_one_collective_result(tmp_path, template, local):
     from agentfem import provenance
-    from agentfem.results import performance
-    import gc
-    import sys
 
     comm = MPI.COMM_WORLD
     if comm.size < 2:
         pytest.skip("requires two MPI ranks")
-    # Retained rank logs must identify the last entered collective if a
-    # template stalls on a platform not available on the developer machine.
-    original = performance._collective_stages
-    sequence = 0
-
-    def traced_stages(selected_comm, stages):
-        nonlocal sequence
-        sequence += 1
-        marker = (f"performance collective template={template} sequence={sequence} "
-                  f"rank={comm.rank} comm={selected_comm.py2f()} stages={sorted(stages)}")
-        print(marker + " enter", file=sys.stderr, flush=True)
-        result = original(selected_comm, stages)
-        print(marker + " leave", file=sys.stderr, flush=True)
-        return result
-
-    monkeypatch.setattr(performance, "_collective_stages", traced_stages)
-    def gc_trace(phase, info):
-        print(f"gc {phase} rank={comm.rank} generation={info['generation']}",
-              file=sys.stderr, flush=True)
-    gc.callbacks.append(gc_trace)
-    request.addfinalizer(lambda: gc.callbacks.remove(gc_trace))
     root = Path(comm.bcast(str(tmp_path / "project") if comm.rank == 0 else None, root=0))
     if comm.rank == 0:
         cli._copy_template(template, root, "collective-template", force=False)
