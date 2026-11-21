@@ -6,11 +6,16 @@ the unchanged early-identification residual weights, not a qualification.
 
 import numpy as np
 
-from tools.p92_two_rate_reference import MODEL_ID, STATE_LAYOUT, integrate, stored_energy
+from tools import p92_two_rate_reference
 from tools.p92_hold_observations import summarize
 
 
-def replay(path, material, *, method="Radau", rtol=1e-9):
+def replay(path, material, *, method="Radau", rtol=1e-9, kernel=p92_two_rate_reference):
+    # Research-only alternative must preserve the first ten state coordinates.
+    if tuple(kernel.STATE_LAYOUT[:10]) != p92_two_rate_reference.STATE_LAYOUT:
+        raise ValueError("Incompatible research state layout")
+    MODEL_ID, STATE_LAYOUT = kernel.MODEL_ID, kernel.STATE_LAYOUT
+    integrate, stored_energy = kernel.integrate, kernel.stored_energy
     state = np.zeros(len(STATE_LAYOUT))
     state[0], state[7] = path["initial_stress"], path["initial_strain"]
     initial_energy = stored_energy(state, material)

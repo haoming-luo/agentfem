@@ -151,6 +151,9 @@ _SOURCE_TEST_MAP = {
 # Research-only scalar controls have known transitive consumers. Do not use a
 # tools/* wildcard: an unknown numerical driver still needs the broader gate.
 _P92_CONTROL_TESTS = (
+    "tests/test_p92_gate_objective.py",
+    "tests/test_p92_recoverable_reference.py",
+    "tests/test_p92_segment_budget.py",
     "tests/test_p92_two_rate_joint.py",
     "tests/test_p92_hold_observations.py",
     "tests/test_p92_two_rate_frozen.py",
@@ -170,6 +173,19 @@ _P92_CONTROL_TESTS = (
     "tests/test_p92_two_mechanism_fit.py",
 )
 _P92_CONTROL_INPUTS = (
+    "tools/p92_gate_objective.py",
+    "evidence/creep/2026-11-21-recoverable-history.json",
+    "evidence/creep/2026-11-21-recoverable-strength.json",
+    "tools/p92_recoverable_reference.py",
+    "tools/p92_recoverable_probe.py",
+    "tools/p92_recoverable_joint.py",
+    "tools/p92_recoverable_frozen.py",
+    "tools/p92_segment_budget.py",
+    "evidence/creep/2026-11-21-aligned-segment-budget.json",
+    "evidence/creep/2026-11-21-recoverable-probe.json",
+    "evidence/creep/2026-11-21-recoverable-joint.json",
+    "evidence/creep/2026-11-21-recoverable-frozen.json",
+    "evidence/creep/2026-11-21-recoverable-complete-numerics.json",
     "tools/p92_two_rate_joint.py",
     "evidence/creep/2026-11-21-two-rate-joint.json",
     "evidence/creep/2026-11-21-two-rate-joint-frozen.json",

@@ -1,0 +1,75 @@
+"""Frozen recoverable hypothesis: all response gates and every state checked."""
+
+import argparse
+from hashlib import sha256
+import json
+from pathlib import Path
+
+from tools.p92_bam_source import read_source
+from tools.p92_bounded_softening import compare_candidate
+from tools.p92_measured_controls import measured_path
+from tools.p92_measured_fit import write_new
+from tools import p92_recoverable_reference as kernel
+from tools.p92_response_screen import screen
+from tools.p92_two_rate_controls import replay
+from tools.p92_two_rate_frozen import numerical_difference
+from tools.p92_two_rate_reference import Branch, Material
+from tools.p92_waveform_controls import attach_waveforms
+from tools.p92_waveform_experiment import refine_knots
+
+
+def evaluate(fit, source_dir):
+    if fit["training_cycles"] != [1, 2, 3] or not fit["fit"]["success"]:
+        raise ValueError("Require converged early-only joint identification")
+    card = fit["fit"]["parameters"]
+    backbone = card["backbone"]
+    mat = kernel.Material(Material(backbone["modulus"], tuple(Branch(**b) for b in backbone["branches"])),
+                          card["recoverable_modulus"], card["relaxation_time"],
+                          strength_ratio=card.get("strength_ratio", 1.),
+                          strength_softening_rate=card.get("strength_softening_rate", 0.))
+    results = {}
+    for protocol in ("RF", "SLR", "SLC"):
+        source = read_source(source_dir/f"Data_{protocol}.lis", protocol=protocol)
+        if source["sha256"] != fit["source_sha256"][protocol]:
+            raise ValueError("Source identity changed")
+        path = attach_waveforms(measured_path(source, cycles=10), source)
+        _, prediction = replay(path, mat, kernel=kernel)
+        _, bdf = replay(path, mat, kernel=kernel, method="BDF", rtol=1e-10)
+        _, refined = replay(refine_knots(path), mat, kernel=kernel, rtol=1e-10)
+        independent = numerical_difference(prediction, bdf, extra_strain_indices=(10,))
+        refinement = numerical_difference(prediction, refined, extra_strain_indices=(10,))
+        comparison = compare_candidate(source, prediction)
+        for row in comparison["records"]:
+            row["role"] = "early_calibration" if row["cycle"] <= 3 else "inspected_development"
+        comparison.pop("groups")
+        results[protocol] = dict(prediction=prediction, comparison=comparison,
+            response_screen=screen(prediction, comparison, requested_cycles=10),
+            numerical=dict(independent=independent, refinement=refinement,
+                           passed=independent["passed"] and refinement["passed"]))
+        print(json.dumps(dict(protocol=protocol, response=results[protocol]["response_screen"]["status"],
+                              numerical=results[protocol]["numerical"])), flush=True)
+    return dict(schema="agentfem.research.recoverable-frozen.v1", parameters=card,
+        source_sha256=fit["source_sha256"], protocols=results,
+        independent_validation=False, engineering_qualified=False, life_qualified=False,
+        scope="Continuous frozen path; later cycles already inspected development data")
+
+
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("fit", type=Path)
+    parser.add_argument("source_dir", type=Path)
+    parser.add_argument("output", type=Path)
+    args = parser.parse_args()
+    raw = args.fit.read_bytes()
+    names = ("p92_recoverable_reference.py", "p92_two_rate_reference.py",
+             "p92_two_rate_controls.py", "p92_recoverable_frozen.py", "p92_two_rate_frozen.py",
+             "p92_measured_controls.py", "p92_waveform_controls.py", "p92_response_screen.py")
+    def identities():
+        return {n: sha256(Path(__file__).with_name(n).read_bytes()).hexdigest() for n in names}
+    before = identities()
+    result = evaluate(json.loads(raw), args.source_dir)
+    if before != identities() or args.fit.read_bytes() != raw:
+        raise RuntimeError("Frozen card or driver changed during replay")
+    result["driver_sha256"] = before
+    result["fit_file_sha256"] = sha256(raw).hexdigest()
+    write_new(args.output, result)

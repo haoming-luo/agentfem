@@ -18,7 +18,7 @@ from tools.p92_waveform_controls import attach_waveforms
 from tools.p92_waveform_experiment import refine_knots
 
 
-def numerical_difference(a, b):
+def numerical_difference(a, b, *, extra_strain_indices=()):
     pairs = list(zip(a["segments"], b["segments"], strict=True))
     stress = max(float(np.max(abs(np.asarray(x["sampled_stress_MPa"])-y["sampled_stress_MPa"])))
                  for x, y in pairs)
@@ -26,7 +26,7 @@ def numerical_difference(a, b):
                  for x, y in pairs)
     delta = np.asarray([np.asarray(x["end_state"])-y["end_state"] for x, y in pairs])
     stress = max(stress, float(np.max(abs(delta[:, [0, 1, 2, 4, 5]]))))
-    strain = max(strain, float(np.max(abs(delta[:, [3, 6, 7]]))))
+    strain = max(strain, float(np.max(abs(delta[:, [3, 6, 7, *extra_strain_indices]]))))
     energy = float(np.max(abs(delta[:, [8, 9]])))
     return dict(stress_state_difference_MPa=stress, strain_state_difference=strain,
                 work_dissipation_difference_MPa=energy,

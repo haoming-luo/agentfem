@@ -1,5 +1,19 @@
 # AgentFEM Product Roadmap
 
+### Reversal mechanism checkpoint (2026-11-21)
+
+The [recoverable-strain discriminator](internal/p92_recoverable_reference_20261121.md)
+adds a verified isothermal research reference, not a production material.
+Joint early identification brings first SLC hold stress to 121.17 MPa against
+121.70 MPa measured, but frozen tenth-cycle SLR peak error rises to 12.70%.
+All response screens still fail despite full-state numerical agreement.
+Aligned observation budgets separate input error from nonelastic increment
+error without assigning measured strain to invented mechanisms. Saturation
+and dissipative-strength memory alternatives are retained as negative controls.
+Next compare the same old/new models under a declared tolerance-normalized
+early objective; keep the existing gates and later cycles unchanged. No merge,
+release, life admission or parameter transfer to other steel cohorts follows.
+
 ### Fixed-card waveform discrimination (2026-11-21)
 
 The [waveform audit](internal/p92_waveform_20261121.md) now compares two frozen
