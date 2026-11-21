@@ -101,6 +101,9 @@ interpolating unsaved damage states.
 
 - Ordinary modeling: [workflow](WORKFLOW.md) and the nearest example.
 - Uncertain parameter: `agentfem capabilities --api MODULE.CALLABLE --json`.
+- Known task, uncertain route: `agentfem capabilities --task "载荷—位移曲线" --json`.
+  Task search is offline guidance, not proof that a particular combination is
+  supported. Check the actual model/options with the existing Step contract.
 - Unsupported Step: inspect `error.details()` or `execution.json`; use
   `models.step_capability(model, target=..., options=...)` for that model.
 - Numerical extensions or specialized physics: search the topic headings in

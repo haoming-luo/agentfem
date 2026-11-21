@@ -63,6 +63,11 @@ are checked by AgentFEM's provider contract when building the model.
 These arguments are not in the published 0.1.0 bundle. Inspect the connected
 tool schema first. If the runtime lacks scoped queries, consult its installed
 help or explicitly request full discovery; do not upgrade it automatically.
+The core CLI additionally supports `capabilities --task "载荷—位移曲线" --json`
+for installed task recipes. Use this CLI when the connected adapter has no
+task-query argument; core support does not imply that an older adapter exposes
+the same option. Both return the core's existing contracts rather than a
+second scientific registry.
 Tool failures carry MCP `isError` and structured error details. A successfully
 read run record may itself report a failed simulation; that is still useful
 status evidence, not a reason to resubmit automatically.

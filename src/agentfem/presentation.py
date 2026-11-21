@@ -334,6 +334,8 @@ def format_result(record: Mapping[str, object], path: Path, *, maximum_quantitie
         if len(paths) > 6:
             lines.append(f"  + {len(paths) - 6} more files; use agentfem show <record-or-run> --files")
     lines.append(f"  record: {path}")
+    from ._result_menu import result_menu, format_menu
+    lines.extend(format_menu(result_menu(record, path)))
     return "\n".join(lines)
 
 

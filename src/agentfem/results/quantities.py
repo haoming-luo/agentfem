@@ -275,7 +275,11 @@ def region_average(expression, *, on, study=None):
     measure = _region_measure(on)
     denominator = integral(weight, measure=measure, comm=on.domain.comm)
     if denominator <= 0.0:
-        raise ValueError("region_average requires a region with positive measure.")
+        from ..validation import ValidationReport, issue
+        ValidationReport.from_issues((issue("AFM-REGION-EMPTY", "observation.region",
+            "region_average requires a region with positive measure.",
+            hint="Inspect the region selector/tag and physical measure before computing an average.",
+            region=getattr(on, "name", None), measure=float(denominator)),), scope="result_observation").raise_if_errors()
     return integral(weight * expression, measure=measure, comm=on.domain.comm) / denominator
 
 
@@ -916,10 +920,11 @@ def sample_points(
     missing_indices = np.flatnonzero(owner == comm.size)
     if missing_indices.size and selected_missing == "raise":
         listed = ", ".join(str(int(index)) for index in missing_indices[:8])
-        raise ValueError(
-            "sample_points could not locate point indices "
-            f"[{listed}] in the mesh."
-        )
+        from ..validation import ValidationReport, issue
+        ValidationReport.from_issues((issue("AFM-POINT-OUTSIDE", "observation.points",
+            f"sample_points could not locate point indices [{listed}] in the mesh.",
+            hint="Check point units and reference coordinates; use missing='nan' only when incomplete coverage is intentional.",
+            missing_indices=missing_indices.tolist()),), scope="result_observation").raise_if_errors()
 
     value_shape = tuple(getattr(function, "ufl_shape", ()))
     value_size = int(np.prod(value_shape, dtype=int)) if value_shape else 1

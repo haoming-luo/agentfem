@@ -75,7 +75,72 @@
       "type": "object"
     },
     "usage": {
-      "type": "object"
+      "type": "object",
+      "properties": {
+        "tasks": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": [
+              "id",
+              "title",
+              "aliases",
+              "entrypoints",
+              "prerequisites",
+              "limitations"
+            ],
+            "properties": {
+              "id": {
+                "type": "string"
+              },
+              "title": {
+                "type": "string"
+              },
+              "aliases": {
+                "type": "array"
+              },
+              "entrypoints": {
+                "type": "array"
+              },
+              "prerequisites": {
+                "type": "string"
+              },
+              "limitations": {
+                "type": "string"
+              },
+              "snippet": {
+                "type": "string"
+              },
+              "template": {
+                "type": "string"
+              }
+            },
+            "oneOf": [
+              {
+                "required": [
+                  "snippet"
+                ],
+                "not": {
+                  "required": [
+                    "template"
+                  ]
+                }
+              },
+              {
+                "required": [
+                  "template"
+                ],
+                "not": {
+                  "required": [
+                    "snippet"
+                  ]
+                }
+              }
+            ],
+            "additionalProperties": false
+          }
+        }
+      }
     },
     "verification": {
       "type": "object"

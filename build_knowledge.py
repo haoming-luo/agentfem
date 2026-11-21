@@ -251,6 +251,29 @@ def _validate_card(
 
     usage = _mapping(card["usage"], f"{label}.usage", errors)
     if usage is not None:
+        tasks = usage.get("tasks", [])
+        if not isinstance(tasks, list) or any(not isinstance(task, dict) for task in tasks):
+            errors.append(f"{label}.usage.tasks must be a list of objects")
+            tasks = []
+        for task in tasks:
+            for key in ("id", "title", "prerequisites", "limitations"):
+                _nonempty_string(task.get(key), f"{label}.usage.tasks.{key}", errors)
+            _string_list(task.get("aliases"), f"{label}.usage.tasks.aliases", errors)
+            _string_list(task.get("entrypoints"), f"{label}.usage.tasks.entrypoints", errors)
+            if not isinstance(task.get('id'), str) or not re.fullmatch(r"[a-z][a-z0-9-]*", task['id']):
+                errors.append(f"{label}: task ID requires a lowercase slug")
+            if bool(task.get("snippet")) == bool(task.get("template")):
+                errors.append(f"{label}: task needs exactly one snippet or packaged template")
+            if task.get("snippet"):
+                try:
+                    compile(task["snippet"], "<knowledge-task>", "exec")
+                except (SyntaxError, TypeError) as exc:
+                    errors.append(f"{label}: invalid task snippet: {exc}")
+            if task.get("template"):
+                template = task['template']
+                if (not isinstance(template, str) or not re.fullmatch(r"[a-z][a-z0-9-]*", template)
+                    or not (ROOT/'src/agentfem/templates'/template/'case.py').is_file()):
+                    errors.append(f"{label}: missing or invalid packaged task template {template!r}")
         minimal_example = usage.get("minimal_example")
         _nonempty_string(
             minimal_example,
@@ -468,7 +491,8 @@ def validate_assets(
                     f"{source.relative_to(ROOT)} references unknown related card {related!r}"
                 )
         if check_imports:
-            for api_path in card.get("public_api", []):
+            task_apis = [api for task in card.get("usage", {}).get("tasks", ()) for api in task.get("entrypoints", ())]
+            for api_path in [*card.get("public_api", []), *task_apis]:
                 try:
                     _resolve_public_api(api_path)
                 except (AttributeError, ImportError, ModuleNotFoundError) as exc:
@@ -485,7 +509,18 @@ def build_catalog(
     cards: Iterable[tuple[Path, Mapping[str, object]]],
     benchmarks: Iterable[tuple[Path, Mapping[str, object]]],
 ) -> str:
+    cards = tuple(cards)
     card_rows = []
+    tasks = []
+    for source, card in cards:
+        for task in card.get("usage", {}).get("tasks", ()):
+            selected = dict(task)
+            if selected.get("template"):
+                selected["snippet"] = (ROOT/'src/agentfem/templates'/selected['template']/'case.py').read_text()
+            selected.update(card_id=card["id"], card_status=card["status"], source=f"cards/{source.name}")
+            tasks.append(selected)
+    if len({task['id'] for task in tasks}) != len(tasks):
+        raise ValueError("Knowledge task IDs must be globally unique.")
     for source, card in cards:
         card_rows.append(
             {
@@ -515,6 +550,7 @@ def build_catalog(
         "schema_version": CATALOG_SCHEMA_VERSION,
         "cards": sorted(card_rows, key=lambda item: item["id"]),
         "benchmarks": sorted(benchmark_rows, key=lambda item: item["id"]),
+        "tasks": sorted(tasks, key=lambda item: item["id"]),
     }
     return json.dumps(record, indent=2, sort_keys=True) + "\n"
 

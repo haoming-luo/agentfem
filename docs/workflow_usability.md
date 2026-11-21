@@ -5,6 +5,48 @@ description: "Use the AgentFEM CLI to inspect projects, run cases, locate output
 
 # Check, run, inspect, compare
 
+## Find a task and use its installed project
+
+```bash
+agentfem capabilities --task "载荷—位移曲线" --json
+agentfem capabilities --task task:point-history --json
+agentfem init my-static --template static-results
+agentfem init my-dynamic --template dynamic-results
+agentfem init my-path --template nonlinear-results
+agentfem run --project my-dynamic
+agentfem show latest --project my-dynamic --json
+```
+
+Six deterministic bilingual task entries cover modal frequencies, point/time
+histories, load–displacement paths, mesh input, standard output and solver
+options. Entries are generated from scientific cards; packaged templates are
+the source of their full snippets. Search does not execute a case, initialize
+FEM, install dependencies or access the network. An unmatched phrase means
+no retrieval match, not unsupported physics. `task:ID` rejects unknown IDs.
+Use `--api` for the installed signature and `models.step_capability(...)` for
+the actual material/element/procedure combination. No second support matrix
+or parameter configuration language is introduced.
+
+| Installed recipe | Recorded results | Important convention |
+| --- | --- | --- |
+| `static-results` | 3D SI U/S fields, interpolated tip displacement and fixed-end reaction | Reaction is support-on-body force; Warp adds U to reference geometry once. |
+| `dynamic-results` | Newmark U fields at sparse stations and dense `tip_U2` history | Physical time in seconds; field retention does not thin the scalar history. |
+| `nonlinear-results` | Retained accepted load factors and mean-displacement/reaction curve | Serial, homogeneous displacement-only hyperelasticity; no natural loads/contact/MPC. A boundary mean is not a point displacement. |
+
+The normal result view lists field positions/shapes/units, history coordinates
+and ranges, saved frame counts and the recommended visualization entry. JSON
+adds a read-only `result_menu`; it does not change the sealed manifest.
+Summaries read metadata and check file presence, never load field arrays or
+rerun the model. Legacy missing metadata stays unknown. `show --files` and
+the existing result verification retain their separate integrity roles.
+
+`agentfem diagnose <execution.json> --json` preserves local messages, rank,
+Step details and validation hints. It remains a read-only operation even
+when the recorded simulation failed. Model-level checks require the original
+`model.validate()/check()` path; ordinary CLI `check` does not execute it.
+Detailed local evidence is excluded from the existing sanitized support and
+telemetry inventories. Diagnostic suggestions never change physical inputs.
+
 ## Discover only what you need
 
 ```bash

@@ -1046,7 +1046,10 @@ def _support_suggestions(error: Mapping[str, object] | None) -> tuple[str, ...]:
             "Do not substitute another physical model to bypass an unsupported combination."
         )
     elif stage == "model_preflight" or code.startswith("AFM-STEP") or code.startswith("AFM-CONSTRAINT"):
-        suggestions.append("Run `agentfem check --json` and resolve every addressable validation issue before solving.")
+        suggestions.append("Review the recorded object and hint with model.validate()/model.check() on the original modeling path. "
+            "`agentfem check --json` checks project structure, not the constructed model.")
+    elif stage in {"result_observation", "output_validation"}:
+        suggestions.append("Review the recorded region, point or output request and its hint; rerun that check after an explicit correction.")
     if "MPI" in code or "MPI" in kind:
         suggestions.append("Run `agentfem doctor` and use `agentfem run --mpi N` so the launcher matches mpi4py.")
     if kind in {"ImportError", "ModuleNotFoundError"}:
@@ -1082,6 +1085,11 @@ def diagnose(path: str | Path | None = None, *, project: str | Path | None = Non
             "kind": _safe_error_kind(error.get("type")),
             "fingerprint": fingerprint,
             "repetition_count": None if repetition is None else repetition.get("count"),
+            "message": error.get("message"),
+            "stage": error.get("stage", record.get("stage")),
+            "rank": error.get("rank"),
+            "details": error.get("details"),
+            "validation": error.get("validation"),
         },
         "suggestions": _support_suggestions(error),
         "execution_record": str(selected),
@@ -1095,6 +1103,18 @@ def format_diagnosis(record: Mapping[str, object]) -> str:
     if isinstance(failure, Mapping):
         lines.append(f"  code: {failure.get('code')}")
         lines.append(f"  kind: {failure.get('kind')}")
+        if failure.get("message"):
+            lines.append(f"  message: {failure['message']}")
+        details = failure.get("validation") or failure.get("details") or {}
+        for item in details.get("issues", ()):
+            location = item.get('path') or (f"step.options.{item['option']}" if item.get('option') else 'unrecorded object')
+            lines.append(f"  {location}: {item.get('message', '')}")
+            if item.get("hint"):
+                lines.append(f"    next: {item['hint']}")
+            if item.get("suggestions"):
+                lines.append("    suggested names: " + ", ".join(item['suggestions']))
+        if details.get('accepted_options'):
+            lines.append("  accepted options: " + ", ".join(details['accepted_options']))
         lines.append(f"  fingerprint: {failure.get('fingerprint')}")
         if failure.get("repetition_count"):
             lines.append(f"  repeated: {failure.get('repetition_count')} run(s)")
@@ -1262,6 +1282,11 @@ def create_support_directory(
         for key, value in diagnosis_record.items()
         if key != "execution_record"
     }
+    # Rich local diagnosis may contain private model names/paths. Export keeps
+    # the existing narrow failure inventory, independently of the local view.
+    if isinstance(portable_diagnosis.get("failure"), Mapping):
+        portable_diagnosis["failure"] = {key: failure.get(key) for key in (
+            "code", "kind", "fingerprint", "repetition_count")}
     files = {
         "TASK.md": _support_task(portable_diagnosis),
         "diagnosis.json": json.dumps(portable_diagnosis, indent=2, sort_keys=True) + "\n",

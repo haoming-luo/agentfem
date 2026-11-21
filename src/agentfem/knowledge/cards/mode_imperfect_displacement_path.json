@@ -59,6 +59,24 @@
     "minimal_example": "receipt = mesh.apply_mode_imperfection(domain, [mode], amplitudes=[0.02])",
     "examples": [
       "examples/imperfect_column/case.py"
+    ],
+    "tasks": [
+      {
+        "id": "load-path",
+        "title": "载荷—位移曲线 / load displacement curve",
+        "aliases": [
+          "载荷 位移",
+          "载荷—位移曲线",
+          "load displacement",
+          "reaction curve"
+        ],
+        "entrypoints": [
+          "agentfem.mechanics.displacement_controlled_response"
+        ],
+        "prerequisites": "Serial displacement-only homogeneous hyperelastic path; initialize with nonlinear-results template.",
+        "limitations": "Retained accepted stations only; displacement is a boundary mean; no natural loads, contact or MPC. Load factor is not physical time.",
+        "template": "nonlinear-results"
+      }
     ]
   },
   "verification": {

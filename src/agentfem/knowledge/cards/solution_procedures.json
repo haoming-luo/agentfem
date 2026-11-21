@@ -160,6 +160,41 @@
       "examples/modal_cantilever_2d.py",
       "examples/wave_packet_plate_2d.py",
       "examples/thermal_stress_wall_2d.py"
+    ],
+    "tasks": [
+      {
+        "id": "modal",
+        "title": "模态频率 / modal frequencies",
+        "aliases": [
+          "模态",
+          "固有频率",
+          "modal",
+          "eigenfrequency"
+        ],
+        "entrypoints": [
+          "agentfem.studies.modal_solid",
+          "agentfem.models.Model.step"
+        ],
+        "prerequisites": "A model with modal_solid Study, density, displacement u and supports already defined.",
+        "limitations": "Linear modal analysis; constraint/material/element combinations still require Step capability checking.",
+        "snippet": "step = model.step(target=u, modes=3)\nresult = step.solve_result()\nfrequencies_hz = result.quantity(\"frequencies\")\n"
+      },
+      {
+        "id": "solver-options",
+        "title": "求解器配置 / solver options",
+        "aliases": [
+          "求解器",
+          "牛顿",
+          "newton",
+          "solver configuration"
+        ],
+        "entrypoints": [
+          "agentfem.solvers.newton"
+        ],
+        "prerequisites": "Choose a nonlinear route admitting solver_options; this snippet constructs policy only.",
+        "limitations": "Convergence tolerances do not change physical assumptions; a valid policy is not a convergence guarantee.",
+        "snippet": "from agentfem import solvers\npolicy = solvers.newton(relative_tolerance=1e-8, maximum_iterations=30)\n# Pass solver_options=policy to a compatible model.step(...).\n"
+      }
     ]
   },
   "verification": {

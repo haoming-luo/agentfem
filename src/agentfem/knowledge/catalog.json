@@ -1699,5 +1699,129 @@
     }
   ],
   "schema": "agentfem.scientific-function-catalog",
-  "schema_version": "0.1.0"
+  "schema_version": "0.1.0",
+  "tasks": [
+    {
+      "aliases": [
+        "\u8f7d\u8377 \u4f4d\u79fb",
+        "\u8f7d\u8377\u2014\u4f4d\u79fb\u66f2\u7ebf",
+        "load displacement",
+        "reaction curve"
+      ],
+      "card_id": "agentfem.workflow.mode_imperfect_displacement_path",
+      "card_status": "experimental",
+      "entrypoints": [
+        "agentfem.mechanics.displacement_controlled_response"
+      ],
+      "id": "load-path",
+      "limitations": "Retained accepted stations only; displacement is a boundary mean; no natural loads, contact or MPC. Load factor is not physical time.",
+      "prerequisites": "Serial displacement-only homogeneous hyperelastic path; initialize with nonlinear-results template.",
+      "snippet": "# SPDX-FileCopyrightText: 2026 Haoming Luo and AgentFEM contributors\n# SPDX-License-Identifier: Apache-2.0\n\"\"\"Serial SI displacement-controlled hyperelastic patch and accepted path.\"\"\"\nfrom pathlib import Path\nfrom mpi4py import MPI\nfrom agentfem import constitutive, fields, mechanics, mesh, models, project, results, steps, studies, units\n\n\ndef main():\n    run = project.current_run(project_root=Path(__file__).parent)\n    domain = mesh.cuboid((0., 0., 0.), (1., 1., 1.), (2, 1, 1), comm=MPI.COMM_SELF,\n        cell_type=\"hexahedron\")\n    model = models.create(mesh=domain, study=studies.static_solid(dimension=3, nonlinear=True), units=units.si())\n    u = model.field(fields.displacement(domain))\n    model.material(constitutive.neo_hookean(young=1e6, poisson=.3))\n    for component, axis in enumerate((\"x\", \"y\", \"z\")):\n        model.fix(u, on=mesh.face(domain, axis=axis, value=0., tag=component+1), component=component)\n    loaded = mesh.face(domain, axis=\"x\", value=1., tag=4, name=\"displaced_end\")\n    model.fix(u, on=loaded, component=0, value=.1)\n    output = results.OutputPlan(directory=run.output_directory,\n        field=results.field_output(\"U\", \"S\", every=1, configuration=\"reference\"), basename=\"fields\",\n        write_manifest=False)  # RunContext publishes once, after curve attachment.\n    step = model.step(target=u, incrementation=steps.fixed(4), output=output, progress=False)\n    result = step.solve_result()\n    path = mechanics.displacement_controlled_response(model, step, on=loaded, component=0, monitor_component=0)\n    result.add_history(\"loaded_end_reaction\", path[\"displacement\"], path[\"reaction\"], unit=\"N\",\n        abscissa_name=\"mean_loaded_end_displacement\", abscissa_unit=\"m\",\n        description=\"Loaded support-on-body +x reaction at retained accepted stations; displacement is an area mean.\")\n    result.add_history(\"load_factor\", path[\"displacement\"], path[\"load_factor\"], unit=\"1\",\n        abscissa_name=\"mean_loaded_end_displacement\", abscissa_unit=\"m\")\n    result.verify(required_histories=(\"loaded_end_reaction\", \"load_factor\"))\n    run.publish(result)\n    return result\n\n\nif __name__ == \"__main__\":\n    main()\n",
+      "source": "cards/mode_imperfect_displacement_path.json",
+      "template": "nonlinear-results",
+      "title": "\u8f7d\u8377\u2014\u4f4d\u79fb\u66f2\u7ebf / load displacement curve"
+    },
+    {
+      "aliases": [
+        "\u7f51\u683c",
+        "mesh import",
+        "mesh input",
+        "connectivity"
+      ],
+      "card_id": "agentfem.workflow.discretization_preflight",
+      "card_status": "supported",
+      "entrypoints": [
+        "agentfem.mesh.from_arrays"
+      ],
+      "id": "mesh-input",
+      "limitations": "Numeric import does not infer material, contact, load or element formulation. Reviewed archive reading has a separate identity contract.",
+      "prerequisites": "Explicit Basix connectivity and coordinate ordering. Example constructs one serial triangle in consistent length units.",
+      "snippet": "import numpy as np\nfrom mpi4py import MPI\nfrom agentfem import mesh\ndomain = mesh.from_arrays(cells=np.array([[0,1,2]], dtype=np.int64), coordinates=np.array([[0.,0.],[1.,0.],[0.,1.]]), cell_type=\"triangle\", comm=MPI.COMM_SELF)\n",
+      "source": "cards/discretization_preflight.json",
+      "title": "\u7f51\u683c\u8f93\u5165 / mesh input"
+    },
+    {
+      "aliases": [
+        "\u6a21\u6001",
+        "\u56fa\u6709\u9891\u7387",
+        "modal",
+        "eigenfrequency"
+      ],
+      "card_id": "agentfem.workflow.solution_procedures",
+      "card_status": "supported",
+      "entrypoints": [
+        "agentfem.studies.modal_solid",
+        "agentfem.models.Model.step"
+      ],
+      "id": "modal",
+      "limitations": "Linear modal analysis; constraint/material/element combinations still require Step capability checking.",
+      "prerequisites": "A model with modal_solid Study, density, displacement u and supports already defined.",
+      "snippet": "step = model.step(target=u, modes=3)\nresult = step.solve_result()\nfrequencies_hz = result.quantity(\"frequencies\")\n",
+      "source": "cards/solution_procedures.json",
+      "title": "\u6a21\u6001\u9891\u7387 / modal frequencies"
+    },
+    {
+      "aliases": [
+        "\u6d4b\u70b9",
+        "\u7aef\u70b9\u4f4d\u79fb\u968f\u65f6\u95f4",
+        "point",
+        "probe",
+        "displacement history"
+      ],
+      "card_id": "agentfem.workflow.result_field_sampling",
+      "card_status": "supported",
+      "entrypoints": [
+        "agentfem.results.probe_history",
+        "agentfem.results.sample_points"
+      ],
+      "id": "point-history",
+      "limitations": "History uses accepted physical time in seconds, independently of sparse cloud frames. For load-factor paths use task:load-path.",
+      "prerequisites": "SI linear Newmark structural-dynamics project; initialize with dynamic-results template.",
+      "snippet": "# SPDX-FileCopyrightText: 2026 Haoming Luo and AgentFEM contributors\n# SPDX-License-Identifier: Apache-2.0\n\n\"\"\"Small implicit structural-dynamics AgentFEM project.\"\"\"\n\nimport os\nfrom pathlib import Path\n\nimport numpy as np\nfrom mpi4py import MPI\n\nfrom agentfem import constitutive, fields, mesh, models, project, results, studies\n\n\ndef main():\n    run = project.current_run(project_root=Path(__file__).resolve().parent)\n    study = studies.dynamic_solid(\n        dimension=2,\n        assumption=\"plane_stress\",\n        method=\"newmark\",\n        name=\"beam_dynamics\",\n    )\n    domain = mesh.rectangle(\n        (0.0, 0.0),\n        (1.0, 0.2),\n        (2, 1),\n        comm=MPI.COMM_WORLD,\n        cell_type=\"triangle\",\n    )\n    model = models.create(study=study, mesh=domain, name=\"dynamic_beam\")\n    displacement = model.field(fields.displacement(domain))\n    model.material(\n        constitutive.isotropic_elastic(\n            young=2.0e9,\n            poisson=0.3,\n            density=1000.0,\n        )\n    )\n    left = mesh.boundary(domain, lambda x: np.isclose(x[0], 0.0), name=\"left\", tag=1)\n    right = mesh.boundary(domain, lambda x: np.isclose(x[0], 1.0), name=\"right\", tag=2)\n    model.clamp(displacement, on=left)\n    model.traction((0.0, -1.0e4), on=right)\n\n    step = model.step(\n        target=displacement,\n        dt=1.0e-4,\n        steps=6,\n        save_every=3,\n        print_every=1,\n        name=\"newmark_response\",\n        output=run.artifact(\"dynamics.xdmf\"),\n    )\n    simulation = step.solve_result(\n        history=(\n            results.probe_history(\n                \"tip_U2\",\n                at=(1.0, 0.1),\n                component=1,\n                unit=\"m\",\n            ),\n        ),\n    )\n    simulation.add_dof_statistics(\n        step.state.u,\n        prefix=\"final_displacement\",\n        unit=\"m\",\n    )\n    run.publish(simulation, comm=MPI.COMM_WORLD)\n    if MPI.COMM_WORLD.rank == 0:\n        if not os.environ.get(\"AGENTFEM_CLI_MANAGED\"):\n            print(simulation.format())\n            print(f\"Result manifest: {run.manifest_path}\")\n    return simulation\n\n\nif __name__ == \"__main__\":\n    main()\n",
+      "source": "cards/result_field_sampling.json",
+      "template": "dynamic-results",
+      "title": "\u7a7a\u95f4\u6d4b\u70b9\u4e0e\u65f6\u95f4\u5386\u53f2 / point history"
+    },
+    {
+      "aliases": [
+        "\u6c42\u89e3\u5668",
+        "\u725b\u987f",
+        "newton",
+        "solver configuration"
+      ],
+      "card_id": "agentfem.workflow.solution_procedures",
+      "card_status": "supported",
+      "entrypoints": [
+        "agentfem.solvers.newton"
+      ],
+      "id": "solver-options",
+      "limitations": "Convergence tolerances do not change physical assumptions; a valid policy is not a convergence guarantee.",
+      "prerequisites": "Choose a nonlinear route admitting solver_options; this snippet constructs policy only.",
+      "snippet": "from agentfem import solvers\npolicy = solvers.newton(relative_tolerance=1e-8, maximum_iterations=30)\n# Pass solver_options=policy to a compatible model.step(...).\n",
+      "source": "cards/solution_procedures.json",
+      "title": "\u6c42\u89e3\u5668\u914d\u7f6e / solver options"
+    },
+    {
+      "aliases": [
+        "\u8f93\u51fa",
+        "\u4e91\u56fe",
+        "output",
+        "visualization",
+        "paraview"
+      ],
+      "card_id": "agentfem.workflow.result_visualization_contract",
+      "card_status": "supported",
+      "entrypoints": [
+        "agentfem.results.complete_result",
+        "agentfem.results.small_strain_cell_fields"
+      ],
+      "id": "standard-output",
+      "limitations": "Support reaction is a strong-constraint force; the point value is FE interpolation. Use the manifest-recommended reader and retain all companions.",
+      "prerequisites": "Small 3D SI static-solid project; initialize with static-results template.",
+      "snippet": "# SPDX-FileCopyrightText: 2026 Haoming Luo and AgentFEM contributors\n# SPDX-License-Identifier: Apache-2.0\n\"\"\"SI 3D cantilever: fields, a spatial point and the fixed-end reaction.\"\"\"\nfrom pathlib import Path\nfrom mpi4py import MPI\nfrom agentfem import constitutive, fields, mesh, models, project, results, studies, units\n\n\ndef main():\n    run = project.current_run(project_root=Path(__file__).parent)\n    domain = mesh.cuboid((0., 0., 0.), (1., .2, .2), (6, 2, 2), comm=MPI.COMM_WORLD)\n    study = studies.static_solid(dimension=3)\n    model = models.create(mesh=domain, study=study, units=units.si())\n    u = model.field(fields.displacement(domain, degree=2))\n    material = constitutive.isotropic_elastic(young=210e9, poisson=.3, density=7800.)\n    model.material(material)\n    fixed = mesh.face(domain, axis=\"x\", value=0., tag=1, name=\"fixed\")\n    loaded = mesh.face(domain, axis=\"x\", value=1., tag=2, name=\"loaded\")\n    model.clamp(u, on=fixed)\n    model.traction((0., -1e6, 0.), on=loaded)\n    step = model.step(target=u)\n    result = step.solve_result()\n    for field in results.small_strain_cell_fields(u, material, study=study, variables=(\"S\",)):\n        result.add_field(field.name, field, location=\"cells\", unit=\"Pa\")\n    result.add_quantity(\"tip_U2\", results.probe(u, at=(1., .1, .1))[1], unit=\"m\",\n        description=\"Interpolated displacement at the specified reference point.\")\n    result.add_quantity(\"fixed_reaction\", results.reaction_resultant(step, on=fixed), unit=\"N\",\n        description=\"Support-on-body force at the fixed end, global xyz components.\")\n    results.complete_result(step, result, output=run.artifact(\"fields.xdmf\"), strict_output=True)\n    result.verify(required_quantities=(\"tip_U2\", \"fixed_reaction\"), required_artifacts=(\"fields_xdmf\", \"fields_hdf5\"))\n    run.publish(result, comm=MPI.COMM_WORLD)\n    return result\n\n\nif __name__ == \"__main__\":\n    main()\n",
+      "source": "cards/result_visualization_contract.json",
+      "template": "static-results",
+      "title": "\u6807\u51c6\u7ed3\u679c\u8f93\u51fa / standard result output"
+    }
+  ]
 }

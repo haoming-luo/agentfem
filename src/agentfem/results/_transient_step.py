@@ -157,6 +157,8 @@ def _attach_field_output(result, step, output_fields) -> None:
     is_paraview = path.suffix.lower() == ".pvd"
     result.metadata["field_output"] = {
         "status": "completed",
+        "frame_count": None if step.last_output_frame_times is None else len(step.last_output_frame_times),
+        "frame_times": step.last_output_frame_times,
         "backend": backend,
         "layout": getattr(step, "last_output_layout", None),
         "geometry": "reference",

@@ -71,6 +71,24 @@
     "examples": [
       "tests/test_element_contracts.py",
       "tests/test_mixed_cell_topologies.py"
+    ],
+    "tasks": [
+      {
+        "id": "mesh-input",
+        "title": "网格输入 / mesh input",
+        "aliases": [
+          "网格",
+          "mesh import",
+          "mesh input",
+          "connectivity"
+        ],
+        "entrypoints": [
+          "agentfem.mesh.from_arrays"
+        ],
+        "prerequisites": "Explicit Basix connectivity and coordinate ordering. Example constructs one serial triangle in consistent length units.",
+        "limitations": "Numeric import does not infer material, contact, load or element formulation. Reviewed archive reading has a separate identity contract.",
+        "snippet": "import numpy as np\nfrom mpi4py import MPI\nfrom agentfem import mesh\ndomain = mesh.from_arrays(cells=np.array([[0,1,2]], dtype=np.int64), coordinates=np.array([[0.,0.],[1.,0.],[0.,1.]]), cell_type=\"triangle\", comm=MPI.COMM_SELF)\n"
+      }
     ]
   },
   "verification": {
