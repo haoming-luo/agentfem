@@ -15,6 +15,28 @@ from .performance import attach_performance
 from ._field_metadata import field_location
 
 
+def _declared_units(step):
+    """Read physical labels from the existing model; never rescale values."""
+    context = execution_context(step)
+    model = None if context is None else context.model
+    units = getattr(model, "unit_system", None)
+    study = getattr(model, "study", None)
+    primary = None
+    if getattr(study, "is_heat_transfer", False):
+        primary = getattr(units, "temperature", None)
+    elif getattr(study, "is_solid_mechanics", False):
+        primary = getattr(units, "length", None)
+    return primary, getattr(units, "time", None)
+
+
+def _time_unit(step):
+    requests = getattr(step, "history_requests", ())
+    declared = {request.time_unit for request in requests if getattr(request, "time_unit", None)}
+    if len(declared) > 1:
+        raise ValueError("Transient history requests declare inconsistent time units.")
+    return next(iter(declared), _declared_units(step)[1] or "s")
+
+
 def from_transient_step(
     step,
     solution,
@@ -40,6 +62,7 @@ def from_transient_step(
     result = from_solution(
         solution,
         name=step.name,
+        unit=_declared_units(step)[0],
         metadata={"step": summary},
     )
     if metadata:
@@ -48,7 +71,7 @@ def from_transient_step(
     if context is not None:
         result.metadata.setdefault("execution_context", context.summary())
     attach_checkpoint_contract(step, result)
-    add_execution_trace(result, step.execution_events)
+    add_execution_trace(result, step.execution_events, time_unit=_time_unit(step))
     _attach_transient_output(result, step, tuple(output_fields))
     ledger_stages = dict(step.performance.summary()["stages"])
     result_seconds = perf_counter() - result_started
@@ -116,15 +139,11 @@ def _attach_histories(result, step) -> None:
     requests = {
         request.name: request for request in getattr(step, "history_requests", ())
     }
-    declared_time_units = {request.time_unit for request in requests.values()
-                           if getattr(request, "time_unit", None)}
-    if len(declared_time_units) > 1:
-        raise ValueError("Transient history requests declare inconsistent time units.")
     result.add_histories(
         coordinates,
         {name: [item[name] for item in step.history_records] for name in names},
         abscissa_name="time",
-        abscissa_unit=next(iter(declared_time_units), "s"),
+        abscissa_unit=_time_unit(step),
         units={name: getattr(requests.get(name), "unit", None) for name in names},
         descriptions={
             name: (
@@ -157,8 +176,8 @@ def _attach_field_output(result, step, output_fields) -> None:
     is_paraview = path.suffix.lower() == ".pvd"
     result.metadata["field_output"] = {
         "status": "completed",
-        "frame_count": None if step.last_output_frame_times is None else len(step.last_output_frame_times),
-        "frame_times": step.last_output_frame_times,
+        "frame_count": None if getattr(step, "last_output_frame_times", None) is None else len(step.last_output_frame_times),
+        "frame_times": getattr(step, "last_output_frame_times", None),
         "backend": backend,
         "layout": getattr(step, "last_output_layout", None),
         "geometry": "reference",
@@ -203,6 +222,7 @@ def _attach_field_output(result, step, output_fields) -> None:
         result.add_field(
             name,
             function,
+            unit=result.fields[name].unit if name in result.fields else None,
             location=field_location(function),
             processing=dict(getattr(function, "_agentfem_processing", {})),
             artifact=path,

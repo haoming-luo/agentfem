@@ -259,6 +259,7 @@ class ExplicitDynamicsStep:
         )
         output_fields, live_field_sets = _transient_output_fields(selected_fields)
         self.last_output = None if output is None else Path(output)
+        self.last_output_frame_times = None
         self.last_output_fields = output_fields if output is not None else ()
         self.last_output_start_time = (
             None if output is None else float(self.completed_steps) * float(self.dt)
@@ -681,6 +682,7 @@ class ImplicitDynamicsStep:
             self.state.a.value,
         )
         self.last_output = None if output is None else Path(output)
+        self.last_output_frame_times = None
         self.last_output_fields = output_fields if output is not None else ()
         self.last_output_start_time = (
             None if output is None else float(self.completed_steps) * float(self.dt)
@@ -1166,6 +1168,7 @@ class FirstOrderTransientStep:
         )
         selected_fields = tuple(fields) or (self.current,)
         self.last_output = None if output is None else Path(output)
+        self.last_output_frame_times = None
         self.last_output_fields = selected_fields if output is not None else ()
         self.last_output_start_time = (
             None if output is None else float(self.completed_steps) * float(self.dt)

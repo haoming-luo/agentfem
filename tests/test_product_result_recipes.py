@@ -6,10 +6,11 @@ import os
 from pathlib import Path
 import subprocess
 import sys
+import shutil
 import numpy as np
 import pytest
 from mpi4py import MPI
-from agentfem import cli, constitutive, fields, mesh, models, results, studies
+from agentfem import cli, constitutive, fields, mesh, models, provenance, results, studies
 from agentfem._task_discovery import task_record
 
 
@@ -45,6 +46,7 @@ def test_result_recipe_from_project(tmp_path, capsys, template):
         assert histories['tip_U2']['abscissa_unit'] == 's'
         assert menu['frame_count'] == 3
         assert len(menu['frame_times']) == 3
+        assert any(f['name']=='Displacement' and f['unit']=='m' for f in menu['fields'])
     else:
         curve = histories['loaded_end_reaction']
         assert curve['abscissa_name'] == 'mean_loaded_end_displacement'
@@ -52,6 +54,19 @@ def test_result_recipe_from_project(tmp_path, capsys, template):
         assert np.all(np.diff(curve['abscissa']) > 0)
         assert np.asarray(curve['values'])[-1] > 0
         assert menu['frame_count'] >= 4
+
+    # Moving a sealed run must not leave the recommended file at its old root.
+    original_manifest = manifest.read_bytes()
+    moved = tmp_path / ('搬迁结果 ' + template)
+    shutil.move(str(manifest.parent), moved)
+    moved_manifest = moved / manifest.name
+    assert cli.main(['show',str(moved_manifest),'--json']) == 0
+    relocated = json.loads(capsys.readouterr().out)['result_menu']
+    selected = Path(relocated['recommended_visualization'])
+    assert selected.is_file() and selected.is_relative_to(moved)
+    assert not relocated['missing_files']
+    assert moved_manifest.read_bytes() == original_manifest
+    assert provenance.verify_manifest(moved_manifest).verified
 
 
 @pytest.mark.parametrize('task', ['mesh-input','solver-options','modal'])

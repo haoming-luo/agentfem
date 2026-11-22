@@ -24,6 +24,37 @@ from agentfem import (
 )
 
 
+def test_performance_gather_preserves_rank_local_gc_policy_and_payload(monkeypatch):
+    import gc
+    from agentfem.results import performance
+    comm = MPI.COMM_WORLD
+    if comm.size < 2:
+        pytest.skip('requires two MPI ranks')
+    stages = {'solve': {'seconds':float(comm.rank+1), 'calls':comm.rank+1}}
+    if comm.rank == 1:
+        stages['rank_one_only'] = .25
+    class ObservedComm:
+        size = comm.size
+        def allgather(self, value):
+            assert not gc.isenabled()
+            assert value['solve'] == stages['solve']
+            return comm.allgather(value)
+    monkeypatch.setattr(performance, '_solution_comm', lambda _:ObservedComm())
+    before = gc.isenabled()
+    selected = comm.rank % 2 == 0
+    try:
+        (gc.enable if selected else gc.disable)()
+        evidence = performance.performance_evidence(stages=stages)
+        assert gc.isenabled() == selected
+        assert evidence.stages['solve']['seconds'] == float(comm.size)
+        assert evidence.stages['solve']['calls_min'] == 1
+        assert evidence.stages['solve']['calls_max'] == comm.size
+        assert evidence.stages['rank_one_only']['participating_ranks'] == 1
+        assert evidence.stages['rank_one_only']['seconds'] == .25
+    finally:
+        (gc.enable if before else gc.disable)()
+
+
 def test_collective_manifest_failed_replacement_is_atomic(tmp_path, monkeypatch):
     comm = MPI.COMM_WORLD
     if comm.size < 2:

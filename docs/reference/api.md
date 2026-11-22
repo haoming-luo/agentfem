@@ -642,7 +642,7 @@ and evidence remain in the linked guides and scientific function reference.
 | class | `FieldRecovery` | A reviewable conversion from constitutive evidence to a field. |
 | function | `cell_average_recovery() -> FieldRecovery` | Return the standard scientific integration-point recovery policy. |
 | function | `recover_integration_point_field(source, *, name: str \| None = None, policy: FieldRecovery \| None = None, unit: str \| None = None, description: str = '') -> FieldResult` | Recover one ``QuadratureField`` without hiding its processing history. |
-| function | `add_execution_trace(result, events: Iterable[object]) -> tuple[dict[str, object], ...]` | Attach one complete execution trace and its standard histories. |
+| function | `add_execution_trace(result, events: Iterable[object], *, time_unit = 's') -> tuple[dict[str, object], ...]` | Attach one complete execution trace and its standard histories. |
 | function | `execution_records(events: Iterable[object]) -> tuple[dict[str, object], ...]` | Normalize solver events without depending on a particular procedure. |
 | function | `complete_result(step, result, *, output = None, fields = (), strict_output: bool = False, deformation_scale: float = 0.0, time: float = 0.0, metadata: Mapping[str, object] \| None = None)` | Complete output and metadata through one compatibility-safe path. |
 | function | `execution_context(step)` | Return the context bound by :meth:`Model.step`, when available. |

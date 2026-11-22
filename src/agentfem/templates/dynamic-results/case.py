@@ -9,7 +9,7 @@ from pathlib import Path
 import numpy as np
 from mpi4py import MPI
 
-from agentfem import constitutive, fields, mesh, models, project, results, studies
+from agentfem import constitutive, fields, mesh, models, project, results, studies, units
 
 
 def main():
@@ -27,7 +27,7 @@ def main():
         comm=MPI.COMM_WORLD,
         cell_type="triangle",
     )
-    model = models.create(study=study, mesh=domain, name="dynamic_beam")
+    model = models.create(study=study, mesh=domain, name="dynamic_beam", units=units.si())
     displacement = model.field(fields.displacement(domain))
     model.material(
         constitutive.isotropic_elastic(

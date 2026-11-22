@@ -26,8 +26,12 @@ def execution_records(events: Iterable[object]) -> tuple[dict[str, object], ...]
     return tuple(records)
 
 
-def add_execution_trace(result, events: Iterable[object]) -> tuple[dict[str, object], ...]:
+def add_execution_trace(result, events: Iterable[object], *, time_unit="s") -> tuple[dict[str, object], ...]:
     """Attach one complete execution trace and its standard histories.
+
+    ``time_unit`` labels physical time without converting event values. The
+    default preserves the historical seconds convention; transient Results
+    supply the unit declared by their model or history requests.
 
     The event list includes failed attempts and hidden progress frames.  Only
     accepted increments are projected into monotone histories suitable for
@@ -50,16 +54,16 @@ def add_execution_trace(result, events: Iterable[object]) -> tuple[dict[str, obj
             times,
             np.asarray([item["increment"] for item in transient], dtype=float),
             abscissa_name="time",
-            abscissa_unit="s",
+            abscissa_unit=time_unit,
             description="All accepted time-integration increments.",
         )
         result.add_history(
             "time_increment",
             times,
             np.diff(np.concatenate(([0.0], times))),
-            unit="s",
+            unit=time_unit,
             abscissa_name="time",
-            abscissa_unit="s",
+            abscissa_unit=time_unit,
             description="Accepted physical time increment at each step.",
         )
 

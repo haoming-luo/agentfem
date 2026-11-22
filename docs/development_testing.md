@@ -313,3 +313,10 @@ payload nor its reduction. It does not change collection thresholds, explicitly
 collect, or disable GC for the simulation session. Keep the real repeated-case
 MPI regression and the state-restoration tests when revisiting this workaround;
 do not replace it with a longer timeout or a global GC setting.
+
+The regression coverage includes caught nested failures, overlapping calls
+where one fails, unchanged GC thresholds, and collection of deferred cycles
+after the call. A real two-rank test starts with different GC policies on each
+rank, checks the gathered stage payload and reductions, and verifies that each
+rank recovers its own policy. Explicit external `gc.collect()` calls and
+concurrent changes to the application's GC policy are outside this guard.

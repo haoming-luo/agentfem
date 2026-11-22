@@ -4,6 +4,28 @@
 from pathlib import Path
 
 
+def _visualization_path(metadata, artifacts, base):
+    """Resolve recorded roles against portable artifact paths, not old roots."""
+    output = metadata.get("field_output") or {}
+    primary = (metadata.get("visualization") or {}).get("primary_artifact")
+    selected = artifacts.get(primary)
+    recorded = output.get("recommended_visualization_artifact")
+    if not selected and recorded:
+        selected = next((value for value in artifacts.values() if value == recorded), None)
+        if not selected:
+            if recorded == output.get("scientific_artifact"):
+                selected = artifacts.get("fields_xdmf")
+            elif recorded == output.get("paraview") or output.get("scientific_xdmf_layout") == "not_emitted":
+                selected = artifacts.get("fields_paraview")
+    if not selected and metadata.get("output_plan"):
+        selected = artifacts.get("field_history")
+    selected = selected or recorded
+    if not isinstance(selected, str):
+        return None
+    path = Path(selected).expanduser()
+    return str((path if path.is_absolute() else base / path).resolve())
+
+
 def result_menu(record, path):
     metadata = record.get("metadata") or {}
     output = metadata.get("field_output") or {}
@@ -16,10 +38,7 @@ def result_menu(record, path):
         selected = Path(value).expanduser()
         selected = selected if selected.is_absolute() else Path(path).parent / selected
         files.append({"name": name, "path": str(selected.resolve()), "exists": selected.is_file()})
-    primary = (metadata.get("visualization") or {}).get("primary_artifact")
-    recommended = artifacts.get(primary) or output.get("recommended_visualization_artifact")
-    if recommended is None and plan:
-        recommended = artifacts.get("field_history")
+    recommended = _visualization_path(metadata, artifacts, Path(path).parent)
     histories = []
     for item in record.get("history_records", ()):
         interval = item.get("abscissa_range")

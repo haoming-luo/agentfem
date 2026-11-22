@@ -1105,16 +1105,24 @@ def format_diagnosis(record: Mapping[str, object]) -> str:
         lines.append(f"  kind: {failure.get('kind')}")
         if failure.get("message"):
             lines.append(f"  message: {failure['message']}")
-        details = failure.get("validation") or failure.get("details") or {}
-        for item in details.get("issues", ()):
+        details = next((value for value in (failure.get("validation"), failure.get("details"))
+                        if isinstance(value, Mapping) and value), {})
+        issues = details.get("issues") or ()
+        if not isinstance(issues, (list, tuple)):
+            issues = ()
+        for item in issues:
+            if not isinstance(item, Mapping):
+                continue
             location = item.get('path') or (f"step.options.{item['option']}" if item.get('option') else 'unrecorded object')
             lines.append(f"  {location}: {item.get('message', '')}")
             if item.get("hint"):
                 lines.append(f"    next: {item['hint']}")
             if item.get("suggestions"):
-                lines.append("    suggested names: " + ", ".join(item['suggestions']))
+                names = item["suggestions"]
+                lines.append("    suggested names: " + (", ".join(map(str, names)) if isinstance(names, (list, tuple)) else str(names)))
         if details.get('accepted_options'):
-            lines.append("  accepted options: " + ", ".join(details['accepted_options']))
+            names = details["accepted_options"]
+            lines.append("  accepted options: " + (", ".join(map(str, names)) if isinstance(names, (list, tuple)) else str(names)))
         lines.append(f"  fingerprint: {failure.get('fingerprint')}")
         if failure.get("repetition_count"):
             lines.append(f"  repeated: {failure.get('repetition_count')} run(s)")

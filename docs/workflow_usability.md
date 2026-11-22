@@ -36,6 +36,12 @@ or parameter configuration language is introduced.
 The normal result view lists field positions/shapes/units, history coordinates
 and ranges, saved frame counts and the recommended visualization entry. JSON
 adds a read-only `result_menu`; it does not change the sealed manifest.
+Registered visualization paths are resolved relative to the manifest, so a
+complete run directory can be moved without selecting its old absolute path.
+Transient primary fields and physical-time histories retain the model's
+declared units; labels do not rescale values. Without declared time units,
+the historical seconds convention is retained. Continuing a Step without
+field output does not report the previous run's frames as new output.
 Summaries read metadata and check file presence, never load field arrays or
 rerun the model. Legacy missing metadata stays unknown. `show --files` and
 the existing result verification retain their separate integrity roles.

@@ -68,3 +68,20 @@ def test_owner_error_evidence_survives_run_and_diagnose(tmp_path, monkeypatch, c
 def test_model_diagnostic_does_not_promise_cli_syntax_check_executes_model():
     hints=feedback._support_suggestions({'stage':'model_preflight'})
     assert 'model.validate' in hints[0] and 'not the constructed model' in hints[0]
+
+
+@pytest.mark.parametrize('details', ['legacy detail text', {'issues':None},
+    {'issues':['legacy issue', {'message':'check this', 'suggestions':'dt'}],
+     'accepted_options':'dt, steps'}])
+def test_legacy_diagnostic_details_remain_readable(tmp_path, capsys, details):
+    path = tmp_path/'execution.json'
+    record = {'status':'failed', 'error':{'type':'ValueError','message':'original failure',
+        'details':details, 'validation':'legacy validation text'}}
+    path.write_text(json.dumps(record))
+    before = path.read_bytes()
+    assert cli.main(['diagnose',str(path)]) == 0
+    text = capsys.readouterr().out
+    assert 'original failure' in text
+    assert path.read_bytes() == before
+    diagnosis = feedback.diagnose(path)
+    assert diagnosis['failure']['details'] == details
