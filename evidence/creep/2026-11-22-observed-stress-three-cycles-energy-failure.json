@@ -1,0 +1,3182 @@
+{
+  "schema": "agentfem.research.observed-stress-replay.v1",
+  "records": {
+    "RF": {
+      "initial_state": [
+        -0.05,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        4e-05,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "records": [
+        {
+          "cycle": 1,
+          "segment": 1,
+          "window": "early",
+          "original_stress_control": false,
+          "source_indices": [
+            26,
+            81
+          ],
+          "duration_s": 8.944,
+          "observed_strain_change": -2.0000000000000052e-05,
+          "predicted_strain_change": 3.876223736636909e-05,
+          "strain_change_residual": 5.8762237366369145e-05,
+          "strain_rate_residual_per_s": 6.570017594629823e-06,
+          "independent_strain_change": 3.876224075779859e-05,
+          "subdivided_strain_change": 3.8762237366261974e-05,
+          "signed_flow_budget": {
+            "interval_s": [
+              2.11,
+              11.054
+            ],
+            "duration_s": 8.944,
+            "total_strain_change": 3.876223736636909e-05,
+            "elastic_strain_change": -0.00034315769408713257,
+            "recoverable_strain_changes": [
+              1.8709609383948928e-05,
+              3.729790709461139e-05
+            ],
+            "signed_branch_strain_changes": [
+              0.00020844026056178754,
+              0.00011747215444486245
+            ],
+            "accumulated_branch_changes": [
+              0.00020844026053875442,
+              0.00011747215443618678
+            ],
+            "quadrature_error_estimate": 2.8290428467235107e-13,
+            "strain_closure_error": -3.170863094661969e-14,
+            "predicted_stress_secant_MPa_per_s": -5.953711985688729,
+            "total_strain_stress_secant_MPa_per_s": 0.6725164586916275,
+            "signed_branch_stress_secants_MPa_per_s": [
+              -3.6163935677096912,
+              -2.038116545116627
+            ],
+            "recoverable_stress_secants_MPa_per_s": [
+              -0.324607687824383,
+              -0.6471106442797931
+            ],
+            "fixed_flow_without_recovery_secant_MPa_per_s": -5.654510112826318,
+            "accounting_passed": true,
+            "scope": "Signed frozen-path accounting; removing a component here is not a new causal prediction",
+            "independent_signed_branch_changes": [
+              0.00020844025656615805,
+              0.00011747215441647196
+            ],
+            "independent_accounting_passed": true,
+            "independent_signed_flow_passed": true
+          }
+        },
+        {
+          "cycle": 1,
+          "segment": 1,
+          "window": "late",
+          "original_stress_control": false,
+          "source_indices": [
+            158,
+            198
+          ],
+          "duration_s": 34.17400000000001,
+          "observed_strain_change": 0.0,
+          "predicted_strain_change": -5.458803653806549e-06,
+          "strain_change_residual": -5.458803653806549e-06,
+          "strain_rate_residual_per_s": -1.5973557832874548e-07,
+          "independent_strain_change": -5.458806183703414e-06,
+          "subdivided_strain_change": -5.458803654052446e-06,
+          "signed_flow_budget": {
+            "interval_s": [
+              147.839,
+              182.013
+            ],
+            "duration_s": 34.17400000000001,
+            "total_strain_change": -5.458803653806549e-06,
+            "elastic_strain_change": -1.7270659533398292e-05,
+            "recoverable_strain_changes": [
+              -2.932516861821983e-06,
+              5.805816667776078e-06
+            ],
+            "signed_branch_strain_changes": [
+              4.5814424689421866e-07,
+              8.480411822768834e-06
+            ],
+            "accumulated_branch_changes": [
+              4.5814424709604e-07,
+              8.48041182654433e-06
+            ],
+            "quadrature_error_estimate": 1.1980151621908425e-13,
+            "strain_closure_error": 3.97459537883945e-15,
+            "predicted_stress_secant_MPa_per_s": -0.07842219230993842,
+            "total_strain_stress_secant_MPa_per_s": -0.02478720335451935,
+            "signed_branch_stress_secants_MPa_per_s": [
+              -0.0020803302946335576,
+              -0.03850764850911242
+            ],
+            "recoverable_stress_secants_MPa_per_s": [
+              0.013315901505973893,
+              -0.02636291163959924
+            ],
+            "fixed_flow_without_recovery_secant_MPa_per_s": -0.04058797880374598,
+            "accounting_passed": true,
+            "scope": "Signed frozen-path accounting; removing a component here is not a new causal prediction",
+            "independent_signed_branch_changes": [
+              4.581442202145734e-07,
+              8.480411815977129e-06
+            ],
+            "independent_accounting_passed": true,
+            "independent_signed_flow_passed": true
+          }
+        },
+        {
+          "cycle": 1,
+          "segment": 3,
+          "window": "early",
+          "original_stress_control": false,
+          "source_indices": [
+            250,
+            333
+          ],
+          "duration_s": 8.967000000000013,
+          "observed_strain_change": 4.0000000000000105e-05,
+          "predicted_strain_change": 0.0001072093049080125,
+          "strain_change_residual": 6.72093049080124e-05,
+          "strain_rate_residual_per_s": 7.495182882570793e-06,
+          "independent_strain_change": 0.00010720929663991102,
+          "subdivided_strain_change": 0.00010720930490807756,
+          "signed_flow_budget": {
+            "interval_s": [
+              186.107,
+              195.074
+            ],
+            "duration_s": 8.967000000000013,
+            "total_strain_change": 0.0001072093049080125,
+            "elastic_strain_change": 0.0005801781633552025,
+            "recoverable_strain_changes": [
+              4.741871686690923e-05,
+              -6.44048438920501e-05
+            ],
+            "signed_branch_strain_changes": [
+              -0.00017680197038715963,
+              -0.00027918076106397553
+            ],
+            "accumulated_branch_changes": [
+              0.0001768019703695927,
+              0.00027918076105246125
+            ],
+            "quadrature_error_estimate": 3.9866061074165806e-13,
+            "strain_closure_error": 2.90860543115945e-14,
+            "predicted_stress_secant_MPa_per_s": 10.040147206423535,
+            "total_strain_stress_secant_MPa_per_s": 1.855287343029124,
+            "signed_branch_stress_secants_MPa_per_s": [
+              3.05960810177207,
+              4.831302029834549
+            ],
+            "recoverable_stress_secants_MPa_per_s": [
+              -0.8205943066354431,
+              1.1145440389265768
+            ],
+            "fixed_flow_without_recovery_secant_MPa_per_s": 7.89091013160662,
+            "accounting_passed": true,
+            "scope": "Signed frozen-path accounting; removing a component here is not a new causal prediction",
+            "independent_signed_branch_changes": [
+              -0.00017680196649712173,
+              -0.00027918076086513025
+            ],
+            "independent_accounting_passed": true,
+            "independent_signed_flow_passed": true
+          }
+        },
+        {
+          "cycle": 1,
+          "segment": 3,
+          "window": "late",
+          "original_stress_control": false,
+          "source_indices": [
+            409,
+            449
+          ],
+          "duration_s": 34.17099999999999,
+          "observed_strain_change": 2.0000000000000052e-05,
+          "predicted_strain_change": -6.117611552305252e-06,
+          "strain_change_residual": -2.6117611552305305e-05,
+          "strain_rate_residual_per_s": -7.643209608236607e-07,
+          "independent_strain_change": -6.1176105669120615e-06,
+          "subdivided_strain_change": -6.1176115519934356e-06,
+          "signed_flow_budget": {
+            "interval_s": [
+              331.859,
+              366.03
+            ],
+            "duration_s": 34.17099999999999,
+            "total_strain_change": -6.117611552305252e-06,
+            "elastic_strain_change": 1.2566338093333923e-05,
+            "recoverable_strain_changes": [
+              2.8685530783682605e-06,
+              -1.5211633630111813e-05
+            ],
+            "signed_branch_strain_changes": [
+              -4.5037703282346726e-09,
+              -6.3363653345581945e-06
+            ],
+            "accumulated_branch_changes": [
+              4.5037703174082705e-09,
+              6.336365323576527e-06
+            ],
+            "quadrature_error_estimate": 1.2206399317106114e-13,
+            "strain_closure_error": 1.0990807297204998e-14,
+            "predicted_stress_secant_MPa_per_s": 0.05706593310117815,
+            "total_strain_stress_secant_MPa_per_s": -0.027781141092172057,
+            "signed_branch_stress_secants_MPa_per_s": [
+              2.0452406607653532e-05,
+              0.02877454017239402
+            ],
+            "recoverable_stress_secants_MPa_per_s": [
+              -0.013026599861591987,
+              0.0690786815258517
+            ],
+            "fixed_flow_without_recovery_secant_MPa_per_s": 0.028794992579001675,
+            "accounting_passed": true,
+            "scope": "Signed frozen-path accounting; removing a component here is not a new causal prediction",
+            "independent_signed_branch_changes": [
+              -4.5037689459304295e-09,
+              -6.3363653121799805e-06
+            ],
+            "independent_accounting_passed": true,
+            "independent_signed_flow_passed": true
+          }
+        },
+        {
+          "cycle": 2,
+          "segment": 6,
+          "window": "early",
+          "original_stress_control": false,
+          "source_indices": [
+            500,
+            556
+          ],
+          "duration_s": 8.982000000000028,
+          "observed_strain_change": -3.000000000000008e-05,
+          "predicted_strain_change": -0.00010055025367229826,
+          "strain_change_residual": -7.055025367229818e-05,
+          "strain_rate_residual_per_s": -7.854626327354482e-06,
+          "independent_strain_change": -0.0001005502468797684,
+          "subdivided_strain_change": -0.00010055025367228785,
+          "signed_flow_budget": {
+            "interval_s": [
+              370.137,
+              379.119
+            ],
+            "duration_s": 8.982000000000028,
+            "total_strain_change": -0.00010055025367229826,
+            "elastic_strain_change": -0.0005287528413117245,
+            "recoverable_strain_changes": [
+              -4.0792172804218145e-05,
+              6.108254734993355e-05
+            ],
+            "signed_branch_strain_changes": [
+              0.00018942731122290114,
+              0.00021848490186851985
+            ],
+            "accumulated_branch_changes": [
+              0.00018942731122476193,
+              0.00021848490186894478
+            ],
+            "quadrature_error_estimate": 3.4586767734058215e-13,
+            "strain_closure_error": 2.289780778180761e-15,
+            "predicted_stress_secant_MPa_per_s": -9.134936539746164,
+            "total_strain_stress_secant_MPa_per_s": -1.7371446819522862,
+            "signed_branch_stress_secants_MPa_per_s": [
+              -3.2726187581766446,
+              -3.774628819980095
+            ],
+            "recoverable_stress_secants_MPa_per_s": [
+              0.704741196208924,
+              -1.0552854758065022
+            ],
+            "fixed_flow_without_recovery_secant_MPa_per_s": -7.04724757815674,
+            "accounting_passed": true,
+            "scope": "Signed frozen-path accounting; removing a component here is not a new causal prediction",
+            "independent_signed_branch_changes": [
+              0.00018942730776087783,
+              0.00021848490191731938
+            ],
+            "independent_accounting_passed": true,
+            "independent_signed_flow_passed": true
+          }
+        },
+        {
+          "cycle": 2,
+          "segment": 6,
+          "window": "late",
+          "original_stress_control": false,
+          "source_indices": [
+            632,
+            672
+          ],
+          "duration_s": 34.17399999999998,
+          "observed_strain_change": 0.0,
+          "predicted_strain_change": 6.082050244832736e-06,
+          "strain_change_residual": 6.082050244832736e-06,
+          "strain_rate_residual_per_s": 1.77973027589183e-07,
+          "independent_strain_change": 6.082050427082784e-06,
+          "subdivided_strain_change": 6.0820502450604184e-06,
+          "signed_flow_budget": {
+            "interval_s": [
+              515.904,
+              550.078
+            ],
+            "duration_s": 34.17399999999998,
+            "total_strain_change": 6.082050244832736e-06,
+            "elastic_strain_change": -1.559514778762172e-05,
+            "recoverable_strain_changes": [
+              -3.2070116864390055e-06,
+              1.515725187067684e-05
+            ],
+            "signed_branch_strain_changes": [
+              9.402089707835099e-08,
+              9.632936951428022e-06
+            ],
+            "accumulated_branch_changes": [
+              9.402089707743339e-08,
+              9.632936951137856e-06
+            ],
+            "quadrature_error_estimate": 1.206080338271751e-13,
+            "strain_closure_error": -2.8975303059675106e-16,
+            "predicted_stress_secant_MPa_per_s": -0.07081406917539618,
+            "total_strain_stress_secant_MPa_per_s": 0.027617226372658964,
+            "signed_branch_stress_secants_MPa_per_s": [
+              -0.0004269278111569923,
+              -0.043741006685559754
+            ],
+            "recoverable_stress_secants_MPa_per_s": [
+              0.014562320954088824,
+              -0.06882568200674292
+            ],
+            "fixed_flow_without_recovery_secant_MPa_per_s": -0.04416793449671674,
+            "accounting_passed": true,
+            "scope": "Signed frozen-path accounting; removing a component here is not a new causal prediction",
+            "independent_signed_branch_changes": [
+              9.40208858217717e-08,
+              9.63293694842725e-06
+            ],
+            "independent_accounting_passed": true,
+            "independent_signed_flow_passed": true
+          }
+        },
+        {
+          "cycle": 2,
+          "segment": 8,
+          "window": "early",
+          "original_stress_control": false,
+          "source_indices": [
+            723,
+            807
+          ],
+          "duration_s": 8.980000000000018,
+          "observed_strain_change": 1.0000000000000026e-05,
+          "predicted_strain_change": 0.00011938925851442289,
+          "strain_change_residual": 0.00010938925851442286,
+          "strain_rate_residual_per_s": 1.218143190583771e-05,
+          "independent_strain_change": 0.0001193892499455106,
+          "subdivided_strain_change": 0.0001193892585145569,
+          "signed_flow_budget": {
+            "interval_s": [
+              554.162,
+              563.142
+            ],
+            "duration_s": 8.980000000000018,
+            "total_strain_change": 0.00011938925851442289,
+            "elastic_strain_change": 0.000550534494006831,
+            "recoverable_strain_changes": [
+              4.423200083469446e-05,
+              -6.193509242443431e-05
+            ],
+            "signed_branch_strain_changes": [
+              -0.00017977392923645765,
+              -0.00023366821475573777
+            ],
+            "accumulated_branch_changes": [
+              0.0001797739292005605,
+              0.00023366821470210963
+            ],
+            "quadrature_error_estimate": 3.5871266308246517e-13,
+            "strain_closure_error": 8.952718124136116e-14,
+            "predicted_stress_secant_MPa_per_s": 9.513363028953213,
+            "total_strain_stress_secant_MPa_per_s": 2.063073922469163,
+            "signed_branch_stress_secants_MPa_per_s": [
+              3.1065349593635947,
+              4.037840643044527
+            ],
+            "recoverable_stress_secants_MPa_per_s": [
+              -0.7643391758704022,
+              1.070252681493383
+            ],
+            "fixed_flow_without_recovery_secant_MPa_per_s": 7.144375602408121,
+            "accounting_passed": true,
+            "scope": "Signed frozen-path accounting; removing a component here is not a new causal prediction",
+            "independent_signed_branch_changes": [
+              -0.00017977392557956735,
+              -0.00023366821458453308
+            ],
+            "independent_accounting_passed": true,
+            "independent_signed_flow_passed": true
+          }
+        },
+        {
+          "cycle": 2,
+          "segment": 8,
+          "window": "late",
+          "original_stress_control": false,
+          "source_indices": [
+            883,
+            923
+          ],
+          "duration_s": 34.170999999999935,
+          "observed_strain_change": 0.0,
+          "predicted_strain_change": -2.818834805146369e-06,
+          "strain_change_residual": -2.818834805146369e-06,
+          "strain_rate_residual_per_s": -8.249201969934665e-08,
+          "independent_strain_change": -2.8188352353922686e-06,
+          "subdivided_strain_change": -2.818834805295555e-06,
+          "signed_flow_budget": {
+            "interval_s": [
+              699.927,
+              734.098
+            ],
+            "duration_s": 34.170999999999935,
+            "total_strain_change": -2.818834805146369e-06,
+            "elastic_strain_change": 1.4886277433642485e-05,
+            "recoverable_strain_changes": [
+              2.7046492047526393e-06,
+              -1.4513530925026966e-05
+            ],
+            "signed_branch_strain_changes": [
+              -1.85532527145465e-08,
+              -5.8776772607307385e-06
+            ],
+            "accumulated_branch_changes": [
+              1.8553252732755876e-08,
+              5.8776772657708615e-06
+            ],
+            "quadrature_error_estimate": 1.177270536962414e-13,
+            "strain_closure_error": -5.0692423145975475e-15,
+            "predicted_stress_secant_MPa_per_s": 0.06760118228909152,
+            "total_strain_stress_secant_MPa_per_s": -0.012800820511035491,
+            "signed_branch_stress_secants_MPa_per_s": [
+              8.425355663311374e-05,
+              0.026691557624818712
+            ],
+            "recoverable_stress_secants_MPa_per_s": [
+              -0.012282283783407332,
+              0.06590847537906222
+            ],
+            "fixed_flow_without_recovery_secant_MPa_per_s": 0.026775811181451826,
+            "accounting_passed": true,
+            "scope": "Signed frozen-path accounting; removing a component here is not a new causal prediction",
+            "independent_signed_branch_changes": [
+              -1.8553248514826153e-08,
+              -5.877677236204515e-06
+            ],
+            "independent_accounting_passed": true,
+            "independent_signed_flow_passed": true
+          }
+        },
+        {
+          "cycle": 3,
+          "segment": 11,
+          "window": "early",
+          "original_stress_control": false,
+          "source_indices": [
+            974,
+            1030
+          ],
+          "duration_s": 8.983000000000061,
+          "observed_strain_change": -2.0000000000000052e-05,
+          "predicted_strain_change": -0.0001055530934161923,
+          "strain_change_residual": -8.555309341619225e-05,
+          "strain_rate_residual_per_s": -9.52388883626758e-06,
+          "independent_strain_change": -0.00010555308641092115,
+          "subdivided_strain_change": -0.00010555309341605634,
+          "signed_flow_budget": {
+            "interval_s": [
+              738.204,
+              747.187
+            ],
+            "duration_s": 8.983000000000061,
+            "total_strain_change": -0.0001055530934161923,
+            "elastic_strain_change": -0.0005105799831459832,
+            "recoverable_strain_changes": [
+              -3.988769865018911e-05,
+              6.078478769905101e-05
+            ],
+            "signed_branch_strain_changes": [
+              0.00017968211909355394,
+              0.00020444768157625557
+            ],
+            "accumulated_branch_changes": [
+              0.00017968211906638784,
+              0.00020444768161453626
+            ],
+            "quadrature_error_estimate": 3.213634348152301e-13,
+            "strain_closure_error": 1.1119469060794085e-14,
+            "predicted_stress_secant_MPa_per_s": -8.81999332071688,
+            "total_strain_stress_secant_MPa_per_s": -1.8233726539288149,
+            "signed_branch_stress_secants_MPa_per_s": [
+              -3.1039115174326795,
+              -3.5317232274322308
+            ],
+            "recoverable_stress_secants_MPa_per_s": [
+              0.689038441158097,
+              -1.0500243628891688
+            ],
+            "fixed_flow_without_recovery_secant_MPa_per_s": -6.635634744864911,
+            "accounting_passed": true,
+            "scope": "Signed frozen-path accounting; removing a component here is not a new causal prediction",
+            "independent_signed_branch_changes": [
+              0.0001796821153793207,
+              0.00020444768162378933
+            ],
+            "independent_accounting_passed": true,
+            "independent_signed_flow_passed": true
+          }
+        },
+        {
+          "cycle": 3,
+          "segment": 11,
+          "window": "late",
+          "original_stress_control": false,
+          "source_indices": [
+            1106,
+            1146
+          ],
+          "duration_s": 34.17399999999998,
+          "observed_strain_change": 0.0,
+          "predicted_strain_change": 2.5626509451955395e-06,
+          "strain_change_residual": 2.5626509451955395e-06,
+          "strain_rate_residual_per_s": 7.498832285350094e-08,
+          "independent_strain_change": 2.5626508661240246e-06,
+          "subdivided_strain_change": 2.5626509453570857e-06,
+          "signed_flow_budget": {
+            "interval_s": [
+              883.972,
+              918.146
+            ],
+            "duration_s": 34.17399999999998,
+            "total_strain_change": 2.5626509451955395e-06,
+            "elastic_strain_change": -1.759287333066383e-05,
+            "recoverable_strain_changes": [
+              -3.5636465121866338e-06,
+              1.4922370483239414e-05
+            ],
+            "signed_branch_strain_changes": [
+              9.301726955026699e-08,
+              8.703783035998795e-06
+            ],
+            "accumulated_branch_changes": [
+              9.301726954132061e-08,
+              8.703783035263896e-06
+            ],
+            "quadrature_error_estimate": 1.2080723214730513e-13,
+            "strain_closure_error": -7.42473506179335e-16,
+            "predicted_stress_secant_MPa_per_s": -0.07988529291273877,
+            "total_strain_stress_secant_MPa_per_s": 0.011636423314276653,
+            "signed_branch_stress_secants_MPa_per_s": [
+              -0.0004223705635971786,
+              -0.03952192710145857
+            ],
+            "recoverable_stress_secants_MPa_per_s": [
+              0.01618171972893681,
+              -0.0677591382942679
+            ],
+            "fixed_flow_without_recovery_secant_MPa_per_s": -0.03994429766505575,
+            "accounting_passed": true,
+            "scope": "Signed frozen-path accounting; removing a component here is not a new causal prediction",
+            "independent_signed_branch_changes": [
+              9.301725761731905e-08,
+              8.7037830351947e-06
+            ],
+            "independent_accounting_passed": true,
+            "independent_signed_flow_passed": true
+          }
+        },
+        {
+          "cycle": 3,
+          "segment": 13,
+          "window": "early",
+          "original_stress_control": false,
+          "source_indices": [
+            1197,
+            1280
+          ],
+          "duration_s": 8.980999999999995,
+          "observed_strain_change": 2.0000000000000052e-05,
+          "predicted_strain_change": 0.00013619222630600154,
+          "strain_change_residual": 0.00011619222630600149,
+          "strain_rate_residual_per_s": 1.293755999398748e-05,
+          "independent_strain_change": 0.00013619221676812476,
+          "subdivided_strain_change": 0.0001361922263061093,
+          "signed_flow_budget": {
+            "interval_s": [
+              922.229,
+              931.21
+            ],
+            "duration_s": 8.980999999999995,
+            "total_strain_change": 0.00013619222630600154,
+            "elastic_strain_change": 0.0005443479890993422,
+            "recoverable_strain_changes": [
+              4.368787527408085e-05,
+              -6.140860235942438e-05
+            ],
+            "signed_branch_strain_changes": [
+              -0.00017539129839820141,
+              -0.00021504373731253367
+            ],
+            "accumulated_branch_changes": [
+              0.00017539129839800032,
+              0.0002150437373099898
+            ],
+            "quadrature_error_estimate": 3.462496940181122e-13,
+            "strain_closure_error": 2.7379899562862686e-15,
+            "predicted_stress_secant_MPa_per_s": 9.405411424117549,
+            "total_strain_stress_secant_MPa_per_s": 2.3531710354875592,
+            "signed_branch_stress_secants_MPa_per_s": [
+              3.0304646194701026,
+              3.7155916143838694
+            ],
+            "recoverable_stress_secants_MPa_per_s": [
+              -0.7548525013900143,
+              1.0610366562133404
+            ],
+            "fixed_flow_without_recovery_secant_MPa_per_s": 6.746056233853972,
+            "accounting_passed": true,
+            "scope": "Signed frozen-path accounting; removing a component here is not a new causal prediction",
+            "independent_signed_branch_changes": [
+              -0.00017539129468692146,
+              -0.00021504373714691712
+            ],
+            "independent_accounting_passed": true,
+            "independent_signed_flow_passed": true
+          }
+        },
+        {
+          "cycle": 3,
+          "segment": 13,
+          "window": "late",
+          "original_stress_control": false,
+          "source_indices": [
+            1356,
+            1396
+          ],
+          "duration_s": 34.17100000000005,
+          "observed_strain_change": 1.0000000000000026e-05,
+          "predicted_strain_change": 8.556363986071593e-06,
+          "strain_change_residual": -1.443636013928433e-06,
+          "strain_rate_residual_per_s": -4.224740317603906e-08,
+          "independent_strain_change": 8.556364637936006e-06,
+          "subdivided_strain_change": 8.556363985976184e-06,
+          "signed_flow_budget": {
+            "interval_s": [
+              1067.995,
+              1102.166
+            ],
+            "duration_s": 34.17100000000005,
+            "total_strain_change": 8.556363986071593e-06,
+            "elastic_strain_change": 2.384382099760222e-05,
+            "recoverable_strain_changes": [
+              4.347719506567178e-06,
+              -1.4390944614572573e-05
+            ],
+            "signed_branch_strain_changes": [
+              -2.483010994869617e-08,
+              -5.2194017958837825e-06
+            ],
+            "accumulated_branch_changes": [
+              2.4830109928222766e-08,
+              5.2194017935852655e-06
+            ],
+            "quadrature_error_estimate": 1.2106935606045984e-13,
+            "strain_closure_error": 2.307247444586092e-15,
+            "predicted_stress_secant_MPa_per_s": 0.10827894998682462,
+            "total_strain_stress_secant_MPa_per_s": 0.038855941260844115,
+            "signed_branch_stress_secants_MPa_per_s": [
+              0.0001127578601421558,
+              0.023702213922612295
+            ],
+            "recoverable_stress_secants_MPa_per_s": [
+              -0.019743752608093745,
+              0.06535178956179742
+            ],
+            "fixed_flow_without_recovery_secant_MPa_per_s": 0.02381497178275445,
+            "accounting_passed": true,
+            "scope": "Signed frozen-path accounting; removing a component here is not a new causal prediction",
+            "independent_signed_branch_changes": [
+              -2.48301041704696e-08,
+              -5.2194017721769626e-06
+            ],
+            "independent_accounting_passed": true,
+            "independent_signed_flow_passed": true
+          }
+        }
+      ],
+      "maximum_state_differences": [
+        [
+          5.7696070143720135e-12,
+          5.422424571577267e-07,
+          1.0317302070461665e-06,
+          4.6216925252140495e-11,
+          1.0301235775500572e-07,
+          4.627686500668915e-08,
+          1.2313602394675716e-11,
+          1.2549591791102821e-11,
+          3.872852705200103e-08,
+          1.978574726280158e-08,
+          4.0191459237332375e-12,
+          4.037121114838782e-13
+        ],
+        [
+          2.1032064978498966e-12,
+          1.7539747432238073e-11,
+          1.858779796748422e-11,
+          2.181414771040835e-16,
+          1.3044270108508726e-09,
+          2.1730617305593114e-11,
+          1.5995234650678647e-15,
+          1.409889728836572e-15,
+          1.986188991054405e-13,
+          1.8829382497642655e-13,
+          8.3396831107585e-16,
+          2.1141942363467336e-18
+        ]
+      ],
+      "numerical_passed": false,
+      "numerical_limits": [
+        0.0001,
+        0.0001,
+        0.0001,
+        1e-08,
+        0.0001,
+        0.0001,
+        1e-08,
+        1e-08,
+        1e-06,
+        1e-06,
+        1e-08,
+        1e-08
+      ],
+      "mechanical_balance_MPa": 3.91879839111236e-13,
+      "mechanical_balance_checks": {
+        "values_MPa": [
+          3.91879839111236e-13,
+          1.9019423201904172e-08,
+          3.344674309503076e-13
+        ],
+        "absolute_limit_MPa": 1e-08,
+        "passed": false
+      },
+      "final_strain_residual": 0.00013294587460186154,
+      "maximum_strain_residual": 0.00018494314528990068
+    },
+    "SLR": {
+      "initial_state": [
+        -0.14,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1e-05,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "records": [
+        {
+          "cycle": 1,
+          "segment": 1,
+          "window": "early",
+          "original_stress_control": false,
+          "source_indices": [
+            26,
+            147
+          ],
+          "duration_s": 9.289,
+          "observed_strain_change": 1.0000000000000026e-05,
+          "predicted_strain_change": -2.869495382824567e-06,
+          "strain_change_residual": -1.2869495382824593e-05,
+          "strain_rate_residual_per_s": -1.3854554185407035e-06,
+          "independent_strain_change": -2.8695078254656683e-06,
+          "subdivided_strain_change": -2.8694953828085207e-06,
+          "signed_flow_budget": {
+            "interval_s": [
+              2.151,
+              11.44
+            ],
+            "duration_s": 9.289,
+            "total_strain_change": -2.869495382824567e-06,
+            "elastic_strain_change": 0.0003424488237331495,
+            "recoverable_strain_changes": [
+              -7.726165259231376e-06,
+              -3.8206080578830534e-05
+            ],
+            "signed_branch_strain_changes": [
+              -0.00018844751707288668,
+              -0.00011093855620871906
+            ],
+            "accumulated_branch_changes": [
+              0.00018844751707105083,
+              0.00011093855620686229
+            ],
+            "quadrature_error_estimate": 2.695549016473919e-13,
+            "strain_closure_error": 3.693605751114992e-15,
+            "predicted_stress_secant_MPa_per_s": 5.72074496716546,
+            "total_strain_stress_secant_MPa_per_s": -0.04793607141249792,
+            "signed_branch_stress_secants_MPa_per_s": [
+              3.14809136476875,
+              1.853273082316612
+            ],
+            "recoverable_stress_secants_MPa_per_s": [
+              0.1290686898567903,
+              0.6382479016975091
+            ],
+            "fixed_flow_without_recovery_secant_MPa_per_s": 5.001364447085361,
+            "accounting_passed": true,
+            "scope": "Signed frozen-path accounting; removing a component here is not a new causal prediction",
+            "independent_signed_branch_changes": [
+              -0.00018844751111905887,
+              -0.00011093855623706868
+            ],
+            "independent_accounting_passed": true,
+            "independent_signed_flow_passed": true
+          }
+        },
+        {
+          "cycle": 1,
+          "segment": 1,
+          "window": "late",
+          "original_stress_control": false,
+          "source_indices": [
+            205,
+            210
+          ],
+          "duration_s": 29.90299999999999,
+          "observed_strain_change": 0.0,
+          "predicted_strain_change": 2.9654698689982007e-05,
+          "strain_change_residual": 2.9654698689982007e-05,
+          "strain_rate_residual_per_s": 9.91696441493563e-07,
+          "independent_strain_change": 2.965469888728642e-05,
+          "subdivided_strain_change": 2.965469869002299e-05,
+          "signed_flow_budget": {
+            "interval_s": [
+              151.616,
+              181.519
+            ],
+            "duration_s": 29.90299999999999,
+            "total_strain_change": 2.9654698689982007e-05,
+            "elastic_strain_change": 3.1576952131960064e-05,
+            "recoverable_strain_changes": [
+              5.130464461091088e-06,
+              -4.031351983986895e-06
+            ],
+            "signed_branch_strain_changes": [
+              -1.7876019587984053e-07,
+              -2.842605722653285e-06
+            ],
+            "accumulated_branch_changes": [
+              1.7876019590788847e-07,
+              2.842605723175906e-06
+            ],
+            "quadrature_error_estimate": 1.0592044024492651e-15,
+            "strain_closure_error": -5.491238364084376e-16,
+            "predicted_stress_secant_MPa_per_s": 0.1638631575427141,
+            "total_strain_stress_secant_MPa_per_s": 0.15388795419555296,
+            "signed_branch_stress_secants_MPa_per_s": [
+              0.0009276452653635668,
+              0.014751213081502764
+            ],
+            "recoverable_stress_secants_MPa_per_s": [
+              -0.0266236621806248,
+              0.02092000717807001
+            ],
+            "fixed_flow_without_recovery_secant_MPa_per_s": 0.01567885834686633,
+            "accounting_passed": true,
+            "scope": "Signed frozen-path accounting; removing a component here is not a new causal prediction",
+            "independent_signed_branch_changes": [
+              -1.78760155417008e-07,
+              -2.8426057094793363e-06
+            ],
+            "independent_accounting_passed": true,
+            "independent_signed_flow_passed": true
+          }
+        },
+        {
+          "cycle": 1,
+          "segment": 3,
+          "window": "early",
+          "original_stress_control": false,
+          "source_indices": [
+            236,
+            338
+          ],
+          "duration_s": 7.848000000000013,
+          "observed_strain_change": -1e-05,
+          "predicted_strain_change": -6.911851329127256e-05,
+          "strain_change_residual": -5.911851329127256e-05,
+          "strain_rate_residual_per_s": -7.532940021823709e-06,
+          "independent_strain_change": -6.911850712644137e-05,
+          "subdivided_strain_change": -6.911851329125672e-05,
+          "signed_flow_budget": {
+            "interval_s": [
+              184.238,
+              192.086
+            ],
+            "duration_s": 7.848000000000013,
+            "total_strain_change": -6.911851329127256e-05,
+            "elastic_strain_change": -0.00021710765659709895,
+            "recoverable_strain_changes": [
+              3.40195679243531e-05,
+              3.4851224939077316e-05
+            ],
+            "signed_branch_strain_changes": [
+              7.911835044173219e-05,
+              0.0
+            ],
+            "accumulated_branch_changes": [
+              7.911835044239568e-05,
+              0.0
+            ],
+            "quadrature_error_estimate": 1.248169397151917e-13,
+            "strain_closure_error": 6.63789227577094e-16,
+            "predicted_stress_secant_MPa_per_s": -4.292813455657494,
+            "total_strain_stress_secant_MPa_per_s": -1.366662459272203,
+            "signed_branch_stress_secants_MPa_per_s": [
+              -1.5643866489517042,
+              -0.0
+            ],
+            "recoverable_stress_secants_MPa_per_s": [
+              -0.6726601043478283,
+              -0.6891042430726335
+            ],
+            "fixed_flow_without_recovery_secant_MPa_per_s": -1.5643866489517042,
+            "accounting_passed": true,
+            "scope": "Signed frozen-path accounting; removing a component here is not a new causal prediction",
+            "independent_signed_branch_changes": [
+              7.911834746415356e-05,
+              0.0
+            ],
+            "independent_accounting_passed": true,
+            "independent_signed_flow_passed": true
+          }
+        },
+        {
+          "cycle": 1,
+          "segment": 3,
+          "window": "late",
+          "original_stress_control": false,
+          "source_indices": [
+            631,
+            690
+          ],
+          "duration_s": 352.84799999999996,
+          "observed_strain_change": -1e-05,
+          "predicted_strain_change": -7.3256157966892366e-06,
+          "strain_change_residual": 2.6743842033107643e-06,
+          "strain_rate_residual_per_s": 7.579422877020033e-09,
+          "independent_strain_change": -7.325615941034303e-06,
+          "subdivided_strain_change": -7.3256157980563545e-06,
+          "signed_flow_budget": {
+            "interval_s": [
+              1625.483,
+              1978.331
+            ],
+            "duration_s": 352.84799999999996,
+            "total_strain_change": -7.3256157966892366e-06,
+            "elastic_strain_change": -7.668688374906522e-06,
+            "recoverable_strain_changes": [
+              -1.2760504312231413e-06,
+              -1.0997348658312159e-06
+            ],
+            "signed_branch_strain_changes": [
+              2.7188578165498957e-06,
+              0.0
+            ],
+            "accumulated_branch_changes": [
+              2.7188578752704654e-06,
+              0.0
+            ],
+            "quadrature_error_estimate": 1.2246105454224922e-13,
+            "strain_closure_error": 5.87217470321129e-14,
+            "predicted_stress_secant_MPa_per_s": -0.0033725570217210997,
+            "total_strain_stress_secant_MPa_per_s": -0.003221679612696017,
+            "signed_branch_stress_secants_MPa_per_s": [
+              -0.0011957068239036926,
+              -0.0
+            ],
+            "recoverable_stress_secants_MPa_per_s": [
+              0.000561184994291061,
+              0.0004836444464123617
+            ],
+            "fixed_flow_without_recovery_secant_MPa_per_s": -0.0011957068239036926,
+            "accounting_passed": true,
+            "scope": "Signed frozen-path accounting; removing a component here is not a new causal prediction",
+            "independent_signed_branch_changes": [
+              2.7188577416108503e-06,
+              0.0
+            ],
+            "independent_accounting_passed": true,
+            "independent_signed_flow_passed": true
+          }
+        },
+        {
+          "cycle": 1,
+          "segment": 5,
+          "window": "early",
+          "original_stress_control": false,
+          "source_indices": [
+            716,
+            837
+          ],
+          "duration_s": 9.288999999999987,
+          "observed_strain_change": -3.000000000000008e-05,
+          "predicted_strain_change": -5.214037027327168e-05,
+          "strain_change_residual": -2.21403702732716e-05,
+          "strain_rate_residual_per_s": -2.383504174106107e-06,
+          "independent_strain_change": -5.2140356094874506e-05,
+          "subdivided_strain_change": -5.214037027324566e-05,
+          "signed_flow_budget": {
+            "interval_s": [
+              1986.32,
+              1995.609
+            ],
+            "duration_s": 9.288999999999987,
+            "total_strain_change": -5.214037027327168e-05,
+            "elastic_strain_change": -0.0004198445778361805,
+            "recoverable_strain_changes": [
+              -1.9192318514547354e-05,
+              3.190605841389731e-05
+            ],
+            "signed_branch_strain_changes": [
+              0.00019128858374184858,
+              0.00016370188392157508
+            ],
+            "accumulated_branch_changes": [
+              0.00019128858374102043,
+              0.00016370188392253834
+            ],
+            "quadrature_error_estimate": 3.1287825538628993e-13,
+            "strain_closure_error": 1.352000109089424e-16,
+            "predicted_stress_secant_MPa_per_s": -7.013672085262124,
+            "total_strain_stress_secant_MPa_per_s": -0.8710258005131786,
+            "signed_branch_stress_secants_MPa_per_s": [
+              -3.195552523112549,
+              -2.734705636745343
+            ],
+            "recoverable_stress_secants_MPa_per_s": [
+              0.3206153794118148,
+              -0.5330035043006097
+            ],
+            "fixed_flow_without_recovery_secant_MPa_per_s": -5.930258159857892,
+            "accounting_passed": true,
+            "scope": "Signed frozen-path accounting; removing a component here is not a new causal prediction",
+            "independent_signed_branch_changes": [
+              0.0001912885783218064,
+              0.00016370188390946066
+            ],
+            "independent_accounting_passed": true,
+            "independent_signed_flow_passed": true
+          }
+        },
+        {
+          "cycle": 1,
+          "segment": 5,
+          "window": "late",
+          "original_stress_control": false,
+          "source_indices": [
+            895,
+            900
+          ],
+          "duration_s": 29.903000000000247,
+          "observed_strain_change": 0.0,
+          "predicted_strain_change": -2.0827175337975864e-05,
+          "strain_change_residual": -2.0827175337975864e-05,
+          "strain_rate_residual_per_s": -6.964911660360396e-07,
+          "independent_strain_change": -2.0827175240499367e-05,
+          "subdivided_strain_change": -2.0827175337911896e-05,
+          "signed_flow_budget": {
+            "interval_s": [
+              2135.783,
+              2165.686
+            ],
+            "duration_s": 29.903000000000247,
+            "total_strain_change": -2.0827175337975864e-05,
+            "elastic_strain_change": -2.352160720033687e-05,
+            "recoverable_strain_changes": [
+              -3.991507519681401e-06,
+              7.875597224567287e-07
+            ],
+            "signed_branch_strain_changes": [
+              1.202839300569474e-07,
+              5.778095729106593e-06
+            ],
+            "accumulated_branch_changes": [
+              1.202839300681966e-07,
+              5.778095729517532e-06
+            ],
+            "quadrature_error_estimate": 5.755372773313698e-14,
+            "strain_closure_error": 4.2213750398902017e-16,
+            "predicted_stress_secant_MPa_per_s": -0.12206133163895566,
+            "total_strain_stress_secant_MPa_per_s": -0.10807904129930977,
+            "signed_branch_stress_secants_MPa_per_s": [
+              -0.0006241927497755227,
+              -0.02998443316500976
+            ],
+            "recoverable_stress_secants_MPa_per_s": [
+              0.02071324118924319,
+              -0.004086905611913198
+            ],
+            "fixed_flow_without_recovery_secant_MPa_per_s": -0.03060862591478528,
+            "accounting_passed": true,
+            "scope": "Signed frozen-path accounting; removing a component here is not a new causal prediction",
+            "independent_signed_branch_changes": [
+              1.2028390505275008e-07,
+              5.7780957068280705e-06
+            ],
+            "independent_accounting_passed": true,
+            "independent_signed_flow_passed": true
+          }
+        },
+        {
+          "cycle": 2,
+          "segment": 8,
+          "window": "early",
+          "original_stress_control": false,
+          "source_indices": [
+            951,
+            1072
+          ],
+          "duration_s": 9.289000000000215,
+          "observed_strain_change": 1.0000000000000026e-05,
+          "predicted_strain_change": 7.580304951030877e-05,
+          "strain_change_residual": 6.580304951030874e-05,
+          "strain_rate_residual_per_s": 7.083975617429995e-06,
+          "independent_strain_change": 7.580303473656317e-05,
+          "subdivided_strain_change": 7.580304951030638e-05,
+          "signed_flow_budget": {
+            "interval_s": [
+              2170.428,
+              2179.717
+            ],
+            "duration_s": 9.289000000000215,
+            "total_strain_change": 7.580304951030877e-05,
+            "elastic_strain_change": 0.0004749431371684847,
+            "recoverable_strain_changes": [
+              4.115229666122087e-05,
+              -6.532416994975394e-05
+            ],
+            "signed_branch_strain_changes": [
+              -0.00017052021964597956,
+              -0.0002044479947183497
+            ],
+            "accumulated_branch_changes": [
+              0.00017052021964759456,
+              0.0002044479947220434
+            ],
+            "quadrature_error_estimate": 3.328044007465267e-13,
+            "strain_closure_error": -5.313566427134209e-15,
+            "predicted_stress_secant_MPa_per_s": 7.934115620626409,
+            "total_strain_stress_secant_MPa_per_s": 1.2663203489926462,
+            "signed_branch_stress_secants_MPa_per_s": [
+              2.848608670064572,
+              3.4153857621173787
+            ],
+            "recoverable_stress_secants_MPa_per_s": [
+              -0.6874656231712578,
+              1.0912664625343038
+            ],
+            "fixed_flow_without_recovery_secant_MPa_per_s": 6.263994432181951,
+            "accounting_passed": true,
+            "scope": "Signed frozen-path accounting; removing a component here is not a new causal prediction",
+            "independent_signed_branch_changes": [
+              -0.00017052021489424364,
+              -0.0002044479947190732
+            ],
+            "independent_accounting_passed": true,
+            "independent_signed_flow_passed": true
+          }
+        },
+        {
+          "cycle": 2,
+          "segment": 8,
+          "window": "late",
+          "original_stress_control": false,
+          "source_indices": [
+            1130,
+            1135
+          ],
+          "duration_s": 29.902000000000044,
+          "observed_strain_change": 0.0,
+          "predicted_strain_change": 1.3868672482936955e-05,
+          "strain_change_residual": 1.3868672482936955e-05,
+          "strain_rate_residual_per_s": 4.638041764074956e-07,
+          "independent_strain_change": 1.3868672320371898e-05,
+          "subdivided_strain_change": 1.3868672482877757e-05,
+          "signed_flow_budget": {
+            "interval_s": [
+              2319.892,
+              2349.794
+            ],
+            "duration_s": 29.902000000000044,
+            "total_strain_change": 1.3868672482936955e-05,
+            "elastic_strain_change": 2.3972706516509536e-05,
+            "recoverable_strain_changes": [
+              4.044208736346896e-06,
+              -1.2751296699413628e-05
+            ],
+            "signed_branch_strain_changes": [
+              -5.701264989864173e-09,
+              -1.3912448048184441e-06
+            ],
+            "accumulated_branch_changes": [
+              5.7012649930937576e-09,
+              1.3912448055132098e-06
+            ],
+            "quadrature_error_estimate": 1.1015928296449982e-13,
+            "strain_closure_error": -6.975411611845729e-16,
+            "predicted_stress_secant_MPa_per_s": 0.12440639422112211,
+            "total_strain_stress_secant_MPa_per_s": 0.07197149537736455,
+            "signed_branch_stress_secants_MPa_per_s": [
+              2.9586722692310988e-05,
+              0.007219866873485261
+            ],
+            "recoverable_stress_secants_MPa_per_s": [
+              -0.020987426931539224,
+              0.06617287217549932
+            ],
+            "fixed_flow_without_recovery_secant_MPa_per_s": 0.007249453596177573,
+            "accounting_passed": true,
+            "scope": "Signed frozen-path accounting; removing a component here is not a new causal prediction",
+            "independent_signed_branch_changes": [
+              -5.701262366999653e-09,
+              -1.3912447926320477e-06
+            ],
+            "independent_accounting_passed": true,
+            "independent_signed_flow_passed": true
+          }
+        },
+        {
+          "cycle": 2,
+          "segment": 10,
+          "window": "early",
+          "original_stress_control": false,
+          "source_indices": [
+            1162,
+            1264
+          ],
+          "duration_s": 7.847000000000207,
+          "observed_strain_change": 1e-05,
+          "predicted_strain_change": -2.469167529919794e-05,
+          "strain_change_residual": -3.469167529919794e-05,
+          "strain_rate_residual_per_s": -4.421011252605712e-06,
+          "independent_strain_change": -2.469166908963745e-05,
+          "subdivided_strain_change": -2.4691675299121236e-05,
+          "signed_flow_budget": {
+            "interval_s": [
+              2352.593,
+              2360.44
+            ],
+            "duration_s": 7.847000000000207,
+            "total_strain_change": -2.469167529919794e-05,
+            "elastic_strain_change": -0.00018172858165741088,
+            "recoverable_strain_changes": [
+              2.4768210183348527e-05,
+              3.278085920391775e-05
+            ],
+            "signed_branch_strain_changes": [
+              9.948783697512497e-05,
+              0.0
+            ],
+            "accumulated_branch_changes": [
+              9.948783697094512e-05,
+              0.0
+            ],
+            "quadrature_error_estimate": 1.2346517589995041e-13,
+            "strain_closure_error": -4.178298332324637e-15,
+            "predicted_stress_secant_MPa_per_s": -3.593730087931595,
+            "total_strain_stress_secant_MPa_per_s": -0.48828431738627615,
+            "signed_branch_stress_secants_MPa_per_s": [
+              -1.967397917597515,
+              -0.0
+            ],
+            "recoverable_stress_secants_MPa_per_s": [
+              -0.489797814676795,
+              -0.6482500383536366
+            ],
+            "fixed_flow_without_recovery_secant_MPa_per_s": -1.967397917597515,
+            "accounting_passed": true,
+            "scope": "Signed frozen-path accounting; removing a component here is not a new causal prediction",
+            "independent_signed_branch_changes": [
+              9.948783251072196e-05,
+              0.0
+            ],
+            "independent_accounting_passed": true,
+            "independent_signed_flow_passed": true
+          }
+        },
+        {
+          "cycle": 2,
+          "segment": 10,
+          "window": "late",
+          "original_stress_control": false,
+          "source_indices": [
+            1556,
+            1615
+          ],
+          "duration_s": 352.84699999999975,
+          "observed_strain_change": 1e-05,
+          "predicted_strain_change": 8.012652259970696e-06,
+          "strain_change_residual": -1.987347740029305e-06,
+          "strain_rate_residual_per_s": -5.632321487866714e-09,
+          "independent_strain_change": 8.012652340216388e-06,
+          "subdivided_strain_change": 8.012652260220868e-06,
+          "signed_flow_budget": {
+            "interval_s": [
+              3793.759,
+              4146.606
+            ],
+            "duration_s": 352.84699999999975,
+            "total_strain_change": 8.012652259970696e-06,
+            "elastic_strain_change": 3.931008326633311e-06,
+            "recoverable_strain_changes": [
+              5.572901003346388e-07,
+              6.788421591698702e-07
+            ],
+            "signed_branch_strain_changes": [
+              2.845511668370152e-06,
+              0.0
+            ],
+            "accumulated_branch_changes": [
+              2.845511673836565e-06,
+              0.0
+            ],
+            "quadrature_error_estimate": 1.2246582840920785e-13,
+            "strain_closure_error": 5.462723423431534e-15,
+            "predicted_stress_secant_MPa_per_s": 0.0017287946333686074,
+            "total_strain_stress_secant_MPa_per_s": 0.003523836398980575,
+            "signed_branch_stress_secants_MPa_per_s": [
+              -0.001251410552385978,
+              -0.0
+            ],
+            "recoverable_stress_secants_MPa_per_s": [
+              -0.0002450872790475895,
+              -0.0002985439317759813
+            ],
+            "fixed_flow_without_recovery_secant_MPa_per_s": -0.001251410552385978,
+            "accounting_passed": true,
+            "scope": "Signed frozen-path accounting; removing a component here is not a new causal prediction",
+            "independent_signed_branch_changes": [
+              2.8455115887203014e-06,
+              0.0
+            ],
+            "independent_accounting_passed": true,
+            "independent_signed_flow_passed": true
+          }
+        },
+        {
+          "cycle": 2,
+          "segment": 12,
+          "window": "early",
+          "original_stress_control": false,
+          "source_indices": [
+            1641,
+            1762
+          ],
+          "duration_s": 9.28900000000067,
+          "observed_strain_change": -2.0000000000000052e-05,
+          "predicted_strain_change": -3.0462613367292918e-05,
+          "strain_change_residual": -1.0462613367292865e-05,
+          "strain_rate_residual_per_s": -1.1263444253732491e-06,
+          "independent_strain_change": -3.046259794178092e-05,
+          "subdivided_strain_change": -3.0462613367323275e-05,
+          "signed_flow_budget": {
+            "interval_s": [
+              4154.596,
+              4163.885
+            ],
+            "duration_s": 9.28900000000067,
+            "total_strain_change": -3.0462613367292918e-05,
+            "elastic_strain_change": -0.0003911675498796022,
+            "recoverable_strain_changes": [
+              -1.7429058278342396e-05,
+              3.131347218501371e-05
+            ],
+            "signed_branch_strain_changes": [
+              0.00019149485932240632,
+              0.00015532566327353627
+            ],
+            "accumulated_branch_changes": [
+              0.00019149485932679197,
+              0.00015532566327884872
+            ],
+            "quadrature_error_estimate": 3.079136044222611e-13,
+            "strain_closure_error": 9.695369507234375e-15,
+            "predicted_stress_secant_MPa_per_s": -6.5346108300134835,
+            "total_strain_stress_secant_MPa_per_s": -0.5088901757870639,
+            "signed_branch_stress_secants_MPa_per_s": [
+              -3.198998439428979,
+              -2.5947775108612237
+            ],
+            "recoverable_stress_secants_MPa_per_s": [
+              0.2911594098683476,
+              -0.5231041136425992
+            ],
+            "fixed_flow_without_recovery_secant_MPa_per_s": -5.793775950290203,
+            "accounting_passed": true,
+            "scope": "Signed frozen-path accounting; removing a component here is not a new causal prediction",
+            "independent_signed_branch_changes": [
+              0.00019149485392496945,
+              0.00015532566327972942
+            ],
+            "independent_accounting_passed": true,
+            "independent_signed_flow_passed": true
+          }
+        },
+        {
+          "cycle": 2,
+          "segment": 12,
+          "window": "late",
+          "original_stress_control": false,
+          "source_indices": [
+            1820,
+            1825
+          ],
+          "duration_s": 29.902000000000044,
+          "observed_strain_change": 0.0,
+          "predicted_strain_change": -1.6543915969953037e-06,
+          "strain_change_residual": -1.6543915969953037e-06,
+          "strain_rate_residual_per_s": -5.5327121831158496e-08,
+          "independent_strain_change": -1.6543919139841434e-06,
+          "subdivided_strain_change": -1.654391596924397e-06,
+          "signed_flow_budget": {
+            "interval_s": [
+              4304.059,
+              4333.961
+            ],
+            "duration_s": 29.902000000000044,
+            "total_strain_change": -1.6543915969953037e-06,
+            "elastic_strain_change": -1.198635325825431e-05,
+            "recoverable_strain_changes": [
+              -1.921154177360302e-06,
+              1.961520070815437e-06
+            ],
+            "signed_branch_strain_changes": [
+              3.112241293402331e-07,
+              9.980371638492376e-06
+            ],
+            "accumulated_branch_changes": [
+              3.1122412933945465e-07,
+              9.980371638464288e-06
+            ],
+            "quadrature_error_estimate": 7.69495685471807e-14,
+            "strain_closure_error": -2.87381338344439e-17,
+            "predicted_stress_secant_MPa_per_s": -0.06220319711055868,
+            "total_strain_stress_secant_MPa_per_s": -0.00858546752199913,
+            "signed_branch_stress_secants_MPa_per_s": [
+              -0.001615098057416338,
+              -0.05179315267037154
+            ],
+            "recoverable_stress_secants_MPa_per_s": [
+              0.009969832308406396,
+              -0.010179311169327205
+            ],
+            "fixed_flow_without_recovery_secant_MPa_per_s": -0.05340825072778788,
+            "accounting_passed": true,
+            "scope": "Signed frozen-path accounting; removing a component here is not a new causal prediction",
+            "independent_signed_branch_changes": [
+              3.1122407449177866e-07,
+              9.980371605511632e-06
+            ],
+            "independent_accounting_passed": true,
+            "independent_signed_flow_passed": true
+          }
+        },
+        {
+          "cycle": 3,
+          "segment": 15,
+          "window": "early",
+          "original_stress_control": false,
+          "source_indices": [
+            1876,
+            1997
+          ],
+          "duration_s": 9.28899999999976,
+          "observed_strain_change": 1.0000000000000026e-05,
+          "predicted_strain_change": 5.8999543597798186e-05,
+          "strain_change_residual": 4.899954359779816e-05,
+          "strain_rate_residual_per_s": 5.275007384842225e-06,
+          "independent_strain_change": 5.899952932438696e-05,
+          "subdivided_strain_change": 5.899954359780491e-05,
+          "signed_flow_budget": {
+            "interval_s": [
+              4338.706,
+              4347.995
+            ],
+            "duration_s": 9.28899999999976,
+            "total_strain_change": 5.8999543597798186e-05,
+            "elastic_strain_change": 0.0004582524624701633,
+            "recoverable_strain_changes": [
+              3.776193917393722e-05,
+              -6.573487734427388e-05
+            ],
+            "signed_branch_strain_changes": [
+              -0.000174483178529903,
+              -0.0001967968021693021
+            ],
+            "accumulated_branch_changes": [
+              0.00017448317853111395,
+              0.00019679680217090517
+            ],
+            "quadrature_error_estimate": 3.2815084717262013e-13,
+            "strain_closure_error": -2.823370877369502e-15,
+            "predicted_stress_secant_MPa_per_s": 7.655291204650923,
+            "total_strain_stress_secant_MPa_per_s": 0.9856110423237506,
+            "signed_branch_stress_secants_MPa_per_s": [
+              2.914811487884741,
+              3.2875695214582206
+            ],
+            "recoverable_stress_secants_MPa_per_s": [
+              -0.6308283413700729,
+              1.098127494307118
+            ],
+            "fixed_flow_without_recovery_secant_MPa_per_s": 6.202381009342961,
+            "accounting_passed": true,
+            "scope": "Signed frozen-path accounting; removing a component here is not a new causal prediction",
+            "independent_signed_branch_changes": [
+              -0.00017448317352354074,
+              -0.00019679680222778852
+            ],
+            "independent_accounting_passed": true,
+            "independent_signed_flow_passed": true
+          }
+        },
+        {
+          "cycle": 3,
+          "segment": 15,
+          "window": "late",
+          "original_stress_control": false,
+          "source_indices": [
+            2055,
+            2060
+          ],
+          "duration_s": 29.902000000000044,
+          "observed_strain_change": 0.0,
+          "predicted_strain_change": 1.2083844417376489e-05,
+          "strain_change_residual": 1.2083844417376489e-05,
+          "strain_rate_residual_per_s": 4.0411492265990473e-07,
+          "independent_strain_change": 1.2083844442380143e-05,
+          "subdivided_strain_change": 1.2083844417492716e-05,
+          "signed_flow_budget": {
+            "interval_s": [
+              4488.172,
+              4518.074
+            ],
+            "duration_s": 29.902000000000044,
+            "total_strain_change": 1.2083844417376489e-05,
+            "elastic_strain_change": 2.2554965808545574e-05,
+            "recoverable_strain_changes": [
+              3.7926247325104003e-06,
+              -1.24635899318587e-05
+            ],
+            "signed_branch_strain_changes": [
+              -1.1138306155383028e-08,
+              -1.7890178855672572e-06
+            ],
+            "accumulated_branch_changes": [
+              1.1138306157173344e-08,
+              1.7890178856615722e-06
+            ],
+            "quadrature_error_estimate": 9.441997497676624e-14,
+            "strain_closure_error": -9.814507232364534e-17,
+            "predicted_stress_secant_MPa_per_s": 0.11704902682095682,
+            "total_strain_stress_secant_MPa_per_s": 0.06270912761809129,
+            "signed_branch_stress_secants_MPa_per_s": [
+              5.7802255476153416e-05,
+              0.0092841108360978
+            ],
+            "recoverable_stress_secants_MPa_per_s": [
+              -0.01968183138939814,
+              0.06467981750018038
+            ],
+            "fixed_flow_without_recovery_secant_MPa_per_s": 0.009341913091573954,
+            "accounting_passed": true,
+            "scope": "Signed frozen-path accounting; removing a component here is not a new causal prediction",
+            "independent_signed_branch_changes": [
+              -1.1138301886509697e-08,
+              -1.7890178769555546e-06
+            ],
+            "independent_accounting_passed": true,
+            "independent_signed_flow_passed": true
+          }
+        },
+        {
+          "cycle": 3,
+          "segment": 17,
+          "window": "early",
+          "original_stress_control": false,
+          "source_indices": [
+            2086,
+            2188
+          ],
+          "duration_s": 7.847999999999956,
+          "observed_strain_change": -1e-05,
+          "predicted_strain_change": -3.8791743358506276e-05,
+          "strain_change_residual": -2.8791743358506277e-05,
+          "strain_rate_residual_per_s": -3.6686727011348672e-06,
+          "independent_strain_change": -3.8791735282027926e-05,
+          "subdivided_strain_change": -3.879174335847142e-05,
+          "signed_flow_budget": {
+            "interval_s": [
+              4520.795,
+              4528.643
+            ],
+            "duration_s": 7.847999999999956,
+            "total_strain_change": -3.8791743358506276e-05,
+            "elastic_strain_change": -0.0002101478385761773,
+            "recoverable_strain_changes": [
+              3.4785649135812526e-05,
+              3.32221030217246e-05
+            ],
+            "signed_branch_strain_changes": [
+              0.00010334834306004181,
+              0.0
+            ],
+            "accumulated_branch_changes": [
+              0.00010334834306013462,
+              0.0
+            ],
+            "quadrature_error_estimate": 1.2900581607023247e-13,
+            "strain_closure_error": 9.207586949833146e-17,
+            "predicted_stress_secant_MPa_per_s": -4.155198776758451,
+            "total_strain_stress_secant_MPa_per_s": -0.7670190930522637,
+            "signed_branch_stress_secants_MPa_per_s": [
+              -2.043480016604747,
+              -0.0
+            ],
+            "recoverable_stress_secants_MPa_per_s": [
+              -0.687807629701038,
+              -0.6568920373985814
+            ],
+            "fixed_flow_without_recovery_secant_MPa_per_s": -2.043480016604747,
+            "accounting_passed": true,
+            "scope": "Signed frozen-path accounting; removing a component here is not a new causal prediction",
+            "independent_signed_branch_changes": [
+              0.00010334833831258396,
+              0.0
+            ],
+            "independent_accounting_passed": true,
+            "independent_signed_flow_passed": true
+          }
+        },
+        {
+          "cycle": 3,
+          "segment": 17,
+          "window": "late",
+          "original_stress_control": false,
+          "source_indices": [
+            2481,
+            2540
+          ],
+          "duration_s": 352.84799999999996,
+          "observed_strain_change": 0.0,
+          "predicted_strain_change": 9.715972720362832e-06,
+          "strain_change_residual": 9.715972720362832e-06,
+          "strain_rate_residual_per_s": 2.7535858841095412e-08,
+          "independent_strain_change": 9.715972604061658e-06,
+          "subdivided_strain_change": 9.715972720829934e-06,
+          "signed_flow_budget": {
+            "interval_s": [
+              5962.042,
+              6314.89
+            ],
+            "duration_s": 352.84799999999996,
+            "total_strain_change": 9.715972720362832e-06,
+            "elastic_strain_change": 5.86429111022181e-06,
+            "recoverable_strain_changes": [
+              9.825515062917848e-07,
+              -6.094700398804112e-08
+            ],
+            "signed_branch_strain_changes": [
+              2.930077161561228e-06,
+              0.0
+            ],
+            "accumulated_branch_changes": [
+              2.930077107842627e-06,
+              0.0
+            ],
+            "quadrature_error_estimate": 1.1897537579773683e-13,
+            "strain_closure_error": -5.3723949405517406e-14,
+            "predicted_stress_secant_MPa_per_s": 0.0025790141930804784,
+            "total_strain_stress_secant_MPa_per_s": 0.004272917403728737,
+            "signed_branch_stress_secants_MPa_per_s": [
+              -0.0012885974526939104,
+              -0.0
+            ],
+            "recoverable_stress_secants_MPa_per_s": [
+              -0.00043210922386546904,
+              2.6803442284253398e-05
+            ],
+            "fixed_flow_without_recovery_secant_MPa_per_s": -0.0012885974526939104,
+            "accounting_passed": true,
+            "scope": "Signed frozen-path accounting; removing a component here is not a new causal prediction",
+            "independent_signed_branch_changes": [
+              2.9300770706276253e-06,
+              0.0
+            ],
+            "independent_accounting_passed": true,
+            "independent_signed_flow_passed": true
+          }
+        },
+        {
+          "cycle": 3,
+          "segment": 19,
+          "window": "early",
+          "original_stress_control": false,
+          "source_indices": [
+            2566,
+            2687
+          ],
+          "duration_s": 9.28899999999976,
+          "observed_strain_change": -3.000000000000008e-05,
+          "predicted_strain_change": -2.3609910495825826e-05,
+          "strain_change_residual": 6.3900895041742525e-06,
+          "strain_rate_residual_per_s": 6.879200671950067e-07,
+          "independent_strain_change": -2.3609897506527387e-05,
+          "subdivided_strain_change": -2.3609910495899986e-05,
+          "signed_flow_budget": {
+            "interval_s": [
+              6322.881,
+              6332.17
+            ],
+            "duration_s": 9.28899999999976,
+            "total_strain_change": -2.3609910495825826e-05,
+            "elastic_strain_change": -0.0003767968145215891,
+            "recoverable_strain_changes": [
+              -1.671701123676542e-05,
+              3.096430972767188e-05
+            ],
+            "signed_branch_strain_changes": [
+              0.0001894175937069847,
+              0.00014952201182285354
+            ],
+            "accumulated_branch_changes": [
+              0.00018941759371006017,
+              0.0001495220118247979
+            ],
+            "quadrature_error_estimate": 2.974034384840379e-13,
+            "strain_closure_error": 5.018609226109527e-15,
+            "predicted_stress_secant_MPa_per_s": -6.294541931316767,
+            "total_strain_stress_secant_MPa_per_s": -0.3944130254904172,
+            "signed_branch_stress_secants_MPa_per_s": [
+              -3.164296884068864,
+              -2.4978251853556133
+            ],
+            "recoverable_stress_secants_MPa_per_s": [
+              0.27926437841497315,
+              -0.5172712147330081
+            ],
+            "fixed_flow_without_recovery_secant_MPa_per_s": -5.662122069424477,
+            "accounting_passed": true,
+            "scope": "Signed frozen-path accounting; removing a component here is not a new causal prediction",
+            "independent_signed_branch_changes": [
+              0.00018941758888210163,
+              0.00014952201184900493
+            ],
+            "independent_accounting_passed": true,
+            "independent_signed_flow_passed": true
+          }
+        },
+        {
+          "cycle": 3,
+          "segment": 19,
+          "window": "late",
+          "original_stress_control": false,
+          "source_indices": [
+            2745,
+            2750
+          ],
+          "duration_s": 29.902000000000044,
+          "observed_strain_change": 0.0,
+          "predicted_strain_change": -1.5325389717256574e-05,
+          "strain_change_residual": -1.5325389717256574e-05,
+          "strain_rate_residual_per_s": -5.125205577304713e-07,
+          "independent_strain_change": -1.5325389618252435e-05,
+          "subdivided_strain_change": -1.532538971727457e-05,
+          "signed_flow_budget": {
+            "interval_s": [
+              6472.346,
+              6502.248
+            ],
+            "duration_s": 29.902000000000044,
+            "total_strain_change": -1.5325389717256574e-05,
+            "elastic_strain_change": -2.448824859213421e-05,
+            "recoverable_strain_changes": [
+              -4.193774202555816e-06,
+              1.6995737721877194e-06
+            ],
+            "signed_branch_strain_changes": [
+              4.0913402801002645e-07,
+              1.1247925277349142e-05
+            ],
+            "accumulated_branch_changes": [
+              4.0913402800466653e-07,
+              1.1247925277242665e-05
+            ],
+            "quadrature_error_estimate": 8.8205008071155e-14,
+            "strain_closure_error": -1.134363463621904e-16,
+            "predicted_stress_secant_MPa_per_s": -0.1270818005484623,
+            "total_strain_stress_secant_MPa_per_s": -0.07953113151593169,
+            "signed_branch_stress_secants_MPa_per_s": [
+              -0.0021232016144208787,
+              -0.05837112406394087
+            ],
+            "recoverable_stress_secants_MPa_per_s": [
+              0.02176359712901937,
+              -0.008819940483776911
+            ],
+            "fixed_flow_without_recovery_secant_MPa_per_s": -0.06049432567836174,
+            "accounting_passed": true,
+            "scope": "Signed frozen-path accounting; removing a component here is not a new causal prediction",
+            "independent_signed_branch_changes": [
+              4.0913397303313564e-07,
+              1.1247925249889339e-05
+            ],
+            "independent_accounting_passed": true,
+            "independent_signed_flow_passed": true
+          }
+        }
+      ],
+      "maximum_state_differences": [
+        [
+          2.5295321393059567e-12,
+          1.2613977240505392e-06,
+          1.426942716875601e-06,
+          6.7258284011662e-11,
+          1.1399449206805912e-07,
+          5.472622843782915e-08,
+          1.9891655596987468e-11,
+          1.6627129794527518e-11,
+          4.653262597464902e-08,
+          3.137267845509939e-08,
+          3.771763839297872e-12,
+          6.262781092336578e-13
+        ],
+        [
+          2.9558577807620168e-12,
+          2.4158453015843406e-11,
+          2.425792899884982e-11,
+          1.8192912454306764e-16,
+          7.301872699560945e-10,
+          1.2015527461883835e-11,
+          7.797582024515748e-16,
+          1.4972018850395452e-15,
+          1.6764367671839864e-13,
+          7.416289804496046e-14,
+          1.4799766230241818e-15,
+          3.97089045672816e-18
+        ]
+      ],
+      "numerical_passed": false,
+      "numerical_limits": [
+        0.0001,
+        0.0001,
+        0.0001,
+        1e-08,
+        0.0001,
+        0.0001,
+        1e-08,
+        1e-08,
+        1e-06,
+        1e-06,
+        1e-08,
+        1e-08
+      ],
+      "mechanical_balance_MPa": 3.107425418242379e-13,
+      "mechanical_balance_checks": {
+        "values_MPa": [
+          3.107425418242379e-13,
+          1.5284718953844216e-08,
+          2.623645735261967e-13
+        ],
+        "absolute_limit_MPa": 1e-08,
+        "passed": false
+      },
+      "final_strain_residual": -3.562117958450042e-05,
+      "maximum_strain_residual": 0.0001831608249989159
+    },
+    "SLC": {
+      "initial_state": [
+        -0.18,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "records": [
+        {
+          "cycle": 1,
+          "segment": 1,
+          "window": "early",
+          "original_stress_control": false,
+          "source_indices": [
+            26,
+            147
+          ],
+          "duration_s": 9.289,
+          "observed_strain_change": 2.0000000000000052e-05,
+          "predicted_strain_change": -9.361998634146084e-05,
+          "strain_change_residual": -0.0001136199863414609,
+          "strain_rate_residual_per_s": -1.223167039955441e-05,
+          "independent_strain_change": -9.361999727768369e-05,
+          "subdivided_strain_change": -9.361998634144653e-05,
+          "signed_flow_budget": {
+            "interval_s": [
+              2.151,
+              11.44
+            ],
+            "duration_s": 9.289,
+            "total_strain_change": -9.361998634146084e-05,
+            "elastic_strain_change": 0.0003301402566776302,
+            "recoverable_strain_changes": [
+              -1.2295703581928372e-05,
+              -4.004420116141047e-05
+            ],
+            "signed_branch_strain_changes": [
+              -0.00021099967581937097,
+              -0.00016042066245745802
+            ],
+            "accumulated_branch_changes": [
+              0.00021099967581837114,
+              0.0001604206624573785
+            ],
+            "quadrature_error_estimate": 3.2659066301077393e-13,
+            "strain_closure_error": 1.0767753876039787e-15,
+            "predicted_stress_secant_MPa_per_s": 5.515125417160084,
+            "total_strain_stress_secant_MPa_per_s": -1.5639594256756875,
+            "signed_branch_stress_secants_MPa_per_s": [
+              3.5248342229898095,
+              2.679891515988919
+            ],
+            "recoverable_stress_secants_MPa_per_s": [
+              0.2054046605191069,
+              0.6689544433559248
+            ],
+            "fixed_flow_without_recovery_secant_MPa_per_s": 6.204725738978729,
+            "accounting_passed": true,
+            "scope": "Signed frozen-path accounting; removing a component here is not a new causal prediction",
+            "independent_signed_branch_changes": [
+              -0.00021099966903974333,
+              -0.0001604206624712
+            ],
+            "independent_accounting_passed": true,
+            "independent_signed_flow_passed": true
+          }
+        },
+        {
+          "cycle": 1,
+          "segment": 1,
+          "window": "late",
+          "original_stress_control": false,
+          "source_indices": [
+            205,
+            210
+          ],
+          "duration_s": 29.90299999999999,
+          "observed_strain_change": 0.0,
+          "predicted_strain_change": 1.116958362016229e-05,
+          "strain_change_residual": 1.116958362016229e-05,
+          "strain_rate_residual_per_s": 3.735271919259704e-07,
+          "independent_strain_change": 1.1169583507954304e-05,
+          "subdivided_strain_change": 1.1169583620131932e-05,
+          "signed_flow_budget": {
+            "interval_s": [
+              151.618,
+              181.521
+            ],
+            "duration_s": 29.90299999999999,
+            "total_strain_change": 1.116958362016229e-05,
+            "elastic_strain_change": 2.042835474659578e-05,
+            "recoverable_strain_changes": [
+              3.530010197346292e-06,
+              -4.126585522981358e-06
+            ],
+            "signed_branch_strain_changes": [
+              -1.7690838459016984e-07,
+              -8.48528741403612e-06
+            ],
+            "accumulated_branch_changes": [
+              1.7690838465022132e-07,
+              8.485287416147818e-06
+            ],
+            "quadrature_error_estimate": 1.1622854248691062e-13,
+            "strain_closure_error": -2.1721363721366113e-15,
+            "predicted_stress_secant_MPa_per_s": 0.1060094304919254,
+            "total_strain_stress_secant_MPa_per_s": 0.057962631503775904,
+            "signed_branch_stress_secants_MPa_per_s": [
+              0.0009180356094401391,
+              0.04403293840744415
+            ],
+            "recoverable_stress_secants_MPa_per_s": [
+              -0.0183183802755202,
+              0.021414205235513472
+            ],
+            "fixed_flow_without_recovery_secant_MPa_per_s": 0.04495097401688428,
+            "accounting_passed": true,
+            "scope": "Signed frozen-path accounting; removing a component here is not a new causal prediction",
+            "independent_signed_branch_changes": [
+              -1.7690835045522474e-07,
+              -8.485287393341217e-06
+            ],
+            "independent_accounting_passed": true,
+            "independent_signed_flow_passed": true
+          }
+        },
+        {
+          "cycle": 1,
+          "segment": 3,
+          "window": "early",
+          "original_stress_control": true,
+          "source_indices": [
+            236,
+            338
+          ],
+          "duration_s": 7.848000000000013,
+          "observed_strain_change": 0.00028,
+          "predicted_strain_change": 0.000315949322023522,
+          "strain_change_residual": 3.5949322023522015e-05,
+          "strain_rate_residual_per_s": 4.580698524913603e-06,
+          "independent_strain_change": 0.0003159493270525254,
+          "subdivided_strain_change": 0.00031594932202358525,
+          "signed_flow_budget": {
+            "interval_s": [
+              184.238,
+              192.086
+            ],
+            "duration_s": 7.848000000000013,
+            "total_strain_change": 0.000315949322023522,
+            "elastic_strain_change": 1.2888551890596528e-05,
+            "recoverable_strain_changes": [
+              7.476024429895454e-05,
+              4.057801432214646e-05
+            ],
+            "signed_branch_strain_changes": [
+              0.00018772232655820257,
+              1.8496651730922845e-10
+            ],
+            "accumulated_branch_changes": [
+              0.00018772232654530927,
+              1.8496651595350383e-10
+            ],
+            "quadrature_error_estimate": 2.308503433213972e-13,
+            "strain_closure_error": -1.2895446429433965e-14,
+            "predicted_stress_secant_MPa_per_s": 0.2548419979612636,
+            "total_strain_stress_secant_MPa_per_s": 6.24718410279484,
+            "signed_branch_stress_secants_MPa_per_s": [
+              -3.7117849365942175,
+              -3.657295034162193e-06
+            ],
+            "recoverable_stress_secants_MPa_per_s": [
+              -1.4782149450876707,
+              -0.8023385661116312
+            ],
+            "fixed_flow_without_recovery_secant_MPa_per_s": -3.711788593889252,
+            "accounting_passed": true,
+            "scope": "Signed frozen-path accounting; removing a component here is not a new causal prediction",
+            "independent_signed_branch_changes": [
+              0.00018772231809999519,
+              1.8496653166083092e-10
+            ],
+            "independent_accounting_passed": true,
+            "independent_signed_flow_passed": true
+          }
+        },
+        {
+          "cycle": 1,
+          "segment": 3,
+          "window": "late",
+          "original_stress_control": true,
+          "source_indices": [
+            631,
+            690
+          ],
+          "duration_s": 352.84799999999996,
+          "observed_strain_change": 4.0000000000000105e-05,
+          "predicted_strain_change": 9.643962780960251e-06,
+          "strain_change_residual": -3.0356037219039854e-05,
+          "strain_rate_residual_per_s": -8.603148443250312e-08,
+          "independent_strain_change": 9.643963210470303e-06,
+          "subdivided_strain_change": 9.643962781508315e-06,
+          "signed_flow_budget": {
+            "interval_s": [
+              1625.483,
+              1978.331
+            ],
+            "duration_s": 352.84799999999996,
+            "total_strain_change": 9.643962780960251e-06,
+            "elastic_strain_change": 9.666413917943184e-07,
+            "recoverable_strain_changes": [
+              1.3690507716753635e-07,
+              5.3437499682255354e-08
+            ],
+            "signed_branch_strain_changes": [
+              8.486978838811671e-06,
+              0.0
+            ],
+            "accumulated_branch_changes": [
+              8.48697881231477e-06,
+              0.0
+            ],
+            "quadrature_error_estimate": 1.226078417939177e-13,
+            "strain_closure_error": -2.6495529403293416e-14,
+            "predicted_stress_secant_MPa_per_s": 0.00042511222962843677,
+            "total_strain_stress_secant_MPa_per_s": 0.00424124867305498,
+            "signed_branch_stress_secants_MPa_per_s": [
+              -0.0037324270692354984,
+              -0.0
+            ],
+            "recoverable_stress_secants_MPa_per_s": [
+              -6.0208494169809304e-05,
+              -2.350089167351335e-05
+            ],
+            "fixed_flow_without_recovery_secant_MPa_per_s": -0.0037324270692354984,
+            "accounting_passed": true,
+            "scope": "Signed frozen-path accounting; removing a component here is not a new causal prediction",
+            "independent_signed_branch_changes": [
+              8.486978867247179e-06,
+              0.0
+            ],
+            "independent_accounting_passed": true,
+            "independent_signed_flow_passed": true
+          }
+        },
+        {
+          "cycle": 1,
+          "segment": 5,
+          "window": "early",
+          "original_stress_control": false,
+          "source_indices": [
+            702,
+            823
+          ],
+          "duration_s": 9.288999999999987,
+          "observed_strain_change": -3.000000000000008e-05,
+          "predicted_strain_change": 0.0001832492338395943,
+          "strain_change_residual": 0.00021324923383959438,
+          "strain_rate_residual_per_s": 2.2957178796382245e-05,
+          "independent_strain_change": 0.00018324924297948432,
+          "subdivided_strain_change": 0.00018324923383954573,
+          "signed_flow_budget": {
+            "interval_s": [
+              1985.26,
+              1994.549
+            ],
+            "duration_s": 9.288999999999987,
+            "total_strain_change": 0.0001832492338395943,
+            "elastic_strain_change": -0.00022709628431231383,
+            "recoverable_strain_changes": [
+              2.8475872868927312e-05,
+              1.9741267506085194e-05
+            ],
+            "signed_branch_strain_changes": [
+              0.0001729790039828208,
+              0.00018914937379138535
+            ],
+            "accumulated_branch_changes": [
+              0.00017297900398435112,
+              0.0001891493737925464
+            ],
+            "quadrature_error_estimate": 3.1581589118884603e-13,
+            "strain_closure_error": 2.689417698958918e-15,
+            "predicted_stress_secant_MPa_per_s": -3.7937345247066974,
+            "total_strain_stress_secant_MPa_per_s": 3.061251958166116,
+            "signed_branch_stress_secants_MPa_per_s": [
+              -2.889683648705218,
+              -3.1598161627874832
+            ],
+            "recoverable_stress_secants_MPa_per_s": [
+              -0.4757008788194893,
+              -0.3297857925156945
+            ],
+            "fixed_flow_without_recovery_secant_MPa_per_s": -6.049499811492701,
+            "accounting_passed": true,
+            "scope": "Signed frozen-path accounting; removing a component here is not a new causal prediction",
+            "independent_signed_branch_changes": [
+              0.00017297899892910855,
+              0.00018914937366518799
+            ],
+            "independent_accounting_passed": true,
+            "independent_signed_flow_passed": true
+          }
+        },
+        {
+          "cycle": 1,
+          "segment": 5,
+          "window": "late",
+          "original_stress_control": false,
+          "source_indices": [
+            881,
+            886
+          ],
+          "duration_s": 29.902000000000044,
+          "observed_strain_change": 0.0,
+          "predicted_strain_change": -2.589668797028065e-06,
+          "strain_change_residual": -2.589668797028065e-06,
+          "strain_rate_residual_per_s": -8.660520356591737e-08,
+          "independent_strain_change": -2.5896690574456205e-06,
+          "subdivided_strain_change": -2.589668796989901e-06,
+          "signed_flow_budget": {
+            "interval_s": [
+              2134.725,
+              2164.627
+            ],
+            "duration_s": 29.902000000000044,
+            "total_strain_change": -2.589668797028065e-06,
+            "elastic_strain_change": -3.505686114242328e-05,
+            "recoverable_strain_changes": [
+              -5.586844309510053e-06,
+              -1.2294238342996856e-06
+            ],
+            "signed_branch_strain_changes": [
+              1.431938766629639e-06,
+              3.78515217223915e-05
+            ],
+            "accumulated_branch_changes": [
+              1.4319387666341787e-06,
+              3.785152172256943e-05
+            ],
+            "quadrature_error_estimate": 1.059491626475648e-13,
+            "strain_closure_error": 1.838129258177612e-16,
+            "predicted_stress_secant_MPa_per_s": -0.18192763025884903,
+            "total_strain_stress_secant_MPa_per_s": -0.013439089868444323,
+            "signed_branch_stress_secants_MPa_per_s": [
+              -0.007431048245601768,
+              -0.19643052527349078
+            ],
+            "recoverable_stress_secants_MPa_per_s": [
+              0.028992936410508364,
+              0.006380096719133393
+            ],
+            "fixed_flow_without_recovery_secant_MPa_per_s": -0.20386157351909256,
+            "accounting_passed": true,
+            "scope": "Signed frozen-path accounting; removing a component here is not a new causal prediction",
+            "independent_signed_branch_changes": [
+              1.4319386919634505e-06,
+              3.7851521728014524e-05
+            ],
+            "independent_accounting_passed": true,
+            "independent_signed_flow_passed": true
+          }
+        },
+        {
+          "cycle": 2,
+          "segment": 8,
+          "window": "early",
+          "original_stress_control": false,
+          "source_indices": [
+            937,
+            1058
+          ],
+          "duration_s": 9.28899999999976,
+          "observed_strain_change": 1.0000000000000026e-05,
+          "predicted_strain_change": -0.0002427478862119198,
+          "strain_change_residual": -0.0002527478862119198,
+          "strain_rate_residual_per_s": -2.7209375197752865e-05,
+          "independent_strain_change": -0.00024274790471462697,
+          "subdivided_strain_change": -0.00024274788621190635,
+          "signed_flow_budget": {
+            "interval_s": [
+              2169.367,
+              2178.656
+            ],
+            "duration_s": 9.28899999999976,
+            "total_strain_change": -0.0002427478862119198,
+            "elastic_strain_change": 0.00043144427453771923,
+            "recoverable_strain_changes": [
+              2.5439224563325222e-05,
+              -7.408490764890661e-05
+            ],
+            "signed_branch_strain_changes": [
+              -0.00023727846913708663,
+              -0.00038826800850621753
+            ],
+            "accumulated_branch_changes": [
+              0.00023727846914312566,
+              0.0003882680085209398
+            ],
+            "quadrature_error_estimate": 5.564067027350335e-13,
+            "strain_closure_error": -2.0753364304848532e-14,
+            "predicted_stress_secant_MPa_per_s": 7.20744967165484,
+            "total_strain_stress_secant_MPa_per_s": -4.055200812776224,
+            "signed_branch_stress_secants_MPa_per_s": [
+              3.963832006590564,
+              6.486172828276951
+            ],
+            "recoverable_stress_secants_MPa_per_s": [
+              -0.42497245078185053,
+              1.2376180999987034
+            ],
+            "fixed_flow_without_recovery_secant_MPa_per_s": 10.450004834867517,
+            "accounting_passed": true,
+            "scope": "Signed frozen-path accounting; removing a component here is not a new causal prediction",
+            "independent_signed_branch_changes": [
+              -0.00023727846135518406,
+              -0.0003882680080292603
+            ],
+            "independent_accounting_passed": true,
+            "independent_signed_flow_passed": true
+          }
+        },
+        {
+          "cycle": 2,
+          "segment": 8,
+          "window": "late",
+          "original_stress_control": false,
+          "source_indices": [
+            1116,
+            1121
+          ],
+          "duration_s": 29.902000000000044,
+          "observed_strain_change": 0.0,
+          "predicted_strain_change": 1.7933679077866346e-06,
+          "strain_change_residual": 1.7933679077866346e-06,
+          "strain_rate_residual_per_s": 5.997484809667019e-08,
+          "independent_strain_change": 1.7933677623409132e-06,
+          "subdivided_strain_change": 1.7933679077775273e-06,
+          "signed_flow_budget": {
+            "interval_s": [
+              2318.831,
+              2348.733
+            ],
+            "duration_s": 29.902000000000044,
+            "total_strain_change": 1.7933679077866346e-06,
+            "elastic_strain_change": 2.3650492719244547e-05,
+            "recoverable_strain_changes": [
+              4.033774675610383e-06,
+              -1.4640365737555511e-05
+            ],
+            "signed_branch_strain_changes": [
+              -9.725105253593417e-09,
+              -1.1240808643730037e-05
+            ],
+            "accumulated_branch_changes": [
+              9.725105254519001e-09,
+              1.1240808644257493e-05
+            ],
+            "quadrature_error_estimate": 7.014052251026589e-14,
+            "strain_closure_error": -5.29153340611023e-16,
+            "predicted_stress_secant_MPa_per_s": 0.12273426526653676,
+            "total_strain_stress_secant_MPa_per_s": 0.009306685282530114,
+            "signed_branch_stress_secants_MPa_per_s": [
+              5.0468447406521985e-05,
+              0.058334192283754256
+            ],
+            "recoverable_stress_secants_MPa_per_s": [
+              -0.020933279358655875,
+              0.0759761986087557
+            ],
+            "fixed_flow_without_recovery_secant_MPa_per_s": 0.05838466073116078,
+            "accounting_passed": true,
+            "scope": "Signed frozen-path accounting; removing a component here is not a new causal prediction",
+            "independent_signed_branch_changes": [
+              -9.725100798523041e-09,
+              -1.1240808581162201e-05
+            ],
+            "independent_accounting_passed": true,
+            "independent_signed_flow_passed": true
+          }
+        },
+        {
+          "cycle": 2,
+          "segment": 10,
+          "window": "early",
+          "original_stress_control": true,
+          "source_indices": [
+            1147,
+            1249
+          ],
+          "duration_s": 7.847999999999956,
+          "observed_strain_change": 0.00028,
+          "predicted_strain_change": 0.0003500773981855415,
+          "strain_change_residual": 7.007739818554155e-05,
+          "strain_rate_residual_per_s": 8.929332082765282e-06,
+          "independent_strain_change": 0.00035007740687848817,
+          "subdivided_strain_change": 0.0003500773981856169,
+          "signed_flow_budget": {
+            "interval_s": [
+              2351.45,
+              2359.298
+            ],
+            "duration_s": 7.847999999999956,
+            "total_strain_change": 0.0003500773981855415,
+            "elastic_strain_change": 7.990902172168898e-06,
+            "recoverable_strain_changes": [
+              7.521961966661671e-05,
+              3.893066688543344e-05
+            ],
+            "signed_branch_strain_changes": [
+              0.0002279357906151999,
+              4.1885181647933464e-10
+            ],
+            "accumulated_branch_changes": [
+              0.00022793579060950264,
+              4.1885181434331287e-10
+            ],
+            "quadrature_error_estimate": 2.8112060091466603e-13,
+            "strain_closure_error": -5.6938774441878115e-15,
+            "predicted_stress_secant_MPa_per_s": 0.1580020387359658,
+            "total_strain_stress_secant_MPa_per_s": 6.921989712418787,
+            "signed_branch_stress_secants_MPa_per_s": [
+              -4.5069153447439545,
+              -8.2818484704381e-06
+            ],
+            "recoverable_stress_secants_MPa_per_s": [
+              -1.4872980552386854,
+              -0.7697659919642954
+            ],
+            "fixed_flow_without_recovery_secant_MPa_per_s": -4.506923626592425,
+            "accounting_passed": true,
+            "scope": "Signed frozen-path accounting; removing a component here is not a new causal prediction",
+            "independent_signed_branch_changes": [
+              0.00022793578380570084,
+              4.1885186923988493e-10
+            ],
+            "independent_accounting_passed": true,
+            "independent_signed_flow_passed": true
+          }
+        },
+        {
+          "cycle": 2,
+          "segment": 10,
+          "window": "late",
+          "original_stress_control": true,
+          "source_indices": [
+            1542,
+            1601
+          ],
+          "duration_s": 352.8479999999995,
+          "observed_strain_change": 2.999999999999997e-05,
+          "predicted_strain_change": 8.827554161673027e-06,
+          "strain_change_residual": -2.1172445838326943e-05,
+          "strain_rate_residual_per_s": -6.000443771348278e-08,
+          "independent_strain_change": 8.827554312908496e-06,
+          "subdivided_strain_change": 8.827554163191127e-06,
+          "signed_flow_budget": {
+            "interval_s": [
+              3792.695,
+              4145.543
+            ],
+            "duration_s": 352.8479999999995,
+            "total_strain_change": 8.827554161673027e-06,
+            "elastic_strain_change": -2.577710378116961e-07,
+            "recoverable_strain_changes": [
+              -3.1761052222707004e-08,
+              2.913258328120943e-08
+            ],
+            "signed_branch_strain_changes": [
+              9.08795368306538e-06,
+              0.0
+            ],
+            "accumulated_branch_changes": [
+              9.087953668432056e-06,
+              0.0
+            ],
+            "quadrature_error_estimate": 1.2388080713628556e-13,
+            "strain_closure_error": -1.4639158619047035e-14,
+            "predicted_stress_secant_MPa_per_s": -0.00011336326123419624,
+            "total_strain_stress_secant_MPa_per_s": 0.0038822062283808243,
+            "signed_branch_stress_secants_MPa_per_s": [
+              -0.003996725451407056,
+              -0.0
+            ],
+            "recoverable_stress_secants_MPa_per_s": [
+              1.396796354920953e-05,
+              -1.281200819522352e-05
+            ],
+            "fixed_flow_without_recovery_secant_MPa_per_s": -0.003996725451407056,
+            "accounting_passed": true,
+            "scope": "Signed frozen-path accounting; removing a component here is not a new causal prediction",
+            "independent_signed_branch_changes": [
+              9.08795377176478e-06,
+              0.0
+            ],
+            "independent_accounting_passed": true,
+            "independent_signed_flow_passed": true
+          }
+        },
+        {
+          "cycle": 2,
+          "segment": 12,
+          "window": "early",
+          "original_stress_control": false,
+          "source_indices": [
+            1614,
+            1735
+          ],
+          "duration_s": 9.28900000000067,
+          "observed_strain_change": -2.0000000000000052e-05,
+          "predicted_strain_change": 0.00019528461425812505,
+          "strain_change_residual": 0.0002152846142581251,
+          "strain_rate_residual_per_s": 2.3176296076876906e-05,
+          "independent_strain_change": 0.00019528462507650336,
+          "subdivided_strain_change": 0.00019528461425788002,
+          "signed_flow_budget": {
+            "interval_s": [
+              4152.534,
+              4161.823
+            ],
+            "duration_s": 9.28900000000067,
+            "total_strain_change": 0.00019528461425812505,
+            "elastic_strain_change": -0.00024004927896235942,
+            "recoverable_strain_changes": [
+              2.4132388693607146e-05,
+              2.0024976784605508e-05
+            ],
+            "signed_branch_strain_changes": [
+              0.0001863946262558145,
+              0.00020478190148875047
+            ],
+            "accumulated_branch_changes": [
+              0.00018639462625460014,
+              0.00020478190148767554
+            ],
+            "quadrature_error_estimate": 3.4045304668173566e-13,
+            "strain_closure_error": -2.2931960150240904e-15,
+            "predicted_stress_secant_MPa_per_s": -4.010119496177971,
+            "total_strain_stress_secant_MPa_per_s": 3.262307815816839,
+            "signed_branch_stress_secants_MPa_per_s": [
+              -3.1137970001920032,
+              -3.42096380865698
+            ],
+            "recoverable_stress_secants_MPa_per_s": [
+              -0.40314123336630947,
+              -0.33452526981782577
+            ],
+            "fixed_flow_without_recovery_secant_MPa_per_s": -6.534760808848983,
+            "accounting_passed": true,
+            "scope": "Signed frozen-path accounting; removing a component here is not a new causal prediction",
+            "independent_signed_branch_changes": [
+              0.0001863946212048191,
+              0.00020478190128932336
+            ],
+            "independent_accounting_passed": true,
+            "independent_signed_flow_passed": true
+          }
+        },
+        {
+          "cycle": 2,
+          "segment": 12,
+          "window": "late",
+          "original_stress_control": false,
+          "source_indices": [
+            1793,
+            1798
+          ],
+          "duration_s": 29.902000000000044,
+          "observed_strain_change": 0.0,
+          "predicted_strain_change": 1.9393868886625337e-05,
+          "strain_change_residual": 1.9393868886625337e-05,
+          "strain_rate_residual_per_s": 6.48580994135018e-07,
+          "independent_strain_change": 1.939386853862593e-05,
+          "subdivided_strain_change": 1.9393868886597148e-05,
+          "signed_flow_budget": {
+            "interval_s": [
+              4302.0,
+              4331.902
+            ],
+            "duration_s": 29.902000000000044,
+            "total_strain_change": 1.9393868886625337e-05,
+            "elastic_strain_change": -2.0686125784406198e-05,
+            "recoverable_strain_changes": [
+              -3.435542657080848e-06,
+              -9.84133017674501e-07
+            ],
+            "signed_branch_strain_changes": [
+              1.7001354076750917e-06,
+              4.279953493240062e-05
+            ],
+            "accumulated_branch_changes": [
+              1.7001354079906883e-06,
+              4.2799534937798533e-05
+            ],
+            "quadrature_error_estimate": 1.2376589643190336e-13,
+            "strain_closure_error": 5.711170468838955e-15,
+            "predicted_stress_secant_MPa_per_s": -0.10735067888434902,
+            "total_strain_stress_secant_MPa_per_s": 0.1006445098938108,
+            "signed_branch_stress_secants_MPa_per_s": [
+              -0.008822855091929415,
+              -0.2221082467936616
+            ],
+            "recoverable_stress_secants_MPa_per_s": [
+              0.017828753456183052,
+              0.0051071596808862476
+            ],
+            "fixed_flow_without_recovery_secant_MPa_per_s": -0.23093110188559096,
+            "accounting_passed": true,
+            "scope": "Signed frozen-path accounting; removing a component here is not a new causal prediction",
+            "independent_signed_branch_changes": [
+              1.700135319389198e-06,
+              4.279953493502165e-05
+            ],
+            "independent_accounting_passed": true,
+            "independent_signed_flow_passed": true
+          }
+        },
+        {
+          "cycle": 3,
+          "segment": 15,
+          "window": "early",
+          "original_stress_control": false,
+          "source_indices": [
+            1849,
+            1970
+          ],
+          "duration_s": 9.28899999999976,
+          "observed_strain_change": 2.0000000000000052e-05,
+          "predicted_strain_change": -0.0002708650410103957,
+          "strain_change_residual": -0.0002908650410103958,
+          "strain_rate_residual_per_s": -3.1312847562752e-05,
+          "independent_strain_change": -0.0002708650523460742,
+          "subdivided_strain_change": -0.00027086504101045167,
+          "signed_flow_budget": {
+            "interval_s": [
+              4336.645,
+              4345.934
+            ],
+            "duration_s": 9.28899999999976,
+            "total_strain_change": -0.0002708650410103957,
+            "elastic_strain_change": 0.00041243366049909273,
+            "recoverable_strain_changes": [
+              2.1816245641557356e-05,
+              -7.447074514039043e-05
+            ],
+            "signed_branch_strain_changes": [
+              -0.00024443306531040184,
+              -0.0003862111367191143
+            ],
+            "accumulated_branch_changes": [
+              0.000244433065303504,
+              0.00038621113670714085
+            ],
+            "quadrature_error_estimate": 5.610085891022936e-13,
+            "strain_closure_error": 1.8860780992557835e-14,
+            "predicted_stress_secant_MPa_per_s": 6.889869738400501,
+            "total_strain_stress_secant_MPa_per_s": -4.524909162336039,
+            "signed_branch_stress_secants_MPa_per_s": [
+              4.083352405593276,
+              6.451811959999171
+            ],
+            "recoverable_stress_secants_MPa_per_s": [
+              -0.3644491346059968,
+              1.2440636700651662
+            ],
+            "fixed_flow_without_recovery_secant_MPa_per_s": 10.535164365592445,
+            "accounting_passed": true,
+            "scope": "Signed frozen-path accounting; removing a component here is not a new causal prediction",
+            "independent_signed_branch_changes": [
+              -0.0002444330581272886,
+              -0.00038621113634550993
+            ],
+            "independent_accounting_passed": true,
+            "independent_signed_flow_passed": true
+          }
+        },
+        {
+          "cycle": 3,
+          "segment": 15,
+          "window": "late",
+          "original_stress_control": false,
+          "source_indices": [
+            2028,
+            2033
+          ],
+          "duration_s": 29.903000000000247,
+          "observed_strain_change": 0.0,
+          "predicted_strain_change": 2.0323133690072943e-06,
+          "strain_change_residual": 2.0323133690072943e-06,
+          "strain_rate_residual_per_s": 6.796352770649358e-08,
+          "independent_strain_change": 2.0323135080150233e-06,
+          "subdivided_strain_change": 2.0323133690016565e-06,
+          "signed_flow_budget": {
+            "interval_s": [
+              4486.108,
+              4516.011
+            ],
+            "duration_s": 29.903000000000247,
+            "total_strain_change": 2.0323133690072943e-06,
+            "elastic_strain_change": 2.5326004465021856e-05,
+            "recoverable_strain_changes": [
+              4.246001136069279e-06,
+              -1.4905256529748324e-05
+            ],
+            "signed_branch_strain_changes": [
+              -1.5842927674258596e-08,
+              -1.2618592774336193e-05
+            ],
+            "accumulated_branch_changes": [
+              1.5842927676354424e-08,
+              1.2618592774661219e-05
+            ],
+            "quadrature_error_estimate": 1.0756342044441319e-13,
+            "strain_closure_error": -3.2506414010188833e-16,
+            "predicted_stress_secant_MPa_per_s": 0.13142494064140445,
+            "total_strain_stress_secant_MPa_per_s": 0.010546340393148387,
+            "signed_branch_stress_secants_MPa_per_s": [
+              8.221414601940856e-05,
+              0.06548201508199325
+            ],
+            "recoverable_stress_secants_MPa_per_s": [
+              -0.022033892003847096,
+              0.07734826302240366
+            ],
+            "fixed_flow_without_recovery_secant_MPa_per_s": 0.06556422922801265,
+            "accounting_passed": true,
+            "scope": "Signed frozen-path accounting; removing a component here is not a new causal prediction",
+            "independent_signed_branch_changes": [
+              -1.5842923239568426e-08,
+              -1.2618592749898314e-05
+            ],
+            "independent_accounting_passed": true,
+            "independent_signed_flow_passed": true
+          }
+        },
+        {
+          "cycle": 3,
+          "segment": 17,
+          "window": "early",
+          "original_stress_control": true,
+          "source_indices": [
+            2059,
+            2161
+          ],
+          "duration_s": 7.846999999999753,
+          "observed_strain_change": 0.00027,
+          "predicted_strain_change": 0.0003520059982976809,
+          "strain_change_residual": 8.200599829768092e-05,
+          "strain_rate_residual_per_s": 1.0450617853661718e-05,
+          "independent_strain_change": 0.00035200600537618905,
+          "subdivided_strain_change": 0.0003520059982977327,
+          "signed_flow_budget": {
+            "interval_s": [
+              4518.729,
+              4526.576
+            ],
+            "duration_s": 7.846999999999753,
+            "total_strain_change": 0.0003520059982976809,
+            "elastic_strain_change": 1.2630780852784465e-05,
+            "recoverable_strain_changes": [
+              7.540117908400773e-05,
+              3.8975123438452966e-05
+            ],
+            "signed_branch_strain_changes": [
+              0.00022499874888402417,
+              1.6605521206747097e-10
+            ],
+            "accumulated_branch_changes": [
+              0.0002249987488672318,
+              1.660552151512562e-10
+            ],
+            "quadrature_error_estimate": 2.7936763475379657e-13,
+            "strain_closure_error": -1.6800498709237943e-14,
+            "predicted_stress_secant_MPa_per_s": 0.24977698483497404,
+            "total_strain_stress_secant_MPa_per_s": 6.961010401762853,
+            "signed_branch_stress_secants_MPa_per_s": [
+              -4.449408927517242,
+              -3.2837851174657588e-06
+            ],
+            "recoverable_stress_secants_MPa_per_s": [
+              -1.4910779772141725,
+              -0.7707432287435816
+            ],
+            "fixed_flow_without_recovery_secant_MPa_per_s": -4.449412211302359,
+            "accounting_passed": true,
+            "scope": "Signed frozen-path accounting; removing a component here is not a new causal prediction",
+            "independent_signed_branch_changes": [
+              0.0002249987404693985,
+              1.660552264632937e-10
+            ],
+            "independent_accounting_passed": true,
+            "independent_signed_flow_passed": true
+          }
+        },
+        {
+          "cycle": 3,
+          "segment": 17,
+          "window": "late",
+          "original_stress_control": true,
+          "source_indices": [
+            2454,
+            2513
+          ],
+          "duration_s": 352.84699999999975,
+          "observed_strain_change": 1.9999999999999944e-05,
+          "predicted_strain_change": 8.664355527721762e-06,
+          "strain_change_residual": -1.1335644472278182e-05,
+          "strain_rate_residual_per_s": -3.2126231687610186e-08,
+          "independent_strain_change": 8.664355469240222e-06,
+          "subdivided_strain_change": 8.664355530303355e-06,
+          "signed_flow_budget": {
+            "interval_s": [
+              5959.975,
+              6312.822
+            ],
+            "duration_s": 352.84699999999975,
+            "total_strain_change": 8.664355527721762e-06,
+            "elastic_strain_change": -3.222137972652612e-07,
+            "recoverable_strain_changes": [
+              -3.913614286498433e-08,
+              -1.1766360670951298e-08
+            ],
+            "signed_branch_strain_changes": [
+              9.037471829816716e-06,
+              0.0
+            ],
+            "accumulated_branch_changes": [
+              9.0374718285215e-06,
+              0.0
+            ],
+            "quadrature_error_estimate": 1.202668053584289e-13,
+            "strain_closure_error": -1.2937581236362183e-15,
+            "predicted_stress_secant_MPa_per_s": -0.00014170447814507148,
+            "total_strain_stress_secant_MPa_per_s": 0.0038104450800671777,
+            "signed_branch_stress_secants_MPa_per_s": [
+              -0.00397453566626966,
+              -0.0
+            ],
+            "recoverable_stress_secants_MPa_per_s": [
+              1.721145012523482e-05,
+              5.174657363201647e-06
+            ],
+            "fixed_flow_without_recovery_secant_MPa_per_s": -0.00397453566626966,
+            "accounting_passed": true,
+            "scope": "Signed frozen-path accounting; removing a component here is not a new causal prediction",
+            "independent_signed_branch_changes": [
+              9.037471895625857e-06,
+              0.0
+            ],
+            "independent_accounting_passed": true,
+            "independent_signed_flow_passed": true
+          }
+        },
+        {
+          "cycle": 3,
+          "segment": 19,
+          "window": "early",
+          "original_stress_control": false,
+          "source_indices": [
+            2526,
+            2647
+          ],
+          "duration_s": 9.28899999999976,
+          "observed_strain_change": -2.0000000000000052e-05,
+          "predicted_strain_change": 0.00016581518968106094,
+          "strain_change_residual": 0.000185815189681061,
+          "strain_rate_residual_per_s": 2.000378831747936e-05,
+          "independent_strain_change": 0.00016581519866927822,
+          "subdivided_strain_change": 0.00016581518968090936,
+          "signed_flow_budget": {
+            "interval_s": [
+              6319.821,
+              6329.11
+            ],
+            "duration_s": 9.28899999999976,
+            "total_strain_change": 0.00016581518968106094,
+            "elastic_strain_change": -0.00024552691351586455,
+            "recoverable_strain_changes": [
+              2.1310279419914938e-05,
+              1.9723511785322916e-05
+            ],
+            "signed_branch_strain_changes": [
+              0.00017786086338456475,
+              0.0001924474486165776
+            ],
+            "accumulated_branch_changes": [
+              0.0001778608633807629,
+              0.00019244744861092932
+            ],
+            "quadrature_error_estimate": 3.206957346468159e-13,
+            "strain_closure_error": -9.454676624942593e-15,
+            "predicted_stress_secant_MPa_per_s": -4.101625578641522,
+            "total_strain_stress_secant_MPa_per_s": 2.7700092571692356,
+            "signed_branch_stress_secants_MPa_per_s": [
+              -2.97123706827463,
+              -3.2149118257011424
+            ],
+            "recoverable_stress_secants_MPa_per_s": [
+              -0.35599676591492435,
+              -0.3294891760780057
+            ],
+            "fixed_flow_without_recovery_secant_MPa_per_s": -6.186148893975772,
+            "accounting_passed": true,
+            "scope": "Signed frozen-path accounting; removing a component here is not a new causal prediction",
+            "independent_signed_branch_changes": [
+              0.00017786085886826704,
+              0.00019244744846552326
+            ],
+            "independent_accounting_passed": true,
+            "independent_signed_flow_passed": true
+          }
+        },
+        {
+          "cycle": 3,
+          "segment": 19,
+          "window": "late",
+          "original_stress_control": false,
+          "source_indices": [
+            2705,
+            2710
+          ],
+          "duration_s": 29.903000000000247,
+          "observed_strain_change": 0.0,
+          "predicted_strain_change": 1.8951087925453067e-05,
+          "strain_change_residual": 1.8951087925453067e-05,
+          "strain_rate_residual_per_s": 6.33752062517236e-07,
+          "independent_strain_change": 1.8951087689801725e-05,
+          "subdivided_strain_change": 1.8951087925443526e-05,
+          "signed_flow_budget": {
+            "interval_s": [
+              6469.285,
+              6499.188
+            ],
+            "duration_s": 29.903000000000247,
+            "total_strain_change": 1.8951087925453067e-05,
+            "elastic_strain_change": -2.1266110619486176e-05,
+            "recoverable_strain_changes": [
+              -3.483508226655971e-06,
+              -8.710415728780058e-07
+            ],
+            "signed_branch_strain_changes": [
+              1.880389419050364e-06,
+              4.269135892758173e-05
+            ],
+            "accumulated_branch_changes": [
+              1.8803894188887393e-06,
+              4.269135892558378e-05
+            ],
+            "quadrature_error_estimate": 6.826582575411458e-15,
+            "strain_closure_error": -2.1588769183802925e-15,
+            "predicted_stress_secant_MPa_per_s": -0.11035682038592343,
+            "total_strain_stress_secant_MPa_per_s": 0.09834340861514795,
+            "signed_branch_stress_secants_MPa_per_s": [
+              -0.009757957206504261,
+              -0.22153945841348013
+            ],
+            "recoverable_stress_secants_MPa_per_s": [
+              0.018077066303309207,
+              0.004520120304400676
+            ],
+            "fixed_flow_without_recovery_secant_MPa_per_s": -0.23129741561998438,
+            "accounting_passed": true,
+            "scope": "Signed frozen-path accounting; removing a component here is not a new causal prediction",
+            "independent_signed_branch_changes": [
+              1.8803893377206076e-06,
+              4.2691358927739535e-05
+            ],
+            "independent_accounting_passed": true,
+            "independent_signed_flow_passed": true
+          }
+        }
+      ],
+      "maximum_state_differences": [
+        [
+          4.575895218295045e-12,
+          1.4316781892231845e-06,
+          1.9872203012027967e-06,
+          5.627840901634151e-11,
+          9.13544759839624e-08,
+          9.654588739582692e-08,
+          9.629326416099593e-12,
+          2.0926622847777798e-11,
+          4.3679763361836876e-08,
+          2.8324538270396715e-08,
+          4.0109860420002585e-12,
+          7.947089980444438e-13
+        ],
+        [
+          4.888534022029489e-12,
+          3.801403636316536e-11,
+          3.299760464869905e-11,
+          2.732189474663471e-16,
+          3.1317171078626416e-10,
+          5.751843445978011e-12,
+          8.968520370800093e-16,
+          3.0697016109582087e-15,
+          4.4142467459096224e-13,
+          1.7674750552032492e-13,
+          2.869666310134633e-15,
+          8.646512325571898e-18
+        ]
+      ],
+      "numerical_passed": false,
+      "numerical_limits": [
+        0.0001,
+        0.0001,
+        0.0001,
+        1e-08,
+        0.0001,
+        0.0001,
+        1e-08,
+        1e-08,
+        1e-06,
+        1e-06,
+        1e-08,
+        1e-08
+      ],
+      "mechanical_balance_MPa": 2.974556978811411e-13,
+      "mechanical_balance_checks": {
+        "values_MPa": [
+          2.974556978811411e-13,
+          1.5668934468553472e-08,
+          2.3138355012813646e-13
+        ],
+        "absolute_limit_MPa": 1e-08,
+        "passed": false
+      },
+      "final_strain_residual": 0.00020631307942687877,
+      "maximum_strain_residual": 0.0004231519451111496
+    }
+  },
+  "cycles": 3,
+  "model_id": "research.scalar-two-rate-recoverable-spectrum.v1",
+  "parameters": {
+    "backbone": {
+      "modulus": 155176.47110217228,
+      "branches": [
+        {
+          "strength": 37.4393869733136,
+          "reference_flow": 1.255349049921688e-05,
+          "exponent": 5.84896436679113,
+          "hardening": [
+            86867.26758184352,
+            146884.64037328167
+          ],
+          "saturation": [
+            29.31283406301618,
+            173.36140438275658
+          ],
+          "static_recovery": [
+            9.669076997325388e-08,
+            1.2340695087038737e-06
+          ],
+          "ratcheting": [
+            3.0,
+            3.0
+          ],
+          "saturation_ratio": 1.0,
+          "softening_rate": 0.0
+        },
+        {
+          "strength": 125.7287733064933,
+          "reference_flow": 6.24904490263464e-05,
+          "exponent": 3.0930609964795677,
+          "hardening": [
+            923777.466652319,
+            15208.09400670696
+          ],
+          "saturation": [
+            24.115672480643124,
+            14.466645715856735
+          ],
+          "static_recovery": [
+            0.11982960395273873,
+            0.0015721835756324907
+          ],
+          "ratcheting": [
+            3.0,
+            3.0
+          ],
+          "saturation_ratio": 1.0,
+          "softening_rate": 0.0
+        }
+      ]
+    },
+    "moduli": [
+      925081.074665566,
+      659143.3420898981
+    ],
+    "times": [
+      0.6348753467001904,
+      73.81679391357392
+    ],
+    "strength_ratios": [
+      1.0,
+      1.0
+    ],
+    "strength_rates": [
+      0.0,
+      0.0
+    ],
+    "hardening_ratios": [
+      1.0,
+      1.0
+    ],
+    "hardening_rates": [
+      0.0,
+      0.0
+    ],
+    "static_powers": [
+      0.0,
+      0.0
+    ],
+    "static_ratios": [
+      1.0,
+      1.0
+    ],
+    "static_history_rates": [
+      0.0,
+      0.0
+    ],
+    "static_history": "own",
+    "directional_recovery": false,
+    "recoverable_powers": [
+      1.0,
+      1.0
+    ]
+  },
+  "source_sha256": {
+    "RF": "128e6de1854f4633e26eced6c4ea221687cde2f232db275487ef0d1201767e0a",
+    "SLR": "34e26cae1816ec4b712a4cec5811e0a0c66bad34848c10d962528085171fcabb",
+    "SLC": "ab2953c0cfa6335619c8b699728aa73233f8d2209af39b709916ab3fd392683e"
+  },
+  "initial_memory_assumption": "Zero internal memory, observed initial stress/strain; not independently verified prehistory",
+  "fitted": false,
+  "engineering_qualified": false,
+  "life_qualified": false,
+  "forward_validation": false,
+  "scope": "Conditional recorded-stress path; strain is predicted, prescribed stress is not validation",
+  "frozen_sha256": "845a3c8f6b50a333639d77b45ebfd2e90ed48f68ffc55878c2b91d2c5e03f884",
+  "driver_sha256": {
+    "p92_observed_stress_replay.py": "cef580e22e58f5443214b0d37c159bded051eee5f30577bfa7fa05075602f420",
+    "p92_stress_ripple_audit.py": "daa03c693ecba2eb37db3664894a300a7262c6018dcbf7ec6f73d3db10bc0ade",
+    "p92_hold_flow_budget.py": "297436831e02f09f5096f6240922ae1ed276ba5318b22a266d0b7b19592bad95",
+    "p92_recoverable_spectrum.py": "db4826a41d681dc157792a8740a8df286d59b91181243a3118b3dabb16521e3d",
+    "p92_two_rate_reference.py": "3ad6a6a36ef9a30b342e3c8acc979e6fa9a20e366be1210790e125a3f8792a24",
+    "p92_recoverable_frozen.py": "6c030b625fa5a740bc5fe8417fb7f7d5d2b5803f831000c1659f831f9543ce62",
+    "p92_measured_controls.py": "803a1786932cbdd571f248f1ee3053dfdc941ea2b7aa3cfb38f01fe862ce461e",
+    "p92_bam_source.py": "01475954bb1472e6b2f57ba36c76de4ef4c4b6a25b893a8fad0d8aba7caa3cf3",
+    "p92_hold_observations.py": "db255346ec5d888dc65913fd4ef88aae6aae15302917ca66fd866c2e69d75ec4"
+  }
+}

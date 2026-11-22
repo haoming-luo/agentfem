@@ -1,5 +1,26 @@
 # AgentFEM Product Roadmap
 
+### Recorded-stress feedback diagnostic (2026-11-22)
+
+The [conditional replay](internal/p92_observed_stress_replay_20261122.md)
+prescribes recorded stress continuously and predicts strain with the unchanged
+shared card. In the first SLC post-creep hold, the early strain-increment
+residual remains +2.13e-4, while the late residual falls to -2.59e-6. The early
+conflict persists through ten continuous cycles. This qualifies the previous
+forward-path diagnosis: low late flow at an already underpredicted stress
+does not by itself justify increasing late kinetics. Both irreversible
+branches contribute to the early excess; recoverability is retained.
+An exact signed-budget check excludes a common pair of nonnegative branch
+rate multipliers on these frozen histories for all ten cycles. This narrows
+the next design toward history discrimination, but is not a global
+infeasibility claim for reidentified material equations.
+
+An observation-only check also identifies ten unresolved late SLC creep
+secants under the unchanged recording-resolution gate. These are neither
+passes nor evidence that a material fits. Numerical agreement, conditional
+diagnosis and original mixed-control response acceptance remain separate.
+No new parameters, production material, relaxed criterion or lifetime claim.
+
 ### Incoming history and hold kinetics separated (2026-11-22)
 
 The [state/kinetics batch](internal/p92_state_kinetics_batch_20261122.md)

@@ -28,7 +28,7 @@ from tools.p92_recorded_hold_audit import recorded_strain_segments
 from tools.p92_waveform_experiment import refine_knots
 
 
-def stress_path(old, times, delta, material, kernel, *, method="Radau", rtol=1e-9):
+def stress_path(old, times, delta, material, kernel, *, method="Radau", rtol=1e-9, atol_scale=1.):
     if kernel not in (spectrum, mobility):
         raise ValueError("Stress-ripple diagnostic requires an audited smooth spectrum kernel")
     if any(np.iscomplexobj(v) for v in (old, times, delta)):
@@ -39,7 +39,9 @@ def stress_path(old, times, delta, material, kernel, *, method="Radau", rtol=1e-
             or times[0] != 0 or delta[0] != 0 or np.any(np.diff(times) <= 0)
             or not all(np.isfinite(x).all() for x in (state, times, delta))
             or np.any(state[[3, 6, 9]] < 0) or method not in {"Radau", "BDF"}
-            or not np.isfinite(rtol) or not 0 < rtol < 1):
+            or not np.isfinite(rtol) or not 0 < rtol < 1
+            or isinstance(atol_scale, bool) or not np.isscalar(atol_scale)
+            or not np.isreal(atol_scale) or not np.isfinite(atol_scale) or not 0 < atol_scale <= 1):
         raise ValueError("Invalid stress-ripple controls")
     spec = material.spectrum if kernel is mobility else material
     bounds = np.array([v for b in spec.backbone.branches for v in b.saturation])
@@ -61,7 +63,7 @@ def stress_path(old, times, delta, material, kernel, *, method="Radau", rtol=1e-
             return rate
 
         sol = solve_ivp(rhs, (0., b-a), state, method=method, rtol=rtol, dense_output=True,
-            atol=[1e-9, 1e-9, 1e-9, 1e-13, 1e-9, 1e-9, 1e-13, 1e-13, 1e-11, 1e-11, 1e-13, 1e-13])
+            atol=atol_scale*np.array([1e-9, 1e-9, 1e-9, 1e-13, 1e-9, 1e-9, 1e-13, 1e-13, 1e-11, 1e-11, 1e-13, 1e-13]))
         if not sol.success or not np.isfinite(sol.y).all():
             raise RuntimeError("Stress-ripple integration failed")
         if abs(sol.y[0, -1]-start_stress-delta[i+1]) > 1e-7:

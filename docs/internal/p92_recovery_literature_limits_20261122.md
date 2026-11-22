@@ -55,3 +55,62 @@ mobility function is expressly our hypothesis, not their published equation.
 - The new mobility fit cannot be called a reproduction of any cited paper.
   Inspect hold entry, accumulated creep, resolved relaxation secants and
   later cycles separately, even if its joint objective improves.
+
+## Hybrid-control model identity recheck
+
+The publisher's accessible sections of
+[Zhang et al. (2022), 107369](https://doi.org/10.1016/j.ijmecsci.2022.107369)
+describe a modified, yield-surface-free Walker formulation and 19 identified
+parameters for mixed-control experiments. The full constitutive equations
+and numerical parameter table remain unavailable in this retrieval. Do not
+reconstruct them from the abstract or confuse cited-by articles with its text.
+
+The openly documented [NEML Alloy 617 Walker implementation](https://neml.readthedocs.io/en/main/walker.html)
+is **not** that P92 formulation: its flow rule explicitly contains a threshold
+Y and Macaulay brackets, and its documentation states that the original
+overshoot contribution is omitted. The shared model name is not equation
+identity or evidence that switching packages would solve the BAM discrepancy.
+
+The related authors' public
+[CN115931532A description](https://patents.google.com/patent/CN115931532A/zh)
+is a modified time-fraction life-assessment route using fatigue, creep and
+creep-fatigue observations. It is not the missing local material-update law;
+no implementation or lifetime claim is inferred from it. No coefficients or
+new validation observations were admitted by these searches.
+
+## Public hybrid-control disclosure: useful, not implementation-ready
+
+The separate [CN113742914A disclosure](https://patents.google.com/patent/CN113742914A/zh)
+provides equations and a staged four-test identification strategy at 650 C.
+It uses two backstresses, state-dependent recovery and accumulated-strain
+hardening. Its numerical material card is not supplied in the inspected
+15-page document. Its identity with the 2022 paper has not been established.
+
+Visual inspection of PDF pages 7--8 also reveals unresolved implementation
+questions: Eq. 3 has no absolute-value bars before the real power; Eq. 4
+prints recovery without a multiplier D. The corresponding page 7 of the
+[B publication](https://patents.google.com/patent/CN113742914B/zh) retains both.
+Do not silently repair the expressions and call that a published reproduction.
+Our mathematical checks are that the literal first expression is not generally
+real under reversal, and the literal second identifies only the difference
+of its first two coefficients. Neither observation proves which equations
+were used in the authors' calculations.
+
+The useful design lesson is to constrain reversal, short/long creep and
+cycle evolution together. Public availability is not an implementation
+license. No formula, parameter, claimed validation or new runtime material
+has been imported from this disclosure.
+
+Retrieved A PDF SHA256:
+`7f70b94510518beed51e5d08e34360f8443fc314ddca1ceb672c3b8391523efe`.
+
+## Source reproduction still separate from BAM mechanism selection
+
+The indexed full text of [Li et al., 106044](https://doi.org/10.1016/j.ijmecsci.2020.106044)
+again reports n2=278 in Table 2 and explicitly points to supplementary MATLAB
+code. Crossref identifies the publisher article as `S0020740320319779`.
+Direct repository retrieval failed with a TLS connection error, PDF screenshot
+retrieval failed, and the publisher returned 403. The source-code supplement
+was not obtained. The earlier visual-verification/loading-profile gate stays
+open; the provisional card and its retained failure are not changed. Seeking
+the original implementation is preferable to choosing a convenient exponent.

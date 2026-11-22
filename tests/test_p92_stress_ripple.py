@@ -50,6 +50,44 @@ def test_elastic_power_increment_is_not_omitted():
     assert end[8]-kernel.stored_energy(end, m)-end[9] == pytest.approx(0., abs=1e-9)
 
 
+@pytest.mark.parametrize("scale", [0., -1., 2., True, np.nan, np.inf, 1j, [1.]])
+def test_absolute_tolerance_scale_can_only_tighten(scale):
+    with pytest.raises(ValueError):
+        stress_path(np.zeros(12), [0., 1.], [0., 1.], material(), kernel, atol_scale=scale)
+
+
+def test_tighter_absolute_tolerance_preserves_physical_solution():
+    m = material()
+    old = np.zeros(12)
+    old[0] = 110.
+    a = stress_path(old, [0., 1.], [0., -2.], m, kernel)
+    b = stress_path(old, [0., 1.], [0., -2.], m, kernel,
+                    method="BDF", rtol=1e-12, atol_scale=.01)
+    np.testing.assert_allclose(a.y[:, -1], b.y[:, -1], rtol=1e-7, atol=1e-9)
+
+
+def test_repeated_stress_knots_energy_is_checked_independently_of_strain():
+    m = material()
+    old = np.zeros(12)
+    old[0] = 110.
+    times = np.linspace(0., 4., 33)
+    delta = 4.*np.sin(2.*np.pi*times)
+    with pytest.raises(RuntimeError, match="mechanical balance"):
+        stress_path(old, times, delta, m, kernel, method="BDF", rtol=1e-6)
+    loose = stress_path(old, times, delta, m, kernel, method="BDF", rtol=1e-10)
+    tight = stress_path(old, times, delta, m, kernel,
+                        method="BDF", rtol=1e-12, atol_scale=.01)
+
+    def imbalance(sol):
+        last = sol.y[:, -1]
+        return abs(last[8]-last[9]-kernel.stored_energy(last, m)+kernel.stored_energy(old, m))
+
+    assert imbalance(tight) < 1e-8
+    assert imbalance(tight) < imbalance(loose)/10.
+    # Tightening integration does not alter the prescribed stress path.
+    np.testing.assert_allclose(tight.sol(times)[0], old[0]+delta, atol=1e-8, rtol=0.)
+
+
 @pytest.mark.parametrize("times,delta", [([0.], [0.]), ([0., 0.], [0., 1.]),
     ([0., 1.], [1., 2.]), ([0., 1.], [0., np.nan])])
 def test_invalid_control(times, delta):

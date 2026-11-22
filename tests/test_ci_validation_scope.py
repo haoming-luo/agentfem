@@ -47,6 +47,18 @@ def test_diagnostic_batch_keeps_transitive_controls_without_release_matrix(path)
     assert "tests/test_p92_response_screen.py" in scope.tests
 
 
+@pytest.mark.parametrize("path", ["tools/p92_observed_stress_replay.py",
+    "tools/p92_observation_readiness.py",
+    "evidence/creep/2026-11-22-observed-stress-ten-cycles.json",
+    "evidence/creep/2026-11-22-observation-readiness.json"])
+def test_conditional_diagnostics_keep_source_energy_and_forward_gate_tests(path):
+    scope = classify_changes([path])
+    assert scope.level == "targeted"
+    for name in ("p92_observed_stress_replay", "p92_observation_readiness",
+                 "p92_hold_flow_budget", "p92_response_screen", "p92_measured_controls"):
+        assert f"tests/test_{name}.py" in scope.tests
+
+
 @pytest.mark.parametrize("stem", ["recoverable_backstress", "recoverable_mobility", "activated_flow"])
 def test_recovery_replacements_select_their_own_physics_checks(stem):
     scope = classify_changes([f"tools/p92_{stem}_reference.py"])
