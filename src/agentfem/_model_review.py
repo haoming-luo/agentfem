@@ -63,7 +63,7 @@ def region_evidence(region, *, study):
         'measure_convention': 'study-weighted reference measure; axisymmetry includes full revolution'}
 
 
-def review_model(model, *, target=None, step_options=None):
+def review_model(model, *, target=None, step_options=None, output_fields=(), output_frames=None, output_directory=None):
     from . import __version__, results
     from . import constraints as constraint_api
     from .step_providers import step_capability
@@ -140,10 +140,14 @@ def review_model(model, *, target=None, step_options=None):
             rigid = {'status': 'checked', **audit, 'scope': 'global analytical rigid modes; not a mechanism, contact or buckling stability proof'}
         except (ValueError, TypeError, NotImplementedError) as error:
             rigid['reason'] = str(error)
+    grid = discretization(model)
+    from ._resource_budget import budget
+    resources = budget(model, target=target, step_options=step_options, fields=output_fields,
+        frames=output_frames, output_directory=output_directory, grid=grid)
     return {
         'schema': 'agentfem.model-review.v1', 'agentfem_version': __version__,
         'model': model.summary(), 'physics': physics,
-        'discretization': discretization(model),
+        'discretization': grid, 'resource_budget': resources,
         'material_regions': [{'definition': describe(item),
             'region': ({'status': 'whole_domain'} if item.region is None else
                        region_evidence(item.region, study=model.study))} for item in model.materials],

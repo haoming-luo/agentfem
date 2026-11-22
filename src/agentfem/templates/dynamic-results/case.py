@@ -43,7 +43,8 @@ def main(*, review=False):
     model.traction((0.0, -1.0e4), on=right)
     options = dict(dt=1.0e-4, steps=6, save_every=3, print_every=1, name="newmark_response")
     if review:
-        card = model.review(target=displacement, step_options=options)
+        card = model.review(target=displacement, step_options=options, output_fields=(displacement,),
+            output_directory=Path(__file__).parent/"outputs")
         if domain.comm.rank == 0:
             print(json.dumps(card, ensure_ascii=False, allow_nan=False))
         return card

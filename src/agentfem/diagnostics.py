@@ -20,6 +20,18 @@ from . import fields as field_api
 from .kernel import dofs
 
 
+def resource_budget(model, *, target=None, step_options=None, fields=(), frames=None, output_directory=None):
+    """Inspect global DOFs, rank limits and declared output payload without solving.
+
+    Every rank must call. ``frames`` is a requested count, not a completed
+    output claim. Field names without an existing FE function retain unknown
+    payload. Factorization memory and actual file size are not guessed.
+    """
+    from ._resource_budget import budget
+    return budget(model, target=target, step_options=step_options, fields=fields,
+        frames=frames, output_directory=output_directory)
+
+
 @dataclass
 class PerformanceLedger:
     """Low-overhead, rank-local timing evidence for one solver lifecycle."""

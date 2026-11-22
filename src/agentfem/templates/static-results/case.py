@@ -20,7 +20,8 @@ def main(*, review=False):
     model.clamp(u, on=fixed)
     model.traction((0., -1e6, 0.), on=loaded)
     if review:
-        card = model.review(target=u)
+        card = model.review(target=u, output_fields=(u, "S"), output_frames=1,
+            output_directory=Path(__file__).parent/"outputs")
         if domain.comm.rank == 0:
             print(json.dumps(card, ensure_ascii=False, allow_nan=False))
         return card

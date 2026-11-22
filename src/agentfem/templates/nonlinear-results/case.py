@@ -20,7 +20,8 @@ def main(*, review=False):
     model.fix(u, on=loaded, component=0, value=.1)
     options = dict(incrementation=steps.fixed(4), progress=False)
     if review:
-        card = model.review(target=u, step_options=options)
+        card = model.review(target=u, step_options=options, output_fields=(u, "S"),
+            output_directory=Path(__file__).parent/"outputs")
         if domain.comm.rank == 0:
             print(json.dumps(card, ensure_ascii=False, allow_nan=False))
         return card
