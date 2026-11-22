@@ -11,7 +11,7 @@ from pathlib import Path
 import numpy as np
 from mpi4py import MPI
 
-from agentfem import constitutive, fields, mesh, models, project, results, studies, units
+from agentfem import constitutive, fields, mesh, models, project, provenance, results, studies, units
 
 
 def main(*, review=False):
@@ -48,6 +48,7 @@ def main(*, review=False):
             print(json.dumps(card, ensure_ascii=False, allow_nan=False))
         return card
     run = project.current_run(project_root=Path(__file__).resolve().parent)
+    settings = provenance.model_settings(model, target=displacement, step_options=options, source_files=(Path(__file__),))
     step = model.step(target=displacement, output=run.artifact("dynamics.xdmf"), **options)
     simulation = step.solve_result(
         history=(
@@ -59,6 +60,7 @@ def main(*, review=False):
             ),
         ),
     )
+    simulation.metadata["model_settings"] = settings
     simulation.add_dof_statistics(
         step.state.u,
         prefix="final_displacement",

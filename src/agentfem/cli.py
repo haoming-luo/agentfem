@@ -652,9 +652,22 @@ def _command_inspect(args) -> int:
 
 
 def _command_compare(args) -> int:
-    from .results.comparison import compare_records
     reference, left = _load_record(args.reference, args.project)
     candidate, right = _load_record(args.candidate, args.project)
+    if args.settings:
+        if args.quantity or args.history or args.rtol:
+            raise ValueError('--settings compares declarations; do not combine it with observable or tolerance options.')
+        from .provenance import compare_model_settings
+        def settings(record):
+            return record if record.get('schema') == 'agentfem.model-settings.v1' else record.get('metadata', {}).get('model_settings')
+        record = compare_model_settings(settings(reference), settings(candidate))
+        lines = [f"Model settings comparison: {record['status']}"]
+        for category in ('scientific_changes', 'operational_changes', 'source_changes'):
+            lines.extend(f"  {category}: {item['path']} | {item['expected']} -> {item['actual']}" for item in record[category])
+        lines.append('Registered settings only; incomplete coverage is inconclusive.')
+        _emit(record, as_json=args.json, human='\n'.join(lines))
+        return 0 if record['status'] == 'unchanged_within_recorded_scope' else 2
+    from .results.comparison import compare_records
     if args.history:
         from .results.history_archive import read_histories
 
@@ -1102,7 +1115,9 @@ def build_parser(*, structured_errors: bool = False) -> argparse.ArgumentParser:
     compare.add_argument("--project")
     compare.add_argument("--quantity", action="append", default=[])
     compare.add_argument("--history", action="append", default=[])
-    compare.add_argument("--atol", type=float, required=True, help="Absolute tolerance in each selected observable's declared unit.")
+    comparison_mode = compare.add_mutually_exclusive_group(required=True)
+    comparison_mode.add_argument("--settings", action="store_true", help="Compare frozen model settings separately from source and operational changes.")
+    comparison_mode.add_argument("--atol", type=float, help="Absolute tolerance in each selected observable's declared unit.")
     compare.add_argument("--rtol", type=float, default=0.0)
     compare.add_argument("--json", action="store_true")
 

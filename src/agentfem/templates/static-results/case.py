@@ -5,7 +5,7 @@ from pathlib import Path
 import json
 import sys
 from mpi4py import MPI
-from agentfem import constitutive, fields, mesh, models, project, results, studies, units
+from agentfem import constitutive, fields, mesh, models, project, provenance, results, studies, units
 
 
 def main(*, review=False):
@@ -25,8 +25,10 @@ def main(*, review=False):
             print(json.dumps(card, ensure_ascii=False, allow_nan=False))
         return card
     run = project.current_run(project_root=Path(__file__).parent)
+    settings = provenance.model_settings(model, target=u, source_files=(Path(__file__),))
     step = model.step(target=u)
     result = step.solve_result(field_variables=("S",))
+    result.metadata["model_settings"] = settings
     result.add_quantity("tip_U2", results.probe(u, at=(1., .1, .1))[1], unit="m",
         description="Interpolated displacement at the specified reference point.")
     result.add_quantity("fixed_reaction", results.reaction_resultant(step, on=fixed), unit="N",

@@ -5,7 +5,7 @@ from pathlib import Path
 import json
 import sys
 from mpi4py import MPI
-from agentfem import constitutive, fields, mechanics, mesh, models, project, results, steps, studies, units
+from agentfem import constitutive, fields, mechanics, mesh, models, project, provenance, results, steps, studies, units
 
 
 def main(*, review=False):
@@ -28,8 +28,10 @@ def main(*, review=False):
     output = results.OutputPlan(directory=run.output_directory,
         field=results.field_output("U", "S", every=1, configuration="reference"), basename="fields",
         write_manifest=False)  # RunContext publishes once, after curve attachment.
+    settings = provenance.model_settings(model, target=u, step_options=options, source_files=(Path(__file__),))
     step = model.step(target=u, output=output, **options)
     result = step.solve_result()
+    result.metadata["model_settings"] = settings
     path = mechanics.displacement_controlled_response(model, step, on=loaded, component=0, monitor_component=0)
     result.add_history("loaded_end_reaction", path["displacement"], path["reaction"], unit="N",
         abscissa_name="mean_loaded_end_displacement", abscissa_unit="m",

@@ -160,6 +160,29 @@ def scientific_input_manifest(
     }
 
 
+def model_settings(model, *, target=None, step_options=None, source_files=()):
+    """Freeze registered model settings before Step construction, collectively.
+
+    Mesh identity is reused from checkpoints; geometry/tag membership is read
+    on every rank. Explicit source files are hashed separately from model
+    settings. Opaque inputs retain coverage gaps, never an equivalence claim.
+    The returned JSON-safe record is detached from mutable model coefficients.
+    """
+    from ._model_settings import snapshot
+    return snapshot(model, target=target, step_options=step_options, source_files=source_files)
+
+
+def compare_model_settings(reference, candidate):
+    """Compare frozen model_settings records or JSON files without solving.
+
+    Scientific, operational and source changes are reported separately.
+    Unchanged incomplete records are inconclusive; equal declarations are
+    not a proof of equivalent physics or arbitrary Python programs.
+    """
+    from ._model_settings import compare
+    return compare(reference, candidate)
+
+
 def collective_scientific_input_manifest(
     value: object,
     *,
@@ -859,6 +882,8 @@ __all__ = [
     "SealVerification",
     "RuntimeComparison",
     "compare_runtime",
+    "model_settings",
+    "compare_model_settings",
     "collective_call",
     "collective_canonical_record",
     "collective_scientific_input_manifest",

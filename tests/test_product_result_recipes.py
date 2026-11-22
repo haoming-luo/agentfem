@@ -35,6 +35,12 @@ def test_result_recipe_from_project(tmp_path, capsys, template):
     manifest = next(project.glob('outputs/**/result.json'))
     record = json.loads(manifest.read_text())
     assert record['status'] == 'completed', run
+    assert 'model_settings' in record['metadata']
+    code = cli.main(['compare', str(manifest), str(manifest), '--settings', '--json'])
+    settings_report = json.loads(capsys.readouterr().out)
+    assert code in (0, 2)
+    assert settings_report['recorded_settings_equal']
+    assert not settings_report['source_changes']
     assert cli.main(['show',str(manifest),'--json']) == 0
     menu = json.loads(capsys.readouterr().out)['result_menu']
     assert menu['recommended_visualization'] and not menu['missing_files']
