@@ -1,4 +1,7 @@
 from dataclasses import asdict, replace
+from hashlib import sha256
+import json
+from pathlib import Path
 
 import numpy as np
 import pytest
@@ -97,3 +100,25 @@ def test_original_tensor_model_ii_reduces_to_scalar_directional_term(x, v):
     tensor_rate = h*(2*flow/3-(magnitude/a)**chi*max(projection, 0.)*alpha/a)
     scalar_rate = h*v-h/a*(abs(x)/a)**chi*max(np.sign(x)*v, 0.)*x
     assert 1.5*tensor_rate[0, 0] == pytest.approx(scalar_rate)
+
+
+def test_archived_directional_trial_retains_budget_and_failed_response_gates():
+    root = Path(__file__).resolve().parents[1]/"evidence"/"creep"
+    raw = (root/"2026-11-22-directional-matched.json").read_bytes()
+    fit = json.loads(raw)
+    frozen = json.loads((root/"2026-11-22-directional-frozen.json").read_text())
+    residual = json.loads((root/"2026-11-22-directional-residual-conflicts.json").read_text())
+    assert fit["fit"]["success"] and fit["directional_recovery"]
+    assert fit["training_cycles"] == [1, 2, 3]
+    assert len(fit["coordinates"]) == 22 and len(fit["fit"]["coordinates"]) == 10
+    assert fit["maximum_log_coordinate_norm"] == .3 and fit["fit"]["nfev"] <= 40
+    assert frozen["fit_file_sha256"] == sha256(raw).hexdigest()
+    assert frozen["parameters"] == fit["fit"]["parameters"]
+    assert frozen["parameters"]["directional_recovery"] is True
+    assert frozen["source_sha256"] == fit["source_sha256"] == residual["source_sha256"]
+    assert frozen["archived_source_sha256"] == residual["frozen_sha256"][1]
+    assert residual["candidate_cost"] == pytest.approx(fit["fit"]["cost"], abs=1e-16)
+    assert not frozen["engineering_qualified"] and not frozen["life_qualified"]
+    for result in frozen["protocols"].values():
+        assert result["numerical"]["passed"]
+        assert result["response_screen"]["status"] == "failed"

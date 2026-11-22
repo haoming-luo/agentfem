@@ -1,5 +1,17 @@
 # AgentFEM Product Roadmap
 
+### Directional recovery isolated and frozen (2026-11-22)
+
+The [directional comparison](internal/p92_directional_recovery_20261122.md)
+checks the original model-II equation and its uniaxial reduction, without
+adding fitted coefficients or changing primary-creep equations. Matched
+identification converges, but costs 0.30% more than the magnitude control.
+All three ten-cycle paths pass numerical checks and fail experimental
+response screens (135 failed checks in either arm). SLC post-creep anchored
+hold shape and SLR cycle-10 peak worsen. Do not promote or widen this fit;
+next isolate primary-creep kinetics with the magnitude law retained as control.
+PR #197 remains open; no merge or release.
+
 ### Problem definition and residual conflict audit (2026-11-22)
 
 The [problem re-audit](internal/p92_problem_reaudit_20261122.md) reproduces the

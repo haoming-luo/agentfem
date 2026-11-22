@@ -217,6 +217,7 @@ _P92_CONTROL_INPUTS = (
     "tools/p92_spectrum_recovery_joint.py",
     "evidence/creep/2026-11-22-directional-matched.json",
     "evidence/creep/2026-11-22-directional-frozen.json",
+    "evidence/creep/2026-11-22-directional-residual-conflicts.json",
     "tools/p92_residual_conflicts.py",
     "evidence/creep/2026-11-22-early-residual-conflicts.json",
     "evidence/creep/2026-11-21-spectrum-static-power.json",
