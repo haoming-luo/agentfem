@@ -13,6 +13,7 @@ import numpy as np
 from scipy.optimize import least_squares
 
 from tools import p92_recoverable_spectrum as kernel
+from tools import p92_primary_creep_reference as primary_kernel
 from tools.p92_full_sensitivity import decode as decode_backbone, NAMES as BASE_NAMES
 from tools.p92_bam_source import read_source
 from tools.p92_measured_controls import measured_path
@@ -70,7 +71,7 @@ def decode(card, z, powers):
         (base.relaxation_time, card["times"][1]*10**z[21]), static_powers=tuple(powers))
 
 
-def identify(seed, source_dir, powers, *, shared_history=False, directional=False):
+def identify(seed, source_dir, powers, *, shared_history=False, directional=False, primary=False):
     if seed["model_id"] != kernel.MODEL_ID or tuple(powers) not in {(0., 0.), (0., 1.)}:
         raise ValueError("Require predeclared matched recovery hypotheses")
     if type(shared_history) is not bool or (shared_history and tuple(powers) != (0., 0.)):
@@ -80,7 +81,12 @@ def identify(seed, source_dir, powers, *, shared_history=False, directional=Fals
         raise ValueError("Directional comparison must isolate one mechanism")
     if directional:
         decoder = lambda card, z: replace(decode(card, z, powers), directional_recovery=True)
+    if type(primary) is not bool or (primary and (directional or shared_history or tuple(powers) != (0., 0.))):
+        raise ValueError("Primary-creep comparison must isolate one mechanism")
+    execution_kernel = primary_kernel if primary else kernel
     coordinates = list(NAMES)
+    if primary:
+        coordinates[20:] = ["primary.hardening_scale", "primary.time_scale"]
     if shared_history:
         coordinates[7:9] = ["shared.static_fraction_log10_odds", "shared.static_history_rate"]
     paths = []
@@ -94,7 +100,7 @@ def identify(seed, source_dir, powers, *, shared_history=False, directional=Fals
         nonlocal calls
         calls += 1
         mat = decoder(seed["parameters"], z)
-        result = np.concatenate([replay(path, mat, kernel=kernel)[0] for path in paths])
+        result = np.concatenate([replay(path, mat, kernel=execution_kernel)[0] for path in paths])
         if calls % 10 == 1:
             print(json.dumps(dict(powers=powers, evaluation=calls, cost=float(result@result/2))), flush=True)
         return result
@@ -112,7 +118,7 @@ def identify(seed, source_dir, powers, *, shared_history=False, directional=Fals
     leading = audits[1]["singular_values"][:10]
     if (not np.isfinite([relative, distance, *leading]).all() or relative > .002 or distance > .02
             or leading[-1] < 1e-5 or leading[0]/leading[-1] > 1e4):
-        return dict(schema="agentfem.research.spectrum-recovery-joint.v1", model_id=kernel.MODEL_ID,
+        return dict(schema="agentfem.research.spectrum-recovery-joint.v1", model_id=execution_kernel.MODEL_ID,
             source_sha256=seed["source_sha256"], training_cycles=[1, 2, 3],
             coordinates=coordinates, derivative_audits=audits,
             relative_jacobian_difference=relative, subspace_distance=distance,
@@ -121,7 +127,7 @@ def identify(seed, source_dir, powers, *, shared_history=False, directional=Fals
     basis, bound = vb.T, .3/np.sqrt(10)
     history_audit = history_identifiability(matrices[1], basis) if shared_history else None
     if history_audit is not None and not history_audit["passed"]:
-        return dict(schema="agentfem.research.spectrum-recovery-joint.v1", model_id=kernel.MODEL_ID,
+        return dict(schema="agentfem.research.spectrum-recovery-joint.v1", model_id=execution_kernel.MODEL_ID,
             source_sha256=seed["source_sha256"], training_cycles=[1, 2, 3],
             coordinates=coordinates, derivative_audits=audits, history_audit=history_audit,
             relative_jacobian_difference=relative, subspace_distance=distance,
@@ -143,7 +149,7 @@ def identify(seed, source_dir, powers, *, shared_history=False, directional=Fals
     fit = least_squares(objective, np.zeros(10), jac=jacobian, bounds=(-bound, bound),
         max_nfev=40, x_scale="jac", ftol=1e-5, xtol=1e-5, gtol=1e-5)
     final = response(basis@fit.x)
-    return dict(schema="agentfem.research.spectrum-recovery-joint.v1", model_id=kernel.MODEL_ID,
+    return dict(schema="agentfem.research.spectrum-recovery-joint.v1", model_id=execution_kernel.MODEL_ID,
         source_sha256=seed["source_sha256"], training_cycles=[1, 2, 3], static_powers=powers,
         coordinates=coordinates, derivative_audits=audits, relative_jacobian_difference=relative,
         shared_history=shared_history, history_audit=history_audit,
@@ -164,18 +170,21 @@ if __name__ == "__main__":
     parser.add_argument("--nonlinear", action="store_true")
     parser.add_argument("--shared-history", action="store_true")
     parser.add_argument("--directional", action="store_true")
+    parser.add_argument("--primary", action="store_true")
     args = parser.parse_args()
     raw = args.seed.read_bytes()
     names = ("p92_spectrum_recovery_joint.py", "p92_recoverable_spectrum.py", "p92_two_rate_reference.py",
              "p92_full_sensitivity.py", "p92_two_rate_controls.py", "p92_bam_source.py",
-             "p92_measured_controls.py", "p92_waveform_controls.py", "p92_measured_fit.py")
+             "p92_measured_controls.py", "p92_waveform_controls.py", "p92_measured_fit.py",
+             "p92_primary_creep_reference.py")
     def identities():
         return {n: sha256(Path(__file__).with_name(n).read_bytes()).hexdigest() for n in names}
     before = identities()
     result = identify(json.loads(raw), args.source_dir, (0., 1.) if args.nonlinear else (0., 0.),
-                      shared_history=args.shared_history, directional=args.directional)
+                      shared_history=args.shared_history, directional=args.directional, primary=args.primary)
     if identities() != before or args.seed.read_bytes() != raw:
         raise RuntimeError("Recovery comparison inputs changed during identification")
     result["driver_sha256"], result["seed_sha256"] = before, sha256(raw).hexdigest()
     result["directional_recovery"] = args.directional
+    result["primary_creep"] = args.primary
     write_new(args.output, result)

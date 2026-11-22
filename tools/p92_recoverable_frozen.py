@@ -11,6 +11,7 @@ from tools.p92_measured_controls import measured_path
 from tools.p92_measured_fit import write_new
 from tools import p92_recoverable_reference as kernel
 from tools import p92_recoverable_spectrum as spectrum
+from tools import p92_primary_creep_reference as primary
 from tools import p92_shared_drag_reference as shared
 from tools import p92_reversal_memory_reference as memory
 from tools.p92_response_screen import screen
@@ -23,6 +24,10 @@ from tools.p92_waveform_experiment import refine_knots
 
 def decode_material(card, model_id):
     """One explicit identity decoder for research replay and diagnostics."""
+    if model_id == primary.MODEL_ID:
+        _, material = decode_material(card, spectrum.MODEL_ID)
+        primary.validate_material(material)
+        return primary, material
     if model_id == shared.MODEL_ID:
         return shared, shared.Material(**card)
     if model_id == memory.MODEL_ID:
