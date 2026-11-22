@@ -24,6 +24,7 @@ class Material:
     static_ratios: tuple[float, float] = (1., 1.)
     static_history_rates: tuple[float, float] = (0., 0.)
     static_history: str = "own"
+    directional_recovery: bool = False
 
     def __post_init__(self):
         pairs = (self.moduli, self.times, self.strength_ratios, self.strength_rates,
@@ -36,7 +37,8 @@ class Material:
                 or min(*self.strength_rates, *self.hardening_rates, *self.static_powers,
                        *self.static_history_rates) < 0
                 or not all(0 < r <= 1 for r in self.static_ratios)
-                or self.static_history not in {"own", "shared"}):
+                or self.static_history not in {"own", "shared"}
+                or type(self.directional_recovery) is not bool):
             raise ValueError("Require two positive moduli and ordered positive times")
 
 
@@ -97,10 +99,12 @@ def rates(state, strain_rate, material, *, stress_control=False, dynamic_multipl
             result[offset+i] += logarithmic_rate*x
             result[9] -= logarithmic_rate*x*x/(2*h)
     for offset, branch, multiplier in zip((1, 4), backbone.branches, dynamic_multipliers, strict=True):
+        effective = state[0]-sum(state[offset:offset+2])
         for i, (h, a, chi) in enumerate(zip(branch.hardening, base.saturation_at(branch, state[offset+2]),
                                            branch.ratcheting, strict=True)):
             x = state[offset+i]
-            correction = (multiplier-1)*h/a*(abs(x)/a)**chi*result[offset+2]
+            active = not material.directional_recovery or x*effective > 0.
+            correction = (multiplier*active-1)*h/a*(abs(x)/a)**chi*result[offset+2]
             result[offset+i] -= correction*x
             result[9] += correction*x*x/h
     return result

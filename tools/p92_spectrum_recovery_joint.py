@@ -57,6 +57,8 @@ def decode(card, z, powers):
     z = np.asarray(z, dtype=float)
     if z.shape != (22,) or not np.isfinite(z).all():
         raise ValueError("Require 22 finite logarithmic coordinates")
+    if card.get("directional_recovery", False) is not False:
+        raise ValueError("Require magnitude-recovery baseline seed")
     if any(card.get(name, default) != default and tuple(card.get(name, default)) != default
            for name, default in (("strength_ratios", (1., 1.)), ("hardening_ratios", (1., 1.)),
                                  ("static_powers", (0., 0.)), ("static_ratios", (1., 1.)))):
@@ -68,12 +70,16 @@ def decode(card, z, powers):
         (base.relaxation_time, card["times"][1]*10**z[21]), static_powers=tuple(powers))
 
 
-def identify(seed, source_dir, powers, *, shared_history=False):
+def identify(seed, source_dir, powers, *, shared_history=False, directional=False):
     if seed["model_id"] != kernel.MODEL_ID or tuple(powers) not in {(0., 0.), (0., 1.)}:
         raise ValueError("Require predeclared matched recovery hypotheses")
     if type(shared_history) is not bool or (shared_history and tuple(powers) != (0., 0.)):
         raise ValueError("History comparison requires linear static powers and explicit boolean")
     decoder = decode_history if shared_history else lambda card, z: decode(card, z, powers)
+    if type(directional) is not bool or (directional and (shared_history or tuple(powers) != (0., 0.))):
+        raise ValueError("Directional comparison must isolate one mechanism")
+    if directional:
+        decoder = lambda card, z: replace(decode(card, z, powers), directional_recovery=True)
     coordinates = list(NAMES)
     if shared_history:
         coordinates[7:9] = ["shared.static_fraction_log10_odds", "shared.static_history_rate"]
@@ -157,6 +163,7 @@ if __name__ == "__main__":
     parser.add_argument("output", type=Path)
     parser.add_argument("--nonlinear", action="store_true")
     parser.add_argument("--shared-history", action="store_true")
+    parser.add_argument("--directional", action="store_true")
     args = parser.parse_args()
     raw = args.seed.read_bytes()
     names = ("p92_spectrum_recovery_joint.py", "p92_recoverable_spectrum.py", "p92_two_rate_reference.py",
@@ -166,8 +173,9 @@ if __name__ == "__main__":
         return {n: sha256(Path(__file__).with_name(n).read_bytes()).hexdigest() for n in names}
     before = identities()
     result = identify(json.loads(raw), args.source_dir, (0., 1.) if args.nonlinear else (0., 0.),
-                      shared_history=args.shared_history)
+                      shared_history=args.shared_history, directional=args.directional)
     if identities() != before or args.seed.read_bytes() != raw:
         raise RuntimeError("Recovery comparison inputs changed during identification")
     result["driver_sha256"], result["seed_sha256"] = before, sha256(raw).hexdigest()
+    result["directional_recovery"] = args.directional
     write_new(args.output, result)

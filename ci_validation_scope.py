@@ -151,6 +151,7 @@ _SOURCE_TEST_MAP = {
 # Research-only scalar controls have known transitive consumers. Do not use a
 # tools/* wildcard: an unknown numerical driver still needs the broader gate.
 _P92_CONTROL_TESTS = (
+    "tests/test_p92_directional_recovery.py",
     "tests/test_p92_residual_conflicts.py",
     "tests/test_p92_static_memory_joint.py",
     "tests/test_p92_static_memory.py",
@@ -214,6 +215,8 @@ _P92_CONTROL_INPUTS = (
     "evidence/creep/2026-11-21-energetic-coupling.json",
     "evidence/creep/2026-11-21-spectrum-extrema-check.json",
     "tools/p92_spectrum_recovery_joint.py",
+    "evidence/creep/2026-11-22-directional-matched.json",
+    "evidence/creep/2026-11-22-directional-frozen.json",
     "tools/p92_residual_conflicts.py",
     "evidence/creep/2026-11-22-early-residual-conflicts.json",
     "evidence/creep/2026-11-21-spectrum-static-power.json",

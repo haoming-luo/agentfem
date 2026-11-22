@@ -42,7 +42,8 @@ def decode_material(card, model_id):
             tuple(card.get("hardening_ratios", (1., 1.))), tuple(card.get("hardening_rates", (0., 0.))),
             tuple(card.get("static_powers", (0., 0.))),
             tuple(card.get("static_ratios", (1., 1.))),
-            tuple(card.get("static_history_rates", (0., 0.))), card.get("static_history", "own"))
+            tuple(card.get("static_history_rates", (0., 0.))), card.get("static_history", "own"),
+            card.get("directional_recovery", False))
     else:
         raise ValueError("Unknown recoverable model identity")
     return module, mat
