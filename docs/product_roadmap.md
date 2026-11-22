@@ -1,5 +1,26 @@
 # AgentFEM Product Roadmap
 
+### Installed workflow completion checkpoint (2026-11-22, PR #198 candidate)
+
+PR #195 is integrated in main. PR #198 remains an unmerged candidate; its
+current CI and review evidence belongs to the PR's exact head, not to a release.
+This workflow slice completes the following bounded product work:
+
+| Work | Implemented route | Remaining boundary |
+| --- | --- | --- |
+| Task discovery, repair guidance, result recipes | Installed bilingual `capabilities --task`, local `diagnose`, three result templates and read-only result menu | Broader tasks reuse existing knowledge cards; no second API catalogue |
+| Model review | `model.review()` now includes cells, interpolation, independent registered DOFs, material regions, owned boundary counts/ranges and resource budget; templates support `python case.py --review` | Building and boundary quadrature have cost; ordinary CLI `check` still does not execute a model |
+| Settings comparison | `provenance.model_settings` freezes existing AF-IR declarations, checkpoint mesh identity, region membership, explicit Step options and separate source hashes; `agentfem compare ... --settings` reads these snapshots | Opaque inputs and unsupported constraint identity retain coverage gaps; recorded equality is not arbitrary Python or physical equivalence |
+| Resource/output budget | `diagnostics.resource_budget` reports rank-local affinity, readable host/cgroup/address limits, disk availability, fixed-horizon planned frames and explicit FE coefficient payload | No factorization-memory promise, total file-size bound, automatic retuning or summed shared-host capacity |
+| Step responsibility | Material-field registration and successful output-write records belong to results helpers | Constitutive updates, convergence, acceptance, rollback and numerical clocks keep their current owners |
+
+Next measure installed user/agent task completion and repair cost with these
+routes before expanding the workflow framework. Select additional field,
+constraint or output combinations from concrete use, with the same installed
+and MPI regression requirements. Historical checkpoints below retain their
+original context; they are not a second active backlog. P92 scientific model
+admission remains a separate research track.
+
 ### Measured mixed-control identification checkpoint (2026-11-17)
 
 The [three-protocol early-cycle experiment](internal/p92_measured_controls_20261117.md)

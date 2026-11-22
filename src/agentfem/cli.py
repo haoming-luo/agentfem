@@ -659,10 +659,13 @@ def _command_compare(args) -> int:
             raise ValueError('--settings compares declarations; do not combine it with observable or tolerance options.')
         from .provenance import compare_model_settings
         def settings(record):
-            return record if record.get('schema') == 'agentfem.model-settings.v1' else record.get('metadata', {}).get('model_settings')
+            if record.get('schema') == 'agentfem.model-settings.v1':
+                return record
+            metadata = record.get('metadata')
+            return metadata.get('model_settings') if isinstance(metadata, dict) else None
         record = compare_model_settings(settings(reference), settings(candidate))
         lines = [f"Model settings comparison: {record['status']}"]
-        for category in ('scientific_changes', 'operational_changes', 'source_changes'):
+        for category in ('scientific_changes', 'operational_changes', 'source_changes', 'software_changes'):
             lines.extend(f"  {category}: {item['path']} | {item['expected']} -> {item['actual']}" for item in record[category])
         lines.append('Registered settings only; incomplete coverage is inconclusive.')
         _emit(record, as_json=args.json, human='\n'.join(lines))

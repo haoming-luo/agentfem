@@ -84,6 +84,29 @@ def test_result_recipe_from_project(tmp_path, capsys, template):
     assert provenance.verify_manifest(moved_manifest).verified
 
 
+def test_installed_settings_compare_tracks_one_material_edit(tmp_path, capsys):
+    if MPI.COMM_WORLD.size != 1:
+        pytest.skip('serial installed project interaction')
+    manifests = []
+    for name, young in [('baseline', '210e9'), ('candidate', '220e9')]:
+        root = tmp_path/name
+        assert cli.main(['init', str(root), '--template', 'static-results', '--json']) == 0
+        capsys.readouterr()
+        case = root/'case.py'
+        case.write_text(case.read_text().replace('young=210e9', 'young='+young))
+        assert cli.main(['run', '--project', str(root), '--json']) == 0
+        capsys.readouterr()
+        manifests.append(next(root.glob('outputs/**/result.json')))
+    before = [p.read_bytes() for p in manifests]
+    assert cli.main(['compare', *map(str, manifests), '--settings', '--json']) == 2
+    report = json.loads(capsys.readouterr().out)
+    assert report['status'] == 'changed'
+    assert report['scientific_changes']
+    assert all('materials' in item['path'] for item in report['scientific_changes'])
+    assert report['source_changes'] and not report['operational_changes']
+    assert [p.read_bytes() for p in manifests] == before
+
+
 @pytest.mark.parametrize('task', ['mesh-input','solver-options','modal'])
 def test_other_task_snippets_execute(task):
     namespace = {}

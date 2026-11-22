@@ -47,6 +47,9 @@ def snapshot(model, *, target=None, step_options=None, source_files=()):
     regions = list(model.regions)
     from .constraints import dirichlet_constraints
     members = dirichlet_constraints(model.constraints)
+    for item in model.constraints:
+        if not dirichlet_constraints((item,)):
+            gaps.append({'path': 'constraints', 'reason': 'non-strong constraints require dedicated identity coverage'})
     for item in (*model.loads, *members, *model.materials):
         region = getattr(item, 'location', None)
         if region is None:
@@ -110,12 +113,17 @@ def compare(reference, candidate):
             raise ValueError('Expected a model_settings snapshot, not a result or arbitrary model summary.')
         if not isinstance(record.get('coverage'), dict) or not isinstance(record['coverage'].get('complete'), bool):
             raise ValueError('Model settings require explicit coverage metadata.')
+        if not isinstance(record.get('operational'), dict) or not isinstance(record.get('agentfem_version'), str):
+            raise ValueError('Model settings require operational and software-version metadata.')
         for name in ('scientific_inputs', 'source_files'):
             manifest = record.get(name)
             if not isinstance(manifest, dict) or not all(k in manifest for k in ('label', 'record', 'fingerprint')):
                 raise ValueError(f'Model settings require a complete {name} manifest.')
             if not isinstance(manifest['record'], dict):
                 raise ValueError(f'{name} record must be a mapping.')
+            label = 'model_settings' if name == 'scientific_inputs' else 'source_files'
+            if manifest.get('schema') != 'agentfem.scientific-input-manifest' or manifest['label'] != label:
+                raise ValueError(f'Unsupported {name} manifest schema or label.')
             expected = provenance.content_fingerprint({'label': manifest['label'], 'record': manifest['record']})
             if manifest['fingerprint'] != expected:
                 raise ValueError(f'{name} fingerprint does not match its record.')
@@ -132,6 +140,8 @@ def compare(reference, candidate):
         'status': 'changed' if differences else ('unchanged_within_recorded_scope' if complete else 'inconclusive'),
         'scientific_changes': differences, 'operational_changes': operations, 'source_changes': sources,
         'reference_coverage': a['coverage'], 'candidate_coverage': b['coverage'],
+        'software_changes': [] if a['agentfem_version'] == b['agentfem_version'] else
+            [{'path': 'agentfem_version', 'expected': a['agentfem_version'], 'actual': b['agentfem_version']}],
         'solver_executed': False}
 
 

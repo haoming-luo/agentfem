@@ -49,6 +49,9 @@ def test_unknown_output_payload_and_explicit_frames():
     assert report['output']['planned_frames'] == 4
     assert report['output']['coefficient_payload_bytes'] is None
     assert report['solver']['selection'] == 'provider_default_not_built'
+    # Different providers have different retention defaults; never guess one.
+    unknown = diagnostics.resource_budget(m, step_options={'steps': 6})
+    assert unknown['output']['planned_frames'] is None
 
 
 def test_nested_cgroup_limit_includes_parent_when_child_unlimited(monkeypatch):
@@ -67,6 +70,18 @@ def test_nested_cgroup_limit_includes_parent_when_child_unlimited(monkeypatch):
 def test_missing_and_malformed_limits_do_not_claim_infinite_memory(monkeypatch):
     monkeypatch.setattr(resources.environment, '_read', lambda _: '')
     assert resources.memory_limits()['cgroups'] == []
+
+
+@pytest.mark.parametrize('version', [1, 2])
+def test_namespaced_memory_limit_and_zero_remaining(monkeypatch, version):
+    files = {'/proc/self/cgroup': ('0::/\n' if version == 2 else '5:memory:/\n'),
+        '/proc/self/mountinfo': ('1 0 0:1 /host/container /limits rw - cgroup2 cgroup rw\n' if version == 2 else
+                               '1 0 0:1 /host/container /limits rw - cgroup cgroup rw,memory\n'),
+        '/limits/memory.max': '0', '/limits/memory.current': '10',
+        '/limits/memory.limit_in_bytes': '0', '/limits/memory.usage_in_bytes': '10'}
+    monkeypatch.setattr(resources.environment, '_read', lambda p: files.get(str(p), ''))
+    report = resources.memory_limits()['cgroups']
+    assert len(report) == 1 and report[0]['remaining_bytes'] == 0
 
 
 def test_frame_declarations_must_agree_across_ranks():

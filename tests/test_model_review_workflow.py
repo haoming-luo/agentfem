@@ -87,3 +87,17 @@ def test_quadratic_discretization():
     assert card['discretization']['registered_scalar_dofs'] == 90
     assert card['discretization']['fields'][0]['degree'] == 2
     assert card['discretization']['global_cells'] == 8
+
+
+def test_independent_unknowns_sharing_a_space_are_not_aliases():
+    from dolfinx import fem
+    from agentfem._model_review import discretization
+    d,m,_,_ = model()
+    m.fields.clear()
+    V = fem.functionspace(d, ('Lagrange', 1))
+    a = m.field(fem.Function(V, name='A'))
+    m.field(fem.Function(V, name='B'))
+    m.field(a)
+    card = discretization(m)
+    assert card['registered_scalar_dofs'] == 30
+    assert [f['shared_unknown'] for f in card['fields']] == [False, False, True]

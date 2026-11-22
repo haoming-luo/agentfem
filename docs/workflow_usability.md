@@ -5,6 +5,66 @@ description: "Use the AgentFEM CLI to inspect projects, run cases, locate output
 
 # Check, run, inspect, compare
 
+## Review the model, settings and resource budget
+
+The three result templates support `python case.py --review` in the installed
+environment. This prints the actual model card without creating a run or
+solving a Step. It is a case-level entry, not `agentfem run -- --review`.
+Boundary measures may compile/integrate forms; ordinary `agentfem check`
+keeps its non-executing structure/runtime meaning.
+
+```python
+card = model.review(target=u, step_options=options,
+    output_fields=(u, "S"), output_frames=5, output_directory="outputs")
+```
+
+The card reports element interpolation, registered independent unknown DOFs,
+owned boundary entity counts and ranges, material assignments, physical load
+conventions and a resource budget. Node-coordinate bounds do not establish
+extrema between curved geometry nodes. Registered DOFs are not a prediction
+of the assembled or constraint-reduced solver dimension.
+
+Freeze settings before constructing a Step, using the same declared options:
+
+```python
+from pathlib import Path
+from agentfem import provenance
+
+settings = provenance.model_settings(model, target=u, step_options=options,
+    source_files=(Path("case.py"),))
+step = model.step(target=u, **options)
+simulation = step.solve_result()
+simulation.metadata["model_settings"] = settings
+run.publish(simulation)
+```
+
+The result templates do this automatically. Compare two published runs with:
+
+```bash
+agentfem compare outputs/001-baseline outputs/002-candidate --settings --json
+```
+
+Scientific changes have object/parameter paths; operational settings, source
+hashes and software-version changes are separate lists. The command also
+accepts JSON files containing standalone `provenance.model_settings` records.
+Exit 0 means unchanged within complete recorded scope; changed or incomplete
+scope returns 2. Missing snapshots and malformed records fail explicitly.
+Opaque expressions, direct unlocated constraints and unsupported constraint
+identities remain coverage gaps. The comparison never replays Python or edits
+either result; the existing quantity/history tolerance comparison is unchanged.
+
+`diagnostics.resource_budget(model, fields=(u,), frames=5,
+output_directory="outputs")` is the same budget without boundary quadrature.
+All ranks must call these model-level functions. Resource snapshots retain
+each rank's readable host/cgroup/address-space limits and available disk;
+shared limits are not summed. Planned frames can be inferred for declared
+fixed-step transient schedules; adaptive accepted counts remain unknown.
+Payload estimates count uncompressed FE coefficients only. Derived fields
+without a function retain unknown size. Mesh/connectivity, projection,
+compression and histories can change actual file size; LU fill/peak memory
+remain unknown without further analysis. No mesh, solver, output policy or
+environment setting is automatically changed.
+
 ## Find a task and use its installed project
 
 ```bash

@@ -83,3 +83,25 @@ def test_rank_mismatched_options_fail_before_region_collectives():
     m,u = build()
     with pytest.raises(RuntimeError, match='differs across MPI ranks'):
         provenance.model_settings(m, target=u, step_options={'increments': MPI.COMM_WORLD.rank+1})
+
+
+def test_changed_tag_membership_with_same_name_is_visible():
+    a = freeze()
+    m,u = build()
+    m.loads.clear()
+    top = mesh.face(m.domain, axis='y', value=1., tag=2, name='right')
+    m.traction((2., 0.), on=top)
+    b = provenance.model_settings(m, target=u)
+    report = provenance.compare_model_settings(a, b)
+    assert any('region_membership' in item['path'] for item in report['scientific_changes'])
+
+
+def test_old_result_has_no_invented_snapshot(tmp_path, capsys):
+    if MPI.COMM_WORLD.size != 1:
+        pytest.skip('serial CLI rendering; collective model settings tested separately')
+    from agentfem import cli
+    p = tmp_path/'old.json'
+    p.write_text(json.dumps({'metadata': None}))
+    assert cli.main(['compare', str(p), str(p), '--settings', '--json']) == 2
+    error = json.loads(capsys.readouterr().out)
+    assert 'model_settings snapshot' in error['error']['message']

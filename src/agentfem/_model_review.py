@@ -16,7 +16,7 @@ def _bounds(mesh, points):
 
 
 def discretization(model):
-    """Count registered spaces, not a guessed assembled/reduced system size."""
+    """Count independent registered unknowns, not a reduced system size."""
     mesh = domain(model.mesh)
     fields = []
     seen = set()
@@ -29,15 +29,15 @@ def discretization(model):
         fields.append({'name': getattr(item, 'name', None), 'element': str(element),
             'degree': element.degree, 'value_shape': list(element.reference_value_shape),
             'global_scalar_dofs': int(index.size_global * space.dofmap.index_map_bs),
-            'shared_space': id(space) in seen})
-        seen.add(id(space))
+            'shared_unknown': id(getattr(item, 'value', item)) in seen})
+        seen.add(id(getattr(item, 'value', item)))
     x = np.asarray(mesh.geometry.x)[:, :mesh.geometry.dim]
     return {'cell_type': mesh.topology.cell_name(),
         'global_cells': int(mesh.topology.index_map(mesh.topology.dim).size_global),
         'bounds': _bounds(mesh, x),
         'fields': fields,
-        'registered_scalar_dofs': sum(f['global_scalar_dofs'] for f in fields if not f['shared_space']),
-        'dof_scope': 'registered distinct spaces before constraints; not reduced solver size'}
+        'registered_scalar_dofs': sum(f['global_scalar_dofs'] for f in fields if not f['shared_unknown']),
+        'dof_scope': 'registered independent unknowns before constraints; aliases counted once; not reduced solver size'}
 
 
 def region_evidence(region, *, study):

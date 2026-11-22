@@ -1664,6 +1664,7 @@ and evidence remain in the linked guides and scientific function reference.
 
 | Kind | Public object | Purpose |
 | --- | --- | --- |
+| function | `resource_budget(model, *, target = None, step_options = None, fields = (), frames = None, output_directory = None)` | Inspect global DOFs, rank limits and declared output payload without solving. |
 | class | `PerformanceLedger` | Low-overhead, rank-local timing evidence for one solver lifecycle. |
 | class | `DiscreteInfSupEvidence` | Basis-normalized singular evidence for one mixed discretization. |
 | class | `DiscreteInfSupSample` | One normalized mixed-stability measurement on a declared mesh. |
@@ -1833,6 +1834,8 @@ This package exposes its public objects through focused submodules.
 | function | `collective_call(operation, *, comm, label: str)` | Evaluate rank-local Python work and deliver any failure to all ranks. |
 | function | `collective_canonical_record(record: object, *, comm, label: str) -> object` | Require one JSON-safe record on every rank and retain rank zero's copy. |
 | function | `scientific_input_manifest(value: object, *, label: str = 'scientific_inputs', require_nonempty: bool = False) -> dict[str, object]` | Describe and fingerprint scientific inputs without hiding opaque parts. |
+| function | `model_settings(model, *, target = None, step_options = None, source_files = ())` | Freeze registered model settings before Step construction, collectively. |
+| function | `compare_model_settings(reference, candidate)` | Compare frozen model_settings records or JSON files without solving. |
 | function | `collective_scientific_input_manifest(value: object, *, comm, label: str = 'scientific_inputs', require_nonempty: bool = False) -> dict[str, object]` | Return one rank-consistent scientific-input manifest. |
 | function | `seal_manifest(manifest: Mapping[str, object], *, base: str \| Path, producer_version: str) -> dict[str, object]` | Return a deterministic integrity seal for an unsealed manifest. |
 | function | `runtime_manifest() -> dict[str, object]` | Capture runtime evidence and a stable compatibility identity. |

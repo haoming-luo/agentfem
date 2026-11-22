@@ -74,6 +74,7 @@ def budget(model, *, target=None, step_options=None, fields=(), frames=None, out
         raise ValueError('resource_budget requires a registered mesh.')
     options = dict(step_options or {})
     def prepare():
+        Path(output_directory or Path.cwd()).expanduser().resolve()
         if frames is not None and (isinstance(frames, bool) or not isinstance(frames, Integral) or frames < 1):
             raise ValueError('output_frames must be a positive integer or None.')
         requested = []
@@ -96,33 +97,38 @@ def budget(model, *, target=None, step_options=None, fields=(), frames=None, out
     with _defer_automatic_gc():
         requested = collective_call(prepare, comm=mesh.comm, label='resource budget inputs')
         from .provenance import collective_canonical_record
-        collective_canonical_record({'fields': requested, 'frames': None if frames is None else int(frames)},
+        collective_canonical_record({'fields': requested, 'frames': None if frames is None else int(frames),
+            'step_options': describe(options)},
             comm=mesh.comm, label='resource budget output declaration')
     selected_grid = discretization(model) if grid is None else grid
     count, basis = None if frames is None else int(frames), 'explicit requested frames' if frames is not None else 'unknown accepted/output schedule'
     if count is None and getattr(model.study, 'analysis', None) in ('first_order_transient', 'second_order_dynamics', 'explicit_dynamics'):
         steps = options.get('steps')
-        every = options.get('save_every', 1)
+        every = options.get('save_every')
         if all(isinstance(x, Integral) and not isinstance(x, bool) and x > 0 for x in (steps, every)):
             count = int(1 + steps//every + bool(steps % every))
             basis = 'planned fixed increments including initial/final; not proof of saved frames'
     destination = Path(output_directory or Path.cwd()).expanduser().resolve()
-    parent = destination
-    while not parent.exists() and parent != parent.parent:
-        parent = parent.parent
-    try:
-        disk = {'free_bytes': shutil.disk_usage(parent).free, 'filesystem_probe': str(parent),
-            'quota_checked': False}
-    except OSError:
-        disk = {'free_bytes': None, 'filesystem_probe': str(parent), 'quota_checked': False}
-    runtime = environment.execution_environment(project=Path.cwd(), output=destination)
-    limits = memory_limits()
-    available = [runtime['memory_bytes']['MemAvailable']] if 'MemAvailable' in runtime['memory_bytes'] else []
-    available.extend(item['remaining_bytes'] for item in limits['cgroups'] if item['remaining_bytes'] is not None)
-    local = {'rank': mesh.comm.rank, 'host': socket.gethostname(), 'visible_cpus': runtime['visible_cpus'],
-        'host_memory_bytes': runtime['memory_bytes'], 'limits': limits,
-        'available_memory_ceiling_bytes': min(available) if available else None,
-        'disk': disk, 'findings': runtime['findings']}
+    def inspect_local():
+        parent = destination
+        while not parent.exists() and parent != parent.parent:
+            parent = parent.parent
+        try:
+            disk = {'free_bytes': shutil.disk_usage(parent).free, 'filesystem_probe': str(parent),
+                'quota_checked': False}
+        except OSError:
+            disk = {'free_bytes': None, 'filesystem_probe': str(parent), 'quota_checked': False}
+        runtime = environment.execution_environment(project=Path.cwd(), output=destination)
+        limits = memory_limits()
+        available = [runtime['memory_bytes']['MemAvailable']] if 'MemAvailable' in runtime['memory_bytes'] else []
+        available.extend(item['remaining_bytes'] for item in limits['cgroups'] if item['remaining_bytes'] is not None)
+        local = {'rank': mesh.comm.rank, 'host': socket.gethostname(), 'visible_cpus': runtime['visible_cpus'],
+            'host_memory_bytes': runtime['memory_bytes'], 'limits': limits,
+            'available_memory_ceiling_bytes': min(available) if available else None,
+            'disk': disk, 'findings': runtime['findings']}
+        return local
+    with _defer_automatic_gc():
+        local = collective_call(inspect_local, comm=mesh.comm, label="resource availability snapshot")
     ranks = object_allgather(mesh.comm, local)
     partial = any(f['bytes_per_frame'] is None for f in requested)
     payload = (sum(f['bytes_per_frame'] or 0 for f in requested)
