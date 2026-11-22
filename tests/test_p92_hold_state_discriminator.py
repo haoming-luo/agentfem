@@ -62,5 +62,3 @@ def test_optimizer_difference_retains_absolute_scale_at_zero_and_bounds():
     np.testing.assert_allclose(actual, [[2., 3.], [-1., 4.]], atol=1e-12)
     assert calls[0][0] == .0005 and calls[1][0] == -.0005
     assert calls[2][1] == .3 and calls[3][1] == .2995
-
-

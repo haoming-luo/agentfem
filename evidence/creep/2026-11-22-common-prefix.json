@@ -1,0 +1,661 @@
+{
+  "schema": "agentfem.research.common-prefix.v1",
+  "fields": {
+    "stress_MPa": {
+      "interval_s": [
+        0.03500000000000014,
+        179.40266666666668
+      ],
+      "knots": 368,
+      "right_minus_left_first": -9.748708333333354,
+      "right_minus_left_last": -10.18042133422503,
+      "right_minus_left_time_mean": -11.421727214252966,
+      "difference_time_rms": 11.53192324154983,
+      "difference_max_abs": 15.160146666666662,
+      "left_change": 113.71129166666663,
+      "right_change": 113.27957866577495,
+      "interpolation": "piecewise linear on shared support; no extrapolation"
+    },
+    "strain": {
+      "interval_s": [
+        0.03500000000000014,
+        179.40266666666668
+      ],
+      "knots": 368,
+      "right_minus_left_first": -1.25000000000125e-07,
+      "right_minus_left_last": 0.0,
+      "right_minus_left_time_mean": -3.0840738204395876e-07,
+      "difference_time_rms": 3.21243394883569e-06,
+      "difference_max_abs": 1.9988191632928573e-05,
+      "left_change": 9.874999999999901e-06,
+      "right_change": 1.0000000000000026e-05,
+      "interpolation": "piecewise linear on shared support; no extrapolation"
+    },
+    "temperature_K": {
+      "interval_s": [
+        0.03500000000000014,
+        179.40266666666668
+      ],
+      "knots": 368,
+      "right_minus_left_first": -0.09958333333327118,
+      "right_minus_left_last": 0.29992197514354757,
+      "right_minus_left_time_mean": 0.013337037825016204,
+      "difference_time_rms": 0.15489095401733186,
+      "difference_max_abs": 0.8000000000000682,
+      "left_change": 2.000416666666638,
+      "right_change": 2.3999219751434566,
+      "interpolation": "piecewise linear on shared support; no extrapolation"
+    }
+  },
+  "prediction": {
+    "linear": {
+      "protocols": {
+        "SLR": {
+          "times": [
+            0.0346666666666664,
+            0.19566666666666643,
+            0.2756666666666665,
+            0.5156666666666667,
+            0.7556666666666665,
+            1.3166666666666664,
+            2.1166666666666663,
+            3.4786666666666664,
+            5.720666666666666,
+            9.323666666666666,
+            15.974666666666668,
+            25.974666666666668,
+            41.851666666666674,
+            65.77366666666667,
+            107.63666666666667,
+            179.40266666666668
+          ],
+          "samples": [
+            -257.92545547169374,
+            -250.48268204818586,
+            -247.64755077273318,
+            -241.23900520529054,
+            -236.78846493184165,
+            -230.07598561819825,
+            -224.2258067216959,
+            -217.70268911562573,
+            -210.5204570992915,
+            -202.85695678436193,
+            -193.76908824427343,
+            -184.98109901821948,
+            -175.84590323350318,
+            -167.01319407359676,
+            -158.12299003619012,
+            -151.00443132285858
+          ],
+          "independent_stress_max_difference_MPa": 1.511458833647339e-07,
+          "hold": {
+            "cycle": 1,
+            "segment": 1,
+            "stress_control": false,
+            "duration_s": 180.0,
+            "sample_times_s": [
+              0.0346666666666664,
+              0.19566666666666643,
+              0.2756666666666665,
+              0.5156666666666667,
+              0.7556666666666665,
+              1.3166666666666664,
+              2.1166666666666663,
+              3.4786666666666664,
+              5.720666666666666,
+              9.323666666666666,
+              15.974666666666668,
+              25.974666666666668,
+              41.851666666666674,
+              65.77366666666667,
+              107.63666666666667,
+              179.40266666666668
+            ],
+            "first_observation_time_s": 0.0346666666666664,
+            "last_observation_time_s": 179.40266666666668,
+            "anchor_scope": "First recorded sample, not extrapolated control-switch state; shape is diagnostic only",
+            "source_indices": [
+              26,
+              28,
+              29,
+              32,
+              35,
+              42,
+              53,
+              70,
+              99,
+              147,
+              160,
+              167,
+              177,
+              191,
+              198,
+              210
+            ],
+            "fields": {
+              "stress_MPa": {
+                "rms": 4.177333093261175,
+                "observed_max_abs": 255.3,
+                "observed_excursion": 113.74000000000001,
+                "first_observed": -255.3,
+                "first_predicted": -257.92545547169374,
+                "first_residual": -2.6254554716937264,
+                "last_observed": -141.56,
+                "last_predicted": -151.00443132285858,
+                "last_residual": -9.444431322858577,
+                "anchored_shape_rms": 3.550138437743317,
+                "anchored_shape_last_residual": -6.818975851164851,
+                "early_secant_observed_per_s": 5.720744967165467,
+                "early_secant_predicted_per_s": 5.928355978827841,
+                "late_secant_observed_per_s": 0.1638631575427217,
+                "late_secant_predicted_per_s": 0.07490178135228868
+              },
+              "strain": {
+                "rms": 4.999999999998712e-06,
+                "observed_max_abs": 0.00201,
+                "observed_excursion": 2.0000000000000052e-05,
+                "first_observed": -0.00201,
+                "first_predicted": -0.001999999999999995,
+                "first_residual": 1.000000000000523e-05,
+                "last_observed": -0.002,
+                "last_predicted": -0.001999999999999995,
+                "last_residual": 5.204170427930421e-18,
+                "anchored_shape_rms": 1.2247448713915923e-05,
+                "anchored_shape_last_residual": -1.0000000000000026e-05,
+                "early_secant_observed_per_s": 1.0765421466250432e-06,
+                "early_secant_predicted_per_s": 0.0,
+                "late_secant_observed_per_s": 0.0,
+                "late_secant_predicted_per_s": 0.0
+              }
+            },
+            "late_secant_times_s": [
+              149.49966666666668,
+              179.40266666666668
+            ],
+            "late_secant_source_indices": [
+              205,
+              210
+            ]
+          },
+          "final_reload_stress_MPa": 123.5236107680321
+        },
+        "SLC": {
+          "times": [
+            0.03500000000000014,
+            0.19600000000000017,
+            0.27600000000000025,
+            0.5160000000000005,
+            0.7560000000000002,
+            1.3170000000000002,
+            2.117,
+            3.479,
+            5.721,
+            9.324,
+            15.975000000000001,
+            25.975,
+            41.854,
+            65.776,
+            107.639,
+            179.40499999999997
+          ],
+          "samples": [
+            -256.9583132810845,
+            -249.58952437399674,
+            -246.7796791507723,
+            -240.42452185522646,
+            -236.00931283443197,
+            -229.35012578606205,
+            -223.5482825294833,
+            -217.08054587859087,
+            -209.9586206559445,
+            -202.35650378952232,
+            -193.33414264056282,
+            -184.59962367190636,
+            -175.5106440129606,
+            -166.721626092458,
+            -157.87915227231593,
+            -150.80550081699022
+          ],
+          "independent_stress_max_difference_MPa": 1.5969561673045973e-07,
+          "hold": {
+            "cycle": 1,
+            "segment": 1,
+            "stress_control": false,
+            "duration_s": 180.0,
+            "sample_times_s": [
+              0.03500000000000014,
+              0.19600000000000017,
+              0.27600000000000025,
+              0.5160000000000005,
+              0.7560000000000002,
+              1.3170000000000002,
+              2.117,
+              3.479,
+              5.721,
+              9.324,
+              15.975000000000001,
+              25.975,
+              41.854,
+              65.776,
+              107.639,
+              179.40499999999997
+            ],
+            "first_observation_time_s": 0.03500000000000014,
+            "last_observation_time_s": 179.40499999999997,
+            "anchor_scope": "First recorded sample, not extrapolated control-switch state; shape is diagnostic only",
+            "source_indices": [
+              26,
+              28,
+              29,
+              32,
+              35,
+              42,
+              53,
+              70,
+              99,
+              147,
+              160,
+              167,
+              177,
+              191,
+              198,
+              210
+            ],
+            "fields": {
+              "stress_MPa": {
+                "rms": 9.610065408693082,
+                "observed_max_abs": 265.02,
+                "observed_excursion": 113.27999999999997,
+                "first_observed": -265.02,
+                "first_predicted": -256.9583132810845,
+                "first_residual": 8.061686718915496,
+                "last_observed": -151.74,
+                "last_predicted": -150.80550081699022,
+                "last_residual": 0.9344991830097911,
+                "anchored_shape_rms": 3.4942416169340285,
+                "anchored_shape_last_residual": -7.127187535905705,
+                "early_secant_observed_per_s": 5.515125417160081,
+                "early_secant_predicted_per_s": 5.878114919965784,
+                "late_secant_observed_per_s": 0.1060094304919236,
+                "late_secant_predicted_per_s": 0.07439413553565326
+              },
+              "strain": {
+                "rms": 5.590169943749198e-06,
+                "observed_max_abs": 0.00201,
+                "observed_excursion": 2.0000000000000052e-05,
+                "first_observed": -0.00201,
+                "first_predicted": -0.001999999999999999,
+                "first_residual": 1.0000000000000894e-05,
+                "last_observed": -0.002,
+                "last_predicted": -0.001999999999999999,
+                "last_residual": 8.673617379884035e-19,
+                "anchored_shape_rms": 1.2990381056766613e-05,
+                "anchored_shape_last_residual": -1.0000000000000026e-05,
+                "early_secant_observed_per_s": 2.1530842932500863e-06,
+                "early_secant_predicted_per_s": 0.0,
+                "late_secant_observed_per_s": 0.0,
+                "late_secant_predicted_per_s": 0.0
+              }
+            },
+            "late_secant_times_s": [
+              149.502,
+              179.40499999999997
+            ],
+            "late_secant_source_indices": [
+              205,
+              210
+            ]
+          },
+          "final_reload_stress_MPa": 123.77214119016344
+        }
+      },
+      "stress_difference": {
+        "interval_s": [
+          0.03500000000000014,
+          179.40266666666668
+        ],
+        "knots": 30,
+        "right_minus_left_first": 0.9517327218234755,
+        "right_minus_left_last": 0.19870051970877967,
+        "right_minus_left_time_mean": 0.29605892840010745,
+        "difference_time_rms": 0.313265656198124,
+        "difference_max_abs": 0.9517327218234755,
+        "left_change": 106.90561468004938,
+        "right_change": 106.15258247793469,
+        "interpolation": "piecewise linear on shared support; no extrapolation"
+      }
+    },
+    "recorded_ramps": {
+      "protocols": {
+        "SLR": {
+          "times": [
+            0.0346666666666664,
+            0.19566666666666643,
+            0.2756666666666665,
+            0.5156666666666667,
+            0.7556666666666665,
+            1.3166666666666664,
+            2.1166666666666663,
+            3.4786666666666664,
+            5.720666666666666,
+            9.323666666666666,
+            15.974666666666668,
+            25.974666666666668,
+            41.851666666666674,
+            65.77366666666667,
+            107.63666666666667,
+            179.40266666666668
+          ],
+          "samples": [
+            -256.4984913273192,
+            -249.4792633235479,
+            -246.7804770752452,
+            -240.63434635986792,
+            -236.33023341360706,
+            -229.78331918171236,
+            -224.02677407558235,
+            -217.56948921497988,
+            -210.4335063035479,
+            -202.80096891878767,
+            -193.73448758379817,
+            -184.95777113879487,
+            -175.8288825804873,
+            -166.99964364979647,
+            -158.11193024273248,
+            -150.995578808216
+          ],
+          "independent_stress_max_difference_MPa": 1.54116406747562e-07,
+          "hold": {
+            "cycle": 1,
+            "segment": 1,
+            "stress_control": false,
+            "duration_s": 180.0,
+            "sample_times_s": [
+              0.0346666666666664,
+              0.19566666666666643,
+              0.2756666666666665,
+              0.5156666666666667,
+              0.7556666666666665,
+              1.3166666666666664,
+              2.1166666666666663,
+              3.4786666666666664,
+              5.720666666666666,
+              9.323666666666666,
+              15.974666666666668,
+              25.974666666666668,
+              41.851666666666674,
+              65.77366666666667,
+              107.63666666666667,
+              179.40266666666668
+            ],
+            "first_observation_time_s": 0.0346666666666664,
+            "last_observation_time_s": 179.40266666666668,
+            "anchor_scope": "First recorded sample, not extrapolated control-switch state; shape is diagnostic only",
+            "source_indices": [
+              26,
+              28,
+              29,
+              32,
+              35,
+              42,
+              53,
+              70,
+              99,
+              147,
+              160,
+              167,
+              177,
+              191,
+              198,
+              210
+            ],
+            "fields": {
+              "stress_MPa": {
+                "rms": 4.136083977494208,
+                "observed_max_abs": 255.3,
+                "observed_excursion": 113.74000000000001,
+                "first_observed": -255.3,
+                "first_predicted": -256.4984913273192,
+                "first_residual": -1.198491327319175,
+                "last_observed": -141.56,
+                "last_predicted": -150.995578808216,
+                "last_residual": -9.435578808216007,
+                "anchored_shape_rms": 3.73752004632154,
+                "anchored_shape_last_residual": -8.237087480896832,
+                "early_secant_observed_per_s": 5.720744967165467,
+                "early_secant_predicted_per_s": 5.780764604212672,
+                "late_secant_observed_per_s": 0.1638631575427217,
+                "late_secant_predicted_per_s": 0.0748752583204335
+              },
+              "strain": {
+                "rms": 4.999999999999905e-06,
+                "observed_max_abs": 0.00201,
+                "observed_excursion": 2.0000000000000052e-05,
+                "first_observed": -0.00201,
+                "first_predicted": -0.0019999999999999996,
+                "first_residual": 1.000000000000046e-05,
+                "last_observed": -0.002,
+                "last_predicted": -0.0019999999999999996,
+                "last_residual": 4.336808689942018e-19,
+                "anchored_shape_rms": 1.2247448713915923e-05,
+                "anchored_shape_last_residual": -1.0000000000000026e-05,
+                "early_secant_observed_per_s": 1.0765421466250432e-06,
+                "early_secant_predicted_per_s": 0.0,
+                "late_secant_observed_per_s": 0.0,
+                "late_secant_predicted_per_s": 0.0
+              }
+            },
+            "late_secant_times_s": [
+              149.49966666666668,
+              179.40266666666668
+            ],
+            "late_secant_source_indices": [
+              205,
+              210
+            ]
+          },
+          "final_reload_stress_MPa": 122.71267830947069
+        },
+        "SLC": {
+          "times": [
+            0.03500000000000014,
+            0.19600000000000017,
+            0.27600000000000025,
+            0.5160000000000005,
+            0.7560000000000002,
+            1.3170000000000002,
+            2.117,
+            3.479,
+            5.721,
+            9.324,
+            15.975000000000001,
+            25.975,
+            41.854,
+            65.776,
+            107.639,
+            179.40499999999997
+          ],
+          "samples": [
+            -255.42954437609785,
+            -248.5145942215273,
+            -245.85172724217412,
+            -239.7804961392996,
+            -235.52401404596418,
+            -229.04350153710013,
+            -223.34106015569,
+            -216.94184275732957,
+            -209.86770874106946,
+            -202.29765864349326,
+            -193.2975885187488,
+            -184.57498126061992,
+            -175.49285302266222,
+            -166.70777361379578,
+            -157.86820135922477,
+            -150.7969766035621
+          ],
+          "independent_stress_max_difference_MPa": 1.5988990753612597e-07,
+          "hold": {
+            "cycle": 1,
+            "segment": 1,
+            "stress_control": false,
+            "duration_s": 180.0,
+            "sample_times_s": [
+              0.03500000000000014,
+              0.19600000000000017,
+              0.27600000000000025,
+              0.5160000000000005,
+              0.7560000000000002,
+              1.3170000000000002,
+              2.117,
+              3.479,
+              5.721,
+              9.324,
+              15.975000000000001,
+              25.975,
+              41.854,
+              65.776,
+              107.639,
+              179.40499999999997
+            ],
+            "first_observation_time_s": 0.03500000000000014,
+            "last_observation_time_s": 179.40499999999997,
+            "anchor_scope": "First recorded sample, not extrapolated control-switch state; shape is diagnostic only",
+            "source_indices": [
+              26,
+              28,
+              29,
+              32,
+              35,
+              42,
+              53,
+              70,
+              99,
+              147,
+              160,
+              167,
+              177,
+              191,
+              198,
+              210
+            ],
+            "fields": {
+              "stress_MPa": {
+                "rms": 9.95879368120324,
+                "observed_max_abs": 265.02,
+                "observed_excursion": 113.27999999999997,
+                "first_observed": -265.02,
+                "first_predicted": -255.42954437609785,
+                "first_residual": 9.59045562390213,
+                "last_observed": -151.74,
+                "last_predicted": -150.7969766035621,
+                "last_residual": 0.9430233964379227,
+                "anchored_shape_rms": 3.4370796550001144,
+                "anchored_shape_last_residual": -8.647432227464208,
+                "early_secant_observed_per_s": 5.515125417160081,
+                "early_secant_predicted_per_s": 5.71987143208145,
+                "late_secant_observed_per_s": 0.1060094304919236,
+                "late_secant_predicted_per_s": 0.07436594162060765
+              },
+              "strain": {
+                "rms": 5.590169943749634e-06,
+                "observed_max_abs": 0.00201,
+                "observed_excursion": 2.0000000000000052e-05,
+                "first_observed": -0.00201,
+                "first_predicted": -0.0020000000000000005,
+                "first_residual": 9.999999999999593e-06,
+                "last_observed": -0.002,
+                "last_predicted": -0.0020000000000000005,
+                "last_residual": -4.336808689942018e-19,
+                "anchored_shape_rms": 1.2990381056766613e-05,
+                "anchored_shape_last_residual": -1.0000000000000026e-05,
+                "early_secant_observed_per_s": 2.1530842932500863e-06,
+                "early_secant_predicted_per_s": 0.0,
+                "late_secant_observed_per_s": 0.0,
+                "late_secant_predicted_per_s": 0.0
+              }
+            },
+            "late_secant_times_s": [
+              149.502,
+              179.40499999999997
+            ],
+            "late_secant_source_indices": [
+              205,
+              210
+            ]
+          },
+          "final_reload_stress_MPa": 123.0870604449135
+        }
+      },
+      "stress_difference": {
+        "interval_s": [
+          0.03500000000000014,
+          179.40266666666668
+        ],
+        "knots": 30,
+        "right_minus_left_first": 1.0544143880665047,
+        "right_minus_left_last": 0.1983722973938029,
+        "right_minus_left_time_mean": 0.29685284611461465,
+        "difference_time_rms": 0.3148874080932778,
+        "difference_max_abs": 1.0544143880665047,
+        "left_change": 105.48837995594835,
+        "right_change": 104.63233786527564,
+        "interpolation": "piecewise linear on shared support; no extrapolation"
+      }
+    }
+  },
+  "sources": {
+    "SLR": {
+      "sha256": "34e26cae1816ec4b712a4cec5811e0a0c66bad34848c10d962528085171fcabb",
+      "first_hold_switch": {
+        "cycle": 1,
+        "stress_control": false,
+        "time_s": 2.1163333333333334,
+        "bracket_s": [
+          2.047,
+          2.151
+        ],
+        "source_indices": [
+          25,
+          26
+        ],
+        "method": "strain crossing"
+      },
+      "duration_s": 180.0,
+      "samples": 185
+    },
+    "SLC": {
+      "sha256": "ab2953c0cfa6335619c8b699728aa73233f8d2209af39b709916ab3fd392683e",
+      "first_hold_switch": {
+        "cycle": 1,
+        "stress_control": false,
+        "time_s": 2.1159999999999997,
+        "bracket_s": [
+          2.046,
+          2.151
+        ],
+        "source_indices": [
+          25,
+          26
+        ],
+        "method": "strain crossing"
+      },
+      "duration_s": 180.0,
+      "samples": 185
+    }
+  },
+  "fitted": false,
+  "engineering_qualified": false,
+  "life_qualified": false,
+  "scope": "Two specimens before protocol divergence; not a scatter distribution, bias correction, or changed gate",
+  "driver_sha256": {
+    "p92_common_prefix.py": "a65fa42844ad29fe6a6d2a26c7870541a4afc6200209ecbab96cfb90ae066efa",
+    "p92_bam_source.py": "01475954bb1472e6b2f57ba36c76de4ef4c4b6a25b893a8fad0d8aba7caa3cf3",
+    "p92_measured_controls.py": "803a1786932cbdd571f248f1ee3053dfdc941ea2b7aa3cfb38f01fe862ce461e",
+    "p92_recoverable_frozen.py": "6c030b625fa5a740bc5fe8417fb7f7d5d2b5803f831000c1659f831f9543ce62",
+    "p92_two_rate_controls.py": "a2f38994c108e39e210d762d7eb97c1d7c52d61b03856711c710c6eb74e5bdf1",
+    "p92_waveform_controls.py": "186328be75d6ea5da030f727bce2d7feaf8b4383f86e63baee2712c7562f0870",
+    "p92_recoverable_spectrum.py": "db4826a41d681dc157792a8740a8df286d59b91181243a3118b3dabb16521e3d",
+    "p92_two_rate_reference.py": "3ad6a6a36ef9a30b342e3c8acc979e6fa9a20e366be1210790e125a3f8792a24"
+  },
+  "frozen_sha256": "3cd6a986828c8d3fff5ab7aa195839c9bcce536f4158d2b21e766a5066127684"
+}

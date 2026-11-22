@@ -22,7 +22,7 @@ def summarize(segment, evaluate, *, index, strain_index):
     tail = segment.get("tail")
     late_mask = times >= .8*segment["duration"]
     late_times = np.asarray(tail["times"]) if tail is not None else times[late_mask]
-    if (late_times.ndim != 1 or not np.isfinite(late_times).all()
+    if (late_times.ndim != 1 or np.iscomplexobj(late_times) or not np.isfinite(late_times).all()
             or np.any(np.diff(late_times) <= 0)
             or np.any(late_times < 0) or np.any(late_times > duration)):
         raise ValueError("Hold tail must contain ordered observations inside the hold")

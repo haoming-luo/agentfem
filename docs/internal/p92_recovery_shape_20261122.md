@@ -38,3 +38,57 @@ archived original fit alone is not an equal additional-budget control: if
 the new-coordinate audit admits optimization, rerun the original coordinate
 set from this same starting card with the same additional budget before
 attributing improvement to the replacement.
+
+## Matched result: no demonstrated mechanism gain
+
+| Arm, same starting card and additional budget | Joint cost | Optimizer / residual calls | SLR cycle-10 peak error |
+| --- | ---: | ---: | ---: |
+| Original coordinates | 0.002275663761 | 9 / 259 | +8.1897% |
+| Existing B recovery-shape coordinates replacing A static coordinates | 0.002275795828 | 8 / 238 | +8.2101% |
+
+Both converge. The new-coordinate cost is 0.0058% **higher** than the control.
+The approximately 3.6% reduction from the starting card occurs in the original
+law too; it is not evidence for the mechanism replacement. All six frozen
+protocol paths pass independent integration and waveform refinement; all six
+experimental response screens fail. No further restart or enlarged box is
+admitted by this experiment.
+
+The first SLC post-creep hold endpoints are 162.430 and 162.410 MPa,
+respectively, versus 174.880 MPa observed. The replacement's first-sample
+residual is only -0.493 MPa: the continuing problem is hold shape, not merely
+a common starting offset. Its early/late secants are -5.183/-0.08234 MPa/s
+versus -3.794/-0.18193 observed. Both reversible strains remain present.
+
+The new identity-checked paired report recomputes every retained screen from
+its observations rather than trusting a status label. It verifies common
+source, seed, budget and driver identities and the exact fitted/frozen card
+binding, and retains numerical and experimental conclusions separately.
+Archives are the `2026-11-22-recovery-shape-*` records in `evidence/creep/`.
+A later complex-tail-input rejection changes no real-valued numerical path;
+archived execution hashes remain those actually used, not rewritten hashes.
+
+The paired report can also be rebuilt directly from the four repository
+archives. For losslessly archived fits, it reconstructs the original serialized
+payload and checks its hash before accepting the provenance link. It checks
+the actual retained-coordinate box, not only the reported budget label.
+
+```sh
+python -m tools.p92_matched_response_report \
+  evidence/creep/2026-11-22-recovery-shape-control-matched.json \
+  evidence/creep/2026-11-22-recovery-shape-matched.json \
+  evidence/creep/2026-11-22-recovery-shape-control-frozen.json \
+  evidence/creep/2026-11-22-recovery-shape-frozen.json \
+  /new/path/recovery-shape-paired.json
+```
+
+No source download or material solve is needed for this report reconstruction.
+Input-file hashes differ from the original temporary-file invocation, while
+costs, numerical conclusions and all retained response checks reproduce.
+
+The report also separates observation resolution from model error. All ten
+SLC late-creep secants remain below the predeclared signal requirement; no
+parameter change can make those particular recorded windows resolved. They
+remain unresolved, never passed or discarded. This does **not** explain the
+large, resolved post-creep hold mismatch. Both obligations remain: improve
+the model on resolved observations, and obtain adequate observation support
+before claiming an all-checks pass. A numerical fit cannot manufacture data.

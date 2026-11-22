@@ -11,10 +11,14 @@ and published modulus substitutions do not remove the large SLC discrepancy.
 The new diagnostic explicitly distinguishes the first sampled stress from the
 hold endpoint; the roughly 14 MPa baseline discrepancy belongs to the endpoint.
 
-The next bounded test replaces weak fitting directions with the existing
-dynamic-recovery shape coordinates, not new material parameters. Use identical
-starting cards and budgets, then freeze and check later cycles. PR #197 stays
-open; no industrial response or life qualification is claimed.
+The completed same-start, same-budget recovery-shape substitution does not
+outperform the original control; both fail all three frozen response screens.
+Nominal-rate ramp controls do not resolve the SLC hold-shape discrepancy.
+The [signed flow budget](internal/p92_hold_flow_budget_20261122.md) separates
+reversible back-flow from irreversible flow without resetting state. Further
+mechanisms must address early/late irreversible-flow distribution and creep
+history together; do not restart fitting merely because average cost fell.
+PR #197 stays open; no industrial response or life qualification is claimed.
 
 ### Recoverability-preserving mechanism batch reviewed (2026-11-22)
 

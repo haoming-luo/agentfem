@@ -1,0 +1,282 @@
+{
+  "schema": "agentfem.research.primary-source-audit.v1",
+  "source": "https://doi.org/10.1016/j.engfracmech.2017.02.008",
+  "temperature_C": 650,
+  "records": [
+    {
+      "stress_MPa": 40.0,
+      "regime": 0,
+      "times_h": [
+        0.0,
+        0.001,
+        0.1,
+        1.0,
+        10.0,
+        100.0
+      ],
+      "predicted_strain": [
+        0.0,
+        9.12246625101973e-06,
+        3.315292584284291e-05,
+        6.343410625504753e-05,
+        0.00012349628140771745,
+        0.0002615681506331175
+      ],
+      "equation4_strain": [
+        0.0,
+        9.122466251019728e-06,
+        3.3152925842842906e-05,
+        6.343410625504752e-05,
+        0.00012349628140771743,
+        0.00026156815063311747
+      ],
+      "observed_minimum_rate_per_h": 3.41e-07,
+      "equation7_rate_per_h": 3.2430304778966616e-07,
+      "minimum_rate_relative_error": -0.048964669238515654,
+      "primary_equation_audit": {
+        "primary_strain": 6.310980320725785e-05,
+        "differentiated_rate_per_h": 1.76707448980322e-05,
+        "eliminated_rate_per_h": 1.76707448980322e-05,
+        "literal_printed_rate_per_h": 0.0016660593170665199,
+        "literal_to_derivative_ratio": 94.2834796541062,
+        "analytic_ratio": 94.28347965410622
+      },
+      "numerical_passed": true,
+      "split_final_strain": 0.00026156815063311747,
+      "coefficient_time_convention": "hours converted explicitly to seconds"
+    },
+    {
+      "stress_MPa": 60.0,
+      "regime": 0,
+      "times_h": [
+        0.0,
+        0.001,
+        0.1,
+        1.0,
+        10.0,
+        100.0
+      ],
+      "predicted_strain": [
+        0.0,
+        3.141900747987727e-05,
+        0.00011419610062647581,
+        0.00021860899173609848,
+        0.00042667892482439415,
+        0.00091430071521274
+      ],
+      "equation4_strain": [
+        0.0,
+        3.141900747987727e-05,
+        0.00011419610062647581,
+        0.00021860899173609848,
+        0.00042667892482439415,
+        0.00091430071521274
+      ],
+      "observed_minimum_rate_per_h": 1.2e-06,
+      "equation7_rate_per_h": 1.2512235872623893e-06,
+      "minimum_rate_relative_error": 0.0426863227186578,
+      "primary_equation_audit": {
+        "primary_strain": 0.0002173577681488361,
+        "differentiated_rate_per_h": 6.086017508167411e-05,
+        "eliminated_rate_per_h": 6.0860175081674104e-05,
+        "literal_printed_rate_per_h": 0.005738109079058363,
+        "literal_to_derivative_ratio": 94.28347965410622,
+        "analytic_ratio": 94.28347965410622
+      },
+      "numerical_passed": true,
+      "split_final_strain": 0.00091430071521274,
+      "coefficient_time_convention": "hours converted explicitly to seconds"
+    },
+    {
+      "stress_MPa": 80.0,
+      "regime": 0,
+      "times_h": [
+        0.0,
+        0.001,
+        0.1,
+        1.0,
+        10.0,
+        100.0
+      ],
+      "predicted_strain": [
+        0.0,
+        7.5553929938447e-05,
+        0.00027463402094119545,
+        0.0005259441510358074,
+        0.001028564042801896,
+        0.00222386961107484
+      ],
+      "equation4_strain": [
+        0.0,
+        7.5553929938447e-05,
+        0.00027463402094119545,
+        0.0005259441510358074,
+        0.001028564042801896,
+        0.00222386961107484
+      ],
+      "observed_minimum_rate_per_h": 3.48e-06,
+      "equation7_rate_per_h": 3.261226147758416e-06,
+      "minimum_rate_relative_error": -0.06286604949470814,
+      "primary_equation_audit": {
+        "primary_strain": 0.000522682924888049,
+        "differentiated_rate_per_h": 0.00014635121896865372,
+        "eliminated_rate_per_h": 0.0001463512189686537,
+        "literal_printed_rate_per_h": 0.013798502175984705,
+        "literal_to_derivative_ratio": 94.2834796541062,
+        "analytic_ratio": 94.28347965410622
+      },
+      "numerical_passed": true,
+      "split_final_strain": 0.00222386961107484,
+      "coefficient_time_convention": "hours converted explicitly to seconds"
+    },
+    {
+      "stress_MPa": 100.0,
+      "regime": 1,
+      "times_h": [
+        0.0,
+        0.001,
+        0.1,
+        1.0,
+        10.0,
+        100.0
+      ],
+      "predicted_strain": [
+        0.0,
+        0.00021569284366117705,
+        0.000715276976339596,
+        0.0013104807435742214,
+        0.0024735890901249175,
+        0.005390253749659176
+      ],
+      "equation4_strain": [
+        0.0,
+        0.00021569284366117705,
+        0.000715276976339596,
+        0.0013104807435742214,
+        0.002473589090124918,
+        0.005390253749659175
+      ],
+      "observed_minimum_rate_per_h": 1.27e-05,
+      "equation7_rate_per_h": 1.0868325756110466e-05,
+      "minimum_rate_relative_error": -0.14422631841649874,
+      "primary_equation_audit": {
+        "primary_strain": 0.001299612417818111,
+        "differentiated_rate_per_h": 0.00033789922863270886,
+        "eliminated_rate_per_h": 0.0003378992286327088,
+        "literal_printed_rate_per_h": 0.060102108498028016,
+        "literal_to_derivative_ratio": 177.86991921002004,
+        "analytic_ratio": 177.86991921002004
+      },
+      "numerical_passed": true,
+      "split_final_strain": 0.005390253749659174,
+      "coefficient_time_convention": "hours converted explicitly to seconds"
+    },
+    {
+      "stress_MPa": 120.0,
+      "regime": 1,
+      "times_h": [
+        0.0,
+        0.001,
+        0.1,
+        1.0,
+        10.0,
+        100.0
+      ],
+      "predicted_strain": [
+        0.0,
+        0.0005987582724823643,
+        0.001985700429609299,
+        0.0036389774225467565,
+        0.006877816798715693,
+        0.015075233718435256
+      ],
+      "equation4_strain": [
+        0.0,
+        0.0005987582724823642,
+        0.001985700429609299,
+        0.0036389774225467565,
+        0.006877816798715692,
+        0.015075233718435254
+      ],
+      "observed_minimum_rate_per_h": 3.73e-05,
+      "equation7_rate_per_h": 3.129059879361818e-05,
+      "minimum_rate_relative_error": -0.16110995191372174,
+      "primary_equation_audit": {
+        "primary_strain": 0.0036076868237531383,
+        "differentiated_rate_per_h": 0.0009379985741758159,
+        "eliminated_rate_per_h": 0.0009379985741758159,
+        "literal_printed_rate_per_h": 0.16684173060776641,
+        "literal_to_derivative_ratio": 177.86991921002007,
+        "analytic_ratio": 177.86991921002004
+      },
+      "numerical_passed": true,
+      "split_final_strain": 0.015075233718435256,
+      "coefficient_time_convention": "hours converted explicitly to seconds"
+    },
+    {
+      "stress_MPa": 170.0,
+      "regime": 2,
+      "times_h": [
+        0.0,
+        0.001,
+        0.1,
+        1.0,
+        10.0,
+        100.0
+      ],
+      "predicted_strain": [
+        0.0,
+        0.0006820517235122954,
+        0.004164481348112896,
+        0.015419543373221644,
+        0.09548436717697993,
+        0.8234059660046986
+      ],
+      "equation4_strain": [
+        0.0,
+        0.0006820517235122954,
+        0.004164481348112896,
+        0.015419543373221644,
+        0.09548436717697992,
+        0.8234059660046986
+      ],
+      "observed_minimum_rate_per_h": 0.008,
+      "equation7_rate_per_h": 0.007854930942274078,
+      "minimum_rate_relative_error": -0.0181336322157403,
+      "primary_equation_audit": {
+        "primary_strain": 0.007564612430947566,
+        "differentiated_rate_per_h": 0.002647614350831648,
+        "eliminated_rate_per_h": 0.00264761435083165,
+        "literal_printed_rate_per_h": 0.053151736388851824,
+        "literal_to_derivative_ratio": 20.07533173105676,
+        "analytic_ratio": 20.075331731056735
+      },
+      "numerical_passed": true,
+      "split_final_strain": 0.8234059660046986,
+      "coefficient_time_convention": "hours converted explicitly to seconds"
+    }
+  ],
+  "regime_boundary_limits": [
+    {
+      "stress_MPa": 85.0,
+      "left_rate_per_h": 3.990766166936898e-06,
+      "right_rate_per_h": 4.234405218243019e-06,
+      "ratio_right_to_left": 1.061050695809904
+    },
+    {
+      "stress_MPa": 140.0,
+      "left_rate_per_h": 7.65077189765363e-05,
+      "right_rate_per_h": 0.00010206671989328029,
+      "ratio_right_to_left": 1.3340708788427287
+    }
+  ],
+  "fitted": false,
+  "engineering_qualified": false,
+  "life_qualified": false,
+  "bam_validation": false,
+  "printed_equation6_admitted": false,
+  "scope": "Source equation/unit audit using existing core integration; no cyclic or changing-stress prediction",
+  "source_pdf_sha256": "2efe69578bcbc5c40acbf79a3b9a6755c1080f14e5dcf69a3a42b6be9bc0ad57",
+  "driver_sha256": "1cad8108569c437321e4aaa4e0f96d7a3ba26884fad82601fb03717ead908793",
+  "archived_source_sha256": "59b149aa3fa531aea858f094a73215c92c1ac60e097884125c5cb43d49823c12"
+}

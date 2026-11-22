@@ -61,3 +61,11 @@ def test_shape_diagnostic_does_not_hide_constant_prediction_bias():
     result = summarize(segment, evaluate, index=0, strain_index=7)["fields"]["stress_MPa"]
     assert result["rms"] == result["first_residual"] == result["last_residual"] == 20.
     assert result["anchored_shape_rms"] == result["anchored_shape_last_residual"] == 0.
+
+
+def test_complex_tail_times_are_rejected_before_prediction():
+    segment = dict(duration=100., sample_times=[1., 2.], cycle=1, stress_control=False,
+                   measured_stress=[1., 2.], measured_strain=[0., 0.],
+                   tail=dict(times=[90.+1j, 99.+1j], stress=[0., 0.], strain=[0., 0.], source_indices=[]))
+    with pytest.raises(ValueError, match="Hold tail"):
+        summarize(segment, lambda t: np.zeros((10, len(t))), index=0, strain_index=7)

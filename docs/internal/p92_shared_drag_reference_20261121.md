@@ -96,3 +96,11 @@ has been visually verified against the original table. The provisional card
 must not be called a verified published parameter set; changing that exponent
 to obtain a plausible response would not resolve provenance. The separate BAM
 candidate uses explicitly declared dimensional starting values, not this card.
+
+On 2026-11-22, the indexed [author thesis, section 3.4, Table 3.4.2](https://www.research-collection.ethz.ch/server/api/core/bitstreams/fbedddb7-9ebe-4add-9bb2-e212c838c133/content)
+also reports the second exponent as 278 and distinguishes signed flow magnitude
+from accumulated flow in the two recovery laws. Direct download returned 429;
+the original journal repository timed out and the publisher returned 403.
+This corroborates the text extraction but does not close visual verification
+or the loading/time-unit reproduction. Keep the card unverified and unchanged;
+do not substitute a more convenient exponent or silently rescale time.

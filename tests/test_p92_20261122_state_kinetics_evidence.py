@@ -1,6 +1,7 @@
 """Preserve the distinction between numerical checks and material admission."""
 
 import json
+from hashlib import sha256
 from pathlib import Path
 
 import pytest
@@ -12,6 +13,89 @@ ROOT = Path(__file__).resolve().parents[1]/"evidence"/"creep"
 
 def read(name):
     return json.loads((ROOT/f"2026-11-22-{name}.json").read_text())
+
+
+def test_same_budget_control_prevents_misattributing_continued_fit_gain():
+    paired = read("recovery-shape-paired")
+    control, replacement = paired["control"], paired["candidate"]
+    assert control["cost"] < replacement["cost"] < .0023607800272608744
+    assert 0 < paired["relative_cost_change"] < .0001
+    assert paired["response_policy"] == POLICY
+    assert not any(paired[k] for k in ("engineering_qualified", "life_qualified", "independent_validation"))
+    for arm in (control, replacement):
+        assert arm["optimizer_evaluations"] <= 40
+        assert set(arm["protocols"]) == {"RF", "SLR", "SLC"}
+        assert all(p["numerical_passed"] and p["status"] == "failed" for p in arm["protocols"].values())
+        slc = arm["protocols"]["SLC"]
+        assert not slc["observation_resolution_ready"]
+        assert len(slc["unresolved_observations"]) == 10
+        assert all(c["name"] == "late_strain_secant" for c in slc["unresolved_observations"])
+
+
+def test_signed_budget_cannot_replace_recoverable_strain_with_accumulated_flow():
+    evidence = read("signed-hold-flow-budget")
+    control = read("recovery-shape-control-frozen")
+    assert evidence["frozen_sha256"] == sha256(
+        (ROOT/"2026-11-22-recovery-shape-control-frozen.json").read_bytes()).hexdigest()
+    assert evidence["parameters"] == control["parameters"]
+    assert not any(evidence[k] for k in ("fitted", "state_reconstruction", "engineering_qualified", "life_qualified"))
+    for protocol in evidence["records"].values():
+        assert all(w["numerical_passed"] for w in protocol["windows"].values())
+        assert max(protocol["frozen_cycle_state_absolute_difference"]) < 1e-4
+    early, late = (evidence["records"]["SLC"]["windows"][w] for w in ("early", "late"))
+    assert sum(early["recoverable_stress_secants_MPa_per_s"]) < 0
+    assert sum(late["recoverable_stress_secants_MPa_per_s"]) > 0
+    assert early["fixed_flow_without_recovery_secant_MPa_per_s"] < early["observed_stress_secant_MPa_per_s"]
+    assert late["fixed_flow_without_recovery_secant_MPa_per_s"] > late["observed_stress_secant_MPa_per_s"]
+    assert late["recorded_strain_change"] == 0
+
+
+def test_recovery_shape_freeze_retains_failed_responses_and_source_identity():
+    fit, frozen = read("recovery-shape-matched"), read("recovery-shape-frozen")
+    assert fit["fit"]["success"] and fit["fit"]["nfev"] <= 40
+    assert len(fit["fit"]["coordinates"]) == 10
+    assert frozen["fit_file_sha256"] == fit["archived_source_sha256"]
+    assert frozen["parameters"] == fit["fit"]["parameters"]
+    assert frozen["source_sha256"] == fit["source_sha256"]
+    assert not any(frozen[k] for k in ("engineering_qualified", "life_qualified", "independent_validation"))
+    for result in frozen["protocols"].values():
+        assert result["numerical"]["passed"]
+        assert result["response_screen"]["policy"] == POLICY
+        assert result["response_screen"]["status"] == "failed"
+    hold = frozen["protocols"]["SLC"]["prediction"]["hold_diagnostics"][2]["fields"]["stress_MPa"]
+    assert abs(hold["first_residual"]) < 1
+    assert hold["last_observed"]-hold["last_predicted"] > 12
+
+
+@pytest.mark.parametrize("stem", ["recovery-shape", "recovery-shape-control"])
+def test_nominal_rate_controls_do_not_resolve_the_post_creep_hold_conflict(stem):
+    nominal = read(stem+"-nominal-rate")
+    frozen = read(stem+"-frozen")
+    assert nominal["frozen_sha256"] == frozen["archived_source_sha256"]
+    assert nominal["parameters"] == frozen["parameters"]
+    assert not any(nominal[k] for k in ("fitted", "engineering_qualified", "life_qualified", "independent_validation"))
+    for result in nominal["protocols"].values():
+        assert result["numerical"]["passed"]
+        assert result["response_screen"]["status"] == "failed"
+        assert result["response_screen"]["policy"] == POLICY
+        for ramp in result["prediction"]["switches"]:
+            assert abs(ramp["strain_rate_per_s"]) in (0, .001)
+    hold = nominal["protocols"]["SLC"]["prediction"]["hold_diagnostics"][2]["fields"]["stress_MPa"]
+    old = frozen["protocols"]["SLC"]["prediction"]["hold_diagnostics"][2]["fields"]["stress_MPa"]
+    assert abs(hold["last_predicted"]-old["last_predicted"]) < .1
+    assert hold["last_observed"]-hold["last_predicted"] > 12
+
+
+def test_common_prefix_difference_is_not_a_later_residual_correction():
+    evidence = read("common-prefix")
+    assert not any(evidence[k] for k in ("fitted", "engineering_qualified", "life_qualified"))
+    observed = evidence["fields"]["stress_MPa"]
+    assert -12 < observed["right_minus_left_time_mean"] < -11
+    assert abs(observed["left_change"]-observed["right_change"]) < .5
+    for run in evidence["prediction"].values():
+        assert 0 < run["stress_difference"]["right_minus_left_time_mean"] < .5
+        assert all(p["independent_stress_max_difference_MPa"] < 1e-5
+                   for p in run["protocols"].values())
 
 
 def test_history_kinetics_split_retains_signed_cancellation_not_admission():
