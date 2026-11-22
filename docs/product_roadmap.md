@@ -1,5 +1,21 @@
 # AgentFEM Product Roadmap
 
+### Incoming history and hold kinetics separated (2026-11-22)
+
+The [state/kinetics batch](internal/p92_state_kinetics_batch_20261122.md)
+adds continuous-path discriminators and retained negative evidence without
+changing production materials or response gates. All 18 history/direct-kinetics
+derivative checks pass: locally helpful changes to reversible kinetics can be
+reversed by the preceding creep/loading history. Recorded input perturbations
+and published modulus substitutions do not remove the large SLC discrepancy.
+The new diagnostic explicitly distinguishes the first sampled stress from the
+hold endpoint; the roughly 14 MPa baseline discrepancy belongs to the endpoint.
+
+The next bounded test replaces weak fitting directions with the existing
+dynamic-recovery shape coordinates, not new material parameters. Use identical
+starting cards and budgets, then freeze and check later cycles. PR #197 stays
+open; no industrial response or life qualification is claimed.
+
 ### Recoverability-preserving mechanism batch reviewed (2026-11-22)
 
 The [paired mechanism review](internal/p92_recoverability_review_20261122.md)

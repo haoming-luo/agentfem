@@ -27,6 +27,26 @@ def test_classifier_edit_selects_its_own_regressions():
     assert "tests/test_ci_validation_scope.py" in scope.tests
 
 
+@pytest.mark.parametrize("stem", ["critical_recovery", "common_memory", "static_modes",
+                                  "cross_resistance", "inviscid_branch"])
+def test_state_kinetics_references_retain_physics_and_negative_evidence_checks(stem):
+    scope = classify_changes([f"tools/p92_{stem}_reference.py"])
+    assert scope.level == "targeted"
+    assert f"tests/test_p92_{stem}.py" in scope.tests
+    assert "tests/test_p92_20261122_state_kinetics_evidence.py" in scope.tests
+    assert "tests/test_p92_hold_observations.py" in scope.tests
+
+
+@pytest.mark.parametrize("path", ["tools/p92_history_kinetics_split.py",
+    "tools/p92_recovery_budget_sensitivity.py", "tools/p92_stress_ripple_audit.py",
+    "evidence/creep/2026-11-22-history-kinetics-split.json"])
+def test_diagnostic_batch_keeps_transitive_controls_without_release_matrix(path):
+    scope = classify_changes([path])
+    assert scope.level == "targeted"
+    assert "tests/test_p92_history_kinetics_split.py" in scope.tests
+    assert "tests/test_p92_response_screen.py" in scope.tests
+
+
 @pytest.mark.parametrize("stem", ["recoverable_backstress", "recoverable_mobility", "activated_flow"])
 def test_recovery_replacements_select_their_own_physics_checks(stem):
     scope = classify_changes([f"tools/p92_{stem}_reference.py"])
