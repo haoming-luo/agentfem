@@ -142,3 +142,69 @@ def test_tagged_sides_of_coincident_seam_remain_distinct():
         snapshots.append(provenance.model_settings(m, target=u))
     report = provenance.compare_model_settings(*snapshots)
     assert any('region_membership' in item['path'] for item in report['scientific_changes'])
+
+
+def test_source_records_keep_v1_hashes_and_refresh_after_geometry_change():
+    from agentfem._model_settings import _SourceNodes
+    m,u = build()
+    d = m.domain
+    records = _SourceNodes(d)
+    for nodes in d.geometry.dofmaps[0][:3]:
+        reference = sorted((int(d.geometry.input_global_indices[i]),
+            *d.geometry.x[i, :d.geometry.dim].tolist()) for i in nodes)
+        assert provenance.content_fingerprint(records(nodes)) == provenance.content_fingerprint(reference)
+    first = provenance.model_settings(m, target=u)
+    d.geometry.x[:, 1] *= 2.
+    second = provenance.model_settings(m, target=u)
+    assert not provenance.compare_model_settings(first, second)['recorded_settings_equal']
+
+
+def test_region_evaluation_failure_reaches_every_rank(monkeypatch):
+    from dolfinx import mesh as dm
+    m,u = build()
+    if MPI.COMM_WORLD.rank == 0:
+        def fail(*args, **kwargs):
+            raise RuntimeError('injected region evaluation failure')
+        monkeypatch.setattr(dm, 'entities_to_geometry', fail)
+    with pytest.raises(RuntimeError, match='injected region evaluation failure'):
+        provenance.model_settings(m, target=u)
+
+
+def test_rank_local_foreign_region_is_rejected_by_shared_plan():
+    if MPI.COMM_WORLD.size < 2:
+        pytest.skip('requires two ranks')
+    from dataclasses import replace
+    m,u = build()
+    other = mesh.rectangle((0.,0.), (2.,1.), (4,2), comm=MPI.COMM_WORLD)
+    if MPI.COMM_WORLD.rank == 0:
+        # Keep names/IR summaries identical: only domain ownership differs.
+        m.regions[0] = replace(m.regions[0], domain=other)
+    with pytest.raises(RuntimeError, match='region identity plan.*differs across MPI ranks'):
+        provenance.model_settings(m, target=u)
+
+
+def test_compare_does_not_trust_stale_complete_flags():
+    from copy import deepcopy
+    m,u = build()
+    right = m.loads[0].location
+    m.loads.clear()
+    m.traction((ufl.SpatialCoordinate(m.domain)[0], 0.), on=right)
+    snapshot = provenance.model_settings(m, target=u)
+    stale = deepcopy(snapshot)
+    stale['coverage'].update(complete=True, gaps=[])
+    before = json.dumps(stale, sort_keys=True)
+    report = provenance.compare_model_settings(stale, stale)
+    assert report['status'] == 'inconclusive' and not report['coverage_complete']
+    assert json.dumps(stale, sort_keys=True) == before
+    assert report['reference_coverage']['gaps']
+
+
+def test_output_policy_is_retained_separately_from_physics():
+    from agentfem import results
+    m,u = build()
+    snapshots = [provenance.model_settings(m, target=u, step_options={
+        'output': results.OutputPlan(directory='outputs', field=results.field_output('U', every=n))})
+        for n in (1, 3)]
+    report = provenance.compare_model_settings(*snapshots)
+    assert report['recorded_settings_equal']
+    assert any(item['path'].endswith('every') for item in report['operational_changes'])

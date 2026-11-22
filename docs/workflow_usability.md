@@ -52,6 +52,10 @@ scope returns 2. Missing snapshots and malformed records fail explicitly.
 Opaque expressions, direct unlocated constraints and unsupported constraint
 identities remain coverage gaps. The comparison never replays Python or edits
 either result; the existing quantity/history tolerance comparison is unchanged.
+Opaque/missing records remain incomplete even if a producer left a stale
+`complete` flag. The dynamic and nonlinear templates share the full output
+kwargs between settings snapshots and Step construction, so output-policy
+changes are retained separately from physical model changes.
 In addition to checkpoint geometry identity, source-label connectivity and
 registered DOFs distinguish coincident seam nodes from shared nodes. Pure
 source renumbering can therefore change a record without changing its physics.
@@ -67,6 +71,10 @@ without a function retain unknown size. Mesh/connectivity, projection,
 compression and histories can change actual file size; LU fill/peak memory
 remain unknown without further analysis. No mesh, solver, output policy or
 environment setting is automatically changed.
+When a target is supplied, the budget identifies its registered scalar DOF
+count and rejects a target on a different mesh. Mesh/region identities and
+review integrations are reused only within the current call; edits to geometry
+or coefficients are read again on the next call.
 
 ## Find a task and use its installed project
 

@@ -1718,6 +1718,25 @@ def _owned_p1_input_node_ids(function) -> np.ndarray:
     return source
 
 
+def _cell_geometry_signatures(geometry, connectivity, *, policy, chunk_scalars=65536):
+    """Preserve v2 cell hashes while batching quantization and node ordering.
+
+    Bound intermediate coordinate arrays independently of mesh size. SHA-256
+    still consumes each cell's contiguous int64 bytes in the original order.
+    """
+    lower, tolerance = policy
+    width = connectivity.shape[1] * geometry.shape[1]
+    chunk_cells = max(1, chunk_scalars // max(1, width))
+    signatures = []
+    for start in range(0, len(connectivity), chunk_cells):
+        points = np.asarray(geometry[connectivity[start:start+chunk_cells]], dtype=np.float64)
+        keys = np.rint((points - lower) / tolerance).astype(np.int64)
+        order = np.lexsort(tuple(keys[:, :, axis] for axis in reversed(range(keys.shape[2]))), axis=1)
+        ordered = np.take_along_axis(keys, order[:, :, None], axis=1)
+        signatures.extend(sha256(np.ascontiguousarray(cell).tobytes()).hexdigest() for cell in ordered)
+    return signatures
+
+
 def mesh_portable_identity(domain) -> dict[str, object]:
     """Hash cell geometry independently of local numbering and partition.
 
@@ -1731,20 +1750,11 @@ def mesh_portable_identity(domain) -> dict[str, object]:
     geometry_dofmap = np.asarray(domain.geometry.dofmaps[0])
     geometry = np.asarray(domain.geometry.x)[:, : int(domain.geometry.dim)]
     coordinate_policy = _coordinate_key_policy(domain)
-    local_signatures = []
-    for cell in range(int(cell_map.size_local)):
-        coordinates = np.asarray(geometry[geometry_dofmap[cell]], dtype=np.float64)
-        coordinates = _quantized_coordinate_keys(
-            coordinates,
-            domain,
-            policy=coordinate_policy,
-        )
-        coordinates = coordinates[_coordinate_order(coordinates)]
-        digest = sha256()
-        digest.update(np.ascontiguousarray(coordinates).tobytes())
-        local_signatures.append(digest.hexdigest())
+    local_signatures = _cell_geometry_signatures(geometry,
+        geometry_dofmap[:int(cell_map.size_local)], policy=coordinate_policy)
     signatures = []
-    for rank_values in domain.comm.allgather(local_signatures):
+    from ._mpi_collectives import object_allgather
+    for rank_values in object_allgather(domain.comm, local_signatures):
         signatures.extend(rank_values)
     signatures.sort()
     digest = sha256()
@@ -1767,7 +1777,9 @@ def mesh_portable_identity(domain) -> dict[str, object]:
 
 
 def _coordinate_key_policy(domain) -> tuple[np.ndarray, float]:
-    geometry = np.asarray(domain.geometry.x)[:, : int(domain.geometry.dim)]
+    # The receive buffers below are float64. Use that same MPI datatype for
+    # local extrema even when a caller supplies single-precision geometry.
+    geometry = np.asarray(domain.geometry.x, dtype=np.float64)[:, : int(domain.geometry.dim)]
     gdim = int(domain.geometry.dim)
     local_min = np.min(geometry, axis=0) if len(geometry) else np.full(gdim, np.inf)
     local_max = np.max(geometry, axis=0) if len(geometry) else np.full(gdim, -np.inf)

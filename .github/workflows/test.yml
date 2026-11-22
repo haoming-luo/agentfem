@@ -344,6 +344,7 @@ jobs:
           python -m pytest -q -o pythonpath=
           tests/test_task_guidance.py tests/test_product_result_recipes.py
           tests/test_model_review_workflow.py tests/test_model_settings.py tests/test_resource_budget.py
+          tests/test_mesh_identity_batch.py
           tests/test_product_diagnostics.py tests/test_series_observation.py
           tests/test_mpi_collectives.py
 
@@ -479,6 +480,7 @@ jobs:
           tests/test_parallel_results.py
           tests/test_engineering_postprocessing.py
           tests/test_model_review_workflow.py
+          tests/test_mesh_identity_batch.py
           tests/test_model_settings.py
           tests/test_resource_budget.py
           tests/test_prescribed_material_fields.py

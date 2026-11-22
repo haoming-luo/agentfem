@@ -101,3 +101,31 @@ def test_independent_unknowns_sharing_a_space_are_not_aliases():
     card = discretization(m)
     assert card['registered_scalar_dofs'] == 30
     assert [f['shared_unknown'] for f in card['fields']] == [False, False, True]
+
+
+def test_review_reuses_regions_once_and_does_not_keep_stale_geometry(monkeypatch):
+    from dataclasses import replace
+    d,m,u,right = model()
+    m.traction((2.,0.), on=right)
+    # Exercise one repeated region without assuming Python aliasing matches
+    # on every MPI rank.
+    from agentfem.constraints import dirichlet_constraints
+    left = dirichlet_constraints(m.constraints)[0].location
+    location = replace(left) if MPI.COMM_WORLD.rank == 0 else left
+    m.fix(u, on=location, component=0, name='additional_x')
+    from agentfem import _model_review
+    original = _model_review.region_evidence
+    calls = []
+    def tracked(region, **kwargs):
+        calls.append(region.name)
+        return original(region, **kwargs)
+    monkeypatch.setattr(_model_review, 'region_evidence', tracked)
+    first = m.review(target=u)
+    assert calls.count('right') == 1
+    assert calls.count('left') == 2  # one rank uses a separate object
+    first['constraints'][0]['regions'][0]['bounds'][0][0] = 99.
+    assert first['constraints'][1]['regions'][0]['bounds'][0][0] == 0.
+    d.geometry.x[:, 1] *= 2.
+    second = m.review(target=u)
+    assert second['loads'][0]['reference_measure'] == pytest.approx(2.)
+    assert second['loads'][0]['region']['bounds'][1][1] == 2.

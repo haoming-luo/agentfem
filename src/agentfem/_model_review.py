@@ -1,6 +1,7 @@
 # SPDX-FileCopyrightText: 2026 Haoming Luo and AgentFEM contributors
 # SPDX-License-Identifier: Apache-2.0
 """Collective, non-solving review of the actual registered engineering model."""
+from copy import deepcopy
 import numpy as np
 import ufl
 from mpi4py import MPI
@@ -63,6 +64,24 @@ def region_evidence(region, *, study):
         'measure_convention': 'study-weighted reference measure; axisymmetry includes full revolution'}
 
 
+class _ReviewRegions:
+    """Reuse integrations within one review, never across geometry updates."""
+
+    def __init__(self, mesh, study):
+        self.mesh, self.study, self.cache = mesh, study, {}
+
+    def __call__(self, region):
+        key = id(region)
+        ready = np.array(int(key in self.cache), dtype=np.int32)
+        # Rank-local Python aliasing need not match across ranks. Recompute
+        # everywhere if any rank misses; never skip a collective on one rank.
+        self.mesh.comm.Allreduce(MPI.IN_PLACE, ready, op=MPI.MIN)
+        if not ready.item():
+            self.cache[key] = region_evidence(region, study=self.study)
+        # Report entries remain detached even when they refer to one region.
+        return deepcopy(self.cache[key])
+
+
 def review_model(model, *, target=None, step_options=None, output_fields=(), output_frames=None, output_directory=None):
     from . import __version__, results
     from . import constraints as constraint_api
@@ -73,6 +92,7 @@ def review_model(model, *, target=None, step_options=None, output_fields=(), out
     if mesh is None:
         raise ValueError('Model review requires a mesh.')
     comm = mesh.comm
+    evidence = _ReviewRegions(mesh, model.study)
     validation = model.validate(target=target, step_options=step_options).as_dict()
     capability = step_capability(model, target=target, options=step_options)
     physics = model_physics(model, options=step_options)
@@ -106,7 +126,7 @@ def review_model(model, *, target=None, step_options=None, output_fields=(), out
         if counts:
             entry.update(status='checked', owned_scalar_dof_count=sum(counts),
                          component_constraint_count=len(counts))
-        entry['regions'] = [region_evidence(member.location, study=model.study)
+        entry['regions'] = [evidence(member.location)
                             for member in members if getattr(member, 'location', None) is not None]
         constraints.append(entry)
     loads = []
@@ -114,10 +134,12 @@ def review_model(model, *, target=None, step_options=None, output_fields=(), out
         entry = {'definition': describe(item), 'status': 'not_checked'}
         region = getattr(item, 'location', None)
         if region is not None and getattr(region, 'domain', None) is mesh:
-            area = results.region_measure(on=region, study=model.study)
+            region_info = evidence(region)
+            area = (region_info['physical_measure'] if region_info['status'] == 'checked'
+                    else results.region_measure(on=region, study=model.study))
             entry.update(status='checked', reference_measure=float(area),
                          evaluation='current input snapshot; not an integrated load history')
-            entry['region'] = region_evidence(region, study=model.study)
+            entry['region'] = region_info
             if area <= 0:
                 findings.append({'code': 'AFM-REVIEW-EMPTY-LOAD', 'name': item.name})
             value = getattr(item, 'value', None)
@@ -150,7 +172,7 @@ def review_model(model, *, target=None, step_options=None, output_fields=(), out
         'discretization': grid, 'resource_budget': resources,
         'material_regions': [{'definition': describe(item),
             'region': ({'status': 'whole_domain'} if item.region is None else
-                       region_evidence(item.region, study=model.study))} for item in model.materials],
+                       evidence(item.region))} for item in model.materials],
         'capability': capability, 'validation': validation,
         'constraints': constraints, 'loads': loads, 'rigid_modes': rigid,
         'findings': findings, 'solver_executed': False,

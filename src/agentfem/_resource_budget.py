@@ -91,14 +91,22 @@ def budget(model, *, target=None, step_options=None, fields=(), frames=None, out
                 'bytes_per_frame': n * f.x.array.dtype.itemsize})
         if len({f['name'] for f in requested}) != len(requested):
             raise ValueError('Budget output field names must be distinct.')
-        return requested
+        selected = {'name': getattr(target, 'name', None), 'status': 'not_checked'}
+        if target is not None:
+            space = getattr(target, 'function_space', None)
+            if space is not None:
+                if space.mesh is not mesh:
+                    raise ValueError('Budget target must belong to the model mesh.')
+                selected.update(status='declared', global_scalar_dofs=int(
+                    space.dofmap.index_map.size_global * space.dofmap.index_map_bs))
+        return requested, selected
     # Propagate rank-local bad field declarations before further collectives.
     from ._mpi_collectives import _defer_automatic_gc
     with _defer_automatic_gc():
-        requested = collective_call(prepare, comm=mesh.comm, label='resource budget inputs')
+        requested, selected_target = collective_call(prepare, comm=mesh.comm, label='resource budget inputs')
         from .provenance import collective_canonical_record
         collective_canonical_record({'fields': requested, 'frames': None if frames is None else int(frames),
-            'step_options': describe(options)},
+            'step_options': describe(options), 'target': selected_target},
             comm=mesh.comm, label='resource budget output declaration')
     selected_grid = discretization(model) if grid is None else grid
     count, basis = None if frames is None else int(frames), 'explicit requested frames' if frames is not None else 'unknown accepted/output schedule'
@@ -134,6 +142,7 @@ def budget(model, *, target=None, step_options=None, fields=(), frames=None, out
     payload = (sum(f['bytes_per_frame'] or 0 for f in requested)
                if any(f['bytes_per_frame'] is not None for f in requested) else None)
     return {'schema': 'agentfem.resource-budget.v1', 'discretization': selected_grid,
+        'target': selected_target,
         'solver': {'requested': describe(options.get('solver_options')),
             'selection': 'declared' if options.get('solver_options') is not None else 'provider_default_not_built',
             'peak_memory_bytes': None, 'reason': 'no symbolic assembly/factorization; coefficient bytes do not predict LU fill'},

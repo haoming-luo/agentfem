@@ -49,8 +49,9 @@ def main(*, review=False):
             print(json.dumps(card, ensure_ascii=False, allow_nan=False))
         return card
     run = project.current_run(project_root=Path(__file__).resolve().parent)
+    options['output'] = run.artifact("dynamics.xdmf")
     settings = provenance.model_settings(model, target=displacement, step_options=options, source_files=(Path(__file__),))
-    step = model.step(target=displacement, output=run.artifact("dynamics.xdmf"), **options)
+    step = model.step(target=displacement, **options)
     simulation = step.solve_result(
         history=(
             results.probe_history(

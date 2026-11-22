@@ -21,6 +21,13 @@ and MPI regression requirements. Historical checkpoints below retain their
 original context; they are not a second active backlog. P92 scientific model
 admission remains a separate research track.
 
+The bounded maintenance follow-up reduces repeated source-node conversion,
+batches checkpoint identity work and reuses region evidence within a review.
+It retains fingerprint compatibility and one-call cache lifetimes, and closes
+rank-local region failure paths. Measurements in
+`validation/workflow_inspection/README.md` separate metadata acceleration and
+temporary Python memory from solver runtime.
+
 ### Measured mixed-control identification checkpoint (2026-11-17)
 
 The [three-protocol early-cycle experiment](internal/p92_measured_controls_20261117.md)

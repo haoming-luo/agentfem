@@ -23,6 +23,7 @@ def test_payload_budget_is_not_file_or_solver_memory_prediction(tmp_path):
     report = diagnostics.resource_budget(m, target=u, fields=(u, 'S'),
         step_options={'steps': 6, 'save_every': 3}, output_directory=path)
     assert report['discretization']['registered_scalar_dofs'] == 30
+    assert report['target'] == {'name': u.name, 'status': 'declared', 'global_scalar_dofs': 30}
     out = report['output']
     assert out['planned_frames'] == 3
     assert out['coefficient_payload_bytes'] == 3 * 30 * u.value.x.array.dtype.itemsize
@@ -90,3 +91,11 @@ def test_frame_declarations_must_agree_across_ranks():
     m,u = model()
     with pytest.raises(RuntimeError, match='differs across MPI ranks'):
         diagnostics.resource_budget(m, fields=(u,), frames=1+MPI.COMM_WORLD.rank)
+
+
+def test_budget_target_must_be_on_the_model_mesh():
+    m,_ = model()
+    other = mesh.rectangle((0.,0.), (1.,1.), (4,2), comm=MPI.COMM_WORLD)
+    target = fields.displacement(other)
+    with pytest.raises((ValueError, RuntimeError), match='target must belong'):
+        diagnostics.resource_budget(m, target=target)

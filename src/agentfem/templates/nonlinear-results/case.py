@@ -29,8 +29,9 @@ def main(*, review=False):
     output = results.OutputPlan(directory=run.output_directory,
         field=results.field_output("U", "S", every=1, configuration="reference"), basename="fields",
         write_manifest=False)  # RunContext publishes once, after curve attachment.
+    options['output'] = output
     settings = provenance.model_settings(model, target=u, step_options=options, source_files=(Path(__file__),))
-    step = model.step(target=u, output=output, **options)
+    step = model.step(target=u, **options)
     result = step.solve_result()
     result.metadata["model_settings"] = settings
     path = mechanics.displacement_controlled_response(model, step, on=loaded, component=0, monitor_component=0)

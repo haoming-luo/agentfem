@@ -9,10 +9,80 @@ import numpy as np
 from ._mpi_collectives import _defer_automatic_gc, object_allgather
 
 
-def _source_nodes(mesh, indices):
-    labels = mesh.geometry.input_global_indices
-    coordinates = mesh.geometry.x[:, :mesh.geometry.dim]
-    return sorted((int(labels[i]), *coordinates[i].tolist()) for i in indices)
+class _SourceNodes:
+    """One-call node records shared by cell and region fingerprints.
+
+    No persistent mesh cache: coordinate/label edits must be visible in the
+    next snapshot. Reusing immutable rows preserves the v1 JSON hash exactly.
+    """
+
+    def __init__(self, mesh):
+        labels = mesh.geometry.input_global_indices
+        points = mesh.geometry.x[:, :mesh.geometry.dim].tolist()
+        self.rows = [(int(label), *point) for label, point in zip(labels, points)]
+
+    def __call__(self, indices):
+        return sorted(self.rows[i] for i in indices)
+
+
+def _region_membership(mesh, regions, source_nodes):
+    """Validate one communication plan, then gather all region hashes once."""
+    from . import provenance
+    from dolfinx.mesh import entities_to_geometry
+
+    def prepare():
+        prepared, plan = [], []
+        for region in regions:
+            tags = getattr(region, 'facet_tags', None)
+            if tags is None:
+                tags = getattr(region, 'cell_tags', None)
+            if tags is None or getattr(region, 'domain', None) is not mesh:
+                prepared.append(None)
+                plan.append({'status': 'unidentified'})
+                continue
+            dim = int(tags.dim)
+            if not 0 <= dim <= mesh.topology.dim:
+                raise ValueError('Region entity dimension exceeds the model mesh dimension.')
+            plan.append({'name': region.name, 'dimension': dim, 'tag': int(region.tag)})
+            prepared.append((region, tags))
+        return prepared, plan
+
+    with _defer_automatic_gc():
+        prepared, plan = provenance.collective_call(prepare, comm=mesh.comm, label='region identity plan')
+        provenance.collective_canonical_record(plan, comm=mesh.comm, label='region identity plan')
+    # Entity creation can communicate; do it outside collective_call and in a
+    # shared order, including when only some ranks own selected entities.
+    for dim in sorted({item['dimension'] for item in plan if 'dimension' in item}):
+        mesh.topology.create_entities(dim)
+
+    def local_hashes():
+        batches = []
+        for item in prepared:
+            if item is None:
+                batches.append(None)
+                continue
+            region, tags = item
+            indices = np.asarray(tags.find(region.tag), dtype=np.int32)
+            index_map = mesh.topology.index_map(tags.dim)
+            if np.any(indices < 0) or np.any(indices >= index_map.size_local + index_map.num_ghosts):
+                raise ValueError('Region tags contain out-of-range entity indices.')
+            indices = indices[indices < index_map.size_local]
+            batches.append([provenance.content_fingerprint(source_nodes(nodes))
+                for nodes in entities_to_geometry(mesh, tags.dim, indices)])
+        return batches
+
+    with _defer_automatic_gc():
+        local = provenance.collective_call(local_hashes, comm=mesh.comm, label='region identity evaluation')
+    gathered = object_allgather(mesh.comm, local)
+    records, gaps = [], []
+    for i, descriptor in enumerate(plan):
+        if prepared[i] is None:
+            gaps.append({'path': 'regions', 'reason': 'unidentified or non-tagged region'})
+            continue
+        entries = sorted(v for rank in gathered for v in rank[i])
+        records.append({**descriptor, 'entities': len(entries),
+            'fingerprint': provenance.content_fingerprint(entries)})
+    return records, gaps
 
 
 def snapshot(model, *, target=None, step_options=None, source_files=()):
@@ -37,9 +107,12 @@ def snapshot(model, *, target=None, step_options=None, source_files=()):
     registered_steps = root.pop('steps', ())
     root['mesh'] = {'identity': identity,
         'bounds': _bounds(mesh, mesh.geometry.x[:, :mesh.geometry.dim])}
+    with _defer_automatic_gc():
+        source_nodes = provenance.collective_call(lambda: _SourceNodes(mesh),
+            comm=mesh.comm, label='source node identity')
     def source_cells():
         count = mesh.topology.index_map(mesh.topology.dim).size_local
-        return [provenance.content_fingerprint(_source_nodes(mesh, nodes))
+        return [provenance.content_fingerprint(source_nodes(nodes))
             for nodes in mesh.geometry.dofmaps[0][:count]]
     with _defer_automatic_gc():
         local_cells = provenance.collective_call(source_cells, comm=mesh.comm, label='source connectivity identity')
@@ -72,24 +145,8 @@ def snapshot(model, *, target=None, step_options=None, source_files=()):
             region = getattr(item, 'region', None)
         if region is not None and all(region is not r for r in regions):
             regions.append(region)
-    root['region_membership'] = []
-    for region in regions:
-        tags = getattr(region, 'facet_tags', None)
-        if tags is None:
-            tags = getattr(region, 'cell_tags', None)
-        if tags is None or getattr(region, 'domain', None) is not mesh:
-            gaps.append({'path': 'regions', 'reason': 'unidentified or non-tagged region'})
-            continue
-        from dolfinx.mesh import entities_to_geometry
-        mesh.topology.create_entities(tags.dim)
-        indices = np.asarray(tags.find(region.tag), dtype=np.int32)
-        indices = indices[indices < mesh.topology.index_map(tags.dim).size_local]
-        local = []
-        for nodes in entities_to_geometry(mesh, tags.dim, indices):
-            local.append(provenance.content_fingerprint(_source_nodes(mesh, nodes)))
-        entries = sorted(v for chunk in object_allgather(mesh.comm, local) for v in chunk)
-        root['region_membership'].append({'name': region.name, 'dimension': tags.dim,
-            'tag': region.tag, 'entities': len(entries), 'fingerprint': provenance.content_fingerprint(entries)})
+    root['region_membership'], region_gaps = _region_membership(mesh, regions, source_nodes)
+    gaps.extend(region_gaps)
     root['constraint_components'] = []
     for item in members:
         bc = getattr(item, 'bc', None)
@@ -128,6 +185,9 @@ def compare(reference, candidate):
             raise ValueError('Expected a model_settings snapshot, not a result or arbitrary model summary.')
         if not isinstance(record.get('coverage'), dict) or not isinstance(record['coverage'].get('complete'), bool):
             raise ValueError('Model settings require explicit coverage metadata.')
+        declared_gaps = record['coverage'].get('gaps')
+        if not isinstance(declared_gaps, (list, tuple)) or any(not isinstance(gap, dict) for gap in declared_gaps):
+            raise ValueError('Model settings coverage gaps must be a list of records.')
         if not isinstance(record.get('operational'), dict) or not isinstance(record.get('agentfem_version'), str):
             raise ValueError('Model settings require operational and software-version metadata.')
         for name in ('scientific_inputs', 'source_files'):
@@ -142,7 +202,23 @@ def compare(reference, candidate):
             expected = provenance.content_fingerprint({'label': manifest['label'], 'record': manifest['record']})
             if manifest['fingerprint'] != expected:
                 raise ValueError(f'{name} fingerprint does not match its record.')
-        return record
+            if not isinstance(manifest.get('complete'), bool) or not isinstance(manifest.get('missing'), (list, tuple)):
+                raise ValueError(f'{name} requires explicit input coverage.')
+            if any(not isinstance(item, dict) for item in manifest['missing']):
+                raise ValueError(f'{name} missing inputs must be records.')
+        # Older/external producers can retain a stale complete flag. Derive
+        # the conservative view from the actual records; never mutate input.
+        gaps = list(declared_gaps)
+        _gaps(record['scientific_inputs']['record'], 'model', gaps)
+        for name in ('scientific_inputs', 'source_files'):
+            manifest = record[name]
+            gaps.extend(manifest['missing'])
+            if not manifest['complete'] and not manifest['missing']:
+                gaps.append({'path': name, 'reason': 'producer reports incomplete input coverage'})
+        gaps = list({provenance.content_fingerprint(item): item for item in gaps}.values())
+        coverage = {**record['coverage'], 'complete': record['coverage']['complete'] and not gaps,
+            'gaps': gaps}
+        return {**record, 'coverage': coverage}
     a, b = load(reference), load(candidate)
     differences = []
     _differences(a['scientific_inputs']['record'], b['scientific_inputs']['record'], 'model', differences)
