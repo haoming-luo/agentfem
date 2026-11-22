@@ -9,10 +9,16 @@ import numpy as np
 from ._mpi_collectives import _defer_automatic_gc, object_allgather
 
 
+def _source_nodes(mesh, indices):
+    labels = mesh.geometry.input_global_indices
+    coordinates = mesh.geometry.x[:, :mesh.geometry.dim]
+    return sorted((int(labels[i]), *coordinates[i].tolist()) for i in indices)
+
+
 def snapshot(model, *, target=None, step_options=None, source_files=()):
     from . import __version__, checkpointing, provenance
     from ._model_support import domain
-    from ._model_review import _bounds
+    from ._model_review import _bounds, discretization
     from .ir.export import describe
     from .step_providers import step_capability
 
@@ -31,6 +37,16 @@ def snapshot(model, *, target=None, step_options=None, source_files=()):
     registered_steps = root.pop('steps', ())
     root['mesh'] = {'identity': identity,
         'bounds': _bounds(mesh, mesh.geometry.x[:, :mesh.geometry.dim])}
+    def source_cells():
+        count = mesh.topology.index_map(mesh.topology.dim).size_local
+        return [provenance.content_fingerprint(_source_nodes(mesh, nodes))
+            for nodes in mesh.geometry.dofmaps[0][:count]]
+    with _defer_automatic_gc():
+        local_cells = provenance.collective_call(source_cells, comm=mesh.comm, label='source connectivity identity')
+    cells = sorted(v for chunk in object_allgather(mesh.comm, local_cells) for v in chunk)
+    root['mesh']['source_label_connectivity'] = provenance.content_fingerprint(cells)
+    root['mesh']['source_label_scope'] = 'input geometry labels bind node sharing; renumbering can change this record without changing physics'
+    root['discretization'] = discretization(model)
     root['target'] = None if target is None else getattr(target, 'name', None)
     options = dict(step_options or {})
     operational = {k: options.pop(k) for k in ('output', 'name', 'progress', 'print_every') if k in options}
@@ -70,8 +86,7 @@ def snapshot(model, *, target=None, step_options=None, source_files=()):
         indices = indices[indices < mesh.topology.index_map(tags.dim).size_local]
         local = []
         for nodes in entities_to_geometry(mesh, tags.dim, indices):
-            points = mesh.geometry.x[nodes, :mesh.geometry.dim]
-            local.append(provenance.content_fingerprint(sorted(points.tolist())))
+            local.append(provenance.content_fingerprint(_source_nodes(mesh, nodes)))
         entries = sorted(v for chunk in object_allgather(mesh.comm, local) for v in chunk)
         root['region_membership'].append({'name': region.name, 'dimension': tags.dim,
             'tag': region.tag, 'entities': len(entries), 'fingerprint': provenance.content_fingerprint(entries)})

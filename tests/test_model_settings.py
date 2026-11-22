@@ -105,3 +105,40 @@ def test_old_result_has_no_invented_snapshot(tmp_path, capsys):
     assert cli.main(['compare', str(p), str(p), '--settings', '--json']) == 2
     error = json.loads(capsys.readouterr().out)
     assert 'model_settings snapshot' in error['error']['message']
+
+
+def test_coincident_seam_nodes_are_not_unchanged_geometry():
+    comm = MPI.COMM_SELF
+    points = np.array([[0.,0.], [1.,0.], [2.,0.], [0.,1.], [1.,1.], [2.,1.]])
+    snapshots = []
+    for seam in (False, True):
+        coordinates = np.vstack((points, points[[1,4]])) if seam else points
+        cells = np.array([[0,1,3,4], [6,2,7,5] if seam else [1,2,4,5]], dtype=np.int64)
+        d = mesh.from_arrays(cells=cells, coordinates=coordinates, cell_type='quadrilateral', comm=comm)
+        m = models.create(mesh=d, study=studies.static_solid(dimension=2, assumption='plane_stress'))
+        u = m.field(fields.displacement(d))
+        m.material(constitutive.isotropic_elastic(young=1000., poisson=.3, density=1.))
+        snapshots.append(provenance.model_settings(m, target=u))
+    report = provenance.compare_model_settings(*snapshots)
+    assert not report['recorded_settings_equal']
+    assert any('mesh' in item['path'] for item in report['scientific_changes'])
+
+
+def test_tagged_sides_of_coincident_seam_remain_distinct():
+    from dolfinx import mesh as dm
+    points = np.array([[0.,0.], [1.,0.], [2.,0.], [0.,1.], [1.,1.], [2.,1.], [1.,0.], [1.,1.]])
+    d = mesh.from_arrays(cells=np.array([[0,1,3,4], [6,2,7,5]], dtype=np.int64),
+        coordinates=points, cell_type='quadrilateral', comm=MPI.COMM_SELF)
+    facets = dm.locate_entities_boundary(d, 1, lambda x: np.isclose(x[0], 1.))
+    assert len(facets) == 2
+    snapshots = []
+    for facet in facets:
+        m = models.create(mesh=d, study=studies.static_solid(dimension=2, assumption='plane_stress'))
+        u = m.field(fields.displacement(d))
+        m.material(constitutive.isotropic_elastic(young=1000., poisson=.3, density=1.))
+        tags = dm.meshtags(d, 1, np.array([facet], dtype=np.int32), np.array([1], dtype=np.int32))
+        region = mesh.BoundaryRegion('seam', d, None, 1, tags, ufl.Measure('ds', domain=d, subdomain_data=tags))
+        m.traction((2.,0.), on=region)
+        snapshots.append(provenance.model_settings(m, target=u))
+    report = provenance.compare_model_settings(*snapshots)
+    assert any('region_membership' in item['path'] for item in report['scientific_changes'])

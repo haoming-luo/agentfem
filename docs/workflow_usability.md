@@ -52,6 +52,9 @@ scope returns 2. Missing snapshots and malformed records fail explicitly.
 Opaque expressions, direct unlocated constraints and unsupported constraint
 identities remain coverage gaps. The comparison never replays Python or edits
 either result; the existing quantity/history tolerance comparison is unchanged.
+In addition to checkpoint geometry identity, source-label connectivity and
+registered DOFs distinguish coincident seam nodes from shared nodes. Pure
+source renumbering can therefore change a record without changing its physics.
 
 `diagnostics.resource_budget(model, fields=(u,), frames=5,
 output_directory="outputs")` is the same budget without boundary quadrature.
