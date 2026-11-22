@@ -1,4 +1,6 @@
 from dataclasses import asdict, replace
+from hashlib import sha256
+import json
 from pathlib import Path
 
 import numpy as np
@@ -90,3 +92,27 @@ def test_strain_control_continuation_and_independent_solution(rate):
     rest = kernel.integrate(first.y[:, -1], 2., rate, m)
     np.testing.assert_allclose(whole.y[:, -1], independent.y[:, -1], atol=1e-7, rtol=1e-7)
     np.testing.assert_allclose(whole.y[:, -1], rest.y[:, -1], atol=1e-7, rtol=1e-7)
+
+
+def test_archived_primary_comparison_preserves_identity_budget_and_failure():
+    root = Path(__file__).resolve().parents[1]/"evidence"/"creep"
+    raw = (root/"2026-11-22-primary-exp-matched.json").read_bytes()
+    fit = json.loads(raw)
+    frozen = json.loads((root/"2026-11-22-primary-exp-frozen.json").read_text())
+    residual = json.loads((root/"2026-11-22-primary-exp-residual.json").read_text())
+    assert fit["fit"]["success"] and fit["primary_creep"]
+    assert fit["model_id"] == frozen["model_id"] == kernel.MODEL_ID
+    assert not fit["directional_recovery"]
+    assert fit["training_cycles"] == [1, 2, 3]
+    assert len(fit["coordinates"]) == 22 and len(fit["fit"]["coordinates"]) == 10
+    assert fit["maximum_log_coordinate_norm"] == .3 and fit["fit"]["nfev"] <= 40
+    assert frozen["fit_file_sha256"] == sha256(raw).hexdigest()
+    assert frozen["parameters"] == fit["fit"]["parameters"]
+    assert frozen["source_sha256"] == fit["source_sha256"] == residual["source_sha256"]
+    assert frozen["archived_source_sha256"] == residual["frozen_sha256"][1]
+    assert residual["candidate_cost"] == pytest.approx(fit["fit"]["cost"], abs=1e-16)
+    assert frozen["driver_sha256"]["p92_primary_creep_reference.py"] == fit["driver_sha256"]["p92_primary_creep_reference.py"]
+    assert not frozen["engineering_qualified"] and not frozen["life_qualified"]
+    for result in frozen["protocols"].values():
+        assert result["numerical"]["passed"]
+        assert result["response_screen"]["status"] == "failed"

@@ -1,5 +1,18 @@
 # AgentFEM Product Roadmap
 
+### Primary-creep replacement isolated and frozen (2026-11-22)
+
+The [primary-creep discriminator](internal/p92_primary_creep_20261122.md)
+replaces only the slow recoverable branch by a strain-hardening irreversible
+branch, retaining the original magnitude direction rule and parameter count.
+Matched identification converges but the early objective is 47.26% worse.
+All three ten-cycle numerical checks pass; all experimental screens fail.
+SLC anchored relaxation shape improves, but hold-entry and actual hold errors
+worsen; SLR cycle-10 peak error grows to 12.38%. Do not promote this direct
+replacement. Preserve recoverable response in the next discriminator and
+constrain inherited creep state and subsequent relaxation together, without
+adding coefficients. PR #197 remains open, unmerged and unreleased.
+
 ### Directional recovery isolated and frozen (2026-11-22)
 
 The [directional comparison](internal/p92_directional_recovery_20261122.md)

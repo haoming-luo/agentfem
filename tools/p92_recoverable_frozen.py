@@ -113,6 +113,7 @@ if __name__ == "__main__":
     args = parser.parse_args()
     raw = args.fit.read_bytes()
     names = ("p92_recoverable_reference.py", "p92_recoverable_spectrum.py", "p92_two_rate_reference.py",
+             "p92_primary_creep_reference.py",
              "p92_shared_drag_reference.py", "p92_reversal_memory_reference.py",
              "p92_two_rate_controls.py", "p92_recoverable_frozen.py", "p92_two_rate_frozen.py",
              "p92_measured_controls.py", "p92_waveform_controls.py", "p92_response_screen.py")
