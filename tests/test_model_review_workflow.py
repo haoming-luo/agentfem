@@ -34,6 +34,15 @@ def test_expression_tuple_matches_explicit_vector_and_resultant():
     assert card['loads'][0]['reference_measure'] == pytest.approx(1.)
     assert card['constraints'][0]['owned_scalar_dof_count'] > 0
     assert card['rigid_modes']['remaining_modes'] == 0
+    grid = card['discretization']
+    assert grid['global_cells'] == 8
+    assert grid['registered_scalar_dofs'] == 30
+    assert grid['fields'][0]['degree'] == 1
+    assert grid['fields'][0]['value_shape'] == [2]
+    assert grid['bounds'] == [[0., 0.], [2., 1.]]
+    assert card['loads'][0]['region']['global_owned_entities'] == 2
+    assert card['constraints'][0]['regions'][0]['global_owned_entities'] == 2
+    assert card['material_regions'][0]['region']['status'] == 'whole_domain'
     np.testing.assert_array_equal(before, u.value.x.array)
 
 
@@ -66,3 +75,15 @@ def test_review_reports_unconstrained_model_and_empty_load():
     card = m.review(target=u)
     assert card['rigid_modes']['remaining_modes'] == 3
     assert card['findings'][0]['code'] == 'AFM-REVIEW-EMPTY-LOAD'
+    assert card['loads'][0]['region']['bounds'] is None
+
+
+def test_quadratic_discretization():
+    d,m,_,_ = model()
+    m.fields.clear()
+    u = m.field(fields.displacement(d, degree=2))
+    m.constraints.clear()
+    card = m.review(target=u)
+    assert card['discretization']['registered_scalar_dofs'] == 90
+    assert card['discretization']['fields'][0]['degree'] == 2
+    assert card['discretization']['global_cells'] == 8

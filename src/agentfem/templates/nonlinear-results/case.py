@@ -2,12 +2,13 @@
 # SPDX-License-Identifier: Apache-2.0
 """Serial SI displacement-controlled hyperelastic patch and accepted path."""
 from pathlib import Path
+import json
+import sys
 from mpi4py import MPI
 from agentfem import constitutive, fields, mechanics, mesh, models, project, results, steps, studies, units
 
 
-def main():
-    run = project.current_run(project_root=Path(__file__).parent)
+def main(*, review=False):
     domain = mesh.cuboid((0., 0., 0.), (1., 1., 1.), (2, 1, 1), comm=MPI.COMM_SELF,
         cell_type="hexahedron")
     model = models.create(mesh=domain, study=studies.static_solid(dimension=3, nonlinear=True), units=units.si())
@@ -17,10 +18,17 @@ def main():
         model.fix(u, on=mesh.face(domain, axis=axis, value=0., tag=component+1), component=component)
     loaded = mesh.face(domain, axis="x", value=1., tag=4, name="displaced_end")
     model.fix(u, on=loaded, component=0, value=.1)
+    options = dict(incrementation=steps.fixed(4), progress=False)
+    if review:
+        card = model.review(target=u, step_options=options)
+        if domain.comm.rank == 0:
+            print(json.dumps(card, ensure_ascii=False, allow_nan=False))
+        return card
+    run = project.current_run(project_root=Path(__file__).parent)
     output = results.OutputPlan(directory=run.output_directory,
         field=results.field_output("U", "S", every=1, configuration="reference"), basename="fields",
         write_manifest=False)  # RunContext publishes once, after curve attachment.
-    step = model.step(target=u, incrementation=steps.fixed(4), output=output, progress=False)
+    step = model.step(target=u, output=output, **options)
     result = step.solve_result()
     path = mechanics.displacement_controlled_response(model, step, on=loaded, component=0, monitor_component=0)
     result.add_history("loaded_end_reaction", path["displacement"], path["reaction"], unit="N",
@@ -34,4 +42,4 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    main(review="--review" in sys.argv[1:])

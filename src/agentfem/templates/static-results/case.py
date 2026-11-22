@@ -2,12 +2,13 @@
 # SPDX-License-Identifier: Apache-2.0
 """SI 3D cantilever: fields, a spatial point and the fixed-end reaction."""
 from pathlib import Path
+import json
+import sys
 from mpi4py import MPI
 from agentfem import constitutive, fields, mesh, models, project, results, studies, units
 
 
-def main():
-    run = project.current_run(project_root=Path(__file__).parent)
+def main(*, review=False):
     domain = mesh.cuboid((0., 0., 0.), (1., .2, .2), (6, 2, 2), comm=MPI.COMM_WORLD)
     study = studies.static_solid(dimension=3)
     model = models.create(mesh=domain, study=study, units=units.si())
@@ -18,6 +19,12 @@ def main():
     loaded = mesh.face(domain, axis="x", value=1., tag=2, name="loaded")
     model.clamp(u, on=fixed)
     model.traction((0., -1e6, 0.), on=loaded)
+    if review:
+        card = model.review(target=u)
+        if domain.comm.rank == 0:
+            print(json.dumps(card, ensure_ascii=False, allow_nan=False))
+        return card
+    run = project.current_run(project_root=Path(__file__).parent)
     step = model.step(target=u)
     result = step.solve_result(field_variables=("S",))
     result.add_quantity("tip_U2", results.probe(u, at=(1., .1, .1))[1], unit="m",
@@ -31,4 +38,4 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    main(review="--review" in sys.argv[1:])

@@ -4,6 +4,8 @@
 """Small implicit structural-dynamics AgentFEM project."""
 
 import os
+import json
+import sys
 from pathlib import Path
 
 import numpy as np
@@ -12,8 +14,7 @@ from mpi4py import MPI
 from agentfem import constitutive, fields, mesh, models, project, results, studies, units
 
 
-def main():
-    run = project.current_run(project_root=Path(__file__).resolve().parent)
+def main(*, review=False):
     study = studies.dynamic_solid(
         dimension=2,
         assumption="plane_stress",
@@ -40,16 +41,14 @@ def main():
     right = mesh.boundary(domain, lambda x: np.isclose(x[0], 1.0), name="right", tag=2)
     model.clamp(displacement, on=left)
     model.traction((0.0, -1.0e4), on=right)
-
-    step = model.step(
-        target=displacement,
-        dt=1.0e-4,
-        steps=6,
-        save_every=3,
-        print_every=1,
-        name="newmark_response",
-        output=run.artifact("dynamics.xdmf"),
-    )
+    options = dict(dt=1.0e-4, steps=6, save_every=3, print_every=1, name="newmark_response")
+    if review:
+        card = model.review(target=displacement, step_options=options)
+        if domain.comm.rank == 0:
+            print(json.dumps(card, ensure_ascii=False, allow_nan=False))
+        return card
+    run = project.current_run(project_root=Path(__file__).resolve().parent)
+    step = model.step(target=displacement, output=run.artifact("dynamics.xdmf"), **options)
     simulation = step.solve_result(
         history=(
             results.probe_history(
@@ -74,4 +73,4 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    main(review="--review" in sys.argv[1:])

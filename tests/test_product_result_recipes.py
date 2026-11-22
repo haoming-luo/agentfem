@@ -21,6 +21,15 @@ def test_result_recipe_from_project(tmp_path, capsys, template):
     project = tmp_path/'中文 项目'/template
     assert cli.main(['init', str(project), '--template', template, '--json']) == 0
     capsys.readouterr()
+    before_review = sorted(str(p.relative_to(project)) for p in project.rglob('*'))
+    inspected = subprocess.run([sys.executable, str(project/'case.py'), '--review'],
+        cwd=project, env=dict(os.environ, PYTHONPATH=str(Path(models.__file__).parent.parent)),
+        capture_output=True, text=True, timeout=60, check=True)
+    card = json.loads(inspected.stdout)
+    assert card['solver_executed'] is False
+    assert card['capability']['ready']
+    assert card['discretization']['registered_scalar_dofs'] > 0
+    assert sorted(str(p.relative_to(project)) for p in project.rglob('*')) == before_review
     assert cli.main(['run','--project',str(project),'--json']) == 0
     run = json.loads(capsys.readouterr().out)
     manifest = next(project.glob('outputs/**/result.json'))

@@ -7,6 +7,62 @@ from mpi4py import MPI
 from ._model_support import domain, describe
 
 
+def _bounds(mesh, points):
+    lower = points.min(axis=0) if len(points) else np.full(mesh.geometry.dim, np.inf)
+    upper = points.max(axis=0) if len(points) else np.full(mesh.geometry.dim, -np.inf)
+    mesh.comm.Allreduce(MPI.IN_PLACE, lower, op=MPI.MIN)
+    mesh.comm.Allreduce(MPI.IN_PLACE, upper, op=MPI.MAX)
+    return [lower.tolist(), upper.tolist()] if np.isfinite(lower).all() else None
+
+
+def discretization(model):
+    """Count registered spaces, not a guessed assembled/reduced system size."""
+    mesh = domain(model.mesh)
+    fields = []
+    seen = set()
+    for item in model.fields:
+        space = getattr(item, 'function_space', None)
+        if space is None:
+            continue
+        element = space.ufl_element()
+        index = space.dofmap.index_map
+        fields.append({'name': getattr(item, 'name', None), 'element': str(element),
+            'degree': element.degree, 'value_shape': list(element.reference_value_shape),
+            'global_scalar_dofs': int(index.size_global * space.dofmap.index_map_bs),
+            'shared_space': id(space) in seen})
+        seen.add(id(space))
+    x = np.asarray(mesh.geometry.x)[:, :mesh.geometry.dim]
+    return {'cell_type': mesh.topology.cell_name(),
+        'global_cells': int(mesh.topology.index_map(mesh.topology.dim).size_global),
+        'bounds': _bounds(mesh, x),
+        'fields': fields,
+        'registered_scalar_dofs': sum(f['global_scalar_dofs'] for f in fields if not f['shared_space']),
+        'dof_scope': 'registered distinct spaces before constraints; not reduced solver size'}
+
+
+def region_evidence(region, *, study):
+    """Owned entity counts and physical measure of a registered tagged region."""
+    from . import results
+    mesh = getattr(region, 'domain', None)
+    tags = getattr(region, 'facet_tags', None)
+    if tags is None:
+        tags = getattr(region, 'cell_tags', None)
+    if mesh is None or tags is None:
+        return {'status': 'not_checked', 'reason': 'requires a tagged cell or boundary region'}
+    selected = np.asarray(tags.find(region.tag), dtype=np.int32)
+    mesh.topology.create_entities(tags.dim)
+    selected = selected[selected < mesh.topology.index_map(tags.dim).size_local]
+    count = int(mesh.comm.allreduce(len(selected), op=MPI.SUM))
+    from dolfinx.mesh import entities_to_geometry
+    indices = entities_to_geometry(mesh, tags.dim, selected).reshape(-1)
+    points = mesh.geometry.x[indices, :mesh.geometry.dim]
+    return {'status': 'checked', 'name': region.name, 'tag': int(region.tag),
+        'entity_dimension': int(tags.dim), 'global_owned_entities': count,
+        'bounds': _bounds(mesh, points),
+        'physical_measure': float(results.region_measure(on=region, study=study)),
+        'measure_convention': 'study-weighted reference measure; axisymmetry includes full revolution'}
+
+
 def review_model(model, *, target=None, step_options=None):
     from . import __version__, results
     from . import constraints as constraint_api
@@ -50,6 +106,8 @@ def review_model(model, *, target=None, step_options=None):
         if counts:
             entry.update(status='checked', owned_scalar_dof_count=sum(counts),
                          component_constraint_count=len(counts))
+        entry['regions'] = [region_evidence(member.location, study=model.study)
+                            for member in members if getattr(member, 'location', None) is not None]
         constraints.append(entry)
     loads = []
     for item in model.loads:
@@ -59,6 +117,7 @@ def review_model(model, *, target=None, step_options=None):
             area = results.region_measure(on=region, study=model.study)
             entry.update(status='checked', reference_measure=float(area),
                          evaluation='current input snapshot; not an integrated load history')
+            entry['region'] = region_evidence(region, study=model.study)
             if area <= 0:
                 findings.append({'code': 'AFM-REVIEW-EMPTY-LOAD', 'name': item.name})
             value = getattr(item, 'value', None)
@@ -84,6 +143,10 @@ def review_model(model, *, target=None, step_options=None):
     return {
         'schema': 'agentfem.model-review.v1', 'agentfem_version': __version__,
         'model': model.summary(), 'physics': physics,
+        'discretization': discretization(model),
+        'material_regions': [{'definition': describe(item),
+            'region': ({'status': 'whole_domain'} if item.region is None else
+                       region_evidence(item.region, study=model.study))} for item in model.materials],
         'capability': capability, 'validation': validation,
         'constraints': constraints, 'loads': loads, 'rigid_modes': rigid,
         'findings': findings, 'solver_executed': False,

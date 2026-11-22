@@ -7,3 +7,5 @@ agentfem run
 agentfem show --json
 
 Small composition/teaching fixture, not a mesh-convergence certificate.
+
+Before solving, run `python case.py --review` in the installed environment. This builds the actual model and prints a JSON review card; boundary quadrature may compile, but no Step is solved or run result published. Ordinary `agentfem check` remains a structure/runtime check.
