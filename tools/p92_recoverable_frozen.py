@@ -14,6 +14,9 @@ from tools import p92_recoverable_spectrum as spectrum
 from tools import p92_primary_creep_reference as primary
 from tools import p92_shared_drag_reference as shared
 from tools import p92_reversal_memory_reference as memory
+from tools import p92_transient_strength_reference as transient
+from tools import p92_recovery_replacement_reference as replacement
+from tools import p92_recoverable_mobility_reference as mobility
 from tools.p92_response_screen import screen
 from tools.p92_two_rate_controls import replay
 from tools.p92_two_rate_frozen import numerical_difference
@@ -24,6 +27,18 @@ from tools.p92_waveform_experiment import refine_knots
 
 def decode_material(card, model_id):
     """One explicit identity decoder for research replay and diagnostics."""
+    if model_id == mobility.MODEL_ID:
+        _, base = decode_material(card["spectrum"], spectrum.MODEL_ID)
+        return mobility, mobility.Material(base, card["feedback"])
+    if model_id == replacement.MODEL_ID:
+        branch = dict(card["branch"])
+        for name in ("hardening", "saturation", "static_recovery", "ratcheting"):
+            branch[name] = tuple(branch[name])
+        return replacement, replacement.Material(card["modulus"], Branch(**branch),
+            tuple(card["moduli"]), tuple(card["times"]))
+    if model_id == transient.MODEL_ID:
+        _, base = decode_material(card["spectrum"], spectrum.MODEL_ID)
+        return transient, transient.Material(base, card["maximum"], card["build"], card["recovery"])
     if model_id == primary.MODEL_ID:
         _, material = decode_material(card, spectrum.MODEL_ID)
         primary.validate_material(material)
@@ -48,7 +63,7 @@ def decode_material(card, model_id):
             tuple(card.get("static_powers", (0., 0.))),
             tuple(card.get("static_ratios", (1., 1.))),
             tuple(card.get("static_history_rates", (0., 0.))), card.get("static_history", "own"),
-            card.get("directional_recovery", False))
+            card.get("directional_recovery", False), tuple(card.get("recoverable_powers", (1., 1.))))
     else:
         raise ValueError("Unknown recoverable model identity")
     return module, mat
@@ -66,6 +81,10 @@ def evaluate(fit, source_dir, *, fixed_card=False):
     numerical_options = dict(extra_strain_indices=extra_indices)
     if module is shared:
         numerical_options.update(stress_state_indices=(0, 1, 2, 4), dimensionless_indices=(5,))
+    if module is transient:
+        numerical_options.update(extra_strain_indices=(10, 11), dimensionless_indices=(12,))
+    if module is replacement:
+        numerical_options.update(stress_state_indices=(0, 1, 2), extra_strain_indices=(4, 5))
     results = {}
     for protocol in ("RF", "SLR", "SLC"):
         source = read_source(source_dir/f"Data_{protocol}.lis", protocol=protocol)
@@ -115,6 +134,9 @@ if __name__ == "__main__":
     names = ("p92_recoverable_reference.py", "p92_recoverable_spectrum.py", "p92_two_rate_reference.py",
              "p92_primary_creep_reference.py",
              "p92_shared_drag_reference.py", "p92_reversal_memory_reference.py",
+             "p92_transient_strength_reference.py",
+             "p92_recoverable_mobility_reference.py",
+             "p92_recovery_replacement_reference.py", "p92_hold_observations.py",
              "p92_two_rate_controls.py", "p92_recoverable_frozen.py", "p92_two_rate_frozen.py",
              "p92_measured_controls.py", "p92_waveform_controls.py", "p92_response_screen.py")
     def identities():

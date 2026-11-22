@@ -11,6 +11,7 @@ import json
 from pathlib import Path
 
 import numpy as np
+from scipy.integrate import quad
 from scipy.optimize import brentq
 
 from tools.p92_bam_source import read_source
@@ -18,6 +19,8 @@ from tools.p92_measured_controls import measured_path
 from tools.p92_measured_fit import write_new
 from tools.p92_recoverable_frozen import decode_material
 from tools import p92_recoverable_spectrum as spectrum
+from tools import p92_transient_strength_reference as transient
+from tools import p92_recoverable_mobility_reference as mobility
 
 
 def observed_interval(times, strain, stress, modulus):
@@ -53,10 +56,49 @@ def predicted_interval(solution, stress_endpoints, modulus):
         average_nonelastic_rate_per_s=float((y[7, 1]-y[7, 0]-(y[0, 1]-y[0, 0])/modulus)/duration))
 
 
+def backbone(material, module):
+    if module is spectrum:
+        return material.backbone
+    if module in (transient, mobility):
+        return material.spectrum.backbone
+    raise ValueError("Require an explicitly supported recoverable reference")
+
+
+def mechanism_partition(solution, interval, material, *, module=spectrum):
+    """Model attribution only; the experiment does not measure these shares."""
+    lo, hi = interval["times_s"]
+    modulus = backbone(material, module).modulus
+    if (not np.isfinite([lo, hi]).all() or hi <= lo
+            or lo < solution.t[0] or hi > solution.t[-1]):
+        raise ValueError("Require an ordered interval inside the integrated trajectory")
+    states = solution.sol([lo, hi])
+    if states.shape != (len(module.STATE_LAYOUT), 2) or not np.isfinite(states).all():
+        raise ValueError("Require a finite spectrum trajectory and ordered interval")
+    increments, errors = [], []
+    for offset in (1, 4):
+        def signed_flow(time, offset=offset):
+            state = solution.sol(time)
+            rates = module.rates(state, 0., material)
+            return np.sign(state[0]-sum(state[offset:offset+2]))*rates[offset+2]
+        value, error = quad(signed_flow, lo, hi, epsabs=1e-12, epsrel=1e-8, limit=100)
+        increments.append(value)
+        errors.append(error)
+    increments.extend(states[10:12, 1]-states[10:12, 0])
+    total = states[7, 1]-states[7, 0]-(states[0, 1]-states[0, 0])/modulus
+    residual = float(sum(increments)-total)
+    if abs(residual) > 1e-9 or max(errors) > 1e-10:
+        raise ValueError("Unresolved mechanism-partition quadrature")
+    return dict(names=["inelastic_A", "inelastic_B", "recoverable_fast", "recoverable_slow"],
+        strain_increments=[float(x) for x in increments],
+        average_rates_per_s=[float(x/(hi-lo)) for x in increments],
+        quadrature_error_estimates=errors, strain_closure_residual=residual,
+        start_state=states[:, 0].tolist(), end_state=states[:, 1].tolist(),
+        scope="Model-internal attribution, not experimentally identified mechanism fractions")
+
+
 def audit(frozen, source_dir):
     module, mat = decode_material(frozen["parameters"], frozen["model_id"])
-    if module is not spectrum:
-        raise ValueError("Require the frozen spectrum reference")
+    modulus = backbone(mat, module).modulus
     records = []
     for protocol in ("RF", "SLR", "SLC"):
         source = read_source(source_dir/f"Data_{protocol}.lis", protocol=protocol)
@@ -82,15 +124,17 @@ def audit(frozen, source_dir):
                 if len(ids) < 3 or np.any(np.diff(ids) != 1):
                     records.append(dict(**row, status="unresolved_sampling"))
                     continue
-                observed = observed_interval(t[ids], e[ids], s[ids], mat.backbone.modulus)
+                observed = observed_interval(t[ids], e[ids], s[ids], modulus)
                 try:
-                    predicted = predicted_interval(solution, observed["stress_endpoints_MPa"], mat.backbone.modulus)
+                    predicted = predicted_interval(solution, observed["stress_endpoints_MPa"], modulus)
+                    predicted["mechanism_partition"] = mechanism_partition(solution, predicted, mat, module=module)
                     row.update(status="compared", observed=observed, predicted=predicted)
                 except ValueError as exc:
                     row.update(status="unresolved_prediction", observed=observed, reason=str(exc))
                 records.append(row)
     return dict(schema="agentfem.research.equal-stress-hold.v1", records=records,
-        source_sha256=frozen["source_sha256"], modulus_MPa=mat.backbone.modulus,
+        source_sha256=frozen["source_sha256"], modulus_MPa=modulus,
+        model_id=module.MODEL_ID, state_layout=module.STATE_LAYOUT,
         scope="Early positive holds at aligned stress endpoints; inferred nonelasticity, not measured mechanism shares",
         fitted=False, engineering_qualified=False, acceptance_thresholds_changed=False)
 

@@ -27,6 +27,22 @@ def test_classifier_edit_selects_its_own_regressions():
     assert "tests/test_ci_validation_scope.py" in scope.tests
 
 
+@pytest.mark.parametrize("stem", ["recoverable_backstress", "recoverable_mobility", "activated_flow"])
+def test_recovery_replacements_select_their_own_physics_checks(stem):
+    scope = classify_changes([f"tools/p92_{stem}_reference.py"])
+    assert scope.level == "targeted"
+    assert f"tests/test_p92_{stem}.py" in scope.tests
+    assert "tests/test_p92_mechanism_evidence.py" in scope.tests
+    assert "tests/test_p92_response_screen.py" in scope.tests
+
+
+def test_capacity_audit_selects_analytic_and_archive_checks():
+    scope = classify_changes(["tools/p92_recovery_capacity_audit.py"])
+    assert scope.level == "targeted"
+    assert "tests/test_p92_recovery_capacity.py" in scope.tests
+    assert "tests/test_p92_mechanism_evidence.py" in scope.tests
+
+
 @pytest.mark.parametrize("path", ["tools/p92_waveform_controls.py",
     "tools/p92_waveform_experiment.py", "tools/p92_response_screen.py",
     "tools/p92_reversal_identification.py", "tools/p92_reversal_sensitivity.py",

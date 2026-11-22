@@ -8,7 +8,7 @@ discussion explains that rapid subsequent plastic loading can erase the
 effect of backstress recovery on peaks; an isotropic recovery term addresses
 a different observable. The experiments are at 600/650 C, not BAM 620 C.
 Their constants cannot be transferred or the model called validated here.
-[Li et al., IJMS 2020](https://doi.org/10.1016/j.ijmecsci.2020.105546)
+[Hosseini et al., IJMS 2020](https://doi.org/10.1016/j.ijmecsci.2020.105546)
 uses drag and backstress to describe prior-deformation effects in 10%Cr steel.
 Only its abstract has been checked; it supplies motivation, not our equations.
 

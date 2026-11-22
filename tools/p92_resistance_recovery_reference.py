@@ -19,12 +19,16 @@ class Material:
     dynamic: float
     recovery: float
     anchor_MPa: float = 120.
+    evolution: str = "dynamic_softening"
+    history: str = "own"
 
     def __post_init__(self):
         if (self.kind not in {"strength", "mobility"}
                 or not np.isfinite([self.minimum, self.dynamic, self.recovery, self.anchor_MPa]).all()
                 or not 0 < self.minimum <= 1 or min(self.dynamic, self.recovery) < 0
-                or self.anchor_MPa <= 0):
+                or self.anchor_MPa <= 0
+                or self.evolution not in {"dynamic_softening", "static_softening"}
+                or self.history not in {"own", "shared"}):
             raise ValueError("Invalid resistance recovery parameters")
         if (self.spectrum.strength_ratios != (1., 1.)
                 or self.spectrum.hardening_ratios != (1., 1.)):
@@ -50,7 +54,12 @@ def rates(state, strain_rate, material, *, stress_control=False):
     r = spectrum.rates(state[:12], strain_rate, effective_material(state, material),
                        stress_control=stress_control)
     loss = state[12:]
-    return np.r_[r, material.dynamic*(1-material.minimum-loss)*r[[3, 6]]-material.recovery*loss]
+    accumulated_rate = r[[3, 6]] if material.history == "own" else sum(r[[3, 6]])
+    if material.evolution == "static_softening":
+        loss_rate = material.recovery*(1-material.minimum-loss)-material.dynamic*accumulated_rate*loss
+    else:
+        loss_rate = material.dynamic*(1-material.minimum-loss)*accumulated_rate-material.recovery*loss
+    return np.r_[r, loss_rate]
 
 
 def integrate(old, duration, strain_rate, material, *, stress_control=False,

@@ -15,7 +15,8 @@ def validate_material(material):
             or tuple(material.static_powers) != (0., 0.)
             or tuple(material.static_ratios) != (1., 1.)
             or tuple(material.strength_ratios) != (1., 1.)
-            or tuple(material.hardening_ratios) != (1., 1.)):
+            or tuple(material.hardening_ratios) != (1., 1.)
+            or tuple(material.recoverable_powers) != (1., 1.)):
         raise ValueError("Primary-creep comparison must isolate one mechanism")
 
 

@@ -8,8 +8,10 @@ observations or widened bounds. Compare baseline with shared-history recovery.
 The prior matched-baseline derivative audit identifies A.static_recovery1/2
 as the weakest columns: relative norms 3.25e-6 and 1.41e-4 of the largest.
 Freeze these two coefficients in the history candidate. Replace their slots
-with the shared saturated fraction rho and history rate b. Parameter count
-does not increase. Start at rho=0.5 and b=250/strain, as in the fixed probe.
+with the shared saturated fraction rho and history rate b. Fitted-coordinate
+count does not increase. The two old nonzero constants remain in the law,
+so this is not a reduction-neutral count of all constitutive coefficients.
+Start at rho=0.5 and b=250/strain, as in the fixed probe.
 Use log10 odds rho/(1-rho) for the fraction and log10 multiplier for b; these
 dimensionless coordinates preserve positive bounded recovery. Other constants
 start from the same original spectrum card as the baseline. E remains fixed.
@@ -99,7 +101,7 @@ data. The experimental response screens fail in all six paths.
 
 Validation: 387 affected P92/CI-scope tests passed in 10.27 s. Ruff, generated
 documentation and diff checks pass. New tests enforce
-fixed parameter count, unchanged frozen coefficients, power accounting,
+fixed fitting dimension, unchanged frozen coefficients, power accounting,
 rejection of unobservable derivatives and refusal to let observable nuisance
 parameters conceal unobservable history directions. No public material or
 solver default changes.

@@ -25,11 +25,12 @@ class Material:
     static_history_rates: tuple[float, float] = (0., 0.)
     static_history: str = "own"
     directional_recovery: bool = False
+    recoverable_powers: tuple[float, float] = (1., 1.)
 
     def __post_init__(self):
         pairs = (self.moduli, self.times, self.strength_ratios, self.strength_rates,
                  self.hardening_ratios, self.hardening_rates, self.static_powers,
-                 self.static_ratios, self.static_history_rates)
+                 self.static_ratios, self.static_history_rates, self.recoverable_powers)
         if (any(len(v) != 2 for v in pairs)
                 or not np.isfinite([x for pair in pairs for x in pair]).all()
                 or min(*self.moduli, *self.times) <= 0 or self.times[0] > self.times[1]
@@ -38,7 +39,8 @@ class Material:
                        *self.static_history_rates) < 0
                 or not all(0 < r <= 1 for r in self.static_ratios)
                 or self.static_history not in {"own", "shared"}
-                or type(self.directional_recovery) is not bool):
+                or type(self.directional_recovery) is not bool
+                or min(self.recoverable_powers) < 1.):
             raise ValueError("Require two positive moduli and ordered positive times")
 
 
@@ -68,7 +70,13 @@ def stored_energy(state, material):
 def rates(state, strain_rate, material, *, stress_control=False, dynamic_multipliers=(1., 1.)):
     if len(dynamic_multipliers) != 2 or not np.isfinite(dynamic_multipliers).all() or min(dynamic_multipliers) <= 0:
         raise ValueError("Require two positive dynamic-recovery multipliers")
-    recovery = (state[0]/np.asarray(material.moduli)-state[10:])/material.times
+    linear_recovery = (state[0]/np.asarray(material.moduli)-state[10:])/material.times
+    # Research hypothesis: convex power-law dissipation in the recoverable
+    # branch force, not an irreversible primary-creep replacement. The fixed
+    # 120 MPa normalization is shared with the backbone, not a fitted scale.
+    force = state[0]-np.asarray(material.moduli)*state[10:]
+    mobility = (abs(force)/120.)**(np.asarray(material.recoverable_powers)-1.)
+    recovery = linear_recovery*mobility
     backbone, logarithmic_derivatives = evolving_backbone(state, material)
     # Polynomial static recovery: r_eff=r*(|X|/a)^m.  m=0 is the
     # original linear law; every exponent agrees at nominal saturation.
@@ -90,7 +98,7 @@ def rates(state, strain_rate, material, *, stress_control=False, dynamic_multipl
     else:
         result[0] -= material.backbone.modulus*sum(recovery)
     result[8] = state[0]*result[7]
-    result[9] += sum(np.asarray(material.moduli)*material.times*recovery**2)
+    result[9] += sum(np.asarray(material.moduli)*material.times*linear_recovery**2*mobility)
     for offset, branch, derivative in zip((1, 4), backbone.branches,
                                            logarithmic_derivatives, strict=True):
         logarithmic_rate = derivative*result[offset+2]

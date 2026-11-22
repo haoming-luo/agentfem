@@ -1,5 +1,40 @@
 # AgentFEM Product Roadmap
 
+### Recoverability-preserving mechanism batch reviewed (2026-11-22)
+
+The [paired mechanism review](internal/p92_recoverability_review_20261122.md)
+retains the two recoverable strains and separates energy, kinetic mobility,
+strength recovery, inherited memory and flow-driven regeneration. Fixed-card
+negative results stop before further fitting; selected replacements use the
+same 22 candidate / ten retained directions, radius and evaluation ceiling.
+The recoverable-memory mobility fit lowers early cost by 2.405%, but worsens
+SLR cycle-10 peak error to 9.90% and does not resolve SLC hold-entry and
+relaxation-rate conflicts. All frozen numerical comparisons pass; no
+experimental response screen passes. The original-control replay is unchanged.
+
+The new signed mechanism budgets, conditional spectral-capacity bound and
+fit-subspace audit distinguish identifiable response from an attractive
+aggregate cost. Recorded late-creep resolution is not statistical uncertainty;
+already inspected later cycles are not blind validation. No research candidate
+is promoted into the runtime package. Next, use the quantified hold conflicts
+to select an independently justified replacement or discriminating data,
+rather than restart the same fit or widen bounds. PR #197 stays open,
+unmerged and unreleased.
+
+Parameter accounting now distinguishes a fixed fitting dimension from an
+unchanged constitutive coefficient count. Freezing old constants is not
+deleting them. The mobility and resistance-feedback discriminators add no
+independent material coefficients; neither has passed the response gates.
+
+Fixed-card [recorded-strain sensitivity](internal/p92_recorded_hold_sensitivity_20261122.md)
+and [dual-channel resolution](internal/p92_control_resolution_20261122.md)
+explain why tiny SLR late rates need careful input interpretation, but do not
+remove the large SLC discrepancy. An equivalent signed-constraint
+[local feasibility audit](internal/p92_local_feasibility_20261122.md)
+removes an absolute-error differentiation artifact; neither card's bounded
+candidate satisfies the joint admission rule. These findings leave all
+original acceptance limits and failed outcomes intact.
+
 ### Primary-creep replacement isolated and frozen (2026-11-22)
 
 The [primary-creep discriminator](internal/p92_primary_creep_20261122.md)
@@ -40,8 +75,10 @@ and life qualification remain separate; no new fit or passing material claim.
 ### Fixed-budget history substitution (2026-11-22)
 
 The [matched substitution experiment](internal/p92_static_memory_identification_20261121.md)
-replaces two weak static coefficients with two shared-history coordinates,
-retaining 22 candidate and ten fitted directions. Both local numerical audits
+freezes two weak static coefficients and replaces their fit coordinates with
+two shared-history coordinates, retaining 22 candidate and ten fitted
+directions. The old constants remain in the constitutive law: this is not
+a strictly coefficient-neutral replacement. Both local numerical audits
 pass, but the weakest new coordinate projection is close to its gate, not
 strong statistical identifiability. The early objective improves 1.75%; frozen
 SLR cycle-10 peak error changes from 8.93% to 8.62%, while SLC inherited stress

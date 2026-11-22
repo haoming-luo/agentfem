@@ -114,3 +114,59 @@ def test_archived_matched_cards_keep_budget_identity_and_failed_gates():
         for result in frozen["protocols"].values():
             assert result["numerical"]["passed"]
             assert result["response_screen"]["status"] == "failed"
+
+
+@pytest.mark.parametrize("weak", [False, True])
+def test_replacement_space_keeps_budget_and_cannot_rescue_unresolved_axes(monkeypatch, weak):
+    from dataclasses import dataclass
+    from types import SimpleNamespace
+    from tools import p92_spectrum_recovery_joint as module
+
+    @dataclass
+    class Point:
+        values: object
+
+    seed = dict(model_id=module.kernel.MODEL_ID, parameters=card(),
+                source_sha256={p: p for p in ("RF", "SLR", "SLC")})
+    monkeypatch.setattr(module, "read_source", lambda path, protocol: dict(sha256=protocol))
+    monkeypatch.setattr(module, "measured_path", lambda source, cycles: source)
+    monkeypatch.setattr(module, "attach_waveforms", lambda path, source: path)
+    monkeypatch.setattr(module, "decode_history", lambda card, z: Point(z.copy()))
+    weights = np.arange(22., 0., -1.)
+    weights[7:9] = (1e-7, 2e-7) if weak else (.1, .2)
+    monkeypatch.setattr(module, "replay", lambda path, point, **kw:
+                        (weights*point.values+.01, {}))
+    calls = []
+
+    def optimizer(fun, initial, **kwargs):
+        assert not weak, "An unresolved replacement must not enter optimization"
+        calls.append(True)
+        assert initial.shape == (10,)
+        assert kwargs["bounds"] == pytest.approx((-.3/np.sqrt(10), .3/np.sqrt(10)))
+        assert kwargs["max_nfev"] == 40
+        assert kwargs["ftol"] == kwargs["xtol"] == kwargs["gtol"] == 1e-5
+        fun(initial)
+        return SimpleNamespace(x=initial, success=True, message="synthetic", nfev=1,
+                               active_mask=np.zeros(10, dtype=int))
+
+    monkeypatch.setattr(module, "least_squares", optimizer)
+    result = module.identify(seed, Path("unused"), (0., 0.), shared_history=True,
+                             replacement_space=True)
+    assert result["replacement_space"]
+    assert result["training_cycles"] == [1, 2, 3]
+    assert result["fit"]["success"] is (not weak)
+    assert bool(calls) is (not weak)
+    if not weak:
+        basis = np.asarray(result["basis"])
+        np.testing.assert_allclose(basis[[7, 8]]@basis[[7, 8]].T, np.eye(2), atol=1e-12)
+        assert result["maximum_log_coordinate_norm"] == .3
+        assert len(result["coordinates"]) == 22
+
+
+def test_replacement_geometry_is_explicit_and_isolates_shared_history():
+    from tools.p92_spectrum_recovery_joint import identify
+    seed = dict(model_id="research.scalar-two-rate-recoverable-spectrum.v1")
+    for kwargs in (dict(replacement_space=1), dict(replacement_space=True),
+                   dict(replacement_space=True, recoverable_kinetics=True)):
+        with pytest.raises(ValueError, match="replacement"):
+            identify(seed, Path("unused"), (0., 0.), **kwargs)

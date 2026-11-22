@@ -1,0 +1,146 @@
+{
+  "schema": "agentfem.research.fit-subspace-audit.v1",
+  "model_id": "research.scalar-two-rate-recoverable-spectrum.v1",
+  "candidate_count": 22,
+  "retained_count": 10,
+  "maximum_coordinate_norm": 0.3,
+  "retained_box_half_width": 0.09486832980505137,
+  "coordinates": [
+    {
+      "name": "A.strength",
+      "reachable_symmetric_half_width": 0.17782409586868192,
+      "fitted_coordinate": 0.04828008521818432
+    },
+    {
+      "name": "A.reference_flow",
+      "reachable_symmetric_half_width": 0.14466208482441162,
+      "fitted_coordinate": -0.0263565672032956
+    },
+    {
+      "name": "A.exponent",
+      "reachable_symmetric_half_width": 0.2153040537671337,
+      "fitted_coordinate": 0.07666492324172695
+    },
+    {
+      "name": "A.hardening1",
+      "reachable_symmetric_half_width": 0.19473935132824072,
+      "fitted_coordinate": 0.014568578193154923
+    },
+    {
+      "name": "A.hardening2",
+      "reachable_symmetric_half_width": 0.24404784356112885,
+      "fitted_coordinate": 0.07149473626892694
+    },
+    {
+      "name": "A.saturation1",
+      "reachable_symmetric_half_width": 0.13289112715205267,
+      "fitted_coordinate": 0.025824934342521547
+    },
+    {
+      "name": "A.saturation2",
+      "reachable_symmetric_half_width": 0.016401103659134695,
+      "fitted_coordinate": -0.005647348450298402
+    },
+    {
+      "name": "recoverable.fast_power_minus_one",
+      "reachable_symmetric_half_width": 0.042233899858177396,
+      "fitted_coordinate": -0.023180548806050975
+    },
+    {
+      "name": "recoverable.slow_power_minus_one",
+      "reachable_symmetric_half_width": 0.11945537735079916,
+      "fitted_coordinate": -0.08593999164644084
+    },
+    {
+      "name": "B.strength",
+      "reachable_symmetric_half_width": 0.14565689147509833,
+      "fitted_coordinate": -0.0038802159770622
+    },
+    {
+      "name": "B.reference_flow",
+      "reachable_symmetric_half_width": 0.1619098390861608,
+      "fitted_coordinate": -0.005508528333583321
+    },
+    {
+      "name": "B.exponent",
+      "reachable_symmetric_half_width": 0.19386707834551176,
+      "fitted_coordinate": -0.0034308169718630897
+    },
+    {
+      "name": "B.hardening1",
+      "reachable_symmetric_half_width": 0.05366294343606902,
+      "fitted_coordinate": -0.015594133881360496
+    },
+    {
+      "name": "B.hardening2",
+      "reachable_symmetric_half_width": 0.1708899113636272,
+      "fitted_coordinate": -0.06097225174187135
+    },
+    {
+      "name": "B.saturation1",
+      "reachable_symmetric_half_width": 0.1756359649199854,
+      "fitted_coordinate": 0.0174507294231906
+    },
+    {
+      "name": "B.saturation2",
+      "reachable_symmetric_half_width": 0.012874579097047157,
+      "fitted_coordinate": -0.004964714567047104
+    },
+    {
+      "name": "B.static_recovery1",
+      "reachable_symmetric_half_width": 0.05938427659627682,
+      "fitted_coordinate": 0.01687766515315945
+    },
+    {
+      "name": "B.static_recovery2",
+      "reachable_symmetric_half_width": 0.03443130730847362,
+      "fitted_coordinate": 0.008491854416399424
+    },
+    {
+      "name": "recoverable.modulus",
+      "reachable_symmetric_half_width": 0.20053876526402212,
+      "fitted_coordinate": 0.004652934507942125
+    },
+    {
+      "name": "recoverable.time",
+      "reachable_symmetric_half_width": 0.11210667818056969,
+      "fitted_coordinate": -0.04702767672970031
+    },
+    {
+      "name": "recoverable.slow_modulus",
+      "reachable_symmetric_half_width": 0.22258815311617264,
+      "fitted_coordinate": -0.14345817990888568
+    },
+    {
+      "name": "recoverable.slow_time",
+      "reachable_symmetric_half_width": 0.11892397890670794,
+      "fitted_coordinate": -0.006787462692596821
+    }
+  ],
+  "replacement": {
+    "indices": [
+      7,
+      8
+    ],
+    "names": [
+      "recoverable.fast_power_minus_one",
+      "recoverable.slow_power_minus_one"
+    ],
+    "projection_gram_eigenvalues": [
+      0.021993736223429046,
+      0.32644431227144616
+    ],
+    "weakest_coordinate_combination": [
+      0.9700630932429415,
+      -0.24285303195129385
+    ],
+    "weakest_combination_reachable_half_width": 0.03407407665405564,
+    "weakest_combination_fitted_value": -0.0016158073406597581,
+    "degenerate": false
+  },
+  "fitted": false,
+  "acceptance_thresholds_changed": false,
+  "engineering_qualified": false,
+  "scope": "Exact linear-image box support; not confidence limits, feasibility or mechanism rejection",
+  "fit_sha256": "cd88149ba04e517cc55e5521fbfeec277799fa09b47b35bda78be658e5e6a361"
+}
