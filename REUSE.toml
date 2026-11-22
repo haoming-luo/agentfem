@@ -36,6 +36,7 @@ path = [
   "validation/geometric_elasticity/**",
   "validation/dynamic_parity/**",
   "validation/plane_stress_batch/**",
+  "validation/workflow_inspection/**",
 ]
 precedence = "closest"
 SPDX-FileCopyrightText = "2026 Haoming Luo and AgentFEM contributors"
