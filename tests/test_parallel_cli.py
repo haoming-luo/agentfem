@@ -10,7 +10,8 @@ from agentfem import cli
 
 
 @pytest.mark.parametrize("local", [False, True])
-@pytest.mark.parametrize("template", ["static-solid", "steady-heat", "structural-dynamics", "heat-campaign"])
+@pytest.mark.parametrize("template", ["static-solid", "steady-heat", "structural-dynamics", "heat-campaign",
+                                      "static-results", "dynamic-results"])
 def test_standard_template_publishes_one_collective_result(tmp_path, template, local):
     from agentfem import provenance
 

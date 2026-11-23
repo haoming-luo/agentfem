@@ -888,7 +888,6 @@ class SmallStrainMaterialStep:
             add_execution_trace,
             complete_result,
             from_solution,
-            recover_integration_point_field,
         )
 
         if fields and output_fields:
@@ -956,38 +955,13 @@ class SmallStrainMaterialStep:
                     getattr(self.unit_system, "stress", None),
                 )
             )
-        for name, source, description, unit in sources:
-            result.add_field(
-                name,
-                source.function,
-                unit=unit,
-                location="quadrature_points",
-                description=description,
-                processing={
-                    "source_position": "quadrature_points",
-                    "method": "constitutive_update"
-                    if name == "S"
-                    else "constitutive_state",
-                    "representation": "quadrature_values",
-                    "postprocessed": False,
-                    "committed": True,
-                },
-                sampling=source,
-            )
-            recovered = recover_integration_point_field(
-                source,
-                name=f"{name}_CELL",
-                unit=unit,
-                description=f"Cell average of {name} preserving material discontinuities.",
-            )
-            result.add_field(
-                recovered.name,
-                recovered.field,
-                unit=recovered.unit,
-                location=recovered.location,
-                description=recovered.description,
-                processing=recovered.processing,
-            )
+        from ..results._material_fields import attach_material_fields
+        attach_material_fields(result, (
+            {"name": name, "source": source, "unit": unit, "description": description,
+             "processing": {"source_position": "quadrature_points",
+                "method": "constitutive_update" if name == "S" else "constitutive_state",
+                "representation": "quadrature_values", "postprocessed": False, "committed": True}}
+            for name, source, description, unit in sources), recover=True)
         result.add_field(
             "RF",
             self.reaction_field(),

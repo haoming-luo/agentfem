@@ -106,6 +106,26 @@
     "examples": [
       "examples/static_elasticity_2d.py",
       "examples/transient_heat_2d.py"
+    ],
+    "tasks": [
+      {
+        "id": "point-history",
+        "title": "空间测点与时间历史 / point history",
+        "aliases": [
+          "测点",
+          "端点位移随时间",
+          "point",
+          "probe",
+          "displacement history"
+        ],
+        "entrypoints": [
+          "agentfem.results.probe_history",
+          "agentfem.results.sample_points"
+        ],
+        "prerequisites": "SI linear Newmark structural-dynamics project; initialize with dynamic-results template.",
+        "limitations": "History uses accepted physical time in seconds, independently of sparse cloud frames. For load-factor paths use task:load-path.",
+        "template": "dynamic-results"
+      }
     ]
   },
   "verification": {

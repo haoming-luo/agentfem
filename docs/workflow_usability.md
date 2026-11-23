@@ -5,6 +5,130 @@ description: "Use the AgentFEM CLI to inspect projects, run cases, locate output
 
 # Check, run, inspect, compare
 
+## Review the model, settings and resource budget
+
+The three result templates support `python case.py --review` in the installed
+environment. This prints the actual model card without creating a run or
+solving a Step. It is a case-level entry, not `agentfem run -- --review`.
+Boundary measures may compile/integrate forms; ordinary `agentfem check`
+keeps its non-executing structure/runtime meaning.
+
+```python
+card = model.review(target=u, step_options=options,
+    output_fields=(u, "S"), output_frames=5, output_directory="outputs")
+```
+
+The card reports element interpolation, registered independent unknown DOFs,
+owned boundary entity counts and ranges, material assignments, physical load
+conventions and a resource budget. Node-coordinate bounds do not establish
+extrema between curved geometry nodes. Registered DOFs are not a prediction
+of the assembled or constraint-reduced solver dimension.
+
+Freeze settings before constructing a Step, using the same declared options:
+
+```python
+from pathlib import Path
+from agentfem import provenance
+
+settings = provenance.model_settings(model, target=u, step_options=options,
+    source_files=(Path("case.py"),))
+step = model.step(target=u, **options)
+simulation = step.solve_result()
+simulation.metadata["model_settings"] = settings
+run.publish(simulation)
+```
+
+The result templates do this automatically. Compare two published runs with:
+
+```bash
+agentfem compare outputs/001-baseline outputs/002-candidate --settings --json
+```
+
+Scientific changes have object/parameter paths; operational settings, source
+hashes and software-version changes are separate lists. The command also
+accepts JSON files containing standalone `provenance.model_settings` records.
+Exit 0 means unchanged within complete recorded scope; changed or incomplete
+scope returns 2. Missing snapshots and malformed records fail explicitly.
+Opaque expressions, direct unlocated constraints and unsupported constraint
+identities remain coverage gaps. The comparison never replays Python or edits
+either result; the existing quantity/history tolerance comparison is unchanged.
+Opaque/missing records remain incomplete even if a producer left a stale
+`complete` flag. The dynamic and nonlinear templates share the full output
+kwargs between settings snapshots and Step construction, so output-policy
+changes are retained separately from physical model changes.
+In addition to checkpoint geometry identity, source-label connectivity and
+registered DOFs distinguish coincident seam nodes from shared nodes. Pure
+source renumbering can therefore change a record without changing its physics.
+
+`diagnostics.resource_budget(model, fields=(u,), frames=5,
+output_directory="outputs")` is the same budget without boundary quadrature.
+All ranks must call these model-level functions. Resource snapshots retain
+each rank's readable host/cgroup/address-space limits and available disk;
+shared limits are not summed. Planned frames can be inferred for declared
+fixed-step transient schedules; adaptive accepted counts remain unknown.
+Payload estimates count uncompressed FE coefficients only. Derived fields
+without a function retain unknown size. Mesh/connectivity, projection,
+compression and histories can change actual file size; LU fill/peak memory
+remain unknown without further analysis. No mesh, solver, output policy or
+environment setting is automatically changed.
+When a target is supplied, the budget identifies its registered scalar DOF
+count and rejects a target on a different mesh. Mesh/region identities and
+review integrations are reused only within the current call; edits to geometry
+or coefficients are read again on the next call.
+Model review agrees on the registered collective call order before validation
+or integration. Rank-inconsistent constraint/region declarations, foreign-mesh
+regions, invalid local entity indices and local region-sampling failures fail
+before peers enter the next reduction. Partition-local entity counts and field
+coefficients are not required to be equal across ranks.
+
+## Find a task and use its installed project
+
+```bash
+agentfem capabilities --task "载荷—位移曲线" --json
+agentfem capabilities --task task:point-history --json
+agentfem init my-static --template static-results
+agentfem init my-dynamic --template dynamic-results
+agentfem init my-path --template nonlinear-results
+agentfem run --project my-dynamic
+agentfem show latest --project my-dynamic --json
+```
+
+Six deterministic bilingual task entries cover modal frequencies, point/time
+histories, load–displacement paths, mesh input, standard output and solver
+options. Entries are generated from scientific cards; packaged templates are
+the source of their full snippets. Search does not execute a case, initialize
+FEM, install dependencies or access the network. An unmatched phrase means
+no retrieval match, not unsupported physics. `task:ID` rejects unknown IDs.
+Use `--api` for the installed signature and `models.step_capability(...)` for
+the actual material/element/procedure combination. No second support matrix
+or parameter configuration language is introduced.
+
+| Installed recipe | Recorded results | Important convention |
+| --- | --- | --- |
+| `static-results` | 3D SI U/S fields, interpolated tip displacement and fixed-end reaction | Reaction is support-on-body force; Warp adds U to reference geometry once. |
+| `dynamic-results` | Newmark U fields at sparse stations and dense `tip_U2` history | Physical time in seconds; field retention does not thin the scalar history. |
+| `nonlinear-results` | Retained accepted load factors and mean-displacement/reaction curve | Serial, homogeneous displacement-only hyperelasticity; no natural loads/contact/MPC. A boundary mean is not a point displacement. |
+
+The normal result view lists field positions/shapes/units, history coordinates
+and ranges, saved frame counts and the recommended visualization entry. JSON
+adds a read-only `result_menu`; it does not change the sealed manifest.
+Registered visualization paths are resolved relative to the manifest, so a
+complete run directory can be moved without selecting its old absolute path.
+Transient primary fields and physical-time histories retain the model's
+declared units; labels do not rescale values. Without declared time units,
+the historical seconds convention is retained. Continuing a Step without
+field output does not report the previous run's frames as new output.
+Summaries read metadata and check file presence, never load field arrays or
+rerun the model. Legacy missing metadata stays unknown. `show --files` and
+the existing result verification retain their separate integrity roles.
+
+`agentfem diagnose <execution.json> --json` preserves local messages, rank,
+Step details and validation hints. It remains a read-only operation even
+when the recorded simulation failed. Model-level checks require the original
+`model.validate()/check()` path; ordinary CLI `check` does not execute it.
+Detailed local evidence is excluded from the existing sanitized support and
+telemetry inventories. Diagnostic suggestions never change physical inputs.
+
 ## Discover only what you need
 
 ```bash

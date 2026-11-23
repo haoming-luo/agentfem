@@ -472,6 +472,12 @@ class AnalysisStep:
             return self.problem.solve()
         return self.problem.solve_prepared(prepared)
 
+    def reaction_field(self, *, name="RF"):
+        """Delegate strong-constraint residual observations to the problem."""
+        if self.constraint_dual_provider is not None:
+            raise NotImplementedError("Strong-constraint reaction_field does not represent affine/MPC constraint duals.")
+        return self.problem.reaction_field(name=name)
+
     def solve_result(
         self,
         *,

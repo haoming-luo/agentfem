@@ -37,7 +37,27 @@
   },
   "usage": {
     "minimal_example": "result = step.solve_result(output='fields.xdmf')\n# For custom serial exports:\nwith io.ResultWriter('custom.xdmf', domain, (u, stress_cell)) as writer:\n    writer.write(physical_time)",
-    "examples": ["examples/elastic_bar_wave.py"]
+    "examples": ["examples/elastic_bar_wave.py"],
+    "tasks": [
+      {
+        "id": "standard-output",
+        "title": "标准结果输出 / standard result output",
+        "aliases": [
+          "输出",
+          "云图",
+          "output",
+          "visualization",
+          "paraview"
+        ],
+        "entrypoints": [
+          "agentfem.results.complete_result",
+          "agentfem.results.small_strain_cell_fields"
+        ],
+        "prerequisites": "Small 3D SI static-solid project; initialize with static-results template.",
+        "limitations": "Support reaction is a strong-constraint force; the point value is FE interpolation. Use the manifest-recommended reader and retain all companions.",
+        "template": "static-results"
+      }
+    ]
   },
   "verification": {
     "tests": ["tests/test_xdmf_layout.py", "tests/test_xdmf_cell_ordering.py", "tests/test_cell_data.py", "tests/test_results.py"],

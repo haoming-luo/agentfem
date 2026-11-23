@@ -34,6 +34,15 @@ def test_expression_tuple_matches_explicit_vector_and_resultant():
     assert card['loads'][0]['reference_measure'] == pytest.approx(1.)
     assert card['constraints'][0]['owned_scalar_dof_count'] > 0
     assert card['rigid_modes']['remaining_modes'] == 0
+    grid = card['discretization']
+    assert grid['global_cells'] == 8
+    assert grid['registered_scalar_dofs'] == 30
+    assert grid['fields'][0]['degree'] == 1
+    assert grid['fields'][0]['value_shape'] == [2]
+    assert grid['bounds'] == [[0., 0.], [2., 1.]]
+    assert card['loads'][0]['region']['global_owned_entities'] == 2
+    assert card['constraints'][0]['regions'][0]['global_owned_entities'] == 2
+    assert card['material_regions'][0]['region']['status'] == 'whole_domain'
     np.testing.assert_array_equal(before, u.value.x.array)
 
 
@@ -66,3 +75,102 @@ def test_review_reports_unconstrained_model_and_empty_load():
     card = m.review(target=u)
     assert card['rigid_modes']['remaining_modes'] == 3
     assert card['findings'][0]['code'] == 'AFM-REVIEW-EMPTY-LOAD'
+    assert card['loads'][0]['region']['bounds'] is None
+
+
+def test_quadratic_discretization():
+    d,m,_,_ = model()
+    m.fields.clear()
+    u = m.field(fields.displacement(d, degree=2))
+    m.constraints.clear()
+    card = m.review(target=u)
+    assert card['discretization']['registered_scalar_dofs'] == 90
+    assert card['discretization']['fields'][0]['degree'] == 2
+    assert card['discretization']['global_cells'] == 8
+
+
+def test_independent_unknowns_sharing_a_space_are_not_aliases():
+    from dolfinx import fem
+    from agentfem._model_review import discretization
+    d,m,_,_ = model()
+    m.fields.clear()
+    V = fem.functionspace(d, ('Lagrange', 1))
+    a = m.field(fem.Function(V, name='A'))
+    m.field(fem.Function(V, name='B'))
+    m.field(a)
+    card = discretization(m)
+    assert card['registered_scalar_dofs'] == 30
+    assert [f['shared_unknown'] for f in card['fields']] == [False, False, True]
+
+
+def test_review_reuses_regions_once_and_does_not_keep_stale_geometry(monkeypatch):
+    from dataclasses import replace
+    d,m,u,right = model()
+    m.traction((2.,0.), on=right)
+    # Exercise one repeated region without assuming Python aliasing matches
+    # on every MPI rank.
+    from agentfem.constraints import dirichlet_constraints
+    left = dirichlet_constraints(m.constraints)[0].location
+    location = replace(left) if MPI.COMM_WORLD.rank == 0 else left
+    m.fix(u, on=location, component=0, name='additional_x')
+    from agentfem import _model_review
+    original = _model_review.region_evidence
+    calls = []
+    def tracked(region, **kwargs):
+        calls.append(region.name)
+        return original(region, **kwargs)
+    monkeypatch.setattr(_model_review, 'region_evidence', tracked)
+    first = m.review(target=u)
+    assert calls.count('right') == 1
+    assert calls.count('left') == 2  # one rank uses a separate object
+    first['constraints'][0]['regions'][0]['bounds'][0][0] = 99.
+    assert first['constraints'][1]['regions'][0]['bounds'][0][0] == 0.
+    d.geometry.x[:, 1] *= 2.
+    second = m.review(target=u)
+    assert second['loads'][0]['reference_measure'] == pytest.approx(2.)
+    assert second['loads'][0]['region']['bounds'][1][1] == 2.
+
+
+def test_review_region_sampling_failure_reaches_every_rank(monkeypatch):
+    from dolfinx import mesh as dm
+    d,m,u,_ = model()
+    original = dm.entities_to_geometry
+    def fail_on_one_rank(*args, **kwargs):
+        if d.comm.rank == 0:
+            raise ValueError('injected region sampling failure')
+        return original(*args, **kwargs)
+    monkeypatch.setattr(dm, 'entities_to_geometry', fail_on_one_rank)
+    with pytest.raises((ValueError, RuntimeError), match='region sampling failure'):
+        m.review(target=u)
+
+
+def test_review_rejects_rank_inconsistent_constraint_plan():
+    if MPI.COMM_WORLD.size < 2:
+        pytest.skip('requires multiple ranks')
+    _,m,u,_ = model()
+    if MPI.COMM_WORLD.rank == 0:
+        m.constraints.clear()
+    with pytest.raises(RuntimeError, match='review communication plan.*differs across MPI ranks'):
+        m.review(target=u)
+
+
+def test_review_rejects_foreign_region_before_sampling():
+    from dataclasses import replace
+    _,m,u,_ = model()
+    other = mesh.rectangle((0.,0.), (2.,1.), (4,2), comm=MPI.COMM_WORLD)
+    if MPI.COMM_WORLD.rank == 0:
+        m.regions[0] = replace(m.regions[0], domain=other)
+    with pytest.raises((ValueError, RuntimeError), match='region must belong to the model mesh'):
+        m.review(target=u)
+
+
+def test_review_rejects_invalid_local_region_indices():
+    from dataclasses import replace
+    from types import SimpleNamespace
+    from agentfem._model_review import region_evidence
+    d,_,_,right = model()
+    tags = right.facet_tags
+    replacement = SimpleNamespace(dim=tags.dim, find=lambda _: np.array([-1], dtype=np.int32))
+    region = replace(right, facet_tags=replacement) if d.comm.rank == 0 else right
+    with pytest.raises((ValueError, RuntimeError), match='out-of-range entity indices'):
+        region_evidence(region, study=studies.static_solid(dimension=2, assumption='plane_stress'))

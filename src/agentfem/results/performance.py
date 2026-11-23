@@ -237,7 +237,8 @@ def _collective_stages(comm, local_stages) -> dict[str, dict[str, object]]:
         # Gather the complete local mapping once.  Calling one collective per
         # local stage can deadlock when a provider stage exists on only some
         # ranks.
-        gathered = tuple(comm.allgather(local_stages))
+        from .._mpi_collectives import object_allgather
+        gathered = tuple(object_allgather(comm, local_stages))
     names = sorted({name for mapping in gathered for name in mapping})
     return {name: _collective_stage(name, gathered) for name in names}
 

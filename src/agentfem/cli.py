@@ -349,7 +349,8 @@ def _rank_error(exc: BaseException | None, *, rank: int) -> dict[str, object] | 
     report = getattr(exc, "report", None)
     if report is not None and hasattr(report, "as_dict"):
         validation = report.as_dict()
-        record["stage"] = "model_preflight"
+        scope = str(validation.get("scope", ""))
+        record["stage"] = scope if scope in {"result_observation", "output_validation"} else "model_preflight"
         record["validation"] = validation
         errors = tuple(validation.get("issues", ()))
         if errors:
@@ -643,14 +644,33 @@ def _command_inspect(args) -> int:
             or "  No artifacts recorded. Use agentfem show for execution status.")
         _emit(record, as_json=args.json, human=human)
         return 2 if any(not f["exists"] for f in files) else 0
+    if record.get("schema") == "agentfem.simulation-result":
+        from ._result_menu import result_menu
+        record = {**record, "result_menu": result_menu(record, selected)}
     _emit(record, as_json=args.json, human=presentation.format_record(record, selected))
     return 0
 
 
 def _command_compare(args) -> int:
-    from .results.comparison import compare_records
     reference, left = _load_record(args.reference, args.project)
     candidate, right = _load_record(args.candidate, args.project)
+    if args.settings:
+        if args.quantity or args.history or args.rtol:
+            raise ValueError('--settings compares declarations; do not combine it with observable or tolerance options.')
+        from .provenance import compare_model_settings
+        def settings(record):
+            if record.get('schema') == 'agentfem.model-settings.v1':
+                return record
+            metadata = record.get('metadata')
+            return metadata.get('model_settings') if isinstance(metadata, dict) else None
+        record = compare_model_settings(settings(reference), settings(candidate))
+        lines = [f"Model settings comparison: {record['status']}"]
+        for category in ('scientific_changes', 'operational_changes', 'source_changes', 'software_changes'):
+            lines.extend(f"  {category}: {item['path']} | {item['expected']} -> {item['actual']}" for item in record[category])
+        lines.append('Registered settings only; incomplete coverage is inconclusive.')
+        _emit(record, as_json=args.json, human='\n'.join(lines))
+        return 0 if record['status'] == 'unchanged_within_recorded_scope' else 2
+    from .results.comparison import compare_records
     if args.history:
         from .results.history_archive import read_histories
 
@@ -1098,7 +1118,9 @@ def build_parser(*, structured_errors: bool = False) -> argparse.ArgumentParser:
     compare.add_argument("--project")
     compare.add_argument("--quantity", action="append", default=[])
     compare.add_argument("--history", action="append", default=[])
-    compare.add_argument("--atol", type=float, required=True, help="Absolute tolerance in each selected observable's declared unit.")
+    comparison_mode = compare.add_mutually_exclusive_group(required=True)
+    comparison_mode.add_argument("--settings", action="store_true", help="Compare frozen model settings separately from source and operational changes.")
+    comparison_mode.add_argument("--atol", type=float, help="Absolute tolerance in each selected observable's declared unit.")
     compare.add_argument("--rtol", type=float, default=0.0)
     compare.add_argument("--json", action="store_true")
 
@@ -1187,6 +1209,7 @@ def build_parser(*, structured_errors: bool = False) -> argparse.ArgumentParser:
         help="materials, meshes, procedures, workflow, runtime, extensions, or a material name",
     )
     capability_selection.add_argument("--api", help="Inspect a public MODULE.CALLABLE (function or exported class) or models.Model.METHOD.")
+    capability_selection.add_argument("--task", help="Find an installed bilingual task recipe; task:ID selects an exact task.")
     capabilities.add_argument("--json", action="store_true")
     extension_command = sub.add_parser(
         "extensions",
@@ -1293,6 +1316,8 @@ def _dispatch(argv: list[str] | None = None, *, parsed=None) -> int:
         if args.command == "init":
             target = Path(args.path).expanduser().resolve()
             name = args.name or target.name
+            if args.name is None and not any(char.isascii() and char.isalnum() for char in name):
+                name = "agentfem-project"
             _copy_template(args.template, target, name, force=args.force)
             project = ProjectConfig.load(target / PROJECT_FILENAME)
             record = {"schema": "agentfem.project-created", "schema_version": "0.1.0", "template": args.template, "project": project.summary()}
@@ -1360,6 +1385,11 @@ def _dispatch(argv: list[str] | None = None, *, parsed=None) -> int:
             _emit(record, as_json=args.json, human=human)
             return 0
         if args.command == "capabilities":
+            if args.task is not None:
+                from ._task_discovery import task_record, format_task
+                record = task_record(args.task)
+                _emit(record, as_json=args.json, human=format_task(record))
+                return 0
             if args.api is not None:
                 from ._api_discovery import callable_record, format_callable
 

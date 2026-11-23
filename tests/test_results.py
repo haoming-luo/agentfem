@@ -510,6 +510,8 @@ def test_displacement_controlled_3d_elastic_patch_writes_standard_fields(tmp_pat
     assert simulation.artifacts["fields_hdf5"].is_file()
     assert simulation.metadata["field_output"] == {
         "status": "completed",
+        "frame_count": 1,
+        "frame_times": [0.0],
         "backend": "agentfem_unified_xdmf",
         "layout": "single_uniform_grid",
         "geometry": "reference",

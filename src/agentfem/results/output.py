@@ -113,9 +113,11 @@ class FieldOutput:
         if self.intervals is not None and int(self.intervals) <= 0:
             raise ValueError("FieldOutput.intervals must be positive.")
         if every is not None and self.intervals is not None:
-            raise ValueError(
-                "Choose output every n increments or evenly spaced intervals, not both."
-            )
+            from ..validation import ValidationReport, issue
+            ValidationReport.from_issues((issue("AFM-OUTPUT-SCHEDULE", "output.field",
+                "Choose output every n increments or evenly spaced intervals, not both.",
+                hint="Keep either every or intervals; this changes field retention, not solver increments or checkpoint cadence.",
+                conflicting_options=["every", "intervals"]),), scope="output_validation").raise_if_errors()
         configuration = self.configuration.lower().replace("-", "_")
         if configuration not in {"reference", "deformed", "both"}:
             raise ValueError(
@@ -1040,6 +1042,7 @@ def attach_result_field_output(
             deformation_scale=deformation_scale,
         )
         result.metadata["field_output"] = artifacts.summary()
+        result.metadata["field_output"].update(frame_count=1, frame_times=[float(time)])
         result.metadata["field_output_fields"] = {
             "included": artifacts.field_names,
             "omitted": artifacts.omitted_fields,

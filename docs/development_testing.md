@@ -296,3 +296,27 @@ undefined names, invalid control flow, loop-variable capture, and mutable
 function-call defaults. It does not reformat the historical repository or
 rewrite third-party reference scripts. Broader style rules may be adopted
 module by module only when their review cost is justified.
+
+## Object-collective GC reentry
+
+Native stacks from the Linux MPI acceptance identified a self-deadlock in
+mpi4py 4.1.2: `PyMPI_Lock` holds its global lock while an allocation triggers
+cyclic GC; freeing an old DOLFINx communicator reenters `commlock_free_fn`
+and waits on the same non-reentrant lock. The peer waits in `Allgather`.
+The upstream locking implementation is in
+[commimpl.pxi](https://github.com/mpi4py/mpi4py/blob/4.1.2/src/mpi4py/MPI.src/commimpl.pxi).
+
+Result-performance aggregation uses the private `object_allgather` seam to
+defer automatic GC during that call only. It preserves the caller's GC state,
+including exceptions, nesting and overlapping calls, and changes neither the
+payload nor its reduction. It does not change collection thresholds, explicitly
+collect, or disable GC for the simulation session. Keep the real repeated-case
+MPI regression and the state-restoration tests when revisiting this workaround;
+do not replace it with a longer timeout or a global GC setting.
+
+The regression coverage includes caught nested failures, overlapping calls
+where one fails, unchanged GC thresholds, and collection of deferred cycles
+after the call. A real two-rank test starts with different GC policies on each
+rank, checks the gathered stage payload and reductions, and verifies that each
+rank recovers its own policy. Explicit external `gc.collect()` calls and
+concurrent changes to the application's GC policy are outside this guard.

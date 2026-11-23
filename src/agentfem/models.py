@@ -1810,14 +1810,16 @@ class Model:
             return None
         return time_inputs.compose(*updates, callback)
 
-    def review(self, *, target=None, step_options=None):
+    def review(self, *, target=None, step_options=None, output_fields=(), output_frames=None, output_directory=None):
         """Collectively inspect physical inputs, boundaries and provider readiness without solving.
 
         Every MPI rank must call. Boundary integration may compile forms;
         no equilibrium solve or material history update is performed.
+        Optional output declarations feed a read-only resource/payload budget.
         """
         from ._model_review import review_model
-        return review_model(self, target=target, step_options=step_options)
+        return review_model(self, target=target, step_options=step_options,
+            output_fields=output_fields, output_frames=output_frames, output_directory=output_directory)
 
     def summary(self) -> dict[str, object]:
         """Return an agent-readable model summary."""

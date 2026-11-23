@@ -1298,29 +1298,13 @@ class FiniteStrainMaterialStep:
             for history in self.material_point_histories:
                 result.histories[history.name] = history
             result.metadata["material_point_history"] = _json(self._point_history.identity)
-        for name, source in sources.items():
-            result.add_field(
-                name,
-                source.function,
-                location="quadrature_points",
-                sampling=source,
-                unit=self._field_metadata(name).get("unit"),
-                processing={
-                    "method": "accepted_constitutive_update",
-                    "committed": True,
-                    "representation": "quadrature_values",
-                    "postprocessed": False,
-                    **self._field_metadata(name),
-                },
-            )
-        for item in recovered:
-            result.add_field(
-                item.name,
-                item.field,
-                unit=item.processing.get("unit"),
-                location=item.location,
-                processing=item.processing,
-            )
+        from ..results._material_fields import attach_material_fields
+        attach_material_fields(result, (
+            {"name": name, "source": source, "unit": self._field_metadata(name).get("unit"),
+             "processing": {"method": "accepted_constitutive_update", "committed": True,
+                "representation": "quadrature_values", "postprocessed": False,
+                **self._field_metadata(name)}}
+            for name, source in sources.items()), recovered=recovered)
         result.add_field(
             "RF",
             self.reaction_field(),

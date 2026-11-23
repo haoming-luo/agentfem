@@ -67,6 +67,7 @@ class ExplicitDynamicsStep:
     last_output_start_time: float | None = field(default=None, init=False)
     last_output_backend: str | None = field(default=None, init=False)
     last_output_layout: str | None = field(default=None, init=False)
+    last_output_frame_times: list[float] | None = field(default=None, init=False)
     completed_steps: int = field(default=0, init=False)
     history_records: list[dict[str, float]] = field(default_factory=list, init=False)
     checkpoints: list[object] = field(default_factory=list, init=False)
@@ -258,6 +259,7 @@ class ExplicitDynamicsStep:
         )
         output_fields, live_field_sets = _transient_output_fields(selected_fields)
         self.last_output = None if output is None else Path(output)
+        self.last_output_frame_times = None
         self.last_output_fields = output_fields if output is not None else ()
         self.last_output_start_time = (
             None if output is None else float(self.completed_steps) * float(self.dt)
@@ -295,6 +297,7 @@ class ExplicitDynamicsStep:
         self.last_output = actual_output
         self.last_output_backend = backend
         self.last_output_layout = layout
+        self.last_output_frame_times = series.times
         with series as xdmf:
             _refresh_transient_output_fields(live_field_sets)
             xdmf.write_fields(self.completed_steps * self.dt, *output_fields)
@@ -560,6 +563,7 @@ class ImplicitDynamicsStep:
     last_output_start_time: float | None = field(default=None, init=False)
     last_output_backend: str | None = field(default=None, init=False)
     last_output_layout: str | None = field(default=None, init=False)
+    last_output_frame_times: list[float] | None = field(default=None, init=False)
     completed_steps: int = field(default=0, init=False)
     history_records: list[dict[str, float]] = field(default_factory=list, init=False)
     checkpoints: list[object] = field(default_factory=list, init=False)
@@ -678,6 +682,7 @@ class ImplicitDynamicsStep:
             self.state.a.value,
         )
         self.last_output = None if output is None else Path(output)
+        self.last_output_frame_times = None
         self.last_output_fields = output_fields if output is not None else ()
         self.last_output_start_time = (
             None if output is None else float(self.completed_steps) * float(self.dt)
@@ -713,6 +718,7 @@ class ImplicitDynamicsStep:
         self.last_output = actual_output
         self.last_output_backend = backend
         self.last_output_layout = layout
+        self.last_output_frame_times = series.times
         try:
             with series as xdmf:
                 xdmf.write_fields(self.completed_steps * self.dt, *output_fields)
@@ -982,6 +988,7 @@ class FirstOrderTransientStep:
     last_output_start_time: float | None = field(default=None, init=False)
     last_output_backend: str | None = field(default=None, init=False)
     last_output_layout: str | None = field(default=None, init=False)
+    last_output_frame_times: list[float] | None = field(default=None, init=False)
     completed_steps: int = field(default=0, init=False)
     history_records: list[dict[str, float]] = field(default_factory=list, init=False)
     checkpoints: list[object] = field(default_factory=list, init=False)
@@ -1161,6 +1168,7 @@ class FirstOrderTransientStep:
         )
         selected_fields = tuple(fields) or (self.current,)
         self.last_output = None if output is None else Path(output)
+        self.last_output_frame_times = None
         self.last_output_fields = selected_fields if output is not None else ()
         self.last_output_start_time = (
             None if output is None else float(self.completed_steps) * float(self.dt)
@@ -1217,6 +1225,7 @@ class FirstOrderTransientStep:
             self.last_output = actual_output
             self.last_output_backend = backend
             self.last_output_layout = layout
+            self.last_output_frame_times = series.times
             with series as xdmf:
                 xdmf.write_fields(self.completed_steps * self.dt, *selected_fields)
                 for info in stepper:
@@ -2162,6 +2171,12 @@ def _transient_output_fields(selected):
 
 
 def _transient_result_series(path, domain, *, primary=None):
+    from .results._series_observation import ObservedSeries
+    writer, actual, backend, layout = _transient_result_backend(path, domain, primary=primary)
+    return ObservedSeries(writer), actual, backend, layout
+
+
+def _transient_result_backend(path, domain, *, primary=None):
     """Choose one ParaView-readable dataset layout for transient output."""
 
     selected = Path(path)

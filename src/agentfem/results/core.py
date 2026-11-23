@@ -153,6 +153,7 @@ class HistoryResult:
             "abscissa_name": self.abscissa_name,
             "abscissa_unit": self.abscissa_unit,
             "sample_count": int(self.abscissa.size),
+            "abscissa_range": None if not self.abscissa.size else [float(self.abscissa[0]), float(self.abscissa[-1])],
             "value_shape": self.value_shape,
             "description": self.description,
         }

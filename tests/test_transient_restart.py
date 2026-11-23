@@ -29,7 +29,7 @@ def _right(x):
     return np.isclose(x[0], 1.0)
 
 
-def _dynamic_step(*, implicit: bool, checkpoint=None, update_load=None):
+def _dynamic_step(*, implicit: bool, checkpoint=None, update_load=None, unit_system=None):
     domain = mesh.rectangle(
         (0.0, 0.0),
         (1.0, 0.2),
@@ -44,6 +44,7 @@ def _dynamic_step(*, implicit: bool, checkpoint=None, update_load=None):
             method="newmark" if implicit else "explicit",
         ),
         mesh=domain,
+        units=unit_system,
     )
     displacement = model.field(fields.displacement(domain))
     model.material(
@@ -119,7 +120,7 @@ def test_dynamics_restart_matches_uninterrupted_state_and_energy(tmp_path, impli
     assert next(iter(simulation.checkpoints.values())).portable is False
 
 
-def _heat_step(*, checkpoint=None, steps: int = 4):
+def _heat_step(*, checkpoint=None, steps: int = 4, unit_system=None):
     domain = mesh.rectangle(
         (0.0, 0.0),
         (1.0, 0.2),
@@ -130,6 +131,7 @@ def _heat_step(*, checkpoint=None, steps: int = 4):
     model = models.create(
         study=studies.transient_heat_transfer(dimension=2),
         mesh=domain,
+        units=unit_system,
     )
     temperature = model.field(fields.temperature(domain, value=400.0))
     model.material(
@@ -155,6 +157,37 @@ def _heat_step(*, checkpoint=None, steps: int = 4):
         progress=False,
         checkpoint=checkpoint,
     )
+
+
+@pytest.mark.parametrize('kind', ['explicit', 'implicit', 'heat'])
+def test_output_segment_reset_and_declared_units_leave_solution_unchanged(tmp_path, kind):
+    from agentfem import units
+    def make(unit_system=None):
+        if kind == 'heat':
+            return _heat_step(unit_system=unit_system)
+        return _dynamic_step(implicit=kind=='implicit', unit_system=unit_system)
+    reference = make()
+    reference.run()
+    declared = units.consistent(length='mm',mass='tonne',time='ms')
+    full = make(declared)
+    written = full.solve_result(output=tmp_path/'full.xdmf')
+    step = make(declared)
+    step.save_every = 1
+    step.run(output=tmp_path/'first.xdmf', until_step=2)
+    first_times = step.last_output_frame_times
+    assert len(first_times) == 3
+    # Finish without output: neither the old path nor its frame count applies.
+    last = step.solve_result()
+    assert step.last_output is None and step.last_output_frame_times is None
+    assert 'field_output' not in last.metadata
+    assert len(first_times) == 3
+    primary = step.current if kind=='heat' else step.state.u.value
+    baseline = reference.current if kind=='heat' else reference.state.u.value
+    np.testing.assert_allclose(primary.x.array, baseline.x.array, rtol=1e-12, atol=1e-12)
+    assert written.fields[primary.name].unit == ('K' if kind=='heat' else 'mm')
+    assert last.fields[primary.name].unit == ('K' if kind=='heat' else 'mm')
+    histories = [h for h in last.histories.values() if h.abscissa_name=='time']
+    assert histories and all(h.abscissa_unit=='ms' for h in histories)
 
 
 @pytest.mark.parametrize("implicit", [False, True])
