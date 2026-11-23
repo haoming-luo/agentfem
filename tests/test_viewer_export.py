@@ -37,6 +37,21 @@ def test_saved_view_has_no_executable_payload():
     assert validate_view(json.loads(json.dumps(record))) == record
 
 
+@pytest.mark.parametrize("limits, expected", [((-4, 2), (-4, 4)), ((2, 5), (-5, 5)),
+                                              ((-7, -1), (-7, 7)), ((0, 0), (-1.e-12, 1.e-12))])
+def test_centered_color_limits(limits, expected):
+    from agentfem._viewer_export import centered_range
+    assert centered_range(*limits) == expected
+
+
+def test_zero_centered_view_contract():
+    record = dict(view_record(), color_mode="zero", palette="coolwarm", range=[-4., 4.])
+    assert validate_view(record) == record
+    for changes in ({"range": [-1., 4.]}, {"palette": "ocean"}, {"color_mode": "guess"}):
+        with pytest.raises(ValueError):
+            validate_view(dict(record, **changes))
+
+
 def test_annotation_positions_do_not_depend_on_time_width():
     from agentfem._viewer_export import figure_annotations
     first = figure_annotations(view_record(), .000001, 0, [1920, 1080])

@@ -91,6 +91,53 @@ def test_independent_viewers_do_not_share_controls(tmp_path):
         second.controller.on_server_exited()
 
 
+def test_zero_centered_colors_follow_component_and_preserve_override(tmp_path):
+    from agentfem.viewer import build_viewer
+    grid = pv.ImageData(dimensions=(2, 2, 2)).cast_to_unstructured_grid()
+    grid.point_data["U"] = np.tile([-4., 2., 0.], (grid.n_points, 1))
+    grid.point_data["temperature"] = np.arange(grid.n_points, dtype=float) - 2
+    path = tmp_path / "signed.vtu"
+    grid.save(path)
+    server = build_viewer(path, displacement="U", reference_geometry=True)
+    state, ctrl = server.state, server.controller
+    state.ready()
+    try:
+        ctrl.on_server_ready()
+        choices = scalar_choices(grid)
+        with state:
+            state.field = choices.index(("point", "U", 0))
+        assert not state.error
+        assert state.color_mode == "zero" and state.palette == "coolwarm"
+        assert state.range_min == -state.range_max
+        ctrl.fit_series_range()
+        assert state.range_min == -state.range_max
+        with state:
+            state.range_max = 2.
+        assert state.range_min == -2.
+        with state:
+            state.preset = "publication"
+        assert state.palette == "coolwarm"
+        ctrl.save_view()
+        assert not state.error
+        state.view_selection = state.view_items[0]["value"]
+        with state:
+            state.field = choices.index(("point", "U", "magnitude"))
+        assert state.color_mode == "sequential"
+        ctrl.restore_view()
+        assert not state.error
+        assert state.color_mode == "zero" and (state.range_min, state.range_max) == (-2., 2.)
+        with state:
+            state.color_mode = "sequential"
+        with state:
+            state.edges = True
+        assert state.color_mode == "sequential"
+        with state:
+            state.field = choices.index(("point", "temperature", None))
+        assert state.color_mode == "sequential"  # Not inferred from signs/name.
+    finally:
+        ctrl.on_server_exited()
+
+
 def test_scalar_choices_preserve_duplicate_names_and_components():
     grid = pv.ImageData(dimensions=(2, 2, 2)).cast_to_unstructured_grid()
     grid.cell_data["damage"] = [0.5]

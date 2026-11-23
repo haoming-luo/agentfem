@@ -73,6 +73,17 @@ slider stays above the canvas. Nothing here changes the stored result.
   they are not claimed to be perceptually uniform or journal-endorsed palettes.
   Established viridis/cividis maps remain selectable, including in saved views.
 
+- **Color scale → Center on zero** uses a blue–neutral–red diverging map with
+  symmetric limits `[-A, A]`: equal positive and negative values receive equal
+  visual weight. **Limit ±** adjusts both ends; **Fit all saved frames** finds
+  the largest absolute value across the saved series. The fixed range remains
+  unchanged during playback and is retained in exports and saved views.
+  Components of the explicitly selected displacement vector recommend this
+  mode; its magnitude recommends Sequential. Other fields default to Sequential:
+  choose Center on zero for signed stress/strain components when appropriate.
+  Field names and the presence of negative values alone do not establish physics.
+  Manual selection is retained until a different field/component is selected.
+
 - **Field** selects the saved quantity, with **Elements** or **Nodes** indicating
   where values are stored. **Component** selects its component separately;
   three-component vectors offer **Magnitude**, **X**, **Y**, **Z**. Magnitude

@@ -16,7 +16,7 @@ from agentfem.results import (
     deform_visualization_frame, inspect_visualization, read_visualization_frame,
 )
 from agentfem._viewer_files import ResultDirectory
-from agentfem._viewer_export import PRESETS, PALETTES, apply_camera, validate_view, display_frame, color_map
+from agentfem._viewer_export import PRESETS, PALETTES, apply_camera, validate_view, display_frame, color_map, centered_range
 from agentfem._viewer_jobs import ExportJob
 from agentfem._atomic_text import atomic_write_text
 from agentfem._viewer_motion import automatic_scale, displacement_metrics, timeline_sample, interpolate_displacement
@@ -120,6 +120,7 @@ def build_viewer(path, *, displacement=None, reference_geometry=False, server=No
     state.scale_busy = False
     state.details = False
     state.fixed_range = True
+    state.color_mode = "sequential"
     state.range_min = 0.
     state.range_max = 1.
     state.mesh_summary = ""
@@ -207,17 +208,32 @@ def build_viewer(path, *, displacement=None, reference_geometry=False, server=No
                 data[key] = values.copy()
                 label = name if component is None else f"{name} · {component_label(grid, choices[selected])}"
                 bounds = None
+                if range_owner["choice"] != choices[selected]:
+                    # Only the explicitly selected displacement vector has known
+                    # semantics here. Never guess stress/temperature from names.
+                    state.color_mode = ("zero" if association == "point" and
+                                        name == state.displacement_field and
+                                        type(component) is int else "sequential")
                 if state.fixed_range:
                     if range_owner["choice"] != choices[selected]:
                         low, high = float(values.min()), float(values.max())
                         if low == high:
                             pad = max(abs(low)*.01, 1.e-12)
                             low, high = low-pad, high+pad
+                        if state.color_mode == "zero":
+                            low, high = centered_range(low, high)
                         range_owner["choice"] = choices[selected]
                         state.range_min, state.range_max = low, high
+                    if state.color_mode == "zero":
+                        if float(state.range_max) <= 0:
+                            raise ValueError("Color limit must be positive.")
+                        state.range_min = -float(state.range_max)
                     bounds = float(state.range_min), float(state.range_max)
                     if not np.isfinite(bounds).all() or bounds[0] >= bounds[1]:
                         raise ValueError("Color minimum must be finite and smaller than maximum.")
+                elif state.color_mode == "zero":
+                    bounds = centered_range(values.min(), values.max())
+                range_owner["choice"] = choices[selected]
                 scalar = (values, key, association, label, bounds)
             first_view = cache["grid"] is None
             camera = plotter.camera_position
@@ -486,6 +502,8 @@ def build_viewer(path, *, displacement=None, reference_geometry=False, server=No
             if low == high:
                 pad = max(abs(low)*.01, 1.e-12)
                 low, high = low-pad, high+pad
+            if state.color_mode == "zero":
+                low, high = centered_range(low, high)
             range_owner["choice"] = choice
             with state:
                 state.fixed_range = True
@@ -550,7 +568,7 @@ def build_viewer(path, *, displacement=None, reference_geometry=False, server=No
         view = dict(schema="agentfem.view.v1", source=str(path.relative_to(directory.root)),
                     frame=int(state.frame), choice=list(cache["choices"][selected]) if selected >= 0 else None,
                     range=[float(state.range_min), float(state.range_max)], preset=state.preset,
-                    palette=state.palette, scale=float(state.scale), reference_geometry=bool(state.reference_geometry),
+                    palette=state.palette, color_mode=state.color_mode, scale=float(state.scale), reference_geometry=bool(state.reference_geometry),
                     displacement=state.displacement_field, edges=bool(state.edges), camera=camera_record(),
                     title=state.figure_title, unit=state.field_unit, time_unit=state.time_unit)
         if selected >= 0 and not state.fixed_range:
@@ -616,6 +634,8 @@ def build_viewer(path, *, displacement=None, reference_geometry=False, server=No
                 state.time_unit = view_record.get("time_unit", "")
             range_owner["choice"] = choice
             with state:
+                state.color_mode = view_record.get("color_mode", "sequential")
+            with state:
                 state.palette = view_record["palette"]
                 if choice is not None:
                     state.range_min, state.range_max = view_record["range"]
@@ -676,7 +696,13 @@ def build_viewer(path, *, displacement=None, reference_geometry=False, server=No
 
     def change_preset(**_):
         if state.preset in PRESETS:
-            state.palette = PRESETS[state.preset]["cmap"]
+            state.palette = "coolwarm" if state.color_mode == "zero" else PRESETS[state.preset]["cmap"]
+
+    def change_color_mode(**_):
+        with state:
+            if state.color_mode == "zero":
+                state.range_min, state.range_max = centered_range(state.range_min, state.range_max)
+            change_preset()
 
     list_views()
 
@@ -715,15 +741,19 @@ def build_viewer(path, *, displacement=None, reference_geometry=False, server=No
                 v3.VSelect(v_model=("field", -1), items=("component_items",),
                            label="Component", v_if="quantity >= 0", hide_details=True, density="compact")
                 v3.VCheckbox(v_model=("edges", False), label="Show mesh edges", hide_details=True, density="compact")
+                v3.VSelect(v_model=("color_mode", "sequential"),
+                           items=("color_modes", [{"title": "Sequential", "value": "sequential"},
+                                                  {"title": "Center on zero", "value": "zero"}]),
+                           label="Color scale", hide_details=True, density="compact")
                 v3.VCheckbox(v_model=("fixed_range", True), label="Keep colors consistent", hide_details=True, density="compact")
                 v3.VBtn("Fit all saved frames", click=fit_series_range, disabled=("field < 0",), variant="text")
                 v3.VCheckbox(v_model=("advanced", False), label="Custom colors and labels", hide_details=True, density="compact")
                 v3.VSelect(v_model=("palette", "ocean"), items=("palette_items", list(PALETTES)), label="Palette", v_if="advanced",
-                           hide_details=True, density="compact")
+                           hide_details=True, density="compact", disabled=("color_mode === 'zero'",))
                 with v3.VRow(v_if="advanced", classes="ma-0 ga-2 flex-nowrap"):
                     v3.VTextField(v_model=("range_min", 0.), label="Minimum", type="number",
-                                  disabled=("!fixed_range",), hide_details=True, density="compact", style="min-width:0")
-                    v3.VTextField(v_model=("range_max", 1.), label="Maximum", type="number",
+                                  v_if="color_mode !== 'zero'", disabled=("!fixed_range",), hide_details=True, density="compact", style="min-width:0")
+                    v3.VTextField(v_model=("range_max", 1.), label=("color_mode === 'zero' ? 'Limit ±' : 'Maximum'",), type="number",
                                   disabled=("!fixed_range",), hide_details=True, density="compact", style="min-width:0")
                 v3.VDivider()
                 v3.VCheckbox(v_model=("reference_geometry", bool(reference_geometry)),
@@ -821,6 +851,7 @@ def build_viewer(path, *, displacement=None, reference_geometry=False, server=No
     state.change("frame", "field", "scale", "edges", "fixed_range", "range_min", "range_max",
                  "reference_geometry", "displacement_field", "preset", "palette", "blend", "time_unit")(update)
     state.change("preset")(change_preset)
+    state.change("color_mode")(change_color_mode)
     state.change("smooth")(change_smoothing)
     state.change("project_selection")(select_project)
     state.change("run_selection")(select_run)

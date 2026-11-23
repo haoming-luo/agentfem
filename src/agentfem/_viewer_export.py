@@ -36,6 +36,14 @@ COLOR_STOPS = {
 PALETTES = (*COLOR_STOPS, "viridis", "cividis", "magma", "coolwarm")
 
 
+def centered_range(low, high):
+    """Symmetric display limits, including an exactly zero field."""
+    if not np.isfinite([low, high]).all():
+        raise ValueError("Color limits must be finite.")
+    extent = max(abs(float(low)), abs(float(high)), 1.e-12)
+    return -extent, extent
+
+
 def color_map(name):
     """Resolve a stable saved palette name for both interactive and file views."""
     if name in COLOR_STOPS:
@@ -65,6 +73,10 @@ def validate_view(view):
         raise ValueError("Unsupported saved view schema.")
     if view.get("preset") not in PRESETS or view.get("palette") not in PALETTES:
         raise ValueError("Select a supported style and palette.")
+    if view.get("color_mode", "sequential") not in {"sequential", "zero"}:
+        raise ValueError("Select sequential or zero-centered colors.")
+    if view.get("color_mode") == "zero" and view["palette"] != "coolwarm":
+        raise ValueError("Zero-centered colors require a diverging palette.")
     if type(view.get("frame")) is not int or view["frame"] < 0:
         raise ValueError("Select a saved frame.")
     if not isinstance(view.get("source"), str):
@@ -87,6 +99,8 @@ def validate_view(view):
         bounds = np.asarray(view.get("range"), dtype=float)
         if bounds.shape != (2,) or not np.isfinite(bounds).all() or bounds[0] >= bounds[1]:
             raise ValueError("Export needs a finite fixed color range.")
+        if view.get("color_mode") == "zero" and bounds[0] != -bounds[1]:
+            raise ValueError("Zero-centered colors require symmetric limits.")
     for name in ("title", "unit", "time_unit"):
         if not isinstance(view.get(name, ""), str) or len(view.get(name, "")) > 160:
             raise ValueError("Titles and units must be short text.")
