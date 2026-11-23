@@ -3,6 +3,7 @@
 """Local result selection restricted to an explicitly selected directory."""
 
 from pathlib import Path
+from collections import Counter
 import xml.etree.ElementTree as ET
 
 SUFFIXES = frozenset({".xdmf", ".xmf", ".vtu", ".vtk", ".pvd"})
@@ -45,6 +46,44 @@ class ResultDirectory:
             if len(entries) >= 1000:
                 raise ValueError("This folder has too many entries; open a more specific result directory.")
         return entries
+
+    def projects(self):
+        """Discover only the selected root and its immediate children."""
+        from agentfem.project import ProjectConfig
+
+        items = []
+        candidates = [self.root] + [self.resolve(item["value"])
+                                  for item in self.entries() if item["directory"]]
+        for candidate in candidates:
+            config = candidate / "agentfem.toml"
+            if not config.is_file():
+                continue
+            try:
+                project = ProjectConfig.load(self.resolve(config))
+                if not project.output_directory.is_relative_to(candidate):
+                    continue
+            except (ValueError, OSError, TypeError):
+                continue
+            items.append({"title": project.name,
+                          "value": str(candidate.relative_to(self.root))})
+        counts = Counter(item["title"] for item in items)
+        for item in items:
+            if counts[item["title"]] > 1:
+                item["title"] += " · " + item["value"]
+        return items
+
+    def runs(self, project):
+        """Use the project's configured output directory, without loading code."""
+        from agentfem.project import ProjectConfig
+
+        root = self.resolve(project)
+        config = ProjectConfig.load(self.resolve(root / "agentfem.toml"))
+        if not config.output_directory.is_relative_to(root):
+            raise ValueError("Project output directory must remain inside its project.")
+        if not config.output_directory.exists():
+            return []
+        return [{"title": Path(item["value"]).name, "value": item["value"]}
+                for item in self.entries(config.output_directory) if item["directory"]]
 
     def result(self, name):
         path = self.resolve(name)

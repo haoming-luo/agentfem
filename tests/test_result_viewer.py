@@ -27,6 +27,36 @@ def test_scalar_choices_preserve_duplicate_names_and_components():
     assert set(grid.cell_data) == {"damage", "stress"}
 
 
+def test_project_run_navigation_opens_saved_result(tmp_path):
+    pytest.importorskip("trame")
+    from trame.app import get_server
+    from agentfem.viewer import build_viewer
+
+    project = tmp_path / "beam"
+    run = project / "custom/002-full"
+    run.mkdir(parents=True)
+    (project / "agentfem.toml").write_text('[project]\nname="Beam"\n[run]\noutput_directory="custom"\n')
+    grid = pv.ImageData(dimensions=(2, 2, 2)).cast_to_unstructured_grid()
+    grid.save(run / "fields.vtu")
+    server = get_server(f"project-{tmp_path.name}", client_type="vue3")
+    build_viewer(tmp_path, server=server)
+    state, ctrl = server.state, server.controller
+    state.ready()
+    try:
+        with state:
+            state.project_selection = "beam"
+        assert state.run_items[0]["title"] == "002-full"
+        with state:
+            state.run_selection = "beam/custom/002-full"
+        assert state.folder == "beam/custom/002-full"
+        state.file_selection = state.file_items[0]["value"]
+        ctrl.open_result()
+        assert state.result_name == "fields.vtu"
+        assert state.frame_count == 1 and state.error == ""
+    finally:
+        ctrl.on_server_exited()
+
+
 def test_browser_open_switch_and_failed_open_preserves_current(tmp_path):
     pytest.importorskip("trame")
     from trame.app import get_server

@@ -18,6 +18,16 @@ Open a result file or a directory containing your results:
 agentfem-view /path/to/project/outputs
 ```
 
+For project/run navigation, open a project itself or the folder containing your
+projects: `agentfem-view /path/to/projects`. Select **Project**, then **Run**,
+then the desired XDMF (or other supported result) and **Open**. Project selection
+uses `agentfem.toml`, including a custom `run.output_directory`; it never imports
+or executes `case.py`. Discovery is limited to the opened folder and immediate
+child projects, not a recursive disk search. Ordinary folder browsing remains
+available for nested projects or standalone results. **Refresh frames** also
+refreshes the available projects and runs. Select **Play** to animate saved
+frames; the adjacent icon changes to **Pause** during playback.
+
 Use the recommended visualization artifact reported by the run. Supported
 reader inputs are XDMF, VTU, legacy VTK and PVD. The viewer accepts one dataset
 per saved time; it does not merge distinct physical blocks or coincident nodes.

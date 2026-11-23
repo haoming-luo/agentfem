@@ -63,9 +63,14 @@ def build_viewer(path, *, displacement=None, reference_geometry=False, server=No
     state.source_status = ""
     state.frame_count = info["frame_count"]
     state.result_name = path.name if path else "Open a local result"
+    state.loaded_source = str(path.relative_to(directory.root)) if path else ""
     state.folder = "."
     state.file_items = directory.entries()
     state.file_selection = None
+    state.project_items = directory.projects()
+    state.project_selection = None
+    state.run_items = []
+    state.run_selection = None
     state.playing = False
     state.fixed_range = False
     state.range_min = 0.
@@ -217,6 +222,7 @@ def build_viewer(path, *, displacement=None, reference_geometry=False, server=No
             cache.update(frame=None, grid=None, choices=[])
             with state:
                 state.result_name = path.name
+                state.loaded_source = str(path.relative_to(directory.root))
                 state.frame_count = latest["frame_count"]
                 state.frame = latest["frame"]
                 state.field = -1
@@ -244,11 +250,36 @@ def build_viewer(path, *, displacement=None, reference_geometry=False, server=No
         except (ValueError, OSError) as exc:
             state.error = str(exc)
 
+    def select_project(**_):
+        stop_playback()
+        if state.project_selection is None:
+            return
+        try:
+            runs = directory.runs(state.project_selection)
+            with state:
+                state.run_items = runs
+                state.run_selection = None
+                state.file_selection = state.project_selection
+            open_selection()
+        except (ValueError, TypeError, OSError) as exc:
+            state.error = str(exc)
+
+    def select_run(**_):
+        if state.run_selection is not None:
+            state.file_selection = state.run_selection
+            open_selection()
+            files = [item for item in state.file_items if not item["directory"]]
+            if not state.error and len(files) == 1:
+                state.file_selection = files[0]["value"]
+
     def refresh(**_):
         # Reopen only the atomically published index; never inspect a writer's
         # temporary files or interpolate across a restart gap.
         stop_playback()
         try:
+            state.project_items = directory.projects()
+            if state.project_selection is not None:
+                state.run_items = directory.runs(state.project_selection)
             if path is None:
                 state.file_items = directory.entries(state.folder)
                 state.error = ""
@@ -285,10 +316,16 @@ def build_viewer(path, *, displacement=None, reference_geometry=False, server=No
         with ui.drawer:
             with v3.VContainer(classes="pa-4 d-flex flex-column ga-3"):
                 v3.VLabel("LOCAL RESULTS", style="font-size:12px; letter-spacing:1px")
+                v3.VSelect(v_model=("project_selection", None), items=("project_items",),
+                           label="Project", v_if="project_items.length", hide_details=True,
+                           density="compact")
+                v3.VSelect(v_model=("run_selection", None), items=("run_items",),
+                           label="Run", v_if="project_selection !== null", hide_details=True,
+                           density="compact")
                 v3.VSelect(v_model=("file_selection", None), items=("file_items",),
                            label="Result or folder", hide_details=True, density="compact")
                 with v3.VRow(classes="ma-0 ga-2"):
-                    v3.VBtn("Open", click=open_selection, color="primary", variant="tonal")
+                    v3.VBtn("Open", click=open_selection, color="primary", variant="tonal", prepend_icon="mdi-folder-open-outline")
                     v3.VBtn("Up", click=parent_folder, disabled=("folder === '.'",), variant="text")
                 v3.VLabel("Folder: {{ folder }}", style="font-size:12px; white-space:normal; overflow-wrap:anywhere")
                 v3.VDivider()
@@ -317,11 +354,14 @@ def build_viewer(path, *, displacement=None, reference_geometry=False, server=No
                 v3.VAlert("{{ error }}", v_if="error", type="error", density="compact")
                 with v3.VRow(classes="ma-0 px-3 align-center ga-3", style="flex:0 0 auto; width:100%"):
                     v3.VBtn("{{ playing ? 'Pause' : 'Play' }}", click=toggle_playback,
-                            disabled=("frame_count <= 1",), variant="text")
+                            disabled=("frame_count <= 1",), variant="text",
+                            prepend_icon=("playing ? 'mdi-pause' : 'mdi-play'",))
                     v3.VSlider(v_model=("frame", info["frame"]), min=0,
                                max=("frame_count - 1",), step=1, label="Saved frame",
                                disabled=("frame_count <= 1",), hide_details=True, style="min-width:160px")
                 v3.VLabel("{{ coordinate }}", classes="px-4")
+                v3.VLabel("Viewing: {{ loaded_source }}", v_if="loaded_source", classes="px-4",
+                          style="font-size:12px; overflow-wrap:anywhere")
                 v3.VLabel("{{ mesh_summary }}", classes="px-4")
                 v3.VLabel("{{ source_status }}", v_if="source_status", classes="px-4")
                 # VtkLocalView manages its initial synchronization. Its ready
@@ -335,6 +375,8 @@ def build_viewer(path, *, displacement=None, reference_geometry=False, server=No
                 v3.VLabel("Local preview · original field association · no averaging · {{ fixed_range ? 'fixed range' : 'range per frame' }}", classes="px-4 pb-2")
     state.change("frame", "field", "scale", "edges", "fixed_range", "range_min", "range_max",
                  "reference_geometry", "displacement_field")(update)
+    state.change("project_selection")(select_project)
+    state.change("run_selection")(select_run)
     ctrl.on_server_ready.add(update)
     ctrl.on_server_exited.add(stop_playback)
     def close_view(**_):
@@ -345,6 +387,8 @@ def build_viewer(path, *, displacement=None, reference_geometry=False, server=No
     ctrl.open_result = open_selection
     ctrl.refresh_result = refresh
     ctrl.parent_folder = parent_folder
+    ctrl.select_project = select_project
+    ctrl.select_run = select_run
     ctrl.toggle_playback = toggle_playback
     ctrl.stop_playback = stop_playback
     return server
