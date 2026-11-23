@@ -19,6 +19,7 @@ from tools import p92_recoverable_mobility_reference as mobility_kernel
 from tools import p92_critical_recovery_reference as critical_kernel
 from tools import p92_rate_recovery_reference as rate_kernel
 from tools import p92_aging_resistance_reference as aging_kernel
+from tools import p92_mobile_fraction_reference as mobile_kernel
 from tools.p92_full_sensitivity import decode as decode_backbone, NAMES as BASE_NAMES
 from tools.p92_bam_source import read_source
 from tools.p92_measured_controls import measured_path
@@ -105,6 +106,19 @@ def decode_aging(card, z):
     return aging_kernel.Material(base, .1*10.**z[7], 250.*10.**z[8])
 
 
+def decode_mobile(card, z):
+    z = np.asarray(z, dtype=float)
+    if z.shape != (22,) or not np.isfinite(z).all():
+        raise ValueError("Require 22 finite substituted coordinates")
+    backbone_z = z.copy()
+    backbone_z[7:9] = 0.
+    base = decode(card, backbone_z, (0., 0.))
+    a, b = base.backbone.branches
+    base = replace(base, backbone=replace(base.backbone,
+        branches=(replace(a, static_recovery=(0., 0.)), b)))
+    return mobile_kernel.Material(base, 10.**z[7]/1800., 250.*10.**z[8])
+
+
 def decode(card, z, powers):
     z = np.asarray(z, dtype=float)
     if z.shape != (22,) or not np.isfinite(z).all():
@@ -126,9 +140,14 @@ def decode(card, z, powers):
 def identify(seed, source_dir, powers, *, shared_history=False, directional=False, primary=False,
              recoverable_kinetics=False, transient_strength=False, replacement_space=False,
              recoverable_mobility=False, critical_recovery=False, recovery_shape=False,
-             rate_recovery=False, aging_resistance=False):
+             rate_recovery=False, aging_resistance=False, mobile_fraction=False):
     if seed["model_id"] != kernel.MODEL_ID or tuple(powers) not in {(0., 0.), (0., 1.)}:
         raise ValueError("Require predeclared matched recovery hypotheses")
+    if type(mobile_fraction) is not bool or (mobile_fraction and (
+            shared_history or directional or primary or recoverable_kinetics or transient_strength
+            or replacement_space or recoverable_mobility or critical_recovery or recovery_shape
+            or rate_recovery or aging_resistance or tuple(powers) != (0., 0.))):
+        raise ValueError("Mobile fraction must isolate a two-coordinate replacement")
     if type(aging_resistance) is not bool or (aging_resistance and (
             shared_history or directional or primary or recoverable_kinetics or transient_strength
             or replacement_space or recoverable_mobility or critical_recovery or recovery_shape
@@ -187,6 +206,8 @@ def identify(seed, source_dir, powers, *, shared_history=False, directional=Fals
         execution_kernel = rate_kernel
     if aging_resistance:
         decoder, execution_kernel = decode_aging, aging_kernel
+    if mobile_fraction:
+        decoder, execution_kernel = decode_mobile, mobile_kernel
     coordinates = list(NAMES)
     if primary:
         coordinates[20:] = ["primary.hardening_scale", "primary.time_scale"]
@@ -200,6 +221,8 @@ def identify(seed, source_dir, powers, *, shared_history=False, directional=Fals
         coordinates[7:9] = ["B.ratcheting1", "B.ratcheting2"]
     if aging_resistance:
         coordinates[7:9] = ["aging.sensitivity", "aging.build"]
+    if mobile_fraction:
+        coordinates[7:9] = ["mobile.immobilization", "mobile.remobilization"]
     paths = []
     for protocol in ("RF", "SLR", "SLC"):
         source = read_source(source_dir/f"Data_{protocol}.lis", protocol=protocol)
@@ -248,7 +271,7 @@ def identify(seed, source_dir, powers, *, shared_history=False, directional=Fals
     bound = .3/np.sqrt(10)
     history_audit = (history_identifiability(matrices[1], basis)
                      if shared_history or recoverable_kinetics or transient_strength or recovery_shape
-                     or aging_resistance else None)
+                     or aging_resistance or mobile_fraction else None)
     if history_audit is not None and not history_audit["passed"]:
         return dict(schema="agentfem.research.spectrum-recovery-joint.v1", model_id=execution_kernel.MODEL_ID,
             replacement_space=replacement_space, restricted_derivative_audits=restricted,
@@ -304,6 +327,7 @@ if __name__ == "__main__":
     parser.add_argument("--recovery-shape", action="store_true")
     parser.add_argument("--rate-recovery", action="store_true")
     parser.add_argument("--aging-resistance", action="store_true")
+    parser.add_argument("--mobile-fraction", action="store_true")
     args = parser.parse_args()
     raw = args.seed.read_bytes()
     names = ("p92_spectrum_recovery_joint.py", "p92_recoverable_spectrum.py", "p92_two_rate_reference.py",
@@ -314,6 +338,7 @@ if __name__ == "__main__":
     names += ("p92_recoverable_mobility_reference.py", "p92_critical_recovery_reference.py")
     names += ("p92_rate_recovery_reference.py",)
     names += ("p92_aging_resistance_reference.py",)
+    names += ("p92_mobile_fraction_reference.py",)
     def identities():
         return {n: sha256(Path(__file__).with_name(n).read_bytes()).hexdigest() for n in names}
     before = identities()
@@ -323,7 +348,7 @@ if __name__ == "__main__":
                       transient_strength=args.transient_strength, replacement_space=args.replacement_space,
                       recoverable_mobility=args.recoverable_mobility, critical_recovery=args.critical_recovery,
                       recovery_shape=args.recovery_shape, rate_recovery=args.rate_recovery,
-                      aging_resistance=args.aging_resistance)
+                      aging_resistance=args.aging_resistance, mobile_fraction=args.mobile_fraction)
     if identities() != before or args.seed.read_bytes() != raw:
         raise RuntimeError("Recovery comparison inputs changed during identification")
     result["driver_sha256"], result["seed_sha256"] = before, sha256(raw).hexdigest()
@@ -336,4 +361,5 @@ if __name__ == "__main__":
     result["recovery_shape"] = args.recovery_shape
     result["rate_recovery"] = args.rate_recovery
     result["aging_resistance"] = args.aging_resistance
+    result["mobile_fraction"] = args.mobile_fraction
     write_new(args.output, result)

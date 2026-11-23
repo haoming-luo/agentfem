@@ -1,5 +1,22 @@
 # AgentFEM Product Roadmap
 
+### Mobility population versus reverse strength (2026-11-23)
+
+The [bounded mobile-fraction replacement](internal/p92_mobile_fraction_20261123.md)
+retains both recoverable modes and replaces two weak coefficients rather than
+adding fitted parameters. Fixed screening and same-budget early identification
+are followed by frozen ten-cycle checks. The candidate improves SLC entry,
+creep accumulation and parts of relaxation, but worsens SLR cycle-10 peak
+error to 10.067%; all three response screens fail despite passing numerical
+checks. Reject this reduction; do not repeat its fit or enlarge its bounds.
+No industrial P92 response/life qualification, merge or release follows.
+
+The [portfolio checkpoint](internal/portfolio_checkpoint_20261123.md)
+separates two open PR deliveries from seven product routes. This thread's
+active scientific work remains #197; #198 is separately owned installed-workflow
+maintenance. Material-response research must not be confused with solver
+readiness, software CI, life qualification or new full-simulation speedups.
+
 ### Hold kinetics / reverse-strength discrimination (2026-11-23)
 
 The [frozen-state rate fingerprint](internal/p92_rate_fingerprint_20261123.md)

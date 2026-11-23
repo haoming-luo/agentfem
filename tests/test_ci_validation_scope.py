@@ -31,6 +31,16 @@ def test_rate_fingerprint_selects_scientific_regressions(path):
     assert "tests/test_p92_response_screen.py" in scope.tests
 
 
+@pytest.mark.parametrize("path", ["tools/p92_mobile_fraction_reference.py",
+    "tools/p92_mobile_fraction_probe.py", "tools/p92_mobile_fraction_frozen.py",
+    "evidence/creep/2026-11-23-mobile-fraction-probe.json"])
+def test_population_replacement_keeps_original_response_gates(path):
+    scope = classify_changes([path])
+    assert scope.level == "targeted"
+    assert "tests/test_p92_mobile_fraction.py" in scope.tests
+    assert "tests/test_p92_response_screen.py" in scope.tests
+
+
 def test_classifier_edit_selects_its_own_regressions():
     scope = classify_changes(["ci_validation_scope.py", "tools/p92_recovery_discriminator.py"])
     assert scope.level == "targeted"
