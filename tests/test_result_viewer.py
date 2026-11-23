@@ -24,7 +24,7 @@ def test_launch_uses_atomic_automatic_port_and_loopback(tmp_path, monkeypatch, p
     if port is not None:
         argv.extend(["--port", str(port)])
     viewer.main(argv)
-    assert calls == [{"host": "127.0.0.1", "port": port or 0, "open_browser": False}]
+    assert calls == [{"host": "127.0.0.1", "port": port or 0, "open_browser": False, "timeout": 120}]
 
 
 @pytest.mark.parametrize("port", [-1, 65536])
@@ -33,6 +33,62 @@ def test_launch_rejects_invalid_port(tmp_path, port):
     with pytest.raises(SystemExit) as exc:
         main([str(tmp_path), "--port", str(port)])
     assert exc.value.code == 2
+
+
+def test_saved_view_roundtrip_restores_display_not_source_data(tmp_path):
+    pytest.importorskip("trame")
+    from trame.app import get_server
+    from agentfem.viewer import build_viewer
+    grid = pv.ImageData(dimensions=(2, 2, 2)).cast_to_unstructured_grid()
+    grid.point_data["U"] = np.ones((grid.n_points, 3)) * .1
+    grid.cell_data["damage"] = [.3]
+    path = tmp_path / "frame.vtu"
+    grid.save(path)
+    original = path.read_bytes()
+    server = get_server(f"view-save-{tmp_path.name}", client_type="vue3")
+    build_viewer(path, server=server)
+    state, ctrl = server.state, server.controller
+    state.ready()
+    try:
+        ctrl.on_server_ready()
+        with state:
+            state.field = 0
+            state.reference_geometry = True
+            state.displacement_field = "U"
+            state.scale = 2.
+            state.preset = "publication"
+        with state:
+            state.range_min, state.range_max = 0., 1.
+        ctrl.save_view()
+        assert len(state.view_items) == 1 and not state.error
+        state.view_selection = state.view_items[0]["value"]
+        with state:
+            state.field = -1
+            state.scale = 0.
+            state.preset = "presentation"
+        ctrl.restore_view()
+        assert not state.error
+        assert state.field == 0 and state.scale == 2.
+        assert state.preset == "publication" and state.palette == "cividis"
+        assert (state.range_min, state.range_max) == (0., 1.)
+        assert path.read_bytes() == original
+    finally:
+        ctrl.on_server_exited()
+
+
+def test_independent_viewers_do_not_share_controls(tmp_path):
+    pytest.importorskip("trame")
+    from agentfem.viewer import build_viewer
+    first, second = build_viewer(tmp_path), build_viewer(tmp_path)
+    try:
+        assert first is not second and first.state is not second.state
+        first.state.scale = 7.
+        first.state.preset = "presentation"
+        assert second.state.scale == 1.
+        assert second.state.preset == "scientific"
+    finally:
+        first.controller.on_server_exited()
+        second.controller.on_server_exited()
 
 
 def test_scalar_choices_preserve_duplicate_names_and_components():

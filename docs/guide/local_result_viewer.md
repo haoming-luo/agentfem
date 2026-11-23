@@ -30,8 +30,11 @@ them. **Opening the same URL twice connects to the same session**, not an
 independent workspace: field/frame/playback controls may affect both tabs.
 Do not reuse another conversation's URL when independent controls are wanted.
 An explicit `--port` remains available for integrations that require a fixed port.
-Closing a browser tab does not stop the process; stop its launching command when
-finished. Automatic background-service management is not yet provided.
+The power button closes this viewer after confirmation, cancels its active
+export and releases its process. Other independently launched viewers continue.
+After the last browser disconnects, the process exits after two minutes; a brief
+refresh does not lose the session. `--idle-timeout 0` keeps it running explicitly.
+Completed exports are retained; closing the viewer never deletes simulation results.
 
 For project/run navigation, open a project itself or the folder containing your
 projects: `agentfem-view /path/to/projects`. Select **Project**, then **Run**,
@@ -59,6 +62,10 @@ indexes referencing sibling runs, open their common parent directory.
 The left panel groups file, field and deformation controls. Its top-left menu
 button hides the panel when you want more space for the model. The saved-frame
 slider stays above the canvas. Nothing here changes the stored result.
+
+- **Style** offers Scientific (neutral), Publication (white, cividis), and
+  Presentation (dark, magma). Presets change appearance, not values. Color and
+  custom label settings are disclosed under **Custom colors and labels**.
 
 - **Field** selects the saved quantity, with **Elements** or **Nodes** indicating
   where values are stored. **Component** selects its component separately;
@@ -99,6 +106,39 @@ accumulate deformation. Do not enable it for geometry already deformed in the
 output. Opening another file clears this declaration. Displacement must be a
 three-component nodal field. Units and component
 conventions come from the result. The viewer does not infer missing units.
+
+## Save a figure, video or view
+
+**Export** opens a compact panel rather than adding controls around the model.
+
+- **Save image** renders a 1920 × 1080 PNG with the current camera, fixed color
+  limits, title, saved time coordinate and deformation scale. Transparent
+  backgrounds are optional. Specify field/time units from the result contract;
+  the viewer does not guess them. Custom units are display labels, not conversions.
+- **Save process video** exports actual saved states as MP4 at 24 fps, holding
+  each state for 10 video frames. This is an output-station animation, not a
+  claim of real-time playback or interpolated physical evolution. Physical
+  time coordinates remain visible. It supports at most 500 saved states.
+- **Save turntable video** rotates the camera around the current saved state
+  for five seconds. It does not advance simulation time.
+- Export runs in a separate bounded process; **Cancel export** terminates it.
+  Only a fully completed image/video and its `view.json` are published. Failure
+  does not replace earlier exports or touch source results.
+- **Download image/video** saves through the browser. Completed bundles also
+  remain in `viewer-exports/export-…` under the opened browsing root. The viewer
+  needs write access there. They contain derived media and view settings, not
+  duplicated meshes or H5 histories. Export dependencies are included in the
+  optional `viewer` extra; rendering requires a working VTK offscreen backend.
+- **Remember this view** saves settings without rendering. Select a saved view
+  and **Restore view** to reopen its source and camera, field/component, range,
+  time index, preset and deformation declaration. The source must remain under
+  the same browsing root. Settings are plain validated JSON, not executable code.
+
+Export uses server-side VTK while interactive rendering uses vtk.js; lighting
+can differ slightly. Camera and numerical selections are shared. Neither path
+averages element values, smooths mesh coordinates, or invents tensor invariants.
+Anti-aliasing improves image edges, not the numerical discretization. A view
+record is a reproducible presentation recipe, not a scientific validation seal.
 
 ## Continuation results
 
