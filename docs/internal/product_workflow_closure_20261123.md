@@ -49,6 +49,12 @@ open have familiar icons, retaining text labels and keyboard-accessible controls
 - Codex in-app browser selected project/run/XDMF and played a real 16-frame
   material result from frame 1 to frame 15. A separate VTU navigation check
   confirmed actual geometry rendering. This is not Windows browser acceptance.
+- After moving this product-only batch onto main `1e36a98b`, the combined
+  regression passed **277 tests in 262.04 s**. A subsequent deterministic
+  playback/pause regression brought the focused viewer suite to **15 passed
+  in 1.13 s**; these counts overlap and must not be summed. Browser checking
+  also exercised reference-geometry warp and KAPPA history coloring on the
+  independently run damage example. No solver speedup is claimed.
 
 Local installed acceptance artifacts:
 `/private/tmp/agentfem-product-acceptance-6b8qKr` (temporary, not distributable).
@@ -58,7 +64,7 @@ dependencies. Existing numerical tolerances and material laws are unchanged.
 ## Remaining bounded work
 
 Validate installed wheel and Windows viewing at an integration milestone;
-add full browser automation coverage for animation, deformation and run
+add broader browser automation coverage for animation, deformation and run
 switching. Continue from existing thermal and element routes only where an
 actual user workflow is missing. Clip/probe/part controls are subsequent viewer
 slices, not prerequisites for this project/run/playback improvement.

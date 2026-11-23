@@ -57,6 +57,53 @@ def test_project_run_navigation_opens_saved_result(tmp_path):
         ctrl.on_server_exited()
 
 
+def test_play_pause_advances_only_saved_frames(tmp_path, monkeypatch):
+    import asyncio
+    pytest.importorskip("trame")
+    from trame.app import get_server
+    from agentfem.viewer import build_viewer
+
+    grid = pv.ImageData(dimensions=(2, 2, 2)).cast_to_unstructured_grid()
+    for i in range(3):
+        grid.cell_data["damage"] = [i / 10]
+        grid.save(tmp_path / f"frame-{i}.vtu")
+    index = tmp_path / "series.pvd"
+    index.write_text('<VTKFile type="Collection"><Collection>' + ''.join(
+        f'<DataSet timestep="{time}" file="frame-{i}.vtu"/>'
+        for i, time in enumerate((0., .2, .9))) + '</Collection></VTKFile>')
+    server = get_server(f"play-{tmp_path.name}", client_type="vue3")
+    build_viewer(index, server=server)
+    state, ctrl = server.state, server.controller
+    state.ready()
+
+    async def exercise():
+        tick = asyncio.Event()
+        original_sleep = asyncio.sleep
+
+        async def clock_tick(_delay):
+            await tick.wait()
+            tick.clear()
+
+        monkeypatch.setattr(asyncio, "sleep", clock_tick)
+        ctrl.on_server_ready()
+        ctrl.toggle_playback()  # Last frame restarts at the first saved frame.
+        assert state.frame == 0 and state.playing
+        await original_sleep(0)
+        tick.set()
+        await original_sleep(0)
+        assert state.frame == 1 and "coordinate 0.2" in state.coordinate
+        ctrl.stop_playback()
+        tick.set()
+        await original_sleep(0)
+        assert state.frame == 1 and not state.playing
+        assert not state.error
+
+    try:
+        asyncio.run(exercise())
+    finally:
+        ctrl.on_server_exited()
+
+
 def test_browser_open_switch_and_failed_open_preserves_current(tmp_path):
     pytest.importorskip("trame")
     from trame.app import get_server
