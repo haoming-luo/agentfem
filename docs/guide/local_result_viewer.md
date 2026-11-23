@@ -67,7 +67,9 @@ slider stays above the canvas. Nothing here changes the stored result.
   Presentation (dark, magma). Presets change appearance, not values. Color and
   custom label settings are disclosed under **Custom colors and labels**.
   Ocean uses pale ice/teal/deep blue; Iris offers a lavender/indigo alternative.
-  Both sequential palettes have monotonically ordered relative luminance;
+  Garnet uses pale rose/burgundy and Jade uses pale celadon/forest green; these
+  also work for localized damage on a quiet, low-value background.
+  These sequential palettes have monotonically ordered relative luminance;
   they are not claimed to be perceptually uniform or journal-endorsed palettes.
   Established viridis/cividis maps remain selectable, including in saved views.
 

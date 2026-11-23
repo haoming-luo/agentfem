@@ -30,6 +30,8 @@ PRESETS = {
 COLOR_STOPS = {
     "ocean": ("#e7f3f3", "#b9dedc", "#7ac2c5", "#399eae", "#23748f", "#254c78"),
     "iris": ("#f0eef9", "#d2d0ef", "#aca9e1", "#8380cc", "#615cb2", "#43418e"),
+    "garnet": ("#f7eef1", "#e9c8d3", "#d99caf", "#bf6d8b", "#984565", "#712d4b"),
+    "jade": ("#eef5ef", "#c6dfd3", "#93c3b0", "#5ca58f", "#34836f", "#205c50"),
 }
 PALETTES = (*COLOR_STOPS, "viridis", "cividis", "magma", "coolwarm")
 
@@ -212,7 +214,8 @@ def render(request, destination, progress=None):
                     plotter.reset_camera()
                     apply_camera(plotter, view.get("camera"))
                     if scalar is not None:
-                        name = view["choice"][1]
+                        name = view["choice"][1].replace("_", " ")
+                        name = name[:1].upper() + name[1:]
                         component = component_label(grid, tuple(view["choice"]))
                         unit = f" [{view['unit']}]" if view.get("unit") else ""
                         label = f"{name}{'' if component == 'Value' else ' / '+component}{unit}"
