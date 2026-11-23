@@ -27,6 +27,15 @@ def test_classifier_edit_selects_its_own_regressions():
     assert "tests/test_ci_validation_scope.py" in scope.tests
 
 
+@pytest.mark.parametrize("path", ["tools/p92_aging_resistance_reference.py",
+    "tools/p92_aging_resistance_probe.py", "evidence/creep/2026-11-23-aging-resistance-probe.json"])
+def test_aging_resistance_selects_transitive_science_checks(path):
+    scope = classify_changes([path])
+    assert scope.level == "targeted"
+    assert "tests/test_p92_aging_resistance.py" in scope.tests
+    assert "tests/test_p92_response_screen.py" in scope.tests
+
+
 @pytest.mark.parametrize("path", ["tools/p92_rate_recovery_reference.py",
     "evidence/creep/2026-11-23-rate-recovery-fixed.json",
     "evidence/creep/2026-11-23-rate-recovery-paired.json"])

@@ -19,6 +19,7 @@ from tools import p92_recovery_replacement_reference as replacement
 from tools import p92_recoverable_mobility_reference as mobility
 from tools import p92_critical_recovery_reference as critical
 from tools import p92_rate_recovery_reference as rate_recovery
+from tools import p92_aging_resistance_reference as aging
 from tools.p92_response_screen import screen
 from tools.p92_two_rate_controls import replay
 from tools.p92_two_rate_frozen import numerical_difference
@@ -29,6 +30,9 @@ from tools.p92_waveform_experiment import refine_knots
 
 def decode_material(card, model_id):
     """One explicit identity decoder for research replay and diagnostics."""
+    if model_id == aging.MODEL_ID:
+        _, base = decode_material(card["spectrum"], spectrum.MODEL_ID)
+        return aging, aging.Material(base, card["sensitivity"], card["build"])
     if model_id == rate_recovery.MODEL_ID:
         _, base = decode_material(card["spectrum"], spectrum.MODEL_ID)
         return rate_recovery, rate_recovery.Material(base)
@@ -89,7 +93,7 @@ def evaluate(fit, source_dir, *, fixed_card=False):
     numerical_options = dict(extra_strain_indices=extra_indices)
     if module is shared:
         numerical_options.update(stress_state_indices=(0, 1, 2, 4), dimensionless_indices=(5,))
-    if module is transient:
+    if module in (transient, aging):
         numerical_options.update(extra_strain_indices=(10, 11), dimensionless_indices=(12,))
     if module is replacement:
         numerical_options.update(stress_state_indices=(0, 1, 2), extra_strain_indices=(4, 5))
@@ -146,6 +150,7 @@ if __name__ == "__main__":
              "p92_recoverable_mobility_reference.py",
              "p92_critical_recovery_reference.py",
              "p92_rate_recovery_reference.py",
+             "p92_aging_resistance_reference.py",
              "p92_recovery_replacement_reference.py", "p92_hold_observations.py",
              "p92_two_rate_controls.py", "p92_recoverable_frozen.py", "p92_two_rate_frozen.py",
              "p92_measured_controls.py", "p92_waveform_controls.py", "p92_response_screen.py")

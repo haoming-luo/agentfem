@@ -152,6 +152,7 @@ _SOURCE_TEST_MAP = {
 # tools/* wildcard: an unknown numerical driver still needs the broader gate.
 _P92_CONTROL_TESTS = (
     "tests/test_p92_rate_recovery.py",
+    "tests/test_p92_aging_resistance.py",
     "tests/test_p92_recovery_shape.py",
     "tests/test_p92_20261122_state_kinetics_evidence.py",
     "tests/test_p92_critical_recovery.py",
@@ -225,6 +226,14 @@ _P92_CONTROL_TESTS = (
 )
 _P92_CONTROL_INPUTS = (
     "tools/p92_rate_recovery_reference.py",
+    "tools/p92_aging_resistance_reference.py",
+    "tools/p92_aging_resistance_probe.py",
+    "evidence/creep/2026-11-23-aging-resistance-probe.json",
+    "evidence/creep/2026-11-23-aging-resistance-matched.json",
+    "evidence/creep/2026-11-23-aging-resistance-control-matched.json",
+    "evidence/creep/2026-11-23-aging-resistance-frozen.json",
+    "evidence/creep/2026-11-23-aging-resistance-control-frozen.json",
+    "evidence/creep/2026-11-23-aging-resistance-paired.json",
     "evidence/creep/2026-11-23-rate-recovery-fixed.json",
     "evidence/creep/2026-11-23-rate-recovery-matched.json",
     "evidence/creep/2026-11-23-rate-recovery-control-matched.json",

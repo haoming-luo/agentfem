@@ -1,5 +1,23 @@
 # AgentFEM Product Roadmap
 
+### Rate-target resistance memory (2026-11-23)
+
+The [aging-resistance replacement](internal/p92_aging_resistance_20261123.md)
+separates signed backstress from rate-dependent flow resistance. Both
+recoverable modes remain; two weak static-recovery coefficients are removed
+and replaced by two resistance-memory coefficients, with one explicit new
+internal state. A three-arm early-only screen distinguishes deletion from
+the proposed mechanism: cost falls about 10.47%, but SLC hold entry and
+creep accumulation worsen while the hold endpoint improves. This is not
+response acceptance. The completed same-budget identification passes the
+existing local observability gates and lowers cost 11.916%. Frozen SLC hold
+endpoint improves from 163.226 to 164.402 MPa against 174.88 MPa, but its entry
+and late relaxation worsen; SLR cycle-10 peak error rises from 7.648% to
+7.775%. All six numerical comparisons pass; all six response screens fail.
+Do not select or continue fitting this bounded replacement. The next
+mechanism must distinguish post-creep kinetics from reverse-loading strength
+before fitting. No production promotion, relaxed gates, merge or release.
+
 ### Prior-rate recovery discriminator (2026-11-23)
 
 The [rate-sensitive recovery experiment](internal/p92_rate_recovery_20261123.md)
