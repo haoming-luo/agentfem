@@ -18,6 +18,7 @@ from tools import p92_transient_strength_reference as transient
 from tools import p92_recovery_replacement_reference as replacement
 from tools import p92_recoverable_mobility_reference as mobility
 from tools import p92_critical_recovery_reference as critical
+from tools import p92_rate_recovery_reference as rate_recovery
 from tools.p92_response_screen import screen
 from tools.p92_two_rate_controls import replay
 from tools.p92_two_rate_frozen import numerical_difference
@@ -28,6 +29,9 @@ from tools.p92_waveform_experiment import refine_knots
 
 def decode_material(card, model_id):
     """One explicit identity decoder for research replay and diagnostics."""
+    if model_id == rate_recovery.MODEL_ID:
+        _, base = decode_material(card["spectrum"], spectrum.MODEL_ID)
+        return rate_recovery, rate_recovery.Material(base)
     if model_id == critical.MODEL_ID:
         _, base = decode_material(card["spectrum"], spectrum.MODEL_ID)
         return critical, critical.Material(base)
@@ -141,6 +145,7 @@ if __name__ == "__main__":
              "p92_transient_strength_reference.py",
              "p92_recoverable_mobility_reference.py",
              "p92_critical_recovery_reference.py",
+             "p92_rate_recovery_reference.py",
              "p92_recovery_replacement_reference.py", "p92_hold_observations.py",
              "p92_two_rate_controls.py", "p92_recoverable_frozen.py", "p92_two_rate_frozen.py",
              "p92_measured_controls.py", "p92_waveform_controls.py", "p92_response_screen.py")

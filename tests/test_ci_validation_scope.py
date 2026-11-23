@@ -27,6 +27,16 @@ def test_classifier_edit_selects_its_own_regressions():
     assert "tests/test_ci_validation_scope.py" in scope.tests
 
 
+@pytest.mark.parametrize("path", ["tools/p92_rate_recovery_reference.py",
+    "evidence/creep/2026-11-23-rate-recovery-fixed.json",
+    "evidence/creep/2026-11-23-rate-recovery-paired.json"])
+def test_rate_recovery_batch_selects_its_mechanism_and_transitive_gates(path):
+    scope = classify_changes([path])
+    assert scope.level == "targeted"
+    for stem in ("rate_recovery", "recoverable_mobility", "recovery_shape", "response_screen"):
+        assert f"tests/test_p92_{stem}.py" in scope.tests
+
+
 @pytest.mark.parametrize("stem", ["critical_recovery", "common_memory", "static_modes",
                                   "cross_resistance", "inviscid_branch"])
 def test_state_kinetics_references_retain_physics_and_negative_evidence_checks(stem):

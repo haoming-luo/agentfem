@@ -151,6 +151,7 @@ _SOURCE_TEST_MAP = {
 # Research-only scalar controls have known transitive consumers. Do not use a
 # tools/* wildcard: an unknown numerical driver still needs the broader gate.
 _P92_CONTROL_TESTS = (
+    "tests/test_p92_rate_recovery.py",
     "tests/test_p92_recovery_shape.py",
     "tests/test_p92_20261122_state_kinetics_evidence.py",
     "tests/test_p92_critical_recovery.py",
@@ -223,6 +224,13 @@ _P92_CONTROL_TESTS = (
     "tests/test_p92_two_mechanism_fit.py",
 )
 _P92_CONTROL_INPUTS = (
+    "tools/p92_rate_recovery_reference.py",
+    "evidence/creep/2026-11-23-rate-recovery-fixed.json",
+    "evidence/creep/2026-11-23-rate-recovery-matched.json",
+    "evidence/creep/2026-11-23-rate-recovery-control-matched.json",
+    "evidence/creep/2026-11-23-rate-recovery-frozen.json",
+    "evidence/creep/2026-11-23-rate-recovery-control-frozen.json",
+    "evidence/creep/2026-11-23-rate-recovery-paired.json",
     "tools/p92_critical_recovery_reference.py",
     "tools/p92_critical_recovery_probe.py",
     "tools/p92_hold_state_discriminator.py",

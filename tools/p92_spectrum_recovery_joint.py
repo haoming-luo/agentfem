@@ -17,6 +17,7 @@ from tools import p92_primary_creep_reference as primary_kernel
 from tools import p92_transient_strength_reference as transient_kernel
 from tools import p92_recoverable_mobility_reference as mobility_kernel
 from tools import p92_critical_recovery_reference as critical_kernel
+from tools import p92_rate_recovery_reference as rate_kernel
 from tools.p92_full_sensitivity import decode as decode_backbone, NAMES as BASE_NAMES
 from tools.p92_bam_source import read_source
 from tools.p92_measured_controls import measured_path
@@ -110,9 +111,15 @@ def decode(card, z, powers):
 
 def identify(seed, source_dir, powers, *, shared_history=False, directional=False, primary=False,
              recoverable_kinetics=False, transient_strength=False, replacement_space=False,
-             recoverable_mobility=False, critical_recovery=False, recovery_shape=False):
+             recoverable_mobility=False, critical_recovery=False, recovery_shape=False,
+             rate_recovery=False):
     if seed["model_id"] != kernel.MODEL_ID or tuple(powers) not in {(0., 0.), (0., 1.)}:
         raise ValueError("Require predeclared matched recovery hypotheses")
+    if type(rate_recovery) is not bool or (rate_recovery and (
+            shared_history or directional or primary or recoverable_kinetics or transient_strength
+            or replacement_space or recoverable_mobility or critical_recovery or recovery_shape
+            or tuple(powers) != (0., 0.))):
+        raise ValueError("Rate recovery must isolate a parameter-neutral mechanism")
     if (type(recovery_shape) is not bool or (recovery_shape and (
             shared_history or directional or primary or recoverable_kinetics or transient_strength
             or replacement_space or recoverable_mobility or critical_recovery or tuple(powers) != (0., 0.)))):
@@ -156,6 +163,9 @@ def identify(seed, source_dir, powers, *, shared_history=False, directional=Fals
         execution_kernel = critical_kernel
     if recovery_shape:
         decoder = decode_recovery_shape
+    if rate_recovery:
+        decoder = lambda card, z: rate_kernel.Material(decode(card, z, powers))
+        execution_kernel = rate_kernel
     coordinates = list(NAMES)
     if primary:
         coordinates[20:] = ["primary.hardening_scale", "primary.time_scale"]
@@ -268,6 +278,7 @@ if __name__ == "__main__":
     parser.add_argument("--recoverable-mobility", action="store_true")
     parser.add_argument("--critical-recovery", action="store_true")
     parser.add_argument("--recovery-shape", action="store_true")
+    parser.add_argument("--rate-recovery", action="store_true")
     args = parser.parse_args()
     raw = args.seed.read_bytes()
     names = ("p92_spectrum_recovery_joint.py", "p92_recoverable_spectrum.py", "p92_two_rate_reference.py",
@@ -276,6 +287,7 @@ if __name__ == "__main__":
              "p92_primary_creep_reference.py", "p92_transient_strength_reference.py")
     names += ("p92_fit_subspace_audit.py", "p92_recoverable_reference.py", "p92_hold_observations.py")
     names += ("p92_recoverable_mobility_reference.py", "p92_critical_recovery_reference.py")
+    names += ("p92_rate_recovery_reference.py",)
     def identities():
         return {n: sha256(Path(__file__).with_name(n).read_bytes()).hexdigest() for n in names}
     before = identities()
@@ -284,7 +296,7 @@ if __name__ == "__main__":
                       recoverable_kinetics=args.recoverable_kinetics,
                       transient_strength=args.transient_strength, replacement_space=args.replacement_space,
                       recoverable_mobility=args.recoverable_mobility, critical_recovery=args.critical_recovery,
-                      recovery_shape=args.recovery_shape)
+                      recovery_shape=args.recovery_shape, rate_recovery=args.rate_recovery)
     if identities() != before or args.seed.read_bytes() != raw:
         raise RuntimeError("Recovery comparison inputs changed during identification")
     result["driver_sha256"], result["seed_sha256"] = before, sha256(raw).hexdigest()
@@ -295,4 +307,5 @@ if __name__ == "__main__":
     result["recoverable_mobility"] = args.recoverable_mobility
     result["critical_recovery"] = args.critical_recovery
     result["recovery_shape"] = args.recovery_shape
+    result["rate_recovery"] = args.rate_recovery
     write_new(args.output, result)

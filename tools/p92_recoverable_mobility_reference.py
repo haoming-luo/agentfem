@@ -52,6 +52,13 @@ def rates(state, strain_rate, material, *, stress_control=False):
 
 def integrate(old, duration, strain_rate, material, *, stress_control=False,
               method="Radau", rtol=1e-9):
+    return integrate_response(old, duration, strain_rate, material, rates, stored_energy,
+                              stress_control=stress_control, method=method, rtol=rtol)
+
+
+def integrate_response(old, duration, strain_rate, material, response, energy, *,
+                       stress_control=False, method="Radau", rtol=1e-9):
+    """Shared research-only integrator for twelve-state, fixed-energy hypotheses."""
     if np.iscomplexobj(old):
         raise ValueError("Require real state")
     state = np.asarray(old, dtype=float)
@@ -64,7 +71,7 @@ def integrate(old, duration, strain_rate, material, *, stress_control=False,
     for offset, branch in zip((1, 4), material.spectrum.backbone.branches, strict=True):
         if np.any(abs(state[offset:offset+2]) > np.asarray(branch.saturation)+1e-7):
             raise ValueError("Initial backstress outside invariant domain")
-    solution = solve_ivp(lambda t, y: rates(y, strain_rate, material, stress_control=stress_control),
+    solution = solve_ivp(lambda t, y: response(y, strain_rate, material, stress_control=stress_control),
         (0., duration), state.copy(), method=method, rtol=rtol, dense_output=True,
         atol=[1e-9, 1e-9, 1e-9, 1e-13, 1e-9, 1e-9, 1e-13, 1e-13, 1e-11, 1e-11, 1e-13, 1e-13])
     if not solution.success or not np.isfinite(solution.y).all():
@@ -77,7 +84,7 @@ def integrate(old, duration, strain_rate, material, *, stress_control=False,
     if np.any(np.maximum.accumulate(accumulated, axis=1)-accumulated > tolerance):
         raise RuntimeError("Accumulated state decreased")
     end = solution.y[:, -1]
-    balance = end[8]-state[8]-stored_energy(end, material)+stored_energy(state, material)-end[9]+state[9]
+    balance = end[8]-state[8]-energy(end, material)+energy(state, material)-end[9]+state[9]
     if abs(balance) > 1e-7+1e-7*abs(end[8]-state[8]):
         raise RuntimeError("Integrated mechanical balance failed")
     return solution

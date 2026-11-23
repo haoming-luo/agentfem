@@ -1,5 +1,22 @@
 # AgentFEM Product Roadmap
 
+### Prior-rate recovery discriminator (2026-11-23)
+
+The [rate-sensitive recovery experiment](internal/p92_rate_recovery_20261123.md)
+retains both recoverable strains, the twelve-state history and the existing
+parameter budget. Its explicit kinetic-shape hypothesis is motivated by
+prior-rate-sensitive backstress literature, not presented as a published P92
+model. Fixed-card ten-cycle numerical checks pass, but all original response
+screens still fail; the first SLC post-creep endpoint improves only 0.34 MPa
+and its entry worsens. Completed same-start, same-budget identification lowers
+joint cost only 0.3544% relative to the control. Frozen SLR cycle-10 peak error
+falls from 7.947% to 7.834%, while SLC hold entry and endpoint worsen. All six
+frozen numerical comparisons pass; all six original response screens fail.
+The bounded replacement is not selected. Do not spend another budget merely
+continuing this fit: resolve the irreversible-flow history conflict using a
+separately justified mechanism or discriminating observations. No runtime
+material promotion, acceptance relaxation, merge or release.
+
 ### Recorded-stress feedback diagnostic (2026-11-22)
 
 The [conditional replay](internal/p92_observed_stress_replay_20261122.md)
