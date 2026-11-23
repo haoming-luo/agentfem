@@ -1,0 +1,2252 @@
+{
+  "schema": "agentfem.research.observed-recovery-budget.v1",
+  "records": {
+    "RF": {
+      "initial_memory_box": [
+        0.000314044399112803,
+        0.000385005760515627
+      ],
+      "records": [
+        {
+          "cycle": 1,
+          "segment": 1,
+          "window": "early",
+          "stress_control": false,
+          "source_indices": [
+            26,
+            81
+          ],
+          "time_s": [
+            2.11,
+            11.054
+          ],
+          "duration_s": 8.944,
+          "observed_nonelastic_increment": 0.0003231576940871325,
+          "recoverable_increments": [
+            1.2788971634093103e-05,
+            2.7432166261070372e-05
+          ],
+          "required_remainder_increment": 0.000282936556191969,
+          "required_remainder_average_per_s": 3.163423034346701e-05,
+          "initial_memory_sensitivity": 4.6872084206499e-05,
+          "resolution_sensitivity": 2.0174436632164917e-05,
+          "remainder_interval": [
+            0.0002158900353533051,
+            0.0003499830770306329
+          ],
+          "scope": "Conditional kinematic remainder; not measured plastic strain or dissipation"
+        },
+        {
+          "cycle": 1,
+          "segment": 1,
+          "window": "late",
+          "stress_control": false,
+          "source_indices": [
+            158,
+            198
+          ],
+          "time_s": [
+            147.839,
+            182.013
+          ],
+          "duration_s": 34.17400000000001,
+          "observed_nonelastic_increment": 1.727065953339921e-05,
+          "recoverable_increments": [
+            -2.7803034738731983e-06,
+            6.5754208011911035e-06
+          ],
+          "required_remainder_increment": 1.3475542206081305e-05,
+          "required_remainder_average_per_s": 3.943214784948002e-07,
+          "initial_memory_sensitivity": 2.2079489892488026e-05,
+          "resolution_sensitivity": 2.0174436632164917e-05,
+          "remainder_interval": [
+            -2.8778384318571638e-05,
+            5.572946873073425e-05
+          ],
+          "scope": "Conditional kinematic remainder; not measured plastic strain or dissipation"
+        },
+        {
+          "cycle": 1,
+          "segment": 3,
+          "window": "early",
+          "stress_control": false,
+          "source_indices": [
+            250,
+            333
+          ],
+          "time_s": [
+            186.107,
+            195.074
+          ],
+          "duration_s": 8.967000000000013,
+          "observed_nonelastic_increment": -0.0005401781633552026,
+          "recoverable_increments": [
+            4.917433365114355e-05,
+            -4.7004983385185104e-05
+          ],
+          "required_remainder_increment": -0.0005423475136211611,
+          "required_remainder_average_per_s": -6.0482604396248505e-05,
+          "initial_memory_sensitivity": 4.237087940818062e-06,
+          "resolution_sensitivity": 2.0174436632164917e-05,
+          "remainder_interval": [
+            -0.0005667590381941441,
+            -0.0005179359890481781
+          ],
+          "scope": "Conditional kinematic remainder; not measured plastic strain or dissipation"
+        },
+        {
+          "cycle": 1,
+          "segment": 3,
+          "window": "late",
+          "stress_control": false,
+          "source_indices": [
+            409,
+            449
+          ],
+          "time_s": [
+            331.859,
+            366.03
+          ],
+          "duration_s": 34.17099999999999,
+          "observed_nonelastic_increment": 7.433661906668512e-06,
+          "recoverable_increments": [
+            2.7103997412696056e-06,
+            -1.5440440161412338e-05
+          ],
+          "required_remainder_increment": 2.0163702326811244e-05,
+          "required_remainder_average_per_s": 5.900823015659843e-07,
+          "initial_memory_sensitivity": 2.4535922507923707e-06,
+          "resolution_sensitivity": 2.0174436632164917e-05,
+          "remainder_interval": [
+            -2.4643265561460417e-06,
+            4.279173120976853e-05
+          ],
+          "scope": "Conditional kinematic remainder; not measured plastic strain or dissipation"
+        },
+        {
+          "cycle": 2,
+          "segment": 6,
+          "window": "early",
+          "stress_control": false,
+          "source_indices": [
+            500,
+            556
+          ],
+          "time_s": [
+            370.137,
+            379.119
+          ],
+          "duration_s": 8.982000000000028,
+          "observed_nonelastic_increment": 0.0004987528413117225,
+          "recoverable_increments": [
+            -4.2661387256790997e-05,
+            4.412868489897039e-05
+          ],
+          "required_remainder_increment": 0.0004972855436695432,
+          "required_remainder_average_per_s": 5.5364678653923586e-05,
+          "initial_memory_sensitivity": 4.715714963770805e-07,
+          "resolution_sensitivity": 2.0174436632164917e-05,
+          "remainder_interval": [
+            0.0004766395355410012,
+            0.0005179315517980852
+          ],
+          "scope": "Conditional kinematic remainder; not measured plastic strain or dissipation"
+        },
+        {
+          "cycle": 2,
+          "segment": 6,
+          "window": "late",
+          "stress_control": false,
+          "source_indices": [
+            632,
+            672
+          ],
+          "time_s": [
+            515.904,
+            550.078
+          ],
+          "duration_s": 34.17399999999998,
+          "observed_nonelastic_increment": 1.55951477876219e-05,
+          "recoverable_increments": [
+            -3.0138943517466117e-06,
+            1.501929839544747e-05
+          ],
+          "required_remainder_increment": 3.589743743921043e-06,
+          "required_remainder_average_per_s": 1.0504312471238501e-07,
+          "initial_memory_sensitivity": 2.7261382316197584e-07,
+          "resolution_sensitivity": 2.0174436632164917e-05,
+          "remainder_interval": [
+            -1.685730671140585e-05,
+            2.4036794199247937e-05
+          ],
+          "scope": "Conditional kinematic remainder; not measured plastic strain or dissipation"
+        },
+        {
+          "cycle": 2,
+          "segment": 8,
+          "window": "early",
+          "stress_control": false,
+          "source_indices": [
+            723,
+            807
+          ],
+          "time_s": [
+            554.162,
+            563.142
+          ],
+          "duration_s": 8.980000000000018,
+          "observed_nonelastic_increment": -0.0005405344940068307,
+          "recoverable_increments": [
+            4.598761211212132e-05,
+            -4.483033254435538e-05
+          ],
+          "required_remainder_increment": -0.0005416917735745967,
+          "required_remainder_average_per_s": -6.032202378336254e-05,
+          "initial_memory_sensitivity": 5.239311646092701e-08,
+          "resolution_sensitivity": 2.0174436632164917e-05,
+          "remainder_interval": [
+            -0.0005619186033232226,
+            -0.0005214649438259708
+          ],
+          "scope": "Conditional kinematic remainder; not measured plastic strain or dissipation"
+        },
+        {
+          "cycle": 2,
+          "segment": 8,
+          "window": "late",
+          "stress_control": false,
+          "source_indices": [
+            883,
+            923
+          ],
+          "time_s": [
+            699.927,
+            734.098
+          ],
+          "duration_s": 34.170999999999935,
+          "observed_nonelastic_increment": -1.4886277433639004e-05,
+          "recoverable_increments": [
+            2.546534311540703e-06,
+            -1.456716543187989e-05
+          ],
+          "required_remainder_increment": -2.8656463132998174e-06,
+          "required_remainder_average_per_s": -8.386193887506431e-08,
+          "initial_memory_sensitivity": 3.029323639979772e-08,
+          "resolution_sensitivity": 2.0174436632164917e-05,
+          "remainder_interval": [
+            -2.3070376181864533e-05,
+            1.7339083555264898e-05
+          ],
+          "scope": "Conditional kinematic remainder; not measured plastic strain or dissipation"
+        },
+        {
+          "cycle": 3,
+          "segment": 11,
+          "window": "early",
+          "stress_control": false,
+          "source_indices": [
+            974,
+            1030
+          ],
+          "time_s": [
+            738.204,
+            747.187
+          ],
+          "duration_s": 8.983000000000061,
+          "observed_nonelastic_increment": 0.0004905799831459812,
+          "recoverable_increments": [
+            -4.167416008170826e-05,
+            4.398321090199265e-05
+          ],
+          "required_remainder_increment": 0.0004882709323256968,
+          "required_remainder_average_per_s": 5.435499636265095e-05,
+          "initial_memory_sensitivity": 5.822933324067148e-09,
+          "resolution_sensitivity": 2.0174436632164917e-05,
+          "remainder_interval": [
+            0.00046809067276020784,
+            0.0005084511918911858
+          ],
+          "scope": "Conditional kinematic remainder; not measured plastic strain or dissipation"
+        },
+        {
+          "cycle": 3,
+          "segment": 11,
+          "window": "late",
+          "stress_control": false,
+          "source_indices": [
+            1106,
+            1146
+          ],
+          "time_s": [
+            883.972,
+            918.146
+          ],
+          "duration_s": 34.17399999999998,
+          "observed_nonelastic_increment": 1.7592873330664378e-05,
+          "recoverable_increments": [
+            -3.3371906607490825e-06,
+            1.4877664313405338e-05
+          ],
+          "required_remainder_increment": 6.052399678008123e-06,
+          "required_remainder_average_per_s": 1.7710539234529546e-07,
+          "initial_memory_sensitivity": 3.3658220872809708e-09,
+          "resolution_sensitivity": 2.0174436632164917e-05,
+          "remainder_interval": [
+            -1.4125402776244075e-05,
+            2.6230202132260323e-05
+          ],
+          "scope": "Conditional kinematic remainder; not measured plastic strain or dissipation"
+        },
+        {
+          "cycle": 3,
+          "segment": 13,
+          "window": "early",
+          "stress_control": false,
+          "source_indices": [
+            1197,
+            1280
+          ],
+          "time_s": [
+            922.229,
+            931.21
+          ],
+          "duration_s": 8.980999999999995,
+          "observed_nonelastic_increment": -0.0005243479890993443,
+          "recoverable_increments": [
+            4.5395305894657635e-05,
+            -4.443844499891785e-05
+          ],
+          "required_remainder_increment": -0.0005253048499950841,
+          "required_remainder_average_per_s": -5.849068589189226e-05,
+          "initial_memory_sensitivity": 6.469467168660396e-10,
+          "resolution_sensitivity": 2.0174436632164917e-05,
+          "remainder_interval": [
+            -0.0005454799335739659,
+            -0.0005051297664162022
+          ],
+          "scope": "Conditional kinematic remainder; not measured plastic strain or dissipation"
+        },
+        {
+          "cycle": 3,
+          "segment": 13,
+          "window": "late",
+          "stress_control": false,
+          "source_indices": [
+            1356,
+            1396
+          ],
+          "time_s": [
+            1067.995,
+            1102.166
+          ],
+          "duration_s": 34.17100000000005,
+          "observed_nonelastic_increment": -1.3843820997603478e-05,
+          "recoverable_increments": [
+            4.098203621082439e-06,
+            -1.4442810134240896e-05
+          ],
+          "required_remainder_increment": -3.499214484445021e-06,
+          "required_remainder_average_per_s": -1.0240304598768008e-07,
+          "initial_memory_sensitivity": 3.740149453429663e-10,
+          "resolution_sensitivity": 2.0174436632164917e-05,
+          "remainder_interval": [
+            -2.367402513155528e-05,
+            1.667559616266524e-05
+          ],
+          "scope": "Conditional kinematic remainder; not measured plastic strain or dissipation"
+        }
+      ],
+      "equal_stress_bands": [
+        {
+          "cycle": 1,
+          "segment": 1,
+          "band_center_MPa": 190.0,
+          "status": "resolved",
+          "source_indices": [
+            85,
+            89
+          ],
+          "time_s": [
+            18.253,
+            25.452
+          ],
+          "duration_s": 7.199000000000002,
+          "observed_nonelastic_increment": 5.4852160579275994e-05,
+          "recoverable_increments": [
+            -7.522149654741819e-06,
+            1.5539940921968827e-05
+          ],
+          "required_remainder_increment": 4.6834369312048986e-05,
+          "required_remainder_average_per_s": 6.505677081823722e-06,
+          "initial_memory_sensitivity": 2.549977607651936e-05,
+          "resolution_sensitivity": 2.0174436632164917e-05,
+          "remainder_interval": [
+            1.1601566033647084e-06,
+            9.250858202073326e-05
+          ],
+          "scope": "Conditional kinematic remainder; not measured plastic strain or dissipation"
+        },
+        {
+          "cycle": 1,
+          "segment": 1,
+          "band_center_MPa": 210.0,
+          "status": "unresolved_sampling"
+        },
+        {
+          "cycle": 1,
+          "segment": 1,
+          "band_center_MPa": 230.0,
+          "status": "resolved",
+          "source_indices": [
+            41,
+            58
+          ],
+          "time_s": [
+            3.237,
+            4.519
+          ],
+          "duration_s": 1.282,
+          "observed_nonelastic_increment": 7.205837735322228e-05,
+          "recoverable_increments": [
+            -4.824987071107474e-06,
+            4.254140361339942e-06
+          ],
+          "required_remainder_increment": 7.262922406298981e-05,
+          "required_remainder_average_per_s": 5.6653060891567716e-05,
+          "initial_memory_sensitivity": 6.791004045284838e-06,
+          "resolution_sensitivity": 2.0174436632164917e-05,
+          "remainder_interval": [
+            4.566378338554006e-05,
+            9.959466474043957e-05
+          ],
+          "scope": "Conditional kinematic remainder; not measured plastic strain or dissipation"
+        },
+        {
+          "cycle": 2,
+          "segment": 6,
+          "band_center_MPa": 190.0,
+          "status": "resolved",
+          "source_indices": [
+            561,
+            566
+          ],
+          "time_s": [
+            388.118,
+            397.117
+          ],
+          "duration_s": 8.999000000000024,
+          "observed_nonelastic_increment": 4.658074279971874e-05,
+          "recoverable_increments": [
+            -9.528181350178738e-06,
+            3.070241993947161e-05
+          ],
+          "required_remainder_increment": 2.5406504210425867e-05,
+          "required_remainder_average_per_s": 2.8232586076703855e-06,
+          "initial_memory_sensitivity": 3.811472572582005e-07,
+          "resolution_sensitivity": 2.0174436632164917e-05,
+          "remainder_interval": [
+            4.8509203210027485e-06,
+            4.596208809984898e-05
+          ],
+          "scope": "Conditional kinematic remainder; not measured plastic strain or dissipation"
+        },
+        {
+          "cycle": 2,
+          "segment": 6,
+          "band_center_MPa": 210.0,
+          "status": "unresolved_sampling"
+        },
+        {
+          "cycle": 2,
+          "segment": 6,
+          "band_center_MPa": 230.0,
+          "status": "resolved",
+          "source_indices": [
+            544,
+            553
+          ],
+          "time_s": [
+            373.467,
+            374.107
+          ],
+          "duration_s": 0.6400000000000432,
+          "observed_nonelastic_increment": 1.7259287248611563e-05,
+          "recoverable_increments": [
+            -4.665881491726804e-06,
+            3.1707436243406646e-06
+          ],
+          "required_remainder_increment": 1.8754425115997702e-05,
+          "required_remainder_average_per_s": 2.9303789243744432e-05,
+          "initial_memory_sensitivity": 3.392408110629728e-08,
+          "resolution_sensitivity": 2.0174436632164917e-05,
+          "remainder_interval": [
+            -1.4539355972735112e-06,
+            3.8962785829268916e-05
+          ],
+          "scope": "Conditional kinematic remainder; not measured plastic strain or dissipation"
+        },
+        {
+          "cycle": 3,
+          "segment": 11,
+          "band_center_MPa": 190.0,
+          "status": "resolved",
+          "source_indices": [
+            1035,
+            1040
+          ],
+          "time_s": [
+            756.186,
+            765.185
+          ],
+          "duration_s": 8.99899999999991,
+          "observed_nonelastic_increment": 7.018953732908584e-05,
+          "recoverable_increments": [
+            -9.518217034826335e-06,
+            3.073739549157855e-05
+          ],
+          "required_remainder_increment": 4.8970358872333625e-05,
+          "required_remainder_average_per_s": 5.441755625328827e-06,
+          "initial_memory_sensitivity": 4.705828347610834e-09,
+          "resolution_sensitivity": 2.0174436632164917e-05,
+          "remainder_interval": [
+            2.87912164118211e-05,
+            6.914950133284615e-05
+          ],
+          "scope": "Conditional kinematic remainder; not measured plastic strain or dissipation"
+        },
+        {
+          "cycle": 3,
+          "segment": 11,
+          "band_center_MPa": 210.0,
+          "status": "unresolved_sampling"
+        },
+        {
+          "cycle": 3,
+          "segment": 11,
+          "band_center_MPa": 230.0,
+          "status": "resolved",
+          "source_indices": [
+            1013,
+            1027
+          ],
+          "time_s": [
+            741.134,
+            742.175
+          ],
+          "duration_s": 1.04099999999994,
+          "observed_nonelastic_increment": 3.1178923290455794e-05,
+          "recoverable_increments": [
+            -8.416525468925095e-06,
+            5.1594841642790855e-06
+          ],
+          "required_remainder_increment": 3.44359645951018e-05,
+          "required_remainder_average_per_s": 3.3079697017390765e-05,
+          "initial_memory_sensitivity": 6.829100049279963e-10,
+          "resolution_sensitivity": 2.0174436632164917e-05,
+          "remainder_interval": [
+            1.426084505293196e-05,
+            5.461108413727165e-05
+          ],
+          "scope": "Conditional kinematic remainder; not measured plastic strain or dissipation"
+        }
+      ]
+    },
+    "SLR": {
+      "initial_memory_box": [
+        0.0002947779343316018,
+        0.0003613858521635296
+      ],
+      "records": [
+        {
+          "cycle": 1,
+          "segment": 1,
+          "window": "early",
+          "stress_control": false,
+          "source_indices": [
+            26,
+            147
+          ],
+          "time_s": [
+            2.151,
+            11.44
+          ],
+          "duration_s": 9.289,
+          "observed_nonelastic_increment": -0.00033244882373314983,
+          "recoverable_increments": [
+            -2.418346432613976e-06,
+            -2.8112458489067907e-05
+          ],
+          "required_remainder_increment": -0.00030191801881146793,
+          "required_remainder_average_per_s": -3.25027472076077e-05,
+          "initial_memory_sensitivity": 4.472367504927161e-05,
+          "resolution_sensitivity": 2.0174436632164917e-05,
+          "remainder_interval": [
+            -0.00036681613049290447,
+            -0.0002370199071300314
+          ],
+          "scope": "Conditional kinematic remainder; not measured plastic strain or dissipation"
+        },
+        {
+          "cycle": 1,
+          "segment": 1,
+          "window": "late",
+          "stress_control": false,
+          "source_indices": [
+            205,
+            210
+          ],
+          "time_s": [
+            151.616,
+            181.519
+          ],
+          "duration_s": 29.90299999999999,
+          "observed_nonelastic_increment": -3.157695213196153e-05,
+          "recoverable_increments": [
+            4.8669416002437296e-06,
+            -4.852027372762762e-06
+          ],
+          "required_remainder_increment": -3.1591866359442495e-05,
+          "required_remainder_average_per_s": -1.0564781580257e-06,
+          "initial_memory_sensitivity": 1.775400899441052e-05,
+          "resolution_sensitivity": 2.0174436632164917e-05,
+          "remainder_interval": [
+            -6.952031198601792e-05,
+            6.33657926713294e-06
+          ],
+          "scope": "Conditional kinematic remainder; not measured plastic strain or dissipation"
+        },
+        {
+          "cycle": 1,
+          "segment": 3,
+          "window": "early",
+          "stress_control": false,
+          "source_indices": [
+            236,
+            338
+          ],
+          "time_s": [
+            184.238,
+            192.086
+          ],
+          "duration_s": 7.848000000000013,
+          "observed_nonelastic_increment": 0.0002071076565970985,
+          "recoverable_increments": [
+            2.7321763271444873e-05,
+            2.5208214489605662e-05
+          ],
+          "required_remainder_increment": 0.00015457767883604796,
+          "required_remainder_average_per_s": 1.9696442257396496e-05,
+          "initial_memory_sensitivity": 3.582833514400738e-06,
+          "resolution_sensitivity": 2.0174436632164917e-05,
+          "remainder_interval": [
+            0.0001308204086894823,
+            0.00017833494898261362
+          ],
+          "scope": "Conditional kinematic remainder; not measured plastic strain or dissipation"
+        },
+        {
+          "cycle": 1,
+          "segment": 3,
+          "window": "late",
+          "stress_control": false,
+          "source_indices": [
+            631,
+            690
+          ],
+          "time_s": [
+            1625.483,
+            1978.331
+          ],
+          "duration_s": 352.84799999999996,
+          "observed_nonelastic_increment": -2.3313116250950356e-06,
+          "recoverable_increments": [
+            -1.20848233997206e-06,
+            -9.093079189335769e-07
+          ],
+          "required_remainder_increment": -2.1352136618939863e-07,
+          "required_remainder_average_per_s": -6.051369603608314e-10,
+          "initial_memory_sensitivity": 1.3281790288120127e-12,
+          "resolution_sensitivity": 2.0174436632164917e-05,
+          "remainder_interval": [
+            -2.0387959326533346e-05,
+            1.996091659415455e-05
+          ],
+          "scope": "Conditional kinematic remainder; not measured plastic strain or dissipation"
+        },
+        {
+          "cycle": 1,
+          "segment": 5,
+          "window": "early",
+          "stress_control": false,
+          "source_indices": [
+            716,
+            837
+          ],
+          "time_s": [
+            1986.32,
+            1995.609
+          ],
+          "duration_s": 9.288999999999987,
+          "observed_nonelastic_increment": 0.00038984457783618166,
+          "recoverable_increments": [
+            -2.2484608844865932e-05,
+            2.348804142921996e-05
+          ],
+          "required_remainder_increment": 0.0003888411452518276,
+          "required_remainder_average_per_s": 4.186038812055422e-05,
+          "initial_memory_sensitivity": 1.9048075053716923e-15,
+          "resolution_sensitivity": 2.0174436632164917e-05,
+          "remainder_interval": [
+            0.0003686667086177579,
+            0.0004090155818858973
+          ],
+          "scope": "Conditional kinematic remainder; not measured plastic strain or dissipation"
+        },
+        {
+          "cycle": 1,
+          "segment": 5,
+          "window": "late",
+          "stress_control": false,
+          "source_indices": [
+            895,
+            900
+          ],
+          "time_s": [
+            2135.783,
+            2165.686
+          ],
+          "duration_s": 29.903000000000247,
+          "observed_nonelastic_increment": 2.35216072003387e-05,
+          "recoverable_increments": [
+            -3.77507014103794e-06,
+            1.9080901028567174e-06
+          ],
+          "required_remainder_increment": 2.538858723851992e-05,
+          "required_remainder_average_per_s": 8.490314429495272e-07,
+          "initial_memory_sensitivity": 9.146615477410537e-16,
+          "resolution_sensitivity": 2.0174436632164917e-05,
+          "remainder_interval": [
+            5.214150605440345e-06,
+            4.55630238715995e-05
+          ],
+          "scope": "Conditional kinematic remainder; not measured plastic strain or dissipation"
+        },
+        {
+          "cycle": 2,
+          "segment": 8,
+          "window": "early",
+          "stress_control": false,
+          "source_indices": [
+            951,
+            1072
+          ],
+          "time_s": [
+            2170.428,
+            2179.717
+          ],
+          "duration_s": 9.289000000000215,
+          "observed_nonelastic_increment": -0.000464943137168482,
+          "recoverable_increments": [
+            4.2948899769623184e-05,
+            -4.786219032499282e-05
+          ],
+          "required_remainder_increment": -0.00046002984661311233,
+          "required_remainder_average_per_s": -4.9524151858445654e-05,
+          "initial_memory_sensitivity": 2.1146526458237534e-16,
+          "resolution_sensitivity": 2.0174436632164917e-05,
+          "remainder_interval": [
+            -0.0004802042832454887,
+            -0.00043985540998073595
+          ],
+          "scope": "Conditional kinematic remainder; not measured plastic strain or dissipation"
+        },
+        {
+          "cycle": 2,
+          "segment": 8,
+          "window": "late",
+          "stress_control": false,
+          "source_indices": [
+            1130,
+            1135
+          ],
+          "time_s": [
+            2319.892,
+            2349.794
+          ],
+          "duration_s": 29.902000000000044,
+          "observed_nonelastic_increment": -2.3972706516509536e-05,
+          "recoverable_increments": [
+            3.826448829027262e-06,
+            -1.304660796486859e-05
+          ],
+          "required_remainder_increment": -1.4752547380668207e-05,
+          "required_remainder_average_per_s": -4.933632325820409e-07,
+          "initial_memory_sensitivity": 1.0153858292774981e-16,
+          "resolution_sensitivity": 2.0174436632164917e-05,
+          "remainder_interval": [
+            -3.492698401293466e-05,
+            5.421889251598248e-06
+          ],
+          "scope": "Conditional kinematic remainder; not measured plastic strain or dissipation"
+        },
+        {
+          "cycle": 2,
+          "segment": 10,
+          "window": "early",
+          "stress_control": false,
+          "source_indices": [
+            1162,
+            1264
+          ],
+          "time_s": [
+            2352.593,
+            2360.44
+          ],
+          "duration_s": 7.847000000000207,
+          "observed_nonelastic_increment": 0.00019172858165741107,
+          "recoverable_increments": [
+            1.870504378254323e-05,
+            2.3284541024272572e-05
+          ],
+          "required_remainder_increment": 0.00014973899685059527,
+          "required_remainder_average_per_s": 1.9082324053853868e-05,
+          "initial_memory_sensitivity": 2.04696758668719e-17,
+          "resolution_sensitivity": 2.0174436632164917e-05,
+          "remainder_interval": [
+            0.0001295645602184099,
+            0.00016991343348278065
+          ],
+          "scope": "Conditional kinematic remainder; not measured plastic strain or dissipation"
+        },
+        {
+          "cycle": 2,
+          "segment": 10,
+          "window": "late",
+          "stress_control": false,
+          "source_indices": [
+            1556,
+            1615
+          ],
+          "time_s": [
+            3793.759,
+            4146.606
+          ],
+          "duration_s": 352.84699999999975,
+          "observed_nonelastic_increment": 6.068991673368063e-06,
+          "recoverable_increments": [
+            5.341350651260878e-07,
+            4.655456029421692e-07
+          ],
+          "required_remainder_increment": 5.069311005299806e-06,
+          "required_remainder_average_per_s": 1.4366881411206018e-08,
+          "initial_memory_sensitivity": 7.596320647053971e-24,
+          "resolution_sensitivity": 2.0174436632164917e-05,
+          "remainder_interval": [
+            -1.510512562686511e-05,
+            2.5243747637464723e-05
+          ],
+          "scope": "Conditional kinematic remainder; not measured plastic strain or dissipation"
+        },
+        {
+          "cycle": 2,
+          "segment": 12,
+          "window": "early",
+          "stress_control": false,
+          "source_indices": [
+            1641,
+            1762
+          ],
+          "time_s": [
+            4154.596,
+            4163.885
+          ],
+          "duration_s": 9.28900000000067,
+          "observed_nonelastic_increment": 0.0003711675498796047,
+          "recoverable_increments": [
+            -2.0673871504551193e-05,
+            2.3052449717065313e-05
+          ],
+          "required_remainder_increment": 0.00036878897166709053,
+          "required_remainder_average_per_s": 3.970168712101022e-05,
+          "initial_memory_sensitivity": 1.0894262643964065e-26,
+          "resolution_sensitivity": 2.0174436632164917e-05,
+          "remainder_interval": [
+            0.0003486145350349256,
+            0.00038896340829925544
+          ],
+          "scope": "Conditional kinematic remainder; not measured plastic strain or dissipation"
+        },
+        {
+          "cycle": 2,
+          "segment": 12,
+          "window": "late",
+          "stress_control": false,
+          "source_indices": [
+            1820,
+            1825
+          ],
+          "time_s": [
+            4304.059,
+            4333.961
+          ],
+          "duration_s": 29.902000000000044,
+          "observed_nonelastic_increment": 1.198635325825486e-05,
+          "recoverable_increments": [
+            -1.8242400418958264e-06,
+            2.796980641499541e-06
+          ],
+          "required_remainder_increment": 1.1013612658651145e-05,
+          "required_remainder_average_per_s": 3.6832361242228375e-07,
+          "initial_memory_sensitivity": 5.231124837515072e-27,
+          "resolution_sensitivity": 2.0174436632164917e-05,
+          "remainder_interval": [
+            -9.160823973513772e-06,
+            3.118804929081606e-05
+          ],
+          "scope": "Conditional kinematic remainder; not measured plastic strain or dissipation"
+        },
+        {
+          "cycle": 3,
+          "segment": 15,
+          "window": "early",
+          "stress_control": false,
+          "source_indices": [
+            1876,
+            1997
+          ],
+          "time_s": [
+            4338.706,
+            4347.995
+          ],
+          "duration_s": 9.28899999999976,
+          "observed_nonelastic_increment": -0.0004482524624701596,
+          "recoverable_increments": [
+            3.974112849585324e-05,
+            -4.814872048964299e-05
+          ],
+          "required_remainder_increment": -0.00043984487047636986,
+          "required_remainder_average_per_s": -4.7351154104465626e-05,
+          "initial_memory_sensitivity": 1.2094151861576193e-27,
+          "resolution_sensitivity": 2.0174436632164917e-05,
+          "remainder_interval": [
+            -0.00046001930710853477,
+            -0.00041967043384420494
+          ],
+          "scope": "Conditional kinematic remainder; not measured plastic strain or dissipation"
+        },
+        {
+          "cycle": 3,
+          "segment": 15,
+          "window": "late",
+          "stress_control": false,
+          "source_indices": [
+            2055,
+            2060
+          ],
+          "time_s": [
+            4488.172,
+            4518.074
+          ],
+          "duration_s": 29.902000000000044,
+          "observed_nonelastic_increment": -2.2554965808543924e-05,
+          "recoverable_increments": [
+            3.589209264597779e-06,
+            -1.2913346504188708e-05
+          ],
+          "required_remainder_increment": -1.3230828568952995e-05,
+          "required_remainder_average_per_s": -4.4247303086592787e-07,
+          "initial_memory_sensitivity": 5.807070592157127e-28,
+          "resolution_sensitivity": 2.0174436632164917e-05,
+          "remainder_interval": [
+            -3.340526520111791e-05,
+            6.943608063211922e-06
+          ],
+          "scope": "Conditional kinematic remainder; not measured plastic strain or dissipation"
+        },
+        {
+          "cycle": 3,
+          "segment": 17,
+          "window": "early",
+          "stress_control": false,
+          "source_indices": [
+            2086,
+            2188
+          ],
+          "time_s": [
+            4520.795,
+            4528.643
+          ],
+          "duration_s": 7.847999999999956,
+          "observed_nonelastic_increment": 0.0002001478385761764,
+          "recoverable_increments": [
+            2.8041143200022368e-05,
+            2.358897237671656e-05
+          ],
+          "required_remainder_increment": 0.00014851772299943747,
+          "required_remainder_average_per_s": 1.8924276630917216e-05,
+          "initial_memory_sensitivity": 1.171909832127514e-28,
+          "resolution_sensitivity": 2.0174436632164917e-05,
+          "remainder_interval": [
+            0.00012834328636727256,
+            0.0001686921596316024
+          ],
+          "scope": "Conditional kinematic remainder; not measured plastic strain or dissipation"
+        },
+        {
+          "cycle": 3,
+          "segment": 17,
+          "window": "late",
+          "stress_control": false,
+          "source_indices": [
+            2481,
+            2540
+          ],
+          "time_s": [
+            5962.042,
+            6314.89
+          ],
+          "duration_s": 352.84799999999996,
+          "observed_nonelastic_increment": -5.864291110221398e-06,
+          "recoverable_increments": [
+            9.30082392040225e-07,
+            -1.6577292450691851e-07
+          ],
+          "required_remainder_increment": -6.628600577754705e-06,
+          "required_remainder_average_per_s": -1.878599447284583e-08,
+          "initial_memory_sensitivity": 4.344240083877524e-35,
+          "resolution_sensitivity": 2.0174436632164917e-05,
+          "remainder_interval": [
+            -2.680303720991962e-05,
+            1.3545836054410212e-05
+          ],
+          "scope": "Conditional kinematic remainder; not measured plastic strain or dissipation"
+        },
+        {
+          "cycle": 3,
+          "segment": 19,
+          "window": "early",
+          "stress_control": false,
+          "source_indices": [
+            2566,
+            2687
+          ],
+          "time_s": [
+            6322.881,
+            6332.17
+          ],
+          "duration_s": 9.28899999999976,
+          "observed_nonelastic_increment": 0.0003467968145215894,
+          "recoverable_increments": [
+            -1.99062432262755e-05,
+            2.2795111191207217e-05
+          ],
+          "required_remainder_increment": 0.00034390794655665767,
+          "required_remainder_average_per_s": 3.702313990275235e-05,
+          "initial_memory_sensitivity": 6.230141682568913e-38,
+          "resolution_sensitivity": 2.0174436632164917e-05,
+          "remainder_interval": [
+            0.00032373350992449275,
+            0.0003640823831888226
+          ],
+          "scope": "Conditional kinematic remainder; not measured plastic strain or dissipation"
+        },
+        {
+          "cycle": 3,
+          "segment": 19,
+          "window": "late",
+          "stress_control": false,
+          "source_indices": [
+            2745,
+            2750
+          ],
+          "time_s": [
+            6472.346,
+            6502.248
+          ],
+          "duration_s": 29.902000000000044,
+          "observed_nonelastic_increment": 2.4488248592133295e-05,
+          "recoverable_increments": [
+            -3.963908401203464e-06,
+            2.6330532155617993e-06
+          ],
+          "required_remainder_increment": 2.581910377777496e-05,
+          "required_remainder_average_per_s": 8.634574201650365e-07,
+          "initial_memory_sensitivity": 2.991470994248134e-38,
+          "resolution_sensitivity": 2.0174436632164917e-05,
+          "remainder_interval": [
+            5.6446671456100425e-06,
+            4.599354040993988e-05
+          ],
+          "scope": "Conditional kinematic remainder; not measured plastic strain or dissipation"
+        }
+      ],
+      "equal_stress_bands": [
+        {
+          "cycle": 1,
+          "segment": 5,
+          "band_center_MPa": 190.0,
+          "status": "resolved",
+          "source_indices": [
+            853,
+            860
+          ],
+          "time_s": [
+            2006.258,
+            2016.258
+          ],
+          "duration_s": 10.0,
+          "observed_nonelastic_increment": 4.9749810297702594e-05,
+          "recoverable_increments": [
+            -8.108977082175203e-06,
+            1.5126509084066668e-05
+          ],
+          "required_remainder_increment": 4.273227829581113e-05,
+          "required_remainder_average_per_s": 4.273227829581113e-06,
+          "initial_memory_sensitivity": 1.6095125568818341e-15,
+          "resolution_sensitivity": 2.0174436632164917e-05,
+          "remainder_interval": [
+            2.25578416620367e-05,
+            6.290671492958555e-05
+          ],
+          "scope": "Conditional kinematic remainder; not measured plastic strain or dissipation"
+        },
+        {
+          "cycle": 1,
+          "segment": 5,
+          "band_center_MPa": 210.0,
+          "status": "resolved",
+          "source_indices": [
+            811,
+            848
+          ],
+          "time_s": [
+            1993.607,
+            1998.258
+          ],
+          "duration_s": 4.651000000000067,
+          "observed_nonelastic_increment": 5.9802880772367896e-05,
+          "recoverable_increments": [
+            -1.0341023660965468e-05,
+            9.87662608747437e-06
+          ],
+          "required_remainder_increment": 6.026727834585899e-05,
+          "required_remainder_average_per_s": 1.2957918371502499e-05,
+          "initial_memory_sensitivity": 8.984673926432296e-16,
+          "resolution_sensitivity": 2.0174436632164917e-05,
+          "remainder_interval": [
+            4.009284171279561e-05,
+            8.044171497892238e-05
+          ],
+          "scope": "Conditional kinematic remainder; not measured plastic strain or dissipation"
+        },
+        {
+          "cycle": 1,
+          "segment": 5,
+          "band_center_MPa": 230.0,
+          "status": "resolved",
+          "source_indices": [
+            748,
+            771
+          ],
+          "time_s": [
+            1988.803,
+            1990.564
+          ],
+          "duration_s": 1.7609999999999673,
+          "observed_nonelastic_increment": 5.2767247707204945e-05,
+          "recoverable_increments": [
+            -1.1123648166529165e-05,
+            4.579198256770821e-06
+          ],
+          "required_remainder_increment": 5.931169761696329e-05,
+          "required_remainder_average_per_s": 3.36806914349599e-05,
+          "initial_memory_sensitivity": 3.6649581134620174e-16,
+          "resolution_sensitivity": 2.0174436632164917e-05,
+          "remainder_interval": [
+            3.9137260984431875e-05,
+            7.94861342494947e-05
+          ],
+          "scope": "Conditional kinematic remainder; not measured plastic strain or dissipation"
+        },
+        {
+          "cycle": 2,
+          "segment": 12,
+          "band_center_MPa": 190.0,
+          "status": "resolved",
+          "source_indices": [
+            1779,
+            1787
+          ],
+          "time_s": [
+            4176.532,
+            4188.532
+          ],
+          "duration_s": 12.0,
+          "observed_nonelastic_increment": 5.284306275144569e-05,
+          "recoverable_increments": [
+            -8.690814365402343e-06,
+            1.6940136198785293e-05
+          ],
+          "required_remainder_increment": 4.459374091806274e-05,
+          "required_remainder_average_per_s": 3.7161450765052284e-06,
+          "initial_memory_sensitivity": 1.0660829447427683e-26,
+          "resolution_sensitivity": 2.0174436632164917e-05,
+          "remainder_interval": [
+            2.4419304285897824e-05,
+            6.476817755022765e-05
+          ],
+          "scope": "Conditional kinematic remainder; not measured plastic strain or dissipation"
+        },
+        {
+          "cycle": 2,
+          "segment": 12,
+          "band_center_MPa": 210.0,
+          "status": "resolved",
+          "source_indices": [
+            1740,
+            1771
+          ],
+          "time_s": [
+            4162.203,
+            4164.532
+          ],
+          "duration_s": 2.3289999999997235,
+          "observed_nonelastic_increment": 3.531463218023442e-05,
+          "recoverable_increments": [
+            -5.772720104554624e-06,
+            5.004079589021403e-06
+          ],
+          "required_remainder_increment": 3.608327269576764e-05,
+          "required_remainder_average_per_s": 1.5493032501404863e-05,
+          "initial_memory_sensitivity": 2.5989088806706915e-27,
+          "resolution_sensitivity": 2.0174436632164917e-05,
+          "remainder_interval": [
+            1.5908836063602722e-05,
+            5.625770932793256e-05
+          ],
+          "scope": "Conditional kinematic remainder; not measured plastic strain or dissipation"
+        },
+        {
+          "cycle": 2,
+          "segment": 12,
+          "band_center_MPa": 230.0,
+          "status": "resolved",
+          "source_indices": [
+            1669,
+            1690
+          ],
+          "time_s": [
+            4156.758,
+            4158.439
+          ],
+          "duration_s": 1.6810000000004948,
+          "observed_nonelastic_increment": 6.231614839103431e-05,
+          "recoverable_increments": [
+            -1.1820760922547308e-05,
+            4.32389849049585e-06
+          ],
+          "required_remainder_increment": 6.981301082308577e-05,
+          "required_remainder_average_per_s": 4.1530642964345764e-05,
+          "initial_memory_sensitivity": 2.0095333542055767e-27,
+          "resolution_sensitivity": 2.0174436632164917e-05,
+          "remainder_interval": [
+            4.963857419092086e-05,
+            8.998744745525069e-05
+          ],
+          "scope": "Conditional kinematic remainder; not measured plastic strain or dissipation"
+        },
+        {
+          "cycle": 3,
+          "segment": 19,
+          "band_center_MPa": 190.0,
+          "status": "resolved",
+          "source_indices": [
+            2704,
+            2711
+          ],
+          "time_s": [
+            6344.819,
+            6354.819
+          ],
+          "duration_s": 10.0,
+          "observed_nonelastic_increment": 5.962092477879677e-05,
+          "recoverable_increments": [
+            -7.832978422185898e-06,
+            1.426638268308394e-05
+          ],
+          "required_remainder_increment": 5.3187520517898726e-05,
+          "required_remainder_average_per_s": 5.318752051789872e-06,
+          "initial_memory_sensitivity": 5.140094076610695e-38,
+          "resolution_sensitivity": 2.0174436632164917e-05,
+          "remainder_interval": [
+            3.301308388573381e-05,
+            7.336195715006364e-05
+          ],
+          "scope": "Conditional kinematic remainder; not measured plastic strain or dissipation"
+        },
+        {
+          "cycle": 3,
+          "segment": 19,
+          "band_center_MPa": 210.0,
+          "status": "resolved",
+          "source_indices": [
+            2660,
+            2698
+          ],
+          "time_s": [
+            6330.088,
+            6334.819
+          ],
+          "duration_s": 4.731000000000677,
+          "observed_nonelastic_increment": 5.960955249400894e-05,
+          "recoverable_increments": [
+            -1.027858510813375e-05,
+            9.87487854538429e-06
+          ],
+          "required_remainder_increment": 6.00132590567584e-05,
+          "required_remainder_average_per_s": 1.2685110770820084e-05,
+          "initial_memory_sensitivity": 2.9906466050716616e-38,
+          "resolution_sensitivity": 2.0174436632164917e-05,
+          "remainder_interval": [
+            3.983882242459348e-05,
+            8.018769568892332e-05
+          ],
+          "scope": "Conditional kinematic remainder; not measured plastic strain or dissipation"
+        },
+        {
+          "cycle": 3,
+          "segment": 19,
+          "band_center_MPa": 230.0,
+          "status": "resolved",
+          "source_indices": [
+            2592,
+            2615
+          ],
+          "time_s": [
+            6324.883,
+            6326.725
+          ],
+          "duration_s": 1.842000000000553,
+          "observed_nonelastic_increment": 5.2122820112675145e-05,
+          "recoverable_increments": [
+            -1.1429274124202804e-05,
+            4.710472366229289e-06
+          ],
+          "required_remainder_increment": 5.884162187064866e-05,
+          "required_remainder_average_per_s": 3.194442012520684e-05,
+          "initial_memory_sensitivity": 1.260465285249524e-38,
+          "resolution_sensitivity": 2.0174436632164917e-05,
+          "remainder_interval": [
+            3.8667185238483746e-05,
+            7.901605850281357e-05
+          ],
+          "scope": "Conditional kinematic remainder; not measured plastic strain or dissipation"
+        }
+      ]
+    },
+    "SLC": {
+      "initial_memory_box": [
+        0.00030850899951289333,
+        0.00037821958397899147
+      ],
+      "records": [
+        {
+          "cycle": 1,
+          "segment": 1,
+          "window": "early",
+          "stress_control": false,
+          "source_indices": [
+            26,
+            147
+          ],
+          "time_s": [
+            2.151,
+            11.44
+          ],
+          "duration_s": 9.289,
+          "observed_nonelastic_increment": -0.0003101402566776299,
+          "recoverable_increments": [
+            -6.590767126217126e-06,
+            -2.946370459368411e-05
+          ],
+          "required_remainder_increment": -0.0002740857849577287,
+          "required_remainder_average_per_s": -2.9506489929780242e-05,
+          "initial_memory_sensitivity": 4.680695071453098e-05,
+          "resolution_sensitivity": 2.0174436632164917e-05,
+          "remainder_interval": [
+            -0.00034106717230442455,
+            -0.00020710439761103278
+          ],
+          "scope": "Conditional kinematic remainder; not measured plastic strain or dissipation"
+        },
+        {
+          "cycle": 1,
+          "segment": 1,
+          "window": "late",
+          "stress_control": false,
+          "source_indices": [
+            205,
+            210
+          ],
+          "time_s": [
+            151.618,
+            181.521
+          ],
+          "duration_s": 29.90299999999999,
+          "observed_nonelastic_increment": -2.0428354746595416e-05,
+          "recoverable_increments": [
+            3.33451881073956e-06,
+            -5.046618238528357e-06
+          ],
+          "required_remainder_increment": -1.871625531880662e-05,
+          "required_remainder_average_per_s": -6.258989171255936e-07,
+          "initial_memory_sensitivity": 1.8580565669882177e-05,
+          "resolution_sensitivity": 2.0174436632164917e-05,
+          "remainder_interval": [
+            -5.7471257620853706e-05,
+            2.0038746983240474e-05
+          ],
+          "scope": "Conditional kinematic remainder; not measured plastic strain or dissipation"
+        },
+        {
+          "cycle": 1,
+          "segment": 3,
+          "window": "early",
+          "stress_control": true,
+          "source_indices": [
+            236,
+            338
+          ],
+          "time_s": [
+            184.238,
+            192.086
+          ],
+          "duration_s": 7.848000000000013,
+          "observed_nonelastic_increment": 0.0002671114481094034,
+          "recoverable_increments": [
+            6.57727957865947e-05,
+            2.9379917083763047e-05
+          ],
+          "required_remainder_increment": 0.0001719587352390457,
+          "required_remainder_average_per_s": 2.1911153827605175e-05,
+          "initial_memory_sensitivity": 3.7497256551964963e-06,
+          "resolution_sensitivity": 2.0174436632164917e-05,
+          "remainder_interval": [
+            0.0001480345729516843,
+            0.0001958828975264071
+          ],
+          "scope": "Conditional kinematic remainder; not measured plastic strain or dissipation"
+        },
+        {
+          "cycle": 1,
+          "segment": 3,
+          "window": "late",
+          "stress_control": true,
+          "source_indices": [
+            631,
+            690
+          ],
+          "time_s": [
+            1625.483,
+            1978.331
+          ],
+          "duration_s": 352.84799999999996,
+          "observed_nonelastic_increment": 3.903335860820533e-05,
+          "recoverable_increments": [
+            1.3122658358224884e-07,
+            3.715767123065863e-08
+          ],
+          "required_remainder_increment": 3.886497435339242e-05,
+          "required_remainder_average_per_s": 1.101465060121991e-07,
+          "initial_memory_sensitivity": 1.3900470002339398e-12,
+          "resolution_sensitivity": 2.0174436632164917e-05,
+          "remainder_interval": [
+            1.8690536331180506e-05,
+            5.903941237560434e-05
+          ],
+          "scope": "Conditional kinematic remainder; not measured plastic strain or dissipation"
+        },
+        {
+          "cycle": 1,
+          "segment": 5,
+          "window": "early",
+          "stress_control": false,
+          "source_indices": [
+            702,
+            823
+          ],
+          "time_s": [
+            1985.26,
+            1994.549
+          ],
+          "duration_s": 9.288999999999987,
+          "observed_nonelastic_increment": 0.00019709628431231098,
+          "recoverable_increments": [
+            2.376497935785825e-05,
+            1.4513627864039854e-05
+          ],
+          "required_remainder_increment": 0.00015881767709041288,
+          "required_remainder_average_per_s": 1.7097392301691582e-05,
+          "initial_memory_sensitivity": 2.018924737023061e-15,
+          "resolution_sensitivity": 2.0174436632164917e-05,
+          "remainder_interval": [
+            0.00013864324045622905,
+            0.0001789921137245967
+          ],
+          "scope": "Conditional kinematic remainder; not measured plastic strain or dissipation"
+        },
+        {
+          "cycle": 1,
+          "segment": 5,
+          "window": "late",
+          "stress_control": false,
+          "source_indices": [
+            881,
+            886
+          ],
+          "time_s": [
+            2134.725,
+            2164.627
+          ],
+          "duration_s": 29.902000000000044,
+          "observed_nonelastic_increment": 3.505686114242254e-05,
+          "recoverable_increments": [
+            -5.307210238030403e-06,
+            -2.175569947812726e-07
+          ],
+          "required_remainder_increment": 4.0581628375234214e-05,
+          "required_remainder_average_per_s": 1.357154316608727e-06,
+          "initial_memory_sensitivity": 9.694088992023937e-16,
+          "resolution_sensitivity": 2.0174436632164917e-05,
+          "remainder_interval": [
+            2.0407191742099885e-05,
+            6.075606500836855e-05
+          ],
+          "scope": "Conditional kinematic remainder; not measured plastic strain or dissipation"
+        },
+        {
+          "cycle": 2,
+          "segment": 8,
+          "window": "early",
+          "stress_control": false,
+          "source_indices": [
+            937,
+            1058
+          ],
+          "time_s": [
+            2169.367,
+            2178.656
+          ],
+          "duration_s": 9.28899999999976,
+          "observed_nonelastic_increment": -0.00042144427453771866,
+          "recoverable_increments": [
+            2.8626605531639255e-05,
+            -5.447063728797528e-05
+          ],
+          "required_remainder_increment": -0.00039560024278138264,
+          "required_remainder_average_per_s": -4.258803345692678e-05,
+          "initial_memory_sensitivity": 2.241368483076776e-16,
+          "resolution_sensitivity": 2.0174436632164917e-05,
+          "remainder_interval": [
+            -0.0004157746794137717,
+            -0.00037542580614899357
+          ],
+          "scope": "Conditional kinematic remainder; not measured plastic strain or dissipation"
+        },
+        {
+          "cycle": 2,
+          "segment": 8,
+          "window": "late",
+          "stress_control": false,
+          "source_indices": [
+            1116,
+            1121
+          ],
+          "time_s": [
+            2318.831,
+            2348.733
+          ],
+          "duration_s": 29.902000000000044,
+          "observed_nonelastic_increment": -2.3650492719244547e-05,
+          "recoverable_increments": [
+            3.8137300156746996e-06,
+            -1.516826469879549e-05
+          ],
+          "required_remainder_increment": -1.2295958036123757e-05,
+          "required_remainder_average_per_s": -4.1120854913128684e-07,
+          "initial_memory_sensitivity": 1.0762305574865956e-16,
+          "resolution_sensitivity": 2.0174436632164917e-05,
+          "remainder_interval": [
+            -3.24703946683963e-05,
+            7.878478596148782e-06
+          ],
+          "scope": "Conditional kinematic remainder; not measured plastic strain or dissipation"
+        },
+        {
+          "cycle": 2,
+          "segment": 10,
+          "window": "early",
+          "stress_control": true,
+          "source_indices": [
+            1147,
+            1249
+          ],
+          "time_s": [
+            2351.45,
+            2359.298
+          ],
+          "duration_s": 7.847999999999956,
+          "observed_nonelastic_increment": 0.0002720090978278302,
+          "recoverable_increments": [
+            6.615097612819751e-05,
+            2.763061052491993e-05
+          ],
+          "required_remainder_increment": 0.00017822751117471273,
+          "required_remainder_average_per_s": 2.2709927519713776e-05,
+          "initial_memory_sensitivity": 2.1720166574120447e-17,
+          "resolution_sensitivity": 2.0174436632164917e-05,
+          "remainder_interval": [
+            0.0001580530745425261,
+            0.00019840194780689936
+          ],
+          "scope": "Conditional kinematic remainder; not measured plastic strain or dissipation"
+        },
+        {
+          "cycle": 2,
+          "segment": 10,
+          "window": "late",
+          "stress_control": true,
+          "source_indices": [
+            1542,
+            1601
+          ],
+          "time_s": [
+            3792.695,
+            4145.543
+          ],
+          "duration_s": 352.8479999999995,
+          "observed_nonelastic_increment": 3.025777103781185e-05,
+          "recoverable_increments": [
+            -3.0811477829469514e-08,
+            2.2698309480844846e-08
+          ],
+          "required_remainder_increment": 3.0265884206160474e-05,
+          "required_remainder_average_per_s": 8.577598344375061e-08,
+          "initial_memory_sensitivity": 8.051803029668625e-24,
+          "resolution_sensitivity": 2.0174436632164917e-05,
+          "remainder_interval": [
+            1.0091447573995558e-05,
+            5.044032083832539e-05
+          ],
+          "scope": "Conditional kinematic remainder; not measured plastic strain or dissipation"
+        },
+        {
+          "cycle": 2,
+          "segment": 12,
+          "window": "early",
+          "stress_control": false,
+          "source_indices": [
+            1614,
+            1735
+          ],
+          "time_s": [
+            4152.534,
+            4161.823
+          ],
+          "duration_s": 9.28900000000067,
+          "observed_nonelastic_increment": 0.00022004927896236029,
+          "recoverable_increments": [
+            1.9521332092003194e-05,
+            1.4722298259176687e-05
+          ],
+          "required_remainder_increment": 0.0001858056486111804,
+          "required_remainder_average_per_s": 2.000276118109237e-05,
+          "initial_memory_sensitivity": 1.1685903956212175e-26,
+          "resolution_sensitivity": 2.0174436632164917e-05,
+          "remainder_interval": [
+            0.0001656312119790155,
+            0.00020598008524334532
+          ],
+          "scope": "Conditional kinematic remainder; not measured plastic strain or dissipation"
+        },
+        {
+          "cycle": 2,
+          "segment": 12,
+          "window": "late",
+          "stress_control": false,
+          "source_indices": [
+            1793,
+            1798
+          ],
+          "time_s": [
+            4302.0,
+            4331.902
+          ],
+          "duration_s": 29.902000000000044,
+          "observed_nonelastic_increment": 2.0686125784407478e-05,
+          "recoverable_increments": [
+            -3.2540633874096126e-06,
+            -1.2288936562419254e-09
+          ],
+          "required_remainder_increment": 2.3941418065473333e-05,
+          "required_remainder_average_per_s": 8.006627672220352e-07,
+          "initial_memory_sensitivity": 5.611048214342703e-27,
+          "resolution_sensitivity": 2.0174436632164917e-05,
+          "remainder_interval": [
+            3.766981433308416e-06,
+            4.4115854697638246e-05
+          ],
+          "scope": "Conditional kinematic remainder; not measured plastic strain or dissipation"
+        },
+        {
+          "cycle": 3,
+          "segment": 15,
+          "window": "early",
+          "stress_control": false,
+          "source_indices": [
+            1849,
+            1970
+          ],
+          "time_s": [
+            4336.645,
+            4345.934
+          ],
+          "duration_s": 9.28899999999976,
+          "observed_nonelastic_increment": -0.00039243366049908883,
+          "recoverable_increments": [
+            2.5157798561051368e-05,
+            -5.474304254807043e-05
+          ],
+          "required_remainder_increment": -0.00036284841651206977,
+          "required_remainder_average_per_s": -3.906216132114104e-05,
+          "initial_memory_sensitivity": 1.2972829309829425e-27,
+          "resolution_sensitivity": 2.0174436632164917e-05,
+          "remainder_interval": [
+            -0.0003830228531442347,
+            -0.00034267397987990485
+          ],
+          "scope": "Conditional kinematic remainder; not measured plastic strain or dissipation"
+        },
+        {
+          "cycle": 3,
+          "segment": 15,
+          "window": "late",
+          "stress_control": false,
+          "source_indices": [
+            2028,
+            2033
+          ],
+          "time_s": [
+            4486.108,
+            4516.011
+          ],
+          "duration_s": 29.903000000000247,
+          "observed_nonelastic_increment": -2.5326004465022222e-05,
+          "recoverable_increments": [
+            4.019088962716469e-06,
+            -1.541340638537366e-05
+          ],
+          "required_remainder_increment": -1.3931687042365032e-05,
+          "required_remainder_average_per_s": -4.6589596503243547e-07,
+          "initial_memory_sensitivity": 6.229368637852901e-28,
+          "resolution_sensitivity": 2.0174436632164917e-05,
+          "remainder_interval": [
+            -3.410612367452995e-05,
+            6.242749589799884e-06
+          ],
+          "scope": "Conditional kinematic remainder; not measured plastic strain or dissipation"
+        },
+        {
+          "cycle": 3,
+          "segment": 17,
+          "window": "early",
+          "stress_control": true,
+          "source_indices": [
+            2059,
+            2161
+          ],
+          "time_s": [
+            4518.729,
+            4526.576
+          ],
+          "duration_s": 7.846999999999753,
+          "observed_nonelastic_increment": 0.0002573692191472154,
+          "recoverable_increments": [
+            6.631395290946669e-05,
+            2.765158251918237e-05
+          ],
+          "required_remainder_increment": 0.00016340368371856636,
+          "required_remainder_average_per_s": 2.0823713994975343e-05,
+          "initial_memory_sensitivity": 1.256974941506453e-28,
+          "resolution_sensitivity": 2.0174436632164917e-05,
+          "remainder_interval": [
+            0.00014322924708640145,
+            0.00018357812035073128
+          ],
+          "scope": "Conditional kinematic remainder; not measured plastic strain or dissipation"
+        },
+        {
+          "cycle": 3,
+          "segment": 17,
+          "window": "late",
+          "stress_control": true,
+          "source_indices": [
+            2454,
+            2513
+          ],
+          "time_s": [
+            5959.975,
+            6312.822
+          ],
+          "duration_s": 352.84699999999975,
+          "observed_nonelastic_increment": 2.0322213797264838e-05,
+          "recoverable_increments": [
+            -3.8013250718883524e-08,
+            -6.5175381028269915e-09
+          ],
+          "required_remainder_increment": 2.0366744586086548e-05,
+          "required_remainder_average_per_s": 5.772117826164474e-08,
+          "initial_memory_sensitivity": 4.6601955116347247e-35,
+          "resolution_sensitivity": 2.0174436632164917e-05,
+          "remainder_interval": [
+            1.9230795392163134e-07,
+            4.054118121825147e-05
+          ],
+          "scope": "Conditional kinematic remainder; not measured plastic strain or dissipation"
+        },
+        {
+          "cycle": 3,
+          "segment": 19,
+          "window": "early",
+          "stress_control": false,
+          "source_indices": [
+            2526,
+            2647
+          ],
+          "time_s": [
+            6319.821,
+            6329.11
+          ],
+          "duration_s": 9.28899999999976,
+          "observed_nonelastic_increment": 0.0002255269135158638,
+          "recoverable_increments": [
+            1.6853807596929946e-05,
+            1.4502170485365169e-05
+          ],
+          "required_remainder_increment": 0.00019417093543356868,
+          "required_remainder_average_per_s": 2.0903319564385153e-05,
+          "initial_memory_sensitivity": 6.762964225220241e-38,
+          "resolution_sensitivity": 2.0174436632164917e-05,
+          "remainder_interval": [
+            0.00017399649880140376,
+            0.0002143453720657336
+          ],
+          "scope": "Conditional kinematic remainder; not measured plastic strain or dissipation"
+        },
+        {
+          "cycle": 3,
+          "segment": 19,
+          "window": "late",
+          "stress_control": false,
+          "source_indices": [
+            2705,
+            2710
+          ],
+          "time_s": [
+            6469.285,
+            6499.188
+          ],
+          "duration_s": 29.903000000000247,
+          "observed_nonelastic_increment": 2.1266110619484346e-05,
+          "recoverable_increments": [
+            -3.302671360594752e-06,
+            8.891813594767099e-08
+          ],
+          "required_remainder_increment": 2.4479863844131427e-05,
+          "required_remainder_average_per_s": 8.186424052480094e-07,
+          "initial_memory_sensitivity": 3.247440728614459e-38,
+          "resolution_sensitivity": 2.0174436632164917e-05,
+          "remainder_interval": [
+            4.30542721196651e-06,
+            4.465430047629635e-05
+          ],
+          "scope": "Conditional kinematic remainder; not measured plastic strain or dissipation"
+        }
+      ],
+      "equal_stress_bands": [
+        {
+          "cycle": 1,
+          "segment": 5,
+          "band_center_MPa": 190.0,
+          "status": "resolved",
+          "source_indices": [
+            867,
+            873
+          ],
+          "time_s": [
+            2050.998,
+            2086.881
+          ],
+          "duration_s": 35.88299999999981,
+          "observed_nonelastic_increment": 3.0974222727309196e-05,
+          "recoverable_increments": [
+            -8.157053219810676e-06,
+            9.23647265313533e-06
+          ],
+          "required_remainder_increment": 2.989480329398454e-05,
+          "required_remainder_average_per_s": 8.33118838836906e-07,
+          "initial_memory_sensitivity": 3.057256059967751e-15,
+          "resolution_sensitivity": 2.0174436632164917e-05,
+          "remainder_interval": [
+            9.720366658762368e-06,
+            5.0069239929206715e-05
+          ],
+          "scope": "Conditional kinematic remainder; not measured plastic strain or dissipation"
+        },
+        {
+          "cycle": 1,
+          "segment": 5,
+          "band_center_MPa": 210.0,
+          "status": "resolved",
+          "source_indices": [
+            839,
+            847
+          ],
+          "time_s": [
+            2005.199,
+            2017.199
+          ],
+          "duration_s": 12.0,
+          "observed_nonelastic_increment": 5.5742986926830024e-05,
+          "recoverable_increments": [
+            -9.046924352519163e-06,
+            1.0910680567793841e-05
+          ],
+          "required_remainder_increment": 5.3879230711555346e-05,
+          "required_remainder_average_per_s": 4.4899358926296125e-06,
+          "initial_memory_sensitivity": 2.02333530496956e-15,
+          "resolution_sensitivity": 2.0174436632164917e-05,
+          "remainder_interval": [
+            3.3704794077367095e-05,
+            7.40536673457436e-05
+          ],
+          "scope": "Conditional kinematic remainder; not measured plastic strain or dissipation"
+        },
+        {
+          "cycle": 1,
+          "segment": 5,
+          "band_center_MPa": 230.0,
+          "status": "resolved",
+          "source_indices": [
+            741,
+            816
+          ],
+          "time_s": [
+            1988.303,
+            1993.988
+          ],
+          "duration_s": 5.684999999999945,
+          "observed_nonelastic_increment": 6.270280494775205e-05,
+          "recoverable_increments": [
+            -1.0536732261500007e-05,
+            8.44847096692652e-06
+          ],
+          "required_remainder_increment": 6.479106624232553e-05,
+          "required_remainder_average_per_s": 1.1396845425211285e-05,
+          "initial_memory_sensitivity": 1.2170482321161153e-15,
+          "resolution_sensitivity": 2.0174436632164917e-05,
+          "remainder_interval": [
+            4.4616629608943575e-05,
+            8.496550287570749e-05
+          ],
+          "scope": "Conditional kinematic remainder; not measured plastic strain or dissipation"
+        },
+        {
+          "cycle": 2,
+          "segment": 12,
+          "band_center_MPa": 190.0,
+          "status": "resolved",
+          "source_indices": [
+            1781,
+            1789
+          ],
+          "time_s": [
+            4230.234,
+            4278.078
+          ],
+          "duration_s": 47.84400000000005,
+          "observed_nonelastic_increment": 3.807429855192507e-05,
+          "recoverable_increments": [
+            -7.83116142393314e-06,
+            8.517003996964665e-06
+          ],
+          "required_remainder_increment": 3.738845597889355e-05,
+          "required_remainder_average_per_s": 7.814659305010766e-07,
+          "initial_memory_sensitivity": 1.9158077117845096e-26,
+          "resolution_sensitivity": 2.0174436632164917e-05,
+          "remainder_interval": [
+            1.721401934672863e-05,
+            5.756289261105846e-05
+          ],
+          "scope": "Conditional kinematic remainder; not measured plastic strain or dissipation"
+        },
+        {
+          "cycle": 2,
+          "segment": 12,
+          "band_center_MPa": 210.0,
+          "status": "resolved",
+          "source_indices": [
+            1752,
+            1763
+          ],
+          "time_s": [
+            4174.475,
+            4190.475
+          ],
+          "duration_s": 16.0,
+          "observed_nonelastic_increment": 5.432524621886441e-05,
+          "recoverable_increments": [
+            -8.72505590515367e-06,
+            1.3563076775766699e-05
+          ],
+          "required_remainder_increment": 4.948722534825138e-05,
+          "required_remainder_average_per_s": 3.0929515842657113e-06,
+          "initial_memory_sensitivity": 1.4896591167913596e-26,
+          "resolution_sensitivity": 2.0174436632164917e-05,
+          "remainder_interval": [
+            2.9312788716086464e-05,
+            6.96616619804163e-05
+          ],
+          "scope": "Conditional kinematic remainder; not measured plastic strain or dissipation"
+        },
+        {
+          "cycle": 2,
+          "segment": 12,
+          "band_center_MPa": 230.0,
+          "status": "resolved",
+          "source_indices": [
+            1668,
+            1742
+          ],
+          "time_s": [
+            4156.698,
+            4162.384
+          ],
+          "duration_s": 5.685999999999694,
+          "observed_nonelastic_increment": 6.250947666939309e-05,
+          "recoverable_increments": [
+            -1.07429962313926e-05,
+            8.23564208514256e-06
+          ],
+          "required_remainder_increment": 6.501683081564313e-05,
+          "required_remainder_average_per_s": 1.1434546397405315e-05,
+          "initial_memory_sensitivity": 6.95202520137027e-27,
+          "resolution_sensitivity": 2.0174436632164917e-05,
+          "remainder_interval": [
+            4.484239418347822e-05,
+            8.519126744780805e-05
+          ],
+          "scope": "Conditional kinematic remainder; not measured plastic strain or dissipation"
+        },
+        {
+          "cycle": 3,
+          "segment": 19,
+          "band_center_MPa": 190.0,
+          "status": "resolved",
+          "source_indices": [
+            2692,
+            2701
+          ],
+          "time_s": [
+            6391.539,
+            6445.363
+          ],
+          "duration_s": 53.824000000000524,
+          "observed_nonelastic_increment": 6.716072763479565e-05,
+          "recoverable_increments": [
+            -9.035151089221548e-06,
+            1.0627474674042428e-05
+          ],
+          "required_remainder_increment": 6.556840404997477e-05,
+          "required_remainder_average_per_s": 1.2182001346977954e-06,
+          "initial_memory_sensitivity": 1.297321191096509e-37,
+          "resolution_sensitivity": 2.0174436632164917e-05,
+          "remainder_interval": [
+            4.539396741780986e-05,
+            8.574284068213969e-05
+          ],
+          "scope": "Conditional kinematic remainder; not measured plastic strain or dissipation"
+        },
+        {
+          "cycle": 3,
+          "segment": 19,
+          "band_center_MPa": 210.0,
+          "status": "resolved",
+          "source_indices": [
+            2663,
+            2672
+          ],
+          "time_s": [
+            6339.759,
+            6353.759
+          ],
+          "duration_s": 14.0,
+          "observed_nonelastic_increment": 4.187642135965107e-05,
+          "recoverable_increments": [
+            -8.331118257081196e-06,
+            1.2545599944655298e-05
+          ],
+          "required_remainder_increment": 3.766193967207697e-05,
+          "required_remainder_average_per_s": 2.690138548005498e-06,
+          "initial_memory_sensitivity": 7.816022526046834e-38,
+          "resolution_sensitivity": 2.0174436632164917e-05,
+          "remainder_interval": [
+            1.7487503039912053e-05,
+            5.783637630424188e-05
+          ],
+          "scope": "Conditional kinematic remainder; not measured plastic strain or dissipation"
+        },
+        {
+          "cycle": 3,
+          "segment": 19,
+          "band_center_MPa": 230.0,
+          "status": "resolved",
+          "source_indices": [
+            2565,
+            2637
+          ],
+          "time_s": [
+            6322.864,
+            6328.31
+          ],
+          "duration_s": 5.446000000000822,
+          "observed_nonelastic_increment": 6.32827897828291e-05,
+          "recoverable_increments": [
+            -1.1709833967474796e-05,
+            8.048007389260375e-06
+          ],
+          "required_remainder_increment": 6.694461636104352e-05,
+          "required_remainder_average_per_s": 1.2292437818772202e-05,
+          "initial_memory_sensitivity": 3.9109716925112223e-38,
+          "resolution_sensitivity": 2.0174436632164917e-05,
+          "remainder_interval": [
+            4.6770179728878604e-05,
+            8.711905299320843e-05
+          ],
+          "scope": "Conditional kinematic remainder; not measured plastic strain or dissipation"
+        }
+      ]
+    }
+  },
+  "parameters": {
+    "backbone": {
+      "modulus": 155176.47110217228,
+      "branches": [
+        {
+          "strength": 32.070942976785695,
+          "reference_flow": 1.281920306708618e-05,
+          "exponent": 5.414166845290841,
+          "hardening": [
+            75124.75216367528,
+            143704.42940328002
+          ],
+          "saturation": [
+            32.38128763717425,
+            174.5620662145974
+          ],
+          "static_recovery": [
+            9.669074635462478e-08,
+            1.2339887082257602e-06
+          ],
+          "ratcheting": [
+            3.0,
+            3.0
+          ],
+          "saturation_ratio": 1.0,
+          "softening_rate": 0.0
+        },
+        {
+          "strength": 125.01525517677979,
+          "reference_flow": 5.8625553916151034e-05,
+          "exponent": 2.9202418568273196,
+          "hardening": [
+            902739.4311221609,
+            14940.521121324738
+          ],
+          "saturation": [
+            25.697301620372162,
+            14.454658080019456
+          ],
+          "static_recovery": [
+            0.12341919516433408,
+            0.001588559429604276
+          ],
+          "ratcheting": [
+            3.0,
+            3.0
+          ],
+          "saturation_ratio": 1.0,
+          "softening_rate": 0.0
+        }
+      ]
+    },
+    "moduli": [
+      977345.8812419465,
+      797208.8510804035
+    ],
+    "times": [
+      0.5911642502017254,
+      83.7587250005952
+    ],
+    "strength_ratios": [
+      1.0,
+      1.0
+    ],
+    "strength_rates": [
+      0.0,
+      0.0
+    ],
+    "hardening_ratios": [
+      1.0,
+      1.0
+    ],
+    "hardening_rates": [
+      0.0,
+      0.0
+    ],
+    "static_powers": [
+      0.0,
+      0.0
+    ],
+    "static_ratios": [
+      1.0,
+      1.0
+    ],
+    "static_history_rates": [
+      0.0,
+      0.0
+    ],
+    "static_history": "own"
+  },
+  "model_id": "research.scalar-two-rate-recoverable-spectrum.v1",
+  "source_sha256": {
+    "RF": "128e6de1854f4633e26eced6c4ea221687cde2f232db275487ef0d1201767e0a",
+    "SLR": "34e26cae1816ec4b712a4cec5811e0a0c66bad34848c10d962528085171fcabb",
+    "SLC": "ab2953c0cfa6335619c8b699728aa73233f8d2209af39b709916ab3fd392683e"
+  },
+  "fitted": false,
+  "continuous_prediction": false,
+  "engineering_qualified": false,
+  "life_qualified": false,
+  "scope": "Observed stress and strain diagnostic under a fixed linear recovery hypothesis",
+  "driver_sha256": {
+    "p92_observed_recovery_budget.py": "52850d10ec3d81de78f8cc15a48ef756b60dd13dec30413206ddbbc7d397fb4d",
+    "p92_bam_source.py": "01475954bb1472e6b2f57ba36c76de4ef4c4b6a25b893a8fad0d8aba7caa3cf3",
+    "p92_measured_controls.py": "803a1786932cbdd571f248f1ee3053dfdc941ea2b7aa3cfb38f01fe862ce461e",
+    "p92_recoverable_frozen.py": "6c030b625fa5a740bc5fe8417fb7f7d5d2b5803f831000c1659f831f9543ce62",
+    "p92_recoverable_spectrum.py": "db4826a41d681dc157792a8740a8df286d59b91181243a3118b3dabb16521e3d",
+    "p92_response_screen.py": "910a7e48cd0a08992dd1be7fce3024eeb4af8719dbfbacffd612e703703053b6"
+  },
+  "frozen_sha256": "3cd6a986828c8d3fff5ab7aa195839c9bcce536f4158d2b21e766a5066127684",
+  "archived_source_sha256": "85ac83b36b80be5bf679ee9a348f15a92546e7822cd4d8ef4aa85a159f502ada"
+}

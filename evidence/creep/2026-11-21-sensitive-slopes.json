@@ -1,0 +1,986 @@
+{
+  "schema": "agentfem.research.reversal-slope-comparison.v1",
+  "protocols": {
+    "RF": {
+      "source_sha256": "128e6de1854f4633e26eced6c4ea221687cde2f232db275487ef0d1201767e0a",
+      "records": [
+        {
+          "cycle": 1,
+          "segment": 2,
+          "strain_span": 0.0002,
+          "source_indices": [
+            199,
+            200,
+            201
+          ],
+          "apparent_slope_MPa": 157078.94736842043,
+          "stress_fit_rms_MPa": 0.41382151419908486,
+          "predicted_slope_MPa": 152321.27437052198,
+          "predicted_on_recorded_strain_slope_MPa": 152278.61560663523,
+          "predicted_stress_fit_rms_MPa": 0.018624227153273908,
+          "predicted_strain_span": 0.0001299617781470718,
+          "recorded_strain_span": 0.00013000000000000012
+        },
+        {
+          "cycle": 1,
+          "segment": 2,
+          "strain_span": 0.0004,
+          "source_indices": [
+            199,
+            200,
+            201,
+            202,
+            203,
+            204
+          ],
+          "apparent_slope_MPa": 149600.38954715157,
+          "stress_fit_rms_MPa": 0.763362734268366,
+          "predicted_slope_MPa": 148425.37095279238,
+          "predicted_on_recorded_strain_slope_MPa": 148388.51384021543,
+          "predicted_stress_fit_rms_MPa": 0.2118730795668118,
+          "predicted_strain_span": 0.00036990444536767796,
+          "recorded_strain_span": 0.0003699999999999999
+        },
+        {
+          "cycle": 1,
+          "segment": 4,
+          "strain_span": 0.0002,
+          "source_indices": [
+            450,
+            451,
+            452
+          ],
+          "apparent_slope_MPa": 148403.8461538464,
+          "stress_fit_rms_MPa": 0.5157854354134325,
+          "predicted_slope_MPa": 152408.74794882545,
+          "predicted_on_recorded_strain_slope_MPa": 153262.59964485004,
+          "predicted_stress_fit_rms_MPa": 0.018948953851873295,
+          "predicted_strain_span": 0.0001408320413436707,
+          "recorded_strain_span": 0.00013999999999999993
+        },
+        {
+          "cycle": 1,
+          "segment": 4,
+          "strain_span": 0.0004,
+          "source_indices": [
+            450,
+            451,
+            452,
+            453,
+            454,
+            455
+          ],
+          "apparent_slope_MPa": 158307.16723549506,
+          "stress_fit_rms_MPa": 0.6286304645040184,
+          "predicted_slope_MPa": 148317.65671551475,
+          "predicted_on_recorded_strain_slope_MPa": 149118.01096403145,
+          "predicted_stress_fit_rms_MPa": 0.23478136024448326,
+          "predicted_strain_span": 0.0003720723514211901,
+          "recorded_strain_span": 0.0003699999999999999
+        },
+        {
+          "cycle": 2,
+          "segment": 5,
+          "strain_span": 0.0002,
+          "source_indices": [
+            475,
+            476,
+            477
+          ],
+          "apparent_slope_MPa": 123948.1865284979,
+          "stress_fit_rms_MPa": 0.3873121584942096,
+          "predicted_slope_MPa": 121900.47903761249,
+          "predicted_on_recorded_strain_slope_MPa": 121900.47903761207,
+          "predicted_stress_fit_rms_MPa": 0.10929322989679208,
+          "predicted_strain_span": 0.0001599999999999998,
+          "recorded_strain_span": 0.00016
+        },
+        {
+          "cycle": 2,
+          "segment": 5,
+          "strain_span": 0.0004,
+          "source_indices": [
+            475,
+            476,
+            477,
+            478,
+            479
+          ],
+          "apparent_slope_MPa": 115802.75229357783,
+          "stress_fit_rms_MPa": 0.5585044742044848,
+          "predicted_slope_MPa": 120941.15124261018,
+          "predicted_on_recorded_strain_slope_MPa": 120941.15124260995,
+          "predicted_stress_fit_rms_MPa": 0.13761925642559425,
+          "predicted_strain_span": 0.0003399999999999994,
+          "recorded_strain_span": 0.00034
+        },
+        {
+          "cycle": 2,
+          "segment": 7,
+          "strain_span": 0.0002,
+          "source_indices": [
+            673,
+            674,
+            675
+          ],
+          "apparent_slope_MPa": 157500.0000000006,
+          "stress_fit_rms_MPa": 0.2627525240390593,
+          "predicted_slope_MPa": 152351.27953603896,
+          "predicted_on_recorded_strain_slope_MPa": 152108.69367553084,
+          "predicted_stress_fit_rms_MPa": 0.03209762270442047,
+          "predicted_strain_span": 0.0001297892184550977,
+          "recorded_strain_span": 0.00013000000000000012
+        },
+        {
+          "cycle": 2,
+          "segment": 7,
+          "strain_span": 0.0004,
+          "source_indices": [
+            673,
+            674,
+            675,
+            676,
+            677,
+            678
+          ],
+          "apparent_slope_MPa": 158344.12955465622,
+          "stress_fit_rms_MPa": 0.3794448676123512,
+          "predicted_slope_MPa": 148341.63620424306,
+          "predicted_on_recorded_strain_slope_MPa": 148128.9277754973,
+          "predicted_stress_fit_rms_MPa": 0.2221242553300589,
+          "predicted_strain_span": 0.00035947172875308683,
+          "recorded_strain_span": 0.0003600000000000001
+        },
+        {
+          "cycle": 2,
+          "segment": 9,
+          "strain_span": 0.0002,
+          "source_indices": [
+            924,
+            925,
+            926
+          ],
+          "apparent_slope_MPa": 158853.38345864628,
+          "stress_fit_rms_MPa": 0.28071895702297883,
+          "predicted_slope_MPa": 152231.19448856052,
+          "predicted_on_recorded_strain_slope_MPa": 151945.99525620224,
+          "predicted_stress_fit_rms_MPa": 0.017351207901730527,
+          "predicted_strain_span": 0.00012974432142449552,
+          "recorded_strain_span": 0.00013000000000000012
+        },
+        {
+          "cycle": 2,
+          "segment": 9,
+          "strain_span": 0.0004,
+          "source_indices": [
+            924,
+            925,
+            926,
+            927,
+            928,
+            929
+          ],
+          "apparent_slope_MPa": 154422.695035461,
+          "stress_fit_rms_MPa": 0.6168520710359742,
+          "predicted_slope_MPa": 148315.95160478278,
+          "predicted_on_recorded_strain_slope_MPa": 148073.09390345024,
+          "predicted_stress_fit_rms_MPa": 0.23433607581948182,
+          "predicted_strain_span": 0.00036936080356123817,
+          "recorded_strain_span": 0.0003699999999999999
+        },
+        {
+          "cycle": 3,
+          "segment": 10,
+          "strain_span": 0.0002,
+          "source_indices": [
+            949,
+            950,
+            951
+          ],
+          "apparent_slope_MPa": 126437.49999999996,
+          "stress_fit_rms_MPa": 0.0023570226039530146,
+          "predicted_slope_MPa": 121216.05836961145,
+          "predicted_on_recorded_strain_slope_MPa": 121216.05836961197,
+          "predicted_stress_fit_rms_MPa": 0.04606785934260347,
+          "predicted_strain_span": 0.0001599999999999999,
+          "recorded_strain_span": 0.00016
+        },
+        {
+          "cycle": 3,
+          "segment": 10,
+          "strain_span": 0.0004,
+          "source_indices": [
+            949,
+            950,
+            951,
+            952,
+            953
+          ],
+          "apparent_slope_MPa": 123550.00000000009,
+          "stress_fit_rms_MPa": 0.2668932370817992,
+          "predicted_slope_MPa": 118561.09473421665,
+          "predicted_on_recorded_strain_slope_MPa": 118561.09473421675,
+          "predicted_stress_fit_rms_MPa": 0.17927734070645113,
+          "predicted_strain_span": 0.0003199999999999999,
+          "recorded_strain_span": 0.00032
+        },
+        {
+          "cycle": 3,
+          "segment": 12,
+          "strain_span": 0.0002,
+          "source_indices": [
+            1147,
+            1148,
+            1149
+          ],
+          "apparent_slope_MPa": 157883.7209302328,
+          "stress_fit_rms_MPa": 0.20056895815837242,
+          "predicted_slope_MPa": 152350.87009159778,
+          "predicted_on_recorded_strain_slope_MPa": 152570.8659897555,
+          "predicted_stress_fit_rms_MPa": 0.03225780370873834,
+          "predicted_strain_span": 0.0001301911539575494,
+          "recorded_strain_span": 0.00013000000000000012
+        },
+        {
+          "cycle": 3,
+          "segment": 12,
+          "strain_span": 0.0004,
+          "source_indices": [
+            1147,
+            1148,
+            1149,
+            1150,
+            1151,
+            1152
+          ],
+          "apparent_slope_MPa": 159438.2499538483,
+          "stress_fit_rms_MPa": 0.4923063483057271,
+          "predicted_slope_MPa": 148340.83649972285,
+          "predicted_on_recorded_strain_slope_MPa": 148537.84689385816,
+          "predicted_stress_fit_rms_MPa": 0.218457652982407,
+          "predicted_strain_span": 0.00035047788489387115,
+          "recorded_strain_span": 0.00035000000000000005
+        },
+        {
+          "cycle": 3,
+          "segment": 14,
+          "strain_span": 0.0002,
+          "source_indices": [
+            1397,
+            1398,
+            1399
+          ],
+          "apparent_slope_MPa": 162755.81395348857,
+          "stress_fit_rms_MPa": 0.48920134776625074,
+          "predicted_slope_MPa": 152125.95012675718,
+          "predicted_on_recorded_strain_slope_MPa": 152125.95012675953,
+          "predicted_stress_fit_rms_MPa": 0.029958977805795005,
+          "predicted_strain_span": 0.00013000000000000208,
+          "recorded_strain_span": 0.00013000000000000012
+        },
+        {
+          "cycle": 3,
+          "segment": 14,
+          "strain_span": 0.0004,
+          "source_indices": [
+            1397,
+            1398,
+            1399,
+            1400,
+            1401,
+            1402
+          ],
+          "apparent_slope_MPa": 160182.53447143832,
+          "stress_fit_rms_MPa": 0.5484980038142444,
+          "predicted_slope_MPa": 148217.25455151976,
+          "predicted_on_recorded_strain_slope_MPa": 148217.25455152057,
+          "predicted_stress_fit_rms_MPa": 0.23381896227893256,
+          "predicted_strain_span": 0.00037000000000000227,
+          "recorded_strain_span": 0.0003699999999999999
+        }
+      ],
+      "scope": "Aligned local hysteresis slopes, not an elastic modulus calibration or acceptance tolerance"
+    },
+    "SLR": {
+      "source_sha256": "34e26cae1816ec4b712a4cec5811e0a0c66bad34848c10d962528085171fcabb",
+      "records": [
+        {
+          "cycle": 1,
+          "segment": 2,
+          "strain_span": 0.0002,
+          "source_indices": [
+            211,
+            212,
+            213
+          ],
+          "apparent_slope_MPa": 157351.98555956586,
+          "stress_fit_rms_MPa": 0.045869720814574744,
+          "predicted_slope_MPa": 151449.28161487431,
+          "predicted_on_recorded_strain_slope_MPa": 153000.1961311544,
+          "predicted_stress_fit_rms_MPa": 0.11553983479693461,
+          "predicted_strain_span": 0.0001919877002726552,
+          "recorded_strain_span": 0.00019000000000000006
+        },
+        {
+          "cycle": 1,
+          "segment": 2,
+          "strain_span": 0.0004,
+          "source_indices": [
+            211,
+            212,
+            213,
+            214,
+            215
+          ],
+          "apparent_slope_MPa": 156267.6923076927,
+          "stress_fit_rms_MPa": 0.16701027144826827,
+          "predicted_slope_MPa": 148261.82594447685,
+          "predicted_on_recorded_strain_slope_MPa": 150078.70902546053,
+          "predicted_stress_fit_rms_MPa": 0.2620194444192589,
+          "predicted_strain_span": 0.00033397540054531136,
+          "recorded_strain_span": 0.00033
+        },
+        {
+          "cycle": 1,
+          "segment": 4,
+          "strain_span": 0.0002,
+          "source_indices": [
+            691,
+            692,
+            693
+          ],
+          "apparent_slope_MPa": 151446.60194174753,
+          "stress_fit_rms_MPa": 0.11798012375338071,
+          "predicted_slope_MPa": 151533.95278862244,
+          "predicted_on_recorded_strain_slope_MPa": 152668.06102382604,
+          "predicted_stress_fit_rms_MPa": 0.12750529041937947,
+          "predicted_strain_span": 0.0002015390554945833,
+          "recorded_strain_span": 0.00019999999999999998
+        },
+        {
+          "cycle": 1,
+          "segment": 4,
+          "strain_span": 0.0004,
+          "source_indices": [
+            691,
+            692,
+            693,
+            694,
+            695
+          ],
+          "apparent_slope_MPa": 150250.4368083868,
+          "stress_fit_rms_MPa": 0.19240191625643988,
+          "predicted_slope_MPa": 148236.1491586091,
+          "predicted_on_recorded_strain_slope_MPa": 149601.27140586052,
+          "predicted_stress_fit_rms_MPa": 0.28783209123603837,
+          "predicted_strain_span": 0.0003430781109891688,
+          "recorded_strain_span": 0.00033999999999999997
+        },
+        {
+          "cycle": 1,
+          "segment": 6,
+          "strain_span": 0.0004,
+          "source_indices": [
+            901,
+            902,
+            903,
+            904,
+            905
+          ],
+          "apparent_slope_MPa": 152669.05034324914,
+          "stress_fit_rms_MPa": 0.4969148468184065,
+          "predicted_slope_MPa": 148313.04848074506,
+          "predicted_on_recorded_strain_slope_MPa": 149497.16842322433,
+          "predicted_stress_fit_rms_MPa": 0.2746776181802644,
+          "predicted_strain_span": 0.00034268526628818217,
+          "recorded_strain_span": 0.00034
+        },
+        {
+          "cycle": 2,
+          "segment": 7,
+          "strain_span": 0.0002,
+          "source_indices": [
+            926,
+            927,
+            928
+          ],
+          "apparent_slope_MPa": 113807.69230769192,
+          "stress_fit_rms_MPa": 0.22453655975512485,
+          "predicted_slope_MPa": 118416.50865582681,
+          "predicted_on_recorded_strain_slope_MPa": 118416.50865582924,
+          "predicted_stress_fit_rms_MPa": 0.0390432066579627,
+          "predicted_strain_span": 0.00015000000000000335,
+          "recorded_strain_span": 0.00015
+        },
+        {
+          "cycle": 2,
+          "segment": 7,
+          "strain_span": 0.0004,
+          "source_indices": [
+            926,
+            927,
+            928,
+            929,
+            930,
+            931
+          ],
+          "apparent_slope_MPa": 110296.8208092487,
+          "stress_fit_rms_MPa": 0.29647151848310194,
+          "predicted_slope_MPa": 116800.70744027881,
+          "predicted_on_recorded_strain_slope_MPa": 116800.70744028136,
+          "predicted_stress_fit_rms_MPa": 0.2677878124698776,
+          "predicted_strain_span": 0.0004000000000000084,
+          "recorded_strain_span": 0.00039999999999999996
+        },
+        {
+          "cycle": 2,
+          "segment": 9,
+          "strain_span": 0.0004,
+          "source_indices": [
+            1136,
+            1137,
+            1138,
+            1139,
+            1140
+          ],
+          "apparent_slope_MPa": 151243.9931350112,
+          "stress_fit_rms_MPa": 0.2856982593985032,
+          "predicted_slope_MPa": 148325.30087060912,
+          "predicted_on_recorded_strain_slope_MPa": 149488.50704429328,
+          "predicted_stress_fit_rms_MPa": 0.2738240820084023,
+          "predicted_strain_span": 0.0003426385870573718,
+          "recorded_strain_span": 0.00034
+        },
+        {
+          "cycle": 2,
+          "segment": 11,
+          "strain_span": 0.0004,
+          "source_indices": [
+            1616,
+            1617,
+            1618,
+            1619,
+            1620
+          ],
+          "apparent_slope_MPa": 148930.74054342043,
+          "stress_fit_rms_MPa": 0.6894693395395894,
+          "predicted_slope_MPa": 148323.65020024418,
+          "predicted_on_recorded_strain_slope_MPa": 149668.82033827194,
+          "predicted_stress_fit_rms_MPa": 0.2950343578851065,
+          "predicted_strain_span": 0.0003531593185298402,
+          "recorded_strain_span": 0.00035
+        },
+        {
+          "cycle": 2,
+          "segment": 13,
+          "strain_span": 0.0004,
+          "source_indices": [
+            1826,
+            1827,
+            1828,
+            1829,
+            1830
+          ],
+          "apparent_slope_MPa": 153681.1594202898,
+          "stress_fit_rms_MPa": 0.24846146874168776,
+          "predicted_slope_MPa": 148207.34134251604,
+          "predicted_on_recorded_strain_slope_MPa": 148779.09848746486,
+          "predicted_stress_fit_rms_MPa": 0.2986793234370272,
+          "predicted_strain_span": 0.0003412940796205183,
+          "recorded_strain_span": 0.00034
+        },
+        {
+          "cycle": 3,
+          "segment": 14,
+          "strain_span": 0.0002,
+          "source_indices": [
+            1851,
+            1852,
+            1853
+          ],
+          "apparent_slope_MPa": 115927.46113989648,
+          "stress_fit_rms_MPa": 0.04760589505012512,
+          "predicted_slope_MPa": 121066.91511980502,
+          "predicted_on_recorded_strain_slope_MPa": 121066.91511980508,
+          "predicted_stress_fit_rms_MPa": 0.11156372527708128,
+          "predicted_strain_span": 0.00016000000000000004,
+          "recorded_strain_span": 0.00015999999999999999
+        },
+        {
+          "cycle": 3,
+          "segment": 14,
+          "strain_span": 0.0004,
+          "source_indices": [
+            1851,
+            1852,
+            1853,
+            1854,
+            1855,
+            1856
+          ],
+          "apparent_slope_MPa": 109068.13218809133,
+          "stress_fit_rms_MPa": 0.4868381950458319,
+          "predicted_slope_MPa": 116796.19543634373,
+          "predicted_on_recorded_strain_slope_MPa": 116796.19543634407,
+          "predicted_stress_fit_rms_MPa": 0.31873136176324035,
+          "predicted_strain_span": 0.0004000000000000003,
+          "recorded_strain_span": 0.00039999999999999996
+        },
+        {
+          "cycle": 3,
+          "segment": 16,
+          "strain_span": 0.0004,
+          "source_indices": [
+            2061,
+            2062,
+            2063,
+            2064,
+            2065
+          ],
+          "apparent_slope_MPa": 151856.1212814643,
+          "stress_fit_rms_MPa": 0.3768375193877229,
+          "predicted_slope_MPa": 148287.76247258508,
+          "predicted_on_recorded_strain_slope_MPa": 149364.28158069617,
+          "predicted_stress_fit_rms_MPa": 0.27455832293333565,
+          "predicted_strain_span": 0.0003424416703617461,
+          "recorded_strain_span": 0.00034
+        },
+        {
+          "cycle": 3,
+          "segment": 18,
+          "strain_span": 0.0004,
+          "source_indices": [
+            2541,
+            2542,
+            2543,
+            2544,
+            2545
+          ],
+          "apparent_slope_MPa": 150179.32718393914,
+          "stress_fit_rms_MPa": 0.155916191993212,
+          "predicted_slope_MPa": 148255.1593982359,
+          "predicted_on_recorded_strain_slope_MPa": 148914.89679592234,
+          "predicted_stress_fit_rms_MPa": 0.29953450037810003,
+          "predicted_strain_span": 0.0003515406826413679,
+          "recorded_strain_span": 0.00034999999999999994
+        },
+        {
+          "cycle": 3,
+          "segment": 20,
+          "strain_span": 0.0004,
+          "source_indices": [
+            2751,
+            2752,
+            2753,
+            2754,
+            2755
+          ],
+          "apparent_slope_MPa": 147114.27810335634,
+          "stress_fit_rms_MPa": 0.47860202546022085,
+          "predicted_slope_MPa": 148386.46996053925,
+          "predicted_on_recorded_strain_slope_MPa": 148954.7303645768,
+          "predicted_stress_fit_rms_MPa": 0.2880192446829272,
+          "predicted_strain_span": 0.00035133475054691674,
+          "recorded_strain_span": 0.00035000000000000005
+        }
+      ],
+      "scope": "Aligned local hysteresis slopes, not an elastic modulus calibration or acceptance tolerance"
+    },
+    "SLC": {
+      "source_sha256": "ab2953c0cfa6335619c8b699728aa73233f8d2209af39b709916ab3fd392683e",
+      "records": [
+        {
+          "cycle": 1,
+          "segment": 2,
+          "strain_span": 0.0002,
+          "source_indices": [
+            211,
+            212,
+            213
+          ],
+          "apparent_slope_MPa": 165465.5870445352,
+          "stress_fit_rms_MPa": 0.051952433346620495,
+          "predicted_slope_MPa": 151461.05243400644,
+          "predicted_on_recorded_strain_slope_MPa": 153110.8472332814,
+          "predicted_stress_fit_rms_MPa": 0.10284206194989018,
+          "predicted_strain_span": 0.00018199061497526552,
+          "recorded_strain_span": 0.00018000000000000004
+        },
+        {
+          "cycle": 1,
+          "segment": 2,
+          "strain_span": 0.0004,
+          "source_indices": [
+            211,
+            212,
+            213,
+            214,
+            215
+          ],
+          "apparent_slope_MPa": 154758.37182448062,
+          "stress_fit_rms_MPa": 0.7148251736392371,
+          "predicted_slope_MPa": 148496.32919994072,
+          "predicted_on_recorded_strain_slope_MPa": 150268.46954765034,
+          "predicted_stress_fit_rms_MPa": 0.2278630707500599,
+          "predicted_strain_span": 0.00034398122995053055,
+          "recorded_strain_span": 0.0003399999999999998
+        },
+        {
+          "cycle": 1,
+          "segment": 4,
+          "strain_span": 0.0002,
+          "source_indices": [
+            691,
+            692,
+            693
+          ],
+          "apparent_slope_MPa": 164326.71480144377,
+          "stress_fit_rms_MPa": 0.27742595850943075,
+          "predicted_slope_MPa": 151220.8647829757,
+          "predicted_on_recorded_strain_slope_MPa": 165387.4437604447,
+          "predicted_stress_fit_rms_MPa": 0.12706478624202455,
+          "predicted_strain_span": 0.00020818329075889723,
+          "recorded_strain_span": 0.00019000000000000006
+        },
+        {
+          "cycle": 1,
+          "segment": 4,
+          "strain_span": 0.0004,
+          "source_indices": [
+            691,
+            692,
+            693,
+            694,
+            695
+          ],
+          "apparent_slope_MPa": 155642.85714285716,
+          "stress_fit_rms_MPa": 0.7390408842354023,
+          "predicted_slope_MPa": 147820.90626407825,
+          "predicted_on_recorded_strain_slope_MPa": 163846.23425774978,
+          "predicted_stress_fit_rms_MPa": 0.3070680478037166,
+          "predicted_strain_span": 0.00037636658151781995,
+          "recorded_strain_span": 0.0003399999999999998
+        },
+        {
+          "cycle": 1,
+          "segment": 6,
+          "strain_span": 0.0004,
+          "source_indices": [
+            887,
+            888,
+            889,
+            890,
+            891
+          ],
+          "apparent_slope_MPa": 159374.14187642996,
+          "stress_fit_rms_MPa": 0.17646101468174755,
+          "predicted_slope_MPa": 148318.84315151258,
+          "predicted_on_recorded_strain_slope_MPa": 149519.36725168803,
+          "predicted_stress_fit_rms_MPa": 0.2747246861867349,
+          "predicted_strain_span": 0.0003427223600732136,
+          "recorded_strain_span": 0.00034
+        },
+        {
+          "cycle": 2,
+          "segment": 7,
+          "strain_span": 0.0002,
+          "source_indices": [
+            912,
+            913,
+            914
+          ],
+          "apparent_slope_MPa": 130380.82901554373,
+          "stress_fit_rms_MPa": 0.16485745137728497,
+          "predicted_slope_MPa": 119834.5711882712,
+          "predicted_on_recorded_strain_slope_MPa": 119834.57118826848,
+          "predicted_stress_fit_rms_MPa": 0.11654154147199468,
+          "predicted_strain_span": 0.0001599999999999967,
+          "recorded_strain_span": 0.00016
+        },
+        {
+          "cycle": 2,
+          "segment": 7,
+          "strain_span": 0.0004,
+          "source_indices": [
+            912,
+            913,
+            914,
+            915,
+            916,
+            917
+          ],
+          "apparent_slope_MPa": 126485.71428571419,
+          "stress_fit_rms_MPa": 0.4921655257755315,
+          "predicted_slope_MPa": 114749.23157255251,
+          "predicted_on_recorded_strain_slope_MPa": 114749.23157255012,
+          "predicted_stress_fit_rms_MPa": 0.29758539933166,
+          "predicted_strain_span": 0.00038999999999999154,
+          "recorded_strain_span": 0.00039
+        },
+        {
+          "cycle": 2,
+          "segment": 9,
+          "strain_span": 0.0002,
+          "source_indices": [
+            1122,
+            1123,
+            1124
+          ],
+          "apparent_slope_MPa": 161736.4620938621,
+          "stress_fit_rms_MPa": 0.026982188714473738,
+          "predicted_slope_MPa": 151452.81140948847,
+          "predicted_on_recorded_strain_slope_MPa": 153022.69946174003,
+          "predicted_stress_fit_rms_MPa": 0.11557951903980743,
+          "predicted_strain_span": 0.00019201196987647293,
+          "recorded_strain_span": 0.00019000000000000006
+        },
+        {
+          "cycle": 2,
+          "segment": 9,
+          "strain_span": 0.0004,
+          "source_indices": [
+            1122,
+            1123,
+            1124,
+            1125,
+            1126
+          ],
+          "apparent_slope_MPa": 158741.18683901313,
+          "stress_fit_rms_MPa": 0.299506164244885,
+          "predicted_slope_MPa": 148339.85156297596,
+          "predicted_on_recorded_strain_slope_MPa": 150139.8823098172,
+          "predicted_stress_fit_rms_MPa": 0.2508223089843187,
+          "predicted_strain_span": 0.0003440239397529399,
+          "recorded_strain_span": 0.0003399999999999998
+        },
+        {
+          "cycle": 2,
+          "segment": 11,
+          "strain_span": 0.0004,
+          "source_indices": [
+            1602,
+            1603,
+            1604,
+            1605,
+            1606
+          ],
+          "apparent_slope_MPa": 156669.25638179792,
+          "stress_fit_rms_MPa": 0.5092808797003918,
+          "predicted_slope_MPa": 147892.5212162635,
+          "predicted_on_recorded_strain_slope_MPa": 152512.4254027915,
+          "predicted_stress_fit_rms_MPa": 0.3178531779125191,
+          "predicted_strain_span": 0.00036069608214702375,
+          "recorded_strain_span": 0.00035000000000000005
+        },
+        {
+          "cycle": 2,
+          "segment": 13,
+          "strain_span": 0.0004,
+          "source_indices": [
+            1799,
+            1800,
+            1801,
+            1802,
+            1803
+          ],
+          "apparent_slope_MPa": 155798.83462819044,
+          "stress_fit_rms_MPa": 0.6594365931776531,
+          "predicted_slope_MPa": 148307.82963824106,
+          "predicted_on_recorded_strain_slope_MPa": 148909.12200013513,
+          "predicted_stress_fit_rms_MPa": 0.28761945405919065,
+          "predicted_strain_span": 0.0003513884446328468,
+          "recorded_strain_span": 0.00035000000000000005
+        },
+        {
+          "cycle": 3,
+          "segment": 14,
+          "strain_span": 0.0002,
+          "source_indices": [
+            1824,
+            1825,
+            1826
+          ],
+          "apparent_slope_MPa": 128489.63730569942,
+          "stress_fit_rms_MPa": 0.0473120315004291,
+          "predicted_slope_MPa": 119745.80440831107,
+          "predicted_on_recorded_strain_slope_MPa": 119745.80440831126,
+          "predicted_stress_fit_rms_MPa": 0.1167353552839728,
+          "predicted_strain_span": 0.00016,
+          "recorded_strain_span": 0.00016
+        },
+        {
+          "cycle": 3,
+          "segment": 14,
+          "strain_span": 0.0004,
+          "source_indices": [
+            1824,
+            1825,
+            1826,
+            1827,
+            1828,
+            1829
+          ],
+          "apparent_slope_MPa": 124313.04347826086,
+          "stress_fit_rms_MPa": 0.43050972484765554,
+          "predicted_slope_MPa": 114540.03383072757,
+          "predicted_on_recorded_strain_slope_MPa": 114540.03383072755,
+          "predicted_stress_fit_rms_MPa": 0.3038459620823189,
+          "predicted_strain_span": 0.00039,
+          "recorded_strain_span": 0.00039
+        },
+        {
+          "cycle": 3,
+          "segment": 16,
+          "strain_span": 0.0002,
+          "source_indices": [
+            2034,
+            2035,
+            2036
+          ],
+          "apparent_slope_MPa": 161554.770318022,
+          "stress_fit_rms_MPa": 0.8527719645703,
+          "predicted_slope_MPa": 151477.06148327462,
+          "predicted_on_recorded_strain_slope_MPa": 152517.7006264307,
+          "predicted_stress_fit_rms_MPa": 0.1334607196822153,
+          "predicted_strain_span": 0.0001913611522563149,
+          "recorded_strain_span": 0.00019000000000000006
+        },
+        {
+          "cycle": 3,
+          "segment": 16,
+          "strain_span": 0.0004,
+          "source_indices": [
+            2034,
+            2035,
+            2036,
+            2037,
+            2038
+          ],
+          "apparent_slope_MPa": 158745.1838879157,
+          "stress_fit_rms_MPa": 0.7306751550015765,
+          "predicted_slope_MPa": 148279.96215600357,
+          "predicted_on_recorded_strain_slope_MPa": 149494.46549496852,
+          "predicted_stress_fit_rms_MPa": 0.27085124875750394,
+          "predicted_strain_span": 0.00034273081171423366,
+          "recorded_strain_span": 0.00034
+        },
+        {
+          "cycle": 3,
+          "segment": 18,
+          "strain_span": 0.0002,
+          "source_indices": [
+            2514,
+            2515,
+            2516
+          ],
+          "apparent_slope_MPa": 155297.46835442988,
+          "stress_fit_rms_MPa": 0.4363494515658967,
+          "predicted_slope_MPa": 151361.187498959,
+          "predicted_on_recorded_strain_slope_MPa": 155571.7160219054,
+          "predicted_stress_fit_rms_MPa": 0.1533625566336966,
+          "predicted_strain_span": 0.00020584439519203367,
+          "recorded_strain_span": 0.00019999999999999987
+        },
+        {
+          "cycle": 3,
+          "segment": 18,
+          "strain_span": 0.0004,
+          "source_indices": [
+            2514,
+            2515,
+            2516,
+            2517,
+            2518
+          ],
+          "apparent_slope_MPa": 159710.8092812678,
+          "stress_fit_rms_MPa": 0.48464604438890185,
+          "predicted_slope_MPa": 147855.1942951552,
+          "predicted_on_recorded_strain_slope_MPa": 152941.90088199193,
+          "predicted_stress_fit_rms_MPa": 0.3134097840853262,
+          "predicted_strain_span": 0.00036168879038406775,
+          "recorded_strain_span": 0.00035000000000000005
+        },
+        {
+          "cycle": 3,
+          "segment": 20,
+          "strain_span": 0.0004,
+          "source_indices": [
+            2711,
+            2712,
+            2713,
+            2714,
+            2715
+          ],
+          "apparent_slope_MPa": 157664.09266409278,
+          "stress_fit_rms_MPa": 0.2799633180605108,
+          "predicted_slope_MPa": 148217.1215960926,
+          "predicted_on_recorded_strain_slope_MPa": 148815.4342270529,
+          "predicted_stress_fit_rms_MPa": 0.3059556338142739,
+          "predicted_strain_span": 0.0003513901560813946,
+          "recorded_strain_span": 0.00035000000000000005
+        }
+      ],
+      "scope": "Aligned local hysteresis slopes, not an elastic modulus calibration or acceptance tolerance"
+    }
+  },
+  "parameters": {
+    "backbone": {
+      "modulus": 155176.47110217228,
+      "branches": [
+        {
+          "strength": 26.855568665043062,
+          "reference_flow": 1.192934133261642e-05,
+          "exponent": 4.353334877736655,
+          "hardening": [
+            62179.871152086074,
+            97723.37319638715
+          ],
+          "saturation": [
+            31.337181164124118,
+            174.7397214783593
+          ],
+          "static_recovery": [
+            9.669225193926475e-08,
+            1.2346442889762492e-06
+          ],
+          "ratcheting": [
+            3.0,
+            3.0
+          ],
+          "saturation_ratio": 1.0,
+          "softening_rate": 0.0
+        },
+        {
+          "strength": 119.95383235351844,
+          "reference_flow": 5.216250369409695e-05,
+          "exponent": 2.7832943226793923,
+          "hardening": [
+            866619.960299244,
+            13794.609812327159
+          ],
+          "saturation": [
+            31.831884616780865,
+            14.420572939371588
+          ],
+          "static_recovery": [
+            0.12851405395199125,
+            0.001618252260359547
+          ],
+          "ratcheting": [
+            3.0,
+            3.0
+          ],
+          "saturation_ratio": 1.0,
+          "softening_rate": 0.0
+        }
+      ]
+    },
+    "recoverable_modulus": 851663.823442787,
+    "relaxation_time": 0.6053415174511756,
+    "strength_ratio": 1.0,
+    "strength_softening_rate": 0.0
+  },
+  "refitted": false,
+  "engineering_qualified": false,
+  "frozen_sha256": "5aeb85f5ec3ed482878fe85a22da868e2c808ebff7e67c79441e2c5d959ee333"
+}

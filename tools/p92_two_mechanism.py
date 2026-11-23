@@ -71,10 +71,21 @@ def integrate(old, duration, strain_rate, mechanisms, *, stress_control=False,
     if not sol.success or not np.isfinite(sol.y).all():
         raise RuntimeError("Two-mechanism integration failed; old state retained")
     for offset, m in zip((1, 5), mechanisms, strict=True):
-        if (m.enabled and (np.any(np.diff(sol.y[offset+3]) < -1e-10)
-                or sol.y[offset+3, -1] < state[offset+3]
+        # BDF can undershoot an inactive accumulated-strain plateau within
+        # its atol + rtol*|p| integration scale. Check cumulative
+        # drawdown, not only adjacent differences, without clipping history.
+        accumulated = np.r_[state[offset+3], sol.y[offset+3]]
+        drawdown = np.maximum.accumulate(accumulated)-accumulated
+        tolerance = 1e-12+rtol*np.max(abs(accumulated))
+        if (m.enabled and (np.any(drawdown > tolerance)
+                or accumulated[-1] < 0
                 or np.any(m.parameters.k+sol.y[offset+2] <= 0))):
-            raise RuntimeError("Two-mechanism state violates branch domain")
+            raise RuntimeError("Two-mechanism state violates branch domain: "
+                f"branch={offset}, old_p={state[offset+3]:.17g}, "
+                f"end_p={sol.y[offset+3, -1]:.17g}, "
+                f"minimum_dp={np.diff(sol.y[offset+3]).min():.17g}, "
+                f"maximum_drawdown={drawdown.max():.17g}, tolerance={tolerance:.17g}, "
+                f"minimum_strength={np.min(m.parameters.k+sol.y[offset+2]):.17g}")
     if stress_control and not np.allclose(sol.y[0], state[0], atol=1e-8, rtol=0):
         raise RuntimeError("Prescribed stress not preserved")
     return sol

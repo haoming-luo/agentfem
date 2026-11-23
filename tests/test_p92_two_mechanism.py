@@ -79,6 +79,26 @@ def test_mismatched_modulus_rejected():
         integrate(np.zeros(10), 1., .001, (Mechanism(p), Mechanism(replace(p, E=2*p.E))))
 
 
+@pytest.mark.parametrize("decrease,accepted", [(6e-13, True), (2e-12, False)])
+def test_accumulated_history_checks_solver_tolerance_without_clipping(monkeypatch, decrease, accepted):
+    from types import SimpleNamespace
+    from tools import p92_two_mechanism as module
+    old = np.zeros(10)
+    old[4] = .01
+    values = np.repeat(old[:, None], 5, axis=1)
+    values[4] -= np.linspace(0., decrease, 5)
+    monkeypatch.setattr(module, "solve_ivp", lambda *a, **k:
+                        SimpleNamespace(success=True, y=values))
+    if accepted:
+        result = integrate(old, 1., 0., (Mechanism(published_parameters(600)),)*2, rtol=1e-12)
+        np.testing.assert_array_equal(result.y, values)
+        assert result.y[4, -1] < old[4]
+    else:
+        with pytest.raises(RuntimeError, match="branch domain"):
+            integrate(old, 1., 0., (Mechanism(published_parameters(600)),)*2, rtol=1e-12)
+    assert old[4] == .01
+
+
 def test_control_switch_keeps_both_histories_and_radau_bdf_agree():
     p = published_parameters(600)
     m = (Mechanism(p), Mechanism(replace(p, Z=2*p.Z)))

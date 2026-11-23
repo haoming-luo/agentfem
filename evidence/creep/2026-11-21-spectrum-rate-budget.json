@@ -1,0 +1,2660 @@
+{
+  "schema": "agentfem.research.spectrum-endpoint-rate-budget.v1",
+  "model_id": "research.scalar-two-rate-recoverable-spectrum.v1",
+  "source_sha256": {
+    "RF": "128e6de1854f4633e26eced6c4ea221687cde2f232db275487ef0d1201767e0a",
+    "SLR": "34e26cae1816ec4b712a4cec5811e0a0c66bad34848c10d962528085171fcabb",
+    "SLC": "ab2953c0cfa6335619c8b699728aa73233f8d2209af39b709916ab3fd392683e"
+  },
+  "protocols": {
+    "RF": [
+      {
+        "cycle": 1,
+        "segment": 1,
+        "stress_control": false,
+        "duration_s": 180,
+        "endpoint": {
+          "branches": [
+            {
+              "effective_stress_MPa": 62.559097832164355,
+              "threshold_MPa": 26.404477757477178,
+              "overstress_MPa": 36.15462007468717,
+              "signed_flow_per_s": 4.47282480475492e-8,
+              "accumulated_rate_per_s": 4.47282480475492e-8
+            },
+            {
+              "effective_stress_MPa": 143.45743450625247,
+              "threshold_MPa": 126.16763544670646,
+              "overstress_MPa": 17.289799059546013,
+              "signed_flow_per_s": 2.6396791630720023e-7,
+              "accumulated_rate_per_s": 2.6396791630720023e-7
+            }
+          ],
+          "recoverable_rates_per_s": [
+            -6.665745398285117e-8,
+            1.8459288338422647e-7
+          ],
+          "total_nonelastic_rate_per_s": 4.266315937561247e-7,
+          "stress_rate_MPa_per_s": -0.066203185179771,
+          "strain_rate_per_s": 0,
+          "rate_closure_per_s": 5.293955920339377e-23,
+          "scope": "Instantaneous model decomposition at the segment endpoint, not an observed secant or physical identification"
+        }
+      },
+      {
+        "cycle": 1,
+        "segment": 3,
+        "stress_control": false,
+        "duration_s": 179.99999999999997,
+        "endpoint": {
+          "branches": [
+            {
+              "effective_stress_MPa": -48.206621316327,
+              "threshold_MPa": 26.404477757477178,
+              "overstress_MPa": 21.802143558849824,
+              "signed_flow_per_s": -3.983255350836287e-9,
+              "accumulated_rate_per_s": 3.983255350836287e-9
+            },
+            {
+              "effective_stress_MPa": -143.13443223732807,
+              "threshold_MPa": 126.16763544670646,
+              "overstress_MPa": 16.966796790621615,
+              "signed_flow_per_s": -2.5044084775698536e-7,
+              "accumulated_rate_per_s": 2.5044084775698536e-7
+            }
+          ],
+          "recoverable_rates_per_s": [
+            8.548075162573059e-8,
+            -3.778041382979705e-7
+          ],
+          "total_nonelastic_rate_per_s": -5.467474897800616e-7,
+          "stress_rate_MPa_per_s": 0.08484234604804096,
+          "strain_rate_per_s": 0,
+          "rate_closure_per_s": 1.0587911840678754e-22,
+          "scope": "Instantaneous model decomposition at the segment endpoint, not an observed secant or physical identification"
+        }
+      },
+      {
+        "cycle": 2,
+        "segment": 6,
+        "stress_control": false,
+        "duration_s": 180,
+        "endpoint": {
+          "branches": [
+            {
+              "effective_stress_MPa": 50.85622439708783,
+              "threshold_MPa": 26.404477757477178,
+              "overstress_MPa": 24.45174663961065,
+              "signed_flow_per_s": 6.893057843377432e-9,
+              "accumulated_rate_per_s": 6.893057843377432e-9
+            },
+            {
+              "effective_stress_MPa": 143.3196222248713,
+              "threshold_MPa": 126.16763544670646,
+              "overstress_MPa": 17.15198677816484,
+              "signed_flow_per_s": 2.5814060059534654e-7,
+              "accumulated_rate_per_s": 2.5814060059534654e-7
+            }
+          ],
+          "recoverable_rates_per_s": [
+            -8.262235428029508e-8,
+            3.4607806084321187e-7
+          ],
+          "total_nonelastic_rate_per_s": 5.284893650016407e-7,
+          "stress_rate_MPa_per_s": -0.08200911467598249,
+          "strain_rate_per_s": 0,
+          "rate_closure_per_s": 1.0587911840678754e-22,
+          "scope": "Instantaneous model decomposition at the segment endpoint, not an observed secant or physical identification"
+        }
+      },
+      {
+        "cycle": 2,
+        "segment": 8,
+        "stress_control": false,
+        "duration_s": 180,
+        "endpoint": {
+          "branches": [
+            {
+              "effective_stress_MPa": -50.14306171396909,
+              "threshold_MPa": 26.404477757477178,
+              "overstress_MPa": 23.73858395649191,
+              "signed_flow_per_s": -5.9833491687182694e-9,
+              "accumulated_rate_per_s": 5.9833491687182694e-9
+            },
+            {
+              "effective_stress_MPa": -143.41777111673557,
+              "threshold_MPa": 126.16763544670646,
+              "overstress_MPa": 17.25013567002911,
+              "signed_flow_per_s": -2.622822156263126e-7,
+              "accumulated_rate_per_s": 2.622822156263126e-7
+            }
+          ],
+          "recoverable_rates_per_s": [
+            8.374440032435669e-8,
+            -3.51160368647362e-7
+          ],
+          "total_nonelastic_rate_per_s": -5.356815331180362e-7,
+          "stress_rate_MPa_per_s": 0.08312516994385828,
+          "strain_rate_per_s": 0,
+          "rate_closure_per_s": 0,
+          "scope": "Instantaneous model decomposition at the segment endpoint, not an observed secant or physical identification"
+        }
+      },
+      {
+        "cycle": 3,
+        "segment": 11,
+        "stress_control": false,
+        "duration_s": 180,
+        "endpoint": {
+          "branches": [
+            {
+              "effective_stress_MPa": 50.45919250175113,
+              "threshold_MPa": 26.404477757477178,
+              "overstress_MPa": 24.054714744273955,
+              "signed_flow_per_s": 6.374064345241138e-9,
+              "accumulated_rate_per_s": 6.374064345241138e-9
+            },
+            {
+              "effective_stress_MPa": 143.28758250977162,
+              "threshold_MPa": 126.16763544670646,
+              "overstress_MPa": 17.11994706306517,
+              "signed_flow_per_s": 2.567977563375711e-7,
+              "accumulated_rate_per_s": 2.567977563375711e-7
+            }
+          ],
+          "recoverable_rates_per_s": [
+            -8.303077307062387e-8,
+            3.5095710958207973e-7
+          ],
+          "total_nonelastic_rate_per_s": 5.310981571942681e-7,
+          "stress_rate_MPa_per_s": -0.0824139378422733,
+          "strain_rate_per_s": 0,
+          "rate_closure_per_s": 0,
+          "scope": "Instantaneous model decomposition at the segment endpoint, not an observed secant or physical identification"
+        }
+      },
+      {
+        "cycle": 3,
+        "segment": 13,
+        "stress_control": false,
+        "duration_s": 180,
+        "endpoint": {
+          "branches": [
+            {
+              "effective_stress_MPa": -50.26025254647017,
+              "threshold_MPa": 26.404477757477178,
+              "overstress_MPa": 23.855774788992992,
+              "signed_flow_per_s": -6.125912554110733e-9,
+              "accumulated_rate_per_s": 6.125912554110733e-9
+            },
+            {
+              "effective_stress_MPa": -143.39724788532484,
+              "threshold_MPa": 126.16763544670646,
+              "overstress_MPa": 17.22961243861839,
+              "signed_flow_per_s": -2.614126929987622e-7,
+              "accumulated_rate_per_s": 2.614126929987622e-7
+            }
+          ],
+          "recoverable_rates_per_s": [
+            8.355282434851155e-8,
+            -3.504675489840915e-7
+          ],
+          "total_nonelastic_rate_per_s": -5.344533301884529e-7,
+          "stress_rate_MPa_per_s": 0.0829345817474482,
+          "strain_rate_per_s": 0,
+          "rate_closure_per_s": 0,
+          "scope": "Instantaneous model decomposition at the segment endpoint, not an observed secant or physical identification"
+        }
+      },
+      {
+        "cycle": 4,
+        "segment": 16,
+        "stress_control": false,
+        "duration_s": 180,
+        "endpoint": {
+          "branches": [
+            {
+              "effective_stress_MPa": 50.40299535326997,
+              "threshold_MPa": 26.404477757477178,
+              "overstress_MPa": 23.998517595792794,
+              "signed_flow_per_s": 6.3031746051781784e-9,
+              "accumulated_rate_per_s": 6.3031746051781784e-9
+            },
+            {
+              "effective_stress_MPa": 143.31163054846172,
+              "threshold_MPa": 126.16763544670646,
+              "overstress_MPa": 17.143995101755266,
+              "signed_flow_per_s": 2.578052338985402e-7,
+              "accumulated_rate_per_s": 2.578052338985402e-7
+            }
+          ],
+          "recoverable_rates_per_s": [
+            -8.315810029943962e-8,
+            3.5096543934041545e-7
+          ],
+          "total_nonelastic_rate_per_s": 5.319157475446942e-7,
+          "stress_rate_MPa_per_s": -0.0825408086276596,
+          "strain_rate_per_s": 0,
+          "rate_closure_per_s": 0,
+          "scope": "Instantaneous model decomposition at the segment endpoint, not an observed secant or physical identification"
+        }
+      },
+      {
+        "cycle": 4,
+        "segment": 18,
+        "stress_control": false,
+        "duration_s": 180.096,
+        "endpoint": {
+          "branches": [
+            {
+              "effective_stress_MPa": -50.28496932933075,
+              "threshold_MPa": 26.404477757477178,
+              "overstress_MPa": 23.88049157185357,
+              "signed_flow_per_s": -6.156320798921896e-9,
+              "accumulated_rate_per_s": 6.156320798921896e-9
+            },
+            {
+              "effective_stress_MPa": -143.37420252648212,
+              "threshold_MPa": 126.16763544670646,
+              "overstress_MPa": 17.206567079775667,
+              "signed_flow_per_s": -2.604385202059966e-7,
+              "accumulated_rate_per_s": 2.604385202059966e-7
+            }
+          ],
+          "recoverable_rates_per_s": [
+            8.337473823140647e-8,
+            -3.500923843662585e-7
+          ],
+          "total_nonelastic_rate_per_s": -5.333124871397705e-7,
+          "stress_rate_MPa_per_s": 0.08275754974907222,
+          "strain_rate_per_s": 0,
+          "rate_closure_per_s": 0,
+          "scope": "Instantaneous model decomposition at the segment endpoint, not an observed secant or physical identification"
+        }
+      },
+      {
+        "cycle": 5,
+        "segment": 21,
+        "stress_control": false,
+        "duration_s": 180,
+        "endpoint": {
+          "branches": [
+            {
+              "effective_stress_MPa": 50.374841447902355,
+              "threshold_MPa": 26.404477757477178,
+              "overstress_MPa": 23.970363690425177,
+              "signed_flow_per_s": 6.2678951746505265e-9,
+              "accumulated_rate_per_s": 6.2678951746505265e-9
+            },
+            {
+              "effective_stress_MPa": 143.3256773752977,
+              "threshold_MPa": 126.16763544670646,
+              "overstress_MPa": 17.15804192859123,
+              "signed_flow_per_s": 2.5839488821503215e-7,
+              "accumulated_rate_per_s": 2.5839488821503215e-7
+            }
+          ],
+          "recoverable_rates_per_s": [
+            -8.32251697621516e-8,
+            3.509092187066383e-7
+          ],
+          "total_nonelastic_rate_per_s": 5.323468323341693e-7,
+          "stress_rate_MPa_per_s": -0.08260770284403618,
+          "strain_rate_per_s": 0,
+          "rate_closure_per_s": 0,
+          "scope": "Instantaneous model decomposition at the segment endpoint, not an observed secant or physical identification"
+        }
+      },
+      {
+        "cycle": 5,
+        "segment": 23,
+        "stress_control": false,
+        "duration_s": 180,
+        "endpoint": {
+          "branches": [
+            {
+              "effective_stress_MPa": -50.31106421858351,
+              "threshold_MPa": 26.404477757477178,
+              "overstress_MPa": 23.906586461106333,
+              "signed_flow_per_s": -6.1885538997955856e-9,
+              "accumulated_rate_per_s": 6.1885538997955856e-9
+            },
+            {
+              "effective_stress_MPa": -143.36685220103112,
+              "threshold_MPa": 126.16763544670646,
+              "overstress_MPa": 17.199216754324667,
+              "signed_flow_per_s": -2.601282980754166e-7,
+              "accumulated_rate_per_s": 2.601282980754166e-7
+            }
+          ],
+          "recoverable_rates_per_s": [
+            8.341914983125176e-8,
+            -3.5069606922666826e-7
+          ],
+          "total_nonelastic_rate_per_s": -5.335937713706287e-7,
+          "stress_rate_MPa_per_s": 0.08280119844339348,
+          "strain_rate_per_s": 0,
+          "rate_closure_per_s": 0,
+          "scope": "Instantaneous model decomposition at the segment endpoint, not an observed secant or physical identification"
+        }
+      },
+      {
+        "cycle": 6,
+        "segment": 26,
+        "stress_control": false,
+        "duration_s": 180,
+        "endpoint": {
+          "branches": [
+            {
+              "effective_stress_MPa": 50.364845125413595,
+              "threshold_MPa": 26.404477757477178,
+              "overstress_MPa": 23.960367367936417,
+              "signed_flow_per_s": 6.255406502258076e-9,
+              "accumulated_rate_per_s": 6.255406502258076e-9
+            },
+            {
+              "effective_stress_MPa": 143.33624853166265,
+              "threshold_MPa": 126.16763544670646,
+              "overstress_MPa": 17.168613084956192,
+              "signed_flow_per_s": 2.588392117258855e-7,
+              "accumulated_rate_per_s": 2.588392117258855e-7
+            }
+          ],
+          "recoverable_rates_per_s": [
+            -8.326160732792785e-8,
+            3.5074841366802265e-7
+          ],
+          "total_nonelastic_rate_per_s": 5.325814245682384e-7,
+          "stress_rate_MPa_per_s": -0.082644106039067,
+          "strain_rate_per_s": 0,
+          "rate_closure_per_s": 1.0587911840678754e-22,
+          "scope": "Instantaneous model decomposition at the segment endpoint, not an observed secant or physical identification"
+        }
+      },
+      {
+        "cycle": 6,
+        "segment": 28,
+        "stress_control": false,
+        "duration_s": 179.99999999999977,
+        "endpoint": {
+          "branches": [
+            {
+              "effective_stress_MPa": -50.32407583569788,
+              "threshold_MPa": 26.404477757477178,
+              "overstress_MPa": 23.919598078220705,
+              "signed_flow_per_s": -6.2046759835919834e-9,
+              "accumulated_rate_per_s": 6.2046759835919834e-9
+            },
+            {
+              "effective_stress_MPa": -143.3594360439438,
+              "threshold_MPa": 126.16763544670646,
+              "overstress_MPa": 17.191800597237332,
+              "signed_flow_per_s": -2.598155378540079e-7,
+              "accumulated_rate_per_s": 2.598155378540079e-7
+            }
+          ],
+          "recoverable_rates_per_s": [
+            8.338444653092585e-8,
+            -3.5073497614924865e-7
+          ],
+          "total_nonelastic_rate_per_s": -5.333707434559227e-7,
+          "stress_rate_MPa_per_s": 0.08276658975863213,
+          "strain_rate_per_s": 0,
+          "rate_closure_per_s": 0,
+          "scope": "Instantaneous model decomposition at the segment endpoint, not an observed secant or physical identification"
+        }
+      },
+      {
+        "cycle": 7,
+        "segment": 31,
+        "stress_control": false,
+        "duration_s": 180,
+        "endpoint": {
+          "branches": [
+            {
+              "effective_stress_MPa": 50.357705878310895,
+              "threshold_MPa": 26.404477757477178,
+              "overstress_MPa": 23.953228120833717,
+              "signed_flow_per_s": 6.246499303013288e-9,
+              "accumulated_rate_per_s": 6.246499303013288e-9
+            },
+            {
+              "effective_stress_MPa": 143.34085786775313,
+              "threshold_MPa": 126.16763544670646,
+              "overstress_MPa": 17.173222421046674,
+              "signed_flow_per_s": 2.590331032282349e-7,
+              "accumulated_rate_per_s": 2.590331032282349e-7
+            }
+          ],
+          "recoverable_rates_per_s": [
+            -8.328337380015967e-8,
+            3.507252256859055e-7
+          ],
+          "total_nonelastic_rate_per_s": 5.32721454416994e-7,
+          "stress_rate_MPa_per_s": -0.08266583537684585,
+          "strain_rate_per_s": 0,
+          "rate_closure_per_s": 0,
+          "scope": "Instantaneous model decomposition at the segment endpoint, not an observed secant or physical identification"
+        }
+      },
+      {
+        "cycle": 7,
+        "segment": 33,
+        "stress_control": false,
+        "duration_s": 180,
+        "endpoint": {
+          "branches": [
+            {
+              "effective_stress_MPa": -50.32648462978824,
+              "threshold_MPa": 26.404477757477178,
+              "overstress_MPa": 23.922006872311062,
+              "signed_flow_per_s": -6.207664247592127e-9,
+              "accumulated_rate_per_s": 6.207664247592127e-9
+            },
+            {
+              "effective_stress_MPa": -143.35750010785833,
+              "threshold_MPa": 126.16763544670646,
+              "overstress_MPa": 17.189864661151873,
+              "signed_flow_per_s": -2.5973393370536445e-7,
+              "accumulated_rate_per_s": 2.5973393370536445e-7
+            }
+          ],
+          "recoverable_rates_per_s": [
+            8.337854325291769e-8,
+            -3.50769273507681e-7
+          ],
+          "total_nonelastic_rate_per_s": -5.333323282077199e-7,
+          "stress_rate_MPa_per_s": 0.08276062861597952,
+          "strain_rate_per_s": 0,
+          "rate_closure_per_s": -1.0587911840678754e-22,
+          "scope": "Instantaneous model decomposition at the segment endpoint, not an observed secant or physical identification"
+        }
+      },
+      {
+        "cycle": 8,
+        "segment": 36,
+        "stress_control": false,
+        "duration_s": 180,
+        "endpoint": {
+          "branches": [
+            {
+              "effective_stress_MPa": 50.35653119234945,
+              "threshold_MPa": 26.404477757477178,
+              "overstress_MPa": 23.952053434872273,
+              "signed_flow_per_s": 6.245034681137447e-9,
+              "accumulated_rate_per_s": 6.245034681137447e-9
+            },
+            {
+              "effective_stress_MPa": 143.34136935279668,
+              "threshold_MPa": 126.16763544670646,
+              "overstress_MPa": 17.17373390609022,
+              "signed_flow_per_s": 2.5905462456346757e-7,
+              "accumulated_rate_per_s": 2.5905462456346757e-7
+            }
+          ],
+          "recoverable_rates_per_s": [
+            -8.327891124043124e-8,
+            3.506727230953332e-7
+          ],
+          "total_nonelastic_rate_per_s": 5.32693471099507e-7,
+          "stress_rate_MPa_per_s": -0.0826614930243885,
+          "strain_rate_per_s": 0,
+          "rate_closure_per_s": 0,
+          "scope": "Instantaneous model decomposition at the segment endpoint, not an observed secant or physical identification"
+        }
+      },
+      {
+        "cycle": 8,
+        "segment": 38,
+        "stress_control": false,
+        "duration_s": 180,
+        "endpoint": {
+          "branches": [
+            {
+              "effective_stress_MPa": -50.32916959601019,
+              "threshold_MPa": 26.404477757477178,
+              "overstress_MPa": 23.92469183853301,
+              "signed_flow_per_s": -6.210996462195832e-9,
+              "accumulated_rate_per_s": 6.210996462195832e-9
+            },
+            {
+              "effective_stress_MPa": -143.35321381173088,
+              "threshold_MPa": 126.16763544670646,
+              "overstress_MPa": 17.185578365024426,
+              "signed_flow_per_s": -2.59553314994767e-7,
+              "accumulated_rate_per_s": 2.59553314994767e-7
+            }
+          ],
+          "recoverable_rates_per_s": [
+            8.335376567055212e-8,
+            -3.5076295110310716e-7
+          ],
+          "total_nonelastic_rate_per_s": -5.331734968895178e-7,
+          "stress_rate_MPa_per_s": 0.0827359817325204,
+          "strain_rate_per_s": 0,
+          "rate_closure_per_s": 0,
+          "scope": "Instantaneous model decomposition at the segment endpoint, not an observed secant or physical identification"
+        }
+      },
+      {
+        "cycle": 9,
+        "segment": 41,
+        "stress_control": false,
+        "duration_s": 180,
+        "endpoint": {
+          "branches": [
+            {
+              "effective_stress_MPa": 50.35357118877573,
+              "threshold_MPa": 26.404477757477178,
+              "overstress_MPa": 23.949093431298554,
+              "signed_flow_per_s": 6.241345294064969e-9,
+              "accumulated_rate_per_s": 6.241345294064969e-9
+            },
+            {
+              "effective_stress_MPa": 143.3461095811918,
+              "threshold_MPa": 126.16763544670646,
+              "overstress_MPa": 17.17847413448534,
+              "signed_flow_per_s": 2.5925412982895604e-7,
+              "accumulated_rate_per_s": 2.5925412982895604e-7
+            }
+          ],
+          "recoverable_rates_per_s": [
+            -8.330864543255285e-8,
+            3.506970666732031e-7
+          ],
+          "total_nonelastic_rate_per_s": 5.328838963636712e-7,
+          "stress_rate_MPa_per_s": -0.08269104254489018,
+          "strain_rate_per_s": 0,
+          "rate_closure_per_s": -1.0587911840678754e-22,
+          "scope": "Instantaneous model decomposition at the segment endpoint, not an observed secant or physical identification"
+        }
+      },
+      {
+        "cycle": 9,
+        "segment": 43,
+        "stress_control": false,
+        "duration_s": 180,
+        "endpoint": {
+          "branches": [
+            {
+              "effective_stress_MPa": -50.33595804680438,
+              "threshold_MPa": 26.404477757477178,
+              "overstress_MPa": 23.9314802893272,
+              "signed_flow_per_s": -6.2194276732972805e-9,
+              "accumulated_rate_per_s": 6.2194276732972805e-9
+            },
+            {
+              "effective_stress_MPa": -143.35172819687187,
+              "threshold_MPa": 126.16763544670646,
+              "overstress_MPa": 17.18409275016542,
+              "signed_flow_per_s": -2.5949073200636684e-7,
+              "accumulated_rate_per_s": 2.5949073200636684e-7
+            }
+          ],
+          "recoverable_rates_per_s": [
+            8.333094006486422e-8,
+            -3.506482604223598e-7
+          ],
+          "total_nonelastic_rate_per_s": -5.330274800371597e-7,
+          "stress_rate_MPa_per_s": 0.08271332335265003,
+          "strain_rate_per_s": 0,
+          "rate_closure_per_s": 0,
+          "scope": "Instantaneous model decomposition at the segment endpoint, not an observed secant or physical identification"
+        }
+      },
+      {
+        "cycle": 10,
+        "segment": 46,
+        "stress_control": false,
+        "duration_s": 180,
+        "endpoint": {
+          "branches": [
+            {
+              "effective_stress_MPa": 50.34661149339337,
+              "threshold_MPa": 26.404477757477178,
+              "overstress_MPa": 23.94213373591619,
+              "signed_flow_per_s": 6.232677429976786e-9,
+              "accumulated_rate_per_s": 6.232677429976786e-9
+            },
+            {
+              "effective_stress_MPa": 143.34814280347476,
+              "threshold_MPa": 126.16763544670646,
+              "overstress_MPa": 17.180507356768302,
+              "signed_flow_per_s": 2.593397336549934e-7,
+              "accumulated_rate_per_s": 2.593397336549934e-7
+            }
+          ],
+          "recoverable_rates_per_s": [
+            -8.331885020157431e-8,
+            3.506958071345974e-7
+          ],
+          "total_nonelastic_rate_per_s": 5.329493680179933e-7,
+          "stress_rate_MPa_per_s": -0.08270120220516512,
+          "strain_rate_per_s": 0,
+          "rate_closure_per_s": 1.0587911840678754e-22,
+          "scope": "Instantaneous model decomposition at the segment endpoint, not an observed secant or physical identification"
+        }
+      },
+      {
+        "cycle": 10,
+        "segment": 48,
+        "stress_control": false,
+        "duration_s": 180,
+        "endpoint": {
+          "branches": [
+            {
+              "effective_stress_MPa": -50.333588670209906,
+              "threshold_MPa": 26.404477757477178,
+              "overstress_MPa": 23.929110912732728,
+              "signed_flow_per_s": -6.216483895567326e-9,
+              "accumulated_rate_per_s": 6.216483895567326e-9
+            },
+            {
+              "effective_stress_MPa": -143.3505606836435,
+              "threshold_MPa": 126.16763544670646,
+              "overstress_MPa": 17.182925236937038,
+              "signed_flow_per_s": -2.5944155615599094e-7,
+              "accumulated_rate_per_s": 2.5944155615599094e-7
+            }
+          ],
+          "recoverable_rates_per_s": [
+            8.334696171202175e-8,
+            -3.5081841285335194e-7
+          ],
+          "total_nonelastic_rate_per_s": -5.331294911928884e-7,
+          "stress_rate_MPa_per_s": 0.08272915308380906,
+          "strain_rate_per_s": 0,
+          "rate_closure_per_s": 0,
+          "scope": "Instantaneous model decomposition at the segment endpoint, not an observed secant or physical identification"
+        }
+      }
+    ],
+    "SLR": [
+      {
+        "cycle": 1,
+        "segment": 1,
+        "stress_control": false,
+        "duration_s": 180,
+        "endpoint": {
+          "branches": [
+            {
+              "effective_stress_MPa": -61.54960804649592,
+              "threshold_MPa": 26.404477757477178,
+              "overstress_MPa": 35.14513028901874,
+              "signed_flow_per_s": -3.9063841003045676e-8,
+              "accumulated_rate_per_s": 3.9063841003045676e-8
+            },
+            {
+              "effective_stress_MPa": -144.01938224963712,
+              "threshold_MPa": 126.16763544670646,
+              "overstress_MPa": 17.851746802930663,
+              "signed_flow_per_s": -2.886017735192392e-7,
+              "accumulated_rate_per_s": 2.886017735192392e-7
+            }
+          ],
+          "recoverable_rates_per_s": [
+            6.910929658429566e-8,
+            -1.8378620564162752e-7
+          ],
+          "total_nonelastic_rate_per_s": -4.423425235796167e-7,
+          "stress_rate_MPa_per_s": 0.06864115182751435,
+          "strain_rate_per_s": 0,
+          "rate_closure_per_s": 0,
+          "scope": "Instantaneous model decomposition at the segment endpoint, not an observed secant or physical identification"
+        }
+      },
+      {
+        "cycle": 1,
+        "segment": 3,
+        "stress_control": false,
+        "duration_s": 1800,
+        "endpoint": {
+          "branches": [
+            {
+              "effective_stress_MPa": 52.92733617498527,
+              "threshold_MPa": 26.404477757477178,
+              "overstress_MPa": 26.522858417508093,
+              "signed_flow_per_s": 1.016837586724107e-8,
+              "accumulated_rate_per_s": 1.016837586724107e-8
+            },
+            {
+              "effective_stress_MPa": 44.650560773052675,
+              "threshold_MPa": 126.16763544670646,
+              "overstress_MPa": 0,
+              "signed_flow_per_s": 0,
+              "accumulated_rate_per_s": 0
+            }
+          ],
+          "recoverable_rates_per_s": [
+            -1.192865469862125e-9,
+            -1.2995130057472657e-9
+          ],
+          "total_nonelastic_rate_per_s": 7.67599739163168e-9,
+          "stress_rate_MPa_per_s": -0.0011911341874228831,
+          "strain_rate_per_s": 0,
+          "rate_closure_per_s": 0,
+          "scope": "Instantaneous model decomposition at the segment endpoint, not an observed secant or physical identification"
+        }
+      },
+      {
+        "cycle": 1,
+        "segment": 5,
+        "stress_control": false,
+        "duration_s": 180,
+        "endpoint": {
+          "branches": [
+            {
+              "effective_stress_MPa": 58.42579920404573,
+              "threshold_MPa": 26.404477757477178,
+              "overstress_MPa": 32.02132144656855,
+              "signed_flow_per_s": 2.5030830631474487e-8,
+              "accumulated_rate_per_s": 2.5030830631474487e-8
+            },
+            {
+              "effective_stress_MPa": 147.25228619376844,
+              "threshold_MPa": 126.16763544670646,
+              "overstress_MPa": 21.084650747061985,
+              "signed_flow_per_s": 4.5913198711028e-7,
+              "accumulated_rate_per_s": 4.5913198711028e-7
+            }
+          ],
+          "recoverable_rates_per_s": [
+            -7.997411114035995e-8,
+            1.0796664361426318e-7
+          ],
+          "total_nonelastic_rate_per_s": 5.121553502156576e-7,
+          "stress_rate_MPa_per_s": -0.07947445990256292,
+          "strain_rate_per_s": 0,
+          "rate_closure_per_s": 0,
+          "scope": "Instantaneous model decomposition at the segment endpoint, not an observed secant or physical identification"
+        }
+      },
+      {
+        "cycle": 2,
+        "segment": 8,
+        "stress_control": false,
+        "duration_s": 180,
+        "endpoint": {
+          "branches": [
+            {
+              "effective_stress_MPa": -49.72726865891207,
+              "threshold_MPa": 26.404477757477178,
+              "overstress_MPa": 23.32279090143489,
+              "signed_flow_per_s": -5.498561913255281e-9,
+              "accumulated_rate_per_s": 5.498561913255281e-9
+            },
+            {
+              "effective_stress_MPa": -141.94042546752505,
+              "threshold_MPa": 126.16763544670646,
+              "overstress_MPa": 15.77279002081859,
+              "signed_flow_per_s": -2.043163999270263e-7,
+              "accumulated_rate_per_s": 2.043163999270263e-7
+            }
+          ],
+          "recoverable_rates_per_s": [
+            8.245445426748824e-8,
+            -3.9992770318922e-7
+          ],
+          "total_nonelastic_rate_per_s": -5.272882107620133e-7,
+          "stress_rate_MPa_per_s": 0.08182272379982769,
+          "strain_rate_per_s": 0,
+          "rate_closure_per_s": 0,
+          "scope": "Instantaneous model decomposition at the segment endpoint, not an observed secant or physical identification"
+        }
+      },
+      {
+        "cycle": 2,
+        "segment": 10,
+        "stress_control": false,
+        "duration_s": 1800,
+        "endpoint": {
+          "branches": [
+            {
+              "effective_stress_MPa": 53.182231321691475,
+              "threshold_MPa": 26.404477757477178,
+              "overstress_MPa": 26.777753564214297,
+              "signed_flow_per_s": 1.0644208664634013e-8,
+              "accumulated_rate_per_s": 1.0644208664634013e-8
+            },
+            {
+              "effective_stress_MPa": 47.0232050992248,
+              "threshold_MPa": 126.16763544670646,
+              "overstress_MPa": 0,
+              "signed_flow_per_s": 0,
+              "accumulated_rate_per_s": 0
+            }
+          ],
+          "recoverable_rates_per_s": [
+            -1.2482565146078542e-9,
+            -1.3636163745671827e-9
+          ],
+          "total_nonelastic_rate_per_s": 8.032335775458977e-9,
+          "stress_rate_MPa_per_s": -0.0012464295203434544,
+          "strain_rate_per_s": 0,
+          "rate_closure_per_s": -1.6543612251060553e-24,
+          "scope": "Instantaneous model decomposition at the segment endpoint, not an observed secant or physical identification"
+        }
+      },
+      {
+        "cycle": 2,
+        "segment": 12,
+        "stress_control": false,
+        "duration_s": 180,
+        "endpoint": {
+          "branches": [
+            {
+              "effective_stress_MPa": 57.953474129340634,
+              "threshold_MPa": 26.404477757477178,
+              "overstress_MPa": 31.548996371863456,
+              "signed_flow_per_s": 2.3313977499252838e-8,
+              "accumulated_rate_per_s": 2.3313977499252838e-8
+            },
+            {
+              "effective_stress_MPa": 147.4806849951897,
+              "threshold_MPa": 126.16763544670646,
+              "overstress_MPa": 21.31304954848325,
+              "signed_flow_per_s": 4.731403393029804e-7,
+              "accumulated_rate_per_s": 4.731403393029804e-7
+            }
+          ],
+          "recoverable_rates_per_s": [
+            -8.106863224658188e-8,
+            1.0379820738871727e-7
+          ],
+          "total_nonelastic_rate_per_s": 5.191838919443686e-7,
+          "stress_rate_MPa_per_s": -0.08056512420501864,
+          "strain_rate_per_s": 0,
+          "rate_closure_per_s": -1.0587911840678754e-22,
+          "scope": "Instantaneous model decomposition at the segment endpoint, not an observed secant or physical identification"
+        }
+      },
+      {
+        "cycle": 3,
+        "segment": 15,
+        "stress_control": false,
+        "duration_s": 180,
+        "endpoint": {
+          "branches": [
+            {
+              "effective_stress_MPa": -49.901137976815065,
+              "threshold_MPa": 26.404477757477178,
+              "overstress_MPa": 23.496660219337887,
+              "signed_flow_per_s": -5.697346956216117e-9,
+              "accumulated_rate_per_s": 5.697346956216117e-9
+            },
+            {
+              "effective_stress_MPa": -141.83475869499983,
+              "threshold_MPa": 126.16763544670646,
+              "overstress_MPa": 15.667123248293379,
+              "signed_flow_per_s": -2.005210837799665e-7,
+              "accumulated_rate_per_s": 2.005210837799665e-7
+            }
+          ],
+          "recoverable_rates_per_s": [
+            8.215063162192357e-8,
+            -4.0126874417537287e-7
+          ],
+          "total_nonelastic_rate_per_s": -5.253365432896319e-7,
+          "stress_rate_MPa_per_s": 0.08151987092869864,
+          "strain_rate_per_s": 0,
+          "rate_closure_per_s": 0,
+          "scope": "Instantaneous model decomposition at the segment endpoint, not an observed secant or physical identification"
+        }
+      },
+      {
+        "cycle": 3,
+        "segment": 17,
+        "stress_control": false,
+        "duration_s": 1800,
+        "endpoint": {
+          "branches": [
+            {
+              "effective_stress_MPa": 53.18336651000905,
+              "threshold_MPa": 26.404477757477178,
+              "overstress_MPa": 26.778888752531874,
+              "signed_flow_per_s": 1.0646366475256607e-8,
+              "accumulated_rate_per_s": 1.0646366475256607e-8
+            },
+            {
+              "effective_stress_MPa": 47.46770752060217,
+              "threshold_MPa": 126.16763544670646,
+              "overstress_MPa": 0,
+              "signed_flow_per_s": 0,
+              "accumulated_rate_per_s": 0
+            }
+          ],
+          "recoverable_rates_per_s": [
+            -1.2485096438823649e-9,
+            -1.363892150078836e-9
+          ],
+          "total_nonelastic_rate_per_s": 8.033964681295406e-9,
+          "stress_rate_MPa_per_s": -0.0012466822882029093,
+          "strain_rate_per_s": 0,
+          "rate_closure_per_s": 0,
+          "scope": "Instantaneous model decomposition at the segment endpoint, not an observed secant or physical identification"
+        }
+      },
+      {
+        "cycle": 3,
+        "segment": 19,
+        "stress_control": false,
+        "duration_s": 180,
+        "endpoint": {
+          "branches": [
+            {
+              "effective_stress_MPa": 57.79842809800523,
+              "threshold_MPa": 26.404477757477178,
+              "overstress_MPa": 31.393950340528054,
+              "signed_flow_per_s": 2.277119361253515e-8,
+              "accumulated_rate_per_s": 2.277119361253515e-8
+            },
+            {
+              "effective_stress_MPa": 147.53281201639567,
+              "threshold_MPa": 126.16763544670646,
+              "overstress_MPa": 21.36517656968921,
+              "signed_flow_per_s": 4.7637537043549703e-7,
+              "accumulated_rate_per_s": 4.7637537043549703e-7
+            }
+          ],
+          "recoverable_rates_per_s": [
+            -8.132095129011887e-8,
+            1.0297843264887432e-7
+          ],
+          "total_nonelastic_rate_per_s": 5.208040454067877e-7,
+          "stress_rate_MPa_per_s": -0.08081653390196081,
+          "strain_rate_per_s": 0,
+          "rate_closure_per_s": 0,
+          "scope": "Instantaneous model decomposition at the segment endpoint, not an observed secant or physical identification"
+        }
+      },
+      {
+        "cycle": 4,
+        "segment": 22,
+        "stress_control": false,
+        "duration_s": 180,
+        "endpoint": {
+          "branches": [
+            {
+              "effective_stress_MPa": -49.96123565068784,
+              "threshold_MPa": 26.404477757477178,
+              "overstress_MPa": 23.556757893210662,
+              "signed_flow_per_s": -5.7673627063348315e-9,
+              "accumulated_rate_per_s": 5.7673627063348315e-9
+            },
+            {
+              "effective_stress_MPa": -141.80387112903765,
+              "threshold_MPa": 126.16763544670646,
+              "overstress_MPa": 15.63623568233119,
+              "signed_flow_per_s": -1.9942028144909074e-7,
+              "accumulated_rate_per_s": 1.9942028144909074e-7
+            }
+          ],
+          "recoverable_rates_per_s": [
+            8.202863890733003e-8,
+            -4.013956485093943e-7
+          ],
+          "total_nonelastic_rate_per_s": -5.245546537574899e-7,
+          "stress_rate_MPa_per_s": 0.08139854007030911,
+          "strain_rate_per_s": 0,
+          "rate_closure_per_s": 0,
+          "scope": "Instantaneous model decomposition at the segment endpoint, not an observed secant or physical identification"
+        }
+      },
+      {
+        "cycle": 4,
+        "segment": 24,
+        "stress_control": false,
+        "duration_s": 1800,
+        "endpoint": {
+          "branches": [
+            {
+              "effective_stress_MPa": 53.1835859235873,
+              "threshold_MPa": 26.404477757477178,
+              "overstress_MPa": 26.779108166110124,
+              "signed_flow_per_s": 1.0646783585112448e-8,
+              "accumulated_rate_per_s": 1.0646783585112448e-8
+            },
+            {
+              "effective_stress_MPa": 47.58321353184806,
+              "threshold_MPa": 126.16763544670646,
+              "overstress_MPa": 0,
+              "signed_flow_per_s": 0,
+              "accumulated_rate_per_s": 0
+            }
+          ],
+          "recoverable_rates_per_s": [
+            -1.2485587512143498e-9,
+            -1.3639440998539094e-9
+          ],
+          "total_nonelastic_rate_per_s": 8.03428073404419e-9,
+          "stress_rate_MPa_per_s": -0.0012467313321531475,
+          "strain_rate_per_s": 0,
+          "rate_closure_per_s": 0,
+          "scope": "Instantaneous model decomposition at the segment endpoint, not an observed secant or physical identification"
+        }
+      },
+      {
+        "cycle": 4,
+        "segment": 26,
+        "stress_control": false,
+        "duration_s": 180,
+        "endpoint": {
+          "branches": [
+            {
+              "effective_stress_MPa": 57.75596358244363,
+              "threshold_MPa": 26.404477757477178,
+              "overstress_MPa": 31.35148582496645,
+              "signed_flow_per_s": 2.262429198381896e-8,
+              "accumulated_rate_per_s": 2.262429198381896e-8
+            },
+            {
+              "effective_stress_MPa": 147.54676312976102,
+              "threshold_MPa": 126.16763544670646,
+              "overstress_MPa": 21.379127683054563,
+              "signed_flow_per_s": 4.772435840904162e-7,
+              "accumulated_rate_per_s": 4.772435840904162e-7
+            }
+          ],
+          "recoverable_rates_per_s": [
+            -8.139228031708937e-8,
+            1.0278627968816847e-7
+          ],
+          "total_nonelastic_rate_per_s": 5.212618754453143e-7,
+          "stress_rate_MPa_per_s": -0.08088757835170393,
+          "strain_rate_per_s": 0,
+          "rate_closure_per_s": -1.0587911840678754e-22,
+          "scope": "Instantaneous model decomposition at the segment endpoint, not an observed secant or physical identification"
+        }
+      },
+      {
+        "cycle": 5,
+        "segment": 29,
+        "stress_control": false,
+        "duration_s": 180,
+        "endpoint": {
+          "branches": [
+            {
+              "effective_stress_MPa": -49.979587162943915,
+              "threshold_MPa": 26.404477757477178,
+              "overstress_MPa": 23.575109405466737,
+              "signed_flow_per_s": -5.788877870760061e-9,
+              "accumulated_rate_per_s": 5.788877870760061e-9
+            },
+            {
+              "effective_stress_MPa": -141.79690057163356,
+              "threshold_MPa": 126.16763544670646,
+              "overstress_MPa": 15.629265124927102,
+              "signed_flow_per_s": -1.9917239509992112e-7,
+              "accumulated_rate_per_s": 1.9917239509992112e-7
+            }
+          ],
+          "recoverable_rates_per_s": [
+            8.200807532386426e-8,
+            -4.014694197978429e-7
+          ],
+          "total_nonelastic_rate_per_s": -5.244226174446599e-7,
+          "stress_rate_MPa_per_s": 0.0813780511412268,
+          "strain_rate_per_s": 0,
+          "rate_closure_per_s": 1.0587911840678754e-22,
+          "scope": "Instantaneous model decomposition at the segment endpoint, not an observed secant or physical identification"
+        }
+      },
+      {
+        "cycle": 5,
+        "segment": 31,
+        "stress_control": false,
+        "duration_s": 1800,
+        "endpoint": {
+          "branches": [
+            {
+              "effective_stress_MPa": 53.183459589417694,
+              "threshold_MPa": 26.404477757477178,
+              "overstress_MPa": 26.778981831940516,
+              "signed_flow_per_s": 1.0646543419603958e-8,
+              "accumulated_rate_per_s": 1.0646543419603958e-8
+            },
+            {
+              "effective_stress_MPa": 47.61360983805252,
+              "threshold_MPa": 126.16763544670646,
+              "overstress_MPa": 0,
+              "signed_flow_per_s": 0,
+              "accumulated_rate_per_s": 0
+            }
+          ],
+          "recoverable_rates_per_s": [
+            -1.2485309610025884e-9,
+            -1.363910461256845e-9
+          ],
+          "total_nonelastic_rate_per_s": 8.034101997344526e-9,
+          "stress_rate_MPa_per_s": -0.0012467035964228372,
+          "strain_rate_per_s": 0,
+          "rate_closure_per_s": -1.6543612251060553e-24,
+          "scope": "Instantaneous model decomposition at the segment endpoint, not an observed secant or physical identification"
+        }
+      },
+      {
+        "cycle": 5,
+        "segment": 33,
+        "stress_control": false,
+        "duration_s": 180,
+        "endpoint": {
+          "branches": [
+            {
+              "effective_stress_MPa": 57.74445782246828,
+              "threshold_MPa": 26.404477757477178,
+              "overstress_MPa": 31.3399800649911,
+              "signed_flow_per_s": 2.2584618331722515e-8,
+              "accumulated_rate_per_s": 2.2584618331722515e-8
+            },
+            {
+              "effective_stress_MPa": 147.5511166005798,
+              "threshold_MPa": 126.16763544670646,
+              "overstress_MPa": 21.383481153873348,
+              "signed_flow_per_s": 4.775147194167658e-7,
+              "accumulated_rate_per_s": 4.775147194167658e-7
+            }
+          ],
+          "recoverable_rates_per_s": [
+            -8.141325498975303e-8,
+            1.0271044307803941e-7
+          ],
+          "total_nonelastic_rate_per_s": 5.213965258367747e-7,
+          "stress_rate_MPa_per_s": -0.08090847292428331,
+          "strain_rate_per_s": 0,
+          "rate_closure_per_s": 1.0587911840678754e-22,
+          "scope": "Instantaneous model decomposition at the segment endpoint, not an observed secant or physical identification"
+        }
+      },
+      {
+        "cycle": 6,
+        "segment": 36,
+        "stress_control": false,
+        "duration_s": 180,
+        "endpoint": {
+          "branches": [
+            {
+              "effective_stress_MPa": -49.98624853402005,
+              "threshold_MPa": 26.404477757477178,
+              "overstress_MPa": 23.58177077654287,
+              "signed_flow_per_s": -5.796703291295205e-9,
+              "accumulated_rate_per_s": 5.796703291295205e-9
+            },
+            {
+              "effective_stress_MPa": -141.79623338926652,
+              "threshold_MPa": 126.16763544670646,
+              "overstress_MPa": 15.628597942560063,
+              "signed_flow_per_s": -1.9914867919032333e-7,
+              "accumulated_rate_per_s": 1.9914867919032333e-7
+            }
+          ],
+          "recoverable_rates_per_s": [
+            8.203122949224105e-8,
+            -4.0165612405218923e-7
+          ],
+          "total_nonelastic_rate_per_s": -5.245702770415668e-7,
+          "stress_rate_MPa_per_s": 0.08140096443639919,
+          "strain_rate_per_s": 0,
+          "rate_closure_per_s": 0,
+          "scope": "Instantaneous model decomposition at the segment endpoint, not an observed secant or physical identification"
+        }
+      },
+      {
+        "cycle": 6,
+        "segment": 38,
+        "stress_control": false,
+        "duration_s": 1800,
+        "endpoint": {
+          "branches": [
+            {
+              "effective_stress_MPa": 53.18361806341679,
+              "threshold_MPa": 26.404477757477178,
+              "overstress_MPa": 26.77914030593961,
+              "signed_flow_per_s": 1.0646844684693699e-8,
+              "accumulated_rate_per_s": 1.0646844684693699e-8
+            },
+            {
+              "effective_stress_MPa": 47.62263327310051,
+              "threshold_MPa": 126.16763544670646,
+              "overstress_MPa": 0,
+              "signed_flow_per_s": 0,
+              "accumulated_rate_per_s": 0
+            }
+          ],
+          "recoverable_rates_per_s": [
+            -1.2485660587376971e-9,
+            -1.3639508330321803e-9
+          ],
+          "total_nonelastic_rate_per_s": 8.034327792923822e-9,
+          "stress_rate_MPa_per_s": -0.0012467386345840228,
+          "strain_rate_per_s": 0,
+          "rate_closure_per_s": -1.6543612251060553e-24,
+          "scope": "Instantaneous model decomposition at the segment endpoint, not an observed secant or physical identification"
+        }
+      },
+      {
+        "cycle": 6,
+        "segment": 40,
+        "stress_control": false,
+        "duration_s": 180,
+        "endpoint": {
+          "branches": [
+            {
+              "effective_stress_MPa": 57.74088015947814,
+              "threshold_MPa": 26.404477757477178,
+              "overstress_MPa": 31.33640240200096,
+              "signed_flow_per_s": 2.257229321359961e-8,
+              "accumulated_rate_per_s": 2.257229321359961e-8
+            },
+            {
+              "effective_stress_MPa": 147.5519440395338,
+              "threshold_MPa": 126.16763544670646,
+              "overstress_MPa": 21.384308592827338,
+              "signed_flow_per_s": 4.775662637089628e-7,
+              "accumulated_rate_per_s": 4.775662637089628e-7
+            }
+          ],
+          "recoverable_rates_per_s": [
+            -8.141827158086441e-8,
+            1.0270841855456249e-7
+          ],
+          "total_nonelastic_rate_per_s": 5.214287038962605e-7,
+          "stress_rate_MPa_per_s": -0.08091346620200121,
+          "strain_rate_per_s": 0,
+          "rate_closure_per_s": 0,
+          "scope": "Instantaneous model decomposition at the segment endpoint, not an observed secant or physical identification"
+        }
+      },
+      {
+        "cycle": 7,
+        "segment": 43,
+        "stress_control": false,
+        "duration_s": 180,
+        "endpoint": {
+          "branches": [
+            {
+              "effective_stress_MPa": -49.988808574757684,
+              "threshold_MPa": 26.404477757477178,
+              "overstress_MPa": 23.584330817280506,
+              "signed_flow_per_s": -5.799712913913009e-9,
+              "accumulated_rate_per_s": 5.799712913913009e-9
+            },
+            {
+              "effective_stress_MPa": -141.79801459133452,
+              "threshold_MPa": 126.16763544670646,
+              "overstress_MPa": 15.630379144628066,
+              "signed_flow_per_s": -1.9921199849168888e-7,
+              "accumulated_rate_per_s": 1.9921199849168888e-7
+            }
+          ],
+          "recoverable_rates_per_s": [
+            8.206181579410702e-8,
+            -4.018156933012175e-7
+          ],
+          "total_nonelastic_rate_per_s": -5.247655889127123e-7,
+          "stress_rate_MPa_per_s": 0.08143127224332791,
+          "strain_rate_per_s": 0,
+          "rate_closure_per_s": 1.0587911840678754e-22,
+          "scope": "Instantaneous model decomposition at the segment endpoint, not an observed secant or physical identification"
+        }
+      },
+      {
+        "cycle": 7,
+        "segment": 45,
+        "stress_control": false,
+        "duration_s": 1800,
+        "endpoint": {
+          "branches": [
+            {
+              "effective_stress_MPa": 53.183741847518455,
+              "threshold_MPa": 26.404477757477178,
+              "overstress_MPa": 26.779264090041277,
+              "signed_flow_per_s": 1.0647080007661001e-8,
+              "accumulated_rate_per_s": 1.0647080007661001e-8
+            },
+            {
+              "effective_stress_MPa": 47.62432368991362,
+              "threshold_MPa": 126.16763544670646,
+              "overstress_MPa": 0,
+              "signed_flow_per_s": 0,
+              "accumulated_rate_per_s": 0
+            }
+          ],
+          "recoverable_rates_per_s": [
+            -1.248593447757295e-9,
+            -1.3639825697173538e-9
+          ],
+          "total_nonelastic_rate_per_s": 8.034503990186352e-9,
+          "stress_rate_MPa_per_s": -0.0012467659762534402,
+          "strain_rate_per_s": 0,
+          "rate_closure_per_s": 0,
+          "scope": "Instantaneous model decomposition at the segment endpoint, not an observed secant or physical identification"
+        }
+      },
+      {
+        "cycle": 7,
+        "segment": 47,
+        "stress_control": false,
+        "duration_s": 180,
+        "endpoint": {
+          "branches": [
+            {
+              "effective_stress_MPa": 57.74060151345549,
+              "threshold_MPa": 26.404477757477178,
+              "overstress_MPa": 31.33612375597831,
+              "signed_flow_per_s": 2.25713334960042e-8,
+              "accumulated_rate_per_s": 2.25713334960042e-8
+            },
+            {
+              "effective_stress_MPa": 147.55196061863552,
+              "threshold_MPa": 126.16763544670646,
+              "overstress_MPa": 21.384325171929063,
+              "signed_flow_per_s": 4.775672965201911e-7,
+              "accumulated_rate_per_s": 4.775672965201911e-7
+            }
+          ],
+          "recoverable_rates_per_s": [
+            -8.141706683606442e-8,
+            1.0269947241289642e-7
+          ],
+          "total_nonelastic_rate_per_s": 5.214210355930273e-7,
+          "stress_rate_MPa_per_s": -0.08091227626176614,
+          "strain_rate_per_s": 0,
+          "rate_closure_per_s": 0,
+          "scope": "Instantaneous model decomposition at the segment endpoint, not an observed secant or physical identification"
+        }
+      },
+      {
+        "cycle": 8,
+        "segment": 50,
+        "stress_control": false,
+        "duration_s": 180,
+        "endpoint": {
+          "branches": [
+            {
+              "effective_stress_MPa": -49.987870402448166,
+              "threshold_MPa": 26.404477757477178,
+              "overstress_MPa": 23.58339264497099,
+              "signed_flow_per_s": -5.798609840932968e-9,
+              "accumulated_rate_per_s": 5.798609840932968e-9
+            },
+            {
+              "effective_stress_MPa": -141.79534379152145,
+              "threshold_MPa": 126.16763544670646,
+              "overstress_MPa": 15.627708344814991,
+              "signed_flow_per_s": -1.9911706004016278e-7,
+              "accumulated_rate_per_s": 1.9911706004016278e-7
+            }
+          ],
+          "recoverable_rates_per_s": [
+            8.203921329171374e-8,
+            -4.017447019540446e-7
+          ],
+          "total_nonelastic_rate_per_s": -5.246211585434266e-7,
+          "stress_rate_MPa_per_s": 0.08140886004830217,
+          "strain_rate_per_s": 0,
+          "rate_closure_per_s": 1.0587911840678754e-22,
+          "scope": "Instantaneous model decomposition at the segment endpoint, not an observed secant or physical identification"
+        }
+      },
+      {
+        "cycle": 8,
+        "segment": 52,
+        "stress_control": false,
+        "duration_s": 1800,
+        "endpoint": {
+          "branches": [
+            {
+              "effective_stress_MPa": 53.18358068272863,
+              "threshold_MPa": 26.404477757477178,
+              "overstress_MPa": 26.779102925251454,
+              "signed_flow_per_s": 1.0646773621978538e-8,
+              "accumulated_rate_per_s": 1.0646773621978538e-8
+            },
+            {
+              "effective_stress_MPa": 47.62643880636158,
+              "threshold_MPa": 126.16763544670646,
+              "overstress_MPa": 0,
+              "signed_flow_per_s": 0,
+              "accumulated_rate_per_s": 0
+            }
+          ],
+          "recoverable_rates_per_s": [
+            -1.248557806737741e-9,
+            -1.3639411030516677e-9
+          ],
+          "total_nonelastic_rate_per_s": 8.03427471218913e-9,
+          "stress_rate_MPa_per_s": -0.00124673039770293,
+          "strain_rate_per_s": 0,
+          "rate_closure_per_s": 0,
+          "scope": "Instantaneous model decomposition at the segment endpoint, not an observed secant or physical identification"
+        }
+      },
+      {
+        "cycle": 8,
+        "segment": 54,
+        "stress_control": false,
+        "duration_s": 180,
+        "endpoint": {
+          "branches": [
+            {
+              "effective_stress_MPa": 57.74292708753899,
+              "threshold_MPa": 26.404477757477178,
+              "overstress_MPa": 31.33844933006181,
+              "signed_flow_per_s": 2.2579344269038056e-8,
+              "accumulated_rate_per_s": 2.2579344269038056e-8
+            },
+            {
+              "effective_stress_MPa": 147.5548354302113,
+              "threshold_MPa": 126.16763544670646,
+              "overstress_MPa": 21.387199983504857,
+              "signed_flow_per_s": 4.777464073632467e-7,
+              "accumulated_rate_per_s": 4.777464073632467e-7
+            }
+          ],
+          "recoverable_rates_per_s": [
+            -8.145426596597534e-8,
+            1.0278722524504645e-7
+          ],
+          "total_nonelastic_rate_per_s": 5.216587109113558e-7,
+          "stress_rate_MPa_per_s": -0.08094915787893245,
+          "strain_rate_per_s": 0,
+          "rate_closure_per_s": 0,
+          "scope": "Instantaneous model decomposition at the segment endpoint, not an observed secant or physical identification"
+        }
+      },
+      {
+        "cycle": 9,
+        "segment": 57,
+        "stress_control": false,
+        "duration_s": 180,
+        "endpoint": {
+          "branches": [
+            {
+              "effective_stress_MPa": -49.9908299148581,
+              "threshold_MPa": 26.404477757477178,
+              "overstress_MPa": 23.58635215738092,
+              "signed_flow_per_s": -5.8020901048850584e-9,
+              "accumulated_rate_per_s": 5.8020901048850584e-9
+            },
+            {
+              "effective_stress_MPa": -141.7981146020753,
+              "threshold_MPa": 126.16763544670646,
+              "overstress_MPa": 15.630479155368832,
+              "signed_flow_per_s": -1.9921555411984378e-7,
+              "accumulated_rate_per_s": 1.9921555411984378e-7
+            }
+          ],
+          "recoverable_rates_per_s": [
+            8.208613910442598e-8,
+            -4.019893426293703e-7
+          ],
+          "total_nonelastic_rate_per_s": -5.249208477496733e-7,
+          "stress_rate_MPa_per_s": 0.08145536476175494,
+          "strain_rate_per_s": 0,
+          "rate_closure_per_s": 0,
+          "scope": "Instantaneous model decomposition at the segment endpoint, not an observed secant or physical identification"
+        }
+      },
+      {
+        "cycle": 9,
+        "segment": 59,
+        "stress_control": false,
+        "duration_s": 1800,
+        "endpoint": {
+          "branches": [
+            {
+              "effective_stress_MPa": 53.18353679273612,
+              "threshold_MPa": 26.404477757477178,
+              "overstress_MPa": 26.779059035258943,
+              "signed_flow_per_s": 1.0646690185201613e-8,
+              "accumulated_rate_per_s": 1.0646690185201613e-8
+            },
+            {
+              "effective_stress_MPa": 47.626900060734144,
+              "threshold_MPa": 126.16763544670646,
+              "overstress_MPa": 0,
+              "signed_flow_per_s": 0,
+              "accumulated_rate_per_s": 0
+            }
+          ],
+          "recoverable_rates_per_s": [
+            -1.2485481003609775e-9,
+            -1.3639298137090264e-9
+          ],
+          "total_nonelastic_rate_per_s": 8.03421227113161e-9,
+          "stress_rate_MPa_per_s": -0.0012467207083199721,
+          "strain_rate_per_s": 0,
+          "rate_closure_per_s": 0,
+          "scope": "Instantaneous model decomposition at the segment endpoint, not an observed secant or physical identification"
+        }
+      },
+      {
+        "cycle": 9,
+        "segment": 61,
+        "stress_control": false,
+        "duration_s": 180,
+        "endpoint": {
+          "branches": [
+            {
+              "effective_stress_MPa": 57.73988996378765,
+              "threshold_MPa": 26.404477757477178,
+              "overstress_MPa": 31.33541220631047,
+              "signed_flow_per_s": 2.2568882910382175e-8,
+              "accumulated_rate_per_s": 2.2568882910382175e-8
+            },
+            {
+              "effective_stress_MPa": 147.55219423546,
+              "threshold_MPa": 126.16763544670646,
+              "overstress_MPa": 21.38455878875355,
+              "signed_flow_per_s": 4.775818500592982e-7,
+              "accumulated_rate_per_s": 4.775818500592982e-7
+            }
+          ],
+          "recoverable_rates_per_s": [
+            -8.14155687782485e-8,
+            1.026763721896108e-7
+          ],
+          "total_nonelastic_rate_per_s": 5.214115363810428e-7,
+          "stress_rate_MPa_per_s": -0.08091080220757213,
+          "strain_rate_per_s": 0,
+          "rate_closure_per_s": 0,
+          "scope": "Instantaneous model decomposition at the segment endpoint, not an observed secant or physical identification"
+        }
+      },
+      {
+        "cycle": 10,
+        "segment": 64,
+        "stress_control": false,
+        "duration_s": 180,
+        "endpoint": {
+          "branches": [
+            {
+              "effective_stress_MPa": -49.988211442435556,
+              "threshold_MPa": 26.404477757477178,
+              "overstress_MPa": 23.58373368495838,
+              "signed_flow_per_s": -5.799010805640301e-9,
+              "accumulated_rate_per_s": 5.799010805640301e-9
+            },
+            {
+              "effective_stress_MPa": -141.79484439099852,
+              "threshold_MPa": 126.16763544670646,
+              "overstress_MPa": 15.627208944292065,
+              "signed_flow_per_s": -1.9909931115924544e-7,
+              "accumulated_rate_per_s": 1.9909931115924544e-7
+            }
+          ],
+          "recoverable_rates_per_s": [
+            8.202778560705135e-8,
+            -4.016776390334302e-7
+          ],
+          "total_nonelastic_rate_per_s": -5.245481753912646e-7,
+          "stress_rate_MPa_per_s": 0.08139753478029976,
+          "strain_rate_per_s": 0,
+          "rate_closure_per_s": 0,
+          "scope": "Instantaneous model decomposition at the segment endpoint, not an observed secant or physical identification"
+        }
+      },
+      {
+        "cycle": 10,
+        "segment": 66,
+        "stress_control": false,
+        "duration_s": 1800,
+        "endpoint": {
+          "branches": [
+            {
+              "effective_stress_MPa": 53.18362417666209,
+              "threshold_MPa": 26.404477757477178,
+              "overstress_MPa": 26.779146419184915,
+              "signed_flow_per_s": 1.0646856306340209e-8,
+              "accumulated_rate_per_s": 1.0646856306340209e-8
+            },
+            {
+              "effective_stress_MPa": 47.6267851298429,
+              "threshold_MPa": 126.16763544670646,
+              "overstress_MPa": 0,
+              "signed_flow_per_s": 0,
+              "accumulated_rate_per_s": 0
+            }
+          ],
+          "recoverable_rates_per_s": [
+            -1.2485674304675703e-9,
+            -1.3639522531363712e-9
+          ],
+          "total_nonelastic_rate_per_s": 8.034336622736266e-9,
+          "stress_rate_MPa_per_s": -0.0012467400047631587,
+          "strain_rate_per_s": 0,
+          "rate_closure_per_s": 1.6543612251060553e-24,
+          "scope": "Instantaneous model decomposition at the segment endpoint, not an observed secant or physical identification"
+        }
+      },
+      {
+        "cycle": 10,
+        "segment": 68,
+        "stress_control": false,
+        "duration_s": 180,
+        "endpoint": {
+          "branches": [
+            {
+              "effective_stress_MPa": 57.74084798603356,
+              "threshold_MPa": 26.404477757477178,
+              "overstress_MPa": 31.33637022855638,
+              "signed_flow_per_s": 2.2572182399600608e-8,
+              "accumulated_rate_per_s": 2.2572182399600608e-8
+            },
+            {
+              "effective_stress_MPa": 147.5532142490243,
+              "threshold_MPa": 126.16763544670646,
+              "overstress_MPa": 21.385578802317852,
+              "signed_flow_per_s": 4.776453967922304e-7,
+              "accumulated_rate_per_s": 4.776453967922304e-7
+            }
+          ],
+          "recoverable_rates_per_s": [
+            -8.143144602844898e-8,
+            1.0272680809685382e-7
+          ],
+          "total_nonelastic_rate_per_s": 5.215129412602358e-7,
+          "stress_rate_MPa_per_s": -0.08092653785887785,
+          "strain_rate_per_s": 0,
+          "rate_closure_per_s": 0,
+          "scope": "Instantaneous model decomposition at the segment endpoint, not an observed secant or physical identification"
+        }
+      }
+    ],
+    "SLC": [
+      {
+        "cycle": 1,
+        "segment": 1,
+        "stress_control": false,
+        "duration_s": 180,
+        "endpoint": {
+          "branches": [
+            {
+              "effective_stress_MPa": -61.74164876634525,
+              "threshold_MPa": 26.404477757477178,
+              "overstress_MPa": 35.33717100886807,
+              "signed_flow_per_s": -4.009508398087657e-8,
+              "accumulated_rate_per_s": 4.009508398087657e-8
+            },
+            {
+              "effective_stress_MPa": -143.91762392610477,
+              "threshold_MPa": 126.16763544670646,
+              "overstress_MPa": 17.74998847939831,
+              "signed_flow_per_s": -2.8403623350844544e-7,
+              "accumulated_rate_per_s": 2.8403623350844544e-7
+            }
+          ],
+          "recoverable_rates_per_s": [
+            6.86457860742494e-8,
+            -1.838870230964436e-7
+          ],
+          "total_nonelastic_rate_per_s": -4.3937255451151626e-7,
+          "stress_rate_MPa_per_s": 0.06818028250824391,
+          "strain_rate_per_s": 0,
+          "rate_closure_per_s": 0,
+          "scope": "Instantaneous model decomposition at the segment endpoint, not an observed secant or physical identification"
+        }
+      },
+      {
+        "cycle": 1,
+        "segment": 3,
+        "stress_control": true,
+        "duration_s": 1800,
+        "endpoint": {
+          "branches": [
+            {
+              "effective_stress_MPa": 58.374222638081946,
+              "threshold_MPa": 26.404477757477178,
+              "overstress_MPa": 31.969744880604768,
+              "signed_flow_per_s": 2.4838637827961933e-8,
+              "accumulated_rate_per_s": 2.4838637827961933e-8
+            },
+            {
+              "effective_stress_MPa": 123.85509324807138,
+              "threshold_MPa": 126.16763544670646,
+              "overstress_MPa": 0,
+              "signed_flow_per_s": 0,
+              "accumulated_rate_per_s": 0
+            }
+          ],
+          "recoverable_rates_per_s": [
+            0,
+            1.2677841472916376e-13
+          ],
+          "total_nonelastic_rate_per_s": 2.4838764606376662e-8,
+          "stress_rate_MPa_per_s": 0,
+          "strain_rate_per_s": 2.4838764606376662e-8,
+          "rate_closure_per_s": 0,
+          "scope": "Instantaneous model decomposition at the segment endpoint, not an observed secant or physical identification"
+        }
+      },
+      {
+        "cycle": 1,
+        "segment": 5,
+        "stress_control": false,
+        "duration_s": 180.00000000000023,
+        "endpoint": {
+          "branches": [
+            {
+              "effective_stress_MPa": 59.46864205989871,
+              "threshold_MPa": 26.404477757477178,
+              "overstress_MPa": 33.06416430242153,
+              "signed_flow_per_s": 2.9176064959028835e-8,
+              "accumulated_rate_per_s": 2.9176064959028835e-8
+            },
+            {
+              "effective_stress_MPa": 149.25409246325046,
+              "threshold_MPa": 126.16763544670646,
+              "overstress_MPa": 23.086457016544003,
+              "signed_flow_per_s": 5.913125570785269e-7,
+              "accumulated_rate_per_s": 5.913125570785269e-7
+            }
+          ],
+          "recoverable_rates_per_s": [
+            -8.116759858778835e-8,
+            -1.9191962940620604e-8
+          ],
+          "total_nonelastic_rate_per_s": 5.201290605091468e-7,
+          "stress_rate_MPa_per_s": -0.08071179212749764,
+          "strain_rate_per_s": 0,
+          "rate_closure_per_s": 0,
+          "scope": "Instantaneous model decomposition at the segment endpoint, not an observed secant or physical identification"
+        }
+      },
+      {
+        "cycle": 2,
+        "segment": 8,
+        "stress_control": false,
+        "duration_s": 180,
+        "endpoint": {
+          "branches": [
+            {
+              "effective_stress_MPa": -49.89886085065301,
+              "threshold_MPa": 26.404477757477178,
+              "overstress_MPa": 23.49438309317583,
+              "signed_flow_per_s": -5.694707311928927e-9,
+              "accumulated_rate_per_s": 5.694707311928927e-9
+            },
+            {
+              "effective_stress_MPa": -141.16288296320587,
+              "threshold_MPa": 126.16763544670646,
+              "overstress_MPa": 14.995247516499418,
+              "signed_flow_per_s": -1.774437906046074e-7,
+              "accumulated_rate_per_s": 1.774437906046074e-7
+            }
+          ],
+          "recoverable_rates_per_s": [
+            8.229600424047596e-8,
+            -4.253916023443002e-7
+          ],
+          "total_nonelastic_rate_per_s": -5.262340960203606e-7,
+          "stress_rate_MPa_per_s": 0.08165914999408125,
+          "strain_rate_per_s": 0,
+          "rate_closure_per_s": -1.0587911840678754e-22,
+          "scope": "Instantaneous model decomposition at the segment endpoint, not an observed secant or physical identification"
+        }
+      },
+      {
+        "cycle": 2,
+        "segment": 10,
+        "stress_control": true,
+        "duration_s": 1800,
+        "endpoint": {
+          "branches": [
+            {
+              "effective_stress_MPa": 58.507603295566724,
+              "threshold_MPa": 26.404477757477178,
+              "overstress_MPa": 32.10312553808954,
+              "signed_flow_per_s": 2.533807228727954e-8,
+              "accumulated_rate_per_s": 2.533807228727954e-8
+            },
+            {
+              "effective_stress_MPa": 127.78345053964463,
+              "threshold_MPa": 126.16763544670646,
+              "overstress_MPa": 1.6158150929381776,
+              "signed_flow_per_s": 3.548776154396107e-10,
+              "accumulated_rate_per_s": 3.548776154396107e-10
+            }
+          ],
+          "recoverable_rates_per_s": [
+            0,
+            1.1357612337451251e-13
+          ],
+          "total_nonelastic_rate_per_s": 2.5693063478842526e-8,
+          "stress_rate_MPa_per_s": 0,
+          "strain_rate_per_s": 2.5693063478842526e-8,
+          "rate_closure_per_s": 0,
+          "scope": "Instantaneous model decomposition at the segment endpoint, not an observed secant or physical identification"
+        }
+      },
+      {
+        "cycle": 2,
+        "segment": 12,
+        "stress_control": false,
+        "duration_s": 180,
+        "endpoint": {
+          "branches": [
+            {
+              "effective_stress_MPa": 58.4808519847615,
+              "threshold_MPa": 26.404477757477178,
+              "overstress_MPa": 32.07637422728432,
+              "signed_flow_per_s": 2.5237272780485043e-8,
+              "accumulated_rate_per_s": 2.5237272780485043e-8
+            },
+            {
+              "effective_stress_MPa": 149.5891045687028,
+              "threshold_MPa": 126.16763544670646,
+              "overstress_MPa": 23.42146912199634,
+              "signed_flow_per_s": 6.155599593161503e-7,
+              "accumulated_rate_per_s": 6.155599593161503e-7
+            }
+          ],
+          "recoverable_rates_per_s": [
+            -8.29568379373924e-8,
+            -2.6220474948283707e-8
+          ],
+          "total_nonelastic_rate_per_s": 5.316199192109592e-7,
+          "stress_rate_MPa_per_s": -0.08249490303077858,
+          "strain_rate_per_s": 0,
+          "rate_closure_per_s": 0,
+          "scope": "Instantaneous model decomposition at the segment endpoint, not an observed secant or physical identification"
+        }
+      },
+      {
+        "cycle": 3,
+        "segment": 15,
+        "stress_control": false,
+        "duration_s": 180,
+        "endpoint": {
+          "branches": [
+            {
+              "effective_stress_MPa": -50.2284732669014,
+              "threshold_MPa": 26.404477757477178,
+              "overstress_MPa": 23.823995509424226,
+              "signed_flow_per_s": -6.086990231300743e-9,
+              "accumulated_rate_per_s": 6.086990231300743e-9
+            },
+            {
+              "effective_stress_MPa": -140.9756837474625,
+              "threshold_MPa": 126.16763544670646,
+              "overstress_MPa": 14.808048300756056,
+              "signed_flow_per_s": -1.7133338157758538e-7,
+              "accumulated_rate_per_s": 1.7133338157758538e-7
+            }
+          ],
+          "recoverable_rates_per_s": [
+            8.180677083275742e-8,
+            -4.2748054455235064e-7
+          ],
+          "total_nonelastic_rate_per_s": -5.230941455284794e-7,
+          "stress_rate_MPa_per_s": 0.08117190355731557,
+          "strain_rate_per_s": 0,
+          "rate_closure_per_s": 0,
+          "scope": "Instantaneous model decomposition at the segment endpoint, not an observed secant or physical identification"
+        }
+      },
+      {
+        "cycle": 3,
+        "segment": 17,
+        "stress_control": true,
+        "duration_s": 1800,
+        "endpoint": {
+          "branches": [
+            {
+              "effective_stress_MPa": 58.48785265209868,
+              "threshold_MPa": 26.404477757477178,
+              "overstress_MPa": 32.0833748946215,
+              "signed_flow_per_s": 2.526362075117254e-8,
+              "accumulated_rate_per_s": 2.526362075117254e-8
+            },
+            {
+              "effective_stress_MPa": 128.20905861407203,
+              "threshold_MPa": 126.16763544670646,
+              "overstress_MPa": 2.041423167365579,
+              "signed_flow_per_s": 6.812788870130808e-10,
+              "accumulated_rate_per_s": 6.812788870130808e-10
+            }
+          ],
+          "recoverable_rates_per_s": [
+            0,
+            1.1339082309533198e-13
+          ],
+          "total_nonelastic_rate_per_s": 2.5945013029008717e-8,
+          "stress_rate_MPa_per_s": 0,
+          "strain_rate_per_s": 2.5945013029008717e-8,
+          "rate_closure_per_s": 0,
+          "scope": "Instantaneous model decomposition at the segment endpoint, not an observed secant or physical identification"
+        }
+      },
+      {
+        "cycle": 3,
+        "segment": 19,
+        "stress_control": false,
+        "duration_s": 180,
+        "endpoint": {
+          "branches": [
+            {
+              "effective_stress_MPa": 58.21565808118021,
+              "threshold_MPa": 26.404477757477178,
+              "overstress_MPa": 31.81118032370303,
+              "signed_flow_per_s": 2.425506787865408e-8,
+              "accumulated_rate_per_s": 2.425506787865408e-8
+            },
+            {
+              "effective_stress_MPa": 149.65569180084316,
+              "threshold_MPa": 126.16763544670646,
+              "overstress_MPa": 23.488056354136702,
+              "signed_flow_per_s": 6.204540562511633e-7,
+              "accumulated_rate_per_s": 6.204540562511633e-7
+            }
+          ],
+          "recoverable_rates_per_s": [
+            -8.337211081497645e-8,
+            -2.7051929514273927e-8
+          ],
+          "total_nonelastic_rate_per_s": 5.34285083800567e-7,
+          "stress_rate_MPa_per_s": -0.08290847386670036,
+          "strain_rate_per_s": 0,
+          "rate_closure_per_s": -1.0587911840678754e-22,
+          "scope": "Instantaneous model decomposition at the segment endpoint, not an observed secant or physical identification"
+        }
+      },
+      {
+        "cycle": 4,
+        "segment": 22,
+        "stress_control": false,
+        "duration_s": 180,
+        "endpoint": {
+          "branches": [
+            {
+              "effective_stress_MPa": -50.327605396302175,
+              "threshold_MPa": 26.404477757477178,
+              "overstress_MPa": 23.923127638824997,
+              "signed_flow_per_s": -6.209055018476593e-9,
+              "accumulated_rate_per_s": 6.209055018476593e-9
+            },
+            {
+              "effective_stress_MPa": -140.93158353839587,
+              "threshold_MPa": 126.16763544670646,
+              "overstress_MPa": 14.763948091689414,
+              "signed_flow_per_s": -1.699138398243302e-7,
+              "accumulated_rate_per_s": 1.699138398243302e-7
+            }
+          ],
+          "recoverable_rates_per_s": [
+            8.168355507907563e-8,
+            -4.278642214343534e-7
+          ],
+          "total_nonelastic_rate_per_s": -5.223035611980845e-7,
+          "stress_rate_MPa_per_s": 0.08104922347081624,
+          "strain_rate_per_s": 0,
+          "rate_closure_per_s": 0,
+          "scope": "Instantaneous model decomposition at the segment endpoint, not an observed secant or physical identification"
+        }
+      },
+      {
+        "cycle": 4,
+        "segment": 24,
+        "stress_control": true,
+        "duration_s": 1799.999999999999,
+        "endpoint": {
+          "branches": [
+            {
+              "effective_stress_MPa": 58.47876145169228,
+              "threshold_MPa": 26.404477757477178,
+              "overstress_MPa": 32.0742836942151,
+              "signed_flow_per_s": 2.5229408988133798e-8,
+              "accumulated_rate_per_s": 2.5229408988133798e-8
+            },
+            {
+              "effective_stress_MPa": 128.24218376289298,
+              "threshold_MPa": 126.16763544670646,
+              "overstress_MPa": 2.0745483161865224,
+              "signed_flow_per_s": 7.125654168295406e-10,
+              "accumulated_rate_per_s": 7.125654168295406e-10
+            }
+          ],
+          "recoverable_rates_per_s": [
+            0,
+            1.1331966752380938e-13
+          ],
+          "total_nonelastic_rate_per_s": 2.5942087724630863e-8,
+          "stress_rate_MPa_per_s": 0,
+          "strain_rate_per_s": 2.5942087724630863e-8,
+          "rate_closure_per_s": 0,
+          "scope": "Instantaneous model decomposition at the segment endpoint, not an observed secant or physical identification"
+        }
+      },
+      {
+        "cycle": 4,
+        "segment": 26,
+        "stress_control": false,
+        "duration_s": 180,
+        "endpoint": {
+          "branches": [
+            {
+              "effective_stress_MPa": 58.145079676058046,
+              "threshold_MPa": 26.404477757477178,
+              "overstress_MPa": 31.740601918580868,
+              "signed_flow_per_s": 2.3998829626829898e-8,
+              "accumulated_rate_per_s": 2.3998829626829898e-8
+            },
+            {
+              "effective_stress_MPa": 149.6715060320106,
+              "threshold_MPa": 126.16763544670646,
+              "overstress_MPa": 23.503870585304142,
+              "signed_flow_per_s": 6.216200425569331e-7,
+              "accumulated_rate_per_s": 6.216200425569331e-7
+            }
+          ],
+          "recoverable_rates_per_s": [
+            -8.348400461567164e-8,
+            -2.7132100033583215e-8
+          ],
+          "total_nonelastic_rate_per_s": 5.350027675345082e-7,
+          "stress_rate_MPa_per_s": -0.0830198414959008,
+          "strain_rate_per_s": 0,
+          "rate_closure_per_s": 0,
+          "scope": "Instantaneous model decomposition at the segment endpoint, not an observed secant or physical identification"
+        }
+      },
+      {
+        "cycle": 5,
+        "segment": 29,
+        "stress_control": false,
+        "duration_s": 180,
+        "endpoint": {
+          "branches": [
+            {
+              "effective_stress_MPa": -50.35393841142529,
+              "threshold_MPa": 26.404477757477178,
+              "overstress_MPa": 23.949460653948112,
+              "signed_flow_per_s": -6.241802911482314e-9,
+              "accumulated_rate_per_s": 6.241802911482314e-9
+            },
+            {
+              "effective_stress_MPa": -140.9201889455111,
+              "threshold_MPa": 126.16763544670646,
+              "overstress_MPa": 14.75255349880463,
+              "signed_flow_per_s": -1.695482901988818e-7,
+              "accumulated_rate_per_s": 1.695482901988818e-7
+            }
+          ],
+          "recoverable_rates_per_s": [
+            8.164627125519043e-8,
+            -4.279206795257549e-7
+          ],
+          "total_nonelastic_rate_per_s": -5.220645013809285e-7,
+          "stress_rate_MPa_per_s": 0.08101212701200763,
+          "strain_rate_per_s": 0,
+          "rate_closure_per_s": 0,
+          "scope": "Instantaneous model decomposition at the segment endpoint, not an observed secant or physical identification"
+        }
+      },
+      {
+        "cycle": 5,
+        "segment": 31,
+        "stress_control": true,
+        "duration_s": 1800,
+        "endpoint": {
+          "branches": [
+            {
+              "effective_stress_MPa": 58.479921996244926,
+              "threshold_MPa": 26.404477757477178,
+              "overstress_MPa": 32.075444238767744,
+              "signed_flow_per_s": 2.523377427715699e-8,
+              "accumulated_rate_per_s": 2.523377427715699e-8
+            },
+            {
+              "effective_stress_MPa": 128.34053167463276,
+              "threshold_MPa": 126.16763544670646,
+              "overstress_MPa": 2.1728962279263015,
+              "signed_flow_per_s": 8.108416978643802e-10,
+              "accumulated_rate_per_s": 8.108416978643802e-10
+            }
+          ],
+          "recoverable_rates_per_s": [
+            0,
+            1.1335023954902385e-13
+          ],
+          "total_nonelastic_rate_per_s": 2.604472932526092e-8,
+          "stress_rate_MPa_per_s": 0,
+          "strain_rate_per_s": 2.604472932526092e-8,
+          "rate_closure_per_s": 0,
+          "scope": "Instantaneous model decomposition at the segment endpoint, not an observed secant or physical identification"
+        }
+      },
+      {
+        "cycle": 5,
+        "segment": 33,
+        "stress_control": false,
+        "duration_s": 180,
+        "endpoint": {
+          "branches": [
+            {
+              "effective_stress_MPa": 58.12888638723075,
+              "threshold_MPa": 26.404477757477178,
+              "overstress_MPa": 31.724408629753572,
+              "signed_flow_per_s": 2.3940342216844217e-8,
+              "accumulated_rate_per_s": 2.3940342216844217e-8
+            },
+            {
+              "effective_stress_MPa": 149.67801551560746,
+              "threshold_MPa": 126.16763544670646,
+              "overstress_MPa": 23.510380068901,
+              "signed_flow_per_s": 6.221003960991884e-7,
+              "accumulated_rate_per_s": 6.221003960991884e-7
+            }
+          ],
+          "recoverable_rates_per_s": [
+            -8.35176423361736e-8,
+            -2.7304318132585587e-8
+          ],
+          "total_nonelastic_rate_per_s": 5.352187778472735e-7,
+          "stress_rate_MPa_per_s": -0.0830533612139574,
+          "strain_rate_per_s": 0,
+          "rate_closure_per_s": 0,
+          "scope": "Instantaneous model decomposition at the segment endpoint, not an observed secant or physical identification"
+        }
+      },
+      {
+        "cycle": 6,
+        "segment": 36,
+        "stress_control": false,
+        "duration_s": 180,
+        "endpoint": {
+          "branches": [
+            {
+              "effective_stress_MPa": -50.360372728483284,
+              "threshold_MPa": 26.404477757477178,
+              "overstress_MPa": 23.955894971006106,
+              "signed_flow_per_s": -6.2498253934198886e-9,
+              "accumulated_rate_per_s": 6.2498253934198886e-9
+            },
+            {
+              "effective_stress_MPa": -140.91668397759787,
+              "threshold_MPa": 126.16763544670646,
+              "overstress_MPa": 14.749048530891415,
+              "signed_flow_per_s": -1.6943594897122723e-7,
+              "accumulated_rate_per_s": 1.6943594897122723e-7
+            }
+          ],
+          "recoverable_rates_per_s": [
+            8.16399446141591e-8,
+            -4.2797801350488303e-7
+          ],
+          "total_nonelastic_rate_per_s": -5.22023843255371e-7,
+          "stress_rate_MPa_per_s": 0.081005817827562,
+          "strain_rate_per_s": 0,
+          "rate_closure_per_s": 0,
+          "scope": "Instantaneous model decomposition at the segment endpoint, not an observed secant or physical identification"
+        }
+      },
+      {
+        "cycle": 6,
+        "segment": 38,
+        "stress_control": true,
+        "duration_s": 1800,
+        "endpoint": {
+          "branches": [
+            {
+              "effective_stress_MPa": 58.483776424587234,
+              "threshold_MPa": 26.404477757477178,
+              "overstress_MPa": 32.07929866711005,
+              "signed_flow_per_s": 2.5248276666139076e-8,
+              "accumulated_rate_per_s": 2.5248276666139076e-8
+            },
+            {
+              "effective_stress_MPa": 128.45438401033485,
+              "threshold_MPa": 126.16763544670646,
+              "overstress_MPa": 2.286748563628393,
+              "signed_flow_per_s": 9.349854646178774e-10,
+              "accumulated_rate_per_s": 9.349854646178774e-10
+            }
+          ],
+          "recoverable_rates_per_s": [
+            0,
+            1.1340319985247089e-13
+          ],
+          "total_nonelastic_rate_per_s": 2.6183375533956806e-8,
+          "stress_rate_MPa_per_s": 0,
+          "strain_rate_per_s": 2.6183375533956806e-8,
+          "rate_closure_per_s": 0,
+          "scope": "Instantaneous model decomposition at the segment endpoint, not an observed secant or physical identification"
+        }
+      },
+      {
+        "cycle": 6,
+        "segment": 40,
+        "stress_control": false,
+        "duration_s": 180,
+        "endpoint": {
+          "branches": [
+            {
+              "effective_stress_MPa": 58.124270428298615,
+              "threshold_MPa": 26.404477757477178,
+              "overstress_MPa": 31.719792670821437,
+              "signed_flow_per_s": 2.3923690821284344e-8,
+              "accumulated_rate_per_s": 2.3923690821284344e-8
+            },
+            {
+              "effective_stress_MPa": 149.68165449287258,
+              "threshold_MPa": 126.16763544670646,
+              "overstress_MPa": 23.514019046166126,
+              "signed_flow_per_s": 6.223690304461515e-7,
+              "accumulated_rate_per_s": 6.223690304461515e-7
+            }
+          ],
+          "recoverable_rates_per_s": [
+            -8.352759405651003e-8,
+            -2.7482164116743464e-8
+          ],
+          "total_nonelastic_rate_per_s": 5.352829630941823e-7,
+          "stress_rate_MPa_per_s": -0.08306332125406954,
+          "strain_rate_per_s": 0,
+          "rate_closure_per_s": 0,
+          "scope": "Instantaneous model decomposition at the segment endpoint, not an observed secant or physical identification"
+        }
+      },
+      {
+        "cycle": 7,
+        "segment": 43,
+        "stress_control": false,
+        "duration_s": 180,
+        "endpoint": {
+          "branches": [
+            {
+              "effective_stress_MPa": -50.36199999875029,
+              "threshold_MPa": 26.404477757477178,
+              "overstress_MPa": 23.957522241273114,
+              "signed_flow_per_s": -6.251855609744915e-9,
+              "accumulated_rate_per_s": 6.251855609744915e-9
+            },
+            {
+              "effective_stress_MPa": -140.9147629824052,
+              "threshold_MPa": 126.16763544670646,
+              "overstress_MPa": 14.747127535698738,
+              "signed_flow_per_s": -1.69374397498641e-7,
+              "accumulated_rate_per_s": 1.69374397498641e-7
+            }
+          ],
+          "recoverable_rates_per_s": [
+            8.16387417755159e-8,
+            -4.2802856642754966e-7
+          ],
+          "total_nonelastic_rate_per_s": -5.220160777604196e-7,
+          "stress_rate_MPa_per_s": 0.08100461280545908,
+          "strain_rate_per_s": 0,
+          "rate_closure_per_s": 0,
+          "scope": "Instantaneous model decomposition at the segment endpoint, not an observed secant or physical identification"
+        }
+      },
+      {
+        "cycle": 7,
+        "segment": 45,
+        "stress_control": true,
+        "duration_s": 1800,
+        "endpoint": {
+          "branches": [
+            {
+              "effective_stress_MPa": 58.478630100763866,
+              "threshold_MPa": 26.404477757477178,
+              "overstress_MPa": 32.074152343286684,
+              "signed_flow_per_s": 2.52289149604821e-8,
+              "accumulated_rate_per_s": 2.52289149604821e-8
+            },
+            {
+              "effective_stress_MPa": 128.3302349439122,
+              "threshold_MPa": 126.16763544670646,
+              "overstress_MPa": 2.1625994972057327,
+              "signed_flow_per_s": 8.001689879973516e-10,
+              "accumulated_rate_per_s": 8.001689879973516e-10
+            }
+          ],
+          "recoverable_rates_per_s": [
+            0,
+            1.133340397754663e-13
+          ],
+          "total_nonelastic_rate_per_s": 2.6029197282519228e-8,
+          "stress_rate_MPa_per_s": 0,
+          "strain_rate_per_s": 2.6029197282519228e-8,
+          "rate_closure_per_s": 0,
+          "scope": "Instantaneous model decomposition at the segment endpoint, not an observed secant or physical identification"
+        }
+      },
+      {
+        "cycle": 7,
+        "segment": 47,
+        "stress_control": false,
+        "duration_s": 180,
+        "endpoint": {
+          "branches": [
+            {
+              "effective_stress_MPa": 58.122994777035046,
+              "threshold_MPa": 26.404477757477178,
+              "overstress_MPa": 31.71851701955787,
+              "signed_flow_per_s": 2.3919090712058303e-8,
+              "accumulated_rate_per_s": 2.3919090712058303e-8
+            },
+            {
+              "effective_stress_MPa": 149.67764679907026,
+              "threshold_MPa": 126.16763544670646,
+              "overstress_MPa": 23.510011352363804,
+              "signed_flow_per_s": 6.220731810842678e-7,
+              "accumulated_rate_per_s": 6.220731810842678e-7
+            }
+          ],
+          "recoverable_rates_per_s": [
+            -8.35084835349865e-8,
+            -2.732335254665926e-8
+          ],
+          "total_nonelastic_rate_per_s": 5.351604357146804e-7,
+          "stress_rate_MPa_per_s": -0.08304430788770503,
+          "strain_rate_per_s": 0,
+          "rate_closure_per_s": 1.0587911840678754e-22,
+          "scope": "Instantaneous model decomposition at the segment endpoint, not an observed secant or physical identification"
+        }
+      },
+      {
+        "cycle": 8,
+        "segment": 50,
+        "stress_control": false,
+        "duration_s": 180,
+        "endpoint": {
+          "branches": [
+            {
+              "effective_stress_MPa": -50.35893810730852,
+              "threshold_MPa": 26.404477757477178,
+              "overstress_MPa": 23.95446034983134,
+              "signed_flow_per_s": -6.248035962622225e-9,
+              "accumulated_rate_per_s": 6.248035962622225e-9
+            },
+            {
+              "effective_stress_MPa": -140.91326730445238,
+              "threshold_MPa": 126.16763544670646,
+              "overstress_MPa": 14.74563185774592,
+              "signed_flow_per_s": -1.6932648374066787e-7,
+              "accumulated_rate_per_s": 1.6932648374066787e-7
+            }
+          ],
+          "recoverable_rates_per_s": [
+            8.160213046272911e-8,
+            -4.2780984983695373e-7
+          ],
+          "total_nonelastic_rate_per_s": -5.217822390775147e-7,
+          "stress_rate_MPa_per_s": 0.0809683265438387,
+          "strain_rate_per_s": 0,
+          "rate_closure_per_s": 0,
+          "scope": "Instantaneous model decomposition at the segment endpoint, not an observed secant or physical identification"
+        }
+      },
+      {
+        "cycle": 8,
+        "segment": 52,
+        "stress_control": true,
+        "duration_s": 1800.0000000000018,
+        "endpoint": {
+          "branches": [
+            {
+              "effective_stress_MPa": 58.48416072860715,
+              "threshold_MPa": 26.404477757477178,
+              "overstress_MPa": 32.07968297112997,
+              "signed_flow_per_s": 2.524972298151484e-8,
+              "accumulated_rate_per_s": 2.524972298151484e-8
+            },
+            {
+              "effective_stress_MPa": 128.46918248539586,
+              "threshold_MPa": 126.16763544670646,
+              "overstress_MPa": 2.3015470386894066,
+              "signed_flow_per_s": 9.519615004908061e-10,
+              "accumulated_rate_per_s": 9.519615004908061e-10
+            }
+          ],
+          "recoverable_rates_per_s": [
+            0,
+            1.1341092760171663e-13
+          ],
+          "total_nonelastic_rate_per_s": 2.620179789293325e-8,
+          "stress_rate_MPa_per_s": 0,
+          "strain_rate_per_s": 2.620179789293325e-8,
+          "rate_closure_per_s": 0,
+          "scope": "Instantaneous model decomposition at the segment endpoint, not an observed secant or physical identification"
+        }
+      },
+      {
+        "cycle": 8,
+        "segment": 54,
+        "stress_control": false,
+        "duration_s": 180,
+        "endpoint": {
+          "branches": [
+            {
+              "effective_stress_MPa": 58.12364180972712,
+              "threshold_MPa": 26.404477757477178,
+              "overstress_MPa": 31.71916405224994,
+              "signed_flow_per_s": 2.3921423880698016e-8,
+              "accumulated_rate_per_s": 2.3921423880698016e-8
+            },
+            {
+              "effective_stress_MPa": 149.6786506208204,
+              "threshold_MPa": 126.16763544670646,
+              "overstress_MPa": 23.51101517411395,
+              "signed_flow_per_s": 6.221472750872989e-7,
+              "accumulated_rate_per_s": 6.221472750872989e-7
+            }
+          ],
+          "recoverable_rates_per_s": [
+            -8.348466835289712e-8,
+            -2.7575269035112292e-8
+          ],
+          "total_nonelastic_rate_per_s": 5.350087615799876e-7,
+          "stress_rate_MPa_per_s": -0.08302077163072592,
+          "strain_rate_per_s": 0,
+          "rate_closure_per_s": 0,
+          "scope": "Instantaneous model decomposition at the segment endpoint, not an observed secant or physical identification"
+        }
+      },
+      {
+        "cycle": 9,
+        "segment": 57,
+        "stress_control": false,
+        "duration_s": 180,
+        "endpoint": {
+          "branches": [
+            {
+              "effective_stress_MPa": -50.360970111989374,
+              "threshold_MPa": 26.404477757477178,
+              "overstress_MPa": 23.956492354512196,
+              "signed_flow_per_s": -6.250570640960503e-9,
+              "accumulated_rate_per_s": 6.250570640960503e-9
+            },
+            {
+              "effective_stress_MPa": -140.91408128238072,
+              "threshold_MPa": 126.16763544670646,
+              "overstress_MPa": 14.746445835674265,
+              "signed_flow_per_s": -1.6935255828982458e-7,
+              "accumulated_rate_per_s": 1.6935255828982458e-7
+            }
+          ],
+          "recoverable_rates_per_s": [
+            8.163544824134973e-8,
+            -4.2802733745140337e-7
+          ],
+          "total_nonelastic_rate_per_s": -5.219950181408387e-7,
+          "stress_rate_MPa_per_s": 0.08100134484800975,
+          "strain_rate_per_s": 0,
+          "rate_closure_per_s": 0,
+          "scope": "Instantaneous model decomposition at the segment endpoint, not an observed secant or physical identification"
+        }
+      },
+      {
+        "cycle": 9,
+        "segment": 59,
+        "stress_control": true,
+        "duration_s": 1800,
+        "endpoint": {
+          "branches": [
+            {
+              "effective_stress_MPa": 58.47887519573217,
+              "threshold_MPa": 26.404477757477178,
+              "overstress_MPa": 32.07439743825499,
+              "signed_flow_per_s": 2.5229836800205656e-8,
+              "accumulated_rate_per_s": 2.5229836800205656e-8
+            },
+            {
+              "effective_stress_MPa": 128.3359588497178,
+              "threshold_MPa": 126.16763544670646,
+              "overstress_MPa": 2.1683234030113425,
+              "signed_flow_per_s": 8.060907002157195e-10,
+              "accumulated_rate_per_s": 8.060907002157195e-10
+            }
+          ],
+          "recoverable_rates_per_s": [
+            0,
+            1.133324470621345e-13
+          ],
+          "total_nonelastic_rate_per_s": 2.6036040832868437e-8,
+          "stress_rate_MPa_per_s": 0,
+          "strain_rate_per_s": 2.6036040832868437e-8,
+          "rate_closure_per_s": 0,
+          "scope": "Instantaneous model decomposition at the segment endpoint, not an observed secant or physical identification"
+        }
+      },
+      {
+        "cycle": 9,
+        "segment": 61,
+        "stress_control": false,
+        "duration_s": 180,
+        "endpoint": {
+          "branches": [
+            {
+              "effective_stress_MPa": 58.12470020801493,
+              "threshold_MPa": 26.404477757477178,
+              "overstress_MPa": 31.72022245053775,
+              "signed_flow_per_s": 2.3925240801822744e-8,
+              "accumulated_rate_per_s": 2.3925240801822744e-8
+            },
+            {
+              "effective_stress_MPa": 149.67710453974584,
+              "threshold_MPa": 126.16763544670646,
+              "overstress_MPa": 23.509469093039385,
+              "signed_flow_per_s": 6.220331582415531e-7,
+              "accumulated_rate_per_s": 6.220331582415531e-7
+            }
+          ],
+          "recoverable_rates_per_s": [
+            -8.349976158717352e-8,
+            -2.735390590593781e-8
+          ],
+          "total_nonelastic_rate_per_s": 5.351047315502644e-7,
+          "stress_rate_MPa_per_s": -0.08303566391204527,
+          "strain_rate_per_s": 0,
+          "rate_closure_per_s": 0,
+          "scope": "Instantaneous model decomposition at the segment endpoint, not an observed secant or physical identification"
+        }
+      },
+      {
+        "cycle": 10,
+        "segment": 64,
+        "stress_control": false,
+        "duration_s": 180,
+        "endpoint": {
+          "branches": [
+            {
+              "effective_stress_MPa": -50.361312190892136,
+              "threshold_MPa": 26.404477757477178,
+              "overstress_MPa": 23.956834433414958,
+              "signed_flow_per_s": -6.250997422687633e-9,
+              "accumulated_rate_per_s": 6.250997422687633e-9
+            },
+            {
+              "effective_stress_MPa": -140.91553155569832,
+              "threshold_MPa": 126.16763544670646,
+              "overstress_MPa": 14.747896108991867,
+              "signed_flow_per_s": -1.6939902198012053e-7,
+              "accumulated_rate_per_s": 1.6939902198012053e-7
+            }
+          ],
+          "recoverable_rates_per_s": [
+            8.163768700846822e-8,
+            -4.27997004972741e-7
+          ],
+          "total_nonelastic_rate_per_s": -5.220093373670809e-7,
+          "stress_rate_MPa_per_s": 0.08100356685500694,
+          "strain_rate_per_s": 0,
+          "rate_closure_per_s": 0,
+          "scope": "Instantaneous model decomposition at the segment endpoint, not an observed secant or physical identification"
+        }
+      },
+      {
+        "cycle": 10,
+        "segment": 66,
+        "stress_control": true,
+        "duration_s": 1800,
+        "endpoint": {
+          "branches": [
+            {
+              "effective_stress_MPa": 58.48356337477247,
+              "threshold_MPa": 26.404477757477178,
+              "overstress_MPa": 32.07908561729529,
+              "signed_flow_per_s": 2.5247474888489062e-8,
+              "accumulated_rate_per_s": 2.5247474888489062e-8
+            },
+            {
+              "effective_stress_MPa": 128.45354731204768,
+              "threshold_MPa": 126.16763544670646,
+              "overstress_MPa": 2.2859118653412196,
+              "signed_flow_per_s": 9.34031495392971e-10,
+              "accumulated_rate_per_s": 9.34031495392971e-10
+            }
+          ],
+          "recoverable_rates_per_s": [
+            0,
+            1.1340071204181292e-13
+          ],
+          "total_nonelastic_rate_per_s": 2.6181619784594076e-8,
+          "stress_rate_MPa_per_s": 0,
+          "strain_rate_per_s": 2.6181619784594076e-8,
+          "rate_closure_per_s": 0,
+          "scope": "Instantaneous model decomposition at the segment endpoint, not an observed secant or physical identification"
+        }
+      },
+      {
+        "cycle": 10,
+        "segment": 68,
+        "stress_control": false,
+        "duration_s": 180,
+        "endpoint": {
+          "branches": [
+            {
+              "effective_stress_MPa": 58.12736971966096,
+              "threshold_MPa": 26.404477757477178,
+              "overstress_MPa": 31.722891962183784,
+              "signed_flow_per_s": 2.3934870050069792e-8,
+              "accumulated_rate_per_s": 2.3934870050069792e-8
+            },
+            {
+              "effective_stress_MPa": 149.68091528748394,
+              "threshold_MPa": 126.16763544670646,
+              "overstress_MPa": 23.513279840777486,
+              "signed_flow_per_s": 6.223144552578239e-7,
+              "accumulated_rate_per_s": 6.223144552578239e-7
+            }
+          ],
+          "recoverable_rates_per_s": [
+            -8.351488613903515e-8,
+            -2.753259971385455e-8
+          ],
+          "total_nonelastic_rate_per_s": 5.352018394550039e-7,
+          "stress_rate_MPa_per_s": -0.08305073277401887,
+          "strain_rate_per_s": 0,
+          "rate_closure_per_s": 0,
+          "scope": "Instantaneous model decomposition at the segment endpoint, not an observed secant or physical identification"
+        }
+      }
+    ]
+  },
+  "fitted": false,
+  "engineering_qualified": false,
+  "frozen_sha256": "252091f1c077430c5bfa9ce40eaea8cd10520ee0501de5c34e55f2662b7ec937"
+}

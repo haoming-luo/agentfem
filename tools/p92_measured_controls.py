@@ -9,6 +9,7 @@ SLC hold strain is an observation, never a prescribed input or a state reset.
 import numpy as np
 
 from tools.p92_two_mechanism import integrate
+from tools.p92_waveform_controls import integrate_waveform
 
 
 def crossing(t, e, ids, target, direction, lo, hi):
@@ -55,6 +56,8 @@ def measured_path(data, *, cycles, switch_bound=None):
         raise ValueError("Missing or discontinuous measured cycles")
     segments, events = [], []
     previous = 0.
+    previous_upper = 0.
+    previous_target = float(e[0])
     for cycle in range(1, cycles+1):
         ids = np.flatnonzero(c == cycle)
         start = t[ids[0]]
@@ -85,17 +88,27 @@ def measured_path(data, *, cycles, switch_bound=None):
             end = event["time_s"]
             if end <= previous:
                 raise ValueError("Unordered reconstructed switches")
-            observed = ids[(t[ids] > previous) & (t[ids] <= end)]
+            # Perturb the simulated switch, not the identity/control class of
+            # its observations. A bracket-end hold must not acquire ramp data.
+            support_start = previous_upper if switch_bound is not None else previous
+            support_end = event["bracket_s"][0] if switch_bound is not None else end
+            observed = ids[(t[ids] > support_start) & (t[ids] <= support_end)]
             if len(observed) < 2:
                 raise ValueError("Insufficient observations between switches")
-            desired = previous+(end-previous)*np.r_[0., np.geomspace(.001, 1., 15)]
+            desired = support_start+(support_end-support_start)*np.r_[0., np.geomspace(.001, 1., 15)]
             chosen = np.unique([observed[np.argmin(abs(t[observed]-x))] for x in desired])
+            tail = observed[t[observed] >= support_start+.8*(support_end-support_start)]
+            tail = tail[[0, -1]] if len(tail) >= 2 else np.array([], dtype=int)
             segments.append(dict(cycle=cycle, duration=end-previous, target=target,
+                strain_hold=not stress_control and target == previous_target,
                 stress_control=stress_control, sample_times=t[chosen]-previous,
                 measured_stress=s[chosen]/1e6, measured_strain=e[chosen],
-                source_indices=chosen.tolist()))
+                source_indices=chosen.tolist(), tail=dict(times=t[tail]-previous,
+                    stress=s[tail]/1e6, strain=e[tail], source_indices=tail.tolist())))
             events.append(dict(cycle=cycle, stress_control=stress_control, **event))
             previous = end
+            previous_upper = event["bracket_s"][1]
+            previous_target = target
     return dict(protocol=data["protocol"], initial_stress=float(s[0]/1e6),
                 initial_strain=float(e[0]), segments=segments, switches=events,
                 source_sha256=data["sha256"], cycles=cycles)
@@ -107,6 +120,7 @@ def timing_sensitivity(data, mechanisms, *, cycles=10):
     for side in ("lower", "upper"):
         _, result = replay(measured_path(data, cycles=cycles, switch_bound=side), mechanisms)
         records[side] = dict(cycles=result["cycles"],
+                             hold_diagnostics=result["hold_diagnostics"],
                              reversed_post_hold_ramps=result["reversed_post_hold_ramps"])
     return records
 
@@ -115,6 +129,7 @@ def replay(path, mechanisms, *, rtol=1e-8, method="Radau", allow_incompatible=Fa
     state = np.zeros(10)
     state[0], state[9] = path["initial_stress"], path["initial_strain"]
     residuals, records, endpoints, reversals = [], [], [], []
+    holds, waveforms, segments = [], [], []
     peak = valley = state[0]
     for i, seg in enumerate(path["segments"]):
         if (i and path["segments"][i-1]["stress_control"]
@@ -123,9 +138,59 @@ def replay(path, mechanisms, *, rtol=1e-8, method="Radau", allow_incompatible=Fa
             if not allow_incompatible:
                 break  # A partial failed cycle is not a predicted complete cycle.
         rate = 0. if seg["stress_control"] else (seg["target"]-state[9])/seg["duration"]
-        sol = integrate(state, seg["duration"], rate, mechanisms,
-                        stress_control=seg["stress_control"], rtol=rtol, method=method)
+        if "waveform" in seg:
+            if seg["stress_control"]:
+                raise ValueError("A stress-controlled hold cannot prescribe strain waveform")
+            sol = integrate_waveform(state, seg["duration"], seg["target"], seg["waveform"],
+                                     mechanisms, rtol=rtol, method=method)
+            measured_start, measured_end = seg["waveform"]["measured_endpoints"]
+            waveforms.append(dict(segment=i, cycle=seg["cycle"],
+                initial_strain_offset=float(state[9]-measured_start),
+                final_strain_offset=float(seg["target"]-measured_end),
+                maximum_chord_deviation=seg["waveform"]["maximum_chord_deviation"],
+                minimum_recorded_slope_per_s=seg["waveform"]["minimum_recorded_slope_per_s"],
+                maximum_recorded_slope_per_s=seg["waveform"]["maximum_recorded_slope_per_s"],
+                source_indices=seg["waveform"]["source_indices"]))
+        else:
+            sol = integrate(state, seg["duration"], rate, mechanisms,
+                            stress_control=seg["stress_control"], rtol=rtol, method=method)
         sample = sol.sol(seg["sample_times"])
+        segments.append(dict(segment=i, cycle=seg["cycle"],
+            stress_control=seg["stress_control"],
+            stress_rms_MPa=float(np.sqrt(np.mean((sample[0]-seg["measured_stress"])**2))),
+            strain_rms=float(np.sqrt(np.mean((sample[9]-seg["measured_strain"])**2)))))
+        if seg["stress_control"] or seg.get("strain_hold", abs(rate) < 1e-12):
+            times = np.asarray(seg["sample_times"])
+            early = times <= min(10., .1*seg["duration"])
+            # Last fifth, using only actual selected samples. Missing samples
+            # mean unavailable, not zero rate or an interpolated observation.
+            tail = seg.get("tail")
+            late_times = np.asarray(tail["times"]) if tail is not None else times[times >= .8*seg["duration"]]
+            late_sample = sol.sol(late_times) if len(late_times) >= 2 else None
+            fields = {}
+            for name, predicted, observed in (("stress_MPa", sample[0], seg["measured_stress"]),
+                                               ("strain", sample[9], seg["measured_strain"])):
+                error = predicted-observed
+                fields[name] = dict(rms=float(np.sqrt(np.mean(error**2))),
+                    observed_max_abs=float(np.max(abs(observed))),
+                    observed_excursion=float(np.ptp(observed)),
+                    last_observed=float(observed[-1]), last_predicted=float(predicted[-1]))
+                if np.count_nonzero(early) >= 2:
+                    dt = times[early][-1]-times[early][0]
+                    fields[name]["early_secant_observed_per_s"] = float((observed[early][-1]-observed[early][0])/dt)
+                    fields[name]["early_secant_predicted_per_s"] = float((predicted[early][-1]-predicted[early][0])/dt)
+                if late_sample is not None:
+                    late_observed = (np.asarray(tail["stress" if name == "stress_MPa" else "strain"])
+                                     if tail is not None else observed[times >= .8*seg["duration"]])
+                    late_predicted = late_sample[0 if name == "stress_MPa" else 9]
+                    dt = late_times[-1]-late_times[0]
+                    fields[name]["late_secant_observed_per_s"] = float((late_observed[-1]-late_observed[0])/dt)
+                    fields[name]["late_secant_predicted_per_s"] = float((late_predicted[-1]-late_predicted[0])/dt)
+            holds.append(dict(cycle=seg["cycle"], segment=i, stress_control=seg["stress_control"],
+                duration_s=seg["duration"], sample_times_s=times.tolist(),
+                source_indices=seg.get("source_indices", []), fields=fields,
+                late_secant_times_s=late_times.tolist(),
+                late_secant_source_indices=tail["source_indices"] if tail is not None else []))
         state = sol.y[:, -1].copy()
         peak, valley = max(peak, float(sol.y[0].max())), min(valley, float(sol.y[0].min()))
         channels = [(sample[0]-seg["measured_stress"])/100.]
@@ -141,6 +206,9 @@ def replay(path, mechanisms, *, rtol=1e-8, method="Radau", allow_incompatible=Fa
     return np.concatenate(residuals), dict(protocol=path["protocol"], cycles=records,
         segment_endpoints=endpoints, reversed_post_hold_ramps=reversals,
         incompatible_continuation=allow_incompatible,
+        hold_diagnostics=holds,
+        waveform_diagnostics=waveforms,
+        segment_diagnostics=segments,
         source_sha256=path["source_sha256"],
-        scope="Measured-endpoint replay, not autonomous controller prediction",
+        scope=path.get("waveform_scope", "Measured-endpoint replay, not autonomous controller prediction"),
         engineering_qualified=False, life_qualified=False, independent_validation=False)

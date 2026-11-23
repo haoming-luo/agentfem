@@ -21,6 +21,114 @@ def test_scalar_p92_controls_cover_transitive_consumers_without_release_matrix()
     assert classify_changes(["tools/p92_two_mechanism.py", "pyproject.toml"]).level == "release"
 
 
+@pytest.mark.parametrize("path", ["tools/p92_rate_fingerprint.py",
+    "evidence/creep/2026-11-23-rate-fingerprint-control.json",
+    "evidence/creep/2026-11-23-rate-fingerprint-aging.json"])
+def test_rate_fingerprint_selects_scientific_regressions(path):
+    scope = classify_changes([path])
+    assert scope.level == "targeted"
+    assert "tests/test_p92_rate_fingerprint.py" in scope.tests
+    assert "tests/test_p92_response_screen.py" in scope.tests
+
+
+@pytest.mark.parametrize("path", ["tools/p92_mobile_fraction_reference.py",
+    "tools/p92_mobile_fraction_probe.py", "tools/p92_mobile_fraction_frozen.py",
+    "evidence/creep/2026-11-23-mobile-fraction-probe.json"])
+def test_population_replacement_keeps_original_response_gates(path):
+    scope = classify_changes([path])
+    assert scope.level == "targeted"
+    assert "tests/test_p92_mobile_fraction.py" in scope.tests
+    assert "tests/test_p92_response_screen.py" in scope.tests
+
+
+def test_classifier_edit_selects_its_own_regressions():
+    scope = classify_changes(["ci_validation_scope.py", "tools/p92_recovery_discriminator.py"])
+    assert scope.level == "targeted"
+    assert "tests/test_ci_validation_scope.py" in scope.tests
+
+
+@pytest.mark.parametrize("path", ["tools/p92_aging_resistance_reference.py",
+    "tools/p92_aging_resistance_probe.py", "evidence/creep/2026-11-23-aging-resistance-probe.json"])
+def test_aging_resistance_selects_transitive_science_checks(path):
+    scope = classify_changes([path])
+    assert scope.level == "targeted"
+    assert "tests/test_p92_aging_resistance.py" in scope.tests
+    assert "tests/test_p92_response_screen.py" in scope.tests
+
+
+@pytest.mark.parametrize("path", ["tools/p92_rate_recovery_reference.py",
+    "evidence/creep/2026-11-23-rate-recovery-fixed.json",
+    "evidence/creep/2026-11-23-rate-recovery-paired.json"])
+def test_rate_recovery_batch_selects_its_mechanism_and_transitive_gates(path):
+    scope = classify_changes([path])
+    assert scope.level == "targeted"
+    for stem in ("rate_recovery", "recoverable_mobility", "recovery_shape", "response_screen"):
+        assert f"tests/test_p92_{stem}.py" in scope.tests
+
+
+@pytest.mark.parametrize("stem", ["critical_recovery", "common_memory", "static_modes",
+                                  "cross_resistance", "inviscid_branch"])
+def test_state_kinetics_references_retain_physics_and_negative_evidence_checks(stem):
+    scope = classify_changes([f"tools/p92_{stem}_reference.py"])
+    assert scope.level == "targeted"
+    assert f"tests/test_p92_{stem}.py" in scope.tests
+    assert "tests/test_p92_20261122_state_kinetics_evidence.py" in scope.tests
+    assert "tests/test_p92_hold_observations.py" in scope.tests
+
+
+@pytest.mark.parametrize("path", ["tools/p92_history_kinetics_split.py",
+    "tools/p92_recovery_budget_sensitivity.py", "tools/p92_stress_ripple_audit.py",
+    "evidence/creep/2026-11-22-history-kinetics-split.json"])
+def test_diagnostic_batch_keeps_transitive_controls_without_release_matrix(path):
+    scope = classify_changes([path])
+    assert scope.level == "targeted"
+    assert "tests/test_p92_history_kinetics_split.py" in scope.tests
+    assert "tests/test_p92_response_screen.py" in scope.tests
+
+
+@pytest.mark.parametrize("path", ["tools/p92_observed_stress_replay.py",
+    "tools/p92_observation_readiness.py",
+    "evidence/creep/2026-11-22-observed-stress-ten-cycles.json",
+    "evidence/creep/2026-11-22-observation-readiness.json"])
+def test_conditional_diagnostics_keep_source_energy_and_forward_gate_tests(path):
+    scope = classify_changes([path])
+    assert scope.level == "targeted"
+    for name in ("p92_observed_stress_replay", "p92_observation_readiness",
+                 "p92_hold_flow_budget", "p92_response_screen", "p92_measured_controls"):
+        assert f"tests/test_{name}.py" in scope.tests
+
+
+@pytest.mark.parametrize("stem", ["recoverable_backstress", "recoverable_mobility", "activated_flow"])
+def test_recovery_replacements_select_their_own_physics_checks(stem):
+    scope = classify_changes([f"tools/p92_{stem}_reference.py"])
+    assert scope.level == "targeted"
+    assert f"tests/test_p92_{stem}.py" in scope.tests
+    assert "tests/test_p92_mechanism_evidence.py" in scope.tests
+    assert "tests/test_p92_response_screen.py" in scope.tests
+
+
+def test_capacity_audit_selects_analytic_and_archive_checks():
+    scope = classify_changes(["tools/p92_recovery_capacity_audit.py"])
+    assert scope.level == "targeted"
+    assert "tests/test_p92_recovery_capacity.py" in scope.tests
+    assert "tests/test_p92_mechanism_evidence.py" in scope.tests
+
+
+@pytest.mark.parametrize("path", ["tools/p92_waveform_controls.py",
+    "tools/p92_waveform_experiment.py", "tools/p92_response_screen.py",
+    "tools/p92_reversal_identification.py", "tools/p92_reversal_sensitivity.py",
+    "tools/p92_two_rate_controls.py", "tools/p92_two_rate_frozen.py",
+    "tools/p92_two_rate_sensitivity.py", "tools/p92_two_rate_history_probe.py",
+    "tools/p92_two_rate_joint.py",
+    "evidence/creep/2026-11-21-reversal-frozen.json"])
+def test_waveform_and_response_gates_keep_transitive_material_tests(path):
+    scope = classify_changes([path])
+    assert scope.level == "targeted"
+    assert "tests/test_p92_waveform_controls.py" in scope.tests
+    assert "tests/test_p92_response_screen.py" in scope.tests
+    assert "tests/test_p92_two_mechanism_fit.py" in scope.tests
+
+
 def test_published_p92_reference_keeps_structure_and_joint_fit_consumers():
     scope = classify_changes(["tools/p92_published_recovery_reference.py"])
     assert "tests/test_p92_nonuniform_structure.py" in scope.tests

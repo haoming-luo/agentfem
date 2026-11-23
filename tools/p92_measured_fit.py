@@ -1,7 +1,7 @@
 """Early three-cycle identification, frozen later-cycle development checks."""
 
 import argparse
-from dataclasses import asdict
+from dataclasses import asdict, replace
 from hashlib import sha256
 import json
 from pathlib import Path
@@ -31,12 +31,71 @@ def seed_parameters(seed, calibration):
     return np.asarray(seed["scaled_parameters"], dtype=float)
 
 
-def identify(calibration, seed, sources, *, max_nfev=40, publish_freeze=None):
+def time_softening_coordinates(seed, calibration, *, both=False):
+    """Replace weak fast-static direction, retaining six fitted coordinates."""
+    base = Parameters(**calibration["parameters"])
+    old = np.asarray(seed["scaled_parameters"], dtype=float)
+    cards = [asdict(m) for m in decode(old, base)]
+    digest = sha256(json.dumps(cards, sort_keys=True).encode()).hexdigest()
+    if (seed["training_cycles"] != [1, 2, 3] or not seed["fit"]["success"]
+            or cards != seed["parameters"] or digest != seed["parameter_sha256"]):
+        raise ValueError("Require unchanged early-cycle seed with original parameter coordinates")
+    fixed_fast = float(old[2])
+    initial = old.copy()
+    initial[2] = 0.  # unit slow time-isotropic scale reproduces the seed exactly
+    if both:
+        initial[1] = 0.  # replace weak fast strength margin by fast time scale
+
+    def decoder(z):
+        z = np.asarray(z, dtype=float)
+        if z.shape != (6,) or not np.isfinite(z).all():
+            raise ValueError("Require six finite parameters")
+        coordinates = z.copy()
+        coordinates[2] = fixed_fast
+        if both:
+            coordinates[1] = old[1]
+        fast, slow = decode(coordinates, base)
+        if both:
+            p = fast.parameters
+            fast = replace(fast, parameters=replace(p, gamma_r1=p.gamma_r1*10.**z[1],
+                                                   gamma_r2=p.gamma_r2*10.**z[1]))
+        p = slow.parameters
+        slow = replace(slow, parameters=replace(p, gamma_r1=p.gamma_r1*10.**z[2],
+                                               gamma_r2=p.gamma_r2*10.**z[2]))
+        return fast, slow
+
+    return initial, decoder, fixed_fast
+
+
+def coordinate_names(direction):
+    names = ["log10_fast_flow_at_120MPa_per_s", "log10_fast_strength_margin_MPa",
+             "log10_fast_static_recovery_scale", "log10_slow_flow_at_120MPa_per_s",
+             "log10_slow_strength_margin_MPa", "log10_slow_a2_scale"]
+    if direction in {"slow_time_isotropic", "both_time_isotropic"}:
+        names[2] = "log10_slow_time_isotropic_scale"
+    if direction == "both_time_isotropic":
+        names[1] = "log10_fast_time_isotropic_scale"
+    if direction not in {"fast_static", "slow_time_isotropic", "both_time_isotropic"}:
+        raise ValueError("Unknown parameter direction")
+    return names
+
+
+def identify(calibration, seed, sources, *, max_nfev=40, publish_freeze=None,
+             parameter_direction="fast_static"):
     if type(max_nfev) is not int or max_nfev < 1:
         raise ValueError("Require positive evaluation budget")
     if len(sources) != 3 or {d["protocol"] for d in sources} != {"RF", "SLR", "SLC"}:
         raise ValueError("Require all three distinct protocols")
     base = Parameters(**calibration["parameters"])
+    if parameter_direction in {"slow_time_isotropic", "both_time_isotropic"}:
+        if any(seed["source_sha256"][d["protocol"]] != d["sha256"] for d in sources):
+            raise ValueError("Time-softening experiment requires unchanged source identities")
+        initial, decoder, fixed_fast = time_softening_coordinates(seed, calibration,
+            both=parameter_direction == "both_time_isotropic")
+    elif parameter_direction == "fast_static":
+        initial, decoder, fixed_fast = seed_parameters(seed, calibration), lambda z: decode(z, base), None
+    else:
+        raise ValueError("Unknown parameter direction")
     paths = [measured_path(d, cycles=3) for d in sources]
     # Admit all observed control paths before spending the identification budget.
     for data in sources:
@@ -46,7 +105,7 @@ def identify(calibration, seed, sources, *, max_nfev=40, publish_freeze=None):
     def objective(z, rtol=1e-7):
         nonlocal calls
         calls += 1
-        mechanisms = decode(z, base)
+        mechanisms = decoder(z)
         value = np.concatenate([replay(p, mechanisms, rtol=rtol, allow_incompatible=True)[0] for p in paths])
         if calls % 20 == 1:
             print(json.dumps(dict(evaluation=calls, cost=float(.5*value@value))), flush=True)
@@ -60,15 +119,19 @@ def identify(calibration, seed, sources, *, max_nfev=40, publish_freeze=None):
         return np.column_stack(columns)
 
     lower, upper = [-5., -5., -5., -7., -5., -.7], [-1., 2., 1., -2., 2., .7]
-    initial = seed_parameters(seed, calibration)
+    if parameter_direction == "both_time_isotropic":
+        upper[1] = 1.
     result = least_squares(objective, initial, bounds=(lower, upper), jac=jacobian,
                            x_scale="jac", max_nfev=max_nfev, ftol=1e-5, xtol=1e-5, gtol=1e-5)
-    mechanisms = decode(result.x, base)
+    mechanisms = decoder(result.x)
     identity = [asdict(m) for m in mechanisms]
     digest = sha256(json.dumps(identity, sort_keys=True).encode()).hexdigest()
     report = dict(schema="agentfem.research.measured-controls-fit.v1",
         training_cycles=[1, 2, 3], later_cycles_role="previously inspected development, not blind validation",
         parameters=identity, parameter_sha256=digest, scaled_parameters=result.x.tolist(),
+        parameter_direction=parameter_direction, fixed_fast_static_log10=fixed_fast,
+        coordinate_names=coordinate_names(parameter_direction),
+        fixed_fast_strength_margin_log10=float(seed["scaled_parameters"][1]) if parameter_direction == "both_time_isotropic" else None,
         seed_sha256=sha256(json.dumps(seed, sort_keys=True).encode()).hexdigest(),
         base_sha256=sha256(json.dumps(calibration, sort_keys=True).encode()).hexdigest(),
         bounds=[lower, upper], fit=dict(success=bool(result.success), message=result.message,
@@ -87,6 +150,8 @@ def identify(calibration, seed, sources, *, max_nfev=40, publish_freeze=None):
     if result.success:
         report["training_refinement_max_scaled_residual_change"] = float(
             np.max(abs(objective(result.x)-objective(result.x, rtol=1e-9))))
+        report["early_hold_diagnostics"] = {
+            p["protocol"]: replay(p, mechanisms)[1]["hold_diagnostics"] for p in paths}
         report["frozen_predictions"] = frozen_predictions(report, sources)
     report["elapsed_seconds"] = perf_counter()-started
     return report
@@ -145,6 +210,7 @@ if __name__ == "__main__":
     parser.add_argument("source_dir", type=Path)
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--max-nfev", type=int, default=40)
+    parser.add_argument("--parameter-direction", choices=("fast_static", "slow_time_isotropic", "both_time_isotropic"), default="fast_static")
     parser.add_argument("--verify-frozen", type=Path, help="Recheck existing parameters without identification")
     args = parser.parse_args()
     if args.output.exists() or args.output.with_suffix(".frozen.json").exists():
@@ -158,13 +224,14 @@ if __name__ == "__main__":
         report["prior_report_sha256"] = sha256(args.verify_frozen.read_bytes()).hexdigest()
     else:
         report = identify(json.loads(args.calibration.read_text()), json.loads(args.seed.read_text()),
-            sources, max_nfev=args.max_nfev,
+            sources, max_nfev=args.max_nfev, parameter_direction=args.parameter_direction,
             publish_freeze=lambda report: write_new(args.output.with_suffix(".frozen.json"), report))
     report["verification_driver_sha256"] = {
         name: sha256(Path(__file__).with_name(name).read_bytes()).hexdigest()
         for name in ("p92_measured_fit.py", "p92_measured_controls.py", "p92_two_mechanism.py",
                      "p92_two_mechanism_fit.py", "p92_ratcheting_screen.py",
                      "p92_published_recovery_reference.py", "p92_bounded_softening.py")}
+    report["coordinate_names"] = coordinate_names(report.get("parameter_direction", "fast_static"))
     write_new(args.output, report)
     print(json.dumps(report["fit"]), flush=True)
     raise SystemExit(0 if report["fit"]["success"] else 1)
