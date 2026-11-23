@@ -139,6 +139,7 @@ def test_real_png_and_movie_exports(tmp_path):
     grid = pv.ImageData(dimensions=(3, 3, 3)).cast_to_unstructured_grid()
     for i in range(2):
         grid.cell_data["damage"] = np.linspace(0, .5 + i*.5, grid.n_cells)
+        grid.point_data["U"] = grid.points * (.1*i)
         grid.save(tmp_path / f"frame{i}.vtu")
     (tmp_path / "series.pvd").write_text('<VTKFile type="Collection"><Collection>' + ''.join(
         f'<DataSet timestep="{i}" file="frame{i}.vtu"/>' for i in range(2)) + '</Collection></VTKFile>')
@@ -160,6 +161,16 @@ def test_real_png_and_movie_exports(tmp_path):
     record = json.loads((movie.parent / "view.json").read_text())
     assert record["export"]["saved_times"] == [0., 1.]
     assert record["export"]["interpolation"] == "none"
+    smooth_view = dict(view_record(), choice=["point", "U", "magnitude"],
+                       reference_geometry=True, displacement="U")
+    smooth_movie = render(dict(request, view=smooth_view, mode="process", smooth=True, duration=1.),
+                          tmp_path / "smooth")
+    with imageio.get_reader(smooth_movie) as reader:
+        assert reader.count_frames() == 10
+    smooth_record = json.loads((smooth_movie.parent / "view.json").read_text())["export"]
+    assert smooth_record["interpolation"] == "linear_displacement"
+    assert smooth_record["samples"][0]["weight"] == 0.
+    assert smooth_record["samples"][-1]["weight"] == 1.
     # Exercise cancellation of an actual subprocess, not only a fake encoder.
     job = ExportJob(tmp_path / "cancelled")
     async def cancel_real_worker():

@@ -5,6 +5,7 @@
 import argparse
 import asyncio
 import json
+import time as clock
 from pathlib import Path
 from uuid import uuid4
 import xml.etree.ElementTree as ET
@@ -18,6 +19,7 @@ from agentfem._viewer_files import ResultDirectory
 from agentfem._viewer_export import PRESETS, PALETTES, apply_camera, validate_view, display_frame, color_map
 from agentfem._viewer_jobs import ExportJob
 from agentfem._atomic_text import atomic_write_text
+from agentfem._viewer_motion import automatic_scale, displacement_metrics, timeline_sample, interpolate_displacement
 
 
 def scalar_choices(grid):
@@ -96,6 +98,8 @@ def build_viewer(path, *, displacement=None, reference_geometry=False, server=No
     state.component_items = []
     state.browse_root = str(directory.root)
     state.coordinate = ""
+    state.station_label = ""
+    state.time_label = ""
     state.source_status = ""
     state.frame_count = info["frame_count"]
     state.result_name = path.name if path else "Open a local result"
@@ -108,6 +112,13 @@ def build_viewer(path, *, displacement=None, reference_geometry=False, server=No
     state.run_items = []
     state.run_selection = None
     state.playing = False
+    state.smooth = False
+    state.smooth_available = False
+    state.blend = 0.
+    state.playback_duration = 10.
+    state.scale_status = ""
+    state.scale_busy = False
+    state.details = False
     state.fixed_range = True
     state.range_min = 0.
     state.range_max = 1.
@@ -164,10 +175,24 @@ def build_viewer(path, *, displacement=None, reference_geometry=False, server=No
                 selected = choices.index(previous) if previous in choices else -1
             if not -1 <= selected < len(choices):
                 raise ValueError("Select a field available in this frame.")
-            displayed = (deform_visualization_frame(grid, state.displacement_field,
+            choice = choices[selected] if selected >= 0 else None
+            eligible = bool(state.reference_geometry and state.displacement_field and
+                            (choice is None or choice[:2] == ("point", state.displacement_field)))
+            state.smooth_available = eligible and info["frame_count"] > 1
+            if not eligible:
+                state.blend = 0.
+                state.smooth = False
+            motion_grid = grid
+            if float(state.blend) > 0:
+                if cache.get("next_index") != index+1:
+                    cache["next_grid"] = read_visualization_frame(path, frame=index+1)
+                    cache["next_index"] = index+1
+                motion_grid = interpolate_displacement(grid, cache["next_grid"], state.displacement_field,
+                                                       float(state.blend), choice)
+            displayed = (deform_visualization_frame(motion_grid, state.displacement_field,
                          scale=float(state.scale), reference_geometry=True)
                          if state.reference_geometry and float(state.scale) != 0.
-                         else grid.copy(deep=True))
+                         else motion_grid.copy(deep=True))
             scalar = None
             if selected >= 0:
                 association, name, component = choices[selected]
@@ -193,7 +218,7 @@ def build_viewer(path, *, displacement=None, reference_geometry=False, server=No
                     bounds = float(state.range_min), float(state.range_max)
                     if not np.isfinite(bounds).all() or bounds[0] >= bounds[1]:
                         raise ValueError("Color minimum must be finite and smaller than maximum.")
-                scalar = (values, key, association, f"{label} ({association})", bounds)
+                scalar = (values, key, association, label, bounds)
             first_view = cache["grid"] is None
             camera = plotter.camera_position
             # Keep scene identities stable across interactive updates. Repeated
@@ -246,7 +271,14 @@ def build_viewer(path, *, displacement=None, reference_geometry=False, server=No
                      "value": i} for i, (association, name, component) in enumerate(choices)]
                 state.field = selected
                 time = info["saved_times"][index] if info["saved_times"] else None
-                state.coordinate = f"Frame {index+1}/{info['frame_count']}" + (f" · saved coordinate {time:.6g}" if time is not None else "")
+                if float(state.blend) > 0 and time is not None:
+                    time += float(state.blend)*(info["saved_times"][index+1]-time)
+                position = (f"Interpolated · frames {index+1}–{index+2}" if float(state.blend) > 0
+                            else f"Saved frame {index+1}/{info['frame_count']}")
+                label = "Time" if state.time_unit else "Coordinate"
+                state.coordinate = position + (f" · {label} {time:.6g} {state.time_unit}" if time is not None else "")
+                state.station_label = position
+                state.time_label = f"{label} {time:.6g} {state.time_unit}" if time is not None else "No saved time coordinate"
                 state.mesh_summary = f"{grid.n_points:,} points · {grid.n_cells:,} cells"
                 notices = [f"{item['name']}: {item['value']}" for item in info["information"]
                            if item["name"] in {"status", "agentfem_output_status", "source_status", "temporal_coverage"}]
@@ -269,14 +301,36 @@ def build_viewer(path, *, displacement=None, reference_geometry=False, server=No
 
     async def play():
         try:
+            if state.smooth:
+                duration = float(state.playback_duration)
+                if not np.isfinite(duration) or not 1 <= duration <= 60:
+                    raise ValueError("Playback duration must be 1–60 seconds.")
+                times = info["saved_times"]
+                timeline_sample(times, 0.)
+                start_fraction = (times[int(state.frame)]-times[0])/(times[-1]-times[0])
+                started = clock.monotonic() - start_fraction*duration
+                while state.playing:
+                    fraction = min(1., (clock.monotonic()-started)/duration)
+                    index, blend, _ = timeline_sample(times, fraction)
+                    with state:
+                        state.frame = index if fraction < 1 else info["frame_count"]-1
+                        state.blend = blend if fraction < 1 else 0.
+                    if fraction >= 1:
+                        break
+                    await asyncio.sleep(.05)
+                return
             while state.playing and int(state.frame) < info["frame_count"] - 1:
                 await asyncio.sleep(.5)
                 if state.playing:
                     with state:
                         state.frame = int(state.frame) + 1
+                        state.blend = 0.
+        except (ValueError, KeyError, IndexError, OSError) as exc:
+            state.error = str(exc)
         finally:
-            with state:
-                state.playing = False
+            if asyncio.current_task() is playback["task"]:
+                with state:
+                    state.playing = False
 
     def toggle_playback(**_):
         if state.playing:
@@ -285,8 +339,48 @@ def build_viewer(path, *, displacement=None, reference_geometry=False, server=No
             with state:
                 if int(state.frame) == info["frame_count"] - 1:
                     state.frame = 0
+                state.blend = 0.
                 state.playing = True
             playback["task"] = asyncio.create_task(play())
+
+    def seek_frame(**_):
+        stop_playback()
+        state.blend = 0.
+        update()
+
+    def change_smoothing(**_):
+        if not state.smooth:
+            stop_playback()
+            state.blend = 0.
+
+    async def fit_deformation(**_):
+        stop_playback()
+        if path is None or state.scale_busy:
+            return
+        source, count, name = path, info["frame_count"], state.displacement_field
+        if not state.reference_geometry or not name:
+            state.error = "Select reference geometry and displacement before Auto scale."
+            return
+        state.scale_busy = True
+        try:
+            metrics = []
+            for i in range(count):
+                directory.result(source)
+                metrics.append(displacement_metrics(read_visualization_frame(source, frame=i), name))
+                with state:
+                    state.scale_status = f"Sizing saved frame {i+1}/{count}…"
+                await asyncio.sleep(0)
+                if state.closed or path != source or state.displacement_field != name or not state.reference_geometry:
+                    raise ValueError("Result selection changed; Auto scale was not applied.")
+            scale = automatic_scale(metrics)
+            with state:
+                state.scale = scale
+                state.scale_status = f"Suggested ×{scale:.3g} from {count} saved frames · fixed during playback"
+                state.error = ""
+        except (ValueError, KeyError, OSError, ET.ParseError) as exc:
+            state.error = str(exc)
+        finally:
+            state.scale_busy = False
 
     def open_selection(**_):
         nonlocal path
@@ -306,7 +400,7 @@ def build_viewer(path, *, displacement=None, reference_geometry=False, server=No
             path = candidate
             info.clear()
             info.update(latest)
-            cache.update(frame=None, grid=None, choices=[])
+            cache.update(frame=None, grid=None, choices=[], next_index=None, next_grid=None)
             with state:
                 state.result_name = path.name
                 state.loaded_source = str(path.relative_to(directory.root))
@@ -314,6 +408,11 @@ def build_viewer(path, *, displacement=None, reference_geometry=False, server=No
                 state.frame = latest["frame"]
                 state.field = -1
                 state.scale = 1.
+                state.blend = 0.
+                state.smooth = False
+                state.scale_status = ""
+                state.time_unit = ""
+                state.field_unit = ""
                 # Coordinate semantics belong to this file, not the previously
                 # opened file. Never accidentally warp current coordinates twice.
                 state.reference_geometry = False
@@ -422,9 +521,11 @@ def build_viewer(path, *, displacement=None, reference_geometry=False, server=No
                 read_visualization_frame(path, frame=index)
             info.update(latest)
             cache["frame"] = None
+            cache["next_index"] = None
             with state:
                 state.frame_count = info["frame_count"]
                 state.frame = index
+                state.blend = 0.
             update()
         except (ValueError, IndexError, TypeError, OSError, ET.ParseError) as exc:
             state.error = str(exc)
@@ -442,6 +543,8 @@ def build_viewer(path, *, displacement=None, reference_geometry=False, server=No
     def snapshot(camera=None):
         if path is None:
             raise ValueError("Open a result first.")
+        if float(state.blend) > 0:
+            raise ValueError("Select a saved frame on the slider before saving a still view. Smooth videos retain their interpolation recipe.")
         sync_camera(camera)
         selected = int(state.field)
         view = dict(schema="agentfem.view.v1", source=str(path.relative_to(directory.root)),
@@ -530,10 +633,13 @@ def build_viewer(path, *, displacement=None, reference_geometry=False, server=No
         if state.export_busy:
             return
         stop_playback()
+        if mode == "process":
+            state.blend = 0.
         state.export_busy = True
         try:
             request = dict(root=str(directory.root), view=snapshot(camera), mode=mode,
-                           size=[1920, 1080], fps=24, transparent=state.transparent)
+                           size=[1920, 1080], fps=24, transparent=state.transparent,
+                           smooth=bool(state.smooth), duration=float(state.playback_duration))
             def progress(done, total):
                 with state:
                     state.export_progress = f"Rendering {done}/{total}"
@@ -627,11 +733,22 @@ def build_viewer(path, *, displacement=None, reference_geometry=False, server=No
                            hide_details=True, density="compact")
                 v3.VTextField(v_model=("scale", 1.), label="Deformation scale", type="number",
                               disabled=("!reference_geometry || !displacement_field",), hide_details=True, density="compact")
+                with v3.VRow(classes="ma-0 ga-2"):
+                    v3.VBtn("Auto scale", click=fit_deformation, variant="tonal", loading=("scale_busy",),
+                            disabled=("!reference_geometry || !displacement_field || scale_busy",))
+                    v3.VBtn("Actual ×1", click="scale = 1; scale_status = ''", variant="text")
+                v3.VLabel("{{ scale_status }}", v_if="scale_status", style="font-size:12px; white-space:normal")
                 v3.VLabel("Use undeformed output geometry. Scale 1 shows actual displacement; saved data are unchanged.",
                           style="font-size:12px; white-space:normal")
+                v3.VDivider()
+                v3.VCheckbox(v_model=("smooth", False), label="Smooth displacement", disabled=("!smooth_available || playing",),
+                             hide_details=True, density="compact")
+                v3.VTextField(v_model=("playback_duration", 10.), label="Playback duration (s)", type="number",
+                              v_if="smooth", disabled=("playing",), hide_details=True, density="compact")
+                v3.VLabel("Display interpolation · not additional computed states", v_if="smooth", style="font-size:12px; white-space:normal")
         with v3.VDialog(v_model=("export_panel", False), max_width=500):
             with v3.VCard(classes="pa-5 d-flex flex-column ga-3", title="Export & saved views"):
-                v3.VLabel("1920 × 1080 · fixed colors · original saved states", style="font-size:12px")
+                v3.VLabel("1920 × 1080 · fixed colors · {{ smooth ? 'interpolated displacement video' : 'saved states' }}", style="font-size:12px")
                 v3.VTextField(v_model=("figure_title", ""), label="Figure title", hide_details=True, density="compact")
                 v3.VTextField(v_model=("field_unit", ""), label="Field unit (as recorded)", v_if="advanced", hide_details=True, density="compact")
                 v3.VTextField(v_model=("time_unit", ""), label="Time unit (as recorded)", v_if="advanced", hide_details=True, density="compact")
@@ -678,12 +795,17 @@ def build_viewer(path, *, displacement=None, reference_geometry=False, server=No
                             prepend_icon=("playing ? 'mdi-pause' : 'mdi-play'",))
                     v3.VSlider(v_model=("frame", info["frame"]), min=0,
                                max=("frame_count - 1",), step=1, label="Saved frame",
-                               disabled=("frame_count <= 1",), hide_details=True, style="min-width:160px")
-                v3.VLabel("{{ coordinate }}", classes="px-4")
-                v3.VLabel("Viewing: {{ loaded_source }}", v_if="loaded_source", classes="px-4",
-                          style="font-size:12px; overflow-wrap:anywhere")
-                v3.VLabel("{{ mesh_summary }}", classes="px-4")
-                v3.VLabel("{{ source_status }}", v_if="source_status", classes="px-4")
+                               end=seek_frame, disabled=("frame_count <= 1 || playing",), hide_details=True, style="min-width:160px")
+                with v3.VSheet(classes="mx-4 my-2 px-3 py-2 d-flex flex-column", rounded="lg",
+                               style="flex:0 0 auto; background:#f5f7f9; color:#243746; font-variant-numeric:tabular-nums"):
+                    v3.VLabel("{{ station_label }}", style="font-size:13px; min-height:20px")
+                    v3.VLabel("{{ time_label }}", style="font-size:13px; min-height:20px")
+                    v3.VLabel("{{ reference_geometry ? 'Deformation ×' + Number(Number(scale).toPrecision(4)) : 'Saved geometry' }}", style="font-size:13px; min-height:20px")
+                    v3.VBtn("Result details", click="details = !details", variant="text", size="small", style="align-self:flex-start")
+                    v3.VLabel("{{ loaded_source }} · {{ mesh_summary }}", v_if="details", style="font-size:12px; white-space:normal; overflow-wrap:anywhere")
+                    v3.VLabel("Coordinates have no declared physical unit. Playback seconds describe the video, not the simulation.",
+                              v_if="details && !time_unit", style="font-size:12px; white-space:normal")
+                    v3.VLabel("{{ source_status }}", v_if="source_status", style="font-size:12px; white-space:normal")
                 # VtkLocalView manages its initial synchronization. Its ready
                 # event is not a user change: rebuilding the scene there can
                 # form a ready -> update -> ready loop on large meshes.
@@ -695,10 +817,11 @@ def build_viewer(path, *, displacement=None, reference_geometry=False, server=No
                 ctrl.view_update = view.update
                 ctrl.view_reset = view.reset_camera
                 ctrl.view_camera = view.push_camera
-                v3.VLabel("Local preview · original field association · no averaging · {{ fixed_range ? 'fixed range' : 'range per frame' }}", classes="px-4 pb-2")
+                v3.VLabel("Local results · {{ fixed_range ? 'fixed colors' : 'colors per frame' }}", classes="px-4 pb-2", style="font-size:12px")
     state.change("frame", "field", "scale", "edges", "fixed_range", "range_min", "range_max",
-                 "reference_geometry", "displacement_field", "preset", "palette")(update)
+                 "reference_geometry", "displacement_field", "preset", "palette", "blend", "time_unit")(update)
     state.change("preset")(change_preset)
+    state.change("smooth")(change_smoothing)
     state.change("project_selection")(select_project)
     state.change("run_selection")(select_run)
     state.change("quantity")(select_quantity)
@@ -718,6 +841,8 @@ def build_viewer(path, *, displacement=None, reference_geometry=False, server=No
     ctrl.toggle_playback = toggle_playback
     ctrl.stop_playback = stop_playback
     ctrl.fit_series_range = fit_series_range
+    ctrl.fit_deformation = fit_deformation
+    ctrl.seek_frame = seek_frame
     ctrl.export_result = export
     ctrl.save_view = save_view
     ctrl.restore_view = restore_view

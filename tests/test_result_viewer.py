@@ -184,7 +184,7 @@ def test_play_pause_advances_only_saved_frames(tmp_path, monkeypatch):
         await original_sleep(0)
         tick.set()
         await original_sleep(0)
-        assert state.frame == 1 and "coordinate 0.2" in state.coordinate
+        assert state.frame == 1 and "Coordinate 0.2" in state.coordinate
         ctrl.stop_playback()
         tick.set()
         await original_sleep(0)
@@ -299,10 +299,10 @@ def test_refresh_continuation_preserves_station_and_field(tmp_path, monkeypatch)
         assert state.frame_count == 3
         assert state.frame == 0 and state.field == 0
         assert state.fixed_range
-        assert "coordinate 0" in state.coordinate
+        assert "Coordinate 0" in state.coordinate
         with state:
             state.frame = 2
-        assert "coordinate 0.7" in state.coordinate
+        assert "Coordinate 0.7" in state.coordinate
         assert state.error == ""
         index_path.write_text("<broken")
         ctrl.refresh_result()

@@ -80,6 +80,21 @@ slider stays above the canvas. Nothing here changes the stored result.
 - **Saved frame** selects an actual output station, not an interpolated time.
 - **Play** advances through saved frames; **Pause** stops. It does not imply a
   uniform physical sampling interval.
+- **Smooth displacement** is optional and only enabled for declared reference
+  geometry with displacement coloring or solid color. It interpolates the
+  displacement vectors between identical reference meshes, then computes the
+  displayed magnitude/component. It does not interpolate damage, stress,
+  deletion flags or material IDs. Changed connectivity/reference coordinates
+  stop playback with an explanation. Only two adjacent source frames are cached.
+  Playback samples uniformly in the saved coordinate, including unequal output
+  intervals. It assumes a continuous displacement path between saved stations;
+  do not use it across impacts or discontinuous restart gaps. Interpolation
+  cannot recover dynamics absent from the output.
+- **Playback duration (s)** is wall-clock presentation duration, not simulation
+  time. The renderer targets at most 20 updates/s and skips intermediate display
+  samples when rendering takes longer; this is not a guaranteed frame rate.
+  Pause keeps the interpolated view; choosing a saved frame returns to an actual
+  stored state. Still-image/view saving requires an actual saved frame.
 - **Keep colors consistent** is on by default. Selecting a new field/component
   initializes its limits from the displayed frame, then holds them during
   playback. **Fit all saved frames** reads the published frames one at a time
@@ -111,6 +126,26 @@ output. Opening another file clears this declaration. Displacement must be a
 three-component nodal field. Units and component
 conventions come from the result. The viewer does not infer missing units.
 
+**Auto scale** scans the currently published frames once, without retaining the
+whole series, and suggests a fixed multiplier. It uses the largest reference
+extent and the largest per-frame 95th-percentile displacement relative to the
+componentwise median translation. This translation subtraction is only a sizing
+statistic; it does not modify the plotted displacement. The target is 10% of the
+extent, capped so the maximum absolute displacement remains below 20% after
+magnification. Motion already reaching 5% of the extent, zero distortion and
+pure translation keep ×1. The suggested factor is bounded at 1e6, rounded down
+to three significant digits, and does not adapt during playback. **Actual ×1**
+and manual entry remain available. New live frames do not silently change it;
+run Auto scale again explicitly. The percentile is node-sampled, not a
+mesh-independent physical statistic, and multi-body or strongly nonuniform
+meshes may need a manual choice. This is a viewing aid, not a strain estimate.
+
+The compact information block distinguishes saved/interpolated frames, the
+saved coordinate and the deformation multiplier. A coordinate is labeled as
+physical time only when its unit is supplied from the result contract. Do not
+label a static load factor as seconds. Presentation seconds and video fps do not
+establish the physical units of an XDMF time coordinate.
+
 ## Save a figure, video or view
 
 **Export** opens a compact panel rather than adding controls around the model.
@@ -119,13 +154,17 @@ conventions come from the result. The viewer does not infer missing units.
   limits, title, saved time coordinate and deformation scale. Transparent
   backgrounds are optional. Specify field/time units from the result contract;
   the viewer does not guess them. Custom units are display labels, not conversions.
-  Time and deformation scale occupy separate fixed positions, so changing time
+  Time and deformation scale occupy stacked, fixed positions, so changing time
   digits cannot move the scale label. Node/element association stays in the
   field selector and view record, rather than decorating the exported figure.
 - **Save process video** exports actual saved states as MP4 at 24 fps, holding
   each state for 10 video frames. This is an output-station animation, not a
   claim of real-time playback or interpolated physical evolution. Physical
   time coordinates remain visible. It supports at most 500 saved states.
+  With **Smooth displacement** enabled it instead samples the selected playback
+  duration at 24 fps, including both endpoints. The video is marked
+  **Interpolated display**; `view.json` records each source-frame pair, weight,
+  coordinate and fixed scale. These video frames are not additional solved states.
 - **Save turntable video** rotates the camera around the current saved state
   for five seconds. It does not advance simulation time.
 - Export runs in a separate bounded process; **Cancel export** terminates it.

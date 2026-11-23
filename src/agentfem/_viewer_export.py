@@ -15,6 +15,7 @@ import numpy as np
 
 from agentfem._atomic_text import atomic_write_text
 from agentfem._viewer_files import ResultDirectory
+from agentfem._viewer_motion import timeline_sample, interpolate_displacement
 from agentfem.results import read_visualization_frame, deform_visualization_frame, inspect_visualization
 
 
@@ -52,7 +53,7 @@ def figure_annotations(view, coordinate, index, size):
     geometry = f"Deformation ×{view['scale']:g}" if view["reference_geometry"] else "Saved geometry"
     return (
         ("time", time, (int(size[0]*.045), int(size[1]*.875))),
-        ("geometry", geometry, (int(size[0]*.66), int(size[1]*.875))),
+        ("geometry", geometry, (int(size[0]*.045), int(size[1]*.84))),
     )
 
 
@@ -111,9 +112,13 @@ def apply_camera(plotter, camera):
         plotter.reset_camera_clipping_range()
 
 
-def display_frame(source, index, view):
+def display_frame(source, index, view, *, grid=None, right=None, alpha=0.):
     from agentfem.viewer import component_values, scalar_choices
-    grid = read_visualization_frame(source, frame=index)
+    grid = read_visualization_frame(source, frame=index) if grid is None else grid
+    if right is not None:
+        if not view["reference_geometry"]:
+            raise ValueError("Smooth display requires declared reference geometry and displacement.")
+        grid = interpolate_displacement(grid, right, view["displacement"], alpha, view["choice"])
     if view["reference_geometry"]:
         grid = deform_visualization_frame(grid, view["displacement"], scale=view["scale"], reference_geometry=True)
     choice = tuple(view["choice"]) if view["choice"] is not None else None
@@ -152,6 +157,15 @@ def render(request, destination, progress=None):
     fps = request.get("fps", 24)
     if type(fps) is not int or not 1 <= fps <= 60:
         raise ValueError("Video frame rate must be between 1 and 60.")
+    smooth = request.get("smooth", False) and mode == "process"
+    samples = None
+    if smooth:
+        duration = float(request.get("duration", 10.))
+        if not np.isfinite(duration) or not 1 <= duration <= 60:
+            raise ValueError("Video duration must be between 1 and 60 seconds.")
+        samples = [timeline_sample(info["saved_times"], f)
+                   for f in np.linspace(0., 1., max(2, round(fps*duration)))]
+        frames = [sample[0] for sample in samples]
     transparent = bool(request.get("transparent", False)) and mode == "image"
     destination = Path(destination)
     destination.mkdir(parents=True, exist_ok=True)
@@ -160,16 +174,25 @@ def render(request, destination, progress=None):
     movie = mode != "image"
     output = destination / ("animation.mp4" if movie else "figure.png")
     last_index, actor = None, None
+    raw_frames = {}
     try:
         plotter.set_background(preset["background"])
         plotter.enable_anti_aliasing("ssaa")
         if movie:
             plotter.open_movie(output, framerate=fps, quality=8, macro_block_size=2)
         for step, index in enumerate(frames):
-            if index != last_index:
+            if index != last_index or smooth:
                 # Revalidate XML references each read, including a live index.
                 directory.result(source)
-                grid, scalar = display_frame(source, index, view)
+                if smooth:
+                    for i in (index, index+1):
+                        if i not in raw_frames:
+                            raw_frames[i] = read_visualization_frame(source, frame=i)
+                    raw_frames = {i: raw_frames[i] for i in (index, index+1)}
+                    grid, scalar = display_frame(source, index, view, grid=raw_frames[index],
+                                                 right=raw_frames[index+1], alpha=samples[step][1])
+                else:
+                    grid, scalar = display_frame(source, index, view)
                 # Do not average cells or smooth geometry to beautify output.
                 kwargs = dict(color=preset["solid"], show_edges=view["edges"],
                               show_scalar_bar=False, ambient=.55, diffuse=.45, specular=0.,
@@ -210,13 +233,18 @@ def render(request, destination, progress=None):
             plotter.add_text(title, position=(int(size[0]*.045), int(size[1]*.92)),
                              font_size=24, color=preset["foreground"], font="arial", name="title")
             coordinate = info["saved_times"][index] if info["saved_times"] else None
+            if smooth:
+                coordinate = samples[step][2]
             for name, label, position in figure_annotations(view, coordinate, index, size):
                 plotter.add_text(label, position=position, font_size=13,
                                  color=preset["foreground"], font="arial", name=name)
+            if smooth:
+                plotter.add_text("Interpolated display", position=(int(size[0]*.045), int(size[1]*.805)),
+                                 font_size=11, color=preset["foreground"], font="arial", name="interpolation")
             if movie:
                 # Actual saved states only. Holding a frame gives a readable
                 # cadence without fabricating interpolated damage evolution.
-                repeats = max(1, round(fps * .4)) if mode == "process" else 1
+                repeats = max(1, round(fps * .4)) if mode == "process" and not smooth else 1
                 for _ in range(repeats):
                     plotter.write_frame()
             else:
@@ -226,7 +254,10 @@ def render(request, destination, progress=None):
         record = dict(view)
         record.update(export={"mode": mode, "size": size, "fps": fps if movie else None,
                       "saved_frames": frames, "saved_times": info["saved_times"],
-                      "interpolation": "none", "seconds_per_saved_state": max(1, round(fps*.4))/fps if mode == "process" else None,
+                      "interpolation": "linear_displacement" if smooth else "none",
+                      "samples": [{"left": i, "right": i+1, "weight": a, "coordinate": t}
+                                  for i, a, t in samples] if samples else None,
+                      "seconds_per_saved_state": max(1, round(fps*.4))/fps if mode == "process" and not smooth else None,
                       "transparent": transparent, "vtk_version": pv.vtk_version_info.__str__()})
         atomic_write_text(destination / "view.json", json.dumps(record, indent=2, allow_nan=False))
     finally:

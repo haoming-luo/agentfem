@@ -168,3 +168,37 @@ Material-linked rendering is feasibility only, with no new implementation:
 - Do not silently mix metal highlights/material color with quantitative scalar
   coloring. Missing labels fall back to plain geometry; no data migration is
   required for legacy files. Source results stay unchanged.
+
+### Motion and automatic deformation sizing — subsequent implementation
+
+The bounded displacement-only part of the preceding interpolation proposal is
+now implemented in the live viewer and video renderer. A shared small motion
+module owns sizing, nonuniform-coordinate sampling and reference-mesh checks;
+it does not add solver concepts. Damage/other fields are not enabled. Source
+coordinates/connectivity must match exactly, and interpolation weights and source
+pairs are written in the video recipe. No unrecorded mechanics is inferred.
+Intermediate still-view saving is rejected explicitly; selecting an original
+frame restores that workflow. Full continuous-field interpolation and semantic
+restart-gap detection are not claimed.
+
+Auto scale explicitly scans published frames, uses representative displacement
+with a maximum-excursion guard, and holds the factor during animation. Raw
+displacements remain unchanged. Pure translations, zero displacement and already
+large motions keep scale 1. The algorithm and limitations are documented in the
+viewer guide. Export annotations are stacked at fixed anchors; UI status is a
+compact block with frame identity, coordinate/time and scale. Mesh/path details
+are disclosed separately. Physical units are not inferred from XDMF timestamps.
+
+The local real-render suite passed 45 tests, including readable-scale rounding.
+Browser acceptance exercised the 25-state full composite
+result: Auto scale selected 1, interpolation advanced with explicit source-frame
+labels, and playback reached the last actual state. The same source rendered a
+six-second smooth video using 144 display samples with a complete interpolation
+recipe. This is post-processing qualification, not new simulation evidence or
+a browser frame-rate guarantee. Quantile sizing is only performed on request,
+not repeated for interpolated display frames.
+
+UX references: Apple's [motion guidance](https://developer.apple.com/design/human-interface-guidelines/motion)
+supports purposeful, optional animation; the [ParaView tutorial](https://docs.paraview.org/en/v5.13.0/Tutorials/SelfDirectedTutorial/basicUsage.html)
+documents explicit temporal interpolation and its topology/artifact limits.
+No decorative transitions were added to numerical state changes.
