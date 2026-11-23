@@ -26,8 +26,33 @@ def scalar_choices(grid):
             if values.ndim == 1 or (values.ndim == 2 and values.shape[1] == 1):
                 choices.append((association, name, None))
             elif values.ndim == 2:
+                if values.shape[1] == 3:
+                    choices.append((association, name, "magnitude"))
                 choices.extend((association, name, index) for index in range(values.shape[1]))
     return choices
+
+
+def component_values(grid, choice):
+    association, name, component = choice
+    data = grid.cell_data if association == "cell" else grid.point_data
+    values = np.asarray(data[name])
+    if component == "magnitude":
+        return np.linalg.norm(values, axis=1)
+    return values.reshape(-1) if component is None else values[:, component]
+
+
+def component_label(grid, choice):
+    association, name, component = choice
+    if component is None:
+        return "Value"
+    if component == "magnitude":
+        return "Magnitude"
+    data = grid.cell_data if association == "cell" else grid.point_data
+    # Only three-component vectors have an unambiguous XYZ display here.
+    # Tensor ordering needs a declared result contract, not a guessed Voigt map.
+    if np.asarray(data[name]).shape[1] == 3:
+        return ("X", "Y", "Z")[component]
+    return f"Component {component + 1}"
 
 
 def build_viewer(path, *, displacement=None, reference_geometry=False, server=None):
@@ -55,10 +80,14 @@ def build_viewer(path, *, displacement=None, reference_geometry=False, server=No
     cache = {"frame": None, "grid": None, "choices": [], "actor": None, "bar": None}
     state.frame = info["frame"]
     state.field = -1
-    state.scale = 0.
+    state.scale = 1.
     state.edges = False
     state.error = ""
     state.field_items = [{"title": "Solid color", "value": -1}]
+    state.quantity = -1
+    state.quantity_items = [{"title": "Solid color", "value": -1}]
+    state.component_items = []
+    state.browse_root = str(directory.root)
     state.coordinate = ""
     state.source_status = ""
     state.frame_count = info["frame_count"]
@@ -72,7 +101,7 @@ def build_viewer(path, *, displacement=None, reference_geometry=False, server=No
     state.run_items = []
     state.run_selection = None
     state.playing = False
-    state.fixed_range = False
+    state.fixed_range = True
     state.range_min = 0.
     state.range_max = 1.
     state.mesh_summary = ""
@@ -80,6 +109,7 @@ def build_viewer(path, *, displacement=None, reference_geometry=False, server=No
     state.displacement_field = displacement
     state.displacement_items = []
     playback = {"task": None}
+    range_owner = {"choice": None}
 
     def update(**_):
         if path is None:
@@ -93,6 +123,9 @@ def build_viewer(path, *, displacement=None, reference_geometry=False, server=No
                        if np.asarray(values).ndim == 2 and np.asarray(values).shape[1] == 3
                        and np.asarray(values).dtype.kind in "fiu"]
             state.displacement_items = vectors
+            if (state.reference_geometry and state.displacement_field is None and len(vectors) == 1
+                    and vectors[0] in {"Displacement", "displacement", "U"}):
+                state.displacement_field = vectors[0]
             selected = int(state.field)
             if changed:
                 # Changing schema must not silently reuse an index for another field.
@@ -108,8 +141,7 @@ def build_viewer(path, *, displacement=None, reference_geometry=False, server=No
             if selected >= 0:
                 association, name, component = choices[selected]
                 data = displayed.cell_data if association == "cell" else displayed.point_data
-                values = np.asarray(data[name])
-                values = values.reshape(-1) if component is None else values[:, component]
+                values = component_values(displayed, choices[selected])
                 if not np.isfinite(values).all():
                     raise ValueError("Selected field contains nonfinite values.")
                 # A view-only scalar array never replaces source tensor/field data.
@@ -117,9 +149,16 @@ def build_viewer(path, *, displacement=None, reference_geometry=False, server=No
                 while key in data:
                     key += "_"
                 data[key] = values.copy()
-                label = name if component is None else f"{name}[{component}]"
+                label = name if component is None else f"{name} · {component_label(grid, choices[selected])}"
                 bounds = None
                 if state.fixed_range:
+                    if range_owner["choice"] != choices[selected]:
+                        low, high = float(values.min()), float(values.max())
+                        if low == high:
+                            pad = max(abs(low)*.01, 1.e-12)
+                            low, high = low-pad, high+pad
+                        range_owner["choice"] = choices[selected]
+                        state.range_min, state.range_max = low, high
                     bounds = float(state.range_min), float(state.range_max)
                     if not np.isfinite(bounds).all() or bounds[0] >= bounds[1]:
                         raise ValueError("Color minimum must be finite and smaller than maximum.")
@@ -154,6 +193,15 @@ def build_viewer(path, *, displacement=None, reference_geometry=False, server=No
                 plotter.camera_position = camera
             cache.update(frame=index, grid=grid, choices=choices)
             with state:
+                groups = list(dict.fromkeys((a, n) for a, n, _ in choices))
+                state.quantity_items = [{"title": "Solid color", "value": -1}] + [
+                    {"title": f"{n} · {'Elements' if a == 'cell' else 'Nodes'}", "value": i}
+                    for i, (a, n) in enumerate(groups)]
+                state.quantity = groups.index(choices[selected][:2]) if selected >= 0 else -1
+                state.component_items = [
+                    {"title": component_label(grid, choice), "value": i}
+                    for i, choice in enumerate(choices)
+                    if selected >= 0 and choice[:2] == choices[selected][:2]]
                 state.field_items = [{"title": "Solid color", "value": -1}] + [
                     {"title": f"{name}{'' if component is None else '['+str(component)+']'} · {association}",
                      "value": i} for i, (association, name, component) in enumerate(choices)]
@@ -226,12 +274,13 @@ def build_viewer(path, *, displacement=None, reference_geometry=False, server=No
                 state.frame_count = latest["frame_count"]
                 state.frame = latest["frame"]
                 state.field = -1
-                state.scale = 0.
+                state.scale = 1.
                 # Coordinate semantics belong to this file, not the previously
                 # opened file. Never accidentally warp current coordinates twice.
                 state.reference_geometry = False
                 state.displacement_field = None
-                state.fixed_range = False
+                state.fixed_range = True
+                range_owner["choice"] = None
                 state.error = ""
             update()
         except (ValueError, IndexError, TypeError, OSError, ET.ParseError) as exc:
@@ -271,6 +320,41 @@ def build_viewer(path, *, displacement=None, reference_geometry=False, server=No
             files = [item for item in state.file_items if not item["directory"]]
             if not state.error and len(files) == 1:
                 state.file_selection = files[0]["value"]
+
+    def select_quantity(**_):
+        groups = list(dict.fromkeys(choice[:2] for choice in cache["choices"]))
+        index = int(state.quantity)
+        if index < 0:
+            state.field = -1
+        elif index < len(groups):
+            current = int(state.field)
+            if not (0 <= current < len(cache["choices"]) and cache["choices"][current][:2] == groups[index]):
+                state.field = next(i for i, choice in enumerate(cache["choices"]) if choice[:2] == groups[index])
+
+    def fit_series_range(**_):
+        stop_playback()
+        try:
+            selected = int(state.field)
+            if path is None or selected < 0:
+                return
+            choice = cache["choices"][selected]
+            low, high = float("inf"), float("-inf")
+            for i in range(info["frame_count"]):
+                frame_grid = read_visualization_frame(path, frame=i)
+                values = component_values(frame_grid, choice)
+                if not np.isfinite(values).all():
+                    raise ValueError("Selected field contains nonfinite values.")
+                low, high = min(low, float(values.min())), max(high, float(values.max()))
+            if low == high:
+                pad = max(abs(low)*.01, 1.e-12)
+                low, high = low-pad, high+pad
+            range_owner["choice"] = choice
+            with state:
+                state.fixed_range = True
+                state.range_min, state.range_max = low, high
+                state.error = ""
+        except (KeyError, ValueError, IndexError, OSError, ET.ParseError) as exc:
+            state.error = str(exc)
 
     def refresh(**_):
         # Reopen only the atomically published index; never inspect a writer's
@@ -316,6 +400,7 @@ def build_viewer(path, *, displacement=None, reference_geometry=False, server=No
         with ui.drawer:
             with v3.VContainer(classes="pa-4 d-flex flex-column ga-3"):
                 v3.VLabel("LOCAL RESULTS", style="font-size:12px; letter-spacing:1px")
+                v3.VLabel("Location: {{ browse_root }}", style="font-size:12px; white-space:normal; overflow-wrap:anywhere")
                 v3.VSelect(v_model=("project_selection", None), items=("project_items",),
                            label="Project", v_if="project_items.length", hide_details=True,
                            density="compact")
@@ -325,14 +410,17 @@ def build_viewer(path, *, displacement=None, reference_geometry=False, server=No
                 v3.VSelect(v_model=("file_selection", None), items=("file_items",),
                            label="Result or folder", hide_details=True, density="compact")
                 with v3.VRow(classes="ma-0 ga-2"):
-                    v3.VBtn("Open", click=open_selection, color="primary", variant="tonal", prepend_icon="mdi-folder-open-outline")
-                    v3.VBtn("Up", click=parent_folder, disabled=("folder === '.'",), variant="text")
+                    v3.VBtn("{{ file_items.some(item => item.value === file_selection && item.directory) ? 'Browse folder' : 'Show result' }}", click=open_selection, color="primary", variant="tonal", prepend_icon="mdi-folder-open-outline")
+                    v3.VBtn("Parent folder", click=parent_folder, disabled=("folder === '.'",), variant="text")
                 v3.VLabel("Folder: {{ folder }}", style="font-size:12px; white-space:normal; overflow-wrap:anywhere")
                 v3.VDivider()
-                v3.VSelect(v_model=("field", -1), items=("field_items",),
-                           label="Field · association", hide_details=True, density="compact")
+                v3.VSelect(v_model=("quantity", -1), items=("quantity_items",),
+                           label="Field", hide_details=True, density="compact")
+                v3.VSelect(v_model=("field", -1), items=("component_items",),
+                           label="Component", v_if="quantity >= 0", hide_details=True, density="compact")
                 v3.VCheckbox(v_model=("edges", False), label="Show mesh edges", hide_details=True, density="compact")
-                v3.VCheckbox(v_model=("fixed_range", False), label="Fixed color range", hide_details=True, density="compact")
+                v3.VCheckbox(v_model=("fixed_range", True), label="Keep colors consistent", hide_details=True, density="compact")
+                v3.VBtn("Fit all saved frames", click=fit_series_range, disabled=("field < 0",), variant="text")
                 with v3.VRow(classes="ma-0 ga-2 flex-nowrap"):
                     v3.VTextField(v_model=("range_min", 0.), label="Minimum", type="number",
                                   disabled=("!fixed_range",), hide_details=True, density="compact", style="min-width:0")
@@ -340,13 +428,13 @@ def build_viewer(path, *, displacement=None, reference_geometry=False, server=No
                                   disabled=("!fixed_range",), hide_details=True, density="compact", style="min-width:0")
                 v3.VDivider()
                 v3.VCheckbox(v_model=("reference_geometry", bool(reference_geometry)),
-                             label="Coordinates are undeformed", hide_details=True, density="compact")
+                             label="Deform reference mesh", hide_details=True, density="compact")
                 v3.VSelect(v_model=("displacement_field", displacement), items=("displacement_items",),
                            label="Displacement · point vector", disabled=("!reference_geometry",),
                            hide_details=True, density="compact")
-                v3.VTextField(v_model=("scale", 0.), label="Warp scale", type="number",
+                v3.VTextField(v_model=("scale", 1.), label="Deformation scale", type="number",
                               disabled=("!reference_geometry || !displacement_field",), hide_details=True, density="compact")
-                v3.VLabel("Warp changes the view, not the saved geometry.",
+                v3.VLabel("Use undeformed output geometry. Scale 1 shows actual displacement; saved data are unchanged.",
                           style="font-size:12px; white-space:normal")
         with ui.content:
             with v3.VContainer(fluid=True, classes="pa-0 d-flex flex-column",
@@ -377,6 +465,7 @@ def build_viewer(path, *, displacement=None, reference_geometry=False, server=No
                  "reference_geometry", "displacement_field")(update)
     state.change("project_selection")(select_project)
     state.change("run_selection")(select_run)
+    state.change("quantity")(select_quantity)
     ctrl.on_server_ready.add(update)
     ctrl.on_server_exited.add(stop_playback)
     def close_view(**_):
@@ -391,6 +480,7 @@ def build_viewer(path, *, displacement=None, reference_geometry=False, server=No
     ctrl.select_run = select_run
     ctrl.toggle_playback = toggle_playback
     ctrl.stop_playback = stop_playback
+    ctrl.fit_series_range = fit_series_range
     return server
 
 

@@ -7,7 +7,7 @@ import pytest
 
 pv = pytest.importorskip("pyvista")
 
-from agentfem.viewer import scalar_choices
+from agentfem.viewer import scalar_choices, component_values, component_label
 
 
 def test_scalar_choices_preserve_duplicate_names_and_components():
@@ -20,6 +20,12 @@ def test_scalar_choices_preserve_duplicate_names_and_components():
     choices = scalar_choices(grid)
     assert ("cell", "damage", None) in choices
     assert ("point", "damage", None) in choices
+    assert ("point", "U", "magnitude") in choices
+    assert component_label(grid, ("point", "U", 0)) == "X"
+    assert component_label(grid, ("point", "U", 2)) == "Z"
+    assert component_label(grid, ("cell", "stress", 0)) == "Component 1"
+    grid.point_data["U"][:] = [3., 4., 0.]
+    np.testing.assert_array_equal(component_values(grid, ("point", "U", "magnitude")), 5.)
     assert [("cell", "stress", i) for i in range(9)] == [
         choice for choice in choices if choice[1] == "stress"
     ]
@@ -86,6 +92,12 @@ def test_play_pause_advances_only_saved_frames(tmp_path, monkeypatch):
 
         monkeypatch.setattr(asyncio, "sleep", clock_tick)
         ctrl.on_server_ready()
+        assert state.scale == 1. and state.fixed_range
+        with state:
+            state.quantity = 0
+        assert state.component_items == [{"title": "Value", "value": 0}]
+        ctrl.fit_series_range()
+        assert state.range_min == 0. and state.range_max == .2
         ctrl.toggle_playback()  # Last frame restarts at the first saved frame.
         assert state.frame == 0 and state.playing
         await original_sleep(0)

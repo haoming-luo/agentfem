@@ -20,7 +20,7 @@ agentfem-view /path/to/project/outputs
 
 For project/run navigation, open a project itself or the folder containing your
 projects: `agentfem-view /path/to/projects`. Select **Project**, then **Run**,
-then the desired XDMF (or other supported result) and **Open**. Project selection
+then the desired XDMF (or other supported result) and **Show result**. Project selection
 uses `agentfem.toml`, including a custom `run.output_directory`; it never imports
 or executes `case.py`. Discovery is limited to the opened folder and immediate
 child projects, not a recursive disk search. Ordinary folder browsing remains
@@ -33,7 +33,9 @@ reader inputs are XDMF, VTU, legacy VTK and PVD. The viewer accepts one dataset
 per saved time; it does not merge distinct physical blocks or coincident nodes.
 Use trusted local files. The service listens only on `127.0.0.1`; Ctrl+C stops
 it. It does not upload results or execute a case. No AI is needed to use it.
-Choose **Result or folder**, then **Open**; **Up** returns to the parent.
+Choose **Result or folder**, then **Show result** (or **Browse folder** for a
+directory); **Parent folder** returns to the parent. **Location** shows the
+opened browsing root.
 The selected root limits browsing and XML companion references. For continuation
 indexes referencing sibling runs, open their common parent directory.
 
@@ -43,14 +45,22 @@ The left panel groups file, field and deformation controls. Its top-left menu
 button hides the panel when you want more space for the model. The saved-frame
 slider stays above the canvas. Nothing here changes the stored result.
 
-- **Field · association** selects a scalar or stored component, keeping cell
-  and node fields distinct. No cell-to-node smoothing or tensor invariant is
-  invented.
+- **Field** selects the saved quantity, with **Elements** or **Nodes** indicating
+  where values are stored. **Component** selects its component separately;
+  three-component vectors offer **Magnitude**, **X**, **Y**, **Z**. Magnitude
+  is computed only for display. Tensor components retain numbered ordering
+  rather than guessing an undocumented Voigt convention. No nodal smoothing
+  or stress invariant is invented.
 - **Saved frame** selects an actual output station, not an interpolated time.
 - **Play** advances through saved frames; **Pause** stops. It does not imply a
   uniform physical sampling interval.
-- **Fixed color range** keeps the same minimum and maximum across frames.
-  Without it, each frame has its own range; colors alone cannot compare damage.
+- **Keep colors consistent** is on by default. Selecting a new field/component
+  initializes its limits from the displayed frame, then holds them during
+  playback. **Fit all saved frames** reads the published frames one at a time
+  to find the full range; this explicit operation may take time for large
+  results, but does not keep every frame in memory. Minimum/maximum remain
+  available for optional custom limits. Turning the checkbox off rescales each
+  frame independently. Refresh does not silently enlarge a previously fixed range.
 - **Refresh frames** reopens the published index, preserving the selected
   station if it still exists. New frames become selectable; old H5 files are
   neither duplicated nor edited. Refresh an atomically published frame-file
@@ -58,8 +68,10 @@ slider stays above the canvas. Nothing here changes the stored result.
 - **Show mesh edges** and **Reset view** control the display. Drag to rotate and scroll
   to zoom using VTK's browser interaction.
 
-To enable deformation, select **Coordinates are undeformed**, choose the nodal
-displacement vector, and set **Warp scale** (1 shows the saved displacement).
+To enable deformation, select **Deform reference mesh**, choose the nodal
+displacement vector, and set **Deformation scale** (default 1 shows actual
+saved displacement). A sole vector named `Displacement`, `displacement` or `U`
+is selected automatically; other names require explicit selection.
 Only enable this when the output contract says the coordinates are on reference
 geometry. The same declaration can be supplied when launching:
 
