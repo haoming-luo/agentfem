@@ -129,3 +129,48 @@ def test_review_reuses_regions_once_and_does_not_keep_stale_geometry(monkeypatch
     second = m.review(target=u)
     assert second['loads'][0]['reference_measure'] == pytest.approx(2.)
     assert second['loads'][0]['region']['bounds'][1][1] == 2.
+
+
+def test_review_region_sampling_failure_reaches_every_rank(monkeypatch):
+    from dolfinx import mesh as dm
+    d,m,u,_ = model()
+    original = dm.entities_to_geometry
+    def fail_on_one_rank(*args, **kwargs):
+        if d.comm.rank == 0:
+            raise ValueError('injected region sampling failure')
+        return original(*args, **kwargs)
+    monkeypatch.setattr(dm, 'entities_to_geometry', fail_on_one_rank)
+    with pytest.raises((ValueError, RuntimeError), match='region sampling failure'):
+        m.review(target=u)
+
+
+def test_review_rejects_rank_inconsistent_constraint_plan():
+    if MPI.COMM_WORLD.size < 2:
+        pytest.skip('requires multiple ranks')
+    _,m,u,_ = model()
+    if MPI.COMM_WORLD.rank == 0:
+        m.constraints.clear()
+    with pytest.raises(RuntimeError, match='review communication plan.*differs across MPI ranks'):
+        m.review(target=u)
+
+
+def test_review_rejects_foreign_region_before_sampling():
+    from dataclasses import replace
+    _,m,u,_ = model()
+    other = mesh.rectangle((0.,0.), (2.,1.), (4,2), comm=MPI.COMM_WORLD)
+    if MPI.COMM_WORLD.rank == 0:
+        m.regions[0] = replace(m.regions[0], domain=other)
+    with pytest.raises((ValueError, RuntimeError), match='region must belong to the model mesh'):
+        m.review(target=u)
+
+
+def test_review_rejects_invalid_local_region_indices():
+    from dataclasses import replace
+    from types import SimpleNamespace
+    from agentfem._model_review import region_evidence
+    d,_,_,right = model()
+    tags = right.facet_tags
+    replacement = SimpleNamespace(dim=tags.dim, find=lambda _: np.array([-1], dtype=np.int32))
+    region = replace(right, facet_tags=replacement) if d.comm.rank == 0 else right
+    with pytest.raises((ValueError, RuntimeError), match='out-of-range entity indices'):
+        region_evidence(region, study=studies.static_solid(dimension=2, assumption='plane_stress'))

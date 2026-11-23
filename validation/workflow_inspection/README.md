@@ -58,3 +58,26 @@ No Step numerical algorithm, constitutive update, convergence tolerance or
 accepted-state lifecycle is changed. Local/installed/remote acceptance for the
 final candidate is recorded on PR #198 rather than attributed to this timing
 record's older implementations.
+
+## Follow-up review: collective failure boundaries
+
+A new two-rank failure probe on candidate `99463fcb` confirmed that a local
+`entities_to_geometry` failure in model review could leave its peer waiting
+in the next reduction. The bounded probe stopped the process group after 35 s.
+Review now agrees on constraint/region communication order before validation,
+rejects foreign regions, and propagates local sampling/index errors before
+count/bounds reductions. It does not require partition-local counts or field
+coefficients to match and does not change the FE solve.
+
+The [fresh paired measurement](review_timing.json) repeats the same five-pair
+method and baseline above, after adding these guards. Scientific records still
+match. Snapshot time reductions are 52.2%, 52.7% and 52.6%; review reductions
+are 27.4%, 26.5% and 20.5% at the same ascending cell counts. The 32,768-cell
+snapshot memory tradeoff remains 15.53 MB to 20.47 MB. This is a new sample on
+the recorded machine, not a claim that the additional guard accelerated review.
+
+Automated cases cover a single-rank sampling exception, invalid local entity
+indices, a foreign region and mismatched constraint counts, alongside the
+existing differing-alias and geometry-mutation cases. Both two- and three-rank
+execution are exercised. Final installed and remote acceptance is recorded on
+the same PR.

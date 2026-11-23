@@ -75,6 +75,11 @@ When a target is supplied, the budget identifies its registered scalar DOF
 count and rejects a target on a different mesh. Mesh/region identities and
 review integrations are reused only within the current call; edits to geometry
 or coefficients are read again on the next call.
+Model review agrees on the registered collective call order before validation
+or integration. Rank-inconsistent constraint/region declarations, foreign-mesh
+regions, invalid local entity indices and local region-sampling failures fail
+before peers enter the next reduction. Partition-local entity counts and field
+coefficients are not required to be equal across ranks.
 
 ## Find a task and use its installed project
 

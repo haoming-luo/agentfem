@@ -1,0 +1,226 @@
+{
+  "baseline_ref": "2bbf160f12c16a195ed76c345bae4c08e717c1a3",
+  "python": "3.11.15 | packaged by conda-forge | (main, Jun 11 2026, 03:29:05) [Clang 19.1.7 ]",
+  "platform": "macOS-26.6.2-arm64-arm-64bit",
+  "boundary": "metadata owner functions with shared current dependencies; warmed JIT; no solve, output or Python startup",
+  "source_sha256": {
+    "agentfem._model_review": "68901a82694235d4ca6ea5d0ca11828a937de4ff707a29f2a5c0b3ea355b33c7",
+    "agentfem._model_settings": "c30180470fb498b343e56d541443f8668462c04a861d77122fac6a9c55773eee",
+    "agentfem.checkpointing": "4749547cacd1b9dfb2acef0c8059a330bfbe16e03ca722a6a6af32a276d1a8a4"
+  },
+  "sizes": [
+    {
+      "cells": 2048,
+      "snapshot": {
+        "pairs_seconds": [
+          {
+            "baseline": 0.01776616700226441,
+            "candidate": 0.008439709024969488
+          },
+          {
+            "candidate": 0.008282083028461784,
+            "baseline": 0.017241166962776333
+          },
+          {
+            "baseline": 0.01724299998022616,
+            "candidate": 0.008177249983418733
+          },
+          {
+            "candidate": 0.008244541997555643,
+            "baseline": 0.01690370903816074
+          },
+          {
+            "baseline": 0.01727487496100366,
+            "candidate": 0.00820133398519829
+          }
+        ],
+        "median_seconds": {
+          "baseline": 0.01724299998022616,
+          "candidate": 0.008244541997555643
+        },
+        "time_reduction_fraction": 0.5218615086115944,
+        "python_peak_bytes": {
+          "baseline": 1088953,
+          "candidate": 1299993
+        },
+        "records_equal": true
+      },
+      "review": {
+        "pairs_seconds": [
+          {
+            "baseline": 0.023524917021859437,
+            "candidate": 0.017206332995556295
+          },
+          {
+            "candidate": 0.016945999988820404,
+            "baseline": 0.023776709043886513
+          },
+          {
+            "baseline": 0.023253416002262384,
+            "candidate": 0.017398249998223037
+          },
+          {
+            "candidate": 0.016973874997347593,
+            "baseline": 0.023373166972305626
+          },
+          {
+            "baseline": 0.023217333015054464,
+            "candidate": 0.016713874996639788
+          }
+        ],
+        "median_seconds": {
+          "baseline": 0.023373166972305626,
+          "candidate": 0.016973874997347593
+        },
+        "time_reduction_fraction": 0.27378797158897716,
+        "python_peak_bytes": {
+          "baseline": 2845913,
+          "candidate": 2842105
+        },
+        "records_equal": true
+      }
+    },
+    {
+      "cells": 8192,
+      "snapshot": {
+        "pairs_seconds": [
+          {
+            "baseline": 0.0695263750385493,
+            "candidate": 0.03263691603206098
+          },
+          {
+            "candidate": 0.03239370899973437,
+            "baseline": 0.06804254098096862
+          },
+          {
+            "baseline": 0.06772458297200501,
+            "candidate": 0.03187479201005772
+          },
+          {
+            "candidate": 0.03186187497340143,
+            "baseline": 0.06790345796616748
+          },
+          {
+            "baseline": 0.06808504200307652,
+            "candidate": 0.032174790976569057
+          }
+        ],
+        "median_seconds": {
+          "baseline": 0.06804254098096862,
+          "candidate": 0.032174790976569057
+        },
+        "time_reduction_fraction": 0.5271371334358561,
+        "python_peak_bytes": {
+          "baseline": 3969305,
+          "candidate": 5127833
+        },
+        "records_equal": true
+      },
+      "review": {
+        "pairs_seconds": [
+          {
+            "baseline": 0.024651375017128885,
+            "candidate": 0.018121666042134166
+          },
+          {
+            "candidate": 0.017924249987117946,
+            "baseline": 0.02393787499750033
+          },
+          {
+            "baseline": 0.023895416990853846,
+            "candidate": 0.018365291005466133
+          },
+          {
+            "candidate": 0.017842541972640902,
+            "baseline": 0.024450749973766506
+          },
+          {
+            "baseline": 0.024386374978348613,
+            "candidate": 0.01791987504111603
+          }
+        ],
+        "median_seconds": {
+          "baseline": 0.024386374978348613,
+          "candidate": 0.017924249987117946
+        },
+        "time_reduction_fraction": 0.2649891587810017,
+        "python_peak_bytes": {
+          "baseline": 2843664,
+          "candidate": 2842045
+        },
+        "records_equal": true
+      }
+    },
+    {
+      "cells": 32768,
+      "snapshot": {
+        "pairs_seconds": [
+          {
+            "baseline": 0.27993979095481336,
+            "candidate": 0.13238858303520828
+          },
+          {
+            "candidate": 0.13352337502874434,
+            "baseline": 0.2784362909733318
+          },
+          {
+            "baseline": 0.2771689999499358,
+            "candidate": 0.13137520803138614
+          },
+          {
+            "candidate": 0.13052862498443574,
+            "baseline": 0.2760761249810457
+          },
+          {
+            "baseline": 0.2758794999681413,
+            "candidate": 0.13134479196742177
+          }
+        ],
+        "median_seconds": {
+          "baseline": 0.2771689999499358,
+          "candidate": 0.13137520803138614
+        },
+        "time_reduction_fraction": 0.5260104555158909,
+        "python_peak_bytes": {
+          "baseline": 15530521,
+          "candidate": 20465721
+        },
+        "records_equal": true
+      },
+      "review": {
+        "pairs_seconds": [
+          {
+            "baseline": 0.029178624972701073,
+            "candidate": 0.025041707966011018
+          },
+          {
+            "candidate": 0.025292209000326693,
+            "baseline": 0.0325434579863213
+          },
+          {
+            "baseline": 0.030628375010564923,
+            "candidate": 0.024092874955385923
+          },
+          {
+            "candidate": 0.02435733302263543,
+            "baseline": 0.03117579099489376
+          },
+          {
+            "baseline": 0.02994754200335592,
+            "candidate": 0.022912500018719584
+          }
+        ],
+        "median_seconds": {
+          "baseline": 0.030628375010564923,
+          "candidate": 0.02435733302263543
+        },
+        "time_reduction_fraction": 0.2047461540407013,
+        "python_peak_bytes": {
+          "baseline": 3199556,
+          "candidate": 3200201
+        },
+        "records_equal": true
+      }
+    }
+  ]
+}

@@ -6,6 +6,58 @@ import numpy as np
 import ufl
 from mpi4py import MPI
 from ._model_support import domain, describe
+from ._mpi_collectives import _defer_automatic_gc
+
+
+def _review_communication_plan(model, mesh, target, step_options):
+    """Agree on collective branches before validation or boundary assembly.
+
+    Local entity counts and field coefficients intentionally stay out of the
+    plan: they normally differ across partitions. Python aliases are likewise
+    irrelevant. Region ownership and call order must agree, however.
+    """
+    from .constraints import dirichlet_constraints
+    from .provenance import collective_call, collective_canonical_record
+
+    def region_plan(region):
+        if region is None:
+            return None
+        if getattr(region, 'domain', None) is not None and region.domain is not mesh:
+            raise ValueError('Model review region must belong to the model mesh.')
+        tags = getattr(region, 'facet_tags', None)
+        if tags is None:
+            tags = getattr(region, 'cell_tags', None)
+        if tags is None:
+            return {'status': 'not_tagged'}
+        dim = int(tags.dim)
+        if not 0 <= dim <= mesh.topology.dim:
+            raise ValueError('Review region entity dimension exceeds the model mesh dimension.')
+        return {'name': region.name, 'dimension': dim, 'tag': int(region.tag)}
+
+    def field_plan(item):
+        space = getattr(item, 'function_space', None)
+        if space is not None and space.mesh is not mesh:
+            raise ValueError('Model review field must belong to the model mesh.')
+        return {'name': getattr(item, 'name', None), 'has_space': space is not None}
+
+    def prepare():
+        return {
+            'study': describe(model.study),
+            'fields': [field_plan(item) for item in model.fields],
+            'target': None if target is None else field_plan(target),
+            'constraints': [[{'has_bc': getattr(member, 'bc', None) is not None,
+                'region': region_plan(getattr(member, 'location', None))}
+                for member in dirichlet_constraints((item,))] for item in model.constraints],
+            'loads': [{'region': region_plan(getattr(item, 'location', None)),
+                'shape': getattr(getattr(item, 'value', None), 'ufl_shape', None)} for item in model.loads],
+            'materials': [region_plan(item.region) for item in model.materials],
+            'regions': [region_plan(item) for item in model.regions],
+            'reference_thickness': (step_options or {}).get('reference_thickness'),
+        }
+
+    with _defer_automatic_gc():
+        plan = collective_call(prepare, comm=mesh.comm, label='model review communication plan')
+        collective_canonical_record(plan, comm=mesh.comm, label='model review communication plan')
 
 
 def _bounds(mesh, points):
@@ -50,13 +102,20 @@ def region_evidence(region, *, study):
         tags = getattr(region, 'cell_tags', None)
     if mesh is None or tags is None:
         return {'status': 'not_checked', 'reason': 'requires a tagged cell or boundary region'}
-    selected = np.asarray(tags.find(region.tag), dtype=np.int32)
     mesh.topology.create_entities(tags.dim)
-    selected = selected[selected < mesh.topology.index_map(tags.dim).size_local]
-    count = int(mesh.comm.allreduce(len(selected), op=MPI.SUM))
     from dolfinx.mesh import entities_to_geometry
-    indices = entities_to_geometry(mesh, tags.dim, selected).reshape(-1)
-    points = mesh.geometry.x[indices, :mesh.geometry.dim]
+    from .provenance import collective_call
+    def sample_local():
+        selected = np.asarray(tags.find(region.tag), dtype=np.int32)
+        index_map = mesh.topology.index_map(tags.dim)
+        if np.any(selected < 0) or np.any(selected >= index_map.size_local + index_map.num_ghosts):
+            raise ValueError('Review region tags contain out-of-range entity indices.')
+        selected = selected[selected < index_map.size_local]
+        indices = entities_to_geometry(mesh, tags.dim, selected).reshape(-1)
+        return len(selected), mesh.geometry.x[indices, :mesh.geometry.dim]
+    with _defer_automatic_gc():
+        local_count, points = collective_call(sample_local, comm=mesh.comm, label='model review region sampling')
+    count = int(mesh.comm.allreduce(local_count, op=MPI.SUM))
     return {'status': 'checked', 'name': region.name, 'tag': int(region.tag),
         'entity_dimension': int(tags.dim), 'global_owned_entities': count,
         'bounds': _bounds(mesh, points),
@@ -91,6 +150,7 @@ def review_model(model, *, target=None, step_options=None, output_fields=(), out
     mesh = domain(model.mesh)
     if mesh is None:
         raise ValueError('Model review requires a mesh.')
+    _review_communication_plan(model, mesh, target, step_options)
     comm = mesh.comm
     evidence = _ReviewRegions(mesh, model.study)
     validation = model.validate(target=target, step_options=step_options).as_dict()
