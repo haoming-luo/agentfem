@@ -153,6 +153,7 @@ _SOURCE_TEST_MAP = {
 _P92_CONTROL_TESTS = (
     "tests/test_p92_rate_recovery.py",
     "tests/test_p92_aging_resistance.py",
+    "tests/test_p92_rate_fingerprint.py",
     "tests/test_p92_recovery_shape.py",
     "tests/test_p92_20261122_state_kinetics_evidence.py",
     "tests/test_p92_critical_recovery.py",
@@ -228,6 +229,9 @@ _P92_CONTROL_INPUTS = (
     "tools/p92_rate_recovery_reference.py",
     "tools/p92_aging_resistance_reference.py",
     "tools/p92_aging_resistance_probe.py",
+    "tools/p92_rate_fingerprint.py",
+    "evidence/creep/2026-11-23-rate-fingerprint-control.json",
+    "evidence/creep/2026-11-23-rate-fingerprint-aging.json",
     "evidence/creep/2026-11-23-aging-resistance-probe.json",
     "evidence/creep/2026-11-23-aging-resistance-matched.json",
     "evidence/creep/2026-11-23-aging-resistance-control-matched.json",

@@ -1,5 +1,17 @@
 # AgentFEM Product Roadmap
 
+### Hold kinetics / reverse-strength discrimination (2026-11-23)
+
+The [frozen-state rate fingerprint](internal/p92_rate_fingerprint_20261123.md)
+separates irreversible flow from recoverable flow before further fitting.
+Both frozen cards cover 24 early-cycle hold stations, including SLR's separate
+zero-strain intermediate holds. Independent root solvers and analytical limits
+check the diagnostic. Total-rate cancellation is not irreversible inactivity.
+The rejected aging card also widens high-rate reverse-flow response: it has
+not isolated the needed hold correction. This is a diagnostic milestone, not
+a newly accepted mechanism or experimental validation. Retain all original
+response failures; admit no new optimizer batch on this evidence alone.
+
 ### Rate-target resistance memory (2026-11-23)
 
 The [aging-resistance replacement](internal/p92_aging_resistance_20261123.md)

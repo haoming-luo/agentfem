@@ -21,6 +21,16 @@ def test_scalar_p92_controls_cover_transitive_consumers_without_release_matrix()
     assert classify_changes(["tools/p92_two_mechanism.py", "pyproject.toml"]).level == "release"
 
 
+@pytest.mark.parametrize("path", ["tools/p92_rate_fingerprint.py",
+    "evidence/creep/2026-11-23-rate-fingerprint-control.json",
+    "evidence/creep/2026-11-23-rate-fingerprint-aging.json"])
+def test_rate_fingerprint_selects_scientific_regressions(path):
+    scope = classify_changes([path])
+    assert scope.level == "targeted"
+    assert "tests/test_p92_rate_fingerprint.py" in scope.tests
+    assert "tests/test_p92_response_screen.py" in scope.tests
+
+
 def test_classifier_edit_selects_its_own_regressions():
     scope = classify_changes(["ci_validation_scope.py", "tools/p92_recovery_discriminator.py"])
     assert scope.level == "targeted"
