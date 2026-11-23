@@ -109,3 +109,62 @@ This is a local macOS rendering qualification, not Windows graphics-driver
 certification or a new scientific validation of the underlying simulation.
 The download helper and Python renderer remain optional, outside the numerical
 solver path. No solver timing benefit is claimed.
+
+### Visual refinement and bounded next steps
+
+User review rejected the yellow/dark default and moving inline annotations.
+The default light styles now use Ocean (ice/teal/blue), with Iris
+(lavender/indigo) as an alternative. Both use monotonically decreasing relative
+luminance; this is tested, but is not a claim of perceptual uniformity or a
+Nature-endorsed palette. Existing named palettes/saved views remain compatible.
+Time and deformation labels have independent fixed anchors. Association is
+retained in the field selector and saved recipe, not printed as "Nodal values"
+on every figure. Softer diffuse lighting reduces misleading specular highlights.
+
+Design references: Apple's current [color guidance](https://developer.apple.com/design/human-interface-guidelines/color)
+and [content-first interface description](https://www.apple.com/newsroom/2025/06/apple-introduces-a-delightful-and-elegant-new-software-design/),
+[Nature's figure specifications](https://research-figure-guide.nature.com/figures/preparing-figures-our-specifications/),
+and [Loro Piana's material presentation](https://www.loropiana.com/interiors/collection-2025/matter/index_EN.php).
+These motivate hierarchy, restraint and legibility, not copying branding or
+substituting decorative gradients for scientific scalar maps. Figure labels,
+units and ranges remain legible; a pretty image is not scientific acceptance.
+
+Temporal interpolation is a separate, not-yet-implemented display option.
+[ParaView's tutorial](https://docs.paraview.org/en/v5.13.0/Tutorials/SelfDirectedTutorial/basicUsage.html)
+explicitly distinguishes saved frames from optional temporal interpolation and
+warns about artifacts. Proposed acceptance: unchanged connectivity and stable
+point/cell identity, finite strictly increasing saved times, endpoint-exact
+linear interpolation, original extrema/color limits preserved, and a recipe
+recording the two source frames and interpolation weight. Sample uniformly in
+physical time, not just frame index. No optical-flow/AI interpolation of rendered
+pixels: this can invent crack motion and blur legends. Start with explicitly
+continuous displacement/temperature fields; do not interpolate category IDs,
+contact status, deletion flags or fracture events. Unknown semantics stay in
+saved-frame playback. The smooth view must be labeled as interpolated, cannot
+be queried as a computed state, and must not overwrite source H5. Only two source
+states should be cached. Camera turntable animation is already continuous and
+does not require interpolating the solution. Current process exports still
+hold saved states; the new sample does not claim otherwise.
+
+Material-linked rendering is feasibility only, with no new implementation:
+
+- Keep the ordinary scalar-field mode as default. Add an optional appearance
+  switch between scalar field, component identity and material appearance,
+  with distinct scalar versus categorical legends.
+- Use stable exported cell/component IDs plus a declarative material-name
+  mapping, not geometric proximity, node merging, guessing from modulus, or
+  executing case.py. Existing Abaqus lowering carries material assignments,
+  but the current viewer does not consume a general component/appearance map.
+  Verify that identity survives output conversion, continuation and all frames.
+- Generic neutral colors require no extra metadata. Optional explicit material
+  families can suggest a visual preset; names alone do not establish surface
+  finish. Roughness, metallic response and opacity are visual overrides separate
+  from constitutive properties. Composite weave requires declared orientation
+  and a deliberately illustrative texture, not a fabricated microstructure.
+- Reuse [VTK/PyVista PBR](https://docs.pyvista.org/examples/02-plot/pbr.html),
+  with a simpler fallback where the browser renderer differs. Cache surfaces
+  per component and reuse data, not an actor per cell. Verify picking, legend,
+  units, original values and deformation are identical when appearance changes.
+- Do not silently mix metal highlights/material color with quantitative scalar
+  coloring. Missing labels fall back to plain geometry; no data migration is
+  required for legacy files. Source results stay unchanged.

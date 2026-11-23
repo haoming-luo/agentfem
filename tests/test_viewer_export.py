@@ -37,6 +37,26 @@ def test_saved_view_has_no_executable_payload():
     assert validate_view(json.loads(json.dumps(record))) == record
 
 
+def test_annotation_positions_do_not_depend_on_time_width():
+    from agentfem._viewer_export import figure_annotations
+    first = figure_annotations(view_record(), .000001, 0, [1920, 1080])
+    last = figure_annotations(view_record(), 12345.6, 24, [1920, 1080])
+    assert first[0][1] != last[0][1]
+    assert [(n, p) for n, _, p in first] == [(n, p) for n, _, p in last]
+    assert first[1] == last[1]
+    assert all("values" not in text.lower() for _, text, _ in first)
+
+
+def test_presentation_palettes_have_monotonic_luminance():
+    from agentfem._viewer_export import COLOR_STOPS, color_map
+    for name in COLOR_STOPS:
+        rgb = color_map(name)(np.linspace(0., 1., 256))[:, :3]
+        linear = np.where(rgb <= .04045, rgb / 12.92, ((rgb + .055)/1.055)**2.4)
+        luminance = linear @ np.array([.2126, .7152, .0722])
+        assert np.all(np.diff(luminance) < 0.)
+        assert validate_view(dict(view_record(), palette=name))["palette"] == name
+
+
 def test_viewer_download_asset_is_packaged():
     from importlib.resources import files
     asset = files("agentfem").joinpath("_viewer_assets/viewer.js")

@@ -19,11 +19,41 @@ from agentfem.results import read_visualization_frame, deform_visualization_fram
 
 
 PRESETS = {
-    "scientific": {"background": "#f4f6f8", "foreground": "#263444", "cmap": "viridis", "solid": "#527e91"},
-    "publication": {"background": "#ffffff", "foreground": "#243746", "cmap": "cividis", "solid": "#638b92"},
+    "scientific": {"background": "#f4f6f8", "foreground": "#263444", "cmap": "ocean", "solid": "#527e91"},
+    "publication": {"background": "#ffffff", "foreground": "#243746", "cmap": "ocean", "solid": "#638b92"},
     "presentation": {"background": "#121e2b", "foreground": "#e7edf3", "cmap": "magma", "solid": "#82bcc4"},
 }
-PALETTES = ("viridis", "cividis", "magma", "coolwarm")
+# Sequential presentation palettes: pale low values, saturated high values.
+# These are our palettes, not a claimed Nature/Apple palette or a calibrated
+# perceptually-uniform map. Keep the established scientific maps available.
+COLOR_STOPS = {
+    "ocean": ("#e7f3f3", "#b9dedc", "#7ac2c5", "#399eae", "#23748f", "#254c78"),
+    "iris": ("#f0eef9", "#d2d0ef", "#aca9e1", "#8380cc", "#615cb2", "#43418e"),
+}
+PALETTES = (*COLOR_STOPS, "viridis", "cividis", "magma", "coolwarm")
+
+
+def color_map(name):
+    """Resolve a stable saved palette name for both interactive and file views."""
+    if name in COLOR_STOPS:
+        from matplotlib.colors import LinearSegmentedColormap
+        return LinearSegmentedColormap.from_list(name, COLOR_STOPS[name], N=256)
+    return name
+
+
+def figure_annotations(view, coordinate, index, size):
+    """Independent anchors prevent changing time widths from moving other text."""
+    if coordinate is None:
+        time = f"Frame {index+1}"
+    elif view.get("time_unit"):
+        time = f"Time {coordinate:.6g} {view['time_unit']}"
+    else:
+        time = f"Saved coordinate {coordinate:.6g}"
+    geometry = f"Deformation ×{view['scale']:g}" if view["reference_geometry"] else "Saved geometry"
+    return (
+        ("time", time, (int(size[0]*.045), int(size[1]*.875))),
+        ("geometry", geometry, (int(size[0]*.66), int(size[1]*.875))),
+    )
 
 
 def validate_view(view):
@@ -142,18 +172,18 @@ def render(request, destination, progress=None):
                 grid, scalar = display_frame(source, index, view)
                 # Do not average cells or smooth geometry to beautify output.
                 kwargs = dict(color=preset["solid"], show_edges=view["edges"],
-                              show_scalar_bar=False, ambient=.32, diffuse=.68, specular=.08,
+                              show_scalar_bar=False, ambient=.55, diffuse=.45, specular=0.,
                               reset_camera=False)
                 if scalar is not None:
                     kwargs.update(scalars=scalar, preference=view["choice"][0],
-                                  cmap=view["palette"], clim=view["range"])
+                                  cmap=color_map(view["palette"]), clim=view["range"])
                 if actor is None:
                     actor = plotter.add_mesh(grid, **kwargs)
                 else:
                     actor.mapper.dataset = grid
                     if scalar is not None:
                         actor.mapper.set_scalars(scalar, "__view_scalar__", preference=view["choice"][0],
-                                                 cmap=view["palette"], clim=view["range"])
+                                                 cmap=color_map(view["palette"]), clim=view["range"])
                 if step == 0:
                     plotter.view_isometric()
                     plotter.reset_camera()
@@ -180,16 +210,9 @@ def render(request, destination, progress=None):
             plotter.add_text(title, position=(int(size[0]*.045), int(size[1]*.92)),
                              font_size=24, color=preset["foreground"], font="arial", name="title")
             coordinate = info["saved_times"][index] if info["saved_times"] else None
-            if coordinate is None:
-                time = f"Frame {index+1}"
-            elif view.get("time_unit"):
-                time = f"Time {coordinate:.6g} {view['time_unit']}"
-            else:
-                time = f"Saved coordinate {coordinate:.6g}"
-            geometry = f"Deformation ×{view['scale']:g}" if view["reference_geometry"] else "Saved geometry"
-            subtitle = f"{time}   /   {geometry}   /   {'Element values' if view.get('choice') and view['choice'][0] == 'cell' else 'Nodal values' if view.get('choice') else 'Geometry'}"
-            plotter.add_text(subtitle, position=(int(size[0]*.045), int(size[1]*.875)),
-                             font_size=13, color=preset["foreground"], font="arial", name="subtitle")
+            for name, label, position in figure_annotations(view, coordinate, index, size):
+                plotter.add_text(label, position=position, font_size=13,
+                                 color=preset["foreground"], font="arial", name=name)
             if movie:
                 # Actual saved states only. Holding a frame gives a readable
                 # cadence without fabricating interpolated damage evolution.

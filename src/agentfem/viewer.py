@@ -15,7 +15,7 @@ from agentfem.results import (
     deform_visualization_frame, inspect_visualization, read_visualization_frame,
 )
 from agentfem._viewer_files import ResultDirectory
-from agentfem._viewer_export import PRESETS, PALETTES, apply_camera, validate_view, display_frame
+from agentfem._viewer_export import PRESETS, PALETTES, apply_camera, validate_view, display_frame, color_map
 from agentfem._viewer_jobs import ExportJob
 from agentfem._atomic_text import atomic_write_text
 
@@ -206,16 +206,16 @@ def build_viewer(path, *, displacement=None, reference_geometry=False, server=No
             preset = PRESETS[state.preset]
             plotter.set_background(preset["background"])
             actor.prop.color = preset["solid"]
-            actor.prop.ambient = .32
-            actor.prop.diffuse = .68
-            actor.prop.specular = .08
+            actor.prop.ambient = .55
+            actor.prop.diffuse = .45
+            actor.prop.specular = 0.
             actor.mapper.dataset = displayed
             actor.prop.show_edges = bool(state.edges)
             actor.mapper.scalar_visibility = scalar is not None
             if scalar is not None:
                 values, key, association, label, bounds = scalar
                 actor.mapper.set_scalars(values, key, preference=association,
-                                         cmap=state.palette, clim=bounds)
+                                         cmap=color_map(state.palette), clim=bounds)
                 if cache["bar"] is None:
                     cache["bar"] = plotter.add_scalar_bar(label, mapper=actor.mapper)
                 cache["bar"].SetTitle(label)
@@ -612,7 +612,7 @@ def build_viewer(path, *, displacement=None, reference_geometry=False, server=No
                 v3.VCheckbox(v_model=("fixed_range", True), label="Keep colors consistent", hide_details=True, density="compact")
                 v3.VBtn("Fit all saved frames", click=fit_series_range, disabled=("field < 0",), variant="text")
                 v3.VCheckbox(v_model=("advanced", False), label="Custom colors and labels", hide_details=True, density="compact")
-                v3.VSelect(v_model=("palette", "viridis"), items=("palette_items", list(PALETTES)), label="Palette", v_if="advanced",
+                v3.VSelect(v_model=("palette", "ocean"), items=("palette_items", list(PALETTES)), label="Palette", v_if="advanced",
                            hide_details=True, density="compact")
                 with v3.VRow(v_if="advanced", classes="ma-0 ga-2 flex-nowrap"):
                     v3.VTextField(v_model=("range_min", 0.), label="Minimum", type="number",

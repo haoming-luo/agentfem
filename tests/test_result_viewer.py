@@ -69,7 +69,7 @@ def test_saved_view_roundtrip_restores_display_not_source_data(tmp_path):
         ctrl.restore_view()
         assert not state.error
         assert state.field == 0 and state.scale == 2.
-        assert state.preset == "publication" and state.palette == "cividis"
+        assert state.preset == "publication" and state.palette == "ocean"
         assert (state.range_min, state.range_max) == (0., 1.)
         assert path.read_bytes() == original
     finally:

@@ -63,9 +63,13 @@ The left panel groups file, field and deformation controls. Its top-left menu
 button hides the panel when you want more space for the model. The saved-frame
 slider stays above the canvas. Nothing here changes the stored result.
 
-- **Style** offers Scientific (neutral), Publication (white, cividis), and
+- **Style** offers Scientific (neutral, Ocean), Publication (white, Ocean), and
   Presentation (dark, magma). Presets change appearance, not values. Color and
   custom label settings are disclosed under **Custom colors and labels**.
+  Ocean uses pale ice/teal/deep blue; Iris offers a lavender/indigo alternative.
+  Both sequential palettes have monotonically ordered relative luminance;
+  they are not claimed to be perceptually uniform or journal-endorsed palettes.
+  Established viridis/cividis maps remain selectable, including in saved views.
 
 - **Field** selects the saved quantity, with **Elements** or **Nodes** indicating
   where values are stored. **Component** selects its component separately;
@@ -115,6 +119,9 @@ conventions come from the result. The viewer does not infer missing units.
   limits, title, saved time coordinate and deformation scale. Transparent
   backgrounds are optional. Specify field/time units from the result contract;
   the viewer does not guess them. Custom units are display labels, not conversions.
+  Time and deformation scale occupy separate fixed positions, so changing time
+  digits cannot move the scale label. Node/element association stays in the
+  field selector and view record, rather than decorating the exported figure.
 - **Save process video** exports actual saved states as MP4 at 24 fps, holding
   each state for 10 video frames. This is an output-station animation, not a
   claim of real-time playback or interpolated physical evolution. Physical
