@@ -18,6 +18,21 @@ Open a result file or a directory containing your results:
 agentfem-view /path/to/project/outputs
 ```
 
+The command opens your browser and automatically chooses a free local port.
+There is no backend setup or port selection to perform. Keep the command running
+while viewing; Ctrl+C closes that viewer. `--no-browser` prints the local link
+without opening a browser, useful for an agent's embedded browser.
+
+Each invocation is an independent viewer process, with its own selected result,
+field and playback state. Launch it again for an independent comparison or
+another agent conversation; both can read the same saved files without modifying
+them. **Opening the same URL twice connects to the same session**, not an
+independent workspace: field/frame/playback controls may affect both tabs.
+Do not reuse another conversation's URL when independent controls are wanted.
+An explicit `--port` remains available for integrations that require a fixed port.
+Closing a browser tab does not stop the process; stop its launching command when
+finished. Automatic background-service management is not yet provided.
+
 For project/run navigation, open a project itself or the folder containing your
 projects: `agentfem-view /path/to/projects`. Select **Project**, then **Run**,
 then the desired XDMF (or other supported result) and **Show result**. Project selection

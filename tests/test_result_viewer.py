@@ -10,6 +10,31 @@ pv = pytest.importorskip("pyvista")
 from agentfem.viewer import scalar_choices, component_values, component_label
 
 
+@pytest.mark.parametrize("port", [None, 0, 8097])
+def test_launch_uses_atomic_automatic_port_and_loopback(tmp_path, monkeypatch, port):
+    from agentfem import viewer
+    calls = []
+
+    class App:
+        def start(self, **kwargs):
+            calls.append(kwargs)
+
+    monkeypatch.setattr(viewer, "build_viewer", lambda *args, **kwargs: App())
+    argv = [str(tmp_path), "--no-browser"]
+    if port is not None:
+        argv.extend(["--port", str(port)])
+    viewer.main(argv)
+    assert calls == [{"host": "127.0.0.1", "port": port or 0, "open_browser": False}]
+
+
+@pytest.mark.parametrize("port", [-1, 65536])
+def test_launch_rejects_invalid_port(tmp_path, port):
+    from agentfem.viewer import main
+    with pytest.raises(SystemExit) as exc:
+        main([str(tmp_path), "--port", str(port)])
+    assert exc.value.code == 2
+
+
 def test_scalar_choices_preserve_duplicate_names_and_components():
     grid = pv.ImageData(dimensions=(2, 2, 2)).cast_to_unstructured_grid()
     grid.cell_data["damage"] = [0.5]

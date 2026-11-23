@@ -488,13 +488,14 @@ def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("path", type=Path, nargs="?", default=Path.cwd(),
                         help="Result file or directory to browse (default: current directory)")
-    parser.add_argument("--port", type=int, default=8080)
+    parser.add_argument("--port", type=int, default=0,
+                        help="Local port (default: automatically select an available port)")
     parser.add_argument("--displacement")
     parser.add_argument("--reference-geometry", action="store_true")
     parser.add_argument("--no-browser", action="store_true")
     args = parser.parse_args(argv)
-    if not 1 <= args.port <= 65535:
-        parser.error("port must be between 1 and 65535")
+    if not 0 <= args.port <= 65535:
+        parser.error("port must be 0 (automatic) or between 1 and 65535")
     if bool(args.displacement) != args.reference_geometry:
         parser.error("Use --displacement and --reference-geometry together to enable warp.")
     try:
@@ -504,6 +505,8 @@ def main(argv=None):
         parser.error(f"Install the optional viewer: python -m pip install 'agentfem[viewer]' ({exc}).")
     except (ValueError, OSError, ET.ParseError) as exc:
         parser.error(str(exc))
+    # Let the operating system allocate the listening port atomically. Probing
+    # and releasing a free socket first races with other viewer launches.
     app.start(host="127.0.0.1", port=args.port, open_browser=not args.no_browser)
 
 
