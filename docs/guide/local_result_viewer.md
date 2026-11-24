@@ -63,8 +63,8 @@ The search field filters the current folder. **Paste a path instead** is optiona
 
 The folder-search icon opens the system folder chooser on the computer running
 the viewer. macOS uses its native panel; other desktop hosts use optional Tk.
-It never uploads or copies H5 data. Selecting a different root offers **Open
-selected project** in an independent local session; existing view/export records
+It never uploads or copies H5 data. Selecting a different root automatically opens
+an independent local session without a second confirmation button; existing view/export records
 remain scoped to their original root. Unused new sessions expire after two minutes.
 On headless/remote/WSL hosts without a usable desktop chooser, use the directory
 list or path fallback; it cannot select the browser machine's files for a remote
@@ -72,6 +72,14 @@ Python process. The native chooser is provisional: automated tests cover its
 cancel/failure/session contracts, but the background-launched macOS GUI check
 did not complete successfully. Windows/WSL also needs platform testing. The
 in-page folder browser remains the verified cross-browser route.
+Standard DOLFINx same-document mesh pointers are normalized into a temporary
+single-grid-per-time descriptor. Numerical arrays and original files are unchanged;
+external XML includes and incompatible time grids are still reported explicitly.
+Deformation recognizes names such as `Displacement_m` and exposes the vector
+selector; frames without a nodal vector remain viewable without deformation.
+Export starts outside the button request, so cancellation remains responsive and
+terminates the renderer/encoder process group on POSIX. Cancelled staging files
+are not published as completed downloads.
 The selected root limits browsing and XML companion references. For continuation
 indexes referencing sibling runs, open their common parent directory.
 

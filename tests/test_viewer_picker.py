@@ -8,6 +8,7 @@ from agentfem._viewer_picker import choose_folder, launch_folder
 
 @pytest.mark.parametrize("cancelled", [False, True])
 def test_native_selection_does_not_upload_or_shell_interpolate(tmp_path, monkeypatch, cancelled):
+    monkeypatch.setattr('sys.platform', 'linux')
     calls = []
     class Process:
         returncode = 0
@@ -20,6 +21,22 @@ def test_native_selection_does_not_upload_or_shell_interpolate(tmp_path, monkeyp
     assert asyncio.run(choose_folder(tmp_path)) == (None if cancelled else tmp_path)
     assert calls[0][-1] == str(tmp_path)
     assert "agentfem._viewer_picker" in calls[0]
+
+
+def test_mac_chooser_avoids_nested_python_launch(tmp_path, monkeypatch):
+    monkeypatch.setattr('sys.platform', 'darwin')
+    calls = []
+    class Process:
+        returncode = 0
+        async def communicate(self):
+            return (str(tmp_path) + '\n').encode(), b''
+    async def spawn(*args, **kwargs):
+        calls.append(args)
+        return Process()
+    monkeypatch.setattr(asyncio, 'create_subprocess_exec', spawn)
+    assert asyncio.run(choose_folder(tmp_path)) == tmp_path
+    assert calls[0][0] == '/usr/bin/osascript'
+    assert calls[0][-1] == str(tmp_path)
 
 
 def test_native_selection_unavailable_has_browse_fallback(tmp_path, monkeypatch):

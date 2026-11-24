@@ -68,6 +68,7 @@ def build_viewer(path, *, displacement=None, reference_geometry=False, server=No
     from trame.app import get_server
     from trame.ui.vuetify3 import SinglePageWithDrawerLayout
     from trame.widgets import vtk, html, vuetify3 as v3
+    from trame_client.widgets import trame
     from trame_vtk.modules.vtk.serializers.registry import register_js_class
 
     # VTK's OpenGL property implements the ordinary surface-property contract.
@@ -195,6 +196,7 @@ def build_viewer(path, *, displacement=None, reference_geometry=False, server=No
                 task.add_done_callback(child_sessions.discard)
                 with state:
                     state.new_project_url = url
+                navigation.call("navigate", url)
             state.error = ""
         except (OSError, ValueError, RuntimeError, asyncio.TimeoutError) as exc:
             state.error = str(exc) or "Folder selection timed out. Please try again."
@@ -214,9 +216,12 @@ def build_viewer(path, *, displacement=None, reference_geometry=False, server=No
                        if np.asarray(values).ndim == 2 and np.asarray(values).shape[1] == 3
                        and np.asarray(values).dtype.kind in "fiu"]
             state.displacement_items = vectors
-            if (state.reference_geometry and state.displacement_field is None and len(vectors) == 1
-                    and vectors[0] in {"Displacement", "displacement", "U"}):
-                state.displacement_field = vectors[0]
+            if state.displacement_field not in vectors:
+                state.displacement_field = None
+            named_displacements = [name for name in vectors if name.lower() in {"displacement", "u"}
+                                   or name.lower().startswith("displacement_")]
+            if state.reference_geometry and state.displacement_field is None and len(named_displacements) == 1:
+                state.displacement_field = named_displacements[0]
             selected = int(state.field)
             if changed:
                 # Changing schema must not silently reuse an index for another field.
@@ -242,7 +247,7 @@ def build_viewer(path, *, displacement=None, reference_geometry=False, server=No
                                                        float(state.blend), choice)
             displayed = (deform_visualization_frame(motion_grid, state.displacement_field,
                          scale=float(state.scale), reference_geometry=True)
-                         if state.reference_geometry and float(state.scale) != 0.
+                         if state.reference_geometry and state.displacement_field and float(state.scale) != 0.
                          else motion_grid.copy(deep=True))
             scalar = None
             if selected >= 0:
@@ -800,6 +805,22 @@ def build_viewer(path, *, displacement=None, reference_geometry=False, server=No
             with state:
                 state.export_busy = False
 
+    export_tasks = set()
+
+    def start_export(mode, camera=None, **_):
+        # Return the websocket request immediately: a long awaited trigger can
+        # queue the user's cancel click behind the entire rendering operation.
+        if export_tasks or state.export_busy:
+            return
+        task = asyncio.create_task(export(mode, camera))
+        export_tasks.add(task)
+        task.add_done_callback(export_tasks.discard)
+
+    def cancel_export(**_):
+        job.cancel()
+        with state:
+            state.export_progress = "Cancelling export…"
+
     async def close_session(**_):
         stop_playback()
         job.close()
@@ -835,6 +856,7 @@ def build_viewer(path, *, displacement=None, reference_geometry=False, server=No
         ui.drawer.mobile = False
         ui.drawer.scrim = False
         with ui.toolbar:
+            navigation = trame.ClientTriggers(ref="viewer_navigation", navigate="$viewer.navigate($event)")
             v3.VBtn("Open", prepend_icon="mdi-folder-open-outline", click="open_panel = true", variant="text")
             v3.VBtn("Display", prepend_icon="mdi-tune", click="main_drawer = !main_drawer", variant="text")
             v3.VSpacer()
@@ -842,8 +864,8 @@ def build_viewer(path, *, displacement=None, reference_geometry=False, server=No
                     disabled=("frame_count === 0 && view_items.length === 0",), click="export_panel = true")
             v3.VBtn(icon="mdi-fit-to-screen-outline", title="Fit model to view", click=lambda: ctrl.view_reset())
         with v3.VDialog(v_model=("open_panel", False), max_width=580):
-            with v3.VCard(classes="pa-4 d-flex flex-column ga-2", title="Open results",
-                          style="height:min(640px,90vh); overflow:hidden"):
+            with v3.VCard(classes="viewer-open-card pa-4 d-flex flex-column ga-2", title="Open results",
+                          style="height:min(640px,90vh); min-height:min(640px,90vh); max-height:min(640px,90vh); overflow:hidden; flex-shrink:0"):
                 v3.VSelect(v_model=("project_selection", None), items=("project_items",),
                            label="Project", v_if="project_items.length", hide_details=True,
                            density="compact")
@@ -857,7 +879,6 @@ def build_viewer(path, *, displacement=None, reference_geometry=False, server=No
                             click=choose_project, loading=("picker_busy",), disabled=("picker_busy",), variant="text", size="small")
                     v3.VTextField(v_model=("folder_filter", ""), label="Find in this folder", prepend_inner_icon="mdi-magnify",
                                   hide_details=True, density="compact", clearable=True, style="min-width:0")
-                v3.VBtn("Open selected project", v_if="new_project_url", href=("new_project_url",), variant="tonal")
                 v3.VLabel("{{ folder === '.' ? browse_root : browse_root + '/' + folder }}",
                           title=("browse_root + '/' + folder",), style="font-size:12px; height:24px; flex-shrink:0; white-space:nowrap; overflow:hidden; text-overflow:ellipsis")
                 with v3.VList(density="compact", style="flex:1; min-height:120px; overflow:auto; border:1px solid #e5e9ed; border-radius:8px"):
@@ -871,7 +892,7 @@ def build_viewer(path, *, displacement=None, reference_geometry=False, server=No
                 v3.VTextField(v_model=("path_input", ""), label="Or paste a result path inside this location",
                               v_if="show_path", hide_details=True, density="compact", keydown_enter=open_path)
                 v3.VBtn("Show path", v_if="show_path", click=open_path, disabled=("!path_input",), variant="text")
-                v3.VAlert("{{ error }}", v_if="error", type="error", density="compact")
+                v3.VAlert("{{ error }}", v_if="error", type="error", density="compact", style="flex:0 0 auto; max-height:100px; overflow:auto")
                 v3.VBtn("Back to viewer", click="open_panel = false", variant="text")
         with ui.drawer:
             with v3.VContainer(classes="pa-3 d-flex flex-column ga-2"):
@@ -899,9 +920,10 @@ def build_viewer(path, *, displacement=None, reference_geometry=False, server=No
                 v3.VDivider(classes="my-2")
                 html.Div("Deformation", classes="viewer-section")
                 v3.VCheckbox(v_model=("reference_geometry", bool(reference_geometry)),
-                             label="Deform reference mesh", hide_details=True, density="compact")
+                             label="Deform reference mesh", disabled=("displacement_items.length === 0",), hide_details=True, density="compact")
+                v3.VLabel("No nodal displacement vector in this frame.", v_if="displacement_items.length === 0", style="font-size:12px; white-space:normal")
                 v3.VSelect(v_model=("displacement_field", displacement), items=("displacement_items",),
-                           label="Displacement vector", v_if="displacement_items.length > 1", disabled=("!reference_geometry",),
+                           label="Displacement vector", v_if="displacement_items.length > 0", disabled=("!reference_geometry",),
                            hide_details=True, density="compact")
                 v3.VTextField(v_model=("scale", 1.), label="Deformation scale", type="number",
                               disabled=("!reference_geometry || !displacement_field",), hide_details=True, density="compact")
@@ -939,9 +961,9 @@ def build_viewer(path, *, displacement=None, reference_geometry=False, server=No
                     v3.VCheckbox(v_model=("transparent", False), v_if="export_mode === 'image'", label="Transparent background", hide_details=True, density="compact")
                     v3.VLabel("Colors stay fixed. Higher resolution takes more time and space.", style="font-size:12px; white-space:normal")
                     v3.VBtn("Generate", variant="tonal", disabled=("export_busy",),
-                            click=(export, "[export_mode, trame.refs.result_view.getCamera()]"))
+                            click=(start_export, "[export_mode, trame.refs.result_view.getCamera()]"))
                     v3.VBtn("Back", variant="text", click="export_step = 1")
-                v3.VBtn("Cancel export", v_if="export_busy", click=job.cancel)
+                v3.VBtn("Cancel export", v_if="export_busy", click=cancel_export)
                 v3.VLabel("{{ export_progress }}", v_if="export_step === 3", style="white-space:normal; font-size:13px")
                 # Blob downloads do not navigate the live websocket page. Direct
                 # href downloads cause some embedded WebViews to unload it.
@@ -981,7 +1003,7 @@ def build_viewer(path, *, displacement=None, reference_geometry=False, server=No
         with ui.content:
             with v3.VContainer(fluid=True, classes="pa-0 d-flex flex-column",
                                style="height:calc(100vh - 96px); min-height:320px"):
-                v3.VAlert("{{ error }}", v_if="error", type="error", density="compact")
+                v3.VAlert("{{ error }}", v_if="error && !open_panel && !export_panel && !views_panel", type="error", density="compact", style="flex:0 0 auto; max-height:100px; overflow:auto")
                 v3.VAlert("Viewer closed. Your results and exports are saved; this tab can be closed.", v_if="closed", type="success")
                 with v3.VDialog(v_model=("close_confirmation", False), max_width=420):
                     with v3.VCard(title="Close this viewer?", text="This stops this session, including its other tabs and any active export. Saved results and completed exports stay intact."):
@@ -1074,7 +1096,8 @@ def build_viewer(path, *, displacement=None, reference_geometry=False, server=No
     ctrl.browse_entry = browse_entry
     ctrl.choose_project = choose_project
     ctrl.close_session = close_session
-    ctrl.cancel_export = job.cancel
+    ctrl.cancel_export = cancel_export
+    ctrl.start_export = start_export
     return server
 
 

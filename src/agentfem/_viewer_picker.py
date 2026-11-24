@@ -8,17 +8,31 @@ from pathlib import Path
 import signal
 import sys
 
+MAC_FOLDER_SCRIPT = '''on run argv
+    activate
+    try
+        return POSIX path of (choose folder with prompt "Choose an AgentFEM project or results folder" default location (POSIX file (item 1 of argv)))
+    on error number -128
+        return ""
+    end try
+end run'''
+
 
 async def choose_folder(initial):
+    # Invoke the native chooser directly on macOS: avoid an extra Python
+    # startup/import and nested subprocess before the panel can appear.
+    native_mac = sys.platform == "darwin"
+    command = (["/usr/bin/osascript", "-e", MAC_FOLDER_SCRIPT, str(initial)] if native_mac else
+               [sys.executable, "-m", "agentfem._viewer_picker", str(initial)])
     process = await asyncio.create_subprocess_exec(
-        sys.executable, "-m", "agentfem._viewer_picker", str(initial),
+        *command,
         stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE,
         start_new_session=os.name == "posix")
     try:
         out, _ = await asyncio.wait_for(process.communicate(), timeout=180)
         if process.returncode:
             raise RuntimeError("System folder chooser is unavailable here. Browse the listed folders or paste a path.")
-        result = json.loads(out)
+        result = out.decode().strip() if native_mac else json.loads(out)
         return Path(result).resolve(strict=True) if result else None
     finally:
         if process.returncode is None:

@@ -27,6 +27,21 @@ def _reader(path):
 
 
 def _read(path, frame):
+    # DOLFINx's standard per-field layout shares one reference mesh through
+    # local XInclude pointers. Normalize only that proven layout, without
+    # changing/copying numerical arrays or modifying the user's descriptor.
+    if Path(path).suffix.lower() in {".xdmf", ".xmf"}:
+        root = ET.parse(path).getroot()
+        if any(item.tag.endswith("}include") for item in root.iter()):
+            import tempfile
+            from .xdmf_layout import consolidate_xdmf_fields
+            with tempfile.TemporaryDirectory(prefix="agentfem-view-index-") as folder:
+                normalized = consolidate_xdmf_fields(path, Path(folder) / "fields.xdmf")
+                return _read_dataset(normalized, frame)
+    return _read_dataset(path, frame)
+
+
+def _read_dataset(path, frame):
     if isinstance(frame, (bool, np.bool_)) or not isinstance(frame, Integral):
         raise ValueError("frame must be an integer saved-frame index.")
     pv, reader, times = _reader(path)

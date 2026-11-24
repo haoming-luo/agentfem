@@ -8,3 +8,7 @@ input[type=number]::-webkit-inner-spin-button,
 input[type=number]::-webkit-outer-spin-button {-webkit-appearance:none; margin:0}
 input[type=number] {appearance:textfield; -moz-appearance:textfield}
 .viewer-section {font-size:11px; font-weight:600; letter-spacing:.08em; color:#647281}
+.viewer-open-card > * {flex:0 0 auto!important}
+.viewer-open-card > .v-input {height:48px; min-height:48px; max-height:48px}
+.viewer-open-card > .v-list {flex:1 1 0!important; min-height:0!important}
+.viewer-open-card .v-select .v-field__input {white-space:nowrap; overflow:hidden}

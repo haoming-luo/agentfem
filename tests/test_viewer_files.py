@@ -68,6 +68,14 @@ def test_no_xml_includes_or_python_files(tmp_path):
     index.write_text('<Xdmf xmlns:xi="http://www.w3.org/2001/XInclude"><xi:include href="other.xml"/></Xdmf>')
     with pytest.raises(ValueError, match="includes"):
         ResultDirectory(tmp_path).result(index)
+
+
+def test_local_mesh_pointer_is_not_an_external_include(tmp_path):
+    index = tmp_path / 'fields.xdmf'
+    index.write_text('''<Xdmf xmlns:xi="https://www.w3.org/2001/XInclude"><Domain>
+      <xi:include xpointer="xpointer(/Xdmf/Domain/Grid[@GridType='Uniform'][1]/*[self::Topology or self::Geometry])"/>
+      </Domain></Xdmf>''')
+    assert ResultDirectory(tmp_path).result(index) == index
     code = tmp_path / "case.py"
     code.write_text('raise AssertionError("must never execute")')
     with pytest.raises(ValueError, match="Select XDMF"):

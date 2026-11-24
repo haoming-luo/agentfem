@@ -4,6 +4,11 @@
 window.AgentFEMViewer = {
   install(app) {
     app.config.globalProperties.$viewer = {
+      navigate(address) {
+        const url = new URL(address);
+        if (url.protocol !== 'http:' || url.hostname !== '127.0.0.1') return;
+        window.location.assign(url.href);
+      },
       async download(relative, filename, mime) {
         const url = new URL(relative, window.location.href);
         if (url.origin !== window.location.origin || !url.pathname.startsWith('/viewer-exports/')) {

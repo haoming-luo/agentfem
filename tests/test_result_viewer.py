@@ -10,6 +10,83 @@ pv = pytest.importorskip("pyvista")
 from agentfem.viewer import scalar_choices, component_values, component_label
 
 
+def test_dolfinx_shared_mesh_fields_read_as_one_dataset(tmp_path):
+    from agentfem.results import read_visualization_frame
+    pointer = "xpointer(/Xdmf/Domain/Grid[@GridType='Uniform'][1]/*[self::Topology or self::Geometry])"
+    text = '''<Xdmf Version="3.0" xmlns:xi="https://www.w3.org/2001/XInclude"><Domain>
+      <Grid GridType="Uniform"><Topology TopologyType="Triangle" NumberOfElements="1">
+      <DataItem Dimensions="1 3" NumberType="Int" Format="XML">0 1 2</DataItem></Topology>
+      <Geometry GeometryType="XYZ"><DataItem Dimensions="3 3" Format="XML">0 0 0 1 0 0 0 1 0</DataItem></Geometry></Grid>'''
+    for name in ('U', 'Velocity'):
+        text += f'''<Grid GridType="Collection" CollectionType="Temporal"><Grid GridType="Uniform">
+          <xi:include xpointer="{pointer}"/><Time Value="0"/>
+          <Attribute Name="{name}" Center="Node" AttributeType="Vector">
+          <DataItem Dimensions="3 3" Format="XML">0 0 0 1 0 0 0 1 0</DataItem></Attribute></Grid></Grid>'''
+    text += '</Domain></Xdmf>'
+    source = tmp_path / 'original.xdmf'
+    source.write_text(text)
+    grid = read_visualization_frame(source)
+    assert grid.n_cells == 1 and grid.n_points == 3
+    assert set(grid.point_data) == {'U', 'Velocity'}
+    np.testing.assert_allclose(grid.point_data['U'], grid.point_data['Velocity'])
+    assert source.read_text() == text
+
+
+def test_named_displacement_with_units_and_other_vectors(tmp_path):
+    from agentfem.viewer import build_viewer
+    grid = pv.ImageData(dimensions=(2, 2, 2)).cast_to_unstructured_grid()
+    grid.point_data['Displacement_m'] = grid.points * .01
+    grid.point_data['Velocity'] = grid.points * 2
+    path = tmp_path / 'fields.vtu'
+    grid.save(path)
+    server = build_viewer(path)
+    state, ctrl = server.state, server.controller
+    state.ready()
+    try:
+        ctrl.on_server_ready()
+        with state:
+            state.reference_geometry = True
+        assert state.displacement_field == 'Displacement_m'
+        assert not state.error
+        with state:
+            state.displacement_field = 'missing'
+        assert state.displacement_field == 'Displacement_m'
+        assert not state.error
+    finally:
+        ctrl.on_server_exited()
+
+
+def test_export_start_returns_before_cancel(tmp_path, monkeypatch):
+    import asyncio
+    from agentfem.viewer import build_viewer
+    from agentfem._viewer_jobs import ExportJob
+    async def waiting(self, request, progress):
+        while not self.cancelled:
+            await asyncio.sleep(.001)
+        return None
+    monkeypatch.setattr(ExportJob, 'run', waiting)
+    grid = pv.ImageData(dimensions=(2, 2, 2)).cast_to_unstructured_grid()
+    path = tmp_path / 'fields.vtu'
+    grid.save(path)
+    server = build_viewer(path)
+    state, ctrl = server.state, server.controller
+    state.ready()
+    async def exercise():
+        ctrl.on_server_ready()
+        assert ctrl.start_export('image') is None
+        await asyncio.sleep(.01)
+        assert state.export_busy
+        ctrl.cancel_export()
+        await asyncio.sleep(.02)
+        assert not state.export_busy
+        assert 'cancelled' in state.export_progress
+        assert not state.export_video
+    try:
+        asyncio.run(exercise())
+    finally:
+        ctrl.on_server_exited()
+
+
 @pytest.mark.parametrize("port", [None, 0, 8097])
 def test_launch_uses_atomic_automatic_port_and_loopback(tmp_path, monkeypatch, port):
     from agentfem import viewer

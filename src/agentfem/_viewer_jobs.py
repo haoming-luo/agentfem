@@ -7,6 +7,7 @@ import json
 import os
 from pathlib import Path
 import shutil
+import signal
 import subprocess
 import sys
 import tempfile
@@ -24,7 +25,15 @@ class ExportJob:
     def cancel(self, **_):
         self.cancelled = True
         if self.process is not None and self.process.poll() is None:
-            self.process.terminate()
+            # Include the encoder child. A partial file lives only in staging,
+            # so cancellation need not wait for a movie finalization hook.
+            if os.name == "posix" and hasattr(self.process, "pid"):
+                try:
+                    os.killpg(self.process.pid, signal.SIGKILL)
+                except ProcessLookupError:
+                    pass
+            else:
+                self.process.terminate()
 
     def close(self, **_):
         self.cancel()
@@ -49,6 +58,7 @@ class ExportJob:
                 self.process = subprocess.Popen(
                     [sys.executable, "-m", "agentfem._viewer_export", str(stage / "request.json")],
                     stdout=log, stderr=subprocess.STDOUT, env=env,
+                    start_new_session=os.name == "posix",
                 )
                 while self.process.poll() is None:
                     await asyncio.sleep(.15)

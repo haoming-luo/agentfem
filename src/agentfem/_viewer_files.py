@@ -121,7 +121,9 @@ class ResultDirectory:
                 elif tag == "DataSet" and source.suffix.lower() == ".pvd":
                     reference = node.get("file")
                 elif tag == "include":
-                    raise ValueError("Expand external XML includes before opening this result.")
+                    pointer = "xpointer(/Xdmf/Domain/Grid[@GridType='Uniform'][1]/*[self::Topology or self::Geometry])"
+                    if node.get("href") or node.get("xpointer") != pointer:
+                        raise ValueError("External XML includes are not supported; select a self-contained result index.")
                 if reference is not None:
                     companion = self.resolve(source.parent / reference)
                     if not companion.is_file():
