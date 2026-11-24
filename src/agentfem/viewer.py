@@ -19,6 +19,7 @@ from agentfem._viewer_files import ResultDirectory, result_browser_root
 from agentfem._viewer_export import (PRESETS, palette_items,
     apply_camera, validate_view, display_frame, color_map, centered_range)
 from agentfem._viewer_jobs import ExportJob
+from agentfem._viewer_smoothing import average_cell_colors, region_choices
 from agentfem._atomic_text import atomic_write_text
 from agentfem._viewer_motion import automatic_scale, displacement_metrics, timeline_sample, interpolate_displacement, reference_frame, has_current_coordinates
 
@@ -154,6 +155,10 @@ def build_viewer(path, *, displacement=None, reference_geometry=False, server=No
     state.advanced = False
     state.figure_title = ""
     state.field_unit = ""
+    state.cell_smoothing = False
+    state.cell_selected = False
+    state.smoothing_region = ""
+    state.smoothing_regions = []
     state.time_unit = ""
     state.transparent = False
     state.export_busy = False
@@ -250,6 +255,9 @@ def build_viewer(path, *, displacement=None, reference_geometry=False, server=No
             if not -1 <= selected < len(choices):
                 raise ValueError("Select a field available in this frame.")
             choice = choices[selected] if selected >= 0 else None
+            state.cell_selected = bool(choice and choice[0] == 'cell')
+            state.smoothing_regions = [{'title': 'One continuous region', 'value': ''}] + [
+                {'title': name, 'value': name} for name in region_choices(grid)]
             eligible = bool(state.reference_geometry and state.displacement_field and
                             (choice is None or choice[:2] == ("point", state.displacement_field)))
             state.smooth_available = eligible and info["frame_count"] > 1
@@ -310,6 +318,13 @@ def build_viewer(path, *, displacement=None, reference_geometry=False, server=No
                 elif state.color_mode == "zero":
                     bounds = centered_range(values.min(), values.max())
                 range_owner["choice"] = choices[selected]
+                if state.cell_smoothing and association == 'cell':
+                    if bounds is None:
+                        low, high = float(values.min()), float(values.max())
+                        bounds = (low, high) if low < high else (low-1.e-12, high+1.e-12)
+                    displayed, values = average_cell_colors(displayed, values, state.smoothing_region or None)
+                    association = 'point'
+                    label += ' · averaged display'
                 scalar = (values, key, association, label, bounds)
             first_view = cache["grid"] is None
             camera = plotter.camera_position
@@ -519,6 +534,8 @@ def build_viewer(path, *, displacement=None, reference_geometry=False, server=No
                 state.scale_status = ""
                 state.time_unit = ""
                 state.field_unit = ""
+                state.cell_smoothing = False
+                state.smoothing_region = ""
                 # Coordinate semantics belong to this file, not the previously
                 # opened file. Never accidentally warp current coordinates twice.
                 state.reference_geometry = False
@@ -665,6 +682,7 @@ def build_viewer(path, *, displacement=None, reference_geometry=False, server=No
                     palette=state.palette, color_mode=state.color_mode, scale=float(state.scale), reference_geometry=bool(state.reference_geometry),
                     displacement=state.displacement_field, edges=bool(state.edges), camera=camera_record(),
                     current_coordinates=bool(state.current_coordinates),
+                    cell_smoothing=bool(state.cell_smoothing and state.cell_selected), smoothing_region=state.smoothing_region,
                     title=state.figure_title, unit=state.field_unit, time_unit=state.time_unit)
         if selected >= 0 and not state.fixed_range:
             raise ValueError("Keep colors consistent before saving or exporting a view.")
@@ -728,6 +746,8 @@ def build_viewer(path, *, displacement=None, reference_geometry=False, server=No
                 state.edges = view_record["edges"]
                 state.figure_title = view_record.get("title", "")
                 state.field_unit = view_record.get("unit", "")
+                state.cell_smoothing = view_record.get("cell_smoothing", False)
+                state.smoothing_region = view_record.get("smoothing_region", "")
                 state.time_unit = view_record.get("time_unit", "")
             range_owner["choice"] = choice
             with state:
@@ -942,6 +962,12 @@ def build_viewer(path, *, displacement=None, reference_geometry=False, server=No
                            label="Field", hide_details=True, density="compact")
                 v3.VSelect(v_model=("field", -1), items=("component_items",),
                            label="Component", v_if="quantity >= 0 && component_items.length > 1", hide_details=True, density="compact")
+                v3.VCheckbox(v_model=("cell_smoothing", False), v_if="cell_selected",
+                             label="Smooth cell colors · display only", hide_details=True, density="compact")
+                v3.VSelect(v_model=("smoothing_region", ""), items=("smoothing_regions",),
+                           v_if="cell_selected && cell_smoothing", label="Keep regions separate", hide_details=True, density="compact")
+                v3.VLabel("Averaged colors, original range. Use region IDs at material interfaces; keep raw cells for damage/contact jumps.",
+                          v_if="cell_selected && cell_smoothing", style="font-size:12px; white-space:normal")
                 v3.VDivider(classes="my-2")
                 html.Div("Color & legend", classes="viewer-section")
                 v3.VSelect(v_model=("color_mode", "sequential"),
@@ -1106,7 +1132,8 @@ def build_viewer(path, *, displacement=None, reference_geometry=False, server=No
             v3.VSpacer()
             v3.VBtn("Session", click="session_panel = true", variant="text", size="x-small")
     state.change("frame", "field", "scale", "edges", "fixed_range", "range_min", "range_max",
-                 "reference_geometry", "current_coordinates", "displacement_field", "preset", "palette", "blend", "time_unit")(update)
+                 "reference_geometry", "current_coordinates", "displacement_field", "preset", "palette", "blend", "time_unit",
+                 "cell_smoothing", "smoothing_region")(update)
     state.change("color_mode")(change_color_mode)
     state.change("palette")(remember_palette)
     state.change("smooth")(change_smoothing)

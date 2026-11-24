@@ -101,14 +101,22 @@ roundoff. This does not support remeshing or create new computed states.
 Spatial cell-field smoothing is not enabled by default. VTK's
 [cell-to-point filter](https://vtk.org/doc/nightly/html/classvtkCellDataToPointData.html)
 averages incident cells; it is not constitutive recovery or a higher-accuracy
-stress solution. A future opt-in display route must respect material/interface
-regions, label averaged values, preserve raw extrema, and record the choice in
-exports. Damage and contact jumps must not be hidden by an unlabelled average.
+stress solution. **Smooth cell colors · display only** averages the selected
+scalar for display, retaining the original color limits and source arrays.
+Choose an integer cell-region field to keep material/interface regions separate;
+nodes are not welded across regions. Without that field, **One continuous region**
+explicitly assumes continuity. Keep raw cells for damage/contact discontinuities.
+The legend identifies averaged display and exported view settings record it.
+Interactive rendering and image/video export use the same averaging operation.
+This is separate from temporal displacement interpolation and does not interpolate
+damage histories or claim improved numerical accuracy.
 
 On macOS, the folder chooser now calls AppKit's
 [NSOpenPanel](https://developer.apple.com/documentation/AppKit/NSOpenPanel)
 directly through the system scripting bridge. The request is nonblocking and
-can be cancelled from the browser. Native-panel latency still needs desktop
+can be cancelled from the browser. The panel is created before activation and
+placed above the browser: process sampling found the previous helper already in
+its modal event loop, not still loading result data. Native-panel latency still needs desktop
 acceptance; it is not claimed to be solved by this change alone.
 
 Scene updates explicitly advance the render-window version before sending them

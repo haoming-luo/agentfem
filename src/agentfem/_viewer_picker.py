@@ -8,22 +8,13 @@ from pathlib import Path
 import signal
 import sys
 
-MAC_FOLDER_SCRIPT = '''on run argv
-    activate
-    try
-        return POSIX path of (choose folder with prompt "Choose an AgentFEM project or results folder" default location (POSIX file (item 1 of argv)))
-    on error number -128
-        return ""
-    end try
-end run'''
-
 # AppKit's panel avoids Standard Additions' Apple-event dialog round-trip.
 # Script is constant; the path is a positional argument, never interpolated.
 MAC_PANEL_SCRIPT = '''ObjC.import('AppKit');
 function run(argv) {
     const app = $.NSApplication.sharedApplication;
     app.setActivationPolicy($.NSApplicationActivationPolicyAccessory);
-    app.activateIgnoringOtherApps(true);
+    app.finishLaunching;
     const panel = $.NSOpenPanel.openPanel;
     panel.canChooseDirectories = true;
     panel.canChooseFiles = false;
@@ -31,6 +22,12 @@ function run(argv) {
     panel.prompt = 'Open';
     panel.message = 'Choose a project or results folder';
     panel.directoryURL = $.NSURL.fileURLWithPath(argv[0]);
+    // Activate after creating the window: an accessory process has no window
+    // to focus before this point. Keep the chooser above the browser, not hidden
+    // behind it while runModal is already waiting for user input.
+    panel.level = $.NSFloatingWindowLevel;
+    panel.makeKeyAndOrderFront(null);
+    app.activateIgnoringOtherApps(true);
     return panel.runModal === $.NSModalResponseOK ? ObjC.unwrap(panel.URL.path) : '';
 }'''
 
@@ -93,15 +90,7 @@ def main():
         # Use the OS panel on macOS. A non-bundled Python/Tk process can leave
         # its chooser behind the browser with no usable application focus.
         import subprocess
-        script = '''on run argv
-            activate
-            try
-                return POSIX path of (choose folder with prompt "Choose an AgentFEM project or results folder" default location (POSIX file (item 1 of argv)))
-            on error number -128
-                return ""
-            end try
-        end run'''
-        result = subprocess.run(["/usr/bin/osascript", "-e", script, sys.argv[1]],
+        result = subprocess.run(["/usr/bin/osascript", "-l", "JavaScript", "-e", MAC_PANEL_SCRIPT, sys.argv[1]],
                                 capture_output=True, text=True, check=True, timeout=170)
         print(json.dumps(result.stdout.strip()))
         return

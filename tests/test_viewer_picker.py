@@ -37,6 +37,9 @@ def test_mac_chooser_avoids_nested_python_launch(tmp_path, monkeypatch):
     assert asyncio.run(choose_folder(tmp_path)) == tmp_path
     assert calls[0][0] == '/usr/bin/osascript'
     assert calls[0][-1] == str(tmp_path)
+    script = calls[0][-2]
+    assert script.index('makeKeyAndOrderFront') < script.index('activateIgnoringOtherApps')
+    assert 'NSFloatingWindowLevel' in script
 
 
 def test_native_selection_unavailable_has_browse_fallback(tmp_path, monkeypatch):

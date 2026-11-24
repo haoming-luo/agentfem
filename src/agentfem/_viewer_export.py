@@ -16,6 +16,7 @@ import numpy as np
 from agentfem._atomic_text import atomic_write_text
 from agentfem._viewer_files import ResultDirectory
 from agentfem._viewer_motion import timeline_sample, interpolate_displacement, reference_frame
+from agentfem._viewer_smoothing import average_cell_colors
 from agentfem.results import read_visualization_frame, deform_visualization_frame, inspect_visualization
 
 
@@ -103,6 +104,10 @@ def validate_view(view):
     if view["reference_geometry"] and not isinstance(view.get("displacement"), str):
         raise ValueError("Choose the displacement field before enabling deformation.")
     choice = view.get("choice")
+    if type(view.get("cell_smoothing", False)) is not bool:
+        raise ValueError("Cell display averaging must be boolean.")
+    if not isinstance(view.get("smoothing_region", ""), str):
+        raise ValueError("A display region must be a field name.")
     if choice is not None:
         if (not isinstance(choice, list) or len(choice) != 3 or choice[0] not in {"cell", "point"}
                 or not isinstance(choice[1], str)):
@@ -164,6 +169,8 @@ def display_frame(source, index, view, *, grid=None, right=None, alpha=0.):
         scalar = component_values(grid, choice)
         if not np.isfinite(scalar).all():
             raise ValueError("Cannot render nonfinite field values.")
+        if view.get("cell_smoothing", False) and choice[0] == "cell":
+            grid, scalar = average_cell_colors(grid, scalar, view.get("smoothing_region") or None)
     return grid, scalar
 
 
@@ -173,6 +180,7 @@ def render(request, destination, progress=None):
     from agentfem.viewer import component_label
 
     view = validate_view(request["view"])
+    averaged = bool(view.get("cell_smoothing") and view["choice"] and view["choice"][0] == "cell")
     directory = ResultDirectory(request["root"])
     source = directory.result(view["source"])
     info = inspect_visualization(source)
@@ -228,19 +236,19 @@ def render(request, destination, progress=None):
                                                  right=raw_frames[index+1], alpha=samples[step][1])
                 else:
                     grid, scalar = display_frame(source, index, view)
-                # Do not average cells or smooth geometry to beautify output.
+                # Geometry is untouched; cell color averaging is explicit and recorded.
                 kwargs = dict(color=preset["solid"], show_edges=view["edges"],
                               show_scalar_bar=False, ambient=.55, diffuse=.45, specular=0.,
                               reset_camera=False)
                 if scalar is not None:
-                    kwargs.update(scalars=scalar, preference=view["choice"][0],
+                    kwargs.update(scalars=scalar, preference="point" if averaged else view["choice"][0],
                                   cmap=color_map(view["palette"]), clim=view["range"])
                 if actor is None:
                     actor = plotter.add_mesh(grid, **kwargs)
                 else:
                     actor.mapper.dataset = grid
                     if scalar is not None:
-                        actor.mapper.set_scalars(scalar, "__view_scalar__", preference=view["choice"][0],
+                        actor.mapper.set_scalars(scalar, "__view_scalar__", preference="point" if averaged else view["choice"][0],
                                                  cmap=color_map(view["palette"]), clim=view["range"])
                 if step == 0:
                     plotter.view_isometric()
@@ -249,9 +257,12 @@ def render(request, destination, progress=None):
                     if scalar is not None:
                         name = view["choice"][1].replace("_", " ")
                         name = name[:1].upper() + name[1:]
-                        component = component_label(grid, tuple(view["choice"]))
+                        label_grid = read_visualization_frame(source, frame=index) if averaged else grid
+                        component = component_label(label_grid, tuple(view["choice"]))
                         unit = f" [{view['unit']}]" if view.get("unit") else ""
                         label = f"{name}{'' if component == 'Value' else ' / '+component}{unit}"
+                        if averaged:
+                            label += " · averaged display"
                         plotter.add_text(label, position=(int(size[0]*.25), int(size[1]*.155)),
                                          font_size=15, color=preset["foreground"], font="arial", name="field_label")
                         plotter.add_scalar_bar("", mapper=actor.mapper, color=preset["foreground"],
