@@ -333,7 +333,7 @@ jobs:
             tests/test_xdmf_cell_ordering.py tests/test_xdmf_layout.py \
             tests/test_paraview_warp_tool.py tests/test_result_inspection.py \
             tests/test_result_viewer.py tests/test_viewer_files.py \
-            tests/test_viewer_motion.py tests/test_viewer_export.py tests/test_viewer_palettes.py
+            tests/test_viewer_motion.py tests/test_viewer_export.py tests/test_viewer_palettes.py tests/test_viewer_picker.py
 
       - name: Verify installed ordinary history-material project
         run: |

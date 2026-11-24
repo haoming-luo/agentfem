@@ -55,12 +55,32 @@ per saved time; it does not merge distinct physical blocks or coincident nodes.
 Use trusted local files. The service listens only on `127.0.0.1`; Ctrl+C stops
 it. It does not upload results or execute a case. No AI is needed to use it.
 Click a folder in the file list to enter it, or click a result to display it;
-**Back one folder** returns to the parent. **Folder** shows the full
-current location. **Paste a path instead** is an optional shortcut, not required.
+the up-arrow returns to the parent (tooltip: **Parent folder**). Folder icons
+identify directories without repeating “Folder” in their names. Result rows say
+**Simulation result · click to view**, rather than using an external-link icon.
+The dialog keeps a fixed height when projects/runs change; its list scrolls.
+The search field filters the current folder. **Paste a path instead** is optional.
+
+The folder-search icon opens the system folder chooser on the computer running
+the viewer. macOS uses its native panel; other desktop hosts use optional Tk.
+It never uploads or copies H5 data. Selecting a different root offers **Open
+selected project** in an independent local session; existing view/export records
+remain scoped to their original root. Unused new sessions expire after two minutes.
+On headless/remote/WSL hosts without a usable desktop chooser, use the directory
+list or path fallback; it cannot select the browser machine's files for a remote
+Python process. The native chooser is provisional: automated tests cover its
+cancel/failure/session contracts, but the background-launched macOS GUI check
+did not complete successfully. Windows/WSL also needs platform testing. The
+in-page folder browser remains the verified cross-browser route.
 The selected root limits browsing and XML companion references. For continuation
 indexes referencing sibling runs, open their common parent directory.
 
 ## Controls
+
+Scene updates explicitly advance the render-window version before sending them
+to vtk.js. Timeline advancement alone is not playback acceptance: verify that
+the geometry actually changes between early and late frames, including smooth
+interpolation within the same pair of saved frames.
 
 **Open** selects projects, runs and files in a dedicated dialog. **Display**
 toggles a compact, docked field/palette/deformation sidebar. It occupies its own

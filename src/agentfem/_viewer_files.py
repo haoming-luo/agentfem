@@ -51,7 +51,7 @@ class ResultDirectory:
             except (OSError, ValueError):
                 continue
             if resolved.is_dir() or resolved.suffix.lower() in SUFFIXES:
-                entries.append({"title": ("Folder · " if resolved.is_dir() else "") + child.name,
+                entries.append({"title": child.name,
                                 "value": str(child.relative_to(self.root)),
                                 "directory": resolved.is_dir()})
             if len(entries) >= 1000:

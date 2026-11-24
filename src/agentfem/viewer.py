@@ -143,6 +143,9 @@ def build_viewer(path, *, displacement=None, reference_geometry=False, server=No
     state.export_mode = "image"
     state.export_resolution = "1080p"
     state.show_path = False
+    state.folder_filter = ""
+    state.picker_busy = False
+    state.new_project_url = ""
     state.path_input = ""
     state.advanced = False
     state.figure_title = ""
@@ -169,6 +172,35 @@ def build_viewer(path, *, displacement=None, reference_geometry=False, server=No
     playback = {"task": None}
     range_owner = {"choice": None}
     preferred_palette = {"zero": "coolwarm", "sequential": state.palette}
+    child_sessions = set()
+
+    async def choose_project(**_):
+        if state.picker_busy:
+            return
+        from agentfem._viewer_picker import choose_folder, launch_folder
+        stop_playback()
+        with state:
+            state.picker_busy = True
+            state.error = ""
+            state.new_project_url = ""
+        try:
+            selected = await choose_folder(directory.root)
+            if selected is None:
+                return
+            if selected.is_relative_to(directory.root):
+                browse_entry(str(selected.relative_to(directory.root)))
+            else:
+                url, task = await launch_folder(selected)
+                child_sessions.add(task)
+                task.add_done_callback(child_sessions.discard)
+                with state:
+                    state.new_project_url = url
+            state.error = ""
+        except (OSError, ValueError, RuntimeError, asyncio.TimeoutError) as exc:
+            state.error = str(exc) or "Folder selection timed out. Please try again."
+        finally:
+            with state:
+                state.picker_busy = False
 
     def update(**_):
         if path is None:
@@ -320,6 +352,11 @@ def build_viewer(path, *, displacement=None, reference_geometry=False, server=No
                            if item["name"] in {"status", "agentfem_output_status", "source_status", "temporal_coverage"}]
                 state.source_status = " · ".join(notices)
                 state.error = ""
+            # vtk.js discards scene snapshots whose root mtime has not advanced.
+            # Replacing mapper data changes its mtime, not the render window's.
+            # In particular same-frame displacement interpolation otherwise
+            # advances the timeline while leaving the browser geometry frozen.
+            plotter.ren_win.Modified()
             ctrl.view_update()
             if first_view:
                 ctrl.view_camera()
@@ -717,6 +754,7 @@ def build_viewer(path, *, displacement=None, reference_geometry=False, server=No
             state.error = str(exc)
 
     def browse_entry(name, **_):
+        state.folder_filter = ""
         state.file_selection = name
         open_selection()
 
@@ -804,27 +842,35 @@ def build_viewer(path, *, displacement=None, reference_geometry=False, server=No
                     disabled=("frame_count === 0 && view_items.length === 0",), click="export_panel = true")
             v3.VBtn(icon="mdi-fit-to-screen-outline", title="Fit model to view", click=lambda: ctrl.view_reset())
         with v3.VDialog(v_model=("open_panel", False), max_width=580):
-            with v3.VCard(classes="pa-5 d-flex flex-column ga-3", title="Open local results"):
+            with v3.VCard(classes="pa-4 d-flex flex-column ga-2", title="Open results",
+                          style="height:min(640px,90vh); overflow:hidden"):
                 v3.VSelect(v_model=("project_selection", None), items=("project_items",),
                            label="Project", v_if="project_items.length", hide_details=True,
                            density="compact")
                 v3.VSelect(v_model=("run_selection", None), items=("run_items",),
-                           label="Run", v_if="project_selection !== null", hide_details=True,
+                           label="Run", disabled=("project_selection === null",), hide_details=True,
                            density="compact")
-                v3.VBtn("Back one folder", prepend_icon="mdi-arrow-up", click=parent_folder,
-                        disabled=("folder === '.'",), variant="text")
-                v3.VLabel("Folder: {{ folder === '.' ? browse_root : browse_root + '/' + folder }}", style="font-size:12px; white-space:normal; overflow-wrap:anywhere")
-                with v3.VList(density="compact", style="max-height:300px; overflow:auto; border:1px solid #e5e9ed; border-radius:8px"):
-                    v3.VListItem(v_for="item in file_items", key="item.value", title=("item.title",),
+                with v3.VRow(classes="ma-0 ga-2 align-center flex-nowrap"):
+                    v3.VBtn(icon="mdi-arrow-up", title="Parent folder", aria_label="Parent folder", click=parent_folder,
+                            disabled=("folder === '.'",), variant="text", size="small")
+                    v3.VBtn(icon="mdi-folder-search-outline", title="Choose folder on this computer", aria_label="Choose folder on this computer",
+                            click=choose_project, loading=("picker_busy",), disabled=("picker_busy",), variant="text", size="small")
+                    v3.VTextField(v_model=("folder_filter", ""), label="Find in this folder", prepend_inner_icon="mdi-magnify",
+                                  hide_details=True, density="compact", clearable=True, style="min-width:0")
+                v3.VBtn("Open selected project", v_if="new_project_url", href=("new_project_url",), variant="tonal")
+                v3.VLabel("{{ folder === '.' ? browse_root : browse_root + '/' + folder }}",
+                          title=("browse_root + '/' + folder",), style="font-size:12px; height:24px; flex-shrink:0; white-space:nowrap; overflow:hidden; text-overflow:ellipsis")
+                with v3.VList(density="compact", style="flex:1; min-height:120px; overflow:auto; border:1px solid #e5e9ed; border-radius:8px"):
+                    v3.VListItem(v_for="item in file_items.filter(entry => entry.title.toLowerCase().includes((folder_filter || '').toLowerCase()))", key="item.value", title=("item.title",),
                                  prepend_icon=("item.directory ? 'mdi-folder-outline' : 'mdi-cube-outline'",),
-                                 append_icon=("item.directory ? 'mdi-chevron-right' : 'mdi-open-in-new'",),
+                                 subtitle=("item.directory ? '' : 'Simulation result · click to view'",),
+                                 append_icon=("item.directory ? 'mdi-chevron-right' : 'mdi-play-circle-outline'",),
                                  click=(browse_entry, "[item.value]"))
                 v3.VLabel("Click a folder to browse; click a result to show it.", style="font-size:12px")
                 v3.VBtn("Paste a path instead", click="show_path = !show_path", variant="text", size="small")
                 v3.VTextField(v_model=("path_input", ""), label="Or paste a result path inside this location",
                               v_if="show_path", hide_details=True, density="compact", keydown_enter=open_path)
                 v3.VBtn("Show path", v_if="show_path", click=open_path, disabled=("!path_input",), variant="text")
-                v3.VLabel("Choose a folder to browse, or a result file to display. XDMF companion files stay on your computer.", style="font-size:12px; white-space:normal")
                 v3.VAlert("{{ error }}", v_if="error", type="error", density="compact")
                 v3.VBtn("Back to viewer", click="open_panel = false", variant="text")
         with ui.drawer:
@@ -1026,6 +1072,7 @@ def build_viewer(path, *, displacement=None, reference_geometry=False, server=No
     ctrl.remove_view = remove_view
     ctrl.undo_remove_view = undo_remove_view
     ctrl.browse_entry = browse_entry
+    ctrl.choose_project = choose_project
     ctrl.close_session = close_session
     ctrl.cancel_export = job.cancel
     return server

@@ -42,11 +42,18 @@ def test_displacement_interpolation_preserves_sources_and_rejects_other_fields()
         interpolate_displacement(a, b, "U", .5)
 
 
-def test_installed_controls_auto_scale_smooth_seek_and_field_change(tmp_path):
+def test_installed_controls_auto_scale_smooth_seek_and_field_change(tmp_path, monkeypatch):
     import asyncio
     pv = pytest.importorskip("pyvista")
     pytest.importorskip("trame")
     from agentfem.viewer import build_viewer
+    plotters = []
+    original = pv.Plotter
+    def capture(*args, **kwargs):
+        plotter = original(*args, **kwargs)
+        plotters.append(plotter)
+        return plotter
+    monkeypatch.setattr(pv, "Plotter", capture)
     a = pv.ImageData(dimensions=(3, 3, 3)).cast_to_unstructured_grid()
     for i in range(2):
         a.point_data["U"] = a.points * (.001*i)
@@ -69,8 +76,10 @@ def test_installed_controls_auto_scale_smooth_seek_and_field_change(tmp_path):
                 state.frame = 0
                 state.playback_duration = 1.
             ctrl.toggle_playback()
+            previous_mtime = plotters[0].ren_win.GetMTime()
             await asyncio.sleep(.15)
             ctrl.stop_playback()
+            assert plotters[0].ren_win.GetMTime() > previous_mtime
             assert 0 < state.blend < 1 and "Interpolated" in state.coordinate
             assert not state.error
             ctrl.seek_frame()
