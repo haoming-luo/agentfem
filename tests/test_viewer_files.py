@@ -117,3 +117,14 @@ def test_duplicate_project_names_show_relative_location(tmp_path):
         (project / "agentfem.toml").write_text('[project]\nname="Beam"\n')
     assert [item["title"] for item in ResultDirectory(tmp_path).projects()] == [
         "Beam · first", "Beam · second"]
+# A directly opened result still exposes the containing project's other runs.
+def test_result_browser_root_uses_nearest_project(tmp_path):
+    from agentfem._viewer_files import result_browser_root
+    project = tmp_path / "project"
+    result = project / "outputs" / "001" / "result.vtu"
+    result.parent.mkdir(parents=True)
+    result.write_text("unused")
+    assert result_browser_root(result) == result.parent
+    (project / "agentfem.toml").write_text("unused")
+    assert result_browser_root(result) == project
+    assert result_browser_root(result.parent) == result.parent

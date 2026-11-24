@@ -78,6 +78,19 @@ def test_installed_controls_auto_scale_smooth_seek_and_field_change(tmp_path):
             with state:
                 state.field = 0  # cell damage
             assert not state.smooth_available and not state.smooth
+            # Switching away during playback must stop the displacement task,
+            # not leave it injecting blend weights into a damage field.
+            with state:
+                state.field = 1  # displacement magnitude
+                state.frame = 0
+                state.smooth = True
+            ctrl.toggle_playback()
+            await asyncio.sleep(.1)
+            with state:
+                state.field = 0
+            await asyncio.sleep(.1)
+            assert not state.playing and not state.smooth and state.blend == 0.
+            assert not state.error
         asyncio.run(exercise())
     finally:
         ctrl.on_server_exited()

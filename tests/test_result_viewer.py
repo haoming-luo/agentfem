@@ -134,6 +134,30 @@ def test_zero_centered_colors_follow_component_and_preserve_override(tmp_path):
         with state:
             state.field = choices.index(("point", "temperature", None))
         assert state.color_mode == "sequential"  # Not inferred from signs/name.
+        for palette in ("azure-rose", "lagoon-rose"):
+            with state:
+                state.color_mode = "zero"
+            with state:
+                state.palette = palette
+            with state:
+                state.preset = "presentation"
+            assert state.palette == palette
+            with state:
+                state.color_mode = "sequential"
+            with state:
+                state.color_mode = "zero"
+            assert state.palette == palette
+            ctrl.save_view()
+            assert not state.error
+            state.view_selection = state.view_items[-1]["value"]
+        with state:
+            state.path_input = str(path)
+        ctrl.open_path()
+        assert not state.error and not state.open_panel
+        with state:
+            state.path_input = "missing.vtu"
+        ctrl.open_path()
+        assert state.error and state.loaded_source == path.name
     finally:
         ctrl.on_server_exited()
 

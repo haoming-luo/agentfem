@@ -9,6 +9,17 @@ import xml.etree.ElementTree as ET
 SUFFIXES = frozenset({".xdmf", ".xmf", ".vtu", ".vtk", ".pvd"})
 
 
+def result_browser_root(requested):
+    """A file opens its containing project, or just its folder if standalone."""
+    requested = Path(requested).expanduser().resolve(strict=True)
+    if requested.is_dir():
+        return requested
+    for parent in requested.parents:
+        if (parent / "agentfem.toml").is_file():
+            return parent
+    return requested.parent
+
+
 class ResultDirectory:
     """A local browser scope, not a network file-serving endpoint.
 

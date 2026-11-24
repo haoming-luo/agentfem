@@ -30,7 +30,7 @@ them. **Opening the same URL twice connects to the same session**, not an
 independent workspace: field/frame/playback controls may affect both tabs.
 Do not reuse another conversation's URL when independent controls are wanted.
 An explicit `--port` remains available for integrations that require a fixed port.
-The power button closes this viewer after confirmation, cancels its active
+**Session → Stop viewer service** closes this viewer after confirmation, cancels its active
 export and releases its process. Other independently launched viewers continue.
 After the last browser disconnects, the process exits after two minutes; a brief
 refresh does not lose the session. `--idle-timeout 0` keeps it running explicitly.
@@ -38,11 +38,14 @@ Completed exports are retained; closing the viewer never deletes simulation resu
 
 For project/run navigation, open a project itself or the folder containing your
 projects: `agentfem-view /path/to/projects`. Select **Project**, then **Run**,
-then the desired XDMF (or other supported result) and **Show result**. Project selection
+then the desired XDMF (or other supported result) and **Show result** in **Open**. Project selection
 uses `agentfem.toml`, including a custom `run.output_directory`; it never imports
 or executes `case.py`. Discovery is limited to the opened folder and immediate
 child projects, not a recursive disk search. Ordinary folder browsing remains
-available for nested projects or standalone results. **Refresh frames** also
+available for nested projects or standalone results. Opening a file directly
+uses its nearest containing `agentfem.toml` project as the browsing root, so
+other runs are reachable; standalone files use their parent folder.
+**Session → Refresh saved frames** also
 refreshes the available projects and runs. Select **Play** to animate saved
 frames; the adjacent icon changes to **Pause** during playback.
 
@@ -52,20 +55,24 @@ per saved time; it does not merge distinct physical blocks or coincident nodes.
 Use trusted local files. The service listens only on `127.0.0.1`; Ctrl+C stops
 it. It does not upload results or execute a case. No AI is needed to use it.
 Choose **Result or folder**, then **Show result** (or **Browse folder** for a
-directory); **Parent folder** returns to the parent. **Location** shows the
-opened browsing root.
+directory); **Back one folder** returns to the parent. **Folder** shows the full
+current location. A path may also be pasted within the opened browsing root.
 The selected root limits browsing and XML companion references. For continuation
 indexes referencing sibling runs, open their common parent directory.
 
 ## Controls
 
-The left panel groups file, field and deformation controls. Its top-left menu
-button hides the panel when you want more space for the model. The saved-frame
-slider stays above the canvas. Nothing here changes the stored result.
+**Open** selects projects, runs and files in a dedicated dialog. **Display**
+opens field, palette and deformation controls; **Done** closes this overlay
+without squeezing the model into a narrow column. Play/Pause and the saved-frame
+slider stay below the canvas, with **Playback** settings alongside them.
+Refresh and stop-service actions are under **Session**, not unlabeled toolbar
+icons. Closing a tab and stopping the service are different actions; neither
+deletes results. Nothing here changes the stored result.
 
 - **Style** offers Scientific (neutral, Ocean), Publication (white, Ocean), and
   Presentation (dark, magma). Presets change appearance, not values. Color and
-  custom label settings are disclosed under **Custom colors and labels**.
+  custom limit settings are disclosed under **Custom limits and units**.
   Ocean uses pale ice/teal/deep blue; Iris offers a lavender/indigo alternative.
   Garnet uses pale rose/burgundy and Jade uses pale celadon/forest green; these
   also work for localized damage on a quiet, low-value background.
@@ -73,9 +80,11 @@ slider stays above the canvas. Nothing here changes the stored result.
   they are not claimed to be perceptually uniform or journal-endorsed palettes.
   Established viridis/cividis maps remain selectable, including in saved views.
 
-- **Color scale → Center on zero** uses a blue–neutral–red diverging map with
-  symmetric limits `[-A, A]`: equal positive and negative values receive equal
-  visual weight. **Limit ±** adjusts both ends; **Fit all saved frames** finds
+- **Color scale → Center on zero** offers Blue / Red, Azure / Rose and Lagoon / Rose.
+  Sequential mode retains Ocean, Iris, Garnet, Jade, viridis, cividis and magma;
+  exploratory palettes are not added to the menu. Symmetric limits `[-A, A]`
+  put equal positive/negative magnitudes at equal distances from the center.
+  **Limit ±** adjusts both ends; **Fit all saved frames** finds
   the largest absolute value across the saved series. The fixed range remains
   unchanged during playback and is retained in exports and saved views.
   Components of the explicitly selected displacement vector recommend this
@@ -83,6 +92,19 @@ slider stays above the canvas. Nothing here changes the stored result.
   choose Center on zero for signed stress/strain components when appropriate.
   Field names and the presence of negative values alone do not establish physics.
   Manual selection is retained until a different field/component is selected.
+  Each mode remembers its selected palette. The two new palettes have monotonic
+  relative luminance on each side of their light center. Screening includes
+  severity-1 protan/deutan/tritan simulations using the
+  [Machado model](https://doi.org/10.1109/TVCG.2009.113), with coefficients checked
+  against [Colour's tables](https://github.com/colour-science/colour/blob/develop/colour/blindness/datasets/machado2010.py).
+  Our tests require endpoint CIE76 distance above 10 in each simulation and
+  normal-vision endpoint luminance difference below 0.03; these are internal
+  screening criteria, not accessibility certification or perceptual uniformity.
+  Lagoon's cyan end was adjusted after the initial green-end prototype failed
+  the deutan endpoint screen. Near-zero values and equal-magnitude signs can
+  still be hard to distinguish, especially in grayscale: retain labeled color
+  bars and use quantitative values for interpretation. These are original,
+  Paris-inspired palettes, not official Olympic or journal palettes.
 
 - **Field** selects the saved quantity, with **Elements** or **Nodes** indicating
   where values are stored. **Component** selects its component separately;
@@ -107,7 +129,9 @@ slider stays above the canvas. Nothing here changes the stored result.
   time. The renderer targets at most 20 updates/s and skips intermediate display
   samples when rendering takes longer; this is not a guaranteed frame rate.
   Pause keeps the interpolated view; choosing a saved frame returns to an actual
-  stored state. Still-image/view saving requires an actual saved frame.
+  stored state. Resume starts at that interpolated coordinate. Switching to a
+  non-displacement field stops smooth playback and returns to a saved state.
+  Still-image/view saving requires an actual saved frame.
 - **Keep colors consistent** is on by default. Selecting a new field/component
   initializes its limits from the displayed frame, then holds them during
   playback. **Fit all saved frames** reads the published frames one at a time

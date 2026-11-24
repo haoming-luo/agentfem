@@ -15,8 +15,9 @@ import numpy as np
 from agentfem.results import (
     deform_visualization_frame, inspect_visualization, read_visualization_frame,
 )
-from agentfem._viewer_files import ResultDirectory
-from agentfem._viewer_export import PRESETS, PALETTES, apply_camera, validate_view, display_frame, color_map, centered_range
+from agentfem._viewer_files import ResultDirectory, result_browser_root
+from agentfem._viewer_export import (PRESETS, palette_items,
+    apply_camera, validate_view, display_frame, color_map, centered_range)
 from agentfem._viewer_jobs import ExportJob
 from agentfem._atomic_text import atomic_write_text
 from agentfem._viewer_motion import automatic_scale, displacement_metrics, timeline_sample, interpolate_displacement
@@ -75,7 +76,7 @@ def build_viewer(path, *, displacement=None, reference_geometry=False, server=No
     register_js_class("vtkOpenGLProperty", "vtkProperty")
 
     requested = Path(path).expanduser().resolve(strict=True)
-    directory = ResultDirectory(requested if requested.is_dir() else requested.parent)
+    directory = ResultDirectory(result_browser_root(requested))
     path = None if requested.is_dir() else directory.result(requested)
     info = inspect_visualization(path) if path else {
         "frame": 0, "frame_count": 0, "saved_times": [], "information": []}
@@ -129,6 +130,11 @@ def build_viewer(path, *, displacement=None, reference_geometry=False, server=No
     state.displacement_items = []
     state.preset = "scientific"
     state.palette = PRESETS["scientific"]["cmap"]
+    state.palette_items = palette_items("sequential")
+    state.open_panel = path is None
+    state.session_panel = False
+    state.playback_panel = False
+    state.path_input = ""
     state.advanced = False
     state.figure_title = ""
     state.field_unit = ""
@@ -153,6 +159,7 @@ def build_viewer(path, *, displacement=None, reference_geometry=False, server=No
     job = ExportJob(export_root)
     playback = {"task": None}
     range_owner = {"choice": None}
+    preferred_palette = {"zero": "coolwarm", "sequential": state.palette}
 
     def update(**_):
         if path is None:
@@ -181,6 +188,8 @@ def build_viewer(path, *, displacement=None, reference_geometry=False, server=No
                             (choice is None or choice[:2] == ("point", state.displacement_field)))
             state.smooth_available = eligible and info["frame_count"] > 1
             if not eligible:
+                if state.smooth and state.playing:
+                    stop_playback()
                 state.blend = 0.
                 state.smooth = False
             motion_grid = grid
@@ -323,7 +332,11 @@ def build_viewer(path, *, displacement=None, reference_geometry=False, server=No
                     raise ValueError("Playback duration must be 1–60 seconds.")
                 times = info["saved_times"]
                 timeline_sample(times, 0.)
-                start_fraction = (times[int(state.frame)]-times[0])/(times[-1]-times[0])
+                start_index = int(state.frame)
+                start_time = times[start_index]
+                if start_index + 1 < len(times):
+                    start_time += float(state.blend)*(times[start_index+1]-times[start_index])
+                start_fraction = (start_time-times[0])/(times[-1]-times[0])
                 started = clock.monotonic() - start_fraction*duration
                 while state.playing:
                     fraction = min(1., (clock.monotonic()-started)/duration)
@@ -355,7 +368,9 @@ def build_viewer(path, *, displacement=None, reference_geometry=False, server=No
             with state:
                 if int(state.frame) == info["frame_count"] - 1:
                     state.frame = 0
-                state.blend = 0.
+                    state.blend = 0.
+                elif not state.smooth:
+                    state.blend = 0.
                 state.playing = True
             playback["task"] = asyncio.create_task(play())
 
@@ -437,6 +452,8 @@ def build_viewer(path, *, displacement=None, reference_geometry=False, server=No
                 range_owner["choice"] = None
                 state.error = ""
             update()
+            if not state.error:
+                state.open_panel = False
         except (ValueError, IndexError, TypeError, OSError, ET.ParseError) as exc:
             state.error = str(exc)
 
@@ -696,30 +713,41 @@ def build_viewer(path, *, displacement=None, reference_geometry=False, server=No
 
     def change_preset(**_):
         if state.preset in PRESETS:
-            state.palette = "coolwarm" if state.color_mode == "zero" else PRESETS[state.preset]["cmap"]
+            state.palette = preferred_palette["zero"] if state.color_mode == "zero" else PRESETS[state.preset]["cmap"]
 
     def change_color_mode(**_):
         with state:
             if state.color_mode == "zero":
                 state.range_min, state.range_max = centered_range(state.range_min, state.range_max)
-            change_preset()
+            state.palette_items = palette_items(state.color_mode)
+            state.palette = preferred_palette[state.color_mode]
+
+    def remember_palette(**_):
+        if state.palette in {item["value"] for item in palette_items(state.color_mode)}:
+            preferred_palette[state.color_mode] = state.palette
+
+    def open_path(**_):
+        state.file_selection = state.path_input
+        open_selection()
 
     list_views()
 
-    with SinglePageWithDrawerLayout(server, width=320) as ui:
-        ui.title.set_text("AgentFEM · {{ result_name }}")
-        ui.icon.title = "Show or hide result controls"
+    with SinglePageWithDrawerLayout(server, width=300, show_drawer=False) as ui:
+        ui.title.set_text("AgentFEM")
+        ui.title.style = "flex:0 0 auto; font-size:16px; margin:0 12px"
+        ui.icon.hide()
+        ui.drawer.permanent = False
+        ui.drawer.temporary = True
+        ui.drawer.scrim = False
         with ui.toolbar:
+            v3.VBtn("Open", prepend_icon="mdi-folder-open-outline", click="open_panel = true", variant="text")
+            v3.VBtn("Display", prepend_icon="mdi-tune", click="main_drawer = !main_drawer", variant="text")
             v3.VSpacer()
             v3.VBtn("Export", prepend_icon="mdi-export-variant", variant="tonal",
                     disabled=("frame_count === 0 && view_items.length === 0",), click="export_panel = true")
-            v3.VBtn(icon="mdi-refresh", title="Refresh saved frames", click=refresh)
             v3.VBtn(icon="mdi-fit-to-screen-outline", title="Fit model to view", click=lambda: ctrl.view_reset())
-            v3.VBtn(icon="mdi-power", title="Close this viewer", click="close_confirmation = true")
-        with ui.drawer:
-            with v3.VContainer(classes="pa-4 d-flex flex-column ga-3"):
-                v3.VLabel("LOCAL RESULTS", style="font-size:12px; letter-spacing:1px")
-                v3.VLabel("Location: {{ browse_root }}", style="font-size:12px; white-space:normal; overflow-wrap:anywhere")
+        with v3.VDialog(v_model=("open_panel", False), max_width=580):
+            with v3.VCard(classes="pa-5 d-flex flex-column ga-3", title="Open local results"):
                 v3.VSelect(v_model=("project_selection", None), items=("project_items",),
                            label="Project", v_if="project_items.length", hide_details=True,
                            density="compact")
@@ -730,8 +758,18 @@ def build_viewer(path, *, displacement=None, reference_geometry=False, server=No
                            label="Result or folder", hide_details=True, density="compact")
                 with v3.VRow(classes="ma-0 ga-2"):
                     v3.VBtn("{{ file_items.some(item => item.value === file_selection && item.directory) ? 'Browse folder' : 'Show result' }}", click=open_selection, color="primary", variant="tonal", prepend_icon="mdi-folder-open-outline")
-                    v3.VBtn("Parent folder", click=parent_folder, disabled=("folder === '.'",), variant="text")
-                v3.VLabel("Folder: {{ folder }}", style="font-size:12px; white-space:normal; overflow-wrap:anywhere")
+                    v3.VBtn("Back one folder", click=parent_folder, disabled=("folder === '.'",), variant="text")
+                v3.VLabel("Folder: {{ folder === '.' ? browse_root : browse_root + '/' + folder }}", style="font-size:12px; white-space:normal; overflow-wrap:anywhere")
+                v3.VTextField(v_model=("path_input", ""), label="Or paste a result path inside this location",
+                              hide_details=True, density="compact", keydown_enter=open_path)
+                v3.VBtn("Show path", click=open_path, disabled=("!path_input",), variant="text")
+                v3.VLabel("Choose a folder to browse, or a result file to display. XDMF companion files stay on your computer.", style="font-size:12px; white-space:normal")
+                v3.VAlert("{{ error }}", v_if="error", type="error", density="compact")
+                v3.VBtn("Back to viewer", click="open_panel = false", variant="text")
+        with ui.drawer:
+            with v3.VContainer(classes="pa-4 d-flex flex-column ga-3"):
+                v3.VBtn("Done", prepend_icon="mdi-check", click="main_drawer = false", variant="tonal")
+                v3.VLabel("DISPLAY", style="font-size:12px; letter-spacing:1px")
                 v3.VDivider()
                 v3.VSelect(v_model=("preset", "scientific"),
                            items=("preset_items", [{"title": name.title(), "value": name} for name in PRESETS]), label="Style",
@@ -747,9 +785,9 @@ def build_viewer(path, *, displacement=None, reference_geometry=False, server=No
                            label="Color scale", hide_details=True, density="compact")
                 v3.VCheckbox(v_model=("fixed_range", True), label="Keep colors consistent", hide_details=True, density="compact")
                 v3.VBtn("Fit all saved frames", click=fit_series_range, disabled=("field < 0",), variant="text")
-                v3.VCheckbox(v_model=("advanced", False), label="Custom colors and labels", hide_details=True, density="compact")
-                v3.VSelect(v_model=("palette", "ocean"), items=("palette_items", list(PALETTES)), label="Palette", v_if="advanced",
-                           hide_details=True, density="compact", disabled=("color_mode === 'zero'",))
+                v3.VSelect(v_model=("palette", "ocean"), items=("palette_items",), label="Palette",
+                           hide_details=True, density="compact")
+                v3.VCheckbox(v_model=("advanced", False), label="Custom limits and units", hide_details=True, density="compact")
                 with v3.VRow(v_if="advanced", classes="ma-0 ga-2 flex-nowrap"):
                     v3.VTextField(v_model=("range_min", 0.), label="Minimum", type="number",
                                   v_if="color_mode !== 'zero'", disabled=("!fixed_range",), hide_details=True, density="compact", style="min-width:0")
@@ -770,12 +808,6 @@ def build_viewer(path, *, displacement=None, reference_geometry=False, server=No
                 v3.VLabel("{{ scale_status }}", v_if="scale_status", style="font-size:12px; white-space:normal")
                 v3.VLabel("Use undeformed output geometry. Scale 1 shows actual displacement; saved data are unchanged.",
                           style="font-size:12px; white-space:normal")
-                v3.VDivider()
-                v3.VCheckbox(v_model=("smooth", False), label="Smooth displacement", disabled=("!smooth_available || playing",),
-                             hide_details=True, density="compact")
-                v3.VTextField(v_model=("playback_duration", 10.), label="Playback duration (s)", type="number",
-                              v_if="smooth", disabled=("playing",), hide_details=True, density="compact")
-                v3.VLabel("Display interpolation · not additional computed states", v_if="smooth", style="font-size:12px; white-space:normal")
         with v3.VDialog(v_model=("export_panel", False), max_width=500):
             with v3.VCard(classes="pa-5 d-flex flex-column ga-3", title="Export & saved views"):
                 v3.VLabel("1920 × 1080 · fixed colors · {{ smooth ? 'interpolated displacement video' : 'saved states' }}", style="font-size:12px")
@@ -819,23 +851,6 @@ def build_viewer(path, *, displacement=None, reference_geometry=False, server=No
                         with v3.VCardActions():
                             v3.VBtn("Keep viewing", click="close_confirmation = false")
                             v3.VBtn("Close viewer", click=close_session)
-                with v3.VRow(classes="ma-0 px-3 align-center ga-3", style="flex:0 0 auto; width:100%"):
-                    v3.VBtn("{{ playing ? 'Pause' : 'Play' }}", click=toggle_playback,
-                            disabled=("frame_count <= 1",), variant="text",
-                            prepend_icon=("playing ? 'mdi-pause' : 'mdi-play'",))
-                    v3.VSlider(v_model=("frame", info["frame"]), min=0,
-                               max=("frame_count - 1",), step=1, label="Saved frame",
-                               end=seek_frame, disabled=("frame_count <= 1 || playing",), hide_details=True, style="min-width:160px")
-                with v3.VSheet(classes="mx-4 my-2 px-3 py-2 d-flex flex-column", rounded="lg",
-                               style="flex:0 0 auto; background:#f5f7f9; color:#243746; font-variant-numeric:tabular-nums"):
-                    v3.VLabel("{{ station_label }}", style="font-size:13px; min-height:20px")
-                    v3.VLabel("{{ time_label }}", style="font-size:13px; min-height:20px")
-                    v3.VLabel("{{ reference_geometry ? 'Deformation ×' + Number(Number(scale).toPrecision(4)) : 'Saved geometry' }}", style="font-size:13px; min-height:20px")
-                    v3.VBtn("Result details", click="details = !details", variant="text", size="small", style="align-self:flex-start")
-                    v3.VLabel("{{ loaded_source }} · {{ mesh_summary }}", v_if="details", style="font-size:12px; white-space:normal; overflow-wrap:anywhere")
-                    v3.VLabel("Coordinates have no declared physical unit. Playback seconds describe the video, not the simulation.",
-                              v_if="details && !time_unit", style="font-size:12px; white-space:normal")
-                    v3.VLabel("{{ source_status }}", v_if="source_status", style="font-size:12px; white-space:normal")
                 # VtkLocalView manages its initial synchronization. Its ready
                 # event is not a user change: rebuilding the scene there can
                 # form a ready -> update -> ready loop on large meshes.
@@ -847,11 +862,49 @@ def build_viewer(path, *, displacement=None, reference_geometry=False, server=No
                 ctrl.view_update = view.update
                 ctrl.view_reset = view.reset_camera
                 ctrl.view_camera = view.push_camera
-                v3.VLabel("Local results · {{ fixed_range ? 'fixed colors' : 'colors per frame' }}", classes="px-4 pb-2", style="font-size:12px")
+                with v3.VSheet(classes="px-3 py-2 d-flex flex-column", style="flex:0 0 auto; background:#f5f7f9; color:#243746; font-variant-numeric:tabular-nums"):
+                    with v3.VRow(classes="ma-0 align-center ga-2 flex-nowrap", style="width:100%"):
+                        v3.VBtn("{{ playing ? 'Pause' : 'Play' }}", click=toggle_playback,
+                                disabled=("frame_count <= 1",), variant="tonal", style="min-width:96px",
+                                prepend_icon=("playing ? 'mdi-pause' : 'mdi-play'",))
+                        v3.VSlider(v_model=("frame", info["frame"]), min=0, max=("frame_count - 1",), step=1,
+                                   aria_label="Saved frame", end=seek_frame, disabled=("frame_count <= 1 || playing",),
+                                   hide_details=True, style="min-width:0; flex:1")
+                        v3.VBtn("Playback", click="playback_panel = true", variant="text", size="small")
+                    v3.VLabel("{{ station_label }} · {{ time_label }}", style="font-size:12px; height:24px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis")
+                    with v3.VRow(classes="ma-0 align-center ga-2"):
+                        v3.VLabel("{{ reference_geometry ? 'Deformation ×' + Number(Number(scale).toPrecision(4)) : 'Saved geometry' }} · {{ fixed_range ? 'Fixed colors' : 'Colors per frame' }}", style="font-size:12px")
+                        v3.VSpacer()
+                        v3.VBtn("Result details", click="details = !details", variant="text", size="small")
+                    v3.VLabel("{{ loaded_source }} · {{ mesh_summary }}", v_if="details", style="font-size:12px; white-space:normal; overflow-wrap:anywhere")
+                    v3.VLabel("Coordinates have no declared physical unit. Playback seconds describe the video, not the simulation.",
+                              v_if="details && !time_unit", style="font-size:12px; white-space:normal")
+                    v3.VLabel("{{ source_status }}", v_if="source_status", style="font-size:12px; white-space:normal")
+        with v3.VDialog(v_model=("playback_panel", False), max_width=420):
+            with v3.VCard(classes="pa-5 d-flex flex-column ga-3", title="Playback"):
+                v3.VCheckbox(v_model=("smooth", False), label="Smooth displacement", disabled=("!smooth_available || playing",), hide_details=True)
+                v3.VLabel("Available for displacement or solid color. Damage and stress show saved states only.", style="font-size:13px; white-space:normal")
+                v3.VTextField(v_model=("playback_duration", 10.), label="Playback duration (s)", type="number",
+                              v_if="smooth", disabled=("playing",), hide_details=True, density="compact")
+                v3.VLabel("Display interpolation · not additional computed states", v_if="smooth", style="font-size:12px; white-space:normal")
+                v3.VBtn("Done", click="playback_panel = false", variant="tonal")
+        with v3.VDialog(v_model=("session_panel", False), max_width=440):
+            with v3.VCard(classes="pa-5 d-flex flex-column ga-3", title="Local viewer"):
+                v3.VLabel("Closing a browser tab does not delete results. The local service stops after its configured idle timeout once all tabs disconnect (default: 2 minutes).", style="font-size:13px; white-space:normal")
+                v3.VBtn("Refresh saved frames", prepend_icon="mdi-refresh", click=refresh, variant="tonal")
+                v3.VBtn("Stop viewer service…", click="session_panel = false; close_confirmation = true", variant="text")
+                v3.VLabel("Powered by trame / Kitware", style="font-size:12px")
+                v3.VBtn("Back to viewer", click="session_panel = false", variant="text")
+        ui.footer.clear()
+        with ui.footer:
+            v3.VLabel("{{ result_name }}", style="font-size:12px; overflow:hidden; text-overflow:ellipsis")
+            v3.VSpacer()
+            v3.VBtn("Session", click="session_panel = true", variant="text", size="x-small")
     state.change("frame", "field", "scale", "edges", "fixed_range", "range_min", "range_max",
                  "reference_geometry", "displacement_field", "preset", "palette", "blend", "time_unit")(update)
     state.change("preset")(change_preset)
     state.change("color_mode")(change_color_mode)
+    state.change("palette")(remember_palette)
     state.change("smooth")(change_smoothing)
     state.change("project_selection")(select_project)
     state.change("run_selection")(select_run)
@@ -865,6 +918,7 @@ def build_viewer(path, *, displacement=None, reference_geometry=False, server=No
     ctrl.on_server_exited.add(close_view)
     # The controller callbacks are also exercised without an LLM or browser.
     ctrl.open_result = open_selection
+    ctrl.open_path = open_path
     ctrl.refresh_result = refresh
     ctrl.parent_folder = parent_folder
     ctrl.select_project = select_project

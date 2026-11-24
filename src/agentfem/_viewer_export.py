@@ -33,7 +33,21 @@ COLOR_STOPS = {
     "garnet": ("#f7eef1", "#e9c8d3", "#d99caf", "#bf6d8b", "#984565", "#712d4b"),
     "jade": ("#eef5ef", "#c6dfd3", "#93c3b0", "#5ca58f", "#34836f", "#205c50"),
 }
-PALETTES = (*COLOR_STOPS, "viridis", "cividis", "magma", "coolwarm")
+DIVERGING_STOPS = {
+    "azure-rose": ("#3d469b", "#5667bf", "#738fd9", "#9eb9e9", "#ccdff1", "#f6f4f5",
+                   "#f2cee0", "#eaa0c7", "#d870ab", "#bd4689", "#96326b"),
+    "lagoon-rose": ("#126d80", "#218f9b", "#4aafb9", "#83cdd3", "#bfe6e9", "#f5f4f2",
+                    "#f4d2e1", "#eeaccb", "#dd7bac", "#bf4e88", "#943465"),
+}
+SEQUENTIAL_PALETTES = (*COLOR_STOPS, "viridis", "cividis", "magma")
+DIVERGING_PALETTES = ("coolwarm", *DIVERGING_STOPS)
+PALETTES = (*SEQUENTIAL_PALETTES, *DIVERGING_PALETTES)
+
+
+def palette_items(mode):
+    names = DIVERGING_PALETTES if mode == "zero" else SEQUENTIAL_PALETTES
+    labels = {"coolwarm": "Blue / Red", "azure-rose": "Azure / Rose", "lagoon-rose": "Lagoon / Rose"}
+    return [{"title": labels.get(name, name.title()), "value": name} for name in names]
 
 
 def centered_range(low, high):
@@ -46,9 +60,10 @@ def centered_range(low, high):
 
 def color_map(name):
     """Resolve a stable saved palette name for both interactive and file views."""
-    if name in COLOR_STOPS:
+    stops = COLOR_STOPS.get(name, DIVERGING_STOPS.get(name))
+    if stops is not None:
         from matplotlib.colors import LinearSegmentedColormap
-        return LinearSegmentedColormap.from_list(name, COLOR_STOPS[name], N=256)
+        return LinearSegmentedColormap.from_list(name, stops, N=257)
     return name
 
 
@@ -75,7 +90,7 @@ def validate_view(view):
         raise ValueError("Select a supported style and palette.")
     if view.get("color_mode", "sequential") not in {"sequential", "zero"}:
         raise ValueError("Select sequential or zero-centered colors.")
-    if view.get("color_mode") == "zero" and view["palette"] != "coolwarm":
+    if view.get("color_mode") == "zero" and view["palette"] not in DIVERGING_PALETTES:
         raise ValueError("Zero-centered colors require a diverging palette.")
     if type(view.get("frame")) is not int or view["frame"] < 0:
         raise ValueError("Select a saved frame.")
