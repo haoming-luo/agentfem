@@ -249,7 +249,7 @@ def test_zero_centered_colors_follow_component_and_preserve_override(tmp_path):
         with state:
             state.field = choices.index(("point", "U", 0))
         assert not state.error
-        assert state.color_mode == "zero" and state.palette == "coolwarm"
+        assert state.color_mode == "zero" and state.palette == "azure-rose"
         assert state.range_min == -state.range_max
         ctrl.fit_series_range()
         assert state.range_min == -state.range_max
@@ -258,7 +258,7 @@ def test_zero_centered_colors_follow_component_and_preserve_override(tmp_path):
         assert state.range_min == -2.
         with state:
             state.preset = "publication"
-        assert state.palette == "coolwarm"
+        assert state.palette == "azure-rose"
         ctrl.save_view()
         assert not state.error
         state.view_selection = state.view_items[0]["value"]
@@ -397,7 +397,7 @@ def test_play_pause_advances_only_saved_frames(tmp_path, monkeypatch):
         await original_sleep(0)
         tick.set()
         await original_sleep(0)
-        assert state.frame == 1 and "Coordinate 0.2" in state.coordinate
+        assert state.frame == 1 and "Step value 0.2" in state.coordinate
         ctrl.stop_playback()
         tick.set()
         await original_sleep(0)
@@ -446,7 +446,7 @@ def test_browser_open_switch_and_failed_open_preserves_current(tmp_path):
         assert state.result_name == "second.vtu"
         assert state.error == ""
         assert not state.reference_geometry
-        assert state.displacement_field is None
+        assert state.displacement_field == "U"
         state.file_selection = "missing.vtu"
         ctrl.open_result()
         assert state.error
@@ -512,10 +512,10 @@ def test_refresh_continuation_preserves_station_and_field(tmp_path, monkeypatch)
         assert state.frame_count == 3
         assert state.frame == 0 and state.field == 0
         assert state.fixed_range
-        assert "Coordinate 0" in state.coordinate
+        assert "Step value 0" in state.coordinate
         with state:
             state.frame = 2
-        assert "Coordinate 0.7" in state.coordinate
+        assert "Step value 0.7" in state.coordinate
         assert state.error == ""
         index_path.write_text("<broken")
         ctrl.refresh_result()

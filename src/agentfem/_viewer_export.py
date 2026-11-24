@@ -17,13 +17,14 @@ from agentfem._atomic_text import atomic_write_text
 from agentfem._viewer_files import ResultDirectory
 from agentfem._viewer_motion import timeline_sample, interpolate_displacement, reference_frame
 from agentfem._viewer_smoothing import average_cell_colors
+from agentfem._viewer_style import legend_panel, scalar_bar, background, axis_marker
 from agentfem.results import read_visualization_frame, deform_visualization_frame, inspect_visualization
 
 
 PRESETS = {
     "scientific": {"background": "#f4f6f8", "foreground": "#263444", "cmap": "ocean", "solid": "#527e91"},
     "publication": {"background": "#ffffff", "foreground": "#243746", "cmap": "ocean", "solid": "#638b92"},
-    "presentation": {"background": "#121e2b", "foreground": "#e7edf3", "cmap": "magma", "solid": "#82bcc4"},
+    "presentation": {"background": "#0b1220", "foreground": "#e7edf3", "cmap": "ocean", "solid": "#82bcc4"},
 }
 # Sequential presentation palettes: pale low values, saturated high values.
 # These are our palettes, not a claimed Nature/Apple palette or a calibrated
@@ -41,7 +42,7 @@ DIVERGING_STOPS = {
                     "#f4d2e1", "#eeaccb", "#dd7bac", "#bf4e88", "#943465"),
 }
 SEQUENTIAL_PALETTES = (*COLOR_STOPS, "viridis", "cividis", "magma")
-DIVERGING_PALETTES = ("coolwarm", *DIVERGING_STOPS)
+DIVERGING_PALETTES = (*DIVERGING_STOPS, "coolwarm")
 PALETTES = (*SEQUENTIAL_PALETTES, *DIVERGING_PALETTES)
 
 
@@ -75,11 +76,11 @@ def figure_annotations(view, coordinate, index, size):
     elif view.get("time_unit"):
         time = f"Time {coordinate:.6g} {view['time_unit']}"
     else:
-        time = f"Saved coordinate {coordinate:.6g}"
-    geometry = f"Deformation ×{view['scale']:g}" if view["reference_geometry"] else "Saved geometry"
+        time = f"Frame {index+1}"
+    geometry = f"Deformation ×{view['scale']:g}" if view["reference_geometry"] else "Reference shape"
     return (
-        ("time", time, (int(size[0]*.045), int(size[1]*.875))),
-        ("geometry", geometry, (int(size[0]*.045), int(size[1]*.84))),
+        ("time", time, (int(size[0]*.045), int(size[1]*.72))),
+        ("geometry", geometry, (int(size[0]*.045), int(size[1]*.68))),
     )
 
 
@@ -151,7 +152,7 @@ def apply_camera(plotter, camera):
 def display_frame(source, index, view, *, grid=None, right=None, alpha=0.):
     from agentfem.viewer import component_values, scalar_choices
     grid = read_visualization_frame(source, frame=index) if grid is None else grid
-    if view["reference_geometry"]:
+    if view.get("displacement"):
         grid = reference_frame(grid, view["displacement"], view.get("current_coordinates", False))
         if right is not None:
             right = reference_frame(right, view["displacement"], view.get("current_coordinates", False))
@@ -214,12 +215,14 @@ def render(request, destination, progress=None):
     destination.mkdir(parents=True, exist_ok=True)
     preset = PRESETS[view["preset"]]
     plotter = pv.Plotter(off_screen=True, window_size=size)
+    legend = legend_panel(plotter)
+    plotter.add_orientation_widget(axis_marker(), viewport=(.80, .17, .99, .36))
     movie = mode != "image"
     output = destination / ("animation.mp4" if movie else "figure.png")
     last_index, actor = None, None
     raw_frames = {}
     try:
-        plotter.set_background(preset["background"])
+        background(plotter, legend, preset)
         plotter.enable_anti_aliasing("ssaa")
         if movie:
             plotter.open_movie(output, framerate=fps, quality=8, macro_block_size=2)
@@ -263,12 +266,7 @@ def render(request, destination, progress=None):
                         label = f"{name}{'' if component == 'Value' else ' / '+component}{unit}"
                         if averaged:
                             label += " · averaged display"
-                        plotter.add_text(label, position=(int(size[0]*.25), int(size[1]*.155)),
-                                         font_size=15, color=preset["foreground"], font="arial", name="field_label")
-                        plotter.add_scalar_bar("", mapper=actor.mapper, color=preset["foreground"],
-                            vertical=False, position_x=.25, position_y=.065, width=.50, height=.065,
-                            title_font_size=18, label_font_size=15, n_labels=5, fmt="%.3g",
-                            font_family="arial", bold=False, shadow=False)
+                        scalar_bar(plotter, legend, label, actor.mapper, preset['foreground'])
                 elif scalar is not None:
                     for bar in plotter.scalar_bars.values():
                         bar.SetLookupTable(actor.mapper.lookup_table)
@@ -276,17 +274,17 @@ def render(request, destination, progress=None):
             if mode == "orbit" and step:
                 plotter.camera.Azimuth(360 / len(frames))
                 plotter.reset_camera_clipping_range()
-            title = view.get("title") or source.stem.replace("_", " ")
-            plotter.add_text(title, position=(int(size[0]*.045), int(size[1]*.92)),
+            title = view.get("title") or ""
+            plotter.add_text(title, position=(int(size[0]*.045), int(size[1]*.78)),
                              font_size=24, color=preset["foreground"], font="arial", name="title")
             coordinate = info["saved_times"][index] if info["saved_times"] else None
             if smooth:
                 coordinate = samples[step][2]
             for name, label, position in figure_annotations(view, coordinate, index, size):
-                plotter.add_text(label, position=position, font_size=13,
+                plotter.add_text(label, position=position, font_size=18,
                                  color=preset["foreground"], font="arial", name=name)
             if smooth:
-                plotter.add_text("Interpolated display", position=(int(size[0]*.045), int(size[1]*.805)),
+                plotter.add_text("Interpolated display", position=(int(size[0]*.045), int(size[1]*.64)),
                                  font_size=11, color=preset["foreground"], font="arial", name="interpolation")
             if movie:
                 # Actual saved states only. Holding a frame gives a readable

@@ -98,10 +98,10 @@ reference coordinates first, avoiding double deformation. Each interpolated pair
 still checks reference geometry and connectivity, allowing only storage-precision
 roundoff. This does not support remeshing or create new computed states.
 
-Spatial cell-field smoothing is not enabled by default. VTK's
+Spatial cell-field smoothing is enabled by default and can be switched off. VTK's
 [cell-to-point filter](https://vtk.org/doc/nightly/html/classvtkCellDataToPointData.html)
 averages incident cells; it is not constitutive recovery or a higher-accuracy
-stress solution. **Smooth cell colors · display only** averages the selected
+stress solution. **Smooth colors** averages the selected
 scalar for display, retaining the original color limits and source arrays.
 Choose an integer cell-region field to keep material/interface regions separate;
 nodes are not welded across regions. Without that field, **One continuous region**
@@ -110,6 +110,20 @@ The legend identifies averaged display and exported view settings record it.
 Interactive rendering and image/video export use the same averaging operation.
 This is separate from temporal displacement interpolation and does not interpolate
 damage histories or claim improved numerical accuracy.
+
+**Show deformation** has the same meaning for supported reference-coordinate
+and moving-coordinate archives: off shows the reference shape; on applies the
+selected multiplier. Moving coordinates are first normalized using the selected
+displacement. The control cannot reconstruct an unknown reference configuration
+without a valid displacement field and coordinate convention.
+
+Negative/positive colors default to Azure / Rose, followed by Lagoon / Rose and
+Blue / Red. Model and legend occupy separate regions in both the browser and
+exports. The browser legend is accessible HTML, avoiding vtk.js automatic text
+rescaling in small panes. Export titles are optional, never inferred from generic
+filenames such as `fields`. Without a declared time unit, exports identify the
+frame rather than calling a load parameter seconds. Information buttons provide
+the longer display-only explanations without crowding the controls.
 
 On macOS, the folder chooser now calls AppKit's
 [NSOpenPanel](https://developer.apple.com/documentation/AppKit/NSOpenPanel)

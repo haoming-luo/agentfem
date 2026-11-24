@@ -50,3 +50,27 @@ def test_export_uses_same_display_average():
 def test_invalid_region_is_not_silently_ignored():
     with pytest.raises(ValueError, match='region'):
         average_cell_colors(mesh(), [2, 8], 'missing')
+
+
+@pytest.mark.parametrize('enabled,scale', [(False, 4.), (True, 1.), (True, 2.)])
+def test_current_coordinates_obey_deformation_switch(enabled, scale):
+    grid = mesh()
+    reference = grid.points.copy()
+    u = np.tile([.5, .2, 0], (grid.n_points, 1))
+    grid.point_data['U'] = u
+    grid.points += u
+    view = dict(reference_geometry=enabled, current_coordinates=True,
+                displacement='U', scale=scale, choice=None)
+    result, _ = display_frame(None, 0, view, grid=grid)
+    np.testing.assert_allclose(result.points, reference + (scale*u if enabled else 0))
+    np.testing.assert_allclose(grid.points, reference + u)
+
+
+def test_legend_has_separate_viewport():
+    from agentfem._viewer_style import legend_panel
+    plotter = pv.Plotter(off_screen=True)
+    try:
+        panel = legend_panel(plotter)
+        assert panel.GetViewport()[3] <= plotter.renderer.GetViewport()[1]
+    finally:
+        plotter.close()

@@ -20,6 +20,7 @@ from agentfem._viewer_export import (PRESETS, palette_items,
     apply_camera, validate_view, display_frame, color_map, centered_range)
 from agentfem._viewer_jobs import ExportJob
 from agentfem._viewer_smoothing import average_cell_colors, region_choices
+from agentfem._viewer_style import legend_panel, scalar_bar, background, install_browser_legend, axis_marker
 from agentfem._atomic_text import atomic_write_text
 from agentfem._viewer_motion import automatic_scale, displacement_metrics, timeline_sample, interpolate_displacement, reference_frame, has_current_coordinates
 
@@ -89,15 +90,19 @@ def build_viewer(path, *, displacement=None, reference_geometry=False, server=No
     state, ctrl = server.state, server.controller
     state.trame__title = "AgentFEM · Local results"
     plotter = pv.Plotter(off_screen=True)
+    legend = legend_panel(plotter)
     plotter.set_background("#f3f5f7")
-    plotter.add_axes(x_color="#b74c60", y_color="#458b76", z_color="#4d74ae",
-                     viewport=(0., 0., .16, .16))
+    axes_widget = plotter.add_orientation_widget(axis_marker(), viewport=(.80, .17, .99, .36))
     cache = {"frame": None, "grid": None, "choices": [], "actor": None, "bar": None}
     state.frame = info["frame"]
     state.field = -1
     state.scale = 1.
     state.edges = False
     state.error = ""
+    state.legend_title = ""
+    state.legend_ticks = []
+    state.legend_gradient = ""
+    state.legend_color = "#263444"
     state.field_items = [{"title": "Solid color", "value": -1}]
     state.quantity = -1
     state.quantity_items = [{"title": "Solid color", "value": -1}]
@@ -155,7 +160,7 @@ def build_viewer(path, *, displacement=None, reference_geometry=False, server=No
     state.advanced = False
     state.figure_title = ""
     state.field_unit = ""
-    state.cell_smoothing = False
+    state.cell_smoothing = True
     state.cell_selected = False
     state.smoothing_region = ""
     state.smoothing_regions = []
@@ -180,7 +185,7 @@ def build_viewer(path, *, displacement=None, reference_geometry=False, server=No
     job = ExportJob(export_root)
     playback = {"task": None}
     range_owner = {"choice": None}
-    preferred_palette = {"zero": "coolwarm", "sequential": state.palette}
+    preferred_palette = {"zero": "azure-rose", "sequential": state.palette}
     child_sessions = set()
     picker_task = {"task": None}
 
@@ -226,6 +231,7 @@ def build_viewer(path, *, displacement=None, reference_geometry=False, server=No
     def update(**_):
         if path is None:
             return
+        install_browser_legend()
         try:
             index = int(state.frame)
             changed = cache["frame"] != index
@@ -239,7 +245,7 @@ def build_viewer(path, *, displacement=None, reference_geometry=False, server=No
                 state.displacement_field = None
             named_displacements = [name for name in vectors if name.lower() in {"displacement", "u"}
                                    or name.lower().startswith("displacement_")]
-            if state.reference_geometry and state.displacement_field is None and len(named_displacements) == 1:
+            if state.displacement_field is None and len(named_displacements) == 1:
                 state.displacement_field = named_displacements[0]
             if state.displacement_field and cache.get("geometry_probe") != (path, state.displacement_field):
                 cache["geometry_probe"] = (path, state.displacement_field)
@@ -266,7 +272,7 @@ def build_viewer(path, *, displacement=None, reference_geometry=False, server=No
                     stop_playback()
                 state.blend = 0.
                 state.smooth = False
-            motion_grid = reference_frame(grid, state.displacement_field, bool(state.current_coordinates)) if state.reference_geometry and state.displacement_field else grid
+            motion_grid = reference_frame(grid, state.displacement_field, bool(state.current_coordinates)) if state.displacement_field else grid
             if float(state.blend) > 0:
                 if cache.get("next_index") != index+1:
                     cache["next_grid"] = read_visualization_frame(path, frame=index+1)
@@ -336,7 +342,7 @@ def build_viewer(path, *, displacement=None, reference_geometry=False, server=No
                                                   show_scalar_bar=False)
             actor = cache["actor"]
             preset = PRESETS[state.preset]
-            plotter.set_background(preset["background"])
+            background(plotter, legend, preset)
             actor.prop.color = preset["solid"]
             actor.prop.ambient = .55
             actor.prop.diffuse = .45
@@ -348,8 +354,14 @@ def build_viewer(path, *, displacement=None, reference_geometry=False, server=No
                 values, key, association, label, bounds = scalar
                 actor.mapper.set_scalars(values, key, preference=association,
                                          cmap=color_map(state.palette), clim=bounds)
+                table = np.asarray(actor.mapper.lookup_table.values)
+                state.legend_gradient = 'linear-gradient(to right, ' + ','.join(
+                    f'rgb({int(c[0])},{int(c[1])},{int(c[2])})' for c in table) + ')'
+                state.legend_title = label.replace('_', ' ')
+                state.legend_ticks = [f'{v:.3g}' for v in np.linspace(*actor.mapper.scalar_range, 5)]
+                state.legend_color = preset['foreground']
                 if cache["bar"] is None:
-                    cache["bar"] = plotter.add_scalar_bar(label, mapper=actor.mapper)
+                    cache["bar"] = scalar_bar(plotter, legend, label, actor.mapper, preset['foreground'])
                 cache["bar"].SetTitle(label)
                 cache["bar"].SetLookupTable(actor.mapper.lookup_table)
                 cache["bar"].SetVisibility(True)
@@ -357,6 +369,7 @@ def build_viewer(path, *, displacement=None, reference_geometry=False, server=No
                 cache["bar"].GetLabelTextProperty().SetColor(pv.Color(preset["foreground"]).float_rgb)
             elif cache["bar"] is not None:
                 cache["bar"].SetVisibility(False)
+                state.legend_title = ""
             if cache["grid"] is None:
                 plotter.view_isometric()
                 plotter.reset_camera()
@@ -384,7 +397,7 @@ def build_viewer(path, *, displacement=None, reference_geometry=False, server=No
                     time += float(state.blend)*(info["saved_times"][index+1]-time)
                 position = (f"Interpolated · frames {index+1}–{index+2}" if float(state.blend) > 0
                             else f"Saved frame {index+1}/{info['frame_count']}")
-                label = "Time" if state.time_unit else "Coordinate"
+                label = "Time" if state.time_unit else "Step value"
                 state.coordinate = position + (f" · {label} {time:.6g} {state.time_unit}" if time is not None else "")
                 state.station_label = position
                 state.time_label = f"{label} {time:.6g} {state.time_unit}" if time is not None else "No saved time coordinate"
@@ -534,7 +547,7 @@ def build_viewer(path, *, displacement=None, reference_geometry=False, server=No
                 state.scale_status = ""
                 state.time_unit = ""
                 state.field_unit = ""
-                state.cell_smoothing = False
+                state.cell_smoothing = True
                 state.smoothing_region = ""
                 # Coordinate semantics belong to this file, not the previously
                 # opened file. Never accidentally warp current coordinates twice.
@@ -962,12 +975,12 @@ def build_viewer(path, *, displacement=None, reference_geometry=False, server=No
                            label="Field", hide_details=True, density="compact")
                 v3.VSelect(v_model=("field", -1), items=("component_items",),
                            label="Component", v_if="quantity >= 0 && component_items.length > 1", hide_details=True, density="compact")
-                v3.VCheckbox(v_model=("cell_smoothing", False), v_if="cell_selected",
-                             label="Smooth cell colors · display only", hide_details=True, density="compact")
+                v3.VCheckbox(v_model=("cell_smoothing", True), v_if="cell_selected",
+                             label="Smooth colors", hide_details=True, density="compact")
                 v3.VSelect(v_model=("smoothing_region", ""), items=("smoothing_regions",),
                            v_if="cell_selected && cell_smoothing", label="Keep regions separate", hide_details=True, density="compact")
-                v3.VLabel("Averaged colors, original range. Use region IDs at material interfaces; keep raw cells for damage/contact jumps.",
-                          v_if="cell_selected && cell_smoothing", style="font-size:12px; white-space:normal")
+                with v3.VBtn(icon="mdi-information-outline", size="x-small", variant="text", aria_label="About color smoothing", v_if="cell_selected"):
+                    v3.VTooltip("Display averaging only; original values and range are retained. Select region IDs to preserve interfaces. Turn off for raw damage/contact jumps.", activator="parent", max_width=300)
                 v3.VDivider(classes="my-2")
                 html.Div("Color & legend", classes="viewer-section")
                 v3.VSelect(v_model=("color_mode", "sequential"),
@@ -987,8 +1000,7 @@ def build_viewer(path, *, displacement=None, reference_geometry=False, server=No
                 v3.VDivider(classes="my-2")
                 html.Div("Deformation", classes="viewer-section")
                 v3.VCheckbox(v_model=("reference_geometry", bool(reference_geometry)),
-                             label="Deform / magnify displacement", disabled=("displacement_items.length === 0",), hide_details=True, density="compact")
-                v3.VLabel("Saved coordinates already include displacement; ×1 preserves them.", v_if="current_coordinates", style="font-size:12px; white-space:normal")
+                             label="Show deformation", disabled=("displacement_items.length === 0",), hide_details=True, density="compact")
                 v3.VLabel("No nodal displacement vector in this frame.", v_if="displacement_items.length === 0", style="font-size:12px; white-space:normal")
                 v3.VSelect(v_model=("displacement_field", displacement), items=("displacement_items",),
                            label="Displacement vector", v_if="displacement_items.length > 0", disabled=("!reference_geometry",),
@@ -1002,9 +1014,8 @@ def build_viewer(path, *, displacement=None, reference_geometry=False, server=No
                     v3.VBtn("Auto scale", click=fit_deformation, variant="tonal", loading=("scale_busy",),
                             disabled=("!reference_geometry || !displacement_field || scale_busy",))
                     v3.VBtn("Actual ×1", click="scale = 1; scale_status = ''", variant="text")
-                v3.VLabel("{{ scale_status }}", v_if="scale_status", style="font-size:12px; white-space:normal")
-                v3.VLabel("×1 = actual displacement. Display only; results are unchanged.",
-                          style="font-size:12px; white-space:normal")
+                with v3.VBtn(icon="mdi-information-outline", size="x-small", variant="text", aria_label="About deformation"):
+                    v3.VTooltip("Off: reference shape. ×1: actual displacement. Auto scale uses all saved frames and remains fixed during playback. Display only; original results are unchanged.", activator="parent", max_width=300)
                 v3.VCheckbox(v_model=("edges", False), label="Mesh edges", hide_details=True, density="compact")
                 v3.VDivider(classes="my-2")
                 with v3.VRow(classes="ma-0 ga-1"):
@@ -1082,13 +1093,20 @@ def build_viewer(path, *, displacement=None, reference_geometry=False, server=No
                 # VtkLocalView manages its initial synchronization. Its ready
                 # event is not a user change: rebuilding the scene there can
                 # form a ready -> update -> ready loop on large meshes.
-                view = vtk.VtkLocalView(plotter.ren_win, ref="result_view",
-                                        widgets=[plotter.renderer.axes_widget],
+                with html.Div(style="flex:1; min-height:0; position:relative"):
+                    view = vtk.VtkLocalView(plotter.ren_win, ref="result_view",
+                                        widgets=[axes_widget],
                                         interactor_events=("camera_events", ["EndAnimation"]),
                                         EndAnimation=(sync_camera, "[trame.refs.result_view.getCamera()]"),
                                         reset_camera=(sync_camera, "[trame.refs.result_view.getCamera()]"),
-                                        style="flex:1; min-height:0; width:100%")
+                                        style="height:100%; width:100%")
+                    with html.Div(v_if="legend_title", style=("{position:'absolute',bottom:'2%',left:'12%',width:'76%',height:'12%',color:legend_color,pointerEvents:'none',display:'flex',flexDirection:'column',justifyContent:'center',gap:'5px'}",)):
+                        html.Div("{{ legend_title }}", style="text-align:center;font:14px Arial;white-space:nowrap;overflow:hidden;text-overflow:ellipsis", title=("legend_title",))
+                        html.Div(style=("{height:'12px',flexShrink:0,background:legend_gradient}",))
+                        with html.Div(style="display:flex;justify-content:space-between;font:12px Arial"):
+                            html.Span("{{ tick }}", v_for="(tick, index) in legend_ticks", key="index")
                 ctrl.view_update = view.update
+                install_browser_legend()
                 ctrl.view_reset = view.reset_camera
                 ctrl.view_camera = view.push_camera
                 with v3.VSheet(classes="px-3 py-2 d-flex flex-column", style="flex:0 0 auto; background:#f5f7f9; color:#243746; font-variant-numeric:tabular-nums"):
@@ -1104,7 +1122,7 @@ def build_viewer(path, *, displacement=None, reference_geometry=False, server=No
                         v3.VBtn("Playback", click="playback_panel = true", variant="text", size="small", style="justify-self:end")
                     v3.VLabel("{{ time_label }}", style="font-size:12px; height:24px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis")
                     with v3.VRow(classes="ma-0 align-center ga-2"):
-                        v3.VLabel("{{ reference_geometry ? 'Deformation ×' + Number(Number(scale).toPrecision(4)) : 'Saved geometry' }} · {{ fixed_range ? 'Fixed colors' : 'Colors per frame' }}", style="font-size:12px")
+                        v3.VLabel("{{ reference_geometry ? 'Deformation ×' + Number(Number(scale).toPrecision(4)) : 'Reference shape' }} · {{ fixed_range ? 'Fixed colors' : 'Colors per frame' }}", style="font-size:12px")
                         v3.VSpacer()
                         v3.VBtn("Result details", click="details = !details", variant="text", size="small")
                     v3.VLabel("{{ loaded_source }} · {{ mesh_summary }}", v_if="details", style="font-size:12px; white-space:normal; overflow-wrap:anywhere")
