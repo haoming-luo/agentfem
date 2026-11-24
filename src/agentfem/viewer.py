@@ -67,7 +67,7 @@ def build_viewer(path, *, displacement=None, reference_geometry=False, server=No
     import pyvista as pv
     from trame.app import get_server
     from trame.ui.vuetify3 import SinglePageWithDrawerLayout
-    from trame.widgets import vtk, vuetify3 as v3
+    from trame.widgets import vtk, html, vuetify3 as v3
     from trame_vtk.modules.vtk.serializers.registry import register_js_class
 
     # VTK's OpenGL property implements the ordinary surface-property contract.
@@ -82,7 +82,8 @@ def build_viewer(path, *, displacement=None, reference_geometry=False, server=No
         "frame": 0, "frame_count": 0, "saved_times": [], "information": []}
     server = server or get_server("viewer-" + uuid4().hex, client_type="vue3")
     server.enable_module({"serve": {"viewer-assets": str(Path(__file__).parent / "_viewer_assets")},
-                          "scripts": ["viewer-assets/viewer.js"], "vue_use": ["AgentFEMViewer"]})
+                          "scripts": ["viewer-assets/viewer.js"], "styles": ["viewer-assets/viewer.css"],
+                          "vue_use": ["AgentFEMViewer"]})
     state, ctrl = server.state, server.controller
     state.trame__title = "AgentFEM · Local results"
     plotter = pv.Plotter(off_screen=True)
@@ -134,6 +135,14 @@ def build_viewer(path, *, displacement=None, reference_geometry=False, server=No
     state.open_panel = path is None
     state.session_panel = False
     state.playback_panel = False
+    state.settings_panel = False
+    state.views_panel = False
+    state.view_notice = ""
+    state.removed_view = None
+    state.export_step = 1
+    state.export_mode = "image"
+    state.export_resolution = "1080p"
+    state.show_path = False
     state.path_input = ""
     state.advanced = False
     state.figure_title = ""
@@ -284,7 +293,9 @@ def build_viewer(path, *, displacement=None, reference_geometry=False, server=No
             with state:
                 groups = list(dict.fromkeys((a, n) for a, n, _ in choices))
                 state.quantity_items = [{"title": "Solid color", "value": -1}] + [
-                    {"title": f"{n} · {'Elements' if a == 'cell' else 'Nodes'}", "value": i}
+                    {"title": n.replace("_", " ") + (
+                        f" · {'Elements' if a == 'cell' else 'Nodes'}"
+                        if sum(name == n for _, name in groups) > 1 else ""), "value": i}
                     for i, (a, n) in enumerate(groups)]
                 state.quantity = groups.index(choices[selected][:2]) if selected >= 0 else -1
                 state.component_items = [
@@ -614,8 +625,9 @@ def build_viewer(path, *, displacement=None, reference_geometry=False, server=No
             target = export_root / ("view-" + uuid4().hex[:12]) / "view.json"
             atomic_write_text(target, json.dumps(view, indent=2, allow_nan=False))
             state.export_record = "viewer-exports/" + str(target.relative_to(export_root))
-            state.export_progress = "View saved. Select it below to restore this scene."
+            state.view_notice = "View saved."
             list_views()
+            state.view_selection = str(target.relative_to(export_root))
         except (ValueError, TypeError, OSError) as exc:
             state.error = str(exc)
 
@@ -656,6 +668,9 @@ def build_viewer(path, *, displacement=None, reference_geometry=False, server=No
                 state.palette = view_record["palette"]
                 if choice is not None:
                     state.range_min, state.range_max = view_record["range"]
+            # Publish the complete restored scene, not an intermediate field
+            # update evaluated before the deformation declaration was restored.
+            update()
             sync_camera(view_record.get("camera"))
             ctrl.view_camera()
             prefix = "viewer-exports/" + str(selected.parent.relative_to(export_root)) + "/"
@@ -666,6 +681,45 @@ def build_viewer(path, *, displacement=None, reference_geometry=False, server=No
         except (ValueError, KeyError, TypeError, IndexError, OSError) as exc:
             state.error = str(exc)
 
+    def remove_view(**_):
+        """Recoverable removal of a view recipe, never its images or source."""
+        try:
+            if state.view_selection not in {item["value"] for item in state.view_items}:
+                raise ValueError("Select a saved view.")
+            selected = export_root / state.view_selection
+            if selected.is_symlink() or selected.parent.is_symlink():
+                raise ValueError("Select a local saved view.")
+            selected.resolve(strict=True).relative_to(export_root.resolve())
+            archived = selected.with_name(".removed-view-" + uuid4().hex + ".json")
+            selected.rename(archived)
+            state.removed_view = str(archived.relative_to(export_root))
+            state.view_selection = None
+            state.view_notice = "View removed. Results and exported media are unchanged."
+            list_views()
+        except (ValueError, OSError) as exc:
+            state.error = str(exc)
+
+    def undo_remove_view(**_):
+        try:
+            archived = export_root / str(state.removed_view)
+            archived.resolve(strict=True).relative_to(export_root.resolve())
+            if archived.is_symlink() or archived.parent.is_symlink() or not archived.name.startswith(".removed-view-"):
+                raise ValueError("No view to restore.")
+            target = archived.with_name("view.json")
+            if target.exists():
+                raise ValueError("A view already exists here.")
+            archived.rename(target)
+            state.removed_view = None
+            state.view_notice = "View restored."
+            list_views()
+            state.view_selection = str(target.relative_to(export_root))
+        except (ValueError, OSError) as exc:
+            state.error = str(exc)
+
+    def browse_entry(name, **_):
+        state.file_selection = name
+        open_selection()
+
     async def export(mode, camera=None, **_):
         if state.export_busy:
             return
@@ -674,8 +728,11 @@ def build_viewer(path, *, displacement=None, reference_geometry=False, server=No
             state.blend = 0.
         state.export_busy = True
         try:
+            sizes = {"720p": [1280, 720], "1080p": [1920, 1080], "4k": [3840, 2160]}
+            if state.export_resolution not in sizes:
+                raise ValueError("Select 720p, 1080p or 4K.")
             request = dict(root=str(directory.root), view=snapshot(camera), mode=mode,
-                           size=[1920, 1080], fps=24, transparent=state.transparent,
+                           size=sizes[state.export_resolution], fps=24, transparent=state.transparent,
                            smooth=bool(state.smooth), duration=float(state.playback_duration))
             def progress(done, total):
                 with state:
@@ -683,6 +740,9 @@ def build_viewer(path, *, displacement=None, reference_geometry=False, server=No
             with state:
                 state.export_progress = "Preparing export…"
                 state.error = ""
+                state.export_image = ""
+                state.export_video = ""
+                state.export_step = 3
             target = await job.run(request, progress)
             with state:
                 if target is None:
@@ -711,10 +771,6 @@ def build_viewer(path, *, displacement=None, reference_geometry=False, server=No
         await asyncio.sleep(.25)
         await server.stop()
 
-    def change_preset(**_):
-        if state.preset in PRESETS:
-            state.palette = preferred_palette["zero"] if state.color_mode == "zero" else PRESETS[state.preset]["cmap"]
-
     def change_color_mode(**_):
         with state:
             if state.color_mode == "zero":
@@ -732,12 +788,13 @@ def build_viewer(path, *, displacement=None, reference_geometry=False, server=No
 
     list_views()
 
-    with SinglePageWithDrawerLayout(server, width=300, show_drawer=False) as ui:
+    with SinglePageWithDrawerLayout(server, width=264, show_drawer=True) as ui:
         ui.title.set_text("AgentFEM")
         ui.title.style = "flex:0 0 auto; font-size:16px; margin:0 12px"
         ui.icon.hide()
         ui.drawer.permanent = False
-        ui.drawer.temporary = True
+        ui.drawer.temporary = False
+        ui.drawer.mobile = False
         ui.drawer.scrim = False
         with ui.toolbar:
             v3.VBtn("Open", prepend_icon="mdi-folder-open-outline", click="open_panel = true", variant="text")
@@ -754,93 +811,127 @@ def build_viewer(path, *, displacement=None, reference_geometry=False, server=No
                 v3.VSelect(v_model=("run_selection", None), items=("run_items",),
                            label="Run", v_if="project_selection !== null", hide_details=True,
                            density="compact")
-                v3.VSelect(v_model=("file_selection", None), items=("file_items",),
-                           label="Result or folder", hide_details=True, density="compact")
-                with v3.VRow(classes="ma-0 ga-2"):
-                    v3.VBtn("{{ file_items.some(item => item.value === file_selection && item.directory) ? 'Browse folder' : 'Show result' }}", click=open_selection, color="primary", variant="tonal", prepend_icon="mdi-folder-open-outline")
-                    v3.VBtn("Back one folder", click=parent_folder, disabled=("folder === '.'",), variant="text")
+                v3.VBtn("Back one folder", prepend_icon="mdi-arrow-up", click=parent_folder,
+                        disabled=("folder === '.'",), variant="text")
                 v3.VLabel("Folder: {{ folder === '.' ? browse_root : browse_root + '/' + folder }}", style="font-size:12px; white-space:normal; overflow-wrap:anywhere")
+                with v3.VList(density="compact", style="max-height:300px; overflow:auto; border:1px solid #e5e9ed; border-radius:8px"):
+                    v3.VListItem(v_for="item in file_items", key="item.value", title=("item.title",),
+                                 prepend_icon=("item.directory ? 'mdi-folder-outline' : 'mdi-cube-outline'",),
+                                 append_icon=("item.directory ? 'mdi-chevron-right' : 'mdi-open-in-new'",),
+                                 click=(browse_entry, "[item.value]"))
+                v3.VLabel("Click a folder to browse; click a result to show it.", style="font-size:12px")
+                v3.VBtn("Paste a path instead", click="show_path = !show_path", variant="text", size="small")
                 v3.VTextField(v_model=("path_input", ""), label="Or paste a result path inside this location",
-                              hide_details=True, density="compact", keydown_enter=open_path)
-                v3.VBtn("Show path", click=open_path, disabled=("!path_input",), variant="text")
+                              v_if="show_path", hide_details=True, density="compact", keydown_enter=open_path)
+                v3.VBtn("Show path", v_if="show_path", click=open_path, disabled=("!path_input",), variant="text")
                 v3.VLabel("Choose a folder to browse, or a result file to display. XDMF companion files stay on your computer.", style="font-size:12px; white-space:normal")
                 v3.VAlert("{{ error }}", v_if="error", type="error", density="compact")
                 v3.VBtn("Back to viewer", click="open_panel = false", variant="text")
         with ui.drawer:
-            with v3.VContainer(classes="pa-4 d-flex flex-column ga-3"):
-                v3.VBtn("Done", prepend_icon="mdi-check", click="main_drawer = false", variant="tonal")
-                v3.VLabel("DISPLAY", style="font-size:12px; letter-spacing:1px")
-                v3.VDivider()
-                v3.VSelect(v_model=("preset", "scientific"),
-                           items=("preset_items", [{"title": name.title(), "value": name} for name in PRESETS]), label="Style",
-                           hide_details=True, density="compact")
+            with v3.VContainer(classes="pa-3 d-flex flex-column ga-2"):
+                html.Div("Field", classes="viewer-section")
                 v3.VSelect(v_model=("quantity", -1), items=("quantity_items",),
                            label="Field", hide_details=True, density="compact")
                 v3.VSelect(v_model=("field", -1), items=("component_items",),
-                           label="Component", v_if="quantity >= 0", hide_details=True, density="compact")
-                v3.VCheckbox(v_model=("edges", False), label="Show mesh edges", hide_details=True, density="compact")
+                           label="Component", v_if="quantity >= 0 && component_items.length > 1", hide_details=True, density="compact")
+                v3.VDivider(classes="my-2")
+                html.Div("Color & legend", classes="viewer-section")
                 v3.VSelect(v_model=("color_mode", "sequential"),
-                           items=("color_modes", [{"title": "Sequential", "value": "sequential"},
-                                                  {"title": "Center on zero", "value": "zero"}]),
-                           label="Color scale", hide_details=True, density="compact")
-                v3.VCheckbox(v_model=("fixed_range", True), label="Keep colors consistent", hide_details=True, density="compact")
-                v3.VBtn("Fit all saved frames", click=fit_series_range, disabled=("field < 0",), variant="text")
+                           items=("color_modes", [{"title": "Low → High", "value": "sequential"},
+                                                  {"title": "Negative / Positive", "value": "zero"}]),
+                           label="Color mapping", hide_details=True, density="compact")
                 v3.VSelect(v_model=("palette", "ocean"), items=("palette_items",), label="Palette",
                            hide_details=True, density="compact")
-                v3.VCheckbox(v_model=("advanced", False), label="Custom limits and units", hide_details=True, density="compact")
+                v3.VCheckbox(v_model=("fixed_range", True), label="Same range for all frames", hide_details=True, density="compact")
+                v3.VBtn("Auto range · all frames", click=fit_series_range, disabled=("field < 0",), variant="tonal", size="small")
+                v3.VCheckbox(v_model=("advanced", False), label="Set limits manually", hide_details=True, density="compact")
                 with v3.VRow(v_if="advanced", classes="ma-0 ga-2 flex-nowrap"):
                     v3.VTextField(v_model=("range_min", 0.), label="Minimum", type="number",
                                   v_if="color_mode !== 'zero'", disabled=("!fixed_range",), hide_details=True, density="compact", style="min-width:0")
                     v3.VTextField(v_model=("range_max", 1.), label=("color_mode === 'zero' ? 'Limit ±' : 'Maximum'",), type="number",
                                   disabled=("!fixed_range",), hide_details=True, density="compact", style="min-width:0")
-                v3.VDivider()
+                v3.VDivider(classes="my-2")
+                html.Div("Deformation", classes="viewer-section")
                 v3.VCheckbox(v_model=("reference_geometry", bool(reference_geometry)),
                              label="Deform reference mesh", hide_details=True, density="compact")
                 v3.VSelect(v_model=("displacement_field", displacement), items=("displacement_items",),
-                           label="Displacement · point vector", disabled=("!reference_geometry",),
+                           label="Displacement vector", v_if="displacement_items.length > 1", disabled=("!reference_geometry",),
                            hide_details=True, density="compact")
                 v3.VTextField(v_model=("scale", 1.), label="Deformation scale", type="number",
                               disabled=("!reference_geometry || !displacement_field",), hide_details=True, density="compact")
+                v3.VSlider(v_model=("scale", 1.), min=0, max=("Math.max(10, Number(scale))",), step=0,
+                           aria_label="Adjust deformation scale", disabled=("!reference_geometry || !displacement_field",),
+                           hide_details=True)
                 with v3.VRow(classes="ma-0 ga-2"):
                     v3.VBtn("Auto scale", click=fit_deformation, variant="tonal", loading=("scale_busy",),
                             disabled=("!reference_geometry || !displacement_field || scale_busy",))
                     v3.VBtn("Actual ×1", click="scale = 1; scale_status = ''", variant="text")
                 v3.VLabel("{{ scale_status }}", v_if="scale_status", style="font-size:12px; white-space:normal")
-                v3.VLabel("Use undeformed output geometry. Scale 1 shows actual displacement; saved data are unchanged.",
+                v3.VLabel("×1 = actual displacement. Display only; results are unchanged.",
                           style="font-size:12px; white-space:normal")
+                v3.VCheckbox(v_model=("edges", False), label="Mesh edges", hide_details=True, density="compact")
+                v3.VDivider(classes="my-2")
+                with v3.VRow(classes="ma-0 ga-1"):
+                    v3.VBtn("Views", prepend_icon="mdi-bookmark-outline", click="views_panel = true", variant="text", size="small")
+                    v3.VBtn("Settings", prepend_icon="mdi-cog-outline", click="settings_panel = true", variant="text", size="small")
         with v3.VDialog(v_model=("export_panel", False), max_width=500):
-            with v3.VCard(classes="pa-5 d-flex flex-column ga-3", title="Export & saved views"):
-                v3.VLabel("1920 × 1080 · fixed colors · {{ smooth ? 'interpolated displacement video' : 'saved states' }}", style="font-size:12px")
-                v3.VTextField(v_model=("figure_title", ""), label="Figure title", hide_details=True, density="compact")
-                v3.VTextField(v_model=("field_unit", ""), label="Field unit (as recorded)", v_if="advanced", hide_details=True, density="compact")
-                v3.VTextField(v_model=("time_unit", ""), label="Time unit (as recorded)", v_if="advanced", hide_details=True, density="compact")
-                v3.VCheckbox(v_model=("transparent", False), label="Transparent image", hide_details=True, density="compact")
-                v3.VBtn("Save image", prepend_icon="mdi-image-outline", variant="tonal",
-                        disabled=("frame_count === 0 || export_busy",),
-                        click=(export, "['image', trame.refs.result_view.getCamera()]"))
-                v3.VBtn("Save process video", prepend_icon="mdi-movie-open-outline", variant="text",
-                        disabled=("frame_count < 2 || export_busy",),
-                        click=(export, "['process', trame.refs.result_view.getCamera()]"))
-                v3.VBtn("Save turntable video", variant="text", disabled=("frame_count === 0 || export_busy",),
-                        click=(export, "['orbit', trame.refs.result_view.getCamera()]"))
+            with v3.VCard(classes="pa-5 d-flex flex-column ga-3", title="Export"):
+                v3.VLabel("{{ export_step === 1 ? '1 · Choose output' : export_step === 2 ? '2 · Set quality' : '3 · Download' }}", classes="viewer-section")
+                with html.Div(v_if="export_step === 1", classes="d-flex flex-column ga-3"):
+                    v3.VSelect(v_model=("export_mode", "image"), label="Output", hide_details=True,
+                               items=("export_modes", [{"title": "Image · current frame", "value": "image"},
+                                      {"title": "Animation · simulation history", "value": "process"},
+                                      {"title": "Turntable · rotate current frame", "value": "orbit"}]))
+                    v3.VLabel("{{ export_mode === 'process' ? 'Play through the saved simulation frames.' : export_mode === 'orbit' ? 'Rotate the camera around the current result.' : 'Save the current camera, field and colors as PNG.' }}", style="font-size:13px; white-space:normal")
+                    v3.VBtn("Next", variant="tonal", disabled=("frame_count === 0 || (export_mode === 'process' && frame_count < 2)",), click="export_step = 2")
+                with html.Div(v_if="export_step === 2", classes="d-flex flex-column ga-3"):
+                    v3.VSelect(v_model=("export_resolution", "1080p"), label="Resolution", hide_details=True,
+                               items=("export_resolutions", [{"title": "HD · 1280 × 720 · compact", "value": "720p"},
+                                      {"title": "Full HD · 1920 × 1080 · recommended", "value": "1080p"},
+                                      {"title": "4K · 3840 × 2160 · detailed", "value": "4k"}]))
+                    v3.VTextField(v_model=("figure_title", ""), label="Title (optional)", hide_details=True, density="compact")
+                    v3.VCheckbox(v_model=("transparent", False), v_if="export_mode === 'image'", label="Transparent background", hide_details=True, density="compact")
+                    v3.VLabel("Colors stay fixed. Higher resolution takes more time and space.", style="font-size:12px; white-space:normal")
+                    v3.VBtn("Generate", variant="tonal", disabled=("export_busy",),
+                            click=(export, "[export_mode, trame.refs.result_view.getCamera()]"))
+                    v3.VBtn("Back", variant="text", click="export_step = 1")
                 v3.VBtn("Cancel export", v_if="export_busy", click=job.cancel)
-                v3.VLabel("{{ export_progress }}", style="white-space:normal; font-size:12px")
+                v3.VLabel("{{ export_progress }}", v_if="export_step === 3", style="white-space:normal; font-size:13px")
                 # Blob downloads do not navigate the live websocket page. Direct
                 # href downloads cause some embedded WebViews to unload it.
                 for label, key, filename, mime in (
                     ("Download image", "export_image", "figure.png", "image/png"),
                     ("Download video", "export_video", "animation.mp4", "video/mp4"),
-                    ("Download view settings", "export_record", "view.json", "application/json"),
                 ):
-                    v3.VBtn(label, v_if=key, variant="text", click=(
+                    v3.VBtn(label, v_if=f"export_step === 3 && !export_busy && {key}", variant="tonal", click=(
                         f"$viewer.download({key}, '{filename}', '{mime}').catch(e => {{ error = e.message; }})"))
-                v3.VDivider()
+                v3.VAlert("{{ error }}", v_if="error", type="error", density="compact")
+                v3.VBtn("New export", v_if="export_step === 3 && !export_busy", variant="text", click="export_step = 1; error = ''")
+                v3.VBtn("Close", click="export_panel = false", variant="text")
+        with v3.VDialog(v_model=("views_panel", False), max_width=500):
+            with v3.VCard(classes="pa-5 d-flex flex-column ga-3", title="Saved views"):
+                v3.VLabel("Camera, field and display settings. No simulation data is duplicated.", style="font-size:13px; white-space:normal")
                 v3.VBtn("Remember this view", disabled=("frame_count === 0",),
-                        click=(save_view, "[trame.refs.result_view.getCamera()]"), variant="text")
+                        click=(save_view, "[trame.refs.result_view.getCamera()]"), variant="tonal")
                 v3.VSelect(v_model=("view_selection", None), items=("view_items",), label="Saved views",
                            hide_details=True, density="compact")
-                v3.VBtn("Restore view", disabled=("!view_selection",), click=restore_view, variant="text")
-                v3.VBtn("Back to viewer", click="export_panel = false", variant="tonal")
+                with v3.VRow(classes="ma-0 ga-2"):
+                    v3.VBtn("Restore", disabled=("!view_selection",), click=restore_view, variant="tonal")
+                    v3.VBtn("Remove", disabled=("!view_selection",), click=remove_view, variant="text")
+                v3.VLabel("{{ view_notice }}", v_if="view_notice", style="font-size:12px; white-space:normal")
+                v3.VBtn("Undo remove", v_if="removed_view", click=undo_remove_view, variant="text")
+                v3.VAlert("{{ error }}", v_if="error", type="error", density="compact")
+                v3.VBtn("Done", click="views_panel = false", variant="text")
+        with v3.VDialog(v_model=("settings_panel", False), max_width=420):
+            with v3.VCard(classes="pa-5 d-flex flex-column ga-3", title="Settings"):
+                v3.VSelect(v_model=("preset", "scientific"), label="Background", hide_details=True,
+                           items=("preset_items", [{"title": "Scientific · soft gray", "value": "scientific"},
+                                  {"title": "Publication · white", "value": "publication"},
+                                  {"title": "Dark · optional", "value": "presentation"}]))
+                v3.VLabel("Background only. Your palette is preserved.", style="font-size:12px")
+                v3.VTextField(v_model=("field_unit", ""), label="Field unit (as recorded)", hide_details=True, density="compact")
+                v3.VTextField(v_model=("time_unit", ""), label="Time unit (as recorded)", hide_details=True, density="compact")
+                v3.VBtn("Done", click="settings_panel = false", variant="tonal")
         with ui.content:
             with v3.VContainer(fluid=True, classes="pa-0 d-flex flex-column",
                                style="height:calc(100vh - 96px); min-height:320px"):
@@ -864,14 +955,16 @@ def build_viewer(path, *, displacement=None, reference_geometry=False, server=No
                 ctrl.view_camera = view.push_camera
                 with v3.VSheet(classes="px-3 py-2 d-flex flex-column", style="flex:0 0 auto; background:#f5f7f9; color:#243746; font-variant-numeric:tabular-nums"):
                     with v3.VRow(classes="ma-0 align-center ga-2 flex-nowrap", style="width:100%"):
-                        v3.VBtn("{{ playing ? 'Pause' : 'Play' }}", click=toggle_playback,
-                                disabled=("frame_count <= 1",), variant="tonal", style="min-width:96px",
-                                prepend_icon=("playing ? 'mdi-pause' : 'mdi-play'",))
                         v3.VSlider(v_model=("frame", info["frame"]), min=0, max=("frame_count - 1",), step=1,
                                    aria_label="Saved frame", end=seek_frame, disabled=("frame_count <= 1 || playing",),
                                    hide_details=True, style="min-width:0; flex:1")
-                        v3.VBtn("Playback", click="playback_panel = true", variant="text", size="small")
-                    v3.VLabel("{{ station_label }} · {{ time_label }}", style="font-size:12px; height:24px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis")
+                    with html.Div(style="display:grid; grid-template-columns:minmax(0,1fr) auto minmax(0,1fr); align-items:center; gap:4px"):
+                        html.Span("{{ station_label }}", style="font-size:12px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis", title=("station_label",))
+                        v3.VBtn("{{ playing ? 'Pause' : 'Play' }}", click=toggle_playback,
+                                disabled=("frame_count <= 1",), variant="tonal", style="min-width:96px",
+                                prepend_icon=("playing ? 'mdi-pause' : 'mdi-play'",))
+                        v3.VBtn("Playback", click="playback_panel = true", variant="text", size="small", style="justify-self:end")
+                    v3.VLabel("{{ time_label }}", style="font-size:12px; height:24px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis")
                     with v3.VRow(classes="ma-0 align-center ga-2"):
                         v3.VLabel("{{ reference_geometry ? 'Deformation ×' + Number(Number(scale).toPrecision(4)) : 'Saved geometry' }} · {{ fixed_range ? 'Fixed colors' : 'Colors per frame' }}", style="font-size:12px")
                         v3.VSpacer()
@@ -902,7 +995,6 @@ def build_viewer(path, *, displacement=None, reference_geometry=False, server=No
             v3.VBtn("Session", click="session_panel = true", variant="text", size="x-small")
     state.change("frame", "field", "scale", "edges", "fixed_range", "range_min", "range_max",
                  "reference_geometry", "displacement_field", "preset", "palette", "blend", "time_unit")(update)
-    state.change("preset")(change_preset)
     state.change("color_mode")(change_color_mode)
     state.change("palette")(remember_palette)
     state.change("smooth")(change_smoothing)
@@ -931,6 +1023,9 @@ def build_viewer(path, *, displacement=None, reference_geometry=False, server=No
     ctrl.export_result = export
     ctrl.save_view = save_view
     ctrl.restore_view = restore_view
+    ctrl.remove_view = remove_view
+    ctrl.undo_remove_view = undo_remove_view
+    ctrl.browse_entry = browse_entry
     ctrl.close_session = close_session
     ctrl.cancel_export = job.cancel
     return server

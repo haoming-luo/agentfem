@@ -78,6 +78,8 @@ def test_viewer_download_asset_is_packaged():
     text = asset.read_text()
     assert "window.AgentFEMViewer" in text and "URL.createObjectURL" in text
     assert "url.origin !== window.location.origin" in text
+    css = files("agentfem").joinpath("_viewer_assets/viewer.css").read_text()
+    assert "text-transform:none" in css and "spin-button" in css
 
 
 def test_export_failure_never_publishes_partial_output(tmp_path, monkeypatch):

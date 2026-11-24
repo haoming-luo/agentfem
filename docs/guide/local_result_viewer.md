@@ -54,25 +54,28 @@ reader inputs are XDMF, VTU, legacy VTK and PVD. The viewer accepts one dataset
 per saved time; it does not merge distinct physical blocks or coincident nodes.
 Use trusted local files. The service listens only on `127.0.0.1`; Ctrl+C stops
 it. It does not upload results or execute a case. No AI is needed to use it.
-Choose **Result or folder**, then **Show result** (or **Browse folder** for a
-directory); **Back one folder** returns to the parent. **Folder** shows the full
-current location. A path may also be pasted within the opened browsing root.
+Click a folder in the file list to enter it, or click a result to display it;
+**Back one folder** returns to the parent. **Folder** shows the full
+current location. **Paste a path instead** is an optional shortcut, not required.
 The selected root limits browsing and XML companion references. For continuation
 indexes referencing sibling runs, open their common parent directory.
 
 ## Controls
 
 **Open** selects projects, runs and files in a dedicated dialog. **Display**
-opens field, palette and deformation controls; **Done** closes this overlay
-without squeezing the model into a narrow column. Play/Pause and the saved-frame
-slider stay below the canvas, with **Playback** settings alongside them.
+toggles a compact, docked field/palette/deformation sidebar. It occupies its own
+space and never covers playback. Play/Pause is centered below the canvas and
+saved-frame slider, with **Playback** settings alongside it. On narrow embedded
+panes, collapse **Display** to give the model more space.
 Refresh and stop-service actions are under **Session**, not unlabeled toolbar
 icons. Closing a tab and stopping the service are different actions; neither
 deletes results. Nothing here changes the stored result.
 
-- **Style** offers Scientific (neutral, Ocean), Publication (white, Ocean), and
-  Presentation (dark, magma). Presets change appearance, not values. Color and
-  custom limit settings are disclosed under **Custom limits and units**.
+- **Settings → Background** offers Scientific (soft gray), Publication (white),
+  and an optional Dark background. Background changes preserve the chosen palette.
+  Exact limits remain directly editable under **Set limits manually**, without
+  numeric spinner arrows. Deformation also has a drag slider, Auto scale and ×1.
+  Units live in Settings, not in the export workflow.
   Ocean uses pale ice/teal/deep blue; Iris offers a lavender/indigo alternative.
   Garnet uses pale rose/burgundy and Jade uses pale celadon/forest green; these
   also work for localized damage on a quiet, low-value background.
@@ -80,16 +83,16 @@ deletes results. Nothing here changes the stored result.
   they are not claimed to be perceptually uniform or journal-endorsed palettes.
   Established viridis/cividis maps remain selectable, including in saved views.
 
-- **Color scale → Center on zero** offers Blue / Red, Azure / Rose and Lagoon / Rose.
-  Sequential mode retains Ocean, Iris, Garnet, Jade, viridis, cividis and magma;
+- **Color mapping → Negative / Positive (±)** offers Blue / Red, Azure / Rose and Lagoon / Rose.
+  **Low → High** retains Ocean, Iris, Garnet, Jade, viridis, cividis and magma;
   exploratory palettes are not added to the menu. Symmetric limits `[-A, A]`
   put equal positive/negative magnitudes at equal distances from the center.
-  **Limit ±** adjusts both ends; **Fit all saved frames** finds
+  **Limit ±** adjusts both ends; **Auto range · all frames** finds
   the largest absolute value across the saved series. The fixed range remains
   unchanged during playback and is retained in exports and saved views.
   Components of the explicitly selected displacement vector recommend this
-  mode; its magnitude recommends Sequential. Other fields default to Sequential:
-  choose Center on zero for signed stress/strain components when appropriate.
+  mode; its magnitude recommends Low → High. Other fields default to Low → High:
+  choose Negative / Positive for signed stress/strain components when appropriate.
   Field names and the presence of negative values alone do not establish physics.
   Manual selection is retained until a different field/component is selected.
   Each mode remembers its selected palette. The two new palettes have monotonic
@@ -185,16 +188,20 @@ establish the physical units of an XDMF time coordinate.
 
 ## Save a figure, video or view
 
-**Export** opens a compact panel rather than adding controls around the model.
+**Export** follows three steps: choose output, choose quality, generate and
+download. Resolution choices are HD (1280 × 720), Full HD (1920 × 1080, default),
+and 4K (3840 × 2160). These apply to both PNG and MP4. A completed export offers
+one media download, not several competing save/download actions. New export
+starts another flow; failed/cancelled exports never show an earlier download as new.
 
-- **Save image** renders a 1920 × 1080 PNG with the current camera, fixed color
+- **Image · current frame** renders a PNG with the current camera, fixed color
   limits, title, saved time coordinate and deformation scale. Transparent
   backgrounds are optional. Specify field/time units from the result contract;
   the viewer does not guess them. Custom units are display labels, not conversions.
   Time and deformation scale occupy stacked, fixed positions, so changing time
   digits cannot move the scale label. Node/element association stays in the
   field selector and view record, rather than decorating the exported figure.
-- **Save process video** exports actual saved states as MP4 at 24 fps, holding
+- **Animation · simulation history** exports actual saved states as MP4 at 24 fps, holding
   each state for 10 video frames. This is an output-station animation, not a
   claim of real-time playback or interpolated physical evolution. Physical
   time coordinates remain visible. It supports at most 500 saved states.
@@ -202,7 +209,7 @@ establish the physical units of an XDMF time coordinate.
   duration at 24 fps, including both endpoints. The video is marked
   **Interpolated display**; `view.json` records each source-frame pair, weight,
   coordinate and fixed scale. These video frames are not additional solved states.
-- **Save turntable video** rotates the camera around the current saved state
+- **Turntable · rotate current frame** rotates the camera around the current saved state
   for five seconds. It does not advance simulation time.
 - Export runs in a separate bounded process; **Cancel export** terminates it.
   Only a fully completed image/video and its `view.json` are published. Failure
@@ -212,10 +219,18 @@ establish the physical units of an XDMF time coordinate.
   needs write access there. They contain derived media and view settings, not
   duplicated meshes or H5 histories. Export dependencies are included in the
   optional `viewer` extra; rendering requires a working VTK offscreen backend.
-- **Remember this view** saves settings without rendering. Select a saved view
-  and **Restore view** to reopen its source and camera, field/component, range,
+- **Views → Remember this view** saves settings without rendering, independently
+  of Export. Select a saved view and **Restore** to reopen its source and camera, field/component, range,
   time index, preset and deformation declaration. The source must remain under
   the same browsing root. Settings are plain validated JSON, not executable code.
+  **Remove** hides the recipe from the list; **Undo remove** restores the last
+  removed recipe in this session. Removed recipes are retained as hidden JSON
+  beside their exports, so no source data or media is deleted.
+
+The docked layout and concise control groups follow the principles of Apple's
+[sidebar](https://developer.apple.com/design/human-interface-guidelines/sidebars)
+and [layout](https://developer.apple.com/design/human-interface-guidelines/layout)
+guidance, adapted to a scientific inspector rather than copied as a native UI.
 
 Export uses server-side VTK while interactive rendering uses vtk.js; lighting
 can differ slightly. Camera and numerical selections are shared. Neither path

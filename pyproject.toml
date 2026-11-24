@@ -131,6 +131,7 @@ packages = [
 ]
 "agentfem" = [
   "_viewer_assets/*.js",
+  "_viewer_assets/*.css",
   "py.typed",
   "origin.json",
   "release/*.json",

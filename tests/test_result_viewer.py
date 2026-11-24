@@ -35,10 +35,17 @@ def test_launch_rejects_invalid_port(tmp_path, port):
     assert exc.value.code == 2
 
 
-def test_saved_view_roundtrip_restores_display_not_source_data(tmp_path):
+def test_saved_view_roundtrip_restores_display_not_source_data(tmp_path, monkeypatch):
     pytest.importorskip("trame")
     from trame.app import get_server
     from agentfem.viewer import build_viewer
+    plotters = []
+    original_plotter = pv.Plotter
+    def capture_plotter(*args, **kwargs):
+        plotter = original_plotter(*args, **kwargs)
+        plotters.append(plotter)
+        return plotter
+    monkeypatch.setattr(pv, "Plotter", capture_plotter)
     grid = pv.ImageData(dimensions=(2, 2, 2)).cast_to_unstructured_grid()
     grid.point_data["U"] = np.ones((grid.n_points, 3)) * .1
     grid.cell_data["damage"] = [.3]
@@ -51,6 +58,7 @@ def test_saved_view_roundtrip_restores_display_not_source_data(tmp_path):
     state.ready()
     try:
         ctrl.on_server_ready()
+        assert any(item["title"] == "damage" for item in state.quantity_items)
         with state:
             state.field = 0
             state.reference_geometry = True
@@ -69,8 +77,31 @@ def test_saved_view_roundtrip_restores_display_not_source_data(tmp_path):
         ctrl.restore_view()
         assert not state.error
         assert state.field == 0 and state.scale == 2.
+        displayed = [actor.mapper.dataset for actor in plotters[0].actors.values()
+                     if hasattr(actor, "mapper") and hasattr(actor.mapper, "dataset")]
+        assert any(np.allclose(mesh.points, grid.points + .2) for mesh in displayed
+                   if mesh.n_points == grid.n_points)
         assert state.preset == "publication" and state.palette == "ocean"
+        with state:
+            state.palette = "iris"
+        with state:
+            state.preset = "scientific"
+        assert state.palette == "iris"
         assert (state.range_min, state.range_max) == (0., 1.)
+        assert path.read_bytes() == original
+        saved = tmp_path / "viewer-exports" / state.view_selection
+        media = saved.parent / "figure.png"
+        media.write_bytes(b"existing export")
+        ctrl.remove_view()
+        assert not state.error and not state.view_items and not saved.exists()
+        assert media.read_bytes() == b"existing export"
+        ctrl.undo_remove_view()
+        assert not state.error and saved.exists() and len(state.view_items) == 1
+        ctrl.restore_view()
+        assert not state.error and state.scale == 2.
+        state.view_selection = "../outside/view.json"
+        ctrl.remove_view()
+        assert state.error and saved.exists()
         assert path.read_bytes() == original
     finally:
         ctrl.on_server_exited()
@@ -89,6 +120,40 @@ def test_independent_viewers_do_not_share_controls(tmp_path):
     finally:
         first.controller.on_server_exited()
         second.controller.on_server_exited()
+
+
+@pytest.mark.parametrize("quality,size", [("720p", [1280, 720]), ("1080p", [1920, 1080]), ("4k", [3840, 2160])])
+def test_export_quality_and_stale_download_reset(tmp_path, monkeypatch, quality, size):
+    import asyncio
+    from agentfem.viewer import build_viewer
+    from agentfem._viewer_jobs import ExportJob
+    requests = []
+
+    async def cancelled(self, request, progress):
+        requests.append(request)
+        return None
+
+    monkeypatch.setattr(ExportJob, "run", cancelled)
+    grid = pv.ImageData(dimensions=(2, 2, 2)).cast_to_unstructured_grid()
+    path = tmp_path / "frame.vtu"
+    grid.save(path)
+    server = build_viewer(path)
+    state, ctrl = server.state, server.controller
+    state.ready()
+    try:
+        ctrl.on_server_ready()
+        state.export_resolution = quality
+        state.export_image, state.export_video = "old.png", "old.mp4"
+        asyncio.run(ctrl.export_result("image"))
+        assert requests[0]["size"] == size
+        assert state.export_step == 3 and not state.export_busy
+        assert not state.export_image and not state.export_video
+        assert "cancelled" in state.export_progress
+        state.export_resolution = "unbounded"
+        asyncio.run(ctrl.export_result("image"))
+        assert len(requests) == 1 and "720p" in state.error
+    finally:
+        ctrl.on_server_exited()
 
 
 def test_zero_centered_colors_follow_component_and_preserve_override(tmp_path):
