@@ -12,6 +12,28 @@ def _displacement(grid, name):
     return u
 
 
+def reference_frame(grid, name, current=False):
+    """Detach current coordinates to reference coordinates; arrays stay intact."""
+    if not current:
+        return grid
+    result = grid.copy(deep=True)
+    result.points = (np.asarray(grid.points, dtype=float) - _displacement(grid, name)).astype(grid.points.dtype)
+    return result
+
+
+def has_current_coordinates(left, right, name):
+    """Evidence from two saved states, not from a displacement field name."""
+    if (left.n_points != right.n_points or left.n_cells != right.n_cells or
+            not np.array_equal(left.cells, right.cells) or
+            not np.array_equal(left.celltypes, right.celltypes) or
+            np.array_equal(left.points, right.points)):
+        return False
+    a, b = reference_frame(left, name, True), reference_frame(right, name, True)
+    tolerance = max(float(np.ptp(a.points, axis=0).max()), 1.e-30)*max(
+        1.e-12, 8*np.finfo(left.points.dtype).eps, 8*np.finfo(right.points.dtype).eps)
+    return bool(np.allclose(a.points, b.points, rtol=0., atol=tolerance))
+
+
 def displacement_metrics(grid, name):
     u = _displacement(grid, name)
     length = float(np.ptp(np.asarray(grid.points), axis=0).max())
@@ -58,7 +80,9 @@ def interpolate_displacement(left, right, name, alpha, choice=None):
     if (left.n_points != right.n_points or left.n_cells != right.n_cells or
             not np.array_equal(left.cells, right.cells) or
             not np.array_equal(left.celltypes, right.celltypes) or
-            not np.array_equal(left.points, right.points)):
+            not np.allclose(left.points, right.points, rtol=0.,
+                            atol=max(float(np.ptp(left.points, axis=0).max()), 1.e-30)*max(
+                                1.e-12, 8*np.finfo(left.points.dtype).eps, 8*np.finfo(right.points.dtype).eps))):
         raise ValueError("Smooth display requires identical reference geometry and connectivity.")
     a, b = _displacement(left, name), _displacement(right, name)
     result = left.copy(deep=True)

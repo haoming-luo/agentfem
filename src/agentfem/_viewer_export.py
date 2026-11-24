@@ -15,7 +15,7 @@ import numpy as np
 
 from agentfem._atomic_text import atomic_write_text
 from agentfem._viewer_files import ResultDirectory
-from agentfem._viewer_motion import timeline_sample, interpolate_displacement
+from agentfem._viewer_motion import timeline_sample, interpolate_displacement, reference_frame
 from agentfem.results import read_visualization_frame, deform_visualization_frame, inspect_visualization
 
 
@@ -146,6 +146,10 @@ def apply_camera(plotter, camera):
 def display_frame(source, index, view, *, grid=None, right=None, alpha=0.):
     from agentfem.viewer import component_values, scalar_choices
     grid = read_visualization_frame(source, frame=index) if grid is None else grid
+    if view["reference_geometry"]:
+        grid = reference_frame(grid, view["displacement"], view.get("current_coordinates", False))
+        if right is not None:
+            right = reference_frame(right, view["displacement"], view.get("current_coordinates", False))
     if right is not None:
         if not view["reference_geometry"]:
             raise ValueError("Smooth display requires declared reference geometry and displacement.")

@@ -72,7 +72,11 @@ class ExportJob:
                     return None
                 if self.process.returncode:
                     detail = (stage / "worker.log").read_text(errors="replace")[-2000:]
-                    raise RuntimeError("Export failed; source results are unchanged. " + detail)
+                    # Keep the traceback available without making the dialog
+                    # itself a scrolling wall of implementation details.
+                    atomic_write_text(self.destination / "last-export-error.log", detail)
+                    reason = detail.strip().splitlines()[-1] if detail.strip() else "Renderer stopped."
+                    raise RuntimeError("Export failed: " + reason[:300] + " Details: viewer-exports/last-export-error.log")
             target = self.destination / ("export-" + uuid4().hex[:12])
             # Copy onto the destination filesystem before its atomic rename.
             # This also works when the temporary directory is on another drive.

@@ -4,6 +4,27 @@ import pytest
 from agentfem._viewer_motion import automatic_scale, displacement_metrics, interpolate_displacement, timeline_sample
 
 
+def test_current_coordinates_do_not_double_deform():
+    pv = pytest.importorskip('pyvista')
+    from agentfem._viewer_motion import reference_frame, has_current_coordinates
+    from agentfem.results import deform_visualization_frame
+    a = pv.ImageData(dimensions=(3, 3, 3)).cast_to_unstructured_grid()
+    b = a.copy(deep=True)
+    reference = a.points.copy()
+    a.point_data['U'] = reference * .1
+    b.point_data['U'] = reference * .2
+    a.points = reference + a.point_data['U']
+    b.points = reference + b.point_data['U']
+    assert has_current_coordinates(a, b, 'U')
+    left, right = reference_frame(a, 'U', True), reference_frame(b, 'U', True)
+    middle = interpolate_displacement(left, right, 'U', .5)
+    visible = deform_visualization_frame(middle, 'U', reference_geometry=True)
+    np.testing.assert_allclose(visible.points, reference*1.15)
+    np.testing.assert_allclose(a.points, reference*1.1)
+    b.points[0] += .01
+    assert not has_current_coordinates(a, b, 'U')
+
+
 def test_scale_bounds_and_large_motion():
     assert automatic_scale([(100., 10., 4.)]) == 1.
     assert automatic_scale([(100., 0., 0.)]) == 1.

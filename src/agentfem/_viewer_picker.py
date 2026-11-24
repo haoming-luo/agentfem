@@ -17,12 +17,29 @@ MAC_FOLDER_SCRIPT = '''on run argv
     end try
 end run'''
 
+# AppKit's panel avoids Standard Additions' Apple-event dialog round-trip.
+# Script is constant; the path is a positional argument, never interpolated.
+MAC_PANEL_SCRIPT = '''ObjC.import('AppKit');
+function run(argv) {
+    const app = $.NSApplication.sharedApplication;
+    app.setActivationPolicy($.NSApplicationActivationPolicyAccessory);
+    app.activateIgnoringOtherApps(true);
+    const panel = $.NSOpenPanel.openPanel;
+    panel.canChooseDirectories = true;
+    panel.canChooseFiles = false;
+    panel.allowsMultipleSelection = false;
+    panel.prompt = 'Open';
+    panel.message = 'Choose a project or results folder';
+    panel.directoryURL = $.NSURL.fileURLWithPath(argv[0]);
+    return panel.runModal === $.NSModalResponseOK ? ObjC.unwrap(panel.URL.path) : '';
+}'''
+
 
 async def choose_folder(initial):
     # Invoke the native chooser directly on macOS: avoid an extra Python
     # startup/import and nested subprocess before the panel can appear.
     native_mac = sys.platform == "darwin"
-    command = (["/usr/bin/osascript", "-e", MAC_FOLDER_SCRIPT, str(initial)] if native_mac else
+    command = (["/usr/bin/osascript", "-l", "JavaScript", "-e", MAC_PANEL_SCRIPT, str(initial)] if native_mac else
                [sys.executable, "-m", "agentfem._viewer_picker", str(initial)])
     process = await asyncio.create_subprocess_exec(
         *command,

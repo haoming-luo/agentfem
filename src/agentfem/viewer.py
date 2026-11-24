@@ -20,7 +20,7 @@ from agentfem._viewer_export import (PRESETS, palette_items,
     apply_camera, validate_view, display_frame, color_map, centered_range)
 from agentfem._viewer_jobs import ExportJob
 from agentfem._atomic_text import atomic_write_text
-from agentfem._viewer_motion import automatic_scale, displacement_metrics, timeline_sample, interpolate_displacement
+from agentfem._viewer_motion import automatic_scale, displacement_metrics, timeline_sample, interpolate_displacement, reference_frame, has_current_coordinates
 
 
 def scalar_choices(grid):
@@ -89,6 +89,8 @@ def build_viewer(path, *, displacement=None, reference_geometry=False, server=No
     state.trame__title = "AgentFEM · Local results"
     plotter = pv.Plotter(off_screen=True)
     plotter.set_background("#f3f5f7")
+    plotter.add_axes(x_color="#b74c60", y_color="#458b76", z_color="#4d74ae",
+                     viewport=(0., 0., .16, .16))
     cache = {"frame": None, "grid": None, "choices": [], "actor": None, "bar": None}
     state.frame = info["frame"]
     state.field = -1
@@ -128,6 +130,7 @@ def build_viewer(path, *, displacement=None, reference_geometry=False, server=No
     state.range_max = 1.
     state.mesh_summary = ""
     state.reference_geometry = bool(reference_geometry)
+    state.current_coordinates = False
     state.displacement_field = displacement
     state.displacement_items = []
     state.preset = "scientific"
@@ -174,6 +177,7 @@ def build_viewer(path, *, displacement=None, reference_geometry=False, server=No
     range_owner = {"choice": None}
     preferred_palette = {"zero": "coolwarm", "sequential": state.palette}
     child_sessions = set()
+    picker_task = {"task": None}
 
     async def choose_project(**_):
         if state.picker_busy:
@@ -204,6 +208,16 @@ def build_viewer(path, *, displacement=None, reference_geometry=False, server=No
             with state:
                 state.picker_busy = False
 
+    def start_folder_picker(**_):
+        task = picker_task["task"]
+        if task is None or task.done():
+            picker_task["task"] = asyncio.create_task(choose_project())
+
+    def cancel_folder_picker(**_):
+        task = picker_task["task"]
+        if task is not None:
+            task.cancel()
+
     def update(**_):
         if path is None:
             return
@@ -222,6 +236,12 @@ def build_viewer(path, *, displacement=None, reference_geometry=False, server=No
                                    or name.lower().startswith("displacement_")]
             if state.reference_geometry and state.displacement_field is None and len(named_displacements) == 1:
                 state.displacement_field = named_displacements[0]
+            if state.displacement_field and cache.get("geometry_probe") != (path, state.displacement_field):
+                cache["geometry_probe"] = (path, state.displacement_field)
+                if info["frame_count"] > 1:
+                    first = read_visualization_frame(path, frame=0)
+                    last = read_visualization_frame(path, frame=info["frame_count"]-1)
+                    state.current_coordinates = has_current_coordinates(first, last, state.displacement_field)
             selected = int(state.field)
             if changed:
                 # Changing schema must not silently reuse an index for another field.
@@ -238,12 +258,13 @@ def build_viewer(path, *, displacement=None, reference_geometry=False, server=No
                     stop_playback()
                 state.blend = 0.
                 state.smooth = False
-            motion_grid = grid
+            motion_grid = reference_frame(grid, state.displacement_field, bool(state.current_coordinates)) if state.reference_geometry and state.displacement_field else grid
             if float(state.blend) > 0:
                 if cache.get("next_index") != index+1:
                     cache["next_grid"] = read_visualization_frame(path, frame=index+1)
                     cache["next_index"] = index+1
-                motion_grid = interpolate_displacement(grid, cache["next_grid"], state.displacement_field,
+                right = reference_frame(cache["next_grid"], state.displacement_field, bool(state.current_coordinates))
+                motion_grid = interpolate_displacement(motion_grid, right, state.displacement_field,
                                                        float(state.blend), choice)
             displayed = (deform_visualization_frame(motion_grid, state.displacement_field,
                          scale=float(state.scale), reference_geometry=True)
@@ -450,7 +471,8 @@ def build_viewer(path, *, displacement=None, reference_geometry=False, server=No
             metrics = []
             for i in range(count):
                 directory.result(source)
-                metrics.append(displacement_metrics(read_visualization_frame(source, frame=i), name))
+                metrics.append(displacement_metrics(reference_frame(read_visualization_frame(source, frame=i),
+                                                                    name, bool(state.current_coordinates)), name))
                 with state:
                     state.scale_status = f"Sizing saved frame {i+1}/{count}…"
                 await asyncio.sleep(0)
@@ -500,6 +522,8 @@ def build_viewer(path, *, displacement=None, reference_geometry=False, server=No
                 # Coordinate semantics belong to this file, not the previously
                 # opened file. Never accidentally warp current coordinates twice.
                 state.reference_geometry = False
+                state.current_coordinates = False
+                cache.pop("geometry_probe", None)
                 state.displacement_field = None
                 state.fixed_range = True
                 range_owner["choice"] = None
@@ -640,6 +664,7 @@ def build_viewer(path, *, displacement=None, reference_geometry=False, server=No
                     range=[float(state.range_min), float(state.range_max)], preset=state.preset,
                     palette=state.palette, color_mode=state.color_mode, scale=float(state.scale), reference_geometry=bool(state.reference_geometry),
                     displacement=state.displacement_field, edges=bool(state.edges), camera=camera_record(),
+                    current_coordinates=bool(state.current_coordinates),
                     title=state.figure_title, unit=state.field_unit, time_unit=state.time_unit)
         if selected >= 0 and not state.fixed_range:
             raise ValueError("Keep colors consistent before saving or exporting a view.")
@@ -697,6 +722,7 @@ def build_viewer(path, *, displacement=None, reference_geometry=False, server=No
                 state.field = choices.index(choice) if choice is not None else -1
                 state.preset = view_record["preset"]
                 state.reference_geometry = view_record["reference_geometry"]
+                state.current_coordinates = view_record.get("current_coordinates", False)
                 state.displacement_field = view_record["displacement"]
                 state.scale = view_record["scale"]
                 state.edges = view_record["edges"]
@@ -821,8 +847,16 @@ def build_viewer(path, *, displacement=None, reference_geometry=False, server=No
         with state:
             state.export_progress = "Cancelling export…"
 
+    def camera_view(direction):
+        stop_playback()
+        {"Isometric": plotter.view_isometric, "Top (XY)": plotter.view_xy,
+         "Front (XZ)": plotter.view_xz, "Side (YZ)": plotter.view_yz}[direction]()
+        plotter.reset_camera()
+        ctrl.view_camera()
+
     async def close_session(**_):
         stop_playback()
+        cancel_folder_picker()
         job.close()
         with state:
             state.closed = True
@@ -863,6 +897,12 @@ def build_viewer(path, *, displacement=None, reference_geometry=False, server=No
             v3.VBtn("Export", prepend_icon="mdi-export-variant", variant="tonal",
                     disabled=("frame_count === 0 && view_items.length === 0",), click="export_panel = true")
             v3.VBtn(icon="mdi-fit-to-screen-outline", title="Fit model to view", click=lambda: ctrl.view_reset())
+            with v3.VMenu():
+                with v3.Template(v_slot_activator="{ props }"):
+                    v3.VBtn("View", v_bind="props", prepend_icon="mdi-cube-outline", variant="text")
+                with v3.VList():
+                    for direction in ("Isometric", "Top (XY)", "Front (XZ)", "Side (YZ)"):
+                        v3.VListItem(direction, click=(camera_view, f"['{direction}']"))
         with v3.VDialog(v_model=("open_panel", False), max_width=580):
             with v3.VCard(classes="viewer-open-card pa-4 d-flex flex-column ga-2", title="Open results",
                           style="height:min(640px,90vh); min-height:min(640px,90vh); max-height:min(640px,90vh); overflow:hidden; flex-shrink:0"):
@@ -876,9 +916,10 @@ def build_viewer(path, *, displacement=None, reference_geometry=False, server=No
                     v3.VBtn(icon="mdi-arrow-up", title="Parent folder", aria_label="Parent folder", click=parent_folder,
                             disabled=("folder === '.'",), variant="text", size="small")
                     v3.VBtn(icon="mdi-folder-search-outline", title="Choose folder on this computer", aria_label="Choose folder on this computer",
-                            click=choose_project, loading=("picker_busy",), disabled=("picker_busy",), variant="text", size="small")
+                            click=start_folder_picker, loading=("picker_busy",), disabled=("picker_busy",), variant="text", size="small")
                     v3.VTextField(v_model=("folder_filter", ""), label="Find in this folder", prepend_inner_icon="mdi-magnify",
                                   hide_details=True, density="compact", clearable=True, style="min-width:0")
+                v3.VBtn("Cancel folder selection", v_if="picker_busy", click=cancel_folder_picker, variant="text", size="small")
                 v3.VLabel("{{ folder === '.' ? browse_root : browse_root + '/' + folder }}",
                           title=("browse_root + '/' + folder",), style="font-size:12px; height:24px; flex-shrink:0; white-space:nowrap; overflow:hidden; text-overflow:ellipsis")
                 with v3.VList(density="compact", style="flex:1; min-height:120px; overflow:auto; border:1px solid #e5e9ed; border-radius:8px"):
@@ -892,7 +933,7 @@ def build_viewer(path, *, displacement=None, reference_geometry=False, server=No
                 v3.VTextField(v_model=("path_input", ""), label="Or paste a result path inside this location",
                               v_if="show_path", hide_details=True, density="compact", keydown_enter=open_path)
                 v3.VBtn("Show path", v_if="show_path", click=open_path, disabled=("!path_input",), variant="text")
-                v3.VAlert("{{ error }}", v_if="error", type="error", density="compact", style="flex:0 0 auto; max-height:100px; overflow:auto")
+                v3.VAlert("{{ error }}", v_if="error", type="error", icon=False, closable=True, click_close="error = ''", density="compact", style="flex:0 0 auto; max-height:100px; overflow:auto")
                 v3.VBtn("Back to viewer", click="open_panel = false", variant="text")
         with ui.drawer:
             with v3.VContainer(classes="pa-3 d-flex flex-column ga-2"):
@@ -920,7 +961,8 @@ def build_viewer(path, *, displacement=None, reference_geometry=False, server=No
                 v3.VDivider(classes="my-2")
                 html.Div("Deformation", classes="viewer-section")
                 v3.VCheckbox(v_model=("reference_geometry", bool(reference_geometry)),
-                             label="Deform reference mesh", disabled=("displacement_items.length === 0",), hide_details=True, density="compact")
+                             label="Deform / magnify displacement", disabled=("displacement_items.length === 0",), hide_details=True, density="compact")
+                v3.VLabel("Saved coordinates already include displacement; ×1 preserves them.", v_if="current_coordinates", style="font-size:12px; white-space:normal")
                 v3.VLabel("No nodal displacement vector in this frame.", v_if="displacement_items.length === 0", style="font-size:12px; white-space:normal")
                 v3.VSelect(v_model=("displacement_field", displacement), items=("displacement_items",),
                            label="Displacement vector", v_if="displacement_items.length > 0", disabled=("!reference_geometry",),
@@ -973,7 +1015,7 @@ def build_viewer(path, *, displacement=None, reference_geometry=False, server=No
                 ):
                     v3.VBtn(label, v_if=f"export_step === 3 && !export_busy && {key}", variant="tonal", click=(
                         f"$viewer.download({key}, '{filename}', '{mime}').catch(e => {{ error = e.message; }})"))
-                v3.VAlert("{{ error }}", v_if="error", type="error", density="compact")
+                v3.VAlert("{{ error }}", v_if="error", type="error", icon=False, closable=True, click_close="error = ''", density="compact", style="max-height:120px; overflow:auto; flex:0 0 auto")
                 v3.VBtn("New export", v_if="export_step === 3 && !export_busy", variant="text", click="export_step = 1; error = ''")
                 v3.VBtn("Close", click="export_panel = false", variant="text")
         with v3.VDialog(v_model=("views_panel", False), max_width=500):
@@ -988,7 +1030,7 @@ def build_viewer(path, *, displacement=None, reference_geometry=False, server=No
                     v3.VBtn("Remove", disabled=("!view_selection",), click=remove_view, variant="text")
                 v3.VLabel("{{ view_notice }}", v_if="view_notice", style="font-size:12px; white-space:normal")
                 v3.VBtn("Undo remove", v_if="removed_view", click=undo_remove_view, variant="text")
-                v3.VAlert("{{ error }}", v_if="error", type="error", density="compact")
+                v3.VAlert("{{ error }}", v_if="error", type="error", icon=False, closable=True, click_close="error = ''", density="compact")
                 v3.VBtn("Done", click="views_panel = false", variant="text")
         with v3.VDialog(v_model=("settings_panel", False), max_width=420):
             with v3.VCard(classes="pa-5 d-flex flex-column ga-3", title="Settings"):
@@ -999,11 +1041,12 @@ def build_viewer(path, *, displacement=None, reference_geometry=False, server=No
                 v3.VLabel("Background only. Your palette is preserved.", style="font-size:12px")
                 v3.VTextField(v_model=("field_unit", ""), label="Field unit (as recorded)", hide_details=True, density="compact")
                 v3.VTextField(v_model=("time_unit", ""), label="Time unit (as recorded)", hide_details=True, density="compact")
+                v3.VCheckbox(v_model=("current_coordinates", False), label="Saved coordinates already deformed", hide_details=True)
                 v3.VBtn("Done", click="settings_panel = false", variant="tonal")
         with ui.content:
             with v3.VContainer(fluid=True, classes="pa-0 d-flex flex-column",
                                style="height:calc(100vh - 96px); min-height:320px"):
-                v3.VAlert("{{ error }}", v_if="error && !open_panel && !export_panel && !views_panel", type="error", density="compact", style="flex:0 0 auto; max-height:100px; overflow:auto")
+                v3.VAlert("{{ error }}", v_if="error && !open_panel && !export_panel && !views_panel", type="error", icon=False, closable=True, click_close="error = ''", density="compact", style="flex:0 0 auto; max-height:100px; overflow:auto")
                 v3.VAlert("Viewer closed. Your results and exports are saved; this tab can be closed.", v_if="closed", type="success")
                 with v3.VDialog(v_model=("close_confirmation", False), max_width=420):
                     with v3.VCard(title="Close this viewer?", text="This stops this session, including its other tabs and any active export. Saved results and completed exports stay intact."):
@@ -1014,6 +1057,7 @@ def build_viewer(path, *, displacement=None, reference_geometry=False, server=No
                 # event is not a user change: rebuilding the scene there can
                 # form a ready -> update -> ready loop on large meshes.
                 view = vtk.VtkLocalView(plotter.ren_win, ref="result_view",
+                                        widgets=[plotter.renderer.axes_widget],
                                         interactor_events=("camera_events", ["EndAnimation"]),
                                         EndAnimation=(sync_camera, "[trame.refs.result_view.getCamera()]"),
                                         reset_camera=(sync_camera, "[trame.refs.result_view.getCamera()]"),
@@ -1062,7 +1106,7 @@ def build_viewer(path, *, displacement=None, reference_geometry=False, server=No
             v3.VSpacer()
             v3.VBtn("Session", click="session_panel = true", variant="text", size="x-small")
     state.change("frame", "field", "scale", "edges", "fixed_range", "range_min", "range_max",
-                 "reference_geometry", "displacement_field", "preset", "palette", "blend", "time_unit")(update)
+                 "reference_geometry", "current_coordinates", "displacement_field", "preset", "palette", "blend", "time_unit")(update)
     state.change("color_mode")(change_color_mode)
     state.change("palette")(remember_palette)
     state.change("smooth")(change_smoothing)
@@ -1071,6 +1115,7 @@ def build_viewer(path, *, displacement=None, reference_geometry=False, server=No
     state.change("quantity")(select_quantity)
     ctrl.on_server_ready.add(update)
     ctrl.on_server_exited.add(stop_playback)
+    ctrl.on_server_exited.add(cancel_folder_picker)
     ctrl.on_server_exited.add(job.close)
     def close_view(**_):
         # Trame supplies state keyword arguments to lifecycle callbacks.

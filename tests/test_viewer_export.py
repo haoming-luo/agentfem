@@ -96,9 +96,9 @@ def test_export_failure_never_publishes_partial_output(tmp_path, monkeypatch):
             return 2
     monkeypatch.setattr(jobs.subprocess, "Popen", Failed)
     job = ExportJob(tmp_path / "exports")
-    with pytest.raises(RuntimeError, match="source results are unchanged"):
+    with pytest.raises(RuntimeError, match="Export failed"):
         asyncio.run(job.run({"view": view_record()}, lambda *_: None))
-    assert list(job.destination.iterdir()) == []
+    assert [p.name for p in job.destination.iterdir()] == ['last-export-error.log']
     assert job.process is None
 
 

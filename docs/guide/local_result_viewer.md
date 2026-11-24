@@ -85,6 +85,32 @@ indexes referencing sibling runs, open their common parent directory.
 
 ## Controls
 
+**View** offers Isometric, XY, XZ and YZ camera directions. A small rose/green/blue
+axis marker shows orientation. Errors have an actual close button; the severity
+symbol is not used as a false dismissal affordance. Export failures retain the
+full traceback in `viewer-exports/last-export-error.log`, not in the main dialog.
+
+For a moving-coordinate archive, the viewer checks whether the first and last
+states have the same connectivity and matching `coordinates - displacement`.
+It reports detected deformed coordinates explicitly; Settings lets the user
+override the interpretation. Magnification and smooth export reconstruct the
+reference coordinates first, avoiding double deformation. Each interpolated pair
+still checks reference geometry and connectivity, allowing only storage-precision
+roundoff. This does not support remeshing or create new computed states.
+
+Spatial cell-field smoothing is not enabled by default. VTK's
+[cell-to-point filter](https://vtk.org/doc/nightly/html/classvtkCellDataToPointData.html)
+averages incident cells; it is not constitutive recovery or a higher-accuracy
+stress solution. A future opt-in display route must respect material/interface
+regions, label averaged values, preserve raw extrema, and record the choice in
+exports. Damage and contact jumps must not be hidden by an unlabelled average.
+
+On macOS, the folder chooser now calls AppKit's
+[NSOpenPanel](https://developer.apple.com/documentation/AppKit/NSOpenPanel)
+directly through the system scripting bridge. The request is nonblocking and
+can be cancelled from the browser. Native-panel latency still needs desktop
+acceptance; it is not claimed to be solved by this change alone.
+
 Scene updates explicitly advance the render-window version before sending them
 to vtk.js. Timeline advancement alone is not playback acceptance: verify that
 the geometry actually changes between early and late frames, including smooth
