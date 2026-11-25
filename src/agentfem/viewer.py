@@ -1385,6 +1385,8 @@ def main(argv=None):
     parser.add_argument("--displacement")
     parser.add_argument("--reference-geometry", action="store_true")
     parser.add_argument("--no-browser", action="store_true")
+    parser.add_argument("--create-shortcut", type=Path, metavar="FILE",
+                        help="Create a desktop entry for this installed environment, then exit")
     parser.add_argument("--idle-timeout", type=int, default=120,
                         help="Stop after this many seconds with no browser connected (default: 120; 0 disables)")
     args = parser.parse_args(argv)
@@ -1394,6 +1396,13 @@ def main(argv=None):
         parser.error("Use --displacement and --reference-geometry together to enable warp.")
     if args.idle_timeout < 0:
         parser.error("idle-timeout must be nonnegative")
+    if args.create_shortcut:
+        from ._viewer_shortcut import create_shortcut
+        try:
+            print(create_shortcut(args.create_shortcut, args.path))
+        except (ValueError, OSError) as exc:
+            parser.error(str(exc))
+        return
     try:
         app = build_viewer(args.path, displacement=args.displacement,
                            reference_geometry=args.reference_geometry)

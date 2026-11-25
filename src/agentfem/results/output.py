@@ -1495,11 +1495,9 @@ def _attribute(grid, name: str, center: str, values, hdf_reference: str):
         AttributeType=attribute_type,
         Center=center,
     )
-    from ._components import declared_components
-    import json
-    labels = declared_components(attribute_type, component_count)
-    if labels:
-        ET.SubElement(attribute, 'Information', Name='component_names', Value=json.dumps(labels))
+    # Standard Vector/Tensor already declare their layout. Keep one DataItem
+    # child: independent readers such as meshio reject extra Attribute children.
+    # Viewer labels derive from AttributeType rather than redundant metadata.
     _data_item(
         attribute,
         dimensions=array.shape,

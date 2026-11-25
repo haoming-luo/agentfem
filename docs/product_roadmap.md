@@ -1,5 +1,8 @@
 # AgentFEM Product Roadmap
 
+The bounded [0.5.0 candidate checklist](release_050.md) tracks implementation
+and acceptance separately. It does not authorize merging or publication.
+
 ### Next release scope review (2026-11-25)
 
 Integration checkpoint: #199 merged main through #200 (`75a0750b`) locally
@@ -51,7 +54,9 @@ cross-platform desktop launcher. That lifecycle gate remains open until tested.
 
 2026-11-25 closeout additions: shared declared-component labels now connect XDMF
 and VTK arrays to viewer/export labels; unknown compact tensor ordering remains
-explicitly unknown. Array output adds vector/matrix component declarations.
+explicitly unknown. Array output retains standard vector/matrix declarations.
+Standard vector/matrix labels are derived from XDMF AttributeType without extra
+Attribute children, preserving independent meshio time-series compatibility.
 Current zoom and level rotation are the UI export defaults; the three primary
 wizard actions share a fixed position. Saved-view removal advances selection.
 Branding uses the AgentFEM wordmark, with no unapproved compact logo.

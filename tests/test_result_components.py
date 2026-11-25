@@ -32,9 +32,10 @@ def test_custom_state_and_tensor_labels_share_viewer_contract():
 
 def test_array_writer_declares_layout_for_reader():
     from agentfem.results.output import _attribute
-    import json
     grid = ET.Element('Grid')
     field = _attribute(grid, 'strain', 'Cell', np.zeros((2,9)), 'data.h5:/strain')
-    assert json.loads(field.find('Information').get('Value')) == list(declared_components('Tensor',9))
+    assert field.get('AttributeType') == 'Tensor'
+    assert [child.tag for child in field] == ['DataItem']
+    assert declared_components(field.get('AttributeType'), 9)[3] == 'YX'
     compact = _attribute(grid, 'custom', 'Cell', np.zeros((2,6)), 'data.h5:/custom')
     assert compact.find('Information') is None

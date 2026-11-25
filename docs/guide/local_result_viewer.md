@@ -426,3 +426,19 @@ frame playback, a fixed 0–1 damage range, rotation and collapsible controls;
 it is not a native Codex widget or a separate AI-dependent rendering path. It is
 not a general browser memory limit. Windows browser behavior and additional
 high-order topologies remain separate acceptance work.
+## Desktop entry
+
+After installing the viewer, macOS users can create a double-click entry once:
+
+```sh
+agentfem-view /path/to/results --create-shortcut "$HOME/Desktop/AgentFEM Viewer.command"
+```
+
+This entry uses the installed environment, not a development checkout or a
+temporary viewer environment. Keep that environment installed. Each launch
+opens an independent local session. Closing the last browser connection allows
+the service to exit after its two-minute grace period; closing a terminal does
+not stop the macOS shortcut's service. Startup logs are retained in the system
+temporary directory under `agentfem-viewer`. Existing shortcuts are never
+overwritten. Native Linux accepts a `.desktop` destination (the desktop may
+require marking it trusted); this is not a Windows/WSL desktop installer.
