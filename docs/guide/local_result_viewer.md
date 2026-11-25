@@ -61,17 +61,12 @@ identify directories without repeating “Folder” in their names. Result rows 
 The dialog keeps a fixed height when projects/runs change; its list scrolls.
 The search field filters the current folder. **Paste a path instead** is optional.
 
-The folder-search icon opens the system folder chooser on the computer running
-the viewer. macOS uses its native panel; other desktop hosts use optional Tk.
-It never uploads or copies H5 data. Selecting a different root automatically opens
-an independent local session without a second confirmation button; existing view/export records
-remain scoped to their original root. Unused new sessions expire after two minutes.
-On headless/remote/WSL hosts without a usable desktop chooser, use the directory
-list or path fallback; it cannot select the browser machine's files for a remote
-Python process. The native chooser is provisional: automated tests cover its
-cancel/failure/session contracts, but the background-launched macOS GUI check
-did not complete successfully. Windows/WSL also needs platform testing. The
-in-page folder browser remains the verified cross-browser route.
+The folder-search icon opens an in-page folder browser. Select a folder or paste
+a path on the computer running the viewer; no H5 data is uploaded or copied.
+Selecting a different root automatically opens an independent local session
+without a second confirmation. Existing view/export records remain scoped to
+their original root. On a remote host this browses the server's filesystem,
+not the browser computer's files.
 Standard DOLFINx same-document mesh pointers are normalized into a temporary
 single-grid-per-time descriptor. Numerical arrays and original files are unchanged;
 external XML includes and incompatible time grids are still reported explicitly.
@@ -117,21 +112,13 @@ selected multiplier. Moving coordinates are first normalized using the selected
 displacement. The control cannot reconstruct an unknown reference configuration
 without a valid displacement field and coordinate convention.
 
-Negative/positive colors default to Azure / Rose, followed by Lagoon / Rose and
-Blue / Red. Model and legend occupy separate regions in both the browser and
-exports. The browser legend is accessible HTML, avoiding vtk.js automatic text
+Negative/positive colors default to Azure / Rose, followed by Lagoon / Violet and
+Blue / Red. The legend overlays the model view transparently in both the browser
+and exports. The browser legend is accessible HTML, avoiding vtk.js automatic text
 rescaling in small panes. Export titles are optional, never inferred from generic
 filenames such as `fields`. Without a declared time unit, exports identify the
 frame rather than calling a load parameter seconds. Information buttons provide
 the longer display-only explanations without crowding the controls.
-
-On macOS, the folder chooser now calls AppKit's
-[NSOpenPanel](https://developer.apple.com/documentation/AppKit/NSOpenPanel)
-directly through the system scripting bridge. The request is nonblocking and
-can be cancelled from the browser. The panel is created before activation and
-placed above the browser: process sampling found the previous helper already in
-its modal event loop, not still loading result data. Native-panel latency still needs desktop
-acceptance; it is not claimed to be solved by this change alone.
 
 Scene updates explicitly advance the render-window version before sending them
 to vtk.js. Timeline advancement alone is not playback acceptance: verify that
@@ -141,7 +128,7 @@ interpolation within the same pair of saved frames.
 **Open** selects projects, runs and files in a dedicated dialog. **Display**
 toggles a compact, docked field/palette/deformation sidebar. It occupies its own
 space and never covers playback. Play/Pause is centered below the canvas and
-saved-frame slider, with **Playback** settings alongside it. On narrow embedded
+saved-frame slider, with **Animation** settings alongside it. On narrow embedded
 panes, collapse **Display** to give the model more space.
 Refresh and stop-service actions are under **Session**, not unlabeled toolbar
 icons. Closing a tab and stopping the service are different actions; neither
@@ -188,9 +175,9 @@ deletes results. Nothing here changes the stored result.
 - **Field** selects the saved quantity, with **Elements** or **Nodes** indicating
   where values are stored. **Component** selects its component separately;
   three-component vectors offer **Magnitude**, **X**, **Y**, **Z**. Magnitude
-  is computed only for display. Tensor components retain numbered ordering
-  rather than guessing an undocumented Voigt convention. No nodal smoothing
-  or stress invariant is invented.
+  is computed only for display. Declared tensor matrices use XX/XY/etc.; unknown
+  compact tensor layouts retain numbered ordering rather than guessing a Voigt
+  convention. No stress invariant is invented.
 - **Saved frame** selects an actual output station, not an interpolated time.
 - **Play** advances through saved frames; **Pause** stops. It does not imply a
   uniform physical sampling interval.
@@ -204,9 +191,8 @@ deletes results. Nothing here changes the stored result.
   intervals. It assumes a continuous displacement path between saved stations;
   do not use it across impacts or discontinuous restart gaps. Interpolation
   cannot recover dynamics absent from the output.
-- **Playback duration (s)** is wall-clock presentation duration, not simulation
-  time. The renderer targets at most 20 updates/s and skips intermediate display
-  samples when rendering takes longer; this is not a guaranteed frame rate.
+- **Seconds per animation** is target presentation duration, not simulation
+  time. Each scene must load before advancing; large models may take longer.
   Pause keeps the interpolated view; choosing a saved frame returns to an actual
   stored state. Resume starts at that interpolated coordinate. Switching to a
   non-displacement field stops smooth playback and returns to a saved state.
@@ -225,20 +211,20 @@ deletes results. Nothing here changes the stored result.
 - **Show mesh edges** and **Reset view** control the display. Drag to rotate and scroll
   to zoom using VTK's browser interaction.
 
-To enable deformation, select **Deform reference mesh**, choose the nodal
+To enable deformation, select **Show deformation**, choose the nodal
 displacement vector, and set **Deformation scale** (default 1 shows actual
 saved displacement). A sole vector named `Displacement`, `displacement` or `U`
 is selected automatically; other names require explicit selection.
-Only enable this when the output contract says the coordinates are on reference
-geometry. The same declaration can be supplied when launching:
+For known reference-coordinate output, the declaration can also be supplied
+when launching:
 
 ```sh
 agentfem-view /path/to/results.xdmf --reference-geometry --displacement displacement
 ```
 
 Warp starts from the saved frame every time, so changing the scale does not
-accumulate deformation. Do not enable it for geometry already deformed in the
-output. Opening another file clears this declaration. Displacement must be a
+accumulate deformation. Recognized moving-coordinate output is normalized to
+reference geometry first. Opening another file clears the declaration. Displacement must be a
 three-component nodal field. Units and component
 conventions come from the result. The viewer does not infer missing units.
 
@@ -309,8 +295,9 @@ and [layout](https://developer.apple.com/design/human-interface-guidelines/layou
 guidance, adapted to a scientific inspector rather than copied as a native UI.
 
 Export uses server-side VTK while interactive rendering uses vtk.js; lighting
-can differ slightly. Camera and numerical selections are shared. Neither path
-averages element values, smooths mesh coordinates, or invents tensor invariants.
+can differ slightly. Camera and numerical selections are shared. Both paths
+honor optional display averaging; neither edits mesh coordinates in the source
+or invents tensor invariants.
 Anti-aliasing improves image edges, not the numerical discretization. A view
 record is a reproducible presentation recipe, not a scientific validation seal.
 
@@ -334,9 +321,7 @@ uncertified-coverage markers are displayed when present in the index. A joined
 index is a snapshot: regenerate it through the joining API if its source
 segments grow; Refresh does not regenerate joins.
 
-## Mesh and element checks
-
-### Animation and publication exports
+## Animation and publication exports
 
 **Animation → Smooth motion** interpolates displacement for display. **Seconds
 per animation** is the target viewing time, not physical simulation time. The
@@ -344,9 +329,9 @@ viewer waits for each browser scene to load before advancing; large models may
 take longer rather than skipping to their final state. Stress and damage remain
 saved-state displays, not interpolated predictions.
 
-Exports default to **Fit whole model**, using the bounds of all exported states
-and a fixed conservative framing. Browsing zoom does not crop the output.
-**Keep current zoom** is available for intentional details. Text and orientation
+Exports default to **Current zoom**, preserving intentional close-ups. Choose
+**Fit whole model** to enclose all exported states with fixed conservative
+framing, independently of browsing zoom. Text and orientation
 markers scale with output resolution. Videos use higher-quality encoding;
 PNG remains the lossless choice for figures.
 
@@ -367,7 +352,8 @@ ZX/ZY/ZZ (or XX/XY/YX/YY in 2D). An Attribute-level Information element named
 six-component tensor names. Undeclared Tensor6 ordering retains numbered labels.
 VTK component names are also honored. The same labels appear in the component
 selector and exported legend; no invariants or unit conversions are inferred.
-The native array writer records component names for its vector/matrix layouts.
+The native array writer declares standard vector/tensor layouts; the viewer
+derives their component names without adding reader-incompatible XML children.
 
 Export defaults to Current zoom and level Turntable motion. Fit whole model
 remains available when the whole moving model must stay visible. Next, Generate
@@ -409,6 +395,8 @@ The lower-left orientation marker uses screen-facing X/Y/Z labels, with
 contrasting colors for light and dark backgrounds. **View** contains standard
 camera directions and saved views. On narrow screens, **Display** opens a
 temporary panel instead of consuming the rendering width.
+
+## Mesh and element checks
 
 Before conversion, use `agentfem inspect-mesh` and the existing
 `mesh.compatibility_matrix()`. Inventory checks finite coordinates, integer
