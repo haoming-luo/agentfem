@@ -48,7 +48,8 @@ PALETTES = (*SEQUENTIAL_PALETTES, *DIVERGING_PALETTES)
 
 
 def palette_items(mode):
-    names = DIVERGING_PALETTES if mode == "zero" else SEQUENTIAL_PALETTES
+    # Keep a small everyday menu; legacy saved palettes remain supported.
+    names = DIVERGING_PALETTES if mode == "zero" else ('ocean', 'viridis', 'cividis', *DIVERGING_PALETTES)
     labels = {"coolwarm": "Blue / Red", "azure-rose": "Azure / Rose", "lagoon-rose": "Lagoon / Rose"}
     return [{"title": labels.get(name, name.title()), "value": name} for name in names]
 

@@ -160,17 +160,17 @@ deletes results. Nothing here changes the stored result.
   Established viridis/cividis maps remain selectable, including in saved views.
 
 - **Color mapping → Negative / Positive (±)** offers Blue / Red, Azure / Rose and Lagoon / Rose.
-  **Low → High** retains Ocean, Iris, Garnet, Jade, viridis, cividis and magma;
-  exploratory palettes are not added to the menu. Symmetric limits `[-A, A]`
+  **Range** offers Ocean, viridis, cividis and the same three diverging palettes.
+  In Range mode a diverging palette's center represents the range midpoint,
+  not necessarily zero. Older saved palettes remain readable, without crowding
+  the everyday menu. Symmetric limits `[-A, A]`
   put equal positive/negative magnitudes at equal distances from the center.
   **Limit ±** adjusts both ends; **Auto range · all frames** finds
   the largest absolute value across the saved series. The fixed range remains
   unchanged during playback and is retained in exports and saved views.
-  Components of the explicitly selected displacement vector recommend this
-  mode; its magnitude recommends Low → High. Other fields default to Low → High:
-  choose Negative / Positive for signed stress/strain components when appropriate.
+  Choose Negative / Positive for signed stress/strain components when appropriate.
   Field names and the presence of negative values alone do not establish physics.
-  Manual selection is retained until a different field/component is selected.
+  Manual selection is retained when changing fields and components.
   Each mode remembers its selected palette. The two new palettes have monotonic
   relative luminance on each side of their light center. Screening includes
   severity-1 protan/deutan/tritan simulations using the
@@ -362,7 +362,7 @@ Click X, Y or Z in the lower-left marker to select the corresponding orthogonal 
 Explicit region IDs keep material regions separate. Original arrays and color
 limits are unchanged; turn smoothing off to inspect cell discontinuities.
 The slower experimental Edge-aware and Preserve jumps modes have been removed;
-older saved views use Average instead. Color mapping (Low → High or
+older saved views use Average instead. Color mapping (Range or
 Negative / Positive) stays selected when changing fields and components.
 The browser legend is a transparent overlay inside the model view, not a
 separate opaque panel. It does not crop the model or intercept camera gestures.

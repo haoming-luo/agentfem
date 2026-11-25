@@ -1112,7 +1112,7 @@ def build_viewer(path, *, displacement=None, reference_geometry=False, server=No
                 v3.VDivider(classes="my-2")
                 html.Div("Color & legend", classes="viewer-section")
                 v3.VSelect(v_model=("color_mode", "sequential"),
-                           items=("color_modes", [{"title": "Low → High", "value": "sequential"},
+                           items=("color_modes", [{"title": "Range", "value": "sequential"},
                                                   {"title": "Negative / Positive", "value": "zero"}]),
                            label="Color mapping", hide_details=True, density="compact")
                 v3.VSelect(v_model=("palette", "ocean"), items=("palette_items",), label="Palette",
