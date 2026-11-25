@@ -3,9 +3,21 @@
 """Local result selection restricted to an explicitly selected directory."""
 
 from pathlib import Path
+from collections import Counter
 import xml.etree.ElementTree as ET
 
 SUFFIXES = frozenset({".xdmf", ".xmf", ".vtu", ".vtk", ".pvd"})
+
+
+def result_browser_root(requested):
+    """A file opens its containing project, or just its folder if standalone."""
+    requested = Path(requested).expanduser().resolve(strict=True)
+    if requested.is_dir():
+        return requested
+    for parent in requested.parents:
+        if (parent / "agentfem.toml").is_file():
+            return parent
+    return requested.parent
 
 
 class ResultDirectory:
@@ -39,12 +51,50 @@ class ResultDirectory:
             except (OSError, ValueError):
                 continue
             if resolved.is_dir() or resolved.suffix.lower() in SUFFIXES:
-                entries.append({"title": ("Folder · " if resolved.is_dir() else "") + child.name,
+                entries.append({"title": child.name,
                                 "value": str(child.relative_to(self.root)),
                                 "directory": resolved.is_dir()})
             if len(entries) >= 1000:
                 raise ValueError("This folder has too many entries; open a more specific result directory.")
         return entries
+
+    def projects(self):
+        """Discover only the selected root and its immediate children."""
+        from agentfem.project import ProjectConfig
+
+        items = []
+        candidates = [self.root] + [self.resolve(item["value"])
+                                  for item in self.entries() if item["directory"]]
+        for candidate in candidates:
+            config = candidate / "agentfem.toml"
+            if not config.is_file():
+                continue
+            try:
+                project = ProjectConfig.load(self.resolve(config))
+                if not project.output_directory.is_relative_to(candidate):
+                    continue
+            except (ValueError, OSError, TypeError):
+                continue
+            items.append({"title": project.name,
+                          "value": str(candidate.relative_to(self.root))})
+        counts = Counter(item["title"] for item in items)
+        for item in items:
+            if counts[item["title"]] > 1:
+                item["title"] += " · " + item["value"]
+        return items
+
+    def runs(self, project):
+        """Use the project's configured output directory, without loading code."""
+        from agentfem.project import ProjectConfig
+
+        root = self.resolve(project)
+        config = ProjectConfig.load(self.resolve(root / "agentfem.toml"))
+        if not config.output_directory.is_relative_to(root):
+            raise ValueError("Project output directory must remain inside its project.")
+        if not config.output_directory.exists():
+            return []
+        return [{"title": Path(item["value"]).name, "value": item["value"]}
+                for item in self.entries(config.output_directory) if item["directory"]]
 
     def result(self, name):
         path = self.resolve(name)
@@ -71,7 +121,9 @@ class ResultDirectory:
                 elif tag == "DataSet" and source.suffix.lower() == ".pvd":
                     reference = node.get("file")
                 elif tag == "include":
-                    raise ValueError("Expand external XML includes before opening this result.")
+                    pointer = "xpointer(/Xdmf/Domain/Grid[@GridType='Uniform'][1]/*[self::Topology or self::Geometry])"
+                    if node.get("href") or node.get("xpointer") != pointer:
+                        raise ValueError("External XML includes are not supported; select a self-contained result index.")
                 if reference is not None:
                     companion = self.resolve(source.parent / reference)
                     if not companion.is_file():

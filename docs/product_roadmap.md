@@ -1,5 +1,79 @@
 # AgentFEM Product Roadmap
 
+The bounded [0.5.0 candidate checklist](release_050.md) tracks implementation
+and acceptance separately. It does not authorize merging or publication.
+
+### Next release scope review (2026-11-25)
+
+Integration checkpoint: #199 merged main through #200 (`75a0750b`) locally
+without conflicts in merge `59f771cc`. The incoming diff is the environment
+constraint and its removal/acceptance notes, not numerical code. The targeted
+environment, field-inspection and viewer suite passed 153 tests. This is not a
+fresh installed macOS science-stack acceptance; latest-head CI and the frozen
+installed candidate remain release gates.
+
+Latest published release: v0.4.4. GitHub review confirms #195 (explicit material
+dynamics and reusable engineering workflows), #198 (installed workflow and
+model inspection), and #200 (science-environment PETSc/libyaml compatibility)
+are merged. Historical branch names below do not imply outstanding PRs.
+Open candidates are #199 (result browser) and #197 (P92 recovery research).
+Neither is authorized for merging or release at this checkpoint.
+
+Remote branches without open PRs were also compared against main on this date:
+
+| Branch | Graph comparison | Required treatment |
+| --- | --- | --- |
+| `feat/native-windows-runtime` | 9 ahead / 1367 behind | Audit the native runtime contract and Windows acceptance before proposing integration; do not replace verified WSL guidance prematurely |
+| `feat/unified-result-output` | 2 ahead / 828 behind | Compare accepted-frame publication with current output ownership; port only missing behavior, avoiding a second lifecycle |
+| `evidence/j2-promotion-complete` | 1 ahead / 1111 behind | Review external J2 beam evidence and provenance, not a blanket material capability claim |
+| `fix/creep-small-increment-precision` | 0 ahead / 107 behind | No outstanding commits by ancestry; not a new release feature |
+
+These graph counts are a dated inventory, not a semantic mergeability verdict.
+
+| Track | Next release treatment | Acceptance gate |
+| --- | --- | --- |
+| Lightweight result viewer, #199 | Candidate feature: projects/runs, animation, saved views, PNG/MP4, compact palettes | Installed launch, narrow-window use, cancel/reopen, stable mapping across components, export framing and original-data integrity |
+| Viewer lifecycle | Priority closeout: desktop entry starts the local service, opens a live URL, records actionable startup failures | No dependency on a chat terminal; closing one of multiple tabs must not kill others; last-tab grace period and explicit shutdown; restart after service failure |
+| General material/engineering workflows, #195 | Include bounded merged capabilities, not unsupported combinations | Installed examples, accepted-state/restart regression and declared capability boundaries |
+| Human/agent workflows, #198 | Include task discovery, diagnostics, result templates and faster model inspection | Real installed task completion; inspection timings are not solver acceleration claims |
+| Environment fix, #200 | Include compatibility correction | Supported-platform dependency/first-run checks |
+| P92, #197 | Keep research separate; no engineering-life validation claim | Independent cross-protocol acceptance remains required; do not delay the product release for further parameter fitting |
+
+Before choosing a version number: compare main against v0.4.4, reconcile public
+capabilities and changelog, then run one frozen installed-candidate acceptance
+batch. Do not interpret CI success as scientific model certification.
+
+Viewer release gate update: require actual UI coverage for pasted external paths,
+standalone results, recent locations, parent navigation, default Display, timeline
+drag isolation and three-second smooth playback. Preserve field mapping choices
+and original numerical arrays. Export checks must include full XYZ, a transparent
+legend over the full viewport, readable 1080p/4K text and complete model framing.
+Fast native averaging is the only default smoothing route; slower experimental
+filters were withdrawn. The local development shortcut is not yet a validated
+cross-platform desktop launcher. That lifecycle gate remains open until tested.
+
+2026-11-25 closeout additions: shared declared-component labels now connect XDMF
+and VTK arrays to viewer/export labels; unknown compact tensor ordering remains
+explicitly unknown. Array output retains standard vector/matrix declarations.
+Standard vector/matrix labels are derived from XDMF AttributeType without extra
+Attribute children, preserving independent meshio time-series compatibility.
+Current zoom and level rotation are the UI export defaults; the three primary
+wizard actions share a fixed position. Saved-view removal advances selection.
+Branding uses the AgentFEM wordmark, with no unapproved compact logo.
+
+Release candidate checklist (not yet a release authorization):
+
+- Freeze #199, inspect latest CI and review its full diff before merging.
+- Validate installed field-output/reader/export round trips, including scalar,
+  vector, tensor, custom state, point/cell association, frame and unit semantics.
+- Run real browser checks for fixed-position export/download and timeline drag;
+  test 1080p/4K, cancel, failure, restart and recent-path navigation.
+- Finish the maintained launcher lifecycle rather than shipping a temporary
+  development-environment path as a universal desktop installer.
+- Compare main versus v0.4.4 for release notes and test a frozen ordinary install.
+- Keep #197 research and unreviewed divergent Windows/output/J2 branches out of
+  the release promise until their independent scope and evidence are accepted.
+
 ### Installed workflow completion checkpoint (2026-11-22, PR #198 candidate)
 
 PR #195 is integrated in main. PR #198 remains an unmerged candidate; its

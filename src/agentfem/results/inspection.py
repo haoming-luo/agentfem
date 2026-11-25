@@ -27,6 +27,21 @@ def _reader(path):
 
 
 def _read(path, frame):
+    # DOLFINx's standard per-field layout shares one reference mesh through
+    # local XInclude pointers. Normalize only that proven layout, without
+    # changing/copying numerical arrays or modifying the user's descriptor.
+    if Path(path).suffix.lower() in {".xdmf", ".xmf"}:
+        root = ET.parse(path).getroot()
+        if any(item.tag.endswith("}include") for item in root.iter()):
+            import tempfile
+            from .xdmf_layout import consolidate_xdmf_fields
+            with tempfile.TemporaryDirectory(prefix="agentfem-view-index-") as folder:
+                normalized = consolidate_xdmf_fields(path, Path(folder) / "fields.xdmf")
+                return _read_dataset(normalized, frame)
+    return _read_dataset(path, frame)
+
+
+def _read_dataset(path, frame):
     if isinstance(frame, (bool, np.bool_)) or not isinstance(frame, Integral):
         raise ValueError("frame must be an integer saved-frame index.")
     pv, reader, times = _reader(path)
@@ -48,6 +63,9 @@ def _read(path, frame):
         raise ValueError("The selected frame contains no usable mesh.")
     if not np.isfinite(grid.points).all():
         raise ValueError("The selected frame contains nonfinite coordinates.")
+    if Path(path).suffix.lower() in {'.xdmf', '.xmf'}:
+        from ._components import attach_xdmf_components
+        attach_xdmf_components(grid, ET.parse(path).getroot())
     return grid.copy(deep=True), times, index
 
 
@@ -71,7 +89,10 @@ def inspect_visualization(path, *, frame=-1):
     grid, times, index = _read(path, frame)
     def arrays(data):
         return [{"name": name, "shape": list(data[name].shape),
-                 "dtype": str(data[name].dtype)} for name in data.keys()]
+                 "dtype": str(data[name].dtype),
+                 "components": [data.GetAbstractArray(name).GetComponentName(i)
+                                for i in range(data.GetAbstractArray(name).GetNumberOfComponents())]}
+                for name in data.keys()]
     # VTK, not a second connectivity table, owns display cell identities.
     unstructured = grid.cast_to_unstructured_grid()
     cell_types, counts = np.unique(unstructured.celltypes, return_counts=True)

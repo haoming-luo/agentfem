@@ -6,6 +6,21 @@ experimental formulation to a validated one.
 
 ## [Unreleased]
 
+- Add the optional local result viewer (`agentfem-view`): browse projects, runs,
+  standalone results and recent locations; inspect declared field components;
+  play saved frames, manage reusable views, and export PNG/MP4 up to 4K.
+  Displacement-only temporal interpolation and optional cell-color averaging
+  remain display operations; source results are unchanged. Damage and stress
+  retain saved-state playback. ParaView remains available for full analysis.
+- Add opt-in macOS/native-Linux viewer shortcuts bound to the installed Python.
+  Independent sessions survive closure of the previous project viewer; idle
+  shutdown and explicit stop retain results and completed exports. macOS
+  shortcuts wait for readiness and report delayed startup failures.
+- Keep XDMF vector/tensor component labels interoperable with independent
+  readers, without redundant Attribute children that break meshio time series.
+  Unknown compact tensor ordering is not guessed. Fit-to-view uses the actual
+  browser viewport; narrow-window legends leave space for orientation axes.
+
 - Add identity-preserving nodal forces and U/V/A histories to bounded small-
   strain explicit dynamics, including MPI ownership, independent sampling,
   work/energy records and restart. Fix owned/ghost acceleration lengths.

@@ -68,6 +68,14 @@ def test_no_xml_includes_or_python_files(tmp_path):
     index.write_text('<Xdmf xmlns:xi="http://www.w3.org/2001/XInclude"><xi:include href="other.xml"/></Xdmf>')
     with pytest.raises(ValueError, match="includes"):
         ResultDirectory(tmp_path).result(index)
+
+
+def test_local_mesh_pointer_is_not_an_external_include(tmp_path):
+    index = tmp_path / 'fields.xdmf'
+    index.write_text('''<Xdmf xmlns:xi="https://www.w3.org/2001/XInclude"><Domain>
+      <xi:include xpointer="xpointer(/Xdmf/Domain/Grid[@GridType='Uniform'][1]/*[self::Topology or self::Geometry])"/>
+      </Domain></Xdmf>''')
+    assert ResultDirectory(tmp_path).result(index) == index
     code = tmp_path / "case.py"
     code.write_text('raise AssertionError("must never execute")')
     with pytest.raises(ValueError, match="Select XDMF"):
@@ -80,3 +88,51 @@ def test_module_help_needs_no_viewer_dependencies(capsys):
         main(["--help"])
     assert exc.value.code == 0
     assert "directory" in capsys.readouterr().out
+
+
+def test_project_runs_use_configured_output_without_executing_case(tmp_path):
+    project = tmp_path / "beam"
+    project.mkdir()
+    (project / "agentfem.toml").write_text('[project]\nname="Beam"\n[run]\noutput_directory="results"\n')
+    (project / "case.py").write_text('raise RuntimeError("never execute")')
+    (project / "results/001-smoke").mkdir(parents=True)
+    (project / "results/002-full").mkdir()
+    directory = ResultDirectory(tmp_path)
+    assert directory.projects() == [{"title": "Beam", "value": "beam"}]
+    assert [r["title"] for r in directory.runs("beam")] == ["001-smoke", "002-full"]
+    assert ResultDirectory(project).projects() == [{"title": "Beam", "value": "."}]
+
+
+def test_project_browser_empty_invalid_and_escape(tmp_path):
+    project = tmp_path / "empty"
+    project.mkdir()
+    config = project / "agentfem.toml"
+    config.write_text('[project]\nname="empty"\n')
+    directory = ResultDirectory(tmp_path)
+    assert directory.runs("empty") == []
+    config.write_text('[run]\noutput_directory="../outside"\n')
+    assert directory.projects() == []
+    with pytest.raises(ValueError, match="inside"):
+        directory.runs("empty")
+    config.write_text('invalid toml [')
+    assert directory.projects() == []
+
+
+def test_duplicate_project_names_show_relative_location(tmp_path):
+    for name in ("first", "second"):
+        project = tmp_path / name
+        project.mkdir()
+        (project / "agentfem.toml").write_text('[project]\nname="Beam"\n')
+    assert [item["title"] for item in ResultDirectory(tmp_path).projects()] == [
+        "Beam · first", "Beam · second"]
+# A directly opened result still exposes the containing project's other runs.
+def test_result_browser_root_uses_nearest_project(tmp_path):
+    from agentfem._viewer_files import result_browser_root
+    project = tmp_path / "project"
+    result = project / "outputs" / "001" / "result.vtu"
+    result.parent.mkdir(parents=True)
+    result.write_text("unused")
+    assert result_browser_root(result) == result.parent
+    (project / "agentfem.toml").write_text("unused")
+    assert result_browser_root(result) == project
+    assert result_browser_root(result.parent) == result.parent

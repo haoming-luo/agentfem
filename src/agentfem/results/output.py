@@ -1495,6 +1495,9 @@ def _attribute(grid, name: str, center: str, values, hdf_reference: str):
         AttributeType=attribute_type,
         Center=center,
     )
+    # Standard Vector/Tensor already declare their layout. Keep one DataItem
+    # child: independent readers such as meshio reject extra Attribute children.
+    # Viewer labels derive from AttributeType rather than redundant metadata.
     _data_item(
         attribute,
         dimensions=array.shape,

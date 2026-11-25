@@ -1,0 +1,236 @@
+# SPDX-FileCopyrightText: 2026 Haoming Luo and AgentFEM contributors
+# SPDX-License-Identifier: Apache-2.0
+"""Saved-view contracts and completed-only export publication."""
+
+import asyncio
+import json
+import os
+from pathlib import Path
+
+import numpy as np
+import pytest
+
+from agentfem._viewer_export import validate_view
+from agentfem._viewer_jobs import ExportJob
+
+
+def view_record():
+    return dict(schema="agentfem.view.v1", source="series.pvd", frame=0,
+                preset="publication", palette="cividis", choice=["cell", "damage", None],
+                range=[0., 1.], reference_geometry=False, displacement=None, scale=1., edges=False,
+                title="Damage evolution", unit="", time_unit="s", camera=None)
+
+
+@pytest.mark.parametrize("changes", [
+    {"schema": "wrong"}, {"scale": float("nan")}, {"frame": -1}, {"frame": True},
+    {"range": [1., 0.]}, {"range": [0., float("inf")]}, {"preset": "unknown"},
+    {"choice": ["point", "U", "norm2"]}, {"reference_geometry": True},
+    {"camera": {"position": [0, 0, 0]}}, {"title": "x" * 161},
+])
+def test_saved_view_rejects_invalid_contract(changes):
+    with pytest.raises((ValueError, TypeError)):
+        validate_view(dict(view_record(), **changes))
+
+
+def test_saved_view_has_no_executable_payload():
+    record = view_record()
+    assert validate_view(json.loads(json.dumps(record))) == record
+
+
+@pytest.mark.parametrize("limits, expected", [((-4, 2), (-4, 4)), ((2, 5), (-5, 5)),
+                                              ((-7, -1), (-7, 7)), ((0, 0), (-1.e-12, 1.e-12))])
+def test_centered_color_limits(limits, expected):
+    from agentfem._viewer_export import centered_range
+    assert centered_range(*limits) == expected
+
+
+def test_zero_centered_view_contract():
+    record = dict(view_record(), color_mode="zero", palette="coolwarm", range=[-4., 4.])
+    assert validate_view(record) == record
+    for changes in ({"range": [-1., 4.]}, {"palette": "ocean"}, {"color_mode": "guess"}):
+        with pytest.raises(ValueError):
+            validate_view(dict(record, **changes))
+
+
+def test_annotation_positions_do_not_depend_on_time_width():
+    from agentfem._viewer_export import figure_annotations
+    first = figure_annotations(view_record(), .000001, 0, [1920, 1080])
+    last = figure_annotations(view_record(), 12345.6, 24, [1920, 1080])
+    assert first[0][1] != last[0][1]
+    assert [(n, p) for n, _, p in first] == [(n, p) for n, _, p in last]
+    assert first[1] == last[1]
+    assert all("values" not in text.lower() for _, text, _ in first)
+
+
+def test_presentation_palettes_have_monotonic_luminance():
+    from agentfem._viewer_export import COLOR_STOPS, color_map
+    for name in COLOR_STOPS:
+        rgb = color_map(name)(np.linspace(0., 1., 256))[:, :3]
+        linear = np.where(rgb <= .04045, rgb / 12.92, ((rgb + .055)/1.055)**2.4)
+        luminance = linear @ np.array([.2126, .7152, .0722])
+        assert np.all(np.diff(luminance) < 0.)
+        assert validate_view(dict(view_record(), palette=name))["palette"] == name
+
+
+def test_viewer_download_asset_is_packaged():
+    from importlib.resources import files
+    asset = files("agentfem").joinpath("_viewer_assets/viewer.js")
+    text = asset.read_text()
+    assert "window.AgentFEMViewer" in text and "URL.createObjectURL" in text
+    assert "url.origin !== window.location.origin" in text
+    css = files("agentfem").joinpath("_viewer_assets/viewer.css").read_text()
+    assert "text-transform:none" in css and "spin-button" in css
+
+
+def test_export_failure_never_publishes_partial_output(tmp_path, monkeypatch):
+    import agentfem._viewer_jobs as jobs
+    class Failed:
+        returncode = 2
+        def __init__(self, args, **kwargs):
+            stage = Path(args[-1]).parent
+            (stage / "result").mkdir()
+            (stage / "result/animation.mp4").write_bytes(b"partial")
+        def poll(self):
+            return 2
+        def wait(self, **kwargs):
+            return 2
+    monkeypatch.setattr(jobs.subprocess, "Popen", Failed)
+    job = ExportJob(tmp_path / "exports")
+    with pytest.raises(RuntimeError, match="Export failed"):
+        asyncio.run(job.run({"view": view_record()}, lambda *_: None))
+    assert [p.name for p in job.destination.iterdir()] == ['last-export-error.log']
+    assert job.process is None
+
+
+def test_export_cancel_terminates_and_does_not_publish(tmp_path, monkeypatch):
+    import agentfem._viewer_jobs as jobs
+    instances = []
+    class Running:
+        returncode = None
+        def __init__(self, *args, **kwargs):
+            instances.append(self)
+        def poll(self):
+            return self.returncode
+        def terminate(self):
+            self.returncode = -15
+        def wait(self, **kwargs):
+            return self.returncode
+    monkeypatch.setattr(jobs.subprocess, "Popen", Running)
+    job = ExportJob(tmp_path / "exports")
+    async def exercise():
+        task = asyncio.create_task(job.run({"view": view_record()}, lambda *_: None))
+        await asyncio.sleep(0)
+        job.cancel()
+        assert await task is None
+    asyncio.run(exercise())
+    assert instances[0].returncode == -15
+    assert not list(job.destination.iterdir())
+
+
+def test_export_success_publishes_bundle(tmp_path, monkeypatch):
+    import agentfem._viewer_jobs as jobs
+    class Completed:
+        returncode = 0
+        def __init__(self, args, **kwargs):
+            stage = Path(args[-1]).parent
+            (stage / "result").mkdir()
+            (stage / "result/figure.png").write_bytes(b"finished")
+            (stage / "result/view.json").write_text(json.dumps(view_record()))
+        def poll(self):
+            return 0
+        def wait(self, **kwargs):
+            return 0
+    monkeypatch.setattr(jobs.subprocess, "Popen", Completed)
+    job = ExportJob(tmp_path / "exports")
+    target = asyncio.run(job.run({"view": view_record()}, lambda *_: None))
+    assert (target / "figure.png").read_bytes() == b"finished"
+    assert len(list(job.destination.iterdir())) == 1
+
+
+@pytest.mark.skipif(os.environ.get("AGENTFEM_VIEWER_RENDER_TESTS") != "1", reason="Requires an offscreen VTK rendering device")
+def test_real_png_and_movie_exports(tmp_path):
+    pv = pytest.importorskip("pyvista")
+    pytest.importorskip("imageio_ffmpeg")
+    from PIL import Image
+    from agentfem._viewer_export import render
+    grid = pv.ImageData(dimensions=(3, 3, 3)).cast_to_unstructured_grid()
+    for i in range(2):
+        grid.cell_data["damage"] = np.linspace(0, .5 + i*.5, grid.n_cells)
+        grid.point_data["U"] = grid.points * (.1*i)
+        grid.save(tmp_path / f"frame{i}.vtu")
+    (tmp_path / "series.pvd").write_text('<VTKFile type="Collection"><Collection>' + ''.join(
+        f'<DataSet timestep="{i}" file="frame{i}.vtu"/>' for i in range(2)) + '</Collection></VTKFile>')
+    request = dict(root=str(tmp_path), view=view_record(), size=[512, 512], fps=10)
+    image = render(dict(request, mode="image", transparent=True), tmp_path / "image")
+    with Image.open(image) as result:
+        assert result.size == (512, 512) and result.mode == "RGBA"
+        assert np.asarray(result)[..., 3].min() == 0
+    movie = render(dict(request, mode="process"), tmp_path / "movie")
+    import imageio.v2 as imageio
+    with imageio.get_reader(movie) as reader:
+        assert reader.count_frames() == 8
+        first, last = reader.get_data(0), reader.get_data(7)
+        # The color bar persists after changing the mapper's dataset, with a
+        # fixed LUT. Compression permits a small pixel difference.
+        bar_first, bar_last = first[470:480, 145:360], last[470:480, 145:360]
+        assert bar_first.std() > 15
+        assert np.abs(bar_first.astype(float)-bar_last).mean() < 3
+    record = json.loads((movie.parent / "view.json").read_text())
+    assert record["export"]["saved_times"] == [0., 1.]
+    assert record["export"]["interpolation"] == "none"
+    smooth_view = dict(view_record(), choice=["point", "U", "magnitude"],
+                       reference_geometry=True, displacement="U")
+    smooth_movie = render(dict(request, view=smooth_view, mode="process", smooth=True, duration=1.),
+                          tmp_path / "smooth")
+    with imageio.get_reader(smooth_movie) as reader:
+        assert reader.count_frames() == 10
+    smooth_record = json.loads((smooth_movie.parent / "view.json").read_text())["export"]
+    assert smooth_record["interpolation"] == "linear_displacement"
+    assert smooth_record["samples"][0]["weight"] == 0.
+    assert smooth_record["samples"][-1]["weight"] == 1.
+    # Exercise cancellation of an actual subprocess, not only a fake encoder.
+    job = ExportJob(tmp_path / "cancelled")
+    async def cancel_real_worker():
+        task = asyncio.create_task(job.run(dict(request, mode="orbit"), lambda *_: None))
+        await asyncio.sleep(.05)
+        assert job.process is not None
+        job.cancel()
+        assert await task is None
+    asyncio.run(cancel_real_worker())
+    assert job.process is None and list(job.destination.iterdir()) == []
+
+
+@pytest.mark.skipif(os.environ.get("AGENTFEM_VIEWER_RENDER_TESTS") != "1", reason="Requires an offscreen VTK rendering device")
+@pytest.mark.parametrize("size", [(1920, 1080), (3840, 2160)])
+def test_delivery_resolution_smooth_video(tmp_path, size):
+    """Exercise the actual encoder at delivery resolution, not only thumbnails."""
+    import hashlib
+    import imageio.v2 as imageio
+    pv = pytest.importorskip("pyvista")
+    from agentfem._viewer_export import render
+    grid = pv.ImageData(dimensions=(4, 4, 2)).cast_to_unstructured_grid()
+    for index in range(2):
+        grid.point_data['U'] = np.column_stack((
+            np.zeros(grid.n_points), np.zeros(grid.n_points),
+            index * .3 * grid.points[:, 0] ** 2))
+        grid.save(tmp_path / f'frame{index}.vtu')
+    source = tmp_path / 'series.pvd'
+    source.write_text('<VTKFile type="Collection"><Collection>' + ''.join(
+        f'<DataSet timestep="{i}" file="frame{i}.vtu"/>' for i in range(2)) + '</Collection></VTKFile>')
+    original = {p: hashlib.sha256(p.read_bytes()).hexdigest() for p in tmp_path.iterdir()}
+    view = dict(view_record(), choice=['point', 'U', 'magnitude'],
+                reference_geometry=True, displacement='U', range=[0., 2.7])
+    movie = render(dict(root=str(tmp_path), view=view, size=list(size), fps=2,
+                        mode='process', smooth=True, duration=1., framing='fit'), tmp_path / 'export')
+    with imageio.get_reader(movie) as reader:
+        assert reader.count_frames() == 2
+        first, last = reader.get_data(0), reader.get_data(1)
+        assert first.shape[:2] == (size[1], size[0])
+        assert np.abs(first.astype(float)-last).mean() > .1
+        height, width = first.shape[:2]
+        # Actual colored legend and orientation annotations survive encoding.
+        assert first[int(.92*height):int(.98*height), int(.15*width):int(.95*width)].std() > 10
+        assert first[int(.85*height):, :int(.10*width)].std() > 1
+        imageio.imwrite(tmp_path / 'first.png', first)
+        imageio.imwrite(tmp_path / 'last.png', last)
+    assert all(hashlib.sha256(p.read_bytes()).hexdigest() == digest for p, digest in original.items())
