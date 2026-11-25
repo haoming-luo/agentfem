@@ -1011,6 +1011,19 @@ def build_viewer(path, *, displacement=None, reference_geometry=False, server=No
         with state:
             state.export_progress = "Cancelling export…"
 
+    def fit_browser_view(size, camera=None):
+        from agentfem._viewer_camera import fit_camera
+        if (not isinstance(size, (list, tuple)) or len(size) != 2 or
+                not np.isfinite(size).all() or min(size) <= 0):
+            return
+        stop_playback()
+        apply_camera(plotter, camera)
+        actor = cache['actor']
+        if actor is not None:
+            fit_camera(plotter.camera, actor.bounds, float(size[0])/float(size[1]))
+            plotter.reset_camera_clipping_range()
+            ctrl.view_camera()
+
     def camera_view(direction):
         stop_playback()
         {"Isometric": plotter.view_isometric, "Top (XY)": plotter.view_xy,
@@ -1078,7 +1091,8 @@ def build_viewer(path, *, displacement=None, reference_geometry=False, server=No
             v3.VSpacer()
             v3.VBtn("Export", prepend_icon="mdi-export-variant", variant="tonal",
                     disabled=("frame_count === 0 && view_items.length === 0",), click="export_panel = true")
-            v3.VBtn(icon="mdi-fit-to-screen-outline", title="Fit model to view", click=lambda: ctrl.view_reset())
+            v3.VBtn(icon="mdi-fit-to-screen-outline", title="Fit model to view", click=(fit_browser_view,
+                    "[$viewer.viewportSize(), trame.refs.result_view.getCamera()]"))
             with v3.VMenu():
                 with v3.Template(v_slot_activator="{ props }"):
                     v3.VBtn("View", v_bind="props", prepend_icon="mdi-cube-outline", variant="text")
@@ -1270,7 +1284,7 @@ def build_viewer(path, *, displacement=None, reference_geometry=False, server=No
                 # VtkLocalView manages its initial synchronization. Its ready
                 # event is not a user change: rebuilding the scene there can
                 # form a ready -> update -> ready loop on large meshes.
-                with html.Div(style="flex:1; min-height:0; position:relative"):
+                with html.Div(id="result-viewport", style="flex:1; min-height:0; position:relative"):
                     view = vtk.VtkLocalView(plotter.ren_win, ref="result_view", after_scene_loaded=scene_loaded,
                                         interactor_events=("camera_events", ["EndAnimation"]),
                                         EndAnimation=(sync_camera, "[trame.refs.result_view.getCamera()]"),
@@ -1278,7 +1292,7 @@ def build_viewer(path, *, displacement=None, reference_geometry=False, server=No
                                         style=("{height:'100%',width:'100%',pointerEvents:scrubbing ? 'none' : 'auto'}",))
                     html.Div('<viewer-axes :camera="() => trame.refs.result_view?.getCamera()" :select="axis => axis_request = {axis, stamp: Date.now()}" :dark="preset === \'presentation\'"></viewer-axes>',
                              style="position:absolute;left:8px;bottom:8px")
-                    with html.Div(v_if="legend_title", style=("{position:'absolute',bottom:'14px',left:'15%',right:'5%',pointerEvents:'none',color:legend_color,display:'flex',flexDirection:'column',gap:'5px',textShadow:preset === 'presentation' ? '0 0 4px #0b1220' : '0 0 4px white'}",)):
+                    with html.Div(v_if="legend_title", style=("{position:'absolute',bottom:'14px',left:'max(120px, 15%)',right:'5%',pointerEvents:'none',color:legend_color,display:'flex',flexDirection:'column',gap:'5px',textShadow:preset === 'presentation' ? '0 0 4px #0b1220' : '0 0 4px white'}",)):
                         html.Div("{{ legend_title }}", style="text-align:center;font:14px Arial;white-space:nowrap;overflow:hidden;text-overflow:ellipsis", title=("legend_title",))
                         html.Div(style=("{height:'10px',flexShrink:0,background:legend_gradient}",))
                         with html.Div(style="display:flex;justify-content:space-between;font:12px Arial"):
@@ -1373,6 +1387,7 @@ def build_viewer(path, *, displacement=None, reference_geometry=False, server=No
     ctrl.close_session = close_session
     ctrl.cancel_export = cancel_export
     ctrl.start_export = start_export
+    ctrl.fit_browser_view = fit_browser_view
     return server
 
 

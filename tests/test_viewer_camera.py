@@ -13,7 +13,7 @@ def test_relative_typography():
     assert text_size(18, [1280, 720]) == 12
 
 
-@pytest.mark.parametrize('aspect', [.5, 1920/(1080*.84)])
+@pytest.mark.parametrize('aspect', [.25, .5, 1920/1080])
 def test_all_orbit_frames_contain_bounds_despite_ui_zoom(aspect):
     pv = pytest.importorskip('pyvista')
     camera = pv.Camera()

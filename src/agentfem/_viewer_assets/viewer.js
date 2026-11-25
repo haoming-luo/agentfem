@@ -50,6 +50,10 @@ window.AgentFEMViewer = {
       beforeUnmount(){this.stopped=true;cancelAnimationFrame(this.raf);}
     });
     app.config.globalProperties.$viewer = {
+      viewportSize() {
+        const element = document.getElementById('result-viewport');
+        return element ? [element.clientWidth, element.clientHeight] : [0, 0];
+      },
       navigate(address) {
         const url = new URL(address);
         if (url.protocol !== 'http:' || url.hostname !== '127.0.0.1') return;
