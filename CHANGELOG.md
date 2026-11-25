@@ -6,6 +6,11 @@ experimental formulation to a validated one.
 
 ## [Unreleased]
 
+- Make CLI doctor observe numerical-process exit before reporting readiness.
+  A 30-second health-check timeout cleans the worker process group and returns
+  a structured failure instead of leaving a spinning MPI finalizer. Simulation
+  budgets remain explicit; no global MPI transport override is introduced.
+
 - Add the optional local result viewer (`agentfem-view`): browse projects, runs,
   standalone results and recent locations; inspect declared field components;
   play saved frames, manage reusable views, and export PNG/MP4 up to 4K.

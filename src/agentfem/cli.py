@@ -1527,4 +1527,5 @@ def _execute_cli(parsed, reliability):
 
 
 if __name__ == "__main__":
-    raise SystemExit(main())
+    from ._cli_entry import main as entry_main
+    raise SystemExit(entry_main())
