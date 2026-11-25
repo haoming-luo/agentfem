@@ -99,6 +99,9 @@ def main(argv=None):
     selected = list(sys.argv[1:] if argv is None else argv)
     if selected and selected[0] == "mpi-run":
         return _mpi_main(selected[1:])
+    if selected and selected[0] == 'doctor' and not any(x in selected for x in ('--help', '-h')):
+        from ._doctor_process import main as doctor_main
+        return doctor_main(selected)
     from .cli import main as product_main
 
     return product_main(selected)

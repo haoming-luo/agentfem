@@ -6,6 +6,30 @@ the most expensive command after every keystroke.
 
 ## Validation layers
 
+### Process exit is part of acceptance
+
+A printed `passed`, completed result manifest or ready message is not proof
+that Python exited. MPI/PETSc finalization can still hang and consume a CPU.
+Always collect the process return code. Use an external timeout and terminate
+only that test's process group on expiry; do not launch another copy while a
+previous worker remains. Preserve completed simulation artifacts and classify
+the lifecycle failure separately from their numerical evidence.
+
+The installed `agentfem doctor` command runs its numerical inventory in a
+bounded child and publishes readiness only after exit. Timeout is a failure,
+not permission to disable MPI finalization or call `os._exit(0)`. For long
+projects the existing `agentfem run --supervise --timeout SECONDS` provides an
+explicit whole-process budget, including finalization; choose the budget for
+the workload rather than imposing a short universal simulation timeout.
+
+On the affected macOS MPICH 5.0.1 environment, MPI-only imports reproduced a
+finalization hang and process-local `FI_PROVIDER=tcp` resolved it in serial and
+two-rank checks. Diagnose before adopting this environment-specific workaround.
+Do not force TCP on other machines or overwrite a user's transport selection.
+See the [MPICH discussion](https://lists.mpich.org/pipermail/discuss/2021-November/006280.html)
+for why finalize hangs may involve either incomplete communication or the
+underlying provider; it does not establish the cause on every host.
+
 ### Two-way thermoelastic prototype (2026-10-08)
 
 The bounded experiment and its zero-field fixes passed 174 related serial
