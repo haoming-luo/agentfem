@@ -109,7 +109,9 @@ def validate_view(view):
     if type(view.get("cell_smoothing", False)) is not bool:
         raise ValueError("Cell display averaging must be boolean.")
     if view.get('smoothing_method', 'average') not in {'average', 'preserve_jumps', 'edge_aware'}:
-        raise ValueError('Choose Edge-aware, Preserve jumps or Average color smoothing.')
+        raise ValueError('Choose Average color smoothing.')
+    if 'smoothing_method' in view:
+        view = dict(view, smoothing_method='average')
     if not isinstance(view.get("smoothing_region", ""), str):
         raise ValueError("A display region must be a field name.")
     if choice is not None:

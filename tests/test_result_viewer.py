@@ -354,6 +354,7 @@ def test_zero_centered_colors_follow_component_and_preserve_override(tmp_path):
     grid = pv.ImageData(dimensions=(2, 2, 2)).cast_to_unstructured_grid()
     grid.point_data["U"] = np.tile([-4., 2., 0.], (grid.n_points, 1))
     grid.point_data["temperature"] = np.arange(grid.n_points, dtype=float) - 2
+    grid.cell_data["cauchy_stress"] = np.tile([-3., 2., 1., 0., 0., 0., 0., 0., 0.], (grid.n_cells, 1))
     path = tmp_path / "signed.vtu"
     grid.save(path)
     server = build_viewer(path, displacement="U", reference_geometry=True)
@@ -363,6 +364,7 @@ def test_zero_centered_colors_follow_component_and_preserve_override(tmp_path):
         ctrl.on_server_ready()
         choices = scalar_choices(grid)
         with state:
+            state.color_mode = "zero"
             state.field = choices.index(("point", "U", 0))
         assert not state.error
         assert state.color_mode == "zero" and state.palette == "azure-rose"
@@ -381,7 +383,7 @@ def test_zero_centered_colors_follow_component_and_preserve_override(tmp_path):
         state.view_selection = state.view_items[0]["value"]
         with state:
             state.field = choices.index(("point", "U", "magnitude"))
-        assert state.color_mode == "sequential"
+        assert state.color_mode == "zero"  # Explicit mapping survives field changes.
         ctrl.restore_view()
         assert not state.error
         assert state.color_mode == "zero" and (state.range_min, state.range_max) == (-2., 2.)
@@ -393,6 +395,21 @@ def test_zero_centered_colors_follow_component_and_preserve_override(tmp_path):
         with state:
             state.field = choices.index(("point", "temperature", None))
         assert state.color_mode == "sequential"  # Not inferred from signs/name.
+        with state:
+            state.field = choices.index(("cell", "cauchy_stress", 0))
+            state.color_mode = "zero"
+        with state:
+            state.field = choices.index(("cell", "cauchy_stress", 1))
+        assert state.color_mode == "zero"
+        assert state.range_min == -state.range_max
+        state.range_min_draft, state.range_max_draft = '0', '1e-10'
+        ctrl.scroll_limit(-100, False, 'max')
+        assert float(state.range_max_draft) == pytest.approx(1.1e-10, abs=1e-20)
+        ctrl.scroll_limit(100, True, 'max')
+        assert float(state.range_max_draft) == pytest.approx(1.09e-10, abs=1e-20)
+        ctrl.browse_chooser(str(tmp_path))
+        assert state.folder_chooser and state.chooser_path == str(tmp_path)
+        state.folder_chooser = False
         for palette in ("azure-rose", "lagoon-rose"):
             with state:
                 state.color_mode = "zero"

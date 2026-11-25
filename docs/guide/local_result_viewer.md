@@ -358,32 +358,24 @@ constant rather than speeding up and slowing down a horizontal turntable.
 the [Blender tracking manual](https://docs.blender.org/manual/en/4.4/animation/constraints/tracking/track_to.html).
 Click X, Y or Z in the lower-left marker to select the corresponding orthogonal view.
 
-**Smooth colors → Edge-aware** uses continuous spatial and scalar-similarity
-weights on incident cells, inspired by
-[bilateral filtering](https://users.cs.duke.edu/~tomasi/papers/tomasi/tomasiIccv98.pdf).
-This is a mesh-display adaptation, not an image filter, recovered stress or new
-simulation result. Positive normalized weights cannot introduce new extrema;
-explicit region IDs remain separate. The scalar bandwidth is 30% of the region's
-range. This display heuristic can still suppress real small features: compare
-with raw cells for quantitative interpretation. It uses more memory and time
-than **Average** because distinct cell-side values are retained for display.
-
-**Preserve jumps** suppresses averaging at nodes where incident
-cell values span more than 20% of the selected region's scalar range. This is a
-display heuristic, not stress recovery or a material-boundary detector. Explicit
-region IDs still prevent cross-interface averaging. **Average** preserves the
-previous unconditional averaging option. Neither changes original values, mesh
-or color limits. This follows the principle of
-[threshold-controlled result averaging](https://docs.software.vt.edu/abaqusv2026/English/SIMACAECAERefMap/simacae-c-resconceptaverage.htm),
-not Abaqus element extrapolation or a claim of equivalent recovered stresses.
-Turn smoothing off to inspect the original cell discontinuities.
+**Smooth colors** uses fast native nodal averaging of the selected cell scalar.
+Explicit region IDs keep material regions separate. Original arrays and color
+limits are unchanged; turn smoothing off to inspect cell discontinuities.
+The slower experimental Edge-aware and Preserve jumps modes have been removed;
+older saved views use Average instead. Color mapping (Low → High or
+Negative / Positive) stays selected when changing fields and components.
+The browser legend is a transparent overlay inside the model view, not a
+separate opaque panel. It does not crop the model or intercept camera gestures.
 
 **Auto range · all frames** reports saved-frame progress and can be cancelled.
 The existing limits stay in effect until the complete scan succeeds. Selecting
 another result or field discards the old scan rather than applying stale limits.
 For manual limits, enter decimal or scientific notation (for example `1e-10`)
 and press Enter or **Apply limits**. Typing does not update the view midway;
-mouse-wheel scrolling does not change these values.
+Scroll over a limit to adjust it relative to the current range; hold Shift for
+ten-times finer adjustment. Edits remain drafts until Apply limits or Enter.
+Folder selection opens inside the current dialog, with Parent and Home shortcuts,
+instead of a separate operating-system window.
 
 The lower-left orientation marker uses screen-facing X/Y/Z labels, with
 contrasting colors for light and dark backgrounds. **View** contains standard

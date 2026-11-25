@@ -20,7 +20,9 @@ def average_cell_colors(grid, values, region=None, method='average'):
     """
     import pyvista as pv
     if method not in {'average', 'preserve_jumps', 'edge_aware'}:
-        raise ValueError('Choose Edge-aware, Preserve jumps or Average color smoothing.')
+        raise ValueError('Choose Average color smoothing.')
+    # Old saved views remain readable; all display paths use native averaging.
+    # Retired experimental methods duplicated topology and slowed interaction.
     values = np.asarray(values, dtype=float)
     if values.shape != (grid.n_cells,) or not np.isfinite(values).all():
         raise ValueError('Cell color averaging needs one finite scalar per cell.')
@@ -37,62 +39,6 @@ def average_cell_colors(grid, values, region=None, method='average'):
     for label in np.unique(labels):
         part = detached.extract_cells(np.flatnonzero(labels == label)) if region else detached
         averaged = part.cell_data_to_point_data(pass_cell_data=True)
-        if method == 'edge_aware' and np.ptp(part.cell_data[key]) > 0:
-            ids = part.cell_connectivity
-            count = np.diff(part.offset)
-            samples = np.repeat(np.asarray(part.cell_data[key]), count)
-            degree = np.bincount(ids, minlength=part.n_points)
-            starts = np.r_[0, np.cumsum(degree)]
-            order = np.argsort(ids, kind='stable')
-            centers = np.repeat(part.cell_centers().points, count, axis=0)
-            distances = np.linalg.norm(centers-part.points[ids], axis=1)
-            local_size = np.bincount(ids, weights=distances, minlength=part.n_points)/np.maximum(degree, 1)
-            spatial = np.exp(-.5*(distances/np.maximum(local_size[ids], 1e-30))**2)
-            sigma = .3*np.ptp(part.cell_data[key])
-            filtered = np.empty(len(ids))
-            # Bounded batches: do not allocate a dense mesh adjacency matrix.
-            for start in range(0, len(ids), 8192):
-                stop = min(start+8192, len(ids))
-                nodes = ids[start:stop]
-                numerator, denominator = np.zeros(stop-start), np.zeros(stop-start)
-                for k in range(int(degree[nodes].max())):
-                    valid = degree[nodes] > k
-                    target = np.flatnonzero(valid)
-                    neighbor = order[starts[nodes[valid]]+k]
-                    w = spatial[neighbor]*np.exp(-.5*((samples[neighbor]-samples[start+target])/sigma)**2)
-                    numerator[target] += w*samples[neighbor]
-                    denominator[target] += w
-                filtered[start:stop] = numerator/denominator
-            split = part.separate_cells()
-            colors = np.empty(split.n_points)
-            colors[split.cell_connectivity] = filtered
-            split.point_data.clear()
-            split.point_data[key] = colors
-            averaged = split
-        if method == 'preserve_jumps':
-            # Suppress nodal averaging where incident cell values differ by
-            # more than 20% of this region's range. Duplicate display nodes
-            # only: no welding, source mutation or invented extrema.
-            ids = part.cell_connectivity
-            count = np.diff(part.offset)
-            contributions = np.repeat(np.asarray(part.cell_data[key]), count)
-            lo, hi = np.full(part.n_points, np.inf), np.full(part.n_points, -np.inf)
-            np.minimum.at(lo, ids, contributions)
-            np.maximum.at(hi, ids, contributions)
-            jump = hi-lo > .2*np.ptp(part.cell_data[key])
-            if np.any(jump):
-                original_ids = '__viewer_point_id__'
-                part.point_data[original_ids] = np.arange(part.n_points)
-                split = part.separate_cells()
-                mapping = np.asarray(split.point_data[original_ids])
-                colors = np.asarray(averaged.point_data[key])[mapping].copy()
-                local = np.repeat(np.asarray(split.cell_data[key]), np.diff(split.offset))
-                split_ids = split.cell_connectivity
-                mask = jump[mapping[split_ids]]
-                colors[split_ids[mask]] = local[mask]
-                split.point_data.clear()
-                split.point_data[key] = colors
-                averaged = split
         parts.append(averaged)
     result = pv.MultiBlock(parts).combine(merge_points=False) if len(parts) > 1 else parts[0]
     return result, np.asarray(result.point_data[key]).copy()

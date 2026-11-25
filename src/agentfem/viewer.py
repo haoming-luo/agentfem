@@ -178,7 +178,7 @@ def build_viewer(path, *, displacement=None, reference_geometry=False, server=No
     state.figure_title = ""
     state.field_unit = ""
     state.cell_smoothing = True
-    state.smoothing_method = 'edge_aware'
+    state.smoothing_method = 'average'
     state.cell_selected = False
     state.smoothing_region = ""
     state.smoothing_regions = []
@@ -220,19 +220,33 @@ def build_viewer(path, *, displacement=None, reference_geometry=False, server=No
     child_sessions = set()
     picker_task = {"task": None}
 
+    state.folder_chooser = False
+    state.chooser_path = str(directory.root)
+    state.chooser_items = []
+
+    def browse_chooser(target=None, **_):
+        current = Path(target or state.chooser_path).expanduser().resolve()
+        try:
+            entries = sorted((p for p in current.iterdir() if p.is_dir() and not p.name.startswith('.')), key=lambda p: p.name.casefold())
+            with state:
+                state.chooser_path = str(current)
+                state.chooser_items = [{'title': p.name, 'value': str(p)} for p in entries[:1000]]
+                state.folder_chooser = True
+        except OSError as exc:
+            state.error = str(exc)
+
     async def choose_project(**_):
         if state.picker_busy:
             return
-        from agentfem._viewer_picker import choose_folder, launch_folder
+        from agentfem._viewer_picker import launch_folder
         stop_playback()
         with state:
             state.picker_busy = True
             state.error = ""
             state.new_project_url = ""
         try:
-            selected = await choose_folder(directory.root)
-            if selected is None:
-                return
+            selected = Path(state.chooser_path).resolve(strict=True)
+            state.folder_chooser = False
             if selected.is_relative_to(directory.root):
                 browse_entry(str(selected.relative_to(directory.root)))
             else:
@@ -329,12 +343,8 @@ def build_viewer(path, *, displacement=None, reference_geometry=False, server=No
                 data[key] = values.copy()
                 label = name if component is None else f"{name} · {component_label(grid, choices[selected])}"
                 bounds = None
-                if range_owner["choice"] != choices[selected]:
-                    # Only the explicitly selected displacement vector has known
-                    # semantics here. Never guess stress/temperature from names.
-                    state.color_mode = ("zero" if association == "point" and
-                                        name == state.displacement_field and
-                                        type(component) is int else "sequential")
+                # Color mapping is a user preference, not a field property.
+                # Switching components recalculates limits without changing it.
                 if state.fixed_range:
                     if range_owner["choice"] != choices[selected]:
                         low, high = float(values.min()), float(values.max())
@@ -722,6 +732,19 @@ def build_viewer(path, *, displacement=None, reference_geometry=False, server=No
         except (ValueError, TypeError):
             state.error = 'Enter finite limits with minimum below maximum.'
 
+    def scroll_limit(delta, fine, endpoint):
+        if not state.fixed_range or not delta:
+            return
+        try:
+            low, high = float(state.range_min_draft), float(state.range_max_draft)
+            span = abs(high-low) or max(abs(low), abs(high), 1.e-12)
+            step = 10.**np.floor(np.log10(span)) / (100 if fine else 10)
+            key = 'range_min_draft' if endpoint == 'min' else 'range_max_draft'
+            value = float(getattr(state, key)) + (-step if delta > 0 else step)
+            setattr(state, key, f'{value:.12g}')
+        except (ValueError, OverflowError):
+            pass
+
     def refresh(**_):
         # Reopen only the atomically published index; never inspect a writer's
         # temporary files or interpolate across a restart gap.
@@ -848,7 +871,7 @@ def build_viewer(path, *, displacement=None, reference_geometry=False, server=No
                 state.field_unit = view_record.get("unit", "")
                 state.cell_smoothing = view_record.get("cell_smoothing", False)
                 state.smoothing_region = view_record.get("smoothing_region", "")
-                state.smoothing_method = view_record.get('smoothing_method', 'average')
+                state.smoothing_method = 'average'
                 state.time_unit = view_record.get("time_unit", "")
             range_owner["choice"] = choice
             with state:
@@ -1045,11 +1068,19 @@ def build_viewer(path, *, displacement=None, reference_geometry=False, server=No
                     v3.VBtn(icon="mdi-arrow-up", title="Parent folder", aria_label="Parent folder", click=parent_folder,
                             disabled=("folder === '.'",), variant="text", size="small")
                     v3.VBtn(icon="mdi-folder-search-outline", title="Choose folder on this computer", aria_label="Choose folder on this computer",
-                            click=start_folder_picker, loading=("picker_busy",), disabled=("picker_busy",), variant="text", size="small")
+                            click=browse_chooser, loading=("picker_busy",), disabled=("picker_busy",), variant="text", size="small")
                     v3.VTextField(v_model=("folder_filter", ""), label="Find in this folder", prepend_inner_icon="mdi-magnify",
                                   hide_details=True, density="compact", clearable=True, style="min-width:0")
+                with v3.VSheet(v_if="folder_chooser", classes="pa-2", style="position:absolute;inset:150px 16px 55px;z-index:3;display:flex;flex-direction:column;border:1px solid #ddd;border-radius:8px"):
+                    with v3.VRow(classes="ma-0 align-center", style='flex:0 0 auto'):
+                        v3.VBtn(icon='mdi-arrow-up', title='Parent folder', click=(browse_chooser, "[chooser_path + '/..']"), variant='text', size='small')
+                        v3.VBtn(icon='mdi-home-outline', title='Home', click=lambda: browse_chooser(str(Path.home())), variant='text', size='small')
+                        v3.VBtn(icon='mdi-close', title='Close folders', click='folder_chooser = false', variant='text', size='small')
+                    html.Div('{{ chooser_path }}', style='font-size:12px;overflow-wrap:anywhere')
+                    with v3.VList(style='flex:1;min-height:0;overflow:auto', density='compact'):
+                        v3.VListItem(v_for='item in chooser_items', key='item.value', title=('item.title',), prepend_icon='mdi-folder-outline', click=(browse_chooser, '[item.value]'))
+                    v3.VBtn('Open this folder', click=start_folder_picker, loading=('picker_busy',), variant='tonal')
                 v3.VBtn("Cancel folder selection", v_if="picker_busy", click=cancel_folder_picker, variant="text", size="small")
-                v3.VLabel("System window not visible? Cancel and browse here, or paste a path.", v_if="picker_busy", style="font-size:12px;white-space:normal")
                 v3.VLabel("{{ folder === '.' ? browse_root : browse_root + '/' + folder }}",
                           title=("browse_root + '/' + folder",), style="font-size:12px; height:24px; flex-shrink:0; white-space:nowrap; overflow:hidden; text-overflow:ellipsis")
                 with v3.VList(density="compact", style="flex:1; min-height:120px; overflow:auto; border:1px solid #e5e9ed; border-radius:8px"):
@@ -1074,8 +1105,6 @@ def build_viewer(path, *, displacement=None, reference_geometry=False, server=No
                            label="Component", v_if="quantity >= 0 && component_items.length > 1", hide_details=True, density="compact")
                 v3.VCheckbox(v_model=("cell_smoothing", True), v_if="cell_selected",
                              label="Smooth colors", hide_details=True, density="compact")
-                v3.VSelect(v_model=("smoothing_method", "edge_aware"), label="Smoothing", v_if="cell_selected && cell_smoothing", hide_details=True, density="compact",
-                           items=("smoothing_methods", [{"title": "Edge-aware", "value": "edge_aware"}, {"title": "Preserve jumps", "value": "preserve_jumps"}, {"title": "Average", "value": "average"}]))
                 v3.VSelect(v_model=("smoothing_region", ""), items=("smoothing_regions",),
                            v_if="cell_selected && cell_smoothing", label="Keep regions separate", hide_details=True, density="compact")
                 with v3.VBtn(icon="mdi-information-outline", size="x-small", variant="text", title="About color smoothing", v_if="cell_selected", **{"aria-label": "About color smoothing"}):
@@ -1096,8 +1125,12 @@ def build_viewer(path, *, displacement=None, reference_geometry=False, server=No
                 v3.VCheckbox(v_model=("advanced", False), label="Set limits manually", hide_details=True, density="compact")
                 with v3.VRow(v_if="advanced", classes="ma-0 ga-2 flex-nowrap"):
                     v3.VTextField(v_model=("range_min_draft", '0'), label="Minimum", type="text", keydown_enter=apply_range_drafts,
+                                  __events=['wheel'],
+                                  wheel=(scroll_limit, "($event.preventDefault(), [$event.deltaY, $event.shiftKey, 'min'])"), title='Scroll to adjust · Shift for fine adjustment',
                                   v_if="color_mode !== 'zero'", disabled=("!fixed_range",), hide_details=True, density="compact", style="min-width:0")
                     v3.VTextField(v_model=("range_max_draft", '1'), label=("color_mode === 'zero' ? 'Limit ±' : 'Maximum'",), type="text", keydown_enter=apply_range_drafts,
+                                  __events=['wheel'],
+                                  wheel=(scroll_limit, "($event.preventDefault(), [$event.deltaY, $event.shiftKey, 'max'])"), title='Scroll to adjust · Shift for fine adjustment',
                                   disabled=("!fixed_range",), hide_details=True, density="compact", style="min-width:0")
                 v3.VBtn("Apply limits", v_if="advanced", click=apply_range_drafts, variant="text", size="small")
                 v3.VDivider(classes="my-2")
@@ -1207,11 +1240,11 @@ def build_viewer(path, *, displacement=None, reference_geometry=False, server=No
                                         style="height:100%; width:100%")
                     html.Div('<viewer-axes :camera="() => trame.refs.result_view?.getCamera()" :select="axis => axis_request = {axis, stamp: Date.now()}" :dark="preset === \'presentation\'"></viewer-axes>',
                              style="position:absolute;left:8px;bottom:8px")
-                with html.Div(v_if="legend_title", style=("{flex:'0 0 auto',padding:'8px 12% 12px',color:legend_color,background:preset === 'presentation' ? '#0b1220' : preset === 'publication' ? '#ffffff' : '#f4f6f8',display:'flex',flexDirection:'column',gap:'5px'}",)):
-                    html.Div("{{ legend_title }}", style="text-align:center;font:14px Arial;white-space:nowrap;overflow:hidden;text-overflow:ellipsis", title=("legend_title",))
-                    html.Div(style=("{height:'12px',flexShrink:0,background:legend_gradient}",))
-                    with html.Div(style="display:flex;justify-content:space-between;font:12px Arial"):
-                        html.Span("{{ tick }}", v_for="(tick, index) in legend_ticks", key="index")
+                    with html.Div(v_if="legend_title", style=("{position:'absolute',bottom:'14px',left:'15%',right:'5%',pointerEvents:'none',color:legend_color,display:'flex',flexDirection:'column',gap:'5px',textShadow:preset === 'presentation' ? '0 0 4px #0b1220' : '0 0 4px white'}",)):
+                        html.Div("{{ legend_title }}", style="text-align:center;font:14px Arial;white-space:nowrap;overflow:hidden;text-overflow:ellipsis", title=("legend_title",))
+                        html.Div(style=("{height:'10px',flexShrink:0,background:legend_gradient}",))
+                        with html.Div(style="display:flex;justify-content:space-between;font:12px Arial"):
+                            html.Span("{{ tick }}", v_for="(tick, index) in legend_ticks", key="index")
                 ctrl.view_update = view.update
                 install_browser_legend()
                 ctrl.view_reset = view.reset_camera
@@ -1288,6 +1321,8 @@ def build_viewer(path, *, displacement=None, reference_geometry=False, server=No
     ctrl.stop_playback = stop_playback
     ctrl.fit_series_range = fit_series_range
     ctrl.apply_range_drafts = apply_range_drafts
+    ctrl.scroll_limit = scroll_limit
+    ctrl.browse_chooser = browse_chooser
     ctrl.fit_deformation = fit_deformation
     ctrl.seek_frame = seek_frame
     ctrl.export_result = export
