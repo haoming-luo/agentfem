@@ -292,6 +292,20 @@ def test_saved_view_roundtrip_restores_display_not_source_data(tmp_path, monkeyp
         assert not state.error and saved.exists() and len(state.view_items) == 1
         ctrl.restore_view()
         assert not state.error and state.scale == 2.
+        ctrl.save_view()
+        ctrl.save_view()
+        remaining = [item['value'] for item in state.view_items]
+        assert len(remaining) == 3
+        state.view_selection = remaining[1]
+        ctrl.remove_view()
+        assert state.view_selection == remaining[2]
+        ctrl.remove_view()
+        assert state.view_selection == remaining[0]
+        ctrl.remove_view()
+        assert state.view_selection is None and not state.view_items
+        ctrl.undo_remove_view()
+        assert len(state.view_items) == 1 and state.view_selection
+        saved = tmp_path / 'viewer-exports' / state.view_selection
         state.view_selection = "../outside/view.json"
         ctrl.remove_view()
         assert state.error and saved.exists()

@@ -360,6 +360,20 @@ model viewport on a transparent annotation layer rather than a separate panel.
 the [Blender tracking manual](https://docs.blender.org/manual/en/4.4/animation/constraints/tracking/track_to.html).
 Click X, Y or Z in the lower-left marker to select the corresponding orthogonal view.
 
+Component labels follow declared field layout, not field-name guesses. XDMF
+Vector fields expose X/Y/Z; Tensor matrices expose row-major XX/XY/XZ/YX/YY/YZ/
+ZX/ZY/ZZ (or XX/XY/YX/YY in 2D). An Attribute-level Information element named
+`component_names`, containing a JSON string list, can declare custom state or
+six-component tensor names. Undeclared Tensor6 ordering retains numbered labels.
+VTK component names are also honored. The same labels appear in the component
+selector and exported legend; no invariants or unit conversions are inferred.
+The native array writer records component names for its vector/matrix layouts.
+
+Export defaults to Current zoom and level Turntable motion. Fit whole model
+remains available when the whole moving model must stay visible. Next, Generate
+and Download occupy one fixed action position. Removing a saved view selects
+the next list entry (or the previous one at the end); Undo remove remains available.
+
 **Smooth colors** uses fast native nodal averaging of the selected cell scalar.
 Explicit region IDs keep material regions separate. Original arrays and color
 limits are unchanged; turn smoothing off to inspect cell discontinuities.

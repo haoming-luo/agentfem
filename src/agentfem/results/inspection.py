@@ -63,6 +63,9 @@ def _read_dataset(path, frame):
         raise ValueError("The selected frame contains no usable mesh.")
     if not np.isfinite(grid.points).all():
         raise ValueError("The selected frame contains nonfinite coordinates.")
+    if Path(path).suffix.lower() in {'.xdmf', '.xmf'}:
+        from ._components import attach_xdmf_components
+        attach_xdmf_components(grid, ET.parse(path).getroot())
     return grid.copy(deep=True), times, index
 
 
@@ -86,7 +89,10 @@ def inspect_visualization(path, *, frame=-1):
     grid, times, index = _read(path, frame)
     def arrays(data):
         return [{"name": name, "shape": list(data[name].shape),
-                 "dtype": str(data[name].dtype)} for name in data.keys()]
+                 "dtype": str(data[name].dtype),
+                 "components": [data.GetAbstractArray(name).GetComponentName(i)
+                                for i in range(data.GetAbstractArray(name).GetNumberOfComponents())]}
+                for name in data.keys()]
     # VTK, not a second connectivity table, owns display cell identities.
     unstructured = grid.cast_to_unstructured_grid()
     cell_types, counts = np.unique(unstructured.celltypes, return_counts=True)

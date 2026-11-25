@@ -59,6 +59,9 @@ def component_label(grid, choice):
     data = grid.cell_data if association == "cell" else grid.point_data
     # Only three-component vectors have an unambiguous XYZ display here.
     # Tensor ordering needs a declared result contract, not a guessed Voigt map.
+    declared = data.GetArray(name).GetComponentName(component)
+    if declared:
+        return declared
     if np.asarray(data[name]).shape[1] == 3:
         return ("X", "Y", "Z")[component]
     return f"Component {component + 1}"
@@ -88,6 +91,9 @@ def build_viewer(path, *, displacement=None, reference_geometry=False, server=No
                           "vue_use": ["AgentFEMViewer"]})
     state, ctrl = server.state, server.controller
     state.trame__title = "AgentFEM · Local results"
+    # No approved compact mark exists yet; suppress the framework favicon.
+    # Keep the approved AgentFEM wordmark instead of inventing another logo.
+    state.trame__favicon = 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg"/%3E'
     plotter = pv.Plotter(off_screen=True)
     legend = legend_panel(plotter)
     # Browser legend is a DOM row, not a viewport masking the model.
@@ -166,8 +172,8 @@ def build_viewer(path, *, displacement=None, reference_geometry=False, server=No
     state.export_step = 1
     state.export_mode = "image"
     state.export_resolution = "1080p"
-    state.export_framing = "fit"
-    state.camera_motion = "showcase"
+    state.export_framing = "current"
+    state.camera_motion = "turntable"
     state.axis_request = None
     state.show_path = False
     state.folder_filter = ""
@@ -908,6 +914,8 @@ def build_viewer(path, *, displacement=None, reference_geometry=False, server=No
             if state.view_selection not in {item["value"] for item in state.view_items}:
                 raise ValueError("Select a saved view.")
             selected = export_root / state.view_selection
+            index = next(i for i, item in enumerate(state.view_items)
+                         if item['value'] == state.view_selection)
             if selected.is_symlink() or selected.parent.is_symlink():
                 raise ValueError("Select a local saved view.")
             selected.resolve(strict=True).relative_to(export_root.resolve())
@@ -917,6 +925,8 @@ def build_viewer(path, *, displacement=None, reference_geometry=False, server=No
             state.view_selection = None
             state.view_notice = "View removed. Results and exported media are unchanged."
             list_views()
+            if state.view_items:
+                state.view_selection = state.view_items[min(index, len(state.view_items)-1)]['value']
         except (ValueError, OSError) as exc:
             state.error = str(exc)
 
@@ -1183,20 +1193,21 @@ def build_viewer(path, *, displacement=None, reference_geometry=False, server=No
                 with v3.VRow(classes="ma-0 ga-1"):
                     v3.VBtn("Settings", prepend_icon="mdi-cog-outline", click="settings_panel = true", variant="text", size="small")
         with v3.VDialog(v_model=("export_panel", False), max_width=500):
-            with v3.VCard(classes="pa-5 d-flex flex-column ga-3", title="Export"):
+            with v3.VCard(classes="pa-5 d-flex flex-column ga-3", title="Export",
+                          style="position:relative;height:min(560px,90vh);min-height:min(560px,90vh);padding-bottom:150px!important;overflow:hidden"):
                 v3.VLabel("{{ export_step === 1 ? '1 · Choose output' : export_step === 2 ? '2 · Set quality' : '3 · Download' }}", classes="viewer-section")
-                with html.Div(v_if="export_step === 1", classes="d-flex flex-column ga-3"):
+                with html.Div(v_if="export_step === 1", classes="d-flex flex-column ga-3", style="overflow:auto;min-height:0"):
                     v3.VSelect(v_model=("export_mode", "image"), label="Output", hide_details=True,
                                items=("export_modes", [{"title": "Image · current frame", "value": "image"},
                                       {"title": "Animation · simulation history", "value": "process"},
                                       {"title": "Turntable · rotate current frame", "value": "orbit"}]))
                     v3.VLabel("{{ export_mode === 'process' ? 'Play through the saved simulation frames.' : export_mode === 'orbit' ? 'Rotate the camera around the current result.' : 'Save the current camera, field and colors as PNG.' }}", style="font-size:13px; white-space:normal")
-                    v3.VBtn("Next", variant="tonal", disabled=("frame_count === 0 || (export_mode === 'process' && frame_count < 2)",), click="export_step = 2")
-                with html.Div(v_if="export_step === 2", classes="d-flex flex-column ga-3"):
-                    v3.VSelect(v_model=("export_framing", "fit"), label="Framing", hide_details=True,
-                               items=("framing_choices", [{"title": "Fit whole model", "value": "fit"}, {"title": "Keep current zoom", "value": "current"}]))
-                    v3.VSelect(v_model=("camera_motion", "showcase"), label="Camera motion", hide_details=True, v_if="export_mode === 'orbit'",
-                               items=("motion_choices", [{"title": "Showcase · 45° arc", "value": "showcase"}, {"title": "Turntable · level orbit", "value": "turntable"}]))
+                    v3.VBtn("Next", style="position:absolute;bottom:100px;left:20px;right:20px;height:36px", variant="tonal", disabled=("frame_count === 0 || (export_mode === 'process' && frame_count < 2)",), click="export_step = 2")
+                with html.Div(v_if="export_step === 2", classes="d-flex flex-column ga-3", style="overflow:auto;min-height:0"):
+                    v3.VSelect(v_model=("export_framing", "current"), label="Framing", hide_details=True,
+                               items=("framing_choices", [{"title": "Current zoom", "value": "current"}, {"title": "Fit whole model", "value": "fit"}]))
+                    v3.VSelect(v_model=("camera_motion", "turntable"), label="Camera motion", hide_details=True, v_if="export_mode === 'orbit'",
+                               items=("motion_choices", [{"title": "Turntable · level orbit", "value": "turntable"}, {"title": "Showcase · 45° arc", "value": "showcase"}]))
                     v3.VSelect(v_model=("export_resolution", "1080p"), label="Resolution", hide_details=True,
                                items=("export_resolutions", [{"title": "HD · 1280 × 720 · compact", "value": "720p"},
                                       {"title": "Full HD · 1920 × 1080 · recommended", "value": "1080p"},
@@ -1204,9 +1215,10 @@ def build_viewer(path, *, displacement=None, reference_geometry=False, server=No
                     v3.VTextField(v_model=("figure_title", ""), label="Title (optional)", hide_details=True, density="compact")
                     v3.VCheckbox(v_model=("transparent", False), v_if="export_mode === 'image'", label="Transparent background", hide_details=True, density="compact")
                     v3.VLabel("Colors stay fixed. Higher resolution takes more time and space.", style="font-size:12px; white-space:normal")
-                    v3.VBtn("Generate", variant="tonal", disabled=("export_busy",),
+                    v3.VBtn("Generate", style="position:absolute;bottom:100px;left:20px;right:20px;height:36px", variant="tonal", disabled=("export_busy",),
                             click=(start_export, "[export_mode, trame.refs.result_view.getCamera()]"))
-                    v3.VBtn("Back", variant="text", click="export_step = 1")
+                    v3.VBtn("Back", style="position:absolute;bottom:52px;left:20px;right:20px;height:36px", variant="text", click="export_step = 1")
+                v3.VBtn("Generating…", style="position:absolute;bottom:100px;left:20px;right:20px;height:36px", v_if="export_busy", disabled=True, loading=True, variant='tonal')
                 v3.VBtn("Cancel export", v_if="export_busy", click=cancel_export)
                 v3.VLabel("{{ export_progress }}", v_if="export_step === 3", style="white-space:normal; font-size:13px")
                 # Blob downloads do not navigate the live websocket page. Direct
@@ -1215,11 +1227,11 @@ def build_viewer(path, *, displacement=None, reference_geometry=False, server=No
                     ("Download image", "export_image", "figure.png", "image/png"),
                     ("Download video", "export_video", "animation.mp4", "video/mp4"),
                 ):
-                    v3.VBtn(label, v_if=f"export_step === 3 && !export_busy && {key}", variant="tonal", click=(
+                    v3.VBtn(label, style="position:absolute;bottom:100px;left:20px;right:20px;height:36px", v_if=f"export_step === 3 && !export_busy && {key}", variant="tonal", click=(
                         f"$viewer.download({key}, '{filename}', '{mime}').catch(e => {{ error = e.message; }})"))
                 v3.VAlert("{{ error }}", v_if="error", type="error", icon=False, closable=True, click_close="error = ''", density="compact", style="max-height:120px; overflow:auto; flex:0 0 auto")
-                v3.VBtn("New export", v_if="export_step === 3 && !export_busy", variant="text", click="export_step = 1; error = ''")
-                v3.VBtn("Close", click="export_panel = false", variant="text")
+                v3.VBtn("New export", style="position:absolute;bottom:52px;left:20px;right:20px;height:36px", v_if="export_step === 3 && !export_busy", variant="text", click="export_step = 1; error = ''")
+                v3.VBtn("Close", style="position:absolute;bottom:12px;left:20px;right:20px;height:36px", click="export_panel = false", variant="text")
         with v3.VDialog(v_model=("views_panel", False), max_width=500):
             with v3.VCard(classes="pa-5 d-flex flex-column ga-3", title="Saved views"):
                 v3.VLabel("Camera, field and display settings. No simulation data is duplicated.", style="font-size:13px; white-space:normal")

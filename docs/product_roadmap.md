@@ -42,6 +42,26 @@ Fast native averaging is the only default smoothing route; slower experimental
 filters were withdrawn. The local development shortcut is not yet a validated
 cross-platform desktop launcher. That lifecycle gate remains open until tested.
 
+2026-11-25 closeout additions: shared declared-component labels now connect XDMF
+and VTK arrays to viewer/export labels; unknown compact tensor ordering remains
+explicitly unknown. Array output adds vector/matrix component declarations.
+Current zoom and level rotation are the UI export defaults; the three primary
+wizard actions share a fixed position. Saved-view removal advances selection.
+Branding uses the AgentFEM wordmark, with no unapproved compact logo.
+
+Release candidate checklist (not yet a release authorization):
+
+- Freeze #199, inspect latest CI and review its full diff before merging.
+- Validate installed field-output/reader/export round trips, including scalar,
+  vector, tensor, custom state, point/cell association, frame and unit semantics.
+- Run real browser checks for fixed-position export/download and timeline drag;
+  test 1080p/4K, cancel, failure, restart and recent-path navigation.
+- Finish the maintained launcher lifecycle rather than shipping a temporary
+  development-environment path as a universal desktop installer.
+- Compare main versus v0.4.4 for release notes and test a frozen ordinary install.
+- Keep #197 research and unreviewed divergent Windows/output/J2 branches out of
+  the release promise until their independent scope and evidence are accepted.
+
 ### Installed workflow completion checkpoint (2026-11-22, PR #198 candidate)
 
 PR #195 is integrated in main. PR #198 remains an unmerged candidate; its
