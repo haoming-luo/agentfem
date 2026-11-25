@@ -198,3 +198,39 @@ def test_real_png_and_movie_exports(tmp_path):
         assert await task is None
     asyncio.run(cancel_real_worker())
     assert job.process is None and list(job.destination.iterdir()) == []
+
+
+@pytest.mark.skipif(os.environ.get("AGENTFEM_VIEWER_RENDER_TESTS") != "1", reason="Requires an offscreen VTK rendering device")
+@pytest.mark.parametrize("size", [(1920, 1080), (3840, 2160)])
+def test_delivery_resolution_smooth_video(tmp_path, size):
+    """Exercise the actual encoder at delivery resolution, not only thumbnails."""
+    import hashlib
+    import imageio.v2 as imageio
+    pv = pytest.importorskip("pyvista")
+    from agentfem._viewer_export import render
+    grid = pv.ImageData(dimensions=(4, 4, 2)).cast_to_unstructured_grid()
+    for index in range(2):
+        grid.point_data['U'] = np.column_stack((
+            np.zeros(grid.n_points), np.zeros(grid.n_points),
+            index * .3 * grid.points[:, 0] ** 2))
+        grid.save(tmp_path / f'frame{index}.vtu')
+    source = tmp_path / 'series.pvd'
+    source.write_text('<VTKFile type="Collection"><Collection>' + ''.join(
+        f'<DataSet timestep="{i}" file="frame{i}.vtu"/>' for i in range(2)) + '</Collection></VTKFile>')
+    original = {p: hashlib.sha256(p.read_bytes()).hexdigest() for p in tmp_path.iterdir()}
+    view = dict(view_record(), choice=['point', 'U', 'magnitude'],
+                reference_geometry=True, displacement='U', range=[0., 2.7])
+    movie = render(dict(root=str(tmp_path), view=view, size=list(size), fps=2,
+                        mode='process', smooth=True, duration=1., framing='fit'), tmp_path / 'export')
+    with imageio.get_reader(movie) as reader:
+        assert reader.count_frames() == 2
+        first, last = reader.get_data(0), reader.get_data(1)
+        assert first.shape[:2] == (size[1], size[0])
+        assert np.abs(first.astype(float)-last).mean() > .1
+        height, width = first.shape[:2]
+        # Actual colored legend and orientation annotations survive encoding.
+        assert first[int(.92*height):int(.98*height), int(.15*width):int(.95*width)].std() > 10
+        assert first[int(.85*height):, :int(.10*width)].std() > 1
+        imageio.imwrite(tmp_path / 'first.png', first)
+        imageio.imwrite(tmp_path / 'last.png', last)
+    assert all(hashlib.sha256(p.read_bytes()).hexdigest() == digest for p, digest in original.items())

@@ -7,12 +7,31 @@ Scope is a reliable installed workflow, not new P92 parameter identification.
 | --- | --- | --- |
 | Output contract | Installed scalar/vector/tensor/custom-state round trips retain association, component order, units and time; unknown order is not guessed | Partial: component tests pass; installed matrix pending |
 | Viewer workflow | Real project/run and standalone result; play/pause/scrub, recent paths, saved-view remove/undo; narrow window without blocked controls | Partial: targeted UI evidence; final frozen pass pending |
-| Media | PNG and 1080p/4K video, cancellation/retry, complete XYZ and readable legend; fit framing contains model; current zoom deliberately preserves camera | Pending final batch |
+| Media | PNG and 1080p/4K video, cancellation/retry, complete XYZ and readable legend; fit framing contains model; current zoom deliberately preserves camera | Real encoding/cancellation passed; final representative-case visual batch pending |
 | Launch and lifetime | Maintained shortcut uses installed Python, survives terminal closure, actionable logs; multi-tab close, idle exit and relaunch verified | In progress |
-| Installed engineering | Supported environment: check/run/inspect/verify; representative material history and restart remain equivalent within existing tolerances | Pending frozen install |
+| Installed engineering | Supported environment: check/run/inspect/verify; representative material history and restart remain equivalent within existing tolerances | macOS installed beam and 127 history/recovery regressions passed; other platform CI pending |
 | Release integration | Review changes since 0.4.4, reconcile capability/docs/version, latest impact-selected CI passes, no unreviewed branch imports | Pending |
 
 ## Decision rules
+
+Resolution/lifecycle closeout: added real 1920×1080 and 3840×2160 encoded
+smooth-video regressions, checking frame dimensions, changing geometry, legend,
+orientation annotations and unchanged source hashes. Both passed; inspected the
+4K decoded final frame. This synthetic two-frame test does not certify every
+camera/mesh combination or sustained playback performance.
+
+In the actual in-app browser, two tabs connected to one test session. Closing
+the first left the second able to play (frame 1/2, Pause, then frame 2/2, Play).
+Session stop showed confirmation and a closed-state message; the listening port
+was released. The earlier no-client test exited normally on its idle timeout.
+This does not yet test every browser or desktop shortcut failure scenario.
+
+The isolated installed wheel also passed 127 material-history/output-cadence,
+checkpoint-policy, temperature-history and plastic-history regressions in
+57.77 seconds, with source-path injection disabled. The launcher/picker suite
+passed 12 tests. Latest cloud CI for f5a8360b remained in the full unit/interface
+stage without a reported failure at this checkpoint. Keep this follow-up batch
+local until that run completes to avoid cancelling expensive work repeatedly.
 
 Follow-up batch: a real subprocess regression confirms a newly selected viewer
 survives shutdown of the old event loop. Its output no longer depends on the old

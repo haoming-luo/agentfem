@@ -65,7 +65,9 @@ async def launch_folder(folder):
     # A pipe ties the new session's output to the old session's event loop.
     # Once the old tab closes, its exit can break the child's stdout. A file
     # descriptor and a separate session keep the new viewer independent.
-    with tempfile.TemporaryFile(mode="w+b") as log:
+    # Append mode prevents our readiness reads from moving the child's write
+    # position backwards (the inherited descriptor shares a file offset).
+    with tempfile.TemporaryFile(mode="a+b") as log:
         process = subprocess.Popen(
             [sys.executable, "-u", "-m", "agentfem.viewer", str(folder),
              "--no-browser", "--port", "0", "--idle-timeout", "120"],
