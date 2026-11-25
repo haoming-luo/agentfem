@@ -151,3 +151,16 @@ installed and desktop acceptance above; release CI is still a separate gate.
 - Batch a coherent tested change before pushing. Freeze one candidate for final
   regression rather than repeatedly restarting full CI during experiments.
 - Merge and publication require authorization; a candidate is not a release.
+
+## Release communication and agent guidance
+
+- The bundled AgentFEM skill routes interactive-result tasks to a short viewer
+  reference. Installation, viewing and numerical execution stay separate tasks.
+- The performance skill requires observed process exit and bounded validation;
+  a written result is not evidence that MPI/PETSc shut down successfully.
+- Release visuals must come from actual saved results. Captions distinguish
+  computed states, averaged colors, displacement interpolation and camera motion.
+  Demonstration models are not presented as experimental validation.
+- Before tagging 0.5.0, merge the accepted exit-readiness fix, freeze the final
+  commit, synchronize package/manifest/version references, and pass the final
+  installed-distribution gate. Publish only after explicit release approval.
