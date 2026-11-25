@@ -1,7 +1,7 @@
 # 0.5.0 release candidate
 
-Status: PR #199 merged; not released. Exit-lifecycle follow-up acceptance is
-required before promotion. The tested package identity is still `0.4.5.dev0`.
+Status: PR #199 and exit-lifecycle fix #201 merged. Version promotion to `0.5.0`
+is prepared; publication requires the exact-artifact release workflow below.
 Scope is a reliable installed workflow, not new P92 parameter identification.
 
 ## Exit-lifecycle release blocker (2026-11-25 follow-up)
@@ -36,8 +36,11 @@ passed against source (6.19 s) and an isolated installed wheel (6.84 s). The
 installed console command, without source injection, returned 124/false on the
 unrepaired environment and 0/true with observed exit on the repaired environment.
 All ten identified stale validation processes were terminated and confirmed
-absent; viewer and unrelated user processes were preserved. CI for this follow-up
-must still pass before it can satisfy the 0.5.0 promotion gate.
+absent; viewer and unrelated user processes were preserved. Follow-up commit
+`1434ea1ecd6585e3cc06a836f8ba96f86e1630e0` passed all applicable CI, including
+the full FEniCSx gate and macOS installed-wheel acceptance in run 45617407303.
+It was merged as #201 after authorization. Final 0.5.0 artifacts remain subject
+to the immutable-artifact publication gate.
 
 | Task | Required evidence | Status |
 | --- | --- | --- |
@@ -151,3 +154,16 @@ installed and desktop acceptance above; release CI is still a separate gate.
 - Batch a coherent tested change before pushing. Freeze one candidate for final
   regression rather than repeatedly restarting full CI during experiments.
 - Merge and publication require authorization; a candidate is not a release.
+
+## Release communication and agent guidance
+
+- The bundled AgentFEM skill routes interactive-result tasks to a short viewer
+  reference. Installation, viewing and numerical execution stay separate tasks.
+- The performance skill requires observed process exit and bounded validation;
+  a written result is not evidence that MPI/PETSc shut down successfully.
+- Release visuals must come from actual saved results. Captions distinguish
+  computed states, averaged colors, displacement interpolation and camera motion.
+  Demonstration models are not presented as experimental validation.
+- Before tagging 0.5.0, merge the accepted exit-readiness fix, freeze the final
+  commit, synchronize package/manifest/version references, and pass the final
+  installed-distribution gate. Publish only after explicit release approval.

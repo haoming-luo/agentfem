@@ -20,7 +20,8 @@ project runs without AI. Choose the shortest path that satisfies the request.
   `agentfem.toml`; use `check → run → inspect`. Model edits follow the workflow
   reference below. `check` already includes migration findings.
 - **View results:** use `agentfem show latest --json` and the recorded artifacts.
-  Do not run a new simulation just to answer a result question.
+  For interactive viewing, read `references/viewer.md`. Do not run a new
+  simulation just to answer a result question.
 - **Diagnose or upgrade:** inspect the specific failure or migration findings.
   Use `doctor --json` after environment/version changes or runtime failures.
 - **Extend:** read the relevant ownership, validation and extension references
@@ -48,6 +49,7 @@ installing the skill; read only what the current task needs.
    numerical claim.
 6. `references/extension_rules.md`: adding a public helper, provider, material
    family or extension boundary.
+7. `references/viewer.md`: opening local results, display choices and exports.
 
 ## Common decisions
 

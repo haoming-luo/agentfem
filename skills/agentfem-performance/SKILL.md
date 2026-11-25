@@ -120,3 +120,8 @@ Retain only decision-relevant evidence and reconstructable references; ask
 before destructive cleanup. Do not accumulate full archives and delivery bundles
 for every failed experiment. End a sprint with an implemented improvement,
 a discriminating result, or a narrowed uncertainty—not another unchanged plan.
+
+Process acceptance includes observed exit, not just a success message or result
+file. Bound validation subprocesses and clean up their owned process groups on
+timeout. Separate solver cost from MPI/PETSc finalization stalls; any transport
+workaround needs platform-specific evidence, not a new universal default.
