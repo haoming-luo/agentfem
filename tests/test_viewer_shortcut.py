@@ -65,6 +65,8 @@ def test_launcher_waits_for_readiness_or_late_failure(tmp_path, success):
 def test_startup_helper_survives_launcher_process_group(tmp_path):
     import sys
     import signal
+    from pathlib import Path
+    from agentfem import _viewer_launch
     worker = tmp_path / 'worker'
     pid = tmp_path / 'pid'
     worker.write_text(f'#!{sys.executable}\nimport os,time\n'
@@ -74,7 +76,11 @@ def test_startup_helper_survives_launcher_process_group(tmp_path):
     code = ('from agentfem._viewer_launch import launch; '
             f'launch({str(tmp_path)!r}, executable={str(worker)!r}); '
             'import time; time.sleep(30)')
-    parent = subprocess.Popen([sys.executable, '-c', code], start_new_session=True)
+    # Match the package under test, even when pytest's source path differs
+    # from the interpreter's installed AgentFEM version.
+    environment = {**os.environ, 'PYTHONPATH': str(Path(_viewer_launch.__file__).parents[1])}
+    parent = subprocess.Popen([sys.executable, '-c', code], start_new_session=True,
+                              env=environment)
     import time
     try:
         limit = time.monotonic()+5
