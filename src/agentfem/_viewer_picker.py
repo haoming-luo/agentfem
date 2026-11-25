@@ -7,6 +7,8 @@ import os
 from pathlib import Path
 import signal
 import sys
+import tempfile
+import subprocess
 
 # AppKit's panel avoids Standard Additions' Apple-event dialog round-trip.
 # Script is constant; the path is a positional argument, never interpolated.
@@ -60,29 +62,39 @@ async def choose_folder(initial):
 async def launch_folder(folder):
     """An independent loopback session keeps existing views/exports scoped."""
     import re
-    process = await asyncio.create_subprocess_exec(
-        sys.executable, "-u", "-m", "agentfem.viewer", str(folder),
-        "--no-browser", "--port", "0", "--idle-timeout", "120",
-        stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.STDOUT)
-    ready = False
-    try:
-        async with asyncio.timeout(30):
-            while line := await process.stdout.readline():
-                match = re.search(rb"Local:\s+(http://127\.0\.0\.1:\d+/)", line)
-                if match:
-                    ready = True
-                    # Drain startup/runtime messages without retaining them.
-                    async def drain():
-                        while await process.stdout.readline():
-                            pass
-                        await process.wait()
-                    task = asyncio.create_task(drain())
-                    return match[1].decode(), task
-            raise RuntimeError("Could not open the selected project.")
-    finally:
-        if not ready and process.returncode is None:
-            process.terminate()
-            await process.wait()
+    # A pipe ties the new session's output to the old session's event loop.
+    # Once the old tab closes, its exit can break the child's stdout. A file
+    # descriptor and a separate session keep the new viewer independent.
+    with tempfile.TemporaryFile(mode="w+b") as log:
+        process = subprocess.Popen(
+            [sys.executable, "-u", "-m", "agentfem.viewer", str(folder),
+             "--no-browser", "--port", "0", "--idle-timeout", "120"],
+            stdin=subprocess.DEVNULL, stdout=log,
+            stderr=subprocess.STDOUT, start_new_session=os.name == "posix")
+        async def reap():
+            # Unlike an asyncio subprocess transport, cancelling this watcher
+            # when the old loop exits must not terminate the new session.
+            while process.poll() is None:
+                await asyncio.sleep(.25)
+            return process.returncode
+        ready = False
+        try:
+            async with asyncio.timeout(30):
+                while True:
+                    log.seek(0)
+                    output = log.read(65536)
+                    match = re.search(rb"Local:\s+(http://127\.0\.0\.1:\d+/)", output)
+                    if match:
+                        ready = True
+                        return match[1].decode(), asyncio.create_task(reap())
+                    if process.poll() is not None:
+                        raise RuntimeError("Could not open the selected project. "
+                                           + output.decode(errors="replace")[-1000:])
+                    await asyncio.sleep(.05)
+        finally:
+            if not ready and process.poll() is None:
+                process.terminate()
+                await asyncio.to_thread(process.wait)
 
 
 def main():

@@ -14,6 +14,21 @@ Scope is a reliable installed workflow, not new P92 parameter identification.
 
 ## Decision rules
 
+Follow-up batch: a real subprocess regression confirms a newly selected viewer
+survives shutdown of the old event loop. Its output no longer depends on the old
+session's pipe; failed startup remains reported. Native offscreen PNG, process
+video, smooth displacement video and actual export cancellation passed (35 tests
+in that batch; seven picker tests after adding the lifecycle regression).
+
+An isolated wheel installation, sharing the existing FEniCSx dependencies but
+not the source checkout, completed `init`, `doctor`, `check`, `run` and `verify`
+for the standard static-solid beam. Maximum displacement: 0.000427424 m;
+strain energy: 42.7303; relative force balance error: 1.90512e-12;
+energy balance error: 2.55156e-11. The result seal verified without issues.
+This is macOS installed-use evidence, not a clean dependency installation,
+Windows acceptance, full recovery regression or final 4K/browser acceptance.
+The wheel keeps the development version until the release gates are complete.
+
 2026-11-25 implementation batch: added opt-in installed-interpreter desktop
 entries (macOS/native Linux). Ten shortcut/chooser tests passed. Latest published
 PR #199 CI exposed a real meshio incompatibility with redundant XDMF Attribute
