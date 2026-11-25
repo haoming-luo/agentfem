@@ -44,11 +44,11 @@ def test_unknown_motion_is_rejected():
         orbit_pose((1, 1, 1), (0, 0, 0), (0, 0, 1), .5, 'unknown')
 
 
-def test_showcase_has_steady_spatial_speed_and_dolly():
+def test_showcase_has_steady_spatial_speed_without_breathing_zoom():
     poses = [orbit_pose((3, 3, 3), (0, 0, 0), (0, 0, 1), t) for t in np.linspace(0, 1, 241)]
     positions = np.array([p[0] for p in poses])
     speed = np.linalg.norm(np.diff(positions, axis=0), axis=1)
     assert speed.max()/speed.min() < 1.02
     distance = np.linalg.norm(positions, axis=1)
-    assert distance.max()/distance.min() > 1.19
-    assert np.ptp(positions[:, 2]) > 2
+    assert distance.max()/distance.min() == pytest.approx(1.)
+    assert .1 < np.ptp(positions[:, 2]) < 2

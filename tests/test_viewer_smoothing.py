@@ -90,11 +90,12 @@ def test_current_coordinates_obey_deformation_switch(enabled, scale):
     np.testing.assert_allclose(grid.points, reference + u)
 
 
-def test_legend_has_separate_viewport():
+def test_legend_is_transparent_over_full_model_viewport():
     from agentfem._viewer_style import legend_panel
     plotter = pv.Plotter(off_screen=True)
     try:
         panel = legend_panel(plotter)
-        assert panel.GetViewport()[3] <= plotter.renderer.GetViewport()[1]
+        assert panel.GetViewport() == plotter.renderer.GetViewport() == (0., 0., 1., 1.)
+        assert panel.GetLayer() == 1 and panel.GetPreserveColorBuffer()
     finally:
         plotter.close()

@@ -278,7 +278,7 @@ def render(request, destination, progress=None):
                     plotter.reset_camera()
                     apply_camera(plotter, view.get("camera"))
                     if bounds is not None:
-                        fit_camera(plotter.camera, bounds, size[0]/(size[1]*.84))
+                        fit_camera(plotter.camera, bounds, size[0]/size[1])
                     base_camera = (tuple(plotter.camera.position), tuple(plotter.camera.focal_point), tuple(plotter.camera.up))
                     base_parallel_scale = plotter.camera.parallel_scale
                     if scalar is not None:

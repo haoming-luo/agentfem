@@ -16,8 +16,7 @@ def draw_axes(plotter, dark=False):
     y = np.cross(z, x)
     width, height = plotter.window_size
     scale = height/1080
-    height *= .84
-    center = np.array([60., 60.])*scale
+    center = np.array([85., 85.])*scale
     length = 32*scale
     colors = ['#eda6b9', '#9ed4c4', '#a8bee9'] if dark else ['#983f60', '#267762', '#3d5c9b']
     points, lines, rgb = [], [], []
@@ -54,10 +53,13 @@ def draw_axes(plotter, dark=False):
 
 def legend_panel(plotter):
     from vtkmodules.vtkRenderingCore import vtkRenderer
-    # Non-overlapping viewports: the model cannot cover the legend.
-    plotter.renderer.SetViewport(0., .16, 1., 1.)
+    # Transparent annotation layer over the same full model viewport.
+    plotter.renderer.SetViewport(0., 0., 1., 1.)
     panel = vtkRenderer()
-    panel.SetViewport(0., 0., 1., .16)
+    panel.SetViewport(0., 0., 1., 1.)
+    plotter.render_window.SetNumberOfLayers(2)
+    panel.SetLayer(1)
+    panel.SetPreserveColorBuffer(True)
     panel.SetInteractive(False)
     plotter.render_window.AddRenderer(panel)
     return panel
@@ -66,8 +68,8 @@ def legend_panel(plotter):
 def scalar_bar(plotter, panel, label, mapper, foreground):
     from agentfem._viewer_camera import text_size
     bar = plotter.add_scalar_bar(
-        label, mapper=mapper, vertical=False, position_x=.12, position_y=.18,
-        width=.76, height=.72, title_font_size=text_size(24, plotter.window_size), label_font_size=text_size(20, plotter.window_size),
+        label, mapper=mapper, vertical=False, position_x=.15, position_y=.025,
+        width=.80, height=.07, title_font_size=text_size(24, plotter.window_size), label_font_size=text_size(20, plotter.window_size),
         n_labels=5, fmt="%.3g", font_family="arial", bold=False, shadow=False,
         color=foreground)
     bar.SetObjectName('agentfem-legend')

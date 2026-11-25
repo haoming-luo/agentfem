@@ -350,9 +350,11 @@ and a fixed conservative framing. Browsing zoom does not crop the output.
 markers scale with output resolution. Videos use higher-quality encoding;
 PNG remains the lossless choice for figures.
 
-**Showcase** follows a ten-second spatial orbit with changing elevation and a
-restrained dolly in/out. Arc-length resampling keeps camera travel speed nearly
-constant rather than speeding up and slowing down a horizontal turntable.
+**Showcase · 45° arc** follows a ten-second closed oblique path spanning 45°
+around the selected view, with only ±6° elevation and constant distance.
+Arc-length resampling keeps camera travel speed nearly constant, without zoom
+pulses or a full sweep around the underside. Export legends share the full
+model viewport on a transparent annotation layer rather than a separate panel.
 **Turntable** retains level rotation. Both preserve the data and record their camera recipe in
 `view.json`. Target tracking keeps the subject in view, following the principle in
 the [Blender tracking manual](https://docs.blender.org/manual/en/4.4/animation/constraints/tracking/track_to.html).

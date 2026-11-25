@@ -22,7 +22,7 @@ def fit_camera(camera, bounds, aspect):
 
 
 def orbit_pose(position, focal, up, phase, style="showcase"):
-    """Level orbit or constant-arc-speed spatial dolly with a fixed subject."""
+    """Full level orbit or a restrained 45-degree oblique showcase loop."""
     if style not in {"showcase", "turntable"}:
         raise ValueError("Select Showcase or Turntable camera motion.")
     t = float(np.clip(phase, 0., 1.))
@@ -31,16 +31,16 @@ def orbit_pose(position, focal, up, phase, style="showcase"):
     vertical = np.asarray(up, dtype=float)
     vertical /= np.linalg.norm(vertical)
     def route(u):
-        angle = 2*np.pi*u
+        phase_angle = 2*np.pi*u
+        angle = np.deg2rad(22.5)*np.cos(phase_angle) if style == 'showcase' else phase_angle
         rotated = (offset*np.cos(angle)+np.cross(vertical, offset)*np.sin(angle)
                    +vertical*np.dot(vertical, offset)*(1-np.cos(angle)))
         if style == 'showcase':
             right = np.cross(vertical, rotated)
             right /= np.linalg.norm(right)
-            lift = np.deg2rad(22)*np.sin(angle)
+            lift = np.deg2rad(6)*np.sin(phase_angle)
             rotated = rotated*np.cos(lift)+np.cross(right, rotated)*np.sin(lift)
-            # Approach, pass and pull back; never closer than the safe fit.
-            rotated *= 1.10+.10*np.cos(angle)
+            # Constant distance: no breathing zoom, roll or underside orbit.
         return rotated
     u = t
     if style == 'showcase':

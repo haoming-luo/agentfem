@@ -1170,7 +1170,7 @@ def build_viewer(path, *, displacement=None, reference_geometry=False, server=No
                     v3.VSelect(v_model=("export_framing", "fit"), label="Framing", hide_details=True,
                                items=("framing_choices", [{"title": "Fit whole model", "value": "fit"}, {"title": "Keep current zoom", "value": "current"}]))
                     v3.VSelect(v_model=("camera_motion", "showcase"), label="Camera motion", hide_details=True, v_if="export_mode === 'orbit'",
-                               items=("motion_choices", [{"title": "Showcase · spatial dolly", "value": "showcase"}, {"title": "Turntable · level orbit", "value": "turntable"}]))
+                               items=("motion_choices", [{"title": "Showcase · 45° arc", "value": "showcase"}, {"title": "Turntable · level orbit", "value": "turntable"}]))
                     v3.VSelect(v_model=("export_resolution", "1080p"), label="Resolution", hide_details=True,
                                items=("export_resolutions", [{"title": "HD · 1280 × 720 · compact", "value": "720p"},
                                       {"title": "Full HD · 1920 × 1080 · recommended", "value": "1080p"},
