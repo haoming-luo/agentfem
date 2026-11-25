@@ -320,3 +320,15 @@ after the call. A real two-rank test starts with different GC policies on each
 rank, checks the gathered stage payload and reductions, and verifies that each
 rank recovers its own policy. Explicit external `gc.collect()` calls and
 concurrent changes to the application's GC policy are outside this guard.
+
+## Temporary PETSc / libyaml environment constraint
+
+The post-merge [main run 45167838529](https://github.com/haoming-luo/agentfem/actions/runs/45167838529)
+passed Linux numerical/distributed acceptance but failed while importing DOLFINx
+on macOS ARM64: PETSc 3.25.6 requested `libyaml-0.2.dylib`. The newly selected
+conda-forge `yaml-0.2.6-h602ebc4_0` archive contains `libyaml-0.1.dylib` instead;
+the preceding successful run used yaml 0.2.5. The development/CI environment
+temporarily requests `yaml<0.2.6` to retain the compatible dynamic library.
+This is not a numerical code change or a reason to skip native execution.
+Remove the bound once an upstream package combination restores the expected ABI,
+then verify actual DOLFINx/PETSc imports and the installed macOS acceptance gate.
