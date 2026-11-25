@@ -243,6 +243,10 @@ def test_saved_view_roundtrip_restores_display_not_source_data(tmp_path, monkeyp
     original = path.read_bytes()
     server = get_server(f"view-save-{tmp_path.name}", client_type="vue3")
     build_viewer(path, server=server)
+    renderers = plotters[0].render_window.GetRenderers()
+    assert plotters[0].renderer.GetViewport() == (0., 0., 1., 1.)
+    assert all(renderers.GetItemAsObject(i).GetViewport() != (0., 0., 1., .16)
+               for i in range(renderers.GetNumberOfItems()))
     state, ctrl = server.state, server.controller
     state.ready()
     try:

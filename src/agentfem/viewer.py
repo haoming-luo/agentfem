@@ -92,7 +92,9 @@ def build_viewer(path, *, displacement=None, reference_geometry=False, server=No
     legend = legend_panel(plotter)
     # Browser legend is a DOM row, not a viewport masking the model.
     plotter.renderer.SetViewport(0., 0., 1., 1.)
-    legend.DrawOff()
+    # vtk.js does not preserve vtkRenderer.DrawOff. Keeping the renderer in
+    # the window therefore paints an opaque inset over the browser scene.
+    plotter.render_window.RemoveRenderer(legend)
     plotter.set_background("#f3f5f7")
     cache = {"frame": None, "grid": None, "choices": [], "actor": None, "bar": None}
     state.frame = info["frame"]
