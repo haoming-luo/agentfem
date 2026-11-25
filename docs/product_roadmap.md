@@ -2,6 +2,13 @@
 
 ### Next release scope review (2026-11-25)
 
+Integration checkpoint: #199 merged main through #200 (`75a0750b`) locally
+without conflicts in merge `59f771cc`. The incoming diff is the environment
+constraint and its removal/acceptance notes, not numerical code. The targeted
+environment, field-inspection and viewer suite passed 153 tests. This is not a
+fresh installed macOS science-stack acceptance; latest-head CI and the frozen
+installed candidate remain release gates.
+
 Latest published release: v0.4.4. GitHub review confirms #195 (explicit material
 dynamics and reusable engineering workflows), #198 (installed workflow and
 model inspection), and #200 (science-environment PETSc/libyaml compatibility)
