@@ -10,6 +10,81 @@ pv = pytest.importorskip("pyvista")
 from agentfem.viewer import scalar_choices, component_values, component_label
 
 
+def test_manual_limits_are_committed_only_on_apply(tmp_path):
+    from agentfem.viewer import build_viewer
+    grid = pv.ImageData(dimensions=(2, 2, 2)).cast_to_unstructured_grid()
+    grid.point_data['value'] = np.arange(grid.n_points, dtype=float)
+    path = tmp_path / 'limits.vtu'
+    grid.save(path)
+    server = build_viewer(path)
+    state, ctrl = server.state, server.controller
+    state.ready()
+    try:
+        ctrl.on_server_ready()
+        before = state.range_min, state.range_max
+        with state:
+            state.range_max_draft = '1e-'
+        assert not state.error
+        assert (state.range_min, state.range_max) == before
+        with state:
+            state.range_min_draft = '1e-12'
+            state.range_max_draft = '1e-10'
+        ctrl.apply_range_drafts()
+        assert not state.error
+        assert (state.range_min, state.range_max) == (1e-12, 1e-10)
+        with state:
+            state.range_max_draft = 'nan'
+        ctrl.apply_range_drafts()
+        assert state.error
+        assert (state.range_min, state.range_max) == (1e-12, 1e-10)
+    finally:
+        ctrl.on_server_exited()
+
+
+def test_range_scan_is_responsive_and_cancel_preserves_limits(tmp_path, monkeypatch):
+    import asyncio
+    import threading
+    import agentfem.viewer as viewer
+    grid = pv.ImageData(dimensions=(2, 2, 2)).cast_to_unstructured_grid()
+    grid.point_data['value'] = np.arange(grid.n_points, dtype=float)
+    path = tmp_path / 'scan.vtu'
+    grid.save(path)
+    server = viewer.build_viewer(path)
+    state, ctrl = server.state, server.controller
+    state.ready()
+    release = threading.Event()
+    started = threading.Event()
+    original = viewer.read_visualization_frame
+    def blocked(*args, **kwargs):
+        started.set()
+        assert release.wait(5)
+        return original(*args, **kwargs)
+    async def exercise():
+        ctrl.on_server_ready()
+        with state:
+            state.field = 0
+        before = state.range_min, state.range_max
+        monkeypatch.setattr(viewer, 'read_visualization_frame', blocked)
+        task = asyncio.create_task(ctrl.fit_series_range())
+        for _ in range(100):
+            await asyncio.sleep(.001)
+            if started.is_set():
+                break
+        assert started.is_set() and state.range_busy
+        assert state.range_notice == 'Reading saved frames…'
+        task.cancel()
+        await task
+        assert not state.range_busy
+        assert 'cancelled' in state.range_notice
+        assert (state.range_min, state.range_max) == before
+        release.set()
+    try:
+        asyncio.run(exercise())
+    finally:
+        release.set()
+        ctrl.on_server_exited()
+
+
 def test_dolfinx_shared_mesh_fields_read_as_one_dataset(tmp_path):
     from agentfem.results import read_visualization_frame
     pointer = "xpointer(/Xdmf/Domain/Grid[@GridType='Uniform'][1]/*[self::Topology or self::Geometry])"
@@ -251,7 +326,8 @@ def test_zero_centered_colors_follow_component_and_preserve_override(tmp_path):
         assert not state.error
         assert state.color_mode == "zero" and state.palette == "azure-rose"
         assert state.range_min == -state.range_max
-        ctrl.fit_series_range()
+        import asyncio
+        asyncio.run(ctrl.fit_series_range())
         assert state.range_min == -state.range_max
         with state:
             state.range_max = 2.
@@ -390,7 +466,7 @@ def test_play_pause_advances_only_saved_frames(tmp_path, monkeypatch):
         with state:
             state.quantity = 0
         assert state.component_items == [{"title": "Value", "value": 0}]
-        ctrl.fit_series_range()
+        await ctrl.fit_series_range()
         assert state.range_min == 0. and state.range_max == .2
         ctrl.toggle_playback()  # Last frame restarts at the first saved frame.
         assert state.frame == 0 and state.playing

@@ -336,6 +336,18 @@ segments grow; Refresh does not regenerate joins.
 
 ## Mesh and element checks
 
+**Auto range · all frames** reports saved-frame progress and can be cancelled.
+The existing limits stay in effect until the complete scan succeeds. Selecting
+another result or field discards the old scan rather than applying stale limits.
+For manual limits, enter decimal or scientific notation (for example `1e-10`)
+and press Enter or **Apply limits**. Typing does not update the view midway;
+mouse-wheel scrolling does not change these values.
+
+The lower-left orientation marker uses screen-facing X/Y/Z labels, with
+contrasting colors for light and dark backgrounds. **View** contains standard
+camera directions and saved views. On narrow screens, **Display** opens a
+temporary panel instead of consuming the rendering width.
+
 Before conversion, use `agentfem inspect-mesh` and the existing
 `mesh.compatibility_matrix()`. Inventory checks finite coordinates, integer
 connectivity, declared node counts, index bounds and repeated nodes per cell.

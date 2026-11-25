@@ -20,7 +20,7 @@ from agentfem._viewer_export import (PRESETS, palette_items,
     apply_camera, validate_view, display_frame, color_map, centered_range)
 from agentfem._viewer_jobs import ExportJob
 from agentfem._viewer_smoothing import average_cell_colors, region_choices
-from agentfem._viewer_style import legend_panel, scalar_bar, background, install_browser_legend, axis_marker
+from agentfem._viewer_style import legend_panel, scalar_bar, background, install_browser_legend
 from agentfem._atomic_text import atomic_write_text
 from agentfem._viewer_motion import automatic_scale, displacement_metrics, timeline_sample, interpolate_displacement, reference_frame, has_current_coordinates
 
@@ -92,7 +92,6 @@ def build_viewer(path, *, displacement=None, reference_geometry=False, server=No
     plotter = pv.Plotter(off_screen=True)
     legend = legend_panel(plotter)
     plotter.set_background("#f3f5f7")
-    axes_widget = plotter.add_orientation_widget(axis_marker(), viewport=(.80, .17, .99, .36))
     cache = {"frame": None, "grid": None, "choices": [], "actor": None, "bar": None}
     state.frame = info["frame"]
     state.field = -1
@@ -122,6 +121,12 @@ def build_viewer(path, *, displacement=None, reference_geometry=False, server=No
     state.project_selection = None
     state.run_items = []
     state.run_selection = None
+    if any(item['value'] == '.' for item in state.project_items):
+        state.project_selection = '.'
+        state.run_items = directory.runs('.')
+        if path is not None:
+            state.run_selection = next((item['value'] for item in state.run_items
+                                        if path.is_relative_to(directory.resolve(item['value']))), None)
     state.playing = False
     state.smooth = False
     state.smooth_available = False
@@ -134,6 +139,11 @@ def build_viewer(path, *, displacement=None, reference_geometry=False, server=No
     state.color_mode = "sequential"
     state.range_min = 0.
     state.range_max = 1.
+    state.range_busy = False
+    state.range_progress = 0
+    state.range_notice = ""
+    state.range_min_draft = "0"
+    state.range_max_draft = "1"
     state.mesh_summary = ""
     state.reference_geometry = bool(reference_geometry)
     state.current_coordinates = False
@@ -609,20 +619,47 @@ def build_viewer(path, *, displacement=None, reference_geometry=False, server=No
             if not (0 <= current < len(cache["choices"]) and cache["choices"][current][:2] == groups[index]):
                 state.field = next(i for i, choice in enumerate(cache["choices"]) if choice[:2] == groups[index])
 
-    def fit_series_range(**_):
+    range_task = {"task": None}
+
+    def cancel_range(**_):
+        task = range_task['task']
+        if task is not None and not task.done():
+            task.cancel()
+
+    def start_range(**_):
+        if range_task['task'] is None or range_task['task'].done():
+            range_task['task'] = asyncio.create_task(fit_series_range())
+
+    async def fit_series_range(**_):
+        if state.range_busy:
+            return
         stop_playback()
+        with state:
+            state.range_busy = True
+            state.range_progress = 0
+            state.range_notice = "Reading saved frames…"
+            state.error = ""
         try:
             selected = int(state.field)
             if path is None or selected < 0:
                 return
             choice = cache["choices"][selected]
-            low, high = float("inf"), float("-inf")
-            for i in range(info["frame_count"]):
-                frame_grid = read_visualization_frame(path, frame=i)
-                values = component_values(frame_grid, choice)
+            source, count = path, info['frame_count']
+            def frame_range(index):
+                values = component_values(read_visualization_frame(source, frame=index), choice)
                 if not np.isfinite(values).all():
                     raise ValueError("Selected field contains nonfinite values.")
-                low, high = min(low, float(values.min())), max(high, float(values.max()))
+                return float(values.min()), float(values.max())
+            low, high = float("inf"), float("-inf")
+            for i in range(count):
+                a, b = await asyncio.to_thread(frame_range, i)
+                if path != source or int(state.field) != selected:
+                    state.range_notice = "Selection changed; range was not applied."
+                    return
+                low, high = min(low, a), max(high, b)
+                with state:
+                    state.range_progress = 100*(i+1)/count
+                    state.range_notice = f"Read {i+1} of {count} frames"
             if low == high:
                 pad = max(abs(low)*.01, 1.e-12)
                 low, high = low-pad, high+pad
@@ -633,8 +670,31 @@ def build_viewer(path, *, displacement=None, reference_geometry=False, server=No
                 state.fixed_range = True
                 state.range_min, state.range_max = low, high
                 state.error = ""
+                state.range_notice = f"Range fitted · {count} frames"
+        except asyncio.CancelledError:
+            state.range_notice = "Range calculation cancelled."
         except (KeyError, ValueError, IndexError, OSError, ET.ParseError) as exc:
             state.error = str(exc)
+        finally:
+            with state:
+                state.range_busy = False
+
+    def sync_range_drafts(**_):
+        state.range_min_draft = f'{float(state.range_min):.8g}'
+        state.range_max_draft = f'{float(state.range_max):.8g}'
+
+    def apply_range_drafts(**_):
+        try:
+            high = float(state.range_max_draft)
+            low = -high if state.color_mode == 'zero' else float(state.range_min_draft)
+            if not np.isfinite([low, high]).all() or low >= high:
+                raise ValueError
+            with state:
+                state.range_min, state.range_max = low, high
+                state.error = ''
+            sync_range_drafts()
+        except (ValueError, TypeError):
+            state.error = 'Enter finite limits with minimum below maximum.'
 
     def refresh(**_):
         # Reopen only the atomically published index; never inspect a writer's
@@ -914,14 +974,14 @@ def build_viewer(path, *, displacement=None, reference_geometry=False, server=No
 
     list_views()
 
-    with SinglePageWithDrawerLayout(server, width=264, show_drawer=True) as ui:
+    with SinglePageWithDrawerLayout(server, width=264, show_drawer=False) as ui:
         ui.title.set_text("AgentFEM")
         ui.title.style = "flex:0 0 auto; font-size:16px; margin:0 12px"
         ui.icon.hide()
         ui.drawer.permanent = False
-        ui.drawer.temporary = False
-        ui.drawer.mobile = False
-        ui.drawer.scrim = False
+        ui.drawer.temporary = ("$vuetify.display.width < 720",)
+        ui.drawer.mobile = ("$vuetify.display.width < 720",)
+        ui.drawer.scrim = ("$vuetify.display.width < 720",)
         with ui.toolbar:
             navigation = trame.ClientTriggers(ref="viewer_navigation", navigate="$viewer.navigate($event)")
             v3.VBtn("Open", prepend_icon="mdi-folder-open-outline", click="open_panel = true", variant="text")
@@ -936,6 +996,8 @@ def build_viewer(path, *, displacement=None, reference_geometry=False, server=No
                 with v3.VList():
                     for direction in ("Isometric", "Top (XY)", "Front (XZ)", "Side (YZ)"):
                         v3.VListItem(direction, click=(camera_view, f"['{direction}']"))
+                    v3.VDivider()
+                    v3.VListItem("Saved views…", prepend_icon="mdi-bookmark-outline", click="views_panel = true")
         with v3.VDialog(v_model=("open_panel", False), max_width=580):
             with v3.VCard(classes="viewer-open-card pa-4 d-flex flex-column ga-2", title="Open results",
                           style="height:min(640px,90vh); min-height:min(640px,90vh); max-height:min(640px,90vh); overflow:hidden; flex-shrink:0"):
@@ -953,6 +1015,7 @@ def build_viewer(path, *, displacement=None, reference_geometry=False, server=No
                     v3.VTextField(v_model=("folder_filter", ""), label="Find in this folder", prepend_inner_icon="mdi-magnify",
                                   hide_details=True, density="compact", clearable=True, style="min-width:0")
                 v3.VBtn("Cancel folder selection", v_if="picker_busy", click=cancel_folder_picker, variant="text", size="small")
+                v3.VLabel("System window not visible? Cancel and browse here, or paste a path.", v_if="picker_busy", style="font-size:12px;white-space:normal")
                 v3.VLabel("{{ folder === '.' ? browse_root : browse_root + '/' + folder }}",
                           title=("browse_root + '/' + folder",), style="font-size:12px; height:24px; flex-shrink:0; white-space:nowrap; overflow:hidden; text-overflow:ellipsis")
                 with v3.VList(density="compact", style="flex:1; min-height:120px; overflow:auto; border:1px solid #e5e9ed; border-radius:8px"):
@@ -979,7 +1042,7 @@ def build_viewer(path, *, displacement=None, reference_geometry=False, server=No
                              label="Smooth colors", hide_details=True, density="compact")
                 v3.VSelect(v_model=("smoothing_region", ""), items=("smoothing_regions",),
                            v_if="cell_selected && cell_smoothing", label="Keep regions separate", hide_details=True, density="compact")
-                with v3.VBtn(icon="mdi-information-outline", size="x-small", variant="text", aria_label="About color smoothing", v_if="cell_selected"):
+                with v3.VBtn(icon="mdi-information-outline", size="x-small", variant="text", title="About color smoothing", v_if="cell_selected", **{"aria-label": "About color smoothing"}):
                     v3.VTooltip("Display averaging only; original values and range are retained. Select region IDs to preserve interfaces. Turn off for raw damage/contact jumps.", activator="parent", max_width=300)
                 v3.VDivider(classes="my-2")
                 html.Div("Color & legend", classes="viewer-section")
@@ -990,13 +1053,17 @@ def build_viewer(path, *, displacement=None, reference_geometry=False, server=No
                 v3.VSelect(v_model=("palette", "ocean"), items=("palette_items",), label="Palette",
                            hide_details=True, density="compact")
                 v3.VCheckbox(v_model=("fixed_range", True), label="Same range for all frames", hide_details=True, density="compact")
-                v3.VBtn("Auto range · all frames", click=fit_series_range, disabled=("field < 0",), variant="tonal", size="small")
+                v3.VBtn("Auto range · all frames", click=start_range, loading=("range_busy",), disabled=("field < 0 || range_busy",), variant="tonal", size="small")
+                v3.VProgressLinear(v_if="range_busy", model_value=("range_progress",), color="primary", height=3)
+                v3.VLabel("{{ range_notice }}", v_if="range_busy", style="font-size:12px")
+                v3.VBtn("Cancel", v_if="range_busy", click=cancel_range, variant="text", size="small")
                 v3.VCheckbox(v_model=("advanced", False), label="Set limits manually", hide_details=True, density="compact")
                 with v3.VRow(v_if="advanced", classes="ma-0 ga-2 flex-nowrap"):
-                    v3.VTextField(v_model=("range_min", 0.), label="Minimum", type="number",
+                    v3.VTextField(v_model=("range_min_draft", '0'), label="Minimum", type="text", keydown_enter=apply_range_drafts,
                                   v_if="color_mode !== 'zero'", disabled=("!fixed_range",), hide_details=True, density="compact", style="min-width:0")
-                    v3.VTextField(v_model=("range_max", 1.), label=("color_mode === 'zero' ? 'Limit ±' : 'Maximum'",), type="number",
+                    v3.VTextField(v_model=("range_max_draft", '1'), label=("color_mode === 'zero' ? 'Limit ±' : 'Maximum'",), type="text", keydown_enter=apply_range_drafts,
                                   disabled=("!fixed_range",), hide_details=True, density="compact", style="min-width:0")
+                v3.VBtn("Apply limits", v_if="advanced", click=apply_range_drafts, variant="text", size="small")
                 v3.VDivider(classes="my-2")
                 html.Div("Deformation", classes="viewer-section")
                 v3.VCheckbox(v_model=("reference_geometry", bool(reference_geometry)),
@@ -1014,12 +1081,11 @@ def build_viewer(path, *, displacement=None, reference_geometry=False, server=No
                     v3.VBtn("Auto scale", click=fit_deformation, variant="tonal", loading=("scale_busy",),
                             disabled=("!reference_geometry || !displacement_field || scale_busy",))
                     v3.VBtn("Actual ×1", click="scale = 1; scale_status = ''", variant="text")
-                with v3.VBtn(icon="mdi-information-outline", size="x-small", variant="text", aria_label="About deformation"):
+                with v3.VBtn(icon="mdi-information-outline", size="x-small", variant="text", title="About deformation", **{"aria-label": "About deformation"}):
                     v3.VTooltip("Off: reference shape. ×1: actual displacement. Auto scale uses all saved frames and remains fixed during playback. Display only; original results are unchanged.", activator="parent", max_width=300)
                 v3.VCheckbox(v_model=("edges", False), label="Mesh edges", hide_details=True, density="compact")
                 v3.VDivider(classes="my-2")
                 with v3.VRow(classes="ma-0 ga-1"):
-                    v3.VBtn("Views", prepend_icon="mdi-bookmark-outline", click="views_panel = true", variant="text", size="small")
                     v3.VBtn("Settings", prepend_icon="mdi-cog-outline", click="settings_panel = true", variant="text", size="small")
         with v3.VDialog(v_model=("export_panel", False), max_width=500):
             with v3.VCard(classes="pa-5 d-flex flex-column ga-3", title="Export"):
@@ -1095,11 +1161,12 @@ def build_viewer(path, *, displacement=None, reference_geometry=False, server=No
                 # form a ready -> update -> ready loop on large meshes.
                 with html.Div(style="flex:1; min-height:0; position:relative"):
                     view = vtk.VtkLocalView(plotter.ren_win, ref="result_view",
-                                        widgets=[axes_widget],
                                         interactor_events=("camera_events", ["EndAnimation"]),
                                         EndAnimation=(sync_camera, "[trame.refs.result_view.getCamera()]"),
                                         reset_camera=(sync_camera, "[trame.refs.result_view.getCamera()]"),
                                         style="height:100%; width:100%")
+                    html.Div('<viewer-axes :camera="() => trame.refs.result_view?.getCamera()" :dark="preset === \'presentation\'"></viewer-axes>',
+                             style="position:absolute;left:8px;bottom:17%;pointer-events:none")
                     with html.Div(v_if="legend_title", style=("{position:'absolute',bottom:'2%',left:'12%',width:'76%',height:'12%',color:legend_color,pointerEvents:'none',display:'flex',flexDirection:'column',justifyContent:'center',gap:'5px'}",)):
                         html.Div("{{ legend_title }}", style="text-align:center;font:14px Arial;white-space:nowrap;overflow:hidden;text-overflow:ellipsis", title=("legend_title",))
                         html.Div(style=("{height:'12px',flexShrink:0,background:legend_gradient}",))
@@ -1153,6 +1220,7 @@ def build_viewer(path, *, displacement=None, reference_geometry=False, server=No
                  "reference_geometry", "current_coordinates", "displacement_field", "preset", "palette", "blend", "time_unit",
                  "cell_smoothing", "smoothing_region")(update)
     state.change("color_mode")(change_color_mode)
+    state.change("range_min", "range_max")(sync_range_drafts)
     state.change("palette")(remember_palette)
     state.change("smooth")(change_smoothing)
     state.change("project_selection")(select_project)
@@ -1161,6 +1229,7 @@ def build_viewer(path, *, displacement=None, reference_geometry=False, server=No
     ctrl.on_server_ready.add(update)
     ctrl.on_server_exited.add(stop_playback)
     ctrl.on_server_exited.add(cancel_folder_picker)
+    ctrl.on_server_exited.add(cancel_range)
     ctrl.on_server_exited.add(job.close)
     def close_view(**_):
         # Trame supplies state keyword arguments to lifecycle callbacks.
@@ -1176,6 +1245,7 @@ def build_viewer(path, *, displacement=None, reference_geometry=False, server=No
     ctrl.toggle_playback = toggle_playback
     ctrl.stop_playback = stop_playback
     ctrl.fit_series_range = fit_series_range
+    ctrl.apply_range_drafts = apply_range_drafts
     ctrl.fit_deformation = fit_deformation
     ctrl.seek_frame = seek_frame
     ctrl.export_result = export

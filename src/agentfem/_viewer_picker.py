@@ -13,7 +13,7 @@ import sys
 MAC_PANEL_SCRIPT = '''ObjC.import('AppKit');
 function run(argv) {
     const app = $.NSApplication.sharedApplication;
-    app.setActivationPolicy($.NSApplicationActivationPolicyAccessory);
+    app.setActivationPolicy($.NSApplicationActivationPolicyRegular);
     app.finishLaunching;
     const panel = $.NSOpenPanel.openPanel;
     panel.canChooseDirectories = true;
@@ -22,7 +22,7 @@ function run(argv) {
     panel.prompt = 'Open';
     panel.message = 'Choose a project or results folder';
     panel.directoryURL = $.NSURL.fileURLWithPath(argv[0]);
-    // Activate after creating the window: an accessory process has no window
+    // Activate after creating the window: a newly launched process has no window
     // to focus before this point. Keep the chooser above the browser, not hidden
     // behind it while runModal is already waiting for user input.
     panel.level = $.NSFloatingWindowLevel;

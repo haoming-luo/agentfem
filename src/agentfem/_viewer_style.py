@@ -3,23 +3,52 @@
 """Shared scene layout for interactive viewing and exported figures."""
 
 
-def axis_marker():
-    """Geometry-based XYZ labels survive both VTK and vtk.js rendering."""
+def draw_axes(plotter, dark=False):
+    """Screen-facing labels with camera-projected axes, also during orbit export."""
     import numpy as np
     import pyvista as pv
-    pieces = []
-    for i, (label, color) in enumerate(zip('XYZ', ['#b74c60', '#458b76', '#4d74ae'])):
-        direction = np.eye(3)[i]
-        for part in (pv.Arrow(direction=direction),
-                     pv.Text3D(label, depth=.015, height=.25).translate(direction*1.15)):
-            part.cell_data['axis_rgb'] = np.tile(pv.Color(color).int_rgb, (part.n_cells, 1)).astype(np.uint8)
-            pieces.append(part)
-    mesh = pieces[0].merge(pieces[1:], merge_points=False)
-    mapper = pv.DataSetMapper(dataset=mesh)
-    mapper.set_scalars(mesh.cell_data['axis_rgb'], 'axis_rgb', preference='cell', rgb=True)
-    actor = pv.Actor(mapper=mapper)
-    actor.prop.lighting = False
-    return actor
+    from vtkmodules.vtkRenderingCore import vtkActor2D, vtkPolyDataMapper2D, vtkCoordinate
+    camera = plotter.camera
+    z = np.asarray(camera.position)-camera.focal_point
+    z /= np.linalg.norm(z)
+    x = np.cross(camera.up, z)
+    x /= np.linalg.norm(x)
+    y = np.cross(z, x)
+    width, height = plotter.window_size
+    height *= .84
+    center = np.array([max(48., width*.055), max(48., height*.08)])
+    length = min(40., width*.055, height*.09)
+    colors = ['#eda6b9', '#9ed4c4', '#a8bee9'] if dark else ['#983f60', '#267762', '#3d5c9b']
+    points, lines, rgb = [], [], []
+    for i in np.argsort(z):
+        delta = np.array([x[i], y[i]])*length
+        norm = np.linalg.norm(delta)
+        direction = delta/norm if norm > 1 else np.array([0., 1.])
+        end = center+delta
+        normal = np.array([-direction[1], direction[0]])
+        segments = [(center, end)]
+        if norm > 5:
+            segments += [(end, end-direction*6+normal*2.5), (end, end-direction*6-normal*2.5)]
+        for start, finish in segments:
+            lines.extend([2, len(points), len(points)+1])
+            points.extend([[start[0]/width, start[1]/height, 0], [finish[0]/width, finish[1]/height, 0]])
+            rgb.append(pv.Color(colors[i]).int_rgb)
+        pos = end+direction*12
+        plotter.add_text('XYZ'[i], position=tuple(pos.astype(int)), font_size=13,
+                         color=colors[i], font='arial', name=f'axis-label-{i}')
+    mesh = pv.PolyData(np.array(points), lines=np.array(lines))
+    mesh.cell_data['rgb'] = np.asarray(rgb, dtype=np.uint8)
+    mapper = vtkPolyDataMapper2D()
+    mapper.SetInputData(mesh)
+    mapper.SetScalarModeToUseCellData()
+    mapper.SetColorModeToDirectScalars()
+    coordinate = vtkCoordinate()
+    coordinate.SetCoordinateSystemToNormalizedViewport()
+    mapper.SetTransformCoordinate(coordinate)
+    actor = vtkActor2D()
+    actor.SetMapper(mapper)
+    actor.GetProperty().SetLineWidth(2.5)
+    plotter.add_actor(actor, name='orientation-axes', reset_camera=False)
 
 
 def legend_panel(plotter):

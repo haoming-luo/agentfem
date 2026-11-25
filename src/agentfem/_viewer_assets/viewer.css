@@ -12,3 +12,7 @@ input[type=number] {appearance:textfield; -moz-appearance:textfield}
 .viewer-open-card > .v-input {height:48px; min-height:48px; max-height:48px}
 .viewer-open-card > .v-list {flex:1 1 0!important; min-height:0!important}
 .viewer-open-card .v-select .v-field__input {white-space:nowrap; overflow:hidden}
+@media (max-width:719px) {
+  .v-toolbar .v-btn {min-width:36px!important; padding:0 7px!important; font-size:13px}
+  .v-navigation-drawer--temporary {max-height:calc(100% - 185px)}
+}

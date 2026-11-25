@@ -17,7 +17,7 @@ from agentfem._atomic_text import atomic_write_text
 from agentfem._viewer_files import ResultDirectory
 from agentfem._viewer_motion import timeline_sample, interpolate_displacement, reference_frame
 from agentfem._viewer_smoothing import average_cell_colors
-from agentfem._viewer_style import legend_panel, scalar_bar, background, axis_marker
+from agentfem._viewer_style import legend_panel, scalar_bar, background, draw_axes
 from agentfem.results import read_visualization_frame, deform_visualization_frame, inspect_visualization
 
 
@@ -216,7 +216,6 @@ def render(request, destination, progress=None):
     preset = PRESETS[view["preset"]]
     plotter = pv.Plotter(off_screen=True, window_size=size)
     legend = legend_panel(plotter)
-    plotter.add_orientation_widget(axis_marker(), viewport=(.80, .17, .99, .36))
     movie = mode != "image"
     output = destination / ("animation.mp4" if movie else "figure.png")
     last_index, actor = None, None
@@ -274,6 +273,7 @@ def render(request, destination, progress=None):
             if mode == "orbit" and step:
                 plotter.camera.Azimuth(360 / len(frames))
                 plotter.reset_camera_clipping_range()
+            draw_axes(plotter, view['preset'] == 'presentation')
             title = view.get("title") or ""
             plotter.add_text(title, position=(int(size[0]*.045), int(size[1]*.78)),
                              font_size=24, color=preset["foreground"], font="arial", name="title")
