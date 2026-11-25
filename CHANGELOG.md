@@ -6,6 +6,8 @@ experimental formulation to a validated one.
 
 ## [Unreleased]
 
+## [0.5.0] - 2026-11-25
+
 - Make CLI doctor observe numerical-process exit before reporting readiness.
   A 30-second health-check timeout cleans the worker process group and returns
   a structured failure instead of leaving a spinning MPI finalizer. Simulation
