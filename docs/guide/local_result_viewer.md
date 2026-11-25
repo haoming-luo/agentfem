@@ -336,6 +336,36 @@ segments grow; Refresh does not regenerate joins.
 
 ## Mesh and element checks
 
+### Animation and publication exports
+
+**Animation → Smooth motion** interpolates displacement for display. **Seconds
+per animation** is the target viewing time, not physical simulation time. The
+viewer waits for each browser scene to load before advancing; large models may
+take longer rather than skipping to their final state. Stress and damage remain
+saved-state displays, not interpolated predictions.
+
+Exports default to **Fit whole model**, using the bounds of all exported states
+and a fixed conservative framing. Browsing zoom does not crop the output.
+**Keep current zoom** is available for intentional details. Text and orientation
+markers scale with output resolution. Videos use higher-quality encoding;
+PNG remains the lossless choice for figures.
+
+**Showcase** is a gently rising, eased orbit around the fixed result; **Turntable**
+retains level rotation. Both preserve the data and record their camera recipe in
+`view.json`. The design uses target tracking and smooth easing, as described in
+the [Blender tracking manual](https://docs.blender.org/manual/en/4.4/animation/constraints/tracking/track_to.html).
+Click X, Y or Z in the lower-left marker to select the corresponding orthogonal view.
+
+**Smooth colors → Preserve jumps** suppresses averaging at nodes where incident
+cell values span more than 20% of the selected region's scalar range. This is a
+display heuristic, not stress recovery or a material-boundary detector. Explicit
+region IDs still prevent cross-interface averaging. **Average** preserves the
+previous unconditional averaging option. Neither changes original values, mesh
+or color limits. This follows the principle of
+[threshold-controlled result averaging](https://docs.software.vt.edu/abaqusv2026/English/SIMACAECAERefMap/simacae-c-resconceptaverage.htm),
+not Abaqus element extrapolation or a claim of equivalent recovered stresses.
+Turn smoothing off to inspect the original cell discontinuities.
+
 **Auto range · all frames** reports saved-frame progress and can be cancelled.
 The existing limits stay in effect until the complete scan succeeds. Selecting
 another result or field discards the old scan rather than applying stale limits.

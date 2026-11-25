@@ -37,6 +37,17 @@ def test_region_boundary_is_not_averaged():
     assert result.n_cells == 2
 
 
+def test_jump_preserving_colors_do_not_blur_or_change_source():
+    grid = mesh()
+    before = grid.points.copy(), grid.cells.copy(), grid.cell_data['stress'].copy()
+    result, colors = average_cell_colors(grid, grid.cell_data['stress'], method='preserve_jumps')
+    assert result.n_cells == grid.n_cells
+    np.testing.assert_array_equal(np.sort(colors), [2, 2, 2, 8, 8, 8])
+    for actual, original in zip((grid.points, grid.cells, grid.cell_data['stress']), before):
+        np.testing.assert_array_equal(actual, original)
+    assert colors.min() >= 2 and colors.max() <= 8
+
+
 def test_export_uses_same_display_average():
     grid = mesh()
     view = dict(reference_geometry=False, choice=['cell', 'stress', None],

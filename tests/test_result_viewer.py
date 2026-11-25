@@ -10,6 +10,43 @@ pv = pytest.importorskip("pyvista")
 from agentfem.viewer import scalar_choices, component_values, component_label
 
 
+def test_smooth_animation_waits_for_browser_scene(tmp_path):
+    import asyncio
+    from agentfem.viewer import build_viewer
+    grid = pv.ImageData(dimensions=(2, 2, 2)).cast_to_unstructured_grid()
+    for i in range(2):
+        grid.point_data['U'] = grid.points*(i*.1)
+        grid.save(tmp_path / f'f{i}.vtu')
+    path = tmp_path / 'motion.pvd'
+    path.write_text('<VTKFile type="Collection"><Collection><DataSet timestep="0" file="f0.vtu"/><DataSet timestep="1" file="f1.vtu"/></Collection></VTKFile>')
+    server = build_viewer(path)
+    state, ctrl = server.state, server.controller
+    state.ready()
+    async def exercise():
+        ctrl.on_server_ready()
+        with state:
+            state.reference_geometry = True
+        with state:
+            state.smooth = True
+            state.playback_duration = 1.
+        ctrl.scene_loaded()
+        ctrl.toggle_playback()
+        await asyncio.sleep(.15)
+        before = state.frame, state.blend
+        await asyncio.sleep(.15)
+        assert (state.frame, state.blend) == before  # no renderer acknowledgement
+        ctrl.scene_loaded()
+        await asyncio.sleep(.15)
+        assert state.blend > before[1]
+        assert state.playing and not state.error
+        ctrl.stop_playback()
+        await asyncio.sleep(0)
+    try:
+        asyncio.run(exercise())
+    finally:
+        ctrl.on_server_exited()
+
+
 def test_manual_limits_are_committed_only_on_apply(tmp_path):
     from agentfem.viewer import build_viewer
     grid = pv.ImageData(dimensions=(2, 2, 2)).cast_to_unstructured_grid()

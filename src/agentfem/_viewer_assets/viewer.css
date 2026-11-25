@@ -16,3 +16,5 @@ input[type=number] {appearance:textfield; -moz-appearance:textfield}
   .v-toolbar .v-btn {min-width:36px!important; padding:0 7px!important; font-size:13px}
   .v-navigation-drawer--temporary {max-height:calc(100% - 185px)}
 }
+.viewer-axis-button {position:absolute;transform:translate(-50%,-50%);width:24px;height:24px;border:0;border-radius:50%;background:transparent;font:600 12px -apple-system,Arial;cursor:pointer;transition:background .15s,box-shadow .15s}
+.viewer-axis-button:hover,.viewer-axis-button:focus-visible {background:rgba(135,155,180,.2);box-shadow:0 0 0 1px currentColor;outline:none}

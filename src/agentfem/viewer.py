@@ -5,7 +5,6 @@
 import argparse
 import asyncio
 import json
-import time as clock
 from pathlib import Path
 from uuid import uuid4
 import xml.etree.ElementTree as ET
@@ -91,6 +90,9 @@ def build_viewer(path, *, displacement=None, reference_geometry=False, server=No
     state.trame__title = "AgentFEM · Local results"
     plotter = pv.Plotter(off_screen=True)
     legend = legend_panel(plotter)
+    # Browser legend is a DOM row, not a viewport masking the model.
+    plotter.renderer.SetViewport(0., 0., 1., 1.)
+    legend.DrawOff()
     plotter.set_background("#f3f5f7")
     cache = {"frame": None, "grid": None, "choices": [], "actor": None, "bar": None}
     state.frame = info["frame"]
@@ -162,6 +164,9 @@ def build_viewer(path, *, displacement=None, reference_geometry=False, server=No
     state.export_step = 1
     state.export_mode = "image"
     state.export_resolution = "1080p"
+    state.export_framing = "fit"
+    state.camera_motion = "showcase"
+    state.axis_request = None
     state.show_path = False
     state.folder_filter = ""
     state.picker_busy = False
@@ -171,6 +176,7 @@ def build_viewer(path, *, displacement=None, reference_geometry=False, server=No
     state.figure_title = ""
     state.field_unit = ""
     state.cell_smoothing = True
+    state.smoothing_method = 'preserve_jumps'
     state.cell_selected = False
     state.smoothing_region = ""
     state.smoothing_regions = []
@@ -194,6 +200,19 @@ def build_viewer(path, *, displacement=None, reference_geometry=False, server=No
     server.serve["viewer-exports"] = str(export_root)
     job = ExportJob(export_root)
     playback = {"task": None}
+    scene_ready = asyncio.Event()
+    scene_client = {"connected": False}
+
+    def scene_loaded(**_):
+        scene_client['connected'] = True
+        scene_ready.set()
+
+    async def await_scene():
+        if scene_client['connected']:
+            try:
+                await asyncio.wait_for(scene_ready.wait(), timeout=30.)
+            except TimeoutError:
+                raise ValueError('The view is still loading. Pause and try again.') from None
     range_owner = {"choice": None}
     preferred_palette = {"zero": "azure-rose", "sequential": state.palette}
     child_sessions = set()
@@ -338,7 +357,7 @@ def build_viewer(path, *, displacement=None, reference_geometry=False, server=No
                     if bounds is None:
                         low, high = float(values.min()), float(values.max())
                         bounds = (low, high) if low < high else (low-1.e-12, high+1.e-12)
-                    displayed, values = average_cell_colors(displayed, values, state.smoothing_region or None)
+                    displayed, values = average_cell_colors(displayed, values, state.smoothing_region or None, state.smoothing_method)
                     association = 'point'
                     label += ' · averaged display'
                 scalar = (values, key, association, label, bounds)
@@ -421,6 +440,7 @@ def build_viewer(path, *, displacement=None, reference_geometry=False, server=No
             # In particular same-frame displacement interpolation otherwise
             # advances the timeline while leaving the browser geometry frozen.
             plotter.ren_win.Modified()
+            scene_ready.clear()
             ctrl.view_update()
             if first_view:
                 ctrl.view_camera()
@@ -449,18 +469,22 @@ def build_viewer(path, *, displacement=None, reference_geometry=False, server=No
                 if start_index + 1 < len(times):
                     start_time += float(state.blend)*(times[start_index+1]-times[start_index])
                 start_fraction = (start_time-times[0])/(times[-1]-times[0])
-                started = clock.monotonic() - start_fraction*duration
+                fraction = start_fraction
                 while state.playing:
-                    fraction = min(1., (clock.monotonic()-started)/duration)
+                    # Wait for the browser before replacing large geometry.
+                    # Wall-clock skipping otherwise jumps to the last frame.
+                    await await_scene()
+                    fraction = min(1., fraction+1/(duration*12))
                     index, blend, _ = timeline_sample(times, fraction)
                     with state:
                         state.frame = index if fraction < 1 else info["frame_count"]-1
                         state.blend = blend if fraction < 1 else 0.
                     if fraction >= 1:
                         break
-                    await asyncio.sleep(.05)
+                    await asyncio.sleep(1/12)
                 return
             while state.playing and int(state.frame) < info["frame_count"] - 1:
+                await await_scene()
                 await asyncio.sleep(.5)
                 if state.playing:
                     with state:
@@ -756,6 +780,7 @@ def build_viewer(path, *, displacement=None, reference_geometry=False, server=No
                     displacement=state.displacement_field, edges=bool(state.edges), camera=camera_record(),
                     current_coordinates=bool(state.current_coordinates),
                     cell_smoothing=bool(state.cell_smoothing and state.cell_selected), smoothing_region=state.smoothing_region,
+                    smoothing_method=state.smoothing_method,
                     title=state.figure_title, unit=state.field_unit, time_unit=state.time_unit)
         if selected >= 0 and not state.fixed_range:
             raise ValueError("Keep colors consistent before saving or exporting a view.")
@@ -821,6 +846,7 @@ def build_viewer(path, *, displacement=None, reference_geometry=False, server=No
                 state.field_unit = view_record.get("unit", "")
                 state.cell_smoothing = view_record.get("cell_smoothing", False)
                 state.smoothing_region = view_record.get("smoothing_region", "")
+                state.smoothing_method = view_record.get('smoothing_method', 'average')
                 state.time_unit = view_record.get("time_unit", "")
             range_owner["choice"] = choice
             with state:
@@ -895,7 +921,8 @@ def build_viewer(path, *, displacement=None, reference_geometry=False, server=No
                 raise ValueError("Select 720p, 1080p or 4K.")
             request = dict(root=str(directory.root), view=snapshot(camera), mode=mode,
                            size=sizes[state.export_resolution], fps=24, transparent=state.transparent,
-                           smooth=bool(state.smooth), duration=float(state.playback_duration))
+                           smooth=bool(state.smooth), duration=float(state.playback_duration),
+                           framing=state.export_framing, camera_motion=state.camera_motion)
             def progress(done, total):
                 with state:
                     state.export_progress = f"Rendering {done}/{total}"
@@ -946,6 +973,11 @@ def build_viewer(path, *, displacement=None, reference_geometry=False, server=No
          "Front (XZ)": plotter.view_xz, "Side (YZ)": plotter.view_yz}[direction]()
         plotter.reset_camera()
         ctrl.view_camera()
+
+    def select_axis(**_):
+        request = state.axis_request
+        if isinstance(request, dict) and request.get('axis') in ('X', 'Y', 'Z'):
+            camera_view({'X': 'Side (YZ)', 'Y': 'Front (XZ)', 'Z': 'Top (XY)'}[request['axis']])
 
     async def close_session(**_):
         stop_playback()
@@ -1040,6 +1072,8 @@ def build_viewer(path, *, displacement=None, reference_geometry=False, server=No
                            label="Component", v_if="quantity >= 0 && component_items.length > 1", hide_details=True, density="compact")
                 v3.VCheckbox(v_model=("cell_smoothing", True), v_if="cell_selected",
                              label="Smooth colors", hide_details=True, density="compact")
+                v3.VSelect(v_model=("smoothing_method", "preserve_jumps"), label="Smoothing", v_if="cell_selected && cell_smoothing", hide_details=True, density="compact",
+                           items=("smoothing_methods", [{"title": "Preserve jumps", "value": "preserve_jumps"}, {"title": "Average", "value": "average"}]))
                 v3.VSelect(v_model=("smoothing_region", ""), items=("smoothing_regions",),
                            v_if="cell_selected && cell_smoothing", label="Keep regions separate", hide_details=True, density="compact")
                 with v3.VBtn(icon="mdi-information-outline", size="x-small", variant="text", title="About color smoothing", v_if="cell_selected", **{"aria-label": "About color smoothing"}):
@@ -1098,6 +1132,10 @@ def build_viewer(path, *, displacement=None, reference_geometry=False, server=No
                     v3.VLabel("{{ export_mode === 'process' ? 'Play through the saved simulation frames.' : export_mode === 'orbit' ? 'Rotate the camera around the current result.' : 'Save the current camera, field and colors as PNG.' }}", style="font-size:13px; white-space:normal")
                     v3.VBtn("Next", variant="tonal", disabled=("frame_count === 0 || (export_mode === 'process' && frame_count < 2)",), click="export_step = 2")
                 with html.Div(v_if="export_step === 2", classes="d-flex flex-column ga-3"):
+                    v3.VSelect(v_model=("export_framing", "fit"), label="Framing", hide_details=True,
+                               items=("framing_choices", [{"title": "Fit whole model", "value": "fit"}, {"title": "Keep current zoom", "value": "current"}]))
+                    v3.VSelect(v_model=("camera_motion", "showcase"), label="Camera motion", hide_details=True, v_if="export_mode === 'orbit'",
+                               items=("motion_choices", [{"title": "Showcase · gentle rising orbit", "value": "showcase"}, {"title": "Turntable · level orbit", "value": "turntable"}]))
                     v3.VSelect(v_model=("export_resolution", "1080p"), label="Resolution", hide_details=True,
                                items=("export_resolutions", [{"title": "HD · 1280 × 720 · compact", "value": "720p"},
                                       {"title": "Full HD · 1920 × 1080 · recommended", "value": "1080p"},
@@ -1160,18 +1198,18 @@ def build_viewer(path, *, displacement=None, reference_geometry=False, server=No
                 # event is not a user change: rebuilding the scene there can
                 # form a ready -> update -> ready loop on large meshes.
                 with html.Div(style="flex:1; min-height:0; position:relative"):
-                    view = vtk.VtkLocalView(plotter.ren_win, ref="result_view",
+                    view = vtk.VtkLocalView(plotter.ren_win, ref="result_view", after_scene_loaded=scene_loaded,
                                         interactor_events=("camera_events", ["EndAnimation"]),
                                         EndAnimation=(sync_camera, "[trame.refs.result_view.getCamera()]"),
                                         reset_camera=(sync_camera, "[trame.refs.result_view.getCamera()]"),
                                         style="height:100%; width:100%")
-                    html.Div('<viewer-axes :camera="() => trame.refs.result_view?.getCamera()" :dark="preset === \'presentation\'"></viewer-axes>',
-                             style="position:absolute;left:8px;bottom:17%;pointer-events:none")
-                    with html.Div(v_if="legend_title", style=("{position:'absolute',bottom:'2%',left:'12%',width:'76%',height:'12%',color:legend_color,pointerEvents:'none',display:'flex',flexDirection:'column',justifyContent:'center',gap:'5px'}",)):
-                        html.Div("{{ legend_title }}", style="text-align:center;font:14px Arial;white-space:nowrap;overflow:hidden;text-overflow:ellipsis", title=("legend_title",))
-                        html.Div(style=("{height:'12px',flexShrink:0,background:legend_gradient}",))
-                        with html.Div(style="display:flex;justify-content:space-between;font:12px Arial"):
-                            html.Span("{{ tick }}", v_for="(tick, index) in legend_ticks", key="index")
+                    html.Div('<viewer-axes :camera="() => trame.refs.result_view?.getCamera()" :select="axis => axis_request = {axis, stamp: Date.now()}" :dark="preset === \'presentation\'"></viewer-axes>',
+                             style="position:absolute;left:8px;bottom:8px")
+                with html.Div(v_if="legend_title", style=("{flex:'0 0 auto',padding:'8px 12% 12px',color:legend_color,background:preset === 'presentation' ? '#0b1220' : preset === 'publication' ? '#ffffff' : '#f4f6f8',display:'flex',flexDirection:'column',gap:'5px'}",)):
+                    html.Div("{{ legend_title }}", style="text-align:center;font:14px Arial;white-space:nowrap;overflow:hidden;text-overflow:ellipsis", title=("legend_title",))
+                    html.Div(style=("{height:'12px',flexShrink:0,background:legend_gradient}",))
+                    with html.Div(style="display:flex;justify-content:space-between;font:12px Arial"):
+                        html.Span("{{ tick }}", v_for="(tick, index) in legend_ticks", key="index")
                 ctrl.view_update = view.update
                 install_browser_legend()
                 ctrl.view_reset = view.reset_camera
@@ -1186,7 +1224,7 @@ def build_viewer(path, *, displacement=None, reference_geometry=False, server=No
                         v3.VBtn("{{ playing ? 'Pause' : 'Play' }}", click=toggle_playback,
                                 disabled=("frame_count <= 1",), variant="tonal", style="min-width:96px",
                                 prepend_icon=("playing ? 'mdi-pause' : 'mdi-play'",))
-                        v3.VBtn("Playback", click="playback_panel = true", variant="text", size="small", style="justify-self:end")
+                        v3.VBtn("Animation", click="playback_panel = true", variant="text", size="small", style="justify-self:end")
                     v3.VLabel("{{ time_label }}", style="font-size:12px; height:24px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis")
                     with v3.VRow(classes="ma-0 align-center ga-2"):
                         v3.VLabel("{{ reference_geometry ? 'Deformation ×' + Number(Number(scale).toPrecision(4)) : 'Reference shape' }} · {{ fixed_range ? 'Fixed colors' : 'Colors per frame' }}", style="font-size:12px")
@@ -1197,12 +1235,12 @@ def build_viewer(path, *, displacement=None, reference_geometry=False, server=No
                               v_if="details && !time_unit", style="font-size:12px; white-space:normal")
                     v3.VLabel("{{ source_status }}", v_if="source_status", style="font-size:12px; white-space:normal")
         with v3.VDialog(v_model=("playback_panel", False), max_width=420):
-            with v3.VCard(classes="pa-5 d-flex flex-column ga-3", title="Playback"):
-                v3.VCheckbox(v_model=("smooth", False), label="Smooth displacement", disabled=("!smooth_available || playing",), hide_details=True)
+            with v3.VCard(classes="pa-5 d-flex flex-column ga-3", title="Animation"):
+                v3.VCheckbox(v_model=("smooth", False), label="Smooth motion", disabled=("!smooth_available || playing",), hide_details=True)
                 v3.VLabel("Available for displacement or solid color. Damage and stress show saved states only.", style="font-size:13px; white-space:normal")
-                v3.VTextField(v_model=("playback_duration", 10.), label="Playback duration (s)", type="number",
+                v3.VTextField(v_model=("playback_duration", 10.), label="Seconds per animation", type="number",
                               v_if="smooth", disabled=("playing",), hide_details=True, density="compact")
-                v3.VLabel("Display interpolation · not additional computed states", v_if="smooth", style="font-size:12px; white-space:normal")
+                v3.VLabel("Target viewing time, not simulation time. Large results may play more slowly.", v_if="smooth", style="font-size:12px; white-space:normal")
                 v3.VBtn("Done", click="playback_panel = false", variant="tonal")
         with v3.VDialog(v_model=("session_panel", False), max_width=440):
             with v3.VCard(classes="pa-5 d-flex flex-column ga-3", title="Local viewer"):
@@ -1218,11 +1256,12 @@ def build_viewer(path, *, displacement=None, reference_geometry=False, server=No
             v3.VBtn("Session", click="session_panel = true", variant="text", size="x-small")
     state.change("frame", "field", "scale", "edges", "fixed_range", "range_min", "range_max",
                  "reference_geometry", "current_coordinates", "displacement_field", "preset", "palette", "blend", "time_unit",
-                 "cell_smoothing", "smoothing_region")(update)
+                 "cell_smoothing", "smoothing_region", "smoothing_method")(update)
     state.change("color_mode")(change_color_mode)
     state.change("range_min", "range_max")(sync_range_drafts)
     state.change("palette")(remember_palette)
     state.change("smooth")(change_smoothing)
+    state.change("axis_request")(select_axis)
     state.change("project_selection")(select_project)
     state.change("run_selection")(select_run)
     state.change("quantity")(select_quantity)
@@ -1243,6 +1282,7 @@ def build_viewer(path, *, displacement=None, reference_geometry=False, server=No
     ctrl.select_project = select_project
     ctrl.select_run = select_run
     ctrl.toggle_playback = toggle_playback
+    ctrl.scene_loaded = scene_loaded
     ctrl.stop_playback = stop_playback
     ctrl.fit_series_range = fit_series_range
     ctrl.apply_range_drafts = apply_range_drafts

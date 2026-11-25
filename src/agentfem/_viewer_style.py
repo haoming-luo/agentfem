@@ -15,9 +15,10 @@ def draw_axes(plotter, dark=False):
     x /= np.linalg.norm(x)
     y = np.cross(z, x)
     width, height = plotter.window_size
+    scale = height/1080
     height *= .84
-    center = np.array([max(48., width*.055), max(48., height*.08)])
-    length = min(40., width*.055, height*.09)
+    center = np.array([60., 60.])*scale
+    length = 32*scale
     colors = ['#eda6b9', '#9ed4c4', '#a8bee9'] if dark else ['#983f60', '#267762', '#3d5c9b']
     points, lines, rgb = [], [], []
     for i in np.argsort(z):
@@ -28,13 +29,13 @@ def draw_axes(plotter, dark=False):
         normal = np.array([-direction[1], direction[0]])
         segments = [(center, end)]
         if norm > 5:
-            segments += [(end, end-direction*6+normal*2.5), (end, end-direction*6-normal*2.5)]
+            segments += [(end, end-direction*6*scale+normal*2.5*scale), (end, end-direction*6*scale-normal*2.5*scale)]
         for start, finish in segments:
             lines.extend([2, len(points), len(points)+1])
             points.extend([[start[0]/width, start[1]/height, 0], [finish[0]/width, finish[1]/height, 0]])
             rgb.append(pv.Color(colors[i]).int_rgb)
-        pos = end+direction*12
-        plotter.add_text('XYZ'[i], position=tuple(pos.astype(int)), font_size=13,
+        pos = end+direction*12*scale
+        plotter.add_text('XYZ'[i], position=tuple(pos.astype(int)), font_size=max(8, round(13*scale)),
                          color=colors[i], font='arial', name=f'axis-label-{i}')
     mesh = pv.PolyData(np.array(points), lines=np.array(lines))
     mesh.cell_data['rgb'] = np.asarray(rgb, dtype=np.uint8)
@@ -47,7 +48,7 @@ def draw_axes(plotter, dark=False):
     mapper.SetTransformCoordinate(coordinate)
     actor = vtkActor2D()
     actor.SetMapper(mapper)
-    actor.GetProperty().SetLineWidth(2.5)
+    actor.GetProperty().SetLineWidth(2.5*scale)
     plotter.add_actor(actor, name='orientation-axes', reset_camera=False)
 
 
@@ -63,9 +64,10 @@ def legend_panel(plotter):
 
 
 def scalar_bar(plotter, panel, label, mapper, foreground):
+    from agentfem._viewer_camera import text_size
     bar = plotter.add_scalar_bar(
         label, mapper=mapper, vertical=False, position_x=.12, position_y=.18,
-        width=.76, height=.72, title_font_size=24, label_font_size=20,
+        width=.76, height=.72, title_font_size=text_size(24, plotter.window_size), label_font_size=text_size(20, plotter.window_size),
         n_labels=5, fmt="%.3g", font_family="arial", bold=False, shadow=False,
         color=foreground)
     bar.SetObjectName('agentfem-legend')

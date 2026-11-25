@@ -18,6 +18,7 @@ from agentfem._viewer_files import ResultDirectory
 from agentfem._viewer_motion import timeline_sample, interpolate_displacement, reference_frame
 from agentfem._viewer_smoothing import average_cell_colors
 from agentfem._viewer_style import legend_panel, scalar_bar, background, draw_axes
+from agentfem._viewer_camera import fit_camera, orbit_pose, text_size
 from agentfem.results import read_visualization_frame, deform_visualization_frame, inspect_visualization
 
 
@@ -107,6 +108,8 @@ def validate_view(view):
     choice = view.get("choice")
     if type(view.get("cell_smoothing", False)) is not bool:
         raise ValueError("Cell display averaging must be boolean.")
+    if view.get('smoothing_method', 'average') not in {'average', 'preserve_jumps'}:
+        raise ValueError('Choose Average or Preserve jumps color smoothing.')
     if not isinstance(view.get("smoothing_region", ""), str):
         raise ValueError("A display region must be a field name.")
     if choice is not None:
@@ -171,7 +174,7 @@ def display_frame(source, index, view, *, grid=None, right=None, alpha=0.):
         if not np.isfinite(scalar).all():
             raise ValueError("Cannot render nonfinite field values.")
         if view.get("cell_smoothing", False) and choice[0] == "cell":
-            grid, scalar = average_cell_colors(grid, scalar, view.get("smoothing_region") or None)
+            grid, scalar = average_cell_colors(grid, scalar, view.get("smoothing_region") or None, view.get('smoothing_method', 'average'))
     return grid, scalar
 
 
@@ -198,6 +201,10 @@ def render(request, destination, progress=None):
     frames = list(range(info["frame_count"])) if mode == "process" else [view["frame"]]
     if mode == "orbit":
         frames = [view["frame"]] * 120
+    framing = request.get("framing", "fit")
+    motion = request.get("camera_motion", "showcase")
+    if framing not in {"fit", "current"} or motion not in {"showcase", "turntable"}:
+        raise ValueError("Select valid framing and camera motion.")
     fps = request.get("fps", 24)
     if type(fps) is not int or not 1 <= fps <= 60:
         raise ValueError("Video frame rate must be between 1 and 60.")
@@ -221,10 +228,21 @@ def render(request, destination, progress=None):
     last_index, actor = None, None
     raw_frames = {}
     try:
+        bounds = None
+        if framing == "fit":
+            indices = list(range(info['frame_count'])) if mode == 'process' else [view['frame']]
+            for index in indices:
+                candidate, _ = display_frame(source, index, view)
+                box = np.asarray(candidate.bounds).reshape(3, 2)
+                if bounds is None:
+                    bounds = box.copy()
+                else:
+                    bounds[:, 0] = np.minimum(bounds[:, 0], box[:, 0])
+                    bounds[:, 1] = np.maximum(bounds[:, 1], box[:, 1])
         background(plotter, legend, preset)
         plotter.enable_anti_aliasing("ssaa")
         if movie:
-            plotter.open_movie(output, framerate=fps, quality=8, macro_block_size=2)
+            plotter.open_movie(output, framerate=fps, quality=9, macro_block_size=2)
         for step, index in enumerate(frames):
             if index != last_index or smooth:
                 # Revalidate XML references each read, including a live index.
@@ -256,6 +274,9 @@ def render(request, destination, progress=None):
                     plotter.view_isometric()
                     plotter.reset_camera()
                     apply_camera(plotter, view.get("camera"))
+                    if bounds is not None:
+                        fit_camera(plotter.camera, bounds, size[0]/(size[1]*.84))
+                    base_camera = (tuple(plotter.camera.position), tuple(plotter.camera.focal_point), tuple(plotter.camera.up))
                     if scalar is not None:
                         name = view["choice"][1].replace("_", " ")
                         name = name[:1].upper() + name[1:]
@@ -270,22 +291,22 @@ def render(request, destination, progress=None):
                     for bar in plotter.scalar_bars.values():
                         bar.SetLookupTable(actor.mapper.lookup_table)
                 last_index = index
-            if mode == "orbit" and step:
-                plotter.camera.Azimuth(360 / len(frames))
-                plotter.reset_camera_clipping_range()
+            if mode == "orbit":
+                plotter.camera_position = orbit_pose(*base_camera, step/max(1, len(frames)-1), motion)
+            plotter.reset_camera_clipping_range()
             draw_axes(plotter, view['preset'] == 'presentation')
             title = view.get("title") or ""
             plotter.add_text(title, position=(int(size[0]*.045), int(size[1]*.78)),
-                             font_size=24, color=preset["foreground"], font="arial", name="title")
+                             font_size=text_size(24, size), color=preset["foreground"], font="arial", name="title")
             coordinate = info["saved_times"][index] if info["saved_times"] else None
             if smooth:
                 coordinate = samples[step][2]
             for name, label, position in figure_annotations(view, coordinate, index, size):
-                plotter.add_text(label, position=position, font_size=18,
+                plotter.add_text(label, position=position, font_size=text_size(18, size),
                                  color=preset["foreground"], font="arial", name=name)
             if smooth:
                 plotter.add_text("Interpolated display", position=(int(size[0]*.045), int(size[1]*.64)),
-                                 font_size=11, color=preset["foreground"], font="arial", name="interpolation")
+                                 font_size=text_size(11, size), color=preset["foreground"], font="arial", name="interpolation")
             if movie:
                 # Actual saved states only. Holding a frame gives a readable
                 # cadence without fabricating interpolated damage evolution.
@@ -298,6 +319,8 @@ def render(request, destination, progress=None):
                 progress(step + 1, len(frames))
         record = dict(view)
         record.update(export={"mode": mode, "size": size, "fps": fps if movie else None,
+                      "framing": framing, "camera_motion": motion if mode == 'orbit' else None,
+                      "framing_bounds": bounds.tolist() if bounds is not None else None,
                       "saved_frames": frames, "saved_times": info["saved_times"],
                       "interpolation": "linear_displacement" if smooth else "none",
                       "samples": [{"left": i, "right": i+1, "weight": a, "coordinate": t}
