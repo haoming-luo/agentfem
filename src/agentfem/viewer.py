@@ -135,7 +135,7 @@ def build_viewer(path, *, displacement=None, reference_geometry=False, server=No
     state.smooth = False
     state.smooth_available = False
     state.blend = 0.
-    state.playback_duration = 10.
+    state.playback_duration = 3.
     state.scale_status = ""
     state.scale_busy = False
     state.details = False
@@ -223,6 +223,10 @@ def build_viewer(path, *, displacement=None, reference_geometry=False, server=No
     state.folder_chooser = False
     state.chooser_path = str(directory.root)
     state.chooser_items = []
+    from agentfem._viewer_recent import local_path, recent_locations
+    recent_file = Path.home()/'.cache'/'agentfem'/'viewer-recent.json'
+    state.recent_items = recent_locations(recent_file)
+    state.scrubbing = False
 
     def browse_chooser(target=None, **_):
         current = Path(target or state.chooser_path).expanduser().resolve()
@@ -245,7 +249,7 @@ def build_viewer(path, *, displacement=None, reference_geometry=False, server=No
             state.error = ""
             state.new_project_url = ""
         try:
-            selected = Path(state.chooser_path).resolve(strict=True)
+            selected = local_path(state.chooser_path)
             state.folder_chooser = False
             if selected.is_relative_to(directory.root):
                 browse_entry(str(selected.relative_to(directory.root)))
@@ -257,6 +261,7 @@ def build_viewer(path, *, displacement=None, reference_geometry=False, server=No
                     state.new_project_url = url
                 navigation.call("navigate", url)
             state.error = ""
+            state.recent_items = recent_locations(recent_file, selected)
         except (OSError, ValueError, RuntimeError, asyncio.TimeoutError) as exc:
             state.error = str(exc) or "Folder selection timed out. Please try again."
         finally:
@@ -523,6 +528,7 @@ def build_viewer(path, *, displacement=None, reference_geometry=False, server=No
             playback["task"] = asyncio.create_task(play())
 
     def seek_frame(**_):
+        state.scrubbing = False
         stop_playback()
         state.blend = 0.
         update()
@@ -607,13 +613,16 @@ def build_viewer(path, *, displacement=None, reference_geometry=False, server=No
             update()
             if not state.error:
                 state.open_panel = False
+                state.recent_items = recent_locations(recent_file, path)
         except (ValueError, IndexError, TypeError, OSError, ET.ParseError) as exc:
             state.error = str(exc)
 
     def parent_folder(**_):
         try:
             current = directory.resolve(state.folder)
-            if current != directory.root:
+            if current == directory.root:
+                browse_chooser(str(current.parent))
+            else:
                 entries = directory.entries(current.parent)
                 with state:
                     state.folder = str(current.parent.relative_to(directory.root))
@@ -1022,16 +1031,29 @@ def build_viewer(path, *, displacement=None, reference_geometry=False, server=No
             state.palette = preferred_palette[state.color_mode]
 
     def remember_palette(**_):
-        if state.palette in {item["value"] for item in palette_items(state.color_mode)}:
+        if state.palette in {item["value"] for item in palette_items(state.color_mode)} | {'lagoon-rose'}:
             preferred_palette[state.color_mode] = state.palette
 
     def open_path(**_):
-        state.file_selection = state.path_input
-        open_selection()
+        try:
+            selected = local_path(state.path_input)
+            if selected.is_relative_to(directory.root):
+                browse_entry(str(selected.relative_to(directory.root)))
+                if not state.error:
+                    state.recent_items = recent_locations(recent_file, selected)
+            else:
+                state.chooser_path = str(selected)
+                start_folder_picker()
+        except (ValueError, OSError) as exc:
+            state.error = str(exc)
+
+    def open_recent(value):
+        state.path_input = value
+        open_path()
 
     list_views()
 
-    with SinglePageWithDrawerLayout(server, width=264, show_drawer=False) as ui:
+    with SinglePageWithDrawerLayout(server, width=264, show_drawer=True) as ui:
         ui.title.set_text("AgentFEM")
         ui.title.style = "flex:0 0 auto; font-size:16px; margin:0 12px"
         ui.icon.hide()
@@ -1059,18 +1081,22 @@ def build_viewer(path, *, displacement=None, reference_geometry=False, server=No
             with v3.VCard(classes="viewer-open-card pa-4 d-flex flex-column ga-2", title="Open results",
                           style="height:min(640px,90vh); min-height:min(640px,90vh); max-height:min(640px,90vh); overflow:hidden; flex-shrink:0"):
                 v3.VSelect(v_model=("project_selection", None), items=("project_items",),
-                           label="Project", v_if="project_items.length", hide_details=True,
+                           label="Project (optional)", v_if="project_items.length", hide_details=True,
                            density="compact")
                 v3.VSelect(v_model=("run_selection", None), items=("run_items",),
-                           label="Run", disabled=("project_selection === null",), hide_details=True,
+                           label="Run", v_if="project_selection !== null", hide_details=True,
                            density="compact")
                 with v3.VRow(classes="ma-0 ga-2 align-center flex-nowrap"):
-                    v3.VBtn(icon="mdi-arrow-up", title="Parent folder", aria_label="Parent folder", click=parent_folder,
-                            disabled=("folder === '.'",), variant="text", size="small")
                     v3.VBtn(icon="mdi-folder-search-outline", title="Choose folder on this computer", aria_label="Choose folder on this computer",
                             click=browse_chooser, loading=("picker_busy",), disabled=("picker_busy",), variant="text", size="small")
                     v3.VTextField(v_model=("folder_filter", ""), label="Find in this folder", prepend_inner_icon="mdi-magnify",
                                   hide_details=True, density="compact", clearable=True, style="min-width:0")
+                    v3.VBtn(icon="mdi-arrow-up", title="Parent folder", aria_label="Parent folder", click=parent_folder, variant="text", size="small")
+                    with v3.VMenu():
+                        with v3.Template(v_slot_activator='{ props }'):
+                            v3.VBtn(icon='mdi-history', v_bind='props', title='Recent locations', aria_label='Recent locations', variant='text', size='small', disabled=('!recent_items.length',))
+                        with v3.VList(density='compact', style='max-width:420px'):
+                            v3.VListItem(v_for='item in recent_items', title=('item.title',), subtitle=('item.subtitle',), click=(open_recent,'[item.value]'))
                 with v3.VSheet(v_if="folder_chooser", classes="pa-2", style="position:absolute;inset:150px 16px 55px;z-index:3;display:flex;flex-direction:column;border:1px solid #ddd;border-radius:8px"):
                     with v3.VRow(classes="ma-0 align-center", style='flex:0 0 auto'):
                         v3.VBtn(icon='mdi-arrow-up', title='Parent folder', click=(browse_chooser, "[chooser_path + '/..']"), variant='text', size='small')
@@ -1089,11 +1115,11 @@ def build_viewer(path, *, displacement=None, reference_geometry=False, server=No
                                  subtitle=("item.directory ? '' : 'Simulation result · click to view'",),
                                  append_icon=("item.directory ? 'mdi-chevron-right' : 'mdi-play-circle-outline'",),
                                  click=(browse_entry, "[item.value]"))
-                v3.VLabel("Click a folder to browse; click a result to show it.", style="font-size:12px")
+                v3.VLabel("Folders and standalone results", v_if="!project_items.length", style="font-size:12px")
                 v3.VBtn("Paste a path instead", click="show_path = !show_path", variant="text", size="small")
-                v3.VTextField(v_model=("path_input", ""), label="Or paste a result path inside this location",
+                v3.VTextField(v_model=("path_input", ""), label="Folder or result path",
                               v_if="show_path", hide_details=True, density="compact", keydown_enter=open_path)
-                v3.VBtn("Show path", v_if="show_path", click=open_path, disabled=("!path_input",), variant="text")
+                v3.VBtn("Open path", v_if="show_path", click=open_path, disabled=("!path_input",), variant="tonal")
                 v3.VAlert("{{ error }}", v_if="error", type="error", icon=False, closable=True, click_close="error = ''", density="compact", style="flex:0 0 auto; max-height:100px; overflow:auto")
                 v3.VBtn("Back to viewer", click="open_panel = false", variant="text")
         with ui.drawer:
@@ -1237,7 +1263,7 @@ def build_viewer(path, *, displacement=None, reference_geometry=False, server=No
                                         interactor_events=("camera_events", ["EndAnimation"]),
                                         EndAnimation=(sync_camera, "[trame.refs.result_view.getCamera()]"),
                                         reset_camera=(sync_camera, "[trame.refs.result_view.getCamera()]"),
-                                        style="height:100%; width:100%")
+                                        style=("{height:'100%',width:'100%',pointerEvents:scrubbing ? 'none' : 'auto'}",))
                     html.Div('<viewer-axes :camera="() => trame.refs.result_view?.getCamera()" :select="axis => axis_request = {axis, stamp: Date.now()}" :dark="preset === \'presentation\'"></viewer-axes>',
                              style="position:absolute;left:8px;bottom:8px")
                     with html.Div(v_if="legend_title", style=("{position:'absolute',bottom:'14px',left:'15%',right:'5%',pointerEvents:'none',color:legend_color,display:'flex',flexDirection:'column',gap:'5px',textShadow:preset === 'presentation' ? '0 0 4px #0b1220' : '0 0 4px white'}",)):
@@ -1252,7 +1278,7 @@ def build_viewer(path, *, displacement=None, reference_geometry=False, server=No
                 with v3.VSheet(classes="px-3 py-2 d-flex flex-column", style="flex:0 0 auto; background:#f5f7f9; color:#243746; font-variant-numeric:tabular-nums"):
                     with v3.VRow(classes="ma-0 align-center ga-2 flex-nowrap", style="width:100%"):
                         v3.VSlider(v_model=("frame", info["frame"]), min=0, max=("frame_count - 1",), step=1,
-                                   aria_label="Saved frame", end=seek_frame, disabled=("frame_count <= 1 || playing",),
+                                   aria_label="Saved frame", start="scrubbing = true", end=seek_frame, disabled=("frame_count <= 1 || playing",),
                                    hide_details=True, style="min-width:0; flex:1")
                     with html.Div(style="display:grid; grid-template-columns:minmax(0,1fr) auto minmax(0,1fr); align-items:center; gap:4px"):
                         html.Span("{{ station_label }}", style="font-size:12px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis", title=("station_label",))
@@ -1273,7 +1299,7 @@ def build_viewer(path, *, displacement=None, reference_geometry=False, server=No
             with v3.VCard(classes="pa-5 d-flex flex-column ga-3", title="Animation"):
                 v3.VCheckbox(v_model=("smooth", False), label="Smooth motion", disabled=("!smooth_available || playing",), hide_details=True)
                 v3.VLabel("Available for displacement or solid color. Damage and stress show saved states only.", style="font-size:13px; white-space:normal")
-                v3.VTextField(v_model=("playback_duration", 10.), label="Seconds per animation", type="number",
+                v3.VTextField(v_model=("playback_duration", 3.), label="Seconds per animation", type="number",
                               v_if="smooth", disabled=("playing",), hide_details=True, density="compact")
                 v3.VLabel("Target viewing time, not simulation time. Large results may play more slowly.", v_if="smooth", style="font-size:12px; white-space:normal")
                 v3.VBtn("Done", click="playback_panel = false", variant="tonal")

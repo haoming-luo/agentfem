@@ -37,20 +37,22 @@ COLOR_STOPS = {
     "jade": ("#eef5ef", "#c6dfd3", "#93c3b0", "#5ca58f", "#34836f", "#205c50"),
 }
 DIVERGING_STOPS = {
+    "lagoon-violet": ("#126d80", "#218f9b", "#4aafb9", "#83cdd3", "#bfe6e9", "#f5f4f7",
+                      "#e4dced", "#cbb9df", "#aa8fc8", "#886ab0", "#654995"),
     "azure-rose": ("#3d469b", "#5667bf", "#738fd9", "#9eb9e9", "#ccdff1", "#f6f4f5",
                    "#f2cee0", "#eaa0c7", "#d870ab", "#bd4689", "#96326b"),
     "lagoon-rose": ("#126d80", "#218f9b", "#4aafb9", "#83cdd3", "#bfe6e9", "#f5f4f2",
                     "#f4d2e1", "#eeaccb", "#dd7bac", "#bf4e88", "#943465"),
 }
 SEQUENTIAL_PALETTES = (*COLOR_STOPS, "viridis", "cividis", "magma")
-DIVERGING_PALETTES = (*DIVERGING_STOPS, "coolwarm")
-PALETTES = (*SEQUENTIAL_PALETTES, *DIVERGING_PALETTES)
+DIVERGING_PALETTES = ('azure-rose', 'lagoon-violet', "coolwarm")
+PALETTES = (*SEQUENTIAL_PALETTES, *DIVERGING_STOPS, 'coolwarm')
 
 
 def palette_items(mode):
     # Keep a small everyday menu; legacy saved palettes remain supported.
     names = DIVERGING_PALETTES if mode == "zero" else ('ocean', 'viridis', 'cividis', *DIVERGING_PALETTES)
-    labels = {"coolwarm": "Blue / Red", "azure-rose": "Azure / Rose", "lagoon-rose": "Lagoon / Rose"}
+    labels = {"coolwarm": "Blue / Red", "azure-rose": "Azure / Rose", "lagoon-rose": "Lagoon / Rose", "lagoon-violet": "Lagoon / Violet"}
     return [{"title": labels.get(name, name.title()), "value": name} for name in names]
 
 
@@ -94,7 +96,7 @@ def validate_view(view):
         raise ValueError("Select a supported style and palette.")
     if view.get("color_mode", "sequential") not in {"sequential", "zero"}:
         raise ValueError("Select sequential or zero-centered colors.")
-    if view.get("color_mode") == "zero" and view["palette"] not in DIVERGING_PALETTES:
+    if view.get("color_mode") == "zero" and view["palette"] not in (*DIVERGING_STOPS, 'coolwarm'):
         raise ValueError("Zero-centered colors require a diverging palette.")
     if type(view.get("frame")) is not int or view["frame"] < 0:
         raise ValueError("Select a saved frame.")

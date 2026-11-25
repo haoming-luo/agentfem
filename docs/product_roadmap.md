@@ -33,6 +33,15 @@ Before choosing a version number: compare main against v0.4.4, reconcile public
 capabilities and changelog, then run one frozen installed-candidate acceptance
 batch. Do not interpret CI success as scientific model certification.
 
+Viewer release gate update: require actual UI coverage for pasted external paths,
+standalone results, recent locations, parent navigation, default Display, timeline
+drag isolation and three-second smooth playback. Preserve field mapping choices
+and original numerical arrays. Export checks must include full XYZ, a transparent
+legend over the full viewport, readable 1080p/4K text and complete model framing.
+Fast native averaging is the only default smoothing route; slower experimental
+filters were withdrawn. The local development shortcut is not yet a validated
+cross-platform desktop launcher. That lifecycle gate remains open until tested.
+
 ### Installed workflow completion checkpoint (2026-11-22, PR #198 candidate)
 
 PR #195 is integrated in main. PR #198 remains an unmerged candidate; its

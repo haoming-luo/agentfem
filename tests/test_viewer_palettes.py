@@ -46,8 +46,8 @@ def test_diverging_palettes_have_ordered_halves_and_distinct_ends(name, vision):
 
 
 def test_palette_menu_groups_without_removing_saved_choices():
-    assert {x['value'] for x in palette_items('zero')} == {'coolwarm', 'azure-rose', 'lagoon-rose'}
-    assert {'ocean', 'viridis', 'cividis', 'azure-rose', 'lagoon-rose', 'coolwarm'} == {x['value'] for x in palette_items('sequential')}
+    assert {x['value'] for x in palette_items('zero')} == {'coolwarm', 'azure-rose', 'lagoon-violet'}
+    assert {'ocean', 'viridis', 'cividis', 'azure-rose', 'lagoon-violet', 'coolwarm'} == {x['value'] for x in palette_items('sequential')}
     from test_viewer_export import view_record
     for name in DIVERGING_STOPS:
         record = dict(view_record(), palette=name, color_mode='zero', range=[-2., 2.])

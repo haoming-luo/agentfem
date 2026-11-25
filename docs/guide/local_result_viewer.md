@@ -159,7 +159,7 @@ deletes results. Nothing here changes the stored result.
   they are not claimed to be perceptually uniform or journal-endorsed palettes.
   Established viridis/cividis maps remain selectable, including in saved views.
 
-- **Color mapping → Negative / Positive (±)** offers Blue / Red, Azure / Rose and Lagoon / Rose.
+- **Color mapping → Negative / Positive (±)** offers Azure / Rose, Lagoon / Violet and Blue / Red.
   **Range** offers Ocean, viridis, cividis and the same three diverging palettes.
   In Range mode a diverging palette's center represents the range midpoint,
   not necessarily zero. Older saved palettes remain readable, without crowding
@@ -378,6 +378,18 @@ Scroll over a limit to adjust it relative to the current range; hold Shift for
 ten-times finer adjustment. Edits remain drafts until Apply limits or Enter.
 Folder selection opens inside the current dialog, with Parent and Home shortcuts,
 instead of a separate operating-system window.
+
+Paste a local folder or result path, including one outside the currently open
+project. External locations open a new local viewer scope in the same tab;
+file validation remains scoped to that selected location. Recent locations
+are stored locally in `~/.cache/agentfem/viewer-recent.json`, limited to eight
+deduplicated existing paths. No paths are uploaded. Projects require an
+`agentfem.toml`; runs come from its configured output directory. Standalone
+XDMF/VTU results remain directly browseable without a project or run record.
+Display settings start open; smooth-motion duration defaults to three seconds.
+Dragging the timeline temporarily disables model camera interaction.
+Lagoon / Violet is a custom teal–purple display palette, not an official
+Olympic palette; old Lagoon / Rose view recipes remain supported.
 
 The lower-left orientation marker uses screen-facing X/Y/Z labels, with
 contrasting colors for light and dark backgrounds. **View** contains standard
