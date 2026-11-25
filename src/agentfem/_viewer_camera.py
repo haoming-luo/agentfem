@@ -22,23 +22,33 @@ def fit_camera(camera, bounds, aspect):
 
 
 def orbit_pose(position, focal, up, phase, style="showcase"):
-    """A level full orbit or an eased orbit with a gentle, returning elevation."""
+    """Level orbit or constant-arc-speed spatial dolly with a fixed subject."""
     if style not in {"showcase", "turntable"}:
         raise ValueError("Select Showcase or Turntable camera motion.")
     t = float(np.clip(phase, 0., 1.))
-    u = t*t*t*(10+t*(-15+6*t)) if style == "showcase" else t
     focal = np.asarray(focal, dtype=float)
     offset = np.asarray(position, dtype=float)-focal
     vertical = np.asarray(up, dtype=float)
     vertical /= np.linalg.norm(vertical)
-    angle = 2*np.pi*u
-    rotated = (offset*np.cos(angle)+np.cross(vertical, offset)*np.sin(angle)
-               +vertical*np.dot(vertical, offset)*(1-np.cos(angle)))
-    if style == "showcase":
-        right = np.cross(vertical, rotated)
-        right /= np.linalg.norm(right)
-        lift = np.deg2rad(12)*np.sin(np.pi*u)**2
-        rotated = rotated*np.cos(lift)+np.cross(right, rotated)*np.sin(lift)
+    def route(u):
+        angle = 2*np.pi*u
+        rotated = (offset*np.cos(angle)+np.cross(vertical, offset)*np.sin(angle)
+                   +vertical*np.dot(vertical, offset)*(1-np.cos(angle)))
+        if style == 'showcase':
+            right = np.cross(vertical, rotated)
+            right /= np.linalg.norm(right)
+            lift = np.deg2rad(22)*np.sin(angle)
+            rotated = rotated*np.cos(lift)+np.cross(right, rotated)*np.sin(lift)
+            # Approach, pass and pull back; never closer than the safe fit.
+            rotated *= 1.10+.10*np.cos(angle)
+        return rotated
+    u = t
+    if style == 'showcase':
+        stations = np.linspace(0., 1., 257)
+        positions = np.array([route(s) for s in stations])
+        distance = np.r_[0., np.cumsum(np.linalg.norm(np.diff(positions, axis=0), axis=1))]
+        u = float(np.interp(t*distance[-1], distance, stations))
+    rotated = route(u)
     direction = rotated/np.linalg.norm(rotated)
     screen_up = vertical-direction*np.dot(vertical, direction)
     screen_up /= np.linalg.norm(screen_up)

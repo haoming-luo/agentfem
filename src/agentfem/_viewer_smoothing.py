@@ -19,8 +19,8 @@ def average_cell_colors(grid, values, region=None, method='average'):
     The range remains the caller's original cell range, not the averaged range.
     """
     import pyvista as pv
-    if method not in {'average', 'preserve_jumps'}:
-        raise ValueError('Choose Average or Preserve jumps color smoothing.')
+    if method not in {'average', 'preserve_jumps', 'edge_aware'}:
+        raise ValueError('Choose Edge-aware, Preserve jumps or Average color smoothing.')
     values = np.asarray(values, dtype=float)
     if values.shape != (grid.n_cells,) or not np.isfinite(values).all():
         raise ValueError('Cell color averaging needs one finite scalar per cell.')
@@ -37,6 +37,38 @@ def average_cell_colors(grid, values, region=None, method='average'):
     for label in np.unique(labels):
         part = detached.extract_cells(np.flatnonzero(labels == label)) if region else detached
         averaged = part.cell_data_to_point_data(pass_cell_data=True)
+        if method == 'edge_aware' and np.ptp(part.cell_data[key]) > 0:
+            ids = part.cell_connectivity
+            count = np.diff(part.offset)
+            samples = np.repeat(np.asarray(part.cell_data[key]), count)
+            degree = np.bincount(ids, minlength=part.n_points)
+            starts = np.r_[0, np.cumsum(degree)]
+            order = np.argsort(ids, kind='stable')
+            centers = np.repeat(part.cell_centers().points, count, axis=0)
+            distances = np.linalg.norm(centers-part.points[ids], axis=1)
+            local_size = np.bincount(ids, weights=distances, minlength=part.n_points)/np.maximum(degree, 1)
+            spatial = np.exp(-.5*(distances/np.maximum(local_size[ids], 1e-30))**2)
+            sigma = .3*np.ptp(part.cell_data[key])
+            filtered = np.empty(len(ids))
+            # Bounded batches: do not allocate a dense mesh adjacency matrix.
+            for start in range(0, len(ids), 8192):
+                stop = min(start+8192, len(ids))
+                nodes = ids[start:stop]
+                numerator, denominator = np.zeros(stop-start), np.zeros(stop-start)
+                for k in range(int(degree[nodes].max())):
+                    valid = degree[nodes] > k
+                    target = np.flatnonzero(valid)
+                    neighbor = order[starts[nodes[valid]]+k]
+                    w = spatial[neighbor]*np.exp(-.5*((samples[neighbor]-samples[start+target])/sigma)**2)
+                    numerator[target] += w*samples[neighbor]
+                    denominator[target] += w
+                filtered[start:stop] = numerator/denominator
+            split = part.separate_cells()
+            colors = np.empty(split.n_points)
+            colors[split.cell_connectivity] = filtered
+            split.point_data.clear()
+            split.point_data[key] = colors
+            averaged = split
         if method == 'preserve_jumps':
             # Suppress nodal averaging where incident cell values differ by
             # more than 20% of this region's range. Duplicate display nodes

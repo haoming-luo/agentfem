@@ -178,7 +178,7 @@ def build_viewer(path, *, displacement=None, reference_geometry=False, server=No
     state.figure_title = ""
     state.field_unit = ""
     state.cell_smoothing = True
-    state.smoothing_method = 'preserve_jumps'
+    state.smoothing_method = 'edge_aware'
     state.cell_selected = False
     state.smoothing_region = ""
     state.smoothing_regions = []
@@ -1074,8 +1074,8 @@ def build_viewer(path, *, displacement=None, reference_geometry=False, server=No
                            label="Component", v_if="quantity >= 0 && component_items.length > 1", hide_details=True, density="compact")
                 v3.VCheckbox(v_model=("cell_smoothing", True), v_if="cell_selected",
                              label="Smooth colors", hide_details=True, density="compact")
-                v3.VSelect(v_model=("smoothing_method", "preserve_jumps"), label="Smoothing", v_if="cell_selected && cell_smoothing", hide_details=True, density="compact",
-                           items=("smoothing_methods", [{"title": "Preserve jumps", "value": "preserve_jumps"}, {"title": "Average", "value": "average"}]))
+                v3.VSelect(v_model=("smoothing_method", "edge_aware"), label="Smoothing", v_if="cell_selected && cell_smoothing", hide_details=True, density="compact",
+                           items=("smoothing_methods", [{"title": "Edge-aware", "value": "edge_aware"}, {"title": "Preserve jumps", "value": "preserve_jumps"}, {"title": "Average", "value": "average"}]))
                 v3.VSelect(v_model=("smoothing_region", ""), items=("smoothing_regions",),
                            v_if="cell_selected && cell_smoothing", label="Keep regions separate", hide_details=True, density="compact")
                 with v3.VBtn(icon="mdi-information-outline", size="x-small", variant="text", title="About color smoothing", v_if="cell_selected", **{"aria-label": "About color smoothing"}):
@@ -1137,7 +1137,7 @@ def build_viewer(path, *, displacement=None, reference_geometry=False, server=No
                     v3.VSelect(v_model=("export_framing", "fit"), label="Framing", hide_details=True,
                                items=("framing_choices", [{"title": "Fit whole model", "value": "fit"}, {"title": "Keep current zoom", "value": "current"}]))
                     v3.VSelect(v_model=("camera_motion", "showcase"), label="Camera motion", hide_details=True, v_if="export_mode === 'orbit'",
-                               items=("motion_choices", [{"title": "Showcase · gentle rising orbit", "value": "showcase"}, {"title": "Turntable · level orbit", "value": "turntable"}]))
+                               items=("motion_choices", [{"title": "Showcase · spatial dolly", "value": "showcase"}, {"title": "Turntable · level orbit", "value": "turntable"}]))
                     v3.VSelect(v_model=("export_resolution", "1080p"), label="Resolution", hide_details=True,
                                items=("export_resolutions", [{"title": "HD · 1280 × 720 · compact", "value": "720p"},
                                       {"title": "Full HD · 1920 × 1080 · recommended", "value": "1080p"},

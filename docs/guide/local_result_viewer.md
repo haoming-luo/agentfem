@@ -350,13 +350,25 @@ and a fixed conservative framing. Browsing zoom does not crop the output.
 markers scale with output resolution. Videos use higher-quality encoding;
 PNG remains the lossless choice for figures.
 
-**Showcase** is a gently rising, eased orbit around the fixed result; **Turntable**
-retains level rotation. Both preserve the data and record their camera recipe in
-`view.json`. The design uses target tracking and smooth easing, as described in
+**Showcase** follows a ten-second spatial orbit with changing elevation and a
+restrained dolly in/out. Arc-length resampling keeps camera travel speed nearly
+constant rather than speeding up and slowing down a horizontal turntable.
+**Turntable** retains level rotation. Both preserve the data and record their camera recipe in
+`view.json`. Target tracking keeps the subject in view, following the principle in
 the [Blender tracking manual](https://docs.blender.org/manual/en/4.4/animation/constraints/tracking/track_to.html).
 Click X, Y or Z in the lower-left marker to select the corresponding orthogonal view.
 
-**Smooth colors → Preserve jumps** suppresses averaging at nodes where incident
+**Smooth colors → Edge-aware** uses continuous spatial and scalar-similarity
+weights on incident cells, inspired by
+[bilateral filtering](https://users.cs.duke.edu/~tomasi/papers/tomasi/tomasiIccv98.pdf).
+This is a mesh-display adaptation, not an image filter, recovered stress or new
+simulation result. Positive normalized weights cannot introduce new extrema;
+explicit region IDs remain separate. The scalar bandwidth is 30% of the region's
+range. This display heuristic can still suppress real small features: compare
+with raw cells for quantitative interpretation. It uses more memory and time
+than **Average** because distinct cell-side values are retained for display.
+
+**Preserve jumps** suppresses averaging at nodes where incident
 cell values span more than 20% of the selected region's scalar range. This is a
 display heuristic, not stress recovery or a material-boundary detector. Explicit
 region IDs still prevent cross-interface averaging. **Average** preserves the

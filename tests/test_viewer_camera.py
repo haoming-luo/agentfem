@@ -42,3 +42,13 @@ def test_all_orbit_frames_contain_bounds_despite_ui_zoom(aspect):
 def test_unknown_motion_is_rejected():
     with pytest.raises(ValueError):
         orbit_pose((1, 1, 1), (0, 0, 0), (0, 0, 1), .5, 'unknown')
+
+
+def test_showcase_has_steady_spatial_speed_and_dolly():
+    poses = [orbit_pose((3, 3, 3), (0, 0, 0), (0, 0, 1), t) for t in np.linspace(0, 1, 241)]
+    positions = np.array([p[0] for p in poses])
+    speed = np.linalg.norm(np.diff(positions, axis=0), axis=1)
+    assert speed.max()/speed.min() < 1.02
+    distance = np.linalg.norm(positions, axis=1)
+    assert distance.max()/distance.min() > 1.19
+    assert np.ptp(positions[:, 2]) > 2

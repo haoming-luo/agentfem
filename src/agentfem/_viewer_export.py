@@ -108,8 +108,8 @@ def validate_view(view):
     choice = view.get("choice")
     if type(view.get("cell_smoothing", False)) is not bool:
         raise ValueError("Cell display averaging must be boolean.")
-    if view.get('smoothing_method', 'average') not in {'average', 'preserve_jumps'}:
-        raise ValueError('Choose Average or Preserve jumps color smoothing.')
+    if view.get('smoothing_method', 'average') not in {'average', 'preserve_jumps', 'edge_aware'}:
+        raise ValueError('Choose Edge-aware, Preserve jumps or Average color smoothing.')
     if not isinstance(view.get("smoothing_region", ""), str):
         raise ValueError("A display region must be a field name.")
     if choice is not None:
@@ -199,8 +199,6 @@ def render(request, destination, progress=None):
     if mode == "process" and info["frame_count"] > 500:
         raise ValueError("Interactive export supports up to 500 saved frames per video.")
     frames = list(range(info["frame_count"])) if mode == "process" else [view["frame"]]
-    if mode == "orbit":
-        frames = [view["frame"]] * 120
     framing = request.get("framing", "fit")
     motion = request.get("camera_motion", "showcase")
     if framing not in {"fit", "current"} or motion not in {"showcase", "turntable"}:
@@ -208,6 +206,8 @@ def render(request, destination, progress=None):
     fps = request.get("fps", 24)
     if type(fps) is not int or not 1 <= fps <= 60:
         raise ValueError("Video frame rate must be between 1 and 60.")
+    if mode == 'orbit':
+        frames = [view['frame']]*(fps*10)
     smooth = request.get("smooth", False) and mode == "process"
     samples = None
     if smooth:
@@ -277,6 +277,7 @@ def render(request, destination, progress=None):
                     if bounds is not None:
                         fit_camera(plotter.camera, bounds, size[0]/(size[1]*.84))
                     base_camera = (tuple(plotter.camera.position), tuple(plotter.camera.focal_point), tuple(plotter.camera.up))
+                    base_parallel_scale = plotter.camera.parallel_scale
                     if scalar is not None:
                         name = view["choice"][1].replace("_", " ")
                         name = name[:1].upper() + name[1:]
@@ -293,6 +294,10 @@ def render(request, destination, progress=None):
                 last_index = index
             if mode == "orbit":
                 plotter.camera_position = orbit_pose(*base_camera, step/max(1, len(frames)-1), motion)
+                if plotter.camera.parallel_projection:
+                    plotter.camera.parallel_scale = base_parallel_scale*(
+                        np.linalg.norm(np.asarray(plotter.camera.position)-plotter.camera.focal_point)/
+                        np.linalg.norm(np.asarray(base_camera[0])-base_camera[1]))
             plotter.reset_camera_clipping_range()
             draw_axes(plotter, view['preset'] == 'presentation')
             title = view.get("title") or ""

@@ -48,6 +48,18 @@ def test_jump_preserving_colors_do_not_blur_or_change_source():
     assert colors.min() >= 2 and colors.max() <= 8
 
 
+def test_edge_aware_uses_soft_weights_without_overshoot():
+    grid = mesh()
+    result, colors = average_cell_colors(grid, [2, 8], method='edge_aware')
+    assert result.n_cells == 2
+    assert colors.min() >= 2 and colors.max() <= 8
+    assert np.any((colors > 2) & (colors < 3))
+    assert np.any((colors > 7) & (colors < 8))
+    np.testing.assert_array_equal(grid.cell_data['stress'], [2, 8])
+    _, isolated = average_cell_colors(grid, [2, 8], 'region', method='edge_aware')
+    np.testing.assert_array_equal(np.sort(isolated), [2, 2, 2, 8, 8, 8])
+
+
 def test_export_uses_same_display_average():
     grid = mesh()
     view = dict(reference_geometry=False, choice=['cell', 'stress', None],
