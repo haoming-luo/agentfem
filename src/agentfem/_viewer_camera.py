@@ -5,8 +5,10 @@
 import numpy as np
 
 
-def fit_camera(camera, bounds, aspect):
+def fit_camera(camera, bounds, aspect, *, padding=1.12):
     """Enclose the bounds' sphere at every orientation, independent of UI zoom."""
+    if not np.isfinite(padding) or padding < 1.:
+        raise ValueError("Camera padding must be finite and at least 1.")
     box = np.asarray(bounds, dtype=float).reshape(3, 2)
     center = box.mean(axis=1)
     radius = max(float(np.linalg.norm(box[:, 1]-box[:, 0]))/2, 1e-12)
@@ -14,10 +16,10 @@ def fit_camera(camera, bounds, aspect):
     direction /= np.linalg.norm(direction)
     half_angle = np.deg2rad(camera.view_angle)/2
     half_angle = min(half_angle, np.arctan(np.tan(half_angle)*aspect))
-    distance = radius*1.12/np.sin(half_angle)
+    distance = radius*padding/np.sin(half_angle)
     camera.focal_point = center
     camera.position = center+direction*distance
-    camera.parallel_scale = radius*1.12/min(1., aspect)
+    camera.parallel_scale = radius*padding/min(1., aspect)
     return center, distance
 
 

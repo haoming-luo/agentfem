@@ -1020,7 +1020,9 @@ def build_viewer(path, *, displacement=None, reference_geometry=False, server=No
         apply_camera(plotter, camera)
         actor = cache['actor']
         if actor is not None:
-            fit_camera(plotter.camera, actor.bounds, float(size[0])/float(size[1]))
+            # Fit more closely in the interactive view; exports retain their
+            # larger default margin for camera motion and presentation.
+            fit_camera(plotter.camera, actor.bounds, float(size[0])/float(size[1]), padding=1.03)
             plotter.reset_camera_clipping_range()
             ctrl.view_camera()
 

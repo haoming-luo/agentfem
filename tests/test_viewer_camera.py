@@ -14,14 +14,15 @@ def test_relative_typography():
 
 
 @pytest.mark.parametrize('aspect', [.25, .5, 1920/1080])
-def test_all_orbit_frames_contain_bounds_despite_ui_zoom(aspect):
+@pytest.mark.parametrize('padding', [1.03, 1.12])
+def test_all_orbit_frames_contain_bounds_despite_ui_zoom(aspect, padding):
     pv = pytest.importorskip('pyvista')
     camera = pv.Camera()
     camera.position = (100., 40., 15.)
     camera.focal_point = (99., 39., 14.)
     camera.parallel_scale = .0001
     bounds = [-50, 50, -2, 2, -1, 1]
-    fit_camera(camera, bounds, aspect)
+    fit_camera(camera, bounds, aspect, padding=padding)
     base = camera.position, camera.focal_point, camera.up
     corners = np.array(list(itertools.product(*np.array(bounds).reshape(3, 2))))
     for style in ('showcase', 'turntable'):
@@ -42,6 +43,25 @@ def test_all_orbit_frames_contain_bounds_despite_ui_zoom(aspect):
 def test_unknown_motion_is_rejected():
     with pytest.raises(ValueError):
         orbit_pose((1, 1, 1), (0, 0, 0), (0, 0, 1), .5, 'unknown')
+
+
+def test_interactive_fit_is_tighter_without_changing_export_default():
+    pv = pytest.importorskip('pyvista')
+    camera = pv.Camera()
+    camera.position = (100., 40., 15.)
+    camera.focal_point = (0., 0., 0.)
+    bounds = [-50, 50, -2, 2, -1, 1]
+    _, export_distance = fit_camera(camera, bounds, 16/9)
+    export_scale = camera.parallel_scale
+    _, interactive_distance = fit_camera(camera, bounds, 16/9, padding=1.03)
+    assert interactive_distance/export_distance == pytest.approx(1.03/1.12)
+    assert camera.parallel_scale/export_scale == pytest.approx(1.03/1.12)
+
+
+@pytest.mark.parametrize('padding', [.99, float('nan'), float('inf')])
+def test_invalid_fit_padding(padding):
+    with pytest.raises(ValueError, match='padding'):
+        fit_camera(None, None, 1., padding=padding)
 
 
 def test_showcase_has_steady_spatial_speed_without_breathing_zoom():
